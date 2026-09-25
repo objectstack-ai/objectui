@@ -1,0 +1,35 @@
+{
+  "number": 5322,
+  "kind": "issue",
+  "title": "A `field:`-prefixed `password` / `email` field renders `type=&quot;text&quot;` when its widget is not registered — a secret shown in clear text",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-19T14:40:51Z",
+  "updated_at": "2026-08-20T02:53:34Z",
+  "closed_at": "2026-08-20T02:53:27Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5322",
+  "body": "Found while implementing #5254 (the cross-namespace fallback removal). **Out of that card's scope** and **not changed by its PR** — recorded, not fixed there, per that card's ruling: \"If some bare-name non-field component turns out to genuinely need to stay reachable from form fields, that returns as its own ruled card, not as a silent widening here.\"\n\n## Measured\n\nOn the built-in path (`@object-ui/fields` not registered), a form field spelled with the `field:`-prefixed id — which is exactly what `mapFieldTypeToFormType` emits for every object-derived form — resolves nothing and takes the builtin `default` input branch. That branch reads `inputType`, which an object-derived field does not carry, so it renders a plain text box:\n\n```\nget(field:password) = false\nrendered type = text\nattrs = [\"class\",\"id\",\"aria-describedby\",\"aria-invalid\",\"type\",\"name\"]\n```\n\nFor `field:password` that means **the secret is on screen in clear text**. For `field:email` it means the native keyboard/validation is lost.\n\n## Why this is NOT #5254\n\n#5254 removed the bare-name fallback and gave the default branch a `NATIVE_INPUT_FIELD_TYPES` table so the **bare** `email` / `password` spellings keep their native input. That table is keyed on the raw `type`, so the prefixed spelling misses it. Verified against `origin/main` before that change as well: the prefixed spelling already rendered `type=\"text\"` there, because `field:password` never resolved and the default branch never read the field's declared type. So this is pre-existing, and #5254's PR neither introduces nor fixes it.\n\n## The question this needs decided, not guessed\n\nTwo readings, and they are not the same architecture:\n\n- **A — normalize in the default branch.** Key the native-input table on `normalizeFieldType(type)` so `field:password` and `password` resolve alike. One line, closes the safety hole on both spellings.\n- **B — treat an unregistered `field:` id as an authoring/registration error.** A `field:`-prefixed type that resolves nothing means the app shipped without the widget it declares; rendering a *silently degraded* text box is the tolerance pattern AGENTS.md #0.1 warns about, and a loud failure (or a registration-time check) is the contract-first shape. Under this reading A hides the real bug.\n\nThe safety asymmetry argues for A being at least a stopgap; the contract argument argues that a form quietly rendering a password field as plain text is a symptom whose cause is elsewhere. Not derivable from #5254's ruling — leaving it to triage.\n\n## Starting points\n\n- `packages/components/src/renderers/form/form.tsx` — `renderFieldComponent`, the `default` switch arm, and `NATIVE_INPUT_FIELD_TYPES`\n- `packages/fields/src/field-type-alias.ts` — `mapFieldTypeToFormType`, which emits the prefixed ids\n- Related: #5254 (the fallback removal), #5253 (the same branch's ceiling defect)\n\n## Search record\n\n`search_issues` run over the prefixed-field-type / plain-text-password / default-branch keywords; the hits were #5253 (closed, same branch, different defect), #2324 and #4220 (both closed, unrelated). No duplicate."
+}

@@ -2,8 +2,8 @@
   "number": 8686,
   "kind": "issue",
   "title": "`@object-ui/fields` exposes no queryable authority for \"is this field type masked?\", so every consumer has to mirror the pair",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-justin",
@@ -13,18 +13,21 @@
   "labels": [
     "domain:ui",
     "plugin",
-    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-08T22:18:00Z",
-  "updated_at": "2026-09-12T07:02:59Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T11:17:36Z",
+  "closed_at": "2026-09-25T11:14:41Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/8686",
   "body": "Filed by the objectui#8440 dev (branch `claude/issue-8440-masked-field-copy-refusal`, session `session_01YBWFb5YgMU5dw8p2VKj16S`) while implementing that card's ruling. ⛔ Not claimed. The maintainer explicitly did NOT rule this question on #8440; it was fenced off to be reported and filed, and #8440 shipped the narrowest thing its ruling permits.\n\n## What\n\n`@object-ui/fields` decides which field types are rendered MASKED, and it decides it in a place nothing can ask. The two registrations live as anonymous renderers inside `getCellRenderer`'s standard map in `packages/fields/src/index.tsx` (measured at `2609812d2`, lines 2465-2466): `password` and `secret` each map to a renderer drawing a SPAN of six bullet characters. There is no exported set, no exported predicate, and the map is a local inside the resolver, so the fact \"type T is masked\" is not readable from outside the module.\n\nSearched at `2609812d2` for `isMasked` / `MASKED_FIELD` / `maskedType` / `isCredential` / `CREDENTIAL_FIELD` across `packages/*/src/*` and `apps/*/src/*`: zero hits (control: the same grep form returns the expected files for `isInlineExcludedFieldType` and `hasCellValue`, so the zero is a real reading and not a broken path filter).\n\n## Why that is a gap rather than a detail\n\nobjectui#8440 needed exactly this question — a masked row must not offer to copy its value — and had to answer it by naming `password` / `secret` a second time, in `packages/plugin-detail/src/fieldEnrichment.ts` (`MASKED_CELL_FIELD_TYPES`, consumed by `isMaskedDetailFieldType`). That set is documented in place as a MIRROR rather than an authority, with the two costs stated:\n\n1. a THIRD masked type registered in `@object-ui/fields` would render masked and stay copy-interactive on the detail page until someone edits the mirror — the AGENTS.md #0.1 shape, one fact with two owners, drifting silently in the direction of disclosure;\n2. `registerFieldRenderer('password', SomeOtherRenderer)` replaces the mask at RUNTIME, and no static set anywhere can see that.\n\n⭐ The WRITE direction already has the authority the READ direction lacks: `isInlineExcludedFieldType()` is exported from `@object-ui/fields`, and both the grid (`plugin-grid/src/inline-edit-options.ts`) and the detail page (`plugin-detail/src/fieldEnrichment.ts`) consult it rather than keeping lists — that convergence is objectui#4221 / #4228. The read-side mask has no counterpart, so the asymmetry is between two halves of the same credential decision.\n\n## Fix shape — a suggestion, not a ruling\n\nExport the question from the package that owns the registrations (e.g. a predicate over a named set beside `INLINE_EXCLUDED_FIELD_TYPES`, which already carries the credential argument in its comment), have `plugin-detail` read it, and delete the mirror. A taker should settle three things rather than assume them:\n\n- **Static or dynamic?** The standard map is the default, but `registerFieldRenderer` can override any type at runtime. A static predicate is cheap and wrong for an app that overrode the renderer; a registry-derived answer is honest but needs a way to say \"this renderer masks\", which today is knowable only by reading its output.\n- **Alias-aware or raw?** Measured at `2609812d2`, the cell path does NOT resolve aliases — `resolveCellRendererType` only promotes a textual base type through a `format` hint, and `getCellRenderer` is an exact-key lookup falling back to `TextCellRenderer` — so exactly the raw spellings `password` and `secret` mask today. An alias-aware predicate would answer differently from the renderer it is supposed to describe.\n- **Whose fact is it?** `secret` round-trips through an encrypted store (ADR-0100), which suggests \"this value is a credential\" may belong to `@objectstack/spec` and the renderer's mask may be a consequence rather than the source.\n\n## Reach — what would consume it today\n\n`plugin-detail`'s copy refusal (objectui#8440) is the only current consumer, and it is deliberately mirroring. Worth checking when this is taken: any other surface that offers a per-cell action over a value the cell refuses to render.\n\n## Dedup\n\n`search_issues`, control-validated in the same session: the wording for this question (\"masked field type authority fields registry\") returned ZERO, while a control query on the credential/clipboard wording returned three real cards (objectui#8440, objectui#8395, objectui#4221) through the same channel in the same session. ⚠️ `search_issues` is known to return false zeros on this repo, so this is declared as \"nothing found through this channel\", not as proof of absence.\n\nRelated, not this: objectui#8440 (the copy refusal that needed the mirror), objectui#4221 (the write direction, where the shared authority already exists).\n\nFiled by Claude Code, session `session_01YBWFb5YgMU5dw8p2VKj16S`."

@@ -1,0 +1,35 @@
+{
+  "number": 5504,
+  "kind": "issue",
+  "title": "Console: `OS_CLOUD_URL=off` renders the marketplace as a red load-failure with wrong guidance, and the home page still promotes the marketplace entry",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "qq9340100"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T07:24:06Z",
+  "updated_at": "2026-08-21T09:01:38Z",
+  "closed_at": "2026-08-21T09:01:38Z",
+  "closed_by": {
+    "login": "qq9340100",
+    "id": 313832657,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5504",
+  "body": "**Origin**: moved from objectstack-ai/cloud#1506 (EE 4.1.0 published-image acceptance) — the misleading prose and the page/home behavior live in this repo, so the card lives here (file-at-destination); the source card is closed as moved.\n\n## Symptom (measured, EE template defaults)\n\n`apps/objectos-ee/deploy/.env.example` ships `OS_CLOUD_URL=off` as the factory default (\"no marketplace, and no license validation either\"). A Console booted on those defaults:\n\n1. The home page still puts the marketplace front and center — \"从模板开始 · 从应用市场安装模板应用并按需定制\" and \"浏览应用市场\";\n2. Clicking through lands on a red error card: **\"应用市场加载失败 / Not found\"**, whose hint claims \"本运行时默认指向公共 ObjectStack 云端。请检查运行时是否在线,或通过 `OS_CLOUD_URL` 指向自托管控制面。\"\n\nBoth hint claims are wrong for this deployment: the runtime is NOT on the default (the operator explicitly set `off`), and suggesting `OS_CLOUD_URL` sends the customer back to a template that told them to set `off` in the first place. \"Marketplace disabled by configuration\" is a **configuration conclusion**, not a **load failure**.\n\nThe hint string is `failedHint` in `packages/i18n/src/locales/zh.ts:3080` (and siblings in other locales).\n\n## Asks\n\n- Treat `off` (and `none`/`local`/`disabled`) as a first-class disabled state: the marketplace page shows an informational \"disabled by `OS_CLOUD_URL=off`\" state, not a red error;\n- The home-page marketplace entries hide or grey out with the same explanation in that state — today they recommend first and error after;\n- The \"defaults to the public cloud\" sentence should only render when `OS_CLOUD_URL` is genuinely unset.\n\n## Note for the executing seat\n\nIf runtime-config does not currently expose the cloud/marketplace-disabled state to the Console, file the upstream contract card in objectstack and fix producer-side — don't infer the state consumer-side from the failure shape."
+}

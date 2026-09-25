@@ -2,8 +2,8 @@
   "number": 10446,
   "kind": "issue",
   "title": "finding(core): `formatTitleTemplate` treats a whitespace-only placeholder value as resolved, so `{contract_no} - {name}` with a blank-looking `name` renders `HT-2026-003 -` on every resolver-backed surface",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:records",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -23,9 +22,13 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-25T01:38:06Z",
-  "updated_at": "2026-09-25T07:33:39Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T09:19:35Z",
+  "closed_at": "2026-09-25T09:18:39Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 2,
   "locked": false,

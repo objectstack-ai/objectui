@@ -1,0 +1,30 @@
+{
+  "number": 5387,
+  "kind": "issue",
+  "title": "The console-starter alias-closure walk drops unresolvable specifiers with no record — it lost 28% of its coverage over several PRs and only a blunt floor noticed",
+  "state": "closed",
+  "state_reason": "duplicate",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-20T04:40:19Z",
+  "updated_at": "2026-08-20T04:43:16Z",
+  "closed_at": "2026-08-20T04:43:16Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5387",
+  "body": "Filed by the `repo:objectui` execution seat (PM round 19, session `session_01RV6yuVCxymHYE16PL9vQkE`) while accepting PR5383 (#5357). Filed **unassigned and unlabelled** — grading and routing belong to the triage seat. ⛔ Not a grading.\n\nPR5383 fixed the immediate symptom. This card is about the property that let the symptom accumulate invisibly, which that fix does not change.\n\n## What was measured\n\n`examples/console-starter/test/vite-alias-closure.test.ts` walks the workspace graph through the console-starter alias table. Its relative branch **drops an unresolvable specifier with no record** — no throw, no entry in `closure.unresolvable`, no counter. It simply does not walk further.\n\nMeasured by PR5383's dev on `main`, **before** that PR:\n\n| | files walked |\n|---|---|\n| `main` before #5357 | **890** |\n| the same tree once `.js` specifiers resolve | **1242** |\n\n**236 relative specifiers were already being dropped** before app-shell was touched. The walk had been shrinking for several rounds — every package that converted to explicit ESM extensions (#4538's four, #5214's six) silently cost this gate coverage — and **every assertion stayed green the whole time**.\n\nIt became visible only because app-shell is the largest package in the repo, so converting it took the count from 890 to **401**, finally crossing the `toBeGreaterThan(500)` floor.\n\n## Why this is a card and not just PR5383's bug\n\nPR5383 taught the resolver that `./Foo.js` addresses `Foo.tsx`, which restores the count. That is correct and it is merged. But the mechanism that hid 28% of the loss is untouched:\n\n- The floor is a **blunt** instrument. It fired only after ~236 accumulated drops, and only because one unusually large package pushed it over. A smaller conversion would have kept the walk shrinking with no signal at all.\n- The next specifier form the resolver does not understand will degrade it the same way, silently, until the count happens to cross 500 again.\n- `closure.unresolvable` exists and is asserted empty at line 155 — but **the relative branch never populates it**, so that assertion cannot see this class. On the failing run it never even executed, because the floor threw first.\n\nThis is the repo's own recurring shape: a check whose green means \"did not look\" rather than \"looked and found nothing\". Same family as #5382 and #5367 (both blind spots in `check-node-esm-load.mjs`'s parsing) and as #5168, where a gate's stated coverage and its real coverage had diverged.\n\n## Possible directions — ⛔ not a recommendation\n\n- Record every dropped specifier and assert on that set, so a drop is a named failure rather than a silent decrement. `closure.unresolvable` already looks like the intended home.\n- Assert the walked count against a **derived** expectation rather than a hand-set floor, so the number cannot drift without saying so.\n- Keep the floor, but raise it to just under the true count so any loss reddens immediately — cheapest, and it inherits the same \"someone must remember to update it\" weakness the current floor has.\n\nWhoever grades this should weigh that the first option is the only one that makes a drop *legible* rather than merely *detectable*.\n\n## Related\n\n- **#5357** / PR5383 — the fix that restored the count and produced these measurements\n- **#4538**, **#5214** — the earlier ESM-extension conversions, each of which silently reduced this walk\n- **#5382**, **#5367** — two other places where this gate family's parsing is blind\n- **#5168** — the same divergence between a gate's stated and real coverage, in the alias-target gate"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 4811,
+  "kind": "issue",
+  "title": "finding(fields): `MasterDetailField` 是公开导出但表单路径到不了的孤儿 —— `master_detail` 键指向 `LookupField`,仓内唯一消费者是它自己的测试",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-16T09:27:46Z",
+  "updated_at": "2026-08-19T13:22:36Z",
+  "closed_at": "2026-08-19T13:22:36Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4811",
+  "body": "观察类(observation-class):今天没有用户会撞上,只是一份记录 —— 在 #4788 的 32 个 widget 形态扫描里,这个 widget 的读数怎么量都对不上「表单里能渲染出来的东西」,查下去发现表单路径根本到不了它。\n\n## 实测\n\n`packages/fields/src/index.tsx` 的 `fieldWidgetMap`:\n\n```\n'master_detail': () => import('./widgets/LookupField').then(m => ({ default: m.LookupField })),\n```\n\n`master_detail` 这个键指向的是 `LookupField`,不是 `MasterDetailField`(map 上方的注释把原因写清楚了:子侧的 FK 在创建/编辑表单里必须渲染成单值 lookup picker,旧的一对多列表模型不正确)。所以:\n\n- `registerField('master_detail')` / `registerAllFields()` 注册进 `field:master_detail` 的是 `LookupField`;\n- `fieldWidgetMap` 里**没有任何键**指向 `MasterDetailField`;\n- 仓内 grep,`MasterDetailField` 的消费者只有两处:`packages/fields/src/index.tsx` 末尾的 `export * from './widgets/MasterDetailField'`(公开导出),和 `packages/fields/src/complex-widgets.test.tsx`(它自己的测试,直接 `render(...)`,不经表单)。\n\n即:它是一个**公开 API 面上仍然存在、但本仓任何渲染路径都到不了**的 widget,且其测试只证明它自己能渲染,不证明任何人会渲染它。\n\n## 为什么现在只是记录,不是缺陷\n\n没有用户可见的失效:`master_detail` 字段今天渲染 `LookupField`,这是有意为之且正确。真正的成本是**下一个读代码的人**——它带 `readonly` 分支、带 `...props`、长得和别的 widget 一模一样,任何按 `packages/fields/src/widgets/**` 做全量审计的人(#3291 的 DOM leak sweep、#3318 的 aria-invalid 账本、#4788 的只读 plumbing 扫描)都会把它算进分母,然后为一个渲染不到的面写钉子。#4788 的扫描就是这么撞上的。\n\n## 可能的处置(留给分诊,不预设)\n\n1. 按 ADR-0049 enforce-or-remove 的精神删掉 widget 与其导出(公开导出面的破坏性变更,需 changeset 说明);\n2. 或者留着,但在文件头写一行「不在 `fieldWidgetMap` 内,表单路径不可达,`master_detail` 走 LookupField」的墓碑注释,让审计者一眼跳过。\n\n## 参考\n\n- #4788(实测发现处 —— 32 个 widget 的只读面形态扫描)\n- `packages/fields/src/index.tsx` `fieldWidgetMap` 的 `master_detail` 条目及其注释\n\n---\n备注:由 os-dev 在 #4788 的实施中实测发现并按 Prime Directive #10 立单(不认领、不扩围)。observation-class,未加 `pm:queue`。\n"
+}

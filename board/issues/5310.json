@@ -1,0 +1,33 @@
+{
+  "number": 5310,
+  "kind": "pull_request",
+  "title": "fix(plugin-report): derive report chart category colours and order (objectui#4906)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-19T11:54:49Z",
+  "updated_at": "2026-08-19T12:11:47Z",
+  "closed_at": "2026-08-19T12:11:46Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-19T12:11:46Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5310",
+  "body": "Fixes #4906\n\n## What changed\n\nA report chart derived neither its category dimension's option **colours** nor its declared **category order** — the same dimension on a dashboard chart got both. This wires `buildOptionColorMap` and `buildCategoryOrder` (`@object-ui/core`) into the report chart path via `useDatasetDimensionMeta`, the exact chain `DatasetWidget` (plugin-dashboard) already runs for its own chart. Per the triage ruling, this is cross-surface convergence onto an already-ruled behaviour (framework#3588's declared-picklist-order ruling), not new capability — no changes to `packages/core`.\n\n## This deliberately changes rendering — what visibly changes\n\nFor an existing report grouped by a select/lookup dimension:\n\n- **A chart with no authored `colors` now paints each category in that dimension's own option colour** (e.g. a `health` dimension now paints its own green/amber/red) instead of the renderer's positional palette.\n- **A `funnel`/`pyramid` chart now orders its stages by the field's declared picklist order** instead of sorting by value.\n\n**Precedence is unchanged**: an authored `colors` record (objectui#4877) still wins over the derived per-category map — `chartConfigPresentation`'s existing merge (`{ ...fieldColors, ...authorColors }`) already puts the author's map on top; the report path now just supplies the field-derived half it never used to.\n\n## Where\n\n- `packages/plugin-report/src/DatasetReportRenderer.tsx` — `DatasetReportChart` now calls `useDatasetDimensionMeta` (not the label-only `useDatasetDimensionLabels`) and derives `categoryColors`/`categoryOrder` the same way `DatasetWidget`'s own `useMemo` does (`localizeFieldOptions` → `buildOptionColorMap`/`buildCategoryOrder`), passes `categoryColors` as `chartConfigPresentation`'s second argument, and spreads `categoryOrder` onto the chart schema when derived.\n- `packages/plugin-report/src/useDatasetDimensionLabels.ts` — re-exports `useDatasetDimensionMeta` (the locale-free half) alongside the existing `useDatasetDimensionLabels`, since this is the one report call site that needs the metadata directly rather than only the label maps.\n- `packages/plugin-report/src/__tests__/DatasetReportRenderer.chartCategoryConvergence.test.tsx` — new. Pins the derived colours, the declared order, the precedence, and — the deliverable's real proof — that the report path's output is the literal output of the same `@object-ui/core` call chain `DatasetWidget` is written to make, over the same picklist.\n- `.changeset/dataset-chart-category-colors-and-order.md` — `patch` on `@object-ui/plugin-report`.\n\n## Why \"converges with the dashboard\" isn't a live side-by-side render\n\n`DatasetWidget` is `plugin-dashboard`'s own internal implementation detail — it is not part of that package's public export surface (barrel or `package.json#exports`), the same shape `DatasetReportChart` has in this package. Reaching it from a `plugin-report` test would mean a deep, non-exported cross-package import that only resolves under this repo's root-vitest `src` alias and would not resolve at all through `plugin-dashboard`'s published `dist` (no `./DatasetWidget` subpath export) — plus a new `plugin-report → plugin-dashboard` dev dependency for one test. So the new test file pins convergence at the mechanism instead: the report chart's schema is asserted against the literal output of `localizeFieldOptions` → `buildOptionColorMap`/`buildCategoryOrder` — the exact chain `DatasetWidget`'s own `useMemo` is written to run — reproduced inline over the identical picklist, so agreement is provable rather than incidental.\n\n## Verification\n\nRe-derived on current `origin/main` (`de4e29a81`, already includes #5304's CI fix) — no rebase needed.\n\n**Rebuild question**: all tests run via the canonical `pnpm exec vitest run packages/plugin-report/` from repo root. The root `vitest.config.mts` aliases `@object-ui/core`, `@object-ui/react`, and `@object-ui/plugin-report` directly to their `src/` (not through package `exports` to `dist`), so `buildOptionColorMap`/`buildCategoryOrder`/`useDatasetDimensionMeta` resolve straight to source for this run — no stale-`dist` risk.\n\n**Reverse verification** (predictions written before running, in the new test file's own header comment):\n- Committed the fix, then `git checkout de4e29a81 -- packages/plugin-report/src/DatasetReportRenderer.tsx packages/plugin-report/src/useDatasetDimensionLabels.ts` (source only; new test file kept).\n- Predicted 7 red / 2 green out of 9 `it`s (2 green as decisions-not-pins: a pure fixture self-check that renders nothing, and the \"no declared options → `categoryOrder` omitted\" case, which held trivially before the fix too since the key was never spread under any input).\n- Observed: **7 failed / 2 passed, the same 2 named cases**, matching case for case.\n- Restored via `git checkout claude/issue-4906-report-chart-option-colors -- ` (the same two files); `git status` clean against HEAD.\n\nFinal commands, at HEAD `4bfb71054`:\n```\npnpm exec vitest run packages/plugin-report/ --maxWorkers=2\n Test Files  14 passed (14)\n      Tests  161 passed (161)\n```\n(152 pre-existing + 9 new, all green.) Also ran, clean: `pnpm --filter '@object-ui/plugin-report^...' build`, `pnpm --filter '@object-ui/plugin-report' build` (both succeed — no type errors), `node scripts/check-control-bytes.mjs`, `node scripts/check-phantom-dependencies.mjs`, `node scripts/check-changeset-fixed.mjs`, `node scripts/check-changeset-no-major.mjs`, `node scripts/check-changeset-presence.mjs`, `pnpm exec eslint` on the three changed source/test files (0 errors, pre-existing-pattern warnings only).\n\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_"
+}

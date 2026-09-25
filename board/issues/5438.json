@@ -1,0 +1,35 @@
+{
+  "number": 5438,
+  "kind": "issue",
+  "title": "plugin-calendar: `object-calendar-renderer.propsContract.test.tsx` escapes to the real network on 127.0.0.1:3000 (4 ECONNREFUSED, same class as #3339 / #5225 / #5280)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "tests"
+  ],
+  "assignees": [
+    "qq9340100"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-20T18:21:46Z",
+  "updated_at": "2026-08-21T08:40:52Z",
+  "closed_at": "2026-08-21T08:40:52Z",
+  "closed_by": {
+    "login": "qq9340100",
+    "id": 313832657,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5438",
+  "body": "Found while working #5421 — this is the stderr noise that the coverage-lane logs show and that a reader could mistake for the shard failure. It is **not** a failure: the run stays green. Filed unassigned.\n\n## Measured\n\nFrom the repo root of a clean worktree on `main` (`9f7d786bd`), the file standing alone:\n\n```\npnpm exec vitest run packages/plugin-calendar/src/object-calendar-renderer.propsContract.test.tsx\n```\n\nemits exactly four of these and then passes:\n\n```\nError: connect ECONNREFUSED 127.0.0.1:3000\n    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16) {\n  errno: -111,\n  code: 'ECONNREFUSED',\n  syscall: 'connect',\n  address: '127.0.0.1',\n  port: 3000\n}\n```\n\nAttribution was confirmed twice: a single-worker sequential run of a 27-file subset (`--maxWorkers=1 --fileParallelism=false`) prints the four errors in the middle of this file's own case list, between the `locale`-rejection cases and the `onEventClick` cases; and the file alone reproduces all four.\n\nCoverage is irrelevant to it — the same four appear with and without `--coverage`, so the green PR lane carries this noise today as well. On CI the same four appear as `AggregateError` with both `::1:3000` and `127.0.0.1:3000` legs, because the runner has IPv6.\n\n## Mechanism\n\n`happy-dom`'s default document origin is `http://localhost:3000/`, so any relative-URL `fetch` that nothing intercepts resolves against that origin and leaves the process for real. No test file in the shard stubs `fetch` for this path — the request comes from the component graph under test, on the branch where the node does **not** carry the declared `data` pre-fetch array and the component therefore runs its own fetch.\n\nSame defect class as #3339 (plugin-detail), #5225 (plugin-report) and #5280 (plugin-dashboard `DatasetWidget`), all closed. This is a new member of it, not a regression of those.\n\n## Why it is worth closing\n\n- It is a real, unhandled outbound connection from a unit test: on any machine where something *is* listening on port 3000, the assertion outcome depends on what that server answers.\n- It makes every coverage-lane log carry four scary-looking network stack traces that have nothing to do with the run's verdict — which is precisely how #5421 came to be filed against the wrong mechanism.\n\nFix shape follows the closed siblings: give the component's own fetch path a stub (or author the `data` pre-fetch array on the nodes that do not need to exercise the fetching branch), so nothing in the file reaches the network."
+}

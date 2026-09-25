@@ -1,0 +1,35 @@
+{
+  "number": 5389,
+  "kind": "issue",
+  "title": "`useIsWorkspaceAdmin` still reads `user.roles` — a key the v17 session payload no longer emits — so platform-admin detection (Setup/Studio visibility) silently fails wherever there is no active-member row",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "target:v17"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-20T08:07:18Z",
+  "updated_at": "2026-08-20T17:20:27Z",
+  "closed_at": "2026-08-20T17:20:19Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5389",
+  "body": "Split out of objectstack-ai/cloud#1442's \"sixth face\" during triage (2026-08-20). The cloud card's open question — does console workspace-admin detection ride the removed actor face or the session face — was settled by reading the pinned framework (`907c11d2`) and objectui `origin/main`: **it rides the session face, and the session face also stopped emitting `roles` at protocol 17**, so the objectui half is a real defect of its own.\n\n## Claim\n\n`packages/auth/src/useIsWorkspaceAdmin.ts:42-48` decides admin (and with it Setup app + Studio visibility, App Marketplace gating, \"Build an app\" CTAs) from three legs:\n\n```ts\nif (isAdminRole(activeMember?.role)) return true;   // leg 1 — org member row\nif (isAdminRole(user?.role)) return true;           // leg 2 — stored scalar\nif (Array.isArray(user?.roles) && user!.roles!.some(isAdminRole)) return true;  // leg 3 — DEAD at v17\n```\n\nLeg 3 is dead: at the pinned framework, plugin-auth's `customSession` returns `user: { ...user, positions, isPlatformAdmin, ... }` — **`roles` is not in the payload** (ADR-0090 D3 rename; framework #6011 / PR #6048, no deprecation window on the actor face, and the session face at this pin emits `positions`-only too).\n\nA platform admin whose adminship is derived from the `admin_full_access` permission set (seeded by `bootstrapPlatformAdmin`) — i.e. exactly the single-tenant / org-less EE deployment shape, where there is **no** `activeMember` row (leg 1) and `user.role` is deliberately no longer overwritten (leg 2; the customSession docblock: \"`user.role` is NOT overwritten anymore — consumers must gate on `positions[]` / `isPlatformAdmin` (e.g. via objectui's useIsWorkspaceAdmin)\") — falls through all three legs and reads as **not admin**.\n\n## Evidence (code-level, re-runnable)\n\nFramework at the pinned sha:\n\n```\ngit grep -n \"positions\\|roles\" 907c11d2 -- packages/plugins/plugin-auth/src/auth-manager.ts   # customSession returns positions + isPlatformAdmin; no roles key\n```\n\nThe pin's own tests assert the shape (`auth-manager.test.ts`, describe `customSession – derived identity and positions array`): \"returns positions=[] for a regular user with no stored role\" with `result.user.role` **undefined**; platform-admin promotion appends to `positions[]`.\n\nobjectui `origin/main`:\n\n```\ngit grep -n \"roles\\|positions\" origin/main -- packages/auth/src/useIsWorkspaceAdmin.ts   # reads role/roles only — never positions or isPlatformAdmin\n```\n\nWhy tsc never flagged it: `packages/auth/src/types.ts` declares `roles?: string[]` **optional** on the client `AuthUser` — the same hand-copied-mirror-with-optional-key shape that hid cloud#1442's five sites.\n\n## Not claimed\n\n- ⛔ **No runtime reproduction.** Nobody has booted a v17 single-tenant server and watched Setup disappear for a platform admin. The dev taking this should do that first (measure, then fix): sign in as a permission-set-derived platform admin with no org membership and no stored `user.role`, and read what `useIsWorkspaceAdmin` returns.\n- Multi-tenant with an active org member row (leg 1) and users with a stored `user.role` scalar (leg 2) still detect correctly; preview/no-auth mode seeds an admin and is unaffected. The blast radius is the permission-set-derived-admin path.\n\n## Fix shape (not prescribed in detail)\n\nRead the spelling the surface publishes: `user.positions` and/or the derived `user.isPlatformAdmin` alias. ⛔ Not `roles ?? positions` dual-spelling in reverse — `positions` is the one published spelling (the framework declaration bans resurrecting `roles` as a fallback; see cloud#1442's quoted ruling). Consider whether the dead `roles?: string[]` mirror key on the client `AuthUser` should be retired in the same pass, and whether `useIsWorkspaceAdmin`'s docblock (\"The top-level `user.role` / `user.roles` from the session\") needs the same correction. `apps/console/.../HomePage.tsx:82`'s comment \"useIsWorkspaceAdmin reads ROLES\" goes stale with the fix too.\n\n## Refs\n\n- objectstack-ai/cloud#1442 (the sibling actor-face defect: five service-ai read sites; its verification comment carries the three commands that led here)\n- framework #6011 / PR #6048, ADR-0090 D3 (`roles` → `positions`)\n- framework #5613 (the \"one-window dual-emit\" caveat on the session face — at pin `907c11d2` that window is closed; the emission is positions-only, per the pin's own tests)"
+}

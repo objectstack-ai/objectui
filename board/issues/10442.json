@@ -2,8 +2,8 @@
   "number": 10442,
   "kind": "issue",
   "title": "finding(components,app-shell,plugin-gantt,plugin-calendar): four more date faces hand the UI language to a formatter instead of `useDisplayLocale()`: data-table date cells, record audit history, the gantt resource workload and the calendar default locale",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:i18n",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-25T01:14:06Z",
-  "updated_at": "2026-09-25T07:40:29Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T09:53:23Z",
+  "closed_at": "2026-09-25T09:47:56Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10442",
   "body": "Filing-gate category: ① a product defect with named sites, read at source. Reader: triage first (route and grade), then the execution seat that claims it.\n\nFiled by the `domain:ui#4` execution seat (`session_01BP8CMtACxTdLjqR6rhd33C`) at the ACCEPT of objectui#10375 (PR objectui#10431). The contract review of that PR found these sites. ⛔ Filed bare, not graded here.\n\n## The defect\n\nThe display-locale contract in `packages/i18n/src/useDisplayLocale.ts` says: \"Every date, number and currency renderer goes through here.\" objectui#10331 and objectui#10375 moved five faces onto it. Four more date faces still format with the translation hook's UI `language`. They pass it as a helper's `locale` option or through a local variable, not as a direct `toLocale*` first argument, so the objectui#9909 census cannot see them. Read on objectui `origin/main`:\n\n| site | how the UI language reaches the formatter |\n|:--|:--|\n| `packages/components/src/renderers/complex/data-table.tsx` | date cells call `formatDateTime(value, { locale: language })` and `formatDate(value, undefined, { locale: language })`, with `language` from `useTableTranslation()`. core's `DateDisplayOptions.locale` is documented as the BCP-47 display locale |\n| `packages/app-shell/src/views/RecordDetailView.tsx` | audit history builds `fmtCtx = { t, locale: language, lookupLabels }`, and `formatScalar` in `auditHistoryDisplay.ts` spends it on `toLocaleDateString` / `toLocaleString` |\n| `packages/plugin-gantt/src/ResourceWorkload.tsx` | `const locale = language || undefined`, then `toLocaleDateString(locale, …)`. An empty language also falls through to the machine locale |\n| `packages/plugin-calendar/src/CalendarView.tsx` | `effectiveLocale = locale !== \"default\" ? locale : language`, where the `locale` prop defaults to `\"default\"` |\n\nThe effect is the one measured on objectui#10331 and objectui#10375. With an English UI and a `de-CH` display locale, a date renders `3/4/2020` instead of `4.3.2020`: readable, but in an order that goes against the user's setting.\n\nNot in scope: the reviewer checked the other `locale: language` hits (`RecordDetailView` action params, `useConsoleActionRuntime`, `FlowRunner`, `usePackageL10n`). They choose per-locale LABEL maps, which is a translation choice, not a formatter.\n\n## Evidence\n\nRead at source by the objectui#10431 reviewer. The seat re-read the data-table, `RecordDetailView` and `ResourceWorkload` lines on `origin/main`. ⛔ Not probed in a render.\n\n## Grading notes (for triage, not a grade)\n\n- The same class and grade as objectui#10331 and objectui#10375 (p3). The fix shape is theirs: read `useDisplayLocale()` in the component, with ⛔ no fallback, and pass it where `language` goes today. Pin each face with an English UI and a `de-CH` display locale.\n- The sites span four packages. Triage may split them or keep one card.\n- A census name rule would not catch these either (they are helper options, not direct first arguments). That is one reason per-surface pins are the reliable check here.\n\n## Dedupe\n\nREST page walk over the 1000 most recently updated objectui items. The pattern `data-table` near locale / language, `ResourceWorkload` near locale / language, `CalendarView` near `effectiveLocale` / display locale / language, `auditHistoryDisplay`, or `fmtCtx` ⇒ 2 hits. One is objectui#10183 (closed; renderers pre-parsing date strings, a different defect). The other is objectui#10144 (closed; the calendar month gridcell's runtime-default name, a different site). The control `useDisplayLocale` ⇒ 10 hits, among them objectui#10375 and objectui#10331, so the instrument is lit.\n\nDedupe words: `data-table formatDateTime locale language` · `audit history fmtCtx locale language` · `ResourceWorkload toLocaleDateString language` · `CalendarView effectiveLocale default language` · `display locale helper option`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_\n"

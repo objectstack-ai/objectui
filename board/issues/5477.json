@@ -1,0 +1,35 @@
+{
+  "number": 5477,
+  "kind": "issue",
+  "title": "[finding] ObjectSettingsPanel re-declares OWD_WIDTH inline instead of calling `owd-sharing.ts`'s `isExternalWider` — the module that exists to be the single home for exactly that comparison",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-21T02:00:25Z",
+  "updated_at": "2026-08-21T14:51:53Z",
+  "closed_at": "2026-08-21T14:51:53Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5477",
+  "body": "Observed while working objectstack-ai/objectui#5418. Not fixed there — untouched by that card's change, and folding it in would have widened a security-surface diff for a cleanup.\n\n`packages/app-shell/src/views/studio-design/owd-sharing.ts` states its own purpose:\n\n&gt; The per-object Settings tab (`ObjectSettingsPanel`) and the package-level OWD overview (`PackageOwdOverviewPanel`) both edit the SAME record-sharing baseline (…). This module is the single home for the pieces they must agree on: the canonical value set, the **D11 \"external ≤ internal\" width comparison**, and the master-object derivation (…)\n\n`ObjectSettingsPanel.tsx` then computes that comparison inline instead of importing it:\n\n```ts\nconst OWD_WIDTH: Record<string, number> = { private: 0, public_read: 1, public_read_write: 2 };\nconst externalWider =\n  externalSharingModel in OWD_WIDTH &&\n  sharingModel in OWD_WIDTH &&\n  OWD_WIDTH[externalSharingModel] > OWD_WIDTH[sharingModel];\n```\n\n`owd-sharing.ts` exports `isExternalWider(internal, external)` doing the same thing, and its docstring acknowledges the split — \"mirrors the comparison ObjectSettingsPanel implemented inline\" — so this is a known state rather than an accidental one.\n\n**Why it is still worth closing.** The two are equivalent *today*, and the inline copy's guards happen to line up with the exported one's. They are not pinned to each other by anything: no test compares them, and the shared module is where the ADR-0090 D11 semantics are documented. A future D11 refinement lands in `owd-sharing.ts` and the Settings tab — the surface an author actually uses to set the dial — keeps the old rule, silently.\n\n**Scope.** Replace the inline block with the import, and consider whether `PackageOwdOverviewPanel` (which does use the shared module) grows a test that both surfaces agree."
+}

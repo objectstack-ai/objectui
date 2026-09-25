@@ -1,0 +1,35 @@
+{
+  "number": 5296,
+  "kind": "issue",
+  "title": "Migrate to @changesets/cli v3 — one PR carrying the bump plus the config changes v3's defaults require",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-19T07:49:39Z",
+  "updated_at": "2026-08-19T09:26:32Z",
+  "closed_at": "2026-08-19T08:43:52Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5296",
+  "body": "Dependabot #4950 proposes `@changesets/cli` 2.31.1 → 3.0.0. Do not merge it as it stands: a major of this package is a release-tooling migration, and the bump alone leaves config that v3 reads differently.\n\nThe sibling repo finished this migration today (`objectstack-ai/objectstack` epic #9465, landed as `e7daea169`). **Its measurements are reused here rather than re-derived**, and the scope below already reflects them — most of what made that migration large does not exist in this repo.\n\n## What does NOT apply here — measured on `origin/main`, not assumed\n\n`objectui` **never enters pre mode**: no `.changeset/pre.json`, and `scripts/check-changeset-no-major.mjs` contains **zero** references to it. There is no `cut-rc.yml`-style enforced file allowlist. So v3's largest breaking change — consumed prerelease changesets moving into `.changeset/pre/` — has nothing to hit here. That was roughly three of the sibling epic's five cards; skip all of it.\n\n## What DOES apply, and none of it is visible to PR CI\n\n1. **`privatePackages` default flips.** v3 stops versioning private packages unless the key is set, and — this is the part that bites — it then treats them as **ignored**, so a changeset naming one ignored *and* one non-ignored package becomes a \"mixed changeset\" that `changeset status` refuses outright, exit 1. In the sibling repo that turned a \"wrong versions\" bump into a \"release lane will not run\" bump.\n\n   Measured here: `.changeset/config.json`'s `ignore` covers `@object-ui/example-*`, `@object-ui/site`, `@object-ui/test-support`. The private packages **not** covered are `object-ui-monorepo` (the workspace root) and **`object-ui` at `packages/vscode-extension/package.json`** — that one would be newly ignored under v3. Across the current **250** pending changesets, **none names it**, so the trap does not fire today. It fired in the sibling repo from a changeset that landed *after* the rehearsal snapshot, so \"not today\" is not a plan: set the key explicitly.\n\n2. **`___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH.onlyUpdatePeerDependentsWhenOutOfRange`** — same key as the sibling repo, which measured it **inert under v3** (the peer-escalation branch is gone from `@changesets/assemble-release-plan@7`) but **load-bearing under v2**. It may therefore be removed only in the same commit that lands the bump, never before.\n\n3. **`$schema`** is pinned at `@changesets/config@3.1.2`; v3 resolves `@changesets/config@4.0.0`.\n\n4. **`changeset version` now exits 1 when nothing is pending** (it used to exit 0). `.github/workflows/changeset-release.yml` drives `version: pnpm changeset:version`, i.e. plain `changeset version`, through `changesets/action@v1`. Establish what that combination does when the action runs version with an empty plan — measure it, do not reason about it.\n\n**Why CI cannot tell you any of this:** nothing in this repo's PR CI runs `changeset status` or `changeset version`. The only invocation is inside `changeset-release.yml`. A green #4950 proves the workspace still installs; it says nothing about whether a release still works.\n\n## Scope\n\nOne PR carrying all of it together — the bump and the config changes are broken apart, and each half is broken *silently* until the next release:\n\n- `package.json`: `@changesets/cli` → `^3.0.0` (plus the lockfile)\n- `.changeset/config.json`: add `privatePackages`, remove the experimental key, move `$schema` to `@changesets/config@4.0.0`\n- `scripts/check-changeset-fixed.mjs` and `scripts/check-changeset-no-major.mjs`: run their self-tests under v3 and fix whatever models v2 behaviour. A self-test that still asserts v2 semantics is a failed run, not a passing one.\n- `.github/workflows/changeset-release.yml`: only if item 4 measures a real change.\n\nDependabot's #4950 closes itself once `main` carries `^3.0.0`.\n\n## Method\n\nRehearse in a **throwaway clone** with its remote removed — never against `origin`, and never in a pushable worktree. Install `@changesets/cli@3.0.0` there and drive `changeset status` and `changeset version` against the real 250-changeset stock.\n\nIf a rehearsal hangs: the sibling repo hit `@changesets/git`'s deepen loop spinning forever on a shallow clone with no reachable remote, and recorded the working scaffold at `objectstack-ai/objectstack#9555` (untrack `.changeset`, re-add it in two commits — tree identical, resolution goes from never-terminating to sub-second). Check whether this checkout is shallow before assuming the tool is stuck.\n\n## Non-goals\n\n- **Perform no release**: no `changeset publish`, no version tags, no release-workflow dispatch, no merging of a version PR.\n- Do not enter pre mode. This repo has never used it and this card does not introduce it.\n- Do not touch `changesets/action@v1`'s pin. The sibling repo declined that upgrade for a documented reason (`objectstack-ai/objectstack#9208`); whether the same reasoning applies here is a separate question, not a rider.\n\n## Acceptance\n\n- One PR carrying the bump and every config change together.\n- Evidence in the PR body, from the rehearsal on the real stock: `changeset status` output under v3 (no mixed-changeset error, and the computed plan), and a `changeset version` dry run.\n- Both changeset gate scripts' self-tests pass and model v3.\n- A changeset for this PR — and note the repo convention: `objectui` has **no `skip-changeset` label**. An empty-frontmatter changeset is the declaration mechanism here; do not mint a label.\n"
+}

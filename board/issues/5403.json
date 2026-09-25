@@ -1,0 +1,36 @@
+{
+  "number": 5403,
+  "kind": "issue",
+  "title": "Shard `Test (coverage)` 4 ways and stop the Codecov upload being skipped by its implicit `success()`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-20T14:26:13Z",
+  "updated_at": "2026-08-20T17:04:00Z",
+  "closed_at": "2026-08-20T17:03:13Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5403",
+  "body": "Blocked-by: #5402\n\nRuled by the maintainer on 2026-08-20 (#5393, verbatim 「接受你的所有建议，现在开始处理。」). Item 2 of 5. Both halves live in the same `test-coverage` job in `ci.yml`, so they are one card and one PR.\n\n## Half 1 — shard it\n\nMeasured on the same commit by #5395:\n\n| | measured |\n|---|---|\n| unsharded (today) | **39 min 05 s** |\n| 4-way sharded + blob merge | **12 min 04 s** (3.24×) |\n| extra runner minutes | +9.2% |\n| the blob-report merge `ci.yml` declines on cost grounds | **13 seconds** |\n\n`ci.yml`'s comment declines sharding because it would need a blob-report merge and \"nothing blocks on this job\". That trade was priced when the job was shorter; the merge costs 13 seconds and buys back 27 minutes.\n\n**Equivalence is the acceptance test, and it has a measured baseline**: 1287 files both ways, 55432 vs 55395 of 84590 statements, `onlyUnsharded=0`, `onlyMerged=0`, delta −0.0437 pp — against a noise floor of 3 statements between two identical sharded runs. Reproduce that, do not assume it.\n\n⚠️ The job also has `timeout-minutes: 40`, which has **already fired 4 times** (\"The job has exceeded the maximum execution time of 40m0s\"). At ~12 minutes the cap stops being load-bearing. ⛔ Do not raise it as part of this card — if sharding works the margin is no longer tight, and raising a cap is a separate decision.\n\n## Half 2 — the upload cannot stay silent\n\n`Upload coverage to Codecov` has no `if:`, so it carries the implicit `success()` and is **skipped** whenever the test step fails — 311 of 373 coverage jobs, and 120 of the 121 most recent. \"Codecov received nothing\" and \"Codecov received an unchanged report\" are indistinguishable from outside, which is how four dark days went unnoticed.\n\nMake the failure visible. ⛔ Do **not** make the upload unconditional in a way that publishes a partial or empty report as if it were complete — a wrong coverage number is worse than a missing one. The requirement is that a skipped upload is **loud**, not that it always uploads.\n\n⚠️ #5402 also found that on a failing suite the live unsharded recipe leaves **no `coverage/` directory at all** (reproduced 2 of 2), while the blob-report path produced a complete 1287-file report every time. If sharding changes that, say so — it may resolve this half on its own, and that is a finding worth recording either way.\n\n## ⛔ Constraints\n\n- ⛔ No test deleted, skipped, quarantined, or given a raised timeout. This card changes **how the suite is run**, never **what it asserts**.\n- Blocked on #5402: while the suite fails under coverage, a sharded coverage run fails too (measured — prototype run 32364577842, sharded + coverage, still timed out). Equivalence cannot be verified against a red suite.\n- Run vitest from the **repo root**; 17 packages carry their own `vitest.config.ts` that does not re-export the root config.\n- Report elapsed from the jobs' own `started_at`/`completed_at`.\n\nEvidence and method: #5395. Ruling: #5393."
+}

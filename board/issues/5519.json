@@ -1,0 +1,36 @@
+{
+  "number": 5519,
+  "kind": "issue",
+  "title": "Console: /_console/studio/* renders the pillar builder to a principal without `studio.access` — gate the ROUTE, not just the writes",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "qq9340100"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T08:21:35Z",
+  "updated_at": "2026-08-21T10:21:48Z",
+  "closed_at": "2026-08-21T10:21:21Z",
+  "closed_by": {
+    "login": "qq9340100",
+    "id": 313832657,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5519",
+  "body": "Part of objectstack-ai/cloud#1452 (filed by the triage seat from the cloud seat's transfer package on that thread — anchors re-verified at cloud's framework pin `907c11d2`).\n\nThe Console renders the full Studio pillar builder to any authenticated principal who types the URL, on a deployment where the nav tile is deliberately absent and every metadata write is refused. `studio.access` — the capability that exists precisely to answer \"may this principal enter Studio\" — is already in the payload the Console fetches, and is already consumed by this app for other surfaces. It is not consulted at the route.\n\n## Measured\n\nComposed hosted-SaaS shape (`OS_TENANCY_POSTURE=isolated`, `OS_AI_STUDIO_AGENTS=ask`, HotCRM composed artifact), tenant `northwind` as plain org owner, Playwright:\n\n- The nav has **no Studio tile** — correct, and the framework's doing.\n- Navigating straight to `/_console/studio/` renders the **full pillar builder** — Data / Automations / Interfaces / Access, with **Publish** and **Save draft** visible. It carries a \"Read-only\" badge and its writes are refused by the backend (`/api/v1/meta/*` → 403), but the authoring surface renders.\n\nRe-measured 2026-08-21 on the EE 4.1.0 release image (cloud#1510): a plain tenant user (`positions: [\"user\"]`) is walked through the full \"new package\" form inside this surface and only refused at submit (`POST /api/v1/packages` → 403 Forbidden).\n\nThe lockdown criterion for this deployment shape is explicitly two-part — **UI entry hidden AND API refused**. The backend half is green. This is the other half.\n\n## Mechanism — where it is produced, and why the fix is here\n\nTraced through framework + cloud sources (framework anchors read at cloud's pin `907c11d2`):\n\n1. **The framework serves the Console as a static bundle with an unconditional SPA fallback.** `createConsoleStaticPlugin` (framework `packages/cli/src/utils/console.ts:471`) registers the `/_console/*` catch-all and returns `index.html` for anything that is not a file on disk. The server has no per-route knowledge: every path under `/_console/` is one and the same response, and this SPA decides what to render.\n\n2. **The framework's only Studio lever removes the TILE, not the ROUTE.** `packages/cli/src/commands/serve.ts` declines to register the `@objectstack/studio` app plugin, with a NOTE saying Studio no longer needs to exist as a navigable app tile \"because the console ships a dedicated Studio surface\" at its own route. That surface is compiled into this bundle and survives the tile's absence.\n\n3. **Server-side interception is the wrong seam, structurally.** The SPA fallback only sees a *hard* navigation, so a server-side 404 on the path would close the deep link and leave client-side route transitions open. And `createConsoleStaticPlugin` is a static-file plugin with no session, so it could only blanket-block the path for **every** principal — including genuine platform operators, who are exactly who Studio is for.\n\n## The signal already exists, and this app already reads it\n\n- `studio.access` is a declared platform capability: framework `packages/spec/src/security/capabilities.ts:51` — *\"Enter the Studio metadata-design surfaces\"*, scope `platform`. The wording is entry, not write.\n- A tenant org owner **does not hold it, by design**: framework `packages/plugins/plugin-security/src/security-plugin.ts:129` lists `studio.access` in `PLATFORM_ADMIN_ONLY_CAPABILITIES`; `organization_admin` is granted only `manage_org_users` / `setup.access` / `setup.write`. Holding one of the platform-exclusive capabilities is what distinguishes a platform operator from a tenant org admin.\n- It reaches the browser already: `GET /api/v1/auth/me/permissions` returns `systemPermissions[]` (framework `packages/plugins/plugin-hono-server/src/current-user-endpoints.ts`).\n- **This app is already a consumer of that endpoint.** That file's own comment reads: *\"objectui's four `useCapabilityGate` surfaces (ADR-0066 D4) read exactly this endpoint\"*.\n\nSo nothing new has to be served, computed, or agreed between repos. What is missing is the **layer** the gate is applied at: the observed \"Read-only badge + backend-gated writes\" is a *write*-level gate sitting where an *entry*-level one belongs.\n\n## Proposed seam\n\nGate the `/_console/studio/*` route itself on `studio.access` from `/auth/me/permissions`, in this app's router — a redirect to `/_console/home` (or a plain not-found) rather than a rendered builder in read-only dress.\n\nTwo properties worth preserving deliberately:\n\n- **Entry, not write.** Read-only Studio for a principal without `studio.access` is the current behaviour and is what this card is about. The gate belongs before the surface mounts.\n- **Fail direction.** The endpoint's own design notes call fail-open the worse failure for capability gates (a holder losing a button). A route gate has the opposite stake — a non-holder seeing the builder — so it should decide on a *loaded* permission set rather than treating \"not yet loaded\" as permission.\n\n## ⛔ Do not weaken the backend\n\n`/api/v1/meta/*` answering 403 for these principals is measured green and is the other half of the criterion. Nothing here should relax it, and hiding the entry is not a reason to soften it.\n\n## Provenance\n\nCloud-side half filed and landed separately: on this same shape `/api/v1/runtime/config` was advertising `features.aiStudio: true` while the deployment mounted zero authoring handlers, so any UI gate keyed on that flag could not have worked. That is fixed in cloud (objectstack-ai/cloud#1471), which makes this app's signals truthful on this shape.\n\nCompanion card: the Console home authoring/marketplace/setup cards (filed alongside this one)."
+}

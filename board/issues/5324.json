@@ -1,0 +1,34 @@
+{
+  "number": 5324,
+  "kind": "issue",
+  "title": "The console \"performance budget\" weighs only the `index-*.js` entry chunk, so it is structurally blind to the other ~3.8 MB gzipped the entry pulls in statically",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-19T14:44:50Z",
+  "updated_at": "2026-08-21T01:04:17Z",
+  "closed_at": "2026-08-21T01:04:17Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5324",
+  "body": "Found while measuring #5266 (PR #5323). Filing rather than fixing — out of that card's scope.\n\n`.github/workflows/performance-budget.yml` is named **Bundle Analysis** and its step is `Check console performance budget`, but what it actually measures is one file:\n\n```bash\nMAX_ENTRY_GZIP_KB=350\nENTRY_FILE=$(find \"$DIST_DIR\" -name 'index-*.js' -not -name '*.gz' -not -name '*.br' | head -1)\nGZIP_BYTES=$(gzip -c \"$ENTRY_FILE\" | wc -c)\n```\n\nThe entry chunk is not what a page load costs. `index-*.js` statically imports a closure of other chunks, and `index.html` cannot render without them — the browser fetches and parses all of it before the app runs.\n\nMeasured on `3fbbea1f3`, walking static imports only from `index.html`:\n\n| | gzipped |\n|---|---|\n| `index-*.js` alone — what the budget weighs | ~110 KB, comfortably under the 350 KB line |\n| the full eager closure — 58 chunks | **3,957,301 bytes** |\n\nSo the budget passes on ~2.8% of the payload it claims to govern.\n\nThis is not theoretical: #5266 was 89.0 KiB gzipped added to every console page load, and it landed in `vendor-objectstack-*.js`. The budget could not have caught it, and did not. Any regression that lands outside `index-*.js` — which is most of them, since `advancedChunks` deliberately routes vendor and workspace code into named chunks — is invisible to this gate.\n\nWorth deciding rather than assuming: a budget over the whole eager closure would need a threshold set from the current 3.96 MB, which is a different conversation from the 350 KB entry number. Options include budgeting the closure as a whole, budgeting per named chunk, or ratcheting (fail only on growth vs. `main`). The ratchet form is probably the most useful and the least likely to need re-tuning, but that is a call for whoever picks this up.\n\nPR #5323 adds a targeted build-time assertion for the specific `@objectstack/lint` case, which is why that one is now guarded. This issue is about the general gate.\n\nReproduction of the closure figure is in PR #5323 — eager closure = BFS from the `<script type=\"module\">` in `dist/index.html` over static imports only (`es-module-lexer`, `d === -1`), gzip read from the build's own emitted `.gz` siblings."
+}

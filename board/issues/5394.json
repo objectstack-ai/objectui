@@ -1,0 +1,36 @@
+{
+  "number": 5394,
+  "kind": "issue",
+  "title": "main is red: QUICK_REFERENCE.md \"Current Release\" still says 17.5.0 after the 17.6.0 release bump — and this is the third instance of one recurring mechanism",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "ci/cd",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-20T11:16:31Z",
+  "updated_at": "2026-08-20T11:59:01Z",
+  "closed_at": "2026-08-20T11:58:43Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5394",
+  "body": "Filed by the `repo:objectui` execution seat while investigating #5393 (CI duration). ⛔ Not a duplicate of #4642 — that card is **closed** and covered the 17.4.0 → 17.5.0 instance; a merged card cannot track new work. This is the 17.5.0 → 17.6.0 instance of the same mechanism, plus the recurrence itself.\n\n## `main` is red right now\n\nLatest CI run on `push`/`main`, [32356587040](https://github.com/objectstack-ai/objectui/actions/runs/32356587040) (sha `59f61cfb8`, 2026-08-20T09:58:23Z): **`Test (coverage)` → failure**, after 39 min 26 s.\n\n```\nscripts/__tests__/quick-reference-current-release-4143.test.ts:444\nexpected []   received [ \"17.5.0\" ]\n```\n\nMeasured on `origin/main`:\n\n| anchor | value |\n|---|---|\n| `apps/console/package.json` `version` | **17.6.0** |\n| `QUICK_REFERENCE.md:114` — `**Version:**` | **17.5.0** |\n\nThe release moved every `@object-ui/*` manifest to 17.6.0 (one `fixed` group). The doc was not moved with it, so `17.5.0` is now a version literal **no manifest in the tree produces**, which is exactly what the gate reports.\n\n## ⛔ The gate is correct — do not touch it\n\n`quick-reference-current-release-4143.test.ts` is an anti-fossil gate: it derives the legal literal set from the manifests, then flags any literal in the \"Current Release\" block that nothing derives. Its own failure message says it — *\"Every row under a heading that says 'Current' must be derived from an anchor and asserted above, or it is the next objectui#4143.\"*\n\nIt caught a real staleness. **⛔ Do not weaken, skip, quarantine, or add an exemption for `17.5.0`.** A fix that makes the gate quieter rather than the doc truer is a regression, and gate weakening is on the maintainer's floor regardless.\n\n## The recurrence is the actual defect\n\nThree instances of one mechanism:\n\n- **#4642** (closed) — doc said 17.4.0 after the 17.5.0 release commit\n- **#4977** (closed) — \"shard 3 常红\", the GA-pin residue of the same family\n- **this card** — doc says 17.5.0 after the 17.6.0 release\n\nThe block's own preamble states the intended workflow: *\"edit the anchor and that test tells you to edit this block.\"* That assumes a human is in the loop at the moment the anchor changes. **At release time there is no human**: `changeset version` rewrites every manifest automatically inside `changeset-release.yml`, pushes `chore: release packages`, and nothing in that path updates `QUICK_REFERENCE.md`. So the doc is guaranteed to fossilise once per release, and `main` goes red once per release until someone hand-fixes it.\n\nTwo ways out; the implementer picks with evidence and states which and why:\n\n- **A — derive it.** Stop stating the version literal in prose; generate that row (or the whole block) from the manifests, so there is nothing to drift. Strongest, and it retires the family.\n- **B — carry it in the release.** Have the release path update the block when it bumps versions (a step in `changeset:version`, so `changeset version` and the doc move in one commit). Keeps the prose, closes the window.\n\n⚠️ Whichever is chosen, the fix must make **the next** release not red `main` — a one-line edit of `17.5.0` → `17.6.0` unreds `main` today and guarantees a fourth instance. State explicitly how the chosen route prevents recurrence, and measure it (e.g. simulate a version bump and show the gate stays green without hand-editing).\n\n## Reproduce\n\n```\ngit show origin/main:apps/console/package.json | grep -m1 '\"version\"'     # 17.6.0\ngit show origin/main:QUICK_REFERENCE.md | sed -n '114p'                   # 17.5.0\npnpm exec vitest run scripts/__tests__/quick-reference-current-release-4143.test.ts   # from the REPO ROOT\n```\n\n⚠️ Run vitest from the **repo root** — a package-cwd run uses a different config than CI does.\n\nRelated: #4642, #4977, #4913 (the `toContain` → equality tightening on the neighbouring rows), #4143 (the original fossil this gate is named for), #5393 (the CI-duration investigation this surfaced from)."
+}

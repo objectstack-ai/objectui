@@ -1,0 +1,35 @@
+{
+  "number": 5476,
+  "kind": "issue",
+  "title": "Studio's pre-publish security block names the offending object but cannot navigate to it — the Data pillar's `?surface=` deep-link captures only at mount",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-21T02:00:15Z",
+  "updated_at": "2026-08-21T16:54:08Z",
+  "closed_at": "2026-08-21T16:54:08Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5476",
+  "body": "Found while implementing objectstack-ai/objectui#5418 (create-dialog OWD + pre-publish reporting). Filed unassigned, not fixed there — the fix needs a contract change to the deep-link plumbing, which is wider than that card's surface.\n\n## What ships in #5418\n\nThe pending-changes sheet now names a draft the publish door would refuse, as `object/crmext_visit`, with the rule's fix-it hint and the sentence \"Fix it on the object under Settings → Record sharing, then publish again.\"\n\nThat is the *wording* half of #5418's suggestion 3. The suggestion's actual ask was stronger:\n\n&gt; `sharingModel` should be a **link** to 设置 → 记录共享模型\n\n## Why the link was not built there\n\n`packages/app-shell/src/views/studio-design/useSurfaceDeepLink.ts` is the shared `?surface=&lt;type&gt;:&lt;name&gt;` plumbing, and its capture half is deliberately **mount-time only** — the target is read once into a ref so later in-pillar selections do not re-trigger the restore:\n\n```\nconst initialRef = React.useRef(parseSurfaceParam(searchParams.get(DESIGNER_SURFACE_PARAM)));\n```\n\nThe sheet is opened from an already-mounted `DataPillar`, so writing `?surface=object:crmext_visit` from it changes the URL and moves nothing. Making the link work needs one of:\n\n- **A** — a live target channel alongside the mount-time capture (the pillar subscribes to a target, not just to its initial value). Cleanest, and it is the missing half the module's own doc comment describes; it changes a contract four pillars share.\n- **B** — a callback prop threaded `StudioDesignSurface → DraftChangesPanel`, with the Data pillar exposing \"select this object and open its Settings tab\". Narrower, but adds a second navigation mechanism next to the deep-link one.\n- **C** — leave it as prose. What ships today.\n\nAlso worth deciding in the same pass: the sheet is shared with the Home / draft-preview bar, where \"the Studio object editor\" may not be a reachable destination at all — so whichever route is chosen has to degrade to prose off-Studio.\n\n## Not urgent\n\nWith #5418's create dialog asking for the baseline, a new object no longer reaches this state; the block is now mostly for drafts authored before it, and for the other `error`-severity rules in the same family (`security-owd-alias`, `security-external-wider-than-internal`, `security-controlled-by-parent-no-relation`)."
+}

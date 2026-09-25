@@ -1,0 +1,35 @@
+{
+  "number": 5348,
+  "kind": "issue",
+  "title": "finding(console): Approvals Inbox declares its row cells inside the page component, so every render remounts them",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "qq9340100"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-19T18:00:37Z",
+  "updated_at": "2026-08-21T08:10:05Z",
+  "closed_at": "2026-08-21T08:10:05Z",
+  "closed_by": {
+    "login": "qq9340100",
+    "id": 313832657,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5348",
+  "body": "Observation-class finding, recorded while implementing objectstack-ai/objectui#5211 (PR objectstack-ai/objectui#5347). Filed unassigned, no `pm:queue` — for triage to grade. **Not fixed there**: out of that card's scope, and it is a behavioural/perf question rather than the affordance that card was about.\n\n## What I noticed\n\n`apps/console/src/pages/system/ApprovalsInboxPage.tsx` declares `RequestCell`, `RecordCell` and `InlineActions` as function components **inside** `ApprovalsInboxPage`'s own body. React identifies components by reference, so each render produces a new component **type** and React unmounts and remounts those subtrees rather than updating them — every row, every render. The page re-renders often by construction: a minute clock (`setNow`), search typing, drawer open/close, and (as of objectstack-ai/objectui#5347) the readability probe resolving.\n\n## How it showed up, measured\n\nA test clicked a row's inline **Approve** button and nothing happened — no confirmation dialog, no state change, no error. The button was present, enabled, and correctly scoped to its row; `document.body.children.length` stayed at 1 after the click.\n\nThe cause is the remount: `userEvent.click()` spans several ticks (pointerdown → mouseup → click, with awaits between), a re-render lands in the middle, the captured node is replaced by a fresh one, and the rest of the pointer sequence is delivered to a **detached** node. The click is swallowed silently — the failure surfaces only as \"the thing I clicked did nothing\".\n\nWorkaround used in that PR (documented at the call site): query and click in one synchronous step with `fireEvent`. That makes the test pass but does not address the page.\n\n## Why it may be worth grading rather than shrugging at\n\n- The same node churn is what a **real user's** interaction is exposed to, not only a test's. A click landing between a re-render and its replacement node is a genuine (if narrow) dropped-input window, and the minute clock guarantees a re-render every 60s regardless of user activity.\n- Remounting discards subtree state — focus, hover, any transient state inside those cells.\n- It is a per-row cost on every render of a list page.\n- The fix is mechanical (hoist the three components to module scope and pass what they need as props, or memoize them), but it is a real diff on a 2000-line page and wants its own verification — which is exactly why it is not a rider on objectstack-ai/objectui#5347.\n\n## Scope check\n\nOnly `ApprovalsInboxPage.tsx` was examined. Whether other console pages do the same was **not** surveyed — treat that as unknown, not as zero.\n"
+}

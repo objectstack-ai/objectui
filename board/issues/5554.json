@@ -1,0 +1,36 @@
+{
+  "number": 5554,
+  "kind": "issue",
+  "title": "Approvals: step progress bar overflows horizontally for long flows (5+ steps) — only the first 3 steps are visible, rest reachable only by dragging the whole drawer sideways",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-21T10:24:52Z",
+  "updated_at": "2026-08-21T13:49:42Z",
+  "closed_at": "2026-08-21T13:49:42Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5554",
+  "body": "## Summary\n\nIn the Approvals inbox detail drawer, the approval **step progress bar** is laid out as a single non-wrapping horizontal row. For a real 6-step approval flow the bar's intrinsic width (**1070px**) is roughly **double** its container (**527px**). The bar itself is not scrollable (`overflow-x: visible`); the nearest scrollable ancestor is the **drawer panel**, so the only way to see steps 4–6 is to drag the drawer's bottom horizontal scrollbar — which scrolls *every other element in the drawer out of view* and leaves a near-blank panel.\n\nEnd users read the clipped bar as \"there is no more data\". This was reported verbatim by a customer acceptance tester on a production project (\"I thought at first there was no data\").\n\n## Environment\n\n- `@objectstack/console` **17.1.0** (prebuilt SPA, served at `/_console/` by `@objectstack/cli` 17.1.0 via `createConsoleStaticPlugin`)\n- Chromium, viewport 1440×900 **and** 1920×1000 — identical clipping at both (the drawer is fixed-width, so a wider window does not help)\n- Locale zh-CN\n\n## Where the code is\n\nMinified chunk `dist/assets/ApprovalsInboxPage-*.js`, the block guarded by `(P.flow_steps?.length ?? 0) > 1`:\n\n```jsx\n<div className=\"flex items-center px-1\" aria-label={t('stepProgress','Approval steps')}>\n  {P.flow_steps.map((s, i) => (\n    <Fragment key={s.id}>\n      {i > 0 && <div className=\"h-px flex-1 mx-2 …\" />}\n      <div className=\"flex items-center gap-1.5 shrink-0\">\n        <span className=\"… h-5 w-5 rounded-full …\">{i+1}</span>\n        <span className=\"text-xs …\">{s.label}</span>\n      </div>\n    </Fragment>\n  ))}\n</div>\n```\n\nEvery step is `shrink-0` and the container is a plain `flex` row with no wrap and no scroll, so intrinsic width grows without bound with step count and label length.\n\n**Sibling occurrence (same family, likely wants the same treatment):** the record-detail Approvals panel in `dist/assets/RecordDetailView-*.js` renders the same bar as:\n\n```jsx\n<div className=\"flex items-center overflow-x-auto\" aria-label={t('stepProgress','Approval steps')}>\n  {s.flow_steps.map((e, t) => (\n    <Fragment>\n      {t > 0 && <div className=\"h-px flex-1 min-w-4 mx-2 …\" />}\n      …\n    </Fragment>\n  ))}\n</div>\n```\n\nThat one at least scrolls itself instead of dragging the whole panel, but it still hides steps behind a scroll gesture with no visible affordance. Please fix both occurrences together.\n\n## DOM measurements (live repro)\n\nAncestor chain outward from the step bar:\n\n| element | `overflow-x` | scrollWidth | clientWidth | scrollable? |\n|---|---|---|---|---|\n| `div.flex.items-center.px-1` (the bar, `aria-label=\"审批步骤\"`) | `visible` | 1070 | 527 | no |\n| `div.space-y-4.mt-6` | `visible` | 1070 | 527 | no |\n| `div.fixed.z-50…` (drawer panel) | `auto` | 1094 | 575 | **yes** ← the only scroller |\n\nOverflow is 543px on a 527px container — i.e. the bar needs slightly more than twice the width available to it.\n\n## Minimal reproduction\n\n1. Define an approval flow with **≥5 approval nodes** whose labels are ordinary business phrases (CJK labels of 8–16 chars are typical). Example used here — a 6-step flow:\n   1. 需求部门负责人初审\n   2. 工厂生产工艺负责人审核\n   3. 工厂业财审核（确认单价/派工工时）\n   4. 事业部成本改善经理加审\n   5. 区域总经理+事业部业财运营总监会审\n   6. 工厂厂长审批\n2. Submit a record into that flow so a `pending` `sys_approval_request` exists.\n3. Open `/_console/apps/<app>/system/approvals` and click the row to open the detail drawer.\n4. **Observed:** only steps 1–3 render inside the drawer; steps 4–6 are clipped. Dragging the drawer's bottom horizontal scrollbar reveals 4–6 while pushing all other drawer content (record card, activity timeline, action buttons) off-screen.\n5. **Expected:** all steps are readable without horizontal scrolling.\n\nAlso verified: enlarging the viewport from 1440×900 to 1920×1000 changes nothing — the drawer is fixed-width, so \"make the window bigger\" is not a workaround.\n\n## Requested behaviour\n\nRender the step progress bar **vertically** (stacked steps with a vertical connector) — either always, or at least once the step count / measured width would overflow. A vertical stepper also matches the drawer's tall-and-narrow aspect ratio, and it degrades gracefully as flows get longer, which a horizontal row fundamentally cannot.\n\nIf a horizontal bar is to be kept for short flows, please at minimum give the bar itself `overflow-x-auto` (so it scrolls independently of the drawer body) **and** a visible affordance — but note that the reporter's explicit ask, and our own UX read, is vertical.\n\n## Downstream\n\nFiled from a customer project running 17.1.0. There is no supported project-side customization point for this:\n\n- `@objectstack/console` ships as a prebuilt, dist-only SPA (`exports` exposes only `./package.json`); the consuming project has no source for it.\n- `createConsoleStaticPlugin()` injects only `<base href=\"/_console/\">` and the `OS_PAGE_REACT=off` capability flag into `index.html` — there is no custom-CSS / custom-head / theme-override hook.\n- Console resolution has exactly two paths (the version-locked npm package, or a sibling `../objectui/apps/console` checkout), so short of maintaining a full console fork there is no downstream slot.\n- The metadata overlay allow-list (`view, dashboard, report, translation, email_template`) contains nothing that can affect this component's layout.\n\nWe will not patch `node_modules` or intercept the console HTML to inject CSS, so the project work item is parked on \"platform capability blocked\" pending this issue."
+}

@@ -1,0 +1,30 @@
+{
+  "number": 4943,
+  "kind": "issue",
+  "title": "[finding] TranslationKeys 从未绑定到 i18next 的 CustomTypeOptions —— t() 接受任意 key 字符串,整个 key 面由脚本门而非编译器守着",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T07:14:30Z",
+  "updated_at": "2026-08-19T02:18:12Z",
+  "closed_at": "2026-08-19T02:18:12Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4943",
+  "body": "在执行 #3846(marketplace 信任层级 `runtime` 收窄)时量到的**相邻观察**,不在该 PR 范围内(那张卡只动两个字段)。观察级:今天没有用户能碰到,key 面确实有守卫 —— 只不过守卫是脚本门,不是类型系统。\n\n## 量到的事实\n\n`packages/i18n/src/locales/en.ts:3790` 导出 `export type TranslationKeys = typeof en;`,`i18n.ts` 与 `index.ts` 都把它对外导出。但仓内**没有任何** `declare module 'i18next'` / `CustomTypeOptions` 增强(全仓 grep 零命中),所以 `useObjectTranslation()` 返回的 `t` 就是 react-i18next 在**未声明 resources 类型**时的 `TFunction`,其 key 参数退化为 `string`。\n\n实测(在 `packages/app-shell` 里放一个探针文件后跑该包的 `tsc --noEmit`,零报错):\n\n```\nconst { t } = useObjectTranslation();\nreturn t('marketplace.disclosure.runtime.definitely_not_a_key', { defaultValue: 'x' });\n```\n\n一个**编造出来的 key** 干净通过编译。`TranslationKeys` 是导出的类型,只是没人把它接到 `t` 上。\n\n## 为什么现在算 finding 而不是 bug\n\nkey 面并非无人看守 —— `scripts/check-i18n-call-site-keys.mjs`(#3530 的门)+ 各家族的 parity 测试在守。#3546 切片五能\"量出 37 个 key 在 37 个调用点缺包\",恰恰是因为这活儿由那个脚本干:如果编译器管着,那 37 个从一开始就编译不过。所以这不是\"现在坏了\",而是**同一条不变式由脚本承担而非类型承担**,而脚本只看得见它 AST 认得的形状(模板 key 家族就要靠 `missingPrefixes` 这类近似)。\n\n## 记在这里的直接原因:一处归因需要更正\n\n#3846 卡面把 `PluginDisclosure.tsx` 上那个 `as any` 描述成「把 `TranslationKeys` 的类型保护整个关掉了」。按上面的测量,**今天没有这层保护可关**:该 `as any` 是一次抑制不了任何东西的抑制(债务性质,删掉是对的 —— `@typescript-eslint/no-explicit-any` 会警告,而且它会替将来真的接上 key 类型的那天预先失明)。反向验证也照此落地:把 `as any` 塞回去,`tsc` 退出 0、58 个测试全绿,只多出一条 warn 级 eslint 警告(见 PR #<待补> 的证据段)。写下来,免得下一张卡沿用同一处归因。\n\n## 收口方向(未裁决,故意不在此卡决定)\n\n接上 `CustomTypeOptions['resources']` 会把每一个 `t()` 调用点变成编译期检查 —— 那是仓级契约决定,不是两个字段的收窄:它会一次性暴露全部现存违例(#3546 家族数出来的调用点面在 170+ 量级,十包联动),还要先决定模板 key 家族(`` t(`ns.family.${member}`) ``)怎么表达才不会把合法的动态 key 判红。需要独立立卡定范围,不适合搭在别的卡上。\n\n关联:#3846(测量来源)、#3530 / `scripts/check-i18n-call-site-keys.mjs`(现役守卫)、#3546(切片家族,靠该脚本量出来的缺 key)。"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 5134,
+  "kind": "issue",
+  "title": "finding: the spec's nested `aria.ariaLabel` admits an inline locale map, but its only read site passes it to the DOM raw — a map-valued accessible name announces \"[object Object]\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "qq9340100"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T04:32:54Z",
+  "updated_at": "2026-08-21T08:43:45Z",
+  "closed_at": "2026-08-21T08:43:45Z",
+  "closed_by": {
+    "login": "qq9340100",
+    "id": 313832657,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5134",
+  "body": "Found while fixing objectui#4663 (making `record:quick_actions` read the contract spelling of the nested ARIA bag). Filed rather than fixed — outside that card's radius, and it lands on a different package. Unassigned.\n\n## The fact\n\n`@objectstack/spec`'s `AriaPropsSchema` types its `ariaLabel` as `I18nLabelSchema`, i.e. **string OR inline locale map** (`node_modules/@objectstack/spec/src/ui/i18n.zod.ts`, `ariaLabel: I18nLabelSchema.optional()`). Measured against the installed 17.0.0:\n\n```\nAriaPropsSchema.safeParse({ ariaLabel: { en: 'Accounts', 'zh-CN': '客户' } }).success   // true\nString({ en: 'Accounts', 'zh-CN': '客户' })                                             // '[object Object]'\n```\n\nThe repo's only read site for that nested bag is `packages/plugin-list/src/ListView.tsx:2380`:\n\n```\n{...(schema.aria?.ariaLabel ? { 'aria-label': schema.aria.ariaLabel as string } : {})}\n```\n\nThe `as string` is the cast, not a conversion. A map-valued `aria.ariaLabel` therefore reaches the DOM as `aria-label=\"[object Object]\"` — a screen reader announces that string as the list view's accessible name, in every locale.\n\n## Why the earlier sweep did not catch it\n\nThis is precisely the class objectui#4163 Part 1 was opened over — \"any site where the label reaches a slot typed `any`, is interpolated into a template string, or is passed through an untyped prop renders `[object Object]` for the map form and stays green forever\". PR #4208 swept the compile-visible sites; a cast is invisible to the compiler by construction.\n\nThe follow-on work (#4580 / #4581) then settled the **flat** `BaseSchema.ariaLabel`, which carries a DIFFERENT vocabulary — the keyed `{ key, defaultValue?, params? }` ref resolved by `SchemaRenderer`'s `resolveKeyedI18nLabel` — and the ruling recorded on #4163 was explicitly that widening THAT key to the inline map was measurably wrong. So the same identifier means two different things depending on nesting:\n\n| slot | vocabulary | resolver at the read site |\n| --- | --- | --- |\n| flat `schema.ariaLabel` (objectui `BaseSchema`) | keyed ref `{ key, defaultValue?, params? }` | `resolveKeyedI18nLabel` (`SchemaRenderer.resolveAriaProps`) |\n| nested `schema.aria.ariaLabel` (spec `AriaPropsSchema`) | `I18nLabel` = string or inline locale map | none — raw cast |\n\nThe nested row is the one nothing sweeps.\n\n## Reachability, stated honestly\n\nNothing indicates a user hits this today, which is why this is filed as a `finding` rather than a defect: `I18nLabel` was a plain string through spec rc.5, so no stored map-valued label can predate rc.6, and #4163's closing ruling recorded zero measured pull for authoring one. Per that same ruling map values are legitimate and arrive via API/import — so the path is live, not dead: an imported list view with `aria: { ariaLabel: { en: …, 'zh-CN': … } }` is spec-valid metadata that renders a wrong accessible name. Severity is the triage seat's call.\n\n## Second site, prospective\n\n`record:quick_actions` gains the same shape once objectui#4663 lands (`packages/plugin-detail/src/renderers/record-quick-actions.tsx` now reads `aria.ariaLabel`). It is not reachable there yet: objectstack#8744 deliberately withheld the `aria: AriaPropsSchema` declaration from `RecordQuickActionsProps` pending #4663, so the nested bag is not a declared authoring surface on that component. The day #8744 declares it, this read inherits the gap — worth folding into whichever fix this card gets, rather than discovering it a second time.\n\n## Fix direction (not prescribed)\n\nResolve at the read site with the spec's own `resolveI18nLabel`, in one place both consumers can share, rather than per-site casting. Contract-first note for whoever takes it: the two vocabularies above are the real decision, and it may belong upstream — one key name meaning two incompatible things depending on nesting depth is the kind of thing an AI author gets wrong silently."
+}

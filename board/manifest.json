@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "repo": "objectstack-ai/objectui",
-  "generated_at": "2026-09-25T08:35:52.737Z",
+  "generated_at": "2026-09-25T14:30:02.314Z",
   "walk_phase": "history",
   "walk": {
     "open_set": {
@@ -11,41 +11,41 @@
     },
     "delta": {
       "complete": false,
-      "cursor": "2026-09-25T08:24:16Z",
-      "since": "2026-09-25T02:12:32Z",
+      "cursor": "2026-09-25T14:26:19Z",
+      "since": "2026-09-25T08:24:16Z",
       "slice": 300
     },
     "history": {
       "complete": false,
-      "cursor": "2026-08-18T23:36:58Z"
+      "cursor": "2026-08-21T17:24:31Z"
     }
   },
-  "since": "2026-08-17T11:45:18Z",
-  "since_reason": "the open set is complete — the closed history resumes at 2026-08-17T11:45:18Z",
-  "next_since": "2026-09-25T08:24:16Z",
+  "since": "2026-08-18T23:36:58Z",
+  "since_reason": "the open set is complete — the closed history resumes at 2026-08-18T23:36:58Z",
+  "next_since": "2026-09-25T14:26:19Z",
   "resume": {
-    "since": "2026-08-18T23:36:58Z",
+    "since": "2026-08-21T17:24:31Z",
     "phase": "history",
     "stopped_by": "budget",
     "reason": "the per-run budget of 800 requests is spent"
   },
   "counts": {
-    "issues_open": 195,
-    "issues_closed": 1764,
-    "pulls_open": 5,
-    "pulls_closed": 3801,
-    "records": 5765
+    "issues_open": 171,
+    "issues_closed": 1967,
+    "pulls_open": 9,
+    "pulls_closed": 3984,
+    "records": 6131
   },
   "board": {
-    "open_issues_count": 207,
-    "open_pull_requests": 10,
-    "read_at": "2026-09-25T08:33:47.024Z"
+    "open_issues_count": 187,
+    "open_pull_requests": 14,
+    "read_at": "2026-09-25T14:27:48.413Z"
   },
   "count_check": {
     "verdict": "pending",
     "reason": "the open set is complete but was enumerated in an earlier run and this run's delta did not catch up with the live board, and the closed history is still walking — cards closed or opened since then are archived in their old state",
-    "expected": 197,
-    "archived": 195,
+    "expected": 173,
+    "archived": 171,
     "shortfall": null,
     "surplus": null,
     "gone_ledger": 0,
@@ -58,8 +58,8 @@
   },
   "requests": 800,
   "run": {
-    "numbers_read": 444,
-    "files_written": 857,
+    "numbers_read": 430,
+    "files_written": 830,
     "walk_complete": false,
     "open_set_completed_here": false,
     "delta_ran": true,

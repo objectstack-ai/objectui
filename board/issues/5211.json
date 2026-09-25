@@ -1,0 +1,34 @@
+{
+  "number": 5211,
+  "kind": "issue",
+  "title": "finding: an approver routed a request can be unable to open the record it concerns — the inbox's record link dead-ends on \"Record not found\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T14:39:15Z",
+  "updated_at": "2026-08-19T18:46:19Z",
+  "closed_at": "2026-08-19T18:46:19Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5211",
+  "body": "> **Moved from `objectstack-ai/objectstack#7345`** by the `repo:objectui` PM seat (session `session_01RV6yuVCxymHYE16PL9vQkE`) under the maintainer's direct-dispatch authorisation, 2026-08-18, verbatim: 「转」.\n>\n> **Reason:** file-at-destination. Dispositions 2 and 3 — the ones that are actually polish rather than security changes — both land in this repo (the inbox row's link affordance, and the record page's \"not found\" vs \"not visible to you\" message). Disposition 4 is explicitly flagged in the body as a **security-model change**, not a UX fix, and if it is ever taken it must go back to the platform repo as a contract-first split, not be done here.\n>\n> ⚠️ The original carried an `approvals` label that does not exist in this repo. ⛔ Not minted — recorded here in prose instead.\n>\n> Original thread has 2 comments; read them there. Bare issue references below rewritten to full cross-repo form.\n\nObservation-class finding recorded during the `objectstack-ai/objectstack#7331` browser verification run. Filed unassigned, no `pm:queue` — for triage to grade. It is **not** a routing regression from `objectstack-ai/objectstack#7213`: the routing half was verified correct and is stated below so the next reader does not re-derive it.\n\n## What happens\n\nA non-admin who is a pending approver opens the Approvals Inbox, sees the request, and clicks the record chip in its row (`INV-1002`). The record page renders **\"Record not found — The record you are looking for does not exist or may have been deleted.\"**\n\nThe record exists and the request is live.\n\n## The routing is correct — that part was ruled out first\n\nThe rendered href is exactly what `objectstack-ai/objectstack#7213` intended: it carries the **current app's** segment, the right object and the right record id.\n\n```\nINV-1002 -> /_console/apps/com.objectstack.account/showcase_invoice/record/9oAya50sd_E-PEWH\n```\n\nLoading the same URL **shape** under the same app with a record the persona *can* read renders the record page normally (verified with `showcase_project/record/1YtAy4jz7Wsi9m9k` under `com.objectstack.account`). So the account app can host a record page for a foreign business object; nothing about the app segment is wrong.\n\n## The real cause: record-level visibility\n\nThe authoritative server answer for that persona is a 404, not a 403:\n\n```\nGET /api/v1/data/showcase_invoice/9oAya50sd_E-PEWH\n404 {\"error\":\"Record 9oAya50sd_E-PEWH not found in showcase_invoice\",\"code\":\"RECORD_NOT_FOUND\"}\n```\n\nThe persona holds `contributor`, whose `showcase_invoice` grant is owner-scoped; the invoice is owned by another user, so it is filtered out of the row set before the by-id read. The same read as admin returns the record. Transferring `owner_id` to the persona did not change the outcome either (the seeded showcase rows carry `organization_id: null`), so the showcase fixture makes this easy to hit — but the general shape is not showcase-specific: **approver resolution routes on positions, record visibility is a separate gate, and nothing reconciles the two.**\n\n## Why it is worth recording rather than shrugging at\n\nThe drawer degrades well: it carries the request's payload snapshot (record title, object, subtotal, account, status), so an approver can decide without opening the record, and the decision itself works — the run approved this exact request from the drawer successfully. So this is not a blocked approval.\n\nWhat is unsatisfying is the **affordance**: the inbox offers a record link that, for the person it is offered to, leads to a page saying the record may have been deleted. The message is also the least useful of the available truths — the honest one is \"you do not have access to this record\", which the platform renders elsewhere (`sys_inbox_message` renders exactly that for the same persona).\n\n## Candidate dispositions (not decided here)\n\n1. Leave it. Approvals decide from the snapshot by design; record access is the security model's business. Cheapest, and defensible.\n2. Suppress the record link in an inbox row when the viewer cannot read the target — needs a per-row readability probe the inbox does not do today.\n3. Keep the link and fix only the landing message: distinguish \"not visible to you\" from \"does not exist\" on the record page. Smallest user-facing improvement, no security change.\n4. Grant an approver implicit read on the record under approval for the life of the request. The largest surface by far — it makes approver routing a source of record visibility, which is a real security decision and should not be taken as a UX fix.\n\nNo option recommended; 4 in particular is a security-model change, not a polish item.\n\n## Evidence\n\nMeasured 2026-08-10, `examples/app-showcase`, framework `88154bee1`, console dist stamp `8aad9fd50b16750aebdd294392ff79540f17cd32`. Non-admin persona holding `contributor` + `finance`. Screenshots of the \"Record not found\" landing, of the same URL shape rendering a readable record, and the paired API reads were captured in the run."
+}

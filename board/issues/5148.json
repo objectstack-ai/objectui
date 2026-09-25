@@ -1,0 +1,34 @@
+{
+  "number": 5148,
+  "kind": "issue",
+  "title": "`ObjectGrid`'s inline add-record row rides on the author-declared `operations.create` with no `can(object,'create')` gate",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T05:53:49Z",
+  "updated_at": "2026-08-19T16:11:30Z",
+  "closed_at": "2026-08-19T16:11:30Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5148",
+  "body": "## Summary\n\nFound while implementing #5143 (gating `ObjectGrid`'s `editable` key on `can(object, 'update')`). Filed rather than fixed, per the scope rule — it is the `create` face of the same shape and was outside that PR's radius.\n\n## Evidence (`packages/plugin-grid/src/ObjectGrid.tsx`, on `dfc697554`)\n\nThe Airtable-style inline \"add record\" row is gated on the author-declared operation alone:\n\n```ts\n// line ~2782\nshowAddRow: !!operations?.create,\nonAddRecord: onAddRecord,\n```\n\n`operations` is `schema.operations` when declared, otherwise the `{ update: !!onEdit, delete: !!onDelete }` default — an authoring flag that says whether the affordance was *wired*, never a permission grant. Grepping the whole component for the principal's create verdict returns nothing:\n\n```\n$ grep -n \"can(objectName, 'create')\" packages/plugin-grid/src/ObjectGrid.tsx\n(no matches — the only hit for 'create' is a comment on line 724)\n```\n\nContrast the two neighbours resolved a few lines apart at ~730, both of which ARE consumed: `permissionUpdate` / `permissionDelete` feed `resolveRowCrudAffordances`, and after #5143 `permissionUpdate` also feeds the inline-edit verdict. There is no `permissionCreate` at all.\n\n## Consequence, stated honestly\n\nSame round-trip shape as #5143 and #4646: a principal with no `create` grant is offered the add-row, fills it in, and is stopped only by the server's 403. No data lands — the server gate is solid — but the UI walks the user through a write it knows will fail, while the toolbar's New button on the very same screen hides itself for that principal.\n\n**Reachability today is the reason this is filed as an observation rather than a live defect, and the reason the label is `finding`:** nothing shipped declares `operations: { create: true }` on an `object-grid`. Grepping `packages/`, `apps/` and `examples/` finds the key only in three tests, and all three set it to `false`. So the affordance is dormant unless an author writes the key — which is a real, declared authoring surface, and exactly the audience #5143 was about. Triage may well grade this higher than I have; the severity call is deliberately left to the triage round rather than guessed at filing time.\n\n## Suggested shape\n\nThe conjunction the sibling gates already use, with the operation moved to `create`:\n\n```ts\nconst permissionCreate = objectName ? perms.can(objectName, 'create') : undefined;\n// then: showAddRow: !!operations?.create && (permissionCreate ?? true)\n```\n\n`can()` answers `true` with no `PermissionProvider`, so standalone embeds and the Studio designer keep today's behaviour — the fail-open every sibling gate in this file relies on. Whether the object's resolved `create` affordance (ADR-0103 bucket ∧ `userActions.create` ∧ the server's effective API operations) should join it, the way #5143 folded `isObjectInlineEditable` into the update verdict, is the design question worth settling before implementing — `resolveCrudAffordances` already produces `createPredicates` (consumed by the related-list toolbar since #4646 / PR #5145), so there is a resolved answer available to AND with.\n\n## Related (same family — \"one affordance missing the gate its siblings have\")\n\n- #5143 — the `editable` / inline-edit half of this very component.\n- #4646 / #4647 — the related-list \"+ New\" predicates and the ListView inline-edit toggle (PR #5145).\n- #4096 / PR #4108 — row kebab gated on `apiOperations` instead of the caller's permission.\n- #4296 — row kebab vs the record-level verdict.\n- #3492 — bulk action buttons ignoring `requiredPermissions`."
+}

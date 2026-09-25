@@ -1,0 +1,34 @@
+{
+  "number": 5349,
+  "kind": "issue",
+  "title": "`ObjectGrid` renders a header-only grid in total silence when no column resolves — one wrong first column used to take the whole set down, now every wrong column does",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-19T18:02:02Z",
+  "updated_at": "2026-08-21T00:10:40Z",
+  "closed_at": "2026-08-21T00:10:40Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5349",
+  "body": "Filed by the `repo:objectui` execution seat (PM round 17, session `session_01RV6yuVCxymHYE16PL9vQkE`) as **#5068's Q2**, deferred there deliberately and filed now that the deletion has landed (PR5345, merged). Filed unassigned, not claiming.\n\n## What changed, and why that makes this worth a card\n\n#5068 retired `ObjectGrid`'s undeclared `accessorKey`/`header` tolerance branch: the declared `ListColumn` spelling (`field` / `label`) is now the only one the renderer reads. That is right, and the census found **zero** authored `accessorKey`-shaped `object-grid` columns across 924 files plus package READMEs.\n\nBut it relocates a failure mode rather than removing it. **A column authored with a spelling the renderer does not read now contributes nothing, and nothing says so** — no error, no warning, no empty header. The author gets a grid with its row-number column and no data columns.\n\nThat is the same shape #5068 exists to fix, one level down: **the renderer and the author disagree, and the author receives a success receipt.**\n\n## Measured, on `main` before and after PR5345\n\n| input | before #5068 | after #5068 |\n| --- | --- | --- |\n| `[{field:'name'},{field:'amount'}]` | renders both | renders both |\n| `[{accessorKey:'name'},{accessorKey:'amount'}]` | renders both (via the tolerance) | **`headers [\"#\"]`, no cells** |\n| `[{field:'name'},{accessorKey:'amount'}]` | **drops the 2nd silently** (the branch sniffed `cols[0]` only) | `headers [\"#\",\"Name\"]` — the wrong one drops |\n| `[{accessorKey:'name'},{field:'amount'}]` | **threw mid-render** — `inferColumnType` read `col.field.toLowerCase()` on a synthesized column | the wrong one drops |\n\nTwo things worth noticing there. The old behaviour was **not** a tolerance — it was a first-element sniff that was already dropping columns silently in one ordering and **crashing** in the other. And the new behaviour is strictly more consistent, just still silent.\n\nA baseline already exists to measure against: `packages/plugin-grid/src/__tests__/columnDeclaredSpellingOnly.test.tsx` pins *\"leaves the grid standing — and silent — when every column is undeclared\"*.\n\n## Why it was not done inside #5068\n\nThe ruling on #5068 asked only whether a loud rejection was warranted **on the census ground** — is the wrong spelling circulating in docs history as valid? — and the answer measured was no: the spec rejects `accessorKey`/`header` **by name**, and no authored usage exists. That question is settled. **This is the different question the deletion created**, and folding a new diagnostic channel into a deletion PR would have been scope the ruling did not grant.\n\n## Options (not a decision — sizing them, not choosing)\n\n1. **Nothing.** The spec rejects the keys by name, so any validating write path already refuses them; the silent case only reaches a host that never validates.\n2. **Dev-only console warning** when `columns` is non-empty but zero columns resolve, naming the rejected keys and the declared spelling. Cheapest thing that turns a silent nothing into a legible nothing. ⚠️ Check what the existing meta-less `register` deprecation warning does first — ⛔ do not add a second differently-shaped warning channel to the same area.\n3. **Loud runtime throw.** Highest signal, worst blast radius: a grid that renders nothing today would become a page that renders nothing *and* takes the surface with it.\n\nNote the interaction with **#5344**: the designer's `ViewColumnInspector` preserves whichever spelling a stored document already used, so it is the one path that can still hand `ObjectGrid` the retired spelling. If #5344 is resolved by normalizing on write, the population this card serves shrinks accordingly — **sequence them, do not decide them in parallel.**\n\n## Related\n\n- **#5068** / PR5345 — the deletion that created this question (and its Q2)\n- **#5344** — the designer inspector that can still produce the retired spelling\n- **#5340** — the producer that used to; retired by PR5345\n- **#3951** — the disposition #5068 inherited\n- **#4787** — an adjacent grid-renderer legibility finding, different mechanism"
+}

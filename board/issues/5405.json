@@ -1,0 +1,36 @@
+{
+  "number": 5405,
+  "kind": "issue",
+  "title": "Delete `release.yml` — 0 runs in the repository's history; it waits on `v*` tags nothing pushes",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-20T14:27:32Z",
+  "updated_at": "2026-08-20T14:59:06Z",
+  "closed_at": "2026-08-20T14:58:55Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5405",
+  "body": "Ruled by the maintainer on 2026-08-20 (#5393, verbatim 「接受你的所有建议，现在开始处理。」). Item 4 of 5. Independent of the others — touches only its own file.\n\n## Measured\n\nThe workflow named **\"Release\"** (`.github/workflows/release.yml`, id `223155593`) has **`total_count: 0`** workflow runs. Ever.\n\nIt triggers on `push: tags: ['v*']`, and nothing in this repository pushes such tags — releases go through `changeset-release.yml` (`Changeset Release`, id `223783348`, **3901 runs**), which publishes from `main` via the changesets action.\n\n**Counter-probe** (a zero is not a reading): the identical query through the identical method returns 3901 for `Changeset Release` and 8442 for `CI`. The method resolves; the zero is real.\n\n## Why it is worth deleting rather than leaving\n\nA dead workflow is not free. It reads as a live release path to anyone — human or agent — trying to understand how this repo ships, and this issue's parent (#5393) was opened with \"especially release\", where the first thing to establish was that \"release\" means `changeset-release.yml` and *not* the file named `release.yml`. It also duplicates the publish surface, so a future edit could plausibly land in the file that never runs.\n\n## What to verify before deleting\n\nDeleting is trivial; **establishing that it is dead is the actual work.** Do not take this card's word for any of it:\n\n1. Re-confirm `total_count: 0` yourself, with your own counter-probe.\n2. **Confirm nothing pushes `v*` tags** — check the repository's tags for any `v*` matching the trigger, and grep the repo (workflows, `scripts/`, `package.json`) for anything that creates or pushes a tag. ⚠️ If a `v*` tag *does* exist, this workflow was merely never triggered *since some point*, which is a different fact — **stop and report** instead of deleting.\n3. **Confirm nothing references it** — no docs, no `AGENTS.md`, no badge, no other workflow's `workflow_run`. If `content/docs/**` describes it as the release path, that doc is wrong and needs the same PR (⛔ but **not** `content/docs/releases/**`, which is off-limits in a code PR).\n\nIf all three hold, delete the file and say so in the changeset.\n\n## ⛔ Constraints\n\n- ⛔ Touch **only** `release.yml` and any doc that describes it. ⛔ Do not modify `changeset-release.yml` — that is #5404, in flight separately, and a collision there is a merge conflict on the release path.\n- ⛔ Never `major` in the changeset.\n- If the verification turns up any evidence this workflow is intended-but-broken rather than dead, **stop and report the fork** — \"it never ran because it is misconfigured\" and \"it never ran because it is obsolete\" have opposite fixes.\n\nEvidence: #5395, #5393."
+}

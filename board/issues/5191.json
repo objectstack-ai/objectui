@@ -1,0 +1,34 @@
+{
+  "number": 5191,
+  "kind": "issue",
+  "title": "[fields] `getBadgeColorClasses` stays reachable as a class-only export, so a fifth badge call site can silently reintroduce the hex/family split",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T11:52:44Z",
+  "updated_at": "2026-08-19T07:37:09Z",
+  "closed_at": "2026-08-19T07:37:09Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5191",
+  "body": "Filed from objectui#5183's implementation as the residual half of that card's design question. Not a defect in shipped behaviour — after #5183 every current call site resolves correctly. This is about the next one.\n\n## The shape of the trap\n\n`@object-ui/fields` exports two helpers that answer the same question in incompatible currencies:\n\n- `getBadgeColorClasses(color, val)` returns a **class string** — complete-looking, and unable to carry a runtime colour.\n- `getBadgeHexAppearance(color)` returns `{ className, style }` or `undefined` — the correct answer, but only if the caller remembers to consult it first *and* carries the `style` through.\n\nEvery badge surface that reaches for the first one alone quantizes an author-declared hex onto one of nine palette families. That is exactly what objectui#5141 fixed in the cell renderer and objectui#5183 fixed at four more sites. Nothing prevents a sixth.\n\nThe failure mode is quiet in both directions: the class-only call compiles, renders, and looks right for family-name declarations (the common case), so it fails only for authors who declared a hex — and it fails by rendering a plausible neighbouring colour rather than by breaking.\n\n## Why objectui#5183 did not close it\n\nThe dispatch for #5183 asked whether the four sites should route through **one shared helper** instead of adopting the pair individually. Measured there, and recorded so this is not re-derived:\n\n1. **No shared home was in surface.** The only package both `plugin-grid` and `plugin-kanban` depend on that owns the palette is `@object-ui/fields`, which was held out of that round; a resolver there is also a new public export on a published package.\n2. **One resolver cannot serve all four unchanged.** `ObjectGrid`'s compact-card badge falls back to a **local** pipeline-stage heuristic (`stageBadgeColor`) when no colour is declared, not to `getBadgeColorClasses`. A `(color, value)` resolver would have to grow a per-site fallback argument, which puts the divergence back into a parameter.\n3. **A resolver would not remove the trap anyway.** `getBadgeColorClasses` remains exported and class-only, so the next caller can still reach for it. Consolidation makes the right thing easier; it does not make the wrong thing impossible.\n\n## Options, roughly ordered by how mechanically they close it\n\n- **A lint rule** (this repo already ships local ratchet rules under `eslint-rules/`) that flags a `getBadgeColorClasses` call in a package outside `fields` unless the same scope also consults `getBadgeHexAppearance`. Closes the class structurally, no published-surface change.\n- **A consolidated export** — e.g. `getBadgeAppearance(color, value, fallbackClassName?)` returning `{ className, style? }` — with `getBadgeColorClasses` documented as the family-name half of it. Widens the published surface; needs the fallback parameter for the stage-heuristic site.\n- **Both**, with the lint rule pointing at the new export.\n- **Nothing**, and accept that each new badge surface re-derives the pattern from a sibling call site. That is the status quo and is a legitimate answer for a surface that grows this slowly — three surfaces in the last two cards.\n\nRecommendation: the lint rule. It is the only option that makes the fifth caller's mistake impossible rather than merely documented, and it costs no published surface.\n\n## What #5183 did instead\n\nBoth carriers that had to widen (`GroupRow.labelColorStyle`, `KanbanCard.badges[].colorStyle`) carry doc comments stating that the style is required whenever the class came from `getBadgeHexAppearance`, and two cross-surface tests pin that the surfaces agree. That is documentation plus a regression pin — it catches a regression on the surfaces that exist, not a new surface that forgets.\n\nRelated: objectui#5141, objectui#5183."
+}

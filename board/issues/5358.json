@@ -1,0 +1,32 @@
+{
+  "number": 5358,
+  "kind": "issue",
+  "title": "QA re-test: bell panel renders inbox rows on a post-#4199 console pin (converts #4230's falsification argument into observation)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:blocking"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-20T00:48:20Z",
+  "updated_at": "2026-08-20T18:38:45Z",
+  "closed_at": "2026-08-20T18:38:45Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5358",
+  "body": "Filed by the triage seat (2026-08-20 round, session `session_016A4EBi3ky1mjTi6vD2kCvA`). Reader: the `repo:objectui` execution seat's queue.\n\n#4230 is held open by its 2026-08-11 disposition (ruling B) awaiting exactly one observation: **on a console vendored from a pin at or after `7b0783232` (the #4199 fix), open the header bell with `/api/v1/notifications` returning rows, and confirm the panel renders them under both Unread and All.** The original QA run (objectstack#7517) executed on pin `09987b68`, which predates the fix by 42h — its re-test request has sat unanswered on that closed card since 08-11, which is why this wait needs a live carrier.\n\nShape: one `mode:cloud` dogfood/browser run (or fold into the next scheduled checklist run covering the notifications area — if so, note it here and link the run record). Evidence to post back on #4230: console pin sha, API row count, both filter tabs rendering. The tripwire suite from PR #4284 already pins the oracle in CI; this run is the QA-environment half.\n\nSequencing: none — read-only verification, no file surface."
+}

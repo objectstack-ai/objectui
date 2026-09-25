@@ -1,0 +1,34 @@
+{
+  "number": 4855,
+  "kind": "issue",
+  "title": "`field-type-coverage.test.ts` 的表单半边漏掉了 person-picker 家族(`user` / `owner` 不在 `FORM_WIDGET_TYPES`),该守卫对「别名被删」单向失明",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-16T15:21:15Z",
+  "updated_at": "2026-08-19T00:11:58Z",
+  "closed_at": "2026-08-19T00:11:58Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4855",
+  "body": "发现于 #4814 的前置消费者测量(方案 A 退役 `owner` 别名)。**不在该卡范围内**,且无论 #4814 最终裁 A 还是 B 都独立存在,故单独立此单。\n\n观察类(observation-class):今天没有用户碰得到 —— 两条别名都还在,守卫没有在保护一个已经破的东西。它记录的是**守卫本身的覆盖洞**。\n\n## 事实(实读 origin/main @ `1ef236e18`)\n\n`packages/fields/src/field-type-coverage.test.ts` 是「field-type → renderer 注册表」的回归守卫,文件头自陈它防的正是这个失效模式:\n\n> These mappings regressed once already: ~25 specialized field types silently fell back to a plain text input (form) and the raw text cell renderer (read), because the mapping tables were incomplete.\n\n它有两张名单,分别钉两条路径:\n\n- `CELL_RENDERER_TYPES`(`:48`)—— **含** `'user'` 与 `'owner'`,断言二者解析到专用 cell renderer 而非 `TextCellRenderer`。\n- `FORM_WIDGET_TYPES`(`:19-32`)—— **既不含 `user`,也不含 `owner`**。\n\n所以表单那一半对 person-picker 家族是空的:`packages/fields/src/field-type-alias.ts` 里的 `user: 'field:user'`(`:104`)与 `owner: 'field:owner'`(`:105`)任意一条被删,`mapFieldTypeToFormType` 会走 `:155` 的 `return typeMap[fieldType] || 'field:text';` 静默兜到文本框,而这个守卫**不会红**。`lookup` / `master_detail` / `tree` 等其余引用类型都在 `FORM_WIDGET_TYPES` 里,唯独 person-picker 这一支不在。\n\n## 为什么是「单向失明」而不是「对称缺失」\n\n同一个守卫的 cell 半边**是**钉住的。于是删 `registerFieldRenderer('user'|'owner', UserCellRenderer)` 会红,删对应的表单别名不会红 —— 同一个家族、同一个文件、两条路径,红绿方向相反。#4814 的测量就是在这个不对称上撞出来的:按字面执行退役,cell 那半立刻红、表单那半静默降级,读起来像「测试通过了所以退役是安全的」。\n\n## 影响\n\n今天为零 —— 两条别名都在,`field:user` / `field:owner` 都能解析。这条记录的是**守卫的可信度**:一份自称防「静默退化成文本框」的名单,恰恰在最容易被当成冗余别名删掉的两个键上没有覆盖(`owner` 正在 #4814 被提议删除,`user` 是 #4790 一族刚动过的邻居)。\n\n## 建议(不预设结论)\n\n把 `user` 加进 `FORM_WIDGET_TYPES` 是显然的一半。`owner` 那一半取决于 #4814 的重裁结果 —— 若 `owner` 退役,它就不该进这张名单,而该进「已退役键」的反向断言(参照 `index.tsx` 里 `field:capability-multiselect` 的 TOMBSTONE 约定)。因此这张单**建议排在 #4814 重裁之后**,或者先只补 `user`、把 `owner` 留给 #4814 收口。\n\n## 参考\n\n- `packages/fields/src/field-type-coverage.test.ts:19-32`(`FORM_WIDGET_TYPES`)、`:34-49`(`CELL_RENDERER_TYPES`)\n- `packages/fields/src/field-type-alias.ts:104-105`、`:155`\n- #4814(`owner` 别名退役,前置测量已证伪零消费者)、#4790"
+}

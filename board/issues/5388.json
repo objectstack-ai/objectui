@@ -1,0 +1,35 @@
+{
+  "number": 5388,
+  "kind": "issue",
+  "title": "assertLazyLinterStaysLazy ignores resolveSpecDistInjection's output — the counter-probe fails every console build made with OBJECTSTACK_SPEC_DIST set",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-20T08:01:43Z",
+  "updated_at": "2026-08-20T08:42:12Z",
+  "closed_at": "2026-08-20T08:42:12Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5388",
+  "body": "Companion to `objectstack-ai/objectstack#10136`, which measured this from the consumer side. It blocks objectstack#10129 (bumping the objectui pin) and will turn objectstack's **Console Pin Gate** red on any pin at or after `6d5368ac8` (this repo's #5323).\n\n## What breaks\n\n`scripts/build-console.sh` in objectstack sets `OBJECTSTACK_SPEC_DIST` so the console bundles *that tree's* spec instead of the last published one. `apps/console/vite.config.ts` honours it, and the console build then dies in `generateBundle`:\n\n```\n[plugin assert-lazy-linter-stays-lazy]\nRolldownError: counter-probe failed: no eagerly loaded chunk contains an `@objectstack/spec` module.\n(entry chunks: assets/index-mpVXni3j.js; eager chunks: 59/508)\n```\n\nThe counter-probe is **not wrong about what it saw** — it is reading a module-id shape the injection deliberately abolishes, and it correctly refuses to return a verdict from a walk that sees nothing. The bug is upstream of its judgement.\n\n## The seam, verified on `origin/main` at `apps/console/vite.config.ts`\n\nThe file already computes an injection-aware spec test, and one consumer reads it while the other does not:\n\n| line | what it does |\n| --- | --- |\n| 321–322 | `resolveSpecDistInjection(process.env.OBJECTSTACK_SPEC_DIST, { vendorChunkTest: VENDOR_OBJECTSTACK_TEST })` |\n| 345–347 | `const vendorObjectstackTest = specDistInjection ? specDistInjection.vendorChunkTest : VENDOR_OBJECTSTACK_TEST` |\n| 442 | chunk grouping uses `vendorObjectstackTest` ✅ **reads the injection-aware test** |\n| 76–78 | `assertLazyLinterStaysLazy()` declares its **own private** `const LINT = /@objectstack[\\\\/+]lint/` and `const SPEC = /@objectstack[\\\\/+]spec/` |\n| 366 | `assertLazyLinterStaysLazy()` is registered with **no argument** — it cannot see `vendorObjectstackTest` ❌ |\n\nUnder the injection, `resolveSpecDistInjection` rewrites all **18** `@objectstack/spec*` specifiers to absolute paths in the framework tree (`/…/objectstack/packages/spec/dist/<sub>/index.mjs`). Those ids contain no `@objectstack` segment at all, so the private `SPEC` regex matches **zero** modules and the counter-probe fires.\n\nThis is not path-shape-specific to one machine: on GitHub's runner the framework path is `/home/runner/work/objectstack/objectstack/packages/spec`, which also has no `@objectstack` segment.\n\n## Fix — contract-first\n\nMake `assertLazyLinterStaysLazy()` **take the spec test as a parameter** and pass the injection-aware value at line 366, the same way line 442 already does. `resolveSpecDistInjection` already publishes the correct answer (its widened `vendorChunkTest`); the defect is a consumer that does not read its producer's output. Widening the private regex by hand, or having objectstack drop the injection, would both paper over that.\n\n**Review the `LINT` half in the same pass.** `@objectstack/lint` is not injected today, so its regex still matches and the probe's primary assertion is unaffected — but objectstack#9659 proposes injecting four more `@objectstack/*` packages the same way, and lint is a plausible member of that set. Decide deliberately whether `LINT` should become injection-aware now or is genuinely out of scope; say which in the PR either way.\n\n## Reproduction — the injection is the only variable\n\nSame tree, same commit, same command:\n\n| `OBJECTSTACK_SPEC_DIST` | result |\n| --- | --- |\n| set | `Build failed in 11.73s`, counter-probe error above |\n| unset | `EXIT=0`, dist written |\n\n## Acceptance\n\n- The console build succeeds **with** `OBJECTSTACK_SPEC_DIST` pointing at a framework spec dist, and the lazy-linter assertion still does its real job in that mode — i.e. the probe finds the injected spec in the eager closure rather than being skipped or defanged. A probe that passes because it stopped looking is a regression, not a fix.\n- The build still succeeds **without** the injection, with the assertion unchanged.\n- **Reverse-verify**: with the fix in place, deliberately make `@objectstack/lint` eager and confirm the linter assertion still goes red. A guard that can no longer fail is not a guard (#5323's own reasoning).\n- A changeset. This is build config for a private app, so state plainly whether anything publishes; empty frontmatter if not.\n\n## Non-goals\n\n- Do not remove or weaken the counter-probe. #5323 added it for a reason (#9707) and it is behaving correctly here.\n- Do not change what `resolveSpecDistInjection` rewrites.\n- No release, no version tags, no publishing.\n"
+}

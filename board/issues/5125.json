@@ -1,0 +1,35 @@
+{
+  "number": 5125,
+  "kind": "issue",
+  "title": "finding(components): `table` 被注册两次,data-display 的 SimpleTableRenderer 被 complex/table.tsx 完全遮蔽 —— 而它是唯一读 `bind` 的表格渲染器",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "auto-adjudicated",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-18T02:39:18Z",
+  "updated_at": "2026-08-19T16:43:48Z",
+  "closed_at": "2026-08-19T16:43:48Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5125",
+  "body": "发现于 #4797(skills 教学面 iteration 回撤)的实测,真实 SchemaRenderer 探针。半径外,单独立卡。\n\n## 事实\n\n`table` 这个 registry 键有**两处注册**,同一 namespace `ui`:\n\n- `packages/components/src/renderers/data-display/table.tsx:76` —— `SimpleTableRenderer`,读 `useDataScope(schema.bind)`,回落 `schema.data` / `schema.props.data`,空数据时渲染 \"No results.\" 行。\n- `packages/components/src/renderers/complex/table.tsx:25` —— 只读 `schema.data` + `schema.columns`,不读 `bind`。\n\n`packages/components/src/renderers/index.ts` 的导入顺序决定胜负:`import './data-display'`(第 13 行)在 `import './complex'`(第 17 行)**之前**,故 complex 版**后注册者胜出**,SimpleTableRenderer 在 `table` 键上完全不可达。\n\n实测(dataSource = `{ users: [...2 条...] }`):\n\n```\n@@P7 table/bind+columns  rows=0  text=\"NameRole\"\n```\n\n绑定 2 条数据,渲染出表头、**零行**,且没有 \"No results.\" —— 正是 complex 版的行为(SimpleTableRenderer 若胜出会渲染 2 行)。\n\n## 为什么记为 observation-class\n\n`SimpleTableRenderer` 除自身注册外全仓零消费(`grep` 只命中定义、注册与 `dist` 的类型声明),因此这是**惰性代码 + 一处静默漂移**,不是用户今天必然踩到的缺陷 —— 照 complex 版的 `data` + `columns` 写法工作正常。按 objectstack#4949 的分级打 `finding`,不挂 `pm:queue`,severity 留给 PM 分诊。\n\n## 但有一处不惰性的后果\n\n`useDataScope`(即 `bind`)在整个 renderers 目录里只有三个消费者:`data-display/list.tsx`、`data-display/tree-view.tsx`、`data-display/table.tsx`。第三个正是被遮蔽的这个 —— 也就是说**今天没有任何可达的表格渲染器读 `bind`**(`complex/table.tsx` 不读,`complex/data-table.tsx` 的 `DataTableRenderer` 通篇没有 `bind` / `useDataScope`,只解构 `data`)。这直接造成了另一处教学面失真,单独立在 **#5126**。\n\n## 可能的处置(不预判,留 PM / 维护者)\n\n1. 删掉被遮蔽的 `SimpleTableRenderer`(ADR-0049 enforce-or-remove 的取向:声明了却不可达)。\n2. 反过来:认定 bind 版是想要的形态,合并两者、由 complex 版接管 `bind` 读取。\n3. 保留现状但加一道「同 namespace 重复注册」的门禁 —— 这次是靠探针偶然发现的,注册表本身对覆盖是静默的。\n\n选 1 还是 2 会改变 `table` 的可授权键面,属契约取向,不该由实施 agent 猜。"
+}

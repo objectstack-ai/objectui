@@ -1,0 +1,37 @@
+{
+  "number": 5304,
+  "kind": "issue",
+  "title": "`Build & E2E` hangs forever in `apt-get update` and is killed at the 30-minute timeout — every full-E2E PR is affected, and nothing blocks the merge",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "pm:dispatched",
+    "priority:p0",
+    "tooling"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-19T08:09:30Z",
+  "updated_at": "2026-08-19T11:22:24Z",
+  "closed_at": "2026-08-19T11:22:24Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5304",
+  "body": "**Maintainer ruling, 2026-08-19, verbatim: 「先修 CI,PR 一律等着」.** No PR whose `Build & E2E` did not run is being flipped to ready until this is fixed. This card is the fix; the accept path for the whole `repo:objectui` lane is behind it.\n\n## The fault\n\n`Build & E2E` hangs inside `apt-get update` and produces **no log output at all** for ~29 minutes, until the 30-minute ceiling cancels the job. The job's total log is ~4.8 KB — it never reaches the build or the E2E run.\n\nMeasured twice, on two unrelated PRs, with a **byte-identical last line**:\n\n| PR | job id | last real log line | cancelled |\n|---|---|---|---|\n| #5290 | 95986117935 | `07:05:48 Get:5 https://archive.ubuntu.com/ubuntu noble-security InRelease [126 kB]` | 07:34:39 (30m14s) |\n| #5294 | 95988703670 | `07:17:27 Get:5 https://archive.ubuntu.com/ubuntu noble-security InRelease [126 kB]` | 07:46:21 (30m17s) |\n\nIn both runs the preceding lines show `azure.archive.ubuntu.com` returning **`Ign:` for every index** (noble, noble-updates, noble-backports, noble-security), apt falling back to `archive.ubuntu.com`, fetching three `InRelease` files — and then never returning. Then `##[error]The operation was canceled.` and `Post job cleanup`, which terminates two orphan `node` processes.\n\nNeither PR's diff can reach apt: #5290 changes `apps/console/src/pages/developer/hooks/useApiDiscovery.{ts,test.ts}` plus a changeset; #5294 changes `packages/plugin-view/**` plus a changeset.\n\n## ⚠️ The counter-example — do not skip it\n\n**PR #5292 passed `Build & E2E` in under 2 minutes in the same window** (07:08:46 → 07:10:44, `success`). Its diff touches only `eslint-rules/**` and `eslint.config.js`. So the job evidently has a path-filtered short-circuit, and the hang is on the **full** leg — the one that installs browser/system dependencies.\n\nThat means \"it's green on some PRs\" is **not** evidence the fault is intermittent. Establish which step actually runs on the full leg before concluding anything about frequency. A fix validated only against a short-circuiting PR would be a false green.\n\n## Why this is p0 rather than an annoyance\n\n1. It blocks the accept path for **every** PR that runs the full leg — currently #5290, #5294, and the PRs from #5270/#5003/#5006 and others behind them.\n2. It burns 30 minutes of runner time per affected PR.\n3. **Nothing stops it merging.** This repo's `main` ruleset (id `11776024`) carries `deletion`, `non_fast_forward`, `merge_queue` and `pull_request` rules and **no `required_status_checks` rule at all** — measured, not assumed. So a cancelled `Build & E2E` is invisible to the merge machinery; the only thing holding the line is a seat's own discipline. That is exactly the \"advisory gate red in main is shared damage\" shape.\n\n## Scope\n\nDiagnose and fix the hang. The direction is **not** prescribed — candidates worth weighing include making the apt step resilient (retry/timeout/mirror selection), or removing the dependency on `apt-get update` at CI time altogether if the browser dependencies can come from a cached or pre-provisioned image. Pick on evidence and say why.\n\n⛔ **Not acceptable as the fix**: shortening or removing the E2E leg, skipping the job, marking it `continue-on-error`, or otherwise making the gate quieter. Weakening a gate is on the maintainer floor, and the whole reason this card is p0 is to *restore* the signal rather than silence it.\n\n⛔ Do not add `required_status_checks` to the ruleset as part of this card — that is a separate gate-strength change and is the maintainer's call.\n\n## Verification bar\n\nA green `Build & E2E` on a PR that exercises the **full** leg is the only acceptable proof. State plainly which leg your validation PR took and how you know (name the path filter and why your diff trips it) — a green on a short-circuiting diff proves nothing here.\n\nGitHub Actions cannot be run locally, so be explicit about which claims are measured from a real run and which are reasoned; do not present the second as the first.\n\n## Serial constraint\n\n**PR #5295 (issue #5261) currently holds `.github/workflows/cross-repo-issue-closer.yml` and `.github/workflows/lint.yml`, plus root `package.json` / `pnpm-lock.yaml`.** It is open and awaiting review. Stay out of those files; if the fix genuinely requires one of them, stop and report rather than editing across the hold."
+}

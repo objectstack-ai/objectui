@@ -1,0 +1,35 @@
+{
+  "number": 3521,
+  "kind": "issue",
+  "title": "记录页头的动作谓词走遗留 JS 求值器而非 CEL：`.size()` / `.contains()` / `in` / `today()` 在详情页一律抛错并静默隐藏按钮",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T02:20:12Z",
+  "updated_at": "2026-08-19T14:00:56Z",
+  "closed_at": "2026-08-08T16:36:14Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3521",
+  "body": "记录页头（`page:header`）的动作 `visible` / `disabled` 不走规范 CEL 引擎，而是走 objectui 的遗留 JS 求值器（`packages/components/src/renderers/layout/containers.tsx` 里 `new ExpressionEvaluator(evalCtx)` + `evaluator.evaluateExpression(src)`）。结果是**同一条谓词在列表里对、在详情页头静默错**，而且是 fail-closed —— 按钮直接消失，页面上没有任何痕迹。\n\n## 实测（showcase `showcase_field_zoo` / Specimen — Full，真实 runtime）\n\n同一批动作同时声明 `list_item` 与 `record_header`。行内 kebab（走 `evalRowPredicate` → `@objectstack/formula`）全部正确求值；页头把其中 15 条判为抛错并隐藏。控制台原话：\n\n```\n[page:header] action \"showcase_zoo_t_multiselect\" hidden: its predicate threw —\n  Failed to evaluate expression \"\"red\" in record.f_multiselect\":\n  Unexpected token \"i\" at position 6\n[page:header] action \"showcase_zoo_t_date\" hidden: its predicate threw —\n  Failed to evaluate expression \"record.f_date != null && record.f_date < today()\":\n  \"today\" is not a function\n```\n\n失效的是**每一个 CEL 独有的构造**：\n\n| 构造 | 例子 | 页头结果 |\n|---|---|---|\n| 方法调用 | `record.f_tags.size() > 0`、`record.f_textarea.contains(\"x\")`、`record.f_email.matches(\"…\")` | 抛错 → 隐藏 |\n| `in` 运算符 | `\"red\" in record.f_multiselect` | 解析失败 → 隐藏 |\n| stdlib 函数 | `record.f_date < today()` | `today is not a function` → 隐藏 |\n\n只用 `== != < && \\|\\| !` 的谓词两边一致，所以问题一直没被发现 —— 直到有人在谓词里用了一次 `.contains()`。\n\n## 为什么这不只是「少几个函数」\n\n1. **同一条元数据，两种方言。** 行 kebab / 批量栏 / 条件格式自 #1584 / ADR-0058 起统一走 `evalRowPredicate`（bare string 即 CEL，只有带遗留标记的字符串才回退 JS 并打 deprecation 警告）。页头没有跟上，它把**每一条**谓词都当 JS。\n2. **与服务端也不一致。** 服务端校验/共享/流程一律 CEL。作者按服务端方言写的谓词，在页头上是 fail-closed 隐藏。\n3. **失败无声。** 只有一条 warn-once 的 console 输出；产品上的表现就是「这个按钮在列表里有、点进详情页就没了」。\n\n## 方案\n\n把页头的两处求值（`visible`/`hidden` 用的 `evalExpr`，以及 `disabled` 用的 `dEvaluator`）改为走 `evalRowPredicate`(`@object-ui/core`) —— 与行 kebab 同一个入口、同一套绑定（`record.*` + 裸字段 + `data.*` + 宿主 scope）、同一套 fail-closed + warn-once 语义，遗留方言字符串仍由 `isLegacyDialectSource` 兜住回退，所以现存的 `${…}` / `===` 写法不回归。\n\n关系字段的绑定刚在 #3501 统一过（`toPredicateRecord` 已接进这两处），本单是同一处剩下的那一半：绑定对了，方言还没对。\n\n## 验收\n\n一条 `visible: 'record.tags.size() > 0'`（或 `in` / `today()`）的动作，在列表行菜单、批量栏、记录页头三处对同一记录给出相同显隐结论；页头不再对 CEL 独有构造抛错。showcase 里 `showcase_zoo_dialect_split` 与 `showcase_zoo_t_*` 系列是现成的实测夹具（framework `examples/app-showcase/src/ui/actions/predicate-matrix.action.ts`）。\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 4787,
+  "kind": "issue",
+  "title": "[finding] grid renderer 把 schema 键原样漏成 DOM 属性(columns=\"[object Object]\"、mdcolumns=\"2\" 等无效 HTML 属性)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-16T07:48:43Z",
+  "updated_at": "2026-08-21T14:33:27Z",
+  "closed_at": "2026-08-21T14:33:27Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4787",
+  "body": "发现于 #4011 的实施(PR #4785),observation-class 归档。\n\n## 实测\n\ngrid 渲染输出带 `columns=\"[object Object]\"`、`columns=\"4\"`、`gap=\"4\"`、`mdcolumns=\"2\"`、`props=\"[object Object]\"` 等无效 HTML 属性 —— `grid.tsx:106-120` 只摘掉 `data-obj-*`/`style`,其余 schema 键随 gridProps 展开落到 div。今天不影响布局与功能;#4008 的棘轮只钉 className,故从未察觉。catalog 现存每个 grid 示例的渲染都带着它。\n\n## 修法方向(待分诊)\n\n渲染器侧白名单化 DOM 透传(只放行合法 HTML/data 属性)—— 与 #3291 的白名单纪律同族;或至少摘掉已知 schema 键。React 对未知小写属性有 console warning 的形态也值得核(为何测试没红)。\n\n## 参考\n\n- #4011 / PR #4785(发现来源)、`packages/components/src/renderers/layout/grid.tsx:106-120`"
+}

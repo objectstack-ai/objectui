@@ -1,0 +1,32 @@
+{
+  "number": 5556,
+  "kind": "pull_request",
+  "title": "Marketplace package detail page states the marketplace is off, instead of red-erroring (#5533)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T10:38:04Z",
+  "updated_at": "2026-08-21T11:05:28Z",
+  "closed_at": "2026-08-21T11:05:26Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": "2026-08-21T11:05:26Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5556",
+  "body": "Fixes #5533\n\nThe marketplace **package detail** page now states that the marketplace is turned\noff, instead of red-erroring, on a runtime that has none.\n\n`MarketplacePackagePage` takes the same `isMarketplaceEnabled()` early return its\nsibling catalog page took in #5504, rendering the informational\n`MarketplaceDisabled` state when the server reports `features.marketplace: false`\n(an `OS_CLOUD_URL=off` deployment — the EE template's factory default). Until now\nthe same runtime answered a bookmarked or pasted package URL with a destructive\n\"Failed to load package / Not found.\" card, so the two sibling pages reached\nopposite conclusions about one runtime: the catalog called it configuration, the\ndetail page called it a failure.\n\nBoth requests the page fires for its own view are skipped in that state — the\npackage fetch and the cloud-installation probe — rather than fired and discarded:\na discarded request still reaches the server and can race the destructive card\nonto the screen before the disabled state settles.\n\n## The open question this card left to the implementer, and how it was decided\n\n> Should the disabled detail page offer a \"back to marketplace\" affordance at all,\n> given the catalog it would return to is itself disabled?\n\n**No affordance** — and the reason is structural rather than a preference:\n`MarketplaceDisabled` takes **no props at all**, so the affordance is not\nparameterised, and it already ships exactly one exit of its own (back to the app\nhome, `/apps/<appName>`). Rendering it bare therefore inherits that honest exit and\ndrops the detail page's own \"Back to marketplace\" button, which would have landed\nthe operator on a second copy of the same notice. A test pins both halves.\n\n## Placement note, stated because it is a real ordering change\n\nThe disabled early return had to precede the `error || !data` branch, and this\npage's existing `!isAdmin` check sits **after** that branch (unlike the catalog\npage, where admin precedes disabled). So on the detail page, disabled now precedes\nadmin. The existing admin check was **not** moved — doing so would change what\nnon-admins see on *working* runtimes, which is a different card. The consequence is\ndocumented in a code comment and filed as a follow-up finding.\n\n## Scope, deliberately narrow\n\n- **Not** a \"swallow all errors\" change. With `features.marketplace: true` the page\n  behaves exactly as before, and a package that genuinely is not there still\n  renders the destructive card carrying the server's own message. The flag is the\n  runtime's own answer, never inferred from the shape of a failure, and it fails\n  open — a runtime that answers nothing keeps its detail page.\n- The `installLocal` surfaces are untouched. That is a different capability flag,\n  and an air-gapped `OS_CLOUD_URL=off` runtime still has a working install-local\n  path (objectstack#8343).\n- No new i18n keys: `marketplace.disabled.*` and `marketplace.action.backHome`\n  already ship in all ten locale packs.\n- `runtime-config.ts` and `MarketplaceDisabled.tsx` were read-only for this card\n  and are not modified. Exactly 3 files change, all inside the declared surface.\n\n## Verification\n\n- **New suite + the sibling catalog suite**: 2 files / 13 tests passed.\n- **Reverse verification**, prediction written to disk before the run: deleting the\n  early return turns it red, and the ablated DOM dumps contain\n  `marketplace.load.packageFailed` — the red card genuinely came back. The mutation\n  was proven on disk by grepping the deleted text itself (count 1 → 0), not by an\n  editor exit code, and restored under a `trap … EXIT INT TERM`.\n  **One prediction missed, reported as observed:** the \"issues no package request\"\n  case was predicted to still pass while ablated; it failed instead, because its\n  `waitFor` for the disabled state dies first. Direction (red) held; the reasoning\n  about which line would carry it did not.\n- **Negative controls**, both green in the same suite: with `features.marketplace:\n  true` a nonexistent package id still renders the destructive card carrying the\n  server's own message, and a package that resolves still renders normally. Every\n  case boots the real `initRuntimeConfig()` over a stubbed\n  `GET /api/v1/runtime/config` rather than mocking `isMarketplaceEnabled()`.\n- **Type check** exit 0 (after building the dependency closure — the first run's\n  ~40 `TS2307`s were the unbuilt-closure trap, not this diff), **lint** 0 errors,\n  `check:i18n-keys` / `check:control-bytes` / changeset gates all exit 0, and\n  `check:eager-closure` reports 3784.9 KB against a 3867.2 KB budget.\n\nLint is a **declared narrowing**: the repo-wide run is CI's. It is sound rather\nthan merely cheap — `eslint.config.js` declares no `parserOptions.project` and no\n`projectService`, so linting is not type-aware and a 3-file diff cannot move the\nverdict of a file it does not contain.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_014zHsbJoTkTZeJQ5DLbRXrE)_"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 5404,
+  "kind": "issue",
+  "title": "`changeset-release.yml`: drop the duplicate `pnpm test`, and stop concurrency discarding release runs (95 of 200 never executed)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-20T14:26:52Z",
+  "updated_at": "2026-08-21T01:15:11Z",
+  "closed_at": "2026-08-21T01:15:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5404",
+  "body": "Blocked-by: #5403\n\nRuled by the maintainer on 2026-08-20 (#5393, verbatim 「接受你的所有建议，现在开始处理。」). Item 3 of 5, and **last on purpose** — see the ordering note below. Both halves are in `changeset-release.yml`, so one card, one PR.\n\n## Half 1 — the duplicate test run\n\n`Run tests` (`pnpm test`, unsharded) is **34 minutes of a ~35-minute job**; everything else combined is ~90 seconds (install 7 s, build 35 s, publish 12 s). It re-tests a commit that is **already on `main`** — failing it cannot keep anything out, it only blocks publishing after the fact.\n\n## Half 2 — runs are being discarded, not queued\n\n`concurrency: ${{ github.workflow }}-${{ github.ref }}` with `cancel-in-progress` unset. I originally described this as serialising with a ~35-minute wait. #5395 refuted the magnitude and found something worse: GitHub holds only **one** pending run per group and **discards** the rest — **95 of 200 release runs never executed at all**. Median wait for those that did run is 5 min 08 s (22% of wall clock), not ~35 min.\n\nSo the defect is not latency. **Release runs are being thrown away**, on a workflow whose last step publishes to npm.\n\n⛔ **Do not fix this with `cancel-in-progress: true`.** The final step is `changeset publish`; cancelling mid-publish is worse than any wait. The requirement is that **no merge loses its release run** — find the shape that achieves that (a queue that actually queues, or a design where a dropped run is provably harmless because the next run subsumes it). If the second is true, **prove it** rather than asserting it: show that a discarded run's changesets are still consumed by the following run.\n\n⚠️ Half 1 makes half 2 much cheaper — a ~2-minute job contends far less than a 35-minute one — but ⛔ it does **not** make half 2 unnecessary. A dropped run is a dropped publish at any duration.\n\n## ⚠️ Why this card is last, and what must be true before it lands\n\nI originally proposed removing the release-side tests **first**, arguing the CI push lane still ran the whole suite as a backstop. That argument was false: #5402 shows `Test (coverage)` has failed **100% of the time since 2026-08-16**.\n\nSo this card may only land once **both** are true, and the implementer must verify both on `origin/main` before opening the PR, not take this card's word for it:\n\n1. **#5402 is fixed** — the push lane's suite actually passes.\n2. **#5403 has landed** — the push lane is sharded and its upload no longer fails silently.\n\nIf either is not true when you pick this up, **stop and report** rather than proceeding — removing this test run while the push lane is dark would leave `main` with no working post-merge validation at all.\n\n⚠️ Related context the implementer should read but **not** act on: the merge queue currently runs no CI (#4986 — a repository-settings matter, ⛔ no PR can fix it), and the release PR itself runs no CI (#5397). Neither blocks this card; both mean there is less validation upstream than the workflow's design assumes.\n\n## ⛔ Constraints\n\n- ⛔ `changeset:publish` behaviour is not in scope and must not change. ⛔ **No AI-executed release.**\n- ⛔ Do not touch `changeset:version` — #5396 just wired the QUICK_REFERENCE sync into it, and a pin in `sync-quick-reference-release.test.ts` asserts this workflow's `version:` input. If your change trips that pin, that is the pin working; do not weaken it.\n- Report elapsed from the jobs' own `started_at`/`completed_at`.\n\nEvidence and method: #5395. Ruling: #5393."
+}

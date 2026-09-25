@@ -1,0 +1,34 @@
+{
+  "number": 5357,
+  "kind": "issue",
+  "title": "@object-ui/app-shell emits 1259 extensionless relative specifiers, so plain Node ESM cannot load its published entry",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-20T00:38:50Z",
+  "updated_at": "2026-08-20T04:51:58Z",
+  "closed_at": "2026-08-20T04:51:52Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5357",
+  "body": "Blocked-by: (discharged 2026-08-20 — see the unblock comment; the constraint was PR5369 merging, not #5214 closing)\n\nSplit out of #5214, which listed seven packages carrying this defect and noted that `@object-ui/app-shell` at 1259 specifiers \"probably deserves its own card rather than riding along with the small ones\". The triage comment on #5214 authorised the split explicitly, and the dispatching seat took the other six (`fields`, `auth`, `mobile`, `collaboration`, `permissions`, `providers`) in PR5369, **now merged**. This card is the remaining seventh.\n\n`#4538` remains the source of the original analysis and is not addressed further here.\n\n## The defect\n\nNode's ESM resolver does not extension-search relative specifiers, and a bare `tsc` never rewrites import specifiers — so an extensionless `./Foo` in the source stays an extensionless `./Foo` in the published `dist`, and importing the entry under plain Node fails with `ERR_MODULE_NOT_FOUND`. Bundled consumers are unaffected, which is why everything is green today. The gate that sees it is `pnpm check:node-esm-load`; the specifier count comes from `pnpm check:esm-specifiers`.\n\n## How many specifiers — three numbers, none of them authoritative\n\n⚠️ **Measure this yourself before working; do not adopt any number below.** Three methods have produced three answers:\n\n| source | number | method |\n|---|---|---|\n| the `SPECIFIER_DEBT` ledger on `main` | 1259 | the original #5214 census |\n| PR5369's dev, at its branch point | 1271 | the gate's own `check:esm-specifiers` |\n| this seat, on merged `main` `f2e11ae6f` | 1813 | a crude `git grep` of `from '../…'` in `src/`, **not** the gate's method — it counts type-only imports and does not dedupe |\n\nThey disagree because they count different things at different times. The gate's reading is the one that matters; the other two are here so a discrepancy does not read as a discovery.\n\n## What clearing it is worth, stated precisely\n\nPR5369 took the load leg from **17 to 34 of 39** — the six packages plus all 11 downstream packages that were failing on `mobile`, `permissions` or `providers`. This card takes it from **34 to 35**: one entry, its own.\n\nThat is the honest payoff — the biggest package and the smallest incremental unlock in the set. It is still worth doing, because `app-shell` is a published entry a plain-Node consumer cannot import today, and because 35 of 39 with the remaining 4 both ledgered and explained is a gate that can finally be turned from ratchet into hard requirement.\n\nThe remaining 4 after this card: `plugin-dashboard` + `plugin-map` (`LOAD_DEBT`, third-party `.css`) and `create-plugin` + `runner` (not importable by design).\n\n⚠️ \"Fails on its own file\" is a *first* error — it masks anything later in the same load. PR5369 proved this is not academic: its reverse-verification predicted 5 red and observed 10, because the card's table recorded only whichever missing module each package hit first. If this entry is still red after your fix, report the new first error rather than widening scope to chase it.\n\n## The fix shape, proven on four packages in #4538 and six more in PR5369\n\n1. Append the explicit extension to every relative specifier in the files the build emits (`./x` becomes `./x.js`; a directory import becomes `./x/index.js`). **Resolve each one against the filesystem rather than pattern-matching.** At this scale that is the whole risk of the card: a regex sweep will be wrong somewhere and nothing downstream will notice, because the build stays green either way. PR5369 found two specifiers that parse as imports but live in prose comments, and verified its diff mechanically afterwards — 412 changed line pairs, 0 that were not a pure extension append. Do the same and report the histogram.\n2. Optionally pin `module`/`moduleResolution` to `nodenext` in **this package's own** `tsconfig.json` (TS2835/TS2834 instead of a review item). ⚠️ **This may not be available to you**: PR5369 could not apply it to `packages/fields`, because under `nodenext` TypeScript cannot follow `@object-ui/components`'s own `dist/index.d.ts`, which re-exports through 21 extensionless specifiers — filed as **#5365**. If `app-shell` depends on `components`, expect the same flood; that is #5365's problem, not yours. Skip step 2 and say so rather than fixing `components` here.\n3. Delete this package's entry from `SPECIFIER_DEBT` in `scripts/check-node-esm-load.mjs` **in the same commit** — the ledger is a ratchet and fails on a stale entry. Yours is now the **only** entry left; deleting it empties the map.\n\n⛔ Do not change `moduleResolution` in the **root** `tsconfig.json`. 38 packages extend it; a repo-wide flip is a much larger change and is not what this card is.\n\n## Serial constraint — discharged\n\nOriginally blocked because PR5369 and this card both delete entries from the same `SPECIFIER_DEBT` array. PR5369 merged as `5458414a7`, so the array is now uncontested and its surviving entry is exactly the one this card removes. Re-verified on merged `main`.\n\n## Related\n\n- **#5365** — `@object-ui/components` ships 21 extensionless re-exports in its `dist/index.d.ts`; blocks the `nodenext` pin for anything downstream of it, and no gate covers it\n- **#5367** — `check-node-esm-load.mjs`'s `readTsconfig()` strips comments with regexes that are not string-aware, so `\"@/*\"` breaks the JSON parse and the verdict comes from a catch block; currently fails safe, but the margin is spent"
+}

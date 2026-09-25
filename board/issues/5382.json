@@ -1,0 +1,35 @@
+{
+  "number": 5382,
+  "kind": "issue",
+  "title": "check-node-esm-load's comment mask is not line-comment aware, so a `/*` inside a `//` line hides live extensionless specifiers from the gate",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-20T03:27:17Z",
+  "updated_at": "2026-08-21T02:54:40Z",
+  "closed_at": "2026-08-21T02:54:40Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5382",
+  "body": "Found while clearing `@object-ui/app-shell` for #5357. Not fixed there: that card's file surface is `packages/app-shell/src/**` plus the `SPECIFIER_DEBT` entry, and this is a different defect class in the gate's own scanner. Same family as #5367 — a comment-stripping regex in this script that is not aware of the context it is stripping from.\n\n## The defect\n\n`withoutCommentedCode()` in `scripts/check-node-esm-load.mjs` blanks block comments with\n\n```js\nsource.replace(/\\/\\*[\\s\\S]*?\\*\\//g, (block) => block.replace(/[^\\n]/g, ' '))\n```\n\napplied **before** line comments are handled. The pattern has no notion of already being inside a `//` line, so any `/*` that appears in ordinary line-comment prose opens a block comment, and the mask then runs to the next `*` `/` anywhere in the file — blanking every line in between, live code included.\n\n## Measured, 2026-08-20, on `main` at `f2e11ae6f`\n\n`packages/app-shell/src/preview/DraftChangesPanel.tsx` line 44 is a line comment that mentions a glob:\n\n```\n// `vendor-objectstack` chunk group claims every `@objectstack/*` module except\n```\n\nThe backtick-quoted `@objectstack/*` opens the fake block comment. It closes at the `*` `/` ending the next JSDoc block, around line 55. Lines 51 and 52 are blanked — and line 52 is a live import:\n\n```ts\nimport { diffFields } from '../views/metadata-admin/previews/object-fields-io';\n```\n\nTaking the same specifier set two ways over the same 424 emitted source files:\n\n| method | relative specifiers found |\n|---|---|\n| the gate's `RELATIVE_SPECIFIER` over `withoutCommentedCode(source)` | 1270 |\n| the TypeScript parser (`ts.createSourceFile`, module-specifier nodes) | 1271 |\n\nThe set difference is exactly one entry, in one direction: the parser sees `DraftChangesPanel.tsx:52` and the gate does not. The gate produced **zero** false positives — the two genuine prose specifiers in that package are correctly invisible to both.\n\n## Why it matters more now than it did\n\nWhile `@object-ui/app-shell` sat in `SPECIFIER_DEBT` the miss was harmless: the package was red-listed anyway. After #5357 the ledger is **empty** and the specifier leg is a hard requirement for every specifier-preserving package. A blind spot in a hard requirement is a hole a regression can sit in permanently, and the failure direction is the bad one: the gate reports clean, the artifact ships broken, and only the nightly load leg can see it — attributed to whichever module the entry happened to reach first.\n\nIt is not exotic prose either. A line comment naming a package glob (`@scope/*`), a path pattern, or a wildcard import is ordinary in this repository.\n\n## Suggested shape\n\nThe cheap correct fix is to mask in ONE pass that knows which context it is in, rather than two independent `replace` calls whose order decides the answer — a scanner that walks the source once and blanks whichever of `//` or `/*` opens first, honouring the newline-preservation the current implementation is careful about (that care is load-bearing; see the note above `withoutCommentedCode`).\n\nThe stronger option is to take the specifier set from the TypeScript parser outright, since `typescript` is already a dependency and `emittedSources()` already knows exactly which files to hand it. That removes the whole class — line comments, block comments, template literals and regex literals stop being questions at all — at the cost of parsing 400-odd files instead of running a regex over them, which measured under two seconds for `app-shell`.\n\nWhichever shape is chosen, the pin worth having is the measured one: a fixture whose line comment contains `@scope/*` followed by a real extensionless import, asserting the import is still found.\n\nRelated: #5367 (`readTsconfig()`'s comment stripper, same script, same class), #5357 (where this was found), #4538 (the gate's origin)."
+}

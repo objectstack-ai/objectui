@@ -1,0 +1,32 @@
+{
+  "number": 4230,
+  "kind": "issue",
+  "title": "REGRESSION: the console header bell panel is dead again — \"No notifications\" under both Unread and All while `/api/v1/notifications` returns 10 rows (#4110 / #4156 back on console 09987b68)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T05:00:01Z",
+  "updated_at": "2026-08-20T18:38:35Z",
+  "closed_at": "2026-08-20T18:38:35Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4230",
+  "body": "## Symptom\n\nThe console top-bar bell panel renders **\"No notifications\" under BOTH its Unread and All filters**, while at the same moment, for the same session:\n\n- `GET /api/v1/notifications` returns **10 rows**, including an `approval.reminder`;\n- the home page's **\"Needs your attention\"** card *does* surface them.\n\nInstrumenting the page shows the panel issues **zero `/api/v1/*` requests when opened**.\n\n### Why this is filed as a regression\n\nTwo closed cards describe this exact defect:\n\n- **objectstack-ai/objectui#4110** — \"InboxPopover 通知页签恒为空\" — same symptom, both tabs empty (\"已读完所有通知\" / \"暂无通知\") while `sys_inbox_message` had unread rows, `GET /api/v1/notifications` returned them with `unreadCount:1`, and the Home 待办事项 card rendered them. It was itself reported as an rc.3 → rc.5 regression. **Closed as completed** by PR objectstack-ai/objectui#4199 — *\"fix(app-shell): the bell polls the inbox on every console surface, not only inside an app\"* — i.e. the claimed fix was that the bell's inbox poll had been gated to inside-an-app contexts, and un-gating it would fill the Notifications tab everywhere.\n- **objectstack-ai/objectui#4156** — \"Console: notification bell dropdown always empty while list page / API / inbox tables show unread notifications\" — the English-language report of the same thing (bell empty; home to-do card, list page, `/api/v1/notifications`, `sys_inbox_message` and `sys_notification_receipt` all correct). **Closed as duplicate.**\n\n**The symptom is back on console `09987b68`** (framework `a86db175`), with the same three-way contrast the two closed cards used as their oracle: API correct, home card correct, bell empty. Whatever #4199 fixed, it does not hold on this build — either the fix regressed, or it addressed only the off-app gating while a second path leaves the panel empty on the surface tested here.\n\n### One caveat for whoever picks this up\n\nThe \"zero `/api/v1/*` requests on open\" observation should not be read as the root cause on its own. Per objectstack-ai/objectui#4225, the bell's rows arrive from a **poll issued by `layout/AppHeader.tsx` every 10s** (`sys_inbox_message` joined with `sys_notification_receipt`), not from a fetch on open — so a quiet panel-open is the expected shape post-#4199. The question the observation raises is whether that poll is running at all on this surface, and what it returns, versus the panel filtering a good payload to empty (which is what #4110's investigation concluded). Both branches are still open.\n\n## Root cause\n\nNot located in this run. Prior art localises it to `packages/app-shell/src/layout/InboxPopover.tsx` (filter/render layer) and `packages/app-shell/src/layout/AppHeader.tsx` (the polled read) — see #4110's analysis and #4225's table of the two consumers.\n\n**Possibly-related second panel:** the platform-core QA run objectstack-ai/objectstack#7514 independently found that the console **home** header renders a *different* inbox which polls `sys_inbox_message` instead of `/api/v1/notifications`, shows no badge, and claims \"You're all caught up\" with 9 unread. That is a distinct surface from the bell reported here, but the two share the same suspicion — a consumer reading the inbox tables directly disagreeing with `/api/v1/notifications`. Worth deciding whether they are one fix or two.\n\n## Reproduction\n\nConsole `09987b68`, framework `a86db175`, `examples/app-showcase`, authenticated session with delivered notifications.\n\n1. As a user with delivered notifications, confirm `GET /api/v1/notifications` returns rows (10 here, incl. an `approval.reminder`).\n2. Confirm the home page's \"Needs your attention\" card lists them — it does.\n3. Open the top-bar bell panel and switch between **Unread** and **All**.\n\nObserved: \"No notifications\" under both filters. Instrumented network trace shows no `/api/v1/*` request issued on open.\n\n## Related open cards — cross-linked, not duplicated\n\n- **objectstack-ai/objectui#4225** (open, `finding`) — Home reads `sys_inbox_message` twice; the bell's 10s poll and `useHomeInbox` each issue their own query. Observation-class, both consumers correct at the time of writing — but it is the authoritative description of how the bell gets its data today, so it is the map for this fix, and a shared-feed refactor there must not re-break this panel.\n- **objectstack-ai/objectui#4074** (open) — four inbox/activity entries still hardcode `/apps/setup/...`, including `InboxPopover`'s `goToAllNotifications` / `goToAllActivity`. Adjacent surface, same component, different defect (dead \"see all\" links for non-setup users), not the empty-list symptom.\n\n## Source\n\nExtracted from the QA run objectstack-ai/objectstack#7517 (framework a86db175, console 09987b68).\n"
+}

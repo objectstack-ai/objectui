@@ -1,0 +1,34 @@
+{
+  "number": 5243,
+  "kind": "issue",
+  "title": "MetadataProvider's first-boot seed entry is written under the no-org scope, so the entry the next boot looks for is never there",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T20:00:02Z",
+  "updated_at": "2026-08-19T00:11:59Z",
+  "closed_at": "2026-08-19T00:11:58Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5243",
+  "body": "Observation, filed unassigned while implementing #5198 (PR #5242). Pre-existing on `main`, untouched by that PR, and **not** a disclosure — the orphaned entry belongs to the same user who wrote it. Filing it because it silently costs the seed cache its whole benefit on a browser's first login, and because it is invisible: every symptom looks like a normal cache miss.\n\n## What I measured\n\nWhile writing the counter-pin for #5198 (\"a same-principal remount still seeds instantly\"), the test read an empty app list until I stamped `ActiveOrganizationStorage` **before** the first render. Tracing why:\n\n`MetadataProvider` derives its cache scope from `ActiveOrganizationStorage.get() || NO_ORG_SCOPE` (`activeOrgScope`, objectui#4486). On a browser that has never signed in before, that storage is empty when the console mounts, and `AuthProvider` only resolves the active organization **after** `getSession` returns, in `refreshOrganizations`. The eager `app` fetch starts at mount and typically lands first, so:\n\n1. first login: apps fetched, written under the no-org scope (`objectui:metadata:app:@none:...`), then `AuthProvider` stamps the real org id;\n2. every later boot: the key now resolves to the real org, the no-org entry is never looked at again, and the seed misses;\n3. the miss is repaired by the fetch that follows, which writes the correctly scoped entry — so it self-heals after one boot, and the stale no-org entry stays in `sessionStorage` until the tab closes.\n\nNet cost: the seed optimization does nothing on the boot right after a first login, plus one orphaned entry per tab. Nothing renders wrong, which is exactly why nothing reports it.\n\n`primeCacheFor` in `MetadataProvider.orgScopedCache.test.tsx` sets the org id before rendering, which models a returning browser correctly — so the existing pins never see this window, and neither do the ones I added (they follow the same modelling deliberately).\n\n## Adjacent, same window, worth a look at the same time\n\nThat first-login `GET /api/v1/meta/*` also goes out with **no** `X-Tenant-ID` header, since `createAuthenticatedFetch` reads the same empty storage. Whatever the server does with a missing tenant on an authenticated session is presumably fine, but the cached answer is then labelled `@none` while being whatever the server chose — worth confirming those two agree before deciding what the right key is.\n\n## Not attempted here\n\nOut of scope for #5198 and deliberately left alone: the fix is a design choice (wait for the org before seeding? re-key the entry when the org resolves? treat the no-org entry as adoptable by the first org that resolves?), and each option trades a request against a render. No code was touched for this.\n"
+}

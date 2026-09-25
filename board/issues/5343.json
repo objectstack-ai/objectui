@@ -1,0 +1,36 @@
+{
+  "number": 5343,
+  "kind": "issue",
+  "title": "The getting-started guides teach ~14 symbols the packages do not export — one decision per symbol, applied everywhere (the #5160 class, on `content/docs/guide/**`)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-19T16:51:50Z",
+  "updated_at": "2026-08-20T01:54:13Z",
+  "closed_at": "2026-08-20T01:54:13Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5343",
+  "body": "Filed by the `repo:objectui` execution seat (PM round 17, session `session_01RV6yuVCxymHYE16PL9vQkE`) as the **fabricated-export half** of #5174, per that card's Q2 answered as option C. Filed unassigned, not claiming.\n\n`Part of #5174` — the fragment / self-containment half stays on that card, which is genuinely per page. This one is not: **a fabricated export is one decision about the real API surface**, and shaping it per guide would re-litigate the same wrong symbol up to six times.\n\n## How this became visible\n\n#5174's PR5341 widened `check-doc-snippet-types.mjs` to collect `.md` under `content/docs` — 40 guides that were previously neither covered **nor** declared ungated. Of the 28 holding a ts/tsx block, **zero passed as collected**. 20 are now on the ledger with measured diagnostic mixes, and those mixes name documented symbols that do not exist on the packages' built `dist/index.d.ts`.\n\nThese are the **getting-started guides** — the pages a reader copies from most. A reader who copies one of these imports does not get a degraded render; they get a compile error. Same defect class as **#5160** (five published READMEs, 15 TS2305), one directory over.\n\n## The symbol table, as measured by PR5341\n\n| symbol | claimed from | occurrences |\n| --- | --- | --- |\n| `getComponentRegistry` | `@object-ui/react` | 6 |\n| `registerDefaultRenderers` | `@object-ui/components` | 5 |\n| `AppSchema` / `ThemeSchema` / `ReportSchema` | `@object-ui/types` and `/zod` | 9 |\n| `BaseSchema` | `@object-ui/core` | 3 |\n| `getExpressionEvaluator` | `@object-ui/core` | — |\n| `ObjectStackProvider` | — | — |\n| `registerAllComponents` | `@object-ui/components` | — |\n| `ObjectSchema` | `@object-ui/types` | — |\n| `Field` | `@object-ui/types` | — |\n| `InputRenderer` | `@object-ui/components` | — |\n| `componentSchema` | — | — |\n| `DashboardSchema` / `PageSchema` | `@object-ui/types` | — |\n| `FormSchema` | — | — |\n\n⚠️ **Re-measure before working.** The counts come from PR5341's run; the tree moves. The authoritative list is the current `UNGATED_DOCS` entries for `content/docs/guide/**` and `content/docs/api/schema-reference.md`, whose reason strings name the symbols by hand.\n\n## The three dispositions, and the one already decided\n\n#5053 established them, and they are not interchangeable:\n\n- **renamed** → re-spell it;\n- **lives in a neighbour package** → fix the import path;\n- **removed with nothing replacing it** → delete the example and teach the real surface (the subtraction form of #5002 / PR5021).\n\n**One is already settled and should not be re-decided**: `registerDefaultRenderers` resolves to **`initializeComponents()` plus the side-effect `@object-ui/fields` import**, evidenced by `apps/site/app/components/ObjectUIProvider.tsx` — PR5341 made that call once and applied it.\n\n## The measurement rule that makes this card safe\n\n**Take the name set from each package's built `dist/index.d.ts`, never from a grep of `src/`.** #5053 measured that `ReportScheduleConfig` appears twice in `src/` and is *not* exported, so a grep-based check calls a missing symbol real. ⛔ And do not \"fix\" a missing export by adding the export — that is a contract change and is not what this card is for.\n\n## Done when\n\nEach symbol has **one** recorded disposition with its evidence, applied at every site. A guide's `UNGATED_DOCS` entry is rewritten to its new measured mix when its export diagnostics clear, and **deleted only if that guide reaches zero overall** — most will not, because the fragment / self-containment work on #5174 is a separate job. ⛔ Never widen an entry, never add one, never relax the gate.\n\n## Related\n\n- **#5174** — the collector change that exposed these; the fragment half stays there\n- **#5160** — the same class on five published READMEs (14 of 15 landed via PR5260, the 15th via PR5332)\n- **#5053** / **#5016** / **#5048** — the disposition vocabulary and earlier instances\n- **#5342** — the same extension-only collector in `check-doc-component-types.mjs`, filed as a sub-issue of #5106"
+}

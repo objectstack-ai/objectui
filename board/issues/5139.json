@@ -1,0 +1,34 @@
+{
+  "number": 5139,
+  "kind": "issue",
+  "title": "finding: DOC_TYPE_EXEMPTIONS reasons cite `ReportInput`, a symbol `@objectstack/spec` does not export",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T04:52:42Z",
+  "updated_at": "2026-08-19T15:39:08Z",
+  "closed_at": "2026-08-19T15:39:08Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5139",
+  "body": "Observation-class finding, noticed while implementing #5047. Small, and filed rather than fixed because #5047 is scoped to two documents and `scripts/` is not one of them.\n\nMeasured on `origin/main` at `958d757`.\n\n## The stale reason\n\n`scripts/check-doc-component-types.mjs:328-331`:\n\n```js\n'content/docs/plugins/plugin-report.mdx': {\n  matrix: 'ReportInput kind — a report definition\\'s shape, sibling of `joined` / `summary`.',\n  joined: 'ReportInput kind — a report definition\\'s shape, sibling of `matrix` / `summary`.',\n},\n```\n\n`ReportInput` is **not on the spec's export surface** at `@objectstack/spec` 17.0.0 — zero occurrences in `dist/ui/index.d.ts`, whose export list carries `Report`, `ReportParsed`, `ReportSchema`, `ReportType`, `defineReport` and friends. The `…Input` aliases were retired at rc.6 and the bare name moved onto the `z.input` side; `packages/types/src/spec-report.ts:42-50` records that rename in detail.\n\nThe exemptions themselves are still **correct and live** — `matrix` and `joined` really are report-type discriminants rather than component types, and #5047's PR keeps both literals in that file, so neither entry goes stale. Only the *reason text* names a type that no longer exists.\n\n## Why it is worth a card at all\n\nThis gate's own header argues the point better than I can: an exemption is worth what its evidence is worth, and a wrong canonical-claim is \"a planted premise for the next session\" (`check-spec-symbol-derivation.mjs`, same argument). The next agent reading these two lines learns that the authoring type for a report is called `ReportInput`, which is exactly the false belief #5047 exists to remove from the documentation. It is a two-word fix (`ReportInput kind` → `Report kind`, or better, `ReportSchema.type` member); the reason to file rather than drive-by is scope, not size.\n\n## Recheck\n\n```\nsed -n '328,331p' scripts/check-doc-component-types.mjs\ngrep -c \"ReportInput\" node_modules/.pnpm/@objectstack+spec@17.0.0*/node_modules/@objectstack/spec/dist/ui/index.d.ts   # 0\n```\n\nRelated: #5047 (removes the same false symbol from the two documents), #5106 (another gap in this gate).\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 5491,
+  "kind": "issue",
+  "title": "The three objectui stream labels ruled on 2026-08-21 were never created as label objects — every queue card in this repo is unroutable, and the spec/devx lanes read this repo as empty",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T05:00:15Z",
+  "updated_at": "2026-08-21T08:23:10Z",
+  "closed_at": "2026-08-21T07:59:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5491",
+  "body": "The 2026-08-21 maintainer ruling (「按 domain:ui 定稿」) streams this repo's workload by the domain of the surface a fix lands on: `domain:devx` (engineering face) and `domain:spec` (contract face) reuse the existing cross-repo lane names, `domain:ui` is the one new label for the objectui execution seat. The ruling landed in the docs and in the label script. **The label objects were never created**, so the routing it describes does not exist on GitHub yet.\n\n## Measured (2026-08-21T04:57Z)\n\nTwo independent readings agree:\n\n1. `get_label` returns `not found` for all three on `objectstack-ai/objectui`: `domain:devx`, `domain:spec`, `domain:ui`.\n2. `list_issues` on this repo, `labels: [pm:queue]`, `state: OPEN` → **143 open queue cards, zero of which carry any `domain:*` label.**\n\nCounter-check for the zero-hit: the same query with a known-present term (`pm:queue`) returns the full 143, so the repo and the label filter path are both reachable — the zero is real, not an API artifact.\n\n## Why this is a blocker, not a cosmetic gap\n\nThe lane seats read their queue by label. With no label objects:\n\n- A `domain:spec` lane round scoped to this repo reads its queue as **empty** rather than **unlabelled** — the two are indistinguishable from the seat's side, and \"empty\" is the reading that makes the seat self-retire. The same holds for `domain:devx`.\n- The objectui execution seat's candidate query (the named consumer of `domain:ui`) has nothing to match.\n- Applying any of the three names by hand right now would auto-create a grey, description-less label object, which the script's default create-if-missing mode can never repair afterwards (only `--reconcile` can).\n\n## The two steps, in order\n\n**Step 1 — create the vocabulary.** The three rows already exist in `scripts/pm/ensure-pm-labels.sh` (objectstack) and have simply not been run against this repo. It is idempotent and safe to rerun:\n\n```\nbash scripts/pm/ensure-pm-labels.sh\n```\n\nWhere only the GitHub MCP tools are available, mirror the three `gh label create` rows through them — the script states the protocol is identical. Colour `bfd4f2` and the exact descriptions are in the script; do not improvise them, or step 1 leaves drift that only `--reconcile` can fix.\n\n**Step 2 — stream the existing backlog.** The script is explicit that this is *not* its job: \"Streaming the existing objectui backlog is a triage duty once the vocabulary lands — by file-path evidence, never guessed — not this script's.\" 143 open queue cards need a stream label each, assigned by the file surface the fix lands on, never by symptom location; docs cards follow the surface they document. Cards whose landing surface is undetermined stay unstreamed for triage first-touch rather than guessed.\n\n## Named reader\n\nThe **triage seat** (`[PM seat] triage (objectstack-wide)`, objectstack#6015) — five-repo mandate, sole producer of `domain:*`, and the party the script names for step 2. Step 1 needs only label-write credentials and may be done by whoever holds them at a round start.\n\n## Re-check commands\n\nRe-run these before acting; do not carry this card's readings forward as fact.\n\n- Vocabulary present? `gh label list -R objectstack-ai/objectui | grep -E '^domain:(devx|spec|ui)'` — expect 3 rows.\n- Backfill progress? `gh issue list -R objectstack-ai/objectui --label pm:queue --state open --json number,labels --limit 200` — count the entries carrying no `domain:*`; expect that count to fall to the genuinely-undetermined residue.\n\n## Provenance\n\nFiled by the `domain:spec` execution seat running `/pm-dispatch objectui 仓库 spec 车道` at 04:57Z. That round **self-retired without dispatching**, on two grounds: the seat-mutex read (the `domain:spec` seat post, objectstack#6017, carries an `R1 open` marker from a different session opened 04:54Z, under one round old) and this structurally-invisible queue. No card in this repo was claimed, labelled, or dispatched by that session.\n\nDuplicate check before filing: semantic search over both `objectstack-ai/objectui` and `objectstack-ai/objectstack` for an existing card on the missing stream vocabulary returned nothing open."
+}

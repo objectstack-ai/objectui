@@ -1,0 +1,32 @@
+{
+  "number": 5331,
+  "kind": "pull_request",
+  "title": "docs: fix two stale-symbol doc/comment strings (GanttViewMode JSDoc, ReportInput exemption reasons)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-19T15:26:19Z",
+  "updated_at": "2026-08-19T15:39:08Z",
+  "closed_at": "2026-08-19T15:39:07Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-19T15:39:06Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5331",
+  "body": "Fixes #5132\nFixes #5139\n\nSweep pack: two one-line stale-doc-text fixes, unrelated files, no behavior change either card.\n\n## Before / after\n\n| Issue | File | Before | After |\n|---|---|---|---|\n| #5132 | `packages/plugin-gantt/src/GanttView.tsx:195` | `/** Timeline granularity — one column per day, week, month, or quarter. */` | `/** Timeline granularity — one column per day, week, month, quarter, or year. */` |\n| #5139 | `scripts/check-doc-component-types.mjs:329` | `matrix: 'ReportInput kind — a report definition\\'s shape, sibling of \\`joined\\` / \\`summary\\`.',` | `matrix: 'ReportSchema.type kind — a report definition\\'s shape, sibling of \\`joined\\` / \\`summary\\`.',` |\n| #5139 | `scripts/check-doc-component-types.mjs:330` | `joined: 'ReportInput kind — a report definition\\'s shape, sibling of \\`matrix\\` / \\`summary\\`.',` | `joined: 'ReportSchema.type kind — a report definition\\'s shape, sibling of \\`matrix\\` / \\`summary\\`.',` |\n\n## #5132 — GanttViewMode JSDoc undercounted granularities\n\nThe JSDoc above `export type GanttViewMode` named four granularities while the type itself (`'day' | 'week' | 'month' | 'quarter' | 'year'`), `VIEW_MODES`, `NOMINAL_DAYS` (`year: 365.25`), the column builder, the toolbar (`VIEW_MODES.map`) and the header-band logic (`viewMode === 'year' ? 'decade' : …`) all honor a fifth member, `'year'`. `'year'` is fully live, not vestigial. The upstream spec agrees: `GanttConfigSchema.viewMode` on `@objectstack/spec@17.0.0` is `z.enum(['day','week','month','quarter','year'])`. One-word fix, comment only.\n\n## #5139 — DOC_TYPE_EXEMPTIONS reason cites a retired symbol\n\nBoth `DOC_TYPE_EXEMPTIONS['content/docs/plugins/plugin-report.mdx']` reason strings opened with `'ReportInput kind — …'`. `ReportInput` is not on `@objectstack/spec@17.0.0`'s export surface — the `…Input` aliases were retired at rc.6 (`packages/types/src/spec-report.ts` records the rename). The exemptions themselves stay exactly as they are: `matrix` and `joined` really are report-type discriminants, not component types. Only the reason text changes.\n\nChose to name the real member, `ReportSchema.type`, over the more generic `Report kind` — verified against the current `@objectstack/spec@17.0.0` `.d.ts`: `ReportSchema` declares its `type` field as a defaulted Zod enum over `summary` / `tabular` / `matrix` / `joined`, and the exported `ReportType` enum carries the same four members. Naming the concrete field is more defensible and re-checkable than the generic phrase.\n\n## Verification\n\n- `node scripts/check-doc-component-types.mjs` — passes on the edited file (`Scanned 143 mdx file(s) … Every documented component type is registered.`).\n- `node scripts/check-changeset-presence.mjs` — `1 source file(s) of 1 released package(s) changed, and this change declares 1 changeset(s)` (`@object-ui/plugin-gantt` patch changeset added; `scripts/` is not a released package so #5139's file needs none).\n- `node scripts/check-changeset-no-major.mjs` — no `major` bump declared.\n- Vitest run from repo root, `pnpm exec vitest run scripts/__tests__/check-doc-component-types.test.ts` — `Test Files 1 passed (1)`, `Tests 27 passed (27)` (this is the gate's own test, not just the gate script — a prior PR, #5244, went red for skipping this distinction).\n- Dependency closure built first (`pnpm --filter \"@object-ui/plugin-gantt^...\" build`, 13 packages), then `pnpm --filter \"@object-ui/plugin-gantt\" type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`) — green, zero errors. Ran it and it was green; a JSDoc-only edit cannot break typecheck but this is measured, not assumed.\n- `packages/plugin-gantt` owns a standalone `vitest.config.ts` (confirmed — `assertCanonicalVitestInvocation` does not cover it), so its real invocation is the package-scoped one: `pnpm --filter \"@object-ui/plugin-gantt\" test` — `Test Files 44 passed (44)`, `Tests 386 passed (386)`. Cross-checked the file count against `find packages/plugin-gantt/src -iname '*.test.*' | wc -l` (44) to rule out a silent zero/partial match.\n- Reverse-verification: **degenerate here, stated plainly rather than filled into the template.** Both changes are comment/string-literal text with no reachable behavior difference to revert-and-observe: the JSDoc line is never read by any code path (TypeScript doesn't type-check comment prose), and the exemption *reason* string is dead data as far as `check-doc-component-types.mjs`'s accept/reject logic goes — the gate keys off `matrix`/`joined` (untouched) and only ever prints the reason string in a pass-report, never branches on its content. There is no artifact-vs-source distinction to report per leg because there is no behavior boundary to cross in either direction.\n\nAll verification above ran against commit `3fefe5fde` (this branch's current head).\n\n## Scope note\n\nNothing else rides along. Sweep-pack rules followed: only the two lines named in the dispatch order changed.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_"
+}

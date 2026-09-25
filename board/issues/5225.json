@@ -1,0 +1,34 @@
+{
+  "number": 5225,
+  "kind": "issue",
+  "title": "plugin-report suite escapes to the real network on 127.0.0.1:3000 (ECONNREFUSED noise, same class as #3339 / #4106 / #4688)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T15:57:36Z",
+  "updated_at": "2026-08-19T00:53:13Z",
+  "closed_at": "2026-08-19T00:52:03Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5225",
+  "body": "Found while implementing #5137. Filed unassigned and **not** fixed there: that card is a behaviour change in `DatasetReportRenderer.tsx` and this is a different defect class (test network isolation) at a file the card only appends to.\n\nMeasured on `claude/issue-5137-report-filter-alias` at `e9a7dfb36`, whose merge-base is `origin/main` at `7d900dee6`. Pre-existing — nothing in that branch touches the code path.\n\n## The escape\n\n`packages/plugin-report/src/__tests__/DatasetReportRenderer.test.tsx` makes **16 real TCP connection attempts per run** to `127.0.0.1:3000`:\n\n```\nError: connect ECONNREFUSED 127.0.0.1:3000\n    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16) {\n  errno: -111, code: 'ECONNREFUSED', syscall: 'connect',\n  address: '127.0.0.1', port: 3000\n}\n```\n\nBisected across the package — it is that one file, and only that one:\n\n```\nDatasetReportRenderer.test.tsx      -> ECONNREFUSED x16\nReportViewer.cells.test.tsx         -> ECONNREFUSED x0\nReportRenderer.test.tsx             -> ECONNREFUSED x0\nReportRendererDispatcher.test.tsx   -> ECONNREFUSED x0\nreport-spec-parity.test.tsx         -> ECONNREFUSED x0\n```\n\nThe suite is **green anyway** (`42 passed`), which is what makes it worth a card rather than a shrug: the connection failure is swallowed, so whatever assertion sits downstream is passing through an error path rather than the one it names.\n\n## Why it is not just noise\n\n1. **Something reaches a real transport in a unit test.** `packages/plugin-report/src` contains no `fetch(` and no literal `3000`, and none of the three root setup files (`vitest.setup.base.ts`, `vitest.setup.dom-light.tsx`, `vitest.setup.dom.tsx`) references either — so the call originates in a workspace dependency the vitest aliases resolve to `src`, reached by a render path where the test's mock data source is not the one consulted. Locating that path is the actual work here.\n2. **The suite depends on nothing listening on port 3000.** In this repo's own shared containers a dev server on 3000 is routine. If one is up, those 16 attempts *connect* — to whatever another agent happens to be running — and the test's behaviour changes without a single line of it changing.\n3. **A green test that quietly took the error path is not testing what it says.** Worth checking which of the 42 depend on the swallowed failure.\n\n## Family\n\nSame shape as **#3339** (plugin-detail), **#4106** (plugin-charts / plugin-dashboard, noted there as a *different root cause* from #3339) and **#4688** (plugin-view / app-shell / plugin-designer) — all closed. `plugin-report` looks like a site those sweeps did not cover. The root cause here has not been established, so it may well be a fourth distinct one; worth checking the closed three before assuming.\n\n## Recheck\n\n```\npnpm exec vitest run packages/plugin-report/src/__tests__/DatasetReportRenderer.test.tsx 2>&1 | grep -c ECONNREFUSED\n```\n\nRelated: #5137 (the card this was found under; its PR is #5224 and deliberately leaves this alone).\n"
+}

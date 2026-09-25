@@ -1,0 +1,34 @@
+{
+  "number": 4924,
+  "kind": "issue",
+  "title": "`objectui serve` 无条件开浏览器且没有 --no-open,无头环境下打印一条裸 spawn 错误",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T05:34:23Z",
+  "updated_at": "2026-08-19T12:11:18Z",
+  "closed_at": "2026-08-19T12:11:18Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4924",
+  "body": "越界发现,记录于 #3890 / PR #4922 的实测期间。观察类:今天不影响任何渲染结果,服务照常起,只是在无头环境里多一条看起来像崩溃的输出。\n\n## 事实(实测于 `origin/main` = `5ffcc1432`)\n\n`commands/serve.ts` 的 vite 配置把 `open` 写死为 `true`,而 `serve` 的 commander 选项只有 `--port` / `--host`,没有 `dev` 那样的 `--no-open`。无头容器里实测:\n\n```\n✓ Server started successfully!\n\n  Local:   http://localhost:5896\n\n  Press Ctrl+C to stop the server\n\nError: spawn xdg-open ENOENT\n    at ChildProcess._handle.onexit (node:internal/child_process:285:19)\n```\n\n服务本身没有受影响(同一次运行里走了 400 个模块,全部 200),但这条输出出现在成功横幅之后、没有任何上下文,读起来像启动失败。\n\n## 为什么记成观察类\n\n- 用户在有桌面的环境下不会看到它;CI/容器里看到的是一条噪音而不是一次失败。\n- `dev` 已经有 `--no-open`,`serve` 没有,这是三命令一致性的又一条(与 #4923 同源但独立:那条是项目根检测,这条是选项面)。\n\n## 已搜重\n\n本仓开放 issue 搜过 `objectui serve opens a browser automatically no-open flag headless xdg-open`:零命中。\n"
+}

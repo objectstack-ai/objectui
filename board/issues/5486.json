@@ -1,0 +1,34 @@
+{
+  "number": 5486,
+  "kind": "issue",
+  "title": "apps/console: registerStudioComponents.tsx lazy-imports the @object-ui/app-shell barrel it also statically imports — the laziness is decoration",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "qq9340100"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T02:41:03Z",
+  "updated_at": "2026-08-21T10:07:07Z",
+  "closed_at": "2026-08-21T10:06:47Z",
+  "closed_by": {
+    "login": "qq9340100",
+    "id": 313832657,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5486",
+  "body": "Found while measuring #5467 (PR #5485). Same defect class, different file, outside that card's declared surface, so filing rather than folding it in.\n\n`apps/console/src/registerStudioComponents.tsx` reaches `@object-ui/app-shell` twice, four lines apart:\n\n```\nline 19:  import { registerAppComponent } from '@object-ui/app-shell';\nline 22:  const BuilderLandingLazy = lazy(() =>\nline 23:    import('@object-ui/app-shell').then((m) => ({ default: m.BuilderLanding })),\nline 24:  );\n```\n\nThe `import()` names the same specifier the line above imports statically, so it can never move a module into another chunk. There is a second, independent reason it cannot: `App.tsx` also imports `BuilderLanding` statically from the same barrel (to render the standalone `/studio` landing full-screen), so the component is in the eager graph regardless of what this file does.\n\n## How it surfaced, and why the build was silent about it before\n\nIt was silent because of chunking, not because it was fine. On `main` the console's own `apps/console/src` modules form a separate `src-*.js` chunk. PR #5485 moves the four `/docs` pages behind a lazy boundary, and once they leave, rolldown folds `src-*.js` into the entry chunk — at which point it can see the dynamic import cannot move anything and emits:\n\n```\n[INEFFECTIVE_DYNAMIC_IMPORT] ../../packages/app-shell/src/index.ts is dynamically\nimported by src/registerStudioComponents.tsx but also statically imported by\nsrc/App.tsx, src/AppContent.tsx, src/components/InternalFormRoute.tsx,\nsrc/components/ProtectedRoute.tsx, src/components/RootLandingRedirect.tsx, ...,\ndynamic import will not move module into another chunk.\n```\n\nMeasured both ways on that branch: with the `/docs` fix applied the warning appears; with `apps/console/src/App.tsx` reverted to `origin/main` it disappears again, while `registerStudioComponents.tsx` is byte-identical in both legs. So this is a latent source-level defect that became reportable, not one the docs change introduced.\n\n## Bytes\n\nZero today, as far as this file is concerned — `BuilderLanding` is already eager via `App.tsx`. What is being paid for is a `Suspense` boundary plus a loading fallback around a component that is never actually deferred, and a build warning that will now be emitted on every console build for as long as it stands. Worth measuring before assuming otherwise: `apps/console/dist/eager-closure.json` (added by #5324) gives the before/after in one build each. Do not trust a warning count of 0 without checking the build's exit code — a build that dies early prints 0 warnings.\n\n## Why this is not a one-line edit\n\nTwo defensible shapes, and they answer different questions:\n\n1. **Drop the `lazy()`** and import `BuilderLanding` directly. Honest about what ships today, and deletes a fallback nobody ever sees. Concedes that the builder is eager.\n2. **Keep the laziness and make it real** — stop importing `BuilderLanding` statically in `App.tsx`, and reach it through a lazy boundary there too, the way #5467 just did for the docs portal. This is the one that could move bytes, but it changes how the `/studio` route mounts and it is a decision about whether the application builder belongs on the critical path.\n\nOption 2 also runs into the barrel: `import('@object-ui/app-shell')` pulls the whole package entry, so the split would only pay if app-shell's own graph cleaves usefully — which is measurable, not assumable, and is the same trap #5325 documents from the `packages/fields` side.\n\n## Reproduction\n\n```bash\npnpm turbo run build --filter='./packages/*'\npnpm --filter @object-ui/console build 2>&1 | grep INEFFECTIVE_DYNAMIC_IMPORT | grep app-shell\n```\n\nReproduces on `objectstack-ai/objectui#5485` at `f9bbd4144`. On `main` today the source condition is present but the warning is not printed, for the chunking reason above — read the source, not the warning count, when confirming on `main`.\n\n## Filing note\n\nThe pre-file duplicate scan could not be run: the GitHub issue search and list endpoints were returning `API rate limit already exceeded` for the shared bot identity at filing time. If this duplicates an existing card, close it as such."
+}

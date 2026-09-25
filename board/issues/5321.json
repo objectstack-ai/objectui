@@ -1,0 +1,36 @@
+{
+  "number": 5321,
+  "kind": "issue",
+  "title": "`ObjectViewSchema.defaultViewType` omits `tree` and `chart`, so two `generateViewSchema` branches are unreachable from authored metadata (host-prop only)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "plugin-view",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-19T14:21:00Z",
+  "updated_at": "2026-08-21T15:47:44Z",
+  "closed_at": "2026-08-21T15:47:44Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5321",
+  "body": "Observation, measured while implementing #5269 on `origin/main` @ `3fbbea1f3`. **Filed unassigned, not claiming, and deliberately not fixed there** — #5269 owns the `table.columns` forwarding lines only, and this is a declared-surface question, not a forwarding one.\n\n## What was measured\n\n`ObjectView.generateViewSchema` switches on eight view types and returns a renderer schema for each:\n\n```\nkanban · calendar · gallery · timeline · gantt · map · tree · chart\n```\n\nThe type that an AUTHOR uses to select one admits six of them:\n\n- `ObjectViewSchema.defaultViewType` (`packages/types/src/objectql.ts`) — `'grid' | 'kanban' | 'gallery' | 'calendar' | 'timeline' | 'gantt' | 'map'`\n- `NamedListView.type` (same file) — the same seven-value union\n\nNeither spells `tree` or `chart`. The only segment that can is the `views` PROP on the component (`views?: Array&lt; { … type: ViewType } &gt;`), and `ViewType` (`packages/types/src/views.ts`) does include both:\n\n```\nexport type ViewType = 'list' | 'detail' | 'grid' | 'kanban' | 'calendar' | 'timeline' | 'map' | 'gallery' | 'gantt' | 'chart' | 'tree';\n```\n\nSo `currentViewType` can only ever be `tree` or `chart` when a HOST composes `ObjectView` with a `views` prop. From authored metadata — the path the docs teach — those two branches are dead code, including the `object-tree` branch's own `viewOptions.tree.*` config surface (`parentField`, `labelField`, `defaultExpandedDepth`) and the whole ADR-0021 dataset-bound `chart` branch.\n\n## Why it is worth recording rather than assuming intentional\n\nBoth branches carry real, maintained config surfaces and their own comments, which reads as \"authorable\" to the next person. The tree view was added as a metadata-driven object view type (#1885, closed), and the `chart` branch cites ADR-0021 — neither reads like a host-composition-only affordance. If they ARE host-only by design, that is the same class of ruling #5097 made for the 27 `renderListView` keys, and it wants saying somewhere a census can read; if they are not, `defaultViewType` / `NamedListView.type` are missing two members.\n\nAdjacent, same file, same shape: the `iconMap` inside `viewSwitcherSchema` has a `chart` entry but no `tree` one, so a host-supplied tree view falls back to the `'table'` icon. (#2916 fixed the missing `chart` key in that map and is closed; `tree` was never added.)\n\n## Not fixed here\n\nDeciding this is a contract question — either declare two more members on two authored unions, or record the host-only exemption — not something to guess inside a forwarding fix. No behaviour in #5269's PR depends on it: that PR's tree coverage drives the branch through the `views` prop, which is the reachable path either way.\n\n## Dedup\n\nSearched open issues for `defaultViewType`, the enum-vs-switch shape, and plugin-view surface cards. Nothing open covers it. Related and closed: #2916 (the same file's `iconMap` missing `chart`), #1885 (tree view added), #5097 (the host-composition-surface ruling this would follow if the branches are host-only).\n"
+}

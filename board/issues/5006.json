@@ -1,0 +1,34 @@
+{
+  "number": 5006,
+  "kind": "issue",
+  "title": "ComponentInput.type 只有一个粗粒度 number 臂,无法表达整数/正数约束 —— 发布面比契约宽,checkType 对 spec 会拒的值零诊断",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T14:47:44Z",
+  "updated_at": "2026-08-19T12:11:18Z",
+  "closed_at": "2026-08-19T12:11:18Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5006",
+  "body": "发现于 #4668 的实现(PR 见下),**不在该 PR 处理** —— 那一单的面是把五个 GA 键发布为 `inputs`。这一条是发布面本身的表达力缺口,与 #3832(`type` 无法表达联合)同族、但不同维:那条是「臂不够多」,这条是「臂不够细」。\n\n## 机制\n\n`ComponentInputControlType`(`packages/types/src/base.ts:362-373`)的数值种类只有一个 `'number'`,`ComponentInput` 也没有任何 integer / min / max 槽位。`sdui-parser` 的 `checkType`(`packages/sdui-parser/src/validate.ts`)对该臂只问「是不是 number」。\n\n而契约比这细。实测 `@objectstack/spec@17.0.0` 的 `ComponentPropsMap['page:header']`:\n\n```\nmaxVisible        optional -> number\n  checks: [{format:\"safeint\"},{check:\"greater_than\",value:0,inclusive:false}]\nmobileMaxVisible  同上\n```\n\n实测判定(`PageHeaderProps.safeParse`):\n\n| 值 | spec | objectui manifest 门(`type: 'number'`) | 渲染器 `readMax` |\n|---|---|---|---|\n| `1` / `2` / `3` / `100` | OK | 无诊断 | 生效 |\n| `0` | **REJECT** | **无诊断** | 生效 → 0 个内联按钮,全进溢出菜单 |\n| `-1` | **REJECT** | **无诊断** | 落回默认(`v >= 0` 不成立) |\n| `1.5` | **REJECT** | **无诊断** | 生效 → `Math.floor` 成 1 |\n\n## 三个权威,两个答案\n\n作者写 `maxVisible: 0`:objectui 这边一路静默(manifest 白名单绿、`checkType` 绿),渲染器照它渲染,而上游 `os validate` / `os build` 按值拒掉整份元数据。这正是 parity 门自己文件头引的那句 objectstack#5435「platform authority must not point at keys its own gate rejects」的**值维度版本** —— 键名对上了,值域没对上。\n\n#4668 的处置是把约束写进 description(「A positive integer — the contract rejects 0 and fractional values」),那是当下唯一能表达它的地方,但 description 不是门。\n\n## 附带一半:渲染器比契约更宽\n\n`readMax`(`packages/components/src/renderers/layout/containers.tsx`,`page:header` 的内联/溢出切分处)是\n\n```\ntypeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.floor(v) : undefined\n```\n\n—— 接受 `0`、接受小数并下取整,两者 spec 都拒。仓内没有任何生产者写这些值(grep 无),所以今天是**未被行使的漂移**而不是活方言;但它与上面同向:三层里最松的一层决定了实际行为。\n\n## 可能的处置(供分诊,未实施)\n\n1. **给 `ComponentInput` 加数值约束槽**(如 `integer?: boolean` / `min?` / `max?`),`checkType` 读它 —— 判据与被判定的事实对齐,形状与 #3832 给 `type` 加数组臂时的做法一致(维护者 2026-08-09 裁决方向 a)。代价:`ComponentInput` 变宽,且要回答「约束是抄 spec 还是独立声明」——抄就有漂移风险,独立声明就有两份真相。\n2. **反过来:让 `checkType` 对数值臂去问 spec** —— 不给 `ComponentInput` 加槽,而是让门在有 `ComponentPropsMap` 条目时直接用 spec 的 Zod 成员判值。判据只有一份,但把 sdui-parser 绑到 spec 上(它今天只吃 manifest,不吃 spec)。\n3. **只收紧渲染器**(`readMax` 改成 `> 0` 且拒小数),让渲染器与契约一致,发布面的粗粒度照旧。最小、独立可落,但不解决「objectui 侧对非法值零诊断」。\n4. **不动,承认 description 是唯一表达处** —— 记录取舍,把 spec 作为值的唯一裁判。\n\n倾向 1 或 2(判据与事实对齐;2 更彻底也更侵入),3 可以独立先落。**这是发布契约的形状决定,值得维护者拍一下,不建议实现者自选。**\n\n## 退出条件\n\n- 上述任一处置落地;或\n- 明确裁定「粗粒度 `number` + description 就是发布面的表达上限」,并把该取舍写进 `ComponentInput.type` 的 doc comment(那里已经为 #3832 写过同类说明)。\n\n参考位置:`packages/types/src/base.ts:362-373`(`ComponentInputControlType`)、`packages/sdui-parser/src/validate.ts`(`armAccepts` / `checkType`)、`packages/components/src/renderers/layout/containers.tsx`(`readMax` 与 `page:header` 的两条 inputs)、`apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` 文件头 LIMIT 段(已写明本门只比顶层键名、类型比较「is not, and is nobody's check yet」)。"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 5444,
+  "kind": "issue",
+  "title": "The value-fallback prettifier `humanizeLabel` has two byte-identical copies and disagrees with the key-fallback convention on camelCase input",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "qq9340100"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-20T19:39:41Z",
+  "updated_at": "2026-08-21T08:17:23Z",
+  "closed_at": "2026-08-21T08:17:23Z",
+  "closed_by": {
+    "login": "qq9340100",
+    "id": 313832657,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5444",
+  "body": "Recorded while implementing objectui#5425 (the rendering half of objectstack#10292). Filed unassigned, as an observation — no user-visible two-spelling defect reproduces from it today.\n\n## What is there\n\nThe renderer carries two *separate* \"prettify a machine string for display\" conventions, and one of them has no single home.\n\n**Key fallback** (a field key becomes a column header) — one implementation, and its docstring says so:\n\n- `packages/plugin-dashboard/src/utils.ts` — `humanizeFieldKey`, \"Single home for the convention, because both halves of the `table` widget family need it and they must agree\". Maps `_` to a space, splits camelCase, title-cases.\n\n**Value fallback** (a stored value becomes a display string when nothing resolves it) — two byte-identical copies:\n\n- `packages/fields/src/index.tsx` — `humanizeLabel`, read by `plugin-grid`, `plugin-gantt`, `plugin-detail`\n- `packages/plugin-charts/src/ObjectChart.tsx` — `humanizeLabel`, a deliberate local copy whose comment says \"Local implementation to avoid a dependency on `@object-ui/fields`\"\n\nThe two conventions disagree, because the value copy does not split camelCase. Measured by running all of them over one input set:\n\n```\ninput                humanizeFieldKey     humanizeLabel\nneeds_analysis       Needs Analysis       Needs Analysis\nNeedsAnalysis        Needs Analysis       NeedsAnalysis      <-- differ\nunitPrice            Unit Price           UnitPrice          <-- differ\nBestCase             Best Case            BestCase           <-- differ\nlost-to-competitor   Lost-To-Competitor   Lost To Competitor <-- differ\n```\n\nThat top-right pair is exactly the two spellings objectstack#10292 measured on a 17.1.0 dashboard (`NeedsAnalysis` on the bar axis, `Needs Analysis` in the pivot row label). It is recorded here as provenance, not as a live reproduction: on current `main` a dataset dimension member reaches neither function — it resolves through the picklist field's declared options and the locale bundle, and otherwise renders as stored. Pinned in `packages/plugin-dashboard/src/__tests__/DatasetWidget.dimensionMemberLabels.test.tsx`.\n\n## Why it was not fixed under objectui#5425\n\nAligning the value fallback with the key convention means changing both copies together. Changing only the `plugin-charts` one would trade a latent disagreement for a live one: a chart's free-form member would read `Unit Price` while a grid's option fallback over the same string read `UnitPrice`. `packages/fields` was outside that card's declared file surface and was held by another in-flight claim (PR #5441) at the time, so the change was left whole rather than half-made.\n\n## What a fix would look like\n\nOne implementation of the value fallback, reachable from both `packages/fields` and `packages/plugin-charts` — `@object-ui/core` is the only shared ancestor, and objectui#4389 already ruled that direction for this family (\"core-canonical logic, plugins consume; never core importing react\"). Whether it should then *converge* with `humanizeFieldKey` is a separate question: they take different inputs (a declared key vs. an arbitrary stored value), so keeping them distinct may be correct — but if so, that distinction should be written down, because today it reads as drift.\n\nAlso worth deciding in the same pass: the dataset path prettifies free-form members not at all, while the object-bound chart path applies `humanizeLabel` to them. One dashboard can hold both bindings.\n\n## Duplicate search\n\nSearched `objectstack-ai/objectui` issues before filing, each term separately:\n\n- \"humanizeLabel duplicated between plugin-charts and fields, prettifier has no single home\" — 4 hits, all unrelated (#5425 itself, #4389, #4405, #4401)\n- \"humanizeLabel duplicate copy packages/fields\" — 3 hits, all unrelated (#4788, #3910, #2260)\n- \"free-form dimension value fallback prettifier camelCase not split PascalCase\" — 0 hits\n\nNothing covers the duplication or the disagreement."
+}

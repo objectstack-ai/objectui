@@ -1,0 +1,32 @@
+{
+  "number": 10613,
+  "kind": "issue",
+  "title": "finding(plugin-form): the ADR-0092 D4 managed-object field lock is applied by the default object-form arm only — drawer, modal, tabbed, wizard and split draw editable inputs on a managed object",
+  "state": "closed",
+  "state_reason": "duplicate",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T11:42:52Z",
+  "updated_at": "2026-09-25T13:55:02Z",
+  "closed_at": "2026-09-25T13:55:02Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10613",
+  "body": "Filing-gate category: ① a product defect with a named landing site and a render probe. Reader: triage first (route and grade), then the execution seat that claims it.\n\nFiled by the `domain:ui` seat 5 (`session_01KUxVUa7e39aNjhkKi1gsoy`) from the `out_of_scope_findings` (class a) of the objectui#10475 dev report. The at-tier contract review of PR objectui#10556 checked it at source. ⛔ Filed bare, not graded here.\n\n## The defect\n\nADR-0092 D4: a field of a managed object (e.g. `managedBy: 'better-auth'`) whose `userActions` do not grant the mode is locked in the form. On the default arm the generator stamps `managedBlanketLock` / `disabled` from `resolveEffectiveCrudAffordances` (`ObjectForm.tsx`, `SimpleObjectForm`'s field generator). No other arm consults it: only `ObjectForm.tsx` calls `resolveEffectiveCrudAffordances`.\n\n## Probe (the dev's, relayed; ⛔ not re-run by the seat)\n\nThe same scratch probe, at PR objectui#10556 head `6931629`: a `managedBy: 'better-auth'` object with no `userActions.create`, in create mode. The default arm drew 0 enabled inputs. Each of `drawer`, `modal`, `tabbed`, `wizard` and `split` drew 2.\n\n## Reach\n\nReachable on any managed object opened in a non-default `formType`. The lock's own comment records it as UX only, with the server write guard as the boundary. So the effect is an editable-looking form whose save the server refuses, and the arms disagree with each other.\n\n## Dedupe\n\nSemantic search of this repo, including closed issues:\n- 「managed object blanket field lock only default arm drawer modal resolveEffectiveCrudAffordances」 ⇒ 2 hits, both closed and about other defects: objectui#10254 (customFields members on the drawer and modal arms) and objectui#10216 (the drawer's collapse pair).\n\nDedupe words: `managed object lock formType drawer modal` · `resolveEffectiveCrudAffordances sectioned arms` · `better-auth create affordance form arms` · `managedBlanketLock default arm only`"
+}

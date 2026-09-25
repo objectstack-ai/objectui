@@ -1,0 +1,34 @@
+{
+  "number": 5168,
+  "kind": "issue",
+  "title": "finding: 24 个包级 vite.config.ts 的 196 条 alias 目标存在性无人把关 —— #3944 的门只覆盖根 vitest.config.mts 与 tsconfig.json",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T08:23:50Z",
+  "updated_at": "2026-08-20T03:32:17Z",
+  "closed_at": "2026-08-20T03:32:13Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5168",
+  "body": "Out-of-scope finding,做 #5158(side-effects 门的 alias 测量面)时撞到。**#5158 的 PR #5167 不修这个**(半径外),那个 PR 只让门**看得见**这些表,不给它\"目标必须存在\"的契约。\n\n## 事实\n\n#3944 立的门 `scripts/__tests__/vitest-config-alias-targets-3944.test.ts` 管的是\"alias 表里有没有指向不存在路径的死条目\"。它的覆盖面是两张表,写死在文件顶部:\n\n- 根 `vitest.config.mts` 的 `resolve.alias`(#3944);\n- 根 `tsconfig.json` 的 `compilerOptions.paths`(#4804 折进来的第二张表)。\n\n包级 `vite.config.ts` 的 alias 表**一张都不在**它的覆盖面里。而 PR #5167 把这些表清点了一遍:**24 个 `vite.config.ts` 带 `resolve.alias`,其中 20 个共 196 条 `@object-ui/*` alias**(`apps/console` 34、`examples/console-starter` 29、`packages/runner` 14、`packages/plugin-editor` 13、`packages/plugin-markdown` 13、`packages/plugin-designer` 9,余下按包分布)。\n\n另一道会读到这些表的门是 side-effects 门(`side-effects-declaration-consistency.test.ts`),但它**按契约对死条目不红**:目标解析不出模块时 `resolveAliasModule()` 返回 undefined、`resolvableEntryPaths()` 直接 `continue`。这是它该有的行为(死 alias 贡献不了 entry form,`sideEffects` 判定无从与之冲突),不是疏漏 —— 但结果是这 196 条没有任何一道门在看目标存不存在。\n\n## 实测(PR #5167 的反向验证 b,双向都跑了)\n\n在 `packages/plugin-editor/vite.config.ts` 的 alias 表里塞一条死条目:\n\n```\n'@object-ui/ghost-5158': resolve(__dirname, '../ghost-5158/src'),\n```\n\n- side-effects 门(已按 #5158 扩面到全部 196 条):**30/30 全绿**;\n- `vitest-config-alias-targets-3944.test.ts`:**58/58 全绿**。\n\n两道门都不红。这正是 #3944 自己写下的判据——\"A dead entry is worse than a missing one, because it reads as connected\"——在包级配置上没有对应门禁。\n\n## 影响\n\n**今天 0 实例**:196 条全部解析出可达模块,一条死条目都没有。所以这是\"门禁覆盖面\"的观察,不是当下的缺陷;没有用户会撞到(仓内配置,不是发布代码)。按\"filing time 的严重性判断不可靠\"的惯例平铺事实、不自评级,交分诊席定。\n\n值得一提的是这条为什么不该顺手并进 #5158 的 PR:目标存在性与 `sideEffects` 声明一致性是两个契约,把前者塞进后者会让\"declaration 与 module body 是否一致\"这道门去替 alias 表做体检。真要修,合适的落点是扩容 #3944 那道门的覆盖面(它已经有过一次同形扩容 —— #4804 把 `tsconfig.json` 的 `paths` 折进同一文件而不是另起一个门),但那需要它同时学会这些表的四种拼法(裸 `resolve(` / `path.resolve(` / 数组表 `find`+`replacement` / 双引号 key),PR #5167 的解析器可以直接借用。\n\n## Adjacent but distinct\n\n- **#3944 / #4804**:同一类判据,覆盖的是**根**配置的两张表;本条是**包级** 24 张表未覆盖。\n- **#4925**(apps/console 的 workspace alias 表仍是手工清单):失效方向相反 —— 它管\"该有的条目**缺**了没有\"(完整性),本条管\"在的条目**死**了没有\"(存在性)。同一张表可以同时中两种。\n- **#5158 / PR #5167**:管的是\"门看不看得见这些表\"。看得见是本条能立门的前提,但看得见本身不等于有牙。\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 5102,
+  "kind": "issue",
+  "title": "`ObjectViewSchema` 的 `table` / `form` 子配置类型零声明成员(Omit 被索引签名塌掉),且 ObjectView 的转发白名单钉在 ObjectGridSchema 的 legacy 键上 —— 规范键 pagination/selection/filter/sort 全部不读",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T00:04:58Z",
+  "updated_at": "2026-08-18T23:46:08Z",
+  "closed_at": "2026-08-18T23:45:50Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5102",
+  "body": "发现于 #5077 的实施(PR #5101)。**Filed unassigned, not claiming.**\n\n两个机制叠在同一处:`ObjectViewSchema.table` / `.form` 既**不告诉作者有哪些键**,又**只转发一小撮 legacy 拼法**。\n\n## 一、子配置类型零声明成员\n\n```ts\n// packages/types/src/objectql.ts:1440 附近\ntable?: Partial< Omit< ObjectGridSchema, 'type' | 'objectName' > >;\nform?:  Partial< Omit< ObjectFormSchema, 'type' | 'objectName' | 'mode' > >;\n```\n\n`ObjectGridSchema extends BaseSchema`,而 `BaseSchema` 带 `[key: string]: any`,\n于是 `keyof ObjectGridSchema` 退化为 `string`(实测:把它赋给字面量类型报\n`Type 'string' is not assignable to type '1'`)。`Omit` 的实现是\n`Pick< T, Exclude< keyof T, K > >`,`Exclude< string, 'type' | 'objectName' >`\n仍是 `string` —— 结果 `Pick` 只剩索引签名。实测(`checker.getPropertiesOfType`,\n对构建产物):\n\n| 类型 | 声明成员数 |\n| --- | --- |\n| `ObjectGridSchema`(本体) | 61 |\n| `ObjectFormSchema`(本体) | 67 |\n| `NonNullable< ObjectViewSchema['table'] >` | **0** |\n| `NonNullable< ObjectViewSchema['form'] >` | **0** |\n\n即 JSDoc 写着「Inherits from ObjectGridSchema」的那个子配置,在类型上是个\n纯 `{ [k: string]: any }`:补全给不出任何键,`table: { colums: [...] }` 这类\n错拼 rc=0 静默通过(#5077 的改前探针 H 已实测)。\n\n## 二、转发白名单钉在 legacy 键上\n\n`ObjectView` 并不透传 `table` / `form`,而是**逐键白名单**转发\n(`packages/plugin-view/src/ObjectView.tsx:833-848` 建 `gridSchema`,`:856-880`\n建 formSchema)。`table` 侧转发的 10 个键里,有 5 个是 `ObjectGridSchema` 自己\n标了 `@deprecated` 的 legacy 键,而它们各自的**规范继任者一个都不读**:\n\n| `table.K`(转发,生效) | ObjectGridSchema 上的规范继任者(**不转发,写了无效**) |\n| --- | --- |\n| `pageSize`(`:846`,`@deprecated Use pagination.pageSize instead`) | `pagination`(PaginationConfig) |\n| `selectable`(`@deprecated Use selection.type instead`) | `selection`(SelectionConfig) |\n| `defaultFilters`(`Record< string, any >`) | `filter` |\n| `defaultSort`(单个 `{ field, order }`,`@deprecated Use sort instead`) | `sort` |\n| `fields`(`@deprecated Use columns instead`) | `columns`(这一个两边都转发,是唯一的例外) |\n\n后果:作者照 `ObjectGridSchema` 的规范键写 `table: { pagination: { pageSize: 25 } }`\n—— 编译通过(见机制一)、语义正确、**运行时完全无效**;要真的生效必须写那个被\n标记为 legacy 的 `pageSize`。#5077 的 PR 正是因此拒绝把 `table.pagination` 写进\nREADME(会教一个不被读的键),改写 `table.pageSize` 并在文档里注明这层落差。\n\n## 影响\n\n- 「声明=强制」在这两个子配置上完全失效:类型不认识任何键,渲染器只认一小撮,\n  两边还不是同一撮。AI 作者按规范键写出来的元数据静默失效,正是要消除的静默成功类。\n- 文档只能记录「实际转发的那一撮」,于是文档被迫教 legacy 拼法(PR #5101 的现状)。\n\n## 可能的方向(交裁定,不预断)\n\n1. 把 `table` / `form` 显式建模成真实的子配置接口(不再走 `Omit`),声明面即转发面;\n2. 保留 `Omit` 但先摘掉 `BaseSchema` 的索引签名(影响面大,牵动 #5097 同一根因);\n3. 补齐转发白名单,让规范键(`pagination`/`selection`/`filter`/`sort`)也生效,legacy 键保留别名。\n\n## 同族\n\n- **#5097** —— 同一节点上 27 个 `as any` 未声明键转发(同根因:BaseSchema 索引签名)。\n- **#5091** / **#5018** —— ObjectGrid / ObjectMap 上的同类声明面缺口。\n- **#2890** / **#2231** —— ListView 词汇迁移与 types↔spec 对齐。\n\n## 分级\n\n交 PM 分诊(未打标签)。严重度落点在「规范键写了无效」这一条:它比纯声明面缺口更靠近\n用户,作者拿不到任何失败信号。\n\n"
+}

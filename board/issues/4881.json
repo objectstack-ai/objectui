@@ -1,0 +1,34 @@
+{
+  "number": 4881,
+  "kind": "issue",
+  "title": "[finding] Studio 的导航消费端读了六种 app nav schema 拒绝的拼写,外加一个不存在的 `view` 变体",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "qq9340100"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T22:56:40Z",
+  "updated_at": "2026-08-21T08:43:45Z",
+  "closed_at": "2026-08-21T08:43:45Z",
+  "closed_by": {
+    "login": "qq9340100",
+    "id": 313832657,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4881",
+  "body": "读 #4019 的 Interfaces rail 时顺手发现,**不在该卡范围内,未修**。观察类:今天没有用户会撞到(全部只在 spec 已经拒绝的元数据上才可能触发),按 #4949 挂 `finding`、不挂 `pm:queue`,交分诊定级。\n\n## 事实\n\n`packages/app-shell/src/views/studio-design/navSurface.ts`(#4019 前在 `StudioDesignSurface.tsx`,内容逐行照搬)的 `resolveSurface`,以及 `StudioDesignSurface.tsx` 的 `StudioNavItemInspector`,读的键与 `@objectstack/spec` 的 app 导航契约对不上:\n\n**1. 五条 `||` 兜底腿读的是 schema 具名拒绝的裸拼写。**\n\n```ts\ncase 'page':   return node.pageName || node.page      ? ... : null;\ncase 'object': return node.objectName || node.object  ? ... : null;\ncase 'dashboard': return node.dashboardName || node.dashboard ? ... : null;\ncase 'report': return node.reportName || node.report  ? ... : null;\n```\n\n`NavigationItemSchema` 的九个成员各自是 `strictObject(navItemSurface(variant), ...)`(`packages/spec/src/ui/app.zod.ts:203`),裸 `page` / `object` / `dashboard` / `report` 既不在任一变体的 shape 里,也不在 `NAV_ITEM_ALIASES` 里 —— 于是它们是**未知键**,`AppSchema` 解析时直接 `unrecognized_keys` 报错。也就是说这些 `||` 右腿只可能在**通不过 spec 解析的 app** 上生效。这正是 objectstack#4984 / #5009 那一族:消费端替 schema 接受了它拒绝的方言,把错误约定化石化成第二契约(AGENTS.md Commandment #0.1)。\n\n**2. `StudioNavItemInspector` 把被拒绝的拼写读在前面。**\n\n```ts\nconst boundObject = String(node.object ?? node.objectName ?? '');\n```\n\n规范键 `objectName` 排在被拒绝的 `object` **之后**。今天无害(Studio 自己写 nav 时写 `objectName` 并显式把 `object` 置 `undefined`,而带 `object` 的 app 根本存不进去),但顺序本身是反的 —— 一旦哪天真有一条同时带两个键的数据,设计器会优先信 schema 拒绝的那个。\n\n**3. `case 'view'` 是死腿。**\n\n```ts\ncase 'view': return node.viewName || node.view ? { type: 'view', ... } : null;\n```\n\n`NavigationItemSchema` 是九选一的判别联合,成员为 object / dashboard / page / url / report / action / component / separator / group —— **没有 `view`**。`viewName` 是 `ObjectNavItemSchema` 的一个可选键(「打开哪个列表视图」),不是一种导航条目类型。所以 `node.type === 'view'` 对任何 spec 合法的导航都不成立,这条分支永远不执行。\n\n## 为什么算观察类\n\n三条都只在 spec 已经拒绝的元数据上才可能触发,今天没有产品路径能造出这种数据(Studio 的 nav 编辑器写规范键,`AppSchema` 在保存时把不规范的挡在门外)。所以是休眠代码 + 宽松消费端,不是线上缺陷 —— 但它同时也是**下一个读这段代码的人会照抄的模板**:#4019 加 `action` 分支时就得刻意不照抄这个 `||` 形状,并把理由写进注释,否则宽松就顺着扩散了。\n\n## 修的时候注意(别踩 #5046 的坑)\n\n删掉这些腿属于「减法」:钉子如果只断言 `resolveSurface(...) === null`,腿删掉后照样绿 —— **绿在什么都没产出上**,不是绿在逻辑对上。要么换成断言 spec 拒绝该拼写**且**消费端不解析(#4019 的 `navSurface.test.ts` 就是这个形状,可直接借),要么换成一个存活逻辑真会读的 fixture。\n\n## 现场\n\n- `packages/app-shell/src/views/studio-design/navSurface.ts` —— `resolveSurface` 的五条 `||` 腿 + `case 'view'`\n- `packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` —— `StudioNavItemInspector` 的 `node.object ?? node.objectName`\n- 契约侧:`packages/spec/src/ui/app.zod.ts`(`navItemSurface` / `NAV_ITEM_ALIASES` / `NavigationItemSchema`),实测 `@objectstack/spec` 17.0.0-rc.6\n\n未认领。"
+}

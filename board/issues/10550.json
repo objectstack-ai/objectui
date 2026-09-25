@@ -1,0 +1,36 @@
+{
+  "number": 10550,
+  "kind": "pull_request",
+  "title": "docs(types,core): name resolveRecordSourceConfig, not getDataConfig, for the gantt and calendar record-source ladder (objectui#9618)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: core",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T08:23:52Z",
+  "updated_at": "2026-09-25T08:49:40Z",
+  "closed_at": "2026-09-25T08:49:39Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-25T08:49:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10550",
+  "body": "Fixes #9618\nClause-②: no\n\n## What changed\n\nText only: no schema shape, accept-set or export moves. The ladder ORDER (`data`, then `staticData`, then `objectName`) is unchanged everywhere.\n\nThe gantt and calendar record-source text named a `getDataConfig` that their renderers do not contain. objectui#7632 (commit `ce2aaefe1`) took it out of `ObjectGantt.tsx`, and `ObjectCalendar.tsx` has none either. Both renderers call the shared `resolveRecordSourceConfig` from `@object-ui/core`. This PR rewrites only the false mentions so they name that function. The map text stays as it is, because `ObjectMap.tsx` still has its local `function getDataConfig(` wrapper, which delegates to the shared ladder.\n\n## Census: every `getDataConfig` mention in the two types files on `origin/main` (c2c4372c2)\n\nThe renderer check greps each renderer file. The control reads `ObjectMap.tsx`: it has `function getDataConfig(` and 7 mentions, while `ObjectGantt.tsx` and `ObjectCalendar.tsx` have 0 each. Positions are given by the owning symbol, not by line.\n\n| file | where | schema | renderer has `getDataConfig`? | action |\n|---|---|---|---|---|\n| `zod/objectql.zod.ts` | `requireRecordSource` docblock (the refinement shared by map, gantt and calendar), 2 mentions | shared | map yes, gantt no | rewritten: it named the ladder and attributed it to both files. It now names `resolveRecordSourceConfig` and says the map reaches it through its local wrapper |\n| `zod/objectql.zod.ts` | `ObjectMapSchema` docblock + `objectName` / `data` / `staticData` describes, 4 mentions | map | **yes** | untouched |\n| `zod/objectql.zod.ts` | `ObjectGanttSchema` docblock + `objectName` / `data` / `staticData` describes, 4 mentions | gantt | no | rewritten |\n| `zod/objectql.zod.ts` | `ObjectCalendarSchema` `objectName` / `staticData` describes, 2 mentions | calendar | no | rewritten |\n| `objectql.ts` | `ObjectMapSchema.objectName` / `.data` JSDoc, 2 mentions | map | **yes** | untouched |\n| `objectql.ts` | `ObjectGanttSchema.objectName` / `.data` / `.staticData` JSDoc, 3 mentions | gantt | no | rewritten. The `.data` doc quoted the code `if (schema.data) return schema.data;`, which the shared ladder no longer contains (rung 1 is judged by arm), so that quote is replaced with a description |\n| `objectql.ts` | `ObjectCalendarSchema.objectName` / `.staticData` JSDoc, 2 mentions | calendar | no | rewritten |\n\nAfter the change, 5 mentions remain in the zod file and 2 in `objectql.ts`. All of them are on map text, plus the new wording that names the map's local wrapper.\n\n**Second site, `packages/core/src/utils/record-source.ts`.** Two docblocks quoted the describes as the ruled contract and attributed that text to the map and gantt twins. Both now say that the quoted text is the map faces' text, and that the gantt (and calendar) faces name `resolveRecordSourceConfig`. The `resolveRecordSourceObjectName` docblock said callers pass \"their `getDataConfig(schema)` output\". It now says they pass their `resolveRecordSourceConfig` output, directly or through a local wrapper. This stays clear of the regions that objectui#10540 edits in the same file.\n\n**Test header.** The `objectql-record-source-refinement-6939.test.ts` header made the same attribution, and it is corrected in the same way. That file also holds the new pin.\n\n## Pin and reverse verification\n\nA new `describe` block, `objectui#9618 — the record-source text names the function each renderer actually has`, in `packages/types/src/__tests__/objectql-record-source-refinement-6939.test.ts`:\n- For `ObjectGanttSchema` and `ObjectCalendarSchema`, no zod member describe contains `getDataConfig`. The `objectName` and `staticData` describes name `resolveRecordSourceConfig`, and the TS `export interface` block contains no `getDataConfig`.\n- Control: the map zod describe and the TS face still name `getDataConfig`, and `ObjectMap.tsx` still declares `function getDataConfig(`.\n\nReverse verification ran from the committed fix (`a709aab8f`), with restore from `HEAD` under an EXIT/INT/TERM trap. The mutation put `getDataConfig` back into the gantt `objectName` describe. On disk the marker count went from 1 to 0 and the `getDataConfig` count from 5 to 6. Vitest then reported `Tests  1 failed | 19 passed (20)`, and the failure was `ObjectGanttSchema: no zod describe and no TS doc names getDataConfig`. After the restore, `git diff HEAD` was 0 bytes and the file hash matched the `HEAD` blob.\n\n## Local verification (head `27ac561f0`, after merging `origin/main`)\n\n- `pnpm exec vitest run packages/types/ packages/core/src/utils/` gave `Test Files 324 passed (324)` and `Tests 6923 passed (6923)`. This covers the zod mirror parity suites in `packages/types`.\n- `pnpm --filter '@object-ui/core^...' run build`, then `pnpm --filter @object-ui/types --filter @object-ui/core run type-check`: both printed `Done`, exit 0.\n- eslint on the 4 touched source files (`--format json`, 4 files): 0 errors. The warnings are existing `no-explicit-any` hits on untouched lines. `eslint.config.js` sets no `parserOptions` or type-aware config, so this diff cannot change the verdict on any untouched file. The repo-wide `pnpm lint` is left to CI.\n- `check-changeset-presence` passed with 1 changeset for 4 source files in 2 released packages. `check-changeset-no-major`, `check:new-line-citations` (`0 new citation(s)`), `check:control-bytes` and `check:test-path-roots` all exited 0. `check-governed-queue-guard --test` reports NOT GOVERNED.\n\n## Acceptance notes (not in this PR)\n\n- `packages/plugin-gantt/src/index.tsx` still has 3 comment mentions that say `ObjectGantt` reads through `getDataConfig`. They have the same false attribution, but the file is outside this card's claimed surface and the text is comment-only. Carrier: none.\n- Several pending `.changeset/*.md` bodies name `getDataConfig` for the renderers of their time. They are release records of those changes and are left alone.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01D486C1axmXnrkJMNUfz2eb)_\n"
+}

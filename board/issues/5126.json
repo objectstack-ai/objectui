@@ -1,0 +1,37 @@
+{
+  "number": 5126,
+  "kind": "issue",
+  "title": "skills/objectui/guides/schema-expressions.md 的「Data binding with `bind`」示例用 `data-table` + `bind`,而 `data-table` 全篇不读 `bind` —— 照抄即空表",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:blocking",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T02:39:45Z",
+  "updated_at": "2026-08-20T08:39:36Z",
+  "closed_at": "2026-08-20T08:39:36Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5126",
+  "body": "发现于 #4797(同文件另一节的 iteration 回撤)的实测,真实 SchemaRenderer 探针。**不在 #4797 的裁定半径内**(裁定只授权改写「Iteration scopes」节),故单独立卡,未在 PR #5124 里顺手改。\n\n## 教学面的承诺\n\n`skills/objectui/guides/schema-expressions.md` 的「Data binding with `bind`」一节给出:\n\n```json\n{\n  \"type\": \"data-table\",\n  \"bind\": \"customers\",\n  \"columns\": [\n    { \"name\": \"name\", \"label\": \"Name\" },\n    { \"name\": \"email\", \"label\": \"Email\" }\n  ]\n}\n```\n\n并明确写着:\n\n&gt; When `SchemaRendererProvider` receives `dataSource = { customers: [...] }`, the table component calls `useDataScope(\"customers\")` and gets the array.\n\n## 实测:不成立\n\n```\n@@Q3 data-table/bind  text=\"NameNo results foundTry adjusting your filters or search query.\"\n```\n\n绑定了 2 条数据,渲染出表头 + **空态**。\n\n## 成因(读码)\n\n`packages/components/src/renderers/complex/data-table.tsx` 的 `DataTableRenderer`(第 682 行起)从 schema 解构的是 `data: rawData = EMPTY_ROWS`,**通篇没有 `bind`,也没有 `useDataScope`** —— `grep -n \"bind\\|useDataScope\"` 对该文件零命中。散文里那句 \"calls `useDataScope(...)`\" 描述的是另一个组件的行为。\n\n`useDataScope` 在 `packages/components/src/renderers/` 下只有三个消费者:`data-display/list.tsx`、`data-display/tree-view.tsx`、`data-display/table.tsx`。其中第三个(`SimpleTableRenderer`)在 `table` 键上被 `complex/table.tsx` 完全遮蔽(见 #5125),所以**今天没有任何可达的表格渲染器读 `bind`**。\n\n## 为什么值得单独修\n\n这是 agent 面的已发布技能指南,且失真形态与 #4797 同族:照抄示例得到的不是报错,而是一张**看起来正常、内容为空**的表 —— AI 作者最难自查的那一类。#4797 的探针里 `list` + `bind` 至少还渲染出正确条数的空 li;这里连行都没有。\n\n## 修法方向(需裁决,勿直接猜)\n\n1. **改文档**:把示例换成真正读 `bind` 的类型(今天只剩 `list` / `tree-view`),或改用 `data-table` 真实支持的 `data` 内联形,并删掉那句 `useDataScope` 的机制描述。\n2. **改代码**:让 `data-table` 读 `bind`(它是文档里最常出现的表格类型,作者预期它读)。这会扩 `data-table` 的可授权键面。\n3. 与 #5125 合并处置:先定「哪个表格渲染器是 `bind` 的正主」,文档再跟着定。\n\n**Blocked-by: #5125** —— 方向 1 里「换成真正读 bind 的类型」与方向 2 都取决于 #5125 对重复注册的处置结论,建议先裁 #5125。\n\n## 参考\n\n- #4797 / PR #5124(同文件「Iteration scopes」节的 docs retreat,探针同一批)\n- #5125(`table` 重复注册,被遮蔽的正是唯一读 `bind` 的表格渲染器)\n- #4786(教学面拆 `props` 信封,本文件的上一次改写)"
+}

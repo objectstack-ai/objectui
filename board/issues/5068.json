@@ -1,0 +1,35 @@
+{
+  "number": 5068,
+  "kind": "issue",
+  "title": "finding(plugin-grid): ObjectGrid 在 `ObjectGridSchema.columns` 上容忍未声明的 `accessorKey` / `header` 拼写 —— 声明类型是 strict 的 ListColumn,#3104 的列身份门禁结构上看不见这条支路",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "auto-adjudicated",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T22:02:07Z",
+  "updated_at": "2026-08-19T18:00:48Z",
+  "closed_at": "2026-08-19T18:00:48Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5068",
+  "body": "发现于 #5013 的实施(plugin-grid README 标识符漂移)。Filed unassigned, not claiming. 观察类:今天没有用户会撞到,记录的是**声明面与运行时读取面的分叉**。\n\n## 事实\n\n`ObjectGridSchema.columns` 的声明类型是 `string[] | ListColumn[]`(`packages/types/src/objectql.ts`),而 `ListColumnSchema`(`@objectstack/spec/ui`)是 **strict** Zod 对象:`field` 必填,`accessorKey` / `header` 不在其中,会被**拒绝**而不是忽略。\n\n运行时另有一条支路接受那个未声明的拼写 —— `packages/plugin-grid/src/ObjectGrid.tsx:1361-1379`:\n\n```\n// Check if columns are already in data-table format (have 'accessorKey')\n// vs ListColumn format (have 'field')\nif ('accessorKey' in firstCol) {\n  …\n  const syntheticCol: ListColumn = { field: col.accessorKey, label: col.header, type: col.type };\n```\n\n于是同一个键有两种拼法:声明的一种(`field` / `label`),和只在运行时成立的一种(`accessorKey` / `header`)。`accessorKey` 是 `@object-ui/components` data-table(TanStack)的内部列键,不是 ObjectStack 的元数据身份。\n\n## 为什么现在记下来\n\n1. **它正是 #5013 那处文档漂移看起来可信的原因。** README 的虚构 `interface GridColumn { header; accessorKey; … }` 形状照抄进 `object-grid` 的 `columns` 里**确实会渲染**,所以没有任何信号说它错了 —— 声明面拒绝、运行时接受,读者只能看到后者。\n2. **#3951 是同族且已按另一方向结案**:`fields` 的 grid 列曾有 `name`(声明)/ `field`(运行时读取)两种拼写,处置是**在生产端统一为一种、不留容忍别名**(AGENTS.md #0.1)。本处是同一形状,尚未处置。\n3. **既有门禁看不见它。** `packages/core/src/utils/__tests__/column-identity.ratchet.test.ts`(#3104)专门盯列身份的双读,但它的检测器要求**同一行**上出现两个以上身份键的 `||` / `??` 交替链;这里是 `if ('accessorKey' in firstCol)` 的分支 + 合成,结构上不进它的扫描面。`accessorKey` 在那份清单里还被显式列为 `COMPANION_KEYS`(「单独出现不构成本族」)。\n\n## 出处\n\n这条支路本身早于 #902;#902(已关闭,「accessorKey-format columns bypass type inference」)是在**已有的容忍**之上补了类型推断,让这条支路也能渲染徽章/日期。所以本卡问的不是「#902 的修复对不对」,而是:**这个未声明的拼写应当被声明,还是应当像 #3951 那样退役?**\n\n两条路各自的代价值得一并定级:\n- **退役**(只读 `field`):契约收敛为一种拼法,但会改变今天能渲染的输入 —— 需要先量 in-the-wild 用量(仓内 `accessorKey` 的命中全在 `@object-ui/components` 的 data-table 及其测试,那是**另一个组件**的内部形状,不是经 `ObjectGridSchema` 授权的用法)。\n- **声明**(把 `accessorKey` 加进 spec):把 TanStack 的内部键提升为 ObjectStack 的授权面,与 #3951 的裁定方向相反。\n\n## 复核方式\n\n```\nsed -n '1357,1380p' packages/plugin-grid/src/ObjectGrid.tsx           # 容忍支路\ngrep -rn \"field: z.ZodString\" node_modules/@objectstack/spec/dist/view.zod-*.d.ts | head   # ListColumnSchema,strict\ngrep -n \"COMPANION_KEYS\" packages/core/src/utils/__tests__/column-identity.ratchet.test.ts\n```\n\n## 分级\n\n`finding`,不入 `pm:queue`。要不要动、往哪边动,取决于维护者对上面那个二选一的裁定;本卡只把分叉与门禁盲区记在案。"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 5378,
+  "kind": "issue",
+  "title": "`object-grid` / `object-form` read the dataSource from CONTEXT while `detail-view` takes it as a PROP — the two wirings are mutually exclusive, and the getting-started guide uses the one that breaks the grid",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-20T02:53:28Z",
+  "updated_at": "2026-08-20T21:18:18Z",
+  "closed_at": "2026-08-20T21:18:17Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5378",
+  "body": "Measured while acting on a review request against PR #5376 (#5342) to make `content/docs/guide/building-crud-app.md` actually render. It does not reduce to a prop rename, and this is why. Filed unassigned, not claimed.\n\n## The fact\n\nTwo blocks in the same family disagree about how the data-source adapter reaches them, and the registry gives an author no signal about which one they are holding.\n\n- `object-grid` and `object-form` are registered through **wrappers** (`ObjectGridRenderer`, `ObjectFormRenderer`) that pull the adapter out of `useSchemaContext()` / `SchemaRendererContext`. They need a `SchemaRendererProvider` ancestor.\n- `detail-view` is registered as the **raw `DetailView` component** (`packages/plugin-detail/src/index.tsx:133`), and `DetailView` destructures `dataSource` from its own props (`DetailView.tsx:191`). It needs the adapter spread onto the node, which is what a `dataSource` prop on `SchemaRenderer` does — `SchemaRenderer.tsx:703` says so explicitly (\"An explicit React `dataSource` prop is unaffected: it arrives via `...props`, spread last\").\n\n`SchemaRenderer` itself reads only context (`SchemaRenderer.tsx:371`: `const dataSource = context?.dataSource || NO_DATA_SOURCE`), so a `dataSource` **prop** never becomes context for descendants.\n\n## Measured, both directions, on `f2e11ae6f`\n\nRendered through the real registry with a fake adapter, in both wirings. `find` / `findOne` call counts and whether the row text appears:\n\n| wiring | `object-grid` | `detail-view` |\n|---|---|---|\n| `SchemaRendererProvider dataSource=...` wrapping `SchemaRenderer` | `find` **1**, row renders | `findOne` **0**, renders nothing |\n| `SchemaRenderer dataSource=...` (prop, no provider) | `find` **0**, renders nothing | `findOne` **1**, row renders |\n\nBoth blocks were given correct, declared keys (`objectName`, `resourceId`) in every cell — so this is purely the wiring axis, with the key axis held fixed. Neither wiring reports anything: no error, no warning, no empty-state explaining itself. Both failures are the silent-empty shape of #5349.\n\n## Why it matters beyond one page\n\n`content/docs/guide/building-crud-app.md` is the getting-started CRUD walkthrough. It imports only `SchemaRenderer`, never `SchemaRendererProvider`, and passes `dataSource` as a prop at all five call sites. So on the wiring axis alone, before any key question:\n\n- its three `object-grid` snippets and its one `object-form` snippet cannot fetch, and\n- its one `detail-view` snippet can.\n\nThat also puts the page in direct contradiction with AGENTS.md commandment #1, which states the injection pattern as `SchemaRendererProvider dataSource={...}`.\n\nThe interaction with #5377 is the reason this is its own card: #5377 is the KEY axis (`object` vs `objectName`, `recordId` vs `resourceId`) and is real — with the provider wiring, renaming the grid's one key takes it from `find` 0 to `find` 1 and the row appears. But fixing the keys alone does not make the guide render, because the guide's wiring is the other one. Two axes, both live, and a card that fixed only one would report success on a page that still renders nothing.\n\n## What needs deciding\n\n1. **Converge the blocks.** Give `detail-view` the same context-reading wrapper its siblings have, so every block resolves the adapter the same way. This looks like the long-term-correct direction — one contract, and the wrappers already exist as the pattern — but `detail-view`'s prop form has existing callers that pass `dataSource` directly, so it needs a compatibility judgment rather than a rename.\n2. **Or declare the split** and make it visible, so an author is told which blocks need a provider instead of discovering it as an empty view.\n3. Either way, **the silence is its own defect**: a block that has no adapter should say so, not render an empty shell. That is the #5349 shape again and argues for a shared \"no data source resolved\" report.\n\n## Reproduce\n\n```\ngrep -n \"const dataSource = context\" packages/react/src/SchemaRenderer.tsx      # 371, context only\ngrep -n \"dataSource\" packages/plugin-detail/src/DetailView.tsx | head -1        # 191, a prop\ngrep -n \"register('detail-view'\" packages/plugin-detail/src/index.tsx           # 133, raw component\ngrep -n \"useSchemaContext\" packages/plugin-grid/src/index.tsx                   # the wrapper\ngrep -n \"SchemaRendererProvider\" content/docs/guide/building-crud-app.md        # zero hits\n```\n\nRelated: #5377 (the key axis on the same five snippets), #5342 / PR #5376 (the `type` axis on the same five snippets), #5349 (the silent-empty failure mode), #5372 (another \"the only working route is the one the docs discourage\" instance).\n\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_"
+}

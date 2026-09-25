@@ -1,0 +1,35 @@
+{
+  "number": 10619,
+  "kind": "pull_request",
+  "title": "fix(app-shell): a CEL comprehension macro's iteration variable is bound inside its macro, not flagged as out of scope (objectui#10538)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T12:14:05Z",
+  "updated_at": "2026-09-25T12:55:00Z",
+  "closed_at": "2026-09-25T12:54:59Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-25T12:54:59Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10619",
+  "body": "Fixes #10538\n\nClause-②: no\n\nImplemented by a dispatched dev run of the `domain:ui` seat 5, session `https://claude.ai/code/session_01KUxVUa7e39aNjhkKi1gsoy`.\n\n## What changes\n\n`findUnknownRefs` in `packages/app-shell/src/views/metadata-admin/inspectors/flow-ref-check.ts` read every root identifier in a CEL source as a flow variable reference. So a comprehension macro's own iteration variable (`r` in `rows.map(r, r.subject)`) drew the amber \"not in scope\" warning. That included the assignment-value example in `@objectstack/spec`, `joinNonEmpty(rows.map(r, r.subject), \"\\n\")`, in the `AssignmentValue` JSDoc.\n\n`rootIdentifiers` now collects the bindings of `map`, `filter`, `exists`, `all` and `exists_one`, through a new private helper `macroBindings` in the same file. For a member call `.MACRO(v, ...)` whose first argument is a bare identifier, `v` is bound between that call's `(` and its matching `)`, and nowhere else. Scope is lexical: the receiver, and the same name after the closing `)`, are still roots. A nested macro binds each variable in its own span. `findUnknownRefs` itself is unchanged. The warning stays advisory; nothing about what blocks Save changes.\n\n## Why the local scanner and not the parser-backed reader (H2, measured)\n\n`@objectstack/formula` 17.4.0, already an app-shell dependency, exports `collectCelRootIdentifiers`. Measured on the five macros, it reports the bound variable too:\n\n| source | `collectCelRootIdentifiers(source).roots` |\n|---|---|\n| `rows.map(r, r.subject)` | `[\"rows\",\"r\"]` |\n| `rows.filter(x, x.done).size()` | `[\"rows\",\"x\"]` |\n| `rows.exists(e, e.a > 1)` | `[\"rows\",\"e\"]` |\n| `rows.all(a, a.ok)` | `[\"rows\",\"a\"]` |\n| `rows.exists_one(o, o.id == 1)` | `[\"rows\",\"o\"]` |\n| `rows.map(r, r.items.filter(i, i.ok))` | `[\"rows\",\"r\",\"i\"]` |\n\nSwitching `findUnknownRefs` to that reader would keep this defect. So the fix stays in the local regex scanner, scoped to each macro's argument span, and no parser-backed path is added. The upstream walker has the same defect and its consumers inherit it. That is reported to the dispatching seat as a separate finding (see Acceptance notes). objectstack is not edited here.\n\n## Pins\n\nA new `describe` in `flow-ref-check.test.ts`, \"findUnknownRefs (CEL comprehension macros bind their iteration variable) (objectui#10538)\":\n\n- the canonical example reports `[]`;\n- each of the five macros (plus the three-argument `map`) with its own bound variable reports `[]`;\n- a nested macro reports `[]`;\n- negative legs: `rows.map(r, r.subject) + r` flags the trailing `r`; an inner variable used after its own macro closes is flagged; a bound variable used as a different macro's receiver is flagged; `rowz.map(r, r.subject)` flags `rowz` with suggestion `rows`; a member call that is not one of the five (`rows.join(sep, other)`) binds nothing.\n\nBase vs fix, single file (`pnpm exec vitest run packages/app-shell/src/views/metadata-admin/inspectors/flow-ref-check.test.ts`, through the shared verify lock):\n\n- base source, byte-identical to `21d34d5` (`git diff --quiet` exit 0), new pins added: exit 1, `Tests 6 failed | 15 passed (21)`. The canonical pin fails with `expected [ { token: 'r', …(1) } ] to deeply equal []`.\n- with the fix (commit `5225195`): exit 0, `Tests 21 passed (21)`.\n\nTwo of the negative legs pass on the base as well; they guard against the fix binding too much.\n\n## Gates (at head `9fd5fcc`, after merging `origin/main` `adeecd6`)\n\n- `pnpm exec vitest run --maxWorkers=2 packages/app-shell/src/views/metadata-admin/inspectors/ packages/app-shell/src/views/metadata-admin/previews/flow-expr-problems.test.ts`: exit 0, `Test Files 98 passed (98)`, `Tests 1357 passed | 1 skipped (1358)`. The skip is an existing spec-version `skipIf` in `flow-node-config.spec-reconciliation.test.ts`. The previews test is added because `flow-expr-problems.ts` is the one caller of `findUnknownRefs` outside the inspectors folder.\n- `pnpm turbo run type-check --filter @object-ui/app-shell --concurrency=2`: exit 0, `Tasks: 30 successful, 30 total`. `tsc -p tsconfig.test.json --listFilesOnly` lists `flow-ref-check.test.ts`, so the pins are type-checked.\n- `pnpm exec eslint` on the two changed source files: exit 0, no output.\n- `pnpm check:control-bytes`, `check:test-path-roots`, `check:vi-mock-specifiers`, `check:vi-mock-inherit`, `check:vi-mock-override-shape`, `check:new-line-citations` (0 new citations), `check:changeset-claims`, `check:pending-changeset-literals`, `changeset:check`, `node scripts/check-changeset-presence.mjs` and `node scripts/check-changeset-overwrite.mjs`: all exit 0.\n\nChangeset: `.changeset/10538-cel-macro-bound-variable.md`, `'@object-ui/app-shell': patch`.\n\n## Acceptance notes\n\n- Upstream, not filed by this PR (reported to the seat): `collectCelRootIdentifiers` in `@objectstack/formula` reports a macro-bound variable as a root, so its closed-root consumers refuse valid CEL. Probe on `@objectstack/lint` 17.4.0: `validateApprovalApprovers` on an approval node whose `expression` approver is `vars.list.map(x, x.id)` gives error `approval-expression-invalid`, \"expression approver references `x`\". The control `vars.list` gives no such error.\n- `cel.bind(x, rows, x.size())` evaluates upstream (`ExpressionEngine.evaluate` gives `{ ok: true, value: 3 }`), and this scanner flags `cel` and `x` on it, before and after this change. `cel.bind` is outside the five macros this card rules on, and its shape differs: the variable is bound in the third argument only, and the receiver `cel` is a namespace constant. So it is reported to the seat, not changed here.\n- Docs: no page under `content/docs` describes this designer warning, so there is no docs change.\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01KUxVUa7e39aNjhkKi1gsoy)_\n"
+}

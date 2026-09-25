@@ -1,0 +1,35 @@
+{
+  "number": 5254,
+  "kind": "issue",
+  "title": "form 字段 `type: 'email'` 经 bare-name 回退落进 SDUI 节点渲染器,`field`(对象)与 `max_length` 一起泄漏到 DOM",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T20:34:55Z",
+  "updated_at": "2026-08-19T15:04:17Z",
+  "closed_at": "2026-08-19T15:04:17Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5254",
+  "body": "Found while implementing #5201 by measuring which render path a non-builtin field `type` actually takes. **Out of that card's scope** (`input` branch only) — recorded, not fixed there.\n\n## 观察到的现象(已实测,不是推断)\n\n`packages/components/src/renderers/form/form.tsx` 的字段渲染在没有 `field:` 命名空间 widget 时回退到 **bare-name** 解析 `ComponentRegistry.get(type)`。`packages/components/src/renderers/form/input.tsx:89` 把 `email`(以及 `password`)注册成 **`ui` namespace 的 SDUI 节点渲染器** —— 它们是给顶层 `{ type: 'email' }` 节点用的,不是 field widget。于是一张手写 `FormSchema` 里的 `{ name, type: 'email' }` 字段,悄悄落进那条 \"non-field component reached through the bare-name fallback\" 的路径。\n\n实测(渲染内建分支,不调 `registerAllFields()`;dump `getAttributeNames()`):\n\n```\nComponentRegistry.get('email') = true   ComponentRegistry.get('field:email') = false\n\ntype:'email' + max_length: 50\n  attrs=[\"class\",\"id\",\"max_length\",\"field\",\"aria-describedby\",\"aria-invalid\",\"type\",\"value\",\"name\"]\n  maxlength=null\n```\n\n两件事同时发生:\n\n1. **`field` 泄漏到 DOM。** 它是 raw metadata **对象**;该路径走 `stripRegisteredFieldProps`,而那份剥离表**刻意保留** `field`(它是注册 widget 的元数据载体,objectui#3233),但这个组件不是 field widget —— 它把收到的 props 直接摊到元素上,于是 `field` 变成元素上的一个游离属性。同族口径见 #4432 / #4425(`toDomProps` 白名单只覆盖到 `packages/fields`)。\n2. **`max_length` 同样泄漏,且没有任何上限**(`maxlength=null`)—— 与 #5201、以及回退分支的那张同族卡一致。\n\n## 需要先判的那一问,不要直接改\n\n这里有两种读法,通向两种架构,所以本单**不带修复方案**:\n\n- **A:属于 DOM-leak 家族** —— bare-name 路径该有自己的 `toDomProps` 白名单,像 #4425 说的那样把守卫推到 `packages/fields` 之外。范围小,但没解决「一个 form 字段本就不该落进 SDUI 节点渲染器」。\n- **B:属于 resolution 家族** —— form 字段的 type 解析根本不该 fall back 到 `ui` namespace 的节点渲染器。那是更正的形状,但会改变 `type: 'email'` / `type: 'password'` 字段今天的渲染结果(它们目前确实渲染出一个可用的 input),属于行为改动,需要先定夺。\n\n两者的取舍不能从 #5201 的结论推出来,交 triage。\n\n## 起点\n\n- `packages/components/src/renderers/form/form.tsx` —— `RegisteredComponent` / `namespacedWidget` 解析,以及其下 non-field 分支\n- `packages/components/src/renderers/form/input.tsx:89`(`email`)与其后的 `password` 注册\n- 同族:#4432(已关)、#4425(open,`toDomProps` 白名单覆盖面)\n\n## 检索记录\n\n`search_issues` 跑过 email / bare-name fallback / SDUI node renderer / DOM leak 关键词;命中的 open 卡只有 #4425(相关但不同面:它讲 plugin-dashboard 的 SDUI widget),无重复单。\n"
+}

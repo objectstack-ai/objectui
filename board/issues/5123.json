@@ -1,0 +1,35 @@
+{
+  "number": 5123,
+  "kind": "issue",
+  "title": "`props` 与 `properties` 同现时,alias 优先级按「读法」相反 —— 配置袋读到 properties,React prop 读到 props",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T02:22:46Z",
+  "updated_at": "2026-08-19T00:52:55Z",
+  "closed_at": "2026-08-19T00:52:20Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5123",
+  "body": "发现于 #4799(PR #5122)的实施途中,顺手实测,**不在该单半径内,未在该 PR 修**。\n\n## 事实\n\n一个节点同时写了 `props` 与 `properties` 两种拼写时,渲染器**读哪一个,取决于它用哪条通道读**,而两条通道的 alias 优先级正好**相反**:\n\n- **配置袋通道**(`schema.properties.x`):`element:*` 渲染器的 `readProps()` 是\n  `{ ...schema.props, ...schema.properties }` —— **`properties` 赢**。\n- **React prop 通道**(组件直接收到的 `x` prop):`SchemaRenderer` 在 `React.createElement`\n  处先 spread `...componentProps`(其中含 evaluation memo 把 `properties.*` 提升到顶层的那份\n  拷贝),**再** spread `...(evaluatedSchema.props || {})` 覆盖 —— **`props` 赢**。\n\n真实 SchemaRenderer 渲染探针实测(节点 `props: { content: 'FROM_PROPS' }` 与\n`properties: { content: 'FROM_PROPERTIES' }` 同现,同一次渲染里同时读两条通道):\n\n```\nbagRead(properties.content)=\"FROM_PROPERTIES\"  reactPropRead(content)=\"FROM_PROPS\"\n```\n\n同一个节点、同一个键,两个答案。哪个上屏纯粹取决于该渲染器碰巧是 `readProps()` 家族\n(`elements.tsx` / `text-input.tsx` / `record-picker.tsx` / `data-list.tsx` / `metadata-viewer.tsx`)\n还是直接吃 spread 进来的 prop。\n\n## 与 #4799 的关系\n\n#4799 修的是「`properties` 根本不参与表达式求值」;PR #5122 落地后两边的**值**都会被求值,\n但上面这条**优先级分歧**是独立的、且 PR #5122 **既没有引入也没有改变**它(该 PR 显式保持\n`readProps` 的 `properties` 优先级不变)。因此单列。\n\n## 为什么值得看一眼\n\n这是 alias 家族(#4795 / #4797 / #4799 / #4786)的同一根问题的另一面:`props` 被注释明确称作\nlegacy alias、`properties` 是规范拼写,但「规范拼写赢」这件事只在一半的读法上成立。按\ncontract-first(AGENTS.md #0.1),两条通道要么给同一个答案,要么其中一条根本不该存在。\n\n## 复现\n\n`packages/react/src/SchemaRenderer.tsx` 的 `React.createElement` 调用处(spread 顺序)\n对照 `packages/components/src/renderers/basic/elements.tsx` 的 `readProps()`。上面的读数由一个\n临时探针组件取得(同时打印 `schema.properties.content` 与它自己收到的 `content` prop),\n探针未入库。\n\n## 备注\n\n未认领,交 PM 分诊定级 —— 触发条件是作者两种拼写同时写,频次未知;但一旦发生,症状是\n「换个渲染器同一份 JSON 结果不同」,不容易被归因。"
+}

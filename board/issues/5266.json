@@ -1,0 +1,34 @@
+{
+  "number": 5266,
+  "kind": "issue",
+  "title": "apps/console: the `vendor-objectstack` advancedChunks group folds the lazily-imported `@objectstack/lint` into an eagerly-loaded chunk — 89 KiB gzipped on every page load",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-18T22:54:11Z",
+  "updated_at": "2026-08-19T15:31:39Z",
+  "closed_at": "2026-08-19T15:31:39Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5266",
+  "body": "Filed from objectstack-ai/objectstack#9707, the framework-side measurement card. That card measured the cost; this is where the cause lives. **The fix is one line in `apps/console/vite.config.ts`, and I verified it by building the console with the change applied** — numbers below.\n\nNot assigned to anyone. No PR opened from the framework side.\n\n## What happens\n\n`packages/app-shell/src/preview/capabilityLint.ts` imports the linter lazily and deliberately:\n\n```ts\nconst mod: any = await import('@objectstack/lint');\n```\n\nIt feature-detects exactly one export, `validateCapabilityReferences`, and runs it as a pre-publish advisory pass in the metadata designer. That is the **only** runtime reference to `@objectstack/lint` anywhere in this repo — I checked every occurrence at the pinned SHA; the rest are prose in comments and one line in `packages/app-shell/package.json`. So there is no second, static import defeating the lazy one.\n\nThe lazy import nonetheless buys nothing, because of this group in `apps/console/vite.config.ts`:\n\n```js\nconst VENDOR_OBJECTSTACK_TEST = /([\\\\/]node_modules[\\\\/]@objectstack[\\\\/]|[\\\\/]@objectstack\\+)/;\n// ...\n{ name: 'vendor-objectstack', test: vendorObjectstackTest, priority: 95 },\n```\n\nThe test matches **every** `@objectstack/*` package, so `@objectstack/lint` is forced into the same chunk as `@objectstack/spec` and `@objectstack/client`. Those two are reached synchronously from the app entry, so the group's chunk is a **static** import of `index-*.js` — which `index.html` loads. Rolldown honours the group over the module's async-only reachability, and the linter becomes eager. 17 chunks statically import `vendor-objectstack`; the entry chunk is one of them.\n\nThis is not a stale-copy or an injection problem — it is true of the published lint package, and it is chunk placement only.\n\n## Measured\n\nBuild provenance: framework `main` @ `6f40ed736`, objectui pin `82a94170c405`, `scripts/build-console.sh` unmodified, visualizer and compression plugins active (CI unset).\n\nBaseline:\n\n| | raw | gzip |\n|---|---|---|\n| `vendor-objectstack-DEHi9gWK.js` (largest chunk in the app) | 5,783,887 | 1,759,970 |\n| entire eager closure — 59 chunks reachable by static import from `index.html` | 14,157,562 | 4,117,647 |\n| `@objectstack/lint` `dist/index.js` as installed | 532,262 | — |\n\nEvery console page load downloads and parses the whole linter.\n\n## The fix, and what it is worth\n\nExclude lint from the group so it falls back to the async chunk its dynamic import already implies:\n\n```js\nconst VENDOR_OBJECTSTACK_TEST =\n  /([\\\\/]node_modules[\\\\/]@objectstack[\\\\/](?!lint[\\\\/])|[\\\\/]@objectstack\\+(?!lint@))/;\n```\n\nBoth alternatives need the lookahead: under pnpm the module resolves through a path that matches each of them. I applied exactly this, rebuilt the console, and measured:\n\n| | baseline | with the fix | delta |\n|---|---|---|---|\n| eager closure, gzipped | 4,117,647 | 4,026,464 | **−91,183 (−89.0 KiB)** |\n| eager closure, raw | 14,157,562 | 13,861,026 | −296,536 |\n| eager chunk count | 59 | 59 | 0 |\n\nThe linter relocates to its own chunk (`dist-*.js`, 294,800 raw / 91,155 gzipped) which is **not** in the eager closure — it is fetched only when an author publishes in the metadata designer, which is what the `await import` was always asking for. Nothing else moved: the chunk count is unchanged and the emitted asset count is 507 both times.\n\n**89 KiB gzipped off every single page load, for a one-line regex change.**\n\n## Two things worth knowing before someone tries a different fix\n\n1. **Swapping the import to `@objectstack/lint/runtime` is not a fix.** That subpath advertises itself as the kernel-safe light entry, but its module graph reaches 70 of the 72 modules the main entry reaches, and on disk it is 498,225 bytes against the main entry's 532,262 — 93.6%. It also does not export `validateCapabilityReferences` at all.\n2. **The three browser-externalization warnings naming lint (`module`, `path`, `fs`) are a symptom, not the cost.** The linter reaches `sucrase` and `typescript` through `createRequire` at call time and that code is never on the console's path, so the heavy transpilers are not bundled. I confirmed the warnings are lint's by replacing its entry with a stub: the build's externalization warnings went from 4 to 1, and the survivor is unrelated. Removing those imports from the framework package would not move the bytes.\n\n## Refs\n\n- objectstack-ai/objectstack#9707 — the framework-side measurement card this came from, which also carries the verdict on whether a framework-side export-map change is warranted (it is not required to capture the win above).\n- objectstack-ai/objectstack#9659 — the measurement round that produced #9707.\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 5020,
+  "kind": "issue",
+  "title": "finding(plugin-map): `clusterRadius` 的文档注释写「in pixels」,实际是坐标度数网格 `radius / 2 ** zoom`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "qq9340100"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T15:19:18Z",
+  "updated_at": "2026-08-21T08:10:05Z",
+  "closed_at": "2026-08-21T08:10:05Z",
+  "closed_by": {
+    "login": "qq9340100",
+    "id": 313832657,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5020",
+  "body": "发现于 #5002 的实施(plugin-map README 重写)。Filed unassigned, not claiming. 归 `finding`(观察类,不带 `pm:queue`)。\n\n## 现象\n\n`packages/plugin-map/src/ObjectMap.tsx:70-71` 声明:\n\n```ts\n/** Cluster radius in pixels (default: 50) */\nclusterRadius?: number;\n```\n\n而 `clusterMarkers`(`:313-327`)用它的方式是:\n\n```ts\nconst cellSize = radius / Math.pow(2, zoom);\nconst cellX = Math.floor(marker.coordinates[0] / cellSize);   // coordinates 是 [lng, lat] 度数\nconst cellY = Math.floor(marker.coordinates[1] / cellSize);\n```\n\n`cellSize` 是拿**经纬度度数**去除的网格边长,不是屏幕像素;而且随 zoom 指数变化,50 这个数字在任何 zoom 下都不对应 50px。所以注释里的单位是错的 —— 一个按\"50 像素\"直觉传值的宿主拿到的是完全不同的聚合粒度。\n\n顺带记:度数网格在经度方向随纬度失真(高纬度同样的度数对应更短的地面距离),所以聚合\"半径\"在南北方向不一致。这一条是设计取舍,不是注释错误,一并放这里供分诊。\n\n## 为什么按观察类归档\n\n今天没有用户面症状:聚合本身工作,阈值(>100 个可见 marker 自动开启,`:570`)与 tap-through 放大都正常;`clusterRadius` 在全仓没有任何调用点传值(默认 50 到处生效)。踩到它的前提是宿主按注释的单位显式传值。#5002 的 README 重写没有照抄这句\"pixels\",改写成了 `clusterRadius / 2 ** zoom` 的实际语义。\n\n## 复核方式\n\n```\ngrep -n \"Cluster radius in pixels\" packages/plugin-map/src/ObjectMap.tsx\nsed -n '313,330p' packages/plugin-map/src/ObjectMap.tsx\ngrep -rn \"clusterRadius\" packages apps examples | grep -v plugin-map/src   # 零调用点\n```\n"
+}

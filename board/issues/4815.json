@@ -1,0 +1,34 @@
+{
+  "number": 4815,
+  "kind": "issue",
+  "title": "finding(plugin-grid): `DATA_SOURCE_WIDGET_TYPES` 是「哪些 widget 要 DataSource」的第四份私有副本 —— 与表单规则不同集、零 gate",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-16T09:51:50Z",
+  "updated_at": "2026-08-19T13:22:01Z",
+  "closed_at": "2026-08-19T13:22:01Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4815",
+  "body": "发现于 #4790 的实施。同 #4770 / #4790 的失效模式,**不在 #4790 范围内**(该卡正文只点名两张表),单独立此单记录。\n\n## 事实(实读 origin/main @ f2dc8fa96)\n\n`packages/plugin-grid/src/components/bulkParamToField.ts:40-46`:\n\n```\nconst LOOKUP_WIDGET_TYPES = new Set(['lookup', 'master_detail']);\nconst USER_WIDGET_TYPES = new Set(['user', 'owner']);\nconst DATA_SOURCE_WIDGET_TYPES = new Set([...LOOKUP_WIDGET_TYPES, ...USER_WIDGET_TYPES]);\n```\n\n消费点两处:`fieldNeedsDataSource()`(→ `BulkActionDialog.tsx:600` 决定是否把网格的 DataSource 传给 param 控件)与 `isLookupishParam()`(→ 决定是否补 `reference_to` / `display_field`)。\n\n它编码的正是对象表单那条规则的同一件事 ——「这个 widget 要查记录,所以得把 DataSource 递给它」—— 但成员是第三种集合:\n\n| | 成员 |\n|---|---|\n| `@object-ui/core` `EXPANDABLE_FIELD_TYPES`(schema 字段类型域) | lookup, master_detail, tree, user |\n| 表单 `needsDataSourceWiring`(widget 键域,#4790 后派生自上表) | lookup, master_detail, tree, user + object-ref, filter-condition, recipient-picker |\n| **plugin-grid `DATA_SOURCE_WIDGET_TYPES`(widget 键域)** | **lookup, master_detail, user, owner** |\n\n即:多 `owner`,少 `tree` 与三个 widget-hint picker。没有任何 gate 能发现它继续漂。\n\n## 为什么今天没有用户症状(据此判为 observation-class)\n\n- 少 `tree`:批量动作 param 的 `type` 来自 spec 的 param 类型词表,`tree` 走 `resolveFormWidgetType` 后本就落到 `lookup`,所以这一格实际到不了。\n- 少三个 picker:那三个是共享规则页面的 widget hint,批量对话框的 param 目前不产出它们。\n- 多 `owner`:见 #4814,`owner` 根本不是 spec 的 `FieldType`,这一格同样是声明多于消费。\n\n所以现状是「三份写法各自恰好够用」,不是线上缺口 —— 但这正是 #4770 与 #4790 两次都描述的前夜状态:注释声称同步、机制不保证,直到某一侧加键才炸。\n\n## 修法方向(与 #4789 / #4790 同型)\n\n单一定义 + 各消费面自己做归一化 + identity 钉(钉对象身份,成员相同的私有副本骗不过)。落点候选:core 的 `EXPANDABLE_FIELD_TYPES`(参考半)+ 各面自己的 widget-hint 扩展,与 #4790 给表单定的形状一致。`owner` 那一格取决于 #4814 的裁决,建议**等 #4814 判完再动**,否则会把一个待退役的别名钉进共享表。\n\nBlocked-by: #4814\n\n## 参考\n\n- #4770 / PR #4789(cascade 允许表定型)、#4790 / 本卡 PR(表单 data-source 规则派生自 core)\n- `packages/plugin-grid/src/components/bulkParamToField.ts:40-46,144-146`、`packages/plugin-grid/src/components/BulkActionDialog.tsx:600`\n"
+}

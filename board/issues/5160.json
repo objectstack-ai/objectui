@@ -1,0 +1,36 @@
+{
+  "number": 5160,
+  "kind": "issue",
+  "title": "docs: five published READMEs import symbols their packages do not export — 15 TS2305, measured against the built dist",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T07:44:46Z",
+  "updated_at": "2026-08-19T15:46:17Z",
+  "closed_at": "2026-08-19T15:46:17Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5160",
+  "body": "Filed unassigned from the implementation of #5138 (shape 2, the snippet compile gate). **Not fixed there** — that card builds the gate; this is what the gate's adoption survey found in documents it does not yet cover.\n\n## What was measured\n\n`scripts/check-doc-snippet-types.mjs` (landing on `claude/issue-5138-doc-snippet-compile-gate`) extracts every fenced `ts`/`tsx` block and compiles it `--strict` against each package's **built `dist/index.d.ts`** — the surface a consumer imports, not `src`. Run once with the coverage ledger emptied, over the whole corpus (460 blocks, 57 documents), filtering for `TS2305` / `TS2724` / `TS2614` only — i.e. \"imports a name the module does not export\", the #5016 / #5048 defect class:\n\n```\ncontent/docs/guide/objectos-integration.mdx:80   TS2305: Module '\"@objectstack/spec\"' has no exported member 'AppManifest'.\ncontent/docs/guide/objectos-integration.mdx:330  TS2305: Module '\"@object-ui/data-objectstack\"' has no exported member 'useObjectQuery'.\ncontent/docs/guide/objectos-integration.mdx:330  TS2305: Module '\"@object-ui/data-objectstack\"' has no exported member 'useObjectMutation'.\npackages/app-shell/README.md:26                  TS2305: Module '\"@object-ui/app-shell\"' has no exported member 'ObjectRenderer'.\npackages/app-shell/README.md:43                  TS2305: Module '\"@object-ui/app-shell\"' has no exported member 'DashboardRenderer'.\npackages/components/README.md:73                 TS2305: Module '\"@object-ui/components\"' has no exported member 'registerDefaultRenderers'.\npackages/components/README.md:84                 TS2305: Module '\"@object-ui/components\"' has no exported member 'registerDefaultRenderers'.\npackages/components/README.md:203                TS2305: Module '\"@object-ui/react\"' has no exported member 'registerRenderer'.\npackages/core/README.md:25                       TS2305: Module '\"@object-ui/core\"' has no exported member 'PageSchema'.\npackages/core/README.md:26                       TS2305: Module '\"@object-ui/core\"' has no exported member 'FormSchema'.\npackages/core/README.md:27                       TS2305: Module '\"@object-ui/core\"' has no exported member 'InputSchema'.\npackages/core/README.md:28                       TS2305: Module '\"@object-ui/core\"' has no exported member 'BaseSchema'.\npackages/core/README.md:51                       TS2305: Module '\"@object-ui/core\"' has no exported member 'DataScope'.\npackages/core/README.md:97                       TS2305: Module '\"@object-ui/core\"' has no exported member 'defineView'.\npackages/react/README.md:166                     TS2305: Module '\"@object-ui/react\"' has no exported member 'useRegistry'.\n```\n\n## Why this is worth a card rather than a note\n\nFour of the five files are **package READMEs**, which sit in each package's published `files` and therefore ship to npm. A reader who copies one of those imports does not get a degraded render — they get a compile error, which is the same shape #5016 (`ReportBuilder`, `registerDrillHandler`, `ScheduleConfig`) and #5048 carried, in four more packages.\n\nEvery one of these has been green under every existing gate the whole time. `check-doc-component-types` reads `type` literals, `check-doc-links` reads links, and neither reads an import.\n\n## What each entry needs, and why it is not one batch edit\n\nThe three dispositions #5053 established apply here too, and they are not interchangeable:\n\n- **the symbol was renamed** — re-spell it;\n- **the symbol lives in a neighbour package** — fix the import path (`packages/core/README.md`'s schema types are the likely case: `PageSchema` / `FormSchema` / `InputSchema` / `BaseSchema` are `@object-ui/types` vocabulary, and `core` only imports them);\n- **the symbol was removed and nothing replaced it** — delete the example and teach the real surface, per the subtraction form of #5002 / PR #5021.\n\nDeciding which, per name, is the work. The name set must come from the package's **export surface** (the built `dist/index.d.ts`), never from a grep of `src/` — #5053 measured that `ReportScheduleConfig` appears twice in `src/` and is not exported, so a grep-based check calls it real.\n\n## Reproducing\n\nOn that branch, with the packages built:\n\n```\npnpm exec turbo run build $(node scripts/check-doc-snippet-types.mjs --build-filter)\n# then, with UNGATED_DOCS emptied, the survey above\n```\n\nAll five documents are on the gate's `UNGATED_DOCS` ledger today, with their measured diagnostic mix as the reason. Fixing a document is what lets its entry be deleted — the ledger can only shrink.\n\n## Related\n\n- #5138 — the gate this came out of; shape 1 (`safeParse` against the spec schema) remains unruled there\n- #5016 / #5048 / #5053 / #5060 — the same defect class, one document at a time\n- #5106 — a different gap in `check-doc-component-types`, not addressed by the new gate either\n"
+}

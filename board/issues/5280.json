@@ -1,0 +1,35 @@
+{
+  "number": 5280,
+  "kind": "issue",
+  "title": "plugin-dashboard: DatasetWidget.test.tsx escapes to the real network on the dimension-metadata probe (same root cause as #5225)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-19T00:09:16Z",
+  "updated_at": "2026-08-19T12:11:19Z",
+  "closed_at": "2026-08-19T12:11:19Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5280",
+  "body": "Found while fixing #5225 (plugin-report). Filed unassigned and **not** fixed there — that card's write surface is `packages/plugin-report`, and this is the same defect in a different package.\n\nMeasured on `origin/main` @ `41f498bcb`.\n\n## The escape\n\n```\npnpm exec vitest run packages/plugin-dashboard/src/__tests__/DatasetWidget.test.tsx 2>&1 | grep -c ECONNREFUSED\n-> 10        # 5 real connection attempts; grep matches 2 lines per attempt\n   Tests  52 passed (52)\n```\n\nPackage-wide, `pnpm exec vitest run packages/plugin-dashboard` reports 10 ECONNREFUSED lines over 63 files / 575 tests, and a per-file bisect puts all of them in `DatasetWidget.test.tsx`:\n\n```\nDatasetWidget.test.tsx                       -> ECONNREFUSED x10\nDatasetWidget.localSelectI18n.test.tsx       -> ECONNREFUSED x0\nDashboardFilterBar.optionsFromRawValue.test.tsx -> ECONNREFUSED x0\n```\n\nThe requests, captured with a `net.Socket.prototype.connect` probe:\n\n```\nGET http://localhost:3000/api/v1/meta/object/showcase_task   x3\nGET http://localhost:3000/api/v1/meta/object/showcase_deal   x2\nGET http://localhost:3000/api/v1/meta/object/invoices        x1\n```\n\n## Root cause — identical to #5225\n\n```\nDatasetWidget.tsx\n  -> useDatasetDimensionMeta            packages/react/src/hooks/useDatasetDimensionLabels.ts\n     -> `const doFetch = apiFetch ?? fetch`      <- the escape\n        -> loadDimensionFieldMeta        packages/core/src/utils/chart-series.ts:1178\n           GET /api/v1/meta/object/&lt;object&gt;\n```\n\nWith no `SchemaRendererProvider` in the tree the hook has no host `apiFetch` and degrades to the global `fetch` — deliberate, documented, and pinned (objectui#4121). Under happy-dom the global `fetch` is a real HTTP client, and vitest's happy-dom environment defaults the document URL to `http://localhost:3000` (`vitest/dist/chunks/index.DC7d2Pf8.js`: `url: happyDOM.url || \"http://localhost:3000\"`), so the relative `/api/v1/...` resolves to a live request. The read is best-effort (`catch {}` leaves rows as the server sent them), which is why the suite is green while the request always fails.\n\nOnly the cases whose mocked query result carries `object` reach it — that field is what the hook keys on. The widget's own `dataSource` double serves the ROWS; the metadata is a second channel that never goes through it, which is why the existing mock does not intercept.\n\n## Why it is not just noise\n\nA dev server on port 3000 is routine in this repo's shared containers. If one is up those 5 attempts *connect* — to whatever another agent is running — and the widget's rendered labels change with no line of the test changing.\n\nAlso worth checking: a green test that quietly took the error path is not testing what it says. In #5225's plugin-report file all 42 pre-existing tests stayed green once the probe was answered from a double with no option-bearing fields (byte-identical to the failed read), but that has to be re-measured here rather than assumed.\n\n## Relationship to the closed family\n\n#4106's title names plugin-charts **and** plugin-dashboard, but its fix (`ce4b9e8af`) landed in five `packages/plugin-charts/**` files only — no plugin-dashboard file was touched. The call site it fixed (ObjectChart's own inline option-color effect) was later extracted into the shared `useDatasetDimensionMeta` hook by #4389, which is the site above. So this is the #4106 root cause at a consumer that sweep did not cover, not a new one.\n\n#5225 (plugin-report) is the same, and its PR is the reference for the fix shape: answer the probe from a **recording** double that records every URL and fails on any non-metadata route, keep the answer option-free so no pre-existing assertion changes meaning, and pin the previously-unasserted request shape. ⛔ Not a blanket network stub and not an error-swallowing guard.\n\n## Recheck\n\n```\npnpm exec vitest run packages/plugin-dashboard/src/__tests__/DatasetWidget.test.tsx 2>&1 | grep -c ECONNREFUSED\n```\n\nRun vitest from the repo root (objectui#3378).\n"
+}

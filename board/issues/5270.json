@@ -1,0 +1,35 @@
+{
+  "number": 5270,
+  "kind": "issue",
+  "title": "A named view's `sort` array is forwarded into `gridSchema.defaultSort`, declared a SINGLE `{ field, order }` — ObjectGrid re-wraps it and `parseSchemaSort` drops it, so the grid shows no sort at all",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T23:18:40Z",
+  "updated_at": "2026-08-19T12:10:56Z",
+  "closed_at": "2026-08-19T12:10:56Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5270",
+  "body": "Found while implementing #5102. **Filed unassigned, not claiming. Deliberately NOT fixed there** — #5102's ruling scoped the work to the `table` segment of the forwarding chains, and its dispatch explicitly ⛔ ruled the two segments ahead of `table` (`currentNamedViewConfig`, `activeView`) out of bounds. This defect lives entirely in those two segments and is unchanged on both sides of that PR's diff.\n\n## The shape mismatch\n\n`packages/plugin-view/src/ObjectView.tsx` `gridSchema` (`:1055`):\n\n```\ndefaultSort: viewSort || schema.table?.defaultSort,\n```\n\nwhere `viewSort` resolves `currentNamedViewConfig?.sort || activeView?.sort`.\n\nThe two sides are **different arities**:\n\n- `NamedListView.sort` (`packages/types/src/objectql.ts:1579`) is `Array< { field, order } >` — an **array**.\n- `ObjectGridSchema.defaultSort` (`packages/types/src/objectql.ts` legacy block) is a **single** object `{ field: string; order: 'asc' | 'desc' }`.\n\nSo an array is placed in a slot declared to hold one object. The declaration collapse described in #5102 (`table` is `Partial< Omit< ObjectGridSchema, … > >`, flattened to a bare index signature) is why no compile error appears.\n\n## What the consumer then does\n\n`packages/plugin-grid/src/ObjectGrid.tsx`:\n\n- Header/display sort, `:2701`: `parseSchemaSort(schemaSort ?? (schema.defaultSort ? [schema.defaultSort] : undefined))`. With `defaultSort` already an array this wraps to `[[{ field, order }]]`. `parseSchemaSort` (`:69`) iterates the outer array and, per entry, accepts a string or an object with a **string `field`**; a nested array is neither, so the entry is skipped and the result is `[]` — **no sort arrow, no declared sort on screen**.\n- Fetch path, `:1121`: `params.$orderby = \\`${(schema.defaultSort as any).field} ${(schema.defaultSort as any).order}\\`` — on an array both reads are `undefined`, producing the literal string `\"undefined undefined\"` as `$orderby`.\n\nBoth are reachable only when `schemaSort` (the canonical `sort` slot) is absent, which is the case whenever a named view supplies the sort.\n\n## Measured\n\nObservable through ObjectView with a `listViews` entry carrying `sort: [{ field: 'name', order: 'desc' }]`: the forwarded `gridSchema.defaultSort` is `[{ field: 'name', order: 'desc' }]` — an array in the single-object slot. Pinned as *current* behaviour (explicitly \"unchanged by #5102\") in `packages/plugin-view/src/__tests__/ObjectView.canonicalTableKeys.test.tsx`, in the `a named view still outranks the table segment` block. That pin should be **updated, not deleted**, by whoever fixes this.\n\n## Suggested direction (not adjudicated)\n\nThe canonically shaped fix is to route the view segments into `gridSchema.sort` — which is declared `string | SortConfig[]` and therefore already accepts the array — instead of the deprecated single-object slot. Note this is not a pure move: `ObjectGrid` treats the two slots differently on the filter side too (canonical `filter` is lowered through `toFilterNode`, legacy `defaultFilters` is raw-assigned at `:1100`), so the filter half of the same pair needs its own wire-shape check before being moved with it.\n\n## Dedup\n\nSearched open issues (`defaultSort`, `named view sort`, `parseSchemaSort`, plus the file path). Nothing on this. Related: **#4869** (`finding`, open) — the *non-grid* fetch path passes `$orderby` through without the shared sort sink; adjacent but a different path and a different mechanism, and it remains accurate after #5102. Also #5102 (the `table` segment of these same chains).\n"
+}

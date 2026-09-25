@@ -1,0 +1,35 @@
+{
+  "number": 5261,
+  "kind": "issue",
+  "title": "cross-repo-issue-closer.yml here is the pre-hardening vintage of framework's copy: it closes a foreign PULL REQUEST, reports refusals as green, and has no harness",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-18T22:11:59Z",
+  "updated_at": "2026-08-19T12:10:56Z",
+  "closed_at": "2026-08-19T12:10:56Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5261",
+  "body": "Filed unassigned by the `domain:devx` os-dev seat while landing objectstack-ai/objectstack#9711 (which fixes the first item below in the framework repo's copy of this same workflow). Recording, not claiming. Dedup-searched over the 229 open issues in this repo (workflow name, \"closing keyword\", the Chinese phrasing): no card covers this.\n\n## What is here\n\n`.github/workflows/cross-repo-issue-closer.yml` in this repo is a copy of the framework repo's workflow, forked before four rounds of hardening landed there. Its per-target loop today is:\n\n```js\nconst { data: issue } = await github.rest.issues.get({\n  owner: t.owner, repo: t.repo, issue_number: t.number,\n});\nif (issue.state === 'closed') {\n  core.info(`${key} is already closed — skipping.`);\n  continue;\n}\nawait github.rest.issues.createComment({ ... });   // the backlink\nawait github.rest.issues.update({ ... state: 'closed', state_reason: 'completed' });\n```\n\nFour defects, in descending severity. The first is the one being fixed in the framework repo right now, and it is the reason this card exists rather than a note in that PR — the fix has to land in the repo that owns the file.\n\n1. **A closing keyword aimed at a foreign PULL REQUEST closes that PR.** Every pull request is also an issue to this endpoint: `GET /repos/{owner}/{repo}/issues/{N}` answers for a PR number with `state`, `state_reason` and the rest, plus a `pull_request` key nothing here reads. Measured on the framework repo today: `issues/9716` (a PR) answers `pull_request: { url, html_url, diff_url, patch_url, merged_at }`; `issues/9711` (an issue) has no such key. Since this workflow's `thisRepo` is `objectstack-ai/objectui`, the targets it acts on are in **framework** — so a merged PR here whose body says `Fixes objectstack-ai/objectstack#9716` would comment on that pull request and close it. GitHub's own closing-keyword parser never closes a pull request, and a wrongly-closed PR loses its merge-queue membership and any armed auto-merge in the same step; neither comes back by itself.\n2. **A refused close reports green.** The `catch` is a bare `core.warning`, so an expired or under-scoped `CROSS_REPO_ISSUE_TOKEN` leaves every target open and hands the run the same conclusion as a run with nothing to do. (Fixed in framework by objectstack-ai/objectstack#9595 / PR objectstack-ai/objectstack#9645: record the failures, `setFailed` after the loop, keep the isolation.)\n3. **An already-closed target is skipped whole, so it never gets the backlink** — the half of the deliverable that is not redundant. (Fixed in framework by objectstack-ai/objectstack#9643 / PR objectstack-ai/objectstack#9716, together with `state_reason` handling and a per-PR marker for re-run idempotency.)\n4. **Nothing here has ever been executed under test.** framework has `scripts/check-cross-repo-closer-outcome.mjs`, which extracts the inline script out of the YAML and drives it under doubles, plus a `--self-test` that mutates the script and requires the battery to go red. This repo has no equivalent, and the inline script is around 100 lines of code that only runs after a merge.\n\n## Severity, measured rather than assumed\n\nLow so far, and worth stating plainly: this branch may never have had a target. In the framework repo the equivalent measurement is 0 qualified foreign closing keywords across three independent windows of the 1176 most recently merged PRs, and 0 of 1129 distinct bare-form closing-keyword targets naming a pull request number. The same measurement has not been run over this repo's merged PRs — doing that is the first step of whoever takes this card, because it decides whether item 1 is urgent or merely wrong.\n\n## Suggested shape\n\nPort the framework file rather than re-deriving it: the guard is `if (issue.pull_request) { announce and refuse }` placed **before** the `state === 'closed'` branch (a merged PR reads as `state: 'closed'` with `state_reason: null`, so a guard after it still comments on someone else's pull request), and the harness comes with the scenarios that pin it. Whether this repo wants the whole family or only item 1 is a triage decision.\n\nRef: objectstack-ai/objectstack#9711 · objectstack-ai/objectstack#9643 · objectstack-ai/objectstack#9595 · objectstack-ai/objectstack#9575"
+}

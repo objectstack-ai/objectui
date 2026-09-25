@@ -1,0 +1,36 @@
+{
+  "number": 5553,
+  "kind": "issue",
+  "title": "Approvals inbox detail drawer unconditionally renders a \"Raw data (JSON)\" panel — exposes `hidden: true` fields, internal ids and audit columns to business approvers",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-21T10:23:42Z",
+  "updated_at": "2026-08-21T12:53:35Z",
+  "closed_at": "2026-08-21T12:53:35Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5553",
+  "body": "Moved from objectstack-ai/objectstack#10734 (filed there in Chinese by @baozhoutao, MEMBER, from a real EHR deployment on @objectstack/* 17.1.0; transfer unavailable in this tooling, rebuilt per file-at-destination — the renderer ships from this repo, `@objectstack/console` dist is a generated artifact of it). Original card retains the full report and repro; summary below.\n\n## Defect\n\nIn the Approvals center (`/_console/apps/<app>/system/approvals`, also the setup inbox route), opening any approval request shows a collapsible panel **「原始数据(JSON)」/ \"Raw data (JSON)\"** (with a copy button) between the activity feed and the action buttons. Expanded, it renders the submitted record's **complete raw row JSON**, including:\n\n- internal columns: `id`, `created_by`, `updated_by`, `owner_id`, `organization_id`, bare lookup ids;\n- **fields the object's metadata explicitly declares `hidden: true`** — the app author's visibility declaration is silently bypassed on the approver's path.\n\nAppears for all request states (pending / approved). Render condition is only `payload != null` — no role check, no debug/feature flag (reporter grepped `showRaw*` / `rawPayload` / `hideRawData` / `showPayload` / `approvals.*` settings keys: zero hits). Data source: `sys_approval_request.payload_json`, written unconditionally by `@objectstack/plugin-approvals`. The app author has **no legitimate config** to remove it (field `hidden`, view columns, nav, permission sets, env vars all ineffective) — only dist patching or CSS injection.\n\nLocator from the report: chunk `ApprovalsInboxPage-*.js`, i18n key `rawData`.\n\n## Expected\n\nA business approver sees only decision-relevant business information (key fields, approval chain, activity, actions). The raw row JSON is an implementation detail and must not bypass declared field visibility.\n\n## Triage scope guidance\n\nMinimal fix direction (reporter's own priority order): **default to not rendering the panel** for business approvers (dev-mode / platform-admin / explicit debug gating is acceptable), or at minimum trim the payload rendering by object metadata (drop `hidden: true` fields + internal audit/pk columns). ⛔ Adding a new system/app-level config key (e.g. `approvals.showRawPayload`) is new public surface — propose it in the report if you believe it is needed, do not implement without a ruling.\n\nServer-side residual (the payload itself still reaches the client unfiltered regardless of this panel) is tracked separately in the objectstack repo — this card is the UI half only.\n\nScreenshots exist in the source project (private); see the original card for contact."
+}

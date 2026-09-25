@@ -1,0 +1,34 @@
+{
+  "number": 4303,
+  "kind": "issue",
+  "title": "API Console carries two more service-gated catalog keys that name no canonical slot — `workflow` (retired) and `feed` (never a slot), so 7 endpoints are permanently unrenderable",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-11T12:18:25Z",
+  "updated_at": "2026-08-19T00:51:45Z",
+  "closed_at": "2026-08-19T00:51:45Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4303",
+  "body": "Filed as an out-of-scope finding while fixing #4240 (the `storage` → `file-storage` catalog key). Observation-class: nothing a user hits today, because the endpoints these entries describe do not exist server-side either — so hiding them is accidentally the right outcome. What is wrong is that the catalog carries 7 endpoint declarations that can never render on any host, and the fail-closed gate is what has been silently masking them.\n\n## Measurement\n\n`apps/console/src/pages/developer/hooks/useApiDiscovery.ts`, `SERVICE_ENDPOINT_CATALOG`. The key is looked up directly in the `/discovery` `services` map (`discoveredServices[serviceName]`), and that map is built only from the framework's `SERVICE_CONFIG`, whose keys the framework constrains to `CoreServiceName` members. Measured against the vendored `@objectstack/spec@17.0.0-rc.6`:\n\n```\nCoreServiceName.options = [metadata, data, auth, file-storage, search, cache,\n                           queue, automation, analytics, realtime, job,\n                           notification, ai, i18n, ui]\n```\n\nCatalog keys checked against it — 7 IN, 3 OUT:\n\n| catalog key | in slot vocabulary | note |\n|---|---|---|\n| `ai`, `realtime`, `notification`, `analytics`, `automation`, `i18n`, `ui` | yes | fine |\n| `storage` | no | #4240, being fixed — canonical name is `file-storage` |\n| `workflow` | **no** | slot retired in objectstack#4451 (v17) |\n| `feed` | **no** | never was a `CoreServiceName` slot |\n\n## The two dead entries\n\n**`workflow`** (5 endpoints, `/api/v1/workflow/*`). The slot was retired in objectstack#4451: `core-services.zod.ts` carries the retirement note in place of the enum member, and `metadata-protocol/src/protocol.ts:1922` reads `workflow: { route: '/api/v1/workflow' }` retired with the slot (#4451, …). Counter-probed on objectstack `origin/main` @ `5d24f4b`: no `registerService('workflow')` anywhere, and no mounted `/api/v1/workflow` route — the only hits are the retirement notes themselves plus `spec/src/api/protocol.zod.ts:1024` and `spec/src/migrations/registry.ts:1686`, both recording that the pre-#3586 dispatcher listed it but never mounted it.\n\n**`feed`** (2 endpoints, `/api/v1/feed/*`). Never a slot, and counter-probed: zero hits for an `/api/v1/feed` route anywhere in objectstack `packages/`, and zero for a `feed` discovery service entry.\n\nSo both are hidden for the same mechanical reason as #4240 — key not in the discovery map, fail-closed branch taken (ADR-0076 D12) — but unlike #4240 the remedy is not a rename, because there is no correctly-spelled slot to rename them to.\n\n## Why this is not folded into #4240\n\n#4240's scope is the one mis-keyed group whose service is real and whose endpoints work. These two are the opposite case: the key is dead because the capability is. The remedy is a product decision rather than a spelling fix, and each key has a different one:\n\n- `workflow` — the capability is live elsewhere (state_machine validation rules, approval flow nodes per ADR-0019, lifecycle hooks + `record_change` flows in service-automation). Options: delete the catalog entry, or re-point the group at whatever surface actually serves the capability today.\n- `feed` — options: delete the entry, or, if a feed surface is planned, leave it and let it enter the catalog with the slot when the implementation lands (implementation-first, per the startup-focus principle).\n\n## Tripwire coverage already added by #4240\n\nThe PR for #4240 pins `SERVICE_ENDPOINT_CATALOG` keys against `CoreServiceName` from `@objectstack/spec/system`, with these two keys as a documented, exhaustive exception set citing this issue. Consequences worth knowing before acting here:\n\n- a **new** non-slot key added to the catalog goes red immediately;\n- **removing** `workflow` or `feed` keeps the pin green (the assertion is a subset check), so whoever resolves this issue does not have to touch the test to make it pass — but should trim the exception set and this reference on the way out.\n"
+}

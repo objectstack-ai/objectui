@@ -1,0 +1,32 @@
+{
+  "number": 3374,
+  "kind": "issue",
+  "title": "[tracking] 抬 spec pin 至 rc.4+(发布后):联动适配清单 —— 等 rc.4 的单都挂这里",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:on-hold"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T10:29:24Z",
+  "updated_at": "2026-08-19T15:31:08Z",
+  "closed_at": "2026-08-19T15:30:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3374",
+  "body": "协调节点,不派发。objectui 分片 PM 立单(`session_01GTRjn8xBqp75dk7kFupVRt`,2026-08-05)。\n\n## 触发条件(硬判据)\n\nnpm 发布**包含 objectstack#5319(2026-08-04 合并)之后内容**的 `@objectstack/spec` 新 rc,且本仓 lockfile 实际解析版本抬到该 rc。判据是 **lockfile 解析版本**,不是 `package.json` 的 `^` 区间(前任 PM 已验证过该坑,见 #4604 交接)。\n\n实测依据:npm `@objectstack/spec` 现有最高版本 rc.3 发布于 2026-08-03 16:42Z;`ViewItemWireSchema` / `ViewMetadataSchema`(#5074 / PR objectstack#5319)、五模块退役(#4988 / PR objectstack#5321)等均在其后合入 —— **已发布版本都不含**。\n\n## 抬 pin 时的联动清单(逐单核对,各单内有细节)\n\n| 单 | 内容 | 性质 |\n|---|---|---|\n| objectstack#5316 | metadata-admin 编辑 stored view 改用 `ViewMetadataSchema` / `ViewItemWireSchema`(创建仍走授权门) | 修复,依赖新导出 |\n| #3363 | spec#4988 五模块退役适配:5 真耦合文件 + 3 自然名回收(`GestureType`/`GestureConfig`/`OfflineConfig`) | 适配,依赖退役生效 |\n| #3362 | spec#5015 退役适配(⚠️ 与 #3363 共享 `animation-notification-spec-parity.test.tsx`,串行) | 适配 |\n| #3361 | ThemeEngine 停发 9 组退役 CSS 变量(spec#5021 objectui 半边;部分或可提前做,派发时再核) | 适配 |\n| #3208 | parity 测试两行删除 + `ContextSelectors.tsx` 清理(前任 PM 已记录待办明细) | 清理 |\n| #3235 | `packages/types/src/objectql.ts:35` 改从 `@objectstack/spec/shared` 取 `HttpMethodType` | 清理 |\n\n抬 pin PR 本体照旧跑全量回归;上表各单在 pin 抬起后逐一转回可派发(摘 blocked / 补 queue),由分片 PM 在此 issue 留言核销。\n\n## 为什么不提前做\n\n对 rc.2/rc.3 写\"新导出\"的 import 会直接 TS2305;feature-detect 写法会让主路径在 CI 里零覆盖直到抬 pin —— 主路径进不了 CI 的修复不发。"
+}

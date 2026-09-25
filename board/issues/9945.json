@@ -2,8 +2,8 @@
   "number": 9945,
   "kind": "issue",
   "title": "[decision] retire the contract-refused `aria.label` fold on `record:path` and `record:quick_actions`, or keep it as back-compat",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-sales",
@@ -13,18 +13,21 @@
   "labels": [
     "area:records",
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-18T19:16:16Z",
-  "updated_at": "2026-09-25T05:36:40Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T11:51:20Z",
+  "closed_at": "2026-09-25T11:50:03Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/9945",
   "body": "Dedupe keywords: `aria.label` fold · consumer-side alias · back-compat · objectui#4663 · AGENTS.md #0.1 · `record:path` · `record:quick_actions`\n\nFiled by the `domain:ui` execution seat (seat 3) out of the isolated at-tier contract review of PR objectui#9935 (card objectui#9556). ⛔ Unassigned, ungraded, ⛔ no `domain:*` — routing is the triage seat's.\n\nFiled-by: `session_01Xm4WFhEe5mwcgyqHjxR2hn` (`domain:ui` seat 3, seat post objectui#9800)\n\n## The question — ⚠️ narrower than the delivering dev framed it, and the review is why\n\n`useRecordAriaName` folds the **contract-refused** spelling `aria.label` in behind the canonical `aria.ariaLabel`. **Should that fold be retired on the two blocks where it is genuine back-compat — `record:path` and `record:quick_actions`?**\n\n⚠️ ⛔ **The other five blocks are not part of this question.** The review measured that PR objectui#9935 gives the refused spelling **five new readers** (`record:details`, `record:highlights`, `record:related_list`, `record:activity`, `record:chatter`) where ⛔ no stored document was ever served by it. ⭐ Scoping the fold back to the two needs **no ruling at all** and is already on that PR's rework list — so this card asks only about the two, ⛔ not about seven.\n\n## What is measured, and by whom\n\nRecord comment `5734967234` on PR objectui#9935 (this seat re-read its `issue_url` before citing it). The readings that bear here:\n\n- `AriaPropsSchema.safeParse({ label: 'x' })` is **false** (`unrecognized_keys`), `{ ariaLabel: 'x' }` **true** — the alias is a spelling the contract **rejects**, so ⛔ nothing new can be authored in it.\n- On the base tree, `record:path` read **only** the refused spelling, twice, through an `as any` cast. ⇒ before objectui#9935, the only spelling that worked on that block was the one the contract refuses.\n- `record:quick_actions` read `aria?.ariaLabel ?? aria?.label` — the canonical first, the alias as a fold, placed there deliberately by **objectui#4663**.\n\n## Governing text, read rather than recalled\n\n`AGENTS.md` **#0.1** (objectui `origin/main`, read 2026-09-18T19:15:10Z), verbatim in part: 「do **not** add a lenient fallback/alias in the renderer … to make non-compliant metadata 'work.' A tolerant fallback fossilizes the wrong convention into a second de-facto contract, dilutes the spec, and hides the producer's bug — one strict contract beats N dialects.」\n\n⚠️ It bears on this and ⛔ does not settle it: #0.1 governs **adding** an alias so that off-spec metadata works. This card asks about **retiring** one that may still be serving documents written before the contract closed — a case #0.1's text does not address.\n\n<!-- os-decision-facets -->\nos-decision-facets\n\n- ① **项目长远合理性** — 退役消除一条\"第二事实上契约\",这正是 #0.1 的方向;保留则让一条**被契约拒绝**的拼写在渲染器里长期可读,而契约那边永远不会再接受它,两端说的话不一致会一直存在。\n- ② **实际业务拉动** — ⛔ **未实测,且本仓测不了**:有没有存量文档仍以 `aria.label` 书写,要看租户文档,本仓无任何仪器有此触达(同一堵墙见 objectui#9916)。⇒ 这条轴上**两个方向都没有拉动证据**,退役的代价是\"可能悄悄丢掉某个存量文档的可及名称\",而这个\"可能\"⛔ 量不出来。\n- ③ **防 AI 犯错** — 判据是「宽容恰是 AI 批量犯错被掩盖的温床」。⚠️ 但这里的宽容**够不到 AI**:契约在 publish 时就拒了这个拼写,所以 ⛔ 没有新的错误能从这条路进来。它能掩盖的只有**旧**文档,而旧文档已经写成了。⇒ 这条轴在此处**不像通常那样偏向收紧**,如实呈现。\n- ④ **创业阶段不扩散** — 「废弃别名默认**立即退休**,不设分阶段窗口;staged 仅凭**具名外部用户证据**」。⛔ 本席没有具名外部用户证据,按字面这条轴指向**立即退役**。⚠️ 但它同时要推翻 objectui#4663 在一个**已发布渲染器**上钉住的显式决定,而推翻前卡的既定裁决是维护者的底线。\n\nPrior rulings read: lenient fallback,tolerant fallback,second de-facto contract,one strict contract → 0 hits; none — and a second pass over `alias tolerance,consumer-side alias,back-compat fold,retire alias` also returned 0 ADR decisions (both read 2026-09-18T19:15Z). ⇒ ⛔ no accepted ADR decision answers this; `AGENTS.md` #0.1 is the nearest governing text and is quoted above rather than treated as an answer.\n\n## Options\n\n- **A — retire the fold on both blocks.** Canonical `ariaLabel` only, everywhere. One line, because the fold now lives in a single read point. Cost: reverses objectui#4663's pinned decision on a published renderer, and ⛔ silently drops the accessible name of any stored pre-contract document that still carries the alias.\n- **B — keep the fold on those two, scoped back from the five.** Costs nothing an author can reach (the contract refuses the spelling), keeps objectui#4663 intact, and makes PR objectui#9935's changeset sentence true. Cost: a contract-refused spelling stays readable, which is the shape #0.1 exists to prevent even where it is currently harmless.\n\n**Recommendation: B**, and ⚠️ this seat's recommendation differs from the delivering dev's, which was A.\n\nSelf-check — 只看①选 **A**(它是唯一消除第二事实上契约的);②③④ 是否翻转:② **不翻转但抽掉了 A 的底** —— 退役的唯一实际代价(丢掉存量文档的可及名称)⛔ 量不出来,而这是一条**可及性**代价,失败时用户是读屏用户、且**静默** · ③ **翻转** —— 这条轴的理由是\"宽容掩盖 AI 的批量错误\",而契约在 publish 拒了它,新错误进不来,所以这条轴在此处不支持 A · ④ **不翻转,但被维护者底线挡住** —— 字面指向立即退役,而执行它要推翻一张前卡钉住的运行时决定。⇒ **一轴翻转、一轴抽底、一轴被底线挡住,结论从 A 移到 B**;⛔ 若维护者认为 ④ 的字面优先于不可测的可及性代价,A 是完全站得住的,这也正是本卡送上来的原因。\n\nConfidence gaps: ① ⛔ **未实测** —— 是否存在仍以 `aria.label` 书写的存量文档,本仓无仪器可答;② ⛔ 未实测 —— 若退役,受影响文档的数量级;③ 上列读数是**复核的**,本席逐条读了它的记录并核对了每个被引评论的 `issue_url`,但 ⛔ 没有独立重跑它的探针。\n\nRefs: objectui#9556 (the card) · PR objectui#9935 (the delivery) · review record `5734967234` · objectui#4663 (the pinned decision A would reverse) · objectui#9916 (the same tenant-document wall on axis ②).\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

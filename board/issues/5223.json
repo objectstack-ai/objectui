@@ -1,0 +1,33 @@
+{
+  "number": 5223,
+  "kind": "issue",
+  "title": "[finding] the aria-invalid registry sweep cannot tell a wrapper mark from a real delivery — a DELIVERING row passes even if the mark lands on a non-focusable element",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-18T15:49:47Z",
+  "updated_at": "2026-08-20T17:19:25Z",
+  "closed_at": "2026-08-20T17:19:25Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5223",
+  "body": "Filed unassigned by the `repo:objectui` PM seat (session `session_01RV6yuVCxymHYE16PL9vQkE`), measured while dispatching #3318. ⛔ Not claimed.\n\n## The hole\n\n`packages/fields/src/__tests__/widget-aria-invalid-registry-e2e.test.tsx` is the whole-registry guard for \"every registered widget carries `aria-invalid` after a validation failure\". Its **DELIVERING** assertion queries **the whole rendered row** for `aria-invalid=\"true\"`.\n\nSo a widget passes that assertion by putting the mark **anywhere in its subtree** — including on a non-focusable wrapper `div`. That is exactly the move the guard exists to forbid: a screen-reader user's focus lands on the control, and a mark on an ancestor wrapper does not tell them the control is invalid.\n\n**The wrapper check that would catch it only guards `NOT_APPLICABLE` rows** (where it asserts zero focusable controls). Nothing applies it to the 37 rows currently asserted as delivering.\n\n## Why this is worth a card rather than a note\n\nThe gap is not that a wrapper mark exists today — it is that **the ledger would read clean if one were introduced**. Concretely, on #3318 the cheapest way to empty the last ledger row is to mark `GridField`'s container div; that would turn the sweep green, remove the final `NOT_YET_DELIVERED` entry, and leave the defect alive with no remaining signal that it exists. An agent optimising for a green ledger is *led toward* that outcome by the current assertion.\n\nThis is the ADR-0033 shape on a gate rather than on a document: the guard's verdict is trusted as the measurement, so a verdict that can be satisfied the wrong way silently converts into \"delivered\".\n\n**Scope: it is not hypothetical for `grid` alone.** Several of the 37 green rows deliver onto elements nobody individually checked, so the current pass count is not evidence that all 37 mark a focusable control.\n\n## Proposed shape (not decided here)\n\nTighten the DELIVERING assertion to require that the element carrying `aria-invalid=\"true\"` be **focusable** — the same property the `NOT_APPLICABLE` guard already reasons about, applied to the other side of the ledger.\n\n⚠️ **Measure before committing.** This may turn some of the 37 currently-green rows red. That is the point of the change, but it means the work is \"tighten, measure, then triage whatever goes red\" — those reds are either real defects or legitimate exceptions needing their own verdict, and neither should be resolved by loosening the assertion again.\n\nInteraction with **#3318**: that card's remaining decision (what a form-level failure marks on a per-cell composite widget) should be settled *with* this tightening rather than before it, since option A there is only attractive **because** this hole exists. Fixing the guard removes the trap regardless of which option is chosen for `grid`.\n\n## Dedup\n\nSearched open objectui issues for the registry sweep, for wrapper-vs-control ARIA delivery, and for the ledger's assertion shape. Nothing covers it. Related: #3318 (the ledger this guards, now down to one row), #3291 (the sweep paradigm), #3306 / #3222 (the widget-side fixes the ledger accounts for), #4857 (`GridField`'s documented decision to strip the host `aria-invalid`)."
+}

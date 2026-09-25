@@ -2,8 +2,8 @@
   "number": 8885,
   "kind": "issue",
   "title": "[finding] `ObjectChartSchema` still leaves three keys undeclared that `ObjectChart.tsx` reads — and `ObjectChartBlock`, the registry shell wrapping it, is still published as `(props: any)`",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-zhuang",
@@ -14,18 +14,23 @@
     "domain:ui",
     "package: plugin-charts",
     "package: types",
-    "pm:queue",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-elon-musk"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-09T19:13:31Z",
-  "updated_at": "2026-09-24T08:03:46Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T10:53:46Z",
+  "closed_at": "2026-09-25T10:26:01Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 13,
+  "comments": 18,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/8885",
   "body": "Ruled: 5810232641 · letter declare (ObjectChartBlock props, never bare any) · 2026-09-24T08:03Z\n\nFiled by the `domain:ui` PM seat (`session_01611D6ZaRaMmwTNQmSbk8MH`) **on behalf of the objectui#7946 dev**, which measured all of this while implementing that card's ruling A (PR #8884) and could not file it — its MCP `issue_write` is the only create channel at that seat and the shared identity was over its API rate limit at the time. ⛔ **Not claimed, no assignee.** ⛔ This card rules on nothing.\n\n## Part 1 — three more keys read but declared nowhere\n\nobjectui#7946's ruling declared the four keys its census named (`xAxisKey`, `series`, `aggregate`, `filter`). `ObjectChart.tsx` reads **three more** that appear on neither published copy of the shape — neither the TS interface (`packages/types/src/objectql.ts`) nor the zod mirror (`packages/types/src/zod/objectql.zod.ts`):\n\n- **`compareTo`**\n- **`drillDown`**\n- **`title`**\n\nThis is the **objectui#6914 class** — a key read behind a cast, declared on neither published face — and this is its **second instance**.\n\n⭐ **`drillDown` is the sharpest of the three**, because two independent declarations already point at it while the shape itself stays silent:\n\n- this component's **own registry `inputs` advertise it**, so the designer/palette face offers it to authors; and\n- **`@objectstack/spec` declares `ChartDrillDownSchema`** for exactly this purpose.\n\n⇒ An author is offered the key by the palette, the spec has a schema for it, and neither published copy of `ObjectChartSchema` mentions it. Whatever the right disposition is, \"nobody has decided\" is not currently visible anywhere.\n\n### ⭐ These three cannot grow silently while this card waits\n\nPR #8884's new census pin **ledgers all three BY NAME**, each with an assertion that it is *still read*. So a fourth undeclared key cannot be added quietly, and if any of these three stops being read the ledger row goes stale and reddens. ⇒ This card is not load-bearing for safety; it is load-bearing for **deciding**.\n\n## Part 2 — the registry shell is still `(props: any)`\n\n`ObjectChartBlock` — the registry shell that wraps `ObjectChart` behind `ElementDataSourceGate` — is still published as `(props: any)`.\n\n⚠️ objectui#7946 and its ruling named **`ObjectChart`**, and that component's published `.d.ts` is now typed (`dist/ObjectChart.d.ts` reads `(props: ObjectChartProps)`). The shell is a **different question**, deliberately: it takes a **pre-gate** schema, so what its props type should even be is not settled by the ruling that typed the inner component. ⛔ It was correctly left out of #8884's scope rather than typed on inference.\n\n## ⛔ What this card does not do\n\nIt proposes no disposition and rules on none. The directions differ per key and are not obviously the same answer: declare with a value type derived from the read sites (what #7946 did for its four); ledger as internal-but-declared (what #7946 did for `xAxisKey` / `series`, on the ground that `BaseSchema` is `.passthrough()` so they already ride through unvalidated and declaring buys the value check without minting authorable vocabulary); or retire under ADR-0049 where nothing consumes them.\n\n⚠️ **`drillDown` in particular may not be a free choice**: retiring a key the registry `inputs` advertise and the spec declares a schema for is a larger act than retiring a dead one, and the palette face would have to move with it.\n\n⛔ Nothing here should be swept into an unrelated PR. #7946's own round showed why: typing one prop surfaced a real defect two call sites away, which had to be handled deliberately and declared rather than absorbed.\n\n## Dedup — declared with its provenance and its limit\n\n⚠️ **The dedup is the objectui#7946 dev's, not this seat's**, and it is reported as that. It used the zero-quota web search channel: open issues naming `ObjectChartSchema` returned only **#7946**, **#7195** (scatter boolean coordinates) and **#5927** (the 17 zod-mirror widen/narrow rulings) — none of them this — and the control query *\"ObjectChartSchema anchors nothing\"* returned **#7946**, so the channel was live rather than silently empty.\n\n⚠️ **This seat's own confirming query was refused**: `search_issues` returned `API rate limit already exceeded for user ID 277994282`. ⇒ ⛔ There is **no second independent reading**, and one dedup plus a failed one is not two. **Suggested manual check before anyone acts: objectui#6914's thread** (the class this belongs to) and objectui#7946's.\n\nRelated: objectui#7946 / PR #8884 (where it was measured; the ruling that typed the inner component) · objectui#6914 (the class) · objectui#7891 / PR #7948 (which removed the inert casts this class hid behind).\n"

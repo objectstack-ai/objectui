@@ -1,0 +1,34 @@
+{
+  "number": 5305,
+  "kind": "issue",
+  "title": "[finding] ObjectMap's fetch effect also reads `schema.data` without it in the deps — and the array-shaped branch it guards may be unreachable, in which case the fix is deletion not a new dep",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "qq9340100"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-19T08:11:30Z",
+  "updated_at": "2026-08-21T07:28:31Z",
+  "closed_at": "2026-08-21T07:28:31Z",
+  "closed_by": {
+    "login": "qq9340100",
+    "id": 313832657,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5305",
+  "body": "Found while implementing #5003 (PR #5297). **Deliberately not fixed there**, and filed unassigned — this is a record, not a claim.\n\n## The observation\n\n`packages/plugin-map/src/ObjectMap.tsx`'s fetch effect contains a second short-circuit, distinct from the `props.data` one #5003 fixed: it reads **`schema.data` directly**, checking whether `schema.data` *itself* is an array — which is a different shape from the `ViewData`-shaped `schema.data` that `getDataConfig` normally expects.\n\n`schema.data` is not in the effect's dependency array either. eslint reports it exactly as it reported `rest` before #5003: `missing dependency: schema.data`. After PR #5297 lands, this is the **only** remaining `react-hooks/exhaustive-deps` warning on that effect.\n\n## Why #5003's dev did not fix it, and was right not to\n\nThree reasons, all recorded verbatim from its report:\n\n1. **Different code path** from what #5003 named — that card is about `props.data`, this is `schema.data`.\n2. **The correct fix is not pinned by an authoritative source** the way #5003's was. #5003's body specified the shape (`destructure data: dataProp`, ⛔ not `rest`); nothing specifies this one.\n3. **The bounded-fix exemption's condition 2 (correct shape already pinned) is not met.**\n\n## The open question — reachability, and it decides the fix\n\n**If the array branch is unreachable, the right change is to delete it, not to add a dependency.** Adding a dep to a dead branch preserves dead code and makes it look load-bearing.\n\nEvidence gathered so far, on `origin/main`:\n\n- `ObjectMapSchema.data` is declared **`data?: ViewData`** — `packages/types/src/objectql.ts:1872` (interface at `:1864`). Not an array type.\n- Counter-probe that this is a real reading rather than a missed grep: `ViewData` resolves as a genuine exported type — 5 occurrences in `objectql.ts`, 1 in `packages/types/src/index.ts`, 3 in `packages/types/src/__tests__/spec-subschema-parity.test.ts`.\n\n**But the declaration does not settle it.** Schemas arrive as untyped JSON at runtime; a TS declaration constrains authors who type-check, not the values that actually reach the renderer. So the honest state is:\n\n- declared shape says the array branch should be unreachable;\n- whether any real producer (a spec fixture, a console path, an example, a host embedding) ever sends an array is **not yet measured**.\n\nWhoever picks this up should measure the producer side first — and counter-probe any zero, or the zero is not a reading. That measurement, not the declaration, decides between *delete the branch* and *thread the dependency*.\n\n## Provenance note\n\n#5003's dev could not file this itself: `search_issues` and `list_issues` both returned `API rate limit already exceeded for user ID 318092878` (the shared bot identity) on every attempt, and it correctly declined to file blind without a duplicate check. Filed here by the PM seat once quota recovered, with the duplicate check run."
+}

@@ -2,8 +2,8 @@
   "number": 8510,
   "kind": "issue",
   "title": "finding(docs/console): five in-repo author sites still write the react-tier `ListView objectName` / `viewType` spelling objectstack#14791 retires, and `list-view`'s designer inputs turn registry-only under the parity ratchet",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "claude[bot]",
@@ -13,18 +13,21 @@
   "labels": [
     "documentation",
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": "Task",
   "created_at": "2026-09-08T04:15:58Z",
-  "updated_at": "2026-09-24T07:48:45Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T11:33:00Z",
+  "closed_at": "2026-09-25T11:29:01Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/8510",
   "body": "Blocked-by: objectstack-ai/objectstack#14791\n\nFiled unassigned, unlabelled, from the objectstack `domain:spec` dev seat executing objectstack#14791 (session `session_016N6xmWt5hYm94ffVEwGH8x`), as the cross-repo census that ruling ordered: a live external author site of the retired spelling is a fork to report, not a reason to keep the spelling.\n\n## What changes upstream (objectstack#14791, maintainer ruling 2026-09-07, option B, no deprecation window)\n\nThe react-tier component contract (`REACT_BLOCKS` in `@objectstack/spec/ui`) retires the ListView block's `objectName` and `viewType` overlay props. The only spellings are ListViewSchema's own `data={{ provider: 'object', object: '…' }}` and `type`. `@objectstack/lint` refuses the retired spellings on a `kind:'react'` page with a new `react-prop-retired` error (the generated contract, `skills/objectstack-ui/references/react-blocks.md`, drops both rows). The consumer half already ships in this repo (`normalizeListViewSchema` folds `data.provider === 'object'` onto `objectName` and reads the author's `type` — objectui#7477, in console pin `a472b071`), so both spellings render today; only the contract and the validator move.\n\n## What in THIS repo still writes the retired spelling (measured at objectui `61e649ab`, 2026-09-08)\n\nCensus by key identity — only the react-tier ListView block prop counts; the metadata-tier `objectName` the host stamps, nav items, action targets and the component-schema key are out of scope and untouched:\n\n1. `content/docs/guide/react-pages.md:42` — the worked `kind:'react'` page source writes `ListView objectName=\"showcase_project\"`.\n2. `content/docs/guide/react-pages.md:108` — prose: \"`ListView viewType=\"kanban\" …`\" selects the visualization.\n3. `content/docs/guide/react-pages.md:134` — the `RecordRelatedList` replacement row prescribes `ListView objectName=\"child_object\" filters=…`.\n4. `content/docs/guide/react-pages.md:199` — a second sample writes `ListView objectName=\"showcase_project\" …`.\n5. `apps/console/src/sdui-workbench-preview.tsx:111` — the workbench preview's react page source writes `ListView key={reloadKey} objectName=\"showcase_project\" …`.\n\nControl: `git grep -c \"provider === 'object'\" HEAD -- packages/core/src/utils/normalize-list-view.ts` = 2, so the fold is present and the grep is live; `packages/plugin-list/README.md:200` (`ListViewSchema['viewType']`) is the component-schema type, not the react-tier prop — out of scope.\n\nAfter objectstack#14791 merges, items 1–5 teach or author a spelling the published contract rejects (`react-prop-retired` under `objectstack validate`) — a contract violation in the docs and one live in-repo author site. Runtime is unaffected: the renderer still reads `objectName` directly, which is exactly why the lint, not a crash, is the only thing that would ever surface it.\n\n## The second half — registry inputs vs the spec (`check:react-declaration-parity`)\n\n`packages/plugin-list/src/index.tsx:76-77` and `:109-110` declare `objectName` (required) and `viewType` as designer `inputs` of `list-view`. Objectstack's parity ratchet judges registry inputs against node-level keys ∪ the spec block props ∪ the react overlay; with the overlay rows gone, both inputs become `registryOnly` for ListView — the baseline row there is `{ registryOnly: [] }` today, and the gate is on-demand (it needs `pnpm sdui:manifest` over a real browser at the pin), so it reds on the next manifest run, not in CI. Two honest exits, for the seat that owns this repo: (a) retire the two designer inputs here, since the metadata host stamps `objectName` and the fold supplies it from `data` — the objectui#7470 class, on plugin-list; or (b) widen the objectstack baseline row deliberately with the reason written down. Not decided here.\n\n## Prescription\n\nItems 1–5: `objectName=\"X\"` → `data={{ provider: 'object', object: 'X' }}`, `viewType=\"K\"` → `type=\"K\"`, on the ListView block only. Item 3 keeps the related-list shape: `ListView data={{ provider: 'object', object: 'child_object' }} filters={['lookup_field', '=', parentId]}`.\n\nRefs: objectstack#14791 (the ruling and the PR it dispatched) · objectui#7477 (the fold, closed) · objectui#2890 (the convergence carrier) · objectui#7470 (the adjacent registry-inputs finding on map/gantt).\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

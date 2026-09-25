@@ -1,0 +1,34 @@
+{
+  "number": 5350,
+  "kind": "issue",
+  "title": "finding(components): the static `table` renderer is a fourth site of the undeclared column-alias family, and its published docs declare `name`/`label` as `TableColumn` while `packages/types` declares `header`/`accessorKey`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-19T18:40:54Z",
+  "updated_at": "2026-08-21T01:59:50Z",
+  "closed_at": "2026-08-21T01:59:50Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5350",
+  "body": "Found while running #5120's census (not claiming; observation class). Baseline objectui `main` @ 9c60144b5.\n\n## The alias\n\n`packages/components/src/renderers/complex/table.tsx:43` resolves a cell as:\n\n```\n{row[col.accessorKey || col.name]}\n```\n\nThat is the same undeclared `name` alias #5120 rules on for `data-table.tsx:777`/`:786` — a **fourth site** of the family (`data-table`, `ObjectDataTable`, `ObjectGrid` pre-#5068, and this). #5120 does not name it, so it is deliberately untouched by that card's PR.\n\n## Why it is not a mechanical follow-on\n\nThe census that gated #5120 turned up something specific to this renderer: **the published docs declare the `name` spelling as the contract for `type: 'table'`.**\n\n`content/docs/api/schema-reference.md` (§TableSchema, ~L392-418):\n\n```json\n{ \"type\": \"table\", \"columns\": [ { \"name\": \"id\", \"label\": \"#\", \"width\": 60 } ] }\n```\n\nand the property table one screen below says, verbatim:\n\n> `columns` | `TableColumn[]` | Column definitions with `name`, `label`, `width`, `align`, `sortable`, `render`.\n\n`content/docs/core/report-schema.mdx:327` authors the same spelling on a `table` node (`{ name: 'region', label: 'Region' }`, plus `aggregation`).\n\nBut `TableColumn` in `packages/types/src/data-display.ts:218-226` declares **`header: string`** and **`accessorKey: string`**, both required, and neither `name` nor `label`. So the docs and the type disagree about a type they both call `TableColumn` — the docs describe the runtime's alias set, the type describes the declared set, and each is internally consistent.\n\nRetiring the alias here would therefore break documented, authorized usage; declaring `name` on `TableColumn` is the opposite direction and is explicitly not ruled (#5120). Which of the two spellings `TableSchema` actually owns is a maintainer call, not a mechanical fix — which is why this is filed rather than folded into #5120's PR.\n\n## Recheck\n\n```\nsed -n '25,50p' packages/components/src/renderers/complex/table.tsx\nsed -n '392,420p' content/docs/api/schema-reference.md\nsed -n '218,227p' packages/types/src/data-display.ts\n```\n\n## Grading\n\n`finding`, not `pm:queue`. Related: #5120 (the `data-table` half), #5068, #3951."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 5301,
+  "kind": "issue",
+  "title": "plugin-dashboard: `WidgetConfigPanel`'s private `resolveLabel` reads only the RETIRED label form — an inline-locale-map title/description opens the panel EMPTY and can be saved over",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-19T08:06:48Z",
+  "updated_at": "2026-08-20T17:06:21Z",
+  "closed_at": "2026-08-20T17:06:13Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5301",
+  "body": "Found while implementing #5264 (PR migrating `ObjectMetricWidgetProps` to `string | I18nLabel`). Not fixed there — different member surface, and the fix needs a decision this card records rather than guesses.\n\n## What\n\n`packages/plugin-dashboard/src/WidgetConfigPanel.tsx` carries a private label resolver:\n\n```ts\n/** Resolve an I18nLabel (string or {key, defaultValue}) to a plain string. */\nfunction resolveLabel(v: unknown): string {\n  if (v === undefined || v === null) return '';\n  if (typeof v === 'string') return v;\n  if (typeof v === 'object') {\n    const obj = v as Record<string, any>;\n    return obj.defaultValue || obj.key || '';\n  }\n  return String(v);\n}\n```\n\nIts doc comment claims it resolves an `I18nLabel`. It does the opposite: `{ key, defaultValue }` is the key-reference form `@objectstack/spec` RETIRED at 17.0.0-rc.6 (objectstack#5055), and the inline per-locale map that `I18nLabelSchema` actually admits has neither limb. Measured against this tree:\n\n| input | `resolveLabel` returns |\n|---|---|\n| `{ en: 'Revenue', 'zh-CN': ... }` — the spec's vocabulary | `\"\"` |\n| `{ key: 'a.b.c', defaultValue: 'Revenue' }` — retired | `\"Revenue\"` |\n| `'Revenue'` | `\"Revenue\"` |\n\nIt is the same private-resolver class objectui#4032 swept out of `DashboardRenderer`, `MetricWidget` and `MetricCard`; this fourth copy was not in that pass. It is also the mirror of #5134 — a declared `I18nLabel` surface whose only read site cannot read the form the spec admits.\n\n## Why it is not merely cosmetic\n\nThe resolved value is not display-only — it seeds the editable draft:\n\n```ts\nconst normalizedConfig = React.useMemo(() => ({\n  ...config,\n  title: typeof config.title === 'object' ? resolveLabel(config.title) : config.title,\n  description: typeof config.description === 'object' ? resolveLabel(config.description) : config.description,\n}), [config]);\n\nconst { draft, isDirty, updateField, discard } = useConfigDraft(normalizedConfig, ...);\n```\n\nSo for a widget whose stored `title` is an inline locale map, opening the config panel shows an EMPTY Title field, and the draft that a save writes back carries `''` where the author's map used to be. The panel is the surface Studio authors dashboards through, so the destructive path is the ordinary one — open the widget, change anything else, save.\n\n## Why it was not folded into #5264\n\nThat PR's fix shape is binding and scoped to `ObjectMetricWidgetProps` plus the fixture sweep. This is a different member surface (`DashboardWidget` config, not the widget's own props), and — unlike the four members there — the fix is not mechanical: `resolveLabel` is a module-level function with no locale in scope, so making it locale-aware means deciding **which locale an authoring panel should display**, and what a save should then write back. Those are not the same question:\n\n- Reading: `pickLocalized(value, language)` matches every sibling surface.\n- Writing: collapsing a multi-locale map to the one string the editor showed silently discards the other locales. Preserving them needs the panel to edit a map, or to write back only the active locale's entry.\n\nThe second half is a real design decision (arguably a Studio authoring-UX question, cf. #4163's \"give Studio a way to author one\"), which is why this is filed rather than guessed.\n\n## Repro\n\n```js\nresolveLabel({ en: 'Revenue', 'zh-CN': '收入' })  // => \"\"  (expected \"Revenue\" / \"收入\")\n```\n\nNote the pure-function repro is the honest one here: the panel path reaches it through `normalizedConfig`, so a component-level test would also be asserting `useConfigDraft`'s behaviour.\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 5264,
+  "kind": "issue",
+  "title": "plugin-dashboard: `ObjectMetricWidgetProps` still declares the RETIRED `{ key, defaultValue }` label form — a TS consumer writing the declared shape renders the raw dotted i18n key as the visible label",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T22:21:24Z",
+  "updated_at": "2026-08-19T12:11:19Z",
+  "closed_at": "2026-08-19T12:11:19Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5264",
+  "body": "Found while implementing #4032 item 4 (PR #5262). Not fixed there — different file, different defect class, filed rather than ridden along.\n\n## What\n\n`packages/plugin-dashboard/src/ObjectMetricWidget.tsx` declares the key-reference label form on four members:\n\n```\n48:  label: string | { key?: string; defaultValue?: string };\n54:    label?: string | { key?: string; defaultValue?: string };   // trend.label\n62:  description?: string | { key?: string; defaultValue?: string };\n89:  title?: string | { key?: string; defaultValue?: string };     // drill-down panel title\n```\n\nThat vocabulary was RETIRED by the spec in rc.6 (objectstack#5055). PR #4358 migrated the sibling `MetricWidgetProps` to `string | I18nLabel` for exactly this reason, and its own doc comment says so — \"It is not accepted here any more because the spec rejects it at authoring time\". `ObjectMetricWidgetProps` was not migrated in the same pass. These four are the only remaining declarations of the shape in `packages/*/src` (grepped, excluding tests).\n\n## Why it is not merely inert\n\n`ObjectMetricWidget` forwards `label` / `description` / `trend` straight to `MetricWidget`, which resolves them with `pickLocalized`. Handed the retired shape, `pickLocalized` misses every locale limb and falls through to its last resort — `Object.values(o).find(v =` typeof string) — which returns the FIRST string property in insertion order. Measured against `packages/i18n/src/pickLocalized.ts` on this tree:\n\n```\npickLocalized({ key: 'crm.dashboards.sales.widgets.revenue.title', defaultValue: 'Total Revenue' }, 'zh')\n  -> \"crm.dashboards.sales.widgets.revenue.title\"      // key written first\npickLocalized({ defaultValue: 'Total Revenue', key: 'crm.dashboards.sales.widgets.revenue.title' }, 'zh')\n  -> \"Total Revenue\"                                   // defaultValue written first\n```\n\nSo a TypeScript consumer who writes the shape the interface still invites — in the natural `{ key, defaultValue }` order, which is how the retired form was always spelled — gets the raw dotted translation key painted into the KPI card as its visible label. The outcome depends on property order, which is why it would not read as a systematic bug in review.\n\nThe type is what makes this reachable: this is a public exported props interface, so the declaration is an invitation, and the runtime neither resolves the key nor rejects the object.\n\n## Suggested shape\n\nMigrate the four members to `string | I18nLabel`, matching `MetricWidgetProps`. Worth checking in the same pass whether any call site or fixture in the repo still constructs the retired form (the #4032 fixture triage discipline: a fixture pinning the retired branch keeps passing precisely because nothing is produced any more).\n\n## Scope note\n\nDeliberately NOT bundled into PR #5262. That PR is #4032 item 4 — the sub-caption's convention key — and it neither reads nor writes these declarations; folding an unrelated public-type migration into it would have widened its verification surface without evidence in its own tests."
+}

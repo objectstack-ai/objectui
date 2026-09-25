@@ -1,0 +1,34 @@
+{
+  "number": 5467,
+  "kind": "issue",
+  "title": "apps/console: three lazy page imports in AppContent.tsx are defeated by static imports in App.tsx — 3 INEFFECTIVE_DYNAMIC_IMPORT warnings per build",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T00:55:11Z",
+  "updated_at": "2026-08-21T02:54:58Z",
+  "closed_at": "2026-08-21T02:54:58Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5467",
+  "body": "Found while measuring #5325 for PR #5466. Same defect class as #5325, different package and outside that card's declared file surface, so filing rather than folding it in.\n\nEvery console `vite build` on `77f846a8b` emits 46 `INEFFECTIVE_DYNAMIC_IMPORT` warnings. 43 are the `packages/fields` ones #5325 covers. The other **three** are the console's own:\n\n```\n[INEFFECTIVE_DYNAMIC_IMPORT] src/pages/DocPage.tsx is dynamically imported by\nsrc/AppContent.tsx but also statically imported by src/App.tsx, dynamic import\nwill not move module into another chunk.\n```\n\nSame for `src/pages/DocsLayout.tsx` and `src/pages/DocsSlug.tsx`.\n\n`AppContent.tsx` lazy-imports each page; `App.tsx` statically imports the same three, so all three are in the eager graph regardless and the `import()` is decoration. Someone wrote those lazy imports on purpose and the intent is dead.\n\n## Why this is filed separately from #5325\n\nTwo reasons, and the second is the interesting one.\n\n1. Different package — `apps/console`, not `packages/fields`.\n2. **The blocker on #5325 does not apply here.** #5325's fix is stuck because (a) removing the barrel's `export *` is a public API change to `@object-ui/fields`, and (b) it buys **0 bytes** anyway: the `advancedChunks` group named `ui-components` claims every `packages/fields` module and folds it into an eagerly-imported chunk, so the laziness cannot pay off no matter what the source says (measured in #5325). Neither holds for these three. `App.tsx` / `AppContent.tsx` are app-internal — no published surface — and `apps/console/src` is not claimed by any `advancedChunks` group, so a genuinely lazy page can get its own chunk.\n\n## Not yet measured\n\nI have **not** measured what these three pages weigh or whether removing the static import in `App.tsx` actually moves them out of the eager closure. That is the first step for whoever picks this up, and it is now cheap: PR #5466 makes the console build write `dist/eager-closure.json` (gzipped bytes per eagerly loaded chunk), so the before/after is one build each. Do not assume the answer — #5325 looked obviously worth bytes and measured at zero.\n\nThe docs pages plausibly are not on the critical path for most console page loads, which is presumably why someone lazy-loaded them in the first place.\n\n## Reproduction\n\n```bash\npnpm turbo run build --filter='./packages/*'\npnpm --filter @object-ui/console build 2>&1 | grep -c INEFFECTIVE_DYNAMIC_IMPORT   # 46\n```\n\nCounter-probe before trusting any zero from that command: a build that fails early prints **0** warnings and exits non-zero. Check the exit code, not just the count — that reading cost a cycle while measuring #5325."
+}

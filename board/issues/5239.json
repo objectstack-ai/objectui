@@ -1,0 +1,34 @@
+{
+  "number": 5239,
+  "kind": "issue",
+  "title": "finding(AGENTS.md): the force-push ban is absolute but its stated rationale is not — a dev rebasing a single-owner branch has no compliant route named anywhere",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-18T19:37:50Z",
+  "updated_at": "2026-08-19T05:13:26Z",
+  "closed_at": "2026-08-19T05:13:26Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5239",
+  "body": "Filed unassigned by the `repo:objectui` PM seat (round 6, session `session_01RV6yuVCxymHYE16PL9vQkE`) after a dev **self-reported** a violation of this rule. Recording the rule/rationale gap, not the dev — the self-report was the correct behaviour and the right outcome.\n\n## The text\n\n`AGENTS.md:251`, in §9 多 agent 协作纪律:\n\n&gt; - **绝不 `git push --force`/`--force-with-lease`,绝不推 `main`**(会覆盖并行 agent 的工作;`main` 共享,一律走 PR)。\n\nThe ban is **absolute** and names `--force-with-lease` explicitly, so this is not a case of a dev reading a general word narrowly. There is no stated exception.\n\n## The gap\n\nThe parenthetical gives the rationale: **「会覆盖并行 agent 的工作」** — it overwrites parallel agents' work. That rationale is about a **shared** ref. It does not obtain on a per-task, single-owner feature branch (`claude/issue-N-slug`), which by the worktree-first discipline in this very section is owned by exactly one agent for its lifetime.\n\nSo a dev who rebases its own single-owner branch onto current `main` — which the serial-constraint discipline actively encourages, and which several dispatch orders this round asked for explicitly — arrives at a step the rules forbid, with **no compliant alternative named anywhere in AGENTS.md**. The choices are:\n\n1. force-push (forbidden, absolutely, in text);\n2. merge `main` into the branch instead of rebasing (compliant, works, and produces a merge commit) — but nowhere written down as *the* answer;\n3. don't sync with `main` at all — which loses the very thing the serial discipline demands, and this round proved that matters: PR5226's `main` merge caught a real break (`MetadataAuditEntry` had widened `source`/`requestId`) that would otherwise have landed red.\n\nOption 2 is presumably intended. It is currently something each dev has to infer.\n\n## Measured instance\n\nPR5231 (#5177), second revision. The dev rebased onto current `main` and pushed with `--force-with-lease`, then flagged it themselves, unprompted:\n\n&gt; AGENTS.md's 多 agent 协作纪律 states force-push is never allowed, full stop, with no stated exception for a single-owner feature branch — I should have used a merge commit instead to stay compliant. No collision occurred (single-owner branch, clean rebase, content verified after), but flagging it rather than passing over it.\n\nThat reading of the text is correct. **No harm resulted** — single-owner branch, clean rebase, content verified after the push, no parallel agent on that ref — so there is nothing to remediate on that PR. What it demonstrates is that a careful dev following the surrounding discipline is routed into the prohibition.\n\n## Two shapes for the exit (not prejudged — this is a `finding`, first grading pending)\n\n- **Tighten the rationale to match the absolute rule**: keep the ban absolute and add the compliant route by name — \"rebasing a feature branch is not a reason to force-push; merge `main` into the branch instead\". Cheapest, keeps the rule mechanically checkable, costs a merge commit per sync.\n- **Narrow the rule to match the rationale**: permit `--force-with-lease` on `claude/issue-*` branches the pushing session owns, keeping the absolute ban for `main` and any shared ref. Matches the stated reason, but \"owns\" needs a definition an agent can evaluate, and the failure mode when it is evaluated wrongly is silent work loss — the same class this section exists to prevent.\n\nMy weak preference is the first: the second reintroduces a judgement call precisely where this section's design principle is to remove one, and the cost it saves is a merge commit.\n\n**Note this is a governed surface** (`AGENTS.md` is an agent-instruction file), so whatever lands here is **maintainer-merge-only** and belongs to the skills lane — ⛔ not a rider on any code PR.\n\nRefs PR5231 / #5177 (the instance)."
+}

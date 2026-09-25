@@ -1,0 +1,35 @@
+{
+  "number": 5091,
+  "kind": "issue",
+  "title": "ObjectGrid 用 `(schema as any)` 读的 4 个键不在 `GRID_QUERY_INPUTS` 里 —— #4648 要消除的「渲染器读得到、声明面否认」在这些键上仍然存在",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T23:21:46Z",
+  "updated_at": "2026-08-20T03:11:15Z",
+  "closed_at": "2026-08-20T03:11:15Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5091",
+  "body": "发现于 #5065 的实施(cast 感知读取点普查)。Filed unassigned, not claiming.\n\n## 现象\n\n`GRID_QUERY_INPUTS`(`packages/plugin-grid/src/index.tsx:145`)是 object-grid 发布给\nmanifest / 设计器 / 生成的 `sdui-intrinsics.d.ts` 的授权面。该块自己的注释写明了它存在的\n理由:\n\n> 每一个都是 `ObjectGrid` 今天就读的键,在这份清单落地之前,写了其中任一个的作者会从\n> `sdui-parser` 拿到 `unknown-prop` —— 一个明明有效的键;设计器面板和生成的\n> `sdui-intrinsics.d.ts` 却否认它存在。\n\n普查 `ObjectGrid.tsx` 的 cast 形读取点后,**仍有 4 个键处于那个状态** —— 渲染器读、清单不认:\n\n| 键 | 读取点 | 在 `GRID_QUERY_INPUTS`? |\n| --- | --- | --- |\n| `columnState` | `ObjectGrid.tsx:611`、`:625`、`:626`、`:629` | ❌ |\n| `rowActionDefs` | `ObjectGrid.tsx:748`(两处)、`:984` | ❌ |\n| `maxInlineRowActions` | `ObjectGrid.tsx:2048` | ❌ |\n| `hideRowHeightToggle` | `ObjectGrid.tsx:3150` | ❌ |\n\n对照:同一批 cast 读点里的 `bulkActionDefs`(`:985`)与 `userActions`(`:987`)**已经**在清单里,\n说明这不是「cast 读的键一律不声明」的约定,而是漏了这 4 个。\n\n四个键全部用 `(schema as any).KEY` 拼写,所以按普通 `schema.KEY` 口径做的键面普查也看不见\n它们 —— 这正是 #5057 那类误判的来源。\n\n## 复核方式\n\n```\ngrep -nP \"\\(\\s*schema\\s+as\\s+[^)]*\\)\\s*\\.\\s*\\w+\" packages/plugin-grid/src/ObjectGrid.tsx\nsed -n '145,180p' packages/plugin-grid/src/index.tsx     # 声明面全表\n```\n\n逐键对照清单里的 `name:` 即可。\n\n## 注意:这几个键要不要声明,不是纯补录\n\n- `columnState` 是**用户态**(列宽 / 列序的持久化载荷),`ObjectGrid.tsx:643` 的注释说它经\n  `dataSource.updateViewConfig` 回写;把它发布成授权面等于承认它可手写。\n- `hideRowHeightToggle` / `maxInlineRowActions` 读起来像宿主/内部开关,不像作者面。\n- `rowActionDefs` 与已声明的 `bulkActionDefs` 是对称的一对,只有它没声明,看起来最像单纯漏项。\n\n所以四个键可能分属两类结局:补进清单,或按 ADR-0049 的 enforce-or-remove 判为非授权面并从\nschema 读点移走。需要裁定,不是机械补录。\n\n## 同族\n\n- #4648 的裁定就是这件事的上一轮;本卡是那轮之后的残留。\n- #5065 / #5090:同一次普查的其他产物(README 键面、`data` 声明类型)。\n\n## 分级\n\n交 PM 分诊。今天的可见症状与 #4648 描述的一致:作者写这些键会被 `sdui-parser` 判\n`unknown-prop`,而渲染器其实读得到。\n"
+}

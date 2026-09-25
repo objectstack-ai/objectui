@@ -1,0 +1,35 @@
+{
+  "number": 5269,
+  "kind": "issue",
+  "title": "ObjectView forwards `table.columns` on the grid path only — kanban/gallery/calendar and the delegated renderer read `table.fields` alone, so a canonical `table: { columns: [...] }` yields an empty field list",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T23:18:19Z",
+  "updated_at": "2026-08-19T14:35:34Z",
+  "closed_at": "2026-08-19T14:35:34Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5269",
+  "body": "Found while implementing #5102 (canonical `table` key forwarding). **Filed unassigned, not claiming. Deliberately NOT fixed in that PR** — the #5102 maintainer ruling names exactly four keys (`pagination` / `selection` / `filter` / `sort`), and `columns` is not among them. Recorded here so the measurement is not lost.\n\nThis is the fact first measured on #5102's third comment (then against `origin/main` @ `405d54e4d`); **re-verified on `origin/main` @ `bc2922a82`, still present**, and the sweep found a **third** read point the original note did not list.\n\n## The three `table` field-list read points\n\n`packages/plugin-view/src/ObjectView.tsx`:\n\n| line | path | reads |\n| --- | --- | --- |\n| `:842` | `generateViewSchema` `baseProps` — non-grid (kanban / gallery / calendar / timeline / gantt / map) | `schema.table?.fields` only |\n| `:1056` / `:1057` | `gridSchema` — grid path | `schema.table?.fields` **and** `schema.table?.columns` |\n| `:1247` | delegated `renderListView` (`list-view` schema) | `schema.table?.fields` only |\n\n```\n:842    fields: currentNamedViewConfig?.columns || activeView?.columns || schema.table?.fields,\n:1057   columns: currentNamedViewConfig?.columns || activeView?.columns || schema.table?.columns,\n:1247   columns: currentNamedViewConfig?.columns || activeView?.columns || schema.table?.fields,\n```\n\nSo `schema.table?.columns` has exactly **one** read point in the file, and it is the grid one.\n\n## Consequence\n\nAn author who writes `defaultViewType: 'kanban'` with `table: { columns: [...] }` gets an **empty field list**. The same `table` block under `defaultViewType: 'grid'` works. The first two segments of both chains (`listViews` entry, then `activeView`) are `columns`-keyed on every path — only the `table` segment disagrees — so the symptom appears only when an author skips named views and writes `table` directly.\n\n`columns` is the **canonical** spelling and `fields` is the `@deprecated` one (`ObjectGridSchema.fields`: \"@deprecated Use columns instead\"). So this is the same user-visible shape as #5102 — the canonical key is inert — but a **different mechanism**: not \"the whitelist only knows legacy spellings\" (the grid path forwards `columns` fine), but \"the whitelist is inconsistent between two rendering paths\".\n\n## Suggested fix\n\nOne line per site, in the same shape #5102 used for its four keys — canonical first, deprecated key kept as a working alias:\n\n```\n-      fields: currentNamedViewConfig?.columns || activeView?.columns || schema.table?.fields,\n+      fields: currentNamedViewConfig?.columns || activeView?.columns || schema.table?.columns || schema.table?.fields,\n```\n\napplied at `:842` and at `:1247`. Whoever takes this should check the ⛔ `#region object-view HOST-COMPOSITION SURFACE` fence around `:1247` — `src/__tests__/objectViewHostSurface.test.tsx` re-derives the read set from between those markers, though it matches `(schema as any).K` casts only, which this edit does not add.\n\n## Separability from #5102\n\nConfirmed separable: #5102's PR never touched `:842` or `:1247`'s `fields:` line and did not rewrite `baseProps`, so no fork arose.\n\n## Dedup\n\nSearched open issues (`table.columns`, `generateViewSchema`, `kanban empty field list`, plus the file path). Nothing on this. Related: #5102 (the four canonical keys, ruled and implemented), #2890 (ListView `columns` vocabulary migration).\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 4889,
+  "kind": "issue",
+  "title": "`ContainerSchema.maxWidth: false` 是声明了却读不到的值 —— `container.tsx` 用 `||` 把它折成 `max-w-xl`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "auto-adjudicated",
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T01:50:48Z",
+  "updated_at": "2026-08-19T13:23:23Z",
+  "closed_at": "2026-08-19T13:23:23Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4889",
+  "body": "发现于 #4003 的实施,**不在该 PR 处理** —— 那一单修的是同族的 `gap` / `padding` 两处零值读法(它们挡住了转换本身),这一条是第三处、且带一个真正的设计问题,不该搭车。\n\n## 现象\n\n`ContainerSchema` 明确为\"不要最大宽度\"这一档声明了 `false`:\n\n- `packages/types/src/layout.ts:128` —— `maxWidth?: 'sm' | 'md' | ... | 'full' | 'screen' | false;`\n\n但渲染器读的是逻辑或:\n\n- `packages/components/src/renderers/layout/container.tsx:20` —— `const maxWidth = (schema.maxWidth || 'xl') as any;`\n\n`false || 'xl'` 得 `'xl'`,于是**声明 `maxWidth: false` 渲染出 `max-w-xl`** —— 恰好是那档语义的反面(它要的是不加约束,拿到的是加了一个 576px... 实为 `max-width: 36rem` 的约束)。这个联合成员从声明之日起就没有一条可达路径。\n\n同族的三个渲染器对照:`stack.tsx:25` 与 `grid.tsx:88` 用 `??`(正确);`flex.tsx` 的 `gap` 与 `container.tsx` 的 `padding` 原本也是 `||`,已由 #4003 的 PR 改为 `??`。**本条是这一族里剩下的最后一处**,但它不能照抄那个改法(见下)。\n\n## 为什么不能照抄 `??`\n\n`gap: 0` / `padding: 0` 有明确无歧义的目标类(`gap-0` / `p-0`,而且两个渲染器里本来就写好了对应分支,只是够不着)。`maxWidth: false` 没有:\n\n- 渲染器的 `maxWidth === X && 'max-w-X'` 是一串相等判断,`false` 谁都不等于,所以换成 `??` 之后它只是**不产出任何 max-width 类** —— 这大概率正是想要的,但那是一个需要确认的决定,不是机械等价替换;\n- 还要顺带决定 `max-w-none`(显式取消,例如抵消 typography 插件自带的 `max-width`)算不算 `false` 的渲染目标 —— 二者在 CSS 上并不同(`max-width: none` vs 不声明该属性,在有继承/插件默认值时结果不同)。\n\n## 实害(今天有一处,已被绕开)\n\n#4003 的转换里,`components-layout-page/documentation-page` 的 `prose prose-slate max-w-none` 节点因此**无法转成 `container`**:它要的就是\"取消最大宽度\",而唯一能表达这件事的 `maxWidth: false` 渲染出 `max-w-xl`。该节点已在那一单里作为记录在案的豁免留成 `div`,并写进了守卫的 allowlist —— 本条修好后可以回收。\n\n除此之外今天没有用户撞到:全仓 JSON 声明 `maxWidth: false` 的节点数为 **0**(基线 commit 上实测)。所以这是一处**休眠的声明漂移**,不是线上故障 —— 按分诊惯例打 `finding`,由分诊定级。\n\n## 为什么仍然值得记下来\n\n`maxWidth` 是发布出去的作者面:它出现在 `ContainerSchema` 里,也出现在注册表 `inputs` 的 `enum` 里(`container.tsx:89` —— 注意那里的 enum **没有** `false`,与类型声明已经不一致,是同一处漂移的第二个面)。作者(尤其是照着类型定义生成 metadata 的 AI 作者)会读到\"`false` 是合法值\"并写出来,然后拿到一个静默的 `max-w-xl`。这正是 #4001 的同型故障:**声明了的键/值,引擎默默给别的结果**。\n\n## 参考位置\n\n- `packages/types/src/layout.ts:124-128`(`ContainerSchema.maxWidth`,含 `false`)\n- `packages/components/src/renderers/layout/container.tsx:20`(`|| 'xl'`)\n- `packages/components/src/renderers/layout/container.tsx:85-92`(注册 `inputs` 的 enum,无 `false`)\n- `packages/components/src/renderers/layout/{stack,grid}.tsx`(同族用 `??` 的正确对照)\n\n关联:#4003 / #3965\n"
+}

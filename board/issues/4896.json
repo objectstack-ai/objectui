@@ -1,0 +1,35 @@
+{
+  "number": 4896,
+  "kind": "issue",
+  "title": "finding: @object-ui/types exports[\".\"].require points at dist/index.cjs, which its bare-tsc build never emits",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T02:12:58Z",
+  "updated_at": "2026-08-19T13:22:19Z",
+  "closed_at": "2026-08-19T13:22:19Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4896",
+  "body": "## Fact (measured on `origin/main`, unrelated to any in-flight PR)\n\n`packages/types/package.json`'s `exports` map:\n\n```json\n\".\" : {\n  \"types\": \"./dist/index.d.ts\",\n  \"import\": \"./dist/index.js\",\n  \"require\": \"./dist/index.cjs\"\n}\n```\n\n`packages/types`'s `\"build\"` script is bare `\"tsc\"` — no bundler, no dual-format step.\nA clean rebuild (`rm -rf dist tsconfig.tsbuildinfo && tsc`) produces `.js` + `.d.ts`\n(+ previously `.d.ts.map`, see #4851) and **never** an `index.cjs`. The `require`\ncondition of the root `.` export therefore resolves to a file the tarball never\ncontains — measured directly:\n\n```js\nnode -e \"console.log(require.resolve('/path/to/packages/types/dist/index.cjs'))\"\n// MODULE_NOT_FOUND\n```\n\n## How it was found\n\nWhile implementing #4851 (the `declarationMap` / `files` trim for `@object-ui/types`),\nthe pre-existing-vs-introduced check for that PR walked every `exports` condition\nagainst the freshly rebuilt `dist` and found this one missing. Confirmed pre-existing\non `origin/main` (`git show origin/main:packages/types/package.json` already has it) —\nnot introduced by #4851, and out of that PR's file surface (its constraint was\n`tsconfig.json` + `files` array only).\n\n## Scope note — possibly wider, not fully measured\n\nA quick grep found 23 packages across the repo declaring a `\"require\": \".../index.cjs\"`\nexport condition. A few were spot-checked:\n\n- `@object-ui/data-objectstack` (`tsup`) — tsup emits `.cjs` by default; almost\n  certainly fine, not directly verified in this pass.\n- `@object-ui/fields` (`tsc && vite build && build-css`, `vite.config.ts` explicitly\n  sets `formats: ['es', 'cjs']` and a matching `fileName` mapping) — almost certainly\n  fine.\n- `@object-ui/components`, `@object-ui/layout`, and most `@object-ui/plugin-*`\n  packages build via plain `vite build` (`vite-plugin-dts`, no explicit\n  `build.lib.formats`) — whether Vite's library-mode default actually emits a file\n  literally named `index.cjs` for each of these was **not verified** in this pass; it\n  depends on each package's `vite.config.ts` `lib.fileName`/`name` settings, which\n  differ from file to file (e.g. `layout`'s `fileName: 'index'` static string vs. a\n  format-aware function).\n\n`@object-ui/types` is the only one **confirmed** broken (bare `tsc`, structurally\ncannot emit `.cjs`). The other 22 are unverified — this issue is scoped narrowly to\nthe confirmed case; a follow-up sweep across the other 22 would need a clean rebuild\nof each and an exports-vs-dist walk like the one that found this.\n\n## Why it matters, and why it's observation-class today\n\nNo consumer changes in this repo import `@object-ui/types` via `require()` — the repo\nis ESM (`\"type\": \"module\"` everywhere), so this dead `require` condition is invisible\nto every workspace consumer and to `check-phantom-dependencies.mjs` (which asks \"is it\ndeclared\", not \"does the exports map resolve\"). It would only bite an external consumer\nthat `require()`s this package directly (or a bundler resolving the `require` condition\nunder `--conditions require`) — a real but currently unmeasured audience. Cheap fix\nonce confirmed in scope: either drop the `require` condition (types-only package, ESM\ndeclared) or add the missing emit step.\n\nObservation-class, unassigned.\n"
+}

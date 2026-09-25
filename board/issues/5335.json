@@ -1,0 +1,32 @@
+{
+  "number": 5335,
+  "kind": "issue",
+  "title": "`objectui check` never scans dot-prefixed files or dot-directories, so `.changeset/`, `.github/` and `.vscode/` JSON is neither parse-checked nor type-checked",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-19T15:47:23Z",
+  "updated_at": "2026-08-20T00:47:33Z",
+  "closed_at": "2026-08-20T00:47:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5335",
+  "body": "Observation measured while implementing #5127 (PR #5334). Outside that card's radius, not carried in its PR. Filed unassigned, not claiming.\n\n## What was measured\n\n`packages/cli/src/commands/check.ts` scans with:\n\n```\nglobSync('**/*.{json,yaml,yml}', { cwd, ignore: ['node_modules/**', 'dist/**', '.git/**'] })\n```\n\n`glob` does not match dot-prefixed names unless `dot: true` is passed, and it does not descend into dot-directories either. So every JSON file whose path has a dot-prefixed segment is invisible to the command — it is not merely unjudged, it is never read.\n\nMeasured at this repository's root, on `main` `232f61a45`:\n\n```\nscanned total: 612\nany under .github/  : 0\nany under .vscode/  : 0\nany under .changeset/: 0\n```\n\nCounter-probe, because a zero is not a reading on its own: `.changeset/config.json` exists on disk and is absent from the 612. The same test with a scanned sibling in a temp directory:\n\n```\nglobbed: [ 'plain.json' ]        # '.eslintrc.json' written alongside it, not returned\n```\n\n## Why it may matter\n\n`.json` on disk means JSONC in practice, and after #5237 a JSON parse failure is the only thing that increments the error count and fails the run. That blocking arm therefore has a blind spot exactly where a lot of hand-edited machine-read JSON lives: `.github/`, `.vscode/`, `.changeset/`, `.devcontainer/`. A malformed file in any of them passes `objectui check` in silence.\n\nWhether this is a defect is a judgement call, which is why this is filed as an observation rather than a bug:\n\n- **Argument that it is fine.** UI schemas do not live in dot-directories, so the type-judgement arm loses nothing, and tool-owned config is already validated by the tool that owns it.\n- **Argument that it is not.** The parse arm is a general JSON health check that a user reasonably reads as covering their project, and the exclusion is incidental — a `glob` default that nobody chose, not a documented scope.\n\n## Note for whoever picks this up\n\nThe scope is now pinned deliberately rather than left implicit: PR #5334 added a test (`packages/cli/src/__tests__/check-schema-marker.test.ts`, \"never even sees a dot-prefixed config\") that asserts a dot-prefixed file contributes neither a warning nor a skip, with a scanned sibling as counter-probe. It documents the current behaviour; it is not an argument that the behaviour is right. Changing the scope means updating that test, and the test exists so the change is a deliberate edit rather than a silent one.\n\nThat test was itself the reason this was found: an `.eslintrc.json` fixture written to demonstrate #5127's marker passed in **both** directions of reverse verification, because the file was never scanned at all."
+}

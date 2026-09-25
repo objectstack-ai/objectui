@@ -1,0 +1,33 @@
+{
+  "number": 5337,
+  "kind": "issue",
+  "title": "finding(docs/skills): `data-table` + `bind` 的失真教学不止 #5126 那一处 —— protocol.md 与 data-integration.md 各有一份同形示例",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:blocked"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-19T16:10:36Z",
+  "updated_at": "2026-08-20T08:39:36Z",
+  "closed_at": "2026-08-20T08:39:36Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5337",
+  "body": "发现于 #5125 实施时按裁定跑的 fork-clause 普查(`content/docs/**`、`skills/**`、包 README 全量扫 `bind` 键)。#5125 的半径只覆盖 `table` 键的重复注册,这条不在其内,单独立卡。\n\n## 事实\n\n#5126 记的是 `skills/objectui/guides/schema-expressions.md` 的「Data binding with `bind`」一节用 `data-table` + `bind`,而 `packages/components/src/renderers/complex/data-table.tsx` 通篇不读 `bind`(今天复核仍然成立:该文件对 `useDataScope` / `schema.bind` 零命中)。\n\n普查发现**同一形态的示例还有两处**,#5126 的正文与标题都只点名了 schema-expressions.md:\n\n- `skills/objectui/rules/protocol.md:128-136` —— 「Rule: Data Binding Path Resolution」小节:\n\n  ```json\n  {\n    \"type\": \"data-table\",\n    \"bind\": \"customers\",\n    \"columns\": [...]\n  }\n  ```\n\n- `skills/objectui/guides/data-integration.md:183-190` —— 「Via `bind` + `useDataScope`」小节,同样的 `data-table` + `bind` 示例;其上一行散文写着「Data-driven components (grids, tables, kanbans, charts) use the `bind` field」。\n\n三处都是 agent 面的已发布技能指南,失真形态与 #5126 完全一致:照抄不报错,得到一张**表头正常、内容为空**的表。\n\n## 复现命令\n\n```\ngrep -rInE -B8 -A4 \"['\\\"]?bind['\\\"]?\\s*[:=]\" content/docs skills $(find packages -name README.md -not -path '*/node_modules/*')\n```\n\n12 处 `bind` 命中,按其所在节点的 `type` 分类:`object-grid` ×2、`kanban` ×1、gantt ×1、`list` ×2(真读 bind)、散文 ×3、**`data-table` ×3**(其中一处即 #5126)。`table` 键零命中(这是 #5125 fork clause 要的读数)。\n\n## 处置\n\n同 #5126,取决于同一个裁决(改文档换成真读 bind 的类型 / 让 `data-table` 读 bind),因此挂成 #5126 的 sub-issue,应与它一并处置而不是分开修 —— 分开修的风险是三处示例改出两种口径。\n\n⚠️ 与 #5125 无耦合:#5125 已确认 `table` 键上没有任何可达渲染器读 `bind`,且删除被遮蔽的 `SimpleTableRenderer` 不改变这三处示例的对错。\n\n## 参考\n\n- #5126(同族,只覆盖 schema-expressions.md)\n- #5125(`table` 重复注册;本条发现于其 fork-clause 普查)\n"
+}

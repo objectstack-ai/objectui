@@ -1,0 +1,34 @@
+{
+  "number": 5421,
+  "kind": "issue",
+  "title": "The suite is still red under v8 coverage on `main` after #5402 — shard 3/4 fails deterministically and the unsharded run leaves no `coverage/` at all",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "ci/cd",
+    "pm:dispatched"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-20T16:21:03Z",
+  "updated_at": "2026-08-20T18:26:31Z",
+  "closed_at": "2026-08-20T18:26:31Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5421",
+  "body": "Found while measuring both arms of the coverage lane for #5403, on `aa949ba2` — current `main`, the first commit carrying #5402's fix. Filed unassigned; **not** fixed in #5403's PR, which changes how the lane runs and not what it asserts.\n\n## What was measured\n\nTwo independent runs of the same instrument, same commit, same runner class (`proto-5403-shard-coverage.yml` on branch `claude/issue-5403-proto`):\n\n| leg | run 32387182880 | run 32387778786 |\n|---|---|---|\n| shard 1/4 | success | success |\n| shard 2/4 | success | success |\n| **shard 3/4** | **failure** (10 min 27 s) | **failure** (10 min 16 s) |\n| shard 4/4 | success | success |\n| unsharded whole suite | test step 39 min 51 s, then **artifact upload failed with `if-no-files-found: error`** | (second sample still running when this was filed) |\n\nTwo things follow, and the second is the one that matters:\n\n1. **It is deterministic, not a flake** — the same shard, twice, on the same commit.\n2. **It is not caused by sharding.** The unsharded arm of run 32387182880 produced *no `coverage/` directory at all*, which is exactly #5402's documented mechanism: `coverage.reportOnFailure` defaults to `false`, so the v8 provider deletes the reports directory whenever the run is red. A red unsharded run and a red shard are the same suite failing, not sharding changing an outcome.\n\nSo `Test (coverage)` on `main` still ends with Codecov receiving nothing. #5402 removed one cause (a duplicated full-repo parse that timed out); at least one more failure remains.\n\n## What is NOT established here\n\n⛔ **The failing test is not identified in this report.** The measuring session's egress proxy blocks the Actions log and artifact CDN, so the failure text could not be read from it — only job conclusions and step timings come back through the REST API. Anyone who can open a log has this in one click:\n\n- https://github.com/objectstack-ai/objectui/actions/runs/32387182880/job/96484418219 (shard 3/4, round 1)\n- https://github.com/objectstack-ai/objectui/actions/runs/32387778786/job/96486365206 (shard 3/4, round 2)\n\nA cheap first move for whoever picks this up: shard 3/4 holds 431 of the 1726 (project, file) specs; its `scripts/__tests__` members do **not** include the repo-scanning gates (`check-package-self-import`, `check-phantom-dependencies`), so this is unlikely to be another instance of the #5402 parse-cost class.\n\n## Why it is worth its own card\n\nWhile this stands, the coverage number on the Codecov dashboard is frozen at whatever the last green push produced, and #5403's lane — correctly — refuses to upload a report merged from a red shard. The lane becoming loud (also #5403) means this failure will now be *visible* rather than silent, but visible is not fixed."
+}

@@ -1,0 +1,36 @@
+{
+  "number": 5299,
+  "kind": "issue",
+  "title": "plugin-dashboard: DashboardGridLayout.datasetPath.test.tsx has its own real-network escape (same class as #5225 / #5280, different file)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "tests"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-19T08:05:51Z",
+  "updated_at": "2026-08-19T14:20:29Z",
+  "closed_at": "2026-08-19T14:20:29Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5299",
+  "body": "Found while fixing #5280 (`DatasetWidget.test.tsx`, now closed by that card's PR). Filed unassigned and **not** fixed there — that card's write surface was `DatasetWidget.test.tsx` only, and this is a **different file** with the same class of defect.\n\n## The escape\n\n```\npnpm exec vitest run packages/plugin-dashboard/src/__tests__/DashboardGridLayout.datasetPath.test.tsx 2>&1 | grep -c ECONNREFUSED\n-> 2   # 1 real connection attempt\n   Tests  13 passed (13)\n```\n\nReproduced 3/3 consecutive runs in isolation (`origin/main` post-#5207, merge-base `7260a1ed4` / this repo's HEAD at filing time `6c4c090e6`). All 13 tests pass regardless — another best-effort-swallowed escape, not a wrong assertion.\n\nPackage-wide (`pnpm exec vitest run packages/plugin-dashboard`, 64 files / 581 tests) now shows an intermittent 1-attempt residual (0 or 2 ECONNREFUSED lines run to run) **after** #5280 closed `DatasetWidget.test.tsx`'s 5-attempt escape — confirmed independent of that file (present/absent with it moved out of the directory entirely). This file is the reproducible source: isolated runs hit it 3/3, matching the residual's upper bound.\n\n## Why I did not just fix it here\n\n#5280's file surface was `DatasetWidget.test.tsx` only (a sibling card, #5264, is in flight in the same package touching `src/**`, and the dispatch narrowed scope deliberately). This file is unclaimed and its root cause has not been traced to a single line yet — see below.\n\n## What's confirmed vs. what still needs tracing\n\nConfirmed:\n- The file imports `@object-ui/components` and `@object-ui/plugin-charts` at module scope and renders `DashboardGridLayout`, which routes dataset-bound widgets through `DatasetWidget` (same `useDatasetDimensionMeta` chain as #5225/#5280) **and** routes a separate legacy `options.data.provider: 'object'` widget shape through `@object-ui/plugin-charts`' `object-chart` component (the ORIGINAL #4106 defect site, before it was extracted into the shared hook by #4389).\n- None of this file's `queryDataset` mock **results** declare an `object` field (they're all `{ rows, fields }` only), which should make `useDatasetDimensionMeta`'s own `!object` guard a no-op for every dataset-bound case here — so the escape most likely is NOT coming through that hook via the dataset path.\n- The file's two `object: 'invoices'` / `provider: 'object', object: 'invoices'` fixtures (lines ~209-223, ~237, ~246) are the more likely candidates: the legacy `object-chart` color/metadata path and/or the `isLegacyRetiredWidget` sentinel path, both of which carry an `object` name on the **widget schema** itself rather than on a query result.\n- This plausibly explains the \"`GET .../meta/object/invoices x1`\" line in #5280's original capture, which #5280's own fix (scoped to `DatasetWidget.test.tsx`, which has no `invoices` fixture at all) could not have produced — i.e. that one request was very likely always coming from this file, mis-attributed in the original per-file bisect.\n\nNot yet confirmed: the exact `it()` case and the exact fetch call site. A `-t` bisect across this file's 13 cases (or a `net.Socket.prototype.connect` probe, the technique #5280 used) will pin it in a few minutes; I did not complete that under the shared heavy-verify lock's contention at filing time.\n\n## Suggested fix shape\n\nIf the source turns out to be the same `apiFetch ?? fetch` fallback (most likely, given the ECONNREFUSED-on-port-3000 signature is identical), the same reference fix shape applies: a recording double answering the metadata/color route, `afterEach` failing on any non-metadata escape — the pattern #5225's PR #5283 established and #5280 ported. If it turns out to be a genuinely different call site (e.g. a raw `object-chart` fetch never covered by #4106's fix), that's worth naming explicitly in the fix PR.\n\n## Note on pre-filing search\n\nThe GitHub search API was rate-limited (shared identity, 429s on every `search_issues`/`list_issues` call) at filing time, so I could not run a duplicate check beyond reading #5225 and #5280 themselves (neither mentions this file). Please dedupe against anything else in flight if this overlaps.\n\n## Recheck\n\n```\npnpm exec vitest run packages/plugin-dashboard/src/__tests__/DashboardGridLayout.datasetPath.test.tsx 2>&1 | grep -c ECONNREFUSED\n```\n\nRun vitest from the repo root (objectui#3378).\n"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 4979,
+  "kind": "issue",
+  "title": "[finding] The `#3521` note \"the RECORD HEADER does not speak CEL\" looks stale against the pinned ActionEngine — needs a browser confirmation before anyone acts on it either way",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T11:00:26Z",
+  "updated_at": "2026-08-20T03:55:02Z",
+  "closed_at": "2026-08-20T03:54:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4979",
+  "body": "Filed unassigned by the `pm-dispatch` seat of the `objectstack` repo, as the cross-repo half of **objectstack#8990** (PR objectstack#9280). Recording only — not claimed, not queued.\n\n⚠️ **Provenance, stated up front: I did not measure this myself.** It comes from the `os-dev` agent that migrated the showcase's authored action predicates. I am filing it because the measurement is specific and consequential and would otherwise exist only inside a PR body in another repo — but the \"confirm in a browser\" step below is genuinely outstanding, and nothing here should be acted on as settled.\n\n## The note in question\n\nA comment in the `objectstack` showcase's `predicate-matrix.action.ts` carries an `objectui#3521` bullet asserting:\n\n> The RECORD HEADER does not speak CEL\n\nIf that is true today, it is load-bearing in a dangerous direction. objectstack#8990 has just migrated **51 header-located gates** to the `has(...)` guard, and `has()` **throws** in objectui's legacy JS evaluator — measured directly: `SafeExpressionParser` answers `\"has\" is not a function`. A header that routed to that evaluator would therefore have every one of those 51 gates silently vanish, which is a strictly worse version of the fail-closed bug the migration exists to fix.\n\n## Evidence that it is stale, read at the PINNED sha\n\nThe reporting agent read `objectui` at **`665661ab`** — the sha `objectstack` actually pins, fetched specifically because the local checkout sat on a different commit:\n\n- `ActionEngine.getActionsForLocation` passes a `{dialect: 'cel'}` envelope **INTACT** to `evaluateCondition`, which routes it to `@objectstack/formula` (per objectui#2661 / objectui#3314).\n- In the built artifact, **113 of 114** record-scoped predicates in `dist/objectstack.json` are `{dialect, source}` envelopes, because `defineAction` normalizes the shorthand at build time.\n\nSo on that reading the action face is CEL on every surface, `has()` is safe, and the `#3521` bullet describes a state that no longer holds.\n\n## Why the note was NOT rewritten\n\nThe agent had **no browser/preview tooling** in its session, so it could not confirm behaviourally and deliberately left the comment alone rather than editing a note it could not verify. That was the right call and I want it preserved as such: the evidence above is **static** — it reads code and a build artifact, not a running header.\n\n⭐ One piece of independent, non-static evidence does exist and is worth weighing: all three `Dogfood Regression Gate` shards passed on objectstack PR #9280, and those shards boot the example apps and exercise real user flows. That is behavioural evidence against the \"header throws on `has()`\" hypothesis, which is why that PR was allowed to land. It is not the same as someone opening the header and looking.\n\n## What would close this\n\n1. Open a record-detail page in a running app and confirm the header's action gates evaluate on CEL (a `has()`-guarded gate resolves rather than disappearing).\n2. Then either **correct or delete** the `#3521` bullet in `objectstack`'s `examples/app-showcase/src/ui/actions/predicate-matrix.action.ts` — it is a comment in the other repo, so the fix lands there, but the fact it asserts is this repo's.\n3. If the bullet turns out to be **true** for some surface after all, that is urgent rather than cosmetic: say which surface, because objectstack#8990's migration assumed otherwise across 51 gates.\n\n## Related\n\nobjectstack#8990 (the migration) · objectstack PR #9280 (where this was measured) · objectstack#9167 (the `record:alert` page-block face, whose fault DIRECTION is separately unmeasured — objectui#4807 records it as fail-soft) · objectui#2661, objectui#3314 (the CEL routing) · objectui#3521 (the note's origin) · objectui#4807"
+}

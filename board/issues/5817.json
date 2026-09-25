@@ -2,8 +2,8 @@
   "number": 5817,
   "kind": "issue",
   "title": "Remove `AppSidebar` from `@object-ui/app-shell` once the deprecation window closes (follow-up to #5720)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-zhuang",
@@ -12,18 +12,21 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": "Task",
   "created_at": "2026-08-23T12:53:56Z",
-  "updated_at": "2026-09-24T01:35:19Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T12:22:57Z",
+  "closed_at": "2026-09-25T12:22:09Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/5817",
   "body": "Follow-up to #5720, which censused `AppSidebar`'s consumers before deciding delete-vs-deprecate and landed on **deprecate**.\n\n## Census summary (full detail in #5720 and the linked PR)\n\n- **No in-repo mount point.** `ConsoleLayout` renders `UnifiedSidebar`, not `AppSidebar`; `git grep` outside `AppSidebar.tsx`, its own tests, and prose finds no import anywhere in `apps/**` or `examples/**`. `content/docs/guide/console-architecture.md` already documents this.\n- **No downstream GitHub-visible consumer found**, searched via `search_code` across `org:objectstack-ai` for both `AppSidebar` and `\"@object-ui/app-shell\"`. The only cross-repo hits naming `AppSidebar` specifically are a spec liveness-audit citation and an example app's source comment — neither is an import.\n- **It IS a genuinely published export**: present in the package barrel, in the built `packages/app-shell/dist/index.d.ts`, and `@object-ui/app-shell`'s `package.json` sets `publishConfig.access: \"public\"` with an active `registry.npmjs.org` publish step in `.github/workflows/changeset-release.yml`. That means real npm consumers outside this GitHub org are possible and are **structurally invisible to this census** — this is the \"external consumers\" branch of the triage disposition, so the correct move is deprecate-then-remove, not delete-now.\n\n## What this issue is\n\nOnce the deprecation (added in #5720's PR — `@deprecated` JSDoc on `AppSidebar` pointing at `UnifiedSidebar`) has had a reasonable window to surface any real external adopter (via downstream bug reports, npm download signal, or another census), do the removal:\n\n- [ ] Delete `packages/app-shell/src/layout/AppSidebar.tsx` and its test files (`packages/app-shell/src/layout/__tests__/AppSidebar.*.test.tsx`, `appSidebarSettingsTargets.test.tsx`, plus the `AppSidebar` halves of `systemNavDatasourcesHop.test.tsx` / `systemNavObjectsHop.test.tsx` / `systemNavSettingsTarget.test.tsx` — those three cover both components in one file).\n- [ ] Remove the barrel export in `packages/app-shell/src/layout/index.ts` and `packages/app-shell/src/index.ts`.\n- [ ] Update the two stale cross-references: the `<AppSidebar />` usage example in `ExpressionProvider.tsx`'s JSDoc, and the `AppContent.tsx` comment naming \"AppSidebar's own add-app entry\".\n- [ ] Re-run the same census (in-repo grep + org code search + built `.d.ts` check) immediately before removal, in case a consumer showed up in the interim.\n- [ ] Changeset stating the removal in migration terms (`minor`, per this repo's fixed-group convention — see AGENTS.md \"版本号策略\").\n\n## Not in scope here\n\nThe gating divergence #5720 recorded (`AppSidebar` gates only `sys-marketplace` on the workspace-admin flag; `UnifiedSidebar` gates the whole admin cluster) is not being reconciled — the component is going away, not being kept in parity. Noted in the `@deprecated` tag as a reason not to treat the two as interchangeable during the deprecation window.\n\nRefs: #5720"

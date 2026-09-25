@@ -1,0 +1,32 @@
+{
+  "number": 5370,
+  "kind": "issue",
+  "title": "`pnpm --filter @object-ui/layout build` prints `error TS2353` and still exits 0 — the dts step reports type errors without failing the build",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-20T01:33:48Z",
+  "updated_at": "2026-08-21T03:08:57Z",
+  "closed_at": "2026-08-21T03:08:56Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5370",
+  "body": "Found while implementing #4818 (PR #5366). Unassigned, no label — severity is PM's call.\n\n## Fact, measured on `origin/main` `bdf8cf76e` plus one deliberate in-source type error\n\nDuring the reverse-verification of PR #5366 I deleted an interface key while three call sites still wrote it, then ran the package build. The build **reported the resulting type error and exited 0 anyway**:\n\n```\n$ pnpm --filter @object-ui/layout build 2>&1 | grep -E \"built in|error|Done\"\nsrc/AppSchemaRenderer.tsx:582:5 - error TS2353: Object literal may only specify known\n  properties, and 'logo' does not exist in type 'AppShellBranding'.\n[unplugin:dts] Declaration files built in 5984ms.\n✓ built in 6.66s\nBUILD_EXIT=0          # ${PIPESTATUS[0]}, i.e. pnpm's own exit code\n```\n\n`packages/layout`'s `build` script is `vite build`, and the declaration emit runs through `unplugin-dts`. The plugin surfaces the diagnostic in the log but does not make the build non-zero, and it emitted `dist/` regardless — I confirmed the emitted `dist/AppShell.d.ts` was written and correct.\n\nThe same error was fatal, as it should be, under the package's `type-check` script:\n\n```\n$ pnpm --filter @object-ui/layout type-check\nsrc/AppSchemaRenderer.tsx(582,5): error TS2353: ...\nERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  Exit status 2\n```\n\n## Why this is worth recording rather than shrugging at\n\nCI is **not** blind here — `type-check` is a separate task and it goes red — so this is not a hole in the gate farm, and I am not claiming broken source can reach `main` through it.\n\nThe exposure is to a human or agent who judges a package from `build` alone, which is a normal thing to do mid-task: you change a shared type, rebuild the package so consumers resolve the fresh `.d.ts`, see `✓ built in 6.66s` and `EXIT=0`, and conclude the package is clean. It is not. The diagnostic is present in the log, but a `| tail` or a `grep` for the summary line scrolls it out of view, and the exit code — the thing scripts and agents actually branch on — says success.\n\nThat is a fair amount of the value of a compile step, spent. A build that has already computed the diagnostic and chosen to print it is one flag away from also refusing to exit 0.\n\n## Suggested disposition\n\nDecide whether the dts step should be fail-on-error for released packages, and if so wire it once, in the shared vite/dts config rather than per package. If the answer is deliberately no — e.g. the emit must survive partial type errors for some bootstrap reason — that reason is worth a comment at the config, because the current behaviour reads as an oversight.\n\nWorth checking how wide it is before acting: `packages/layout` is simply the package I happened to build, and many packages here share the same `vite build` + dts shape.\n\n## References\n\n- `packages/layout/package.json` — `\"build\": \"vite build\"`, `\"type-check\": \"tsc --noEmit && tsc -p tsconfig.test.json\"`\n- `packages/layout/vite.config.ts` — the dts plugin wiring\n- #4818 / PR #5366 — where this was found\n"
+}

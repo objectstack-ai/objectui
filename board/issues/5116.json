@@ -1,0 +1,34 @@
+{
+  "number": 5116,
+  "kind": "issue",
+  "title": "finding(app-shell): ReportView 对 element binding 读 `dataSource.resource` 作 `dataSource.object` 的宽容别名 —— 契约里没有 `resource` 这个键",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-18T01:46:30Z",
+  "updated_at": "2026-08-21T03:28:12Z",
+  "closed_at": "2026-08-21T03:28:12Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5116",
+  "body": "发现于 #5098 的实施(cast 感知复测 `resource` 读取点时扫到)。半径外,未夹带进 PR #5114。Filed unassigned, not claiming.\n\n## 现象\n\n`packages/app-shell/src/views/ReportView.tsx` 两处把 `resource` 当作 `object` 的候补拼写读:\n\n```\n:171   const objName = liveReport?.objectName || liveReport?.dataSource?.object || liveReport?.dataSource?.resource;\n:273   const resource = dataFetchSource.dataSource.object || dataFetchSource.dataSource.resource;\n:275     console.warn('ReportView: dataSource missing object/resource property');\n```\n\n但 element binding 的契约里**没有 `resource` 这个键**。`ElementDataSourceConfig`(`packages/core/src/data-scope/element-data-source.ts:75`)只声明:\n\n```\nexport interface ElementDataSourceConfig {\n  object: string;\n  view?: string;\n  filter?: unknown;\n  sort?: ElementDataSourceSort[];\n  limit?: number;\n}\n```\n\n而且该 binding 的判定谓词 `isElementDataSourceConfig`(同文件 `:127-134`)是**按 `object` 判定**的 —— `typeof value.object === 'string' && value.object.length > 0`。也就是说:一个只写了 `resource` 没写 `object` 的 binding,根本过不了 `isElementDataSourceConfig`,在走 `useElementDataSource` 的那条路上会被判为「不是 binding」。ReportView 这两处 `||` 限支因此在契约面上是够不着的 —— 除非有生产者绕过 binding 直接塞 `resource`,而我没找到这样的生产者。\n\n`resource` 在本仓确实是个真键,但属于**别的 schema**:`CRUDSchema`(`packages/types/src/crud.ts:434`,`type: 'crud'`)。两者不是同一个面。\n\n## 为什么值得记一笔(而不是\"小事\")\n\n这是典型的**消费端宽容**形状:契约声明 `object`,消费者额外接受一个未声明的拼写。按 contract-first,这类 `||` / `??` 别名正是 AI 生成的元数据把错误藏进去、再扩散的地方 —— 一份写了 `resource` 的报表元数据会在 ReportView 里\"能跑\",却在任何走 `isElementDataSourceConfig` 的其它渲染器上静默失效,两边行为不一致且都不报错。\n\n`console.warn` 的措辞 `'dataSource missing object/resource property'` 还把这个非契约拼写写进了面向用户的诊断里,等于对外承诺它是合法的。\n\n## 复核方式\n\n```\nsed -n '168,174p;270,278p' packages/app-shell/src/views/ReportView.tsx\nsed -n '75,82p;127,134p' packages/core/src/data-scope/element-data-source.ts\ngrep -rn \"dataSource\\.resource\" packages/*/src apps/*/src      # 仅 ReportView 两处\n```\n\n## 分级\n\n打 `finding`,**不入 `pm:queue`**:按现有证据这是**够不着的宽容限支** + 一句会误导的 warn 文案,今天没有用户撞得上的路径(没找到写 `resource` 的生产者)。但严重度我判得未必准 —— 若确有绕过 binding 的生产者路径,它就升级成\"两个渲染器对同一份元数据给出不同答案\",留给 PM 分诊时定级。\n\n修法方向(不预设):删掉两处 `||` 限支并把 warn 文案改回只提 `object`;若确需兼容旧数据,应在**生产者**或 spec 侧正名,而不是在消费者加别名。\n"
+}

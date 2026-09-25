@@ -2,8 +2,8 @@
   "number": 8070,
   "kind": "issue",
   "title": "A `visibleWhen` clear-on-hide is silent — the sibling surface names the same state (#6499 Option C) and the form renderer does not",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-justin",
@@ -14,18 +14,23 @@
     "domain:ui",
     "i18n",
     "package: components",
-    "pm:queue",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-tesla"
+  ],
   "milestone": null,
   "type": "Task",
   "created_at": "2026-09-06T14:22:05Z",
-  "updated_at": "2026-09-24T07:39:47Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T12:46:43Z",
+  "closed_at": "2026-09-25T12:23:54Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 7,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/8070",
   "body": "## 维护者速读\n\n表单上有一条规则叫「某个字段在某些条件下隐藏」。objectui#6958 让它在隐藏时**顺手把已填的值清空**\n—— 这是必要的,否则那条记录根本提交不上去(平台会拒收带着陈旧值的行;报表应用里有十二行因此\n连重填都做不到)。\n\n⚠️ 问题是:**清空是完全无声的。** 用户看到一个字段消失了,**不知道**一个已存的值跟着没了。\n\n⭐ 这件事我们**已经在另一个界面上裁过一次**:objectui#6499(2026-08-27,选项 C)。那次的裁决是\n「**保留值,但把这个状态说出来**」。这张卡能照搬的是后半句 —— 前半句搬不过来,两个界面在决定性的\n地方不一样(那边的值始终在屏幕上,这边真的看不见了;那边不影响保存,这边**会被服务端拒收**)。\n\n⇒ 要决定的只有一句:**表单要不要告诉用户「刚才清掉了哪几列」,用什么口吻说。**\n\n三条路:\n**A** 照 #6499 的后半句办 —— 加一条用户可见的提示,点名被清空的列(要一个新的 i18n key)。\n**B** 不提示,但把这个行为写进文档与 schema 的说明里(作者知道,终端用户不知道)。\n**C** 维持现状,当作已知且可接受的静默。\n\n请裁一个字母:**A / B / C**?\n\nos-decision-facets\n\n- **① 项目长远合理性**:A 与 objectui#6499 的**同一条裁决**保持一致(「the state is now NAMED」),⇒ 两个界面对「静默地改用户的数据」给同一个答案。C 让同一条原则在两个界面上给相反的答案,而那正是 #6499 当时拒绝的形状。B 是半步:它让**作者**知道,但这件事发生在**终端用户**的屏幕上。\n- **② 实际业务拉动**:⭐ 非零且已具名 —— 卡片记着报表应用里**十二行存量数据**因为陈旧值被平台拒收、连重填都做不到,那正是 #6958 要修的。⚠️ 但那是 #6958 修的,**不是**本卡:本卡只决定「要不要告诉用户」。⛔ 未测:有多少用户实际撞上过隐藏清空(⛔ 从本仓测不了)。\n- **③ 防 AI 犯错**:⭐ 这是本卡最强的一面。静默清空对**写元数据的人**是一个陷阱:一个 AI 作者给字段加 `visibleWhen`,不会从任何地方得知它同时给这个字段装了一个「条件不满足就丢数据」的开关。A 把它变成运行时可见;B 把它变成文档里可查;C 让它继续只存在于源码里。\n- **④ 创业阶段不扩散**:A 新增**一个** i18n key 及其各语言行 —— 是一处永久义务,但边界清楚且有 #6499 的先例形状可抄。B 零新增键,只欠文档。C 零成本,代价是把一条已被裁过的原则在第二个界面上反着实现。\n\nPrior rulings read: `visibleWhen` 清空 · 静默改数据 · 命名状态 → **objectui#6499**(2026-08-27 维护者裁决,选项 C,逐字转录在 `flow-node-config.inactiveRetained.test.ts`)· objectui#6958(引入清空的那张卡);⛔ 与「表单要不要告诉用户」直接相关的既有裁决:**none**。\n\n推荐 **A**,回退 **B**。⛔ 不荐 C:它让同一条原则在两个界面上给相反的答案,而 #6499 当时**明确拒绝**了「让配置无声消失」这个形状。\n自检:**只看①选 A;②③④ 是否翻转:否** —— ④ 的「新增一个 key 是永久义务」是唯一的反向拉力,但那是**一个**键,而 ③ 指出的陷阱面向的是每一个写 `visibleWhen` 的作者。\n置信缺口:⛔ 执行席**未**测真实用户撞上隐藏清空的频率(⛔ 从本仓测不了);⛔ 也**未**验证 A 的提示放在哪一层(表单级通知 / 字段级 / 保存时摘要)—— 卡片自己说那些是 sketches 而不是提案,本席不替它收窄。\n\n<sub>⬆️ 本块由 `domain:ui#2` 执行席(session `session_018HrVaotisyhgmot9o2MLRq`)于 2026-09-19T23:55Z 补进**正文**\n—— 四棱块是**立卡义务**,停在评论里不算(半状态巡查 H62)。\n⚠️ 本卡此前挂 `pm:queue`,而**卡片正文与分诊都写明要决定的是什么**(「What this card wants: **Decide whether**\nthe record form should name the clear」/「What is undecided is **whether the user is told**」)——\n⇒ 一张自陈「要裁决」的卡挂着队列标,会让取卡序对「什么是可派的」说谎。本席同笔改判进决策箱。\n⛔ 正文原文一字未动,全部保留在下方。</sub>\n\n---\n\nFiled from objectui#6958 while working that card. ⛔ Not folded into it: the fix there needs no new user-facing copy, and naming this state needs a new i18n key, which lives in `packages/i18n/src/locales/*.ts` — outside that card's declared file surface.\n\n## What lands on #6958\n\nThe form renderer now clears a field's value when the field's OWN `visibleWhen` / `visibleOn` turns it invisible while it holds a value (scalar → `null`, multi-value → `[]`). That is what makes a populated field hidden by `visibleWhen` stop producing an unsubmittable form, on the edit path as well as the create path.\n\nThe clear is **silent**. Nothing on screen says a column was emptied; the user sees a field disappear and does not learn that a stored value went with it.\n\n## Why that is worth its own card, and not just taste\n\nThis repo has already adjudicated the same shape on a sibling surface, and it went the other way on the mutation while insisting on the naming — objectui#6499, maintainer ruling 2026-08-27, Option C. Transcribed from `packages/app-shell/src/views/metadata-admin/inspectors/flow-node-config.inactiveRetained.test.ts`:\n\n> The ruling KEEPS the value (pruning on save was rejected outright: it deletes config an author entered, and inverts the very rule that stops config from vanishing unseen). What changes is that the state is now NAMED.\n\n⇒ The part of that ruling this repo can honour on both surfaces is the second sentence: **the state is named**. #6958 could not adopt the first sentence — the surfaces differ in the way that decides it:\n\n- #6499 is `showWhen` in the metadata-admin designer over **author config**, where `isFieldVisible` additionally re-shows any field holding a stored value, so the value is always on screen and pruning would delete something the author can see. #6958 is spec `visibleWhen` on the **record form** over end-user record data, with no re-show rule, so the value is genuinely off screen.\n- #6499 has no server-side consequence — the config persists either way. #6958 has a hard one: the platform **refuses the row** while the stale value rides along, so keeping it is a dead end rather than a cosmetic inconsistency (twelve stored rows in the reporting app could not be retyped at all).\n- Porting #6499's remedy wholesale would mean a `visibleWhen` never hides a populated field, which on an edit form seeded from a full record inverts the key's purpose.\n\n## What this card wants\n\nDecide whether the record form should name the clear, and in what register. Sketches, not a proposal:\n\n1. A form-level notice after the transition naming the cleared columns (\"Contact was cleared — it does not apply to this Attendee Type\"), retired like the other outcome messages that form already manages under one toast id.\n2. A per-field marker on the row that just vanished, closer to #6499's \"inactive values retained\" affordance.\n3. Nothing — the transition is the user's own act and its consequence is the metadata's declared meaning. Then this card closes with that stated at the declaration site, which is a real outcome and not a shrug.\n\nCost either way is one new i18n key plus its locale rows (`packages/i18n`), and a reader in `packages/components/src/renderers/form/form.tsx`.\n\n## Dedup\n\nSearched this repo before filing; nearest hits are objectui#6499 itself (closed, the sibling surface, cited above) and objectui#5883 (closed, a different clearing defect — a cleared server-owned field submitted as `''`). Neither covers naming a clear on the record form. A control query in the same session returned objectui#6958 itself, so the search channel was answering.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

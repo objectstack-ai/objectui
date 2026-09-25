@@ -12,7 +12,6 @@
   },
   "labels": [
     "domain:ui",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -21,7 +20,7 @@
   "milestone": null,
   "type": "Task",
   "created_at": "2026-09-08T20:58:06Z",
-  "updated_at": "2026-09-25T07:59:26Z",
+  "updated_at": "2026-09-25T08:34:34Z",
   "closed_at": "2026-09-25T07:59:26Z",
   "closed_by": {
     "login": "objectstack-fleet[bot]",
@@ -29,7 +28,7 @@
     "type": "Bot"
   },
   "merged_at": null,
-  "comments": 5,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/8667",
   "body": "`Blocked-by:` objectstack-ai/objectstack#16974\n\n## 背景\n\nobjectui#7011 落地了站内信到达提醒(前台 toast / 后台桌面通知)。卡面五条设计约束里,**四条已实现并有 pin**:首拉不弹、同周期合并、已读不弹、toast 与桌面通知互斥。\n\n**第五条没有实现**:「自己触发的回执类消息不弹 —— actor 是当前用户自身的不弹」。\n\n## 为什么没有实现,而不是漏做\n\n呈现层拿不到 actor,这是数据面的事实而不是取舍:\n\n- `sys_inbox_message` 声明的列里没有任何 actor(`inbox-channel.ts` 的写入侧同样不带);\n- actor 只存在于上一层的 `sys_notification.actor_id`,而默认权限集不授予普通用户读 `sys_notification`;\n- 本仓已有一条相反方向的裁定禁止先行:objectui#5203 退休了 `InboxNotification.actor_name`,理由正是「无列可映射」,并留了两个 pin —— `layout/__tests__/inboxGrouping.test.ts` 的类型 pin 与 `hooks/__tests__/sharedInboxFeed.rowShape.test.tsx` 的产出行 key-set pin(后者对产出行做**精确 key 集断言**,给行加任何一个字段都会转红)。\n\n⇒ 在生产者补上列之前,消费端能做的只有编造一个代理信号,那是投机代码。\n\n## 现状的可见后果\n\n给自己指派一个任务(或任何把发起人本人列为收件人的 flow)会弹一条「Assigned to you: …」。信息本身没错,时机是噪音。\n\n## 上游落地后要做的(改动很小)\n\n1. `mergeInboxRows`(`hooks/sharedUserFeeds.ts`)映射新列 —— 逐字段映射,⛔ 不要改成 `{...m}` 展开;\n2. `InboxNotification`(`layout/inboxGrouping.ts`)声明该字段,同步更新 `sharedInboxFeed.rowShape` 的 `DECLARED_KEYS`;\n3. `claimInboxArrivals`(`hooks/inboxArrivals.ts`)的 arrival 过滤加一条:actor 等于当前用户则不进 arrivals(仍要记入 seen 集);\n4. pin 用**具体且可区分的** actor id 两个方向各断言一次 —— 两个 undefined 相等证明不了任何事。\n\n关联:objectui#7011 · objectui#5203"

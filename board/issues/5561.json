@@ -1,0 +1,32 @@
+{
+  "number": 5561,
+  "kind": "pull_request",
+  "title": "fix(fields): required file grid cells announce their state — FileCell gains the published error slot",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T12:35:41Z",
+  "updated_at": "2026-08-21T12:47:27Z",
+  "closed_at": "2026-08-21T12:47:26Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": "2026-08-21T12:47:26Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5561",
+  "body": "Fixes #5431\n\n## What\n\nA required-but-empty `file` cell in `GridField` flagged only the visual ring and `title` on the `td` — no element in the cell subtree carried `aria-invalid`, so assistive tech was told nothing. #3318 / PR #5429 wired every other cell type (text/number/currency/date/datetime/time, select, lookup); `file` was left out because `FileCell`'s prop set was closed.\n\nPer the dispatch ruling (option 1, triage-concurred): `FileCell` gains the published `error` slot mirroring `LookupField`, and the grid passes it.\n\n## Public-surface widening (stated explicitly, per the contract-review dispatch)\n\n`FileCell` is exported from `@object-ui/fields`'s barrel (`export * from './widgets/FileField.js'`), so the new **optional `error?: string` prop is an API addition** to a published package. It is the same validation slot `@objectstack/spec/ui`'s `FieldWidgetPropsSchema` declares (verified: `error: z.ZodOptional<z.ZodString>` in the installed spec typings) and `FieldWidgetComponentProps` names (objectui#3222) — no second spelling is minted. The changeset declares `minor` and describes the addition.\n\n## How\n\n- `packages/fields/src/widgets/FileField.tsx` — `FileCell` takes `error?: string` (doc comment states producer/consumer and distinguishes it from the component's own per-pick upload `errors`). The carrier is the **focusable picker button** (`aria-invalid={!!error}`), the same computation as `FileField`'s dropzone and `LookupField`'s trigger — never the wrapper (#5223).\n- `packages/fields/src/widgets/GridField.tsx` — the `file` branch passes `error={invalid ? `…is required` : undefined}` exactly as the lookup branch does; the \"not marked — tracked, not silently accepted\" comment is replaced.\n\n## Tests\n\n- `GridField.test.tsx`: required-empty file cell → the `aria-invalid=\"true\"` carrier inside the flagged cell is a BUTTON and the `td` is not the carrier; optional-empty and required-filled cells announce nothing; ghost row stays unmarked.\n- `complex-widgets.test.tsx`: `FileCell` unit pins — `error` set → picker button `aria-invalid=\"true\"`; slot empty → `\"false\"`.\n- **Reverse verification** (fix committed first, sources reverted to `origin/main`, mutation confirmed on disk by anchored grep counts 2→1 for both `aria-invalid={!!error}` and `error={invalid`): exactly the 3 positive pins went red (`Tests 3 failed | 85 passed`), the 2 negative guards stayed green as predicted; restore leg confirmed markers back (counts 2/2) and 88/88 green. No dist rebuild involved — both suites import the widgets by relative src path.\n- The registry sweep (`widget-aria-invalid-registry-e2e.test.tsx`) legitimately does not see this per-column-type gap (text/number grid config) and stays green before and after — not cited as evidence.\n\n## Verification (all at head `818107d`)\n\n- `pnpm exec vitest run packages/fields/ packages/plugin-detail/src/__tests__/RelatedList.filecolumns.test.tsx packages/plugin-form/src/deriveMasterDetail.test.ts packages/plugin-form/src/deriveMasterDetail.declaredSpelling.test.tsx --maxWorkers=2` → `Test Files 113 passed (113)`, `Tests 1882 passed (1882)` (includes the two FileCell-consumer suites outside the package)\n- `pnpm --filter @object-ui/fields type-check` → exit 0 (script echoed; deps built first via `pnpm --workspace-concurrency=2 --filter '@object-ui/fields^...' build`)\n- `pnpm exec turbo run lint --filter=@object-ui/fields --concurrency=2` → `0 errors` (857 pre-existing warnings, package `no-explicit-any` baseline). Narrowed lint declared: root lint is per-package `turbo run lint`; no per-package eslint config exists, root flat config has no type-aware (`projectService`/`project`) settings and no markdown plugin, so the fields package is the entire lint population this diff can move; changesets sit in no eslint population.\n- `node scripts/check-control-bytes.mjs`, `check-changeset-presence.mjs`, `check-changeset-no-major.mjs`, `check-changeset-fixed.mjs` → all ✅\n\nNote: the dispatch's gate list named objectstack-side gates (`check:slot-lookup`, `check:test-source-alias`, `check:type-source-resolution`, plugin-teardown/docs-audit/ADR-0087 scripts) that do not exist in this repo; re-derived against objectui's actual gate set as above.\n\n## Scope\n\nFile surface as dispatched: the two widget sources, their tests, and a changeset. `packages/fields/README.md` mentions `FileCell` only for upload mechanics (no prop list documented), so no doc file is touched; the changeset carries the API-addition record.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_012u2pRjcqAYtoEjgr3wwhnK)_"
+}

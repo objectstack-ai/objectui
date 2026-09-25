@@ -1,0 +1,35 @@
+{
+  "number": 5040,
+  "kind": "issue",
+  "title": "[app-shell] metadata-admin 的 `FormFieldSpec` 没有声明 `dependsOn`,但两个 widget 都读它 —— 类型化的 form spec 写不出这两个 widget 的必备配置",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "qq9340100"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T19:46:23Z",
+  "updated_at": "2026-08-21T09:50:01Z",
+  "closed_at": "2026-08-21T09:49:41Z",
+  "closed_by": {
+    "login": "qq9340100",
+    "id": 313832657,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5040",
+  "body": "发现于 #4871 实施时的 `tsc -p tsconfig.test.json`(基线 `167ec42e7`)。未认领,交 PM triage。\n\n## 机制\n\n`packages/app-shell/src/views/metadata-admin/SchemaForm.tsx` 导出的 `FormFieldSpec` 是 form 布局的**授权面**(section 的 `fields[]` 元素类型)。它声明了 `type` / `options` / `reference` / `multiple` / `widget` / `language` 等等,**但没有 `dependsOn`**。\n\n而 `widgets.tsx` 里两个 widget 把 `dependsOn` 当必备配置读:\n\n- `FieldSelectorWidget`(`widget: 'field-selector'`):`fieldSpec?.dependsOn || fieldSpec?.reference || 'objectName'` —— 决定去哪个对象拉字段目录;\n- `DynamicConfigWidget`(`widget: 'dynamic-config'`):`Array.isArray(fieldSpec?.dependsOn) ? fieldSpec!.dependsOn[0] : fieldSpec?.dependsOn` —— 决定用哪个兄弟字段的值去查 `context.dynamicSchemas`。\n\n它们读得到,是因为 `WidgetProps.fieldSpec` 是**另一个**内联结构类型(widgets.tsx :101 起),那个声明了 `dependsOn?: string | string[]`。两个类型描述同一个对象、由 `MetadataField` 把同一个值传下去,却对这个键不一致。\n\n后果:用 `FormFieldSpec` 类型化地写 form spec 时,`{ field: 'fieldName', widget: 'field-selector', dependsOn: 'objectName' }` 是**编译错误**(`TS2353: 'dependsOn' does not exist in type 'FormFieldSpec'`),而这恰恰是让 `field-selector` 工作的唯一方式。当前仓内 spec 大多以 `as any` / 松类型经过,所以没被挡住 —— 这也是它至今没暴露的原因。\n\n## 定级说明\n\n按「观察类」提交(`finding` 标签,无 `pm:queue`):今天没有用户点得到的失效面 —— 运行期读的是同一个对象,`dependsOn` 传得到;坏的是**授权时的类型面**。但方向就是本仓反复付过学费的那一类:producer 与 consumer 对同一个契约各留一份不一致的描述。严重度请 PM triage 判,不由我在立卡时定。\n\n## 建议\n\n`WidgetProps.fieldSpec` 那份内联结构与 `FormFieldSpec` 明显是同一个契约的两次描述(前者还额外有 `colSpan` / `immutable` / `readonly` / `required` 等重叠键)。合并成一处,`WidgetProps.fieldSpec` 直接引 `FormFieldSpec`,是契约优先的做法;`dependsOn` 补进 `FormFieldSpec` 是其中一步。合并会牵动两个文件的导入方向(`widgets.tsx` 目前不从 `SchemaForm.tsx` 引类型,反向引会成环),所以形态需要先定,不宜顺手做。\n\n## 边界与去重\n\n- 检索过 open issues(`FormFieldSpec dependsOn missing type metadata-admin field-selector dynamic-config`),无同题单。\n- 不是 #4871:那单是 labelling 声明层与命名通道,已实施;本单是 `fieldSpec` 契约的两份不一致描述,与 labelling 无关。"
+}

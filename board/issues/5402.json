@@ -1,0 +1,36 @@
+{
+  "number": 5402,
+  "kind": "issue",
+  "title": "`ci.yml` `Test (coverage)` has failed 100% of the time since 2026-08-16 — one test times out under v8 coverage, and Codecov has received nothing since",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "ci/cd",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-20T13:00:21Z",
+  "updated_at": "2026-08-20T16:24:37Z",
+  "closed_at": "2026-08-20T15:16:12Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5402",
+  "body": "Found while re-measuring the CI cost model for #5395. Filing it separately because it is a\nconcrete defect, not a cost question, and neither #5393 (cost) nor #5394 (`QUICK_REFERENCE.md`\ndrift) covers it. **Not assigned to anyone and nothing has been changed** — this card is a\nmeasurement card and did not touch it.\n\n## `ci.yml`'s `Test (coverage)` job has failed 100% of the time since 2026-08-16, so Codecov has received nothing since\n\n| | |\n|---|---|\n| last successful `Test (coverage)` job | **2026-08-16T10:56:13Z**, run 31942979071 |\n| last successful `Upload coverage to Codecov` step | the same run |\n| completed `Test (coverage)` jobs since then | **51, every one a failure, 0 successes** |\n| window examined | 373 coverage jobs across 378 unfiltered `push`/`main` `ci.yml` runs, 2026-08-12 .. 2026-08-20 |\n\nThe `Upload coverage to Codecov` step has no `if:`, so it carries the implicit `success()` and\nis `skipped` whenever the test step fails. It is `skipped` in 311 of the 373 coverage jobs, and\nin 120 of the 121 most recent ones.\n\n## It is one test, and it is a timeout not an assertion\n\nReading GitHub's check-run annotations for all 51 completed failures:\n\n| failing test file | occurrences |\n|---|---|\n| `scripts/__tests__/check-package-self-import.test.ts` | **50** |\n| `scripts/__tests__/quick-reference-current-release-4143.test.ts` | 3 (the #5394 drift, recent only) |\n| three others, one run on 2026-08-17 | 1 each |\n\n```\n[unit] scripts/__tests__/check-package-self-import.test.ts\n  > a package name that is not a module edge is not a finding\n  > the two live specimens in this repository stay unflagged\nError: Test timed out in 15000ms.\n  at scripts/__tests__/check-package-self-import.test.ts:140:3\n```\n\nFirst occurrence 2026-08-16T12:48:02Z — the run immediately after the last green one.\n\n## The discriminator is v8 coverage instrumentation, not load — measured by ablation\n\n| lane | sharded? | v8 coverage? | does it time out? |\n|---|---|---|---|\n| PR lane (production), 220 runs sampled | yes, 4 ways | no | **no** — 0 occurrences |\n| push lane (production), 373 coverage jobs | no | yes | **yes** — 50 of 51 completed failures |\n| throwaway prototype, same commit, run 32364577842 | yes, 4 ways | yes | **yes** |\n\nCounter-probe for the PR-lane zero: the identical annotation scan over the identical PR shard\njobs does return results (7 annotations naming `vite-alias-closure.test.ts`,\n`AppContent.systemHubRoutes.test.tsx`, `vite-objectstack-spec-dist.test.ts`,\n`check-type-check-coverage.test.ts`, `check-changeset-no-major.test.ts`), and the same call\nagainst the push lane returns 50 hits for this file. The method resolves; the zero is real.\n\nSo splitting the job 4 ways does **not** fix it — that was measured, not assumed. Coverage\ninstrumentation pushes this one test past its 15-second budget regardless of how much else is\nrunning alongside it.\n\nPer AGENTS.md's testing section, the fix direction for \"an unbounded cost inside a bounded\nwindow\" is to find the race rather than raise the timeout — this issue records the measurement,\nnot a prescription.\n\n## Second, independent symptom found while prototyping\n\nOn a failing suite, the live unsharded recipe\n(`pnpm test:coverage --coverage.reporter=json --coverage.reporter=text`) leaves **no\n`coverage/` directory at all**. Reproduced 2 of 2 on the same commit — run 32364577842\n(`NO COVERAGE FILE at coverage/coverage-final.json`, after 39m05s) and run 32368063518\n(`NO coverage/ DIRECTORY AT ALL after the live unsharded run`, after 39m25s) — while the same\ntree run through vitest's blob-report path produced a complete 1287-file report every time.\n\nSo there are two independent reasons Codecov is dark, not one: the upload step is skipped by its\nimplicit `success()`, **and** there would be no file for it to upload anyway. As long as the\nsuite is red, this job cannot produce a coverage report at all. The mechanism was not identified\n— the Actions log CDN is blocked from the measuring session.\n\n## Why this matters beyond coverage percentages\n\n`ci.yml`'s own comment justifies keeping this job unsharded as *\"one unsharded run so Codecov\nstill receives a single complete report\"*. That justification has been delivering nothing for\nfour days, which is worth knowing before #5393 is ruled on.\n\nFull measurement, method and counter-probes: #5395.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

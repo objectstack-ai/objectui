@@ -1,0 +1,33 @@
+{
+  "number": 5318,
+  "kind": "pull_request",
+  "title": "test(plugin-dashboard): close DashboardGridLayout's object-chart metadata network escape (#5299)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-19T13:47:45Z",
+  "updated_at": "2026-08-19T14:20:29Z",
+  "closed_at": "2026-08-19T14:20:27Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-19T14:20:27Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5318",
+  "body": "Fixes #5299\n\n## The escape, bisected\n\n`DashboardGridLayout.datasetPath.test.tsx` made a real network call — same ECONNREFUSED-on-port-3000 signature as #5225 / #5280, a different file. Reproduced 3/3 in isolation pre-fix (1 attempt; all 13 tests still passed, which is exactly why nothing caught it).\n\nPer the card, the actual work item was the `-t` bisect. Running each of the 5 negative-control tests alone:\n\n| test | ECONNREFUSED alone |\n|---|---|\n| `does NOT take the dataset path for a static-data widget` | 0/1 |\n| `does NOT take the dataset path for an options.data provider widget` | **3/3** |\n| `does NOT take the dataset path for a static-data pivot widget` | 0/1 |\n| `still shows the #4613 retired-format placeholder for a legacy widget…` | 0/1 |\n| `renders a legacy widget's placeholder even when a dataSource IS supplied…` | 0/1 |\n\nThere is exactly **one** escape site in this file, not several. This refutes the card's `isLegacyRetiredWidget` sentinel candidate — neither of its two tests escapes alone, confirming the card's own re-derived reading that `useDatasetDimensionMeta`'s `!object` guard was never the site (no mocked `queryDataset` result here declares `object`).\n\n## Root cause\n\nThe `options.data.provider: 'object'` widget maps to component type `object-chart` (`DashboardGridLayout.tsx`'s `getComponentSchema`, `isObjectProvider` branch) with `objectName: 'invoices'` and a defaulted `xAxisKey: 'name'`. `ObjectChart.tsx` (`@object-ui/plugin-charts`) — the original #4106 defect site, never migrated onto the `useDatasetDimensionMeta` hook #4389 extracted for the dataset-bound path — still carries its own inline fetch for a category-dimension option-color probe:\n\n```\nObjectChart                        packages/plugin-charts/src/ObjectChart.tsx\n  useEffect (~L351-415)\n    → const doFetch = apiFetch ?? fetch   ← the escape (L355)\n      → GET /api/v1/meta/object/invoices  (L376, via loadDimensionFieldMeta)\n```\n\nWith no `SchemaRendererProvider` in this file's render tree, `apiFetch` is undefined and the probe degrades to the global `fetch` on purpose (#4114 / #4121 — a standalone embed must keep rendering, not crash). Under happy-dom that resolves the relative URL against the default document origin (`http://localhost:3000`), hence the signature. The read is wrapped in `try { … } catch { setOptionMeta(null) }`, which is why the widget renders fine regardless.\n\n**This is a test-harness gap, not a product bug** — no fork to report; the \"suggested fix shape\" branch of the card applies.\n\n## The fix — ports the established shape (#5283 → #5280/#5300)\n\n- A **recording double** answers `/api/v1/meta/object/{name}`.\n- `afterEach` **fails on any non-metadata escape** instead of swallowing it.\n- `cleanup()` runs **before** `vi.unstubAllGlobals()` in the same `afterEach` — #5280 measured the LIFO reverse-registration order as a real flake source here.\n- One new pin test asserts the probe's own request shape (exactly one call to `/api/v1/meta/object/invoices`), proving the double is actually exercised.\n\nTest-only. File surface: the one test file + an empty-frontmatter changeset (judged via `node scripts/check-changeset-presence.mjs`).\n\n## Verification\n\n- Isolated file, pre-fix: 3/3 runs, 1 ECONNREFUSED attempt each (`grep -c ECONNREFUSED` = 2, matching the card's own count).\n- Isolated file, post-fix: 3/3 runs, 0 ECONNREFUSED, 14/14 tests passing (13 original + 1 new pin).\n- Full package (`pnpm exec vitest run packages/plugin-dashboard`, from repo root): 65 files / 594 tests passed, 0 ECONNREFUSED — no residual escape.\n- **Reverse-verification** (fix committed first, then the double-install call was disabled while the new pin test was kept, per AGENTS.md's revert-with-pin discipline): predicted the pin test goes red (times out — nothing populates its recording array) and the 13 pre-existing tests stay green (the swallowed-escape signature is exactly why this bug survived). Observed: 1 failed (the pin, `Timeout … expected [] to equal ['/api/v1/meta/object/invoices']`), 13 passed — predicted-vs-observed match. ECONNREFUSED count rose to 4 in this leg (2 attempts: the original site plus the new pin test's own render, both hitting the real network with the double off) — diagnostics increased, not decreased, as expected for an added-test revert. Restored the file to the just-committed fix with a branch-and-path-scoped `git checkout` (`git diff HEAD` confirmed clean afterward).\n- `pnpm --filter @object-ui/plugin-dashboard type-check`: clean (script is `type-check`, not `typecheck`).\n- `pnpm --filter @object-ui/plugin-dashboard lint`: 0 errors, 0 new warnings (317 pre-existing warnings elsewhere, none in the touched file).\n- `node scripts/check-changeset-presence.mjs`, `check-changeset-no-major.mjs`, `check-control-bytes.mjs`: all green.\n\nRan from the repository root throughout, per AGENTS.md. Final commit: `9e2578265`.\n\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_\n"
+}

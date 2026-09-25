@@ -1,0 +1,35 @@
+{
+  "number": 4838,
+  "kind": "issue",
+  "title": "[plugin-form] fullscreenLongText 盖章面收裸 `textarea` 却不收裸 `markdown`/`html`/`richtext`,而这三个裸拼法照样解析到 RichTextField",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "qq9340100"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-16T11:31:50Z",
+  "updated_at": "2026-08-21T09:19:43Z",
+  "closed_at": "2026-08-21T09:19:43Z",
+  "closed_by": {
+    "login": "qq9340100",
+    "id": 313832657,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4838",
+  "body": "做 #4831 时顺带测到,按 Prime Directive #10 立单(不认领、不扩围)。**与 #4831 不是同一条**:#4831 修的是 widget id `field:richtext` 漏出盖章面;本条谈的是**同一份清单在另一条输入路径上的不对称**,而且它牵一个契约问题,不是补字面量能了结的,故单独记录。\n\n## 事实\n\n`ObjectForm` 的盖章清单(#4831 之后)是五个字面量 —— `packages/plugin-form/src/ObjectForm.tsx:1163-1166`:\n\n```\nconst t = f.type as string | undefined;\nconst isTextarea = t === 'textarea' || t === 'field:textarea' ||\n  t === 'field:markdown' || t === 'field:html' ||\n  t === 'field:richtext';\n```\n\n裸拼法只收了 `textarea` 一个。它在这里的理由是明确的:`textarea` 是**表单渲染器的内建分支**(`BUILTIN_FIELD_TYPES`,`packages/components/src/renderers/form/form.tsx:235` = `input/textarea/checkbox/switch/select`),那条 `case 'textarea'`(同文件 :2493)自己读 `mobile_fullscreen`。\n\n而 `markdown` / `html` / `richtext` 三个裸拼法**不在** `BUILTIN_FIELD_TYPES` 里、也不含冒号,于是走 `renderFieldComponent` 的命名空间兜底 —— 同文件 :2427-2429:\n\n```\nconst namespacedWidget = !BUILTIN_FIELD_TYPES.has(type) && !type.includes(':')\n  ? ComponentRegistry.get('field:' + type)\n  : undefined;\n```\n\n`field:markdown` / `field:html` / `field:richtext` 三个键都注册到 `RichTextField`(`packages/fields/src/index.tsx:2411-2413`),读者也在(`RichTextField.tsx:175`)。于是:一个 `customFields: [{ name: 'x', type: 'markdown' }]` 的字段**会渲染出 RichTextField**,却拿不到 `mobile_fullscreen`,没有展开按钮 —— 与 #4831 修掉的那一半形状相同,只是入口是裸拼法而不是 widget id。\n\n## 为什么没有并进 #4831 一起改\n\n因为它导出两个方向完全不同的修法,取决于一个未定的契约问题:**裸的 spec 类型名到底算不算 `FormField.type` 的合法拼法?**\n\n- 支持「算」的一侧:同包的孪生集合 `WIDE_FIELD_TYPES`(`packages/plugin-form/src/autoLayout.ts:57-68`)**故意收两种拼法**,其 TSDoc 的理由是 app-shell 的 `ObjectFormDesigner` 把 `objectDef.fields[x].type` 原样传进来 —— 实测确有该调用(`packages/app-shell/src/views/studio-design/ObjectFormDesigner.tsx:158`)。\n- 支持「不算」的一侧:AGENTS.md #0.1 契约优先 —— `renderFieldComponent` 的裸名兜底本身就是一个宽容消费者,正确修法可能是在生产者/发布期**拒绝**裸拼法,而不是让盖章面再跟着宽容一次。\n\n一个方向是补三个字面量,另一个方向是收紧兜底;#4831 只修 widget id 那一半,这条原样交出来。\n\n## 影响面(未夸大)\n\n能否被今天的真实 metadata 命中,取决于上面那个契约问题的答案。**未实测到**有生产者向 `ObjectForm.customFields` 写裸 `markdown`/`html`/`richtext`(designer 那条走的是 `isWideFieldType`,不是盖章面)。因此按 observation-class 归档、打 `finding`、不挂 `pm:queue`,交 PM 定级。"
+}

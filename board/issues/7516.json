@@ -2,8 +2,8 @@
   "number": 7516,
   "kind": "issue",
   "title": "`ListViewSchema.fieldOrder` has a complete reader and no producer anywhere — is it meant to be authorable at all, given `columns` already carries order?",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "huangyiirene",
@@ -12,18 +12,23 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-elon-musk"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-03T16:06:22Z",
-  "updated_at": "2026-09-24T07:12:57Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T13:00:59Z",
+  "closed_at": "2026-09-25T12:55:00Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/7516",
   "body": "Ruled: 5809517921 · letter ratified 5635656263 (add the per-view fieldOrder relay rung) · 2026-09-24T07:12Z\n\n(Blocked-by line removed 2026-09-11 — objectstack#15184 ruled B; see the director seat ruling in the comments.)\nSplit out of **#7218** by the triage seat (R+122). #7218 filed `fieldOrder` and `rowColor` together and said *\"it may differ per key. I measured the delivery gap, not the intent.\"* Measured this round: **it does differ**, and the two halves need different answers, so they are now two cards.\n\n⇒ **#7218 keeps `rowColor`** (a delivery-path inconsistency, mechanical). **This card is `fieldOrder`** (an intent question with no mechanical answer available).\n\nos-decision-facets\n\n## Measured — tree `origin/main` **`0e3b3be`**, read **2026-09-03T16:05:21Z**\n\n**The reader is real and complete.** `packages/plugin-list/src/ListView.tsx`:\n\n- `:2241` — `// Apply hiddenFields and fieldOrder to produce effective fields`\n- `:2265` — `if (schema.fieldOrder && schema.fieldOrder.length > 0) {`\n- `:2266` — builds an `orderMap` from the array and sorts the column set by it\n- `:2275` — `schema.fieldOrder` is in the memo's dependency list\n\n⚠️ The line numbers have drifted from #7218's citation (`:2078-2088`); located by content instead. ⛔ Not a defect in that card — the file has grown.\n\n**No producer, anywhere.** Across `packages/**` and `apps/**`, every other `fieldOrder` occurrence belongs to a **different, unrelated feature** — the metadata-admin form-ordering prop (`metadata-admin/SchemaForm.tsx:684`/`:704`/`:756`, `ResourceEditPage.tsx:545`/`:2674`/`:2698`, `registry.ts:131`, `default-schemas.ts:339`). ⛔ None of those is `ListViewSchema.fieldOrder`, and none reaches `ListView`.\n\n⇒ The key is declared (it arrives from the `@objectstack/spec` base), fully implemented behind the declaration, and **written by nothing**. Reachable today only if a caller puts it on the schema by hand.\n\n## ⭐ Why this is a decision and not a delivery bug\n\n`ListViewSchema` already carries **`columns`**, which is an ordered array — so column order is *already* expressible by an author, through a key every host does relay. That makes `fieldOrder` a **second way to say the same thing**, and the question is not \"which host forgot to relay it\" but \"should it exist\".\n\n⇒ ⛔ Do not fix this by adding `fieldOrder` to the host relays. That would ship a second ordering mechanism whose interaction with `columns` order is undefined — and `ListView.tsx:2241` shows it composes with `hiddenFields` too, so the interaction surface is three keys, not two.\n\n## 四棱\n\n**① 长期正确性(主导)** —— 一个槽位两种表达是 dialect 而非设计,而这里更糟:`columns` 的顺序**已经**是权威顺序,`fieldOrder` 再给一份,两者冲突时谁赢**没有任何地方定义过**(实现里 `fieldOrder` 排在 `columns` 之后作用,所以事实上它赢,但那是实现顺序不是契约)。⇒ 本轴要求先回答「要不要第二种表达」,⛔ 不允许先接线后定义。\n\n**② 真实业务拉力** —— **可测的零**:没有任何 host、任何 fixture、任何 app 写过它。⛔ 我没测仓外(见置信缺口)。\n\n**③ 防 AI 编码错误** —— AI 作者从 spec 看到 `fieldOrder` 被声明、从文档看不到它不可达,于是会写它;写了之后**静默无效**,没有任何门禁会红。这是最坏形态。⚠️ 注意:接线反而会**加重**这一轴 —— 那时它会「有时生效」,取决于 `columns` 是否同时被写,而两者的优先级没有定义。\n\n**④ 创业期不扩张** —— 退役让面变小;接线是新增一条与既有 `columns` 重叠的作者面,零实测拉力下扩张。\n\n**建议(一句)**:按 ADR-0049 enforce-or-remove **退役** —— 删掉 `ListView` 里的 `fieldOrder` 读取路径(`:2241`-`:2275`),让 `columns` 的顺序成为唯一顺序表达;若 `fieldOrder` 来自 `@objectstack/spec` 基座,则在 objectstack 侧立卡走该仓的退役流程,⛔ 不在 objectui 侧偷偷 strip。\n\n**回退**:若维护者认为「隐藏字段后仍要独立控制剩余列顺序」是真实需求(`fieldOrder` 与 `hiddenFields` 同批读取,暗示它本来就是为这个场景设计的),则**保留并接线**,但同一 PR 必须定义 `columns` 顺序与 `fieldOrder` 冲突时的优先级,并把它 pin 住。⛔ 不接受「接线了但优先级留给实现顺序」。\n\n**置信缺口(必填)**:我只测了 `packages/**` 与 `apps/**`,**没有**测 `examples/`、objectstack 侧的 `*.view.ts` 语料,也没测用户代码。若 spec 语料里已经有 `fieldOrder` 的真实作者用法,② 的零就不成立,而且退役会破坏现存文档 —— **这一条足以把建议从「退役」翻成「保留并接线」**。⇒ 取用前请先量这个分布。\n\n## Related\n\n**#7218** (this card's other half — `rowColor`, which *does* have a delivery path) · **#7199** (`description`, same defect class, being fixed) · **#5435** (⚠️ on hold; touches `rowColor` from the normalize/view-save angle — relevant to #7218, ⛔ not to this card).\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_\n"

@@ -1,0 +1,34 @@
+{
+  "number": 5297,
+  "kind": "pull_request",
+  "title": "fix(plugin-map): thread props.data and seed clustering zoom from the applied camera",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-19T07:59:06Z",
+  "updated_at": "2026-08-19T12:10:56Z",
+  "closed_at": "2026-08-19T12:10:55Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-19T12:10:55Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5297",
+  "body": "Fixes #5003\n\n## What\n\nTwo pieces of `ObjectMap` state stopped tracking their source after mount. Both are\ndormant on the console path (see \"Why untestable through the console path\" below), so\nneither has ever caused a visible bug in the example apps — this is a `finding`,\npromoted to `pm:queue` by triage, being fixed proactively.\n\n**1. `props.data` was read but not depended on.** The fetch effect preferred records\npassed via `props.data`, checked as `(rest as any).data`, but `rest` (and therefore\n`data`) was not in the effect's dependency array. A host rendering `ObjectMap` with a\n`data={[]}` prop while its own query is in flight, then re-rendering once it resolves\nwith `data={rows}`, kept showing the empty map — the prop changed, the effect never\nre-ran to notice.\n\nFix: `data` is now a declared prop on `ObjectMapProps` (`data: dataProp` in the\ndestructure), and the effect depends on that one value directly. The whole `rest` object\nis deliberately **not** added to the deps — it is a fresh object every render, so naming\nit would turn this into a refetch-on-every-render trap instead.\n\n**2. The clustering zoom seed never saw the initial camera.**\n`useState(mapConfig.zoom || 3)` seeds `currentZoom`, which `clusterMarkers` uses for its\ngrid cell size, and `onZoom` was its only writer. MapLibre applies the initial camera\n(`initialViewState`, including a `bounds` fit) via its constructor, before react-map-gl\nattaches React's event handlers — so no `onZoom` ever fires for that first camera, and\nthe seed stayed nominal until the user's first zoom.\n\nFix: also seed `currentZoom` from `onLoad`, which fires once the style has loaded and the\ninitial camera has settled (fit-bounds included), so clustering at first paint reflects\nthe camera MapLibre actually applied.\n\nThis was equally true before #4941 (the seed was then the synthesized `10`); that PR did\nnot introduce it, and the current `3` is closer to a fitted continental camera than `10`\nwas. Not a regression of #4941 — recorded in the issue so it isn't rediscovered as one.\n\n## Why untestable through the console path\n\n- The console path never passes `data` as a prop — it goes through\n  `ElementDataSourceGate` and the component's own `dataSource.find`\n  (`ObjectMap.elementDataSource.test.tsx` pins this).\n- Every fetch sets `loading` back to `true`, which unmounts and remounts `MapGL`, so a\n  data change *through the effect* is always reflected — masking the missing dependency.\n- Clustering only engages above 100 markers (or explicit opt-in), so a stale zoom seed\n  has no visible effect on the small marker sets in the examples.\n\nSo the new tests exercise both paths directly rather than through the console/schema\nflow, which would pass before and after the fix and prove nothing.\n\n## Tests\n\nNew files: `ObjectMap.dataProp.test.tsx`, `ObjectMap.zoomSeed.test.tsx`.\n\n- `dataProp` test 1 mounts with an empty `data` array, re-renders with rows, asserts the\n  rows appear — this is the one that actually pins the fix.\n- `dataProp` test 2 checks a stable `data` reference plus an unrelated prop change\n  doesn't trigger a spurious refetch. **Non-discriminating**: green on both the fixed and\n  reverted legs (the pre-fix code never re-ran the effect off a prop change at all, by\n  identity or otherwise), kept as a regression guard for the \"don't depend on the whole\n  `rest` object\" constraint rather than as a pin.\n- `zoomSeed` test 1 uses a marker pair placed so grid-cell membership flips between the\n  nominal seed (zoom 3, same cell) and a post-`onLoad` zoom of 12 (different cells):\n  asserts 1 cluster before `onLoad`, 2 separate markers after. This is the one that pins\n  the fix.\n- `zoomSeed` test 2 checks an `onLoad` payload with no readable zoom is a no-op.\n  **Non-discriminating**: green on both legs (`onLoad` doesn't exist pre-fix, so calling\n  it is already a no-op there).\n\n**Reverse verification**: committed the fix (`32bef3bd0`), then checked out pre-fix\n`ObjectMap.tsx` from `origin/main` with the new tests kept, predicted `dataProp` test 1\nand `zoomSeed` test 1 would go red and the other two would stay green, ran the suite, and\nobserved exactly that (`2 failed | 63 passed`, the two predicted names in the failure\nlist). Restored the fix from the branch tip (clean diff against HEAD afterward) and\nreran — `65 passed (65)`.\n\n```\npnpm --filter @object-ui/plugin-map run type-check   # tsc --noEmit && tsc -p tsconfig.test.json — clean\npnpm exec vitest run packages/plugin-map --maxWorkers=2   # 11 files, 65 passed\n```\n\nBoth run at head `d031db984` (post final commit).\n\nAlso ran, at the same head: `node scripts/check-changeset-presence.mjs` (declares the\nchangeset), `node scripts/check-changeset-no-major.mjs` (no `major` bump — this is a\n`patch`), `node scripts/check-control-bytes.mjs` (clean), and `pnpm exec eslint` on the\ntouched files (0 errors; the pre-existing `react-hooks/exhaustive-deps` warning for\n`rest` on the fetch effect is gone — the remaining one is `schema.data`, a separate,\nout-of-scope read this issue didn't ask for).\n\n## Scope note\n\n`ObjectMapProps` gains one optional prop (`data?: any[]`); nothing on the schema/spec\nsurface changes — no key gains or loses acceptance.\n\n`packages/plugin-map/README.md` gets a row for the newly-declared `data` prop (it was\npreviously reachable only off the untyped `rest` spread, undocumented).\n\n## Changeset\n\n`patch` on `@object-ui/plugin-map`.\n\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_\n"
+}

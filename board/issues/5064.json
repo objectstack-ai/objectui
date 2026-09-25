@@ -1,0 +1,35 @@
+{
+  "number": 5064,
+  "kind": "issue",
+  "title": "plugin-dashboard 的 `dashboardComponents` 用组件类名作键(全仓唯一一个),README 教的手动注册循环因此注册 11 个没人写的 type、8 个真 type 一个没注册",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T22:01:02Z",
+  "updated_at": "2026-08-19T07:10:32Z",
+  "closed_at": "2026-08-19T07:10:32Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5064",
+  "body": "发现于 #5015 的实施(plugin-dashboard README 的 TypeScript 一节)。Filed unassigned, not claiming。**#5015 的性质是「README 断言一个不存在的标识符」;本单相反 —— 名字是真的,键的词汇表是错的**,所以按纪律另立,不夹带进 #5015 的 PR(该卡认领评论也明确「`dashboardComponents` 是真的,该节勿动」)。\n\n## 现象\n\n`packages/plugin-dashboard/src/index.tsx:337-350`,注释写着「Standard Export Protocol - for manual integration」:\n\n```ts\nexport const dashboardComponents = {\n  DashboardRenderer,\n  DashboardGridLayout,\n  MetricWidget,\n  MetricCard,\n  ObjectMetricWidget,\n  PivotTable,\n  ObjectPivotTable,\n  ObjectDataTable,\n  DashboardConfigPanel,\n  WidgetConfigPanel,\n  DashboardWithConfig,\n};\n```\n\n11 个键全是 **PascalCase 组件类名**,不是 schema `type` 键。而 `README.md:42-52` 教的正是按这个 map 手动注册:\n\n```ts\nimport { dashboardComponents } from '@object-ui/plugin-dashboard';\nimport { ComponentRegistry } from '@object-ui/core';\n\nObject.entries(dashboardComponents).forEach(([type, component]) => {\n  ComponentRegistry.register(type, component);\n});\n```\n\n照抄的结果:注册 `'DashboardRenderer'`、`'MetricCard'`、`'WidgetConfigPanel'` … 这 11 个**没有任何作者会写进 schema 的 type**,而本包 `ComponentRegistry.register` 真正认领的 8 个 type 一个都没注册 —— `dashboard`(`:44`)、`metric`(`:65`)、`metric-card`(`:80`)、`object-metric`(`:151`)、`pivot`(`:185`)、`object-pivot`(`:260`)、`dashboard-grid`(`:296`)、`object-data-table`(`:316`)。\n\n## 全仓唯一\n\n其余 4 个真实存在的 `*Components` map **全部按 schema type 键**,README 的那个循环对它们都是对的:\n\n| 包 | map | 键 |\n| --- | --- | --- |\n| `plugin-charts` | `chartComponents`(`src/index.tsx:32`) | `'bar-chart'`、`'chart'` |\n| `plugin-editor` | `editorComponents`(`:82`) | `'code-editor'` |\n| `plugin-kanban` | `kanbanComponents`(`:306`) | `'kanban'`、`'kanban-enhanced'`、`'object-kanban'` |\n| `plugin-markdown` | `markdownComponents`(`:71`) | `'markdown'` |\n| **`plugin-dashboard`** | **`dashboardComponents`(`:338`)** | **`'DashboardRenderer'` … 组件类名** |\n\n所以这不是「本族约定就是类名」,而是这一个 map 偏离了协议。\n\n## 可观测后果(已量出)\n\n`ComponentRegistry.register(type, component)` 第三参 `meta` 缺省(`packages/core/src/registry/Registry.ts:194`),于是循环里每一次调用都:\n\n1. 打一条弃用告警 —— `:198-208` 的 `if (!meta?.namespace)` 分支,「Registering component \"X\" without a namespace is deprecated」×11;\n2. 往 `this.components` 里塞一个无 `namespace`/`label`/`category` 的条目(`:214-219`),这些条目会进 `getAllTypes()`(`:444`)与 `getAllConfigs()`(`:485`)的枚举。\n\n**没量的一处,如实标注**:这 11 个幻影 type 会不会真的出现在某个设计器组件面板里,取决于该面板读的是 `getAllConfigs()` 还是自己的白名单 —— 本单没有走到浏览器里确认,所以只主张「进了注册表的枚举」,不主张「进了面板」。\n\n另外注意:该循环**本身不是注册所必需的** —— 第一行 `import { dashboardComponents } from '@object-ui/plugin-dashboard'` 已经触发入口副作用,8 个真 type 在循环执行前就注册好了。所以后果是「11 条噪声 + 一个教错的心智模型」,不是「注册失败」。\n\n## 两种修法,方向相反,请分诊定\n\n- **A. 改 map 的键**(`'dashboard': DashboardRenderer` …),与 4 个兄弟包对齐,README 那段循环随之变成真话。代价:`dashboardComponents` 是公开导出,改键是 breaking(尽管全仓零消费点 —— 除 README 外没有任何 `dashboardComponents` 的读取处,已用词边界 grep 核过)。\n- **B. 留键、改 README**,按 #5002 一族的减法形删掉这段手动注册,只教副作用导入 + 真实 type 表。代价:`dashboardComponents` 这个「Standard Export Protocol」导出继续存在但没有正确用法可教。\n\n倾向 A(契约先行:导出面自称是给手动注册用的协议,那就让键真的是注册键;4 个兄弟包已经是这个形状,A 让第 5 个收敛而不是让文档去迁就一个孤例)。但这是公开导出的形状裁定,交分诊。\n\n## 复核方式\n\n```\ngrep -n \"^export const dashboardComponents\" -A 14 packages/plugin-dashboard/src/index.tsx\ngrep -nE \"^  '[a-z-]+',$\" packages/plugin-dashboard/src/index.tsx      # 8 个真 type\ngrep -rn \"^export const [a-z][A-Za-z]*Components = {\" packages/plugin-*/src/index.tsx\ngrep -rnw \"dashboardComponents\" packages apps examples                # 仅 index.tsx 与 README\n```"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 5127,
+  "kind": "issue",
+  "title": "`objectui check` 把每个 JSON 文件的根 `type` 都当成组件键判定,于是在任何 Node 工程里都对 package.json 的 `\"type\": \"module\"` 报未知类型",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:blocking",
+    "pm:dispatched"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T02:39:57Z",
+  "updated_at": "2026-08-20T09:41:58Z",
+  "closed_at": "2026-08-20T09:41:43Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 15,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5127",
+  "body": "发现于 #5115 的实施(PR #5128)反向验证的探针目录里。半径外,未夹带进 PR。Filed unassigned, not claiming.\n\n## 现象\n\n`packages/cli/src/commands/check.ts` 把 cwd 下**所有** JSON 文件(除 `node_modules` / `dist` / `.git`)glob 出来,凡是根对象有 `type` 字符串的,就拿去和组件键集合比:\n\n```\nconst files = globSync('**/*.{json,yaml,yml}', { cwd, ignore: [...] });\n...\nif (content && typeof content === 'object' && content.type) {\n  if (typeof content.type === 'string' && !isKnownSchemaType(content.type)) {\n    console.log(chalk.yellow(`⚠️ Unknown schema type \"${content.type}\" in ${file}`));\n  }\n}\n```\n\n`type` 在 JSON 里远不止「SDUI 组件键」一种词汇表 —— 最常见的就是 `package.json` 的 `\"type\": \"module\"`。实测(探针目录里放一个最小 package.json):\n\n```\n$ node packages/cli/dist/cli.js check\nObject UI Schema Check\nAnalyzing 8 files...\n⚠️ Unknown schema type \"module\" in package.json      # 不是 schema,是包清单\n⚠️ Unknown schema type \"totally-made-up-xyz\" in g-bogus.json\n...\n✓ All checks passed\n```\n\n任何用户在自己的工程根目录跑 `objectui check`,第一行警告就是自己的 `package.json`。同族的还有 `tsconfig.json` 派生文件、`.eslintrc.json`、各类 `*.schema.json`(JSON-Schema 的 `\"type\": \"object\"`)—— 凡根上带 `type` 的都会中招。\n\n## 与 #5115 的边界\n\n#5115 修的是**判定用的键集合**(手写副本 vs 注册表推导),PR #5128 已把集合换成推导并双向钉住。这条是**另一件事**:集合再准,拿它去判一个根本不属于该词汇表的 `type` 也还是误报。两者独立 —— PR #5128 既不引入也不修复本条(修复前后 `package.json` 都报),只是让它在探针里显形。\n\n`scripts/check-doc-component-types.mjs` 的头注释已经把「`type` 至少承载七种不同词汇表」这件事写透,并**明确拒绝**了按父键路径分类的判别器(measured 后否决:TS 注解形和 `items` 的双关让它在两个方向上都会静默错判)。文档面它的选择是「一律当组件键 + 逐 (文件,值) 声明豁免」;CLI 面没有豁免机制,所以同一个策略在这里只剩误报。\n\n## 可能的方向(不预断,交分诊)\n\n- A. **只扫可识别为 schema 的文件**:例如约定目录(`schemas/**`)或 CLI 配置里的 glob,而不是整棵树。契约最清楚,但要定「什么算 schema 文件」这个新契约。\n- B. **排除已知的非 schema 清单**(`package.json` / `tsconfig*.json` / `.eslintrc.json` / `*.schema.json` …)。成本最低,但排除表是第二份要维护的手写清单 —— 与 #5115 刚消灭的那种副本同形,长期取向上可疑。\n- C. **要求 schema 文件有正向标记**才参与判定(如 `$schema` 指向 ObjectUI,或存在 `children`/`body` 等结构键)。可防错性最好(声明即判定),但会让现存没有标记的 schema 文件退出判定面。\n\n三条对「让 AI 写的元数据难以出错」这条轴的取向差别很大(B 是消费端容忍,C 是生产端声明),不自裁。\n\n## 复核方式\n\n以 `REPO` 代表仓库根目录:\n\n```\nmkdir -p /tmp/oc && cd /tmp/oc\nprintf '{\"type\":\"module\",\"name\":\"x\"}' > package.json\nnode \"$REPO/packages/cli/dist/cli.js\" check       # 报 Unknown schema type \"module\"\nsed -n '18,45p' \"$REPO/packages/cli/src/commands/check.ts\"\n```\n\n注:警告不影响退出码(只有 JSON 解析失败才 `errors++`),所以这是噪音级缺陷而非阻断级 —— 但它是用户跑这条命令看到的第一行输出。"
+}

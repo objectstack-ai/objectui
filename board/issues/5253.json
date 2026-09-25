@@ -1,0 +1,35 @@
+{
+  "number": 5253,
+  "kind": "issue",
+  "title": "内建 form 的 `default` 回退分支有和 #5201 完全相同的 ceiling 缺陷:`max_length` 拿不到上限,只在 DOM 上留下失效属性",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T20:34:35Z",
+  "updated_at": "2026-08-18T23:58:46Z",
+  "closed_at": "2026-08-18T23:58:46Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5253",
+  "body": "Found while implementing #5201 (the built-in `case 'input'` branch's ceiling dual-read), by sweeping the same file for the same defect class. **Out of that card's scope** — #5201's triage ruling scoped the work to the `input` branch, so this is recorded rather than fixed there.\n\n## 观察到的现象(已实测,不是推断)\n\n`packages/components/src/renderers/form/form.tsx` 的 `default` 回退分支 —— switch 里最后那个 `default:`,服务于**既不是 `BUILTIN_FIELD_TYPES` 成员、又没有任何注册组件**的 `type` —— 与 #5201 修复前的 `input` 分支逐字相同:它把 `{...domFieldProps}` 展开到元素上,从不读取声明的上限。\n\n实测方式与 #5201 同法:在 worktree 里渲染内建分支(不调 `registerAllFields()`),字段 `type: 'zzunknown'`,dump 元素的 `getAttributeNames()` 与 `getAttribute('maxlength')`:\n\n```\nmax_length: 50 → attrs=[\"class\",\"max_length\",\"id\",\"aria-describedby\",\"aria-invalid\",\"type\",\"name\"]  maxlength=null\nmaxLength: 50 → attrs=[\"class\",\"maxlength\",\"id\",\"aria-describedby\",\"aria-invalid\",\"type\",\"name\"]  maxlength=\"50\"\n```\n\n同一份声明按拼法分成两种结果:`maxLength` 有硬截断(**巧合** —— 它恰好是合法 DOM 属性名),`max_length` **完全没有上限**,外加一个多余的、失效的 `max_length=\"50\"` 属性(无效 HTML)。两个各自独立的缺陷。\n\n对照:同一棵树上修复后的 `input` 分支给出 `attrs=[...,\"maxlength\",...] maxlength=\"50\"`,无游离属性。\n\n## 为什么这是缺陷而不是风格问题\n\n理由与 #5201 逐条相同,不重述:`max_length` 是本仓**活着的**编写拼法(注册路径的 widget 自 framework#1878 §3 起 dual-read;三个 form field 生产者都归一化它;`packages/types` 在多个 field 类型上声明它)。这条回退分支同样服务于**手写 `FormSchema` 直接喂给渲染器**的路径 —— 中间没有任何生产者做归一化。\n\n## 为什么没有在 PR for #5201 里顺手一起修\n\n#5201 的 triage ruling 明确把范围钉死在 `input` 分支,并要求实现者不要顺路加宽;dispatch 另行强调不要把一处修复扩成跨分支的行为改动。回退分支服务的是**未知/未注册 type 的整个集合**,不是一个点名的 widget,所以它值得单独判一次范围,而不是作为副作用落地。\n\n## 起点\n\n- `packages/components/src/renderers/form/form.tsx`,switch 的 `default:` 分支\n- 参照实现:同文件 `case 'input'`(#5201 落地后)与 `case 'textarea'`(#3439/PR #5200)—— 两者都用**局部解构**,而不是扩 `stripRendererOnlyProps` 共享剥离表(那张表喂 `checkbox` / `switch` / `select` / `default` 全部分支)\n- 若修,测试口径照抄 #5201 的:`getAttributeNames()` + `getAttribute('maxlength')`,两半都断言\n\n## 检索记录\n\n`search_issues` 在 objectui 上跑过两轮关键词(default fallback branch / max_length / stray attribute / DOM),命中的 open 卡只有 #5201 本身与无关的 #5235,无重复单。\n"
+}

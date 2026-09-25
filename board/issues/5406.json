@@ -1,0 +1,36 @@
+{
+  "number": 5406,
+  "kind": "issue",
+  "title": "`assertCanonicalVitestInvocation` does not cover the 17 packages carrying their own `vitest.config.ts` — contrary to its own docstring",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "tests",
+    "tooling"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-20T14:27:54Z",
+  "updated_at": "2026-08-20T15:38:46Z",
+  "closed_at": "2026-08-20T15:38:40Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5406",
+  "body": "Ruled by the maintainer on 2026-08-20 (#5393, verbatim 「接受你的所有建议，现在开始处理。」). Item 5 of 5. Independent of the CI-workflow cards — different files.\n\n## The defect\n\n`assertCanonicalVitestInvocation` exists to stop a package-cwd vitest run, because such a run uses a **different config than CI does** and can therefore go green on a suite CI would fail — a false green, which this repository treats as worse than a red.\n\n**It does not cover the packages that carry their own `vitest.config.ts`** — measured at 17, and confirmed to include `plugin-grid`, `packages/core`, and `packages/components`, none of which re-export the root config. Its docstring claims otherwise. So the assertion that exists specifically to prevent false greens has a hole exactly where the risk is highest: the packages with divergent configs.\n\nThis is why every dispatch order in this lane has to carry \"run vitest from the repo root\" as a written instruction — the guard that should make that unnecessary cannot be relied on.\n\n## What to do\n\n**First establish the real number and the real shape.** Do not inherit \"17\" from this card — count them yourself, list them, and for each say whether its config re-exports the root config or diverges. The interesting set is the divergent ones.\n\nThen close the hole so that a package-cwd run in **any** package is refused, including those 17. ⛔ The fix is to make the guard cover them — **not** to relax the guard, and **not** to delete the packages' configs (some may diverge for good reason; establish that before touching them, and if a config's divergence looks wrong that is a separate card, not this one).\n\n**Reverse verification is the point of this card**: demonstrate a package-cwd run in one of the 17 that is **accepted today** and **refused after** your change. Predict the outcome before running it. A fix that cannot show the before-state being accepted has not demonstrated the hole was real.\n\n⚠️ If closing the hole turns out to make some currently-passing workflow fail — e.g. a script or doc that legitimately runs vitest in a package cwd — **stop and report** rather than carving an exemption. An exemption is how this guard got its hole in the first place.\n\n## ⛔ Constraints\n\n- ⛔ Do not weaken any assertion, and do not add a skip list to make the guard pass.\n- ⛔ Do not touch `.github/workflows/ci.yml` — #5403 owns it, in flight.\n- Fix the docstring in the same PR; a docstring that overstates coverage is half the defect. This repo has an open family about exactly that shape (declared ≠ enforced).\n- Run the suite from the **repo root**.\n\nContext: surfaced repeatedly across this lane's dispatches; recorded in the seat post's platform facts. Ruling: #5393."
+}

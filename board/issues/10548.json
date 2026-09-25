@@ -1,0 +1,35 @@
+{
+  "number": 10548,
+  "kind": "pull_request",
+  "title": "fix(components): the ui:select label names its combobox through htmlFor and the trigger id (objectui#10435)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T08:21:29Z",
+  "updated_at": "2026-09-25T08:50:28Z",
+  "closed_at": "2026-09-25T08:50:27Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-25T08:50:27Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10548",
+  "body": "Fixes #10435\n\nClause-②: no\n\n## What changed\n\n`ui:select` (`packages/components/src/renderers/form/select.tsx`) now writes `htmlFor={schema.id}` on its `Label` and `id={schema.id}` on the Radix `SelectTrigger`. This is the `record-picker-label-association-5771` shape the triage ruled. Before, neither end carried the wiring. The trigger is a `button` with `role=\"combobox\"`, a role that takes no name from its content, so a labelled select's combobox had an empty accessible name.\n\n- A labelled select authored with an `id` is found by `getByRole('combobox', { name: 'Title' })`.\n- A required one's name stays `Title`: the objectui#10368 marker span is `aria-hidden`.\n- A select authored without an `id` mints none. Its caption stays unassociated, as on the sibling `input` / `textarea` renderers and `element:record_picker`. This half is pinned as deliberate. See Acceptance notes for the dispatch hypothesis it contradicts.\n\n## Files (vs base `111fa4c`)\n\n| File | + / - |\n|---|---|\n| `packages/components/src/renderers/form/select.tsx` | +13 / -2 |\n| `packages/components/src/renderers/form/__tests__/select-label-association.test.tsx` (new, 7 cases) | +128 / -0 |\n| `packages/components/src/__tests__/required-marker-markup.test.tsx` | +3 / -5 |\n| `.changeset/10435-select-label-association.md` (`@object-ui/components` patch) | +20 / -0 |\n\n`required-marker-markup.test.tsx` is outside the claim's declared file surface. Its select site carried the comment \"This label carries no `for` today\", which this change made false. The comment is rewritten, and the locator becomes `label[for=\"sel-ctl\"]`, the same form as the other five sites.\n\n## Verification, on final head `4e99a54` (merge of `origin/main` `d461b0d`)\n\n- `pnpm exec vitest run packages/components/src/renderers/form/ packages/components/src/__tests__/required-marker-markup.test.tsx packages/components/src/__tests__/form-renderers.test.tsx` gave exit 0, with `Test Files 67 passed (67)` and `Tests 494 passed | 10 skipped (504)`.\n- `pnpm turbo run type-check --filter @object-ui/components --concurrency=2` gave exit 0 with `Tasks: 9 successful, 9 total`. It ran on `a75bf59`. The merge after that only touched `packages/app-shell`, `packages/plugin-dashboard`, `content/docs` and two changesets, all outside `@object-ui/components` and its `@object-ui/*` dependencies. `tsc -p tsconfig.test.json --listFilesOnly` lists both touched test files.\n- eslint on the 3 changed source and test files gave exit 0 with 0 errors and 4 warnings. All 4 warnings are pre-existing on the unchanged signature line, and the BASE `select.tsx` also shows 4.\n- These gates each gave exit 0: `check:control-bytes`, `check:test-path-roots`, `check:vi-mock-specifiers`, `check:vi-mock-inherit`, `check:vi-mock-override-shape`, `check:new-line-citations` (0 new), `check:changeset-claims`, `check:pending-changeset-literals`, `check-changeset-presence`, `check-changeset-no-major`, `check-changeset-overwrite`, `check-changeset-fixed`, `check-lint-coverage`.\n- NOT MEASURED: `check:sdui-registration-pins` exits 2 with a prerequisite refusal, because it needs a console build. This diff does not change the registration block. That gate is declared to CI.\n\n## Reverse verification (ablation)\n\nThe fix was committed first as `a75bf59`. The script then overwrote `select.tsx` with the BASE blob `4296933c`: `htmlFor={schema.id}` count went 1 to 0 on disk and `SelectTrigger id={schema.id}` count went 1 to 0. It ran the pin and `required-marker-markup.test.tsx`, then restored with `git checkout HEAD --` under an `EXIT INT TERM` trap.\n\n- Mutated run: exit 1, `Tests 8 failed | 14 passed (22)`.\n  - 6 of the 7 new cases failed, starting with `Unable to find an accessible element with the role \"combobox\" and name \"Title\"`.\n  - The no-`id` case stayed green, as expected.\n  - Both select-site cases of `required-marker-markup` failed, because of the tightened `label[for]` locator.\n- Restore: file hash `8fc729cb` equals the HEAD blob, and `git diff HEAD` is empty.\n\n## Acceptance notes\n\n- The dispatch's hypothesis H2 conflicts with the ruled shape. H2 said a select with no `schema.id` still needs a minted id, for example from `useId`. The ruled 5771 shape explicitly declines a `useId()` fallback, and its own test pins the no-`id` case as unassociated. The ruling was followed. The alternative is raised to the dispatching seat as an open question, not decided here.\n- Related to that question: the docs catalog examples `components-form-select/basic-select` and `components-form-input/with-label` author a `label` with no `id`. They render an unnamed control under the ruled shape. This is noted, not filed.\n\nImplementation session: `https://claude.ai/code/session_01KUxVUa7e39aNjhkKi1gsoy` (dispatched by the `domain:ui` seat 5).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01KUxVUa7e39aNjhkKi1gsoy)_\n"
+}

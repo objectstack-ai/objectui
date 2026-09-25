@@ -1,0 +1,35 @@
+{
+  "number": 5271,
+  "kind": "issue",
+  "title": "Docs follow-up to #5102: the plugin-view pages can teach the canonical `table` keys again (`pagination` / `selection` / `filter` / `sort`) now that they take effect",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T23:18:56Z",
+  "updated_at": "2026-08-19T07:10:49Z",
+  "closed_at": "2026-08-19T07:10:49Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5271",
+  "body": "Filed unassigned, not claiming — the docs follow-through the #5102 maintainer ruling asked for, kept off that PR's diff by the same ruling (\"⛔ do not ride docs changes on this PR\").\n\n## Why the docs currently teach the deprecated spellings\n\nPR #5101 (for #5077) deliberately wrote `table.pageSize` rather than `table.pagination`, and noted the gap in prose, because at the time the canonical keys were **not read** — documenting them would have taught a key that silently did nothing.\n\n## What changed\n\nThe #5102 maintainer ruling of 2026-08-18 (verbatim 「同意」) ruled direction 3, and the implementing PR makes all four canonical keys take effect while keeping the deprecated spellings as working aliases:\n\n| canonical (now effective) | deprecated alias (still works) |\n| --- | --- |\n| `table.pagination` (`PaginationConfig`) | `table.pageSize` |\n| `table.selection` (`SelectionConfig`) | `table.selectable` |\n| `table.filter` | `table.defaultFilters` |\n| `table.sort` | `table.defaultSort` |\n\nPrecedence is canonical-first wherever both are written.\n\n## Scope\n\nRe-teach the canonical spellings on the plugin-view docs surface PR #5101 wrote, and retire the prose caveat that explained why the deprecated spelling was being taught. Points worth carrying into the copy:\n\n- `pagination` is an object, so the page size is `table.pagination.pageSize` (and `pageSizeOptions` rides along); `selection` is an object too, so the boolean `selectable` becomes `selection.type` (`'single' | 'multiple' | 'none'`).\n- `sort` accepts both a `\"name desc\"` string and a `SortConfig[]`; the deprecated `defaultSort` has **no** string form, so that arity is reachable only through the canonical key.\n- ⛔ `table.columns` is **not** part of this — it is still forwarded on the grid path only (#5269), so the non-grid field-list docs must keep saying `table.fields` until that one is decided.\n- The declaration surface is unchanged: `table` is still `Partial< Omit< ObjectGridSchema, … > >` collapsed to a bare index signature, so editor completion still offers nothing and a misspelling is still accepted silently. That half is deferred to the #5043 structural track by the same ruling — worth a sentence rather than a promise.\n\n## Dedup\n\nSearched open issues (`plugin-view README canonical keys`, `table.pagination docs`, `#5101 follow-up`). Nothing on this. Related: #5102 (the ruling and implementation), #5077 / PR #5101 (the pages as written), #5043 (the structural track that owns the declaration surface).\n"
+}

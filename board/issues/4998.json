@@ -1,0 +1,35 @@
+{
+  "number": 4998,
+  "kind": "issue",
+  "title": "finding(plugin-detail): record:alert's CTA `action.label` is the third narrow slot in the same local props type — renderer resolves an inline locale map, the type says `string`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T13:57:37Z",
+  "updated_at": "2026-08-21T14:26:44Z",
+  "closed_at": "2026-08-21T14:26:44Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4998",
+  "body": "发现于 #4970 的实施(PR 见下)。#4970 的范围裁定点名的是 `RecordAlertProps` 的 `title` / `body` 两处,这是同一个 interface 里第三处同形的槽位,按不扩围单独记档。\n\n## 机制\n\n`packages/plugin-detail/src/renderers/record-alert.tsx` 的未导出局部 `RecordAlertProps` 里,CTA 那一支两处都写作:\n\n```\naction?: { actionName: string; label?: string; variant?: string };\n```\n\n(`properties.*` 一份 + flat 兼容一份,与 `title` / `body` 完全并列。)\n\n而同一个文件的读点是:\n\n```\nconst ctaLabel = pickLocalized(props.action?.label, language);\n```\n\n即渲染器对 CTA 文案做的是**内联 locale 映射解析**,和它上面两行对 `title` / `body` 做的事逐字相同 —— 只有类型声明说这里只能是字符串。#4970 已经把 `title` / `body` 放宽成 `string | I18nLabel`(绑定 spec 符号),这一处留在原样。\n\n## 今天不咬人(observation-class 的依据)\n\n- interface **没有导出**(只做 `React.FC< RecordAlertProps >` 的参数),所以没有任何消费者读到这个窄声明;\n- `pickLocalized` 收 `unknown`,所以 TS 不报错、运行时也照样解析映射;\n- 作者面(manifest / `sdui-intrinsics.d.ts`)根本没有声明这个成员的类型:`plugin-detail/src/index.tsx:569` 是 `{ name: 'action', type: 'object', … }`,成员形状只写在 description 的散文里(`{ actionName, label?, variant? }`)。\n\n**这也是它与 `title` / `body` 的判据差别,值得单独记而不是并进 #4970**:那两个键的第二条臂有已落地的发布面声明(`['string', 'object']`,#3832 / PR #4975)可以对齐,所以「声明比自己的发布面窄」是个可指认的矛盾;`action.label` 的发布面对成员类型**什么都没说**,窄声明的唯一对照物是渲染器本身。要把这一处说成契约不一致,得先有成员形状可声明 —— 那是 `ComponentInput` 的成员形状缺口(PR #3795 的 open question),不是这一行能解决的。\n\n## 修复面(尺度最小的一档)\n\n两行:`label?: string | I18nLabel`(`I18nLabel` 已在同文件 import,#4970 引入)。如果同时想让发布面能表达这个事实,则要等成员形状那张卡。\n\n关联:#4970(`title` / `body` 两处 + elements.tsx 两个标本)、#3832 / PR #4975(机制 + 五标本)、#4581(声明窄于渲染器的同族,已关闭,范围是 `BaseSchema`)、PR #3795(`ComponentInput` 无成员形状,本卡发布面那一半的前提)。"
+}

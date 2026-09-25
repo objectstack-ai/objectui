@@ -1,0 +1,35 @@
+{
+  "number": 5428,
+  "kind": "issue",
+  "title": "plugin-designer: `DashboardEditor`'s map-valued title stays read-only on a premise the spec invalidated, and the card it defers to (#4163) is closed",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-20T16:57:00Z",
+  "updated_at": "2026-08-21T15:45:47Z",
+  "closed_at": "2026-08-21T15:45:47Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5428",
+  "body": "Found while implementing #5301 (PR #5427). Not fixed there — different package, and the surface is not this card's file.\n\n## What\n\n`packages/plugin-designer/src/DashboardEditor.tsx` guards its widget-title input with `isAuthorableTitle`, so a title stored as an inline locale map renders resolved and **read-only**:\n\n```\nvalue={isAuthorableTitle(widget.title) ? widget.title ?? '' : titleDisplay}\nonChange={(e) =. {\n  if (!isAuthorableTitle(widget.title)) return;\n  onChange({ title: e.target.value });\n}}\nreadOnly={!isAuthorableTitle(widget.title)}\n```\n\nThat branch is **correct and cannot lose data** — this is an observation, not a defect report. The problem is its stated justification and its tracker.\n\n## The premise is stale, and the same file already contradicts it\n\n`isAuthorableTitle`'s doc comment says:\n\n- \"Nothing can reach this path from stored metadata yet — `I18nLabel` was plain `string` through rc.5, so no persisted widget title can be a map — which is why the branch is safe to take without a ruling on the authoring UX.\"\n\nSixty lines above it, `resolveWidgetTitle`'s doc comment in the **same file** says:\n\n- \"`@objectstack/spec` 17.0.0-rc.6 widened `I18nLabel` from `string` to `string | Record` ... so a widget title may be an inline per-locale map.\"\n\nBoth cannot hold. rc.6 is the pinned version, so a persisted map title is reachable today, and the \"safe without a ruling\" clause has expired.\n\n## The card it defers to is closed\n\nThe comment and #4163's own Part 2 name #4163 as the home for the real answer (\"a per-locale editor, a translate-this-label affordance, or a deliberate decision that Studio only ever authors the string form\"). #4163 was **closed as completed on 2026-08-15** while that placeholder is still in the tree, so the deferral now points at nothing. The identical placeholder in `DashboardWidgetInspector` that #4163 Part 2 describes is in the same position.\n\n## Why it is newly actionable\n\n#5301's maintainer ruling (2026-08-20) settled the write-back question for the sibling surface: a save writes back only the active locale's entry and preserves the others. PR #5427 implements that as `setLocalized(value, language, next)` in `@object-ui/i18n`, co-located with `pickLocalized` and pinned by the pairing property. The designer's read-only branch was waiting for exactly this rule, and can now adopt it without a new design decision — an author editing in one locale gets a working input instead of a dead one.\n\nFiled unassigned and unqueued: whether to apply the ruling to the designer surface (versus reopening #4163 for the full multi-locale editor) is a triage call, not this finding's to make.\n"
+}

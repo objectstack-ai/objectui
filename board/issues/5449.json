@@ -1,0 +1,34 @@
+{
+  "number": 5449,
+  "kind": "issue",
+  "title": "`objectui validate` (the zod path) does not enforce the field-widget namespace rule the core validator now enforces — the CLI green-lights a schema the runtime rejects",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "qq9340100"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-20T20:15:08Z",
+  "updated_at": "2026-08-21T08:49:41Z",
+  "closed_at": "2026-08-21T08:49:41Z",
+  "closed_by": {
+    "login": "qq9340100",
+    "id": 313832657,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5449",
+  "body": "Found while implementing #5375 (the authoring-time refusal of an unresolvable namespaced field widget id). **Out of that card's scope** — its file surface was `packages/components/src/renderers/form/form.tsx` plus the validate path in `packages/core`, and the fix landed there. Recorded here rather than widened in silently.\n\n## The condition\n\nThere are **two** authoring-time validation entry points for an ObjectUI schema, and they now disagree about the same document:\n\n| entry point | implementation | verdict on `{ type: 'form', fields: [{ name: 'pw', type: 'ui:password' }] }` |\n|---|---|---|\n| `validateSchema` / `assertValidSchema` | `@object-ui/core`, `packages/core/src/validation/schema-validator.ts` | **error** (`UNRESOLVABLE_FIELD_WIDGET_NAMESPACE`, after #5375) |\n| `objectui validate` | `packages/cli/src/commands/validate.ts` calling `safeValidateSchema` from `@object-ui/types/zod` | **valid** |\n\nThe CLI is the surface an author actually runs before shipping, and it is the one that says the schema is fine.\n\nWhy the zod path misses it: `FormFieldSchema` in `packages/types/src/zod/form.zod.ts` declares\n\n```ts\ntype: z.string().optional().describe('Widget type (defaults per renderer when omitted)'),\nwidget: z.string().optional().describe('Custom widget/component name override'),\n```\n\nAny string passes. The rule that a colon-qualified field widget id must name the `field:` namespace — every other namespace resolves no field widget on the field path (#5254) and degrades to a plain text box — is not expressible in that declaration as written.\n\n## Why it matters beyond tidiness\n\n#5375's whole point was that inventing a plausible-looking widget id must fail **loudly at authoring time** rather than silently render a secret in a clear-text box. An author who runs `objectui validate` and gets a green tick has done the diligence the fix asks for and still ships the bad metadata. That is the same \"verifying does not protect you\" shape #5375 was filed about, one layer up: there it was the component registry answering yes, here it is the CLI.\n\n## Third implementation, for the record\n\n`packages/vscode-extension/src/providers/SchemaValidator.ts` is a **third** hand-rolled validator (its own `validateSchema` method, its own `validTypes` list, its own diagnostics), sharing no code with either of the two above. Whether the right shape is \"one canonical validator all three delegate to\" or \"the zod schema is the contract and core defers to it\" is a design question, not something to guess at. Related in spirit but a different mechanism: #4631 (a component type's TS schema type / registry meta inputs / renderer prop reads disagreeing).\n\n## Not fixed in #5375's PR\n\nThe four conditions for a bounded in-place fix were not all met: the change would land in `packages/types` (a different package with its own gate surface, declared \"Zero deps, no React\"), and expressing the namespace rule there means either duplicating it or giving `types` a dependency it does not have. That is a design call, not a mechanical fix.\n\n## Search record\n\nSearched `search_issues` separately for each of:\n\n- `objectui validate CLI zod schema validation disagrees with core validateSchema` — hits: #4605 (open, zod BaseSchema mirror drift on `visible`/`disabled`/`ariaLabel` — a different key set), #2231 (open, unifying hand-written zod with `@objectstack/spec/ui` for ListViewSchema), #5186 / #3561 / #5229 (all closed, different schemas). No duplicate.\n- `safeValidateSchema FormFieldSchema type string open set widget id` — hits: #4871, #3233, #2322, all closed and all about widget prop carriers, not validation entry points. No duplicate.\n- `three validators disagree vscode extension SchemaValidator core validateSchema duplicate authoring validation` — hits: #4631 (open, the three-declared-surfaces card — related, different mechanism), #4580 (closed, two competing `SchemaNode` declarations). No duplicate.\n- `form field type namespace ui: prefix unregistered widget clear text` — hits: #5375 (this finding's parent, open), #5322 (closed, the `field:` half). No duplicate.\n\nRelated: #5375, #5322, #5254.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 5365,
+  "kind": "issue",
+  "title": "@object-ui/components ships dist/index.d.ts with extensionless relative re-exports, so any consumer on moduleResolution nodenext sees every named export as missing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-20T01:32:24Z",
+  "updated_at": "2026-08-20T18:51:13Z",
+  "closed_at": "2026-08-20T18:50:52Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5365",
+  "body": "Found while clearing the six small packages of #5214. Not fixed there: it is a different artifact (`.d.ts`, not `.js`), in a package outside that card's file surface, and no gate covers it today.\n\n## What was measured, 2026-08-20, on a full build\n\n`packages/components/dist/index.d.ts` re-exports through **extensionless relative specifiers**:\n\n```\nexport { cn } from './lib/utils';\nexport { getLazyIcon, isLucideIconName, LazyIcon, toKebabIconName } from './lib/lazy-icon';\nexport { hasDeclaredVisibilityGate } from './renderers/action/visibility-gate';\nexport * from './ui';\n...\n```\n\n21 such re-exports in that one file. TypeScript under `\"moduleResolution\": \"nodenext\"` (or `node16`) does not extension-search them either, so it cannot follow any of them, and every symbol they carry reads as absent from the package.\n\n## How it shows up\n\nAdding the #5214 / #4538 step-2 pin to `packages/fields/tsconfig.json` — the same two lines `packages/react` already carries — turns `tsc` red with a flood of TS2305 that has nothing to do with `fields`:\n\n```\nsrc/index.tsx(13,10): error TS2305: Module '\"@object-ui/components\"' has no exported member 'Badge'.\nsrc/index.tsx(13,17): error TS2305: Module '\"@object-ui/components\"' has no exported member 'Avatar'.\nsrc/widgets/AddressField.tsx(2,10): error TS2305: Module '\"@object-ui/components\"' has no exported member 'Input'.\nsrc/widgets/BooleanField.tsx(2,10): error TS2305: Module '\"@object-ui/components\"' has no exported member 'Switch'.\n... (every named import from @object-ui/components, across the package)\n```\n\nThe exports are all really there; TypeScript just cannot reach them through the extensionless hops.\n\n## Why it is invisible today\n\n`@object-ui/components` builds through vite, so `pnpm check:esm-specifiers` correctly judges it **not** specifier-preserving and never scans it — that verdict is about the emitted `.js`, which vite does resolve. The typings are emitted by a different half of the same build and carry the defect that the `.js` does not. `pnpm check:node-esm-load` only ever `import()`s the runtime entry, so it never exercises type resolution at all. Every gate in the repository is green in this state.\n\nThe consequence is scoped but real: **`@object-ui/components` is the blocker for pinning `nodenext` anywhere downstream of it.** Five packages took the pin in the #5214 work (`auth`, `mobile`, `collaboration`, `permissions`, `providers` — none of them import `@object-ui/components`); `fields` could not, and it is the largest of the six. Any future package that wants the compiler to enforce its extensions hits this same wall.\n\n## Suggested shape\n\nTwo independent questions, worth separating before anyone writes code:\n\n1. Should the emitted `.d.ts` carry explicit extensions? If yes, this is a `vite-plugin-dts` / `unplugin-dts` configuration question in `packages/components`, not a source edit — the source specifiers are resolved away in the `.js` and only survive into the typings.\n2. Should a gate see it? The existing specifier leg deliberately scopes itself to specifier-preserving **`.js`** builds. A typings-level criterion would be a third leg with its own size assertion, not a widening of leg 1 — the header of `scripts/check-node-esm-load.mjs` argues at length for why each leg must name one thing precisely.\n\nRelated: #5214 (the six small packages, where this was found), #5357 (app-shell), #4538 (the original analysis)."
+}

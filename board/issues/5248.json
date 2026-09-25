@@ -1,0 +1,34 @@
+{
+  "number": 5248,
+  "kind": "issue",
+  "title": "`conditionalFormatting` on the object-view node has a SECOND read on the author-reachable kanban path — the #5097 host-surface exemption is narrower for this one key",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-18T20:13:44Z",
+  "updated_at": "2026-08-19T16:42:43Z",
+  "closed_at": "2026-08-19T16:42:43Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5248",
+  "body": "Found while implementing the ruled exemption on #5097. **Filed unassigned, not claiming.** No code change was made for it — #5097's ruling preserves the status quo either way (nothing declared, nothing removed).\n\n## What was measured\n\nMeasured on `main` at `e03dfa5ea` (and identical at #5097's base `9fbb9b52f`).\n\nThe #5097 ruling exempts 27 keys read off the `object-view` node as HOST-COMPOSITION surface. Its stated basis is measured reachability: the `renderListView` delegation branch in `packages/plugin-view/src/ObjectView.tsx` is entered only when a **host** supplies the prop, and the registered renderer `ObjectViewRenderer` (`packages/plugin-view/src/index.tsx:58`) does not, so the schema-registration path documented to authors cannot reach those keys.\n\nThat basis holds for **26** of the 27. It is narrower for `conditionalFormatting`, which has a **second read site outside the delegation branch**:\n\n- `packages/plugin-view/src/ObjectView.tsx:1094` — inside the host-only `renderListView` branch, with its 30 neighbours.\n- `packages/plugin-view/src/ObjectView.tsx:768` — inside `generateViewSchema`'s **kanban** branch, as the last fallback of `kanbanConditionalFormatting` (`kanbanCfg.conditionalFormatting ?? activeView?.conditionalFormatting ?? (schema as any).conditionalFormatting`), forwarded to the emitted `object-kanban` node.\n\nThe kanban branch is on the **author-reachable** path: `renderContent` delegates to `renderListView` only when the prop is present; otherwise, for a non-grid view type, it calls `generateViewSchema(currentViewType)` and hands the result to `SchemaRenderer`. That is exactly what `ObjectViewRenderer` does. So an author who registers an `object-view` node with a kanban view type **and** a top-level `conditionalFormatting` rule does get an effect today.\n\n`conditionalFormatting` is not a declared member of `ObjectViewSchema` (derived from `packages/types/src/objectql.ts` + `BaseSchema`: 42 declared members, `conditionalFormatting` is not among them), and it is not in the `object-view` registry `inputs` (`packages/plugin-view/src/index.tsx:71-86`), so nothing on the authoring surface offers it and nothing rejects it — `BaseSchema`'s index signature means tsc is silent too.\n\n## The question\n\nOne key is honoured on the authored path while being recorded as host surface. Three ways out, and it shapes the public contract, so it wants a ruling rather than a guess:\n\n1. **Declare `conditionalFormatting` on `ObjectViewSchema`** (and add it to the `object-view` registry `inputs`) — it does something on the author's path, so the \"declaring it would promise a surface that does nothing\" argument does not apply to it.\n2. **Keep it exempt and narrow the kanban read** — drop the `(schema as any).conditionalFormatting` fallback at `:768` so the key is genuinely host-only, and let kanban conditional formatting be authored where it is declared. This changes behaviour for any document relying on the top-level rule, so it needs the usual liveness check first.\n3. **Keep both as they are**, and record the asymmetry as the exemption's known edge (what #5097's comment block does today).\n\n## Where it is recorded now\n\nThe exemption block added by #5097 names this asymmetry in full and points here, so a later sweep meets a statement rather than a flat claim. See `packages/plugin-view/src/ObjectView.tsx` (`OBJECT_VIEW_HOST_COMPOSITION_KEYS`), section \"The one asymmetry\".\n\n## Related\n\n- #5097 — the ruled exemption this was found under.\n- #5091 / PR #5241 — the sibling `object-grid` exemption whose pattern #5097 follows.\n- #5043 family track — owns retiring the `(schema as any)` reads behind an explicit host-side prop contract."
+}

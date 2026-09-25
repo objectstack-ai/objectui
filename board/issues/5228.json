@@ -1,0 +1,34 @@
+{
+  "number": 5228,
+  "kind": "issue",
+  "title": "[finding] `WidgetContext` still spells a failed option catalog as an empty array, with the fault on a side channel a new picker can forget to read",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-18T16:06:49Z",
+  "updated_at": "2026-08-20T00:34:56Z",
+  "closed_at": "2026-08-20T00:34:56Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5228",
+  "body": "Found while implementing objectui#5170 (PR objectui#5226). This is a **measurement of the contract that PR leaves behind**, filed unassigned for PM triage — the shipped behaviour is correct, this is about how easy it stays correct.\n\n## The reading\n\nPR objectui#5226 routed the three option-picker loaders through a four-arm `LoadState` union (`idle | loading | loaded | error`) in `ResourceEditPage.tsx`, so the loaders themselves can no longer spell a fault as a measurement. But at the `WidgetContext` boundary in `packages/app-shell/src/views/metadata-admin/widgets.tsx` the union is **projected back down into a pair**:\n\n- the catalog arrays (`objectNames`, `objectFields`, `objectViews`, `objectActions`) are still `[]` on a failed load — byte-identical to a completed load that found nothing;\n- the fault travels **alongside** them, in a separate `catalogErrors` record.\n\nEvery picker in the file consults `catalogErrors` first today, and the PR's tests pin that per loader. The residue is that the *contract* does not require it. A picker written next month that reads\n\n```ts\nconst fields = context?.objectFields ?? [];\n```\n\nand renders \"no fields\" is type-correct, reads naturally, passes review, and silently reintroduces exactly the defect objectui#5170 was filed for. The declaration and the enforcement have come apart: `CatalogErrors`'s own doc comment has to say \"a picker MUST consult this before it renders its catalog\", which is a comment doing a type's job.\n\n## Why the PR did not just do it\n\nStated so the trade-off is on the record rather than rediscovered: making the catalogs themselves the union is the honest shape, and it was measured as reachable — the true `WidgetContext` picker reads are confined to 11 sites in `widgets.tsx` plus one in `SchemaForm.tsx` (`detectFieldRefWidget`). The cost is that it also breaks every test fixture that constructs a context literal (`SchemaForm.widgetLabelling`, `ViewRefWidget`, `SchemaForm.actionObjectPicker`, `selector-placeholder.i18n`, `FilterModeWidget` — roughly 17 lines across 5 files), none of which were in #5170's declared file surface. That is a mechanical but real widening of a bug-fix PR's blast radius into other people's fixtures, so it was left for a decision rather than taken unilaterally.\n\n## Shape, if it is taken\n\nReplace the pair with the union at the boundary — e.g. `objectFields?: LoadState<...>` reusing `views/metadata-admin/loadState.ts` — so an unchecked `?? []` stops compiling instead of silently rendering a lie. The loud break at each read site is the point: it is a compile error at exactly the places that must decide what a failure looks like. A small `readCatalog()` accessor keeps each call site to a couple of lines, and the fixtures move to a `loadedCatalog([...])` helper.\n\nWorth doing as one change with objectui#5227 (the fourth loader, `FieldSelectorWidget`), since that one needs new render wiring anyway and would be the first consumer of the tightened contract.\n\n## Severity\n\nDeliberately not asserted. Nothing is user-visible today — this is a hardening/drift card, not a defect — and objectui#5110's own card records that severity judged at filing time is unreliable in both directions. Filed plainly for the triage round.\n\n## Dedup\n\nSearched open issues for the `WidgetContext` option-catalog contract, for the empty-array-on-failure spelling, and for picker error side-channels; nothing covering it (zero hits, including the control terms). Control: the neighbouring search family returns objectui#5040 and objectui#4871, both real `WidgetContext` / metadata-admin widget cards, so the query family is live rather than dead. No duplicate.\n\n## Related\n\nobjectui#5170 and objectui#5169 (the cards whose fix introduced this boundary, PR objectui#5226) · objectui#5227 (the fourth loader, which this would tighten first) · objectui#5110 (the union) · ADR-0110 D3, \"a miss and a fault are different facts\"\n"
+}

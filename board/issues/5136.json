@@ -1,0 +1,35 @@
+{
+  "number": 5136,
+  "kind": "issue",
+  "title": "content/docs/core/report-schema.mdx still teaches `objectName`-based column hydration, which has no read point",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T04:51:52Z",
+  "updated_at": "2026-08-18T23:46:28Z",
+  "closed_at": "2026-08-18T23:45:50Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5136",
+  "body": "Found while implementing #5047 (migrating the two `plugin-report` documents to the dataset-bound form). Filed unassigned and out of that card's scope: #5047 is scoped to `packages/plugin-report/README.md` and `content/docs/plugins/plugin-report.mdx`. This is a **third** document with the same defect.\n\nMeasured on `origin/main` at `958d757`.\n\n## The claim\n\n`content/docs/core/report-schema.mdx`:\n\n- `:93` — comment on a code block: \"object's ObjectField when the report has an `objectName`.\"\n- `:130` — \"When the report binds an `objectName`, columns inherit `type`, ...\"\n\n## Why it is wrong twice over\n\n**1. `objectName` is not a report key any more.** `ReportSchema` (`@objectstack/spec` 17.0.0) is `z.core.$strict`. Parsing a report that carries it:\n\n```\nunrecognized_keys: Unrecognized key(s) on this report: `objectName`\n```\n\nThe type side agrees — `TS2353: Object literal may only specify known properties, and 'objectName' does not exist in type ...`.\n\n**2. Nothing implements the hydration.** `objectName` has **zero read points** in `packages/plugin-report/src` — the only occurrences are two comments describing the retired query form, plus test fixtures asserting that such a document is *not* a dataset report:\n\n```\ngrep -rn \"objectName\" packages/plugin-report/src\n# ReportRenderer.tsx:102        (comment: \"Stored pre-9.0 spec JSON (objectName/columns query form)\")\n# DatasetReportRenderer.tsx:7   (comment)\n# __tests__/DatasetReportRenderer.test.tsx:65  expect(isDatasetReport({ ... objectName: 'task' ... })).toBe(false)\n```\n\nSo the sentence promises a runtime behaviour that no code performs, keyed off a property the schema rejects.\n\nThe equivalent claim in `packages/plugin-report/README.md` is removed by #5047's PR. This document was left alone deliberately, to keep that PR to its two documents.\n\n## Recheck\n\n```\ngrep -n \"objectName\" content/docs/core/report-schema.mdx\ngrep -rn \"objectName\" packages/plugin-report/src        # comments + a negative test only\n```\n\nRelated: #5047 (the same class in the two `plugin-report` documents), #4600 (same class, dashboard examples).\n"
+}

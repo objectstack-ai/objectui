@@ -1,0 +1,32 @@
+{
+  "number": 10603,
+  "kind": "issue",
+  "title": "the `list-view` / `list` registrations still declare the react-tier aliases `objectName` (required) and `viewType` as designer inputs after `@objectstack/spec` 17.4.0 retired both — the second half of objectui#8510",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "needs-user-decision",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T11:09:21Z",
+  "updated_at": "2026-09-25T12:46:04Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10603",
+  "body": "Filing-gate category: ④ a coordination child. This is the second half of objectui#8510 (itself the objectui half of objectstack-ai/objectstack#14791), split out at the triage's direction (`5580304720`: 「⛔ 第二半必须拆卡，不要塞进同一个 PR … 本席建议开在本仓、`domain:ui`，正文照抄卡的 (a)/(b) 两条出口并注明 (b) 需跨仓」). Reader who acts: the `domain:ui` execution seat that claims it. Dedupe: objectui issues and PRs updated since 2026-09-18 (1000 walked, open and closed) — `registryOnly` → 1 (objectui#8510), `react-declaration-parity` → 4 (objectui#8510 and three unrelated closed items), `list-view.{0,60}inputs` → 1 (objectui#8510), `(objectName|viewType).{0,80}designer input` → 2 (objectui#8510; objectui#7470, closed, the same class on map / gantt). No card carries this half.\n\nFiled by the `domain:ui` seat 1 (`session_01BA3nKVUwKQJf8DBxrSVtNC`). The first half (five author sites) lands with PR objectui#10600, which closes objectui#8510. This card keeps the half that PR leaves alone.\n\n## What is still live\n\nMeasured on objectui `main` `f5178a272` by the objectui#8510 dev (report on objectui#8510):\n- `packages/plugin-list/src/index.tsx:76-77` declares `list-view` inputs `{ name: 'objectName', type: 'string', required: true }` and `{ name: 'viewType', type: 'enum' }`.\n- `:109-110` declares the same on the `list` alias.\n- `:84-85` sets `defaultProps` `objectName: ''` / `viewType: 'grid'`.\n\nThe installed `@objectstack/spec` 17.4.0 `REACT_BLOCKS` ListView summary: 「Bind the object with the metadata-tier data source — `data={{ provider: 'object', object: '…' }}` — and pick the visualization with `type`: … the only spellings (the `objectName` / `viewType` aliases are retired).」 objectstack's parity ratchet (`check:react-declaration-parity`) judges registry inputs against node-level keys ∪ the spec block props ∪ the react overlay. With the overlay rows gone, both inputs become `registryOnly` for ListView. The gate is on-demand (`pnpm sdui:manifest` over a real browser), so it reds on the next manifest run, not in CI.\n\n## The two exits (objectui#8510's body, verbatim)\n\n> (a) retire the two designer inputs here, since the metadata host stamps `objectName` and the fold supplies it from `data` — the objectui#7470 class, on plugin-list; or (b) widen the objectstack baseline row deliberately with the reason written down. Not decided here.\n\n(b) lands in objectstack-ai/objectstack, not in this repo.\n\n## Execution: inherits the objectui#7470 ruling\n\nobjectui#7470 is this class on map and gantt. Its ruling `5809231477` (UI closure batch 2 item 8, maintainer 「同意」) reads: 「**Ruled: align the registration to the contract.**」 It landed there as PR objectui#10390 and on calendar as PR objectui#10508. Under the inheritance rule (a new branch reuses the mother card's ruling, and only a real semantic difference reopens it), this card goes to `pm:queue` with that ruling. It does not go to the decision box.\n\n- The dev first measures which declared face the `list-view` / `list` registrations serve: the metadata-tier ListView schema (`@object-ui/types`, and `@objectstack/spec`'s own ListView view schema) and the react tier (`REACT_BLOCKS`).\n- If no face the registration serves still declares `objectName` / `viewType`, the inputs are aligned to the contract: `data` / `type` in their place, following the objectui#7470 form. ⛔ No renderer read-order change: the fold (objectui#7477) keeps reading both spellings.\n- ⛔ If the metadata tier still declares either key while the react tier retired it, that is a real semantic difference between two faces the same registration serves. Stop and report; the card then goes to `needs-user-decision` (triage's own rule in `5580304720`). ⛔ Exit (b) is not taken from this repo.\n\n`priority:p3` and `domain:ui` are inherited from objectui#8510.\n\n<sub>`domain:ui` seat #1 · `session_01BA3nKVUwKQJf8DBxrSVtNC` · split card · 2026-09-25</sub>"
+}

@@ -2,8 +2,8 @@
   "number": 6900,
   "kind": "issue",
   "title": "Form authoring: refuse an object-required field placed inside a predicate-gated section at save time (ruled option B of objectstack#13252)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "zhuangjianguo",
@@ -11,18 +11,25 @@
     "type": "User"
   },
   "labels": [
+    "area:studio",
     "domain:ui",
-    "pm:queue"
+    "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-tesla"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-08-30T13:33:57Z",
-  "updated_at": "2026-09-20T10:36:32Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T12:48:55Z",
+  "closed_at": "2026-09-25T12:32:33Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 13,
+  "comments": 16,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/6900",
   "body": "Filed by the director seat (session `session_01DxbNgzPMo4YuRBmGmCQp9m`) executing the maintainer ruling on objectstack#13252 (2026-08-30, batch #5, verbatim 「同意」 adopting option **B**). Cross-repo linkage card: the ruling lives there; this card is its objectui-side deliverable.\n\n## The ruled behaviour\n\nForm validation refuses, **at save/authoring time**, the one hazardous arrangement objectstack#13252 measured: a field the OBJECT declares `required` placed inside a form section carrying a `visibleWhen` predicate. Without this, the author ships a form that cannot be completed when the predicate hides the section — the user sees a server error naming a field they cannot see. The server stays the single validation authority (deliberately does NOT read form-view predicates — ruled option C rejected: a validator consuming view metadata is presentation semantics leaking into the data contract); this card is the author-facing early fence, exactly where a generating agent needs the feedback (it can see the section grouping; it cannot see the object's required flag).\n\n## Landing surface\n\nThe form validation / authoring layer (plugin-form or the save-gate that validates authored form views) — ⛔ NOT `packages/objectql` (that repo's server validator is ruled untouched), ⛔ not a runtime render-time check.\n\n## ⚠️ Dev-first-verify premises (both unmeasured — either failing is a STOP-AND-REPORT, a successful delivery)\n\n1. **Can this layer see the object's `required` flag at all?** Option B's feasibility rests entirely on this and nobody has verified it. If the validation layer has no data path to the object schema, report the gap with the wiring it would need — do not build a new data path on your own authority.\n2. **Census with a positive control**: how many existing forms (this repo + hotcrm if reachable) actually place an object-required field inside a predicate-gated section. If the count is 0 the fence still lands (it is a fence for generated forms, the population that matters is future AI output), but report the number — it calibrates severity.\n\n## Scope notes\n\n- The refusal wording must name both facts (the field is object-required AND its section is predicate-gated) and teach the remedy (move the field, or drop the predicate, or make the field not-required at the object).\n- Related, already ruled separately: objectui#6237 (type split for `FormSectionConfig`, batch #3) — the tabbed-arm predicate plumbing. This card is about the authoring fence, not the render path; do not fold.\n\nRefs: objectstack#13252 (the ruling record) · objectui#6237 · objectui PR #6791 (where the cross-repo half surfaced)\n\n---\n\nos-decision-facets\n\n## 维护者速读\n\n这张卡要的是:作者在表单编辑器里把一个「对象必填」的字段放进一个**有条件才显示**的区块时,保存要**拦住他**——因为服务端不看表单的显示条件,这条记录将来会存不进去。方向您在 objectstack#13252 已经裁过(选项 B)。\n\n卡了两周的不是方向,是**在哪一层拦**。裁决点名的那个函数,仓里有一条测试**专门钉着它只能提示、不能拦**——理由是「客户端比服务端更严」正是那条测试要防的事故。而本卡要的恰恰就是一次「客户端比服务端更严」,只不过这一次是**您裁过的、故意的**。两边没人对过账。\n\n三条路:**a** 只提示(守住那条测试,但拦不住人)· **b** 在裁决点名的地方硬拦(拦得住,但要把那条测试改红,等于动「保存闸门」的政策)· **c** 换一条**本来就有权拦**的通道去拦(拦得住、测试不动,但不是裁决指的地方)。\n\n席位推荐 **c**,退路 **a**。⛔ 这是改一条已裁细节的落点,不是席位能代裁的。\n\n请回一个字母:a / b / c。\n\n## 四棱\n\n**① 长远** —— 这条围栏防的是**存不进去的元数据**:作者今天在编辑器里做出的配置,要到真正保存一条记录时才炸,而那时现场已经离开编辑器。放着不修,错误配置会一直被产出,并且每一份都要等到运行期才被发现。三条路都消除这件事,区别只在「提示」还是「拦住」。\n\n**② 拉动** —— 本卡自 2026-09-04T02:52:00Z 起 `pm:blocked`,而它记录的阻塞者 objectui#6661 早在 2026-08-31T20:38:37Z 就已关闭——比写下那条 sequencing 的裁决评论还早约四小时。⇒ 它两周来等的是一个**从来没有活过**的条件。下游没有别的卡挂在它上面;被卡住的是这张卡本身。\n\n**③ 防 AI 犯错** —— 这一棱是本卡的重量所在,而且它直接把三条路分开。一个 AI 写元数据时,**提示不会阻止它**:选项 a 产出一行作者(和 agent)可以忽略的告警,而一个忽略告警的 agent 会把坏配置原样交出去。b 与 c 都把它变成拒绝。⇒ 按本棱,a 是最弱的一条。\n\n**④ 不扩散** —— b 把 `packages/app-shell/src/views/metadata-admin/ResourceEditPage.schemaAdvisory.test.tsx`(objectui#6980)钉的那条不变量改红,而那条 pin 的存在就是为了让「客户端比服务端更严」**不能被顺手加进来**;走 b 等于设立第一例被批准的 client-stricter-than-server 保存闸门——那是保存闸门的**政策变更**,不是一道围栏。c 把拦截放进**已经有权拦的那条通道**(scoped inspector 的 blocking issues),pin 原样不动,扩散面最小;它唯一的代价是「不是裁决指的地方」。\n\n## 推荐\n\n**c**,退路 **a**。\n\n自检——「只看①选哪个」:① 三条都能做,不区分。所以推荐不是①推出来的,是 ③ 与 ④ 一起推出来的:③ 把 a 排除(提示拦不住 AI),④ 把 b 排除(要动保存闸门的政策)。⇒ ②③④ 同向指 c,① 中立,**没有一棱指向 b**。\n\n⛔ 本席**不裁**:c 把已裁的落点从 `validateMetadataDraft` 换到另一条通道,改的是维护者裁定里的一个具体指向,⛔ 这不在代裁车道内(既有裁决不得被席位推翻)。b 更不在:它是门禁强度与保存闸门政策,人工地板。\n\n## 置信缺口\n\n- ⛔ **未测**:把「对象 schema 推导出来的事实」放进 scoped inspector 的 blocking-issues 通道是否合适——上一席原话「whether an object-schema-derived fact belongs in the *scoped inspector* is unexamined」。c 的可行性悬在这一点上,⛔ 本卡不声称它已被验证。\n- ⛔ **未重测**:objectui#6980 那条 pin 的措辞与 `validateMetadataDraft` 的导入面(「not re-exported from the app-shell package entry」)是上一席 2026-09-04T02:52:00Z 的读数,本席**转述并标注来源**,⛔ 未在今天的树上重取。承接的 dev 第一步应当重取。\n\nPrior rulings read: unresolved\n\n<sub>四棱块、速读与本节由 `domain:ui#2` 执行席(`session_018HrVaotisyhgmot9o2MLRq`)在本卡进决策箱时补齐,2026-09-18T23:10Z。三条选项、它们的代价与 `Clause-②` 测量全部取自上一席的升级评论 `5534977209`(`session_01EMrWaQw3XS5DxTHxp4yRyC`),照抄不译其结论,⛔ 本席未重跑它的测量。`Prior rulings read:` 写 `unresolved` 是因为 `check-prior-rulings.mjs` 在 objectui 检出里于本动作 2026-09-18T23:10Z 以 exit 3 拒绝(`docs/adr` 解析出零个决策单元),该工具缺陷已立卡 objectstack-ai/objectstack#19132;⛔ 不写 `none`——`none` 意味着搜过且为空。</sub>\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

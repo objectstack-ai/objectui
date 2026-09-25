@@ -1,0 +1,34 @@
+{
+  "number": 5386,
+  "kind": "issue",
+  "title": "The alias-closure walker drops an unresolvable RELATIVE specifier with no record, so `closure.unresolvable` is structurally blind to it and only the `filesWalked` floor can see the damage",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-20T04:38:20Z",
+  "updated_at": "2026-08-21T02:54:58Z",
+  "closed_at": "2026-08-21T02:54:58Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5386",
+  "body": "Found while repairing the CI failure objectui#5357 caused in `examples/console-starter/test/vite-alias-closure.test.ts`. The resolution half is fixed there. This card is the *reporting* half, which is what let the damage accumulate across two earlier pull requests unnoticed.\n\n## The defect\n\n`computeClosure()`'s walk has two branches. The bare-specifier branch records a miss:\n\n```js\nconst resolved = resolveModule(packageSrc(pkg) + specifier.slice(pkg.length));\nif (resolved) walk(resolved);\nelse unresolvable.push(`${specifier} (unresolvable under src, imported by ...)`);\n```\n\nThe relative branch does not:\n\n```js\nif (specifier.startsWith('.')) {\n  const resolved = resolveModule(path.resolve(path.dirname(file), specifier));\n  if (resolved) walk(resolved);\n  continue;                      // <- a miss vanishes here\n}\n```\n\nSo `expect(closure.unresolvable).toEqual([])` cannot fail for a relative specifier, no matter how many the walk fails to follow. It is not a weak assertion; it is a structurally empty one for that entire class.\n\n## What that cost, measured\n\n`resolveModule()` had no notion that `./Foo.js` is how a package whose build preserves specifiers must spell `Foo.tsx`. Every package converted to explicit extensions therefore became partially unwalkable — the walk follows the package entry, then fails on each `./X.js` re-export inside it and stops. Silently.\n\nMeasured with the walker's own logic:\n\n| tree | filesWalked | relative specifiers dropped | packages reached |\n|---|---|---|---|\n| `main` before objectui#5357 (as shipped) | 890 | **236** | 29 |\n| objectui#5357's branch (as shipped) | 401 | **275** | 22 |\n| either tree, with the resolver repaired | **1242** | 0 | 29 |\n\nSo the guard has been running on a truncated graph since objectui#4538, and further truncated by objectui#5214's six packages — landing green both times, because the `filesWalked` floor of 500 still had slack. It only went red when `@object-ui/app-shell`, the largest package, converted and took the count to 401.\n\nThe floor did its job. It did it **two pull requests late**, because the direct symptom was being swallowed one branch away.\n\n## Why this matters beyond the number\n\nThe suite's actual purpose is the last assertion — *no aliased source imports an unaliased workspace package*. That has been evaluated against a graph missing a third to two thirds of its files. It happens that no alias was missing (verified: with the resolver repaired, both `main` and the objectui#5357 branch reach the same 29 packages with 0 missing entries), so nothing was hidden this time. That is luck, not design: a missing alias inside the unwalked region would have read as green.\n\n## Suggested shape\n\nRecord the relative miss the same way the bare-specifier branch already does, so `unresolvable` covers both branches and a resolution regression is reported as itself instead of as a number that drifted.\n\nOne thing to settle first, because it decides whether the change is one line or three: `ts.preProcessFile` reports **every** import specifier, including `./styles.css` and `./data.json`, which `resolveModule` deliberately cannot resolve (its candidate list is JS and TS only). There are zero such specifiers in the closure today — measured, which is why the naive one-liner passes right now — but a stylesheet import added to any walked source would then fail this test for a reason that is not a defect. So the miss should be recorded only for specifiers that are meant to be modules (no extension, or one of the JS/TS emitted extensions), with non-module assets skipped explicitly rather than by accident.\n\nWorth pinning alongside it: a fixture whose source spells `./Foo.js` against a `Foo.tsx` on disk, asserting it is walked rather than dropped — the case that produced all three rows of the table above.\n\nRelated: objectui#5357 (where this surfaced, and where the resolver half is fixed), objectui#5214 and objectui#4538 (the two conversions that degraded it while green), objectui#3528 (the 500s this suite exists to prevent)."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 5300,
+  "kind": "pull_request",
+  "title": "test(plugin-dashboard): close DatasetWidget's dimension-metadata network escape",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-19T08:06:19Z",
+  "updated_at": "2026-08-19T12:11:19Z",
+  "closed_at": "2026-08-19T12:11:17Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-19T12:11:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5300",
+  "body": "Fixes #5280\n\n## What\n\n`DatasetWidget.test.tsx`'s dimension-metadata probe — `useDatasetDimensionMeta`'s `apiFetch ?? fetch` fallback (`packages/react/src/hooks/useDatasetDimensionLabels.ts`), reached whenever a mocked `queryDataset` result carries `object` — escaped to the real network under happy-dom (default document URL `http://localhost:3000`). Same root cause as #5225 (`packages/plugin-report`), confirmed by re-tracing the call chain in this package rather than assumed: `DatasetWidget` → `useDatasetDimensionMeta` → `loadDimensionFieldMeta` → `GET /api/v1/meta/object/{object name}`.\n\nPorts the exact fix shape #5225's reference PR (#5283, `DatasetReportRenderer.test.tsx`) established: a **recording** double answers the metadata route with an **option-free** payload (byte-identical to what the failed read used to produce, so no pre-existing assertion changes meaning), records every URL, and `afterEach` **fails on any non-metadata escape** instead of silently swallowing it — not a blanket network stub. `cleanup()` runs before `vi.unstubAllGlobals()` in the same `afterEach`, avoiding the reverse-registration-order flake #5225 measured (1 leaked attempt in 6 runs from vitest's LIFO `afterEach` ordering).\n\nFile surface: `packages/plugin-dashboard/src/__tests__/DatasetWidget.test.tsx` only, plus a changeset. No product code changed.\n\n## Measured — my own numbers, re-derived on current `origin/main` per the dispatch note (the package moved minutes before this card started, PR #5207)\n\n**Before** (baseline run at branch point, `95cf24168`):\n```\nTest Files  1 passed (1)\n     Tests  52 passed (52)\nECONNREFUSED lines: 10   (5 real connection attempts: 3x GET .../meta/object/showcase_task, 2x .../showcase_deal)\n```\nNo `invoices` request came from this file — that line in the issue's original capture does not reproduce from `DatasetWidget.test.tsx`; filed separately as #5299 (see below).\n\n**After** (post-merge HEAD `6c4c090e6`, 8 consecutive isolated runs + re-confirmed at the final head):\n```\nTest Files  1 passed (1)\n     Tests  55 passed (55)\nECONNREFUSED lines: 0   (0/8 runs)\n```\n\nAll **52 pre-existing tests pass**, unchanged in behaviour — none of them depended on the swallowed failure. 3 new tests pin the probe's own request shape (which object, exactly once, over the metadata route; no probe when no `object`; the resolved document actually reaching a rendered cell — a success path that had never once executed while the request always failed).\n\n## Reverse verification\n\nPredicted: reverting the test file to its pre-fix (`origin/main`) content restores the 5-attempt/10-line escape and drops the pin tests (55 to 52), with the pre-existing 52 staying green throughout (this defect class swallows a side effect, not an assertion — the observables are the connection count and the pins' presence, not red/green).\n\nObserved (committed the fix first, then `git checkout origin/main -- {path}`, ran, then `git checkout HEAD -- {path}` to restore):\n```\nTest Files  1 passed (1)\n     Tests  52 passed (52)\nECONNREFUSED lines: 10\n```\nMatches the prediction exactly.\n\n## An adjacent finding, filed separately — not fixed here\n\nRunning the whole package (`pnpm exec vitest run packages/plugin-dashboard`) after this fix still shows an intermittent 1-attempt residual, confirmed independent of this file (present/absent with `DatasetWidget.test.tsx` removed from the directory entirely). Bisected to `DashboardGridLayout.datasetPath.test.tsx`, which reproduces 3/3 in isolation and most likely explains the stray \"invoices\" request in #5280's original capture. Out of this card's file surface (and #5264 is in flight in this same package) — filed as **#5299**.\n\n## Verification\n\n- `pnpm --filter '@object-ui/plugin-dashboard' type-check` — pass (re-run at post-merge HEAD)\n- `pnpm --filter '@object-ui/plugin-dashboard' lint` — pass, 0 errors (317 pre-existing warnings, none in the touched file's new lines)\n- `node scripts/check-control-bytes.mjs` — pass\n- `node scripts/check-changeset-presence.mjs` — pass (empty-frontmatter changeset declared)\n- `pnpm exec vitest run packages/plugin-dashboard/src/__tests__/DatasetWidget.test.tsx` (repo root) — 8 consecutive clean runs, 0 ECONNREFUSED, 55/55 passed\n- `pnpm exec vitest run packages/plugin-dashboard` (whole package, repo root) — 64 files / 581 tests passed\n\nMerged `origin/main` (`7260a1ed4`, unrelated eslint-rules commit) before opening this PR — no conflicts. Final head: `6c4c090e6`.\n\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_\n"
+}

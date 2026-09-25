@@ -1,0 +1,32 @@
+{
+  "number": 5340,
+  "kind": "issue",
+  "title": "finding(react): bridgeListView emits `object-grid` columns in the undeclared `accessorKey` / `header` spelling — the one in-repo producer that depends on ObjectGrid's tolerance branch",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-19T16:35:40Z",
+  "updated_at": "2026-08-19T18:00:48Z",
+  "closed_at": "2026-08-19T18:00:48Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5340",
+  "body": "Found while implementing #5068 (retire ObjectGrid's undeclared `accessorKey` / `header` tolerance branch). Filed unassigned, not claiming. Baseline: objectui `main` @ 3e0214c00.\n\n## Fact\n\n`bridgeListView` (`packages/react/src/spec-bridge/bridges/list-view.ts:22-46`) takes a **spec-canonical** `ListView` — whose `columns` are `ListColumn`, spelled `field` / `label` — and **down-translates every column into the undeclared spelling** before emitting an `object-grid` node:\n\n```\nfunction mapColumn(col) {\n  if (typeof col === 'string') return { accessorKey: col, header: col };\n  const mapped = {\n    accessorKey: col.field,\n    header: col.label ?? col.field,\n  };\n```\n\nand then, at `:166-176`:\n\n```\nconst columns = (spec.columns ?? []).map(mapColumn);\nconst node = { type: 'object-grid', id: spec.name, columns, data: spec.data };\n```\n\nSo the declared spelling goes **in**, the undeclared spelling comes **out**, and `ObjectGrid` converts it back (`ObjectGrid.tsx:1461`, `const syntheticCol = { field: col.accessorKey, label: col.header, ... }`). A round trip through a dialect neither side needs.\n\n`ListColumnSchema` is a strict Zod object and rejects that spelling by name — measured against the pinned `@objectstack/spec@17.0.0`:\n\n```\ndeclared {field,label}          -> ACCEPTED\nundeclared {accessorKey,header} -> REJECTED\n   issue: unrecognized_keys path=[] keys=[\"accessorKey\",\"header\"]\n```\n\n## Why it matters\n\n1. **It is the only in-repo producer that depends on ObjectGrid's tolerance branch.** A census over `examples/`, `content/docs/`, `apps/`, `skills/`, `e2e/` (924 files) found **zero** authored `accessorKey`-shaped `object-grid` columns — every hit belongs to the `table` / `data-table` components, or is `content/docs/plugins/plugin-grid.mdx` prose *forbidding* the spelling. This bridge is the exception, and it is machine-authored.\n\n2. **Retiring the tolerance branch silently blanks the bridge.** Measured by rendering the bridge's own output through `ObjectGrid` (inline data, two rows), before and after deleting the branch:\n\n```\nBEFORE  node.columns=[{\"accessorKey\":\"name\",\"header\":\"Name\"}]  headers=[\"#\",\"Name\"]  cells rendered\nAFTER   node.columns=[{\"accessorKey\":\"name\",\"header\":\"Name\"}]  headers=[\"#\"]         no cells\n```\n\nAn object column matching neither spelling falls through to the string-array arm at `ObjectGrid.tsx:1672`, whose `typeof fieldName === 'string'` filter drops every object entry — so the whole column set disappears with no error, no warning and no empty header.\n\n3. **Nothing in the repo catches that.** The full `plugin-grid` suite (80 files, 715 tests) stays **green** with the branch deleted, `specBridgeExportFormats.test.tsx` included — that file renders bridge output through `ObjectGrid` but only asserts the export menu, never the columns.\n\n4. **The bridge currently routes spec-canonical views through the poorer path.** The `accessorKey` arm only does type inference; the declared-`field` arm is the one the source calls \"full feature support\" — objectDef enrichment (currency, precision, options with colors, relational meta), `resolveFieldLabel` i18n, primary-field auto-link, `hidden` filtering, `link` / `action`. So a bridged `ListView` renders with *less* than an `object-grid` authored directly, today.\n\n## Relationship to the family\n\n- #5068 rules the **consumer** half (retire the branch). It cannot land alone: the deletion regresses this producer.\n- #5120 rules the **other** producers (`packages/components` data-table adapter + `plugin-dashboard`). This site is neither — `packages/react` is a fourth location, outside both cards' declared file surfaces.\n\n## Reproduce\n\n```\nsed -n '22,46p;166,176p' packages/react/src/spec-bridge/bridges/list-view.ts\ngrep -n \"accessorKey\" packages/react/src/spec-bridge/__tests__/SpecBridge.test.ts   # :107, :111 pin the emitted shape\nsed -n '1451,1489p' packages/plugin-grid/src/ObjectGrid.tsx                          # the tolerance branch\n```\n\n## Triage\n\n`finding`, not `pm:queue`. The direction depends on the same ruling #5068 is waiting on: if the tolerance branch is retired, `mapColumn` must emit `field` / `label` (and `SpecBridge.test.ts:107,111` re-pin, plus a changeset for `@object-ui/react`); if instead the undeclared spelling were ever declared, this site is already correct. Recording the divergence and the blocking direction only."
+}

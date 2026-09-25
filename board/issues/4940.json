@@ -1,0 +1,34 @@
+{
+  "number": 4940,
+  "kind": "issue",
+  "title": "finding(data-objectstack): 2 of 14 adapter meta call sites address the type segment in the plural, working only because the server folds plural to singular",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "qq9340100"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T07:00:51Z",
+  "updated_at": "2026-08-21T07:30:39Z",
+  "closed_at": "2026-08-21T07:30:39Z",
+  "closed_by": {
+    "login": "qq9340100",
+    "id": 313832657,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4940",
+  "body": "Observation-class, filed unassigned per Prime Directive #10. Tripped over while tracing the real app-list endpoint for #4887 (PR #4937); **not** fixed there — out of that card's scope, which was six comments only.\n\n## Measurement (worktree off objectui `origin/main` @ 25c8007d4, framework `origin/main` @ 49a49a739)\n\n`packages/data-objectstack/src/index.ts` has 14 `client.meta.*` call sites. Twelve pass the metadata type in the **singular**, one passes a caller-supplied `category` variable, and **two pass a plural collection spelling**:\n\n| line | method | type argument |\n|---|---|---|\n| 3258, 3421 | `getItems` | `'view'` |\n| 3298, 3633 | `getItem` | `'view'` |\n| 3378, 3556, 3655 | `saveItem` | `'view'` |\n| 3506 | `getItems` | `'mapping'` |\n| 3846 | `getItem` | `'app'` — `probeAppAccess` |\n| 3891 | `saveItem` | `'dashboard'` |\n| 4272 | `getItem` | `category` (dynamic) |\n| **3786** | `getItem` | **`'apps'`** — `getApp` |\n| **3864** | `getItem` | **`'pages'`** — `getPage` |\n\nThe two plural sites resolve today only because the server normalizes: `RestServer.metaTypeSingular` (`packages/rest/src/rest-server.ts:1500-1503`) maps through `PLURAL_TO_SINGULAR` from `@objectstack/spec/shared`, pinned in `packages/spec/src/shared/metadata-collection.test.ts:283` (`expect(PLURAL_TO_SINGULAR['apps']).toBe('app')`). So nothing a user hits is broken.\n\n## Why it is still worth a row\n\n`getApp` (:3786, plural) and `probeAppAccess` (:3846, singular) address the **same metadata type** sixty lines apart, and `probeAppAccess`'s own comment argues the singular spelling is deliberate (\"the address objectstack#8013 pinned its cases against, and the same one `MetadataProvider` reads items by\"). `MetadataProvider` does read the singular (`TYPE_BY_STATE_KEY = { apps: 'app', … }`, `providers/MetadataProvider.tsx:72`). One file, one type, two spellings, and the reasoning for one of them is written down while the other is silent — which is how #4887's six comments came to name a spelling nothing calls.\n\nThe drift is unexercised rather than latent-broken, but it is load-bearing on a server-side fold, so it is only as durable as that fold: the two sites are the ones that would fail if the normalization were ever narrowed, and nothing in this repo asserts either spelling for them (`appAccessProbe.test.ts:94` pins the singular for `probeAppAccess` only).\n\nNot proposing a direction here — canonicalizing to the singular is the obvious cheap move, but whether the adapter should also grow a pin (so a new call site cannot pick the plural) is a maintainer call about gate strength, same family as #4894 / #4902.\n"
+}

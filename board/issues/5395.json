@@ -1,0 +1,35 @@
+{
+  "number": 5395,
+  "kind": "issue",
+  "title": "[measurement] Independently re-verify the per-merge CI cost model before any gate change is ruled on — and price the sharded-coverage option",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "tooling"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-20T11:17:07Z",
+  "updated_at": "2026-08-20T18:49:17Z",
+  "closed_at": "2026-08-20T18:49:17Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5395",
+  "body": "Filed by the `repo:objectui` execution seat as the confirmation half of #5393. **This card lands no gate change.** Its deliverable is evidence, posted on this thread, that the maintainer can rule on.\n\n## Why this exists\n\n#5393 proposes removing a test step from the release workflow and changing how `Test (coverage)` runs. Both are **门禁削弱** and sit on the maintainer's floor. Before anyone rules, the numbers behind the proposal need to survive an independent re-measurement — **the PM's own investigation already produced one wrong finding** (it claimed CI had not run on `push`/`main` since 2026-08-07; that came from a filtered API query that was never counter-probed against the unfiltered set, and it is false). Treat every figure below as a claim to check, not a premise.\n\n## Claims to confirm or refute\n\nEach one: report the measurement, the method, and whether it **confirms** or **refutes**. A refutation is a good outcome, not a failed run.\n\n1. **\"The full suite runs twice per merge, unsharded.\"** On `push`/`main`, `ci.yml`'s `Test (coverage)` runs unsharded (the 4 shards are skipped by `if: github.event_name != 'push'`) *and* `changeset-release.yml` runs `pnpm test` unsharded. Confirm both, and confirm they overlap in time rather than one gating the other.\n2. **The durations.** Claimed: `Test (coverage)` ≈ 39 min; release `Run tests` ≈ 34 min; PR lane (4 shards) ≈ 9 min 47 s. Sample enough runs to give a median and a spread — ⚠️ one run is an anecdote. Compute elapsed from each job's own `started_at`/`completed_at`, ⛔ never from an assumed clock.\n3. **The timeout margin — this sets the urgency.** `Test (coverage)` has `timeout-minutes: 40` and one observed run took 39 min 26 s. Is that typical or an outlier? Report the distribution over recent runs and how many came within, say, 3 minutes of the cap. If it is typical, this is already a live flaky-red source and should be said plainly.\n4. **The release queueing.** Claimed: `concurrency` without `cancel-in-progress` serialises releases, so a run can wait ~35 min before its job starts. Verify by comparing each run's `created_at` against its **job's** `created_at` (the run-level `run_started_at` does **not** expose this — it equals `created_at` even when the job waits). Report how much of release wall-clock is waiting vs executing.\n5. **Cancellation.** Claimed: most `push`/`main` CI runs end `cancelled` because `cancel-in-progress: true` is keyed on `github.ref`. Confirm, and report what fraction of push-lane runs actually complete — a lane that is usually cancelled is not providing the coverage its existence implies.\n\n## Price the sharded-coverage option\n\n`ci.yml`'s comment declines to shard the coverage job on the grounds that it would require a blob-report merge and \"nothing blocks on this job\". That trade was priced when the job was shorter. Re-price it:\n\n- What does a 4-way sharded coverage run actually cost in wall clock, and does the merged report stay equivalent for Codecov (same totals, no lost files)?\n- Prototype it on a branch and **measure**. ⛔ Do **not** merge it, and do not open a PR that could be picked up as ready-to-land — this card produces a number, not a landing.\n\n## Rules for this card\n\n- ⛔ **No gate weakening, and no gate changes merged.** Do not delete a test step, lower a threshold, raise a timeout, skip or quarantine a test, or change what is required. All of that is the maintainer's call on #5393. If you become convinced one is right, say so with evidence — do not do it.\n- ⛔ **Do not \"fix\" `main` here.** It is red for a separate reason, owned by #5394. Serial note: that card touches `QUICK_REFERENCE.md` and possibly the release tooling; this one must not.\n- **A zero is not a reading.** Any `total_count: 0` must be counter-probed with a term/filter combination known to return results through the same method, and the counter-probe reported. The wrong finding named above is precisely what skipping this produces.\n- Filtered list queries in this repo's tooling have returned **stale or wrong newest-first results**; cross-check anything load-bearing against an unfiltered read.\n- Report elapsed from the jobs' own timestamps.\n\n## Deliverable\n\nOne comment on this card: a table per claim (confirmed / refuted, measured value, method), the sharded-coverage price, and anything the investigation turned up that neither #5393 nor this card anticipated. No merge, no PR to land.\n\nRelated: #5393 (the investigation and the proposal), #4986 (the merge-queue half — already filed, on hold, ⛔ not in scope here), #5394 (`main` red, separate owner)."
+}

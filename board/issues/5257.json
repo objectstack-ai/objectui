@@ -1,0 +1,35 @@
+{
+  "number": 5257,
+  "kind": "issue",
+  "title": "core: cloneAsOverride keeps its input's deep-readonly type, so a Tenant/User override clone does not type-check as mutable",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T20:57:50Z",
+  "updated_at": "2026-08-19T14:35:52Z",
+  "closed_at": "2026-08-19T14:35:52Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5257",
+  "body": "Filed unassigned from the implementation of #5160. **Not fixed there** — that card only changes documentation, never the export surface, and this is the export surface.\n\n## What was measured\n\n`packages/core/src/utils/freeze-schema.ts` declares:\n\n```ts\nexport declare function defineSystemView< T extends object >(schema: T): SystemView< T >;\nexport declare function cloneAsOverride< T >(view: T): T;\n```\n\n`SystemView< T >` is `DeepReadonly< T > & { readonly [SYSTEM_VIEW_MARKER]?: true }`. Because `cloneAsOverride` returns `T` unchanged, cloning a System View returns something still typed **deep-readonly**, even though the implementation produces a plain mutable object (`structuredClone`, or a JSON round-trip fallback) and deliberately drops the marker symbol.\n\nSo the documented override flow does not type-check. Measured against the built `packages/core/dist/index.d.ts` with the #5138 snippet gate, over `packages/core/README.md`:\n\n```\npackages/core/README.md:121:15  TS2339: Property 'push' does not exist on type 'readonly { readonly name: string; }[]'.\n```\n\nThat line in the README is:\n\n```ts\nconst draft = cloneAsOverride(userListView)\ndraft.columns.push({ name: 'name' })         // ✅ allowed\n```\n\nThe comment is correct about **runtime** and wrong about the **type**. The neighbouring line one block up is the intended opposite and is correctly rejected:\n\n```\npackages/core/README.md:116:22  TS2339: Property 'push' does not exist on type 'readonly { readonly name: string; }[]'.\n```\n\n...which is the `userListView.columns.push(...) // ❌ TypeError (strict mode)` demonstration — that one is correct documentation, and `freeze-schema.ts`'s own JSDoc shows the same line for the same purpose.\n\n## Why this was invisible until now\n\n`packages/core/README.md` imported `defineView`, a name core does not export (it was renamed to `defineSystemView` in objectstack#4115). Under the missing import, `userListView` was an error type, so neither `.push` line was ever checked. Fixing the import in #5160 is what surfaced both. The diagnostic count on that document went **up**, not down — the two TS2339s are pre-existing and were masked, not introduced.\n\n## Whose defect this is\n\nThe `⛔` boundary in #5160 was \"documentation changes, never the export surface\", so the README was left alone and this was filed instead. There is a real decision here rather than an obvious patch:\n\n- **A.** `cloneAsOverride< T >(view: T): Mutable< T >` — strip `DeepReadonly` on the way out, so the returned clone types the way it behaves. Needs a `Mutable`/`DeepMutable` inverse of the existing `DeepReadonly`, and a consumer sweep.\n- **B.** Leave the signature and change the README to annotate or cast the draft. Teaches a cast around a type that is simply wrong about its own value — a lenient read at the consumer, which AGENTS.md #0.1 rules out.\n- **C.** Leave both and declare the README block a fragment. Hides a real signature defect behind the gate's fragment marker.\n\nA looks right; A is a contract change and wants a maintainer ruling.\n\n## Related\n\n- #5160 — the card that surfaced it; `defineView` → `defineSystemView` is fixed there, this is not\n- #5138 — the snippet compile gate that measures it\n"
+}

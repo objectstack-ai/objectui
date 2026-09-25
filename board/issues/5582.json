@@ -1,0 +1,32 @@
+{
+  "number": 5582,
+  "kind": "pull_request",
+  "title": "Marketplace catalog page answers \"no marketplace here\" before \"not an admin\" (#5557)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T15:19:39Z",
+  "updated_at": "2026-08-21T15:31:19Z",
+  "closed_at": "2026-08-21T15:31:18Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": "2026-08-21T15:31:18Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5582",
+  "body": "Fixes #5557\n\n## The defect\n\n`MarketplacePage` — the marketplace **catalog** page — ordered its two early returns admin-first:\n\n```\nif (!isAdmin) return ( MarketplaceAccessDenied )       // was line 200\nif (!marketplaceEnabled) return ( MarketplaceDisabled ) // was line 203\n```\n\nSo on a runtime that mounts no marketplace at all (`features.marketplace: false` — an `OS_CLOUD_URL=off` deployment, the EE deploy template's factory default) an unprivileged member was told they lack **permission** for a surface that exists for nobody. That answer sends them to ask an administrator for a grant that would not help them, and it left the informational disabled state built in #5504 unreachable for every non-admin.\n\n## The fix\n\nThe runtime check answers first, because \"this deployment has no marketplace\" is true regardless of who is asking. That is the ordering `MarketplacePackagePage` landed under #5533, so the two sibling pages stop disagreeing about one runtime for the one class of viewer they still disagreed for.\n\nThe retired code comment claimed the old order was deliberate — \"a non-admin has no business reading this runtime's marketplace posture either way\". The merged sibling rebuts it on the record, and this PR carries that rationale over: `features.marketplace` is **public runtime config every client already reads**, so the old order withheld nothing. It only misdirected.\n\n## Boundary — what this PR does not claim\n\nAdmin-first ordering stays correct where a marketplace exists. On `features.marketplace: true` a non-admin still gets `MarketplaceAccessDenied`; the catalog is an install surface. That boundary is a test assertion, not prose — **it is the control for the whole change**: without it, a \"fix\" that simply deleted the admin check would satisfy every other case in the file while handing an install surface to every member.\n\n## Reverse-verification (ablation)\n\nThe pre-fix ordering was restored on disk and the suite re-run. No rebuild is involved: the tests import the subject as a relative **source** path (`from '../MarketplacePage'`), so nothing resolves through `dist/`.\n\n| | result |\n| --- | --- |\n| mutation proven on disk | admin guard moved to line 209, runtime guard to 214; `git diff --stat` 2 insertions/2 deletions; sha256 `fc7e9405…` → `60753dec…` |\n| under the mutation | **3 failed / 29 passed** — the three non-admin marketplace-off cases went red |\n| the boundary control | **stayed green**, as required |\n| restore | via `trap ... EXIT INT TERM`; sha256 back to `fc7e9405…`, `git status` clean |\n\n## Gates — all at `880929160`\n\n| gate | verdict |\n| --- | --- |\n| `pnpm --filter '@object-ui/app-shell^...' build` | `command-exit 0` (run first; without it type-check reports TS2307 on every sibling) |\n| `pnpm --filter @object-ui/app-shell type-check` | `TYPECHECK_EXIT=0` — `tsc --noEmit && tsc -p tsconfig.test.json` |\n| `pnpm --filter @object-ui/app-shell lint` | `LINT_EXIT=0` — `2509 problems (0 errors, 2509 warnings)` |\n| `vitest run packages/app-shell/src/console/marketplace/` | `Test Files 5 passed (5)` · `Tests 32 passed (32)` |\n| `check-control-bytes` | `OK (scanned 4638 tracked text file(s); skipped 85 binary)` |\n| `check-changeset-presence` | `2 source file(s) of 1 released package(s) changed, and this change declares 1 changeset(s)` |\n| `check-changeset-no-major` | `No changeset declares a major bump.` |\n| `check-changeset-fixed` | `All workspace packages are in the changeset fixed group.` |\n| `check-i18n-call-site-keys` | exit 0 — no new keys; every call-site key resolves |\n| `check-lint-coverage` · `check-type-check-coverage` | `46/46 packages linted` · `41/41 packages compile their tests` |\n\n**Declared narrowing** — vitest was run over `console/marketplace/` rather than all of `packages/app-shell`, and here is why that cannot hide a failure. The changed function body can only execute where the real component is imported. Measured across every test file in the repo: exactly **3** import it for real, and all three are in the directory that was run. The only two others that reach the marketplace route replace it with a stub (`vi.mock('../marketplace/MarketplacePage', …)`), so the changed code cannot run in them. Invariance for untouched files: the change is a statement reorder inside one function body and alters no export signature, and `type-check` compiled the **whole** package (both tsconfigs) green.\n\n## Scope\n\n`MarketplacePage.tsx`, one new test file, one changeset. `MarketplacePackagePage.tsx` is read-only here — it is the already-fixed sibling, mounted by the new tests only to prove the two pages agree. `MarketplaceAccessDenied.tsx` and `MarketplaceDisabled.tsx` are untouched: only *which* of the two the page reaches for changes, and in *which order* it decides.\n\nWhy a new test file rather than growing `MarketplacePage.disabledState.test.tsx`: that suite hard-mocks `useIsWorkspaceAdmin: () => true` at module scope, so every case in it is an admin and none of them can see this defect. The admin flag has to vary per case here, which is a different module mock and therefore a different file.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_012u2pRjcqAYtoEjgr3wwhnK)_"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 5398,
+  "kind": "issue",
+  "title": "plugin-list `ListView.tsx:1591` carries the same view/object `userActions` collision as #5240 — and here the object's CRUD block is never reached at all",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-20T11:49:07Z",
+  "updated_at": "2026-08-20T18:14:40Z",
+  "closed_at": "2026-08-20T18:14:29Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5398",
+  "body": "Filed **unassigned** by the `repo:objectui` execution seat, as directed by the maintainer's 2026-08-20 ruling on #5240 (Q2 = **B**), verbatim: 「4 张 同意」. The ruling's words: *\"the identical (worse) `plugin-list/src/ListView.tsx:1591` instance is filed as a sibling card by the `repo:objectui` seat per its holding note.\"*\n\n⛔ Deliberately **not** filed earlier. Both the dev and the PM held it while Q2 was open, because filing it would have pre-committed the scope decision (widen #5240 to both read sites vs. fix `plugin-grid` there and file a sibling). Q2 is now ruled B, so it is filed.\n\n## The defect\n\n`packages/plugin-list/src/ListView.tsx:1591` carries the same shape #5240 removes from `plugin-grid`:\n\n```\n(schema as any).userActions ?? (objectDef as any)?.userActions\n```\n\nTwo different contracts share the key name `userActions`:\n\n| level | schema | content |\n|---|---|---|\n| **view** | `UserActionsConfigSchema` | toolbar policy — `sort`, `search`, `filter`, `refresh`, `rowHeight`, `addRecordForm`, `editInline`, `buttons`. Rejects `edit` **by name**. |\n| **object** | the CRUD blocks | `{edit, delete, create}` carrying `visibleWhen` / `disabledWhen` |\n\n`listViewPredicates` reads the **object-level** one, and its loop skips every non-object value. So a **spec-valid** toolbar block on the view shadows the object's CRUD predicates through the `??`, and their fields are silently dropped from `$select` — the objectui#3501 fail-closed CEL fault, reached with a success receipt rather than an error.\n\n## Why this instance is worse than the one #5240 fixes\n\nOn the app-shell path the left operand is **always** a truthy object literal: `packages/app-shell/src/views/ObjectView.tsx:1902-1904` builds `userActions` **unconditionally**. So `??` never falls through, and the object's CRUD block is **never reached at all** on that path — not \"sometimes shadowed\", never consumed.\n\n(That same file is the one #5240's original card cited as evidence that *no* producer writes this key. It does, unconditionally. That is what fired the roll-back clause on #5240 and got the ruling's premises re-measured.)\n\n## Scope\n\nThe fix is the shape #5240 lands in `plugin-grid`, applied here: drop the view-schema-first read, and carry the collision comment stating the **measured** reason — view `userActions` is toolbar policy, object `userActions` is the CRUD-predicate block, only the object block is interpretable by `listViewPredicates`. ⛔ Do not write \"non-author surface, deliberately unlisted\" — the repository contradicts it, and Q1=A exists precisely to keep that claim out of the census artifact.\n\n⚠️ **Serial with #5240** — land that one first, or at minimum read its final diff, so both read sites end up with the same shape and the same comment rather than two spellings of one fix.\n\n⚠️ **Not the producer half.** The question of `bridgeListView` emitting onto an `object-grid` node a key that `ComponentPropsMap['object-grid']` rejects by name is a spec-coordination card, routed through triage by the same ruling. ⛔ Not in scope here and it does not block this.\n\n## Reproduce\n\n```\ngrep -n \"userActions\" packages/plugin-list/src/ListView.tsx | sed -n '1,20p'\nsed -n '1900,1906p' packages/app-shell/src/views/ObjectView.tsx     # unconditional construction\n```\n\nEvidence, measurements and the full ruling are on #5240 — this card does not restate them.\n\nRelated: #5240 (the ruling and the `plugin-grid` half), #5091 (the declared-surface ruling for the grid keys), #3501 (the fail-closed CEL fault this lands in), #5241 (the exemption-comment pattern Q1=A points at)."
+}

@@ -1,0 +1,30 @@
+{
+  "number": 5208,
+  "kind": "issue",
+  "title": "[Decision] The authorized one-PR `major` exception moves ALL 39 packages a major, because they share one changeset `fixed` group — how should the exception be realized?",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T14:36:51Z",
+  "updated_at": "2026-08-19T06:43:29Z",
+  "closed_at": "2026-08-19T06:43:29Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5208",
+  "body": "Filed by the `repo:objectui` PM seat (session `session_01RV6yuVCxymHYE16PL9vQkE`) while reviewing PR #5207 (#5064). Filed **separately on purpose** so #5064 stays in flight rather than bouncing back to the decision box — its implementation is faithful to the ruling; this is about how the already-granted exception gets realized.\n\n## What was ruled, and what it turns out to cost\n\nOn 2026-08-18 the maintainer ruled Route A on #5064 and **authorized a one-PR exception to `check-changeset-no-major`**, rationale on record: two independent word-boundary greps measured zero consumers, so the breaking set is empty today and only grows, and **a breaking changeset is the honest label**.\n\nImplementing it surfaced a consequence I do not believe was in view when the exception was granted. From `check-changeset-no-major.mjs`'s own header:\n\n> every publishable package sits in ONE `fixed` group, so a single `major` entry carries **all 39 packages** to the next major\n\nSo the honest `major` on one plugin's re-key does not cost that plugin a major. It moves **the entire fleet's version line**, and the `@objectstack` alignment convention — *same major ⇒ compatible* — stops holding along with it.\n\nThe re-key's own blast radius is measured at **zero consumers**. The changeset accounting's blast radius is **39 packages plus the cross-repo version convention**. Those are wildly different numbers attached to the same decision, and only the first one was on the table when the exception was granted.\n\n## The gate is red in two places, both this same exception\n\n1. `Changeset Bump Policy` (`scripts/check-changeset-no-major.mjs`) — **failed** on PR #5207 at `a31ea2619`.\n2. `scripts/__tests__/check-changeset-no-major.test.ts` asserts *the repository itself* carries no pending `major` changeset — so a unit-test shard is expected red too.\n\nThe dev correctly refused to downgrade the changeset or weaken either limb, and the PR is held **draft**, unqueued.\n\n## Options (the maintainer's call — release shape is never AI's)\n\n1. **Land the `major` as labelled, and handle it at version time** — e.g. the release escape the gate documents (`OBJECTUI_ALLOW_MAJOR=1`), or rescoring when the release is cut. Honest label preserved; the fleet-wide major becomes a release-time decision rather than a merge-time one. Needs an answer for what the 39-package major does to the `@objectstack` alignment.\n2. **Split the label from the break** — land the code with a non-major changeset plus an explicit recorded note that the break is real and deferred. Keeps the version line still; costs the property that the changeset is the honest record, and contradicts binding condition (b) as written.\n3. **Give the fixed group an escape hatch** — a per-package major, or removing this package from the fixed group. Structural, and the widest of the three; it changes how *every* future break is accounted for, not just this one.\n4. **Hold** — keep PR #5207 draft until the release line question is settled independently. Costs nothing except the card sitting; the defect it fixes has zero measured consumers, so there is no urgency pressing against it.\n\n## Four-prism block\n\n1. **Platform long-term coherence** — option 2 makes the changeset ledger stop being the truth about breaks, which is the one property the whole release process rests on. Option 1 keeps it true and moves the cost to a place a human already has to stand (release is manual by standing ruling). Option 3 is the only one that removes the tension permanently, and the only one with consequences beyond this PR.\n2. **Measured business pull** — zero. Two independent greps found no consumer of `dashboardComponents`; the card's user-visible harm is a README teaching a registration loop that registers 11 phantom types. Nothing is waiting on this, which argues *against* forcing a fleet-wide major to ship it quickly, and in favour of 1 or 4.\n3. **AI-agent error-resistance** — whatever is chosen, ⛔ it must not be \"an agent may rescore a changeset when a gate blocks it\". That is precisely the incentive the no-major gate exists to defeat, and a seat clearing its own red gate by relabelling is indistinguishable from the failure mode. If option 2 is chosen it should be an explicit maintainer act on this PR, not a standing permission.\n4. **Startup scope discipline** — option 3 is real infrastructure work for a one-off. Option 1 or 4 costs nothing structural. Recommend deciding this one narrowly and revisiting the fixed group only when a *second* genuine break arrives.\n\n## Recommendation\n\n**Option 1 or 4**, and I lean **4** on the numbers: the fix has zero measured consumers and nothing waiting on it, so there is no reason to spend a fleet-wide major — or an accounting compromise — to land it today. Holding costs a draft PR sitting; option 2 costs the honesty of the changeset ledger permanently, and it is the one I would want an explicit maintainer act on rather than a PM inference.\n\nWhichever way it goes, ⛔ I will not clear the red gate myself by any route, and PR #5207 stays draft and unqueued until this is answered."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 5379,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): rowActionDefs is non-author surface, and stays read (#5091)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-20T02:56:59Z",
+  "updated_at": "2026-08-20T03:11:15Z",
+  "closed_at": "2026-08-20T03:11:14Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-20T03:11:14Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5379",
+  "body": "Fixes #5091\n\nThe card's **last open key**. PR #5241 landed the other three; this one finishes it.\n\n## The ruling this executes\n\nMaintainer, 2026-08-19, over the 27-card decision-inbox review, verbatim 「全部接受」\n([comment 5339680589](https://github.com/objectstack-ai/objectui/issues/5091#issuecomment-5339680589)):\n**Option A — `rowActionDefs` is non-author surface.**\n\nThat **knowingly reverses one line of the maintainer's own 2026-08-18 ruling** on\nthis same card, which had directed the key *into* `GRID_QUERY_INPUTS` as the\n\"symmetric partner\" of `bulkActionDefs`. The reversal was flagged as a reversal\nwhen it was accepted, because the symmetry premise had been falsified by\nmeasurement. Nothing here re-derives it; the three measurements are recorded so a\nfuture reader who finds the older ruling knows they have found history rather\nthan a contradiction.\n\n## What lands\n\n| | |\n| --- | --- |\n| `packages/plugin-grid/src/ObjectGrid.tsx` | exemption comments at **both** read sites — **41 insertions, 0 deletions**, every edit a comment |\n| `packages/plugin-grid/src/__tests__/gridNonAuthorKeys.test.tsx` | the key added to the existing per-key assertion shape, plus a behaviour pin per read site (16 assertions → 20) |\n| `.changeset/grid-row-action-defs-non-author-5091.md` | empty frontmatter — nothing is released |\n\n`GRID_QUERY_INPUTS` is **byte-for-byte unchanged** (`git diff origin/main -- packages/plugin-grid/src/index.tsx`\nis empty), so the generated manifest and `sdui-intrinsics.d.ts` do not move and\nnothing publishes.\n\n## The read sites, located from the tree\n\nThe card body said `:748` (twice) and `:984`; a round-6 re-measure said `:803`\nand `:1039`; PR #5241 then added 45 lines of comments to the file. Both were stale.\nMeasured on this branch's parent, the two cast reads are:\n\n| read site | on `main` | channel |\n| --- | --- | --- |\n| `rowActionDefsList` seed — the card's \":748 twice\" is **one line with two casts** | **`:838`** | render: feeds `resolveLegacyRowActions` → the row menu |\n| inside `getSelectFields`, into `listViewPredicates(...)` | **`:1074`** | fetch: a def's `visible` predicate adds its operands to `$select` |\n\nAfter the comments they sit at `:870` and `:1115`. **Neither read was deleted** —\nthat is the point of the fourth assertion, and the two are genuinely separate\nchannels, which the ablations below prove rather than assert.\n\n## Ablations — predicted before running, all three matched exactly\n\nPredictions were written down before any of them was executed.\n\n| leg | predicted | observed |\n| --- | --- | --- |\n| **A1** delete read site 1 (`rowActionDefsList := []`) | 1 red: the row-menu pin. `$select` pin green. | `1 failed / 19 passed` — exactly that test |\n| **A2** delete read site 2 (drop the key from `listViewPredicates`) | 1 red here: the `$select` pin; render pin green. Plus 1 red in `recordIdFieldProjection.test.tsx` | `2 failed / 24 passed` — exactly those two |\n| **A3** the **forbidden** move: declare it in `GRID_QUERY_INPUTS` | 3 red here (both tag-publish pins + the parser pin), spec-rejection green; 1 red in the repo-wide parity gate | `4 failed / 81 passed` — exactly those, with `expected [ 'rowActionDefs' ] to deeply equal []` |\n\nA3's spec-rejection assertion staying **green** while the manifest pins go red is\nthe asymmetry the ruling rests on, reproduced independently: the spec is an\nuntouched published dependency, so declaring the key in objectui alone puts the\nmanifest at odds with the gate that stores the document.\n\nEvery leg was taken from the **committed** state and restored with\n`git checkout branch -- path`; `git status` was empty after each restore, and all\nthree files are green again at the head below.\n\n**Build artifact between an edit and the thing under test: none, on every leg** —\nchecked here rather than inherited from PR #5241. Root `vitest.config.mts:246-274`\naliases every `@object-ui/*` to that package's `src/`, and the suite imports\n`../ObjectGrid` relatively, so no `dist` is in the resolution path. Each ablation's\nred is itself the positive proof: a stale artifact would have kept it green.\n\n## Verification — all at `33d48d662`, tree clean\n\nRun **from the repo root** throughout: `packages/plugin-grid` owns a standalone\n`vitest.config.ts` that does not re-export the root config, so a package-scoped\nrun would execute a different config than CI does.\n\n- `pnpm exec vitest run packages/plugin-grid/` → **81 files, 726 tests passed**\n- `pnpm exec vitest run apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` → **65 passed** — **unmoved**, the same 65 as before and after PR #5241. An unchanged gate count is the positive evidence that option A publishes nothing.\n- `pnpm --filter @object-ui/plugin-grid type-check` → exit 0 (dependency closure built first — a fresh worktree answers `Cannot find module '@object-ui/types'` otherwise)\n- `pnpm --filter @object-ui/plugin-grid lint` → 0 errors\n- `check-changeset-presence` → names the empty frontmatter as \"the explicit exemption and a complete answer to this gate\"; `check-changeset-no-major`, `check-changeset-fixed`, `check-control-bytes`, `check:phantom-deps`, `check:self-import`, `check:esm-specifiers`, `check:spec-symbols`, `check:action-forward-parity` → all OK\n\n`check:published-dist` was **not** run locally (it builds every published package,\nover budget on a shared container); the touched test file sits in the directory\nthat package's tsconfig already excludes, and CI runs it.\n\n## Out of scope, and untouched\n\n`schema.onNavigate` belongs to #5234 and `schema.userActions` to #5240 — both are\nstill awaiting their own first grading. Neither is addressed here, and neither\nappears in this diff.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_"
+}

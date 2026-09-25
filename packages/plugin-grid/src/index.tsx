@@ -196,17 +196,22 @@ export const ObjectGridRenderer: React.FC<{ schema: any; [key: string]: any }> =
  * Publishing them is what makes the manifest, the `.d.ts`, the designer and the
  * renderer finally agree.
  *
- * TEN keys `@objectstack/spec` 17.0.0 GA also declares are deliberately NOT here
+ * TEN keys `@objectstack/spec` 17.0.0 GA also declared are deliberately NOT here
  * — this block's own `@deprecated` legacy spellings (`fields`, `staticData`,
  * `selectable`, `pageSize`, `showSearch`, `showPagination`, `defaultSort`,
  * `defaultFilters`, `resizableColumns`, `title` — all tagged `@deprecated` in
- * `ObjectGridSchema`, `packages/types/src/objectql.ts`). The renderer still reads
- * them as back-compat fallbacks, but publishing a deprecated alias as NEW
+ * `ObjectGridSchema`, `packages/types/src/objectql.ts`). The renderer reads
+ * the rest of them as back-compat fallbacks, but publishing a deprecated alias as NEW
  * authoring surface would harden it into a second dialect (AGENTS.md #0.1), so
  * each gets a cited exemption in the console parity gate instead. Their canonical
  * spellings — `columns`, `data`, `selection`, `pagination`, `searchableFields`,
  * `sort`, `filter`, `resizable`, `label` — are all declared here, and each
  * description below says so, so the exemption teaches rather than merely omits.
+ *
+ * `defaultSort` is the exception and is no longer a fallback at all: spec 17.3.0
+ * turned it into a retired-key tombstone the protocol refuses by name, and
+ * objectui#5861 removed every renderer read of it (ADR-0049 enforce-or-remove).
+ * It stays off this list because the contract refuses it, not by exemption.
  *
  * ## `data` declares the CONTRACT's shape, not the shortcut's (objectui#5090)
  *
@@ -236,7 +241,7 @@ const GRID_QUERY_INPUTS: ComponentInput[] = [
   // ── identity ──────────────────────────────────────────────────────────────
   { name: 'label', type: 'string', description: 'Grid label, used as the table caption and as the export file title. The canonical spelling — the deprecated `title` is only read when this is absent.' },
   // ── query shaping ─────────────────────────────────────────────────────────
-  { name: 'sort', type: 'array', description: 'Initial sort order, `[{ field, order }]`. The canonical spelling — the deprecated single-sort `defaultSort` is only read when this is absent.' },
+  { name: 'sort', type: 'array', description: 'Initial sort order, `[{ field, order }]`. The only sort spelling this block reads — the retired single-sort `defaultSort` is refused by the protocol and ignored by the renderer.' },
   { name: 'pagination', type: 'object', description: 'Pagination config, `{ pageSize, pageSizeOptions, … }`. Presence enables paging with the object\'s settings, and an explicit off wins — the deprecated flat `showPagination: false` turns paging off even beside this object, because this object declares no off switch of its own. Prefer it over the deprecated flat `pageSize` / `showPagination` pair.' },
   { name: 'searchableFields', type: 'array', of: 'string', description: 'Fields the toolbar search box queries. A non-empty list is what enables search — prefer it over the deprecated boolean `showSearch`, which cannot say WHICH fields to search.' },
   { name: 'data', type: 'object', description: 'Data source configuration — a `ViewData` object discriminated by `provider`: `{ provider: "object", object }` (what an omitted `data` falls back to, using `objectName`), `{ provider: "api", read, write }`, `{ provider: "value", items: [...] }` for inline rows that bypass the object query, or `{ provider: "schema", schemaId }`. The canonical spelling — the deprecated `staticData` is the array-only shortcut for the `value` provider, so inline rows go under `items` here rather than in a bare array.' },

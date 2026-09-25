@@ -68,7 +68,10 @@ ComponentRegistry.register('calendar',
     skipFallback: true,
     label: 'Calendar',
     inputs: [
-      { name: 'mode', type: 'enum', enum: ['default', 'single', 'multiple', 'range'] },
+      // Exactly the modes `CalendarSchema.mode` admits (objectui#10377). The
+      // designer used to offer `'default'` too, which both authoring faces
+      // refuse; `DayPicker` has no such mode and drops the selection under it.
+      { name: 'mode', type: 'enum', enum: ['single', 'multiple', 'range'] },
       { name: 'className', type: 'string' }
     ],
     defaultProps: {

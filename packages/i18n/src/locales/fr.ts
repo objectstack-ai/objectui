@@ -1925,6 +1925,7 @@ const fr = {
       title: "Titre",
       viewType: "Type de vue",
       recordCount: "{{count}} enregistrements",
+      recordCountOne: "{{count}} enregistrement",
       save: "Enregistrer",
       discard: "Annuler",
       createView: "Créer une vue",

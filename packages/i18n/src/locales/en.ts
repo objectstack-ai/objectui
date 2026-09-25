@@ -2282,6 +2282,7 @@ const en = {
       title: 'Title',
       viewType: 'View type',
       recordCount: '{{count}} records',
+      recordCountOne: '{{count}} record',
       save: 'Save',
       discard: 'Discard',
       createView: 'Create View',

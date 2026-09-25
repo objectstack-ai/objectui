@@ -3668,17 +3668,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               label: tFieldLabel(fieldName, f.label || fieldName),
               type: f.type || 'text',
               options: buildOptions(fieldName, f.options),
-              // objectui#7642 CENSUS — verdict KEEP, and NOTE the bag differs from
-              // the sibling branch below: `f` here is a LIST-VIEW COLUMN
-              // (`ListColumnSchema`), not an object-schema field def. Measured against
-              // the installed spec, `ListColumnSchema` refuses BOTH castings of all
-              // three keys (`display_field` AND `displayField`, `id_field` AND
-              // `idField`, `reference_to` AND `reference`), so this is not a
-              // snake-vs-camel question at all — it is a third contract. Filed
-              // separately rather than half-retired here.
-              referenceTo: f.reference_to || f.reference,
-              displayField: f.display_field || f.reference_field,
-              idField: f.id_field,
+              // objectui#7531 (ruled): a list column declares no relational target; it comes from the object definition once loaded.
            }];
         });
     } else {

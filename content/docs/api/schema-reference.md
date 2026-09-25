@@ -974,23 +974,20 @@ A widget-based dashboard with configurable grid layout and auto-refresh.
   "widgets": [
     {
       "id": "revenue",
+      "type": "metric",
       "title": "Total Revenue",
-      "description": "Monthly revenue",
-      "colSpan": 1,
-      "rowSpan": 1,
-      "body": {
-        "type": "statistic",
-        "label": "Revenue",
+      "layout": { "x": 0, "y": 0, "w": 1, "h": 2 },
+      "options": {
         "value": "$48,200",
+        "description": "Monthly revenue",
         "trend": { "value": 12, "direction": "up" }
       }
     },
     {
       "id": "chart",
       "title": "Sales Trend",
-      "colSpan": 2,
-      "rowSpan": 1,
-      "body": {
+      "layout": { "x": 1, "y": 0, "w": 2, "h": 4 },
+      "component": {
         "type": "chart",
         "chartType": "area",
         "xAxisKey": "day",
@@ -1006,12 +1003,14 @@ A widget-based dashboard with configurable grid layout and auto-refresh.
     },
     {
       "id": "tasks",
+      "type": "list",
       "title": "Recent Tasks",
-      "colSpan": 1,
-      "rowSpan": 1,
-      "body": {
-        "type": "list",
-        "items": []
+      "layout": { "x": 3, "y": 0, "w": 1, "h": 4 },
+      "options": {
+        "data": [
+          { "task": "Renew the Acme contract", "due": "Mon" },
+          { "task": "Send the Q3 forecast", "due": "Wed" }
+        ]
       }
     }
   ]
@@ -1022,10 +1021,12 @@ A widget-based dashboard with configurable grid layout and auto-refresh.
 |----------|------|-------------|
 | `columns` | `number` | Number of grid columns. |
 | `gap` | `number` | Gap between widgets (Tailwind spacing scale). |
-| `widgets` | `DashboardWidgetSchema[]` | **Required.** Widget definitions with `id`, `title`, `colSpan`, `rowSpan`, and `body`. |
+| `widgets` | `(DashboardWidgetSlotComponentSchema \| DashboardWidgetSchema)[]` | **Required.** Each entry is a widget or a component node. A widget (`DashboardWidgetSchema`) names itself with `id`, `title` and `description`, sizes itself with `layout: { x, y, w, h }`, and holds its content either as a family named in `type` with that family's settings under `options`, or as a registered component node in `component`; its full key set is the spec's `DashboardWidget` plus objectui's own. A component node (`DashboardWidgetSlotComponentSchema`) sits in the slot directly: its `type` is a member of the closed `DASHBOARD_COMPONENT_WIDGET_TYPES` set, such as `metric-card`, and its other keys are that component's own props. |
 | `refreshIntervalSeconds` | `number` | Auto-refresh interval in **seconds** — the renderer multiplies by 1000. Renamed from `refreshInterval`, which this table documented as milliseconds and which it never was (objectui#7783). |
 
-Each widget supports `colSpan` and `rowSpan` to control its size in the grid. The `body` can be any `SchemaNode`.
+A widget's size is its `layout`: `w` and `h` are the grid columns and rows it spans, and `x` and `y` are its position on the editable `dashboard-grid`. `layout` takes all four numbers or is left out. `colSpan`, `rowSpan` and `body` are **not** widget keys: `DashboardWidgetSchema` is strict (objectui#6002) and refuses all three by name. The size is `layout.w` / `layout.h`, and the content is `type` + `options` or `component`.
+
+The family in `type` decides what `options` holds: `metric` shows `options.value`; `list` and `table` show the rows in `options.data`; a chart family (`area`, `bar`, `line`, `pie`, …) plots the rows in `options.data`, with `options.xField` naming the category key and `options.yField` the value key. Instead of a family, a widget can hold a registered component node in `component`, as the `chart` widget above does — that node's keys are the component's own props (here [`ChartSchema`](#chartschema)'s), not widget keys. The caption under a `metric` widget's number is `options.description`; the widget's own `description` is the subtitle under its `title` in the card header, which an inline `metric` does not draw.
 
 **Related:** [GridSchema](#gridschema), [ChartSchema](#chartschema), [CardSchema](#cardschema)
 

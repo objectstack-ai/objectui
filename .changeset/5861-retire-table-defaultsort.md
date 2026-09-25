@@ -35,3 +35,9 @@ re-routed into `sort`. Migrate by renaming the key and wrapping the value:
 `sort: [{ field: 'name', order: 'asc' }]`. `sort` already outranked
 `defaultSort` wherever both were written, so documents that carry both keep
 their current ordering.
+
+This supersedes the `defaultSort` handling described by earlier changesets
+still pending in the same release (objectui#4869's non-grid lowering,
+objectui#6235's delegated-slot wrap, objectui#8973's normalized grid arm):
+those described how the legacy key was honoured; from this release it is not
+read at all.

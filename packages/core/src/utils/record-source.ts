@@ -100,8 +100,9 @@ export function resolveRecordSourceObjectName(
  *    a block the ruling does not decide, and it is reported rather than guessed.
  *
  * The arm is passed BY THE CALL SITE rather than looked up from `schema.type`
- * on purpose. Every one of these renderers is registered twice — `object-grid`
+ * on purpose. Most of these renderers are registered twice — `object-grid`
  * and the `view:grid` alias `grid`, `object-calendar` and `calendar`, and so on
+ * (the bare `gantt` and `map` keys are retired, objectui#8008 / objectui#10393)
  * — so a node reaches the same component under either spelling, and a table
  * keyed by `type` would answer for one tag and silently miss the other. A
  * REQUIRED parameter makes the arm a compile-time obligation at each of the
@@ -317,8 +318,8 @@ export function resolveRecordSourceConfig<Arm extends RecordSourceDataArm>(
  * ## Why a type-keyed table exists beside the REQUIRED parameter
  *
  * {@link RecordSourceDataArm}'s docblock states, correctly, why
- * {@link resolveRecordSourceConfig} takes the arm as a required PARAMETER: each
- * of these renderers is registered under two spellings, a node reaches the same
+ * {@link resolveRecordSourceConfig} takes the arm as a required PARAMETER: most
+ * of these renderers are registered under two spellings, a node reaches the same
  * component under either, and a table keyed by `type` would answer for one tag
  * and silently miss the other. That argument is about a call site that already
  * has one block in front of it — there a parameter is strictly better, and it
@@ -345,7 +346,7 @@ export function resolveRecordSourceConfig<Arm extends RecordSourceDataArm>(
  * ⚠️ ONE `register()` CALL PRODUCES SEVERAL KEYS, and a row must be written for
  * each of them — `SchemaRenderer` looks this table up with the raw
  * `schema.type`, which is whatever spelling the author wrote. A registration
- * with `namespace: 'view'` is reachable as `view:map` AND as bare `map`; one
+ * with `namespace: 'view'` is reachable as `view:calendar` AND as bare `calendar`; one
  * with `skipFallback` is reachable ONLY under its namespaced key. MEASURED via
  * `ComponentRegistry.getAllTypes()` with the five plugins loaded, grouped by
  * the renderer each key resolves to.
@@ -366,7 +367,9 @@ export function resolveRecordSourceConfig<Arm extends RecordSourceDataArm>(
  * it does not compute one.
  *
  *  - `ObjectGrid.tsx`'s `getDataConfig` — `'view-data'`.
- *  - `ObjectMap.tsx`'s `getDataConfig` — `'view-data'`.
+ *  - `ObjectMap.tsx`'s `getDataConfig` — `'view-data'`. One block spelling
+ *    only: the bare `map` key (and with it `view:map`) is retired
+ *    (objectui#10393).
  *  - `ObjectGantt.tsx`'s `rawDataConfig` — `'view-data'`. One block spelling
  *    only: the bare `gantt` key is retired (objectui#8008).
  *  - `ObjectCalendar.tsx`'s `dataConfig` — `'array'`.
@@ -383,8 +386,6 @@ const RECORD_SOURCE_DATA_ARM_BY_TYPE: Readonly<Record<string, RecordSourceDataAr
     'view:grid': 'view-data',
     'object-map': 'view-data',
     'plugin-map:object-map': 'view-data',
-    'view:map': 'view-data',
-    map: 'view-data',
     'object-gantt': 'view-data',
     'plugin-gantt:object-gantt': 'view-data',
     // — array arm: `z.array(...)`, pre-fetched records —

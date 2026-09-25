@@ -19,12 +19,21 @@ on the registrations disagreed with that rule in two ways:
   (objectui#10392).
 - `object-map`, `map` and `object-gantt` did not declare `data` or
   `staticData`, so the validator reported a block authored on either as an
-  unknown prop. Both are now declared, on the schema's own arms: `data` is a
-  `{ provider, … }` data-source configuration (an object, so a bare array there
-  now draws a type diagnostic, matching the schema), and `staticData` is an
-  array of records. Each description says what the renderer does with the key,
-  including that the map does not implement the `api` provider
-  (objectui#10394).
+  unknown prop. At this change both were declared on all three, on the schema's
+  own arms: `data` is a `{ provider, … }` data-source configuration (an object,
+  so a bare array there draws a type diagnostic, matching the schema), and
+  `staticData` is an array of records. Each description says what the renderer
+  does with the key, including that the map does not implement the `api`
+  provider (objectui#10394).
+
+  ⚠️ **Dated note, 2026-09-25 — the bare `map` registration has since been
+  retired — objectui#10393.** Later in this same release `@object-ui/plugin-map`
+  stopped registering the bare `map` key (and its namespaced twin `view:map`),
+  so `map` declares nothing: a node authored `"type": "map"` resolves no
+  renderer, and the html tier reports it as `unknown-component`. The
+  `object-map` and `object-gantt` registrations keep both inputs exactly as
+  described above. The rest of this entry is kept as the reading of this
+  change; the objectui#10393 entry states what ships.
 
 The renderers' read order and the zod schemas are unchanged. The
 `@object-ui/plugin-gantt` README sentence that listed the registration's inputs

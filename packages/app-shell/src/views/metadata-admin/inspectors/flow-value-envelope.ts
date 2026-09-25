@@ -41,6 +41,7 @@ import {
   AssignmentValueSchema,
   FLOW_NODE_EXPRESSION_PATHS,
   isExpressionEnvelopeShaped,
+  type AssignmentExpressionValue,
 } from '@objectstack/spec/automation';
 
 export { ASSIGNMENT_ARRAY_FORM_PRESCRIPTION } from '@objectstack/spec/automation';
@@ -48,8 +49,11 @@ export { ASSIGNMENT_ARRAY_FORM_PRESCRIPTION } from '@objectstack/spec/automation
 /** The dialect a value envelope is evaluated in, as the spec declares it. */
 const VALUE_DIALECT = AssignmentExpressionValueSchema.shape.dialect.value;
 
-/** A stored envelope the source editor can show and write back without loss. */
-export type ValueEnvelope = Record<string, unknown> & { dialect: typeof VALUE_DIALECT; source: string };
+/**
+ * A stored envelope the source editor can show and write back without loss:
+ * the spec's own `dialect` / `source` members, any other key carried as is.
+ */
+export type ValueEnvelope = Pick<AssignmentExpressionValue, 'dialect' | 'source'> & Record<string, unknown>;
 
 /**
  * Whether the config field at `path` on a node of `nodeType` is a `value`-role

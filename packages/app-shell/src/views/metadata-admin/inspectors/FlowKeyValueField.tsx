@@ -123,7 +123,7 @@ export function toRows(value: unknown, existingIds: string[], envelopeSlot = fal
 }
 
 /** The value one row stores: its envelope when it is an expression, else the smart-parsed text. */
-export function rowValue(row: Row): unknown {
+function rowValue(row: Row): unknown {
   return row.mode === 'expression' ? writeValueEnvelope(row.envelope, row.raw) : parseValue(row.raw);
 }
 
@@ -133,7 +133,7 @@ export function rowValue(row: Row): unknown {
  * the map is the only shape the spec reads a CEL value envelope in
  * (`ASSIGNMENT_ARRAY_FORM_PRESCRIPTION`). Kept values are written unchanged.
  */
-export function writesArrayShape(rows: Row[], arrayShape: boolean): boolean {
+function writesArrayShape(rows: Row[], arrayShape: boolean): boolean {
   return arrayShape && !rows.some((r) => r.mode === 'expression');
 }
 

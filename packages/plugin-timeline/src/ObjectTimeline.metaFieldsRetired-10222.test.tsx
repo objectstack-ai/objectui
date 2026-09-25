@@ -26,14 +26,16 @@
  * `./renderer` is deliberately NOT mocked: the chips are read off the real
  * `TimelineRenderer` output, the surface a user sees. Harness as in
  * `__tests__/timeline-shared-safe-field-label-5623.test.tsx`.
+ *
+ * The SOURCE pin for this package (no `metaFields` read left in any non-test
+ * file under `src/`) lives in that `plugin-list` file beside the projection
+ * pin, not here: it reads files off disk, and this package's
+ * `tsconfig.test.json` names no `node` types, so a `node:fs` import here would
+ * not type-check. It runs in the same `pnpm test`.
  */
 import React from 'react';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import ts from 'typescript';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { ObjectTimeline } from './ObjectTimeline';
 
 vi.mock('@object-ui/react', async (importOriginal) => {
@@ -115,75 +117,5 @@ describe('ObjectTimeline — the `metaFields` read is retired (objectui#10222)',
       'the key is undeclared on the spec timeline block; the chips must not change with it',
     ).toEqual(without);
     expect(withKey, 'the field named by the retired key must not become a chip').not.toContain('EMEA');
-  });
-});
-
-// ── SOURCE: no `metaFields` read left in this package ─────────────────────
-
-/** Rooted at THIS file, never at `process.cwd()`. */
-const SRC = dirname(fileURLToPath(import.meta.url));
-const RETIRED = 'metaFields';
-
-/** Every non-test `.ts` / `.tsx` file under `src/`. */
-function sourceFiles(dir: string): string[] {
-  const out: string[] = [];
-  for (const name of readdirSync(dir)) {
-    const full = join(dir, name);
-    if (statSync(full).isDirectory()) {
-      if (name === '__tests__') continue;
-      out.push(...sourceFiles(full));
-    } else if (/\.tsx?$/.test(name) && !/\.(test|spec)\.tsx?$/.test(name)) {
-      out.push(full);
-    }
-  }
-  return out;
-}
-
-/**
- * The 1-based lines where `name` is used as CODE: an identifier (`x.name`,
- * `x?.name`, `{ name }`, `name:`) or a string literal (`x['name']`,
- * `'name' in x`). Comments are trivia, not tokens, so prose naming the retired
- * key is not a read.
- */
-function codeUses(text: string, file: string, name: string): number[] {
-  const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const hits: number[] = [];
-  const walk = (node: ts.Node): void => {
-    if ((ts.isIdentifier(node) || ts.isStringLiteralLike(node)) && node.text === name) {
-      hits.push(sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1);
-    }
-    ts.forEachChild(node, walk);
-  };
-  walk(sf);
-  return hits;
-}
-
-describe('SOURCE: no `metaFields` read remains in plugin-timeline (objectui#10222)', () => {
-  const files = sourceFiles(SRC);
-  const rel = (f: string) => relative(SRC, f).replace(/\\/g, '/');
-
-  it('POPULATION: the scan covers ObjectTimeline.tsx, the file that held the read', () => {
-    expect(files.map(rel)).toContain('ObjectTimeline.tsx');
-  });
-
-  it('no non-test source names `metaFields` as code', () => {
-    // The location string is computed here for the failure message only.
-    const hits = files.flatMap((f) =>
-      codeUses(readFileSync(f, 'utf8'), rel(f), RETIRED).map((line) => `${rel(f)} line ${line}`));
-    expect(hits, 'a `metaFields` read came back; the key is undeclared (objectui#10222)').toEqual([]);
-  });
-
-  it('FIRING CONTROL: the same scanner finds `colorField`, read beside it in ObjectTimeline.tsx', () => {
-    const timeline = files.find((f) => rel(f) === 'ObjectTimeline.tsx')!;
-    expect(codeUses(readFileSync(timeline, 'utf8'), 'ObjectTimeline.tsx', 'colorField').length).toBeGreaterThan(0);
-  });
-
-  it('FIRING CONTROL: the scanner catches the shape the retired read took, and skips comments', () => {
-    const probe = [
-      '// metaFields in a comment is prose',
-      'const a = (timelineConfig as any)?.metaFields;',
-      "const b = timelineConfig['metaFields'];",
-    ].join('\n');
-    expect(codeUses(probe, 'probe.ts', RETIRED), 'the probe lines, 1-based').toEqual([2, 3]);
   });
 });

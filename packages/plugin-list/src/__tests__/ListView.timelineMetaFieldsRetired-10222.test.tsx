@@ -43,8 +43,11 @@
  * - The nested `options.timeline` spelling is the one the bypass actually
  *   delivers, so it is pinned too, with and without a `timeline` block beside
  *   it.
- * - SOURCE: no `metaFields` identifier or string key is left in this package's
- *   non-test source, with a firing control on the same scanner.
+ * - SOURCE: no `metaFields` identifier or string key is left in the non-test
+ *   source of this package OR `plugin-timeline`, with firing controls on the
+ *   same scanner. `plugin-timeline`'s scan lives here, not in that package,
+ *   because only this package's `tsconfig.test.json` names the `node` types a
+ *   disk read needs.
  *
  * `region` is deliberately NOT a column here. In
  * `ListView.speculativeFls-7216.test.tsx` it is, which is why that file's
@@ -187,13 +190,17 @@ describe('ListView — the timeline `metaFields` reads are retired (objectui#102
   });
 });
 
-// ── SOURCE: no `metaFields` read left in this package ─────────────────────
+// ── SOURCE: no `metaFields` read left in either package ───────────────────
+//
+// Both packages' scans live here because this package's `tsconfig.test.json`
+// names the `node` types a disk read needs and `plugin-timeline`'s does not.
 
 /** Rooted at THIS file, never at `process.cwd()`. */
-const SRC = join(dirname(fileURLToPath(import.meta.url)), '..');
+const HERE = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = join(HERE, '..', '..', '..', '..');
 const RETIRED = 'metaFields';
 
-/** Every non-test `.ts` / `.tsx` file under `src/`. */
+/** Every non-test `.ts` / `.tsx` file under `dir`. */
 function sourceFiles(dir: string): string[] {
   const out: string[] = [];
   for (const name of readdirSync(dir)) {
@@ -209,9 +216,10 @@ function sourceFiles(dir: string): string[] {
 }
 
 /**
- * Every place `name` is used as CODE: an identifier (`x.name`, `x?.name`,
- * `{ name }`, `name:`) or a string literal (`x['name']`, `'name' in x`).
- * Comments are trivia, not tokens, so prose naming the retired key is not a read.
+ * The 1-based lines where `name` is used as CODE: an identifier (`x.name`,
+ * `x?.name`, `{ name }`, `name:`) or a string literal (`x['name']`,
+ * `'name' in x`). Comments are trivia, not tokens, so prose naming the retired
+ * key is not a read.
  */
 function codeUses(text: string, file: string, name: string): number[] {
   const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -226,34 +234,44 @@ function codeUses(text: string, file: string, name: string): number[] {
   return hits;
 }
 
-describe('SOURCE: no `metaFields` read remains in plugin-list (objectui#10222)', () => {
-  const files = sourceFiles(SRC);
-  const rel = (f: string) => relative(SRC, f).replace(/\\/g, '/');
+/**
+ * Each package's non-test source, the file that held its read(s), and an
+ * identifier read beside the retired one in that file (the firing control).
+ */
+const PACKAGES = [
+  { pkg: 'plugin-list', holder: 'ListView.tsx', sibling: 'cardFields' },
+  { pkg: 'plugin-timeline', holder: 'ObjectTimeline.tsx', sibling: 'colorField' },
+] as const;
 
-  it('POPULATION: the scan covers ListView.tsx, the file that held the three reads', () => {
-    expect(files.map(rel)).toContain('ListView.tsx');
+describe.each(PACKAGES)('SOURCE: no `metaFields` read remains in $pkg (objectui#10222)', ({ pkg, holder, sibling }) => {
+  const src = join(REPO_ROOT, 'packages', pkg, 'src');
+  const files = sourceFiles(src);
+  const rel = (f: string) => relative(src, f).replace(/\\/g, '/');
+
+  it(`POPULATION: the scan covers ${holder}, the file that held the read`, () => {
+    expect(files.map(rel)).toContain(holder);
   });
 
   it('no non-test source names `metaFields` as code', () => {
     // The location string is computed here for the failure message only.
     const hits = files.flatMap((f) =>
-      codeUses(readFileSync(f, 'utf8'), rel(f), RETIRED).map((line) => `${rel(f)} line ${line}`));
+      codeUses(readFileSync(f, 'utf8'), rel(f), RETIRED).map((line) => `${pkg}/src/${rel(f)} line ${line}`));
     expect(hits, 'a `metaFields` read came back; the key is undeclared (objectui#10222)').toEqual([]);
   });
 
-  it('FIRING CONTROL: the same scanner finds `cardFields`, read beside it in ListView.tsx', () => {
-    const listView = files.find((f) => rel(f) === 'ListView.tsx')!;
-    expect(codeUses(readFileSync(listView, 'utf8'), 'ListView.tsx', 'cardFields').length).toBeGreaterThan(0);
+  it(`FIRING CONTROL: the same scanner finds \`${sibling}\`, read beside it in ${holder}`, () => {
+    const file = files.find((f) => rel(f) === holder)!;
+    expect(codeUses(readFileSync(file, 'utf8'), holder, sibling).length).toBeGreaterThan(0);
   });
+});
 
-  it('FIRING CONTROL: the scanner catches each shape the retired reads took, and skips comments', () => {
-    const probe = [
-      '// metaFields in a comment is prose',
-      'const a = (v as any).metaFields;',
-      'const b = tCfg?.metaFields;',
-      "const c = v['metaFields'];",
-      'const { metaFields } = v;',
-    ].join('\n');
-    expect(codeUses(probe, 'probe.ts', RETIRED), 'the probe lines, 1-based').toEqual([2, 3, 4, 5]);
-  });
+it('SOURCE FIRING CONTROL: the scanner catches each shape the retired reads took, and skips comments', () => {
+  const probe = [
+    '// metaFields in a comment is prose',
+    'const a = (timelineConfig as any)?.metaFields;',
+    'const b = tCfg?.metaFields;',
+    "const c = v['metaFields'];",
+    'const { metaFields } = v;',
+  ].join('\n');
+  expect(codeUses(probe, 'probe.ts', RETIRED), 'the probe lines, 1-based').toEqual([2, 3, 4, 5]);
 });

@@ -145,6 +145,41 @@ describe('readFileValue', () => {
     });
   });
 
+  /**
+   * objectui#10614: a last segment that is not a valid percent-encoding made
+   * `decodeURIComponent` throw `URIError: URI malformed`, and `readFileValue`
+   * threw with it, during render. `FileValueSchema.url` is a plain string, so
+   * both values below pass the contract. The name is now the raw segment.
+   */
+  describe('a last segment holding a bare `%` names the file by its raw segment (objectui#10614)', () => {
+    it('a URL string whose last segment holds a bare `%` does not throw', () => {
+      const url = 'https://cdn.example.com/100%.png';
+      expect(() => readFileValue(url)).not.toThrow();
+      expect(readFileValue(url)).toEqual({ url, name: '100%.png', raw: url });
+    });
+
+    it('a { url } object whose last segment holds an invalid escape does not throw', () => {
+      const value = { url: 'https://cdn.example.com/a%zz.pdf' };
+      expect(() => readFileValue(value)).not.toThrow();
+      const view = readFileValue(value);
+      expect(view.name).toBe('a%zz.pdf');
+      expect(view.url).toBe(value.url);
+    });
+
+    it('readFileValues reads both values in one field without throwing', () => {
+      expect(
+        readFileValues(['https://cdn.example.com/100%.png', { url: 'https://cdn.example.com/a%zz.pdf' }]).map(
+          (v) => v.name,
+        ),
+      ).toEqual(['100%.png', 'a%zz.pdf']);
+    });
+
+    it('THE CONTROL: a valid escape still decodes', () => {
+      expect(readFileValue('https://cdn.example.com/report%20q3.pdf').name).toBe('report q3.pdf');
+      expect(readFileValue({ url: 'https://cdn.example.com/report%20q3.pdf' }).name).toBe('report q3.pdf');
+    });
+  });
+
   it('resolves a bare reference to the stable download URL', () => {
     const view = readFileValue('file_a', 'File');
 

@@ -39,6 +39,7 @@ import {
   I18nLabelSchema as SpecI18nLabelSchema,
   DashboardWidgetSchema as SpecDashboardWidgetSchema,
   UserFilterFieldSchema as SpecUserFilterFieldSchema,
+  checkListViewCalendarVisualization,
 } from '@objectstack/spec/ui';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
 import { aliasKeyRefusal, handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
@@ -1553,7 +1554,33 @@ export const ListViewSchema = BaseSchema
     onDensityChange: handlerKeyRefusal('onDensityChange', 'runtime-slot', 'Row density change handler'),
     onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'Record navigation handler'),
     onPageSizeChange: handlerKeyRefusal('onPageSizeChange', 'runtime-slot', 'Page size change handler'),
-  });
+  })
+  // ⭐ THE SPEC'S OBJECT-LEVEL CHECKS, re-attached (objectui#7715, ruling B1).
+  //
+  // `specFieldsExcept` above rebuilds a fresh object from the spec's `.shape`,
+  // so it carries the spec's FIELDS and drops every check the spec attached to
+  // the OBJECT. The spec exports each such check as a named function
+  // (objectstack#16489) precisely so a mirror can attach the one the spec runs
+  // instead of restating it. The spec's `ListViewSchema` carries two; each is
+  // judged by whether this node carries the fields the check reads:
+  //
+  //   `checkListViewCalendarVisualization` — ATTACHED. It reads
+  //     `appearance.allowedVisualizations` (a spec field, by reference) and only
+  //     whether `calendar` is PRESENT; the local `CalendarConfig` override keeps
+  //     `calendar` omissible, so "absent" means the same thing on both faces and
+  //     the refusal is the spec's own, message included.
+  //   `checkListViewPageMount` — NOT ATTACHABLE. It reads `type`, and on this
+  //     node `type` is the component discriminator `'list-view'`; the spec's view
+  //     kind rides as `viewType`. Attached as-is it would refuse EVERY `pageName`,
+  //     a valid page mount included, and its remedy tells the author to write
+  //     `type: 'page'`, which this node's literal refuses. The spec kind it binds
+  //     is retired upstream (objectstack#17063 — see `UNDRAWABLE_VIEW_KINDS` in
+  //     `@object-ui/core`), so no adapter is written for it here.
+  //
+  // `__tests__/spec-object-refinements-7715.test.ts` re-derives that split from
+  // the spec object's own check count, so a check the spec adds to this object
+  // later reddens there instead of being dropped here in silence.
+  .superRefine(checkListViewCalendarVisualization);
 
 /**
  * TS type for the ListView component node (spec-derived; issue #2231).

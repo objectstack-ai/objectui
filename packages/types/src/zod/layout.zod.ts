@@ -22,6 +22,7 @@ import {
   PageSchema as SpecPageSchema,
   PageTypeSchema as SpecPageTypeSchema,
   PageVariableSchema as SpecPageVariableSchema,
+  checkPageSourceCompleteness,
 } from '@objectstack/spec/ui';
 import { BaseSchema, SchemaNodeSchema, specFieldsExcept } from './base.zod.js';
 import { stripImportedDefaults } from './imported-defaults.js';
@@ -842,7 +843,17 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
     .describe('Main content — one node or a list of nodes'),
   isDefault: z.boolean().optional().describe('Whether this is the default page'),
   assignedProfiles: z.array(z.string()).optional().describe('Profiles that can access this page'),
-});
+})
+  // ⭐ THE SPEC'S OBJECT-LEVEL CHECK, re-attached (objectui#7715, ruling B1).
+  // {@link SpecPageFields} rebuilds a fresh object from the spec's `.shape`, so
+  // it drops the one check the spec's `PageSchema` carries on the OBJECT: an
+  // `html` / `react` / `jsx` page with no non-empty `source` renders nothing and
+  // is refused at `source`. The spec exports that check (objectstack#16489) and
+  // it is attached here as-is: it reads `kind` and `source`, and this node
+  // carries both by reference — neither is in {@link PAGE_SPEC_EXCLUDED} nor
+  // overridden above. `__tests__/spec-object-refinements-7715.test.ts` re-derives
+  // the count, so a check the spec adds to `PageSchema` later reddens there.
+  .superRefine(checkPageSourceCompleteness);
 
 /**
  * Semantic Element Schema — the seven HTML sectioning tags

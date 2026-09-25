@@ -1117,6 +1117,43 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     [schema.objectName, resolveActionLabel],
   );
 
+  // Declared ahead of `toolbarFlags`, which reads it: which view is ON SCREEN
+  // decides whether a filter control has anything to reach (objectui#10327).
+  const [currentView, setCurrentView] = React.useState<ViewType>(
+    (schema.viewType as ViewType)
+  );
+
+  /**
+   * Is the view on screen a `chart` bound to a semantic `dataset`?
+   * (objectui#10327, ruling 5825582592, letter A.)
+   *
+   * Such a chart takes its scope FROM THE DATASET. Its node (`case 'chart'`,
+   * the `'dataset'` shape) carries no `filter`: `ObjectChart` hands
+   * `queryDataset` the dimensions and measures and nothing else, and a dataset's
+   * field namespace need not be the list object's, so the list's filter has no
+   * door into that query. The ruling refused the mapping that would build one
+   * (option B). Both filter controls this toolbar offers therefore reach
+   * nothing drawn on this view:
+   *
+   *   - the Filter builder (`showFilters` below);
+   *   - the `UserFilters` chips (`showUserFilters` below). They feed the SAME
+   *     effective filter (`buildEffectiveFilter`), whose only reader here is
+   *     this component's own fetch of the list object's rows — the record-count
+   *     bar, never the chart.
+   *
+   * So neither is offered on this view. The authored half — a view `filter` on
+   * a dataset chart — is refused at authoring by `@object-ui/types`'
+   * `ListViewSchema`.
+   *
+   * Asked of `resolveListChartBinding`, the SAME resolver `case 'chart'` routes
+   * on, so the toolbar and the render branch cannot disagree about the shape.
+   * A primitive, so the memo below keys on the answer, not on an identity
+   * (AGENTS.md #10). ⛔ The object-bound (`'legacy'`) chart keeps both
+   * controls: its node carries the effective filter (objectui#10250).
+   */
+  const datasetChartOnScreen =
+    currentView === 'chart' && resolveListChartBinding(schema).shape === 'dataset';
+
   // Resolve toolbar visibility flags: userActions overrides showX flags
   const toolbarFlags = React.useMemo(() => {
     // Every toolbar toggle reads from `userActions` (#2890). The legacy bare
@@ -1146,7 +1183,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     return {
       showSearch: ua?.search !== false,
       showSort: ua?.sort !== false,
-      showFilters: ua?.filter !== false,
+      // Not offered on a dataset-bound chart: see `datasetChartOnScreen`.
+      showFilters: ua?.filter !== false && !datasetChartOnScreen,
+      showUserFilters: !datasetChartOnScreen,
       showRefresh: ua?.refresh !== false,
       showDensity: ua?.rowHeight !== false,
       showGroup: ua?.group !== false,
@@ -1160,11 +1199,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       showAddRecordTop: addRecordEnabled && addRecordPlacement.top,
       showAddRecordBottom: addRecordEnabled && addRecordPlacement.bottom,
     };
-  }, [schema.userActions, schema.compactToolbar, schema.addRecord]);
+  }, [schema.userActions, schema.compactToolbar, schema.addRecord, datasetChartOnScreen]);
 
-  const [currentView, setCurrentView] = React.useState<ViewType>(
-    (schema.viewType as ViewType)
-  );
   const [searchTerm, setSearchTerm] = React.useState(() => initialSearchTerm ?? '');
   const [showSearchPopover, setShowSearchPopover] = React.useState(false);
   
@@ -3487,6 +3523,15 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // ADR-0021 (#1890): the single author-facing shape binds to a semantic
         // `dataset` and selects dimensions/measures BY NAME, so the chart runs
         // through the governed queryDataset path (numbers consistent everywhere).
+        //
+        // ⛔ NO `filter` on this node, deliberately (objectui#10327, ruling
+        // 5825582592, letter A): a dataset chart takes its scope from the
+        // dataset. The list's filter addresses the LIST OBJECT's fields and a
+        // dataset's namespace need not be that object's, so forwarding it here
+        // would be the list-object → dataset mapping the ruling refused
+        // (option B). The toolbar withholds its filter controls on this view
+        // (`datasetChartOnScreen`), and `ListViewSchema` refuses an authored
+        // view filter on it.
         if (chartBinding.shape === 'dataset') {
           const dims: string[] = chartBinding.dimensions;
           const vals: string[] = chartBinding.values;
@@ -4107,8 +4152,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               toggles). Mutually exclusive with view tabs above, so at most
               one filter element group ever renders here. On mobile we keep
               them visible (single line, scrollable) to match the Airtable
-              Interface pattern. */}
-          {filterElements && (
+              Interface pattern. Withheld on a dataset-bound chart, which they
+              cannot reach (`datasetChartOnScreen`, objectui#10327). */}
+          {filterElements && toolbarFlags.showUserFilters && (
               <div className="shrink-0 min-w-0 overflow-x-auto" data-testid="user-filters">
                 <UserFilters
                   config={filterElements}

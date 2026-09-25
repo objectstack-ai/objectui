@@ -19,7 +19,7 @@
  */
 
 import React from 'react';
-import { ComponentRegistry, ExpressionEvaluator, declaredNameField, evalRowPredicate, getRecordDisplayName, recordDisplayValueAt, resolveNameField, toPredicateRecord } from '@object-ui/core';
+import { ComponentRegistry, ExpressionEvaluator, declaredNameField, evalRowPredicate, formatTitleTemplate, getRecordDisplayName, recordDisplayValueAt, resolveNameField, toPredicateRecord } from '@object-ui/core';
 import type { ComponentInput } from '@object-ui/core';
 import { actionRendersAt, resolveDeclaredActionIds } from '@object-ui/types';
 import type { DeclaredActionsRefusal } from '@object-ui/types';
@@ -321,6 +321,76 @@ const translateLabel = (
   return text;
 };
 
+/** `useSafeFieldLabel().fieldOptionLabel`'s shape. */
+type FieldOptionLabel = (objectName: string, fieldName: string, value: string, fallback: string) => string;
+
+/**
+ * The option label a user reads for one select-field VALUE, or `undefined`
+ * when `fieldName` is not an options-bearing field of `objectSchema` (or a
+ * piece needed to translate it is absent).
+ *
+ * The ONE place this file maps an enum value to its label. Two readers call
+ * it: the `{token}` interpolation below (`page:header`'s `title` /
+ * `subtitle`), and the record copy the `titleFormat` rung hands to core's
+ * `formatTitleTemplate` ({@link withOptionLabels}, objectui#10447).
+ */
+const optionLabelFor = (
+  objectSchema: any,
+  fieldOptionLabel: FieldOptionLabel | undefined,
+  objectName: string | undefined,
+  fieldName: string,
+  raw: string,
+): string | undefined => {
+  if (!objectSchema?.fields || !fieldOptionLabel || !objectName) return undefined;
+  const fieldDef: any = Array.isArray(objectSchema.fields)
+    ? objectSchema.fields.find((f: any) => f?.name === fieldName)
+    : objectSchema.fields[fieldName];
+  const options: any[] | undefined = fieldDef?.options;
+  if (!Array.isArray(options)) return undefined;
+  const match = options.find((opt: any) => String(opt?.value ?? opt) === raw);
+  const fallback = match?.label ? String(match.label) : raw;
+  return fieldOptionLabel(objectName, fieldName, raw, fallback);
+};
+
+/**
+ * A copy of `data` in which each select-field value reads as its option label
+ * ({@link optionLabelFor}); `data` itself when no value maps.
+ *
+ * Why a copy and not a hook on the formatter (objectui#10447): the record
+ * page H1's `titleFormat` rung renders through core's `formatTitleTemplate`,
+ * the one interpolator every other title surface uses. That function takes a
+ * template and a record, and nothing else. The H1 has always shown a select
+ * token as its translated label ("In Progress", not `in_progress`), so the
+ * translation happens on the record before the formatter sees it, and the
+ * formatter's signature does not move.
+ *
+ * Only a top-level scalar is mapped: `null`, `undefined`, an expanded
+ * reference and an array stay as they are, so core judges them exactly as it
+ * judges the raw record. A mapped value is never empty (the label falls back
+ * to the raw value), so the placeholders that resolve on the copy are the ones
+ * that resolve on the raw record. That is what keeps `record:details`' dedupe,
+ * which renders the same template over the raw record, deciding about the same
+ * fields the H1 shows.
+ */
+const withOptionLabels = (
+  data: any,
+  objectSchema: any,
+  fieldOptionLabel: FieldOptionLabel | undefined,
+  objectName: string | undefined,
+): any => {
+  if (!data || typeof data !== 'object') return data;
+  let copy: Record<string, any> | undefined;
+  for (const key of Object.keys(data)) {
+    const v = data[key];
+    if (v === null || v === undefined || typeof v === 'object') continue;
+    const label = optionLabelFor(objectSchema, fieldOptionLabel, objectName, key, String(v));
+    if (label === undefined) continue;
+    copy ??= { ...data };
+    copy[key] = label;
+  }
+  return copy ?? data;
+};
+
 /**
  * Replace `{field.path}` tokens in a template against the given data object.
  * Missing fields collapse to an empty string. The result is trimmed and
@@ -330,12 +400,17 @@ const translateLabel = (
  * resolves to a select-field value gets routed through the i18n option
  * label dictionary — so `subtitle: "{industry} · {type}"` renders as
  * "科技 · 客户" rather than the raw enum values "technology · customer".
+ *
+ * Callers: `page:header`'s own `title` and `subtitle`. The record-title
+ * `titleFormat` rung does NOT come through here: it renders through core's
+ * `formatTitleTemplate` (objectui#10447), because that template is the one
+ * `getRecordDisplayName` and `record:details`' dedupe render too.
  */
 const interpolate = (
   template: string,
   data: any,
   objectSchema?: any,
-  fieldOptionLabel?: (objectName: string, fieldName: string, value: string, fallback: string) => string,
+  fieldOptionLabel?: FieldOptionLabel,
   objectName?: string,
 ): string => {
   if (!template || typeof template !== 'string') return template || '';
@@ -363,16 +438,9 @@ const interpolate = (
         // Only the first path segment is treated as a field name (deeper
         // paths reach into related records and have their own translation
         // surfaces).
-        if (objectSchema?.fields && fieldOptionLabel && objectName && !path.includes('.')) {
-          const fieldDef: any = Array.isArray(objectSchema.fields)
-            ? objectSchema.fields.find((f: any) => f?.name === path)
-            : objectSchema.fields[path];
-          const options: any[] | undefined = fieldDef?.options;
-          if (Array.isArray(options)) {
-            const match = options.find((opt: any) => String(opt?.value ?? opt) === raw);
-            const fallback = match?.label ? String(match.label) : raw;
-            return fieldOptionLabel(objectName, path, raw, fallback);
-          }
+        if (!path.includes('.')) {
+          const label = optionLabelFor(objectSchema, fieldOptionLabel, objectName, path, raw);
+          if (label !== undefined) return label;
         }
         return raw;
       })
@@ -1183,37 +1251,6 @@ ComponentRegistry.register('section', PageSectionRenderer, {
 // `actions` entries are ACTION IDS, resolved against the object's own metadata
 // (objectstack#11592 ruling, objectui#6252) — see `resolvedHeaderActions`.
 // ---------------------------------------------------------------------------
-
-/**
- * Strip dangling connectors that survive when a `titleFormat` interpolates
- * with one side empty — e.g. `{number} - {name}` becomes `CTR-0001 -` when
- * `name` is blank. Removes a trailing/leading hyphen / middle-dot / colon /
- * slash / pipe (optionally surrounded by whitespace) and collapses
- * adjacent whitespace into a single space. Idempotent.
- *
- * Exported for unit tests.
- */
-export function cleanupTitleSeparators(s: string): string {
-  if (!s) return s;
-  let out = s;
-  // Repeatedly trim trailing connectors. Loop so chains like " - · " all peel.
-  for (let i = 0; i < 4; i += 1) {
-    const next = out.replace(/[\s\u00A0]*[-·:|/–—][\s\u00A0]*$/u, '').trimEnd();
-    if (next === out) break;
-    out = next;
-  }
-  for (let i = 0; i < 4; i += 1) {
-    const next = out.replace(/^[\s\u00A0]*[-·:|/–—][\s\u00A0]*/u, '').trimStart();
-    if (next === out) break;
-    out = next;
-  }
-  // Collapse double-separators in the middle (rare, but happens when the
-  // middle field of a 3-part format is empty: "A -  - B" -> "A - B").
-  out = out.replace(/([-·:|/–—])[\s\u00A0]*\1/gu, '$1');
-  // Collapse runs of whitespace.
-  out = out.replace(/[\s\u00A0]+/g, ' ').trim();
-  return out;
-}
 
 /**
  * One-time diagnostics for header-action `visible` / `hidden` predicates
@@ -2100,19 +2137,28 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     // Honor objectSchema.titleFormat (e.g. `{first_name} {last_name}`) as the
     // rung BELOW the declared pointer. `DetailView.resolveDisplayTitle` ranks
     // the two the same way, so default and synthesized record pages produce
-    // the same title. The template keeps THIS renderer's interpolation (i18n
-    // option labels, separator cleanup) rather than core's
-    // `formatTitleTemplate`: only its rank moved in objectui#9436.
-    const rawTitleFormat: any = objSchema?.titleFormat;
-    const titleFormatStr: string | undefined =
-      typeof rawTitleFormat === 'string'
-        ? rawTitleFormat
-        : (rawTitleFormat && typeof rawTitleFormat === 'object' && typeof rawTitleFormat.source === 'string')
-          ? rawTitleFormat.source
-          : undefined;
-    const interpolatedTitleFormat = titleFormatStr
-      ? cleanupTitleSeparators(interpolate(titleFormatStr, data, objSchema, fieldOptionLabel, rawObjectName).trim())
-      : '';
+    // the same title.
+    //
+    // ⭐ ONE interpolator (objectui#10447). The template renders through
+    // core's `formatTitleTemplate`, the function `getRecordDisplayName`'s
+    // template rung and `record:details`' H1 dedupe call. This rung used to
+    // run this file's own `interpolate` plus a separator cleanup, with
+    // different token rules: an expanded lookup token rendered as nothing
+    // here and as its display name in core, so `{account} - {deal_no}` read
+    // `Q3-042` in the H1 while the dedupe compared `Acme - Q3-042`, and the
+    // row equal to the H1 stayed printed under it. objectui#9436 moved only
+    // this rung's rank; the rungs' order below is unchanged.
+    //
+    // The template and the Expression envelope go to core as declared (core
+    // reads both), and whatever core returns is the rung's answer: its empty
+    // string is its "nothing resolved", and there is no second test for an
+    // unresolved token. The one thing the H1 adds is the translated option
+    // label for a select value, applied to a copy of the record
+    // (`withOptionLabels`) so the formatter's signature does not move.
+    const interpolatedTitleFormat = formatTitleTemplate(
+      objSchema?.titleFormat,
+      withOptionLabels(data, objSchema, fieldOptionLabel, rawObjectName),
+    );
     // Unified resolver (ADR-0079): honours the object's declared
     // `nameField`/`displayNameField` and falls back to type-aware field
     // derivation. `deriveFromRecordKeys: false` keeps bare record-key
@@ -2182,7 +2228,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     const titleCandidate =
       explicitTitle ||
       declaredTitle ||
-      (interpolatedTitleFormat && !interpolatedTitleFormat.includes('{') ? interpolatedTitleFormat : '') ||
+      interpolatedTitleFormat ||
       unifiedTitle ||
       recordKeyTitle;
     // Defensive backstop — deliberately last, and deliberately NOT the fix: on

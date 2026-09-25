@@ -40,6 +40,7 @@ import { SchemaRenderer, useSafeFieldLabel, usePreviewMode } from '@object-ui/re
 import { createSafeTranslation } from '@object-ui/i18n';
 import { buildSectionFields as buildSectionFieldsShared } from './sectionFields';
 import { buildFlatFields } from './flatFields';
+import { isRecordReadOutstanding } from './recordReadGate';
 import {
   applyAutoColSpan,
   applyAutoLayout,
@@ -62,6 +63,13 @@ import { seedCreateValues, omitServerResolvedDefaults } from './schemaDefaults';
 import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
 import { useOccSave } from './occSave';
+import {
+  NO_LOAD_FAILURES,
+  beginLoadRun,
+  shownLoadFailure,
+  type LoadFailures,
+  type LoadRunSeq,
+} from './loadFailure';
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
 
@@ -266,7 +274,13 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  // objectui#10682 — the load error, kept per read (the object schema and the
+  // record), each written only by the current run of its read and cleared when
+  // a later run of that read commits: see `loadFailure.ts`. `error` is what
+  // the error screen reports.
+  const [loadFailures, setLoadFailures] = useState<LoadFailures>(NO_LOAD_FAILURES);
+  const loadRunSeqRef = useRef<LoadRunSeq>({ schema: 0, record: 0 });
+  const error = shownLoadFailure(loadFailures);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Unsaved-changes guard. `isDirty` is fed up from the inner form renderer via
   // onDirtyChange; `discardOpen` controls the confirm dialog shown when the user
@@ -342,6 +356,9 @@ export const ModalForm: React.FC<ModalFormProps> = ({
 
   // Fetch object schema
   useEffect(() => {
+    // objectui#10682 — this run's writes to the schema read's failure; a newer
+    // run of this effect makes them no-ops.
+    const run = beginLoadRun(loadRunSeqRef, setLoadFailures, 'schema');
     const fetchSchema = async () => {
       if (!dataSource) {
         setLoading(false);
@@ -350,8 +367,9 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       try {
         const data = await dataSource.getObjectSchema(schema.objectName);
         setObjectSchema(data);
+        run.commit();
       } catch (err) {
-        setError(err as Error);
+        run.fail(err);
         setLoading(false);
       }
     };
@@ -382,6 +400,9 @@ export const ModalForm: React.FC<ModalFormProps> = ({
     //  - ignore a response that is no longer the one being awaited, so two
     //    overlapping reads land in REQUEST order, not completion order.
     let cancelled = false;
+    // objectui#10682 — this run's writes to the record read's failure; a newer
+    // run of this effect makes them no-ops.
+    const run = beginLoadRun(loadRunSeqRef, setLoadFailures, 'record');
     const fetchData = async () => {
       if (schema.mode === 'create' || !schema.recordId) {
         // Seeded from something other than a read: no baseline to diff against.
@@ -392,6 +413,8 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         // runtime defaults (`NOW()`, `current_user`, CEL envelopes) are left
         // to the server and why option-level `default` is not read here.
         setFormData(seedCreateValues(objectSchema, resolveInitialRecord(schema), { currentUserId: perms.userId }));
+        // Not a read, so no earlier record read's failure describes the form.
+        run.commit();
         setLoading(false);
         return;
       }
@@ -399,6 +422,8 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       if (!dataSource) {
         loadedRecordRef.current = null;
         setFormData(resolveInitialRecord(schema));
+        // Not a read either.
+        run.commit();
         setLoading(false);
         return;
       }
@@ -419,9 +444,13 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         loadedRecordIdRef.current = schema.recordId;
         loadedRecordRef.current = snapshotLoadedRecord(schema, data);
         setFormData(data || {});
+        // The record on screen is the one this run read, so an earlier record
+        // read's failure no longer describes it. A schema failure stays: this
+        // read says nothing about the object's fields.
+        run.commit();
       } catch (err) {
         if (cancelled) return;
-        setError(err as Error);
+        run.fail(err);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -458,8 +487,23 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   useEffect(() => {
     if (!objectSchema && dataSource) return;
 
+    // Ending the loading state here is only this effect's call when no record
+    // read is outstanding (objectui#10659, the gate objectui#10190 gave the
+    // drawer). Ended unconditionally, it painted an editable form while the
+    // first read was in flight, and the landing record discarded what had been
+    // typed — see `isRecordReadOutstanding`.
+    const recordReadOutstanding = isRecordReadOutstanding({
+      mode: schema.mode,
+      recordId: schema.recordId,
+      dataSource,
+      loadedRecordId: loadedRecordIdRef.current,
+    });
+    const endLoading = () => {
+      if (!recordReadOutstanding) setLoading(false);
+    };
+
     if (schema.sections?.length) {
-      setLoading(false);
+      endLoading();
       return;
     }
 
@@ -483,7 +527,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         customFields: schema.customFields,
       }),
     );
-    setLoading(false);
+    endLoading();
   }, [objectSchema, schema.fields, schema.customFields, schema.sections, schema.readOnly, schema.mode, dataSource]);
 
   // Handle form submission

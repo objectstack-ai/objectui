@@ -7,13 +7,14 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
-import { useDataScope, SchemaRendererContext, useNavigationOverlay, useSafeFieldLabel, useSettledSchema, useDataInvalidation } from '@object-ui/react';
+import { useDataScope, SchemaRendererContext, useNavigationOverlay, useSafeFieldLabel, useSettledSchema, useDataInvalidation, useFilterScope } from '@object-ui/react';
 import { ComponentRegistry, buildExpandFields, getRecordDisplayName, isEmptyValue } from '@object-ui/core';
 import { cn, Card, CardContent, NavigationOverlay } from '@object-ui/components';
 import { usePermissions } from '@object-ui/permissions';
 import type { DataSource, GalleryConfig, ObjectGallerySchema, QueryParams } from '@object-ui/types';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import { getCellRenderer, resolveCellRendererType, readFileValues } from '@object-ui/fields';
+import { useResolvedAuthoredFilter } from './useResolvedAuthoredFilter';
 
 export interface ObjectGalleryProps {
     /**
@@ -412,6 +413,19 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
     const fetchesForItself = !!schema.objectName && !boundData && !schema.data && !props.data;
     const invalidationNonce = useDataInvalidation(fetchesForItself ? schema.objectName : undefined);
 
+    // objectui#10666 — the node's own `filter`, with every placeholder
+    // (`{current_user_id}`, `{current_org_id}`, the date macros) resolved ONCE
+    // through `@object-ui/core`'s shared `resolveFilterPlaceholders`, against
+    // the session scope the host provides, and HELD by structure (see
+    // `useResolvedAuthoredFilter`, the hold `ListView` has used since
+    // objectui#10607). A directly authored gallery sent the literal token
+    // before; a gallery rendered as a `list-view` child was already handed a
+    // resolved filter, and resolving it again changes nothing. The query and
+    // the fetch effect's dependency list below read THIS, never the raw
+    // `schema.filter`, so the effect does not re-run on every render.
+    const filterScope = useFilterScope();
+    const authoredFilter = useResolvedAuthoredFilter(schema.filter, filterScope);
+
     useEffect(() => {
         let isMounted = true;
 
@@ -478,9 +492,11 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
                     // verbatim as `$filter`". Typing the adapter above makes
                     // `find`'s parameter real, so the verbatim forward has to
                     // name the parameter's own type instead of riding on
-                    // `unknown`. Asserted, not coerced: the value is passed
-                    // through byte-for-byte, exactly as before.
-                    $filter: schema.filter as QueryParams['$filter'],
+                    // `unknown`. Asserted, not coerced. The value is the
+                    // node's filter with its placeholders resolved
+                    // (objectui#10666); a filter that carries none reaches
+                    // the query structurally unchanged.
+                    $filter: authoredFilter as QueryParams['$filter'],
                     ...(expand.length > 0 ? { $expand: expand } : {}),
                 });
 
@@ -549,7 +565,7 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
             fetchData();
         }
         return () => { isMounted = false; };
-    }, [schema.objectName, dataSource, boundData, schema.data, schema.filter, props.data, objectDefReady, objectDef, perms, fetchesForItself, invalidationNonce]);
+    }, [schema.objectName, dataSource, boundData, schema.data, authoredFilter, props.data, objectDefReady, objectDef, perms, fetchesForItself, invalidationNonce]);
 
     const items: Record<string, unknown>[] = props.data || boundData || schema.data || fetchedData || [];
 

@@ -589,8 +589,13 @@ be faithfully modelled is surfaced loudly instead of faked.
   `script` can be exercised too.
 - **Semantics** — `start`/`assignment` pass through; a `decision` routes
   **edge-first** (first truthy outgoing `condition`, else the `isDefault` edge,
-  else a surfaced dead-end), evaluating CEL via `@object-ui/core`'s
-  `ExpressionEvaluator` and **surfacing eval errors** (not swallowing them);
+  else a surfaced dead-end), evaluating each guard as CEL on the runtime's
+  engine and variable scope (`@objectstack/formula`'s `ExpressionEngine`:
+  bare names, `vars.*`, `record.*`); a guard the runtime refuses or cannot
+  evaluate **stops the run** on that decision with the error, a CEL fault fails
+  the run at runtime, and a refused guard is refused at registration
+  (objectui#10615); an assignment interpolates `{var}` tokens
+  inside nested objects and arrays too, as the runtime's `interpolate` does;
   side-effect nodes write their mock to `outputVariable` (the legacy script
   `outputVariables[]` list is ignored — the engine never binds those names,
   framework#4278);

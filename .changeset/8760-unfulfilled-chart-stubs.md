@@ -45,12 +45,24 @@ implementation to match it.
 
 **Breaking, for anyone who authored a retired key.** A document with
 `{ "type": "line-chart" }` used to resolve in the registry and then draw nothing; it is
-now refused by name — `objectui check` reports `Unknown schema type "line-chart"`, and
-`SchemaRenderer` paints the `OBJUI-001` panel instead of an endless skeleton. That is a
+now refused by name — `SchemaRenderer` paints the `OBJUI-001` panel instead of an endless
+skeleton. `objectui validate` refuses the document at `type` (`invalid_union`). That is a
 louder failure for the same broken document, not a new one: no document that previously
 DREW is affected. Migrate to `{ "type": "chart", "chartType": "line" | "area" }`, which
 `CHART_TYPE_KEYWORD_FAMILIES` resolves. Scored `minor`, not `major`, per
 AGENTS.md §版本号策略.
+
+⚠️ **Dated note, 2026-09-25 — `objectui check` warns only in a file it recognises —
+objectui#10606.** This entry first said `objectui check` reports `Unknown schema type
+"line-chart"` for that document. `check` checks the `type` of each file it recognises, and a
+file whose root carries an ObjectUI structural key (`children`, `className`, `body`, …) is
+recognised by that key alone. A file with none of those keys is parsed against the schema
+and recognised only if it validates; one that does not validate is listed by name when its
+root `type` is on the known-type list `check` reads, and is otherwise counted as skipped.
+`line-chart` is no longer on that list, so `{ "type": "line-chart" }` is counted as skipped
+("no ObjectUI recogniser admitted") and gets no unknown-type line, while
+`{ "type": "line-chart", "className": "h-64" }` gets one. `check` exits non-zero on
+unreadable JSON only; the verdict is `objectui validate`'s.
 
 **What moved.** The stub lists in `apps/console/src/register-plugins.ts` and
 `apps/console/src/preview-gallery.tsx` (both loops, because the doc gate's key universe is

@@ -35,6 +35,7 @@ import {
   declaredUserMessage,
   useSettledSchema,
   NonGridRowCeilingNote,
+  useDataInvalidation,
 } from '@object-ui/react';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -576,6 +577,18 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     }
   }, [externalLoading, hasExternalData]);
 
+  // objectui#10572 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+  // write to the object this calendar QUERIES is declared, and the fetch
+  // effect below names it, so the events are re-read. The `onMutation`
+  // subscription above cannot see a write that bypasses the data source (a
+  // page action over raw HTTP); the bus can. Subscribed only on the `object`
+  // provider without external data — inline and external events are not this
+  // effect's query.
+  const invalidationNonce = useDataInvalidation(
+    !hasExternalData && dataProvider === 'object' ? schemaObjectName || undefined : undefined,
+  );
+
   // Fetch data based on provider
   useEffect(() => {
     // Skip internal fetch when data is managed by a parent component
@@ -758,7 +771,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     fetchData();
     return () => { isMounted = false; };
   }, [hasExternalData, dataProvider, schemaObjectName, dataItems, dataSource, hasInlineData,
-      schema.filter, schema.sort, refreshKey, objectSchemaReady, objectSchema, perms]);
+      schema.filter, schema.sort, refreshKey, objectSchemaReady, objectSchema, perms, invalidationNonce]);
 
   // Transform data to calendar events, and separate out the records that have
   // no date to be placed on at all (objectui#7071 — see the early return in the

@@ -26,7 +26,7 @@ export interface FormWriteTarget {
 /** Where the outbound sequence gets its answers from. */
 export interface FormWriteSources {
   /** The object definition the form loaded, or `null` when it has none. */
-  objectSchema: { fields?: Record<string, any> } | null | undefined;
+  objectSchema: { fields?: Record<string, Record<string, unknown> | undefined> } | null | undefined;
   /** The caller's field-level write verdict — {@link FieldWriteGate}. */
   canEdit: FieldWriteGate | undefined;
   /** The record this form read for the record it edits (objectui#10156). */
@@ -38,14 +38,14 @@ export interface FormWritePayloads {
    * Every value the form may write, as the form now holds it: stripped of what
    * a form never writes and, on a create, of the fields the producer owns.
    */
-  payload: Record<string, any>;
+  payload: Record<string, unknown>;
   /**
    * What the save sends — on BOTH routes, the host `submitHandler` and the
    * form's own create / OCC-guarded update. On an edit, the fields of
    * {@link FormWritePayloads.payload} that differ from the record the form
    * read; otherwise `payload` itself.
    */
-  writePayload: Record<string, any>;
+  writePayload: Record<string, unknown>;
 }
 
 /**
@@ -80,13 +80,13 @@ export interface FormWritePayloads {
  * field-level verdict still apply, because neither needs a definition.
  */
 export function formWritePayload(
-  values: Record<string, any>,
+  values: Record<string, unknown>,
   form: FormWriteTarget,
   { objectSchema, canEdit, snapshot }: FormWriteSources,
 ): FormWritePayloads {
   const hasInlineMembers = Array.isArray(form.customFields) && form.customFields.length > 0;
   const definition = hasInlineMembers ? null : objectSchema;
-  let payload = sanitizeFormData(values, definition, { canEdit });
+  let payload: Record<string, unknown> = sanitizeFormData(values, definition, { canEdit });
   // A CREATE payload omits the fields the producer owns (#4069): a rendered
   // control registers even when nothing seeded it, so an untouched
   // runtime-default field would ride along as `undefined`/`''` and defeat

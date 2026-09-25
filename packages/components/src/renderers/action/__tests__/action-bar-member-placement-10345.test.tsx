@@ -361,13 +361,21 @@ describe('a relocated member is gated exactly as an inline one (objectui#10345)'
     expect(screen.getByRole('menuitem', { name: 'Member' })).toHaveAttribute('data-disabled');
   });
 
-  it.each(['action:menu', 'action:group'])(
-    'component %s: a member whose requiredPermissions the caller lacks is not drawn',
-    async (component) => {
-      renderBar(
-        { actions: [CONTROL, { ...MEMBER, component, requiredPermissions: ['manage_users'] }] },
-        { user: { id: 'u1', systemPermissions: [] } },
-      );
+  it.each<[string, Placement]>([
+    ['action:menu', 'menu'],
+    ['action:group', 'group'],
+  ])(
+    'component %s: a member whose requiredPermissions the caller lacks is not drawn; held, it is drawn at %s',
+    async (component, placement) => {
+      const gated = { ...MEMBER, component, requiredPermissions: ['manage_users'] };
+
+      // The held leg first. Without it "absent" below is also what the
+      // unplaced member read before the fix, and the row could not fail.
+      const held = renderBar({ actions: [CONTROL, gated] }, { user: { id: 'u1', systemPermissions: ['manage_users'] } });
+      expect(await placementOf('Member')).toBe(placement);
+      held.unmount();
+
+      renderBar({ actions: [CONTROL, gated] }, { user: { id: 'u1', systemPermissions: [] } });
       expect(screen.getByRole('button', { name: 'Control' })).toBeTruthy();
       expect(await placementOf('Member')).toBe('absent');
     },

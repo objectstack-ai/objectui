@@ -143,6 +143,12 @@ Add a `globalFilters` entry. Each entry renders one control in the filter bar:
   under, and the key widgets reference in `filterBindings`. Defaults to
   `field`. (`"dateRange"` is reserved for the built-in date range.)
 - `field` — the default field the filter applies to on bound widgets.
+- `object` — optional: the object `field` lives on. Declaring it opts the
+  filter into that object's translations: its field label and option labels
+  resolve through the same `fields.<object>.<field>` translation-bundle
+  convention lists and forms use, with `label` as the fallback (see
+  [i18n](#i18n)). Not the same key as `optionsFrom.object` below, which names
+  the object dynamic options are fetched from.
 - `type` — the control type: `text`, `number`, `select`, `lookup`, or `date`.
 
 | Type | Control | Generated condition |
@@ -334,8 +340,13 @@ stay in sync.
 ## i18n
 
 The filter bar's strings resolve from the `dashboard.filters.*` keys
-(`@object-ui/i18n` ships `en` and `zh` entries — control labels come from each
-filter's `label`, so translate those in your schema metadata).
+(`@object-ui/i18n` ships `en` and `zh` entries). A control's label comes from
+its filter's `label`, so translate that in your schema metadata — unless the
+filter declares `object`. Then the app's translation bundle wins: the field
+label resolves from the `fields.<object>.<field>` entry and each option label
+from `fieldOptions.<object>.<field>.<value>`, the same convention lists and
+forms use, and the authored `label` (the option's own `label`, for an option)
+is only the fallback when the bundle has no entry.
 
 ## Spec alignment
 

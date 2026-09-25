@@ -1714,7 +1714,7 @@ function LookupConfigFields({
                 label={tr('designer.field.lookup.filterValue')}
                 value={valueToText(f.value)}
                 onCommit={(v) => patchFilter(i, { value: textToValue(f.operator, v) })}
-                placeholder={f.operator === 'in' || f.operator === 'notIn' ? 'comma,separated,values' : 'value'}
+                placeholder={f.operator === 'in' || f.operator === 'notIn' ? 'comma,separated,values' : tr('engine.inspector.condition.valuePlaceholder')}
                 disabled={readOnly}
                 mono
               />
@@ -1732,7 +1732,7 @@ function LookupConfigFields({
               <span key={n} className="inline-flex items-center gap-1 rounded bg-secondary px-2 py-0.5 text-[11px] font-mono">
                 {n}
                 {!readOnly && (
-                  <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => removeDependsOn(n)} aria-label={`Remove ${n}`}>×</button>
+                  <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => removeDependsOn(n)} aria-label={tFormat('engine.form.removeNamed', locale, { name: n })}>×</button>
                 )}
               </span>
             ))}
@@ -2048,7 +2048,7 @@ function SummaryConfigFields({
                 label={tr('designer.field.lookup.filterValue')}
                 value={summaryValueToText(f.value)}
                 onCommit={(v) => patchFilterRow(i, { value: v })}
-                placeholder={f.operator === 'in' || f.operator === 'notIn' ? 'comma,separated,values' : 'value'}
+                placeholder={f.operator === 'in' || f.operator === 'notIn' ? 'comma,separated,values' : tr('engine.inspector.condition.valuePlaceholder')}
                 disabled={readOnly}
                 mono
               />

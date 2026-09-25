@@ -52,12 +52,15 @@ function ViewObjectPicker({
   value,
   onCommit,
   placeholder,
+  searchPlaceholder,
   disabled,
 }: {
   label: string;
   value: string;
   onCommit: (v: string) => void;
   placeholder?: string;
+  /** The search box's words, in the caller's locale (objectui#10696). */
+  searchPlaceholder: string;
   disabled?: boolean;
 }) {
   const { options, loading } = useObjectOptions();
@@ -69,7 +72,7 @@ function ViewObjectPicker({
       options={options.map((o) => ({ value: o.name, label: o.label }))}
       loading={loading}
       placeholder={placeholder}
-      searchPlaceholder="Search objects…"
+      searchPlaceholder={searchPlaceholder}
       disabled={disabled}
       mono
     />
@@ -438,6 +441,7 @@ export function ViewVariantInspector({
         value={binding.value}
         onCommit={setObject}
         placeholder={t('engine.inspector.view.objectPlaceholder', locale)}
+        searchPlaceholder={t('engine.inspector.dataset.searchObjects', locale)}
         disabled={readOnly}
       />
 

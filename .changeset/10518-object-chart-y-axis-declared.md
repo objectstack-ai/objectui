@@ -21,8 +21,9 @@ the `object-chart` sibling of the objectui#7690 declaration on `ChartSchema`.
   has no string arm (seat decision on objectui#10518, option A).
 
 ⚠️ Shipped as `minor`, not `patch`: documents that validated before now **refuse** (the accept set
-narrows). Several of them draw a chart today, which is why this ships as `minor`; what the rest draw
-depends on the chart type, on the rows, and on the node's other category and series sources:
+narrows), and a narrowed accept set is breaking semantics, which this repo's version policy ships as
+`minor`. Several of the refused documents draw a chart today; what the rest draw depends on the
+chart type, on the rows, and on the node's other category and series sources:
 
 - An `xAxis` object with a malformed value (`min: 'zero'`, `position: 'middle'`), an undeclared
   key (`grid`, `logScale`) or no `field`. It is refused as one issue at `xAxis` whose message carries

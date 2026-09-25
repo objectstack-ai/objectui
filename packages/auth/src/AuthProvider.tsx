@@ -32,8 +32,8 @@ const METADATA_SEED_CACHE_PREFIX = 'objectui:metadata:';
  * (objectui#5198).
  *
  * `sessionStorage` is per-TAB, not per-session, and no sign-out call site
- * reloads the page — `AppSidebar`, `AppHeader`, `UserMenu` and
- * `RemediationOverlay` all just call `signOut()` and let the SPA keep running.
+ * reloads the page — `AppHeader`, `UserMenu` and `RemediationOverlay` all
+ * just call `signOut()` and let the SPA keep running.
  * So without this the next person to sign in in the same tab (a shared or
  * kiosk browser, a handover, a support session) is SEEDED from the previous
  * user's entry, and what is in it is that user's PERMISSION-FILTERED app list —

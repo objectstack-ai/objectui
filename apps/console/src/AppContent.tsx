@@ -105,7 +105,7 @@ function MetadataRedirect() {
  * (User/Role/Permission/Audit/Org) … these objects are now contributed by
  * framework plugins (plugin-auth, -security, -audit) into the Setup app
  * navigation and resolved via the generic /apps/setup/<object_name> route."
- * The pages went; the URLs did not — both sidebars' `sys-*` cluster still
+ * The pages went; the URLs did not — `UnifiedSidebar`'s `sys-*` cluster still
  * emits three of them (`users`, `organizations`, `roles`), bookmarks carry all
  * five. Until objectui#3743 retired it, the system hub's card wall was the
  * in-app producer of the other two (`positions`, `permissions`); those two now
@@ -161,10 +161,10 @@ function SystemObjectRedirect({ objectName }: { objectName: string }) {
  * had to be copied into it by hand, and the retirement ruling lists the repair
  * rounds it needed for drifting (objectui#3670, #3679, #3680, #3686, #3655).
  * objectui#3743 retired it. The
- * URL stays, because app-shell sends users here: both sidebars' `sys-settings`
- * entry, the zero-app empty state's "System Settings" button, the home Quick
- * Action, the sidebar header and user menu, and the legacy `/system` bookmark
- * redirect all target `/apps/setup/system`.
+ * URL stays, because app-shell sends users here: `UnifiedSidebar`'s
+ * `sys-settings` entry, the zero-app empty state's "System Settings" button,
+ * the home Quick Action and the legacy `/system` bookmark redirect all target
+ * `/apps/setup/system`.
  *
  * WHERE it lands is read off the navigation, not chosen here. `system/settings`
  * is the one system entry that all three navigations declared when this

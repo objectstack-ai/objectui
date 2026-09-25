@@ -27,6 +27,6 @@ Converted to `RedirectWithSplash`, which pairs the same navigation with the same
 `SystemRedirect` is deliberately left as a bare `Navigate`. It carries the same
 shape on a first navigation, but it is the only site in this set that also fires
 with the console already painted (`SettingsView` navigates to `/system/settings`
-from a button; `AppSidebar` links to `/system`), and a redirect firing under an
-already-painted layout must keep that layout rather than gain a splash. The five
-URL-rewrite redirects in `AppContent` are excluded for the same reason.
+from a button), and a redirect firing under an already-painted layout must keep
+that layout rather than gain a splash. The five URL-rewrite redirects in
+`AppContent` are excluded for the same reason.

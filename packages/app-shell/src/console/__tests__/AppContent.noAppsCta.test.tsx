@@ -19,9 +19,8 @@
  *                                       system|metadata|create-app>
  *
  * which is where a zero-app user still arrives from the remaining bare
- * `/apps/setup` senders (`layout/AppSidebar.tsx`'s no-app sidebar header and
- * user-menu "Settings", `console/ConsoleShell.tsx`'s legacy `/system` redirect)
- * and from bookmarks. Note both CTA-shaped senders that used to point here have
+ * `/apps/setup` senders (`console/ConsoleShell.tsx`'s legacy `/system`
+ * redirect) and from bookmarks. Note both CTA-shaped senders that used to point here have
  * since been retargeted at `/apps/setup/system`: the empty state's own
  * `go-to-settings-btn` and both sidebars' `sys-settings` entry (objectui#3590) —
  * the ENTRY family below is unchanged, only who points at it.
@@ -53,8 +52,7 @@
  *
  * The fix therefore builds the app-scoped URL `/apps/<segment>/create-app` —
  * the platform's canonical app URL contract (ADR-0048, `utils/appRoute.ts`),
- * the same target `layout/AppSidebar.tsx`'s add-app entry already builds, and
- * the same base every other navigation in `AppContent.tsx` uses.
+ * and the same base every other navigation in `AppContent.tsx` uses.
  *
  * NOTE ON SCOPE: `@object-ui/plugin-designer` is stubbed below — this file
  * measures ROUTING (which route matches, which URL results), not the app

@@ -2,7 +2,7 @@
  * FavoritesProvider
  *
  * React Context + Provider for shared favorites state across all consumers
- * (HomePage, AppCard, AppSidebar, UnifiedSidebar, StarredApps).
+ * (HomePage, AppCard, UnifiedSidebar, StarredApps).
  *
  * Persistence is **localStorage-first** with optional backend hydration:
  * - On mount we render synchronously from localStorage (no flash of empty UI).
@@ -483,8 +483,8 @@ export function FavoritesProvider({ children }: FavoritesProviderProps) {
 export function useFavorites(): FavoritesContextValue {
   const ctx = useContext(FavoritesContext);
   if (!ctx) {
-    // Graceful fallback: when a consumer (e.g. AppSidebar) is rendered outside
-    // a FavoritesProvider — common in unit tests that only need to assert on
+    // Graceful fallback: when a consumer is rendered outside a
+    // FavoritesProvider — common in unit tests that only need to assert on
     // navigation rendering — return a no-op implementation rather than crash.
     return {
       favorites: [],

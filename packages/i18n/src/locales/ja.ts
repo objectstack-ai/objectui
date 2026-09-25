@@ -167,6 +167,7 @@ const ja = {
     noPermissionToSave: "このレコードを保存する権限がありません。",
     submitFailed: "保存できませんでした。もう一度お試しください。",
     uploadInFlight: "アップロードが完了してから保存してください。",
+    clearedOnHide: "現在の値に該当しなくなった項目をクリアしました: {{fields}}",
     discardTitle: "変更を破棄しますか？",
     discardMessage: "保存されていない変更があります。このままフォームを閉じると編集内容は失われます。",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible

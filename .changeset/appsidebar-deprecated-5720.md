@@ -2,22 +2,19 @@
 '@object-ui/app-shell': patch
 ---
 
-`AppSidebar` is now `@deprecated` — use `UnifiedSidebar` instead.
+`AppSidebar` was marked `@deprecated` in favour of `UnifiedSidebar`
+(objectui#5720), and objectui#5817 then removed it from `@object-ui/app-shell`.
+The two changes publish together; the removal's own entry carries the migration
+detail.
 
-A census (objectui#5720) found `AppSidebar` has no in-repo mount point
+A census (objectui#5720) found `AppSidebar` had no in-repo mount point
 (`ConsoleLayout` renders `UnifiedSidebar`, not this component) and no
 downstream consumer visible anywhere across this org's GitHub-visible
-repositories. It stays exported — from the package barrel and the published
-`dist/index.d.ts` — because `@object-ui/app-shell` is a public npm package
-(`publishConfig.access: "public"`) and an external consumer outside this org
-is structurally invisible to that census; that is why it is deprecated
-rather than deleted outright. No behavior change in this release — the
-component still renders exactly as before. Its admin nav cluster is a
-near-duplicate of `UnifiedSidebar`'s and has already drifted from it (it
-gates only `sys-marketplace` on the workspace-admin flag, where
-`UnifiedSidebar` gates the whole cluster); that divergence is not being
-reconciled, since the component is scheduled for removal rather than kept
-in parity — see objectui#5817 for the removal plan.
+repositories. It was deprecated rather than deleted at first because
+`@object-ui/app-shell` is a public npm package (`publishConfig.access: "public"`)
+and an external consumer outside this org is structurally invisible to that
+census; the maintainer then ruled that the removal need not wait for a major
+release.
 
 Migration: replace any `AppSidebar` usage with `UnifiedSidebar` from the same
 package.

@@ -136,7 +136,6 @@ export {
   ConsoleLayout,
   ConsoleNotificationBanners,
   AppHeader,
-  AppSidebar, // @deprecated — use UnifiedSidebar; see AppSidebar's own JSDoc (objectui#5720, objectui#5817)
   UnifiedSidebar,
   AppSwitcher,
   ConnectionStatus,

@@ -216,10 +216,10 @@ type FieldReadPolicy = Pick<ReturnType<typeof usePermissions>, 'isLoaded' | 'che
  * nothing withheld, the SAME object comes back.
  *
  * The lookup editor's option label and the record picker (objectui#10411) and
- * the record title (objectui#10434) apply the same rule; each copy is
- * module-private, and this one stays so too — `LookupField`'s is not in reach
- * without widening that module's exports, which the package entry re-exports
- * whole.
+ * the record title (objectui#10434) apply the same rule, and no copy of it is
+ * a package export. This one is module-private too: `LookupField`'s copy is
+ * not in reach without widening that module's exports, and the package entry
+ * re-exports that module whole.
  */
 function withoutDeniedFields<T>(record: T, policy: FieldReadPolicy, objectName: string | undefined): T {
   if (!policy.isLoaded || !objectName || !record || typeof record !== 'object') return record;

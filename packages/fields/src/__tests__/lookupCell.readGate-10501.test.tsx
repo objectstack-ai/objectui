@@ -16,9 +16,9 @@
  * not strip denied keys (ObjectStack's `FieldMasker` does) a `titleFormat` or
  * `nameField` naming a field the loaded policy denies printed that field's
  * value in every list and grid cell. The lookup EDITOR's option label already
- * applied the rule (objectui#10411), and so do the record title
- * (objectui#10434) and the search labels (objectui#10500): a display value is
- * built from the row with the denied fields removed, `id` kept.
+ * applied the rule (objectui#10411), and so does the record title
+ * (objectui#10434): a display value is built from the row with the denied
+ * fields removed, `id` kept.
  *
  * What is pinned, against the real `PermissionProvider` (not a stub), on the
  * REFERENCED object's policy:

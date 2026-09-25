@@ -42,8 +42,10 @@
  *   packages/plugin-gantt/src/ObjectGantt.tsx         (ref option labels)
  *   packages/plugin-kanban/src/ObjectKanban.tsx
  *   packages/plugin-timeline/src/ObjectTimeline.tsx
- *   packages/react/src/utils/nonGridRowCeiling.tsx    (applyNonGridRowCeiling,
- *     itself the seam for ObjectCalendar, ObjectGantt, ObjectMap, ObjectTree)
+ *   packages/core/src/utils/non-grid-row-ceiling.ts   (applyNonGridRowCeiling,
+ *     itself the seam for ObjectCalendar, ObjectGantt, ObjectMap, ObjectTree;
+ *     measured when it lived in `@object-ui/react`, moved here unchanged by
+ *     objectui#7508)
  *
  * ZERO of them can be reached by a `records` envelope: no `find()` in any of
  * those packages, nor in the apps and examples that mount them, emits one.

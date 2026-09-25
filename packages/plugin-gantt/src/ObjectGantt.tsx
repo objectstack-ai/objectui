@@ -35,9 +35,6 @@ import {
   useNavigationOverlay,
   useSettledSchema,
   SchemaRendererContext,
-  NON_GRID_ROW_CEILING,
-  NON_GRID_ROW_CEILING_TOP,
-  applyNonGridRowCeiling,
   NonGridRowCeilingNote,
 } from '@object-ui/react';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
@@ -71,6 +68,9 @@ import {
   createFieldColorResolver,
   resolveRecordSourceConfig,
   resolveRecordSourceObjectName,
+  applyNonGridRowCeiling,
+  nonGridRowCeilingQuery,
+  type NonGridCeilingResult,
 } from '@object-ui/core';
 import {
   getSemanticColorName,
@@ -579,9 +579,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
    * its own table was measured over the inline provider, so an inline row
    * costs what a fetched row costs and the ruling text carves out no provider.
    */
-  const [rowCeiling, setRowCeiling] = useState<{ truncated: boolean; total?: number }>({
-    truncated: false,
-  });
+  const [rowCeiling, setRowCeiling] = useState<NonGridCeilingResult | null>(null);
   // Tenant default currency (ADR-0053) for currency tooltips lacking a code.
   const { currency: tenantCurrency } = useLocalization();
   // The one date/number locale resolver: tenant regional default → active UI
@@ -798,7 +796,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       if ((rest as any).data && Array.isArray((rest as any).data)) {
         if (isCurrent()) {
           setData((rest as any).data);
-          setRowCeiling({ truncated: false });
+          setRowCeiling(null);
         }
         return;
       }
@@ -873,7 +871,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         // makes the cut DETECTABLE; `applyNonGridRowCeiling` slices it back off.
         // ⛔ Not authorable: an authored `limit` / `pagination.pageSize` still
         // cannot reach this query, by the same ruling.
-        $top: NON_GRID_ROW_CEILING_TOP,
+        ...nonGridRowCeilingQuery(),
         ...(expand.length > 0 ? { $expand: expand } : {}),
         // objectui#10250 — the term and its field narrowing, sent together
         // or not at all. See `searchTerm` above.
@@ -887,7 +885,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       const capped = applyNonGridRowCeiling(result);
       if (isCurrent()) {
         setData(capped.rows);
-        setRowCeiling({ truncated: capped.truncated, total: capped.total });
+        setRowCeiling(capped);
       }
     } catch (err) {
       if (silent) {
@@ -2231,15 +2229,12 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
           drawn from the first N rows of a larger result set is still a
           confident-looking schedule with a plausible range; the note is the
           only thing on screen that distinguishes it from a complete one.
-          `shrink-0` beneath the `flex-1` chart pane, so it cannot be clipped
-          out of a fixed-height host the way a plain sibling would be
-          (the construction objectui#7148's `ChartFootnote` measured). */}
-      <NonGridRowCeilingNote
-        drawn={NON_GRID_ROW_CEILING}
-        total={rowCeiling.total}
-        truncated={rowCeiling.truncated}
-        className="shrink-0 px-1 py-1 text-xs text-muted-foreground"
-      />
+          The note carries `shrink-0` itself, beneath the `flex-1` chart
+          pane, so it cannot be clipped out of a fixed-height host the way a
+          plain sibling would be (the construction objectui#7148's
+          `ChartFootnote` measured); it takes the result and nothing else
+          (objectui#7508). */}
+      {rowCeiling && <NonGridRowCeilingNote result={rowCeiling} />}
       {/* Delete confirmation */}
       <AlertDialog open={!!pendingDelete} onOpenChange={(open) => { if (!open && !deleting) setPendingDelete(null); }}>
         <AlertDialogContent>

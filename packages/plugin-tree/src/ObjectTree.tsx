@@ -46,9 +46,6 @@ import {
   useNavigationOverlay,
   useSafeFieldLabel,
   useSettledSchema,
-  NON_GRID_ROW_CEILING,
-  NON_GRID_ROW_CEILING_TOP,
-  applyNonGridRowCeiling,
   NonGridRowCeilingNote,
 } from '@object-ui/react';
 import {
@@ -73,6 +70,9 @@ import {
   resolveRecordSourceConfig,
   resolveRecordSourceObjectName,
   ValueDataSource,
+  applyNonGridRowCeiling,
+  nonGridRowCeilingQuery,
+  type NonGridCeilingResult,
 } from '@object-ui/core';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 
@@ -574,9 +574,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
    * `records.length === NON_GRID_ROW_CEILING` cannot tell a capped result set
    * apart from one that is exactly that size.
    */
-  const [rowCeiling, setRowCeiling] = useState<{ truncated: boolean; total?: number }>({
-    truncated: false,
-  });
+  const [rowCeiling, setRowCeiling] = useState<NonGridCeilingResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   // `'undeclared'` — and that is a finding, not a shrug (objectui#8348).
@@ -759,13 +757,13 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
             // on: it materialises ~5.2 DOM elements per record with no
             // virtualisation, so it is the binding one of the four.
             // ⛔ Not authorable: no view key reaches this `$top`.
-            $top: NON_GRID_ROW_CEILING_TOP,
+            ...nonGridRowCeilingQuery(),
             ...(expand.length > 0 ? { $expand: expand } : {}),
           });
           const capped = applyNonGridRowCeiling(result);
           if (!cancelled) {
             setRecords(capped.rows);
-            setRowCeiling({ truncated: capped.truncated, total: capped.total });
+            setRowCeiling(capped);
             setLoading(false);
           }
           return;
@@ -787,7 +785,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
         if (Array.isArray(passed)) {
           if (!cancelled) {
             setRecords(passed);
-            setRowCeiling({ truncated: false });
+            setRowCeiling(null);
             setLoading(false);
           }
           return;
@@ -841,7 +839,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
             // record with no virtualisation — and an inline node costs the
             // browser exactly what a fetched one costs.
             // ⛔ Still not authorable: no view key reaches this `$top`.
-            $top: NON_GRID_ROW_CEILING_TOP,
+            ...nonGridRowCeilingQuery(),
           });
           // Filter first, ceiling second — `ValueDataSource` applies `$filter`
           // before `$top`, which is what the fetching path gets for free from
@@ -851,7 +849,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
           const capped = applyNonGridRowCeiling(result);
           if (!cancelled) {
             setRecords(capped.rows);
-            setRowCeiling({ truncated: capped.truncated, total: capped.total });
+            setRowCeiling(capped);
             setLoading(false);
           }
           return;
@@ -1189,11 +1187,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
           fell past the cut is reparented to a root. Nothing in the rendering
           says so, which is why the note does. Placement follows
           objectui#7148's chart footnote. */}
-      <NonGridRowCeilingNote
-        drawn={NON_GRID_ROW_CEILING}
-        total={rowCeiling.total}
-        truncated={rowCeiling.truncated}
-      />
+      {rowCeiling && <NonGridRowCeilingNote result={rowCeiling} />}
 
     </div>
   );

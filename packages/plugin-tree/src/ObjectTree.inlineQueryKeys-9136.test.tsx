@@ -80,8 +80,7 @@
 import React from 'react';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { NON_GRID_ROW_CEILING, NON_GRID_ROW_CEILING_TOP } from '@object-ui/react';
-import { ValueDataSource } from '@object-ui/core';
+import { NON_GRID_ROW_CEILING, nonGridRowCeilingQuery, ValueDataSource } from '@object-ui/core';
 import { ObjectTree } from './ObjectTree';
 
 // Same factory `ObjectTree.rowCeiling-7210.test.tsx` uses, and through `<any>`
@@ -164,7 +163,7 @@ describe('objectui#9136 — the tree honours filter and the row ceiling on inlin
   });
 
   it('ceilingCap: an inline set past the ceiling draws exactly the ceiling, and the footnote names both numbers', async () => {
-    const total = NON_GRID_ROW_CEILING_TOP + 500;
+    const total = nonGridRowCeilingQuery().$top + 500;
     render(<ObjectTree schema={{ ...base, data: { provider: 'value', items: makeRows(total) } }} />);
 
     // Real rendered `<tr>`s, as `ObjectTree.rowCeiling-7210.test.tsx` reads them
@@ -238,7 +237,7 @@ describe('objectui#9136 — the tree honours filter and the row ceiling on inlin
     for (const [resource, params] of find.mock.calls as Array<[string, any]>) {
       expect(resource).toBe('org_unit');
       expect(params.$filter).toBe(ACTIVE_FILTER);
-      expect(params.$top).toBe(NON_GRID_ROW_CEILING_TOP);
+      expect(params.$top).toBe(nonGridRowCeilingQuery().$top);
     }
   });
 });

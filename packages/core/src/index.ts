@@ -23,6 +23,10 @@ export * from './utils/dom-props.js';
 export * from './utils/filter-converter.js';
 export * from './utils/managedBy.js';
 export * from './utils/extract-records.js';
+// The non-grid row ceiling (objectui#7210), homed beside the `extractRecords`
+// it wraps by objectui#7508's ruling A′. `@object-ui/react` re-exports three of
+// these names and keeps only the React footnote, `NonGridRowCeilingNote`.
+export * from './utils/non-grid-row-ceiling.js';
 // The emptiness FLOOR (objectui#8496, director seat, decision batch #86): the
 // weakest common claim about "is this value empty" — `null`, `undefined`, the
 // empty string, the empty array — below `plugin-detail`, `plugin-list`,

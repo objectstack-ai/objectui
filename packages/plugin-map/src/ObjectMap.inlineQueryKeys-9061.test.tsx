@@ -86,8 +86,7 @@
 import React from 'react';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { NON_GRID_ROW_CEILING, NON_GRID_ROW_CEILING_TOP } from '@object-ui/react';
-import { ValueDataSource } from '@object-ui/core';
+import { NON_GRID_ROW_CEILING, nonGridRowCeilingQuery, ValueDataSource } from '@object-ui/core';
 import { ObjectMap } from './ObjectMap';
 
 // Same stub the sibling ObjectMap pins use (no WebGL in this lane), widened on
@@ -244,7 +243,7 @@ describe('objectui#9061 — the map honours filter / sort / the row ceiling on i
       <ObjectMap
         schema={{
           ...base,
-          data: { provider: 'value', items: makeRows(NON_GRID_ROW_CEILING_TOP + 500) },
+          data: { provider: 'value', items: makeRows(nonGridRowCeilingQuery().$top + 500) },
         }}
         enableClustering={false}
       />,
@@ -253,7 +252,7 @@ describe('objectui#9061 — the map honours filter / sort / the row ceiling on i
   });
 
   it('ceilingNote: the cut is LOUD — the footnote names both numbers', async () => {
-    const total = NON_GRID_ROW_CEILING_TOP + 500;
+    const total = nonGridRowCeilingQuery().$top + 500;
     render(
       <ObjectMap
         schema={{ ...base, data: { provider: 'value', items: makeRows(total) } }}

@@ -60,10 +60,13 @@
  * ⛔ Do not quote 47 / 6 / 41 from anywhere: they are this file's history, not
  * its reading. The spec's
  * `ViewSchema.listViews` is a record of the STRICT `ObjectListViewSchema`, and
- * the spec value refuses the named views this package's docs teach. Both facts
- * are asserted against the SPEC schema here, so the day the spec relaxes (or
- * the renderer's read set moves) the measurement — and the stop — is re-taken
- * rather than remembered.
+ * the spec value refuses the local named-view dialect this package's docs
+ * taught until objectui#8255 (a view with no `columns`, an ObjectQL tuple
+ * filter). Both facts are asserted against the SPEC schema here, so the day the
+ * spec relaxes (or the renderer's read set moves) the measurement — and the
+ * stop — is re-taken rather than remembered. objectui#8255 rewrote those docs in
+ * the spec shape, and the `listViews` block below parses every named view they
+ * author through that same schema, so the docs cannot drift back unseen.
  *
  * ## objectui#7924 — the same measurement, now PER MEMBER
  *
@@ -1037,6 +1040,55 @@ describe('objectui#7779 — the zod mirror REFUSES `viewTabBar` by name', () => 
 
 /* ── `listViews`: the measurement that keeps it in the ledger ─────────────── */
 
+/** The pages that author `object-view` named views (objectui#8255). */
+const NAMED_VIEW_DOCS = [README, DOC, 'content/docs/api/schema-reference.md'] as const;
+
+/** A literal expression's value. Anything else THROWS, so a reading is never silently partial. */
+function literalValue(node: ts.Expression, where: string): unknown {
+  const e = unwrapExpr(node);
+  if (ts.isObjectLiteralExpression(e)) {
+    const out: Record<string, unknown> = {};
+    for (const p of e.properties) {
+      if (!ts.isPropertyAssignment(p) || !(ts.isIdentifier(p.name) || ts.isStringLiteral(p.name))) {
+        throw new Error(`${where}: \`${p.getText()}\` is not a literal property, so this reading cannot judge it`);
+      }
+      out[p.name.text] = literalValue(p.initializer, where);
+    }
+    return out;
+  }
+  if (ts.isArrayLiteralExpression(e)) return e.elements.map((x) => literalValue(x, where));
+  if (ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e)) return e.text;
+  if (ts.isNumericLiteral(e)) return Number(e.text);
+  if (e.kind === ts.SyntaxKind.TrueKeyword) return true;
+  if (e.kind === ts.SyntaxKind.FalseKeyword) return false;
+  if (e.kind === ts.SyntaxKind.NullKeyword) return null;
+  throw new Error(`${where}: \`${e.getText()}\` is not a literal, so this reading cannot judge it`);
+}
+
+/**
+ * Every named view a page authors, off disk: each fenced block that mentions
+ * `listViews` is parsed with the TypeScript parser (a `json` body inside an
+ * initializer), and the entries of every `listViews` property come back by name.
+ */
+function docNamedViews(rel: string): Array<{ where: string; view: unknown }> {
+  const text = readRepo(rel);
+  const out: Array<{ where: string; view: unknown }> = [];
+  for (const m of text.matchAll(/^```(\w*)\n([\s\S]*?)^```$/gm)) {
+    const lang = m[1] ?? '';
+    const body = m[2] ?? '';
+    if (!body.includes('listViews')) continue;
+    const at = `${rel}:${text.slice(0, m.index ?? 0).split('\n').length}`;
+    const code = /^jsonc?$/.test(lang) ? `const doc = ${body};` : body;
+    const sf = ts.createSourceFile(`${at}.tsx`, code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    for (const n of allNodes(sf)) {
+      if (!ts.isPropertyAssignment(n) || !(ts.isIdentifier(n.name) || ts.isStringLiteral(n.name)) || n.name.text !== 'listViews') continue;
+      const views = literalValue(n.initializer, at) as Record<string, unknown>;
+      for (const [name, view] of Object.entries(views)) out.push({ where: `${at} listViews.${name}`, view });
+    }
+  }
+  return out;
+}
+
 describe('objectui#7779 — `listViews` stays unmirrored on the ruling\'s fallback clause; the measurement is pinned against the SPEC', () => {
   it('the spec slot `ViewSchema.listViews` is a record whose value is the strict `ObjectListViewSchema`', () => {
     const slot = shapeMember(SpecViewSchema, 'listViews') as { unwrap(): { def?: { type?: string; valueType?: unknown }; _def?: { type?: string; valueType?: unknown } } };
@@ -1051,19 +1103,19 @@ describe('objectui#7779 — `listViews` stays unmirrored on the ruling\'s fallba
     if (!r.success) expect((r.error.issues as readonly Issue[]).some((i) => i.code === 'unrecognized_keys')).toBe(true);
   });
 
-  it('the spec value REFUSES the named views this package\'s docs teach — the behaviour a by-reference mirror would lose', () => {
-    // README / plugin-view.mdx: `listViews: { all: { label: 'All Users' } }` —
-    // "each needs a `label`", nothing else. The spec requires `columns`.
+  it('the spec value REFUSES the named-view dialect this package\'s docs taught until objectui#8255 — the behaviour a by-reference mirror would have lost', () => {
+    // README / plugin-view.mdx taught `listViews: { all: { label: 'All Users' } }`
+    // — "each needs a `label`", nothing else. The spec requires `columns`.
     const labelOnly = SpecObjectListViewSchema.safeParse({ label: 'All Users' });
     expect(labelOnly.success).toBe(false);
     if (!labelOnly.success) expect(refusedAt(labelOnly.error.issues as readonly Issue[], 'columns')).toBe(true);
-    // README: a `filter`-only view with `type: 'grid'` and no `columns`.
+    // README taught a `filter`-only view with `type: 'grid'` and no `columns`.
     const filtered = SpecObjectListViewSchema.safeParse({ label: 'Under 100', type: 'grid', filter: [{ field: 'price', operator: 'less_than', value: 100 }] });
     expect(filtered.success).toBe(false);
     if (!filtered.success) expect(refusedAt(filtered.error.issues as readonly Issue[], 'columns')).toBe(true);
-    // schema-reference.md: an ObjectQL tuple filter. Only `tuple` still has a
-    // doc side, and that side is HELD — the "still what the docs teach" test
-    // below pins this exact filter string off disk.
+    // schema-reference.md taught an ObjectQL tuple filter. None of these three
+    // forms has a doc side any more: objectui#8255 rewrote every one in the spec
+    // shape, and the next test parses what those pages author now.
     const tuple = SpecObjectListViewSchema.safeParse({ label: 'My Deals', columns: ['name'], filter: [['owner', '=', '${currentUser.id}']] });
     expect(tuple.success).toBe(false);
     if (!tuple.success) expect(refusedAt(tuple.error.issues as readonly Issue[], 'filter')).toBe(true);
@@ -1083,10 +1135,26 @@ describe('objectui#7779 — `listViews` stays unmirrored on the ruling\'s fallba
     expect(SpecObjectListViewSchema.safeParse({ label: 'Directory', columns: ['name', 'email'] }).success).toBe(true);
   });
 
-  it('the documented shapes the spec refuses are still what the docs teach (the measurement\'s inputs, off disk)', () => {
-    expect(readRepo(README)).toContain("listViews: { all: { label: 'All Users' } }");
-    expect(readRepo(DOC)).toContain("listViews: { all: { label: 'All Users' } }");
-    expect(readRepo('content/docs/api/schema-reference.md')).toContain('"filter": [["owner", "=", "${currentUser.id}"]],');
+  it('the docs now teach the spec shape — every named view the three pages author parses under `ObjectListViewSchema` (objectui#8255, off disk)', () => {
+    // The predicate, and the SAME function the positive control below runs.
+    const refused = (entries: ReadonlyArray<{ where: string; view: unknown }>): string[] =>
+      entries.filter((e) => !SpecObjectListViewSchema.safeParse(e.view).success).map((e) => e.where);
+    for (const doc of NAMED_VIEW_DOCS) {
+      const entries = docNamedViews(doc);
+      expect(entries.length, `${doc} authors no \`listViews\` entry any more — this reading would pass vacuously`).toBeGreaterThan(0);
+      expect(
+        refused(entries),
+        `${doc} teaches a named view the spec's ObjectListViewSchema refuses. Every entry needs \`columns\`, and \`filter\` is \`{ field, operator, value }\` rule objects, never an ObjectQL tuple.`,
+      ).toEqual([]);
+    }
+    // POSITIVE CONTROL: the predicate goes red on the dialect these pages taught
+    // before objectui#8255, and stays quiet on the spec shape, so the empty
+    // readings above are readings.
+    expect(refused([
+      { where: 'label-only', view: { label: 'All Users' } },
+      { where: 'tuple', view: { label: 'My Deals', columns: ['name'], filter: [['owner', '=', '${currentUser.id}']] } },
+      { where: 'spec', view: { label: 'Directory', columns: ['name', 'email'] } },
+    ])).toEqual(['label-only', 'tuple']);
   });
 
   it('the renderer reads twenty-one keys off a named view — every one of them a declared `NamedListView` member since objectui#8980 — of a declaration with 64, the reason a local key-for-key mirror is still not the answer', () => {

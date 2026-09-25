@@ -25,7 +25,7 @@ import { buildSectionFields as buildSectionFieldsShared } from './sectionFields'
 import { seedCreateValues, isCreateFormMode } from './schemaDefaults';
 import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
-import { fieldWriteGate } from './fieldWriteGate';
+import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
 import { snapshotLoadedRecord, advanceLoadedRecord, type LoadedRecordSnapshot } from './sanitize';
 import { formWritePayload } from './writePayload';
 import { applyAutoColSpan, containerGridColsFor } from './autoLayout';
@@ -545,8 +545,8 @@ export const WizardForm: React.FC<WizardFormProps> = ({
 
   // Build section fields from object schema
   const buildSectionFields = useCallback(
-    (section: WizardStepConfig): FormField[] =>
-      buildSectionFieldsShared(section as any, {
+    (section: WizardStepConfig): FormField[] => {
+      const fields = buildSectionFieldsShared(section as any, {
         objectSchema,
         objectName: schema.objectName,
         readOnly: schema.readOnly,
@@ -560,8 +560,22 @@ export const WizardForm: React.FC<WizardFormProps> = ({
         // A member naming a section's field is that field's definition, as it
         // is on every other arm (objectui#10254).
         customFields: schema.customFields,
-      }),
-    [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, schema.customFields, fieldLabel],
+      });
+      // The ONE render gate (objectui#10120), applied to the RESOLVED fields.
+      // `ObjectForm` gates a section's field OBJECTS before routing here, but a
+      // field named by a bare string has no `name` to ask about until it is
+      // resolved just above. Without this pass a field the caller may read but
+      // not edit rendered as a live input, and with the save's strip in place
+      // (`formWritePayload`, objectui#10563) whatever the user typed there
+      // would be dropped behind a 200. A field already gated upstream is gated
+      // again to the same answer.
+      return (applyFieldPermissions(fields, {
+        perms,
+        objectName: schema.objectName,
+        mode: schema.mode,
+      }) ?? fields) as FormField[];
+    },
+    [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, schema.customFields, fieldLabel, perms],
   );
 
   // The same "no persisted record" test the seeding and the create-mode

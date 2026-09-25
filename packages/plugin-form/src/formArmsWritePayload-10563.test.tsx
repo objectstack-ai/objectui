@@ -46,6 +46,10 @@
  *   the object definition is not used for it, so a member the object does not
  *   declare is still written, while the roster and the field-level verdict,
  *   which need no definition, still apply.
+ * - "render" asserts the other half of the field-level invariant: the field
+ *   the caller may not edit is not OFFERED as a live input. The three layouts
+ *   rendered it enabled when a section named it by string, and with the strip
+ *   above in place a value typed there would be dropped behind a 200.
  *
  * The last block is the master-detail header laid out `tabbed`, which reaches
  * `TabbedForm` through the parent form's host seam.
@@ -228,6 +232,20 @@ describe.each(ROUTES)('ObjectForm $route', ({ layout, steps }) => {
     const payload = ds.create.mock.calls[0][1];
     for (const key of REFUSED) expect(payload).not.toHaveProperty(key);
     expect(payload).toEqual({ name: 'Copy of Mine', stage: 'open' });
+  });
+
+  it('render: the field the caller may read but not edit is not offered as a live input', async () => {
+    const ds = makeDS();
+    const root = mount(editSchema, ds);
+
+    await nameInput(root, 'Mine');
+    // Control: the field the caller may edit is live.
+    expect((root.querySelector('input[name="stage"]') as HTMLInputElement).disabled).toBe(false);
+    // `score` is on the wizard's last step; every other route shows it at once.
+    await submitSteps(root, steps - 1);
+    const score = await inputShowing(root, 'score', String(STORED.score));
+    expect(score.disabled).toBe(true);
+    expect(ds.update).not.toHaveBeenCalled();
   });
 
   it('inline member: a member the object does not declare is written; the roster and the field-level verdict still apply', async () => {

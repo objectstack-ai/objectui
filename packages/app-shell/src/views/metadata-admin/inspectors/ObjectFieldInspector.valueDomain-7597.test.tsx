@@ -64,7 +64,7 @@ const PROSE = FieldSchema.shape.valueDomain.description ?? '';
 
 function renderField(
   def: Record<string, unknown>,
-  opts: { locale?: string; readOnly?: boolean } = {},
+  opts: { locale?: 'en-US' | 'zh-CN'; readOnly?: boolean } = {},
 ) {
   const onPatch = vi.fn();
   render(

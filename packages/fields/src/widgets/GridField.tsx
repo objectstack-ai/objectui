@@ -423,7 +423,7 @@ const isTemporal = (t?: string) => t === 'date' || t === 'datetime' || t === 'ti
  * decidable now that `datetime`/`time` are no longer collapsed onto `date`:
  *
  * - `date` — a calendar day. Its VERBATIM `YYYY-MM-DD` (`toDateInputValue`
- *   keeps the leading day of any stored spelling as written) goes through the
+ *   keeps a stored string's leading day as written) goes through the
  *   shared parse step `toDisplayDate`, which builds local midnight of that day,
  *   never the UTC midnight `new Date('2026-06-17')` would give, so the 17th
  *   stays the 17th west of Greenwich. It used to build that `Date` here, by
@@ -432,8 +432,8 @@ const isTemporal = (t?: string) => t === 'date' || t === 'datetime' || t === 'ti
  *   reached this cell (objectui#10301).
  * - `datetime` — an instant, rendered on `formatDateTime`'s `'compact'` face:
  *   local day + local time, the same basis `toDateTimeInputValue` uses for the
- *   editor, so the two never disagree about a real instant. ⚠️ It no longer matches
- *   `DateTimeField`'s readonly rendering, and that is the RULING on
+ *   editor, so the two never disagree about a real instant. ⚠️ It no longer
+ *   matches `DateTimeField`'s readonly rendering, and that is the RULING on
  *   objectui#8209 rather than a drift: both sites went to the one home
  *   `formatDateTime`, each on the face of its register — a dense grid cell is
  *   `'compact'`, a readonly form / detail field is the verbose default.

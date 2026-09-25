@@ -1160,11 +1160,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    *
    * `tree` and `chart` draw what they query for themselves, and neither query
    * has a search channel: `ObjectTree`'s object-provider `find` sends
-   * `$filter`, `$top` and `$expand`; `ObjectChart`'s aggregate (`field`,
-   * `function`, `groupBy`, `filter`) takes no term, and neither does its
-   * dataset query. A typed term changed only this component's own fetch —
-   * the record-count bar and the export — and nothing drawn. The ruling
-   * withholds the control instead of widening either query (option B).
+   * `$filter`, `$top` and `$expand`; `ObjectChart`'s queries — the aggregate
+   * (`field`, `function`, `groupBy`, `filter`), its `find` fallback and the
+   * dataset query — take no term. A typed term changed only this component's
+   * own fetch — the record-count bar and the export — and nothing drawn. The
+   * ruling withholds the control instead of widening either query (option B).
    *
    * Every chart binding: the dataset shape carries no term either.
    *

@@ -12,8 +12,11 @@
  * the form renderer).
  *
  * `FieldContainer` computed `required` and spent it on exactly one thing: the
- * label's CSS pseudo-element asterisk (`after:content-['*']`) — pure paint
- * that never enters the accessibility tree as a state. Meanwhile its Slot
+ * label's visual asterisk — paint, never a STATE. (That asterisk did reach the
+ * accessible NAME: it was CSS generated content, which the name computation
+ * includes, so Chromium named the control "Title*". objectui#10368 made it a
+ * real `aria-hidden` element; the last case below pins that by markup, and
+ * says why a happy-dom name could never have caught it.) Meanwhile its Slot
  * injection already delivered `id` / `aria-describedby` / `aria-invalid` to
  * whatever control the caller slots in, so the container was ALREADY the
  * single a11y-wiring authority for its children — it just skipped this one
@@ -89,18 +92,51 @@ describe('FieldContainer — `aria-required` rides the Slot injection (objectui#
     expect(ctl).toHaveAttribute('aria-describedby', 'my-field-error');
   });
 
-  it('keeps the label association intact so the name and the state stay separate channels', () => {
+  it('keeps the asterisk out of the name: a real aria-hidden element, never CSS generated content (objectui#10368)', () => {
+    // REWRITTEN VERDICT (objectui#10368). This case used to rest on
+    // `toHaveAccessibleName('Title')` under happy-dom, beside a comment saying
+    // the CSS asterisk "can never leak into the accessible name". Both were
+    // wrong in the same direction: the accessible-name computation INCLUDES
+    // `::after` content, and Chromium named this control "Title*". The case was
+    // green only because happy-dom computes no generated content, so it could
+    // not go red on the very defect it claimed to exclude.
+    //
+    // The verdict is now the MARKUP, which fails on that defect in any DOM:
+    //  1. nothing in the associated label draws generated content — a Tailwind
+    //     `content-[…]` / `content-(…)` utility, bare or behind a variant;
+    //  2. the visible `*` is a real element carrying `aria-hidden="true"`;
+    //  3. the label's text outside `aria-hidden` subtrees is exactly the label.
     render(
       <FieldContainer label="Title" required htmlFor="assoc-field">
         <input />
       </FieldContainer>,
     );
 
-    // The asterisk is a CSS pseudo-element (`after:content-['*']`), so it can
-    // never leak into the accessible name — the state channel is the ONLY
-    // required signal, exactly the converged shape.
-    const ctl = screen.getByLabelText('Title');
-    expect(ctl).toHaveAccessibleName('Title');
+    const label = document.querySelector('label[for="assoc-field"]') as HTMLLabelElement;
+    const ctl = document.getElementById('assoc-field') as HTMLInputElement;
+    expect(label).not.toBeNull();
+
+    const generated = [label, ...Array.from(label.querySelectorAll('*'))]
+      .flatMap((el) => Array.from(el.classList))
+      .filter((c) => /(^|:)content-[[(]/.test(c));
+    expect(generated).toEqual([]);
+
+    const markers = label.querySelectorAll('[data-required-marker]');
+    expect(markers).toHaveLength(1);
+    expect(markers[0]).toHaveAttribute('aria-hidden', 'true');
+    expect(markers[0].textContent).toBe('*');
+
+    const clone = label.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll('[aria-hidden="true"]').forEach((el) => el.remove());
+    expect(clone.textContent).toBe('Title');
+
+    // The state channel is still the ONLY required signal.
     expect(ctl).toHaveAttribute('aria-required', 'true');
+
+    // Corroboration, NOT the evidence: `dom-accessibility-api` honours
+    // `aria-hidden` on a REAL element, so this line does go red if the span
+    // loses its `aria-hidden`. It still cannot see generated content — it was
+    // green on the defect — which is why the markup above carries the verdict.
+    expect(ctl).toHaveAccessibleName('Title');
   });
 });

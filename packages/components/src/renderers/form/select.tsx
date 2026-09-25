@@ -47,7 +47,22 @@ const SelectRenderer = ({ schema, className, onChange, value, disabled: hostDisa
         data-obj-type={dataObjType}
         style={style}
     >
-      {schema.label && <Label className={cn(schema.required && "text-destructive after:content-['*'] after:ml-0.5")}>{schema.label}</Label>}
+      {schema.label && (
+        <Label className={cn(schema.required && "text-destructive")}>
+          {schema.label}
+          {schema.required && (
+            // A real `aria-hidden` element, not CSS generated content, the
+            // same shape as the other form renderers (objectui#10368; the full
+            // note is on `FieldContainer`): `::after` content enters the name
+            // of whatever control a label names, and `aria-hidden` cannot
+            // reach a pseudo-element. The required STATE is the
+            // `aria-required` Radix writes on the trigger from `required`.
+            <span className="ml-0.5 text-destructive" data-required-marker="true" aria-hidden="true">
+              *
+            </span>
+          )}
+        </Label>
+      )}
       <Select
         defaultValue={value === undefined ? toControlValue(schema.defaultValue) : undefined}
         value={toControlValue(value ?? schema.value)}

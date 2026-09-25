@@ -47,9 +47,15 @@
  * bridge, undo / redo), and by this page for the changes it learns of another
  * way (realtime, import, server actions: `refreshData`).
  *
- * Everything here renders for real — the page, `plugin-view`'s `ObjectView`,
- * `plugin-list`'s `ListView` and `plugin-gantt`'s `ObjectGantt` — on the
- * harness of `ObjectView.hostRerenderRefetch-10046.test.tsx`.
+ * Everything here renders for real — the page, `plugin-view`'s `ObjectView`
+ * and `plugin-list`'s `ListView` — on the harness of
+ * `ObjectView.hostRerenderRefetch-10046.test.tsx`. The gantt is a stand-in
+ * registered as `object-gantt` (the `ObjectView.stableFilterIdentity-7237`
+ * precedent: `app-shell` does not depend on `plugin-gantt`). It reads the REAL
+ * bus hook and queries on it exactly as `ObjectGantt` now does —
+ * `ObjectGantt.invalidationRefetch-10035.test.tsx` proves the real component
+ * does that — and carries an instance id from a `useState` initializer, so a
+ * remount of the visualization itself is visible too.
  */
 
 import * as React from 'react';
@@ -114,10 +120,8 @@ vi.mock('./MetadataInspector', () => ({
 }));
 vi.mock('./RecordDetailView', () => ({ RecordDetailView: () => null }));
 
-import { notifyDataChanged, SchemaRendererProvider } from '@object-ui/react';
-// Registers `object-gantt` at import time, so `ListView`'s gantt branch draws
-// the real `ObjectGantt` (AGENTS.md: import at module scope, never in a hook).
-import '@object-ui/plugin-gantt';
+import { ComponentRegistry } from '@object-ui/core';
+import { notifyDataChanged, useDataInvalidation } from '@object-ui/react';
 import { ObjectView } from './ObjectView';
 import { ExpressionProvider } from '../providers/ExpressionProvider';
 
@@ -147,15 +151,11 @@ function objectsWith(allView: Record<string, unknown>) {
   ];
 }
 
-/**
- * The list queries `ListView` issued; the page's `$top: 0` count probe is
- * excluded, and so are `ObjectGantt`'s own queries — told apart by the
- * platform row ceiling they carry (`$top` of `NON_GRID_ROW_CEILING + 1`),
- * which no list page size reaches.
- */
+/** The list queries `ListView` issued; the page's `$top: 0` count probe is excluded. */
 let listQueries = 0;
+/** The stand-in gantt's own queries, and the instance ids it mounted with. */
 let ganttQueries = 0;
-const GANTT_QUERY_TOP = 2001;
+let ganttInstanceSeq = 0;
 /**
  * One row, never none: `ListView` draws its loading skeleton IN PLACE of the
  * visualization while it refetches an EMPTY list, which would unmount the
@@ -165,8 +165,7 @@ const ROW = { id: 't1', name: 'Task 1', stage: 'a', starts_on: '2026-01-01', end
 function makeDataSource() {
   return {
     find: vi.fn(async (_object: string, params: any) => {
-      if (params?.$top === GANTT_QUERY_TOP) ganttQueries++;
-      else if (params?.$top !== 0) listQueries++;
+      if (params?.$top !== 0) listQueries++;
       return { data: [{ ...ROW }], total: 1 };
     }),
     findOne: vi.fn(async () => null),
@@ -200,28 +199,24 @@ async function mountPage(
     const [, setTick] = React.useState(0);
     bump = () => setExternalRefreshKey((n) => n + 1);
     rerender = () => setTick((n) => n + 1);
-    // The console mounts the page under a `SchemaRendererProvider`; the
-    // registered `object-gantt` renderer reads its adapter from there.
     return (
-      <SchemaRendererProvider dataSource={dataSource}>
-        <ExpressionProvider user={{ id: 'u1', name: 'Ada', profile: 'admin' }}>
-          <MemoryRouter initialEntries={[`/apps/demo/${OBJECT_NAME}/view/all`]}>
-            <Routes>
-              <Route
-                path="/apps/:appName/:objectName/view/:viewId"
-                element={
-                  <ObjectView
-                    dataSource={dataSource}
-                    objects={objects}
-                    onEdit={() => {}}
-                    externalRefreshKey={externalRefreshKey}
-                  />
-                }
-              />
-            </Routes>
-          </MemoryRouter>
-        </ExpressionProvider>
-      </SchemaRendererProvider>
+      <ExpressionProvider user={{ id: 'u1', name: 'Ada', profile: 'admin' }}>
+        <MemoryRouter initialEntries={[`/apps/demo/${OBJECT_NAME}/view/all`]}>
+          <Routes>
+            <Route
+              path="/apps/:appName/:objectName/view/:viewId"
+              element={
+                <ObjectView
+                  dataSource={dataSource}
+                  objects={objects}
+                  onEdit={() => {}}
+                  externalRefreshKey={externalRefreshKey}
+                />
+              }
+            />
+          </Routes>
+        </MemoryRouter>
+      </ExpressionProvider>
     );
   }
   render(<Harness />);
@@ -244,6 +239,17 @@ async function mountPage(
   };
 }
 
+/** A gantt that queries for itself and refetches on the bus, like `ObjectGantt`. */
+function GanttStandIn({ schema }: any) {
+  const [id] = React.useState(() => ++ganttInstanceSeq);
+  const nonce = useDataInvalidation(schema?.objectName);
+  React.useEffect(() => {
+    ganttQueries++;
+  }, [nonce]);
+  return <div data-testid="gantt-stand-in" data-instance={id} />;
+}
+const ganttInstance = () => screen.getByTestId('gantt-stand-in').dataset.instance;
+
 /** A node rendered inside `ListView` — replaced wholesale by a key remount. */
 const listNode = () => screen.getByTestId('view-description');
 
@@ -251,7 +257,9 @@ beforeEach(() => {
   cleanup();
   listQueries = 0;
   ganttQueries = 0;
+  ganttInstanceSeq = 0;
   realtime.lastMessage = null;
+  ComponentRegistry.register('object-gantt', GanttStandIn as any);
   vi.stubGlobal(
     'fetch',
     vi.fn(async () =>
@@ -313,7 +321,8 @@ describe('a list drawing a self-fetching visualization keeps its tree and the vi
   it('its own type is gantt: a console write re-issues the gantt\'s own query once, in the same list', async () => {
     const page = await mountPage(GANTT_VIEW);
     const node = listNode();
-    expect(ganttQueries, 'the real ObjectGantt must be drawing this list').toBeGreaterThan(0);
+    expect(ganttQueries, 'the gantt must be drawing this list').toBeGreaterThan(0);
+    const instance = ganttInstance();
     const before = ganttQueries;
 
     await page.write();
@@ -329,11 +338,13 @@ describe('a list drawing a self-fetching visualization keeps its tree and the vi
       '(a) The write REMOUNTED the list: the refresh counter is back in the `<ListView>`\n'
         + 'key (AGENTS.md #8: refresh data, don\'t rebuild UI).',
     ).toBe(node);
+    expect(ganttInstance(), '(a) the write REMOUNTED the gantt itself').toBe(instance);
   });
 
   it('its own type is gantt: a realtime change is declared on the bus by the page itself', async () => {
     const page = await mountPage(GANTT_VIEW);
     const node = listNode();
+    const instance = ganttInstance();
     const before = ganttQueries;
 
     await page.realtime();
@@ -345,5 +356,6 @@ describe('a list drawing a self-fetching visualization keeps its tree and the vi
         + '(`refreshData`).',
     ).toBe(1);
     expect(listNode(), '(a) the realtime change REMOUNTED the list').toBe(node);
+    expect(ganttInstance(), '(a) the realtime change REMOUNTED the gantt itself').toBe(instance);
   });
 });

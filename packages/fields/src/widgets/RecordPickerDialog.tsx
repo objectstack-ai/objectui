@@ -441,14 +441,15 @@ function withoutDeniedFields<T>(
   idField: string,
 ): T {
   if (!perms.isLoaded || !record || typeof record !== 'object') return record;
-  let shown: Record<string, unknown> | null = null;
-  for (const key of Object.keys(record)) {
-    if (key === idField || key === 'id' || key === '_id') continue;
-    if (perms.checkField(objectName, key, 'read')) continue;
-    if (!shown) shown = { ...record } as Record<string, unknown>;
-    delete shown[key];
+  const shown: Record<string, unknown> = {};
+  let withheld = false;
+  for (const [key, value] of Object.entries(record)) {
+    const readable =
+      key === idField || key === 'id' || key === '_id' || perms.checkField(objectName, key, 'read');
+    if (readable) shown[key] = value;
+    else withheld = true;
   }
-  return (shown ?? record) as T;
+  return withheld ? (shown as T) : record;
 }
 
 /**

@@ -40,6 +40,7 @@ import { createSafeTranslation } from '@object-ui/i18n';
 import { MasterDetailForm } from './MasterDetailForm';
 import { buildSectionFields as buildSectionFieldsShared } from './sectionFields';
 import { buildFlatFields } from './flatFields';
+import { isRecordReadOutstanding } from './recordReadGate';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
 import {
   applyAutoColSpan,
@@ -378,19 +379,14 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
 
     // Ending the loading state here is only this effect's call when no record
     // read is outstanding — the FIRST load as much as a swap (objectui#10190).
-    // This effect and the fetch effect above both key on `objectSchema`, so the
-    // commit that publishes the schema runs BOTH, fetch first: it enters the
-    // loading state and fires `findOne`, and an unconditional
-    // `setLoading(false)` here then won, painting an empty, EDITABLE form while
-    // the read was in flight — whose landing replaced whatever had been typed.
-    // A load the fetch effect started is ended by the fetch effect. The
-    // condition mirrors that effect's own branches: create mode, no
-    // `recordId`, or no `dataSource` never read a record.
-    const recordReadOutstanding =
-      schema.mode !== 'create' &&
-      !!schema.recordId &&
-      !!dataSource &&
-      loadedRecordIdRef.current !== schema.recordId;
+    // The gate is shared with ModalForm (objectui#10659); the mechanism it
+    // closes is told once, on `isRecordReadOutstanding`.
+    const recordReadOutstanding = isRecordReadOutstanding({
+      mode: schema.mode,
+      recordId: schema.recordId,
+      dataSource,
+      loadedRecordId: loadedRecordIdRef.current,
+    });
     const endLoading = () => {
       if (!recordReadOutstanding) setLoading(false);
     };

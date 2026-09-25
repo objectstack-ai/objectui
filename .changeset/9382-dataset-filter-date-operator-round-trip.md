@@ -28,7 +28,13 @@ the dropdown draws. `conditionToGroup` now takes the same `fields` list the
 inspector already hands the builder, and settles an ambiguous token against
 that field's own bucket. Nothing new is accepted: when the type is unknown, the
 field is absent from the list, or the bucket offers neither candidate, the read
-falls back to the unchanged fixed table.
+falls back to the unchanged fixed table. Since objectui#10257, a row whose
+column menu does not offer that fallback operator is sent to the Source tab
+instead of being opened. With a field list, which the inspector always passes,
+that covers all three cases. An untyped or unlisted column gets the text menu,
+which offers neither `greaterThan` nor `lessThan`, and a menu that offers
+neither candidate cannot offer the fallback, which is one of them. Only a read
+with no field list still opens the row under the fixed-table operator.
 
 `@object-ui/components` is untouched — the operator buckets are read, never
 changed.

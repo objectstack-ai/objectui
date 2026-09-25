@@ -1643,6 +1643,16 @@ export interface ObjectFormSchema extends BaseSchema {
    * dataSource.update — the host owns the write (e.g. MasterDetailForm batching
    * the parent + child line items into one atomic server transaction). The
    * returned record is passed on to `onSuccess`.
+   *
+   * In `edit` mode, for a record the form read itself, the simple, `modal` and
+   * `drawer` layouts hand over what the form would have written
+   * (objectui#10156): the fields that differ from the record it read, or the
+   * full sanitized payload when nothing changed — every value except the ones
+   * the form never writes (server-owned, computed, read-only, refused by
+   * field-level security, or unknown to the object). A field whose sameness
+   * cannot be settled counts as changed, so it is handed over. The `tabbed`,
+   * `wizard` and `split` layouts, and a simple form that the mobile `stepper`
+   * option routes through the wizard, still hand over every collected value.
    */
   submitHandler?: (values: Record<string, any>) => any | Promise<any>;
 
@@ -3738,7 +3748,7 @@ export interface ObjectKanbanSchema extends BaseSchema {
    *
    * `id` / `title` / `cards` / `limit` / `className` / `collapsed` are exactly
    * the lane members the two board implementations read, counted off
-   * `KanbanImpl`, `KanbanEnhanced`, `useColumnWidths`, `useCrossSwimlaneMove`,
+   * `KanbanImpl`, `KanbanEnhanced`, `useCrossSwimlaneMove`,
    * `useQuickAddReorder` and `bucketCardsIntoColumns`. Their VALUE types come
    * from those read sites too — see {@link id} for the one this card had to
    * correct.
@@ -4362,10 +4372,11 @@ export interface ObjectChartSchema extends BaseSchema {
    * INTERNAL (relay-composed) — the plotted series, in the renderer's internal
    * `{ dataKey }` contract.
    *
-   * The element type is `ChartRendererProps.schema.series`' internal arm
-   * VERBATIM — that is the read this value ends at, and the ruling on
-   * objectui#7946 asked for the reads rather than a copy of any producer's
-   * literal. The spec's AUTHOR-facing `ChartSeriesSchema` is the other arm
+   * The element type is `ChartRendererProps.schema.series`' internal arm —
+   * that is the read this value ends at, and the ruling on objectui#7946 asked
+   * for the reads rather than a copy of any producer's literal — every member
+   * of it except `type`, which that arm gained under objectui#8086 and this
+   * copy has not taken up. The spec's AUTHOR-facing `ChartSeriesSchema` is the other arm
    * (`{ name }`), and it refuses `dataKey` by name; `normalizeChartSchema` is
    * the one translation between them.
    */

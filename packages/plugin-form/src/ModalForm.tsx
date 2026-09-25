@@ -50,7 +50,13 @@ import {
   CONTAINER_GRID_COLS,
 } from './autoLayout';
 import { deriveFieldGroupSections, projectSectionDivider, resolveSectionCollapse } from './fieldGroups';
-import { sanitizeFormData } from './sanitize';
+import {
+  sanitizeFormData,
+  dirtyEditPayload,
+  snapshotLoadedRecord,
+  advanceLoadedRecord,
+  type LoadedRecordSnapshot,
+} from './sanitize';
 import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
 import { seedCreateValues, omitServerResolvedDefaults } from './schemaDefaults';
 import { resolveInitialRecord } from './initialRecord';
@@ -176,6 +182,10 @@ export interface ModalFormSchema {
    * When supplied, the form validates and hands the collected values
    * to this handler INSTEAD of calling `dataSource.create` /
    * `dataSource.update`; the returned record is passed on to `onSuccess`.
+   * In `edit` mode, for a record this form read itself, it hands over what it
+   * would have written: the fields that differ from that read, or the full
+   * sanitized payload when nothing changed (objectui#10156; the whole rule is
+   * on `ObjectFormSchema['submitHandler']`).
    *
    * `MasterDetailForm` supplies it to route the parent AND its child
    * collections through one atomic `batchTransaction` (#2679 / ADR-0034
@@ -349,6 +359,12 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   // `initialData`/`initialValues` are objects callers commonly rebuild every
   // render, and flashing the loading state for those would thrash.
   const loadedRecordIdRef = useRef<string | number | undefined>(undefined);
+  // The record itself as read — the baseline an edit save diffs against, so
+  // only the fields that changed are written (objectui#10156). Kept apart from
+  // `formData`, which seeds the form and supplies the OCC token: advancing it
+  // after a save would reseed the one and move the other. Set by the `findOne`
+  // below and nowhere else, so a caller-supplied record is never a baseline.
+  const loadedRecordRef = useRef<LoadedRecordSnapshot | null>(null);
 
   // Fetch initial data
   useEffect(() => {
@@ -364,6 +380,8 @@ export const ModalForm: React.FC<ModalFormProps> = ({
     let cancelled = false;
     const fetchData = async () => {
       if (schema.mode === 'create' || !schema.recordId) {
+        // Seeded from something other than a read: no baseline to diff against.
+        loadedRecordRef.current = null;
         // No persisted record to show, so the object's declared static
         // `defaultValue`s are the form's opening values (#4047) — caller-
         // supplied initial values still win. See `schemaDefaults` for why
@@ -375,6 +393,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       }
 
       if (!dataSource) {
+        loadedRecordRef.current = null;
         setFormData(resolveInitialRecord(schema));
         setLoading(false);
         return;
@@ -394,6 +413,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         const data = await dataSource.findOne(schema.objectName, schema.recordId);
         if (cancelled) return;
         loadedRecordIdRef.current = schema.recordId;
+        loadedRecordRef.current = snapshotLoadedRecord(schema, data);
         setFormData(data || {});
       } catch (err) {
         if (cancelled) return;
@@ -501,12 +521,14 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       // Omit the fields the producer owns (#4069) — see
       // `omitServerResolvedDefaults` for why an empty key is not the same as
       // no key at insert time. Create only: on an edit form a cleared column is
-      // a real removal. Computed ONCE (after the FLS strip above) so every
-      // persistence route below — the host-owned seam included — writes the
-      // identical payload.
+      // a real removal. An EDIT writes only the fields that differ from the
+      // record this form read (objectui#10156; `dirtyEditPayload` holds the
+      // rule, and sends whatever it cannot settle). Computed ONCE (after the
+      // FLS strip above) so every persistence route below — the host-owned
+      // seam included — writes the identical payload.
       const writePayload = schema.mode === 'create'
         ? omitServerResolvedDefaults(payload, objectSchema)
-        : payload;
+        : dirtyEditPayload(payload, loadedRecordRef.current, schema);
 
       if (schema.submitHandler) {
         // The host owns persistence (e.g. MasterDetailForm batching the parent
@@ -529,12 +551,15 @@ export const ModalForm: React.FC<ModalFormProps> = ({
           dataSource,
           objectName: schema.objectName,
           recordId: schema.recordId,
-          payload,
+          payload: writePayload,
           baseRecord: formData,
         });
         if (outcome.status === 'cancelled') return;
         result = outcome.result;
       }
+      // The write landed: a save from this still-open modal diffs against the
+      // record as it now stands, not as first read.
+      loadedRecordRef.current = advanceLoadedRecord(loadedRecordRef.current, schema, writePayload);
       if (schema.onSuccess) {
         await schema.onSuccess(result);
       }

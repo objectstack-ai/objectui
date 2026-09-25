@@ -726,12 +726,15 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
         //
         // ⭐ The default is resolved HERE, on an AUTHORED section, and that
         // placement is the whole design. `DetailSection` tests `=== true`, so
-        // the default reaches exactly the surface that declares the key.
-        // Sections nobody can write it on stay out: the direct-`fields`
-        // fallback body below and the `detail-section` node each synthesize a
-        // section, and a hide there would be one with no declarable spelling
-        // to ask the skeleton back — the defect upstream declared this key to
-        // fix, reintroduced one surface over.
+        // the default reaches exactly the authored sections this renderer
+        // resolves it on. Every other section stays out. The direct-`fields`
+        // fallback body below synthesizes a section nobody can write the key
+        // on, and a hide there would be one with no declarable spelling to
+        // ask the skeleton back — the defect upstream declared this key to
+        // fix, reintroduced one surface over. The `detail-section` node
+        // declares the key (objectui#10485) but applies no default of its
+        // own, so an omitted one keeps the skeleton there too; only an
+        // authored `true` hides.
         //
         // ⚠️ `?? true` is the spelling objectui#7064 removed, and it is back
         // deliberately. ⛔ Read that ruling's ground as it was written, not as

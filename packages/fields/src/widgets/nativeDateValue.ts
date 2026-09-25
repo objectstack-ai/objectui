@@ -46,7 +46,27 @@
  * (`data-table.tsx`) and `@object-ui/plugin-detail`'s `InlineFieldInput`
  * already do. Untouched fields are never re-emitted, so a form that opens and
  * closes without an edit still submits nothing for them.
+ *
+ * ## A stored day that does not exist (objectui#10474)
+ *
+ * The engine's date parse accepts a day of `01`-`31` for every month and rolls
+ * the surplus forward, so `new Date('2026-02-30T10:00:00Z')` is March 2nd. The
+ * READ faces refuse such a value through the shared judgement
+ * (`isRealCalendarDate`, objectui#10026 / objectui#10301); this pair used to
+ * reach the engine first, so the editor showed `2026-03-02T10:00` for it and a
+ * save could write that day back. `isImpossibleStoredDay` asks the same
+ * judgement of the day AS WRITTEN, before any `new Date(...)`, in every
+ * spelling (`Z`, offset, zone-less, date-only).
+ *
+ * The control cannot show the stored string instead: measured in Chromium, a
+ * `datetime-local` (and a `date`) sanitises a nonexistent day to `""`, in the
+ * zone-less spelling too. So `toDateTimeInputValue` hands the control `""` and
+ * the WIDGET names the stored string beside it with an invalid marker — an
+ * empty control alone would be objectui#3127's silent blank again. Nothing is
+ * written until the user picks a new value.
  */
+
+import { isRealCalendarDate } from '@object-ui/core';
 
 function pad2(n: number): string {
   return String(n).padStart(2, '0');
@@ -82,6 +102,8 @@ export function toDateInputValue(value: unknown): string {
  */
 export function toDateTimeInputValue(value: unknown): string {
   if (value == null || value === '') return '';
+  // Judged before any `new Date(...)`, which would roll it (objectui#10474).
+  if (isImpossibleStoredDay(value)) return '';
   if (typeof value === 'string') {
     const local = value.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?$/);
     if (local) return `${local[1]}T${local[2]}`;
@@ -106,7 +128,26 @@ export function toDateTimeInputValue(value: unknown): string {
  */
 export function fromDateTimeInputValue(value: string): string {
   if (!value) return '';
+  // A nonexistent day is returned untouched, like an unparseable string: the
+  // engine would re-emit it as the rolled day (objectui#10474).
+  if (isImpossibleStoredDay(value)) return value;
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
   return d.toISOString();
+}
+
+/**
+ * True when a stored value is written on a calendar day that does not exist
+ * (`2026-02-30`, `2026-02-30T10:00:00Z`, `2026-02-30T10:00+08:00`) — the day
+ * read AS WRITTEN from the leading `YYYY-MM-DD`, by the one judgement the read
+ * faces use (`isRealCalendarDate`). A parsed `Date` always names a real day,
+ * so the check can only be made before any conversion.
+ *
+ * Anything without a leading `YYYY-MM-DD` (a `Date`, a number, free text) is
+ * not this case and answers `false`.
+ */
+export function isImpossibleStoredDay(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  const m = value.match(/^(\d{4}-\d{2}-\d{2})(?:$|T)/);
+  return m != null && !isRealCalendarDate(m[1]);
 }

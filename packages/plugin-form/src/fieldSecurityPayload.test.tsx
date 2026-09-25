@@ -24,6 +24,17 @@
  * that lit control in the SAME payload: the unchanged, un-denied columns are
  * still on the wire.
  *
+ * ## Why the filter rows submit with nothing changed (objectui#10156)
+ *
+ * An edit now writes only the fields that differ from the record the form
+ * read. After a real edit, an unchanged `score` is kept off the wire by that
+ * dirty diff alone — so a row that edited `actual_value` and then asserted
+ * `score` absent would stay green with the field-level filter deleted. The
+ * rows that read the FILTER therefore submit with nothing changed: a save with
+ * no changes sends the full sanitized payload, the one edit route where the
+ * filter is the only thing between `score` and the server, and where the lit
+ * control above is still on the wire to be read.
+ *
  * ## Why all three containers, and why they are pinned in one file
  *
  * `ObjectForm`, `ModalForm` and `DrawerForm` are one family reached from one
@@ -173,6 +184,24 @@ async function editAllowedFieldAndSubmit(root: HTMLElement, update: any) {
   return update.mock.calls[0][2] as Record<string, unknown>;
 }
 
+/**
+ * Submit with NOTHING changed, once the record is on screen, and return the
+ * payload: the full sanitized set, which is what the filter rows read (see the
+ * header for why an edited submit cannot carry them any more).
+ */
+async function submitUnchanged(root: HTMLElement, update: any) {
+  await waitFor(() => {
+    const el = root.querySelector('input[name="actual_value"]') as HTMLInputElement | null;
+    if (!el) throw new Error('actual_value not rendered');
+    if (el.value !== String(RECORD.actual_value)) throw new Error('record not on screen yet');
+  });
+  const form = root.querySelector('form');
+  if (!form) throw new Error('no form element');
+  fireEvent.submit(form);
+  await waitFor(() => expect(update).toHaveBeenCalled());
+  return update.mock.calls[0][2] as Record<string, unknown>;
+}
+
 /** The three containers, each mounted under the same principal. */
 const CONTAINERS: Array<{
   name: string;
@@ -206,16 +235,21 @@ const CONTAINERS: Array<{
 
 describe('field-level security — the form neither sends nor offers a refused field (objectui#10120)', () => {
   describe.each(CONTAINERS)('$name', ({ mount }) => {
-    it('omits the FLS-refused field from the PATCH while the edited field and every un-denied one still go', async () => {
+    it('omits the FLS-refused field from the PATCH while every un-denied one still goes', async () => {
       const { ds, update } = makeDataSource();
-      const payload = await editAllowedFieldAndSubmit(mount(REPORTER, ds), update);
+      const payload = await submitUnchanged(mount(REPORTER, ds), update);
 
       for (const key of DENIED) expect(payload).not.toHaveProperty(key);
-      // The edit the user actually made reached the wire …
-      expect(payload).toMatchObject({ actual_value: 5000 });
-      // … and so did the card's lit control: unchanged columns with no deny on
-      // them are NOT what makes the save fail, so the fix is not "send less".
-      expect(payload).toMatchObject(UNCHANGED_ALLOWED);
+      // The card's lit control reached the wire in the same payload: unchanged
+      // columns with no deny on them are NOT what makes the save fail, so the
+      // fix is not "send less".
+      expect(payload).toMatchObject({ actual_value: RECORD.actual_value, ...UNCHANGED_ALLOWED });
+    });
+
+    it('an edit writes the edited field alone — never the FLS-refused one', async () => {
+      const { ds, update } = makeDataSource();
+      const payload = await editAllowedFieldAndSubmit(mount(REPORTER, ds), update);
+      expect(payload).toEqual({ actual_value: 5000 });
     });
 
     it('renders the FLS-refused field non-editable, so the refusal is never invited', async () => {
@@ -241,9 +275,10 @@ describe('field-level security — the form neither sends nor offers a refused f
         return el;
       });
       expect(score.disabled).toBe(false);
-      const payload = await editAllowedFieldAndSubmit(root, update);
+      // The same route as the filter row above; only the principal differs.
+      const payload = await submitUnchanged(root, update);
       expect(payload).toHaveProperty('score');
-      expect(payload).toMatchObject({ actual_value: 5000, ...UNCHANGED_ALLOWED });
+      expect(payload).toMatchObject({ actual_value: RECORD.actual_value, ...UNCHANGED_ALLOWED });
       // `adjusted_score` and `sheet` stay absent for EVERY caller: they are
       // `readonly` on the field definition, which this card does not move.
       expect(payload).not.toHaveProperty('adjusted_score');

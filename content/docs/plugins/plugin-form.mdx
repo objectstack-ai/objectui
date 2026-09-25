@@ -413,6 +413,20 @@ The components are on the package's export surface — `ObjectForm`,
 (`TabbedFormSchema`, `WizardFormSchema`, `ModalFormSchema`, …). There is no
 aggregate map among them.
 
+## What an edit save writes
+
+An `object-form` in `mode: 'edit'` reads its record with `findOne`, and its save
+writes only the fields that differ from that read. That covers the simple form,
+the `modal` and `drawer` variants, and the parent operation of a master-detail
+form. The `tabbed`, `wizard` and `split` variants still send every value the form
+holds, and so does a simple form whose mobile `stepper` option routes it through
+the wizard. A field whose sameness cannot be proven is sent: `5` and `'5'`, `null` and
+`''`, and a lookup id and its expanded object all count as different. A save with
+nothing changed still sends the full payload, as it always has. The `ifMatch`
+concurrency guard is unchanged, and its **Overwrite** choice now resends only the
+changed fields. A host `submitHandler` receives the same payload in edit mode.
+The package README has the full rule, under "What an edit save writes".
+
 ## Examples
 
 ### Form with Validation

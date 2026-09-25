@@ -37,6 +37,13 @@ import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { FieldSchema } from '@objectstack/spec/data';
 import { LocalizationProvider } from '@object-ui/i18n';
+import type { ObjectDataTableSchema, TableColumn } from '@object-ui/types';
+
+/** The slice of the `data-table` node the stand-in below reads. */
+interface StandInTable {
+  columns?: Array<{ accessorKey: string; cell?: (value: unknown, row: Record<string, unknown>) => React.ReactNode }>;
+  data?: Array<Record<string, unknown>>;
+}
 
 // The underlying `data-table` renderer is replaced by a plain table that calls
 // each column's `cell`, the same stand-in `ObjectDataTable.cells.test.tsx` uses:
@@ -45,15 +52,15 @@ vi.mock('@object-ui/react', async () => {
   const actual = await vi.importActual<typeof import('@object-ui/react')>('@object-ui/react');
   return {
     ...actual,
-    SchemaRenderer: ({ schema }: any) => {
+    SchemaRenderer: ({ schema }: { schema: StandInTable }) => {
       const cols = schema.columns || [];
       const rows = schema.data || [];
       return (
         <table>
           <tbody>
-            {rows.map((row: any, i: number) => (
+            {rows.map((row, i) => (
               <tr key={i}>
-                {cols.map((c: any) => (
+                {cols.map((c) => (
                   <td key={c.accessorKey} data-testid={`cell-${c.accessorKey}`}>
                     {typeof c.cell === 'function' ? c.cell(row[c.accessorKey], row) : String(row[c.accessorKey] ?? '')}
                   </td>
@@ -87,12 +94,15 @@ const FIXED_JPY = () => currencyField({ currencyConfig: { currencyMode: 'fixed',
 const DYNAMIC_EUR = () => currencyField({ currencyConfig: { currencyMode: 'dynamic', defaultCurrency: 'EUR' } });
 
 /** Mount the table over one `amount` column and return its painted cell text. */
-async function tableCell(field: Record<string, unknown>, column: Record<string, unknown> = {}): Promise<string> {
+async function tableCell(
+  field: Record<string, unknown>,
+  column: Partial<Pick<TableColumn, 'currency' | 'format'>> = {},
+): Promise<string> {
   const dataSource = {
     find: async () => ({ data: [{ amount: VALUE }] }),
     getObjectSchema: async () => ({ name: 'deal', fields: { amount: field } }),
   };
-  const schema: any = {
+  const schema: ObjectDataTableSchema = {
     type: 'object-data-table',
     objectName: 'deal',
     columns: [{ header: 'Amount', accessorKey: 'amount', ...column }],

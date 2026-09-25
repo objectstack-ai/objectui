@@ -208,7 +208,8 @@ type FieldReadPolicy = Pick<ReturnType<typeof usePermissions>, 'isLoaded' | 'che
 
 /**
  * `record` as the viewer may READ it on `objectName`, for naming a referenced
- * record in the lookup cell (objectui#10501). Every field the loaded `policy`
+ * record in the lookup cell (objectui#10501) and for drawing a person's name and
+ * avatar in the user cell (objectui#10535). Every field the loaded `policy`
  * denies is removed, which leaves the row ObjectStack's `FieldMasker` already
  * serves. `id` and `_id` are never judged: the id addresses the record and is
  * not a field value the policy withholds. Before a policy loads (also the
@@ -2940,8 +2941,24 @@ function UnresolvedReferenceMark({
 
 /**
  * User/Owner field cell renderer (with avatars)
+ *
+ * The name and the avatar are DISPLAY values, so each person row is drawn as
+ * the viewer may read it (objectui#10535): with a loaded policy, the fields it
+ * denies on the person's object are removed first ({@link withoutDeniedFields},
+ * `id` kept), and everything below reads that row — exactly as it reads the
+ * row a stripping backend serves. The person's object is the field's
+ * `reference_to` (or `reference`), and `sys_user` when it names none: the
+ * object `UserField` points the picker at.
  */
-export function UserCellRenderer({ value }: CellRendererProps): React.ReactElement {
+export function UserCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
+  // Called before any early return (rules of hooks). A policy that loads or
+  // changes re-renders this cell through the context, and the drawing follows.
+  const perms = usePermissions();
+  const personObject =
+    (field as { reference_to?: string } | undefined)?.reference_to ||
+    (field as { reference?: string } | undefined)?.reference ||
+    'sys_user';
+
   // THE FLOOR by name (objectui#8496) plus ONE extension: every falsy scalar.
   // `!value` alone never saw `[]` — a truthy empty array reached the
   // avatar-stack branch below and rendered an empty stack (objectui#8481) —
@@ -2961,15 +2978,17 @@ export function UserCellRenderer({ value }: CellRendererProps): React.ReactEleme
   if (Array.isArray(value)) {
     return (
       <div className="flex -space-x-2">
-        {value.slice(0, 3).map((user, idx) => {
+        {value.slice(0, 3).map((entry, idx) => {
           // The same ruling as the scalar branch above, one input-shape over
           // (objectui#8434): an entry that is not an expanded record is a
           // reference this screen did not resolve, and it said so by drawing
           // nothing. A multi-value `user` field must not be honest on its
           // single-value shape and silent on this one.
-          if (typeof user !== 'object' || user === null) {
-            return <UnresolvedUserReference key={idx} value={user} className="text-sm" />;
+          if (typeof entry !== 'object' || entry === null) {
+            return <UnresolvedUserReference key={idx} value={entry} className="text-sm" />;
           }
+          // Each person as the viewer may read it (objectui#10535).
+          const user = withoutDeniedFields(entry, perms, personObject);
           // An entry carrying nothing names no person (objectui#8596) — the
           // same ruling as the scalar branch below, one input-shape over.
           if (isPlainObjectValue(user) && Object.keys(user).length === 0) {
@@ -3015,17 +3034,21 @@ export function UserCellRenderer({ value }: CellRendererProps): React.ReactEleme
   //
   // ⛔ Deliberately narrow: `{ id: 'u_1' }` still draws its avatar, so no
   // populated reference moves. Same boundary as `AddressCellRenderer`'s.
-  if (Object.keys(value).length === 0) {
-    return <TruncatedText text={String(coerceToSafeValue(value))} />;
+  //
+  // Judged on the person as the viewer may read it (objectui#10535), as is
+  // everything below.
+  const user = withoutDeniedFields(value, perms, personObject);
+  if (Object.keys(user).length === 0) {
+    return <TruncatedText text={String(coerceToSafeValue(user))} />;
   }
 
-  const name = value.name || value.username || 'User';
+  const name = user.name || user.username || 'User';
   const initials = name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
   
   return (
     <div className="flex items-center gap-2">
       <Avatar className="size-8">
-        {value.image && <AvatarImage src={value.image} alt={name} />}
+        {user.image && <AvatarImage src={user.image} alt={name} />}
         <AvatarFallback className="bg-blue-500 text-white text-xs">
           {initials}
         </AvatarFallback>

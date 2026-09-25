@@ -1,5 +1,5 @@
 ---
-'@object-ui/core': patch
+'@object-ui/core': minor
 '@object-ui/plugin-dashboard': patch
 ---
 

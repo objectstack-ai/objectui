@@ -143,7 +143,10 @@ describe('Studio top bar — the Publish button with nothing to publish (objectu
     expect(btn).toBeDisabled();
     expect(btn.className).not.toMatch(/\bbg-primary\b/);
     expect(btn.className).not.toMatch(/\btext-primary-foreground\b/);
+    // An outline: a border that is actually drawn (the primary state carries a
+    // transparent one only to keep the bar from shifting).
     expect(btn.className).toMatch(/\bborder\b/);
+    expect(btn.className).not.toMatch(/\bborder-transparent\b/);
     // The reason is on screen, not only in the hover tooltip.
     const reason = screen.getByTestId('publish-none-reason');
     expect(reason).toHaveTextContent('没有待发布的草稿');

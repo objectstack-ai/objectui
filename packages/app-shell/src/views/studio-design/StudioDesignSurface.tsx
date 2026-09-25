@@ -943,6 +943,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
 
   const onDraftSaved = React.useCallback(() => setDraftNonce((n) => n + 1), []);
   const hasPending = (pendingCount ?? 0) > 0;
+  const publishNoneReasonId = React.useId();
 
   // Builder → running-app bridge (Airtable's Launch): the builder edits the
   // package (the design surface), the app is its published front-end. If this
@@ -1214,6 +1215,17 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 <GitBranch className="h-3.5 w-3.5" />
                 {t('engine.studio.changes', locale)}{hasPending ? ` · ${pendingCount}` : ''}
               </button>
+              {/* objectui#8219 — with nothing to publish, say so on the page
+                  rather than only in the hover tooltip. */}
+              {!hasPending && !readOnly && !publishing && (
+                <span
+                  id={publishNoneReasonId}
+                  className="text-[11px] text-muted-foreground"
+                  data-testid="publish-none-reason"
+                >
+                  {t('engine.studio.publishNoneTitle', locale)}
+                </span>
+              )}
               <button
                 type="button"
                 // Publish is review-then-confirm: open the pending-changes panel,
@@ -1221,6 +1233,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 // never straight from this header click (objectui#2261).
                 onClick={() => setChangesOpen(true)}
                 disabled={publishing || !hasPending || readOnly}
+                aria-describedby={!hasPending && !readOnly && !publishing ? publishNoneReasonId : undefined}
                 title={
                   readOnly
                     ? t('engine.studio.pkg.readonlyHint', locale)
@@ -1228,7 +1241,17 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                       ? t('engine.studio.publishTitle', locale)
                       : t('engine.studio.publishNoneTitle', locale)
                 }
-                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                // objectui#8219 — the primary style is for a publish the author
+                // CAN do. A disabled one (no draft, or a read-only package)
+                // drops to an outline, instead of staying the loudest element
+                // on the page dimmed only by `disabled:opacity-50`.
+                className={cn(
+                  // The border is on both states so the swap never shifts the bar.
+                  'inline-flex items-center gap-1.5 rounded-md border px-3 py-1 text-xs font-medium',
+                  publishing || (hasPending && !readOnly)
+                    ? 'border-transparent bg-primary text-primary-foreground disabled:opacity-50'
+                    : 'text-muted-foreground',
+                )}
               >
                 {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
                 {t('engine.studio.publish', locale)}

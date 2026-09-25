@@ -2010,11 +2010,42 @@ ComponentRegistry.register('form',
     // A cleared field that comes back into view comes back EMPTY: this is a
     // clear, not a stash. Re-hiding it then writes nothing (the value is
     // already empty), so the pair cannot oscillate.
+    //
+    // ## The clear is NAMED (objectui#8070)
+    //
+    // A silent clear let a stored value vanish with the field that held it. The
+    // ruling on objectui#8070 (letter A) ports the naming half of the
+    // objectui#6499 ruling to this surface: the user is told WHICH fields were
+    // cleared and WHY. So a pass that empties anything raises one notice naming
+    // the cleared fields by the label the form draws (the source
+    // `validation.formInvalid` names them from), joined by the locale's own
+    // `validation.formInvalidJoiner`, under `outcomeToastId`. Sharing that id
+    // is what makes it retire like the form's other outcome messages: a later
+    // submit refusal replaces it, and the next accepted attempt dismisses it.
+    //
+    // Only a value this pass actually changed is named: an empty list is
+    // rewritten as itself, so it is not reported as cleared.
+    //
+    // A clear can hide a second field — one whose `visibleWhen` reads the
+    // field just cleared — and that second clear runs on the NEXT pass. Naming
+    // only that pass would replace the notice with the second field alone and
+    // hide the first clear from the user. So a pass that starts from exactly
+    // the values the previous clearing pass left behind (nothing edited since:
+    // the cascade, not a new user action) names its fields together with that
+    // pass's. Any edit in between starts a fresh list.
     const previouslyHiddenFieldNames = React.useRef<Set<string> | undefined>(undefined);
+    const lastClearNotice = React.useRef<
+      { names: string[]; values: Record<string, unknown> } | undefined
+    >(undefined);
     React.useEffect(() => {
       const before = previouslyHiddenFieldNames.current;
       previouslyHiddenFieldNames.current = conditionallyHiddenFieldNames;
       if (!before) return;
+      const prior = lastClearNotice.current;
+      const chained =
+        prior !== undefined &&
+        !computeDirty(prior.values, form.getValues() as Record<string, unknown>);
+      if (!chained) lastClearNotice.current = undefined;
       const cleared: string[] = [];
       for (const name of conditionallyHiddenFieldNames) {
         if (before.has(name)) continue;
@@ -2027,9 +2058,14 @@ ComponentRegistry.register('form',
         if (!(Array.isArray(current) && current.length === 0)) cleared.push(name);
       }
       if (cleared.length === 0) return;
+      const names = chained && prior ? [...prior.names, ...cleared] : cleared;
+      lastClearNotice.current = {
+        names,
+        values: { ...(form.getValues() as Record<string, unknown>) },
+      };
       toast.warning(
         t('form.clearedOnHide', {
-          fields: cleared.map((n) => fieldLabelByName[n] || n).join(t('validation.formInvalidJoiner')),
+          fields: names.map((n) => fieldLabelByName[n] || n).join(t('validation.formInvalidJoiner')),
         }),
         { id: outcomeToastId },
       );

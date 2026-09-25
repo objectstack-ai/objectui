@@ -157,7 +157,26 @@ describe('#8070 — a visibleWhen clear is named to the user', () => {
     retype('lead');
 
     await waitFor(() => expect(notices().at(-1)).toContain('Role'));
-    expect(notices().at(-1)).toContain('Contact');
+    expect(notices().at(-1)).toContain('Contact, Role');
+  });
+
+  it('a SEPARATE later transition names only its own field — the earlier clear is not carried', async () => {
+    renderForm({
+      fields: [
+        ...FIELDS.slice(0, 2),
+        { name: 'sys_user', label: 'User', type: 'input', visibleWhen: cel("record.attendee_type == 'user'") },
+      ],
+      defaultValues: { attendee_type: 'contact', crm_contact: 'AEwPffbk' },
+    });
+
+    retype('user');
+    await waitFor(() => expect(warningSpy).toHaveBeenCalledTimes(1));
+    fireEvent.change(screen.getByLabelText(/^user$/i), { target: { value: 'brZgpOK4' } });
+    retype('lead');
+
+    await waitFor(() => expect(warningSpy).toHaveBeenCalledTimes(2));
+    expect(notices()[1]).toContain('User');
+    expect(notices()[1]).not.toContain('Contact');
   });
 
   it('a later submit refusal supersedes the notice, and the next accepted attempt retires it — one id throughout', async () => {

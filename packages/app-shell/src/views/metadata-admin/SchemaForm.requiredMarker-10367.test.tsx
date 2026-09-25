@@ -16,7 +16,9 @@
  *
  * The objectui#10178 / objectui#3299 shape: the marker is `aria-hidden`, and
  * `FieldControl` puts `aria-required` on the controls it renders itself, from
- * the same flag that draws the marker. `aria-required`, not native `required`,
+ * the same flag that draws the marker, and hands that flag to a registered
+ * `labelling: 'control'` widget, which emits it through `controlNaming()` in
+ * `widgets.tsx`. `aria-required`, not native `required`,
  * so a host `<form>` gains no browser verdict — each case asserts native
  * `required` stays absent.
  *
@@ -119,6 +121,95 @@ describe('objectui#10367 — SchemaForm keeps the required `*` out of the access
     const headerMarker = container.querySelector('th [data-required-marker]');
     expect(headerMarker).not.toBeNull();
     expect(headerMarker).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('a registered `control` widget is named without `*` and carries aria-required, in a row and in a grid cell', () => {
+    // The widget half: `FieldControl` hands the flag to the widget as
+    // `WidgetProps.required`, and `controlNaming()` emits it beside the naming
+    // props. Before it, hiding the `*` left these controls with no cue at all.
+    const { container } = render(
+      <SchemaForm
+        schema={
+          {
+            type: 'object',
+            properties: {
+              tags: { type: 'array', items: { type: 'string' } },
+              glyph: { type: 'string' },
+              extra: { type: 'array', items: { type: 'string' } },
+            },
+            required: ['tags', 'glyph'],
+          } as never
+        }
+        form={
+          {
+            type: 'simple',
+            sections: [
+              {
+                label: 'S',
+                fields: [
+                  { field: 'tags', widget: 'string-tags' },
+                  { field: 'glyph', widget: 'icon' },
+                  { field: 'extra', widget: 'string-tags' },
+                ],
+              },
+            ],
+          } as never
+        }
+        value={{}}
+        onChange={() => {}}
+      />,
+    );
+
+    const tags = screen.getByRole('textbox', { name: 'Tags' });
+    expect(tags).toHaveAttribute('aria-required', 'true');
+    expect(tags).not.toHaveAttribute('required');
+    const glyph = screen.getByRole('combobox', { name: 'Glyph' });
+    expect(glyph).toHaveAttribute('aria-required', 'true');
+    // The optional registered field beside them is the in-render control.
+    expect(screen.getByRole('textbox', { name: 'Extra' })).not.toHaveAttribute('aria-required');
+    expect(container.querySelectorAll('label [data-required-marker]')).toHaveLength(2);
+    cleanup();
+
+    // A grid cell reaches the same widget with its column's `required`.
+    const grid = render(
+      <SchemaForm
+        schema={
+          {
+            type: 'object',
+            properties: {
+              rows: {
+                type: 'array',
+                title: 'Rows',
+                items: { type: 'object', properties: { tags: { type: 'array', items: { type: 'string' } } } },
+              },
+            },
+          } as never
+        }
+        form={
+          {
+            type: 'simple',
+            sections: [
+              {
+                label: 'S',
+                fields: [
+                  {
+                    field: 'rows',
+                    type: 'repeater',
+                    widget: 'grid',
+                    fields: [{ field: 'tags', label: 'Tags', widget: 'string-tags', required: true }],
+                  },
+                ],
+              },
+            ],
+          } as never
+        }
+        value={{ rows: [{ tags: [] }] }}
+        onChange={() => {}}
+      />,
+    );
+    const cell = grid.container.querySelector('td input') as HTMLElement;
+    expect(cell).toHaveAccessibleName('Tags');
+    expect(cell).toHaveAttribute('aria-required', 'true');
   });
 
   it('CONTROL — an optional string property shows no marker and carries no aria-required', () => {

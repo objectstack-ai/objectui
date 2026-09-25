@@ -286,6 +286,18 @@ export interface WidgetProps {
    * there.
    */
   ariaLabelledBy?: string;
+  /**
+   * Whether the host shows a required `*` for this field (objectui#10367). That
+   * `*` is `aria-hidden` — it sits inside the label that names the control, so
+   * it would otherwise be read as part of the name — and this is the channel
+   * that announces the requirement instead: a `labelling: 'control'` widget
+   * puts it on its primary control as `aria-required`, through
+   * {@link controlNaming}, next to the naming props. `filter-builder` is the
+   * one `'control'` widget that does not: its face is a plain `button`, and
+   * ARIA 1.2 does not support `aria-required` on role `button`. No `'group'`
+   * widget reads it today.
+   */
+  required?: boolean;
   schema: Record<string, any>;
   value: unknown;
   onChange: (v: unknown) => void;
@@ -347,11 +359,16 @@ export type WidgetRenderer = (props: WidgetProps) => React.ReactElement;
 function controlNaming({
   id,
   ariaLabelledBy,
-}: Pick<WidgetProps, 'id' | 'ariaLabelledBy'>): {
+  required,
+}: Pick<WidgetProps, 'id' | 'ariaLabelledBy' | 'required'>): {
   id?: string;
   'aria-labelledby'?: string;
+  'aria-required'?: true;
 } {
-  return { id, 'aria-labelledby': ariaLabelledBy };
+  // `aria-required` rides with the naming props because it belongs on the same
+  // element: the one the host's label names, whose `*` is now `aria-hidden`
+  // (objectui#10367). Omitted, never "false", when the field is optional.
+  return { id, 'aria-labelledby': ariaLabelledBy, 'aria-required': required ? true : undefined };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -427,6 +444,7 @@ function PickerLoadFailure({
 function RefObjectWidget({
   id,
   ariaLabelledBy,
+  required,
   value,
   onChange,
   readOnly,
@@ -448,7 +466,7 @@ function RefObjectWidget({
       <div className="space-y-1.5">
         <PickerLoadFailure message={objectsState.message} testId="ref-object-load-failed" />
         <Input
-          {...controlNaming({ id, ariaLabelledBy })}
+          {...controlNaming({ id, ariaLabelledBy, required })}
           value={v}
           disabled={readOnly}
           onChange={(e) => onChange(e.target.value || undefined)}
@@ -459,7 +477,7 @@ function RefObjectWidget({
   if (isLoading(objectsState)) {
     return (
       <Input
-        {...controlNaming({ id, ariaLabelledBy })}
+        {...controlNaming({ id, ariaLabelledBy, required })}
         value={v}
         disabled
         placeholder={t('engine.form.loadingObjects', locale)}
@@ -472,7 +490,7 @@ function RefObjectWidget({
   if (names.length === 0) {
     return (
       <Input
-        {...controlNaming({ id, ariaLabelledBy })}
+        {...controlNaming({ id, ariaLabelledBy, required })}
         value={v}
         disabled={readOnly}
         onChange={(e) => onChange(e.target.value || undefined)}
@@ -486,7 +504,7 @@ function RefObjectWidget({
       onValueChange={(next) => onChange(next || undefined)}
       disabled={readOnly}
     >
-      <SelectTrigger {...controlNaming({ id, ariaLabelledBy })}>
+      <SelectTrigger {...controlNaming({ id, ariaLabelledBy, required })}>
         <SelectValue placeholder={t('engine.form.selectObject', locale)} />
       </SelectTrigger>
       <SelectContent>
@@ -566,7 +584,7 @@ export function collectPageComponentIds(
  * page has no components yet, degrades to a free-text input so the field stays
  * editable. Mirrors {@link RefObjectWidget} / {@link ViewRefWidget}.
  */
-function RefComponentWidget({ id, ariaLabelledBy, value, onChange, readOnly, context }: WidgetProps) {
+function RefComponentWidget({ id, ariaLabelledBy, required, value, onChange, readOnly, context }: WidgetProps) {
   const locale = useMetadataLocale();
   const components = context?.componentIds ?? [];
   const current = value == null ? '' : String(value);
@@ -574,7 +592,7 @@ function RefComponentWidget({ id, ariaLabelledBy, value, onChange, readOnly, con
   if (components.length === 0) {
     return (
       <Input
-        {...controlNaming({ id, ariaLabelledBy })}
+        {...controlNaming({ id, ariaLabelledBy, required })}
         value={current}
         disabled={readOnly}
         onChange={(e) => onChange(e.target.value || undefined)}
@@ -589,7 +607,7 @@ function RefComponentWidget({ id, ariaLabelledBy, value, onChange, readOnly, con
       onValueChange={(v) => onChange(v === NO_FIELD ? undefined : v)}
       disabled={readOnly}
     >
-      <SelectTrigger {...controlNaming({ id, ariaLabelledBy })}>
+      <SelectTrigger {...controlNaming({ id, ariaLabelledBy, required })}>
         <SelectValue placeholder={t('engine.form.selectComponent', locale)} />
       </SelectTrigger>
       <SelectContent>
@@ -626,6 +644,7 @@ function RefComponentWidget({ id, ariaLabelledBy, value, onChange, readOnly, con
 function ObjectSelectorWidget({
   id,
   ariaLabelledBy,
+  required,
   value,
   onChange,
   readOnly,
@@ -682,7 +701,7 @@ function ObjectSelectorWidget({
   };
 
   if (isLoading(objectsState)) {
-    return <Input {...controlNaming({ id, ariaLabelledBy })} value={t('engine.form.loadingObjects', locale)} readOnly disabled />;
+    return <Input {...controlNaming({ id, ariaLabelledBy, required })} value={t('engine.form.loadingObjects', locale)} readOnly disabled />;
   }
 
   // The object list FAILED to load (objectui#5170). The picker below would
@@ -728,7 +747,7 @@ function ObjectSelectorWidget({
         {selectedChips}
         <PickerLoadFailure message={objectsState.message} testId="object-selector-load-failed" />
         <Input
-          {...controlNaming({ id, ariaLabelledBy })}
+          {...controlNaming({ id, ariaLabelledBy, required })}
           data-testid="object-selector-freeform"
           value={draft}
           disabled={readOnly}
@@ -758,7 +777,7 @@ function ObjectSelectorWidget({
         onValueChange={handleToggle}
         disabled={readOnly || names.length === 0}
       >
-        <SelectTrigger {...controlNaming({ id, ariaLabelledBy })}>
+        <SelectTrigger {...controlNaming({ id, ariaLabelledBy, required })}>
           <SelectValue placeholder={multiple ? t('engine.form.addObjects', locale) : t('engine.form.selectObject', locale)} />
         </SelectTrigger>
         <SelectContent>
@@ -838,6 +857,7 @@ async function fetchFieldSelectorOptions(objectName: string): Promise<FieldSelec
 function FieldSelectorWidget({
   id,
   ariaLabelledBy,
+  required,
   value,
   onChange,
   readOnly,
@@ -910,11 +930,11 @@ function FieldSelectorWidget({
   };
 
   if (!objectName) {
-    return <Input {...controlNaming({ id, ariaLabelledBy })} value={t('engine.form.selectObjectFirst', locale)} readOnly disabled />;
+    return <Input {...controlNaming({ id, ariaLabelledBy, required })} value={t('engine.form.selectObjectFirst', locale)} readOnly disabled />;
   }
 
   if (isLoading(fieldsState)) {
-    return <Input {...controlNaming({ id, ariaLabelledBy })} value={t('engine.form.loadingFields', locale)} readOnly disabled />;
+    return <Input {...controlNaming({ id, ariaLabelledBy, required })} value={t('engine.form.loadingFields', locale)} readOnly disabled />;
   }
 
   /* Whatever is already stored, kept visible and removable in EVERY completed
@@ -964,7 +984,7 @@ function FieldSelectorWidget({
         {selectedChips}
         <PickerLoadFailure message={loadError} testId="field-selector-load-failed" />
         <Input
-          {...controlNaming({ id, ariaLabelledBy })}
+          {...controlNaming({ id, ariaLabelledBy, required })}
           data-testid="field-selector-freeform"
           value={draft}
           disabled={readOnly}
@@ -994,7 +1014,7 @@ function FieldSelectorWidget({
         onValueChange={handleToggle}
         disabled={readOnly || fields.length === 0}
       >
-        <SelectTrigger {...controlNaming({ id, ariaLabelledBy })}>
+        <SelectTrigger {...controlNaming({ id, ariaLabelledBy, required })}>
           <SelectValue placeholder={multiple ? t('engine.form.addFields', locale) : t('engine.form.selectField', locale)} />
         </SelectTrigger>
         <SelectContent>
@@ -1282,6 +1302,7 @@ function RowCell({
 function StringTagsWidget({
   id,
   ariaLabelledBy,
+  required,
   value,
   onChange,
   readOnly,
@@ -1329,7 +1350,7 @@ function StringTagsWidget({
           </span>
         ))}
         <input
-          {...controlNaming({ id, ariaLabelledBy })}
+          {...controlNaming({ id, ariaLabelledBy, required })}
           type="text"
           value={draft}
           disabled={readOnly}
@@ -1491,7 +1512,7 @@ const NO_FIELD = '__none__';
  * xAxisField, …). Field list comes from `context.objectFields`; a value not
  * present in the catalog is still shown so stale/custom values survive.
  */
-function FieldRefWidget({ id, ariaLabelledBy, value, onChange, readOnly, context }: WidgetProps) {
+function FieldRefWidget({ id, ariaLabelledBy, required, value, onChange, readOnly, context }: WidgetProps) {
   const locale = useMetadataLocale();
   const fieldsState = context?.objectFields ?? NOT_ASKED;
   const current = value == null ? '' : String(value);
@@ -1519,7 +1540,7 @@ function FieldRefWidget({ id, ariaLabelledBy, value, onChange, readOnly, context
       <div className="space-y-1.5">
         <PickerLoadFailure message={fieldsState.message} testId="field-ref-load-failed" />
         <Input
-          {...controlNaming({ id, ariaLabelledBy })}
+          {...controlNaming({ id, ariaLabelledBy, required })}
           value={current}
           disabled={readOnly}
           onChange={(e) => onChange(e.target.value)}
@@ -1530,7 +1551,7 @@ function FieldRefWidget({ id, ariaLabelledBy, value, onChange, readOnly, context
   // Same in-file precedent as `ref:object` / `object-selector`: an unanswered
   // question renders as "asking", never as an answer of none.
   if (isLoading(fieldsState)) {
-    return <Input {...controlNaming({ id, ariaLabelledBy })} value={t('engine.form.loadingOptions', locale)} readOnly disabled />;
+    return <Input {...controlNaming({ id, ariaLabelledBy, required })} value={t('engine.form.loadingOptions', locale)} readOnly disabled />;
   }
   const fields = offeredOptions(fieldsState, NO_OBJECT_FIELDS);
   const inCatalog = !current || fields.some((f) => f.name === current);
@@ -1540,7 +1561,7 @@ function FieldRefWidget({ id, ariaLabelledBy, value, onChange, readOnly, context
       onValueChange={(v) => onChange(v === NO_FIELD ? '' : v)}
       disabled={readOnly}
     >
-      <SelectTrigger {...controlNaming({ id, ariaLabelledBy })}>
+      <SelectTrigger {...controlNaming({ id, ariaLabelledBy, required })}>
         <SelectValue
           placeholder={fields.length ? t('engine.form.selectField', locale) : t('engine.form.noObjectBound', locale)}
         />
@@ -1594,7 +1615,7 @@ export function resolveStoredViewRef(
  * field, which the protocol treats as the object's default view. Replaces the
  * free-text input where an author could type a non-existent view name.
  */
-function ViewRefWidget({ id, ariaLabelledBy, value, onChange, readOnly, context }: WidgetProps) {
+function ViewRefWidget({ id, ariaLabelledBy, required, value, onChange, readOnly, context }: WidgetProps) {
   const locale = useMetadataLocale();
   const viewsState = context?.objectViews ?? NOT_ASKED;
   const current = value == null ? '' : String(value);
@@ -1611,7 +1632,7 @@ function ViewRefWidget({ id, ariaLabelledBy, value, onChange, readOnly, context 
       <div className="space-y-1.5">
         <PickerLoadFailure message={viewsState.message} testId="view-ref-load-failed" />
         <Input
-          {...controlNaming({ id, ariaLabelledBy })}
+          {...controlNaming({ id, ariaLabelledBy, required })}
           value={current}
           disabled={readOnly}
           onChange={(e) => onChange(e.target.value || undefined)}
@@ -1620,7 +1641,7 @@ function ViewRefWidget({ id, ariaLabelledBy, value, onChange, readOnly, context 
     );
   }
   if (isLoading(viewsState)) {
-    return <Input {...controlNaming({ id, ariaLabelledBy })} value={t('engine.form.loadingOptions', locale)} readOnly disabled />;
+    return <Input {...controlNaming({ id, ariaLabelledBy, required })} value={t('engine.form.loadingOptions', locale)} readOnly disabled />;
   }
   const views = offeredOptions(viewsState, NO_OBJECT_VIEWS);
   // Mirror the runtime resolver (InterfaceListPage.resolveSourceView): a stored
@@ -1635,7 +1656,7 @@ function ViewRefWidget({ id, ariaLabelledBy, value, onChange, readOnly, context 
       onValueChange={(v) => onChange(v === NO_FIELD ? undefined : v)}
       disabled={readOnly}
     >
-      <SelectTrigger {...controlNaming({ id, ariaLabelledBy })}>
+      <SelectTrigger {...controlNaming({ id, ariaLabelledBy, required })}>
         <SelectValue
           placeholder={views.length ? t('engine.form.selectEllipsis', locale) : t('engine.form.noObjectBound', locale)}
         />
@@ -1829,7 +1850,7 @@ const ICON_RESULT_LIMIT = 120;
  * Built inline (no Radix portal) so the search + grid render eagerly — the same
  * jsdom-friendly choice the other pickers' tests rely on.
  */
-export function IconPickerWidget({ id, ariaLabelledBy, value, onChange, readOnly }: WidgetProps) {
+export function IconPickerWidget({ id, ariaLabelledBy, required, value, onChange, readOnly }: WidgetProps) {
   const locale = useMetadataLocale();
   const current = value == null ? '' : String(value);
   const [open, setOpen] = React.useState(false);
@@ -1855,7 +1876,7 @@ export function IconPickerWidget({ id, ariaLabelledBy, value, onChange, readOnly
   return (
     <>
       <button
-        {...controlNaming({ id, ariaLabelledBy })}
+        {...controlNaming({ id, ariaLabelledBy, required })}
         type="button"
         role="combobox"
         aria-haspopup="dialog"
@@ -2441,6 +2462,10 @@ function FilterBuilderField({ value, onChange, fields, readOnly, id, ariaLabelle
   };
   return (
     <Popover>
+      {/* No `required` on the trigger, deliberately (objectui#10367): this face
+          is a plain `button`, and ARIA 1.2 does not support `aria-required` on
+          role `button` — axe-core reports it as `aria-allowed-attr`. The other
+          ten `'control'` widgets carry it through `controlNaming`. */}
       <PopoverTrigger asChild>
         <Button {...controlNaming({ id, ariaLabelledBy })} variant="outline" size="sm" disabled={readOnly}
           className="h-8 w-full justify-between text-xs font-normal" data-testid="filter-builder-trigger">
@@ -2606,13 +2631,13 @@ function ColorSwatchGroupWidget({ value, onChange, readOnly, schema, fieldSpec, 
  * `<label for>` names it. The hex box beside it edits the same value and carries
  * its own name — before objectui#4871 it had none at all.
  */
-function ColorInputWidget({ id, ariaLabelledBy, value, onChange, readOnly }: WidgetProps) {
+function ColorInputWidget({ id, ariaLabelledBy, required, value, onChange, readOnly }: WidgetProps) {
   const locale = useMetadataLocale();
   const v = value == null ? '' : String(value);
   return (
     <div className="flex items-center gap-2">
       <input
-        {...controlNaming({ id, ariaLabelledBy })}
+        {...controlNaming({ id, ariaLabelledBy, required })}
         type="color"
         value={/^#([0-9a-f]{6})$/i.test(v) ? v : '#000000'}
         disabled={readOnly}
@@ -2754,7 +2779,7 @@ export const OBJECTUI_SECRET_MASK = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\
  * value (new secret), `OBJECTUI_SECRET_MASK` (blank + existing = keep, a no-op on write),
  * `null` (Clear), or `undefined` (blank + none).
  */
-function SecretWidget({ value, onChange, readOnly, schema, id, ariaLabelledBy }: WidgetProps) {
+function SecretWidget({ value, onChange, readOnly, schema, id, ariaLabelledBy, required }: WidgetProps) {
   const locale = useMetadataLocale();
   const stored = value === OBJECTUI_SECRET_MASK;
   const [reveal, setReveal] = React.useState(false);
@@ -2767,7 +2792,7 @@ function SecretWidget({ value, onChange, readOnly, schema, id, ariaLabelledBy }:
   return (
     <div className="flex items-center gap-2">
       <Input
-        {...controlNaming({ id, ariaLabelledBy })}
+        {...controlNaming({ id, ariaLabelledBy, required })}
         type={reveal ? 'text' : 'password'}
         value={draft}
         disabled={readOnly}

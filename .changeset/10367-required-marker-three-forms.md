@@ -23,8 +23,14 @@ renderer's marker uses.
   in a grid repeater's column header, which names every cell below it. The
   controls `SchemaForm` renders itself (select, switch, number and text inputs,
   textarea, the comma-separated list input and the JSON editor) carry
-  `aria-required` from the same flag that draws the marker. A registered widget
-  does not yet receive it.
+  `aria-required` from the same flag that draws the marker.
+- Metadata-admin widgets: `WidgetProps` gains an optional `required` member, and
+  `SchemaForm` passes the same flag to a registered widget, in a row and in a
+  grid cell. Ten of the eleven `labelling: 'control'` widgets put it on their
+  control as `aria-required`: `ref:object`, `ref:component`, `object-selector`,
+  `field-selector`, `field-ref`, `view-ref`, `icon`, `color-input`,
+  `string-tags` and `secret`. `filter-builder` does not, because its control is
+  a plain button, where ARIA does not allow `aria-required`.
 - `AppCreationWizard`: the App name and Title inputs carry `aria-required`.
 
 Native `required` is not added anywhere, so no browser validation appears beside

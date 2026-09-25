@@ -1623,8 +1623,9 @@ function FieldRow({
   // The `*` below is visual-only (objectui#3299, objectui#10367): it sits inside
   // the label that names the control, so without `aria-hidden` it is read as
   // part of the name ("Title *"). The requirement reaches the control as a
-  // STATE instead — `FieldControl` puts `aria-required` on every control it
-  // renders itself, from this same flag, so the state and the marker agree.
+  // STATE instead — `FieldControl` takes this same flag, puts `aria-required`
+  // on every control it renders itself, and hands the flag to a registered
+  // widget, so the state and the marker agree.
   // `aria-required`, not native `required`: `SchemaForm` is exported, and a host
   // `<form>` would otherwise gain the browser's own submit-blocking verdict
   // beside this form's own validation.
@@ -1772,12 +1773,13 @@ function FieldControl({
    * `showRequiredStar`, or a grid column header's own marker (objectui#10367).
    * That `*` is `aria-hidden`, so this is the channel that announces the
    * requirement: every control this component renders ITSELF (the builtin
-   * scalar chain and the JSON editor) carries `aria-required` from it.
+   * scalar chain and the JSON editor) carries `aria-required` from it, and a
+   * REGISTERED widget receives it as `WidgetProps.required`, which each
+   * `labelling: 'control'` widget except `filter-builder` (a plain `button`)
+   * emits through `controlNaming`.
    *
-   * ⚠️ Not delivered to a REGISTERED widget: `WidgetProps` (`./widgets.js`)
-   * declares no required member, so those controls announce no requirement.
-   * The structured faces (composite / repeater / record / nested form) render
-   * a `role="group"`, where ARIA 1.2 does not support `aria-required`.
+   * ⚠️ The structured faces (composite / repeater / record / nested form)
+   * render a `role="group"`, where ARIA 1.2 does not support `aria-required`.
    */
   required?: boolean;
   /** Machine field name — keys enum-option localization (e.g. flow `type`). */
@@ -1900,6 +1902,9 @@ function FieldControl({
         // `labelling` declaration in `FieldRow` (objectui#4871).
         id={id}
         ariaLabelledBy={ariaLabelledBy}
+        // A `'control'` widget puts it on its control as `aria-required`,
+        // through `controlNaming` (objectui#10367).
+        required={required}
         schema={schema}
         value={value}
         onChange={onChange}

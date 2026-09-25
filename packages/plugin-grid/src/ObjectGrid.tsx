@@ -2217,18 +2217,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                 params.$orderby = orderBy;
               }
             }
-          } else if (schema.defaultSort) {
-            // Legacy support — through the SAME normalizer as the array arm
-            // above, because it had the SAME defect (objectui#8973): a
-            // `defaultSort` missing `order` was interpolated straight into
-            // `$orderby: 'name undefined'`, which the server answers
-            // `400 INVALID_QUERY`. Fixing one arm and not its neighbour would
-            // leave the class open in the same `if`/`else` chain.
-            const orderBy = toOrderByClause([schema.defaultSort as QuerySortEntry]);
-            if (orderBy !== undefined) {
-              params.$orderby = orderBy;
-            }
           }
+          // objectui#5861 — there is no third arm. The legacy single-entry
+          // `defaultSort` was retired under ADR-0049: `@objectstack/spec`
+          // refuses it by name on `object-grid` (since 17.3.0), so this chain
+          // reads `sort` alone, and the header reader below reads the same key
+          // the same way.
 
           // Search (objectui#3118). The term the toolbar box holds is a question
           // about the collection, so it goes to the server rather than to a
@@ -4536,11 +4530,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   const groupingPartialLabel = groupingIsPartial ? t('grid.grouping.partialBadge') : undefined;
 
   // Before anyone clicks, the headers show the sort the view was authored with
-  // — read with the same `schemaSort` → `defaultSort` precedence the fetch path
-  // above uses, so the arrow on screen and the `$orderby` on the wire are the
-  // same sort. Without that a view arriving `created_at desc` would show no
-  // arrow, and the first click on that column would ask for `asc` on a list
-  // that was already `desc`.
+  // — read from the same `schemaSort` the fetch path above lowers, so the
+  // arrow on screen and the `$orderby` on the wire are the same sort. (The
+  // retired `defaultSort` fallback is read by neither, objectui#5861.)
+  // Without that a view arriving `created_at desc` would show no arrow, and
+  // the first click on that column would ask for `asc` on a list that was
+  // already `desc`.
   //
   // ⭐ That agreement now covers the SPELLING too (objectui#8961). One used to
   // escape it: since objectui#8767 the fetch path REFUSES a string `sort` and
@@ -4557,9 +4552,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // A plain expression, not a `useMemo`: this sits below the component's early
   // returns, where a hook would be skipped on some renders and change the hook
   // order. Parsing at most a handful of sort keys costs nothing worth a hook.
-  const declaredSort = parseSchemaSort(
-    schemaSort ?? (schema.defaultSort ? [schema.defaultSort] : undefined),
-  );
+  const declaredSort = parseSchemaSort(schemaSort);
   /**
    * [#5729] The RESTORE leg of objectstack#10235's contract, and the guard
    * that keeps the personalization PUT off an unsortable column.

@@ -61,7 +61,7 @@ function deferred<T>(): Deferred<T> {
 function makeDeferredDataSource() {
   const finds: Deferred<any>[] = [];
   const dataSource = {
-    find: vi.fn(() => {
+    find: vi.fn((_objectName: string, _params?: Record<string, unknown>) => {
       const d = deferred<any>();
       finds.push(d);
       return d.promise;

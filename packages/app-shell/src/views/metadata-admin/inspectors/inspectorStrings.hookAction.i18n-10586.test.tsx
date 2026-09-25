@@ -540,11 +540,14 @@ const SHARED_FIXTURES: readonly Fixture[] = [
     await flush();
   },
   // No in-tree host reaches these two defaults, so the primitive is read directly.
-  (lang) => inLang(lang, <InspectorShell kindLabel="K" title="T" onClose={() => {}}><div /></InspectorShell>),
-  (lang) =>
+  (lang) => {
+    inLang(lang, <InspectorShell kindLabel="K" title="T" onClose={() => {}}><div /></InspectorShell>);
+  },
+  (lang) => {
     inLang(lang, (
       <InspectorSelectField label="L" value="" options={[]} onCommit={() => {}} roster={{ status: 'error', message: 'boom' }} />
-    )),
+    ));
+  },
 ];
 
 const SHARED_EN = ['Move up', 'Move down', 'Close', 'Options could not be loaded'] as const;

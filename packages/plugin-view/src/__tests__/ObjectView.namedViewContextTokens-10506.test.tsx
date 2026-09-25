@@ -139,7 +139,7 @@ describe('named view filter → the non-grid query this component issues (object
     const ds = makeAdapter();
     render(<ObjectView schema={namedView('calendar', MINE)} dataSource={ds as any} />);
     expect(await queriedFilter(ds.find)).toEqual([['owner', 'equals', '{current_user_id}']]);
-    expect(warn.mock.calls.some((c) => String(c[0]).includes('{current_user_id}'))).toBe(true);
+    expect(warn.mock.calls.some((c: unknown[]) => String(c[0]).includes('{current_user_id}'))).toBe(true);
   });
 
   it('re-queries with the new id when the signed-in user changes', async () => {

@@ -36,9 +36,7 @@ then the deprecated `titleFormat`).
   `LookupField` passes the schema and the declared display field; no other
   caller in this repository passed `titleFormat`.
 
-Two pending changesets describe the tree before this change. The last
-paragraph of the objectui#10343 changeset, which says the picker's display
-column still shows the template, no longer holds. The objectui#6874 changeset
-names `titleFormat={refTitleFormat}` as the one `titleFormat=` pass; that pass
-is now `objectSchema={refObjectSchema}`, which is still object-schema sourced,
-so its conclusion stands.
+This change also corrects two pending changesets that described the picker
+before it: the objectui#10343 one now says the picker's display column follows
+the dropdown's resolver, and the objectui#6874 one names the current
+`objectSchema={refObjectSchema}` pass, whose conclusion stands.

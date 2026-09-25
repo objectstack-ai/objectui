@@ -16,7 +16,7 @@ import {
   CheckSquare, Activity, ArrowRight, CheckCheck, Bell, Clock,
   FileText, Database, LayoutDashboard, File, CircleAlert,
 } from 'lucide-react';
-import { useObjectTranslation } from '@object-ui/i18n';
+import { useDisplayLocale } from '@object-ui/i18n';
 import type { ActivityItem } from '../../layout/ActivityFeed.js';
 import type { HomeInboxStatus, HomeNotification } from '../../hooks/useHomeInbox.js';
 import type { RecentItem } from '../../hooks/useRecentItems.js';
@@ -145,7 +145,9 @@ export function HomeActionCenter({
   onOpenNotification: (n: HomeNotification) => void;
   t: TFn;
 }) {
-  const { language } = useObjectTranslation();
+  // Relative times read the DISPLAY locale, never the UI language
+  // (objectui#10668), as the Marketplace's and Studio home's already do.
+  const displayLocale = useDisplayLocale();
   // "How much needs you", which is the question the badge asks and the question
   // the bell answers with the same number. The list below is a preview of it —
   // fewer rows than this whenever the cap or the title fold bites, and that
@@ -208,7 +210,7 @@ export function HomeActionCenter({
               icon={Bell}
               iconClass="bg-primary/10 text-primary"
               label={n.title}
-              meta={timeAgo(n.createdAt, language)}
+              meta={timeAgo(n.createdAt, displayLocale)}
               onClick={() => onOpenNotification(n)}
             />
           ))}
@@ -260,7 +262,8 @@ export function HomeContinue({ items, onOpen, t }: { items: RecentItem[]; onOpen
 }
 
 export function HomeActivity({ items, onViewAll, t }: { items: ActivityItem[]; onViewAll: () => void; t: TFn }) {
-  const { language } = useObjectTranslation();
+  // The display locale, as `HomeActionCenter` above (objectui#10668).
+  const displayLocale = useDisplayLocale();
   return (
     <Card icon={Activity} title={t('sidebar.activityFeed', { defaultValue: 'Activity feed' })}>
       {items.length === 0 ? (
@@ -274,7 +277,7 @@ export function HomeActivity({ items, onViewAll, t }: { items: ActivityItem[]; o
               <span className="font-medium">{a.user}</span>{' '}
               <span className="text-muted-foreground">{a.description}</span>
               <div className="mt-0.5 text-[11px] text-muted-foreground">
-                {timeAgo(a.timestamp, language)} · {a.objectName}
+                {timeAgo(a.timestamp, displayLocale)} · {a.objectName}
               </div>
             </li>
           ))}

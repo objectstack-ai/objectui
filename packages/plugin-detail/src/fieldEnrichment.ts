@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { isInlineExcludedFieldType } from '@object-ui/fields';
+import { isInlineExcludedFieldType, isMaskedFieldType } from '@object-ui/fields';
 
 /**
  * Field types the PLATFORM computes — the value is machine-owned and no user
@@ -145,47 +145,19 @@ function isExcludedForDetail(fieldType: unknown): boolean {
 }
 
 /**
- * Field types whose CELL the fields package renders as a mask (`••••••`)
- * instead of as the value — the read-side counterpart of the credential entry
- * in `INLINE_EXCLUDED_FIELD_TYPES`.
- *
- * ## ⚠️ A MIRROR, NOT AN AUTHORITY — and that is a declared cost, not an oversight
- *
- * The mask itself is two anonymous renderers registered inside
- * `getCellRenderer`'s standard map in `@object-ui/fields`
- * (`password: () => <span>••••••</span>`, and the same for `secret`). The fields
- * package exports NO way to ask "is type T masked?" — searched for on this card
- * and not found — so honouring the mask on this surface at all requires naming
- * the types once more, here. Two consequences are accepted deliberately:
- *
- *  - a THIRD masked type registered in `@object-ui/fields` tomorrow would render
- *    masked and stay copy-interactive here until someone edits this line;
- *  - `registerFieldRenderer('password', …)` can replace the mask at RUNTIME, and
- *    no static set can see that either.
- *
- * Both are properties of "the mask has no queryable authority", filed as its own
- * card. ⛔ Do not grow this set into that authority: the fix is a predicate
- * exported by the package that OWNS the registrations, and every consumer
- * (this one included) reading it — exactly the shape
- * {@link isInlineExcludedDetailFieldType} already has for the write direction.
- *
- * ## Why RAW spellings, with no alias resolution — measured
- *
- * Unlike the inline-edit tables, the cell path does NOT resolve aliases:
- * `resolveCellRendererType` only promotes a textual base type through a
- * `format` hint (never onto a credential type), and `getCellRenderer` is an
- * exact-key lookup into the registry and then into its standard map, falling
- * back to `TextCellRenderer`. So EXACTLY these two spellings draw the mask, and
- * every other spelling — including the form-alias target `field:password` —
- * renders in the clear. Matching raw spellings is therefore the faithful
- * mirror, and an alias-aware widening here would withdraw the affordance from
- * rows that show their value.
- */
-const MASKED_CELL_FIELD_TYPES = new Set<string>(['password', 'secret']);
-
-/**
  * Is this row's cell drawn as a mask, given the type authored on the view entry
  * and the type declared on the object schema?
+ *
+ * The rule itself is NOT restated here — it is `isMaskedFieldType()` from
+ * `@object-ui/fields`, the package that owns the mask registrations
+ * (objectui#8686). This file used to keep its own two-member copy of the
+ * masked types (objectui#8440), documented as a mirror with two accepted
+ * costs: a masked type added to the fields package would render masked and
+ * stay copy-interactive here, and `registerFieldRenderer('password', …)`
+ * could replace the mask at runtime without this copy seeing it. Reading the
+ * authority closes both: a type the fields package masks, declared or
+ * registered, refuses the copy here with no edit to this file. The same shape
+ * {@link isInlineExcludedDetailFieldType} already has for the write direction.
  *
  * **Narrow-only, like {@link isComputedFieldType} and
  * {@link isInlineExcludedDetailFieldType}** — the answer is the UNION of the
@@ -201,10 +173,11 @@ export function isMaskedDetailFieldType(
   viewFieldType: unknown,
   objectFieldType: unknown,
 ): boolean {
-  return (
-    MASKED_CELL_FIELD_TYPES.has(viewFieldType as string) ||
-    MASKED_CELL_FIELD_TYPES.has(objectFieldType as string)
-  );
+  return isMaskedForDetail(viewFieldType) || isMaskedForDetail(objectFieldType);
+}
+
+function isMaskedForDetail(fieldType: unknown): boolean {
+  return typeof fieldType === 'string' && isMaskedFieldType(fieldType);
 }
 
 /**

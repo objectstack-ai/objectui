@@ -73,8 +73,13 @@ export interface PeoplePickerProps {
 
   displayField?: string;
   idField?: string;
-  /** Dotted field paths for the row subtitle, e.g. `['primary_business_unit_id.name','email']`. */
+  /**
+   * Dotted field paths for the row subtitle, e.g. `['primary_business_unit_id.name','email']`.
+   * Once the permission policy has loaded, a path whose field on `objectName`
+   * the user may not read is not drawn.
+   */
   subtitleFields?: string[];
+  /** Avatar image field; not drawn once the loaded policy denies it on `objectName`. */
   avatarField?: string;
   /**
    * Related entities to expand (e.g. `['primary_business_unit_id']` for the
@@ -178,6 +183,30 @@ export function PeoplePicker({
     );
     return readable.length ? readable : undefined;
   }, [expand, subtitleFields, perms, objectName]);
+
+  // The subtitle fields and the avatar a row DRAWS, gated the same way
+  // (objectui#10433). Gating `$expand` alone left them on screen: a row read
+  // every subtitle path and the avatar straight off the served row, so on a
+  // backend that does not strip denied keys (ObjectStack's `FieldMasker` does)
+  // a plain field such as `email` showed. A path is judged by the field it
+  // reads on `objectName`, its first segment — the name the `$expand` gate
+  // above judges, and the only one a policy on this object can name. A
+  // withheld avatar is `null`, never `undefined`: the row and the tray default
+  // an `undefined` one back to `image`.
+  const readableSubtitleFields = useMemo<string[] | undefined>(
+    () =>
+      subtitleFields?.filter(
+        f => !perms.isLoaded || perms.checkField(objectName, f.split('.')[0], 'read'),
+      ),
+    [subtitleFields, perms, objectName],
+  );
+  const readableAvatarField = useMemo<string | null>(
+    () =>
+      !perms.isLoaded || perms.checkField(objectName, avatarField.split('.')[0], 'read')
+        ? avatarField
+        : null,
+    [avatarField, perms, objectName],
+  );
 
   // Main candidate query (search + candidate hygiene).
   const query = useRecordQuery({
@@ -463,8 +492,8 @@ export function PeoplePicker({
         key={String(id)}
         record={record}
         displayField={displayField}
-        subtitleFields={subtitleFields}
-        avatarField={avatarField}
+        subtitleFields={readableSubtitleFields}
+        avatarField={readableAvatarField}
         selected={selectedIds.has(String(id))}
         active={index === activeIndex}
         highlightQuery={query.search}
@@ -569,7 +598,7 @@ export function PeoplePicker({
             onClear={() => setSelectedRecords([])}
             clearLabel={t('lookup.clear')}
             displayField={displayField}
-            avatarField={avatarField}
+            avatarField={readableAvatarField}
             idField={idField}
             label={t('table.selected', { count: selectedRecords.length })}
             className={cn('border-t pt-3')}

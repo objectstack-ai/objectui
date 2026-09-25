@@ -29,7 +29,12 @@ export interface PersonRowProps {
   record: any;
   displayField?: string;
   subtitleFields?: string[];
-  avatarField?: string;
+  /**
+   * Avatar image field (default `image`). `null` draws no image, only the
+   * initials: what PeoplePicker passes when field-level security withholds the
+   * field (objectui#10433).
+   */
+  avatarField?: string | null;
   selected?: boolean;
   /** Keyboard cursor is on this row — highlight + scroll into view. */
   active?: boolean;

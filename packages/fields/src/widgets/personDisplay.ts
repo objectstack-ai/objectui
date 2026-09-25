@@ -56,9 +56,13 @@ export function getPersonSubtitle(record: any, fields?: string[]): string {
     .join(' · ');
 }
 
-/** Avatar image URL (defaults to `sys_user.image`); undefined when absent. */
-export function getPersonAvatarUrl(record: any, avatarField = 'image'): string | undefined {
-  const v = record ? resolvePath(record, avatarField) : undefined;
+/**
+ * Avatar image URL (defaults to `sys_user.image`); undefined when absent, and
+ * when `avatarField` is `null` — no avatar field to read, e.g. one field-level
+ * security withholds (objectui#10433).
+ */
+export function getPersonAvatarUrl(record: any, avatarField: string | null = 'image'): string | undefined {
+  const v = record && avatarField ? resolvePath(record, avatarField) : undefined;
   return v ? String(v) : undefined;
 }
 

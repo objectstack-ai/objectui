@@ -7,8 +7,8 @@ document sets their event-name key (`onChange`, or `onViewChange` on the
 switcher).
 
 These keys hold the NAME of a `CustomEvent` dispatched on `window`
-(objectui#6124). `SchemaRenderer` also passes every node key to the component
-as a React prop, so the authored string reached the component's callback prop
+(objectui#6124). `SchemaRenderer` also passes these keys through to the component
+as React props, so the authored string reached the component's callback prop
 of the same name. The component called that prop, so the first interaction
 threw `TypeError: onChange is not a function` (or `onViewChange`) and the event
 was never dispatched. This form rendered through `SchemaRenderer` crashed:

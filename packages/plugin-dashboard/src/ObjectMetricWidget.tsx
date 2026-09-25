@@ -9,8 +9,7 @@
 import React, { useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import { SchemaRendererContext, useFilterScope, useDataInvalidation } from '@object-ui/react';
 import { isDrillEnabled, resolveDrillTitle, isStructuredGroupBy, objectAggregateSpecQuery } from '@object-ui/core';
-import type { I18nLabel, ObjectChartSchema } from '@object-ui/types';
-import type { ObjectMetricDrillDownConfig } from '@object-ui/types/data-display';
+import type { I18nLabel, ObjectChartSchema, ObjectMetricDrillDownConfig } from '@object-ui/types';
 import {
   useLocalization,
   useDisplayLocale,

@@ -16,8 +16,9 @@ which is the registration's promise that the number and the records behind it ag
 keys still type-checked on the widget's `drillDown` prop and then did nothing, with no
 diagnostic.
 
-- `@object-ui/types` adds `ObjectMetricDrillDownConfig`, published on the
-  `@object-ui/types/data-display` subpath: `DrillDownConfig` with `filter?: never` and
+- `@object-ui/types` adds `ObjectMetricDrillDownConfig`, published on the root entry
+  `@object-ui/types` and on the `@object-ui/types/data-display` subpath: `DrillDownConfig`
+  with `filter?: never` and
   `mode?: never` tombstones whose docblocks name the blocks that do read each key
   (`object-chart` and `object-pivot` for `filter`, `object-data-table` for `mode`). The
   shared `DrillDownConfig` is unchanged and keeps both keys for those blocks.

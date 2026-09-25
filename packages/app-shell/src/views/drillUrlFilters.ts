@@ -152,13 +152,19 @@ export const NULL_FILTER = {
    * and translate it, and that family already has a locale-parity pin. The chip
    * arm below hands this OUT; resolving it is the render site's job.
    */
-  labelKey: 'filterBuilder.operators.isNull',
+  labelKey: 'filterBuilder.operators.is_null',
   /**
    * Same family, same pin, for the inverse direction (objectui#9508) — the
-   * builder offers `isNotNull` as its own row, so this key is already in that
+   * builder offers `is_not_null` as its own row, so this key is already in that
    * parity pin's denominator and no eleventh translation is introduced here.
+   *
+   * Both keys follow the builder's operator ids, which are the protocol's own
+   * spellings since objectui#9306 (the family was keyed `isNull` /
+   * `isNotNull` before). A key left on the old spelling resolves to NOTHING and
+   * the chip renders the key itself — `ObjectDataPage.filterChipI18n-9159`
+   * renders the chip through the real packs, which is what catches that.
    */
-  notLabelKey: 'filterBuilder.operators.isNotNull',
+  notLabelKey: 'filterBuilder.operators.is_not_null',
 } as const;
 
 /**

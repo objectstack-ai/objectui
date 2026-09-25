@@ -162,7 +162,8 @@ export function convertOperatorToAST(operator: string): string | null {
     '$endsWith': 'endswith',
     // Case-insensitive contains. A canonical `FILTER_OPERATORS` member that
     // `ValueDataSource` executes and `FilterConditionField` emits (for its
-    // `containsCaseInsensitive` builder row), while this map refused it with the
+    // `icontains` builder row — spelled `containsCaseInsensitive` until
+    // objectui#9306), while this map refused it with the
     // generic unknown-operator paragraph — so ONE authored filter selected rows
     // through the in-memory matcher and 400'd on the ObjectStack lowering path
     // (objectui#8976). The other direction of the same split objectui#8568 fixed:

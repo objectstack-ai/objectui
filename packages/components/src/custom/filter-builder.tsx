@@ -287,9 +287,23 @@ const UNFOLDED_LEGACY_OPERATOR_IDS: ReadonlyMap<string, FilterBuilderOperator> =
  * comes back unchanged, exactly as the spec's normalizer returns it: inventing
  * a mapping for a word the protocol does not contain would be a claim, not a
  * repair.
+ *
+ * ⚠️ One guard on the spec's answer, and only because the builder now STORES
+ * what this returns (before objectui#9306 the fold was used for comparison
+ * only). `normalizeFilterOperator` is declared to return a string, but it
+ * looks the spelling up on a plain object, so an `Object.prototype` key comes
+ * back as whatever the prototype holds — `'constructor'` returns the `Object`
+ * function, measured on `@objectstack/spec` 17.4.0. Held in a row and written
+ * back, that would drop the row's operator on serialisation. A non-string
+ * answer is therefore treated as "nothing folds" and the spelling is kept;
+ * the defect itself belongs to the spec and is reported there, not patched
+ * around here in any other way.
  */
 export function normalizeFilterBuilderOperator(operator: string): string {
-  return UNFOLDED_LEGACY_OPERATOR_IDS.get(operator) ?? normalizeFilterOperator(operator)
+  const local = UNFOLDED_LEGACY_OPERATOR_IDS.get(operator)
+  if (local !== undefined) return local
+  const folded: unknown = normalizeFilterOperator(operator)
+  return typeof folded === "string" ? folded : operator
 }
 
 /**

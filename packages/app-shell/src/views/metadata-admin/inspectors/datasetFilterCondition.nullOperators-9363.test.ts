@@ -62,15 +62,15 @@ describe('groupToCondition — the null predicates this inspector offers (object
     expect(groupToCondition(row('equals', 'acme'))).toEqual({ closed_at: { $eq: 'acme' } });
   });
 
-  it('isNull serializes to the dialect\'s null predicate instead of vanishing', () => {
+  it('is_null serializes to the dialect\'s null predicate instead of vanishing', () => {
     expect(
-      groupToCondition(row('isNull')),
+      groupToCondition(row('is_null')),
       'an `Is null` row serialized to nothing; committing that ERASES dataset.filter',
     ).toEqual({ closed_at: { $null: true } });
   });
 
-  it('isNotNull serializes to the same predicate negated', () => {
-    expect(groupToCondition(row('isNotNull'))).toEqual({ closed_at: { $null: false } });
+  it('is_not_null serializes to the same predicate negated', () => {
+    expect(groupToCondition(row('is_not_null'))).toEqual({ closed_at: { $null: false } });
   });
 
   it('keeps a null row alongside a complete one instead of dropping either', () => {
@@ -79,7 +79,7 @@ describe('groupToCondition — the null predicates this inspector offers (object
       logic: 'and',
       conditions: [
         { id: 'c1', field: 'stage', operator: 'equals', value: 'won' },
-        { id: 'c2', field: 'closed_at', operator: 'isNull', value: '' },
+        { id: 'c2', field: 'closed_at', operator: 'is_null', value: '' },
       ],
     })).toEqual({ $and: [{ stage: { $eq: 'won' } }, { closed_at: { $null: true } }] });
   });
@@ -94,7 +94,7 @@ describe('groupToCondition — the null predicates this inspector offers (object
     expect(representable).toBe(true);
     const edited: BuilderGroup = {
       ...group,
-      conditions: [{ ...group.conditions[0], operator: 'isNull', value: '' }],
+      conditions: [{ ...group.conditions[0], operator: 'is_null', value: '' }],
     };
     expect(
       groupToCondition(edited),
@@ -103,8 +103,8 @@ describe('groupToCondition — the null predicates this inspector offers (object
   });
 
   it('leaves the $exists pair exactly as it was', () => {
-    expect(groupToCondition(row('isEmpty'))).toEqual({ closed_at: { $exists: false } });
-    expect(groupToCondition(row('isNotEmpty'))).toEqual({ closed_at: { $exists: true } });
+    expect(groupToCondition(row('is_empty'))).toEqual({ closed_at: { $exists: false } });
+    expect(groupToCondition(row('is_not_empty'))).toEqual({ closed_at: { $exists: true } });
   });
 
   it('still drops an operator it does not map, rather than emitting a wrong filter', () => {
@@ -114,8 +114,10 @@ describe('groupToCondition — the null predicates this inspector offers (object
     // remaining drop inert; objectui#10062 took the fourth, `between`, behind
     // the both-bounds rule. None this inspector OFFERS is left (the partition
     // below), so the fixture is an operator the builder draws only when a
-    // caller grants it — `containsCaseInsensitive`, which this one does not.
-    expect(groupToCondition(row('containsCaseInsensitive', 'x'))).toBeUndefined();
+    // caller grants it — `exists`, which this one does not. (It was
+    // `containsCaseInsensitive` until objectui#9306 made the case-insensitive
+    // contains an ordinary operator, which this bridge now maps.)
+    expect(groupToCondition(row('exists'))).toBeUndefined();
   });
 
   it('an empty group is still `undefined` — that is the author CLEARING the filter', () => {
@@ -145,11 +147,11 @@ describe('the emitted token is the spec\'s, not a local invention (objectui#9363
 describe('conditionToGroup — the read half round-trips the new shape (objectui#9363)', () => {
   it('reads a stored $null back as the operator the author picked', () => {
     expect(conditionToGroup({ closed_at: { $null: true } })).toEqual({
-      group: { id: 'g', logic: 'and', conditions: [{ id: 'c0', field: 'closed_at', operator: 'isNull', value: '' }] },
+      group: { id: 'g', logic: 'and', conditions: [{ id: 'c0', field: 'closed_at', operator: 'is_null', value: '' }] },
       representable: true,
     });
     expect(conditionToGroup({ closed_at: { $null: false } }).group.conditions[0].operator)
-      .toBe('isNotNull');
+      .toBe('is_not_null');
   });
 
   it('round-trips condition → group → condition', () => {
@@ -210,7 +212,7 @@ const DECLARED_UNEXPRESSIBLE: string[] = [];
 /** A value that keeps a row from being dropped as INCOMPLETE, per operator. */
 function probeValue(operator: string): unknown {
   if (VALUELESS_FILTER_BUILDER_OPERATORS.has(operator)) return '';
-  if (operator === 'in' || operator === 'notIn') return ['a', 'b'];
+  if (operator === 'in' || operator === 'not_in') return ['a', 'b'];
   if (operator === 'between') return [1, 5];
   return 'x';
 }
@@ -235,7 +237,7 @@ describe('every operator this inspector OFFERS is either expressible or declared
     expect(expressible.sort()).toEqual(OFFERED.filter((o) => !DECLARED_UNEXPRESSIBLE.includes(o)));
     // And the null pair is on the expressible side — the card's defect, stated
     // as a fact about the offering rather than about two literals.
-    expect(expressible).toContain('isNull');
-    expect(expressible).toContain('isNotNull');
+    expect(expressible).toContain('is_null');
+    expect(expressible).toContain('is_not_null');
   });
 });

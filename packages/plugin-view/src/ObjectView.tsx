@@ -22,7 +22,7 @@
  * - ViewSwitcher for toggling between view types
  */
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import type {
   ObjectViewSchema,
   ObjectGridSchema,
@@ -74,13 +74,15 @@ import {
   columnIdentity,
   convertSortToQueryParams,
   recordDelete,
+  resolveFilterPlaceholders,
+  type FilterTokenScope,
 } from '@object-ui/core';
-import { SchemaRenderer as ImportedSchemaRenderer, useSettledSchema, notifyDataChanged } from '@object-ui/react';
+import { SchemaRenderer as ImportedSchemaRenderer, useSettledSchema, notifyDataChanged, useFilterScope } from '@object-ui/react';
 import type { HandleClickModifiers } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import { ViewSwitcher } from './ViewSwitcher';
 import { deriveRecordSurface } from './recordSurface';
-import { useStableIdentity } from './stableIdentity';
+import { useStableIdentity, isStructurallyEqual } from './stableIdentity';
 
 /**
  * SchemaRenderer from @object-ui/react, used to render sub-view schemas.
@@ -236,6 +238,77 @@ function tableColumnFieldNames(columns: unknown): string[] | undefined {
 function viewColumnFieldNames(columns: unknown): string[] | undefined {
   if (!Array.isArray(columns)) return undefined;
   return columns.map(columnIdentity).filter((n): n is string => !!n);
+}
+
+/**
+ * The three authored filter segments this component chains, in precedence
+ * order: the active view's own filter (a named `listViews` entry, else the
+ * host's `views` entry), then the object-level `table.filter`, then its
+ * deprecated alias `table.defaultFilters`.
+ */
+interface AuthoredFilterSegments {
+  view: any[] | undefined;
+  table: ObjectGridSchema['filter'];
+  tableDefaults: ObjectGridSchema['defaultFilters'];
+}
+
+/**
+ * objectui#10506 — resolve every filter placeholder in the authored filter
+ * segments ONCE, through `@object-ui/core`'s shared `resolveFilterPlaceholders`,
+ * against the session scope the host provides (`useFilterScope`).
+ *
+ * This is the one point where the segments meet, and all three doors a filter
+ * leaves this component by read from its result: the non-grid `find()`, the
+ * `object-grid` schema handed to `ObjectGrid`, and the `list-view` schema handed
+ * to a host's `renderListView`. Before it, this component had no read of the
+ * resolver at all, so `{ owner: '{current_user_id}' }` in a named view reached
+ * the query as the literal token while the app-shell host resolved it.
+ *
+ * ⛔ Not a second resolver, and no fallback: a token the scope cannot resolve
+ * is whatever `resolveFilterPlaceholders` makes of it (left intact, with one
+ * warning naming it).
+ *
+ * The result is HELD against its inputs rather than recomputed per render.
+ * `ObjectGrid` and `ListView` both key their fetch on the filter's identity, so
+ * a resolved copy minted on every render would refetch on every render; and a
+ * date macro such as `{now}` resolves to a new value at every call, so holding
+ * against the OUTPUT (compare, keep the old reference if equal) cannot stop
+ * that either. The key is the raw segments, compared by structure — a host that
+ * rebuilds an equal `views` array inline must not re-resolve (objectui#6460) —
+ * plus the scope's members read one by one, never the scope object's identity
+ * (AGENTS.md #10). Like `useStableIdentity`, the ref is derived from its inputs
+ * alone, so StrictMode's double render returns the same reference.
+ */
+function useResolvedFilterSegments(
+  segments: AuthoredFilterSegments,
+  scope: FilterTokenScope,
+): AuthoredFilterSegments {
+  const held = useRef<{
+    segments: AuthoredFilterSegments;
+    currentUserId: FilterTokenScope['currentUserId'];
+    currentOrgId: FilterTokenScope['currentOrgId'];
+    onUnresolved: FilterTokenScope['onUnresolved'];
+    resolved: AuthoredFilterSegments;
+  } | null>(null);
+  const prev = held.current;
+  if (
+    prev
+    && prev.currentUserId === scope.currentUserId
+    && prev.currentOrgId === scope.currentOrgId
+    && prev.onUnresolved === scope.onUnresolved
+    && isStructurallyEqual(prev.segments, segments)
+  ) {
+    return prev.resolved;
+  }
+  const resolved = resolveFilterPlaceholders(segments, scope);
+  held.current = {
+    segments,
+    currentUserId: scope.currentUserId,
+    currentOrgId: scope.currentOrgId,
+    onUnresolved: scope.onUnresolved,
+    resolved,
+  };
+  return resolved;
 }
 
 /**
@@ -966,6 +1039,20 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       : undefined,
   );
 
+  // objectui#10506 — the authored filter segments, with every placeholder
+  // resolved once against the host's session scope (see
+  // `useResolvedFilterSegments`). The non-grid fetch, the grid schema and the
+  // delegated `list-view` schema below all read THESE, never the raw segments.
+  const filterScope = useFilterScope();
+  const authoredFilters = useResolvedFilterSegments(
+    {
+      view: currentNamedViewConfig?.filter || activeViewQueryInputs?.filter,
+      table: schema.table?.filter,
+      tableDefaults: schema.table?.defaultFilters,
+    },
+    filterScope,
+  );
+
   // Current view type from named view, multi-view prop, or default
   const currentViewType: string = useMemo(() => {
     if (currentNamedViewConfig?.type) return currentNamedViewConfig.type;
@@ -1046,9 +1133,12 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // The `table` segment reads the CANONICAL key first and the deprecated
         // one only as its alias (objectui#5102). The two view segments ahead of
         // it are untouched — this extends the last segment only.
+        //
+        // objectui#10506: the segments are read RESOLVED — `{current_user_id}`
+        // and the other placeholders expanded once, above, through the shared
+        // `resolveFilterPlaceholders` — so this query carries the real id.
         const finalFilter = mergeFilterNodes(
-          currentNamedViewConfig?.filter || activeViewQueryInputs?.filter
-            || schema.table?.filter || schema.table?.defaultFilters,
+          authoredFilters.view || authoredFilters.table || authoredFilters.tableDefaults,
         );
 
         // objectui#4869: this was the LAST object-bound read site handing an
@@ -1181,7 +1271,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   }, [
     schema.objectName, dataSource, currentViewType, refreshKey,
     currentNamedViewConfig, activeViewQueryInputs, renderListView,
-    objectSchemaReady, objectSchema, perms,
+    objectSchemaReady, objectSchema, perms, authoredFilters,
   ]);
 
   // Determine layout mode. #2578: default the record surface from how heavy the
@@ -2019,7 +2109,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     // such asymmetry to preserve: its canonical slot is the only one left
     // (the legacy `defaultSort` is retired, objectui#5861), and it is the one
     // that can hold more than a single key.
-    const viewFilter = currentNamedViewConfig?.filter || activeView?.filter;
+    //
+    // objectui#10506: all three filter segments are read RESOLVED (see
+    // `authoredFilters`), and held while their inputs are unchanged — ObjectGrid
+    // keys its fetch on `schema.filter`'s identity.
+    const viewFilter = authoredFilters.view;
     const viewSort = currentNamedViewConfig?.sort || activeView?.sort;
 
     return {
@@ -2039,14 +2133,14 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         ...operations,
         create: false, // Create is handled by the view's create button
       },
-      defaultFilters: viewFilter || schema.table?.defaultFilters,
+      defaultFilters: viewFilter || authoredFilters.tableDefaults,
       // Canonical `table` keys, at last forwarded. `filter` carries the
       // `table` segment ONLY: the view segment resolved above already occupies
       // the legacy slot, and ObjectGrid prefers this slot over that one — so
       // handing it `table.filter` while a named view is active would let the
       // table default outrank the view, inverting the precedence the two
       // untouched segments exist to express.
-      filter: viewFilter ? undefined : schema.table?.filter,
+      filter: viewFilter ? undefined : authoredFilters.table,
       // `sort` carries the WHOLE chain instead — view segments first, then the
       // `table` one. Same precedence as `mergedSort` and the non-grid fetch
       // express; what changes is only WHICH slot a view's sort arrives in, and
@@ -2072,7 +2166,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       selectable: schema.table?.selectable,
       className: schema.table?.className,
     };
-  }, [schema, operations, currentNamedViewConfig, activeView]);
+  }, [schema, operations, currentNamedViewConfig, activeView, authoredFilters]);
 
   // Build form schema
   const buildFormSchema = (): ObjectFormSchema => {
@@ -2214,10 +2308,14 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // the maintainer ruling of 2026-08-22 REJECTED (quoted with the non-grid
   // fetch above), because that slot legitimately also carries `$orderby`'s own
   // `Record<field, direction>` map.
-  const mergedFilters = currentNamedViewConfig?.filter
-    || activeView?.filter
-    || schema.table?.filter
-    || schema.table?.defaultFilters;
+  //
+  // objectui#10506: the filter chain reads the RESOLVED segments, so the
+  // delegated renderer receives real ids. The app-shell host resolves this
+  // value again in its own `renderListView`; a resolved id no longer matches
+  // the whole-token pattern, so that second pass changes nothing.
+  const mergedFilters = authoredFilters.view
+    || authoredFilters.table
+    || authoredFilters.tableDefaults;
 
   const mergedSort = currentNamedViewConfig?.sort
     || activeView?.sort

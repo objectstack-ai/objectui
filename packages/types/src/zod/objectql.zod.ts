@@ -269,7 +269,18 @@ export const ObjectGridSchema = BaseSchema.extend({
   showSearch: z.boolean().optional(),
   showFilters: z.boolean().optional(),
   showPagination: z.boolean().optional(),
-  defaultSort: z.object({ field: z.string(), order: z.enum(['asc', 'desc']) }).optional(),
+  // objectui#5861 — RETIRED under ADR-0049, in lockstep with the `?: never`
+  // twin on the interface. `@objectstack/spec` refuses this key BY NAME on
+  // `object-grid` (a retired-key tombstone since 17.3.0), and no renderer in
+  // this repo reads it any more, so a declared-but-ignored member here would
+  // parse green and draw an unsorted grid. A tombstone rather than a deletion:
+  // `BaseSchema` is `.passthrough()`, so an undeclared key is KEPT unexamined,
+  // not refused.
+  defaultSort: retirementTombstone(
+    'RETIRED (objectui#5861, ADR-0049) — `defaultSort` was the legacy single-entry spelling of `sort`, '
+    + 'and nothing reads it any more; the upstream protocol refuses it by name on `object-grid`. '
+    + 'Rename the key to `sort` and wrap the value in an array: `sort: [{ field, order }]`.',
+  ),
   defaultFilters: z.record(z.string(), z.any()).optional(),
   // The legacy caption/export-title fallback — `ObjectGrid.tsx` reads it at
   // exactly two sites, `viewLabel: schema.label || schema.title` and

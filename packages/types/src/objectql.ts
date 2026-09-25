@@ -846,14 +846,24 @@ export interface ObjectGridSchema extends BaseSchema {
   showPagination?: boolean;
   
   /**
-   * @deprecated Use sort instead
-   * Legacy sort configuration
+   * RETIRED (objectui#5861, ADR-0049) — the legacy single-entry spelling of
+   * {@link ObjectGridSchema.sort}. `@objectstack/spec` 17.3.0 converted
+   * `ObjectGridProps.defaultSort` to a retired-key tombstone, so the protocol
+   * refuses an authored value by name; the renderers no longer read it either
+   * (`ObjectGrid`'s fetch arm and header reader, and `ObjectView`'s three
+   * `table` paths all dropped the read together).
+   *
+   * `?: never`, not a deletion — this package's tombstone convention (see
+   * `ObjectViewSchema.viewTabBar`): {@link BaseSchema}'s `[key: string]: any`
+   * would absorb a deleted member, so the retired spelling would type-check
+   * green and do nothing. Lockstep with the Zod twin (`zod/objectql.zod.ts`,
+   * `retirementTombstone()`).
+   *
+   * @deprecated RETIRED (objectui#5861) — write `sort: [{ field, order }]`
+   * instead (rename the key and wrap the value in an array).
    */
-  defaultSort?: {
-    field: string;
-    order: 'asc' | 'desc';
-  };
-  
+  defaultSort?: never;
+
   /**
    * @deprecated Use filter instead
    * Legacy default filters

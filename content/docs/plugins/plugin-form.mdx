@@ -431,7 +431,9 @@ caller's field-level security refuses — which every layout renders disabled. A
 `''`, and a lookup id and its expanded object all count as different. A save with
 nothing changed still sends the full payload, as it always has. The `ifMatch`
 concurrency guard is unchanged, and its **Overwrite** choice now resends only the
-changed fields. A host `submitHandler` receives the same payload in edit mode.
+changed fields. A form that stays open after a save sends the `updated_at` that
+save returned as its next `ifMatch`, so its second save is not refused over its
+own first one. A host `submitHandler` receives the same payload in edit mode.
 The package README has the full rule, under "What an edit save writes".
 
 ## Examples

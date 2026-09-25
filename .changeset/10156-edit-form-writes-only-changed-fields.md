@@ -16,7 +16,7 @@ An edit form now writes only the fields that changed (objectui#10156).
 - A save with nothing changed still sends the full sanitized payload. It stays a real request, with the same concurrency guard and a real server record for `onSuccess`.
 - A form that did not read the record itself still sends every field. That covers a create, a record supplied as `initialData`, and inline `customFields`.
 - After a successful save, the form counts the fields it just wrote as saved. A form that stays open compares its next save with the record as it is now. Changing a field back to its first-read value is therefore still sent.
-- The concurrency guard is unchanged. The update still carries `ifMatch` = the `updated_at` the form read, and a `409` still offers **Keep editing** or **Overwrite**. **Overwrite** now resends only the changed fields.
+- The concurrency guard is unchanged by this rule. The update carries `ifMatch` = the `updated_at` the form read (after a save, a form that stays open sends the `updated_at` that save returned instead, objectui#10565), and a `409` still offers **Keep editing** or **Overwrite**. **Overwrite** now resends only the changed fields.
 - ⚠️ A host `submitHandler` on an edit form receives the payload the form would have written. That is the changed fields, or the full sanitized payload when nothing changed. A host that needs the whole record must read it itself. In this repository, only `MasterDetailForm` passes a `submitHandler` to an edit form. Its header form receives the changed fields. Its row editor has no `recordId`, so it still receives every value.
 - The JSDoc of `ObjectFormSchema.submitHandler` in `@object-ui/types`, and its copies on `ModalFormSchema` and `DrawerFormSchema`, now say what an edit-mode handler receives.
 

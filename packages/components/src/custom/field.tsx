@@ -62,9 +62,9 @@ const FieldContainer = React.forwardRef<HTMLDivElement, FieldProps>(
               // The visual asterisk is a REAL element, never CSS generated
               // content (objectui#10368). This label names the slotted control,
               // and the accessible-name computation includes `::after`
-              // content: the Tailwind `after:` content utility this marker used
-              // to be named the control "Title*" in Chromium's accessibility
-              // tree. A pseudo-element cannot carry `aria-hidden`; this span
+              // content: while this marker was a Tailwind `after:` content
+              // utility, Chromium's accessibility tree named the control
+              // "Title*". A pseudo-element cannot carry `aria-hidden`; this span
               // can, so the `*` stays paint and `aria-required` below stays the
               // only required signal. `data-required-marker` is the stable
               // locator, the same one the form renderer's `FormLabel` marker

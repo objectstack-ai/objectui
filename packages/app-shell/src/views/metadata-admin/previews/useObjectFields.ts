@@ -26,6 +26,17 @@ export interface ObjectFieldInfo {
   /** Raw field type id (e.g. 'text', 'lookup'). */
   type: string;
   hidden: boolean;
+  /**
+   * `true` when the object declares the field `required` — the write-time
+   * contract the server enforces on every save. Absent otherwise.
+   *
+   * Carried for the view inspector's refusal of a required field placed in a
+   * predicate-gated form section (objectui#6900): the served object document
+   * already holds the flag, so this is the same payload read once more, not a
+   * second data path. Hosts that pass an override catalog and leave it out get
+   * no such refusal.
+   */
+  required?: boolean;
 }
 
 export interface UseObjectFieldsResult {
@@ -81,6 +92,7 @@ export function useObjectFields(
               : e.name,
           type: typeof e.def.type === 'string' ? (e.def.type as string) : 'text',
           hidden: e.def.hidden === true,
+          ...(e.def.required === true ? { required: true } : {}),
         }));
         setState({ fields, loading: false, error: null });
       })

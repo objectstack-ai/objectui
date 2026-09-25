@@ -19,7 +19,8 @@
  * not a type error, not a lint finding and not a test failure. It is silence,
  * and the silence has now produced the same defect three times —
  * objectui#7199 (`description`), objectui#7218 (`rowColor`), objectui#7516
- * (`fieldOrder`, still open).
+ * (`fieldOrder`). Each of the three now has its rung, and each rung is named
+ * by a check below.
  *
  * This file is the ruling on that card: option (b). The census is not a list
  * somebody typed once — it is RE-DERIVED here, at test time, from four sources
@@ -84,8 +85,9 @@
  * ## What this file does NOT do
  *
  * ⛔ It does not fill in a missing rung. Each absent rung is its own card
- *    (`fieldOrder` is objectui#7516, which carries `needs-user-decision`);
- *    this file only makes absences visible and keeps them declared.
+ *    (`fieldOrder` was objectui#7516, and that card added the rung together
+ *    with its check below); this file only makes absences visible and keeps
+ *    them declared.
  * ⛔ It does not touch `plugin-view`'s `ObjectView` — that host is the
  *    objectui#5043 family, and its own pin
  *    (`plugin-view/src/__tests__/objectViewHostSurface.test.tsx`) is the
@@ -476,9 +478,6 @@ const ABSENCES: Record<string, Absence> = {
   // ── Authored on the NODE, resolved by the host ────────────────────────────
   operations: { kind: 'node-authored', reason: "Legacy CRUD affordance authored on the object-view node (`examples/.../object-view-record-surface.json`), not on a view record; the host resolves it upstream (`schema.operations || schema.table?.operations || …`). ListView does read `schema.operations?.export`, but what would feed it here is the NODE's value, and forwarding it is the caller's composition to make — objectui#5097's surface, not a per-view rung." },
 
-  // ── Real absences, owned elsewhere ────────────────────────────────────────
-  fieldOrder: { kind: 'known-gap', card: 'objectui#7516', reason: "ListView reads `schema.fieldOrder` and orders its columns by it; no rung carries the view's value here. That is this defect class's third instance and it is OPEN with `needs-user-decision` — ⛔ do not close it by adding a rung in passing." },
-
   // ── The runtime-only half of the intersection ─────────────────────────────
   onNavigate: { kind: 'host-runtime', reason: 'Host callback. This host wires record navigation through the `onRowClick` prop on the `<ListView>` element instead; a view record cannot carry a function.' },
   refreshTrigger: { kind: 'host-runtime', reason: 'Host refresh counter, supplied by the caller; not view metadata.' },
@@ -593,6 +592,21 @@ describe('objectui#7559 — every `ListViewSchema` member has a rung or a declar
       + 'Restore `rowColor: viewDef.rowColor ?? listSchema.rowColor`. ⚠️ Not `userActions.rowColor`,\n'
       + 'which is the permission toggle sharing the name at another nesting level.',
     ).toBe(true);
+  });
+
+  it('objectui#7516 — the per-view `fieldOrder` rung is present', () => {
+    // The third instance, carried in `ABSENCES` as a `known-gap` until its card
+    // added the rung. The ledger row is gone, so without this rung the key
+    // would be neither relayed nor declared and the property above would name
+    // it — but the instance is named here too, as the other two are.
+    expect(
+      readsView(writtenAt('fieldOrder')),
+      'The `fieldOrder` rung is gone — objectui#7516, the third instance of the same class.\n'
+      + '`ListView` still orders its columns by `schema.fieldOrder`, so a per-view order is\n'
+      + 'authored, served and then silently dropped. Restore\n'
+      + '`fieldOrder: viewDef.fieldOrder ?? listSchema.fieldOrder` beside the `hiddenFields` rung.',
+    ).toBe(true);
+    expect(listViewReads('fieldOrder')).toBe(true);
   });
 
   it('a member with a rung that does NOT read the active view is not counted as relayed', () => {
@@ -763,13 +777,16 @@ describe('objectui#7559 — a declared absence keeps its evidence', () => {
     // literal. A control that reddens whenever anything else reddens says
     // nothing — and the first person to see it red would delete it.
     //
-    // `fieldOrder` is a real, card-owned, reader-having absence (objectui#7516)
-    // and `quickFilters` is the deliberate suppression the card itself named.
-    // Neither is a failure, and neither may become one.
+    // `operations` is a real, reader-having absence (`ListView` reads it, and
+    // the relay deliberately does not carry it — `node-authored`, objectui#5097's
+    // surface) and `quickFilters` is the deliberate suppression the card itself
+    // named. Neither is a failure, and neither may become one. (This control
+    // used `fieldOrder` until objectui#7516 gave that key its rung.)
     const findings = MEMBERS.filter((m) => !RELAYED.includes(m) && !(m in ABSENCES));
-    expect(MEMBERS).toContain('fieldOrder');
-    expect(RELAYED).not.toContain('fieldOrder');
-    expect(findings).not.toContain('fieldOrder');
+    expect(MEMBERS).toContain('operations');
+    expect(RELAYED).not.toContain('operations');
+    expect(listViewReads('operations')).toBe(true);
+    expect(findings).not.toContain('operations');
 
     expect(MEMBERS).not.toContain('quickFilters');
     expect(WRITTEN_TOP).toContain('quickFilters');

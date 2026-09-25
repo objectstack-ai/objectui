@@ -297,6 +297,10 @@ const zh = {
       refusedResidue:
         '未保存：{{name}}“{{text}}”和{{otherName}}“{{otherText}}”不是数字。请输入普通小数（例如 30.2741, 120.1551）。',
     },
+    date: {
+      impossibleDay:
+        '存储的值“{{value}}”不是真实存在的日期。请选择日期以替换它。',
+    },
     dateTime: {
       impossibleDay:
         '存储的值“{{value}}”不是真实存在的日期。请选择日期和时间以替换它。',

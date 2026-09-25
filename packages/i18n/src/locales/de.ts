@@ -290,6 +290,10 @@ const de = {
       refusedResidue:
         "Nicht gespeichert: {{name}} „{{text}}“ und {{otherName}} „{{otherText}}“ sind keine Zahlen. Geben Sie einfache Dezimalzahlen ein (Beispiel: 30.2741, 120.1551).",
     },
+    date: {
+      impossibleDay:
+        "Der gespeicherte Wert „{{value}}“ ist kein gültiges Datum. Wählen Sie ein Datum, um ihn zu ersetzen.",
+    },
     dateTime: {
       impossibleDay:
         "Der gespeicherte Wert „{{value}}“ ist kein gültiges Datum. Wählen Sie Datum und Uhrzeit, um ihn zu ersetzen.",

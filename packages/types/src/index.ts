@@ -657,7 +657,8 @@ export type {
   SharingRuleConfig,
   PermissionCheckResult,
   PermissionContext,
-  PermissionGuardConfig,
+  // `PermissionGuardConfig` RETIRED outright by objectui#8024 — see the
+  // RETIRED note in `./permissions`; the guard reads `PermissionGuardProps`.
 } from './permissions.js';
 
 // ============================================================================

@@ -7,7 +7,7 @@
  */
 
 /**
- * objectui#10394 — both map registrations declare the two record sources
+ * objectui#10394 — the map registration declares the two record sources
  * `ObjectMapSchema` already declares: `data` and `staticData`.
  *
  * Without an input, `sdui-parser`'s `validateTree` reported a block authored on
@@ -17,7 +17,8 @@
  *
  * ## The rows
  *
- * Declaration, per registration key:
+ * Declaration, on the one registration key (`object-map`; the bare `map` key
+ * is retired, objectui#10393):
  * 1. The html tier accepts a block authored on `staticData` alone, and on a
  *    `data` configuration alone — no diagnostic at all.
  * 2. Control for row 1: a bogus key is still reported, on a node bound by
@@ -27,10 +28,6 @@
  *    the refused spelling as the control, and the html tier enforces it: a
  *    bare array under `data` draws `type-mismatch`.
  * 5. Each description names the position it is true about.
- *
- * Once: both keys publish IDENTICAL lists. They are spelled inline twice (a
- *    shared spread would hide both from `check:component-surface-parity`), so
- *    this row is what keeps the two copies from drifting apart.
  *
  * Behaviour, through the real `SchemaRenderer` — the claims the descriptions
  * make, measured rather than assumed:
@@ -75,7 +72,6 @@ import './index';
 
 const MAP_KEYS = [
   { label: 'object-map', type: 'object-map', namespace: 'plugin-map' },
-  { label: 'view:map', type: 'map', namespace: 'view' },
 ] as const;
 
 const MAP = { latitudeField: 'latitude', longitudeField: 'longitude', titleField: 'name' };
@@ -118,7 +114,7 @@ const POSITION_PHRASES: Record<string, string[]> = {
   staticData: ['read SECOND', 'a `data` configuration wins', '`objectName` is read AFTER it'],
 };
 
-describe('objectui#10394 — map registrations declare data and staticData', () => {
+describe('objectui#10394 — the map registration declares data and staticData', () => {
   it.each(MAP_KEYS)('$label — the html tier accepts a staticData-only map', ({ type }) => {
     expect(diagnosticsOf({ type, map: MAP, staticData: STATIC_ROWS })).toEqual([]);
   });
@@ -163,12 +159,6 @@ describe('objectui#10394 — map registrations declare data and staticData', () 
         expect(description, `${key}'s description lost "${phrase}"`).toContain(phrase);
       }
     }
-  });
-
-  it('both keys publish identical lists, so the two inline copies cannot drift', () => {
-    const [a, b] = MAP_KEYS.map(({ type, namespace }) => declaredInputs(type, namespace));
-    expect(a.length, 'object-map declares no inputs at all').toBeGreaterThan(0);
-    expect(a).toEqual(b);
   });
 });
 

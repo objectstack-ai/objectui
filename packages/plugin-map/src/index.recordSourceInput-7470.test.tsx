@@ -12,7 +12,7 @@
  * `ObjectMap`'s `getDataConfig` reads `data`, then `staticData`, then
  * `objectName`, and the `object-map` zod schema carries `requireRecordSource`
  * (objectui#6939): one of the three must be present, none is required alone.
- * Both registration keys still declared `objectName` with `required: true`, so
+ * The registration still declared `objectName` with `required: true`, so
  * the registry said the opposite of the schema — and `sdui-parser`'s
  * `validateTree` turns a required input into a `missing-required-prop` ERROR,
  * which a `staticData`-only map drew while the schema accepted it.
@@ -20,7 +20,8 @@
  * Ruled (letter align): drop `required`, state the one-of rule in the
  * description, add no one-of vocabulary to the input declaration.
  *
- * Rows, per registration key:
+ * Rows, on the one registration key (`object-map`; the bare `map` key is
+ * retired, objectui#10393):
  * 1. `objectName` is declared (non-vacuity: a wrong type/namespace read fails
  *    here) and is not required.
  * 2. Its description names all three record sources.
@@ -49,7 +50,6 @@ import './index';
 
 const MAP_KEYS = [
   { label: 'object-map', type: 'object-map', namespace: 'plugin-map' },
-  { label: 'view:map', type: 'map', namespace: 'view' },
 ] as const;
 
 const objectNameInput = (type: string, namespace: string) =>
@@ -57,7 +57,7 @@ const objectNameInput = (type: string, namespace: string) =>
     (i: any) => i.name === 'objectName',
   );
 
-describe('objectui#7470 — map registrations do not declare objectName required', () => {
+describe('objectui#7470 — the map registration does not declare objectName required', () => {
   it.each(MAP_KEYS)('$label — objectName is declared and not required', ({ type, namespace }) => {
     const input = objectNameInput(type, namespace);
     expect(input, `${type} declares objectName`).toBeDefined();

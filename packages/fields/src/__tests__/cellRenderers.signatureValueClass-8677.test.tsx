@@ -63,6 +63,7 @@ import {
   listCellRendererTypes,
   resolveCellRendererType,
   ImageCellRenderer,
+  type CellRendererProps,
 } from '../index';
 
 afterEach(() => cleanup());
@@ -70,7 +71,10 @@ afterEach(() => cleanup());
 /** Resolve + render exactly the way a consumer builds a read-mode cell. */
 function renderCell(type: string, value: unknown) {
   const Renderer = getCellRenderer(resolveCellRendererType({ type }) || type);
-  return render(<Renderer value={value as any} field={{ type, name: type } as any} />);
+  // `value` is `any` on the props already; the probe field is a stand-in, not
+  // a full `FieldMetadata`, which is all a read-mode cell reads here.
+  const field = { type, name: type } as unknown as CellRendererProps['field'];
+  return render(<Renderer value={value} field={field} />);
 }
 
 /** Let the (already imported) lazy markdown pipeline resolve its Suspense. */

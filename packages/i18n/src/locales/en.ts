@@ -373,6 +373,16 @@ const en = {
     // (`FIELD_DEFAULTS` in `packages/fields/src/widgets/useFieldTranslation.ts`
     // carries the same one), so English and provider-less rendering are
     // unchanged.
+    // objectui#10474 — the editable date-time face's notice for a stored value
+    // written on a day that does not exist. The `datetime-local` control can
+    // only paint such a value blank, so the widget names the stored string
+    // beside it; a blank control alone would hide it (objectui#3127).
+    // `FIELD_DEFAULTS` in `packages/fields/src/widgets/useFieldTranslation.ts`
+    // carries the same English value for provider-less rendering.
+    dateTime: {
+      impossibleDay:
+        'The stored value "{{value}}" is not a real date. Pick a date and time to replace it.',
+    },
     number: {
       badInput:
         'Not saved: the text in this box is not a number. Enter a plain decimal (example: {{example}}).',

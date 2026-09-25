@@ -21,7 +21,8 @@ import { useDisplayLocale, useLocalization, formatDisplayNumber } from '@object-
 import { resolveFieldCurrency, currencyFractionDigits, currencySymbol } from '../currency.js';
 import { LookupField } from './LookupField.js';
 import { FileCell } from './FileField.js';
-import { toDateInputValue, toDateTimeInputValue, fromDateTimeInputValue } from './nativeDateValue.js';
+import { toDateInputValue, toDateTimeInputValue, fromDateTimeInputValue, isImpossibleStoredDay } from './nativeDateValue.js';
+import { useFieldTranslation } from './useFieldTranslation.js';
 import { toDomProps } from './toDomProps.js';
 import { toHostGroupProps } from './toHostGroupProps.js';
 import { renderableFractionScale } from './percent-scale.js';
@@ -642,6 +643,10 @@ export function GridField({
   // regional default → active UI language → 'en' (objectui#4468). Read here
   // and passed down, since `displayText` is a pure helper.
   const displayLocale = useDisplayLocale();
+  // The editable `datetime` cell's notice for a stored nonexistent day
+  // (objectui#10474) — the one sentence `DateTimeField` shows for it too.
+  const { t } = useFieldTranslation();
+  const cellIdBase = React.useId();
   // The tenant default currency (ADR-0053) — the resolver's last step, and in
   // practice the currency of every `currency` column (objectui#10355, see
   // `columnCurrency`). It decides the stored width of a computed currency
@@ -1125,6 +1130,13 @@ export function GridField({
     // The editable currency cell shows the SAME symbol its display face does
     // (objectui#10355) — `currencyAdornment`, never a default `¥`.
     const adornment = c.type === 'currency' ? currencyAdornment(c, currency, displayLocale) : '';
+    // A `datetime` cell holding a value written on a day that does not exist
+    // (objectui#10474): its control can paint that only blank, so the stored
+    // string is named under it and the control is marked invalid. Nothing is
+    // written until the user picks a new value — the same face `DateTimeField`
+    // gives it.
+    const impossibleDay = c.type === 'datetime' && isImpossibleStoredDay(val);
+    const noticeId = impossibleDay ? `${cellIdBase}-impossible-${rowIdx}-${colIdx}` : undefined;
     return (
       <div className="relative">
         {adornment && (
@@ -1132,7 +1144,8 @@ export function GridField({
         )}
         <Input
           data-cell={`${rowIdx}-${colIdx}`}
-          aria-invalid={invalid || undefined}
+          aria-invalid={invalid || impossibleDay || undefined}
+          aria-describedby={noticeId}
           onKeyDown={(e) => onCellKeyDown(e, rowIdx, colIdx)}
           className={cn(
             'h-8 rounded-none border-0 bg-transparent px-2 shadow-none focus-visible:ring-1 focus-visible:ring-ring/60',
@@ -1175,6 +1188,11 @@ export function GridField({
           onChange={(e) => setCell(rowIdx, c, e.target.value)}
           disabled={locked}
         />
+        {impossibleDay && (
+          <p id={noticeId} className="px-2 pb-1 text-xs text-destructive" data-testid={`line-items-impossible-day-${rowIdx}-${c.name}`}>
+            {t('fields.dateTime.impossibleDay', { value: String(val) })}
+          </p>
+        )}
       </div>
     );
   };

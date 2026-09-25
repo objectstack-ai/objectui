@@ -5,7 +5,8 @@ import { useDisplayLocale } from '@object-ui/i18n';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { openNativePicker } from './openNativePicker.js';
-import { toDateTimeInputValue, fromDateTimeInputValue } from './nativeDateValue.js';
+import { toDateTimeInputValue, fromDateTimeInputValue, isImpossibleStoredDay } from './nativeDateValue.js';
+import { useFieldTranslation } from './useFieldTranslation.js';
 
 /**
  * DateTimeField - Combined date and time picker widget
@@ -16,6 +17,8 @@ export function DateTimeField({ value, onChange, field, readonly, error, ...prop
   // prop. See DateField for why the bare `toLocale*` calls were wrong
   // (objectui#4468).
   const locale = useDisplayLocale();
+  const { t } = useFieldTranslation();
+  const noticeId = React.useId();
   if (readonly) {
     if (!value) return <EmptyValue />;
     // `formatDateTime`'s DEFAULT (verbose) face — the one home for the
@@ -41,6 +44,18 @@ export function DateTimeField({ value, onChange, field, readonly, error, ...prop
   }
 
   const domProps = toDomProps(props);
+  /**
+   * A stored value written on a day that does not exist (objectui#10474). The
+   * adapter hands the control `""` for it — the control can paint such a day
+   * only blank (measured in Chromium), and any real day would be one nobody
+   * wrote. So the stored string is NAMED beside the control, with the invalid
+   * marker on the control itself, and nothing is written until the user picks
+   * a new value: the control emits only on a user edit.
+   */
+  const impossible = isImpossibleStoredDay(value);
+  const describedBy = impossible
+    ? [domProps['aria-describedby'], noticeId].filter(Boolean).join(' ')
+    : domProps['aria-describedby'];
 
   /**
    * `aria-invalid` after the DOM spread below, the objectui#3222 idiom shared
@@ -65,7 +80,7 @@ export function DateTimeField({ value, onChange, field, readonly, error, ...prop
    * objectui#7008) and nothing read it. MARKING only: the message TEXT stays
    * with the host.
    */
-  return (
+  const control = (
     <Input
       {...domProps}
       type="datetime-local"
@@ -79,7 +94,17 @@ export function DateTimeField({ value, onChange, field, readonly, error, ...prop
         domProps.onClick?.(e);
       }}
       disabled={readonly || domProps.disabled}
-      aria-invalid={!!error}
+      aria-invalid={!!error || impossible}
+      aria-describedby={describedBy}
     />
+  );
+  if (!impossible) return control;
+  return (
+    <div className="space-y-1">
+      {control}
+      <p id={noticeId} className="text-xs text-destructive" data-testid="datetime-impossible-day">
+        {t('fields.dateTime.impossibleDay', { value: String(value) })}
+      </p>
+    </div>
   );
 }

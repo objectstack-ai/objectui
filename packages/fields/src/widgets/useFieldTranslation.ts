@@ -155,6 +155,11 @@ const FIELD_DEFAULTS: Record<string, string> = {
   // rendering are unchanged.
   'fields.number.badInput':
     'Not saved: the text in this box is not a number. Enter a plain decimal (example: {{example}}).',
+  // objectui#10474 — `DateTimeField` and the sub-grid's `datetime` cell name a
+  // stored value written on a nonexistent day beside their control, which can
+  // only paint it blank. Same value as the `en` pack.
+  'fields.dateTime.impossibleDay':
+    'The stored value "{{value}}" is not a real date. Pick a date and time to replace it.',
   // objectui#3342 — the tags widget's input hint. Used only when the field
   // author declared no `placeholder` of their own (author declaration wins).
   'fields.tags.placeholder': 'Type and press Enter to add…',

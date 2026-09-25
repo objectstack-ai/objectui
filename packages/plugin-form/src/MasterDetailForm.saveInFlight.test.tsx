@@ -320,8 +320,9 @@ describe('the Save guard holds until the batch settles, not for 1.5 s', () => {
     await act(async () => {
       fireEvent.submit(headerForm);
     });
-    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+    await aBeat();
     expect(batch).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
     // The refused submit is not the in-flight batch's outcome: it releases nothing.
     expect(saveButton().disabled).toBe(true);
 

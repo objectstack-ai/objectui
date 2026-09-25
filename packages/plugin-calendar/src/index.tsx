@@ -335,7 +335,7 @@ export const ObjectCalendarRenderer: React.FC<{ schema: any; [key: string]: any 
  * `defaultView`'s declared members are the spec's own three and nothing else.
  * That is load-bearing: this gate judges an `enum` arm EXACTLY (every declared
  * member must be a value the contract accepts), and `agenda` was RETIRED from
- * this enum (objectui#5784, pinned by `default-view-agenda-retired.test.ts`) —
+ * this enum (`ed8df3e50`, pinned by `default-view-agenda-retired.test.ts`) —
  * so a fourth member copied from an older doc would be a red arm, not a nicety.
  *
  * ## What declaring them widens, and on what grounds (clause ②)

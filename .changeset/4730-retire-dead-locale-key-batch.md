@@ -22,7 +22,7 @@ The retirements fall into three shapes:
   `grid.empty` / `grid.yes` / `grid.no` / `grid.systemFields`. The twins had no
   reader on either side.
 - **Labels that outlived their control.** `calendar.agenda` labelled a view mode
-  objectui#5740 retired from `CalendarViewMode` (now `'month' | 'week' | 'day'`).
+  `b55a34647` retired from `CalendarViewMode` (now `'month' | 'week' | 'day'`).
   `home.quickActions.createApp*`, `layout.systemNav.createApp`,
   `actionDialog.defaultActionTitle` / `.ok` and `grid.bulk.selectPlaceholder`
   sit in namespaces whose consumers are live and wired but demonstrably read

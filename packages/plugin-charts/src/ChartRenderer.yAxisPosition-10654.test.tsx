@@ -26,6 +26,11 @@
  * axis cannot take is refused with a note naming `yAxis[N].position`; an open
  * side is honoured; when both entries name the same side the first keeps it;
  * an entry naming no side takes the one left free.
+ *
+ * Rows 10 and 11 are the same family on the axes this change places: a
+ * right-hand value axis's title laid out between the plot and its tick labels,
+ * and a grid or an annotation bound to an axis id the branch does not render
+ * (see `valueAxisIdFor`).
  */
 
 import React from 'react';
@@ -109,7 +114,7 @@ const referenceLines = (c: HTMLElement) => c.querySelectorAll('.recharts-referen
 const onLeft = (x: number) => Number.isFinite(x) && x < WIDTH / 2;
 const onRight = (x: number) => Number.isFinite(x) && x > WIDTH / 2;
 
-describe('objectui#10654 — the y side of `position`, row by row, each against the `bar` control', () => {
+describe('objectui#10654 — the y side of `position` and horizontal-bar\'s axes, row by row, each against the `bar` control', () => {
   // ── Row 1: a lone `position: 'right'` entry draws on the left ────────────
   it.each(['bar', 'line', 'area'])('row 1 · %s: a lone `right` entry draws the value axis on the right', async (chartType) => {
     const c = await draw({ chartType, yAxis: [{ field: 'revenue', position: 'right' }] });
@@ -228,20 +233,10 @@ describe('objectui#10654 — the y side of `position`, row by row, each against 
     expect(ticksOn(c, 'top')).toEqual(['0', '2', '4', '6', '8']);
   });
 
-  it('row 5 · horizontal-bar, two entries: an annotation on the value axis is still drawn', async () => {
-    const c = await draw({ chartType: 'horizontal-bar', yAxis: TWO, annotations: [{ type: 'line', axis: 'x', value: 5 }] });
-    expect(referenceLines(c)).toBe(1);
-  });
-
   it('row 5 · (bar control) two entries draw every bar', async () => {
     const c = await draw({ chartType: 'bar', yAxis: TWO, series: [{ name: 'revenue' }, { name: 'cost', yAxis: 'right' }] });
     expect(bars(c)).toBe(6);
     expect(valueSides(c)).toEqual(['left', 'right']);
-  });
-
-  it('row 5 · (bar control) two entries: an annotation on the value axis is drawn', async () => {
-    const c = await draw({ chartType: 'bar', yAxis: TWO, annotations: [{ type: 'line', axis: 'y', value: 5 }] });
-    expect(referenceLines(c)).toBe(1);
   });
 
   // ── Row 6: `horizontal-bar` never draws `xAxis.title`, and lays the
@@ -318,10 +313,14 @@ describe('objectui#10654 — the y side of `position`, row by row, each against 
     expect(valueSides(c)).toEqual(['bottom']);
   });
 
-  it('row 8 · (bar control) a lone `top` entry is refused on a chart whose value axis runs up its side', async () => {
-    const c = await draw({ chartType: 'bar', yAxis: [{ field: 'revenue', position: 'top' }] });
-    expect(yNotes(c)).toHaveLength(1);
-    expect(valueSides(c)).toEqual(['left']);
+  it.each([
+    ['bar', undefined, 'left'],
+    ['horizontal-bar', undefined, 'bottom'],
+    ['horizontal-bar', 'bottom', 'bottom'],
+  ] as const)('row 8 · (control) %s with position %s draws its value axis at its default side, the %s, with no note', async (chartType, position, side) => {
+    const c = await draw({ chartType, yAxis: [{ field: 'revenue', ...(position ? { position } : {}) }] });
+    expect(valueSides(c)).toEqual([side]);
+    expect(yNotes(c)).toHaveLength(0);
   });
 
   // ── Row 9: a lone right entry on a combo drew its title on both sides ───
@@ -332,24 +331,71 @@ describe('objectui#10654 — the y side of `position`, row by row, each against 
     expect(onRight(revenue.x)).toBe(true);
   });
 
-  it('row 9 · (bar control) a lone `right` entry\'s title is drawn once, on the right', async () => {
-    const c = await draw({ chartType: 'bar', yAxis: [{ field: 'revenue', position: 'right', title: 'Revenue' }] });
+  it('row 9 · (bar control) a lone entry\'s title is drawn once, on the side its axis sits', async () => {
+    const c = await draw({ chartType: 'bar', yAxis: [{ field: 'revenue', title: 'Revenue' }] });
     const revenue = title(c, 'Revenue');
     expect(revenue.count).toBe(1);
-    expect(onRight(revenue.x)).toBe(true);
+    expect(onLeft(revenue.x)).toBe(true);
   });
 
   // ── Row 10: a right-hand title sits on the far side of its tick labels ───
   const tickXs = (c: HTMLElement, side: Side) =>
     tickTexts(c).filter((t) => !isCategory(t) && t.getAttribute('orientation') === side).map((t) => Number(t.getAttribute('x')));
 
-  it('row 10 · a right-hand value axis\'s title sits beyond its tick labels, away from the plot', async () => {
-    const c = await draw({ chartType: 'bar', yAxis: [{ field: 'revenue', position: 'right', title: 'Revenue' }] });
-    expect(title(c, 'Revenue').x, 'the title sits between the plot and the tick labels').toBeGreaterThan(Math.max(...tickXs(c, 'right')));
+  it.each([
+    ['bar', 'the second entry', [{ field: 'revenue' }, { field: 'cost', title: 'Cost' }]],
+    ['combo', 'the second entry', [{ field: 'revenue' }, { field: 'cost', title: 'Cost' }]],
+    ['bar', 'a lone `right` entry', [{ field: 'cost', position: 'right', title: 'Cost' }]],
+  ] as const)('row 10 · %s: %s — a right-hand value axis\'s title sits beyond its tick labels, away from the plot', async (chartType, _label, yAxis) => {
+    const c = await draw({ chartType, yAxis, series: [{ name: 'revenue', type: 'bar' }, { name: 'cost', type: 'bar', yAxis: 'right' }] });
+    const xs = tickXs(c, 'right');
+    expect(xs.length).toBeGreaterThan(0);
+    expect(title(c, 'Cost').x, 'the title sits between the plot and the tick labels').toBeGreaterThan(Math.max(...xs));
   });
 
   it('row 10 · (bar control) a left-hand value axis\'s title sits beyond its tick labels, away from the plot', async () => {
     const c = await draw({ chartType: 'bar', yAxis: [{ field: 'revenue', title: 'Revenue' }] });
-    expect(title(c, 'Revenue').x).toBeLessThan(Math.min(...tickXs(c, 'left')));
+    const xs = tickXs(c, 'left');
+    expect(xs.length).toBeGreaterThan(0);
+    expect(title(c, 'Revenue').x).toBeLessThan(Math.min(...xs));
+  });
+
+  // ── Row 11: the grid and the annotations bind to a value axis the branch
+  //    renders. With two entries (and on every combo) the value axes carry
+  //    ids, and recharts binds a grid or an annotation to id `0` by default ─
+  const gridLines = (c: HTMLElement, direction: 'horizontal' | 'vertical') =>
+    c.querySelectorAll(`.recharts-cartesian-grid-${direction} line`).length;
+  const ANNOTATIONS = [
+    { type: 'line', axis: 'x', value: 'Feb' },
+    { type: 'line', axis: 'y', value: 5 },
+  ];
+  const TWO_SERIES = [{ name: 'revenue', type: 'bar' }, { name: 'cost', type: 'line' }];
+
+  it.each([
+    ['bar, two entries', { chartType: 'bar', yAxis: TWO }],
+    ['combo, one entry', { chartType: 'combo', yAxis: [{ field: 'revenue' }], series: TWO_SERIES }],
+    ['combo, no entry', { chartType: 'combo', series: TWO_SERIES }],
+    ['combo, two entries', { chartType: 'combo', yAxis: TWO, series: TWO_SERIES }],
+  ] as const)('row 11 · %s: both annotations are drawn and the grid has one horizontal line per left value tick', async (_label, schema) => {
+    const c = await draw({ ...schema, annotations: ANNOTATIONS });
+    expect(referenceLines(c), 'an annotation was bound to an axis id the chart does not render').toBe(2);
+    expect(gridLines(c, 'horizontal')).toBe(ticksOn(c, 'left').length);
+  });
+
+  it('row 11 · horizontal-bar, two entries: both annotations are drawn and the grid has one vertical line per bottom value tick', async () => {
+    const c = await draw({
+      chartType: 'horizontal-bar',
+      xAxis: { field: 'month', showGridLines: true },
+      yAxis: [{ field: 'revenue' }, { field: 'cost' }],
+      annotations: [{ type: 'line', axis: 'x', value: 5 }, { type: 'line', axis: 'y', value: 'Feb' }],
+    });
+    expect(referenceLines(c)).toBe(2);
+    expect(gridLines(c, 'vertical')).toBe(ticksOn(c, 'bottom').length);
+  });
+
+  it('row 11 · (bar control) one entry: both annotations are drawn and the grid has one horizontal line per value tick', async () => {
+    const c = await draw({ chartType: 'bar', yAxis: [{ field: 'revenue' }], annotations: ANNOTATIONS });
+    expect(referenceLines(c)).toBe(2);
+    expect(gridLines(c, 'horizontal')).toBe(ticksOn(c, 'left').length);
   });
 });

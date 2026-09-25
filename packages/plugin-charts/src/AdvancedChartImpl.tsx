@@ -621,10 +621,13 @@ function onSide(side: 'left' | 'right' | 'top' | 'bottom'): string {
  * to axis id `0` on both sides unless told otherwise. A branch that renders
  * its value axes WITH ids — a combo always, bar / line / area /
  * horizontal-bar when two `yAxis` entries are declared — renders no value axis
- * `0`, and what was bound to it did not draw: measured at base on a two-entry
- * bar chart, the horizontal grid collapsed to 2 lines (5 with one entry) and an
- * `axis: 'x'` annotation was dropped; on a two-entry horizontal-bar an
- * `axis: 'y'` annotation, bound to a `yAxisId` its category axis does not
+ * `0`, and what was bound to it did not draw as bound. Measured before this
+ * binding (a historical reading; row 11 of
+ * `ChartRenderer.yAxisPosition-10654.test.tsx` is the instrument): on a
+ * two-entry bar chart the horizontal grid drew 2 lines instead of one per
+ * value tick, and an `axis: 'x'` annotation was dropped; on a combo with fewer
+ * than two entries every annotation was dropped; on a two-entry horizontal-bar
+ * an `axis: 'y'` annotation, bound to a `yAxisId` its category axis does not
  * carry, was dropped. They bind to the `'left'` slot: a `<YAxis>` up the side
  * of the plot, an `<XAxis>` across it on horizontal-bar, whose category axis
  * carries no id. A lone value axis carries no id, so nothing is bound.

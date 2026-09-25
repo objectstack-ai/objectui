@@ -14,9 +14,8 @@ and the active organization). On `object-grid` that is `filter` and its deprecat
 `defaultFilters`: the resolved `filter` feeds the grid's query and its server-side export, and the
 resolved alias feeds the query when `filter` is absent. On
 `list-view` it is `filter`, and the resolved value feeds the list's query, the child view it
-renders, the self-querying views (gantt, tree, chart), the export and the empty-state copy. This
-closes the gap objectui#10506's entry notes, where a directly authored `object-grid` or
-`list-view` node did not call the resolver.
+renders, the self-querying views (gantt, tree, chart), the export and the empty-state copy.
+`object-view` has done this since objectui#10506; these two nodes, authored directly, had not.
 
 The relative-date macros (`{today}`, `{current_quarter_start}`, …) resolve in the same call, in
 the browser's local time, as on the other surfaces that call the resolver. Where they used to

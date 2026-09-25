@@ -23,7 +23,7 @@ import type { BaseSchema } from './base.js';
 // and read here by `ObjectKanbanSchema.columns` (objectui#8913) so the two
 // kanban faces judge a card the same way. Type-only: no runtime edge.
 import type { KanbanCard } from './complex.js';
-import type { DrillDownConfig, ObjectDataTableDrillDownConfig } from './data-display.js';
+import type { ObjectDataTableDrillDownConfig } from './data-display.js';
 // `QueryParams` is the destination `ObjectGallerySchema.filter`'s own docblock
 // names — the value is forwarded verbatim into that slot — so the declaration
 // is an INDEXED ACCESS on it rather than a copy of its arms (objectui#9309).

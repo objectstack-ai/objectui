@@ -567,13 +567,17 @@ const SECTIONING_TAG_UNRULED =
 
 const UNCURATED_LAYOUT_CONTAINERS: Record<string, string> = {
   'aspect-ratio':
-    'NOT YET RULED, either way — and that is the entry, stated honestly rather than dressed as merits. ' +
-    'It is the only member of this derived population no card has ever asked about: it declares four real ' +
-    'inputs (ratio/image/alt/className) and a container slot, so it is authorable today, and the tree records ' +
-    'only the CONSEQUENCE of its absence (renderers/layout/aspect-ratio.tsx, at its registration: "Not in ' +
-    '`PUBLIC_BLOCKS`, so the react-page scope builder never saw this tag"), never a reason. objectui#6879 ' +
-    'measured the population and filed the decision as objectui#8628 — curate it, or refuse it on stated ' +
-    'merits and replace this text with them. Until then it stays visible here instead of invisible in a gap.',
+    'RULED: refused on stated merits (objectui#8628, ruling 5634038424, letter B, ratified 5810240972). ' +
+    'A ratio box is `box` plus an aspect utility, and the curated vocabulary carries one spelling per ' +
+    'concept — the reasoning `element:image` carries against the curated `image` primitive. `box` is ' +
+    'curated and passes its authored `className` through verbatim (the contract ' +
+    '`box-neutral-container.test.tsx` pins), so the concept already has its one spelling. The block ' +
+    'still ships and still renders (four inputs, ratio/image/alt/className, plus a container slot); it ' +
+    'is simply not taught. Curating it stays available on a named need, not on a census. It is recorded ' +
+    'HERE rather than in `DELIBERATELY_UNCURATED`, which the ruling names: that ledger is pinned exactly ' +
+    'by "curates every shipped semantic block, or records why not", whose population is the four ' +
+    'semantic namespaces, and `aspect-ratio` registers under `ui` — an entry there turns that pin red, ' +
+    'and dropping this one turns "curates every declared layout container, or records why not" red.',
   article: SECTIONING_TAG_UNRULED,
   aside: SECTIONING_TAG_UNRULED,
   footer: SECTIONING_TAG_UNRULED,

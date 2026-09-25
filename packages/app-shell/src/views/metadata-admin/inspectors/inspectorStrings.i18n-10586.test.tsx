@@ -301,12 +301,12 @@ const DATASET_EN = [
 ] as const;
 
 describe('DatasetDefaultInspector reads its words in the designer locale (objectui#10586)', () => {
-  it('zh: a named sample is the catalogue row, and none of the pre-fix English renders', async () => {
+  it('zh: none of the pre-fix English renders, and a named sample is the catalogue row', async () => {
     const seen = await readAll('zh', DATASET_FIXTURES);
+    expectNone(seen, DATASET_EN);
     expect(seen.has(zhRow('engine.inspector.dataset.baseObject'))).toBe(true);
     expect(seen.has(zhRow('engine.inspector.dataset.usage.unbound'))).toBe(true);
     expect(seen.has(zhRow('engine.inspector.dataset.aggregate.sum'))).toBe(true);
-    expectNone(seen, DATASET_EN);
   });
 
   it('en: every pre-fix string still renders, word for word', async () => {
@@ -395,11 +395,11 @@ async function readReference(lang: Lang): Promise<Set<string>> {
 }
 
 describe('FlowReferenceField reads its words in the designer locale (objectui#10586)', () => {
-  it('zh: a named sample is the catalogue row, and none of the pre-fix English renders', async () => {
+  it('zh: none of the pre-fix English renders, and a named sample is the catalogue row', async () => {
     const seen = await readReference('zh');
+    expectNone(seen, REFERENCE_EN);
     expect(seen.has(zhRow('engine.inspector.reference.managerPlaceholder'))).toBe(true);
     expect(seen.has(`Billing API (billing) · ${zhRow('engine.inspector.reference.declarative')}`)).toBe(true);
-    expectNone(seen, REFERENCE_EN);
   });
 
   it('en: every pre-fix string still renders, word for word', async () => {
@@ -461,11 +461,11 @@ async function readCondition(lang: Lang): Promise<Set<string>> {
 }
 
 describe('ConditionBuilder reads its words in the designer locale (objectui#10586)', () => {
-  it('zh: a named sample is the catalogue row, and none of the pre-fix English renders', async () => {
+  it('zh: none of the pre-fix English renders, and a named sample is the catalogue row', async () => {
     const seen = await readCondition('zh');
+    expectNone(seen, CONDITION_EN);
     expect(seen.has(zhRow('engine.inspector.condition.always'))).toBe(true);
     expect(seen.has(zhRow('engine.inspector.condition.op.notEquals'))).toBe(true);
-    expectNone(seen, CONDITION_EN);
     // `≥` / `≤` are symbols, deliberately the same in every locale.
     expect(seen.has('≥') && seen.has('≤')).toBe(true);
   });

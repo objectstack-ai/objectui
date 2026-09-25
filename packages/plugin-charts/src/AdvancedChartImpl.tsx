@@ -500,6 +500,11 @@ const X_AXIS_TITLE_LAYOUT = { position: 'insideBottom', offset: -4 } as const;
  */
 const X_AXIS_TOP_TITLE_LAYOUT = { position: 'insideTop', offset: -4 } as const;
 
+/** The x-axis title layout for the side {@link placeXAxis} put the axis on. */
+function xAxisTitleLayoutFor(across: 'top' | 'bottom' | undefined) {
+  return across === 'top' ? X_AXIS_TOP_TITLE_LAYOUT : X_AXIS_TITLE_LAYOUT;
+}
+
 /** The four sides the spec `ChartAxis.position` enumerates. */
 type AxisSide = 'left' | 'right' | 'top' | 'bottom';
 
@@ -1679,7 +1684,6 @@ function AdvancedChartImplInner({
     down: xAxisDown,
     refused: xAxisPositionRefused,
   } = placeXAxis(xAxisSpec?.position, categoriesRunDown);
-  const xAxisTitleLayout = xAxisAcross === 'top' ? X_AXIS_TOP_TITLE_LAYOUT : X_AXIS_TITLE_LAYOUT;
   const xPositionNote = xAxisPositionNote(xAxisPositionRefused, categoriesRunDown);
 
   // Legend is on unless the author turned it off (spec default `true`).
@@ -1794,12 +1798,12 @@ function AdvancedChartImplInner({
     // objectui#10587 — the declared side, emitted only when one was declared
     // and is open to this axis (see `placeXAxis`).
     ...(xAxisAcross ? { orientation: xAxisAcross } : {}),
-    ...(xAxisSpec?.title ? { label: { value: xAxisSpec.title, ...xAxisTitleLayout } } : {}),
+    ...(xAxisSpec?.title ? { label: { value: xAxisSpec.title, ...xAxisTitleLayoutFor(xAxisAcross) } } : {}),
     // A rotated label hangs AWAY from the plot: down-left under a bottom axis
     // (`-35`), and up-left over a top one (`35`) — the same `-35` above the
     // plot would slant every label down into the marks.
     ...(rotateXLabels && { angle: xAxisAcross === 'top' ? 35 : -35, textAnchor: 'end' as const, height: 60 }),
-  }), [labelEveryBucket, rotateXLabels, xAxisTickFormatter, xAxisSpec?.title, xAxisAcross, xAxisTitleLayout]);
+  }), [labelEveryBucket, rotateXLabels, xAxisTickFormatter, xAxisSpec?.title, xAxisAcross]);
 
   // #2942 — the non-series spec families used to fall through the component
   // map's `|| BarChart` into a bar shell whose series marks all returned
@@ -2300,7 +2304,7 @@ function AdvancedChartImplInner({
             // every category x axis, so `top` / `bottom` are its sides too
             // (see `placeXAxis`).
             {...(xAxisAcross ? { orientation: xAxisAcross } : {})}
-            {...numericAxisSpecProps(xAxisSpec, scatterXValues, xAxisTitleLayout)}
+            {...numericAxisSpecProps(xAxisSpec, scatterXValues, xAxisTitleLayoutFor(xAxisAcross))}
           />
           <YAxis
             type="number"

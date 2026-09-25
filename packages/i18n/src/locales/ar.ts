@@ -68,7 +68,10 @@ const ar = {
     remove: 'إزالة {{label}}',
     selectFirst: 'اختر {{fields}} أولاً',
     selectRecord: 'اختيار سجل',
-    recordCount: '{{count}} سجل',
+    // objectui#10425 — the picker switches keys only at exactly 1, so this half
+    // serves two, few (3-10), many (11-99) and other (100+). A count label
+    // («عدد …: {{count}}») reads correctly at every one of them.
+    recordCount: 'عدد السجلات: {{count}}',
     recordCountOne: 'سجل واحد',
     pageOf: 'صفحة {{current}} من {{total}}',
     filters: 'عوامل التصفية',
@@ -655,7 +658,10 @@ const ar = {
     },
     refresh: "تحديث",
     loading: "جارٍ تحميل السجلات…",
-    recordCount: "{{count}} سجلات",
+    // objectui#10425 — the record-count bar picks this half at every count but
+    // 1 (two, few, many, other), so it is a count label («عدد …: {{count}}»)
+    // rather than one noun form that fits only 3-10.
+    recordCount: "عدد السجلات: {{count}}",
     recordCountOne: "{{count}} سجل",
     addRecord: "إضافة سجل",
     tabs: "علامات التبويب",
@@ -943,7 +949,10 @@ const ar = {
     addReaction: "إضافة تفاعل",
     pageHeaderActions: "إجراءات رأس الصفحة",
     emojiPicker: "منتقي الرموز التعبيرية",
-    reactionCount: "{{emoji}} {{count}} تفاعلات",
+    // objectui#10425 — the chip picks this half at every count but 1 (two,
+    // few, many, other); a count label reads right at all of them, the same
+    // device as `collaboration.reactionCount`.
+    reactionCount: "{{emoji}} عدد التفاعلات: {{count}}",
     reactionCountOne: "{{emoji}} {{count}} تفاعل",
     recordDetail: "تفاصيل السجل",
     recordDetailWithLabel: "تفاصيل {{label}}",
@@ -2530,7 +2539,9 @@ const ar = {
     // byte; a count label («عدد …: {{count}}», as `calendar.a11y.dayCell` does)
     // reads correctly at every one of them.
     resultsCountPlural: "عدد نتائج البحث عن \"{{query}}\": {{count}}",
-    itemsAvailable: "{{count}} عناصر متاحة",
+    // objectui#10425 — the browse branch of the same line switches at exactly
+    // 1 too, so this half needs the same count label.
+    itemsAvailable: "عدد العناصر المتاحة: {{count}}",
     itemsAvailableOne: "{{count}} عنصر متاح",
     noResults: "لم يتم العثور على نتائج",
     noResultsHint: "جرب تعديل مصطلحات البحث",
@@ -3649,9 +3660,12 @@ const ar = {
     replyingToComment: "الرد على التعليق…",
     commentPlaceholder: "أضف تعليقًا… (استخدم @ للإشارة)",
     send: "إرسال",
-    presentUserCount: "{{count}} مستخدمين متواجدين",
+    // objectui#10425 — the presence stack's name and its overflow badge switch
+    // keys only at exactly 1, so the count-not-one half of each pair below is
+    // a count label too.
+    presentUserCount: "عدد المستخدمين المتواجدين: {{count}}",
     presentUserCountOne: "{{count}} مستخدم متواجد",
-    moreUserCount: "{{count}} مستخدمين آخرين",
+    moreUserCount: "عدد المستخدمين الآخرين: {{count}}",
     moreUserCountOne: "{{count}} مستخدم آخر",
     userStatusTitle: "{{name}} ({{status}})",
     statusActive: "نشط",

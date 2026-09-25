@@ -15,6 +15,14 @@
  * record, inspectors call `onCommit(value)` which trips an immutable
  * splice + `onPatch({...})`. Locale-aware via the `useT` hook the
  * caller already has in scope — the shared shell takes raw strings.
+ *
+ * One exception, and it is a DEFAULT rather than a label a caller hands in:
+ * the flag {@link InspectorSelectField} puts on a stored value its roster does
+ * not offer. Wherever a call site passes none, the default is what a zh-CN
+ * author reads, so it resolves through `useMetadataLocale()` — the hook the
+ * designer's other shared editors (`widgets.tsx`, `SchemaForm`,
+ * `ConditionBuilder`) already read when no `locale` prop reaches them
+ * (objectui#9652).
  */
 
 import * as React from 'react';
@@ -22,6 +30,7 @@ import { ArrowDown, ArrowUp, Trash2, X } from 'lucide-react';
 import { cn } from '@object-ui/components';
 import { Badge, Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
 import { type LoadState } from '../loadState.js';
+import { t, tFormat, useMetadataLocale, type SupportedLocale } from '../i18n.js';
 
 /* ─────────────── Layout shell ─────────────── */
 
@@ -300,21 +309,31 @@ export function rosterFrom(source: {
 
 /**
  * Default wording for the notice {@link InspectorSelectField} renders when its
- * roster failed to load. Raw English, like {@link defaultUnknownValueLabel}:
- * this module has no locale in scope (see the file header). Call sites pass
- * their own — the repo already has this exact copy localized, as the shared
- * picker-failure title objectui#5170 landed for the widget family.
+ * roster failed to load. Raw English, like `placeholder`'s `'—'` default. A
+ * call site that passes a `roster` passes its own `rosterFailureLabel` too —
+ * the repo already has this exact copy localized, as the shared picker-failure
+ * title objectui#5170 landed for the widget family.
  */
 const defaultRosterFailureLabel = 'Options could not be loaded';
 
 /**
- * Default wording for the row {@link InspectorSelectField} synthesises when the
- * stored value is not in the roster. Raw English, like `placeholder`'s `'—'`
- * default: this module takes raw strings and has no locale in scope (see the
- * file header). Call sites with a better word for their own domain pass
- * `unknownValueLabel` — that is the prop's whole reason to exist.
+ * The label of the row {@link InspectorSelectField} synthesises for a stored
+ * value its roster does not offer: the value, then a FLAG saying why it is not
+ * offered (`t('engine.form.notFound', locale)`, `…notInObject`, `…deprecated`).
+ *
+ * The two are joined by the `engine.form.flaggedValue` template, not by a
+ * template literal at the call site, because the order of the two and the gap
+ * between them are the locale's to decide — zh sets no space before the
+ * full-width bracket its flags open with (objectui#9652). Every call site that
+ * words its own flag goes through here, and so does the primitive's default.
  */
-const defaultUnknownValueLabel = (v: string) => `${v} (not found)`;
+export function flagUnknownValue(
+  value: string,
+  flag: string,
+  locale: SupportedLocale | string | undefined,
+): string {
+  return tFormat('engine.form.flaggedValue', locale, { value, flag });
+}
 
 export function InspectorSelectField({
   label,
@@ -322,7 +341,7 @@ export function InspectorSelectField({
   options,
   onCommit,
   placeholder = '—',
-  unknownValueLabel = defaultUnknownValueLabel,
+  unknownValueLabel: unknownValueLabelProp,
   roster,
   rosterFailureLabel = defaultRosterFailureLabel,
   disabled,
@@ -334,7 +353,9 @@ export function InspectorSelectField({
   placeholder?: string;
   /**
    * Wording for the synthesised row that carries a stored value the roster does
-   * not offer. Receives the raw stored value; defaults to `VALUE (not found)`.
+   * not offer. Receives the raw stored value; defaults to the value flagged
+   * `engine.form.notFound` in the designer's active locale — `VALUE (not found)`
+   * in en-US. Build an override with {@link flagUnknownValue}.
    * Override it, never the RULE — the rule is the one this primitive owns.
    */
   unknownValueLabel?: (value: string) => string;
@@ -360,7 +381,7 @@ export function InspectorSelectField({
   /**
    * Wording for the notice shown when `roster` reports a failure. The CAUSE is
    * rendered from the state's own message; this is the sentence in front of it.
-   * Defaults to raw English, same contract as `unknownValueLabel`.
+   * Defaults to raw English — pass `t('engine.form.optionsLoadFailedTitle', locale)`.
    */
   rosterFailureLabel?: string;
   disabled?: boolean;
@@ -378,6 +399,14 @@ export function InspectorSelectField({
   // renders the real `button[role=combobox]`, which is a labelable element, so
   // one `for`/`id` pair names it (no second `aria-labelledby` channel needed).
   const id = React.useId();
+  // objectui#9652 — the default flag used to be a raw English template literal,
+  // so every call site that passes no `unknownValueLabel` showed a zh-CN author
+  // `VALUE (not found)` on an otherwise Chinese inspector. It resolves through
+  // the designer's own catalogue now, in the locale the designer is showing.
+  const locale = useMetadataLocale();
+  const unknownValueLabel =
+    unknownValueLabelProp ??
+    ((v: string) => flagUnknownValue(v, t('engine.form.notFound', locale), locale));
   // `SelectValue`'s own `placeholder` is unreachable here, and was at all 45
   // call sites (objectui#8450). Radix shows it only when its value is `''` or
   // `undefined`, and the sentinel bridge above guarantees the value is never

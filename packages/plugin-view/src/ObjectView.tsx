@@ -55,6 +55,15 @@ import {
   TabsList,
   TabsTrigger,
   useIsMobile,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  toast,
 } from '@object-ui/components';
 import { Plus } from 'lucide-react';
 import { useObjectTranslation, createSafeTranslation } from '@object-ui/i18n';
@@ -64,6 +73,7 @@ import {
   mergeFilterNodes,
   columnIdentity,
   convertSortToQueryParams,
+  recordDelete,
 } from '@object-ui/core';
 import { SchemaRenderer as ImportedSchemaRenderer, useSettledSchema } from '@object-ui/react';
 import type { HandleClickModifiers } from '@object-ui/react';
@@ -288,6 +298,23 @@ const VIEW_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'form.createTitle': 'Create {{object}}',
   'form.editTitle': 'Edit {{object}}',
   'form.viewTitle': 'View {{object}}',
+  // objectui#10383 — the grid's row / bulk Delete. Not new keys: these are the
+  // ones the console's own list delete resolves, all present in the ten packs.
+  // The `objectActions.*` rows are asked for by the shared `recordDelete` core
+  // (`@object-ui/core`), which this view hands `tView`, so a provider-less host
+  // reads them here; the ADR-0094 reset rows carry their own inline
+  // `defaultValue` there. `console.objectView.bulkDeleteConfirm` and the
+  // `actionConfirm.*` chrome are this host's dialog, in the console's
+  // `ActionConfirmDialog` shape.
+  'actionConfirm.title': 'Confirm Action',
+  'actionConfirm.confirm': 'Continue',
+  'actionConfirm.cancel': 'Cancel',
+  'objectActions.deleteConfirm': 'Are you sure you want to delete this record?',
+  'console.objectView.bulkDeleteConfirm': 'Delete {{count}} selected records? This cannot be undone.',
+  'objectActions.deleteSuccess': '{{label}} deleted successfully',
+  'objectActions.deleteFailed': 'Failed to delete {{label}}',
+  'objectActions.bulkDeleteSuccess': 'Deleted {{count}} {{label}} records',
+  'objectActions.bulkDeletePartial': '{{succeeded}} deleted, {{failed}} failed',
 };
 
 const useObjectViewTranslation = createSafeTranslation(
@@ -1333,14 +1360,45 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     }
   }, [onRowClick, navigationConfig, operations.read, handleView, openRecordInNewTab, schema]);
 
-  // Handle delete action
-  const handleDelete = useCallback((_record: Record<string, unknown>) => {
-    setRefreshKey(prev => prev + 1);
+  // Handle delete / bulk delete — objectui#10383.
+  //
+  // `ObjectGrid` hands the row (or the selection) straight to these two and
+  // performs no delete of its own: its contract is that the CONSUMER's delete
+  // flow owns the confirmation, the delete, the toast and the refresh. Both
+  // handlers used to ignore their argument and only bump `refreshKey`, so on
+  // this path — the registered `object-view` renderer, no host list view — a
+  // Delete offered by default deleted nothing and the row came back.
+  //
+  // They now bind to the SAME record-delete core the console's own list binds
+  // to (`recordDelete` in `@object-ui/core`, which `app-shell`'s
+  // `useObjectActions` registers as its `delete` handler). This host owns only
+  // its confirm UI (the AlertDialog below) and the bulk question; the one-row
+  // question — including ADR-0094's reset question for a package-owned
+  // permission set — the delete, the toasts and when to refresh all come from
+  // that core, so the two paths cannot drift. The requests are shaped the way
+  // the console's are: a row as `{ recordId, record }`, a selection as
+  // `{ records }`, rows without an `id` skipped first.
+  //
+  // The permission half needs nothing here: whether the Delete affordance is
+  // offered at all is `ObjectGrid`'s verdict on both paths (`operations`, the
+  // principal's `can(object, 'delete')`, the object's bucket / `userActions` /
+  // API operations and the per-record explain verdict), exactly as it is for
+  // the console list, which does not gate its handlers either.
+  const [deleteRequest, setDeleteRequest] = useState<{
+    open: boolean;
+    records: Record<string, unknown>[];
+    bulk: boolean;
+  } | null>(null);
+
+  const handleDelete = useCallback((record: Record<string, unknown>) => {
+    if (record?.id == null) return;
+    setDeleteRequest({ open: true, records: [record], bulk: false });
   }, []);
 
-  // Handle bulk delete action
-  const handleBulkDelete = useCallback((_records: Record<string, unknown>[]) => {
-    setRefreshKey(prev => prev + 1);
+  const handleBulkDelete = useCallback((records: Record<string, unknown>[]) => {
+    const valid = records.filter((r) => r?.id != null);
+    if (valid.length === 0) return;
+    setDeleteRequest({ open: true, records: valid, bulk: true });
   }, []);
 
   // Handle form submission
@@ -2509,6 +2567,61 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // empty `mb-4` spacer div above the content.
   const toolbar = renderToolbar();
 
+  // The delete confirmation (objectui#10383) — this host's confirm UI, in the
+  // console's `ActionConfirmDialog` shape and keys (`actionConfirm.*` chrome,
+  // the question as the description). The one-row question and the delete
+  // itself come from the shared `recordDelete` core. Close flips `open` and KEEPS the request, so
+  // the description does not blank during the exit animation (the objectui#6034
+  // lesson); the `open` guard on Continue is what stops a click during that
+  // animation from deleting twice.
+  const deleteConfirmDialog = (
+    <AlertDialog
+      open={deleteRequest?.open ?? false}
+      onOpenChange={(open) => {
+        if (!open) setDeleteRequest((prev) => (prev ? { ...prev, open: false } : prev));
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{tView('actionConfirm.title')}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {deleteRequest?.bulk
+              ? tView('console.objectView.bulkDeleteConfirm', { count: deleteRequest.records.length })
+              : recordDelete.confirmText(
+                  { objectName: schema.objectName, t: tView },
+                  deleteRequest?.records[0],
+                )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{tView('actionConfirm.cancel')}</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              if (!deleteRequest?.open) return;
+              const { records, bulk } = deleteRequest;
+              setDeleteRequest({ ...deleteRequest, open: false });
+              void recordDelete.run(
+                {
+                  objectName: schema.objectName,
+                  label: (objectSchema?.label as string) || schema.objectName,
+                  dataSource,
+                  t: tView,
+                  toast,
+                  onRefresh: () => setRefreshKey(prev => prev + 1),
+                },
+                bulk
+                  ? { params: { records } }
+                  : { params: { recordId: String(records[0].id), record: records[0] } },
+              );
+            }}
+          >
+            {tView('actionConfirm.confirm')}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
   // For split mode, wrap content inside NavigationOverlay with mainContent
   if (formLayout === 'split') {
     const objectLabel = (objectSchema?.label as string) || schema.objectName;
@@ -2549,6 +2662,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
             renderContent()
           )}
         </div>
+        {deleteConfirmDialog}
       </div>
     );
   }
@@ -2593,6 +2707,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           {renderOverlayDetail}
         </NavigationOverlay>
       )}
+      {deleteConfirmDialog}
     </div>
   );
 };

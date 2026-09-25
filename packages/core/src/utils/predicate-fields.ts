@@ -33,11 +33,13 @@
  * predicate.)
  *
  * Since objectstack#8018 the same reader also carries the non-predicate row keys
- * a view's actions read: `recordIdField`, and since objectui#10277 the field a
+ * a view's actions read: `recordIdField`, since objectui#10277 the field a
  * `defaultFromRow` param seeds from and the `{field}` tokens of an action's
- * `target`. The name kept the "predicate" spelling because the mechanism is
- * identical (harvest a name, gate it against the declared fields, add it to
- * `$select`); see {@link listViewPredicates} for what is in the set and why.
+ * `target`, and since objectui#10404 the fields an `undoable` action writes,
+ * whose prior values the Undo capture reads off the row. The name kept the
+ * "predicate" spelling because the mechanism is identical (harvest a name, gate
+ * it against the declared fields, add it to `$select`); see
+ * {@link listViewPredicates} for what is in the set and why.
  */
 
 /**
@@ -123,6 +125,46 @@ function defaultFromRowKey(param: unknown): unknown {
   return p.field ?? p.name;
 }
 
+/**
+ * The keys an `undoable` action WRITES, which are the keys its Undo capture
+ * reads off the row (objectui#10404). Returned unfiltered; the caller applies
+ * the identifier gate.
+ *
+ * Each source is the one a writer actually merges into the written set:
+ *
+ *  - `patch`: the static field values of `operation: 'update'`, merged under the
+ *    collected params (`ActionRunner`'s `executeUpdateOperation`);
+ *  - each param's COLLECTED key, `name ?? field`: the key the param dialog
+ *    stores its answer under (`paramName` in `app-shell`'s
+ *    `resolveActionParams`). This is the opposite precedence to
+ *    {@link defaultFromRowKey} on purpose: that one asks which row key a value
+ *    is READ from, this one asks which key a value is WRITTEN under, and the
+ *    capture looks the written key up on the row;
+ *  - `bodyExtra`: the static body the console's generic `api` handler merges
+ *    over the params before it writes (`useConsoleActionRuntime`).
+ *
+ * `recordId` is left out: both writers read it as the record's address and
+ * strip it from the written set, so no capture ever looks it up.
+ *
+ * A key the harvest cannot make the row carry (undeclared, or a field the
+ * principal may not read) is not rescued here. The capture refuses to invent a
+ * prior value for it instead, and offers no Undo.
+ */
+function undoableWrittenKeys(def: Record<string, unknown>): unknown[] {
+  const keys: unknown[] = [];
+  for (const bag of [def.patch, def.bodyExtra]) {
+    if (bag && typeof bag === 'object' && !Array.isArray(bag)) keys.push(...Object.keys(bag));
+  }
+  if (Array.isArray(def.params)) {
+    for (const param of def.params) {
+      if (!param || typeof param !== 'object') continue;
+      const p = param as Record<string, unknown>;
+      keys.push(p.name ?? p.field);
+    }
+  }
+  return keys.filter((key) => key !== 'recordId');
+}
+
 /** Pull the CEL source out of any of the shapes a predicate is authored in. */
 function predicateSource(pred: unknown): string | null {
   if (typeof pred === 'string') return pred.trim() || null;
@@ -172,11 +214,12 @@ export function collectPredicateFieldRefs(predicates: readonly unknown[]): strin
  * kebab (custom defs AND the built-in Edit/Delete overrides), the selection bar,
  * and the object's declared actions.
  *
- * Most entries are predicates. Four are not, and all are spelled as a synthetic
+ * Most entries are predicates. Five are not, and all are spelled as a synthetic
  * `record.<name>` so the one harvester handles them: conditional formatting's
  * native `{ field, operator, value }` shape, an action's `recordIdField`
- * (objectstack#8018), the field each `defaultFromRow` param seeds from, and each
- * `{field}` token of the action's `target` (both objectui#10277). The
+ * (objectstack#8018), the field each `defaultFromRow` param seeds from, each
+ * `{field}` token of the action's `target` (both objectui#10277), and the fields
+ * an `undoable` action writes (objectui#10404). The
  * `recordIdField` case is the same *class* of bug the predicate harvest exists
  * to close, one surface over — the action runtime reads
  * `rowRecord[action.recordIdField]` to seed `recordIdParam`, so a key outside the
@@ -195,7 +238,18 @@ export function collectPredicateFieldRefs(predicates: readonly unknown[]): strin
  * narrowed by the action's `type`, for the asymmetry stated below: an extra
  * column costs bytes.
  *
- * A `recordIdField` or param key that is not a bare identifier is dropped here
+ * The written fields are the same class once more, and the worst of them,
+ * because what went wrong was a write. The Undo capture of an `undoable` update
+ * reads each written field's prior value off the row; on a projected row a
+ * written field no column shows was absent, the capture recorded `null`, and
+ * Undo then wrote `null` over the stored value it existed to restore. The
+ * written keys are `patch`, each param's collected key and `bodyExtra` (see
+ * `undoableWrittenKeys`). This one IS narrowed, to `undoable`, and not for
+ * cost: the capture is the only reader of a written field's prior value, and it
+ * runs only under `undoable`, so without it the row reads none of these keys.
+ *
+ * A `recordIdField`, param key or written key that is not a bare identifier is
+ * dropped here
  * (a `target` token is one by construction of its grammar), and a name the
  * object does not declare is dropped by the caller's `isProjectableField`
  * guard. Both drops are the safe direction: such a name is not a column
@@ -258,6 +312,14 @@ export function listViewPredicates(view: {
         TARGET_ROW_TOKEN.lastIndex = 0;
         for (let m = TARGET_ROW_TOKEN.exec(d.target); m; m = TARGET_ROW_TOKEN.exec(d.target)) {
           preds.push(`record.${m[1]}`);
+        }
+      }
+      // The fields an `undoable` action writes (objectui#10404): its Undo
+      // capture reads each one's prior value off the row. Same rule, same
+      // identifier gate.
+      if (d.undoable) {
+        for (const key of undoableWrittenKeys(d)) {
+          if (typeof key === 'string' && BARE_IDENTIFIER.test(key)) preds.push(`record.${key}`);
         }
       }
     }

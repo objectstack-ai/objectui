@@ -522,21 +522,43 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
 
       // Undoable single-record update: capture the prior values of the changed
       // fields from the row record so the success toast can offer "Undo".
+      //
+      // ⛔ A field the row does not CARRY is never captured as `null`
+      // (objectui#10404) — the rule `captureUpdateUndoData` in
+      // `@object-ui/core`'s `ActionRunner` states, applied to this handler's
+      // written set (`params` plus `bodyExtra`). A list row is projected by
+      // `$select`, so a written field no column shows is absent while the
+      // server holds a real value; recording `null` made Undo overwrite it. A
+      // `null` the row carries is a real empty value and is captured as one.
+      // When any written field is not carried there is no Undo at all: the
+      // success toast then has no Undo button, and the warning names the cause.
       let undo: ActionResult['undo'];
       if (action.undoable && obj && recId && rowRecord && Object.keys(fields).length > 0
           && typeof dataSource?.update === 'function') {
-        const undoData: Record<string, unknown> = {};
-        for (const k of Object.keys(fields)) undoData[k] = rowRecord[k] ?? null;
-        undo = {
-          id: `undo-${obj}-${recId}-${Date.now()}`,
-          type: 'update',
-          objectName: obj,
-          recordId: String(recId),
-          timestamp: Date.now(),
-          description: action.label || `Undo ${obj}`,
-          undoData,
-          redoData: { ...fields },
-        };
+        const written = Object.keys(fields);
+        const missing = written.filter(
+          (k) => !Object.prototype.hasOwnProperty.call(rowRecord, k) || rowRecord[k] === undefined,
+        );
+        if (missing.length === 0) {
+          undo = {
+            id: `undo-${obj}-${recId}-${Date.now()}`,
+            type: 'update',
+            objectName: obj,
+            recordId: String(recId),
+            timestamp: Date.now(),
+            description: action.label || `Undo ${obj}`,
+            undoData: Object.fromEntries(written.map((k) => [k, rowRecord[k]])),
+            redoData: { ...fields },
+          };
+        } else {
+          console.warn(
+            '[useConsoleActionRuntime] `undoable` action succeeded but offers no Undo: the row it ran on '
+            + 'does not carry every field it wrote, so their prior values are unknown and an Undo would '
+            + 'overwrite stored data. A list row carries a written field when the object declares it and '
+            + 'the principal may read it.',
+            { action: action.name, missing },
+          );
+        }
       }
 
       const shouldRefresh = action.refreshAfter !== false;

@@ -50,14 +50,42 @@
  * Container visibility still governs mounting, and that is deliberate: a
  * renderer that returns null before its children mount (an `action:bar` whose
  * own `visible` is false, or a hidden `action:menu`) auto-triggers nothing,
- * because nothing received the action. The action's OWN declared `visible`
- * gate is a different question and does not suppress the trigger — in either
- * renderer, measured: an `action:button` with `visible: false` renders nothing
- * and still executes. That parity is what keeps a deep link from depending on
- * where the bar happened to put the action.
+ * because nothing received the action.
+ *
+ * ## The action's OWN declared `visible` gate outranks the flag (objectui#4191)
+ *
+ * The two gates answer different questions: `visible` is the metadata author's
+ * verdict on whether this action may be OFFERED here; `autoTrigger` is a
+ * host's transport-level statement that the user asked for it. Ruling A on
+ * objectui#4191: the author's verdict wins. An action whose declared `visible`
+ * evaluates false is NOT run by its auto-trigger — and, because a silent no-op
+ * is exactly the failure #4123 / #4162 were about, the refusal is reported:
+ * a user-visible notice ("… is not available on the current page") plus a
+ * dev-build console diagnostic naming the action and its predicate.
+ *
+ * This is not an authorization boundary and was never one: confirm, param,
+ * entitlement and server-side permission checks apply on every execute path
+ * regardless. What the gate protects is the author's offer-ability rule.
+ *
+ * The gate lives HERE, inside the one hook, so `action:button` and
+ * `action:menu` cannot disagree about it — "which renderer got the action" is
+ * decided by `action:bar`'s `maxVisible` split and therefore by the viewport,
+ * and the #4162 parity principle is that it must never change the outcome.
+ * Each renderer hands in its own `visible` verdict (the same fail-closed
+ * `useCondition` it already computes for its early return); the "is it
+ * hidden?" composition is written once, below, with the same declared-gate
+ * test the early returns use.
+ *
+ * Refusal does not spend the once-guard: it is re-judged on every commit, so an
+ * action whose predicate resolves to visible later (an ambient scope that
+ * arrives after first paint) still runs, once. The notice is reported at most
+ * once per mounted action.
  */
 
 import { useEffect, useRef } from 'react';
+import { useObjectTranslation } from '@object-ui/i18n';
+import { toast } from '../../ui/sonner';
+import { hasDeclaredVisibilityGate } from './visibility-gate';
 
 /**
  * Is this action asking to be auto-triggered? One spelling of the test, so the
@@ -68,17 +96,81 @@ export function hasAutoTrigger(action: unknown): boolean {
   return (action as { autoTrigger?: unknown } | null | undefined)?.autoTrigger === true;
 }
 
+/** The fields of an action this module reads. */
+export interface AutoTriggerSubject {
+  autoTrigger?: unknown;
+  visible?: unknown;
+  name?: string;
+  label?: string;
+}
+
 /**
- * Run `run` at most once, as soon as `armed` is true.
- *
- * `run` may change identity freely (it is rebuilt from `schema` on most
- * renders); the ref is what makes this once-only, so depending on it is safe.
+ * The sonner id of an action's refusal notice — stable per action, so a
+ * remount (or a second renderer receiving the same action) updates the one
+ * toast instead of stacking another.
  */
-export function useAutoTriggerOnce(armed: boolean, run: () => void | Promise<void>): void {
+function autoTriggerRefusedToastId(action: AutoTriggerSubject): string {
+  return `auto-trigger-refused:${action.name ?? action.label ?? ''}`;
+}
+
+/**
+ * Report a refused auto-trigger: one notice for the user (`message`, already
+ * localized by the caller), one dev-build diagnostic for the author.
+ */
+function reportRefused(action: AutoTriggerSubject, message: string): void {
+  toast.warning(message, { id: autoTriggerRefusedToastId(action) });
+  if (process.env.NODE_ENV !== 'production') {
+    const predicate = typeof action.visible === 'string' ? action.visible : JSON.stringify(action.visible);
+    console.warn(
+      `[object-ui] action "${action.name ?? action.label ?? ''}" carries autoTrigger but was NOT run: ` +
+        `its own declared \`visible\` gate evaluated false on this surface, and the author's ` +
+        `verdict outranks the flag (objectui#4191). Predicate: ${predicate}.`,
+    );
+  }
+}
+
+/**
+ * Run `run` at most once, as soon as `action` asks to be auto-triggered — unless
+ * the action's own declared `visible` gate hides it, in which case the trigger
+ * is refused and reported instead (objectui#4191).
+ *
+ * @param action    The action the renderer received (read: `autoTrigger`,
+ *                  `visible`, `name`, `label`).
+ * @param isVisible The renderer's own evaluated `visible` verdict — the same
+ *                  value its early return consults. Only consulted when the
+ *                  action DECLARES a gate, exactly like that early return.
+ * @param run       The renderer's click path. It may change identity freely (it
+ *                  is rebuilt from `schema` on most renders); the ref is what
+ *                  makes this once-only, so depending on it is safe.
+ */
+export function useAutoTriggerOnce(
+  action: AutoTriggerSubject,
+  isVisible: boolean,
+  run: () => void | Promise<void>,
+): void {
+  const { t } = useObjectTranslation();
   const fired = useRef(false);
+  const refusalReported = useRef(false);
+  const armed = hasAutoTrigger(action);
+  const hidden = hasDeclaredVisibilityGate(action.visible) && !isVisible;
   useEffect(() => {
     if (!armed || fired.current) return;
+    if (hidden) {
+      if (!refusalReported.current) {
+        refusalReported.current = true;
+        reportRefused(
+          action,
+          t('actions.notAvailableHere', {
+            defaultValue: '"{{action}}" is not available on the current page.',
+            action: action.label || action.name || '',
+          }),
+        );
+      }
+      return;
+    }
     fired.current = true;
     void run();
-  }, [armed, run]);
+    // `action` is read only on the refusal branch, for its display fields; the
+    // guard refs make a re-run of this effect on a fresh action object a no-op.
+  }, [armed, hidden, run, t, action]);
 }

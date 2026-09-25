@@ -22,7 +22,7 @@
 
 import type { DashboardComponentSchema, DashboardWidgetSchema, I18nLabel, PageVariable } from '@object-ui/types';
 import { liftLegacyGlobalFilterDefault } from '@object-ui/types';
-import { DATE_RANGE_PRESETS, type DateRangePreset } from '@objectstack/spec/ui';
+import { DATE_RANGE_PRESETS, DashboardSchema as SpecDashboardSchema, type DateRangePreset } from '@objectstack/spec/ui';
 import { resolveDateMacros } from './date-macros.js';
 
 /** Reserved filter name for the dashboard's built-in date range. */
@@ -31,11 +31,64 @@ export const DATE_RANGE_FILTER_NAME = 'dateRange';
 /** Default target field for the built-in date range filter. */
 const DATE_RANGE_DEFAULT_FIELD = 'created_at';
 
+/**
+ * The preset an authored `dateRange` resolves to when it omits `defaultRange`
+ * (objectui#10339) — READ FROM THE SPEC, never restated here.
+ *
+ * `@objectstack/spec` declares `DashboardSchema.dateRange.defaultRange` with a
+ * `.default(...)`, so the platform's parse of `dateRange: { field: 'created_at' }`
+ * carries that preset, and a renderer that treated the omission as "no filter"
+ * showed an UNFILTERED dashboard for a document the protocol says is filtered
+ * (#7759 ruling 5617465269, rule 1: the read site implements every arm the spec
+ * declares). The value is derived by parsing an EMPTY `dateRange` element
+ * through the spec's own schema: the only keys that come back are the ones the
+ * spec supplies by default, so this reads the spec's answer rather than a
+ * hand-copied string that could drift from it. `allowCustomRange` is the
+ * sibling default and needs no such read — it is consumed as `!== false`,
+ * which already is its spec default.
+ *
+ * Computed on first use and cached: `DashboardSchema` is a lazy schema, and
+ * forcing its construction at module load would cost every importer of
+ * `@object-ui/core` for a value only a dashboard with a bare `dateRange` needs.
+ */
+let specDateRangeDefault: string | undefined;
+function specDefaultDateRangePreset(): string | undefined {
+  if (specDateRangeDefault === undefined) {
+    specDateRangeDefault = SpecDashboardSchema.shape.dateRange.parse({})?.defaultRange;
+  }
+  return specDateRangeDefault;
+}
+
 export interface DashboardFilterDef {
   /** Stable name — the variable key and the key widgets bind against. */
   name: string;
   /** Default target field when a widget declares no explicit binding. */
   field: string;
+  /**
+   * The object `field` lives on, carried through from
+   * @objectstack/spec's `GlobalFilterSchema.object` (objectui#10132).
+   *
+   * The spec's own describe text for that key states the contract: "Object
+   * whose `fields.<object>.<field>` translation-bundle entry resolves this
+   * filter's field label and option labels". It was shipped on the spec side
+   * and never reached a consumer here, because this builder names the keys it
+   * copies and this one was not among them — so the value could not reach a
+   * renderer even in principle.
+   *
+   * ⚠️ NOT `optionsFrom.object`, which the spec separates deliberately: that
+   * one names the object dynamic OPTIONS are fetched from and may differ
+   * (filtering `opportunity` by `owner` with options sourced from `user`),
+   * while this one names the object whose translation bundle is keyed by
+   * `field`. Reading the former for label resolution resolves against the
+   * wrong object for exactly that filter.
+   *
+   * Like {@link DashboardFilterDef.label}, this module carries it through
+   * UNRESOLVED — `@object-ui/core` is locale-free by design and the bundle
+   * read belongs to the render side. Omitted entirely when the author declared
+   * none, so a dashboard that never names an object resolves to a def with the
+   * same key set it always had.
+   */
+  object?: string;
   /**
    * Display label, in @objectstack/spec's `I18nLabel` vocabulary — a plain
    * string, or an inline per-locale map (`{ en: 'Owner', 'zh-CN': '负责人' }`).
@@ -464,7 +517,11 @@ export function resolveDashboardFilterDefs(
   const byName = new Map<string, DashboardFilterDef>();
 
   if (schema.dateRange) {
-    const preset = schema.dateRange.defaultRange;
+    // An omitted `defaultRange` takes the spec's declared default (#10339); an
+    // explicit value — `'custom'` included — is used exactly as authored.
+    const preset = schema.dateRange.defaultRange === undefined
+      ? specDefaultDateRangePreset()
+      : schema.dateRange.defaultRange;
     byName.set(DATE_RANGE_FILTER_NAME, {
       name: DATE_RANGE_FILTER_NAME,
       field: schema.dateRange.field || DATE_RANGE_DEFAULT_FIELD,
@@ -490,6 +547,11 @@ export function resolveDashboardFilterDefs(
     byName.set(name, {
       name,
       field: f.field,
+      // Spread rather than assigned (objectui#10132): every filter authored
+      // before this key existed keeps the exact key set it resolved to, so
+      // `'object' in def` stays the discriminator the render side branches on
+      // and no consumer sees a new own-property carrying `undefined`.
+      ...(typeof f.object === 'string' && f.object ? { object: f.object } : {}),
       label: f.label,
       type,
       // `name` is the identifying context the deprecation warning needs, and

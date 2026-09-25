@@ -384,6 +384,7 @@ into each bound widget's inline query (`AND`-combined with the widget's own
       "name": "region",             // stable filter name (defaults to field)
       "field": "region",            // default binding target
       "label": "Region",
+      // optional "object": the object `field` lives on — its fields.<object>.<field> / fieldOptions.<object>.<field>.<value> bundle entries then win, "label" is the fallback
       "type": "select",             // text | select | date | number | lookup
       // Canonical @objectstack/spec pair form — the only form the platform
       // accepts at publish. The bare-string shorthand (["EMEA", …]) is

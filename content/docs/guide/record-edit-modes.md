@@ -66,7 +66,8 @@ two declarative actions let you open the page-mode routes from an
 `action:button` in metadata. The handler name goes in `actionType`: that
 is the key the button renderer forwards to the action runner as the
 action's type, and the runner dispatches to the handler registered under
-it. Arguments go in a top-level `params` object:
+it. Arguments are static values, and they go in the node's `properties`
+bag as `properties.params`:
 
 ```jsonc
 {
@@ -74,15 +75,16 @@ it. Arguments go in a top-level `params` object:
   "label": "New Account",
   "icon":  "plus",
   "actionType": "navigate_create",
-  "params": { "objectName": "account" }
+  "properties": {
+    "params": { "objectName": "account" }
+  }
 }
 ```
 
-`navigate_edit` additionally needs the record to open. `params` reaches
-the handler verbatim: template expressions such as `${record.id}` are not
-evaluated inside `params`, and `action:button` does not inject the
-surrounding row, so a declared `navigate_edit` button carries a literal
-`recordId`:
+`navigate_edit` additionally needs the record to open. `properties.params`
+values are templates: every string inside it, at any depth, is evaluated
+the same way other `properties` values are, so a button on a record page
+names the record it sits on with `${record.id}`:
 
 ```jsonc
 {
@@ -90,20 +92,36 @@ surrounding row, so a declared `navigate_edit` button carries a literal
   "label": "Edit",
   "icon":  "pencil",
   "actionType": "navigate_edit",
-  "params": {
-    "objectName": "account",
-    "recordId":   "0015e000abcd"
+  "properties": {
+    "params": {
+      "objectName": "account",
+      "recordId":   "${record.id}"
+    }
   }
 }
 ```
 
-For a per-row **Edit** that follows the record under the cursor, use the
-list or detail view's built-in **Edit** entry point instead: under
-`editMode: "page"` it already routes to the same URL (see *Migrating an
-existing object* below).
+`record` is the record the page is bound to. A template that cannot be
+evaluated (on a page with no bound record, or with a misspelled root
+such as `${recrod.id}`) reaches the handler as its raw `${…}` text, and
+the development console reports it under `properties.params.recordId`, so
+a wrong template stays visible. A misspelled field on a bound record
+(`${record.idd}`) is not an error: it resolves to nothing.
+
+⚠️ Do not write these values as a node-level `params` object. An
+action's `params` has one meaning: the `ActionParam[]` list of inputs to
+collect from the user before the action runs. A node-level `params`
+object is ignored (a development build logs a warning naming
+`properties.params`). Metadata written from an earlier version of this
+guide moves the object unchanged from `params` to `properties.params`.
+
+For a per-row **Edit** in a list, use the list view's built-in **Edit**
+entry point: under `editMode: "page"` it already routes to the same URL
+(see *Migrating an existing object* below).
 
 When invoked from inside an `ObjectView`, the action context already
-carries the active `objectName`, so `params` may be omitted entirely:
+carries the active `objectName`, so `properties.params` may be omitted
+entirely:
 
 ```jsonc
 {

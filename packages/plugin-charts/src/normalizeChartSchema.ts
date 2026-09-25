@@ -595,8 +595,15 @@ export function effectiveChartFamily<T extends ChartFamily | undefined>(
  * places — and drives `Intl.NumberFormat`, which is already loaded and
  * locale-aware. An unrecognized format returns `undefined`, so the caller
  * keeps its own default formatting rather than rendering something wrong.
+ *
+ * `locale` is the chart's DISPLAY locale (`useDisplayLocale()` in the caller)
+ * and it is REQUIRED on purpose: this is a plain function with no hook to read
+ * it from, and the version that took no locale handed `Intl` an explicit
+ * `undefined` — the MACHINE's locale, neither of the repo's two locale
+ * channels (objectui#9909). A required parameter is the one shape a caller
+ * cannot forget.
  */
-export function formatterFor(format: string | undefined): ((value: any) => string) | undefined {
+export function formatterFor(format: string | undefined, locale: string): ((value: any) => string) | undefined {
   if (!format) return undefined;
   const isPercent = format.includes('%');
   const currencyMatch = /^([$£€¥₹])/.exec(format);
@@ -622,7 +629,7 @@ export function formatterFor(format: string | undefined): ((value: any) => strin
     const n = typeof value === 'number' ? value : Number(value);
     if (!Number.isFinite(n)) return value == null ? '' : String(value);
     try {
-      return new Intl.NumberFormat(undefined, opts).format(n);
+      return new Intl.NumberFormat(locale, opts).format(n);
     } catch {
       return String(n);
     }

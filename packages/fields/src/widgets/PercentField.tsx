@@ -9,6 +9,58 @@ import { useBadInputRefusal, BadInputMessage, BAD_INPUT_BORDER } from './numberB
 import { renderablePercentScale } from './percent-scale.js';
 
 /**
+ * The stored fraction a typed percentage-point value becomes — computed by
+ * shifting the DECIMAL point two places, ⛔ never by dividing a binary float
+ * by 100 (objectui#9810).
+ *
+ * Maintainer ruling, batch #161 item 3, letter B — the operative clause,
+ * quoted rather than paraphrased:
+ *
+ * > `scale` on a `percent` field means the DISPLAYED percentage-point
+ * > decimals — the landed objectui#9295 convention; the storage side derives:
+ * > for a fraction-stored percent (`percentScaleOf` = `fraction`) the objectql
+ * > record validator's `max_scale` branch allows `scale + 2` decimal places in
+ * > the stored fraction
+ *
+ * ⇒ the derivation is a CONTRACT this widget has to be able to meet: the
+ * platform refuses (never rounds) a written value carrying more decimal places
+ * than the declaration allows, and for a fraction-stored percent that
+ * allowance is exactly `scale + 2`. `n / 100` cannot meet it. Division by 100
+ * is not representable in binary floating point, so the quotient carries
+ * residue that no author typed: measured over the whole step grid a `scale: 2`
+ * field offers (`0.00` … `100.00`, 10001 values), 2760 of them — 27.6% —
+ * convert to a stored fraction of 16 to 19 decimal places. Ordinary ones:
+ * `66.67` stores `0.6667000000000001`, `99.99` stores `0.9998999999999999`,
+ * `29.97` stores `0.29969999999999997`. Each is a value the widget's OWN
+ * `step` attribute offers and the write path then refuses — the affordance
+ * objectui#9810 was filed about, surviving the ruling on the limb the ruling
+ * settled in this widget's favour.
+ *
+ * Shifting the decimal exponent instead is EXACT in the sense that matters
+ * here: the result is the double nearest the decimal value the author typed,
+ * so a display value carrying `d` decimal places stores `d + 2` and no more.
+ * ⛔ It is not a rounding and it alters nothing: an author who types finer than
+ * the declared width (`12.345` into a `scale: 2` field) still stores
+ * `0.12345` and is still refused upstream, which is the ruled behaviour —
+ * `max_scale` is enforced by REJECTION, and a widget-side rounding here would
+ * convert that refusal into the silent data alteration the platform ruled out.
+ *
+ * The `whole` arm keeps its identity conversion for the same reason: there the
+ * typed number IS the stored number, so there is no arithmetic of ours to
+ * correct.
+ */
+const storedFraction = (displayValue: number): number => {
+  // `Number.isFinite` first: `String(NaN)` / `String(Infinity)` produce no
+  // exponent to shift, and the callers below treat a non-finite reading as the
+  // empty value rather than as a number to convert.
+  if (!Number.isFinite(displayValue)) return displayValue;
+  // `String(1e-7)` is already exponential, so the exponent is ADDED to the
+  // existing one rather than appended (`1e-7` ⇒ `1e-9`, never `1e-7e-2`).
+  const [mantissa, exponent] = String(displayValue).split('e');
+  return Number(`${mantissa}e${exponent ? Number(exponent) - 2 : -2}`);
+};
+
+/**
  * PercentField - Percentage input whose decimal places follow the field's
  * declared `scale` (see the read below)
  * Stores values as decimals (0-1) and displays as percentages (0-100%)
@@ -33,11 +85,9 @@ export function PercentField({ value, onChange, field, readonly, error, classNam
    * ⛔ NOT `CurrencyConfigSchema.precision`, which is a different surface with
    * the opposite convention and its own `scale` alias; the spec warns against
    * conflating the two at the field-face declaration itself. And ⛔ not
-   * `CurrencyField`'s read of `precision` either: there the competing source is
-   * the currency's own ISO 4217 minor-unit count, and objectui#4361 ruled an
-   * authored `precision` wins over THAT. It ruled nothing about `scale`, which
-   * a currency field's face does not carry a meaning for, and it pushed the
-   * contract question upstream rather than settling it here.
+   * `CurrencyField`'s width either: a currency's decimal places are the
+   * currency's own ISO 4217 minor-unit count, and that widget reads neither
+   * `precision` nor `scale` for them (objectui#10276).
    *
    * `typeof`, not truthiness: `scale: 0` is a valid declaration (a percent
    * field that edits whole percents) and `||` would silently drop it — the
@@ -75,7 +125,10 @@ export function PercentField({ value, onChange, field, readonly, error, classNam
   const maxAttr = typeof percentField?.max === 'number' ? (percentField.max as number) : undefined;
   const whole = maxAttr != null && maxAttr > 1;
   const toDisplay = (v: number) => (whole ? v : v * 100);
-  const fromDisplay = (n: number) => (whole ? n : n / 100);
+  // ⛔ NOT `n / 100` — see `storedFraction` above: the quotient's binary
+  // residue overflows the `scale + 2` stored width ruling B derives, for 27.6%
+  // of the values this widget's own step offers (objectui#9810).
+  const fromDisplay = (n: number) => (whole ? n : storedFraction(n));
   const sliderMax = whole ? maxAttr! : 100;
 
   if (readonly) {

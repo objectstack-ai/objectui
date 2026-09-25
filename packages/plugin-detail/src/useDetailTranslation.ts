@@ -97,7 +97,6 @@ export const DETAIL_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'detail.editRecord': 'Edit record',
   'detail.viewAll': 'View All',
   'detail.new': 'New',
-  'detail.emptyValue': '—',
   'detail.noValue': 'No value',
   'detail.activity': 'Activity',
   'detail.copyRecordId': 'Copy record ID',
@@ -143,12 +142,6 @@ export const DETAIL_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'detail.attachmentCount': '{{count}} attachment',
   'detail.attachmentCountPlural': '{{count}} attachments',
   'detail.removeAttachment': 'Remove attachment',
-  // Diff
-  'detail.unifiedDiff': 'Unified diff',
-  'detail.sideBySideDiff': 'Side-by-side diff',
-  'detail.noChanges': 'No changes',
-  'detail.previousVersion': 'Previous',
-  'detail.currentVersion': 'Current',
   // Discussion
   'detail.discussion': 'Discussion',
   'detail.showDiscussion': 'Show Discussion ({{count}})',
@@ -166,11 +159,7 @@ export const DETAIL_DEFAULT_TRANSLATIONS: Record<string, string> = {
   // Subscription
   'detail.subscribedTooltip': 'Subscribed — click to unsubscribe',
   'detail.unsubscribedTooltip': 'Subscribe to notifications',
-  // Navigation
-  'detail.firstRecord': 'First record (Home)',
-  'detail.previousRecordKey': 'Previous record (←)',
-  'detail.nextRecordKey': 'Next record (→)',
-  'detail.lastRecord': 'Last record (End)',
+  // The reference rail's empty related-record list
   'detail.noRecords': 'No records',
   // objectui#3863 — the packs grew a BASE key for this family, and this map has to
   // mirror it for a reason of its own: `fallbackT` (createSafeTranslation) resolves
@@ -181,8 +170,6 @@ export const DETAIL_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'detail.showEmptyRelated': '+ {{count}} empty',
   'detail.showEmptyRelated_one': '+ {{count}} empty',
   'detail.showEmptyRelated_other': '+ {{count}} empty',
-  'detail.searchWhileNavigating': 'Search while navigating',
-  'detail.searchRecords': 'Search records…',
   // Activity timeline
   'detail.allActivity': 'All Activity',
   'detail.commentsOnly': 'Comments Only',
@@ -270,22 +257,11 @@ export const DETAIL_DEFAULT_TRANSLATIONS: Record<string, string> = {
   // any other current/completed stage, so naming it apart would hand a screen
   // reader a distinction the screen does not make.
   'detail.pathStageWonUpcoming': '{{stage}}, goal stage, not reached',
-  // objectui#7163 — `PointInTimeRestore`'s chrome. That file used no hook at
-  // all, so a provider-less host had no English to fall back TO; these rows are
-  // byte-identical to the `en` pack (`defaults-maps-mirror-en-pack` enforces
-  // it). The field-count pair follows the repo's two-key plural convention
-  // (`reactionCount`/`reactionCountOne`), never an i18next `_one` suffix —
-  // `fallbackT` resolves `defaults[key]` literally and appends no suffix.
-  'detail.revisionHistory': 'Revision History',
-  'detail.noRevisions': 'No revisions recorded',
-  'detail.revisionFieldsChanged': '{{count}} fields changed',
-  'detail.revisionFieldsChangedOne': '{{count}} field changed',
-  'detail.revisionPreview': 'Revision Preview',
-  'detail.revisionSnapshot': 'Record state at this point',
-  'detail.restoreConfirm': 'This will restore the record to its state at {{when}}. Continue?',
-  'detail.restoring': 'Restoring…',
-  'detail.confirmRestore': 'Confirm Restore',
-  'detail.restoreToPoint': 'Restore to this point',
+  // objectui#9050 — RelatedList's malformed-filter state. Byte-identical to
+  // the `en` pack (`defaults-maps-mirror-en-pack`), and present HERE as well
+  // because a provider-less host mounting `RelatedList` directly is exactly
+  // the case with no per-component error boundary above it either.
+  'view.malformedFilter': 'This view’s filter is malformed, so no records are shown: the {{subject}} condition cannot be applied.',
 };
 
 /**

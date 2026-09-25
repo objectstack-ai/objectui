@@ -14,10 +14,6 @@ import { DefaultAppContent, LoadingScreen } from '@object-ui/app-shell';
 import { MePermissionsProvider } from '@object-ui/permissions';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import { LocalizationFetchProvider } from './LocalizationFetchProvider';
-import {
-  UploadProvider,
-  createObjectStackUploadAdapter,
-} from '@object-ui/providers';
 
 const SystemHubPage = lazy(() => import('./pages/system/SystemHubPage').then(m => ({ default: m.SystemHubPage })));
 const AppManagementPage = lazy(() => import('./pages/system/AppManagementPage').then(m => ({ default: m.AppManagementPage })));
@@ -231,13 +227,18 @@ export function AppContent() {
   const serverUrl = import.meta.env.VITE_SERVER_URL || '';
   const endpoint = `${serverUrl}/api/v1/auth/me/permissions`;
   const localizationEndpoint = `${serverUrl}/api/v1/auth/me/localization`;
-  // Wire ImageField / FileField / CommentAttachment to the ObjectStack
-  // storage service. Memoised so the adapter (and any in-flight uploads)
-  // survive re-renders of AppContent's parents.
-  const uploadAdapter = useMemo(
-    () => createObjectStackUploadAdapter({ baseUrl: serverUrl }),
-    [serverUrl],
-  );
+  // The ObjectStack upload destination for ImageField / FileField /
+  // CommentAttachment used to be mounted HERE, and that was the defect
+  // objectui#10131 measured: this component is the element of a single route
+  // (`/apps/:appName/*`), while `ConnectedShell`'s
+  // `GlobalActionRuntimeProvider` renders the action-param dialog and the
+  // `ModalForm` a modal action opens as SIBLINGS of the route element. Those
+  // dialogs therefore sat outside the provider, `useUpload()` fell open to
+  // `createObjectUrlAdapter()` without a word, and a file picked in one of
+  // them reached the engine as an inline blob object with no request ever
+  // sent. It now lives in `App`, above `ConsoleShell`, so every console
+  // surface shares one upload destination — see the rationale on
+  // `uploadAdapter` there.
   // [#2926 ④] /me/permissions must carry the Bearer token like every other
   // data call (same wrapper AdapterProvider uses) — with the cookie-only
   // default fetch, a token-only session resolved as anonymous and FLS
@@ -257,9 +258,7 @@ export function AppContent() {
       errorFallback={(err, retry) => <LoadingScreen error={err.message} onRetry={retry} />}
     >
       <LocalizationFetchProvider endpoint={localizationEndpoint}>
-        <UploadProvider adapter={uploadAdapter}>
-          <DefaultAppContent extraRoutes={systemRoutes} extraRoutesNoApp={systemRoutes} />
-        </UploadProvider>
+        <DefaultAppContent extraRoutes={systemRoutes} extraRoutesNoApp={systemRoutes} />
       </LocalizationFetchProvider>
     </MePermissionsProvider>
   );

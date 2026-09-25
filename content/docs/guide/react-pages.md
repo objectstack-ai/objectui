@@ -143,6 +143,14 @@ every container (`if (!tag || cfg.isContainer) continue;`), so `<flex>`, `<grid>
 with real HTML, which React is better at than a schema-children renderer — styled
 inline, not with Tailwind: `<div style={{ display: 'flex', gap: 16 }}>`.
 
+`isContainer` means exactly this: *layout containment*, the reason a block is
+kept out of the JSX scope. It does not mean "accepts children". Whether a block
+renders an authored child list is declared on its registration as
+`{ name: 'children', type: 'slot' }` in `inputs`, and that declaration is what
+the html tier's `not-a-container` diagnostic reads — so `<Button>` and `<Badge>`
+stay injected here (they are not layout) while still accepting `children` on the
+html tier.
+
 ### Styling — page source is metadata, not build input
 
 **Do not author Tailwind utility classes in page source** — on either tier. A

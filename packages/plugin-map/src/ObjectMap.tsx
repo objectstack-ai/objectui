@@ -25,9 +25,6 @@ import type { ObjectMapSchema, ObjectMapConfig, DataSource, ViewData } from '@ob
 import { ObjectMapConfigSchema } from '@object-ui/types/zod';
 import {
   useNavigationOverlay,
-  NON_GRID_ROW_CEILING,
-  NON_GRID_ROW_CEILING_TOP,
-  applyNonGridRowCeiling,
   NonGridRowCeilingNote,
 } from '@object-ui/react';
 import { NavigationOverlay, cn, useIsMobile } from '@object-ui/components';
@@ -39,6 +36,9 @@ import {
   resolveRecordSourceConfig,
   resolveRecordSourceObjectName,
   ValueDataSource,
+  applyNonGridRowCeiling,
+  nonGridRowCeilingQuery,
+  type NonGridCeilingResult,
 } from '@object-ui/core';
 import MapGL, { NavigationControl, Marker, Popup } from 'react-map-gl/maplibre';
 import type { MapRef } from 'react-map-gl/maplibre';
@@ -275,16 +275,32 @@ const warnedTopLevelStyleUrls = new Set<string>();
  * The OBJECT form needs no diagnostic: it is legal base-face authoring, and
  * dropping it is the fix. The STRING form does, because it is the one shape
  * that used to work:
- * - `ObjectView` / `ListView` build an `object-map` schema by spreading the
- *   CONTENTS of `options.map` at the top level (see `FlatMapConfigKeys`), so a
- *   view authored with `map: { style: '<url>' }` arrives here as a top-level
- *   STRING `style` — the flatten crosses the two keys' namespaces. That shape
- *   is not spec-authorable (`@objectstack/spec`'s list-view schemas are strict
- *   and declare no `map` block at all), but it is runtime-reachable, so say
+ * - It is the shape a view author's `map: { style: '<url>' }` USED to arrive
+ *   as: both flatteners spread the CONTENTS of `options.map` at the top level,
+ *   so `style` crossed into this key's namespace. ⛔ NOT ANY MORE — since
+ *   objectui#9950 each declared key has a flat SPELLING and `style` is carried
+ *   out as `mapStyle`, so the declared block now arrives and is read, and
+ *   neither producer of an `object-map` node (`ObjectView` / `ListView`, the
+ *   only two) emits a top-level `style` at all. What still reaches here is a
+ *   node authored — or host-composed — with a STRING `style` written directly
+ *   on it: not spec-authorable (`@objectstack/spec`'s list-view schemas are
+ *   strict and declare no `map` block at all), but runtime-reachable, so say
  *   what happened instead of silently painting the demo tiles.
  * - A string is not valid `BaseSchema.style` either (that is a record), so a
  *   string here is unambiguously "the author meant a map style" — there is no
  *   legitimate CSS reading to mistake it for.
+ *
+ * ⇒ THE REMEDY BELOW MUST NAME A SPELLING THE RUNTIME READS (objectui#10002,
+ * the rule objectui#9031 set for a sibling sink): this text is read at the
+ * moment the author is already being corrected. It used to end "spell it
+ * `map: { mapStyle }` there" — a key `ObjectMapConfigSchema` does not
+ * declare, so no flatten whitelist carries it and `getMapConfig` never reads
+ * it; obeying the correction produced a SECOND silent discard. The remedy is
+ * not defended by a string assertion (that is how it rotted). Every key it
+ * prescribes inside a `map` block is parsed out of the warning this function
+ * really emits and then measured end to end — through the declared block and
+ * through the real `ListView` flatten — in
+ * `ObjectMap.styleRemedyText-10002.test.tsx`.
  */
 function warnOnTopLevelStyleUrl(schema: MapConfigSource): void {
   if (!isDev()) return;
@@ -305,8 +321,11 @@ function warnOnTopLevelStyleUrl(schema: MapConfigSource): void {
       'INLINE CSS key (a record of CSS properties), which every node may carry; the map style is ' +
       '`mapStyle` — named that way precisely to avoid this collision. Write `mapStyle: ' +
       `'${raw}'\` at the top level, or \`map: { style: '${raw}' }\` in the declared config block. ` +
-      'On a view, note that `options.map` is FLATTENED into the top level, so its `style` lands ' +
-      'here as this same top-level key — spell it `map: { mapStyle }` there. objectui#5017.',
+      'On a view, write that same declared `map: { style: ... }`: ObjectView / ListView flatten ' +
+      '`options.map` through a whitelist of the keys `ObjectMapConfigSchema` declares, and that ' +
+      'whitelist carries `style` out under the flat spelling `mapStyle` (objectui#9950), so the ' +
+      'declared block arrives and is read. `mapStyle` is the TOP-LEVEL spelling only — inside ' +
+      'the `map` block it is undeclared, and the flatten drops it. objectui#5017.',
   );
 }
 
@@ -605,9 +624,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
    * query as every other provider, so the ceiling arrives with the same `$top`
    * and the same footnote. This docblock used to say both paths were exempt.
    */
-  const [rowCeiling, setRowCeiling] = useState<{ truncated: boolean; total?: number }>({
-    truncated: false,
-  });
+  const [rowCeiling, setRowCeiling] = useState<NonGridCeilingResult | null>(null);
   const [objectSchema, setObjectSchema] = useState<any>(null);
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -769,7 +786,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
         // refetch-every-render trap (objectui#5003).
         if (Array.isArray(dataProp)) {
           setData(dataProp);
-          setRowCeiling({ truncated: false });
+          setRowCeiling(null);
           setLoading(false);
           return;
         }
@@ -820,7 +837,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
             // an inline marker costs the browser exactly what a fetched one
             // costs and the ruling text carves out no provider.
             // ⛔ Still not authorable: no view key reaches this `$top`.
-            $top: NON_GRID_ROW_CEILING_TOP,
+            ...nonGridRowCeilingQuery(),
           });
           // Filter first, ceiling second — `ValueDataSource` applies `$filter`
           // before `$top`, which is what the fetching path gets for free from
@@ -829,7 +846,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
           // quiet.
           const capped = applyNonGridRowCeiling(result);
           setData(capped.rows);
-          setRowCeiling({ truncated: capped.truncated, total: capped.total });
+          setRowCeiling(capped);
           setLoading(false);
           return;
         }
@@ -901,13 +918,13 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
             // probe row past the ceiling makes the cut detectable;
             // `applyNonGridRowCeiling` slices it off.
             // ⛔ Not authorable: no view key reaches this `$top`.
-            $top: NON_GRID_ROW_CEILING_TOP,
+            ...nonGridRowCeilingQuery(),
             ...(expand.length > 0 ? { $expand: expand } : {}),
           });
 
           const capped = applyNonGridRowCeiling(result);
           setData(capped.rows);
-          setRowCeiling({ truncated: capped.truncated, total: capped.total });
+          setRowCeiling(capped);
         } else if (dataProvider === 'api') {
           console.warn('API provider not yet implemented for ObjectMap');
           setData([]);
@@ -1371,11 +1388,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
           still looks like a complete map, and its camera is fitted to a box
           that is not the data's. Placement follows objectui#7148's chart
           footnote: a muted note directly under the surface it describes. */}
-      <NonGridRowCeilingNote
-        drawn={NON_GRID_ROW_CEILING}
-        total={rowCeiling.total}
-        truncated={rowCeiling.truncated}
-      />
+      {rowCeiling && <NonGridRowCeilingNote result={rowCeiling} />}
       {navigation.isOverlay && (
         <NavigationOverlay {...navigation} title="Location Details">
           {(record) => (

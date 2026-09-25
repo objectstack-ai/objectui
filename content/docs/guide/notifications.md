@@ -221,6 +221,17 @@ route, never the way out.
 
 ## Server-side notifications
 
-`useClientNotifications` bridges the `@objectstack/client` notifications API into
-the same provider (ADR-0030). Fetched items are persistent and default to `toast`,
-so a host that renders a bell from `notifications` needs no surface at all.
+Server-side notifications are the ADR-0030 inbox rows: `sys_inbox_message`,
+with read-state in `sys_notification_receipt`. `@object-ui/app-shell` reads them
+through **one shared inbox feed** (`sharedUserFeeds`), and every surface that
+shows them reads that feed. So however many of those surfaces mount, there is
+one read on one cadence, and the surfaces cannot disagree about read-state:
+
+| Surface | How to get it |
+|---|---|
+| Header bell: Notifications tab and unread badge | `AppHeader` from `@object-ui/app-shell`; the console's own layouts already mount it |
+| A bell placed on a page | a `global:notifications` node in the page schema |
+
+The feed itself is not exported. To show these rows, mount one of the surfaces
+above rather than polling them yourself: a second poller beside the shell is
+the duplicate-read shape the shared feed exists to remove.

@@ -17,6 +17,7 @@ import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import type { RecordDetailsComponentProps } from '@object-ui/types';
 import {
   columnIdentity,
+  declaredNameField,
   deriveTitleField,
   formatTitleTemplate,
   isObjectInlineEditable,
@@ -144,7 +145,8 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // permission-denied notice — changes the hook count between renders and
   // throws React error #310 ("Rendered fewer hooks than expected"). That is
   // precisely the crash a related-list row click produced: `onRowClick` flips
-  // the bound record / permission state, `ctx` (or `perms.can(...)`) toggles,
+  // the bound record / permission state, `ctx` (or the capability verdict)
+  // toggles,
   // and the previously-mounted `record:details` re-renders with fewer hooks.
   // Keep all hooks here; move all conditional returns below them.
   const ctx = useRecordContext();
@@ -199,17 +201,45 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   const required: string[] = Array.isArray((schema as any).requiredPermissions)
     ? (schema as any).requiredPermissions
     : [];
-  if (required.length > 0 && objectName) {
-    const ok = required.every((p) => perms.can(objectName, p as any));
-    if (!ok) {
-      return (
-        <div className={className} {...designer} role="status" aria-live="polite">
-          <p className="text-sm text-muted-foreground italic">
-            Insufficient permissions to view details.
-          </p>
-        </div>
-      );
-    }
+  /**
+   * Block-level ADR-0066 CAPABILITY gate, read fail-closed (objectui#10155 —
+   * the sibling family of objectui#10058, ruling batch #192 item 5 letter B).
+   *
+   * `requiredPermissions` on a record block is a **system capability set** —
+   * the one meaning the word carries on `action`, `app`, `field` and
+   * `bulkAction` — so it is read through the permission context's capability
+   * path (`hasCapabilities` over the reported `systemPermissions`). An unheld
+   * or unrecognised capability hides the whole block.
+   *
+   * ⛔ NOT `perms.can(objectName, name)`. That call's second argument is the
+   * closed object-action enum, and the stock `/me/permissions` provider maps
+   * only eight verbs (`read`, `view`, `create`, `update`, `edit`, `delete`,
+   * `import`, `export`) before its `?? 'allowRead'` tail sends everything else
+   * to the object's read bit — so a capability nobody holds passed for every
+   * reader of the object, with no refusal, no warning and no log. The full
+   * reproduction behind that sentence is written once, at the same gate in
+   * `record-quick-actions.tsx`, and is not restated here.
+   *
+   * ⛔ The object name is deliberately ABSENT from the verdict. A system
+   * capability is not object-scoped, and the old `&& objectName` conjunct was
+   * a second silent fail-open: a block rendered with no `objectName` in its
+   * record context skipped its declared gate entirely.   *
+   * ⚠️ A provider that never REPORTS capabilities (`systemPermissions`
+   * `undefined` — the role-based `PermissionProvider`, a backend predating
+   * ADR-0066, or no provider at all) still opens this gate. That is
+   * `hasCapabilities`'s own ruled unreported-vs-empty doctrine
+   * (objectui#4656), shared with every other capability gate in the tree; a
+   * REPORTED empty array (`[]`, "holds nothing") is a real answer and gates
+   * strictly.
+   */
+  if (required.length > 0 && !perms.hasCapabilities(required)) {
+    return (
+      <div className={className} {...designer} role="status" aria-live="polite">
+        <p className="text-sm text-muted-foreground italic">
+          Insufficient permissions to view details.
+        </p>
+      </div>
+    );
   }
 
   const enforceFLS = (schema as any).enforceFieldSecurity === true;
@@ -326,8 +356,26 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // merge in any field names registered live via HighlightFieldsContext
   // (see `liveHighlightNames` above) to cover hand-authored Lightning pages
   // that don't go through the synth dedup path.
+  //
+  // ⛔ Read UN-CAST (objectui#9965). `hideFields` is DECLARED on the mirror
+  // (`RecordDetailsComponentProps.hideFields`, `string[]`, since objectui#9040,
+  // aligned to `@objectstack/spec` `RecordDetailsProps.hideFields`). A
+  // `(schema as any)` here SPENT that declaration at the one site it exists
+  // for: measured with `getTypeAtLocation` on this very expression, the cast
+  // read carried `any` and the un-cast read carries `string[] | undefined`.
+  // ⚠️ What it does NOT buy: `RecordDetailsRendererProps['schema']` is
+  // intersected with `Record<string, any>`, so a MISSPELLED key still
+  // type-checks here — this buys wrong-TYPE refusal, not wrong-SPELLING
+  // refusal. Both halves are pinned by
+  // `__tests__/record-details.hideFieldsUncast-9965.test.ts`.
+  //
+  // The `{name}` / `{field}` entries `fieldName` still tolerates below are
+  // NOT a second declared dialect — the contract declares
+  // `z.array(z.string())` and refuses them on parse (see the mirror's own
+  // note on `hideFields`); this reader stays tolerant of what already reaches
+  // it at runtime, which is why the callbacks below keep their `any`.
   const hideFieldNames = new Set<string>(
-    (Array.isArray((schema as any).hideFields) ? (schema as any).hideFields : [])
+    (Array.isArray(schema.hideFields) ? schema.hideFields : [])
       .map((n: any) => (typeof n === 'string' ? n : fieldName(n)))
       .filter((n: any): n is string => !!n),
   );
@@ -374,21 +422,31 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // (objectui#8351). They are NOT symmetric and only ONE is answered here:
   //   - `objectSchema.titleFormat` — ANSWERED, below, by the ruled option B:
   //     the template's rendered output is compared against the candidates'
-  //     values, and a composite that is no field's value hides no row.
+  //     values, then against the fields the template rendered
+  //     (objectui#10360), and a composite that is no field's value hides no
+  //     row.
   //   - `page:header`'s own `schema.title` — NOT answered, and not answerable
   //     from this package: it is a key on the HEADER schema, which
   //     `record:details` never receives. Same shape, its own card.
   //
-  // ⛔ Neither of those is the ORDER question. `PageHeaderRenderer` ranks the
-  // interpolated `titleFormat` ABOVE the ADR-0079 declared pointer, while
-  // `getRecordDisplayName` documents it BELOW (step 3) — pinned green in
-  // `@object-ui/components`' `__tests__/page-header-title.test.tsx` as
-  // "titleFormat still outranks nameField". Closing that divergence moves what
-  // the H1 SHOWS on existing records and retires that pin, so it is a
-  // maintainer ruling and carries its own `needs-user-decision` card. This
-  // ladder deliberately does not depend on which of the two wins: it asks
-  // whether the rendered template IS some candidate's value, which answers the
-  // dedupe under either order.
+  // ⭐ THE ORDER between those rungs is now the protocol's, in all three
+  // readers (objectui#9436, ruled C1). The ADR-0079 declared pointer
+  // (`nameField`, then its `displayNameField` alias) OUTRANKS the interpolated
+  // `titleFormat`, as `getRecordDisplayName` documents it (pointer at steps
+  // 1+2, template at step 3). `PageHeaderRenderer` used to rank the template
+  // ABOVE the pointer, and this ladder mirrored that. It checked the template
+  // first, so once the header moved it hid the wrong row and kept the real
+  // duplicate. The header pin in `@object-ui/components`'
+  // `__tests__/page-header-title.test.tsx` now asserts the protocol order.
+  //
+  // ⚠️ So this ladder DOES depend on the order, and it reads it first: when
+  // the declared pointer holds a value on this record, that field IS the H1.
+  // Its row is hidden and the template is never consulted, because the header
+  // never reaches it either. The template branch below only runs when the
+  // declared pointer is absent or blank on the record. The two halves are
+  // pinned rendered together in
+  // `__tests__/record-details.headerDedupeAgreement-9436.test.tsx`, which reads
+  // the real H1 beside the real body.
   //
   // ⛔ `objSchema?.primaryField` used to top this list, and it is gone
   // (objectui#7586). It is a `DetailViewSchema` key (`@object-ui/types`
@@ -460,43 +518,89 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   //     `DetailView.resolveDisplayTitle` step 2 calls, so all three agree
   //     about what the template produces on a given record.
   //   - `recordDisplayValueAt` then answers the only question a dedupe has:
-  //     is that string some candidate's value?
+  //     is that string some candidate's value, or the value of a field the
+  //     template rendered (objectui#10360, see the note on the scan below)?
   //
   // Three outcomes, and the two that are NOT the ruled case are what keep this
   // honest:
-  //   - composite (no candidate's value equals it) → hide NOTHING. The ruled
-  //     case: "the H1 is not any single field's value, so there is no row to
-  //     hide".
-  //   - empty (no placeholder resolved on this record) → the header has
-  //     ALREADY walked past this rung onto the declared pointer, so the
-  //     value-keyed walk below runs unchanged. Suppressing on the mere
-  //     PRESENCE of a `titleFormat` would blind the dedupe on every record
-  //     where the template renders nothing.
+  //   - composite (no compared field's value equals it) → hide NOTHING. The
+  //     ruled case: "the H1 is not any single field's value, so there is no
+  //     row to hide".
+  //   - empty (no placeholder resolved on this record) → the header walks on
+  //     past this rung to the unified resolver, so the value-keyed walk below
+  //     runs unchanged. Suppressing on the mere PRESENCE of a `titleFormat`
+  //     would blind the dedupe on every record where the template renders
+  //     nothing.
   //   - collapsed onto ONE field's value (a blank placeholder was dropped with
   //     its orphan separator, or the format names a single field) → that row
-  //     IS the duplicate, and it still goes. A presence-only rule prints
-  //     "Contract No: HT-0001" directly beneath an H1 reading `HT-0001`, which
-  //     is the duplication Phase P.0 exists to remove.
+  //     IS the duplicate, and it still goes. A presence-only rule prints that
+  //     field's row directly beneath an H1 showing the same value, which is
+  //     the duplication Phase P.0 exists to remove.
+  //
+  // All three outcomes are reached only when the declared pointer did not
+  // answer first (objectui#9436, see the ORDER note above).
   //
   // Pinned in `__tests__/record-details.titleFormatNoDedupe-8351.test.tsx`,
   // which asserts which row RENDERS and which row DROPS — never the heading,
   // which this package does not draw.
   //
   // ⚠️ The match is a SCAN of the candidates, not a peek at the first one with
-  // a value: with `titleFormat: '{name}'` over `nameField: 'contract_no'` the
-  // first resolving candidate is `contract_no` and the H1 is `name`'s value,
-  // so stopping early would hide the wrong row AND leave the real duplicate.
-  const interpolatedTitle = formatTitleTemplate(objSchema?.titleFormat, data);
-  if (interpolatedTitle) {
-    const shownAs = titleCandidates.find(
-      (candidate) => recordDisplayValueAt(data, candidate) === interpolatedTitle,
-    );
-    if (shownAs) hideFieldNames.add(shownAs);
+  // a value. With `titleFormat: '{subject}'` on an object that declares no
+  // pointer and derives `name`, the first resolving candidate is `name` while
+  // the H1 is `subject`'s value. Stopping early would hide the wrong row AND
+  // leave the real duplicate.
+  //
+  // ⭐ The "collapsed" outcome is matched against EVERY field the template
+  // rendered, not only the candidates (objectui#10360). The candidates are the
+  // resolver rungs and six literal names, so a template that collapsed onto
+  // any other field — `{contract_no} - {name}` with a blank `name` renders
+  // exactly `contract_no`'s value — matched none of them, and that row printed
+  // directly under an H1 showing the same value. The comparison is ruling B's,
+  // unchanged: equality with the rendered string, never the presence of a
+  // template. Only the set compared is wider, and in a fixed order:
+  //   1. the candidate scan, exactly as before, so a candidate match still
+  //      wins and no row that was hidden before moves;
+  //   2. only then, each record field whose value equals the H1 AND that the
+  //      template actually rendered. At most one row goes (the first in record
+  //      key order), as in step 1.
+  //
+  // ⛔ "Actually rendered" is asked of `formatTitleTemplate` ITSELF, never of a
+  // second placeholder parser: blank that one field, render again, and see
+  // whether the title changed. So this agrees with the renderer on every token
+  // shape it accepts (`{{…}}`, whitespace inside the braces, dotted lookup
+  // paths), and cannot drift from it. It is also stricter than "a field the
+  // template names", and that is on purpose: `{owner.nickname} - {rep}` with a
+  // blank nickname renders `rep`'s value, and an `owner` lookup whose display
+  // name happens to equal it is named by the template yet rendered nothing.
+  // Hiding `owner` there would leave the real duplicate printed. Pinned in
+  // `__tests__/record-details.titleFormatPlaceholderDedupe-10360.test.tsx`.
+  //
+  // The declared pointer is read through core's one exported spelling,
+  // `declaredNameField`, exactly as `PageHeaderRenderer` reads it: the same
+  // expression on both halves, never a re-typed `??` chain.
+  const declaredTitleField = declaredNameField(objSchema);
+  if (recordDisplayValueAt(data, declaredTitleField) !== undefined) {
+    hideFieldNames.add(declaredTitleField);
   } else {
-    for (const candidate of titleCandidates) {
-      if (recordDisplayValueAt(data, candidate) !== undefined) {
-        hideFieldNames.add(candidate);
-        break;
+    const titleFormat = objSchema?.titleFormat;
+    const interpolatedTitle = formatTitleTemplate(titleFormat, data);
+    if (interpolatedTitle) {
+      const showsTitle = (field: string) =>
+        recordDisplayValueAt(data, field) === interpolatedTitle;
+      const shownAs =
+        titleCandidates.find(showsTitle) ??
+        Object.keys(data).find(
+          (field) =>
+            showsTitle(field) &&
+            formatTitleTemplate(titleFormat, { ...data, [field]: undefined }) !== interpolatedTitle,
+        );
+      if (shownAs) hideFieldNames.add(shownAs);
+    } else {
+      for (const candidate of titleCandidates) {
+        if (recordDisplayValueAt(data, candidate) !== undefined) {
+          hideFieldNames.add(candidate);
+          break;
+        }
       }
     }
   }

@@ -512,14 +512,21 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
       return map;
     };
 
-    /** Which fields appear as inline chips beside the title.
-     *  Spec config: `timeline.metaFields: string[]`.
-     *  Heuristic default: `['status', 'priority']` — limited to fields that
-     *  actually exist in objectDef so non-CRM objects don't render fake
-     *  chips. */
-    const metaFieldNames: string[] = Array.isArray((timelineConfig as any)?.metaFields)
-      ? (timelineConfig as any).metaFields.filter((f: any) => typeof f === 'string' && f)
-      : ['status', 'priority'].filter((f) => fields[f]);
+    /** Which fields appear as inline chips beside the title: the built-in
+     *  `['status', 'priority']`, limited to fields that actually exist in
+     *  objectDef so non-CRM objects don't render fake chips.
+     *
+     *  ⛔ Not authorable, and nothing reads an authored list here
+     *  (objectui#10222, ruling batch #223 item 5b, letter A). The spec's
+     *  `TimelineConfigSchema` is a strict object that declares no chip-field
+     *  member and refuses one, so the retired `metaFields` read off this
+     *  block reached the renderer only through a stored view's unjudged
+     *  `options` bag (objectui#10380). If a producer ever asks for authored
+     *  chip fields, the reserved spelling is `cardFields` (the kanban /
+     *  gallery spelling), declared on the spec first; it is not declared
+     *  today. `ListView`'s status / priority auto-projection keys on the
+     *  same default, so the two must move together. */
+    const metaFieldNames: string[] = ['status', 'priority'].filter((f) => fields[f]);
     const metaOptionMaps: Record<string, Record<string, any>> = {};
     for (const f of metaFieldNames) metaOptionMaps[f] = optionMap(f);
 

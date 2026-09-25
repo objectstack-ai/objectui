@@ -47,7 +47,8 @@ import { detectStatusField, isSystemManagedField } from '@object-ui/types';
 import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { ViewConfigPanel } from './ViewConfigPanel.js';
 import { useMetadataClient } from './metadata-admin/useMetadata.js';
-import { persistRuntimeMetadata, createRuntimeMetadata, viewEnvelope } from './runtime-metadata-persistence.js';
+import { persistRuntimeMetadata, createRuntimeMetadata, viewEnvelope, type ViewEnvelope } from './runtime-metadata-persistence.js';
+import { ListViewSchema as SpecListViewSchema } from '@objectstack/spec/ui';
 import { CreateViewDialog } from './CreateViewDialog.js';
 import {
   usePreviewDrafts,
@@ -77,7 +78,7 @@ import { ActionProvider, useNavigationOverlay, SchemaRenderer, useActionTextLoca
 import type { RelatedRecordActionsValue, RelatedRecordHandlers } from '@object-ui/react';
 import { toast } from 'sonner';
 import { useConsoleActionRuntime } from '../hooks/useConsoleActionRuntime.js';
-import { useNavRunAction } from '../hooks/useNavRunAction.js';
+import { useOfferedNavRunAction } from '../hooks/useNavRunAction.js';
 import { actionRendersAt } from '@object-ui/types';
 import { useEnvironmentEntitlements } from '../environment/useEnvironmentEntitlements.js';
 import { EnvironmentListToolbar } from '../environment/EnvironmentListToolbar.js';
@@ -457,6 +458,74 @@ export function kanbanViewOptions(viewDef: any, objectDef: any): Record<string, 
         cardFields: viewDef?.kanban?.columns,
     };
 }
+
+/**
+ * objectui#10046 — is `a` the same `options` bag as `b`, compared by VALUE?
+ * (objectui#7237 holds the resolved `filter` through the same comparison.)
+ *
+ * `renderListView` rebuilds `fullSchema.options` as a fresh object literal on
+ * every call, and `plugin-view`'s `ObjectView` calls it on every one of its
+ * renders. `ListView` names `schema.options` BY IDENTITY in its fetch effect's
+ * dependency list (objectui#4567 ruled that dependency correct and put
+ * stabilisation at the PRODUCER), so each host re-render that changed nothing
+ * re-issued the identical `dataSource.find`: one extra at mount (the record
+ * count landing), two on opening a record and two on closing it.
+ *
+ * A copy of `plugin-view`'s `isStructurallyEqual` (`stableIdentity.ts`,
+ * objectui#6460), kept module-local because that one is not exported and
+ * exporting it would publish a new name. Same safety invariant: every
+ * uncertainty (an unmodelled type — function, `Map`, class instance —, a
+ * differing key count, a structure deeper than the bound) answers "not
+ * equal", which hands `ListView` a new identity and therefore a refetch. It can
+ * only ever remove a REDUNDANT query; it can never withhold a needed one.
+ * ⛔ Not `JSON.stringify`: that calls `{ a: undefined }` and `{}` equal (a
+ * missed refetch) and throws on a cycle.
+ */
+function isSameOptionsValue(a: unknown, b: unknown, depth = 0): boolean {
+    if (Object.is(a, b)) return true;
+    if (depth >= 12) return false;
+    if (a instanceof Date || b instanceof Date) {
+        return a instanceof Date && b instanceof Date && a.getTime() === b.getTime();
+    }
+    if (Array.isArray(a) || Array.isArray(b)) {
+        if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+        return a.every((item, i) => isSameOptionsValue(item, b[i], depth + 1));
+    }
+    const isPlain = (v: unknown): v is Record<string, unknown> => {
+        if (v === null || typeof v !== 'object') return false;
+        const proto = Object.getPrototypeOf(v);
+        return proto === Object.prototype || proto === null;
+    };
+    if (isPlain(a) && isPlain(b)) {
+        const keys = Object.keys(a);
+        if (keys.length !== Object.keys(b).length) return false;
+        return keys.every((k) => Object.prototype.hasOwnProperty.call(b, k) && isSameOptionsValue(a[k], b[k], depth + 1));
+    }
+    return false;
+}
+
+/**
+ * objectui#10035 — the visualizations `ListView` draws WITHOUT an in-place
+ * refetch path, so a list that can show one of them is still remounted to show
+ * a write (`remountKey` in `renderListView`).
+ *
+ * Every other visualization draws the rows `ListView` fetched, and `ListView`
+ * refetches in place on `refreshTrigger` — `tree` re-issues its own query when
+ * those rows change. These two query for themselves and read nothing that
+ * moves on a write:
+ *   - `gantt` — the registered `object-gantt` renderer hands `ObjectGantt` only
+ *     `schema` and `dataSource`; its own query names no refresh counter, no
+ *     `onMutation` and no invalidation bus.
+ *   - `chart` — `ObjectChart` runs its own aggregate query off the node and
+ *     reads no refresh input. (A view whose own type is `chart` never reaches
+ *     `ListView` on this page — it takes the chart branch — so this member is
+ *     about the in-list switcher.)
+ *
+ * ⛔ Do not drop a member to "finish" objectui#10035 — that turns a remount into
+ * a list that silently stops showing writes. A member leaves when its renderer
+ * refetches in place.
+ */
+const REMOUNT_TO_REFRESH_VISUALIZATIONS: ReadonlySet<string> = new Set(['gantt', 'chart']);
 
 /**
  * THE record-detail URL this list surface builds — one route shape, one place.
@@ -1030,6 +1099,83 @@ export function buildPersistedViewBody(
 }
 
 /**
+ * Item-level keys a switcher tab carries that belong to the ROW, not to the
+ * view body — the ones this surface's own handlers write through `updateView`
+ * (`isDefault`, `isPinned`, `sortOrder`; the adapter merges them at the row's
+ * top level), the tab's `visibility`, and `columnState`, the runtime-only key
+ * the spec declares on the ViewItem wire face rather than on the list-view
+ * body (objectstack#9933). A view-config save is a whole-document PUT, so
+ * these are carried forward at the envelope's top level; dropping them would
+ * erase the default flag, the pin and the column widths the row held.
+ */
+const VIEW_ROW_STATE_KEYS = ['isDefault', 'isPinned', 'sortOrder', 'visibility', 'columnState'] as const;
+
+/**
+ * The keys a list view's `config` may carry — read off the spec's own closed
+ * `ListViewSchema`, never hand-listed, so the set moves with the spec.
+ * Computed on first use: the schema is a lazy proxy and nothing else on this
+ * module's load path needs it materialised.
+ */
+let listViewConfigKeys: ReadonlySet<string> | undefined;
+function getListViewConfigKeys(): ReadonlySet<string> {
+    listViewConfigKeys ??= new Set(Object.keys(SpecListViewSchema.shape));
+    return listViewConfigKeys;
+}
+
+/**
+ * The body "Edit view config → Save" persists: a canonical ViewItem envelope
+ * `{ name, object, viewKind: 'list', label, config }` (objectui#10210).
+ *
+ * The panel hands its host the FLAT runtime tab, and this save used to persist
+ * it as-is. On a code-defined view the server then inherits `viewKind: 'list'`
+ * from the registry entry the row shadows (`viewIdentityPatch`), and a flat
+ * row carrying `viewKind` is exactly the shape the adapter's legacy-overlay
+ * net reads as a personalization overlay — so `listViews()` dropped the row,
+ * the tab lost its saved-view status and was stamped read-only, and publishing
+ * made that permanent. The create path never had the defect because it writes
+ * through {@link viewEnvelope}; this is the same envelope, for an existing view.
+ *
+ * Three rules, each measured against the platform's write door:
+ *
+ * - **Identity is the row key.** `name` is the tab id the save is addressed
+ *   to, verbatim, so the write lands on the row it always landed on and never
+ *   forks a second view. `viewEnvelope` re-qualifies a name it is given; for a
+ *   `<object>.<key>` id that is the same string, and pinning it here keeps that
+ *   true for any id.
+ * - **`config` carries only list-view keys.** The spec's list-view shape is
+ *   closed: an envelope whose `config` carried the tab's own `id` / `isDefault`
+ *   was refused outright (`422 INVALID_METADATA`, "Unrecognized key(s) on this
+ *   list view"). The tab also carries identity (`name`, `object`, `viewKind`),
+ *   read decorations (`_draft`, `_diagnostics`), registry bookkeeping and, when
+ *   a toolbar overlay was merged into it, the overlay marker — none of which is
+ *   view body. So `config` is the draft narrowed to the keys `ListViewSchema`
+ *   declares, with the object binding stamped by `viewEnvelope`.
+ * - **Row state is carried forward** at the top level — see
+ *   {@link VIEW_ROW_STATE_KEYS}.
+ *
+ * Extracted so the persisted shape is assertable without mounting the view,
+ * like {@link buildPersistedViewBody} above.
+ */
+export function buildViewConfigSaveBody(
+    objectName: string | undefined,
+    draft: Record<string, unknown>,
+): ViewEnvelope & Record<string, unknown> {
+    const vid = String(draft?.id ?? '');
+    const configKeys = getListViewConfigKeys();
+    const body: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(draft ?? {})) {
+        if (value !== undefined && configKeys.has(key)) body[key] = value;
+    }
+    const rowState: Record<string, unknown> = {};
+    for (const key of VIEW_ROW_STATE_KEYS) {
+        if (draft?.[key] !== undefined) rowState[key] = draft[key];
+    }
+    const label = typeof draft?.label === 'string' ? draft.label : undefined;
+    const env = viewEnvelope(objectName, body, { name: vid, label });
+    return { ...env, ...rowState, name: vid };
+}
+
+/**
  * The `filter[...]` params of a URL, selected out of the full search params as
  * their own `URLSearchParams`. Extracted for the same reason `buildViewTabs`
  * above is: so the shape is assertable without mounting the view.
@@ -1243,7 +1389,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
         if (metadataClient && vid) {
             // `dataSource` + `objectName` let the seam drop this object's view
             // cache keys (#4373) — the adapter owns which keys those are.
-            persistRuntimeMetadata('view', vid, draft, {
+            persistRuntimeMetadata('view', vid, buildViewConfigSaveBody(objectName, draft), {
                 metadataClient,
                 dataSource,
                 objectName,
@@ -1420,11 +1566,16 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
     // `sys_environment` is excluded because `EnvironmentListToolbar` owns the
     // arming there: it must additionally wait for entitlements to resolve, and
     // two consumers of one param would race to strip it.
-    const navRunAction = useNavRunAction((requested) =>
-        !isEnvironmentList &&
-        localizedToolbarActions.some(
-            (a: any) => a?.name === requested && actionRendersAt(a, 'list_toolbar'),
-        ),
+    //
+    // [objectui#4191] …and only on an action its author has not HIDDEN here:
+    // the action's own declared `visible` outranks the deep link. A hidden
+    // candidate is neither marked `autoTrigger` nor consumed, and the refusal
+    // is reported — see `useOfferedNavRunAction`, which evaluates the same
+    // predicate `action:button` does.
+    const navRunAction = useOfferedNavRunAction(
+        localizedToolbarActions,
+        (a: any) => actionRendersAt(a, 'list_toolbar'),
+        !isEnvironmentList,
     );
     // Mark exactly the requested action `autoTrigger`, leaving every other
     // action's identity untouched so the bar's ordering/overflow is unchanged.
@@ -2278,11 +2429,36 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
         }
     }, [drawerRecordId]);
 
+    // objectui#10046 — the last `options` bag handed to `ListView`, so an
+    // equal-content rebuild keeps its identity (see `isSameOptionsValue`).
+    // A ref, not a `useMemo`: React may discard a memo cache and hand back a
+    // fresh object (AGENTS.md #10); a ref survives every re-render, and the
+    // value comparison — not the ref — is what decides a real change.
+    const heldListOptions = useRef<unknown>(undefined);
+    // objectui#7237 — the same hold for the resolved `filter`, same reason:
+    // token substitution hands back a NEW array of identical content on every
+    // call, and `ListView` names `schema.filter` by identity in its fetch
+    // effect, so each host re-render re-issued the identical list query.
+    const heldListFilter = useRef<unknown>(undefined);
+
     // Render multi-view content via ListView plugin (for kanban, calendar, etc.)
     const renderListView = useCallback(({ schema: listSchema, dataSource: ds, onEdit: editHandler, className, refreshKey: pluginRefreshKey }: any) => {
         // Combine local refreshKey with the plugin ObjectView's refreshKey for full propagation
         const combinedRefreshKey = refreshKey + (pluginRefreshKey || 0);
-        const key = `${objectName}-${activeView.id}-${combinedRefreshKey}`;
+        // objectui#10035 — AGENTS.md #8's corollary: refresh data, don't
+        // rebuild UI. The counter above is a DATA signal, and it used to ride
+        // in the `key` of everything below, so every save, delete, import or
+        // realtime event threw the list away — its search box, open popovers,
+        // scroll, selection and in-list visualization choice with it.
+        // `identityKey` is what a remount is for (another object, another
+        // view); `ListView` now receives the counter as `refreshTrigger`, which
+        // its fetch effect already names, and refetches in place.
+        //
+        // `remountKey` is kept ONLY where the renderer has no in-place refetch
+        // path, so dropping the counter would make it silently stop showing
+        // writes (see `REMOUNT_TO_REFRESH_VISUALIZATIONS`).
+        const identityKey = `${objectName}-${activeView.id}`;
+        const remountKey = `${identityKey}-${combinedRefreshKey}`;
         const viewDef = activeView;
 
         // Per-user, per-view runtime-filter cache (advanced filter + search).
@@ -2339,6 +2515,10 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
          */
         if (viewDef.type === 'chart') {
             const chartConfig = viewDef.chart || {};
+            // Both chart branches below keep `remountKey` (objectui#10035):
+            // `ObjectChart` runs its own query and reads no refresh input, so a
+            // remount is still the only way it shows a write.
+            //
             // ADR-0021 (#1890): dataset-bound chart — the single author-facing
             // shape. Selects dimensions/measures BY NAME and runs through the
             // governed queryDataset path (numbers consistent across surfaces).
@@ -2346,7 +2526,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 const dims: string[] = Array.isArray(chartConfig.dimensions) ? chartConfig.dimensions : [];
                 const vals: string[] = Array.isArray(chartConfig.values) ? chartConfig.values : [];
                 return (
-                    <Suspense key={key} fallback={<div className="p-4 text-sm text-muted-foreground">Loading chart…</div>}>
+                    <Suspense key={remountKey} fallback={<div className="p-4 text-sm text-muted-foreground">Loading chart…</div>}>
                         <ObjectChart
                             dataSource={ds}
                             schema={{
@@ -2377,7 +2557,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                     ? chartConfig.series
                     : [{ dataKey: valueField, label: valueField }];
             return (
-                <Suspense key={key} fallback={<div className="p-4 text-sm text-muted-foreground">Loading chart…</div>}>
+                <Suspense key={remountKey} fallback={<div className="p-4 text-sm text-muted-foreground">Loading chart…</div>}>
                     <ObjectChart
                         dataSource={ds}
                         schema={{
@@ -2430,6 +2610,13 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
          */
         const fullSchema: ListViewSchema = {
             ...listSchema,
+            // objectui#10035 — the refresh signal, in place of the remount the
+            // key used to force. The spread above carries only the plugin
+            // ObjectView's counter; this page's own counter (actions, import,
+            // realtime, view edits, the console's `externalRefreshKey`) reached
+            // `ListView` through the key alone. Both counters only grow, so
+            // their sum moves whenever either does.
+            refreshTrigger: combinedRefreshKey,
             // The active view's display label (same string the ViewTabBar
             // shows) — ListView appends it to export download filenames.
             label: viewDef.label ?? listSchema.label,
@@ -2475,7 +2662,16 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 const base = (viewDef as any).filter ?? listSchema.filter;
                 const baseArr = Array.isArray(base) ? base : base ? [base] : [];
                 const combined = urlFilters.length ? [...baseArr, ...urlFilters] : base;
-                return substituteFilterTokens(combined, filterScope);
+                const resolved = substituteFilterTokens(combined, filterScope);
+                // objectui#7237 — equal content keeps the identity `ListView`
+                // names (and hands the self-querying views); a real change —
+                // another URL filter, another session scope, a date macro that
+                // resolves differently — still hands over the new value.
+                if (isSameOptionsValue(heldListFilter.current, resolved)) {
+                    return heldListFilter.current;
+                }
+                heldListFilter.current = resolved;
+                return resolved;
             })(),
             hiddenFields: (viewDef as any).hiddenFields ?? listSchema.hiddenFields,
             columnState: (viewDef as any).columnState ?? (listSchema as any).columnState,
@@ -2741,10 +2937,33 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 chart: viewDef.chart,
             },
         };
+        // objectui#10046 — equal content keeps the identity `ListView`'s fetch
+        // effect names; a real change (any differing value) still hands over
+        // the new bag and still refetches. Pinned by
+        // `ObjectView.hostRerenderRefetch-10046.test.tsx`.
+        if (isSameOptionsValue(heldListOptions.current, fullSchema.options)) {
+            fullSchema.options = heldListOptions.current as ListViewSchema['options'];
+        } else {
+            heldListOptions.current = fullSchema.options;
+        }
+
+        // Every visualization this `ListView` can draw: its own `viewType` and,
+        // through the in-list switcher, the author's whitelist. If any of them
+        // cannot refetch in place, the list keeps `remountKey` (objectui#10035)
+        // — this host cannot see which one the switcher is showing.
+        const reachableVisualizations = [
+            fullSchema.viewType,
+            ...(fullSchema.appearance?.allowedVisualizations ?? []),
+        ];
+        const listKey = reachableVisualizations.some(
+            (v) => v != null && REMOUNT_TO_REFRESH_VISUALIZATIONS.has(v),
+        )
+            ? remountKey
+            : identityKey;
 
         return (
             <ListView
-                key={key}
+                key={listKey}
                 schema={fullSchema}
                 className={className}
                 onEdit={editHandler}

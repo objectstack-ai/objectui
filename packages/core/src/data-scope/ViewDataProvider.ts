@@ -362,8 +362,22 @@ export class ViewDataProvider {
     // channel those sites use. ⛔ Not an `error`: the refusal is FAIL-SOFT and
     // the records still load, so blanking the result would be a worse outcome
     // than the defect.
-    const refusedLimit = elementDataSourceRefusedLimitMessage(view, config.view, config.object);
-    if (refusedLimit) console.warn(refusedLimit);
+    //
+    // Both operands of the chain are asked (objectui#10016): a refused binding
+    // `limit` is not authored and yields to the view's cap, so it is reported
+    // in its own words. The builder is also handed the binding for the VIEW's
+    // sentence, because that sentence says the fetch falls back to a default,
+    // which is false when the binding's own usable cap is what gets used.
+    for (const operand of ['binding', 'view'] as const) {
+      const refusedLimit = elementDataSourceRefusedLimitMessage(
+        view,
+        config.view,
+        config.object,
+        config,
+        operand,
+      );
+      if (refusedLimit) console.warn(refusedLimit);
+    }
 
     const fields = Array.isArray(composed.columns)
       ? composed.columns.filter((c): c is string => typeof c === 'string' && !!c)

@@ -35,7 +35,11 @@ import type { DataSource } from '@object-ui/types';
 import { runBatchTransaction } from '@object-ui/core';
 import { LineItemsField, type GridColumn } from '@object-ui/fields';
 import { Button, Card, CardContent, CardHeader, CardTitle, cn, toast } from '@object-ui/components';
+import { useDisplayLocale } from '@object-ui/i18n';
+import { usePermissions } from '@object-ui/permissions';
 import { ObjectForm } from './ObjectForm';
+import { applyColumnPermissions } from './fieldWriteGate';
+import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
 import { buildMasterDetailBatch, buildMasterDetailEditBatch, sumRows } from './masterDetailTx';
 import { deriveDetail, hydrateColumns, type InlineMode } from './deriveMasterDetail';
 
@@ -300,6 +304,14 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
   onAddViaForm,
   parentObjectName,
 }) => {
+  // The subtotal / tax / grand-total stack formats in the display locale; it
+  // used to pass `toLocaleString` an explicit `undefined`, i.e. the MACHINE's
+  // locale (objectui#9909).
+  const displayLocale = useDisplayLocale();
+  // The caller's field-level grants on each CHILD object. With no provider
+  // mounted this is the fail-open answer (`isLoaded` false) and every grid below
+  // renders exactly as it did before permissions existed (objectui#10163).
+  const perms = usePermissions();
   const [parentRecord, setParentRecord] = useState<Record<string, unknown>>({});
   const parentKeyRef = useRef<string>('');
 
@@ -346,7 +358,7 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
   const taxPct = taxRate ?? 0;
   const taxAmount = subtotal * (taxPct / 100);
   const grandTotal = subtotal + taxAmount;
-  const money = (n: number) => `¥${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const money = (n: number) => `¥${n.toLocaleString(displayLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <>
@@ -451,7 +463,11 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
               {...(d.inlineMode === 'form' ? { onAdd: () => onAddViaForm(entry.id) } : {})}
               field={
                 {
-                  columns: d.columns,
+                  // FLS gate, through the ONE render pass `LineItemsPanel` and
+                  // the record-form containers share: a child column the caller
+                  // may not read is omitted, and one they may read but not edit
+                  // renders its cells locked (objectui#10163).
+                  columns: applyColumnPermissions(d.columns, { perms, objectName: d.childObject }),
                   // Show the per-grid running total whenever an amount column is
                   // set — unless the document totals stack below subsumes it.
                   total_field: showTaxStack ? undefined : (d.amountField || (d.totalField ? 'amount' : undefined)),
@@ -997,7 +1013,26 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
   const formHostRef = useRef<HTMLDivElement>(null);
   const submitText = schema.submitText ?? (isEdit ? 'Save' : 'Create');
 
+  // Upload-in-flight gate (objectui#10166), and this host is the reason the
+  // scope CHAINS rather than shadows. The parent fields and every expanded row
+  // are nested `ObjectForm`s with scopes of their own, and this Save persists
+  // parent AND children in one batch — so a gate that saw only the parent's
+  // uploads would refuse nothing while a child row's attachment was still in
+  // flight, and would read as coverage. Chaining makes those inner scopes
+  // report up to this one, so `uploading` here is true for an upload anywhere
+  // in the document.
+  const uploadGate = useUploadGate();
+
   const handleSave = useCallback(() => {
+    // An upload is still in flight somewhere in this document — the parent
+    // fields, a line-item grid cell, or an expanded row's editor
+    // (objectui#10166). The batch would persist that row without its
+    // attachment and report success. The action-bar Save is disabled and
+    // labelled for this; this arm covers every other route into it.
+    if (uploadGate.uploading) {
+      toast.error(uploadGate.reason);
+      return;
+    }
     // Drive the (button-less) parent form's submit so its validation + RHF
     // onSubmit fire; success chains into child persistence via onSuccess.
     if (savingRef.current) return; // guard against duplicate submits
@@ -1024,11 +1059,12 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
     // onSuccess/onError, which would otherwise leave the button stuck. Release
     // the guard after a beat so the user can correct fields and retry.
     saveGuardTimer.current = setTimeout(() => releaseSave(), 1500);
-  }, [releaseSave, outcomeToastId]);
+  }, [releaseSave, outcomeToastId, uploadGate.uploading, uploadGate.reason]);
 
   useEffect(() => () => { if (saveGuardTimer.current) clearTimeout(saveGuardTimer.current); }, []);
 
   return (
+    <UploadGateProvider gate={uploadGate}>
     <div className={cn('space-y-6', className, schema.className)}>
       {/* 1) Header fields on top */}
       <div ref={formHostRef}>
@@ -1103,17 +1139,28 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
       {/* Single action bar at the bottom — suppressed when the host opts out
           (e.g. the Studio screen-preview, which must never persist). */}
       {schema.showSubmit !== false && (
-        <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-          {schema.onCancel && (
-            <Button type="button" variant="outline" onClick={schema.onCancel} disabled={saving} data-testid="md-form-cancel">
-              {schema.cancelText ?? 'Cancel'}
+        <div className="border-t border-border pt-4">
+          {/* Why Save is unavailable — above the row so it reads before the
+              dead control (objectui#10166). */}
+          <UploadInFlightNotice gate={uploadGate} />
+          <div className="flex items-center justify-end gap-2">
+            {schema.onCancel && (
+              <Button type="button" variant="outline" onClick={schema.onCancel} disabled={saving} data-testid="md-form-cancel">
+                {schema.cancelText ?? 'Cancel'}
+              </Button>
+            )}
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || (needsDerive && !resolvedEntries) || uploadGate.uploading}
+              data-testid="md-form-submit"
+            >
+              {uploadGate.uploading ? uploadGate.busyLabel : saving ? 'Saving…' : submitText}
             </Button>
-          )}
-          <Button type="button" onClick={handleSave} disabled={saving || (needsDerive && !resolvedEntries)} data-testid="md-form-submit">
-            {saving ? 'Saving…' : submitText}
-          </Button>
+          </div>
         </div>
       )}
     </div>
+    </UploadGateProvider>
   );
 };

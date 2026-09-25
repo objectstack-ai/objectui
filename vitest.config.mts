@@ -161,6 +161,11 @@ const heavyDomTests = [
   'packages/components/src/__tests__/page-header-capability-gate.test.tsx',
   'packages/components/src/__tests__/page-header-lookup-predicate.test.tsx',
   'packages/components/src/__tests__/page-header-predicate-dialect.test.tsx',
+  // objectui#10117 — the record-chrome H1 resolved through the REAL
+  // `page:header` registration. The defect is what that renderer's own title
+  // chain hands to JSX, so it has to be the registered component and not a
+  // stand-in; same reason and same route as the sibling entry below.
+  'packages/components/src/__tests__/page-header-title.emptyNameLookupFallback-10117.test.tsx',
   'packages/components/src/__tests__/page-header-title.test.tsx',
   'packages/plugin-calendar/src/registration.test.tsx',
   'packages/plugin-dashboard/src/__tests__/DashboardRenderer.designMode.test.tsx',

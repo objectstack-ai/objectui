@@ -22,6 +22,32 @@ The Calendar component allows users to select dates in various modes including s
 
 <SchemaExample id="components-form-calendar/multiple-dates" />
 
+## Selected Date
+
+Each day in `value` and `defaultValue` is an ISO 8601 date string in JSON (`"2026-09-15"` or `"2026-09-15T09:00:00Z"`); a TypeScript caller may also pass a `Date`. A date-only string selects the day it names in every time zone.
+
+The shape of the selection follows `mode`:
+
+| `mode` | `value` / `defaultValue` |
+|---|---|
+| `single` (default) | one day |
+| `multiple` | a list of days |
+| `range` | `{ "from": …, "to": … }` — `to` is optional |
+
+```json
+{ "type": "ui:calendar", "mode": "single", "defaultValue": "2026-09-15" }
+```
+
+```json
+{ "type": "ui:calendar", "mode": "multiple", "defaultValue": ["2026-09-15", "2026-09-17"] }
+```
+
+```json
+{ "type": "ui:calendar", "mode": "range", "defaultValue": { "from": "2026-09-15", "to": "2026-09-19" } }
+```
+
+Schema validation refuses a selection whose shape does not fit its mode — a single day under `mode: "multiple"`, for example — instead of letting it reach the renderer.
+
 ## Schema
 
 ```plaintext
@@ -30,8 +56,8 @@ interface CalendarSchema {
   
   // Selection
   mode?: 'single' | 'multiple' | 'range';  // Selection mode (default: 'single')
-  defaultValue?: Date | Date[];             // Default selected date(s)
-  value?: Date | Date[];                    // Controlled selected date(s)
+  defaultValue?: Day | Day[] | { from: Day; to?: Day };  // Default selection, shaped by mode (Day = ISO 8601 string in JSON, or Date)
+  value?: Day | Day[] | { from: Day; to?: Day };         // Controlled selection, shaped by mode
   
   // Constraints
   minDate?: Date | string;                  // Minimum selectable date

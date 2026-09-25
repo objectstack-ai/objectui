@@ -27,7 +27,7 @@
  * separate commits on this branch for that reason.
  *
  * REVERSE VERIFICATION — MEASURED, and corrected from what this docblock used
- * to predict (objectui#7507). Removing `$top: NON_GRID_ROW_CEILING_TOP` from
+ * to predict (objectui#7507). Removing `...nonGridRowCeilingQuery()` from
  * `ObjectGantt`'s reload turns the truncation case red at the **`$top`
  * assertion**; the below-ceiling case stays green. ⚠️ The pass/fail TALLY that
  * used to be quoted here is deliberately gone: objectui#8769 changed how many
@@ -49,7 +49,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NON_GRID_ROW_CEILING, NON_GRID_ROW_CEILING_TOP } from '@object-ui/react';
+import { NON_GRID_ROW_CEILING, nonGridRowCeilingQuery } from '@object-ui/core';
 import { ObjectGantt } from './ObjectGantt';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
@@ -139,7 +139,7 @@ describe('objectui#7210 ruling a′ — the gantt draws at most the platform cei
     // the cut a fact about the rows in hand rather than a guess.
     expect(calls.length).toBeGreaterThan(0);
     for (const params of calls) {
-      expect(params.$top).toBe(NON_GRID_ROW_CEILING_TOP);
+      expect(params.$top).toBe(nonGridRowCeilingQuery().$top);
     }
 
     // ⭐ The half the ruling cares about: the truncation is NOT silent.
@@ -176,7 +176,7 @@ describe('objectui#7210 ruling a′ — the gantt draws at most the platform cei
    * ceiling's own file states the exemption boundary in one place.
    */
   it('an inline `value` data set IS capped, and says so', async () => {
-    const total = NON_GRID_ROW_CEILING_TOP + 500;
+    const total = nonGridRowCeilingQuery().$top + 500;
     const inline: any = {
       ...schema,
       data: { provider: 'value', items: makeRows(total) },
@@ -201,7 +201,7 @@ describe('objectui#7210 ruling a′ — the gantt draws at most the platform cei
    * have no `total` to name in a footnote.
    */
   it('a host `data` prop is still never capped, and never footnoted', async () => {
-    const rows = makeRows(NON_GRID_ROW_CEILING_TOP + 500);
+    const rows = makeRows(nonGridRowCeilingQuery().$top + 500);
 
     render(<ObjectGantt schema={schema} {...({ data: rows } as any)} />);
 

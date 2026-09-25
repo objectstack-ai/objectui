@@ -271,7 +271,7 @@ export class ValidationEngine {
           const date = value instanceof Date ? value : new Date(value);
           const minDate = params instanceof Date ? params : new Date(params);
           if (date < minDate) {
-            return message || `Date must be after ${minDate.toLocaleDateString()}`;
+            return message || `Date must be after ${minDate.toLocaleDateString(context?.locale)}`;
           }
         }
         break;
@@ -281,7 +281,7 @@ export class ValidationEngine {
           const date = value instanceof Date ? value : new Date(value);
           const maxDate = params instanceof Date ? params : new Date(params);
           if (date > maxDate) {
-            return message || `Date must be before ${maxDate.toLocaleDateString()}`;
+            return message || `Date must be before ${maxDate.toLocaleDateString(context?.locale)}`;
           }
         }
         break;

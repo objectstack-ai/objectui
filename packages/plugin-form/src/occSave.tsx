@@ -41,7 +41,7 @@ import {
   cn,
 } from '@object-ui/components';
 import { AlertTriangle } from 'lucide-react';
-import { createSafeTranslation } from '@object-ui/i18n';
+import { createSafeTranslation, useDisplayLocale } from '@object-ui/i18n';
 import { declaredUserMessage } from '@object-ui/react';
 
 // Localized strings for the conflict dialog. Falls back to English when no
@@ -113,12 +113,18 @@ interface ConflictState {
   userMessage?: string;
 }
 
-/** Backend ships SQL-style "YYYY-MM-DD HH:mm:ss.SSS"; normalise for Date. */
-function formatVersionTime(raw: string | undefined): string | null {
+/**
+ * Backend ships SQL-style "YYYY-MM-DD HH:mm:ss.SSS"; normalise for Date.
+ *
+ * `locale` is REQUIRED: the conflict dialog shows this time to the person
+ * deciding whether to overwrite, and the version without it formatted in the
+ * MACHINE's locale (objectui#9909). The hook below passes `useDisplayLocale()`.
+ */
+function formatVersionTime(raw: string | undefined, locale: string): string | null {
   if (!raw) return null;
   const iso = /\d{4}-\d{2}-\d{2}[ T]/.test(raw) ? raw.replace(' ', 'T') : raw;
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? null : d.toLocaleString();
+  return Number.isNaN(d.getTime()) ? null : d.toLocaleString(locale);
 }
 
 /**
@@ -134,6 +140,7 @@ export function useOccSave(): {
   conflictDialog: React.ReactNode;
 } {
   const { t } = useOccTranslation();
+  const displayLocale = useDisplayLocale();
   const [conflict, setConflict] = React.useState<ConflictState | null>(null);
   // Resolver for the promise `saveWithOcc` awaits while the dialog is open.
   const decisionRef = React.useRef<((overwrite: boolean) => void) | null>(null);
@@ -189,7 +196,7 @@ export function useOccSave(): {
     [],
   );
 
-  const latestTime = formatVersionTime(conflict?.currentVersion);
+  const latestTime = formatVersionTime(conflict?.currentVersion, displayLocale);
 
   const conflictDialog = (
     <AlertDialog open={!!conflict} onOpenChange={(open) => { if (!open) settle(false); }}>

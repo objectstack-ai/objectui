@@ -29,7 +29,8 @@ import { toFormControlDomProps } from '../../lib/form-control-dom-props';
 import { Loader2 } from 'lucide-react';
 import { resolveIcon } from './resolve-icon';
 import { hasDeclaredVisibilityGate } from './visibility-gate';
-import { hasAutoTrigger, useAutoTriggerOnce } from './auto-trigger';
+import { useAutoTriggerOnce } from './auto-trigger';
+import { readStaticParamValues } from './static-params';
 
 /**
  * The declared props. `schema` is `UIActionSchema` (objectui#4418): every key
@@ -141,18 +142,41 @@ const ActionButtonRenderer = forwardRef<
       setLoading(true);
 
       try {
-        // Route params correctly:
-        // - Array of objects with name+type → ActionParamDef[] → pass as actionParams for collection
-        // - Otherwise → pass as actual param values
+        // UI-local escape hatch: direct callback, bypass ActionEngine — the
+        // same branch `action:menu`'s `handleExecute` and `page:header` take,
+        // with the precedence `UIActionSchema.onClick` documents ("takes
+        // precedence over `type` / `target`"). It is a function, so it only
+        // ever arrives from a code-composed schema (an `action:bar` member is
+        // spread onto this node whole). Forwarding it instead would not honour
+        // that precedence: the runner reads `onClick` only as a LAST fallback,
+        // after a registered handler or builtin executor for the declared type
+        // has already run. Neither called nor forwarded, it was silently inert
+        // here while the same action in the overflow menu ran (objectui#4202).
+        if (typeof schema.onClick === 'function') {
+          await schema.onClick();
+          return;
+        }
+
+        // Route params (objectui#10289, ruling A):
+        // - `params` is only ever the `ActionParam[]` input list → forwarded as
+        //   `actionParams` for collection.
+        // - Static execution values come from `properties.params` (see
+        //   `./static-params`) → forwarded as the runner's `params`. A
+        //   node-level OBJECT `params` is not read as values; it is ignored
+        //   with a development warning.
         //
         // Annotated rather than inferred: a spread SOURCE's own keys are not
         // excess-property checked through the spread, so an invented key in
         // either branch would be absorbed silently. Measured on objectui#4281 —
         // `const p = cond ? { actionParams } : { zzBogus }` is accepted by an
         // `ActionDef` literal that spreads it; annotating `p` rejects it here.
+        //
+        // The two channels are independent, so the input-list branch forwards
+        // the static values too.
+        const staticValues = readStaticParamValues(schema, 'action:button');
         const paramsPayload: ActionDef = Array.isArray(schema.params)
-          ? { actionParams: schema.params as any }
-          : { params: schema.params as Record<string, any> | undefined };
+          ? { actionParams: schema.params as any, params: staticValues }
+          : { params: staticValues };
 
         // ── Why this is a named `ActionDef` binding and not an inline literal ──
         //
@@ -268,6 +292,19 @@ const ActionButtonRenderer = forwardRef<
           // type-checks against the one declared meaning instead of hiding
           // behind `as any`.
           onSuccess: schema.onSuccess,
+          // The object the action declares it acts on (spec `ActionSchema`:
+          // "Target object this action belongs to"). The console resolves its
+          // dispatch target as `action.objectName || <page object>` — in the
+          // generic api handler, the flow handler, the param dialog's i18n scope
+          // and `createServerActionHandler`'s `/api/v1/actions/{object}/…` URL —
+          // so dropped here, an action retargeting another object (a child
+          // record's action rendered on its parent's page) silently acted on
+          // the PAGE's object instead, with no error (objectui#4202). An action
+          // that declares none still falls back to the page object, exactly as
+          // before. Cast because the `@object-ui/types` mirror does not declare
+          // the key on `UIActionSchema` (tsc refuses the bare read with TS2339);
+          // the write is checked against `ActionDef`, which does.
+          objectName: (schema as any).objectName,
         };
 
         await execute({ ...forwarded, ...localContext });
@@ -284,7 +321,11 @@ const ActionButtonRenderer = forwardRef<
     // is no longer the only consumer: `action:menu` runs the same contract for
     // the actions that spill past `action:bar`'s `maxVisible` (#4162), and
     // once-ness written twice is two behaviours waiting to drift.
-    useAutoTriggerOnce(hasAutoTrigger(schema), handleClick);
+    //
+    // It is handed this button's own `visible` verdict — the one the early
+    // return below consults — because the action's declared gate outranks the
+    // flag (objectui#4191): a hidden action is refused and reported, not run.
+    useAutoTriggerOnce(schema, isVisible, handleClick);
 
     // A declared boolean `visible: false` is a verdict, not a missing gate —
     // truthiness classified it as "ungated" and rendered the action for

@@ -29,7 +29,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
-import { SchemaRenderer, SchemaRendererProvider, NON_GRID_ROW_CEILING_TOP } from '@object-ui/react';
+import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import { nonGridRowCeilingQuery } from '@object-ui/core';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 
@@ -162,7 +163,7 @@ describe('object-gantt — dataSource: { object, view } (objectstack#7121)', () 
     // Not an oversight — `limit` is unmapped because there is no read site. The
     // assertion is here so a future mapping addition has to be deliberate.
     expect(params.$top).not.toBe(3);
-    expect(params.$top).toBe(NON_GRID_ROW_CEILING_TOP);
+    expect(params.$top).toBe(nonGridRowCeilingQuery().$top);
     expect(params.options).toBeUndefined();
   });
 

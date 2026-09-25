@@ -68,6 +68,7 @@ import {
   type WidgetRenderer,
 } from './widgets.js';
 import { useMetadataLocale, t, tFormat, translateValidationMessage, translateEnumOption, translateSchemaFieldLabel, translateSchemaFieldHelp } from './i18n.js';
+import { untranslatedFieldLabel } from './field-source-label.js';
 
 /**
  * The form authoring surface — `FormFieldSpec` and the `VisibilityPredicate`
@@ -1338,6 +1339,15 @@ function SectionedSchemaForm({
                 </div>
               );
             }
+            // The row schema's `title` takes the form label's UNTRANSLATED
+            // source, never a locale overlay's translation (objectui#8231):
+            // the translation reaches every reader through `fieldSpec.label`,
+            // which each of them prefers over `title`, while `FieldRow`'s
+            // machine-name chip falls back to `title` as the source label when
+            // the form authored none — so copying a translation here would
+            // hand the chip the very string it must not judge. With no
+            // overlay involved the source IS `f.label`: nothing changes.
+            const sourceTitle = untranslatedFieldLabel(f);
             return (
               <div
                 key={f.field}
@@ -1348,7 +1358,7 @@ function SectionedSchemaForm({
                   idPath={idPath}
                   schema={{
                     ...propSchema,
-                    ...(f.label ? { title: f.label } : {}),
+                    ...(sourceTitle ? { title: sourceTitle } : {}),
                     ...(f.helpText ? { description: f.helpText } : {}),
                     ...(f.placeholder ? { placeholder: f.placeholder } : {}),
                   }}
@@ -1610,11 +1620,34 @@ function FieldRow({
   const isBoolean = schema?.type === 'boolean' || widget === 'switch';
   const hasDefault = schema?.default !== undefined;
   const showRequiredStar = required && !(isBoolean && hasDefault);
+  // The `*` below is visual-only (objectui#3299, objectui#10367): it sits inside
+  // the label that names the control, so without `aria-hidden` it is read as
+  // part of the name ("Title *"). The requirement reaches the control as a
+  // STATE instead — `FieldControl` takes this same flag, puts `aria-required`
+  // on every control it renders itself, and hands the flag to a registered
+  // widget, so the state and the marker agree.
+  // `aria-required`, not native `required`: `SchemaForm` is exported, and a host
+  // `<form>` would otherwise gain the browser's own submit-blocking verdict
+  // beside this form's own validation.
 
   // Only show the machine name when it materially differs from the
   // prettified label (e.g. `is_active` → "Is Active" matches, hide it;
   // `rls` → "Rls" doesn't, show it). Cuts ~50% of the visual noise.
-  const labelMatchesName = prettify(name).toLowerCase() === label.toLowerCase();
+  //
+  // Judged against the UNTRANSLATED source label — the label this row would
+  // show in English — never against `label` above (objectui#8231). The visible
+  // label is a translation in a localized panel, and `prettify('columns')` can
+  // never equal 「列数」, so the old comparison showed the chip beside every
+  // field in Chinese and hid it beside the same fields in English. The source
+  // label is the one a locale overlay replaced (`untranslatedFieldLabel`, in
+  // `./field-source-label.ts`), else the schema's own title, else the
+  // prettified name — the same chain as `label`, minus every translation
+  // step, so the chip answers alike in every locale.
+  const sourceLabel =
+    untranslatedFieldLabel(fieldSpec) ||
+    (schema?.title as string | undefined) ||
+    prettify(name);
+  const labelMatchesName = prettify(name).toLowerCase() === sourceLabel.toLowerCase();
 
   // Booleans render inline (label · description · switch) on one row to
   // save vertical space and feel like a real settings panel.
@@ -1624,7 +1657,9 @@ function FieldRow({
         <div className="min-w-0 flex-1">
           <Label {...labelAssociation} className="text-sm font-medium cursor-pointer">
             {label}
-            {showRequiredStar && <span className="text-destructive ml-0.5">*</span>}
+            {showRequiredStar && (
+              <span className="text-destructive ml-0.5" aria-hidden="true" data-required-marker="true">*</span>
+            )}
           </Label>
           {description && (
             <div className="text-xs text-muted-foreground mt-0.5">{description}</div>
@@ -1636,6 +1671,7 @@ function FieldRow({
         <FieldControl
           id={channel.id}
           ariaLabelledBy={channel.ariaLabelledBy}
+          required={showRequiredStar}
           fieldName={name}
           idPath={path}
           schema={schema}
@@ -1656,7 +1692,9 @@ function FieldRow({
       <div className="flex items-center justify-between gap-2">
         <Label {...labelAssociation} className="text-sm font-medium">
           {label}
-          {showRequiredStar && <span className="text-destructive ml-0.5">*</span>}
+          {showRequiredStar && (
+            <span className="text-destructive ml-0.5" aria-hidden="true" data-required-marker="true">*</span>
+          )}
           {!labelMatchesName && (
             <code
               className="ml-2 text-[10px] font-mono text-muted-foreground/70"
@@ -1670,6 +1708,7 @@ function FieldRow({
       <FieldControl
         id={channel.id}
         ariaLabelledBy={channel.ariaLabelledBy}
+        required={showRequiredStar}
         fieldName={name}
         idPath={path}
         schema={schema}
@@ -1696,6 +1735,7 @@ function FieldRow({
 function FieldControl({
   id,
   ariaLabelledBy,
+  required,
   fieldName,
   idPath,
   schema,
@@ -1728,6 +1768,21 @@ function FieldControl({
    * alongside the id rather than treating them as alternatives (objectui#5063).
    */
   ariaLabelledBy?: string;
+  /**
+   * Whether the host shows a required `*` for this field — `FieldRow`'s
+   * `showRequiredStar`, or a grid column header's own marker (objectui#10367).
+   * That `*` is `aria-hidden`, so this is the channel that announces the
+   * requirement: every control this component renders ITSELF (the builtin
+   * scalar chain and the JSON editor) carries `aria-required` from it, and a
+   * REGISTERED widget receives it as `WidgetProps.required`, which each
+   * `labelling: 'control'` widget except `filter-builder` (a plain `button`)
+   * emits through `controlNaming`, and which `color-picker` puts on its
+   * `radiogroup`.
+   *
+   * ⚠️ The structured faces (composite / repeater / record / nested form)
+   * render a `role="group"`, where ARIA 1.2 does not support `aria-required`.
+   */
+  required?: boolean;
   /** Machine field name — keys enum-option localization (e.g. flow `type`). */
   fieldName?: string;
   /**
@@ -1758,6 +1813,8 @@ function FieldControl({
   // makes the declaration and the DOM impossible to drift apart: there is one
   // set of branch predicates, not two that must be kept in step.
   const face = resolveFieldFace({ fieldSpec, widget, schema, value });
+  // `undefined` when optional, so the attribute is omitted rather than "false".
+  const ariaRequired = required ? true : undefined;
 
   // Composite/repeater are first-class structured types — render natively
   // with recursive FieldRow calls so all UI features (widgets, options,
@@ -1846,6 +1903,9 @@ function FieldControl({
         // `labelling` declaration in `FieldRow` (objectui#4871).
         id={id}
         ariaLabelledBy={ariaLabelledBy}
+        // A `'control'` widget puts it on its control as `aria-required`,
+        // through `controlNaming` (objectui#10367).
+        required={required}
         schema={schema}
         value={value}
         onChange={onChange}
@@ -1911,6 +1971,7 @@ function FieldControl({
           <RawJsonEditor
             id={id}
             ariaLabelledBy={ariaLabelledBy}
+            required={required}
             value={value as any}
             onChange={(v) => onChange(v)}
             readOnly={readOnly}
@@ -1922,7 +1983,7 @@ function FieldControl({
       );
     }
     return (
-      <RawJsonEditor id={id} ariaLabelledBy={ariaLabelledBy} value={value} onChange={onChange} readOnly={readOnly} small />
+      <RawJsonEditor id={id} ariaLabelledBy={ariaLabelledBy} required={required} value={value} onChange={onChange} readOnly={readOnly} small />
     );
   }
 
@@ -1952,7 +2013,7 @@ function FieldControl({
         onValueChange={(v) => onChange(v)}
         disabled={readOnly}
       >
-        <SelectTrigger id={id} aria-labelledby={ariaLabelledBy}>
+        <SelectTrigger id={id} aria-labelledby={ariaLabelledBy} aria-required={ariaRequired}>
           <SelectValue placeholder={t('engine.form.selectEllipsis', locale)} />
         </SelectTrigger>
         <SelectContent>
@@ -1980,7 +2041,7 @@ function FieldControl({
         onValueChange={(v) => onChange(v)}
         disabled={readOnly}
       >
-        <SelectTrigger id={id} aria-labelledby={ariaLabelledBy}>
+        <SelectTrigger id={id} aria-labelledby={ariaLabelledBy} aria-required={ariaRequired}>
           <SelectValue placeholder={t('engine.form.selectEllipsis', locale)} />
         </SelectTrigger>
         <SelectContent>
@@ -2010,6 +2071,7 @@ function FieldControl({
       <Switch
         id={id}
         aria-labelledby={ariaLabelledBy}
+        aria-required={ariaRequired}
         checked={!!value}
         onCheckedChange={(c) => onChange(c)}
         disabled={readOnly}
@@ -2055,6 +2117,7 @@ function FieldControl({
       <Input
         id={id}
         aria-labelledby={ariaLabelledBy}
+        aria-required={ariaRequired}
         type="number"
         value={value == null ? '' : String(value)}
         placeholder={defaultValue == null ? undefined : String(defaultValue)}
@@ -2084,6 +2147,7 @@ function FieldControl({
         <Textarea
           id={id}
           aria-labelledby={ariaLabelledBy}
+          aria-required={ariaRequired}
           rows={4}
           value={(value as string | undefined) ?? ''}
           maxLength={maxLength}
@@ -2096,6 +2160,7 @@ function FieldControl({
       <Input
         id={id}
         aria-labelledby={ariaLabelledBy}
+        aria-required={ariaRequired}
         value={(value as string | undefined) ?? ''}
         maxLength={maxLength}
         onChange={(e) => onChange(e.target.value || undefined)}
@@ -2117,6 +2182,7 @@ function FieldControl({
         <Input
           id={id}
           aria-labelledby={ariaLabelledBy}
+          aria-required={ariaRequired}
           value={arr.map(String).join(', ')}
           placeholder={t('engine.form.arrayPlaceholder', locale)}
           onChange={(e) => {
@@ -2151,7 +2217,7 @@ function FieldControl({
   // `'control'`-channel JSON editor the `raw-json` face renders, so that if a
   // future edit did make it reachable the label channel would still be right.
   return (
-    <RawJsonEditor id={id} ariaLabelledBy={ariaLabelledBy} value={value} onChange={onChange} readOnly={readOnly} small />
+    <RawJsonEditor id={id} ariaLabelledBy={ariaLabelledBy} required={required} value={value} onChange={onChange} readOnly={readOnly} small />
   );
 }
 
@@ -2374,7 +2440,13 @@ function RepeaterField({
                     className="px-2 py-1.5 text-left text-xs font-medium"
                   >
                     {s.label || prettify(s.field)}
-                    {s.required && <span className="text-destructive ml-0.5">*</span>}
+                    {/* Visual-only (objectui#10367): every cell below is NAMED
+                        by this header through `aria-labelledby`, so a bare `*`
+                        here was read as part of each cell's name. The cells
+                        carry the requirement as `aria-required` instead. */}
+                    {s.required && (
+                      <span className="text-destructive ml-0.5" aria-hidden="true" data-required-marker="true">*</span>
+                    )}
                   </th>
                 ))}
                 {/* Row actions: no name to publish, but still a column header. */}
@@ -2398,6 +2470,8 @@ function RepeaterField({
                           // This cell's only naming channel — there is no
                           // `<label>` in a grid row (objectui#5063).
                           ariaLabelledBy={columnHeaderId(s.field)}
+                          // Mirrors the header's `*` exactly (objectui#10367).
+                          required={Boolean(s.required)}
                           fieldName={s.field}
                           idPath={joinIdPath(joinIdPath(idPath, idx), s.field)}
                           schema={sub}
@@ -2819,6 +2893,7 @@ function RecordField({
 function RawJsonEditor({
   id,
   ariaLabelledBy,
+  required,
   value,
   onChange,
   readOnly,
@@ -2839,6 +2914,8 @@ function RawJsonEditor({
    * (objectui#5063).
    */
   ariaLabelledBy?: string;
+  /** The host's required flag, announced as `aria-required` (objectui#10367). */
+  required?: boolean;
   value: unknown;
   onChange: (v: any) => void;
   readOnly?: boolean;
@@ -2861,6 +2938,7 @@ function RawJsonEditor({
       <Textarea
         id={id}
         aria-labelledby={ariaLabelledBy}
+        aria-required={required ? true : undefined}
         rows={small ? 4 : 12}
         className="font-mono text-xs"
         value={text}

@@ -688,6 +688,21 @@ export interface ActionParamDef {
    * gated on `features.phoneNumber`). Absent = always visible.
    */
   visible?: string;
+  /**
+   * Carry-over declaration — `@objectstack/spec`'s `ActionParamSchema.carryOver`
+   * (objectstack#11753 ruling, objectui#6246), passed through unchanged by
+   * `resolveActionParams()`. The param's value is carried through the dialog
+   * rather than collected from the user: seeded from the row (the spec refuses
+   * the key without `defaultFromRow: true`), rendered by `ActionParamDialog` as
+   * a collapsed read-only summary with no editing affordance, and submitted
+   * verbatim.
+   *
+   * ⛔ Not a styling hint. The permission-set Clone action declares it on its
+   * JSON permission facets because an editable facet lets a hand-edited but
+   * valid blob clone a set that grants MORE than its base; a renderer that
+   * merely greys the control out still offers that edit.
+   */
+  carryOver?: boolean;
 
   // ── Widget config (shared form field-widget renderer) ─────────────
   // `ActionParamDialog` renders every param through the same field widgets
@@ -723,6 +738,28 @@ export interface ActionParamDef {
   lookupPageSize?: number;
   /** Form-field dependencies that gate / parameterise the picker query. */
   dependsOn?: unknown[];
+
+  // ── Resolution failure ────────────────────────────────────────────
+  /**
+   * Set by `resolveActionParams()` when a FIELD-BACKED param (`{ field }`)
+   * named a field that is not in the object metadata the resolver was given,
+   * carrying `<object>.<field>` — the pair that could not be resolved.
+   *
+   * It exists because the alternative is a SILENT one. Without it the resolver
+   * hands back `type: param.type ?? 'text'`, and every downstream reader of the
+   * degradation is blind to it: the param is a `text` param by then, so
+   * `paramDegradesWithoutTarget()` answers false, `paramToField()` emits no
+   * "no reference target" warning, and the #3405 "paste a record id" hints do
+   * not apply either. A lookup param that should have rendered a record picker
+   * renders an unannotated empty box instead — no options, no dropdown, and no
+   * request for the referenced object on the wire, because no picker was ever
+   * built (objectui#10129).
+   *
+   * ⛔ It is not a widget config key and `paramToField()` deliberately does not
+   * map it: the whole point is that the param's type is UNKNOWN, so there is no
+   * widget to configure. `ActionParamDialog` reads it and refuses.
+   */
+  unresolvedField?: string;
 }
 
 /**
@@ -846,16 +883,36 @@ function isUpdateOperationAction(action: ActionDef): boolean {
  *
  * Prior values come from the row record the invoking surface stashed under
  * `params._rowRecord` (the same client-side stash the record-id dance reads).
- * A field absent from that row is captured as `null`, which is what clearing it
- * back to empty means on the data plane.
+ * A field the row carries as `null` is captured as `null`: it was empty, and
+ * clearing it back to empty is what restoring it means on the data plane.
+ *
+ * ⛔ A field the row does not CARRY is never captured as `null`
+ * (objectui#10404). Absent is not empty: a list row is projected by `$select`,
+ * and a written field no column shows is missing from the row while the server
+ * holds a real value for it. Recording `null` there made Undo write `null` over
+ * the value it existed to restore. The list harvest (`listViewPredicates`) now
+ * asks for the written fields of an `undoable` action, so a projected row
+ * carries them; this is the backstop for the ones it cannot ask for (a field
+ * the object does not declare or the principal may not read, a row no harvest
+ * shaped). "Carries" means an own key whose value is not `undefined`: JSON
+ * cannot send `undefined`, so such a value says nothing about what is stored.
+ *
+ * Answers `undefined` when any written field is not carried, and the caller
+ * then offers no Undo at all. Capturing only the carried fields is not an
+ * option, for the reason above: a partial restore reported as a full one is
+ * worse than no Undo.
  */
 function captureUpdateUndoData(
   writtenFields: readonly string[],
   rowRecord: Record<string, unknown>,
-): Record<string, unknown> {
-  const undoData: Record<string, unknown> = {};
-  for (const field of writtenFields) undoData[field] = rowRecord[field] ?? null;
-  return undoData;
+): Record<string, unknown> | undefined {
+  if (!writtenFields.every((field) => rowCarries(rowRecord, field))) return undefined;
+  return Object.fromEntries(writtenFields.map((field) => [field, rowRecord[field]]));
+}
+
+/** Whether the row CARRIES `field`: an own key whose value is not `undefined`. */
+function rowCarries(rowRecord: Record<string, unknown>, field: string): boolean {
+  return Object.prototype.hasOwnProperty.call(rowRecord, field) && rowRecord[field] !== undefined;
 }
 
 /*
@@ -1521,21 +1578,37 @@ export class ActionRunner {
 
     // Undo: prior values of exactly the fields this action wrote. Needs a row
     // record to read them from — without one there is nothing to restore, so
-    // the affordance is correctly not offered rather than offered empty.
+    // the affordance is correctly not offered rather than offered empty. The
+    // same holds when the row lacks a written field (objectui#10404): no Undo,
+    // never one that writes `null` over the stored value.
     if (action.undoable && rowRecord && writtenFields.length > 0) {
       const objectName = action.objectName || readContextObjectName(this.context);
       const recordId = collected.recordId ?? rowRecord.id;
       if (objectName && recordId != null) {
-        result.undo = {
-          id: `undo-${objectName}-${String(recordId)}-${Date.now()}`,
-          type: 'update',
-          objectName,
-          recordId: String(recordId),
-          timestamp: Date.now(),
-          description: action.label || `Undo ${objectName}`,
-          undoData: captureUpdateUndoData(writtenFields, rowRecord),
-          redoData: Object.fromEntries(writtenFields.map((k) => [k, params[k]])),
-        };
+        const undoData = captureUpdateUndoData(writtenFields, rowRecord);
+        if (undoData) {
+          result.undo = {
+            id: `undo-${objectName}-${String(recordId)}-${Date.now()}`,
+            type: 'update',
+            objectName,
+            recordId: String(recordId),
+            timestamp: Date.now(),
+            description: action.label || `Undo ${objectName}`,
+            undoData,
+            redoData: Object.fromEntries(writtenFields.map((k) => [k, params[k]])),
+          };
+        } else {
+          // The success toast then carries no Undo button, which is how the
+          // user learns this one cannot be undone; this names the cause for
+          // the author.
+          console.warn(
+            '[ActionRunner] `undoable` update succeeded but offers no Undo: the row it ran on does not '
+            + 'carry every field it wrote, so their prior values are unknown and an Undo would overwrite '
+            + 'stored data. A list row carries a written field when the object declares it and the '
+            + 'principal may read it.',
+            { action: action.name, missing: writtenFields.filter((k) => !rowCarries(rowRecord, k)) },
+          );
+        }
       }
     }
 

@@ -17,7 +17,7 @@
  * @packageDocumentation
  */
 
-import type { I18nLabel } from '@objectstack/spec/ui';
+import type { I18nLabel, ViewFilterRule } from '@objectstack/spec/ui';
 
 /**
  * ARIA props shared across all record components.
@@ -380,8 +380,32 @@ export interface RecordRelatedListComponentProps {
    * applies it when the node didn't pass through a zod parse).
    */
   limit?: number;
-  /** Filter conditions */
-  filter?: any;
+  /**
+   * The list's own scope: the protocol's rule array
+   * (`@objectstack/spec` `RecordRelatedListProps.filter`,
+   * `z.array(ViewFilterRuleSchema)`, "Additional filter criteria for related
+   * records"), ANDed with the parent relationship and never substituted for it.
+   *
+   * ## Why this face carries the array and the consumer carries a union
+   *
+   * `@object-ui/plugin-detail`'s `RelatedList` types the same key
+   * `ViewFilterRule[] | FilterNode`, and it keeps that union on purpose
+   * (objectui#10199, ruled protocol first). The `FilterNode` half is a RUNTIME
+   * value: `ElementDataSourceGate` writes the composed component-AND-view-AND-
+   * binding filter onto this key after it resolves a `dataSource` binding, and
+   * that write goes through the gate's own untyped schema copy, never through
+   * this interface. The composed node is not a shape an author writes, so the
+   * authoring face does not publish it. Authoring the AST, a MongoDB-style
+   * record or an array of tuples here is refused by `tsc`, as the protocol's
+   * parse refuses it: author the rule array; the composed node is runtime-only.
+   *
+   * This declaration was `any` until objectui#10199, so the face an author (or
+   * an AI writing metadata) reads said "anything" for a key the protocol
+   * constrains. objectui#9964 moved `add.picker.filter` below for the same
+   * reason; there the consumer already agreed with the protocol, here only the
+   * authoring half does.
+   */
+  filter?: ViewFilterRule[];
   /** Section title */
   title?: string;
   /** Show "View All" link */
@@ -396,7 +420,30 @@ export interface RecordRelatedListComponentProps {
    * RecordRelatedListProps.add.
    */
   add?: {
-    picker: { object: string; valueField?: string; labelField?: string; filter?: unknown };
+    /**
+     * `picker.filter` is the protocol's own `z.array(ViewFilterRuleSchema)`
+     * ("Restrict which records the picker offers"), and this face mirrors that
+     * declaration rather than restating it as `unknown` (objectui#9964).
+     *
+     * ## Why the mirror moved and the consumer's guard did not
+     *
+     * The sole consumer — `@object-ui/plugin-detail`'s `RelatedList`, which
+     * hands this value to `RecordPickerDialog`'s `baseFilter` VERBATIM — has
+     * typed the same key as `ViewFilterRule[]` on purpose since objectui#3831
+     * ("a looser type here is where a wrong shape would hide"). So the two
+     * declarations of one key disagreed, with the LOOSER one on the authoring
+     * face: an author (or an AI writing metadata) read "anything" for a key
+     * whose consumer demands a shape. Four `(schema as any).add` reads in that
+     * package's `record-related-list` renderer kept any compiler from saying
+     * so; objectui#9964 removed them, so this declaration now reaches the read.
+     *
+     * Tightening here narrows nothing an author could publish: the protocol
+     * declares the array form and its `strictObject` refuses every other shape
+     * at parse today. This is a narrowing being UNDONE, and it is the
+     * contract-first direction AGENTS.md #0.1 requires — the producer moves to
+     * the contract, never the renderer to a lenient dialect.
+     */
+    picker: { object: string; valueField?: string; labelField?: string; filter?: ViewFilterRule[] };
     linkField?: string;
     label?: string;
   };

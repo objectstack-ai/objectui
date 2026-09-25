@@ -84,8 +84,12 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
 
 /**
  * An i18n label is a plain string or a `{ en, zh-CN, … }` record; charts render
- * a string. Same pick `normalizeChartSchema` makes, so a label reads the same
- * on both paths.
+ * a string.
+ *
+ * ⚠️ Its one remaining caller is {@link seriesPresentation}'s `label`. The axis
+ * `title` read this too until objectui#10132 and no longer does — a slot whose
+ * value reaches the DOM unchanged cannot be served by a pick, and that one had
+ * no overriding caller (see {@link axisPresentation}).
  *
  * **First-string-wins, deliberately, and deliberately NOT locale-aware** — this
  * package is React-free and holds no i18n provider, so it cannot know which
@@ -105,7 +109,10 @@ function labelText(v: unknown): string | undefined {
 
 /**
  * An authored `I18nLabel` that travels to the renderer **unresolved** — the
- * chart's own `title` / `subtitle` / `description` (objectui#9038).
+ * chart's own `title` / `subtitle` / `description` (objectui#9038), and an
+ * axis's `title` (objectui#10132, which moved that one arm off
+ * {@link labelText}; see {@link axisPresentation} for why it was never covered
+ * by the ledger the pick rests on).
  *
  * ## Why this does not resolve, and why that is not {@link labelText}'s answer
  *
@@ -217,7 +224,21 @@ export function seriesPresentation(raw: Record<string, unknown>): AuthoredSeries
 export function axisPresentation(raw: unknown): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (!isRecord(raw)) return out;
-  const title = labelText(raw.title);
+  // `title` is FORWARDED, not picked (objectui#10132). `ChartAxisSchema.title`
+  // is the spec's `I18nLabel`, and collapsing it here with `labelText` handed
+  // the axis whichever limb the author happened to type FIRST — measured both
+  // ways round on one map: English to a `zh-CN` viewer, Chinese to an `en` one.
+  // `normalizeChartSchema` already resolves an axis title through
+  // `pickLocalized` against the language `ChartRenderer` reads, so the map only
+  // has to survive this lowering to reach a resolver that was there all along;
+  // see {@link forwardedI18nLabel} for why THIS package cannot resolve it.
+  //
+  // This is the one entry of the objectui#4020 ledger that moved. Its
+  // justification — "a locale-unaware pick a caller can OVERRIDE" — holds for a
+  // series `label` (`DatasetWidget` replaces it from the locale bundle) and
+  // never held here: nothing overrides an axis title, it is spread onto the
+  // chart schema and drawn. {@link seriesPresentation} keeps the pick.
+  const title = forwardedI18nLabel(raw.title);
   if (title) out.title = title;
   if (typeof raw.format === 'string' && raw.format) out.format = raw.format;
   if (typeof raw.min === 'number' && Number.isFinite(raw.min)) out.min = raw.min;
@@ -439,4 +460,49 @@ export function chartConfigPresentation(
   }
 
   return out;
+}
+
+/** The families {@link chartTypeIgnoresCompareTo} answers `true` for. */
+const CHART_TYPES_IGNORING_COMPARE_TO: ReadonlySet<string> = new Set(['pie', 'donut', 'funnel', 'scatter']);
+
+/**
+ * Whether a chart of this family IGNORES `compareTo` — the one declaration of
+ * that rule (objectui#7495).
+ *
+ * Every surface that turns a `compareTo` into a comparison reads this; none
+ * keeps a list of its own. The inline chart path (`@object-ui/plugin-charts`'
+ * ObjectChart) skips the comparison fetch and synthesises no overlay series for
+ * these families, and the dataset widget path (`@object-ui/plugin-dashboard`'s
+ * DatasetWidget) forwards no `compareTo` to the executor for a chart of one of
+ * them, so the comparison pass never runs and no overlay series is appended.
+ *
+ *  - `pie` / `donut` / `funnel` — single-distribution charts: a comparison
+ *    overlay has no meaning on them, and the renderer's pie and funnel arms
+ *    draw only `series[0]`.
+ *  - `scatter` (objectui#7402) — a scatter binds ONE measure: the renderer reads
+ *    y through the single `YAxis dataKey={series[0].dataKey}`, so an overlay was
+ *    painted on the PRIMARY's y and "previous period" landed exactly on top of
+ *    "current". Drawing it honestly needs the multi-measure projection declined
+ *    as option A of objectui#7194; `compareTo` on a scatter returns WITH that
+ *    projection.
+ *
+ * It reads the RENDERER's chart family (`bar`, `pie`, `scatter`, …), not a
+ * dashboard widget type: a caller whose widget types alias a family (the
+ * dashboard maps `bubble` to `scatter` and `pyramid` to `funnel`) maps first and
+ * asks about the family. An absent or unrecognised family does NOT ignore
+ * `compareTo` — the comparison runs.
+ *
+ * Why it lives here: the dashboard reaches `@object-ui/plugin-charts` only as a
+ * devDependency, so this package — a runtime dependency of both — is the one
+ * place both paths can read. Two copies were how the lists drifted apart: the
+ * dashboard's said "scatter only" while the charts package said all four, so a
+ * compare-to pie widget ran a comparison query whose overlay the renderer then
+ * dropped (objectui#7495; objectui#4389 is the precedent that a second copy of
+ * chart-presentation logic is a defect).
+ *
+ * @param chartType the chart family, or `undefined` when none is declared
+ * @returns `true` for `pie`, `donut`, `funnel` and `scatter`; `false` otherwise
+ */
+export function chartTypeIgnoresCompareTo(chartType: string | undefined): boolean {
+  return typeof chartType === 'string' && CHART_TYPES_IGNORING_COMPARE_TO.has(chartType);
 }

@@ -7136,6 +7136,97 @@ export function parseOutputOptions(argv) {
 export const EXIT_PREREQUISITE_NOT_MET = 3;
 
 /**
+ * The node flag that points `fetch` at the session proxy, and the env guard that
+ * stops a re-exec from re-execing (#13544).
+ *
+ * `NODE_USE_ENV_PROXY=1` is the env spelling of the same switch and is honoured
+ * identically — both are read at process START, which is the whole reason this
+ * is a re-exec rather than an assignment (header, "Routing node through the
+ * session proxy").
+ *
+ * `PROXY_REARM_GUARD` is THIS file's OWN guard and the plan's DEFAULT — it is
+ * not a name every instrument shares (#18939). A consumer that sets its own
+ * variable on the child it spawns passes that name to `proxyRearmPlan` as
+ * `guard`; the consumers that instead map their own name ONTO this one before
+ * calling keep working through the default, unchanged.
+ */
+export const PROXY_FLAG = '--use-env-proxy';
+export const PROXY_REARM_GUARD = 'OS_HALF_STATES_PROXY_REARMED';
+
+/**
+ * Is a proxy configured, and is THIS process already routed through it? Pure,
+ * and split out because two different decisions read it: whether to re-exec,
+ * and whether a failing verdict was taken on a bypassed route.
+ *
+ * @param {{ env?: Record<string,string|undefined>, execArgv?: string[] }} [ctx]
+ */
+export function proxyRoute({ env = {}, execArgv = [] } = {}) {
+  const proxy = env.HTTPS_PROXY || env.https_proxy || null;
+  const routed =
+    (execArgv ?? []).includes(PROXY_FLAG) ||
+    String(env.NODE_OPTIONS ?? '').includes(PROXY_FLAG) ||
+    String(env.NODE_USE_ENV_PROXY ?? '') === '1';
+  return { proxy, routed };
+}
+
+/**
+ * Does this run need re-executing with `PROXY_FLAG` before it can reach GitHub
+ * at all? Pure, so every branch is offline-testable — and the branches are the
+ * point: a proxied run without the flag answers 401 authenticated and 403
+ * anonymous on every endpoint and reads exactly like a credential problem, which
+ * is the defect #13544 was filed for.
+ *
+ * ⭐ The `no HTTPS_PROXY` branch is the one that keeps this file safe to copy
+ * VERBATIM into a sibling repo (#11217): a GitHub Actions runner carries no
+ * proxy env, so it never re-execs and behaves exactly as it did before.
+ *
+ * ## The guard is a NAME, and it belongs to the CALLER (#18939)
+ *
+ * Every consumer sets its OWN variable on the child it re-execs, but this plan
+ * read ONE hard-coded name — this file's. So ANY sibling instrument's guard,
+ * once inherited, answered "already re-armed" for a tool that had never
+ * re-armed; the suppressed run then took the bypassed route and answered 401
+ * Bad credentials on every endpoint, `/rate_limit` included. A uniform 401 is a
+ * self-consistent story — the credential is dead — and it was read as one for
+ * about an hour against a channel that was alive the whole time. `guard` is
+ * therefore a parameter: a caller passes the name it actually sets, and only
+ * its own guard can stop its own re-exec.
+ *
+ * And a suppressed run must not be a SILENT one. `rearm: false, hint: false`
+ * prints nothing at any consumer, so the suppression left no line anywhere in
+ * the run log, which is the whole cost of that chain. This branch therefore
+ * sets `hint: true` — the one branch every consumer already prints — and its
+ * reason names the variable, the route and the 401 it would be mistaken for.
+ * It can only fire on the anomaly: a real re-exec's child carries `PROXY_FLAG`
+ * in its `execArgv` and is answered by the `routed` branch above, never here.
+ *
+ * @param {{ env?: Record<string,string|undefined>, execArgv?: string[], flagSupported?: boolean, guard?: string }} [ctx]
+ * @returns {{ rearm: boolean, hint: boolean, flag?: string, guarded?: string, reason: string }}
+ */
+export function proxyRearmPlan({ env = {}, execArgv = [], flagSupported = true, guard = PROXY_REARM_GUARD } = {}) {
+  const { proxy, routed } = proxyRoute({ env, execArgv });
+  if (!proxy) {
+    return { rearm: false, hint: false, reason: 'no HTTPS_PROXY in the environment — node fetch reaches api.github.com directly' };
+  }
+  if (routed) return { rearm: false, hint: false, reason: `already routed through the proxy (${PROXY_FLAG} / NODE_USE_ENV_PROXY=1)` };
+  if (env[guard] === '1') {
+    return {
+      rearm: false,
+      hint: true,
+      guarded: guard,
+      reason:
+        `${guard}=1 is set and this process is NOT routed through ${proxy}, so the one re-exec this run allows ` +
+        `was already spent and every request below bypasses the proxy — if they answer 401 Bad credentials, that ` +
+        `inherited guard is why, and unsetting ${guard} is the fix rather than a new token`,
+    };
+  }
+  if (!flagSupported) {
+    return { rearm: false, hint: true, reason: `this node does not accept ${PROXY_FLAG}; every request will bypass ${proxy}` };
+  }
+  return { rearm: true, hint: false, flag: PROXY_FLAG, reason: `HTTPS_PROXY is set (${proxy}) and node's fetch does not read it` };
+}
+
+/**
  * What the token in the environment LOOKS like — never whether it is valid; only
  * GitHub can say that, and a 401 is it saying so. This exists to enrich the
  * report ("…and it carries no GitHub token prefix"), never to pre-reject a token:

@@ -13,8 +13,7 @@
  * The sixteen collisions of ledger batch 2 resolved two ways, so this file has
  * two kinds of test:
  *
- *  - **Derived** (`ActionParam`, `CreateExportJobRequest`,
- *    `CreateExportJobResult`, `ImportRowResult`, `NavigationArea`,
+ *  - **Derived** (`ActionParam`, `ImportRowResult`, `NavigationArea`,
  *    `NavigationAreaSchema`): the spec now supplies the keys, so the
  *    risk is no longer drift but a divergence outliving its reason, or a local
  *    key quietly reclaiming a name the spec owns. Asserted in both directions.
@@ -47,6 +46,13 @@
  * the rows went with the declarations rather than staying green as phantom
  * checks. The absence itself is pinned in `mobile-residue-retired-7519.test.ts`.
  *
+ * Two Derived rows went the same way (objectui#10247): the async export-job
+ * request and result types left `@object-ui/types` together with the optional
+ * `DataSource` export-job methods they typed, which no data source implemented
+ * (objectstack#17158, ruling A). No absence pin replaces them: it would have to
+ * spell the retired names, and that card's acceptance is that no file under
+ * `packages/` or `apps/` does.
+ *
  * Type-level assertions here are real gates: `tsconfig.test.json` compiles this
  * file, unlike the package build (see its header for why that distinction was
  * itself a bug once).
@@ -68,7 +74,7 @@ import type {
 import { NavigationAreaSchema } from '../zod/app.zod.js';
 import type { NavigationArea, NavigationItem } from '../app.js';
 import type { ActionParam } from '../ui-action.js';
-import type { CreateExportJobRequest, CreateExportJobResult, ImportRowResult } from '../data.js';
+import type { ImportRowResult } from '../data.js';
 import type { Theme } from '../theme.js';
 
 const shapeOf = (s: unknown) => (s as { shape: Record<string, unknown> }).shape;
@@ -516,31 +522,10 @@ describe('ActionParam declares ONLY authorable keys (objectui#3174)', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Export / import job contracts — derived
+// Import job contracts — derived (the export-job rows retired, objectui#10247)
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('export/import job types derive from the spec contracts', () => {
-  it('omits `object` from the request — it is the method argument', () => {
-    const request: CreateExportJobRequest = { format: 'csv', fields: ['name'] };
-    expect(request.format).toBe('csv');
-    // @ts-expect-error `object` is `createExportJob(resource, …)`, not a payload key
-    const doubled: CreateExportJobRequest = { object: 'account', format: 'csv' };
-    expect(doubled).toBeTruthy();
-  });
-
-  it('keeps the request on the AUTHORING side (defaults not yet applied)', () => {
-    // `format`/`includeHeaders`/`encoding` all carry `.default()`. Deriving from
-    // the parsed type would make a caller supply all three.
-    const minimal: CreateExportJobRequest = {};
-    expect(minimal).toEqual({});
-  });
-
-  it('makes `createdAt` required on the job result, as the server sends it', () => {
-    type CreatedAtOf = undefined extends CreateExportJobResult['createdAt'] ? 'optional' : 'required';
-    const is: CreatedAtOf = 'required';
-    expect(is).toBe('required');
-  });
-
+describe('import job types derive from the spec contracts', () => {
   it('makes `action` required on a row result, as the route schema does', () => {
     type ActionOf = undefined extends ImportRowResult['action'] ? 'optional' : 'required';
     const is: ActionOf = 'required';

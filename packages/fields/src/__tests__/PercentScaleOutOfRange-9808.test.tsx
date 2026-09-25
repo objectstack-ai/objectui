@@ -339,9 +339,9 @@ describe('SUNSET — the premise this ruling rests on, re-derived every run (obj
         `${PERCENT_SCALE_CEILING}, so the premise objectui#9808 rested on has expired. ` +
         'The clamp in `packages/fields/src/widgets/percent-scale.ts` is from this moment the ' +
         'lenient renderer-side fallback AGENTS.md #0.1 bans, because the declaration it rescues ' +
-        'can no longer be authored. ⇒ DELETE that module, its two call sites in `PercentField` ' +
-        'and `formatPercent`, this whole test file and the changeset note — do NOT relax this ' +
-        'assertion to make the suite green.',
+        'can no longer be authored. ⇒ DELETE that module, every call site that imports it ' +
+        '(the percent faces and, since objectui#10071, the number faces), this whole test file ' +
+        'and the changeset note — do NOT relax this assertion to make the suite green.',
     ).toBe(true);
   });
 

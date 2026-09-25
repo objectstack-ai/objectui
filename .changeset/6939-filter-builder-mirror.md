@@ -95,7 +95,10 @@ the spec's canonical `equals` / `greater_than` / `less_than`. Swapping only
 those three spellings makes both entries parse, which is pinned, so the claim
 "the three ruled divergences are gone from all four" is measured. That
 vocabulary is a genuine fork needing its own ruling — the builder's dropdown ids
-are `notEquals` / `greaterThan`, which this mirror also refuses, while the
+are `notEquals` / `greaterThan`, which this mirror also refuses (⚠️ superseded
+inside this same release by objectui#9559: `FilterOperatorSchema` became the
+spec rule's own operator member, so the alias and dropdown spellings are now
+accepted and normalised to canonical on parse), while the
 canonical spellings it accepts render a **blank** operator trigger — and it is
 reported on objectui#6939 rather than decided here. Seven further live field
 types (`status`, `currency`, `percent`, `rating`, `lookup`, `master_detail`,

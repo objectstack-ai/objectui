@@ -239,6 +239,18 @@ pins param support ⊇ form support. `required` validation and `visible` CEL
 gating are applied by the dialog; file/image uploads use the ambient
 `UploadProvider`, lookup/user pickers the surrounding `SchemaRendererContext`.
 
+A param that declares the spec's `carryOver` (with the `defaultFromRow: true`
+the spec requires beside it) is **shown, never collected**: it renders as a
+collapsed read-only summary with no field widget at all, and its row value is
+submitted verbatim — `serializeParamValues` leaves it untouched even on an
+upload field (objectui#6246). The permission-set Clone action declares it on
+its JSON permission facets, so a clone cannot be hand-edited into granting more
+than its base.
+
+```json
+{ "field": "row_level_security", "defaultFromRow": true, "carryOver": true }
+```
+
 Because each param now emits its widget's own value shape on confirm, the shape
 the dialog **POSTs** for every type is pinned as a contract in
 `utils/paramValueShape.ts` (`PARAM_VALUE_SHAPES` / `expectedParamShape`) and
@@ -656,32 +668,36 @@ JSON `action:button` schemas can also trigger the page routes directly
 via the action runner, regardless of the object's `editMode`. The handler
 name goes in `actionType` — that is the key the button renderer forwards
 to the action runner as the action's type, and the runner dispatches to
-the handler registered under it. Arguments go in a top-level `params`
-object:
+the handler registered under it. Arguments are static values under
+`properties.params` (an action's `params` is only the `ActionParam[]`
+list of inputs to collect; a node-level `params` object is ignored):
 
 ```json
 {
   "type": "action:button",
   "label": "New Account",
   "actionType": "navigate_create",
-  "params": { "objectName": "account" }
+  "properties": {
+    "params": { "objectName": "account" }
+  }
 }
 ```
 
-`navigate_edit` additionally needs the record to open. `params` reaches
-the handler verbatim: template expressions such as `${record.id}` are not
-evaluated inside `params`, and `action:button` does not inject the
-surrounding row, so a declared `navigate_edit` button carries a literal
-`recordId`:
+`navigate_edit` additionally needs the record to open. Every string in
+`properties.params` is a template, evaluated like other `properties`
+values, so a button on a record page names its record with
+`${record.id}`:
 
 ```json
 {
   "type": "action:button",
   "label": "Edit",
   "actionType": "navigate_edit",
-  "params": {
-    "objectName": "account",
-    "recordId": "0015e000abcd"
+  "properties": {
+    "params": {
+      "objectName": "account",
+      "recordId": "${record.id}"
+    }
   }
 }
 ```

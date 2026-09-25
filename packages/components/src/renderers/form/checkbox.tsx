@@ -49,8 +49,19 @@ const CheckboxRenderer = ({ schema, className, onChange, value, disabled: hostDi
         name={schema.name}
         {...toFormControlDomProps(checkboxProps)}
       />
-      <Label htmlFor={schema.id} className={cn("text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70", schema.required && "text-destructive after:content-['*'] after:ml-0.5")}>
+      <Label htmlFor={schema.id} className={cn("text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70", schema.required && "text-destructive")}>
         {schema.label}
+        {schema.required && (
+          // A real `aria-hidden` element, not CSS generated content: this
+          // label names the checkbox, and `::after` content enters the
+          // accessible name ("Title*") where `aria-hidden` cannot reach it
+          // (objectui#10368; the full note is on `FieldContainer`). The
+          // required STATE is the `aria-required` Radix writes from the
+          // `required` prop above.
+          <span className="ml-0.5 text-destructive" data-required-marker="true" aria-hidden="true">
+            *
+          </span>
+        )}
       </Label>
     </div>
   );

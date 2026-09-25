@@ -245,6 +245,16 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
 
     const handleExecute = useCallback(
       async (action: UIActionSchema) => {
+        // UI-local escape hatch: direct callback, bypass ActionEngine — the
+        // branch `action:menu` and `action:button` take (see action-button.tsx
+        // for why it is invoked here rather than forwarded). Both display
+        // modes reach the runner through this one function, so both honour it.
+        // Neither called nor forwarded, a code-composed `onClick` was silently
+        // inert on this surface (objectui#4202).
+        if (typeof action.onClick === 'function') {
+          await action.onClick();
+          return;
+        }
         await execute({
           type: action.type,
           name: action.name,
@@ -284,6 +294,10 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
           // here the action succeeds and the authored navigation never runs.
           // Uncast since objectui#5934 (legacy callback channel retired).
           onSuccess: action.onSuccess,
+          // See action-button.tsx — the object the action declares it acts on;
+          // dropped here, a retargeted action silently acted on the page's
+          // object (objectui#4202). Cast for the same reason as there.
+          objectName: (action as any).objectName,
         });
       },
       [execute],

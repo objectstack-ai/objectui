@@ -224,19 +224,50 @@ export const RecordQuickActionsRenderer: React.FC<RecordQuickActionsRendererProp
     } as any,
   });
 
-  // Object-level permission gate — evaluated AFTER all hooks (useActionEngine
-  // above must run every render) so hook order stays stable.
-  if (required.length > 0 && objectName) {
-    const ok = required.every((p) => perms.can(objectName, p as any));
-    if (!ok) {
-      return (
-        <div className={className} {...designer} role="status" aria-live="polite">
-          <p className="text-sm text-muted-foreground italic">
-            Insufficient permissions to view quick actions.
-          </p>
-        </div>
-      );
-    }
+  /**
+   * Block-level ADR-0066 CAPABILITY gate — evaluated AFTER all hooks
+   * (`useActionEngine` above must run every render) so hook order stays
+   * stable.
+   *
+   * `requiredPermissions` on a record block is a **system capability set** —
+   * the one meaning the word carries on `action`, `app`, `field` and
+   * `bulkAction` — so it is read through the permission context's capability
+   * path (`hasCapabilities` over the reported `systemPermissions`) and gates
+   * **fail-closed**: an unheld or unrecognised capability hides the whole bar
+   * (objectui#10058, ruling batch #192 item 5 letter B).
+   *
+   * ⛔ NOT `perms.can(objectName, name)`. That call's second argument is the
+   * closed object-action enum, and the stock `/me/permissions` provider maps
+   * only eight verbs (`read`, `view`, `create`, `update`, `edit`, `delete`,
+   * `import`, `export`) before its `?? 'allowRead'` tail sends everything
+   * else to the object's read bit. Measured on the stock provider with an
+   * empty capability set and `allowRead: true`: `crm.manage`, `manage_users`,
+   * and the enum's own `manage` / `admin` / `share` / `configure` / `execute`
+   * all answered `true` — a declared permission gate that passed for every
+   * reader of the object, with no refusal, no warning and no log. The lit
+   * control in the same reading: `create` and `delete` answered `false` off
+   * their own bits, so that tail is a live fallback rather than an artefact.
+   *
+   * ⛔ The object name is deliberately ABSENT from the verdict. A system
+   * capability is not object-scoped, and the old `&& objectName` guard was a
+   * second silent fail-open: a bar rendered outside a record context skipped
+   * its declared gate entirely.
+   *
+   * ⚠️ A provider that never REPORTS capabilities (`systemPermissions`
+   * `undefined` — the role-based `PermissionProvider`, a backend predating
+   * ADR-0066, or no provider at all) still opens this gate. That is
+   * `hasCapabilities`'s own ruled doctrine for unreported-vs-empty, shared
+   * with every other capability gate in the tree; "reported, holds nothing"
+   * (`[]`) is a real answer and gates strictly.
+   */
+  if (required.length > 0 && !perms.hasCapabilities(required)) {
+    return (
+      <div className={className} {...designer} role="status" aria-live="polite">
+        <p className="text-sm text-muted-foreground italic">
+          Insufficient permissions to view quick actions.
+        </p>
+      </div>
+    );
   }
 
   const visibleActions = actions.length > 0 ? getActionsForLocation(location) : [];

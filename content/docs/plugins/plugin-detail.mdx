@@ -25,9 +25,7 @@ The Feed & Chatter system provides Airtable-style record-level collaboration. It
 |-----------|---------|
 | `RecordChatterPanel` | Main wrapper panel (bottom/right/left positioning, collapsible) |
 | `RecordActivityTimeline` | Core activity feed renderer (filter, pagination, actor display) |
-| `CommentInput` | Comment submission with Ctrl+Enter shortcut |
 | `FieldChangeItem` | Field change history display (old → new values) |
-| `MentionAutocomplete` | @mention suggestion dropdown |
 | `ReactionPicker` | Emoji reaction selector |
 | `ThreadedReplies` | Collapsible reply threading |
 | `SubscriptionToggle` | Bell notification toggle |
@@ -255,7 +253,7 @@ itself, so everything above describes that page too.
 | `types` | Allow-list of feed item types. Recognised entries narrow the feed; unrecognised ones are dropped and named in one `console.warn`. A list that keeps nothing — `types: []`, or one whose every entry is unrecognised — filters to **nothing** and the panel renders an empty timeline, rather than widening back to every kind. Omit `types` for no filter; that is the only value that means it. A recognised entry that **no producer emits** is honoured but named too — see [Feed kinds with no producer](#feed-kinds-with-no-producer). | — |
 | `filterMode` | Which slice the filter dropdown opens on (`all` / `comments_only` / `changes_only` / `tasks_only`). The user can still change it. An unrecognised value falls back to `all`. | — |
 | `showFilterToggle` | Shows/hides that dropdown. | — |
-| `limit` | Items per page; also caps the scoped `sys_activity` read. "Load more" grows the window by this much and re-reads. | — |
+| `limit` | Items per page; also caps the scoped `sys_activity` read. "Load more" grows the window by this much and re-reads. Must be a positive integer **number**: any other value (a string such as `"5"`, a boolean, a fraction, zero or a negative) is ignored, the block uses its default of 20, and one `console.warn` names the value. The same rule applies to `feed.limit` on `record:chatter` / `record:discussion` and to `limit` on `record:history` (default 50). | — |
 | `showCompleted` | Include completed activities (`sys_activity.type = 'completed'`, which surfaces as a `task` item). Off by default, per spec. | — |
 | `unifiedTimeline` | Default `true` mixes field changes and comments in one timeline (Airtable style). `false` un-mixes them: the panel becomes a discussion stream and field changes stay in `record:history`. | — |
 | `showCommentInput` | Shows the composer. | A host discussion context to persist the comment. Without one the feed is read-only and no composer is rendered. |
@@ -444,15 +442,6 @@ decision as a defect is how a warning channel gets ignored:
 | `onToggleSubscription` | `(subscribed: boolean) => void` | — | Toggle subscription callback |
 | `className` | `string` | `''` | Additional CSS classes |
 
-### CommentInput
-
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `onSubmit` | `(text: string) => void` | required | Comment submit callback |
-| `placeholder` | `string` | `'Add a comment...'` | Input placeholder text |
-| `disabled` | `boolean` | `false` | Disable input |
-| `className` | `string` | `''` | Additional CSS classes |
-
 ### ReactionPicker
 
 | Property | Type | Default | Description |
@@ -517,7 +506,6 @@ import type {
 import type {
   RecordChatterPanelProps,
   RecordActivityTimelineProps,
-  CommentInputProps,
   FieldChangeItemProps,
   ReactionPickerProps,
   ThreadedRepliesProps,

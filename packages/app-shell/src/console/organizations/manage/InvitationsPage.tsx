@@ -22,7 +22,7 @@ import {
 } from '@object-ui/components';
 import { useAuth } from '@object-ui/auth';
 import type { AuthInvitation, AuthInvitationStatus } from '@object-ui/auth';
-import { useObjectTranslation } from '@object-ui/i18n';
+import { useDisplayLocale, useObjectTranslation } from '@object-ui/i18n';
 import { Loader2, Copy, Check, X, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { useOrgContext } from './orgContext.js';
@@ -58,6 +58,9 @@ function statusBadgeVariant(status: AuthInvitationStatus): 'outline' | 'default'
 
 export function InvitationsPage() {
   const { t } = useObjectTranslation();
+  // Dates and numbers on this surface read the display locale; a bare
+  // `toLocale*()` call used the MACHINE's locale (objectui#9909).
+  const displayLocale = useDisplayLocale();
   const { org } = useOrgContext();
   const { listInvitations, cancelInvitation, activeMember } = useAuth();
 
@@ -227,7 +230,7 @@ export function InvitationsPage() {
                 {inv.expiresAt && (
                   <div className="text-xs text-muted-foreground">
                     {t('organization.invitations.expiresAt', { defaultValue: 'Expires' })}{' '}
-                    {new Date(inv.expiresAt).toLocaleDateString()}
+                    {new Date(inv.expiresAt).toLocaleDateString(displayLocale)}
                   </div>
                 )}
               </div>

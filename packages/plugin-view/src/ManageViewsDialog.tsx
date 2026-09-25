@@ -118,7 +118,11 @@ interface RowProps {
   isActive: boolean;
   Icon: ComponentType<{ className?: string }>;
   isRenaming: boolean;
-  onStartRename: (id: string) => void;
+  /**
+   * Undefined when the host wired no `onRename`: committing a rename would
+   * then call nothing, so the row must not offer to start one.
+   */
+  onStartRename?: (id: string) => void;
   onCommitRename: (id: string, name: string) => void;
   onCancelRename: () => void;
   onRowClick?: (id: string) => void;
@@ -166,6 +170,27 @@ const SortableRow: React.FC<RowProps> = ({
   // default, pin, edit configuration, delete). Duplicate is preserved
   // because it produces a fresh override that *is* mutable.
   const isReadonly = !!view.readonly;
+
+  /**
+   * The overflow menu's entries, each resolved ONCE to the handler it will
+   * run — or `undefined` when that entry will not render. The entries, the
+   * separator above Delete and the `…` trigger all read these same values,
+   * so the trigger can never open a menu whose every entry dropped out.
+   *
+   * The trigger used to ask a different question — "is a callback wired?" —
+   * while each entry also asked `!isReadonly`. On a read-only row (the
+   * console wires no `onDuplicate`, objectui#1520) every entry dropped out and
+   * the trigger opened an empty 180px-wide strip of popover (objectui#10209).
+   */
+  const renameAction = isReadonly ? undefined : onStartRename;
+  const duplicateAction = onDuplicate;
+  const configAction = isReadonly ? undefined : onConfigView;
+  const setDefaultAction = isReadonly || view.isDefault ? undefined : onSetDefault;
+  const pinAction = isReadonly ? undefined : onSetPinned;
+  const deleteAction = isReadonly ? undefined : onDelete;
+  const hasEntryAboveDelete =
+    !!(renameAction || duplicateAction || configAction || setDefaultAction || pinAction);
+  const hasMenuEntry = hasEntryAboveDelete || !!deleteAction;
 
   useEffect(() => {
     if (isRenaming) {
@@ -244,7 +269,7 @@ const SortableRow: React.FC<RowProps> = ({
             className="w-full text-left text-sm font-medium truncate cursor-pointer flex items-center gap-1.5"
             onDoubleClick={(e) => {
               e.stopPropagation();
-              if (!isReadonly) onStartRename(view.id);
+              renameAction?.(view.id);
             }}
             title={view.label}
           >
@@ -320,7 +345,7 @@ const SortableRow: React.FC<RowProps> = ({
       )}
 
       {/* Overflow menu */}
-      {!isRenaming && (onDelete || onDuplicate || onConfigView || onSetDefault) && (
+      {!isRenaming && hasMenuEntry && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -334,54 +359,54 @@ const SortableRow: React.FC<RowProps> = ({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-[180px]">
-            {!isReadonly && (
+            {renameAction && (
               <DropdownMenuItem
                 data-testid={`manage-views-action-rename-${view.id}`}
-                onClick={() => onStartRename(view.id)}
+                onClick={() => renameAction(view.id)}
               >
                 <Pencil className="h-4 w-4 mr-2" /> {vt('view.rename', 'Rename')}
               </DropdownMenuItem>
             )}
-            {onDuplicate && (
+            {duplicateAction && (
               <DropdownMenuItem
                 data-testid={`manage-views-action-duplicate-${view.id}`}
-                onClick={() => onDuplicate(view.id)}
+                onClick={() => duplicateAction(view.id)}
               >
                 <Copy className="h-4 w-4 mr-2" /> {vt('view.duplicateView', 'Duplicate View')}
               </DropdownMenuItem>
             )}
-            {onConfigView && !isReadonly && (
+            {configAction && (
               <DropdownMenuItem
                 data-testid={`manage-views-action-config-${view.id}`}
-                onClick={() => onConfigView(view.id)}
+                onClick={() => configAction(view.id)}
               >
                 <Pencil className="h-4 w-4 mr-2" /> {vt('view.editViewConfig', 'Edit view config')}
               </DropdownMenuItem>
             )}
-            {onSetDefault && !view.isDefault && !isReadonly && (
+            {setDefaultAction && (
               <DropdownMenuItem
                 data-testid={`manage-views-action-default-${view.id}`}
-                onClick={() => onSetDefault(view.id)}
+                onClick={() => setDefaultAction(view.id)}
               >
                 <Star className="h-4 w-4 mr-2" /> {vt('view.setAsDefault', 'Set as Default')}
               </DropdownMenuItem>
             )}
-            {onSetPinned && !isReadonly && (
+            {pinAction && (
               <DropdownMenuItem
                 data-testid={`manage-views-action-pin-${view.id}`}
-                onClick={() => onSetPinned(view.id, !view.isPinned)}
+                onClick={() => pinAction(view.id, !view.isPinned)}
               >
                 {view.isPinned
                   ? <><PinOff className="h-4 w-4 mr-2" /> {vt('view.unpinView', 'Unpin View')}</>
                   : <><Pin className="h-4 w-4 mr-2" /> {vt('view.pinView', 'Pin View')}</>}
               </DropdownMenuItem>
             )}
-            {onDelete && !isReadonly && (
+            {deleteAction && (
               <>
-                <DropdownMenuSeparator />
+                {hasEntryAboveDelete && <DropdownMenuSeparator />}
                 <DropdownMenuItem
                   data-testid={`manage-views-action-delete-${view.id}`}
-                  onClick={() => onDelete(view.id)}
+                  onClick={() => deleteAction(view.id)}
                   className="text-destructive focus:text-destructive"
                 >
                   <Trash2 className="h-4 w-4 mr-2" /> {vt('view.deleteView', 'Delete View')}
@@ -540,7 +565,7 @@ export const ManageViewsDialog: React.FC<ManageViewsDialogProps> = ({
                         Icon={Icon}
                         isActive={view.id === activeViewId}
                         isRenaming={renamingId === view.id}
-                        onStartRename={(id) => setRenamingId(id)}
+                        onStartRename={onRename ? (id) => setRenamingId(id) : undefined}
                         onCancelRename={() => setRenamingId(null)}
                         onCommitRename={(id, name) => {
                           setRenamingId(null);

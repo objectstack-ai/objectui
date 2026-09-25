@@ -21,20 +21,14 @@
 // is what makes the claim true, and what makes a spec change break the build
 // instead of drifting quietly.
 import type {
-  ExportJobStatus,
-  ExportFormat as ExportJobFormat,
   ImportJobStatus,
   ImportRowResult,
   ImportWriteMode,
 } from '@objectstack/spec/api';
-import type {
-  CreateExportJobInput as SpecCreateExportJobInput,
-  CreateExportJobResult,
-} from '@objectstack/spec/contracts';
 import type { FilterArray } from '@objectstack/spec/data';
 import type { ValidationError } from '@objectstack/spec/kernel';
 
-export type { ExportJobStatus, ImportJobStatus, ImportWriteMode, ValidationError };
+export type { ImportJobStatus, ImportWriteMode, ValidationError };
 
 /**
  * Query parameters for data fetching.
@@ -356,32 +350,35 @@ export interface DeleteViewResult {
  * because `@objectstack/spec` declares every record door as `z.string()`. An
  * adapter for a backend whose primary keys are numeric converts at its OWN
  * boundary, in one typed place, rather than widening this contract for every
- * caller. `update` narrowed at objectui#9333; `delete`, `bulkUpdate` and
- * `bulkDelete` narrowed at objectui#9511 — none of the three had a single
- * call site in this monorepo that had to change.
+ * caller. **All five doors say it**, and there is ⛔ no exception to go
+ * looking for: a reader who meets one method has learned the rule for all of
+ * them. `update` narrowed at objectui#9333; `delete`, `bulkUpdate` and
+ * `bulkDelete` at objectui#9712; `findOne` — the last door, and the only one
+ * with call sites to pay for — at objectui#9511.
  *
- * ⚠️ ONE door is still wide, and it is wide for a reason that is written down
- * rather than left to be rediscovered: `findOne`. Narrowing it is ruled
- * (director batch #136 item 5, letter B) but not yet landed, because of what
- * its remaining call sites turn out to read:
+ * ## Why `findOne` cost more than the other four
  *
- * - `ObjectForm` reads `ObjectFormSchema.recordId`, and `DetailView` reads
- *   `DetailViewSchema.resourceId`. Both are AUTHORABLE metadata keys whose zod
- *   mirrors accept a number today, so narrowing either one refuses author JSON
- *   that validates now — an accept-set change this ruling does not name.
- * - `DrawerForm`, `ModalForm`, `SplitForm`, `TabbedForm` and `WizardForm` each
- *   read their OWN `recordId`, declared on their own exported schema face.
- *   Those faces carry no zod mirror and no registered node type, so they are
- *   TypeScript-only — the same class as `UseViewDataResult.fetchOne`, which
- *   narrowed with this card. ⛔ They still cannot narrow ahead of the decision:
+ * Kept because the SHAPE of the cost is the reusable part, not the repair.
+ * `delete`, `bulkUpdate` and `bulkDelete` had ZERO in-tree call sites to
+ * change. `findOne`'s readers are AUTHORABLE metadata keys, so narrowing it
+ * narrowed an accept set that authors write by hand:
+ *
+ * - `ObjectFormSchema.recordId`, `DetailViewSchema.resourceId` and
+ *   `DetailSchema.resourceId` each moved on BOTH published faces — the
+ *   TypeScript declaration and the hand-written zod mirror. A declaration
+ *   alone would not have been enough: it does not run at parse time, so the
+ *   mirror is the only face that can refuse an authored number.
+ * - `DrawerForm`, `ModalForm`, `SplitForm`, `TabbedForm` and `WizardForm`
+ *   followed on their own TypeScript-only faces, which carry no zod mirror and
+ *   no registered node type. They had to move together with the key above:
  *   `ObjectForm` BUILDS all five of those schemas from its own (authorable)
- *   `ObjectFormSchema`, so narrowing them alone only moves the same refusal
- *   onto those hand-off sites.
+ *   `ObjectFormSchema`, so narrowing one without the others only relocates the
+ *   refusal onto the hand-off site.
  *
- * ⇒ closing this door means either narrowing an authoring face or converting
- * at a reader, and the choice is carried to the decision inbox on
- * objectui#9511 rather than picked here. ⛔ Do not narrow `findOne` without
- * that decision.
+ * ⇒ an author who wrote `resourceId: 42` is refused AT PARSE with the quoted
+ * form prescribed in the message; ⛔ nothing converts it silently, in either
+ * direction. Ruled as one rule with no exception — director batch #195 item 1,
+ * letter A on objectui#9511, standing on batch #136 item 5 letter B.
  *
  * ⚠️ Narrowing a parameter here does NOT reach implementors — TypeScript
  * compares method parameters bivariantly, so an adapter that still declares
@@ -426,14 +423,14 @@ export interface DataSource<T = any> {
    * Fetch a single record by ID.
    *
    * @param resource - Resource name
-   * @param id - Record identifier. ⚠️ The one id parameter on this interface
-   *   still declared `string | number` — see the record-id rule on
-   *   {@link DataSource} for why this door is held open and what has to be
-   *   decided before it closes (objectui#9511).
+   * @param id - Record identifier. A `string`, per the one record-id rule on
+   *   {@link DataSource} — the last door to adopt it (objectui#9511). A
+   *   backend whose primary keys are numeric converts at its own adapter
+   *   boundary, ⛔ not here and ⛔ not at each caller.
    * @param params - Additional query parameters
    * @returns Promise resolving to the record or null
    */
-  findOne(resource: string, id: string | number, params?: QueryParams): Promise<T | null>;
+  findOne(resource: string, id: string, params?: QueryParams): Promise<T | null>;
 
   /**
    * Create a new record.
@@ -801,65 +798,10 @@ export interface DataSource<T = any> {
   onMutation?(callback: (event: DataSourceMutationEvent<T>) => void): () => void;
 
   /**
-   * Initiate an asynchronous export job for a resource (server-driven streaming export).
-   *
-   * When implemented, callers can fire-and-forget large exports — the data
-   * source is responsible for queueing the job, streaming records to the chosen
-   * format, and producing a downloadable file. UI consumers then poll
-   * `getExportJobProgress` until the job reaches a terminal state and use
-   * `downloadUrl` (or `getExportJobDownloadUrl`) to deliver the file.
-   *
-   * Optional — when not implemented, callers fall back to client-side export
-   * (the legacy synchronous blob path used by ObjectGrid).
-   *
-   * Aligns with the spec v4 `CreateExportJobRequest` / `CreateExportJobResponse`
-   * contracts (see `@objectstack/spec/export`).
-   *
-   * @param resource - Resource name (e.g., 'account', 'opportunity')
-   * @param request - Export request (format, fields, filter, sort, limit, …)
-   * @returns Promise resolving to job tracking info ({ jobId, status, … })
-   */
-  createExportJob?(
-    resource: string,
-    request: CreateExportJobRequest,
-  ): Promise<CreateExportJobResult>;
-
-  /**
-   * Poll the progress of a previously-created export job.
-   *
-   * Optional — required only if `createExportJob` is implemented.
-   *
-   * @param jobId - The job identifier returned by `createExportJob`.
-   * @returns Promise resolving to current progress / terminal status.
-   */
-  getExportJobProgress?(jobId: string): Promise<ExportJobProgressInfo>;
-
-  /**
-   * Cancel an in-flight export job.
-   * Optional — implementations that don't support cancellation may omit this
-   * method (the UI will hide the Cancel button).
-   *
-   * @param jobId - The job identifier to cancel.
-   */
-  cancelExportJob?(jobId: string): Promise<void>;
-
-  /**
-   * Resolve the final download URL for a completed export job.
-   *
-   * Optional — when omitted, consumers fall back to the `downloadUrl` field on
-   * the latest progress payload. Implementations may use this hook to mint
-   * a fresh signed URL just before download.
-   *
-   * @param jobId - The job identifier.
-   * @returns Promise resolving to a downloadable URL (may be short-lived).
-   */
-  getExportJobDownloadUrl?(jobId: string): Promise<string>;
-
-  /**
    * Synchronously download a server-streamed export of a resource.
    *
-   * Unlike the async `createExportJob` family, this resolves directly to the
-   * exported file as a `Blob`: the server streams matching rows in the chosen
+   * It resolves directly to the exported file as a `Blob`: the server streams
+   * matching rows in the chosen
    * format (`csv` / `json` / `xlsx`), applies type-aware value formatting
    * (lookup → name, select → label, boolean → 是/否, dates formatted) and
    * enforces object / field / row permissions. Suited to interactive
@@ -1216,85 +1158,6 @@ export interface ExportDownloadRequest {
   limit?: number;
   /** Whether to write a header row (csv / xlsx). Default true. */
   includeHeaders?: boolean;
-}
-
-/**
- * Lifecycle status of a server-driven export job. Imported from
- * `@objectstack/spec/api` at the top of this module.
- */
-
-/**
- * Output formats supported by async export jobs — the spec's `ExportFormat`,
- * re-exported by reference (objectstack#4115) instead of restated. The union it
- * replaces listed the same five members, which is exactly the state a copy is in
- * one spec release before it is wrong.
- */
-export type { ExportFormat as ExportJobFormat } from '@objectstack/spec/api';
-
-/**
- * Request payload for `DataSource.createExportJob`, DERIVED from the spec's
- * `CreateExportJobInput` (objectstack#4115).
- *
- * The hand copy this replaces carried the note "ObjectUI does not import the
- * zod schema directly to keep `@object-ui/types` zero-dependency". That reason
- * had already expired: `@objectstack/spec` is a direct dependency of this
- * package, and this very module imports `ExportJobStatus` / `ImportWriteMode`
- * from `@objectstack/spec/api` at the top. A stale reason, still stated in the
- * authoritative voice, is what keeps a fork in place long after its argument is
- * gone (the `external/api.ts` case in objectui#3169).
- *
- * `CreateExportJobInput`, not the spec's `CreateExportJobRequest`: the latter is
- * `z.infer` of the request schema, i.e. the shape AFTER `.default()` has run, so
- * `format` / `includeHeaders` / `encoding` are required there. A caller builds
- * this payload, so the authoring side is the true one (objectui#3169).
- *
- * `object` is omitted because it is the method's own `resource` argument —
- * `createExportJob(resource, request)`; it must not be authored twice.
- */
-export type CreateExportJobRequest = Omit<SpecCreateExportJobInput, 'object'>;
-
-/**
- * Result of `DataSource.createExportJob` — the spec's contract type, re-exported
- * by reference (objectstack#4115). UI consumers use `jobId` as the polling key.
- *
- * The copy this replaces declared `createdAt` optional where the spec requires
- * it, so every consumer carried a nullish branch for a field the server always
- * sends — the same optional/required skew found across `app-shell` in
- * objectui#3169.
- */
-export type { CreateExportJobResult } from '@objectstack/spec/contracts';
-
-/**
- * Progress payload returned by `DataSource.getExportJobProgress`.
- *
- * Once `status` is 'completed', `downloadUrl` (or
- * `DataSource.getExportJobDownloadUrl`) becomes available.
- */
-export interface ExportJobProgressInfo {
-  /** Job identifier. */
-  jobId: string;
-  /** Current lifecycle status. */
-  status: ExportJobStatus;
-  /** Format the file is being produced in. */
-  format?: ExportJobFormat;
-  /** Total records in the slice (may be unknown for streaming exports). */
-  totalRecords?: number;
-  /** Records written to the output stream so far. */
-  processedRecords?: number;
-  /** 0–100 progress; computed by the server when `totalRecords` is known. */
-  percentComplete?: number;
-  /** Final file size in bytes (present after completion). */
-  fileSize?: number;
-  /** Direct download URL (present after completion). */
-  downloadUrl?: string;
-  /** ISO-8601 timestamp at which `downloadUrl` expires. */
-  downloadExpiresAt?: string;
-  /** Error details when `status === 'failed'`. */
-  error?: { code: string; message: string };
-  /** ISO-8601 start timestamp. */
-  startedAt?: string;
-  /** ISO-8601 completion timestamp. */
-  completedAt?: string;
 }
 
 /**

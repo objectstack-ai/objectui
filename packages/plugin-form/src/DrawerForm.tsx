@@ -31,6 +31,7 @@ import {
   AlertDialogDescription,
   AlertDialogAction,
   AlertDialogCancel,
+  toast,
 } from '@object-ui/components';
 import { Loader2 } from 'lucide-react';
 
@@ -39,6 +40,7 @@ import { createSafeTranslation } from '@object-ui/i18n';
 import { MasterDetailForm } from './MasterDetailForm';
 import { buildSectionFields as buildSectionFieldsShared } from './sectionFields';
 import { buildFlatFields } from './flatFields';
+import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
 import {
   applyAutoColSpan,
   applyAutoLayout,
@@ -47,8 +49,9 @@ import {
   inferColumns,
   CONTAINER_GRID_COLS,
 } from './autoLayout';
-import { deriveFieldGroupSections, projectSectionDivider } from './fieldGroups';
+import { deriveFieldGroupSections, projectSectionDivider, resolveSectionCollapse } from './fieldGroups';
 import { sanitizeFormData } from './sanitize';
+import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
 import { seedCreateValues, omitServerResolvedDefaults } from './schemaDefaults';
 import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
@@ -96,7 +99,8 @@ export interface DrawerFormSchema {
   formType: 'drawer';
   objectName: string;
   mode: 'create' | 'edit' | 'view';
-  recordId?: string | number;
+  /** Record ID (for edit/view modes). A string, per the one record-id rule on `DataSource` (objectui#9511) — `ObjectForm` builds this schema from the authorable `ObjectFormSchema.recordId`, which is a string, and `findOne` takes a string. */
+  recordId?: string;
   title?: string;
   description?: string;
   sections?: DrawerFormSectionConfig[];
@@ -193,8 +197,28 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
   className,
 }) => {
   const { fieldLabel, sectionLabel } = useSafeFieldLabel();
-  const { userId: currentUserId } = usePermissions();
+  const perms = usePermissions();
+  const { userId: currentUserId } = perms;
+  /**
+   * FLS gate: drop non-readable fields, render non-editable ones read-only.
+   * The drawer is the third container of this family and used to carry NEITHER
+   * half of it — the same edit that the modal and the simple form refused to
+   * send, this one sent, and the field the other two rendered disabled this one
+   * rendered as a live input (objectui#10120). One pass, shared.
+   */
+  const applyFieldPerms = useCallback(
+    (fields: FormField[]): FormField[] =>
+      applyFieldPermissions(fields, {
+        perms,
+        objectName: schema.objectName,
+        mode: schema.mode,
+      }) as FormField[],
+    [perms, schema.objectName, schema.mode],
+  );
   const { t } = useDiscardTranslation();
+  // Upload-in-flight gate (objectui#10166): Save is refused, disabled and
+  // EXPLAINED while a file/image widget below is still uploading.
+  const uploadGate = useUploadGate();
   const previewMode = usePreviewMode();
   const [objectSchema, setObjectSchema] = useState<any>(null);
   const [formFields, setFormFields] = useState<FormField[]>([]);
@@ -220,14 +244,11 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
   // inside the form renderer — see baseFormSchema.showActions below).
   const formId = useId();
 
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
-    const init: Record<string, boolean> = {};
-    schema.sections?.forEach((s, i) => {
-      const key = s.name || String(i);
-      if (s.collapsed) init[key] = true;
-    });
-    return init;
-  });
+  // Per-section LIVE collapse state, keyed by section name or index. Unseeded
+  // on purpose: an untoggled section falls back to its declared `collapsed`
+  // inside `resolveSectionCollapse`, the one reader of that member — the same
+  // shape as ObjectForm's grouped layout (objectui#9849 step one).
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
   // Fetch object schema
   useEffect(() => {
@@ -322,27 +343,48 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         // `defaultValue` excuses a field from `required` (#4069).
         recordId: schema.recordId,
         fieldLabel,
+        // A member naming a section's field is that field's definition, as it
+        // is in ObjectForm's merged pool — for explicit and derived sections
+        // alike (objectui#10254; the explicit push used to regenerate every
+        // named field from the object schema and drop the member).
+        customFields: schema.customFields,
       }),
-    [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, fieldLabel],
+    [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, schema.customFields, fieldLabel],
   );
 
   // Build fields from flat field list (when no sections provided)
   useEffect(() => {
     if (!objectSchema && dataSource) return;
 
-    if (schema.customFields?.length) {
-      setFormFields(schema.customFields);
-      setLoading(false);
-      return;
-    }
+    // Ending the loading state here is only this effect's call when no record
+    // read is outstanding — the FIRST load as much as a swap (objectui#10190).
+    // This effect and the fetch effect above both key on `objectSchema`, so the
+    // commit that publishes the schema runs BOTH, fetch first: it enters the
+    // loading state and fires `findOne`, and an unconditional
+    // `setLoading(false)` here then won, painting an empty, EDITABLE form while
+    // the read was in flight — whose landing replaced whatever had been typed.
+    // A load the fetch effect started is ended by the fetch effect. The
+    // condition mirrors that effect's own branches: create mode, no
+    // `recordId`, or no `dataSource` never read a record.
+    const recordReadOutstanding =
+      schema.mode !== 'create' &&
+      !!schema.recordId &&
+      !!dataSource &&
+      loadedRecordIdRef.current !== schema.recordId;
+    const endLoading = () => {
+      if (!recordReadOutstanding) setLoading(false);
+    };
 
     if (schema.sections?.length) {
       // Fields are built per-section in the render
-      setLoading(false);
+      endLoading();
       return;
     }
 
-    if (!objectSchema) return;
+    // `customFields` MERGES over the generated set, as it does on ObjectForm's
+    // default arm (objectui#10073 — it used to REPLACE it here). With no
+    // object metadata the members are the whole field source.
+    if (!objectSchema && !schema.customFields?.length) return;
 
     // ONE builder, shared with ModalForm (objectui#4755). The two containers
     // each carried their own copy of this loop; the drawer's copy had fallen
@@ -357,9 +399,10 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         mode: schema.mode,
         recordId: schema.recordId,
         fieldLabel,
+        customFields: schema.customFields,
       }),
     );
-    setLoading(false);
+    endLoading();
   }, [objectSchema, schema.fields, schema.customFields, schema.sections, schema.readOnly, schema.mode, dataSource]);
 
   // Field-group fallback (object-designer metadata, objectui#4774): when the
@@ -374,7 +417,10 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
   // no rendered field opts into a declared group, so a group-less object keeps
   // its flat auto-layout untouched.
   const derivedSections = useMemo(() => {
-    if (schema.sections?.length || schema.customFields?.length) return null;
+    // `customFields` does NOT switch the fallback off (objectui#10073): the
+    // members are merged into `formFields` above, and ObjectForm derives its
+    // groups over that same merged pool.
+    if (schema.sections?.length) return null;
     let fs = filterSystemFields(formFields, objectSchema);
     if (schema.mode === 'create') fs = filterAutoGeneratedFields(fs, objectSchema);
     const sections = deriveFieldGroupSections(fs, (objectSchema as any)?.fieldGroups);
@@ -382,11 +428,21 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     const columns = (schema.columns && schema.columns > 0
       ? Math.min(Math.floor(schema.columns), 4)
       : inferColumns(fs.length)) as 1 | 2 | 3 | 4;
+    // A member's definition reaches a group's body through `buildSectionFields`,
+    // the route an explicit section's takes (objectui#10254).
     return sections.map((s) => ({ ...s, columns })) as DrawerFormSectionConfig[];
-  }, [schema.sections, schema.customFields, schema.columns, schema.mode, formFields, objectSchema]);
+  }, [schema.sections, schema.columns, schema.mode, formFields, objectSchema]);
 
   // Handle form submission
   const handleSubmit = useCallback(async (data: Record<string, any>) => {
+    // An upload is still in flight (objectui#10166). Saving now writes the
+    // record WITHOUT the attachment and reports success. The footer's Save is
+    // disabled and labelled for this, so reaching here means a keyboard submit
+    // — refuse it with the same sentence the notice shows.
+    if (uploadGate.uploading) {
+      toast.error(uploadGate.reason);
+      return;
+    }
     setIsSubmitting(true);
     try {
       // No submit TARGET: a declared `submitHandler` owns the write and needs no
@@ -406,7 +462,12 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       }
 
       let result;
-      const payload = sanitizeFormData(data, objectSchema);
+      // FLS defence-in-depth, inside the ONE outbound filter: react-hook-form
+      // retains state for unmounted/disabled fields, so the render gate above
+      // is not enough on its own (objectui#10120).
+      const payload = sanitizeFormData(data, objectSchema, {
+        canEdit: fieldWriteGate(perms, schema.objectName),
+      });
       // Omit the fields the producer owns (#4069) — see
       // `omitServerResolvedDefaults` for why an empty key is not the same as
       // no key at insert time. Create only: on an edit form a cleared column is
@@ -457,7 +518,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [schema, dataSource, objectSchema, saveWithOcc, formData]);
+  }, [schema, dataSource, objectSchema, saveWithOcc, formData, perms, uploadGate.uploading, uploadGate.reason]);
 
   // Actually close the drawer, firing onCancel only when the close originated
   // from the explicit Cancel button.
@@ -575,48 +636,41 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       const allFields: FormField[] = [];
       schema.sections.forEach((section, index) => {
         const sectionKey = section.name || String(index);
-        const isCollapsed = collapsedSections[sectionKey] ?? (section.collapsed ?? false);
         // Resolved before the divider push so the membership claim below can
         // name exactly the fields this group contributes (#6236).
-        const sectionFields = buildSectionFields(section);
+        const sectionFields = applyFieldPerms(buildSectionFields(section));
+        // The ONE `collapsed` / `collapsible` resolution (objectui#9849):
+        // objectui#9780's `collapsed` implies `collapsible`, read from the
+        // DECLARATION. The control lives on the divider row (director ruling
+        // letter E, item 3), so a member with neither a heading nor a blurb is
+        // never collapsed, keeps its fields, and is reported if it declared
+        // the pair.
+        const collapse = resolveSectionCollapse(section, {
+          live: collapsedSections[sectionKey],
+          title: section.label,
+          description: section.description,
+          where: `DrawerForm section '${sectionKey}' of object '${schema.objectName}'`,
+          setCollapsed: next => setCollapsedSections(prev => ({ ...prev, [sectionKey]: next })),
+        });
 
-        // The ONE path from a section configuration to its divider row
-        // (objectui#9849) — `projectSectionDivider` owns every key this row
-        // carries. ⚠️ This arm's gate stays UNCONDITIONAL: it draws a row for
-        // every section, heading or not, which is what makes a headingless
-        // section with a blurb render that blurb alone here while the default
-        // arm draws a blurb-only row and the modal's derived arm draws nothing.
-        // That difference is a reading (`drawerFormSectionDescription-9834`
-        // row 5), ⛔ not a ruling, and collapsing it would move the ADR-0089
-        // predicate and the objectui#6236 membership claim this row carries —
-        // see the gate union the helper hands back.
-        //
-        // ⚠️ The collapse pair is resolved HERE and handed over resolved: this
-        // push reads `section.collapsible` alone, so objectui#9780's
-        // «`collapsed` implies `collapsible`» — applied on the default arm —
-        // still does not hold on this one. ⛔ Unchanged by this card on
-        // purpose; converging it is the `collapsed` / `collapsible` decision.
+        // The ONE path from a section configuration to its divider row, and
+        // the ONE row rule (objectui#9849, director ruling letter E): the
+        // visible row exists iff `title || description`, while the ADR-0089
+        // predicate and the objectui#6236 membership claim ride the group
+        // whether or not it yields one. This push used to draw a row for
+        // EVERY member, heading or not; that per-arm gate is gone.
         allFields.push(
-          ...projectSectionDivider(
-            {
-              key: sectionKey,
-              title: section.label,
-              description: section.description,
-              visibleWhen: (section as any).visibleWhen,
-              members: sectionFields.map(f => f.name),
-              collapse: {
-                collapsible: section.collapsible,
-                collapsed: isCollapsed,
-                onToggle: section.collapsible
-                  ? () => setCollapsedSections(prev => ({ ...prev, [sectionKey]: !isCollapsed }))
-                  : undefined,
-              },
-            },
-            'always',
-          ),
+          ...projectSectionDivider({
+            key: sectionKey,
+            title: section.label,
+            description: section.description,
+            visibleWhen: (section as any).visibleWhen,
+            members: sectionFields.map(f => f.name),
+            collapse,
+          }),
         );
 
-        if (isCollapsed) {
+        if (collapse.collapsed) {
           allFields.push(...sectionFields.map(f => ({ ...f, hidden: true })));
         } else {
           allFields.push(...sectionFields);
@@ -643,48 +697,35 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       const columns = (Number(derivedSections[0]?.columns) || 1) as 1 | 2 | 3 | 4;
       const allFields: FormField[] = [];
       derivedSections.forEach((section, index) => {
-        const body = buildSectionFields(section);
+        const body = applyFieldPerms(buildSectionFields(section));
         if (!body.length) return;
         const sectionKey = section.name || String(index);
-        // Only a section that declares itself collapsible can hide its fields —
-        // an untitled/non-collapsible bucket renders no header, so a `collapsed`
-        // flag there would hide fields with no control to bring them back.
-        const isCollapsed = section.collapsible
-          ? (collapsedSections[sectionKey] ?? section.collapsed ?? false)
-          : false;
         // Group headers go through the same i18n hook ObjectForm and ModalForm
         // use, so a translated group label wins over the raw metadata label.
         const title = section.name
           ? sectionLabel(schema.objectName, section.name, section.label || section.name)
           : section.label;
-        // The ONE path (objectui#9849). ⚠️ This arm keeps its `if (title)`
-        // gate, so a derived group with no heading still draws no divider and
-        // still drops its blurb — the same residual the modal's derived arm
-        // has. ⛔ Widening it would also decide the ADR-0089 predicate row and
-        // the objectui#6236 membership claim; the helper's gate union carries
-        // that hand-back. The collapse pair is this file's SECOND resolution
-        // of the same two keys and is handed over resolved, unchanged.
+        // The same ONE resolution and ONE row rule as the explicit push above
+        // (objectui#9849, director ruling letter E).
+        const collapse = resolveSectionCollapse(section, {
+          live: collapsedSections[sectionKey],
+          title,
+          description: section.description,
+          where: `DrawerForm field group '${sectionKey}' of object '${schema.objectName}'`,
+          setCollapsed: next => setCollapsedSections(prev => ({ ...prev, [sectionKey]: next })),
+        });
         allFields.push(
-          ...projectSectionDivider(
-            {
-              key: sectionKey,
-              title,
-              description: section.description,
-              visibleWhen: (section as any).visibleWhen,
-              members: body.map(f => f.name),
-              collapse: {
-                collapsible: section.collapsible,
-                collapsed: isCollapsed,
-                onToggle: section.collapsible
-                  ? () => setCollapsedSections(prev => ({ ...prev, [sectionKey]: !isCollapsed }))
-                  : undefined,
-              },
-            },
-            'heading',
-          ),
+          ...projectSectionDivider({
+            key: sectionKey,
+            title,
+            description: section.description,
+            visibleWhen: (section as any).visibleWhen,
+            members: body.map(f => f.name),
+            collapse,
+          }),
         );
         const laidOut = columns > 1 ? applyAutoColSpan(body, columns) : body;
-        allFields.push(...(isCollapsed ? laidOut.map(f => ({ ...f, hidden: true })) : laidOut));
+        allFields.push(...(collapse.collapsed ? laidOut.map(f => ({ ...f, hidden: true })) : laidOut));
       });
       const groupedFieldClass = CONTAINER_GRID_COLS[columns];
       return (
@@ -700,7 +741,9 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     }
 
     // Apply auto-layout for flat fields (infer columns + colSpan)
-    const autoLayoutResult = applyAutoLayout(formFields, objectSchema, schema.columns, schema.mode);
+    const autoLayoutResult = applyAutoLayout(
+      applyFieldPerms(formFields), objectSchema, schema.columns, schema.mode,
+    );
 
     // Flat fields layout — use container-query grid classes so the form
     // responds to the drawer width, not the viewport width.
@@ -790,7 +833,9 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         )}
 
         <div className="@container py-4">
-          {drawerBody}
+          {/* Every upload widget below reports into this scope, however deep —
+              a section, a tab, a subform row (objectui#10166). */}
+          <UploadGateProvider gate={uploadGate}>{drawerBody}</UploadGateProvider>
         </div>
 
         {/* Sticky footer — own action buttons. Cancel calls the discard guard
@@ -798,6 +843,8 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
             Suppressed for the master-detail path, which owns its own action bar. */}
         {!error && !loading && !(subforms?.length && schema.mode !== 'view') && (showSubmit || showCancel) && (
           <div className="shrink-0 border-t px-4 py-3 bg-background" data-testid="drawer-form-footer">
+            {/* The REASON the Save below is disabled (objectui#10166). */}
+            <UploadInFlightNotice gate={uploadGate} />
             <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
               {showCancel && (
                 <Button
@@ -814,11 +861,11 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
                 <Button
                   type="submit"
                   form={formId}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || uploadGate.uploading}
                   className="w-full sm:w-auto"
                 >
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {submitLabel}
+                  {uploadGate.uploading ? uploadGate.busyLabel : submitLabel}
                 </Button>
               )}
             </div>

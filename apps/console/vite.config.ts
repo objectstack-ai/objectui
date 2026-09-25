@@ -20,6 +20,7 @@ import { resolveClientDistInjection } from '../../scripts/vite-objectstack-clien
 import { formatConditionReport, resolveSpecDistInjection } from '../../scripts/vite-objectstack-spec-dist.ts';
 import { viteIneffectiveDynamicImports } from '../../scripts/vite-ineffective-dynamic-imports.ts';
 import { viteDeclaredLazyViews } from '../../scripts/vite-declared-lazy-views.ts';
+import { viteTypesZodLazy } from '../../scripts/vite-types-zod-lazy.ts';
 import { compression } from 'vite-plugin-compression2';
 import { visualizer } from 'rollup-plugin-visualizer';
 
@@ -770,6 +771,14 @@ export default defineConfig({
     // eagerly-loaded chunk. Runs on CI/Vercel too — it costs microseconds and
     // the regression it catches is invisible in every other signal.
     assertLazyLinterStaysLazy(specModuleTest),
+    // The same refusal one directory over: fails the build if the
+    // `@object-ui/types/zod` validators rejoin the eager closure, AND if they
+    // stop being reachable from `@object-ui/plugin-map` at all (objectui#10065).
+    // The second half is the one no byte ceiling can supply — validators DELETED
+    // from the graph and validators DEFERRED behind the map view's lazy boundary
+    // produce the same smaller, greener number, and only one of them still
+    // renders an object map.
+    viteTypesZodLazy(),
     // Writes `dist/eager-closure.json` — the size of everything a page load
     // pays for before the app renders. `.github/workflows/performance-budget.yml`
     // weighs THAT against the budget; weighing the entry chunk alone measured
@@ -1059,19 +1068,19 @@ export default defineConfig({
             // this group leaves every priority untouched and makes this group's
             // membership exactly what its `test` declares.
             //
-            // Measured across the repair, same tree, console build either side:
-            // `data-adapter` 78,110 -> 18,537 gzipped and holds only
-            // `packages/data-objectstack`; `framework` 45,278 -> 104,636 and holds
-            // core|react|types and nothing else; the whole eager closure moves by
-            // -461 bytes. ⚠️ Those bytes were ALWAYS downloaded — `data-adapter`
-            // is in the eager closure — so this is a re-attribution and ⛔ must not
-            // be read as a payload change in either direction.
-            //
-            // ⚠️ `framework` is over its ceiling at that reading, by an amount
-            // `scripts/check-eager-closure-budget.mjs` prints on every run. That
-            // is this repair making a pre-existing overage VISIBLE, not causing
-            // it; ⛔ no constant was moved to absorb it (objectui#9345 rules that
-            // none may be).
+            // Measured across the repair on `ff1d5ea8d1` — a historical reading
+            // anchored to that tree, ⛔ not re-derived by anything: `data-adapter`
+            // 78,110 -> 18,537 gzipped and holding only `packages/data-objectstack`;
+            // `framework` 45,278 -> 104,636 and holding core|react|types; the
+            // whole eager closure moved by -461 bytes. ⚠️ Those bytes were ALWAYS
+            // downloaded — `data-adapter` is in the eager closure — so this is a
+            // re-attribution and ⛔ must not be read as a payload change in either
+            // direction. `framework` sat over its ceiling at that reading: the
+            // repair made a pre-existing overage VISIBLE rather than causing it,
+            // and ⛔ no constant moved to absorb it. It was closed later by moving
+            // bytes, not lines (objectui#10065 below takes the zod validators off
+            // this chunk); the figure in force is the one
+            // `scripts/check-eager-closure-budget.mjs` prints on every run.
             //
             // ⚠️ Rolldown documents a cost for turning this off: recursive capture
             // "reduces the chance of generating circular chunks", and the same
@@ -1082,6 +1091,74 @@ export default defineConfig({
             // taking this flag should re-check that rather than inherit the
             // reading.
             { name: 'data-adapter', test: /[\\/]packages[\\/]data-objectstack[\\/]/, priority: 84, includeDependenciesRecursively: false },
+            //
+            // ## The zod validators leave the eager line (objectui#10065)
+            //
+            // `framework`'s test claims every `packages/types/` module WHEREVER
+            // IT IS REACHED FROM, and `framework` is eager because `core` and
+            // `react` are reached from the entry. That is membership decided
+            // without reference to reachability — the same defect the two tiers
+            // above were lifted out of, one directory over.
+            //
+            // Measured on `0c2eb5eee` from the console build's own visualizer,
+            // with `pnpm check:eager-closure` weighing the same build: the nine
+            // `packages/types/src/zod/**` modules rolldown emits were 140,541
+            // rendered bytes of a 372,430-byte `framework` chunk, led by
+            // `objectql.zod.ts`, `data-display.zod.ts` and `complex.zod.ts`.
+            // Their ONE live consumer in this bundle is
+            // `packages/plugin-map/src/ObjectMap.tsx`, which imports
+            // `ObjectMapConfigSchema` from `@object-ui/types/zod` — and the
+            // `plugin-map` chunk is NOT in the eager closure. So every page load
+            // fetched validators only the object-map view ever reads.
+            //
+            // ⭐ The bytes LEAVE the eager closure rather than moving to another
+            // eager line, which is what separates this from the regroup
+            // objectui#9251 forbids: the new chunk is reached ONLY through
+            // `plugin-map`'s own dynamic boundary, so nothing statically imports
+            // it and the closure walk never enters it. The object-map view pays
+            // one extra fetch when it opens; every other page load stops paying.
+            //
+            // The `@object-ui/types` main barrel deliberately does not re-export
+            // the validators (its own comment on the main entry says so), and
+            // the only two modules outside this directory that name them —
+            // `objectql.ts`'s `import type` / `export type` pair — are erased,
+            // so no eager module reaches in. ⚠️ That is the property the whole
+            // saving rests on, and nothing about a regex re-derives it: the
+            // guard `scripts/vite-types-zod-lazy.ts` weighs the emitted chunks
+            // and fails this build in BOTH directions — if the chunk rejoins the
+            // eager closure, and if it stops being reachable from `plugin-map`
+            // at all (bytes dropped rather than deferred, which reads as an even
+            // better saving and breaks the map view).
+            //
+            // ⛔ `src` only, with no `dist` alternative beside it. The console
+            // aliases `@object-ui/types` to `packages/types/src`, so `src` is
+            // what rolldown matches here; a `dist` arm would be a dead
+            // alternative in a live regex, which is the drift the `i18n` note
+            // above was written about.
+            // ⛔ `includeDependenciesRecursively: false`, and the default is `true`.
+            // Measured on `0c2eb5eee` with the default left in place: the group
+            // captured the nine zod modules AND recursively absorbed
+            // `packages/types/src/data-display.ts`, `complex.ts` and
+            // `designer.ts` — three shared modules whose runtime values the
+            // EAGER `plugin-grid` chunk reads (`ObjectGrid.tsx` imports
+            // `normalizeTableColumnType` and `isSystemManagedField` from
+            // `@object-ui/types`). Rolldown's own rule is that a higher-priority
+            // group's modules are removed from the lower-priority ones, so
+            // `framework` never got them back, `plugin-grid` had to import the
+            // new chunk statically, and the whole 140,541 bytes stayed eager —
+            // a saving of exactly nothing, dressed as a new chunk name. The
+            // guard below refused that build; this option is the repair.
+            //
+            // Scoping the capture to the directory is also what the group MEANS:
+            // the validators are what has no eager reader, not everything they
+            // happen to import. Their non-zod dependencies fall back to
+            // `framework`, which is where they were and where they belong.
+            {
+              name: 'types-zod',
+              test: /[\\/]packages[\\/]types[\\/]src[\\/]zod[\\/]/,
+              priority: 82,
+              includeDependenciesRecursively: false,
+            },
             { name: 'framework', test: /[\\/]packages[\\/](core|react|types)[\\/]/, priority: 80 },
             { name: 'ui-components', test: /[\\/]packages[\\/](components|fields)[\\/]/, priority: 80 },
             { name: 'ui-layout', test: /[\\/]packages[\\/]layout[\\/]/, priority: 80 },

@@ -313,7 +313,7 @@ A complete form with fields, validation, layout, and actions.
 | `showCancel` | `boolean` | Whether to show a cancel button. |
 | `showActions` | `boolean` | Whether to show the action buttons row. |
 | `resetOnSubmit` | `boolean` | Reset form after successful submit. |
-| `mode` | `"edit" \| "read" \| "disabled"` | Form interaction mode. |
+| `disabled` | `boolean` | Disable every input and the submit button. (`mode` is retired on this node and fails validation; for a create / edit / view form use [ObjectFormSchema](#objectformschema).) |
 | `actions` | `SchemaNode[]` | Custom action buttons to replace defaults. |
 
 **Related:** [InputSchema](#inputschema), [SelectSchema](#selectschema), [ObjectFormSchema](#objectformschema)
@@ -935,7 +935,7 @@ A drag-and-drop Kanban board. The `object-kanban` type key validates the shape t
 |----------|------|-------------|
 | `objectName` | `string` | Object to fetch records from. |
 | `groupBy` | `string` | Field whose values become the lanes (maps to column ids). **Optional** since objectui#8990, matching `@objectstack/spec`. A board that omits it draws whatever lanes `columns` declares — and holds **no cards**, because records are only distributed once a lane key exists. |
-| `columns` | `string[] \| KanbanLane[]` | Swimlane definitions — an array of `{ id, title }` lanes (one per `groupBy` value), **or** an array of bare value strings; never a mix. **Not** a field projection (that is `cardFields`). A lane's `cards` is optional: an object-bound board buckets records into the lane by `groupBy`, and only a static board writes a lane's cards itself. |
+| `columns` | `string[] \| KanbanLane[]` | Swimlane definitions — an array of `{ id, title }` lanes (one per `groupBy` value), **or** an array of bare value strings; never a mix. **Not** a field projection (that is `cardFields`). A lane's `cards` is optional: an object-bound board buckets records into the lane by `groupBy`, and only a static board writes a lane's cards itself. A record lands in a lane when its stored `groupBy` value equals the lane **`id`** (the option value, compared case-insensitively); the lane `title` is display only and never decides membership (objectui#10069). A record matching no lane id is shown in a trailing *Uncategorized* lane and named in a console warning. |
 | `titleField` | `string` | Field used as the card title. |
 | `cardFields` | `string[]` | Fields rendered on each card. |
 | `filter` | `any[]` | Query filter, forwarded verbatim as `$filter`. |
@@ -974,23 +974,20 @@ A widget-based dashboard with configurable grid layout and auto-refresh.
   "widgets": [
     {
       "id": "revenue",
+      "type": "metric",
       "title": "Total Revenue",
-      "description": "Monthly revenue",
-      "colSpan": 1,
-      "rowSpan": 1,
-      "body": {
-        "type": "statistic",
-        "label": "Revenue",
+      "layout": { "x": 0, "y": 0, "w": 1, "h": 2 },
+      "options": {
         "value": "$48,200",
+        "description": "Monthly revenue",
         "trend": { "value": 12, "direction": "up" }
       }
     },
     {
       "id": "chart",
       "title": "Sales Trend",
-      "colSpan": 2,
-      "rowSpan": 1,
-      "body": {
+      "layout": { "x": 1, "y": 0, "w": 2, "h": 4 },
+      "component": {
         "type": "chart",
         "chartType": "area",
         "xAxisKey": "day",
@@ -1006,12 +1003,14 @@ A widget-based dashboard with configurable grid layout and auto-refresh.
     },
     {
       "id": "tasks",
+      "type": "list",
       "title": "Recent Tasks",
-      "colSpan": 1,
-      "rowSpan": 1,
-      "body": {
-        "type": "list",
-        "items": []
+      "layout": { "x": 3, "y": 0, "w": 1, "h": 4 },
+      "options": {
+        "data": [
+          { "task": "Renew the Acme contract", "due": "Mon" },
+          { "task": "Send the Q3 forecast", "due": "Wed" }
+        ]
       }
     }
   ]
@@ -1022,10 +1021,12 @@ A widget-based dashboard with configurable grid layout and auto-refresh.
 |----------|------|-------------|
 | `columns` | `number` | Number of grid columns. |
 | `gap` | `number` | Gap between widgets (Tailwind spacing scale). |
-| `widgets` | `DashboardWidgetSchema[]` | **Required.** Widget definitions with `id`, `title`, `colSpan`, `rowSpan`, and `body`. |
+| `widgets` | `(DashboardWidgetSlotComponentSchema \| DashboardWidgetSchema)[]` | **Required.** Each entry is a widget or a component node. A widget (`DashboardWidgetSchema`) names itself with `id`, `title` and `description`, sizes itself with `layout: { x, y, w, h }`, and holds its content either as a family named in `type` with that family's settings under `options`, or as a registered component node in `component`; its full key set is the spec's `DashboardWidget` plus objectui's own. A component node (`DashboardWidgetSlotComponentSchema`) sits in the slot directly: its `type` is a member of the closed `DASHBOARD_COMPONENT_WIDGET_TYPES` set, such as `metric-card`, and its other keys are that component's own props. |
 | `refreshIntervalSeconds` | `number` | Auto-refresh interval in **seconds** — the renderer multiplies by 1000. Renamed from `refreshInterval`, which this table documented as milliseconds and which it never was (objectui#7783). |
 
-Each widget supports `colSpan` and `rowSpan` to control its size in the grid. The `body` can be any `SchemaNode`.
+A widget's size is its `layout`: `w` and `h` are the grid columns and rows it spans, and `x` and `y` are its position on the editable `dashboard-grid`. `layout` takes all four numbers or is left out. `colSpan`, `rowSpan` and `body` are **not** widget keys: `DashboardWidgetSchema` is strict (objectui#6002) and refuses all three by name. The size is `layout.w` / `layout.h`, and the content is `type` + `options` or `component`.
+
+The family in `type` decides what `options` holds: `metric` shows `options.value`; `list` and `table` show the rows in `options.data`; a chart family (`area`, `bar`, `line`, `pie`, …) plots the rows in `options.data`, with `options.xField` naming the category key and `options.yField` the value key. Instead of a family, a widget can hold a registered component node in `component`, as the `chart` widget above does — that node's keys are the component's own props (here [`ChartSchema`](#chartschema)'s), not widget keys. The caption under a `metric` widget's number is `options.description`; the widget's own `description` is the subtitle under its `title` in the card header, which an inline `metric` does not draw.
 
 **Related:** [GridSchema](#gridschema), [ChartSchema](#chartschema), [CardSchema](#cardschema)
 
@@ -1188,6 +1189,39 @@ An enhanced detail view for a single record with sections, tabs and navigation.
 > ⚠️ The block reads the parent record from the record page's `RecordContext`,
 > so author it on a record page. Placed anywhere it cannot resolve a parent id
 > it scopes to nothing and renders an empty list.
+
+> **Due/deadline fields: `dueLike`.** A field entry — a `DetailViewField`, in
+> `fields` or in a section's `fields` — may mark a `date` / `datetime` field as
+> due/deadline-semantic. It is the same key, with the same meaning, that the
+> [Date Field](/docs/fields/date) and [DateTime Field](/docs/fields/datetime)
+> carry in their own object metadata: the authored entry is handed to the same
+> cell renderer, so the affordance it turns on is the one described under
+> [Overdue Affordance](/docs/fields/datetime#overdue-affordance).
+>
+> ```json
+> {
+>   "type": "detail-view",
+>   "objectName": "Contract",
+>   "fields": [
+>     {
+>       "name": "end_date",
+>       "label": "Contract Ends",
+>       "type": "date",
+>       "format": "relative",
+>       "dueLike": true
+>     }
+>   ]
+> }
+> ```
+>
+> ⚠️ `end_date` is deliberately a neutral name here, because only a declared
+> `true` short-circuits: with the key absent the due/deadline field-name
+> convention still decides for itself, and `dueLike: false` does not suppress
+> that fallback either. Authoring a neutral name is the opt-out.
+>
+> ⚠️ The authored entry wins. Where the object's own field metadata also
+> declares `dueLike`, that value is consulted only when the entry leaves the
+> key out — it does not overwrite what the view author wrote.
 
 **Related:** [DetailSchema](#detailschema), [ObjectViewSchema](#objectviewschema)
 

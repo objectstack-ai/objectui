@@ -25,6 +25,8 @@ import { toFormControlDomProps } from '../../lib/form-control-dom-props';
 import { Loader2 } from 'lucide-react';
 import { resolveIcon } from './resolve-icon';
 import { hasDeclaredVisibilityGate } from './visibility-gate';
+import { useAutoTriggerOnce } from './auto-trigger';
+import { readStaticParamValues } from './static-params';
 
 /**
  * The declared props. `schema` is `UIActionSchema` (objectui#4418) for the same
@@ -108,6 +110,16 @@ const ActionIconRenderer = forwardRef<
       if (loading) return;
       setLoading(true);
       try {
+        // UI-local escape hatch: direct callback, bypass ActionEngine — the
+        // branch `action:menu` and `action:button` take (see action-button.tsx
+        // for why it is invoked here rather than forwarded). Neither called nor
+        // forwarded, a code-composed `onClick` was silently inert on this
+        // surface (objectui#4202).
+        if (typeof schema.onClick === 'function') {
+          await schema.onClick();
+          return;
+        }
+
         // Annotated binding, not an inline literal — see action-button.tsx for
         // the mechanism. `localContext` is `any` (the `PropsWithoutRef` collapse
         // of an index-signature props interface), and a literal that spreads an
@@ -115,6 +127,10 @@ const ActionIconRenderer = forwardRef<
         // keys while `action:group` / `action:menu` rejected them
         // (objectui#4281). `...localContext` is still merged last, so the object
         // reaching `execute` is unchanged.
+        const staticValues = readStaticParamValues(schema, 'action:icon');
+        const paramsPayload: ActionDef = Array.isArray(schema.params)
+          ? { actionParams: schema.params as any, params: staticValues }
+          : { params: staticValues };
         const forwarded: ActionDef = {
           // The declared input (objectui#7415). It used to be spelled `type`,
           // which collides with the SDUI envelope's component discriminator:
@@ -139,7 +155,10 @@ const ActionIconRenderer = forwardRef<
           openIn: (schema as any).openIn,
           endpoint: schema.endpoint,
           method: schema.method,
-          params: schema.params as Record<string, any> | undefined,
+          // The same two-channel routing as `action:button` (objectui#10289,
+          // ruling A): `params` is only the `ActionParam[]` input list, and the
+          // static values come from `properties.params`. See `./static-params`.
+          ...paramsPayload,
           // See action-button.tsx — the `type: 'api'` payload key (objectstack#6837).
           bodyExtra: schema.bodyExtra,
           // See action-button.tsx — the body-WRAPPING key (objectstack#6938).
@@ -170,6 +189,10 @@ const ActionIconRenderer = forwardRef<
           // here the action succeeds and the authored navigation never runs.
           // Uncast since objectui#5934 (legacy callback channel retired).
           onSuccess: schema.onSuccess,
+          // See action-button.tsx — the object the action declares it acts on;
+          // dropped here, a retargeted action silently acted on the page's
+          // object (objectui#4202). Cast for the same reason as there.
+          objectName: (schema as any).objectName,
         };
 
         await execute({ ...forwarded, ...localContext });
@@ -177,6 +200,27 @@ const ActionIconRenderer = forwardRef<
         setLoading(false);
       }
     }, [schema, execute, loading, localContext]);
+
+    // Client-side auto-trigger (#844), through the one shared hook in
+    // `./auto-trigger` (objectui#10274). `action:bar` renders an inline member
+    // with the renderer its `component` names and spreads the whole action onto
+    // that renderer's schema, so an action authored `component: 'action:icon'`
+    // arrives HERE carrying the host-composed `autoTrigger` exactly as a default
+    // member arrives at `action:button` with it. This renderer used to read
+    // neither the flag nor the hook, so a `?runAction=` deep link that the host
+    // had already consumed ran nothing and said nothing. The flag's contract is
+    // "execute once on mount by whichever renderer receives the action" (#4162),
+    // so this renderer consumes it the way its two siblings do.
+    //
+    // `run` is this icon's own click handler, so an auto-triggered run and a
+    // click reach the runner identically (confirm, param dialogs, toasts).
+    // `isVisible` is the verdict the early return below consults, so an icon
+    // its author hid is refused and reported rather than run (objectui#4191).
+    // That verdict keeps this renderer's existing error policy on a faulting
+    // predicate (fail-soft, unlike `action:button`'s fail-closed one): the
+    // trigger follows whatever this icon itself renders, and the policy is not
+    // decided here.
+    useAutoTriggerOnce(schema, isVisible, handleClick);
 
     // Same gate, same reachability as action-button.tsx (objectui#3823): an
     // `action:icon` member of an `action:bar` gets the author's `visible`

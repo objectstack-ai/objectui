@@ -110,7 +110,7 @@ import { ObjectViewSchema } from '../zod/objectql.zod';
 import { stripImportedDefaults } from '../zod/imported-defaults.js';
 import { ViewSwitcherSchema } from '../zod/views.zod';
 import { safeValidateSchema } from '../zod/index.zod';
-import type { ObjectViewSchema as TsObjectViewSchema, NamedListView } from '../objectql';
+import type { ObjectViewSchema as TsObjectViewSchema, NamedListView, ListViewSchema as TsListViewSchema } from '../objectql';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, '..', '..', '..', '..');
@@ -347,13 +347,40 @@ const BUCKET_LEGACY_SHOW_SPELLINGS = [
 ] as const;
 
 /**
- * BUCKET ③ — ten members the protocol declares NOWHERE, no runtime fold, and no
- * reader on any path. The only bucket where "declared, unenforced, unread" has
- * nothing at all to weigh against it.
+ * BUCKET ③ — ten members the protocol declares NOWHERE, outside the `show*`
+ * fold table, and read off no named view by the `object-view` renderer.
+ *
+ * ⚠️ CORRECTED at objectui#7924's retirement: this block used to add "no runtime
+ * fold, and no reader on any path". Two of the ten falsify it —
+ * {@link BUCKET_LOCAL_ONLY_RETAINED} — because the `object-view` renderer is not
+ * the only host of a named view: `app-shell`'s object page holds the active
+ * named view as a flat `NamedListView` and relays members off it into the
+ * `list-view` node. The membership below is unchanged (it is derived by the
+ * protocol and the fold table, and both still place all ten here); only the
+ * "unread on any path" gloss was wrong.
  */
 const BUCKET_LOCAL_ONLY_UNREAD = [
   'addDeleteRecordsInline', 'addRecordViaForm', 'allowExport', 'clickIntoRecordDetails',
   'collapseAllByDefault', 'color', 'densityMode', 'fieldTextColor', 'prefixField', 'wrapHeaders',
+] as const;
+
+/**
+ * The two bucket-③ members objectui#7924 did NOT tombstone, because each is
+ * read and acted on: `allowExport` gates `ListView`'s export control, and
+ * `densityMode` is folded onto `rowHeight` by `normalizeListViewSchema`. Each
+ * carries its read as a source assertion in the retirement block below.
+ */
+const BUCKET_LOCAL_ONLY_RETAINED = ['allowExport', 'densityMode'] as const;
+
+/**
+ * Every `?: never` tombstone objectui#7924 put on `NamedListView`: the eight
+ * bucket-② spellings plus the eight bucket-③ members that are read nowhere.
+ * Derived off the AST (a member whose type node is the `never` keyword).
+ */
+const NAMED_LIST_VIEW_TOMBSTONES = [
+  'addDeleteRecordsInline', 'addRecordViaForm', 'clickIntoRecordDetails', 'collapseAllByDefault',
+  'color', 'fieldTextColor', 'prefixField', 'showColor', 'showDensity', 'showDescription',
+  'showFilters', 'showGroup', 'showHideFields', 'showSearch', 'showSort', 'wrapHeaders',
 ] as const;
 
 /**
@@ -533,6 +560,10 @@ interface NamedListViewCensus {
   /** Anything that is not a plain named property signature (index signature, call signature…). */
   nonProperty: string[];
   heritage: string[];
+  /** The members whose declared type is the `never` keyword — `?: never` tombstones (objectui#7924). */
+  tombstones: string[];
+  /** Member name → the comment text immediately above it (its docblock). */
+  docs: Record<string, string>;
 }
 
 /** `NamedListView`'s top-level members, walked off the interface's own AST. */
@@ -546,14 +577,18 @@ function namedListViewMembers(): NamedListViewCensus {
   const names: string[] = [];
   const required: string[] = [];
   const nonProperty: string[] = [];
+  const tombstones: string[] = [];
+  const docs: Record<string, string> = {};
   for (const m of iface!.members) {
     if (!ts.isPropertySignature(m)) { nonProperty.push(ts.SyntaxKind[m.kind]); continue; }
     const name = ts.isIdentifier(m.name) || ts.isStringLiteral(m.name) ? m.name.text : null;
     if (name === null) { nonProperty.push('ComputedPropertyName'); continue; }
     names.push(name);
     if (!m.questionToken) required.push(name);
+    if (m.type?.kind === ts.SyntaxKind.NeverKeyword) tombstones.push(name);
+    docs[name] = sf.text.slice(m.getFullStart(), m.getStart(sf));
   }
-  return { names, required, nonProperty, heritage: (iface!.heritageClauses ?? []).map((h) => h.getText(sf)) };
+  return { names, required, nonProperty, tombstones, docs, heritage: (iface!.heritageClauses ?? []).map((h) => h.getText(sf)) };
 }
 
 interface NamedViewReadDerivation {
@@ -1484,7 +1519,7 @@ describe('objectui#7924 — the 43 unread members are FOUR populations, derived 
     expect(shapeKeys(inner.unwrap())).toContain(canonical);
   });
 
-  it.each(BUCKET_LOCAL_ONLY_UNREAD)('BUCKET ③ — `%s` is objectui-only, folded nowhere and read nowhere', (member) => {
+  it.each(BUCKET_LOCAL_ONLY_UNREAD)('BUCKET ③ — `%s` is objectui-only, outside the show* fold table, and read off no named view by object-view', (member) => {
     expect(namedListViewMembers().names).toContain(member);
     expect(protocolListViewKeys()).not.toContain(member);
     expect(foldFlagMap()).not.toHaveProperty(member);
@@ -1500,5 +1535,174 @@ describe('objectui#7924 — the 43 unread members are FOUR populations, derived 
     expect(protocolListViewKeys()).toContain(member);
     expect(deriveNamedViewReads().reads).not.toContain(member);
     expect(NAMED_LIST_VIEW_UNREAD as readonly string[]).toContain(member);
+  });
+});
+
+/* ── objectui#7924 — the retirement: bucket ② A and bucket ③ ─────────────────
+ * Director-seat ruling of 2026-09-16 on objectui#7924: `NamedListView` carries
+ * the protocol's `userActions` and `appearance` blocks (it already did, since
+ * objectui#8980), so the eight legacy `show*` spellings retire; the bucket-③
+ * members the protocol declares nowhere and nobody reads retire with them. Both
+ * as `?: never` tombstones on the TypeScript face only — the runtime fold in
+ * `normalizeListViewSchema` stays, so stored documents keep parsing.
+ *
+ * Two bucket-③ members were measured READ at retirement time and are NOT
+ * tombstoned ({@link BUCKET_LOCAL_ONLY_RETAINED}).
+ */
+
+const LISTVIEW = 'packages/plugin-list/src/ListView.tsx';
+const APP_SHELL_OBJECT_VIEW = 'packages/app-shell/src/views/ObjectView.tsx';
+
+/** A named view's one required member; every literal below is a delta on it. */
+const BASE_VIEW = { label: 'All' } as const;
+
+type Tombstone = (typeof NAMED_LIST_VIEW_TOMBSTONES)[number];
+type TombstoneTypes = { [K in Tombstone]: NamedListView[K] };
+// Every tombstone admits absence and nothing else. Widening ANY one of them back
+// (to `boolean`, `string`, or `any` through a deletion) makes this union not
+// `undefined`, and the type-check goes red.
+export type _EveryTombstoneAdmitsOnlyAbsence = Expect<Equal<TombstoneTypes[Tombstone], undefined>>;
+// The two retained members keep their declared types.
+export type _AllowExportRetained = Expect<Equal<NamedListView['allowExport'], boolean | undefined>>;
+export type _DensityModeRetained = Expect<Equal<NamedListView['densityMode'], 'compact' | 'comfortable' | 'spacious' | undefined>>;
+// The canonical blocks are the `list-view` node's own spec-derived members.
+export type _UserActionsIsTheSpecDerivedSlot = Expect<Equal<NamedListView['userActions'], TsListViewSchema['userActions']>>;
+export type _AppearanceIsTheSpecDerivedSlot = Expect<Equal<NamedListView['appearance'], TsListViewSchema['appearance']>>;
+
+// Each tombstone REFUSES a value at compile time. Every directive below goes
+// unused — TS2578, and the type-check is red — the moment its member is widened
+// back or deleted into an accepting shape.
+// @ts-expect-error — `showSearch` is RETIRED (objectui#7924): author `userActions.search`
+export const _refusedShowSearch: NamedListView = { ...BASE_VIEW, showSearch: true };
+// @ts-expect-error — `showSort` is RETIRED (objectui#7924): author `userActions.sort`
+export const _refusedShowSort: NamedListView = { ...BASE_VIEW, showSort: true };
+// @ts-expect-error — `showFilters` is RETIRED (objectui#7924): author `userActions.filter`
+export const _refusedShowFilters: NamedListView = { ...BASE_VIEW, showFilters: true };
+// @ts-expect-error — `showHideFields` is RETIRED (objectui#7924): author `userActions.hideFields`
+export const _refusedShowHideFields: NamedListView = { ...BASE_VIEW, showHideFields: true };
+// @ts-expect-error — `showGroup` is RETIRED (objectui#7924): author `userActions.group`
+export const _refusedShowGroup: NamedListView = { ...BASE_VIEW, showGroup: true };
+// @ts-expect-error — `showColor` is RETIRED (objectui#7924): author `userActions.rowColor`
+export const _refusedShowColor: NamedListView = { ...BASE_VIEW, showColor: true };
+// @ts-expect-error — `showDensity` is RETIRED (objectui#7924): author `userActions.rowHeight`
+export const _refusedShowDensity: NamedListView = { ...BASE_VIEW, showDensity: true };
+// @ts-expect-error — `showDescription` is RETIRED (objectui#7924): author `appearance.showDescription`
+export const _refusedShowDescription: NamedListView = { ...BASE_VIEW, showDescription: true };
+// @ts-expect-error — `addDeleteRecordsInline` is RETIRED (objectui#7924): protocol-silent and unread
+export const _refusedAddDeleteRecordsInline: NamedListView = { ...BASE_VIEW, addDeleteRecordsInline: true };
+// @ts-expect-error — `addRecordViaForm` is RETIRED (objectui#7924): see `userActions.addRecordForm`
+export const _refusedAddRecordViaForm: NamedListView = { ...BASE_VIEW, addRecordViaForm: true };
+// @ts-expect-error — `clickIntoRecordDetails` is RETIRED (objectui#7924): protocol-silent and unread
+export const _refusedClickIntoRecordDetails: NamedListView = { ...BASE_VIEW, clickIntoRecordDetails: true };
+// @ts-expect-error — `collapseAllByDefault` is RETIRED (objectui#7924): protocol-silent and unread
+export const _refusedCollapseAllByDefault: NamedListView = { ...BASE_VIEW, collapseAllByDefault: true };
+// @ts-expect-error — `color` is RETIRED (objectui#7924): author `rowColor: { field }`
+export const _refusedColor: NamedListView = { ...BASE_VIEW, color: 'status' };
+// @ts-expect-error — `fieldTextColor` is RETIRED (objectui#7924): protocol-silent and unread
+export const _refusedFieldTextColor: NamedListView = { ...BASE_VIEW, fieldTextColor: 'status' };
+// @ts-expect-error — `prefixField` is RETIRED (objectui#7924): protocol-silent and unread
+export const _refusedPrefixField: NamedListView = { ...BASE_VIEW, prefixField: 'code' };
+// @ts-expect-error — `wrapHeaders` is RETIRED (objectui#7924): protocol-silent and unread
+export const _refusedWrapHeaders: NamedListView = { ...BASE_VIEW, wrapHeaders: true };
+
+// …and the canonical blocks ACCEPT a protocol-shaped value on a literal. The
+// same values are parsed against the protocol's own slots below, so "protocol
+// shaped" is a measurement, not a claim.
+const PROTOCOL_USER_ACTIONS = {
+  search: false, sort: true, filter: true, rowHeight: false, group: true,
+  hideFields: false, rowColor: true, addRecordForm: true,
+} as const;
+const PROTOCOL_APPEARANCE = { showDescription: true } as const;
+export const _acceptedCanonical: NamedListView = {
+  ...BASE_VIEW,
+  userActions: { ...PROTOCOL_USER_ACTIONS },
+  appearance: { ...PROTOCOL_APPEARANCE },
+  rowColor: { field: 'status' },
+};
+// The two retained members still accept their values.
+export const _acceptedRetained: NamedListView = { ...BASE_VIEW, allowExport: false, densityMode: 'compact' };
+
+describe('objectui#7924 — the retirement: sixteen `?: never` tombstones, two retained reads, the canonical blocks', () => {
+  it('the tombstone set is EXACTLY bucket ② plus bucket ③ minus the two retained reads, derived off the AST', () => {
+    const { tombstones, names } = namedListViewMembers();
+    expect([...tombstones].sort()).toEqual([...NAMED_LIST_VIEW_TOMBSTONES]);
+    expect(tombstones).toHaveLength(16);
+    const expected = [
+      ...BUCKET_LEGACY_SHOW_SPELLINGS,
+      ...BUCKET_LOCAL_ONLY_UNREAD.filter((m) => !(BUCKET_LOCAL_ONLY_RETAINED as readonly string[]).includes(m)),
+    ].sort();
+    expect([...tombstones].sort()).toEqual(expected);
+    // A tombstone is still a declared member — that is what makes the refusal
+    // BY NAME — so the declared census does not move.
+    for (const t of tombstones) expect(names).toContain(t);
+    // Control on the same walk: a live member is NOT reported as a tombstone.
+    expect(tombstones).not.toContain(NAMED_VIEW_READ_CONTROL);
+    expect(tombstones).not.toContain('userActions');
+  });
+
+  it('no tombstone is protocol-declared, and none is read off a named view — nothing live was retired', () => {
+    const protocol = protocolListViewKeys();
+    const reads = deriveNamedViewReads().reads;
+    for (const t of NAMED_LIST_VIEW_TOMBSTONES) {
+      expect(protocol, `\`${t}\` is a protocol key; tombstoning it puts objectui narrower than the protocol`).not.toContain(t);
+      expect(reads, `\`${t}\` is read off a named view`).not.toContain(t);
+    }
+  });
+
+  it.each(BUCKET_LEGACY_SHOW_SPELLINGS)('BUCKET ② — the `%s` tombstone names its canonical key, and the canonical block is declared', (member) => {
+    const [block, key] = LEGACY_SHOW_SPELLING_TWINS[member];
+    const { docs, names, tombstones } = namedListViewMembers();
+    expect(tombstones).toContain(member);
+    expect(docs[member]).toContain('RETIRED (objectui#7924)');
+    expect(docs[member]).toContain(`\`${block}.${key}\``);
+    expect(names).toContain(block);
+    expect(tombstones).not.toContain(block);
+  });
+
+  it('the bucket-③ tombstones that have a likely canonical intent say so — ⛔ with no alias mapping behind it', () => {
+    const { docs } = namedListViewMembers();
+    // `color` names the row-colour CONFIGURATION and warns off the toggle.
+    expect(docs.color).toContain('`rowColor`');
+    expect(docs.color).toContain('Not `userActions.rowColor`');
+    expect(docs.addRecordViaForm).toContain('`userActions.addRecordForm`');
+    for (const m of NAMED_LIST_VIEW_TOMBSTONES) expect(docs[m]).toContain('RETIRED (objectui#7924)');
+    // No alias: the fold table does not learn any bucket-③ member.
+    const map = foldFlagMap();
+    for (const m of BUCKET_LOCAL_ONLY_UNREAD) expect(map).not.toHaveProperty(m);
+  });
+
+  it('`allowExport` is RETAINED because it is read: app-shell relays it off the named view and ListView gates export on it', () => {
+    expect(namedListViewMembers().tombstones).not.toContain('allowExport');
+    expect(readRepo(APP_SHELL_OBJECT_VIEW)).toContain('allowExport: viewDef.allowExport ?? listSchema.allowExport,');
+    expect(readRepo(LISTVIEW)).toContain('schema.allowExport !== false &&');
+  });
+
+  it('`densityMode` is RETAINED because it is read: the runtime fold maps it onto `rowHeight`', () => {
+    expect(namedListViewMembers().tombstones).not.toContain('densityMode');
+    expect(readRepo(APP_SHELL_OBJECT_VIEW)).toContain('densityMode: viewDef.densityMode ?? listSchema.densityMode,');
+    const fold = readRepo(FOLD);
+    expect(fold).toContain('const legacyDensity = s.densityMode;');
+    expect(fold).toContain('delete next.densityMode;');
+  });
+
+  it('the retained reads have a firing control: a tombstoned relay key that ListView never reads, on the same query', () => {
+    // app-shell relays `prefixField` exactly as it relays `allowExport`…
+    expect(readRepo(APP_SHELL_OBJECT_VIEW)).toContain('prefixField: viewDef.prefixField ?? listSchema.prefixField,');
+    // …but nothing downstream reads it — which is why it was tombstoned and
+    // `allowExport` was not. Same file, same query, opposite answers.
+    const listView = readRepo(LISTVIEW);
+    expect(listView).not.toMatch(/\bprefixField\b/);
+    expect(listView).toMatch(/\ballowExport\b/);
+  });
+
+  it('the canonical blocks accept a PROTOCOL-shaped value: the literals above parse against the protocol\'s own slots', () => {
+    const ua = shapeMember(SpecObjectListViewSchema, 'userActions') as { safeParse(v: unknown): { success: boolean } };
+    const ap = shapeMember(SpecObjectListViewSchema, 'appearance') as { safeParse(v: unknown): { success: boolean } };
+    expect(ua.safeParse(PROTOCOL_USER_ACTIONS).success).toBe(true);
+    expect(ap.safeParse(PROTOCOL_APPEARANCE).success).toBe(true);
+    // The whole canonical view parses against the strict protocol value…
+    expect(SpecObjectListViewSchema.safeParse({ ..._acceptedCanonical, columns: ['name'] }).success).toBe(true);
+    // …and the legacy spelling does not: the control that the parse is strict.
+    expect(SpecObjectListViewSchema.safeParse({ ...BASE_VIEW, columns: ['name'], showSearch: true }).success).toBe(false);
   });
 });

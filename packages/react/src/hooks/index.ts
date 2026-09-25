@@ -26,7 +26,6 @@ export * from './useReducedMotion.js';
 export * from './useAnimation.js';
 export * from './useDensityMode.js';
 export * from './useViewSharing.js';
-export * from './useClientNotifications.js';
 export * from './useOffline.js';
 export * from './usePerformance.js';
 export * from './usePerformanceBudget.js';

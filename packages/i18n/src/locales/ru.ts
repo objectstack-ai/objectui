@@ -123,7 +123,11 @@ const ru = {
     closeChat: "Закрыть чат",
     closePanel: "Закрыть панель",
     resizeDrawer: "Изменить ширину панели",
-    itemCount: "{{count}} элементов",
+    // objectui#10242 — the tab-count badge switches keys only at exactly 1, so
+    // this half serves one (21, 31…), few (2-4, 22-24…) AND many (5-20…). No
+    // single `{{count}} <noun>` form agrees with all three; a count label does,
+    // the same device as `detail.repeaterItemCount`.
+    itemCount: "Элементов: {{count}}",
     itemCountOne: "{{count}} элемент",
     toggleSidebar: "Переключить боковую панель",
     package: "Пакет",
@@ -153,6 +157,7 @@ const ru = {
       acknowledge: 'Я сохранил(а) это',
       copyAll: 'Копировать всё',
     },
+    notAvailableHere: '«{{action}}» недоступно на текущей странице.',
   },
   validation: {
     required: "Поле {{field}} обязательно для заполнения",
@@ -171,6 +176,7 @@ const ru = {
   form: {
     noPermissionToSave: "У вас нет прав на сохранение этой записи.",
     submitFailed: "Не удалось сохранить. Попробуйте ещё раз.",
+    uploadInFlight: "Дождитесь завершения загрузки, прежде чем сохранять.",
     discardTitle: "Отменить изменения?",
     discardMessage: "Есть несохранённые изменения. Если закрыть форму сейчас, правки будут потеряны.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
@@ -579,6 +585,33 @@ const ru = {
     newEvent: "Новое событие",
     moreEvents: "+{{count}} ещё",
     unscheduled: "Без даты ({{count}})",
+    loading: "Загрузка календаря…",
+    loadError: "Ошибка: {{message}}",
+    configRequired: "Требуется настройка календаря. Укажите startDateField — единственный обязательный ключ календаря; заголовок события определяется и без titleField.",
+    configRequiredHint: "Он относится к блоку calendar представления. У страницы интерфейса нет собственного слота календаря: укажите в её sourceView представление, которое его объявляет.",
+    eventDetails: "Сведения о событии",
+    pullToRefresh: "Потяните для обновления",
+    refreshing: "Обновление…",
+    onDate: "{{date}}",
+    eventTitle: "Название",
+    eventTitlePlaceholder: "О чём это событие?",
+    creating: "Создание…",
+    titleRequired: "Укажите название",
+    a11y: {
+      region: "Календарь",
+      grid: "Сетка календаря",
+      goToToday: "Перейти к сегодняшнему дню",
+      previousPeriod: "Предыдущий период",
+      nextPeriod: "Следующий период",
+      currentDate: "Текущая дата: {{date}}",
+      dayCell: "{{date}}, событий: {{count}}",
+      dayCell_one: "{{date}}, {{count}} событие",
+      dayCell_other: "{{date}}, событий: {{count}}",
+      resizeEventEnd: "Изменить окончание события",
+      resizeEventEndHint: "Перетащите, чтобы изменить дату окончания",
+      resizeStart: "Изменить начало",
+      resizeEnd: "Изменить окончание",
+    },
   },
   list: {
     firstRunTitle: "Здесь пока пусто",
@@ -880,6 +913,7 @@ const ru = {
     tabActionsFor: "Действия с представлением {{name}}",
     readonlyAriaLabel: "Представление только для чтения",
     readonlyTooltip: "Системное представление — определено в коде, только для чтения.",
+    malformedFilter: "Фильтр этого представления некорректен, поэтому записи не отображаются: условие {{subject}} невозможно применить.",
   },
   designer: {
     undo: "Отменить",
@@ -906,7 +940,10 @@ const ru = {
     addReaction: "Добавить реакцию",
     pageHeaderActions: "Действия в заголовке страницы",
     emojiPicker: "Выбор эмодзи",
-    reactionCount: "{{emoji}} {{count}} реакций",
+    // objectui#10242 — the chip picks this half at every count but 1, which
+    // spans one, few and many; a count label reads right at all three, the same
+    // device as `collaboration.reactionCount`.
+    reactionCount: "{{emoji}} Реакций: {{count}}",
     reactionCountOne: "{{emoji}} {{count}} реакция",
     recordDetail: "Сведения о записи",
     recordDetailWithLabel: "Сведения: {{label}}",
@@ -934,7 +971,6 @@ const ru = {
     viewAll: "Показать все",
     new: "Создать",
     add: "Добавить",
-    emptyValue: "—",
     activity: "Активность",
     editRow: "Редактировать",
     deleteRow: "Удалить",
@@ -979,11 +1015,6 @@ const ru = {
     attachmentsLoadFailed: "Не удалось загрузить вложения этой записи.",
     attachmentsApiUnavailable: "Список вложений недоступен для этого объекта.",
     retryLoadAttachments: "Повторить",
-    unifiedDiff: "Единое представление",
-    sideBySideDiff: "Параллельное представление",
-    noChanges: "Нет изменений",
-    previousVersion: "Предыдущая",
-    currentVersion: "Текущая",
     discussion: "Обсуждение",
     showDiscussion: "Показать обсуждение ({{count}})",
     hideDiscussion: "Скрыть обсуждение",
@@ -998,13 +1029,7 @@ const ru = {
     writeComment: "Написать комментарий…",
     subscribedTooltip: "Подписаны — нажмите для отписки",
     unsubscribedTooltip: "Подписаться на уведомления",
-    firstRecord: "Первая запись (Home)",
-    previousRecordKey: "Предыдущая запись (←)",
-    nextRecordKey: "Следующая запись (→)",
-    lastRecord: "Последняя запись (End)",
     noRecords: "Нет записей",
-    searchWhileNavigating: "Поиск при навигации",
-    searchRecords: "Поиск записей…",
     allActivity: "Вся активность",
     commentsOnly: "Только комментарии",
     fieldChangesFilter: "Изменения полей",
@@ -1108,21 +1133,6 @@ const ru = {
     fileCount: "Файлов: {{count}}",
     fileCount_one: "{{count}} файл",
     fileCount_other: "{{count}} файлов",
-    // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
-    // used no translation hook at all, so every one of these read English in
-    // every session; swept in one pass rather than converting the timestamps
-    // alone. `Cancel`, `(empty)` and the empty-value dash reuse the keys this
-    // namespace already has, so only these ten are new.
-    revisionHistory: 'История версий',
-    noRevisions: 'Нет зарегистрированных версий',
-    revisionFieldsChanged: 'Изменено полей: {{count}}',
-    revisionFieldsChangedOne: 'Изменено полей: {{count}}',
-    revisionPreview: 'Предпросмотр версии',
-    revisionSnapshot: 'Состояние записи на этот момент',
-    restoreConfirm: 'Запись будет восстановлена до состояния на {{when}}. Продолжить?',
-    restoring: 'Восстановление…',
-    confirmRestore: 'Подтвердить восстановление',
-    restoreToPoint: 'Восстановить до этого момента',
   },
   chart: {
     loading: "Загрузка графика…",
@@ -1378,6 +1388,7 @@ const ru = {
     navTypeSeparator: "Разделитель",
     navTypeAction: "Действие",
     navTypeComponent: "Компонент",
+    navTypeDoc: "Документ",
     navEditIcon: "Редактировать значок",
     navToggleVisible: "Переключить видимость",
     navHidden: "Скрыто",
@@ -1477,6 +1488,9 @@ const ru = {
     },
   },
   console: {
+    studio: {
+      backToHome: "На главную",
+    },
     saveAdvisoryTitle: "Сохранено — проверка авторинга выдала рекомендаций: {{count}}",
     publishAdvisoryTitle: "Опубликовано — проверка авторинга выдала рекомендаций: {{count}}",
     importMappingsUnavailable: "Не удалось загрузить сохранённые сопоставления импорта для {{object}}",
@@ -2514,7 +2528,11 @@ const ru = {
     placeholder: "Поиск объектов, панелей, страниц, отчётов…",
     inputAriaLabel: "Поиск объектов, панелей, страниц, отчётов",
     resultsCount: "{{count}} результат для \"{{query}}\"",
-    resultsCountPlural: "{{count}} результатов для \"{{query}}\"",
+    // objectui#10024 — the page switches keys only at exactly 1, so this half
+    // serves one (21, 31…), few (2-4, 22-24…) AND many (0, 5-20…). No single
+    // `{{count}} <noun>` form agrees with all three; «Существительное:
+    // {{count}}» does, the same device as `collaboration.commentCount`.
+    resultsCountPlural: "Результатов по запросу \"{{query}}\": {{count}}",
     itemsAvailable: "{{count}} доступно",
     itemsAvailableOne: "{{count}} доступно",
     noResults: "Результатов не найдено",
@@ -2560,6 +2578,8 @@ const ru = {
     description: "Введите необходимую информацию для продолжения.",
     selectPlaceholder: "Выбрать {{label}}",
     requiredError: "{{label}} обязательно",
+    unresolvedParam: 'Этот параметр невозможно показать: поле, на котором он основан, отсутствует в метаданных объекта, поэтому нужный элемент управления нельзя построить. Попросите администратора исправить определение действия.',
+    carryOverHint: 'Переносится без изменений (только чтение)',
     cancel: "Отмена",
     confirm: "Подтвердить",
     uploading: "Загрузка…",
@@ -2892,6 +2912,31 @@ const ru = {
     openProduction: "Открыть продакшн",
     manageEnvironments: "Управление окружениями",
   },
+  ai: {
+    nlQuery: {
+      placeholder: "Задайте вопрос о своих данных…",
+      ask: "Спросить",
+      results: "Результаты",
+      match: "Совпадение: {{percent}}",
+      simulatedSummary: "Результаты по запросу: {{query}}",
+      noResults: "Подходящие записи не найдены",
+      recentQueries: "Недавние запросы",
+    },
+    formAssist: {
+      title: "Предложения ИИ",
+      suggestionCount: "Предложений: {{count}}",
+      suggestionCountOne: "{{count}} предложение",
+      applyAll: "Применить все",
+      confidence: "Уверенность: {{percent}}",
+      appliedCount: "Применено предложений: {{count}}",
+      appliedCountOne: "Применено {{count}} предложение",
+    },
+    recommendations: {
+      title: "Рекомендации",
+      generating: "Формирование рекомендаций…",
+      empty: "Нет доступных рекомендаций",
+    },
+  },
   aiApprovals: {
     title: "Согласования ИИ",
     description: "Действия, предложенные ИИ-агентом: перед выполнением их должен проверить человек.",
@@ -3182,6 +3227,7 @@ const ru = {
       reseedQueued: 'Демоданные будут перезагружены при следующем доступе к среде.',
       reseedLocalSuccess: 'Демоданные перезагружены: добавлено {{inserted}}, обновлено {{updated}}.',
       reseedPartialErrors: '(не удалось записать записей: {{count}})',
+      sampleDataKernelUnavailable: 'У этой control plane нет ядра среды, поэтому здесь нельзя перезагрузить или удалить демоданные. Выполните это действие в собственном рантайме среды.',
       updateAvailable: 'Доступно обновление',
     },
     action: {

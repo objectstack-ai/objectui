@@ -155,10 +155,11 @@ ComponentRegistry.register('container',
         
         description: 'Padding value (0, 1-8, 10, 12, 16)'
       },
-      { 
-        name: 'centered', 
+      {
+        name: 'centered',
         type: 'boolean'      },
-      { name: 'className', type: 'string' }
+      { name: 'className', type: 'string' },
+      { name: 'children', type: 'slot' }
     ],
     defaultProps: {
       maxWidth: 'xl',

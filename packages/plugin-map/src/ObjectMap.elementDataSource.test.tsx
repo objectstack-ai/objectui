@@ -28,7 +28,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
-import { NON_GRID_ROW_CEILING_TOP } from '@object-ui/react';
+import { nonGridRowCeilingQuery } from '@object-ui/core';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
 
 // No WebGL in the test env — same stub the sibling ObjectMap tests use. Every
@@ -150,7 +150,7 @@ describe('object-map — dataSource: { object, view } (objectstack#7121)', () =>
     // Not an oversight — `limit` is unmapped because there is no read site.
     // The assertion is here so a future mapping addition has to be deliberate.
     expect(params.$top).not.toBe(3);
-    expect(params.$top).toBe(NON_GRID_ROW_CEILING_TOP);
+    expect(params.$top).toBe(nonGridRowCeilingQuery().$top);
   });
 
   it('leaves a map with NO dataSource exactly as it was', async () => {

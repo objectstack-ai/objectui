@@ -31,6 +31,7 @@ import {
   InspectorShell,
   InspectorTextField,
   InspectorSelectField,
+  flagUnknownValue,
 } from './_shared.js';
 import { InspectorComboField } from './InspectorComboField.js';
 import { useObjectOptions } from './useDatasetFields.js';
@@ -407,7 +408,9 @@ export function ViewVariantInspector({
         label={t('engine.inspector.view.type', locale)}
         value={viewType}
         options={typeOptions}
-        unknownValueLabel={(v) => `${typeLabel(v, locale)} (not found)`}
+        unknownValueLabel={(v) =>
+          flagUnknownValue(typeLabel(v, locale), t('engine.form.notFound', locale), locale)
+        }
         onCommit={(v) => writeVariant({ type: v })}
         disabled={readOnly}
       />

@@ -147,13 +147,30 @@ export const ActionSchema: z.ZodType<ActionDeclaration, ActionDeclaration> = z.l
 }));
 
 /**
+ * The prescription an author gets when a record id arrives as a number.
+ *
+ * ⚠️ Declared file-locally in each of the three mirrors that carry a record id
+ * rather than shared from one module, and PINNED BY CONTENT — not by line — in
+ * `../__tests__/authorable-record-id-string-9511.test.ts`, which asserts that
+ * every one of the three refusals names the quoted form. So this text drifting
+ * out of one mirror turns that pin red instead of going quiet.
+ */
+const RECORD_ID_IS_A_STRING_GUIDANCE =
+  "A record id is a string on every boundary (objectui#9511): write it quoted \u2014 42 becomes '42'. "
+  + 'A backend whose primary keys are numeric converts at its OWN adapter boundary, in one typed '
+  + 'place, so every author, every caller and every adapter sees one shape.';
+
+/**
  * Detail Schema
  */
 export const DetailSchema = BaseSchema.extend({
   type: z.literal('detail'),
   title: z.string().optional().describe('Detail title'),
   api: z.string().optional().describe('API endpoint to fetch detail data'),
-  resourceId: z.union([z.string(), z.number()]).optional().describe('Resource ID to display'),
+  resourceId: z
+    .string({ error: (issue) => (issue.code === 'invalid_type' ? RECORD_ID_IS_A_STRING_GUIDANCE : undefined) })
+    .optional()
+    .describe('Resource ID to display \u2014 a string, never a number (objectui#9511)'),
   groups: z.array(z.object({
     title: z.string().optional(),
     description: z.string().optional(),

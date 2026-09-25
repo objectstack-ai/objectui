@@ -18,7 +18,8 @@
  */
 import React from 'react';
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, cleanup } from '@testing-library/react';
+import { render as rtlRender, cleanup, type RenderOptions } from '@testing-library/react';
+import { I18nProvider } from '@object-ui/i18n';
 
 vi.mock('recharts', async () => {
   const actual = await vi.importActual<any>('recharts');
@@ -30,6 +31,24 @@ vi.mock('recharts', async () => {
 });
 
 import AdvancedChartImpl from './AdvancedChartImpl';
+
+/**
+ * Every case mounts under an `I18nProvider`, as the console always does.
+ * `AdvancedChartImpl` reads the display locale (`useDisplayLocale`,
+ * objectui#9909), and a PROVIDER-LESS first `useTranslation()` prints
+ * react-i18next's once-per-module `NO_I18NEXT_INSTANCE` notice — which the
+ * `console.warn` spies below, written to read the chart's OWN diagnostics,
+ * would otherwise count.
+ */
+function EnSession({ children }: { children: React.ReactNode }) {
+  return (
+    <I18nProvider config={{ defaultLanguage: 'en', detectBrowserLanguage: false }} persistLanguage={false}>
+      {children}
+    </I18nProvider>
+  );
+}
+const render = ((ui: React.ReactElement, options?: RenderOptions) =>
+  rtlRender(ui, { wrapper: EnSession, ...options })) as typeof rtlRender;
 
 afterEach(cleanup);
 

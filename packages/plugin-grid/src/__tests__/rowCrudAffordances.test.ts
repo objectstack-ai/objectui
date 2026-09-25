@@ -39,9 +39,55 @@ describe('resolveRowCrudAffordances', () => {
       .toEqual({ canEdit: false, canDelete: false });
   });
 
-  it('honors explicit rowActions (edit/delete strings) when callbacks exist', () => {
+  // [objectui#9819] `operations` is the CEILING over `rowActions`, by the
+  // maintainer ruling of 2026-09-18 (batch #162 item 1, letter A). These two
+  // cases replace one that asserted the opposite — that the canonical
+  // `rowActions` names opened both entries on their own, with `operations`
+  // contributing nothing. The gate is now an intersection like every layer
+  // around it, and an `operations` member the authored block does not name is
+  // not an allowance.
+  it('an explicit rowActions selection alone can no longer OPEN either entry', () => {
     expect(rowGate({ wantEditAction: true, wantDeleteAction: true, hasOnEdit: true, hasOnDelete: true }))
-      .toEqual({ canEdit: true, canDelete: true });
+      .toEqual({ canEdit: false, canDelete: false });
+  });
+
+  it('…and an explicit `operations.update: false` beats the selection outright, per member', () => {
+    expect(rowGate({ ...wired, operationsUpdate: false, wantEditAction: true }))
+      .toEqual({ canEdit: false, canDelete: true });
+    expect(rowGate({ ...wired, operationsDelete: false, wantDeleteAction: true }))
+      .toEqual({ canEdit: true, canDelete: false });
+  });
+
+  // [objectui#10083] The ruling's second half: inside the ceiling a DECLARED
+  // `rowActions` list narrows to the canonical names it carries, and an absent
+  // one takes the default arm. `rowActionsDeclared` is what tells the two apart.
+  describe('#10083 `rowActions` narrows inside the ceiling', () => {
+    it('a declared list naming only `edit` withholds delete', () => {
+      expect(rowGate({ ...wired, rowActionsDeclared: true, wantEditAction: true, wantDeleteAction: false }))
+        .toEqual({ canEdit: true, canDelete: false });
+    });
+
+    it('a declared list naming neither (empty, or custom names only) withholds both', () => {
+      expect(rowGate({ ...wired, rowActionsDeclared: true, wantEditAction: false, wantDeleteAction: false }))
+        .toEqual({ canEdit: false, canDelete: false });
+    });
+
+    it('an ABSENT list keeps the default — the same `false` selections do not narrow', () => {
+      expect(rowGate({ ...wired, rowActionsDeclared: false, wantEditAction: false, wantDeleteAction: false }))
+        .toEqual({ canEdit: true, canDelete: true });
+      expect(rowGate({ ...wired })).toEqual({ canEdit: true, canDelete: true });
+    });
+
+    it('a declared selection still cannot pass the ceiling', () => {
+      expect(rowGate({ ...wired, operationsUpdate: false, rowActionsDeclared: true, wantEditAction: true, wantDeleteAction: true }))
+        .toEqual({ canEdit: false, canDelete: true });
+    });
+
+    it('narrowing leaves the bulk-delete verdict alone (it rides `onBulkDelete`, not the row selection)', () => {
+      const r = resolveRowCrudAffordances({ ...wired, rowActionsDeclared: true, wantDeleteAction: false });
+      expect(r.canDelete).toBe(false);
+      expect(r.objectCanDelete).toBe(true);
+    });
   });
 
   describe('#2614 object form (per-record CEL predicates)', () => {

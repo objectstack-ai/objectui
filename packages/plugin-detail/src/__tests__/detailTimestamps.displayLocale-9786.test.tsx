@@ -16,8 +16,12 @@
  * caller must not do is reach past the hook and hand `Intl` the `undefined` it
  * gets on an unconfigured workspace, because `undefined` means "the MACHINE's
  * locale, which is neither channel". objectui#9453 put the `summaryFields`
- * chip on the hook; this file covers the timeline / history / diff / footer
+ * chip on the hook; this file covers the timeline / history / dialog / footer
  * surfaces in the same package, which were still passing nothing at all.
+ *
+ * The census also named `PointInTimeRestore.tsx` and `DiffView.tsx`. Their rows
+ * left this file when objectui#7192 deleted both components (with five other
+ * unregistered, unmounted `plugin-detail` exports, by maintainer ruling).
  *
  * ## ⭐ Why every family is measured as a DIFFERENCE, not as a literal
  *
@@ -41,25 +45,26 @@
  * exactly one: `HistoryTimeline`'s optional `locale` prop reached
  * `Intl.RelativeTimeFormat(locale, …)` and neither of its two call sites
  * passed it, so the prop's own doc comment declared the defect ("Defaults to
- * browser locale"). `recordLocaleArguments` below closes that hole by
+ * browser locale"). `recordLocaleArguments` (`@object-ui/test-support`) closes that hole by
  * observing the ARGUMENT every `Intl` constructor and every
  * `Date.prototype.toLocale*` call actually receives while a surface renders.
  * It sees through variables, spreads and defaults, which no grep does.
  *
- * `machineLocaleCensus-9786.test.ts` is the other half: it reddens when a NEW
- * bare or hard-coded site is written anywhere in this package's source.
+ * The repo-wide census (`packages/i18n/src/__tests__/machineLocaleCensus-9909.test.ts`,
+ * which this package's own census pin became under the ruling on objectui#9786)
+ * is the other half: it reddens when a NEW bare or hard-coded site is written
+ * anywhere in a package that depends on `@object-ui/i18n`.
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup, fireEvent } from '@testing-library/react';
 import * as React from 'react';
 import { I18nProvider, LocalizationProvider } from '@object-ui/i18n';
+import { isMachineLocale, recordLocaleArguments } from '@object-ui/test-support';
 import type { ActivityEntry, CommentEntry, FeedItem } from '@object-ui/types';
 import { ActivityTimeline } from '../ActivityTimeline';
 import { ConcurrentUpdateDialog } from '../ConcurrentUpdateDialog';
-import { DiffView } from '../DiffView';
 import { HistoryTimeline, type HistoryEntry } from '../HistoryTimeline';
-import { PointInTimeRestore, type RevisionEntry } from '../PointInTimeRestore';
 import { RecordActivityTimeline } from '../RecordActivityTimeline';
 import { RecordComments } from '../RecordComments';
 import { RecordMetaFooter } from '../RecordMetaFooter';
@@ -73,8 +78,6 @@ afterEach(() => cleanup());
  * UTC (`vitest.config.mts` pins it), so the local face is deterministic.
  */
 const STORED = '2020-03-04T15:30:00.000Z';
-/** A second instant, so `DiffView` has a change to draw rather than "No changes". */
-const STORED_LATER = '2021-07-09T08:15:00.000Z';
 
 /**
  * The session locale is DECLARED, never inherited from the runner — the same
@@ -115,79 +118,12 @@ function expandReplies(): void {
 /* The runtime tripwire — it observes ARGUMENTS, so variables cannot hide       */
 /* -------------------------------------------------------------------------- */
 
-interface LocaleCall {
-  api: string;
-  /** The first argument as passed — `undefined` both when absent and when explicit. */
-  locale: unknown;
-  /** How many arguments the call site actually passed. */
-  argc: number;
-}
-
-const INTL_CONSTRUCTORS = [
-  'DateTimeFormat',
-  'NumberFormat',
-  'RelativeTimeFormat',
-  'ListFormat',
-  'PluralRules',
-  'Collator',
-] as const;
-
-const DATE_METHODS = ['toLocaleString', 'toLocaleDateString', 'toLocaleTimeString'] as const;
-
-/**
- * Run `body` with every locale-taking API instrumented, and return what each
- * call site actually handed it.
- *
- * ⚠️ Patching, not spying on a module: these are host intrinsics, and the call
- * sites reach them through the global object at call time. Restored in a
- * `finally` so one failing case cannot leak a patched intrinsic into the next.
- */
-function recordLocaleArguments(body: () => void): LocaleCall[] {
-  const calls: LocaleCall[] = [];
-  const intlOriginals = new Map<string, unknown>();
-  const dateOriginals = new Map<string, unknown>();
-
-  for (const name of INTL_CONSTRUCTORS) {
-    const Original = (Intl as unknown as Record<string, unknown>)[name];
-    if (typeof Original !== 'function') continue;
-    intlOriginals.set(name, Original);
-    const Patched = function (this: unknown, ...args: unknown[]) {
-      calls.push({ api: `Intl.${name}`, locale: args[0], argc: args.length });
-      return new (Original as new (...a: unknown[]) => object)(...args);
-    } as unknown as Record<string, unknown>;
-    // `supportedLocalesOf` and the prototype are part of the shape callers see.
-    Object.setPrototypeOf(Patched, Original as object);
-    (Patched as { prototype?: unknown }).prototype = (Original as { prototype: unknown }).prototype;
-    (Intl as unknown as Record<string, unknown>)[name] = Patched;
-  }
-
-  for (const name of DATE_METHODS) {
-    const original = Date.prototype[name] as (...a: unknown[]) => string;
-    dateOriginals.set(name, original);
-    (Date.prototype as unknown as Record<string, unknown>)[name] = function (
-      this: Date,
-      ...args: unknown[]
-    ) {
-      calls.push({ api: `Date.prototype.${name}`, locale: args[0], argc: args.length });
-      return original.apply(this, args);
-    };
-  }
-
-  try {
-    body();
-  } finally {
-    for (const [name, original] of intlOriginals) {
-      (Intl as unknown as Record<string, unknown>)[name] = original;
-    }
-    for (const [name, original] of dateOriginals) {
-      (Date.prototype as unknown as Record<string, unknown>)[name] = original;
-    }
-  }
-  return calls;
-}
-
-/** A call that formats in the machine's locale: nothing passed, or `undefined` passed. */
-const isMachineLocale = (c: LocaleCall): boolean => c.argc === 0 || c.locale === undefined;
+// `recordLocaleArguments` and `isMachineLocale` were written here and moved to
+// `@object-ui/test-support` when objectui#9909 applied this pin pattern to
+// every surface its sweep changed: one instrument, not a copy per package. The
+// instrument's own controls (it sees a machine-locale call when one is made,
+// and passes a call that states its tag) moved with it, to
+// `packages/test-support/src/__tests__/locale-tripwire.test.ts`.
 
 /* -------------------------------------------------------------------------- */
 /* The surfaces — one entry per file the census named                          */
@@ -204,9 +140,6 @@ const feedItems: FeedItem[] = [
 ];
 const replies: FeedItem[] = [
   { id: 'f2', type: 'comment', actor: 'Grace', body: 'reply', createdAt: STORED } as FeedItem,
-];
-const revisions: RevisionEntry[] = [
-  { id: 'r1', timestamp: STORED, user: 'Ada', changes: [{ field: 'stage', oldValue: 'a', newValue: 'b' }] },
 ];
 const historyEntries: HistoryEntry[] = [
   { id: 'h1', created_at: STORED, action: 'update', user_name: 'Ada' },
@@ -266,13 +199,6 @@ const SURFACES: Surface[] = [
     reveal: expandReplies,
   },
   {
-    file: 'PointInTimeRestore.tsx',
-    site: 'past-a-day toLocaleString tail',
-    node: <PointInTimeRestore recordId="rec_1" revisions={revisions} />,
-    de: DE_DATETIME,
-    en: EN_DATETIME,
-  },
-  {
     file: 'ConcurrentUpdateDialog.tsx',
     site: "the racer's updated_at",
     node: (
@@ -290,13 +216,6 @@ const SURFACES: Surface[] = [
         onCancel={() => {}}
       />
     ),
-    de: DE_DATETIME,
-    en: EN_DATETIME,
-  },
-  {
-    file: 'DiffView.tsx',
-    site: "a `date` field's diff lines",
-    node: <DiffView fieldName="closed_at" fieldType="date" oldValue={STORED} newValue={STORED_LATER} />,
     de: DE_DATETIME,
     en: EN_DATETIME,
   },
@@ -409,30 +328,5 @@ describe('no record-page surface hands Intl the machine locale (objectui#9786)',
       calls.filter(isMachineLocale),
       'these call sites formatted in the machine locale',
     ).toEqual([]);
-  });
-
-  /**
-   * The tripwire's own control. Without it every assertion above is satisfied
-   * by an instrument that observes nothing — the failure direction this lane
-   * keeps paying for.
-   */
-  it('the tripwire sees a machine-locale call when one is made', () => {
-    const calls = recordLocaleArguments(() => {
-      new Date(STORED).toLocaleDateString();
-      new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(STORED));
-    });
-    expect(calls.filter(isMachineLocale).map((c) => c.api)).toEqual([
-      'Date.prototype.toLocaleDateString',
-      'Intl.DateTimeFormat',
-    ]);
-  });
-
-  /** …and that it does not cry machine-locale over a call that states a tag. */
-  it('the tripwire passes a call that states its tag', () => {
-    const calls = recordLocaleArguments(() => {
-      new Date(STORED).toLocaleDateString('de-DE');
-    });
-    expect(calls.filter(isMachineLocale)).toEqual([]);
-    expect(calls.map((c) => c.locale)).toEqual(['de-DE']);
   });
 });

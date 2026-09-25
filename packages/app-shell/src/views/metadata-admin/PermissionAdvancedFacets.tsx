@@ -279,6 +279,46 @@ export function PermissionAdvancedFacets({
     setDraft((p) => ({ ...p, rowLevelSecurity: next }));
   const setScope = (patch: Partial<AdminScope>) =>
     setDraft((p) => ({ ...p, adminScope: { ...asObject(p.adminScope), ...patch } }));
+
+  /**
+   * Delegated admin scope: the boundary has to exist before anything can be
+   * scoped to it (objectui#9464).
+   *
+   * `businessUnit` is the ONE key `AdminScopeSchema` requires — the other five
+   * carry defaults — so a scope written before one is named is an object the
+   * framework refuses WHOLESALE, and what it blocks is the author's next
+   * whole-record Save, not just this section. Every DEPENDENT control therefore
+   * writes through `setScopeDetail` instead of `setScope`, and carries the same
+   * `disabled` condition, so the refusal is a visible affordance rather than a
+   * dead click. The business-unit input itself keeps the ungated `setScope` —
+   * it is what lifts the gate.
+   *
+   * ⚠️ This gates the WRITE; it never prunes. A scope that already carries
+   * flipped switches keeps every one of them: a permission editor that quietly
+   * un-does an author's input is a worse defect than the one this closes.
+   *
+   * The gate is the affordance's own precondition — a business unit that NAMES
+   * something — which is strictly narrower than the spec's requirement that the
+   * key merely be present. `scopeBlocksSave` below tracks the spec's condition
+   * instead, because that is the one that actually refuses the record.
+   */
+  const scopeAnchored = typeof scope.businessUnit === 'string' && scope.businessUnit.trim() !== '';
+  const setScopeDetail = (patch: Partial<AdminScope>) => {
+    if (!scopeAnchored) return;
+    setScope(patch);
+  };
+
+  /**
+   * Whether the section carries any state at all — the collapsed badge's count.
+   *
+   * It used to count `businessUnit` / `assignablePermissionSets` only, so a
+   * draft carrying `{ includeSubtree: true }` — already blocking Save — showed
+   * no badge, pointing the author AWAY from the section that caused it. A
+   * section carrying state may never report that it carries none.
+   */
+  const scopeConfigured = Object.keys(scope).length > 0;
+  /** The spec's own condition: keys present, `businessUnit` absent ⇒ refused. */
+  const scopeBlocksSave = scopeConfigured && typeof scope.businessUnit !== 'string';
   const setTabs = (next: TabPerms) => setDraft((p) => ({ ...p, tabPermissions: next }));
 
   const tabEntries = Object.entries(tabs);
@@ -506,7 +546,7 @@ export function PermissionAdvancedFacets({
       <FacetSection
         title={t('perm.admin.title')}
         icon={<Shield className="h-4 w-4 text-muted-foreground" />}
-        count={scope.businessUnit || (scope.assignablePermissionSets?.length ?? 0) ? 1 : 0}
+        count={scopeConfigured ? 1 : 0}
       >
         <p className="text-xs text-muted-foreground mb-3">{t('perm.admin.help')}</p>
         <div className="space-y-3 max-w-2xl">
@@ -523,12 +563,22 @@ export function PermissionAdvancedFacets({
             <label className="flex items-center gap-1.5 text-xs pb-1.5">
               <Switch
                 checked={!!scope.includeSubtree}
-                disabled={!writable}
-                onCheckedChange={(v) => setScope({ includeSubtree: !!v })}
+                disabled={!writable || !scopeAnchored}
+                onCheckedChange={(v) => setScopeDetail({ includeSubtree: !!v })}
               />
               {t('perm.admin.includeSubtree')}
             </label>
           </div>
+          {!scopeAnchored && (
+            <p
+              className={cn(
+                'text-xs',
+                scopeBlocksSave ? 'text-destructive' : 'text-muted-foreground',
+              )}
+            >
+              {t('perm.admin.businessUnitRequired')}
+            </p>
+          )}
           <div className="flex flex-wrap gap-x-6 gap-y-2">
             {(
               [
@@ -540,8 +590,8 @@ export function PermissionAdvancedFacets({
               <label key={key} className="flex items-center gap-1.5 text-xs">
                 <Switch
                   checked={!!scope[key]}
-                  disabled={!writable}
-                  onCheckedChange={(v) => setScope({ [key]: !!v } as Partial<AdminScope>)}
+                  disabled={!writable || !scopeAnchored}
+                  onCheckedChange={(v) => setScopeDetail({ [key]: !!v } as Partial<AdminScope>)}
                 />
                 {t(label)}
               </label>
@@ -559,12 +609,12 @@ export function PermissionAdvancedFacets({
                   <button
                     type="button"
                     key={setName}
-                    disabled={!writable}
+                    disabled={!writable || !scopeAnchored}
                     aria-pressed={on}
                     onClick={() => {
                       const cur = scope.assignablePermissionSets ?? [];
                       const next = on ? cur.filter((s) => s !== setName) : [...cur, setName];
-                      setScope({ assignablePermissionSets: next });
+                      setScopeDetail({ assignablePermissionSets: next });
                     }}
                     className={cn(
                       'rounded-full border px-3 py-1 text-xs transition-colors disabled:opacity-50',

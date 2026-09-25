@@ -10,6 +10,8 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@object-ui/components';
 import type { AIFormAssistSchema, AIFieldSuggestion } from '@object-ui/types';
 import { Sparkles, Check, X, RefreshCw, Lightbulb } from 'lucide-react';
+import { useDisplayLocale } from '@object-ui/i18n';
+import { useAiTranslation, formatPercent } from './useAiTranslation';
 
 export interface AIFormAssistProps {
   schema: AIFormAssistSchema;
@@ -34,6 +36,8 @@ export interface AIFormAssistProps {
  * Applying a suggestion is the author's act, through `onApply`.
  */
 export const AIFormAssist: React.FC<AIFormAssistProps> = ({ schema, onApply, onRefresh }) => {
+  const { t } = useAiTranslation();
+  const displayLocale = useDisplayLocale();
   const {
     suggestions: initialSuggestions = [],
     showConfidence = true,
@@ -91,9 +95,12 @@ export const AIFormAssist: React.FC<AIFormAssistProps> = ({ schema, onApply, onR
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-blue-500" />
-            AI Suggestions
+            {t('ai.formAssist.title')}
             <Badge variant="secondary" className="text-xs">
-              {pendingSuggestions.length} suggestion{pendingSuggestions.length !== 1 ? 's' : ''}
+              {t(
+                pendingSuggestions.length === 1 ? 'ai.formAssist.suggestionCountOne' : 'ai.formAssist.suggestionCount',
+                { count: pendingSuggestions.length },
+              )}
             </Badge>
           </CardTitle>
           <div className="flex items-center gap-1">
@@ -113,7 +120,7 @@ export const AIFormAssist: React.FC<AIFormAssistProps> = ({ schema, onApply, onR
                 onClick={handleApplyAll}
                 className="h-7 text-xs"
               >
-                Apply All
+                {t('ai.formAssist.applyAll')}
               </Button>
             )}
             <Button 
@@ -146,7 +153,7 @@ export const AIFormAssist: React.FC<AIFormAssistProps> = ({ schema, onApply, onR
               </div>
               {showConfidence && (
                 <div className={`text-xs ${getConfidenceColor(suggestion.confidence)}`}>
-                  {Math.round(suggestion.confidence * 100)}% confidence
+                  {t('ai.formAssist.confidence', { percent: formatPercent(suggestion.confidence, displayLocale) })}
                 </div>
               )}
               {showReasoning && suggestion.reasoning && (
@@ -180,7 +187,10 @@ export const AIFormAssist: React.FC<AIFormAssistProps> = ({ schema, onApply, onR
         {appliedFields.size > 0 && (
           <div className="text-xs text-green-600 flex items-center gap-1 pt-1">
             <Check className="h-3 w-3" />
-            {appliedFields.size} suggestion{appliedFields.size !== 1 ? 's' : ''} applied
+            {t(
+              appliedFields.size === 1 ? 'ai.formAssist.appliedCountOne' : 'ai.formAssist.appliedCount',
+              { count: appliedFields.size },
+            )}
           </div>
         )}
       </CardContent>

@@ -26,7 +26,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
 import { useObjectLabel, useObjectTranslation } from '@object-ui/i18n';
-import { ActionProvider, useGlobalUndo, type ActionProviderProps } from '@object-ui/react';
+import { ActionProvider, useGlobalUndo, useMetadata, type ActionProviderProps } from '@object-ui/react';
 import { toast } from 'sonner';
 import type {
   ActionContext,
@@ -45,11 +45,12 @@ import { ActionConfirmDialog, type ConfirmDialogState } from '../views/ActionCon
 import { ActionParamDialog, type ParamDialogState } from '../views/ActionParamDialog.js';
 import { ActionResultDialog, type ResultDialogState } from '../views/ActionResultDialog.js';
 import { FlowRunner, type ScreenFlowState, type ScreenSpec } from '../views/FlowRunner.js';
-import { resolveActionParams } from '../utils/resolveActionParams.js';
+import { FlowRefusalNotice, type FlowRefusalState } from '../views/FlowRefusalNotice.js';
+import { resolveActionParams, withKnownObjects } from '../utils/resolveActionParams.js';
 import { EnvironmentEntitlementDialog, type EntitlementDialogState } from '../environment/EnvironmentEntitlementDialog.js';
 import { entitlementDialogFromError, type EntitlementDialogSpec } from '../environment/entitlements.js';
 import { resolvePageVarTokens } from '../utils/resolvePageVarTokens.js';
-import { interpretFlowResponse } from '../utils/flowResponse.js';
+import { interpretFlowResponse, judgeFlowLaunch } from '../utils/flowResponse.js';
 import { createConsoleServerActionHandler } from '../utils/consoleServerAction.js';
 import { modalTargetRefusalMessage } from '../utils/modalTargetDiagnostics.js';
 import type { ConsoleActionDispatch } from '../consoleActionDispatch.js';
@@ -121,7 +122,7 @@ export interface ConsoleActionRuntime {
       | 'handlers'
     >
   >;
-  /** Confirm / param / result / paused-flow dialogs — render inside the provider. */
+  /** Confirm / param / result / paused-flow / flow-refusal dialogs — render inside the provider. */
   dialogs: React.ReactNode;
 }
 
@@ -144,6 +145,33 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
   // here rather than taken from the server (objectui#2458 / cloud#959).
   // `language` also resolves inline per-locale action-param labels below.
   const { t, language } = useObjectTranslation();
+
+  /**
+   * The console's own metadata store.
+   *
+   * ⛔ The CONTEXT VALUE is what this closes over — never its `objects` getter,
+   * which builds a fresh array on every read, and never a snapshot of that
+   * array. The getter and `ensureType` both read the provider's live cache
+   * through refs, so a value captured at any render answers with today's data
+   * at CALL time. Nothing below therefore rests on the identity of a memoised
+   * result (AGENTS.md #10): the dep carries the value only so the lint rule can
+   * see it, and a discarded-and-recomputed context value would rebuild this
+   * callback with no change in what it reads.
+   *
+   * ⭐ Why this hook reaches for it at all (objectui#10129). Field-backed action
+   * params resolve against `ctx.objects`, and the `objects` OPTION is whatever
+   * the caller happened to hold: `ConsoleShell`'s root runtime passes NONE, and
+   * `DeclaredActionsBar` passes exactly ONE object (and none at all when it is
+   * driven by an `actions` prop). A param whose owner is not in that list
+   * resolves to nothing — and, because a field-backed param carries no inline
+   * `type`, silently becomes a `text` param: an empty box with no dropdown and
+   * no request for the referenced object on the wire, while the SAME field
+   * renders a real picker on a record form in the same build, off the same
+   * store. The binding was never missing from the client; this seam just never
+   * asked for it. The caller's list still WINS (see `withKnownObjects`) — a
+   * preview/draft world stays authoritative for the objects it carries.
+   */
+  const metadata = useMetadata();
 
   const objectDef = useMemo(
     () => (objectName ? objects?.find((o: any) => o.name === objectName) : undefined),
@@ -169,6 +197,8 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
   const [resultDialogState, setResultDialogState] = useState<ResultDialogState>({ open: false });
   // A paused `screen`-node flow awaiting user input.
   const [screenFlow, setScreenFlow] = useState<ScreenFlowState | null>(null);
+  // A flow launch that ended `refused` without pausing (objectui#9973).
+  const [flowRefusal, setFlowRefusal] = useState<FlowRefusalState>({ open: false });
   // Plan/capacity gate dialog (upgrade / limit), shared by the env-list toolbar
   // (proactive) and the api-action error path below (reactive safety net).
   const [entitlementDialog, setEntitlementDialog] = useState<EntitlementDialogState>({ open: false });
@@ -202,7 +232,16 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
   // `ActionDef` field, and the one that was not is the reason objectui#4282
   // backed the narrowing out.
   const paramCollectionHandler = useCallback<ParamCollectionHandler>((params: ActionParamDef[], action?: ConsoleActionDispatch) => {
-    return new Promise<Record<string, any> | null>((resolve) => {
+    return new Promise<Record<string, any> | null>((resolve) => { void (async () => {
+      // ⭐ Ask the store for the object type BEFORE resolving (objectui#10129).
+      // `ensureType` is idempotent and answers from cache in a microtask once
+      // warm, so the cost is nil on the path a user actually takes — but it is
+      // what makes "this field does not exist" an ANSWER rather than a race.
+      // The refusal below is only sound if the metadata had its chance to
+      // arrive; resolving against a store that simply had not fetched yet would
+      // refuse a perfectly good param the instant a console booted cold.
+      await metadata.ensureType('object').catch(() => []);
+      const knownObjects = withKnownObjects(objects, metadata.objects);
       // List_item actions stash the row record under params._rowRecord (see
       // ObjectGrid → onRowAction). Pull it out so resolveActionParams can
       // pre-fill `defaultFromRow` params from the row's current values.
@@ -220,7 +259,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
         : undefined;
       const resolved = resolveActionParams(params as any, {
         objectName: actionObject || objectName || (objectDef as any)?.name || '',
-        objects: objects || [],
+        objects: knownObjects,
         fieldLabel,
         fieldOptionLabel,
         row,
@@ -277,8 +316,8 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
           : declaredDescription,
         resolve,
       });
-    });
-  }, [objectName, objectDef, objects, fieldLabel, fieldOptionLabel, actionParamText, actionParamOptionLabel]);
+    })(); });
+  }, [objectName, objectDef, objects, metadata, fieldLabel, fieldOptionLabel, actionParamText, actionParamOptionLabel]);
 
   const currentUser = user
     ? { id: user.id, name: user.name, avatar: user.image, isPlatformAdmin: (user as any)?.isPlatformAdmin ?? false, systemPermissions }
@@ -483,21 +522,43 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
 
       // Undoable single-record update: capture the prior values of the changed
       // fields from the row record so the success toast can offer "Undo".
+      //
+      // ⛔ A field the row does not CARRY is never captured as `null`
+      // (objectui#10404) — the rule `captureUpdateUndoData` in
+      // `@object-ui/core`'s `ActionRunner` states, applied to this handler's
+      // written set (`params` plus `bodyExtra`). A list row is projected by
+      // `$select`, so a written field no column shows is absent while the
+      // server holds a real value; recording `null` made Undo overwrite it. A
+      // `null` the row carries is a real empty value and is captured as one.
+      // When any written field is not carried there is no Undo at all: the
+      // success toast then has no Undo button, and the warning names the cause.
       let undo: ActionResult['undo'];
       if (action.undoable && obj && recId && rowRecord && Object.keys(fields).length > 0
           && typeof dataSource?.update === 'function') {
-        const undoData: Record<string, unknown> = {};
-        for (const k of Object.keys(fields)) undoData[k] = rowRecord[k] ?? null;
-        undo = {
-          id: `undo-${obj}-${recId}-${Date.now()}`,
-          type: 'update',
-          objectName: obj,
-          recordId: String(recId),
-          timestamp: Date.now(),
-          description: action.label || `Undo ${obj}`,
-          undoData,
-          redoData: { ...fields },
-        };
+        const written = Object.keys(fields);
+        const missing = written.filter(
+          (k) => !Object.prototype.hasOwnProperty.call(rowRecord, k) || rowRecord[k] === undefined,
+        );
+        if (missing.length === 0) {
+          undo = {
+            id: `undo-${obj}-${recId}-${Date.now()}`,
+            type: 'update',
+            objectName: obj,
+            recordId: String(recId),
+            timestamp: Date.now(),
+            description: action.label || `Undo ${obj}`,
+            undoData: Object.fromEntries(written.map((k) => [k, rowRecord[k]])),
+            redoData: { ...fields },
+          };
+        } else {
+          console.warn(
+            '[useConsoleActionRuntime] `undoable` action succeeded but offers no Undo: the row it ran on '
+            + 'does not carry every field it wrote, so their prior values are unknown and an Undo would '
+            + 'overwrite stored data. A list row carries a written field when the object declares it and '
+            + 'the principal may read it.',
+            { action: action.name, missing },
+          );
+        }
       }
 
       const shouldRefresh = action.refreshAfter !== false;
@@ -555,28 +616,30 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
         },
       );
       const json = await res.json().catch(() => null);
-      // Single source for the flow-response rule — shared with
-      // RecordDetailView's copy of this handler and with FlowRunner's resume.
-      // A launch that FAILED (HTTP 200, `data.success === false`, no `status`
-      // and no `screen`) used to be indistinguishable from a completed run and
-      // fell into the terminal-success return below: no dialog, a green toast,
-      // and a refresh (#2958). See utils/flowResponse.
-      const outcome = interpretFlowResponse<ScreenSpec>(res, json, `Flow "${flowName}"`);
-      if (outcome.kind === 'failed') {
-        // The ActionRunner's post-execution hook surfaces `error` as a toast.
-        return { success: false, error: outcome.error };
+      // Single source for the flow-response rule AND for what a launch does
+      // with it — shared with RecordDetailView's copy of this handler (and the
+      // interpretation with FlowRunner's resume). Each launch copy once held
+      // its own branch set, and each time a kind was missing it fell into the
+      // terminal-success tail: a failed run toasted green (#2958), and a run
+      // that ended `refused` without pausing toasted the action's
+      // `successMessage` and refreshed while the refusal was never shown
+      // (objectui#9973). See utils/flowResponse.
+      const judged = judgeFlowLaunch(
+        interpretFlowResponse<ScreenSpec>(res, json, `Flow "${flowName}"`),
+        action.refreshAfter,
+      );
+      // Paused at a `screen` node: FlowRunner renders the form + resumes, and
+      // refreshes on completion.
+      if (judged.followUp?.kind === 'screen') {
+        setScreenFlow({ flowName, runId: judged.followUp.runId, screen: judged.followUp.screen });
       }
-      // Screen-flow runtime: paused at a `screen` node awaiting input — open
-      // the FlowRunner to render the form + resume. Refresh happens on complete.
-      if (outcome.kind === 'paused') {
-        setScreenFlow({ flowName, runId: outcome.runId ?? '', screen: outcome.screen });
-        // The action only OPENED the wizard — it hasn't completed. Suppress the
-        // action-level success toast; the flow-runner owns completion messaging.
-        return { success: true, silent: true };
+      // Ended `refused`: the Close-only notice carries the engine's sentence,
+      // titled with the action the user clicked.
+      if (judged.followUp?.kind === 'refusal') {
+        setFlowRefusal({ open: true, title: action.label, message: judged.followUp.message });
       }
-      const shouldRefresh = action.refreshAfter !== false;
-      if (shouldRefresh) refresh();
-      return { success: true, data: outcome.data, reload: shouldRefresh };
+      if (judged.refresh) refresh();
+      return judged.result;
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
@@ -762,6 +825,10 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
         objects={objects}
         onClose={() => setScreenFlow(null)}
         onComplete={() => { setScreenFlow(null); refresh(); }}
+      />
+      <FlowRefusalNotice
+        state={flowRefusal}
+        onClose={() => setFlowRefusal(s => ({ ...s, open: false }))}
       />
       <EnvironmentEntitlementDialog
         state={entitlementDialog}

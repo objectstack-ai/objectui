@@ -121,7 +121,11 @@ const ar = {
     closeChat: "إغلاق المحادثة",
     closePanel: "إغلاق اللوحة",
     resizeDrawer: "تغيير عرض اللوحة",
-    itemCount: "{{count}} عناصر",
+    // objectui#10242 — the tab-count badge switches keys only at exactly 1, so
+    // this half serves two (2), few (3-10), many (11-99) and other (100+),
+    // which need different noun forms. A count label («عدد …: {{count}}», as
+    // `search.resultsCountPlural` does) reads correctly at every one of them.
+    itemCount: "عدد العناصر: {{count}}",
     itemCountOne: "{{count}} عنصر",
     toggleSidebar: "تبديل الشريط الجانبي",
     package: "الحزمة",
@@ -151,6 +155,7 @@ const ar = {
       acknowledge: 'لقد حفظتها',
       copyAll: 'نسخ الكل',
     },
+    notAvailableHere: '"{{action}}" غير متاح في الصفحة الحالية.',
   },
   validation: {
     required: "{{field}} مطلوب",
@@ -169,6 +174,7 @@ const ar = {
   form: {
     noPermissionToSave: "ليس لديك إذن لحفظ هذا السجل.",
     submitFailed: "تعذّر الحفظ. يرجى المحاولة مرة أخرى.",
+    uploadInFlight: "انتظر حتى ينتهي الرفع قبل الحفظ.",
     discardTitle: "تجاهل التغييرات؟",
     discardMessage: "لديك تغييرات غير محفوظة. إذا أغلقت هذا النموذج الآن، ستفقد تعديلاتك.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
@@ -577,6 +583,33 @@ const ar = {
     newEvent: "حدث جديد",
     moreEvents: "+{{count}} المزيد",
     unscheduled: "غير مجدولة ({{count}})",
+    loading: "جارٍ تحميل التقويم…",
+    loadError: "خطأ: {{message}}",
+    configRequired: "إعداد التقويم مطلوب. يُرجى تحديد startDateField، وهو المفتاح المطلوب الوحيد للتقويم؛ ويُحلّ عنوان الحدث دون titleField.",
+    configRequiredHint: "هو ينتمي إلى كتلة calendar في العرض. صفحة الواجهة ليس لها فتحة تقويم خاصة بها: وجّه sourceView الخاص بها إلى عرض يعلن واحدة.",
+    eventDetails: "تفاصيل الحدث",
+    pullToRefresh: "اسحب للتحديث",
+    refreshing: "جارٍ التحديث…",
+    onDate: "في {{date}}",
+    eventTitle: "العنوان",
+    eventTitlePlaceholder: "ما موضوع هذا الحدث؟",
+    creating: "جارٍ الإنشاء…",
+    titleRequired: "العنوان مطلوب",
+    a11y: {
+      region: "التقويم",
+      grid: "شبكة التقويم",
+      goToToday: "الانتقال إلى اليوم",
+      previousPeriod: "الفترة السابقة",
+      nextPeriod: "الفترة التالية",
+      currentDate: "التاريخ الحالي: {{date}}",
+      dayCell: "{{date}}، عدد الأحداث: {{count}}",
+      dayCell_one: "{{date}}، {{count}} حدث",
+      dayCell_other: "{{date}}، عدد الأحداث: {{count}}",
+      resizeEventEnd: "تغيير نهاية الحدث",
+      resizeEventEndHint: "اسحب لتغيير تاريخ الانتهاء",
+      resizeStart: "تغيير وقت البدء",
+      resizeEnd: "تغيير وقت الانتهاء",
+    },
   },
   list: {
     firstRunTitle: "لا يوجد شيء هنا بعد",
@@ -878,6 +911,7 @@ const ar = {
     tabActionsFor: "إجراءات العرض لـ {{name}}",
     readonlyAriaLabel: "عرض للقراءة فقط",
     readonlyTooltip: "عرض النظام — معرَّف في الكود، للقراءة فقط.",
+    malformedFilter: "عامل تصفية طريقة العرض هذه غير صالح، لذا لا تُعرض أي سجلات: يتعذّر تطبيق الشرط {{subject}}.",
   },
   designer: {
     undo: "تراجع",
@@ -932,7 +966,6 @@ const ar = {
     viewAll: "عرض الكل",
     new: "جديد",
     add: "إضافة",
-    emptyValue: "—",
     comments: "التعليقات",
     searchComments: "البحث في التعليقات…",
     addCommentPlaceholder: "أضف تعليقاً… (Ctrl+Enter للإرسال)",
@@ -965,11 +998,6 @@ const ar = {
     attachmentsLoadFailed: "تعذر تحميل مرفقات هذا السجل.",
     attachmentsApiUnavailable: "قائمة المرفقات غير متاحة على هذا الكائن.",
     retryLoadAttachments: "إعادة المحاولة",
-    unifiedDiff: "عرض موحد",
-    sideBySideDiff: "عرض جنباً إلى جنب",
-    noChanges: "لا توجد تغييرات",
-    previousVersion: "السابق",
-    currentVersion: "الحالي",
     discussion: "المناقشة",
     showDiscussion: "إظهار المناقشة ({{count}})",
     hideDiscussion: "إخفاء المناقشة",
@@ -984,13 +1012,7 @@ const ar = {
     writeComment: "اكتب تعليقاً…",
     subscribedTooltip: "مشترك — انقر لإلغاء الاشتراك",
     unsubscribedTooltip: "الاشتراك في الإشعارات",
-    firstRecord: "السجل الأول (Home)",
-    previousRecordKey: "السجل السابق (←)",
-    nextRecordKey: "السجل التالي (→)",
-    lastRecord: "السجل الأخير (End)",
     noRecords: "لا توجد سجلات",
-    searchWhileNavigating: "البحث أثناء التصفح",
-    searchRecords: "البحث في السجلات…",
     allActivity: "كل النشاط",
     commentsOnly: "التعليقات فقط",
     fieldChangesFilter: "تغييرات الحقول",
@@ -1105,21 +1127,6 @@ const ar = {
     fileCount: "{{count}} ملف (ملفات)",
     fileCount_one: "{{count}} ملف",
     fileCount_other: "{{count}} ملفات",
-    // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
-    // used no translation hook at all, so every one of these read English in
-    // every session; swept in one pass rather than converting the timestamps
-    // alone. `Cancel`, `(empty)` and the empty-value dash reuse the keys this
-    // namespace already has, so only these ten are new.
-    revisionHistory: 'سجل المراجعات',
-    noRevisions: 'لا توجد مراجعات مسجلة',
-    revisionFieldsChanged: 'تم تغيير {{count}} حقول',
-    revisionFieldsChangedOne: 'تم تغيير {{count}} حقل',
-    revisionPreview: 'معاينة المراجعة',
-    revisionSnapshot: 'حالة السجل في هذه النقطة',
-    restoreConfirm: 'سيؤدي هذا إلى استعادة السجل إلى حالته في {{when}}. هل تريد المتابعة؟',
-    restoring: 'جارٍ الاستعادة…',
-    confirmRestore: 'تأكيد الاستعادة',
-    restoreToPoint: 'الاستعادة إلى هذه النقطة',
   },
   chart: {
     loading: "جارٍ تحميل الرسم البياني…",
@@ -1375,6 +1382,7 @@ const ar = {
     navTypeSeparator: "فاصل",
     navTypeAction: "إجراء",
     navTypeComponent: "مكوّن",
+    navTypeDoc: "مستند",
     navEditIcon: "تعديل الأيقونة",
     navToggleVisible: "تبديل الرؤية",
     navHidden: "مخفي",
@@ -1474,6 +1482,9 @@ const ar = {
     },
   },
   console: {
+    studio: {
+      backToHome: "العودة إلى الرئيسية",
+    },
     saveAdvisoryTitle: "تم الحفظ — أنتج فحص التأليف {{count}} ملاحظة إرشادية",
     publishAdvisoryTitle: "تم النشر — أنتج فحص التأليف {{count}} ملاحظة إرشادية",
     importMappingsUnavailable: "تعذّر تحميل تعيينات الاستيراد المحفوظة لـ {{object}}",
@@ -2508,7 +2519,12 @@ const ar = {
     placeholder: "ابحث في الكائنات، لوحات التحكم، الصفحات، التقارير…",
     inputAriaLabel: "ابحث في الكائنات، لوحات التحكم، الصفحات، التقارير",
     resultsCount: "{{count}} نتيجة لـ \"{{query}}\"",
-    resultsCountPlural: "{{count}} نتيجة لـ \"{{query}}\"",
+    // objectui#10024 — the page switches keys only at exactly 1, so this half
+    // serves zero, two, few (3-10), many (11-99) and other (100+), which need
+    // four different noun forms. It used to repeat the singular above byte for
+    // byte; a count label («عدد …: {{count}}», as `calendar.a11y.dayCell` does)
+    // reads correctly at every one of them.
+    resultsCountPlural: "عدد نتائج البحث عن \"{{query}}\": {{count}}",
     itemsAvailable: "{{count}} عناصر متاحة",
     itemsAvailableOne: "{{count}} عنصر متاح",
     noResults: "لم يتم العثور على نتائج",
@@ -2554,6 +2570,8 @@ const ar = {
     description: "يرجى إدخال المعلومات المطلوبة للمتابعة.",
     selectPlaceholder: "تحديد {{label}}",
     requiredError: "{{label}} مطلوب",
+    unresolvedParam: 'تعذّر عرض هذه المَعلمة: الحقل الذي تستند إليه غير موجود في بيانات تعريف الكائن، لذا يتعذّر إنشاء عنصر التحكم المطلوب. اطلب من المسؤول تصحيح تعريف الإجراء.',
+    carryOverHint: 'يُنقل دون تغيير (للقراءة فقط)',
     cancel: "إلغاء",
     confirm: "تأكيد",
     uploading: "جارٍ الرفع…",
@@ -2886,6 +2904,31 @@ const ar = {
     openProduction: "فتح بيئة الإنتاج",
     manageEnvironments: "إدارة البيئات",
   },
+  ai: {
+    nlQuery: {
+      placeholder: "اطرح سؤالًا حول بياناتك…",
+      ask: "اسأل",
+      results: "النتائج",
+      match: "نسبة التطابق: {{percent}}",
+      simulatedSummary: "نتائج: {{query}}",
+      noResults: "لم يتم العثور على سجلات مطابقة",
+      recentQueries: "الاستعلامات الأخيرة",
+    },
+    formAssist: {
+      title: "اقتراحات الذكاء الاصطناعي",
+      suggestionCount: "عدد الاقتراحات: {{count}}",
+      suggestionCountOne: "عدد الاقتراحات: {{count}}",
+      applyAll: "تطبيق الكل",
+      confidence: "الثقة: {{percent}}",
+      appliedCount: "عدد الاقتراحات المطبّقة: {{count}}",
+      appliedCountOne: "عدد الاقتراحات المطبّقة: {{count}}",
+    },
+    recommendations: {
+      title: "التوصيات",
+      generating: "جارٍ إنشاء التوصيات…",
+      empty: "لا توجد توصيات متاحة",
+    },
+  },
   aiApprovals: {
     title: "موافقات الذكاء الاصطناعي",
     description: "إجراءات اقترحها وكيل ذكاء اصطناعي وتحتاج إلى مراجعة بشرية قبل تنفيذها.",
@@ -3176,6 +3219,7 @@ const ar = {
       reseedQueued: 'ستتم إعادة تحميل البيانات التجريبية عند الوصول التالي إلى البيئة.',
       reseedLocalSuccess: 'تمت إعادة تحميل البيانات التجريبية: {{inserted}} مضافة، {{updated}} محدثة.',
       reseedPartialErrors: '(فشل في كتابة {{count}} سجل)',
+      sampleDataKernelUnavailable: 'لا يحتوي مستوى التحكم هذا على نواة بيئة، لذا لا يمكن إعادة تحميل البيانات التجريبية أو حذفها من هنا. نفّذ ذلك من وقت التشغيل الخاص بالبيئة نفسها.',
       updateAvailable: 'يتوفر تحديث',
     },
     action: {
@@ -3573,7 +3617,10 @@ const ar = {
     removeSort: "إزالة الترتيب",
   },
   collaboration: {
-    commentCount: "{{count}} تعليقات",
+    // objectui#10242 — `commentCount` and `reactionCount` below serve every
+    // count but 1 (zero, two, few, many, other), so each is a count label
+    // («عدد …: {{count}}») rather than one noun form that fits only 3-10.
+    commentCount: "عدد التعليقات: {{count}}",
     commentCountOne: "{{count}} تعليق",
     resolvedSuffix: " · تم الحل",
     sortComments: "ترتيب التعليقات",
@@ -3586,7 +3633,7 @@ const ar = {
     hoursAgo: "قبل {{count}} ساعة",
     daysAgo: "قبل {{count}} يوم",
     edited: "(تم التعديل)",
-    reactionCount: "{{count}} تفاعلات",
+    reactionCount: "عدد التفاعلات: {{count}}",
     reactionCountOne: "{{count}} تفاعل",
     addThumbsUp: "إضافة إعجاب",
     reply: "رد",

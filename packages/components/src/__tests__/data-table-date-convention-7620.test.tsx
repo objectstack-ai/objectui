@@ -67,9 +67,10 @@ import '../renderers';
 /**
  * A current-year date, read from the clock the same way `formatDate` reads it.
  * July 4 is deliberate: `Date.parse` reads a date-only ISO string as UTC
- * midnight and the cell formats it in the runner's zone, so a January 1 or
- * December 31 fixture would fall into the neighbouring year under a negative
- * or positive offset and stop being a current-year date at all.
+ * midnight and {@link former} formats it in the runner's zone, so a January 1
+ * or December 31 fixture would fall into the neighbouring year under a
+ * negative or positive offset and stop being a current-year date at all. (The
+ * cell itself no longer pre-parses — objectui#10183.)
  */
 const CURRENT_YEAR_DATE = `${new Date().getFullYear()}-07-04`;
 /** The card's past-year value — the row that must not move. */
@@ -89,8 +90,9 @@ const FORMER_DATE_BAG: Intl.DateTimeFormatOptions = {
 const former = (iso: string, locale: string) =>
   new Intl.DateTimeFormat(locale, FORMER_DATE_BAG).format(new Date(Date.parse(iso)));
 
+/** What the cell now calls: the STRING, into the shared parse step (objectui#10183). */
 const shared = (iso: string, locale: string) =>
-  formatDate(new Date(Date.parse(iso)), undefined, { locale });
+  formatDate(iso, undefined, { locale });
 
 /**
  * Reports the tag the table itself resolves. `formatCellValue` localizes from

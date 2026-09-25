@@ -53,6 +53,22 @@ interface HeaderBarSchema {
 }
 ```
 
+### Retired keys
+
+`title`, `logo`, `nav`, `left`, `center`, `right`, `sticky` and `height` are retired
+on this node (objectui#10387, alongside `variant` from objectui#10286). The renderer
+never read any of them, so an authored value drew the same header as leaving it out.
+They now fail validation by name, and the TypeScript declaration types each one
+`never`. Delete the key:
+
+- `title` — name the current page with the last entry of `crumbs`.
+- `logo` — put brand content in `rightContent` or `actions`.
+- `nav` — put links in `crumbs`, or use a `navigation-menu` / `sidebar` node.
+- `left` / `center` — put custom content in `rightContent` or `actions`.
+- `right` — use `actions` (a node list) or `rightContent` (one node).
+- `sticky` — make the parent layout sticky; the header itself never was.
+- `height` — the header's height is fixed (`h-14`, `sm:h-16`).
+
 ## Examples
 
 ### Application Header

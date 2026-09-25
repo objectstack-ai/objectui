@@ -453,31 +453,6 @@ export function AuthenticatedRoute({
 }
 
 /**
- * RootRedirect — element for <Route path="/" />. Waits for metadata to load
- * then sends the user to /home.
- *
- * ⛔ Deliberately NOT retargeted onto `useHomePath()` by objectui#7373, which
- * moved this file's `RequireAiSurface` bounce. This is not a recovery redirect:
- * it is the `/` LANDING, and `/`'s policy is `resolveLandingPath`
- * (`apps/console/src/components/RootLandingRedirect.tsx`), which layers a
- * single-visible-app emptiness heuristic (objectui#4048) on the same
- * declaration and refuses to conclude from an unresolved list (objectui#4233).
- * Making this twin read the declaration WITHOUT those two would fork "where
- * does `/` go" into a third answer for the consumers that mount it — a design
- * question, raised on objectui#7373 rather than settled inside it.
- */
-export function RootRedirect() {
-  const { loading } = useMetadata();
-  if (loading) return <LoadingFallback />;
-  // Splash-preserving handoff (objectui#6507). `apps/console` mounts its own
-  // `RootLandingRedirect` rather than this one, and #6506 converted that twin
-  // after measuring the WIDEST window of the campaign on it (147 ms) — this is
-  // byte-for-byte the same shape, published to consumers via
-  // `@object-ui/app-shell`.
-  return <RedirectWithSplash to="/home" replace />;
-}
-
-/**
  * SystemRedirect — forwards legacy /system/* URLs to the canonical
  * /apps/setup/system/* location so bookmarks keep working. Suffix is preserved.
  *

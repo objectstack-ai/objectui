@@ -40,6 +40,72 @@ export type ChildSchema = { fields?: Record<string, any> } | null | undefined;
 const toWritable = (data: Record<string, any>, childSchema: ChildSchema): Record<string, any> =>
   childSchema ? sanitizeFormData(data, childSchema) : data;
 
+/**
+ * Refuse the server-owned columns on the PARENT payload too.
+ *
+ * Both production callers hand this builder an already-sanitized payload — the
+ * header `<ObjectForm>` sanitizes before it calls its `submitHandler`, and the
+ * line-items panel passes a one-field rollup patch. That is the caller's habit,
+ * not the builder's contract, and the defect this closes was exactly a payload
+ * builder trusting what it was handed (objectui#10108). Passing `null` for the
+ * schema applies the name roster alone — no parent schema reaches here, and no
+ * business column is touched.
+ */
+const parentWritable = (data: Record<string, any>): Record<string, any> =>
+  sanitizeFormData(data, null);
+
+/**
+ * Whether two payload values are the SAME stored value, for the dirty-field
+ * diff below.
+ *
+ * ⚠️ The comparison is deliberately asymmetric in its failure direction. Saying
+ * "changed" about an equal pair costs one redundant column on the wire; saying
+ * "unchanged" about a changed pair DISCARDS the user's edit, silently, with a
+ * 200 back. So every case this cannot settle confidently reads as changed:
+ * `1000` and `'1000'` are different, two objects are the same only when they
+ * serialize identically (a reordered key reads as changed, which is the safe
+ * side), and only the two blanks a form round-trip actually interchanges —
+ * `null` and `undefined` — are treated as one value.
+ */
+function isSameStoredValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a == null && b == null) return true; // null/undefined are one blank
+  if (a == null || b == null) return false;
+  if (a instanceof Date || b instanceof Date) {
+    const ta = a instanceof Date ? a.getTime() : NaN;
+    const tb = b instanceof Date ? b.getTime() : NaN;
+    return Number.isFinite(ta) && ta === tb;
+  }
+  if (typeof a === 'object' && typeof b === 'object') {
+    try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
+  }
+  return false;
+}
+
+/**
+ * The subset of `next` that differs from the loaded snapshot `prev` — the
+ * DIRTY fields, and only those.
+ *
+ * An update operation that carries an unchanged column is not free: the
+ * platform refuses a write to a system-managed ownership column unless the
+ * caller holds the transfer grant, and it cannot tell a round-trip of the value
+ * it just served from an attempted transfer. A master-detail save commits as
+ * ONE atomic batch, so one such column on any row refuses every row
+ * (objectui#10108). `sanitizeFormData` already refuses the columns the server
+ * owns by name; sending only what the user actually changed is the half that
+ * does not depend on a roster being complete.
+ */
+function changedFields(
+  next: Record<string, any>,
+  prev: Record<string, any>,
+): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(next)) {
+    if (!isSameStoredValue(v, prev[k])) out[k] = v;
+  }
+  return out;
+}
+
 export interface RowDiff {
   toCreate: Record<string, any>[];
   toUpdate: Record<string, any>[];
@@ -101,7 +167,7 @@ export function buildMasterDetailBatch(
   parentData: Record<string, any>,
   details: BatchDetailInput[],
 ): BatchOp[] {
-  const ops: BatchOp[] = [{ object: parentObject, action: 'create', data: parentData }];
+  const ops: BatchOp[] = [{ object: parentObject, action: 'create', data: parentWritable(parentData) }];
   for (const d of details) {
     for (const row of d.rows) {
       if (isBlankRow(row, d.relationshipField)) continue; // skip the ghost/empty line
@@ -126,7 +192,7 @@ export function buildMasterDetailEditBatch(
   parentData: Record<string, any>,
   details: BatchEditDetailInput[],
 ): BatchOp[] {
-  const ops: BatchOp[] = [{ object: parentObject, action: 'update' as const, id: parentId, data: parentData }];
+  const ops: BatchOp[] = [{ object: parentObject, action: 'update' as const, id: parentId, data: parentWritable(parentData) }];
   for (const d of details) {
     const withFk = (d.rows || []).map((r) => ({ ...r, [d.relationshipField]: parentId }));
     const { toCreate, toUpdate, toDelete } = diffRows(d.original || [], withFk);
@@ -136,10 +202,29 @@ export function buildMasterDetailEditBatch(
       const { id: _omit, _id: _omit2, recordId: _omit3, ...clean } = row as any;
       ops.push({ object: d.childObject, action: 'create', data: toWritable(clean, d.childSchema) });
     }
+    const originalById = new Map<string, Record<string, any>>();
+    for (const r of d.original || []) {
+      const rid = idOf(r);
+      if (rid) originalById.set(rid, r);
+    }
     for (const row of toUpdate) {
       // Route by id; the id is carried separately so sanitize can drop it (and
       // any computed columns) from the data payload without losing the target.
-      ops.push({ object: d.childObject, action: 'update', id: idOf(row)!, data: toWritable(row, d.childSchema) });
+      const rowId = idOf(row)!;
+      const before = originalById.get(rowId);
+      const writable = toWritable(row, d.childSchema);
+      // DIRTY FIELDS ONLY (objectui#10108). Every row of the collection is an
+      // "update" — the diff above routes by id, not by whether anything moved —
+      // so an untouched row used to be rewritten in full on every save. Against
+      // a known snapshot, send what changed; with no snapshot for this id
+      // (a row that arrived without one) fall back to the whole payload, which
+      // is the prior behaviour and never drops an edit.
+      const data = before ? changedFields(writable, before) : writable;
+      // Nothing moved on this row: emit no operation at all. A no-op write is
+      // not free — it is a full-row write to the server, and it is exactly the
+      // write the platform's ownership guard refuses.
+      if (before && Object.keys(data).length === 0) continue;
+      ops.push({ object: d.childObject, action: 'update', id: rowId, data });
     }
     for (const id of toDelete) {
       ops.push({ object: d.childObject, action: 'delete', id });

@@ -19,7 +19,7 @@
  */
 
 import React from 'react';
-import { ComponentRegistry, ExpressionEvaluator, evalRowPredicate, getRecordDisplayName, toPredicateRecord } from '@object-ui/core';
+import { ComponentRegistry, ExpressionEvaluator, declaredNameField, evalRowPredicate, getRecordDisplayName, recordDisplayValueAt, resolveNameField, toPredicateRecord } from '@object-ui/core';
 import type { ComponentInput } from '@object-ui/core';
 import { actionRendersAt, resolveDeclaredActionIds } from '@object-ui/types';
 import type { DeclaredActionsRefusal } from '@object-ui/types';
@@ -2055,11 +2055,25 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   //   2. Author hasn't opted out via `recordChrome: false`.
   // When both pass, we resolve the chip title from (in order):
   //   - explicit `schema.title` (interpolated against data),
-  //   - `objectSchema.titleFormat` (the author override),
-  //   - the unified ADR-0079 resolver (`nameField` → `displayNameField` →
-  //     type-aware derivation) — same precedence as DetailView's own header,
-  //   - common display fields on the record (`name`, `title`, `display_name`),
+  //   - the object's DECLARED name pointer (`nameField`, then its deprecated
+  //     `displayNameField` alias), when it holds a value on this record,
+  //   - `objectSchema.titleFormat`, the legacy render-only template,
+  //   - the unified ADR-0079 resolver (type-aware derivation, once the two
+  //     rungs above have declined),
+  //   - that same resolver's record-key rung, but ONLY for an object that
+  //     names no title field at all (objectui#10117),
   //   - `${objectLabel} ${id}` as a last-resort.
+  //
+  // ⭐ The declared pointer OUTRANKS `titleFormat` (objectui#9436, ruled C1).
+  // That is the protocol's order, not this renderer's choice:
+  // `@objectstack/spec`'s `titleFormat` describe says "an explicit nameField
+  // now takes precedence", ADR-0079 D3 says the same, and
+  // `getRecordDisplayName` implements it (declared pointer at steps 1+2, the
+  // template at step 3). This header used to rank the template FIRST, so on an
+  // object declaring both, the H1 and the name every resolver-backed surface
+  // shows were two different fields. `DetailView.resolveDisplayTitle` and
+  // `record:details`' H1 dedupe moved in the same change, because they read the
+  // same order. Pinned in `__tests__/page-header-title.test.tsx`.
   //
   // ⛔ `objectSchema.primaryField` is NOT a rung and must not become one again
   // (objectui#7586). It used to sit directly under `schema.title`, ABOVE the
@@ -2083,9 +2097,12 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     const objectLabel: string | undefined = rawObjectName
       ? tObjectLabel({ name: rawObjectName, label: fallbackLabel })
       : fallbackLabel || undefined;
-    // Honor objectSchema.titleFormat (e.g. `{first_name} {last_name}`).
-    // Mirrors DetailView.resolveDisplayTitle's behaviour so default and
-    // synthesized record pages produce the same title.
+    // Honor objectSchema.titleFormat (e.g. `{first_name} {last_name}`) as the
+    // rung BELOW the declared pointer. `DetailView.resolveDisplayTitle` ranks
+    // the two the same way, so default and synthesized record pages produce
+    // the same title. The template keeps THIS renderer's interpolation (i18n
+    // option labels, separator cleanup) rather than core's
+    // `formatTitleTemplate`: only its rank moved in objectui#9436.
     const rawTitleFormat: any = objSchema?.titleFormat;
     const titleFormatStr: string | undefined =
       typeof rawTitleFormat === 'string'
@@ -2103,26 +2120,96 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     // `Record #<id>` floor is detected and skipped so the richer
     // `${objectLabel} ${id}` fallback still wins for truly unnamed records.
     const recordId = data?.id ?? data?._id;
+    // The resolver's own floor, detected so the richer `${objectLabel} ${id}`
+    // fallback below wins for a truly unnamed record.
+    const isResolverFloor = (resolved: string) =>
+      resolved === 'Untitled' ||
+      (recordId !== null && recordId !== undefined && resolved === `Record #${recordId}`);
     const unifiedTitle = (() => {
       const resolved = getRecordDisplayName(objSchema, data, { deriveFromRecordKeys: false });
-      const isFloor =
-        resolved === 'Untitled' ||
-        (recordId !== null && recordId !== undefined && resolved === `Record #${recordId}`);
-      return isFloor ? '' : resolved;
+      return isResolverFloor(resolved) ? '' : resolved;
     })();
-    const resolvedTitle =
-      explicitTitle ||
-      (interpolatedTitleFormat && !interpolatedTitleFormat.includes('{') ? interpolatedTitleFormat : '') ||
-      unifiedTitle ||
-      data?.name ||
-      data?.full_name ||
-      data?.title ||
-      data?.subject ||
-      data?.display_name ||
-      data?.label ||
+    // objectui#10117 — the record-key safety net, and the two rules that make
+    // it safe. It used to be spelled out here as a raw
+    // `data?.name || data?.full_name || data?.title || data?.subject || …`
+    // chain: a SECOND implementation of the very question
+    // `recordDisplayValueAt` exists to answer, whose header (objectui#8350)
+    // says in as many words not to re-spell it at a call site. Raw `||`
+    // diverged from it on both of that function's own clauses —
+    //
+    //   - it reads the STORED value, so a `lookup` candidate handed its
+    //     EXPANDED REFERENCE OBJECT to JSX and the whole header died with
+    //     "Objects are not valid as a React child" (React #31). The breadcrumb
+    //     never had this defect because it asks this same resolver WITHOUT
+    //     `deriveFromRecordKeys: false`, so every rung of its walk goes
+    //     through `recordDisplayValueAt` -> `displayNameOfEmbeddedObject`;
+    //   - it counts a whitespace-only string as a value, so a record whose
+    //     name field held only spaces rendered a blank H1.
+    //
+    // Both die with the copy. `deriveFromRecordKeys` was only ever switched
+    // off so this renderer could interleave its own `${objectLabel} ${id}`
+    // fallback — which it still does, just below. The second call is that
+    // same skipped rung, run for real instead of imitated.
+    const recordKeyTitle = (() => {
+      if (unifiedTitle) return '';
+      // An object that NAMES its title field — a declared `nameField` /
+      // `displayNameField`, or a type-aware derivation over its `fields`,
+      // which is exactly what `resolveNameField` answers — has already said
+      // which field titles a record. An empty value there is an EMPTY TITLE,
+      // not licence to borrow a different field's value: that silent hop is
+      // what turned a blank `name` into a crash, so the hop is part of the
+      // defect and not just its rendering. Degrade to the placeholder floor.
+      if (resolveNameField(objSchema)) return '';
+      const resolved = getRecordDisplayName(objSchema, data);
+      return isResolverFloor(resolved) ? '' : resolved;
+    })();
+    const placeholderTitle =
       (objectLabel && data?.id ? `${objectLabel} ${String(data.id).slice(0, 8)}` : '') ||
       objectLabel ||
       '';
+    // The declared pointer as its OWN rung, directly above the template
+    // (objectui#9436). It is the resolver's steps 1+2, read through the one
+    // exported spelling of the pointer rather than a re-typed `??` chain, and
+    // filtered by the same floor test `unifiedTitle` applies. So for an object
+    // WITHOUT a `titleFormat` this rung answers exactly what `unifiedTitle`
+    // answered before it; only the template's rank moved. A blank value here
+    // falls through to the template, just as `getRecordDisplayName` walks from
+    // a blank step 1+2 to step 3.
+    const declaredTitle = (() => {
+      const resolved = recordDisplayValueAt(data, declaredNameField(objSchema));
+      return resolved && !isResolverFloor(resolved) ? resolved : '';
+    })();
+    const titleCandidate =
+      explicitTitle ||
+      declaredTitle ||
+      (interpolatedTitleFormat && !interpolatedTitleFormat.includes('{') ? interpolatedTitleFormat : '') ||
+      unifiedTitle ||
+      recordKeyTitle;
+    // Defensive backstop — deliberately last, and deliberately NOT the fix: on
+    // its own it would leave a header quietly showing the wrong field's
+    // contents. No non-string may reach JSX as a child.
+    //
+    // ⚠️ NO RUNG ABOVE CAN PRODUCE ONE TODAY, and this comment says so rather
+    // than implying a live hazard (AGENTS.md #9). Every rung is a string at
+    // its source: the resolver's are, and `explicitTitle` is one because
+    // `pickLocalized` — which every author-supplied `title` passes through
+    // first — is typed to a string and collapses an object with no string
+    // value to `''`. `interpolate` WOULD hand a non-string straight back
+    // (it returns its argument untouched when that argument is not a
+    // string), so the guard is against a future rung, not against today's.
+    // Measured by ablation: deleting this line leaves every pin in
+    // `page-header-title.emptyNameLookupFallback-10117.test.tsx` green, and
+    // that null result is recorded there rather than papered over with a
+    // contrived pin.
+    //
+    // Reduced through the same authority rather than a local `String()`, so
+    // an expanded reference resolves to its display name here too instead of
+    // to "[object Object]".
+    const resolvedTitle =
+      (typeof titleCandidate === 'string'
+        ? (titleCandidate.trim() ? titleCandidate : '')
+        : (recordDisplayValueAt({ value: titleCandidate }, 'value') ?? '')) ||
+      placeholderTitle;
     // Width arbitration between the title column and the action tail
     // (objectui#7244). The tail is `shrink-0` — correct, buttons must not be
     // squeezed into unreadable slivers — so in a `nowrap` row it takes what it

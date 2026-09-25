@@ -8,9 +8,10 @@
  *
  * Scope (deliberate): the visual editor supports the common case — a flat AND
  * of simple `field op value` conditions. Anything it can't faithfully round-trip
- * (nested groups, `$or`, multi-operator objects, unmapped operators) is reported
- * as NOT representable so the caller can fall back to the source editor instead
- * of silently corrupting the author's filter.
+ * (nested groups, `$or`, multi-operator objects, unmapped operators, and a row
+ * the builder cannot hold — see {@link builderHolds}) is reported as NOT
+ * representable so the caller can fall back to the source editor instead of
+ * silently corrupting the author's filter.
  *
  * The value-less operators are the exception to "field op value": the builder
  * draws no input for them, so the row is complete without one. Both pairs the
@@ -21,13 +22,18 @@
  * used to be: see {@link isClearedGroup} for why an unmapped operator is now
  * inert rather than destructive (objectui#9372).
  *
+ * Whether a row is FINISHED is not this file's rule: it is the builder's own
+ * `isFilterValueComplete`, the one arity-aware answer every write path asks
+ * (objectui#5025). That is what lets the `between` arm map at all — a pair is
+ * emitted only with both bounds present (objectui#10062).
+ *
  * The write half is deliberately NOT injective — the spec carries one token for
  * "strictly greater", which both `greaterThan` and `after` have to use — so the
  * read half cannot be a plain inverse table. {@link readBackOperator} settles
  * the ambiguous tokens against the field's own operator bucket (objectui#9382).
  */
 
-import { operatorsForFieldType } from '@object-ui/components';
+import { isFilterValueComplete, operatorsForFieldType } from '@object-ui/components';
 
 /** FilterBuilder camelCase operator → FilterCondition Mongo operator. */
 const OP_TO_MONGO: Record<string, string> = {
@@ -42,6 +48,14 @@ const OP_TO_MONGO: Record<string, string> = {
   // against the same canonical table (`FILTER_TEXT_CASES`). So mapping them is
   // a bridge to a predicate the platform already agrees on, not a new claim.
   notContains: '$notContains', startsWith: '$startsWith', endsWith: '$endsWith',
+  // objectui#10062 (ruling batch #146 item 5, letter A). A PAIR operator,
+  // offered on the builder's date bucket, stored as the spec's own
+  // `{ $between: [lo, hi] }`. It was held back only because the builder can
+  // hand this bridge a half-typed pair (`['2026-01-01', '']`) and nothing here
+  // told that apart from a finished one. The rule that does exists —
+  // `isFilterValueComplete` — and {@link groupToCondition} now asks it, so a
+  // pair missing either bound is dropped as incomplete and never emitted.
+  between: '$between',
 };
 /**
  * The DEFAULT read-back for each token — the answer when the field's declared
@@ -55,6 +69,7 @@ const MONGO_TO_OP: Record<string, string> = {
   $gt: 'greaterThan', $gte: 'greaterOrEqual', $lt: 'lessThan', $lte: 'lessOrEqual',
   $contains: 'contains', $in: 'in', $nin: 'notIn',
   $notContains: 'notContains', $startsWith: 'startsWith', $endsWith: 'endsWith',
+  $between: 'between',
 };
 
 /**
@@ -115,6 +130,8 @@ export interface BuilderFieldDef { value: string; label?: string; type?: string 
  * the unchanged default — rather than inventing an answer. Nothing new is
  * ACCEPTED here and no stored filter is rewritten; only the operator id the
  * panel is seeded with changes, and it changes to one the panel can draw.
+ * Whether the fallback can then be drawn is not this function's question:
+ * {@link builderHolds} asks it of every row, this one included.
  */
 function readBackOperator(mop: string, fieldType: string | undefined): string | undefined {
   const candidates = MONGO_PREIMAGE[mop];
@@ -205,8 +222,11 @@ function liveRows(group: BuilderGroup | undefined): BuilderCondition[] {
  * Reachable two ways, and both are the same defect:
  *
  *  - switching the only row to an operator this bridge does not map
- *    (objectui#9363 closed `isNull` / `isNotNull`; `between` is still one);
- *  - blanking the VALUE of the only row, which needs no operator at all — the
+ *    (objectui#9363 closed `isNull` / `isNotNull`, objectui#9372 the three
+ *    text operators, objectui#10062 `between` — none this inspector offers is
+ *    left, so the route now needs an operator it does not offer);
+ *  - leaving the only row UNFINISHED, which needs no unmapped operator at all
+ *    — a blanked value, or a `between` pair with one bound typed: the
  *    incomplete-row `continue` drops it and the last part goes with it.
  *
  * ## What the caller does with the answer
@@ -239,21 +259,24 @@ export function groupToCondition(group: BuilderGroup | undefined): FilterConditi
     // What changed (objectui#9372) is the COST of the drop. It used to erase
     // the author's stored filter whenever no other row survived; now
     // {@link isClearedGroup} lets the caller tell that apart from a real clear,
-    // so an unmapped operator is inert. ⚠️ Do not read the drop as "this
-    // dialect cannot express it": the spec's `FILTER_OPERATORS` carries
-    // `$notContains`, `$startsWith`, `$endsWith` AND `$between`. The three text
-    // ones are mapped above. `between` is the one still offered here (on the
-    // date bucket) and still unmapped, for a reason that is about THIS bridge
-    // rather than the vocabulary: the builder pads a half-typed pair with `''`
-    // and the spec's comparand door accepts `[1, '']`, so emitting it needs a
-    // both-bounds-present rule first. The partition is pinned in
-    // `datasetFilterCondition.nullOperators-9363`, the inertness in
-    // `datasetFilterCondition.unmappedInert-9372`.
+    // so an unmapped operator is inert. Every operator this inspector offers
+    // is mapped since objectui#10062 took `between` (the partition is pinned
+    // in `datasetFilterCondition.nullOperators-9363`), so this arm now answers
+    // only for an operator the builder would have to be GRANTED — an opt-in
+    // this caller does not pass.
     if (!mop) continue;
-    // Skip incomplete rows (no value typed yet) — emitting `{field:{$op:''}}` would
-    // be a silently-wrong filter (matches only empty), not "no filter".
+    // Skip incomplete rows — emitting `{field:{$op:''}}` would be a
+    // silently-wrong filter (matches only empty), not "no filter", and a
+    // `between` pair with a blank bound is a range with a missing end, which
+    // no reading turns into the range the author meant.
+    //
+    // ⛔ Not a local predicate. `isFilterValueComplete` is the builder's own
+    // arity-aware answer (objectui#5025): for a scalar or list it is the exact
+    // test this line used to spell inline, and for a `pair` it requires BOTH
+    // bounds present, reading `0` and `false` as real bounds rather than
+    // blanks. A second copy here is how the two came to disagree before.
     const v = c.value;
-    if (v == null || v === '' || (Array.isArray(v) && v.length === 0)) continue;
+    if (!isFilterValueComplete(c.operator, v as Parameters<typeof isFilterValueComplete>[1])) continue;
     parts.push({ [c.field]: { [mop]: v } });
   }
   if (parts.length === 0) return undefined;
@@ -262,10 +285,61 @@ export function groupToCondition(group: BuilderGroup | undefined): FilterConditi
 }
 
 /**
+ * Can the builder HOLD this read-back row: draw it as stored, and write it
+ * back when the author edits any other row in its group (objectui#10257)?
+ *
+ * The inspector commits on every change, so every row {@link conditionToGroup}
+ * opens goes back through {@link groupToCondition} as soon as the author
+ * touches a SIBLING. A row this answers `false` for is one that commit would
+ * rewrite or drop, so the whole filter goes to the Source tab instead. Two
+ * questions, both asked of every row, whatever its token:
+ *
+ *  1. WOULD THE WRITE HALF KEEP IT? Asked of {@link groupToCondition} itself,
+ *     not of a copy of its rules, so the two halves cannot give one shape
+ *     different answers. This is what refuses an incomplete stored value — a
+ *     `{ $eq: '' }`, a `{ $in: [] }`, a half `$between` — which the write half
+ *     drops as an unfinished row. Read back as a row, it vanished the moment a
+ *     sibling was edited; for `$in: []` that widened the dataset from no rows
+ *     to every row.
+ *
+ *     ⛔ Not fixed on the write side instead. `equals ''` is also the row the
+ *     builder SEEDS when "Add condition" is clicked, so a write half that kept
+ *     `{ $eq: '' }` would emit a filter for every unfinished row — the
+ *     silently-wrong filter its incomplete-row drop exists to prevent. The
+ *     write half carries a shape only where a finished row means exactly that
+ *     predicate (objectui#9363, objectui#9372); a shape it cannot carry stays
+ *     out of the builder.
+ *
+ *  2. DOES THE COLUMN'S BUCKET OFFER ITS OPERATOR? Read back as an operator the
+ *     dropdown does not list — `$in` on a date or number column, `$gt` on a
+ *     text one, `$exists` on a boolean one — the panel draws a BLANK operator
+ *     trigger (objectui#4768 / #7561), and one touch of the row's field picker
+ *     reconciles it to `equals` and reshapes the value, committing a different
+ *     filter than the one stored (the objectui#9382 defect). The bucket is
+ *     asked exactly as the builder asks it for each row:
+ *     `operatorsForFieldType` of the listed column's type, no opt-ins. A column
+ *     listed without a type, or not listed at all, gets the builder's default
+ *     text bucket for both — the bucket the panel WOULD draw, not an unknown
+ *     one. Only a read with NO field list skips this: no caller that draws a
+ *     panel reads that way, and it is the pure spec-shape read the field-less
+ *     round-trip pins rely on.
+ *
+ * objectui#10062 asked both questions for the pair arity only, as a guard on
+ * the `$between` it had just mapped; this is that guard for every token.
+ */
+function builderHolds(row: BuilderCondition, fields: ReadonlyArray<BuilderFieldDef> | undefined): boolean {
+  if (groupToCondition({ logic: 'and', conditions: [row] }) === undefined) return false;
+  if (!fields) return true;
+  const fieldType = fields.find((f) => f.value === row.field)?.type;
+  return operatorsForFieldType(fieldType).some((o) => o.value === row.operator);
+}
+
+/**
  * Parse a stored FilterCondition → the visual group. `representable: false` when
  * the condition uses shapes the flat builder can't faithfully edit (nested
- * `$and`/`$or`, multi-op objects, unmapped operators) — callers should then show
- * the source editor instead.
+ * `$and`/`$or`, multi-op objects, unmapped operators, and any row
+ * {@link builderHolds} refuses) — callers should then show the source editor
+ * instead.
  *
  * `fields` is the same list the caller hands the builder, and it is what lets
  * an ambiguous token read back as the operator that field's dropdown actually
@@ -293,27 +367,33 @@ export function conditionToGroup(
     if (keys.length !== 1) return { group: empty, representable: false };
     const field = keys[0];
     const v = (c as any)[field];
+    let row: BuilderCondition;
     if (v && typeof v === 'object' && !Array.isArray(v)) {
       const opKeys = Object.keys(v);
       if (opKeys.length !== 1) return { group: empty, representable: false };
       const mop = opKeys[0];
       if (mop === '$exists') {
-        conditions.push({ id: `c${i}`, field, operator: v.$exists ? 'isNotEmpty' : 'isEmpty', value: '' });
+        row = { id: `c${i}`, field, operator: v.$exists ? 'isNotEmpty' : 'isEmpty', value: '' };
       } else if (mop === '$null') {
         // The inverse of the write half: `$null: false` is "is not null", so
         // the boolean picks the operator rather than becoming the row's value.
         // Without this arm a filter this bridge now WRITES would read back as
         // non-representable, sending the author to the Source tab for a row the
         // builder can draw.
-        conditions.push({ id: `c${i}`, field, operator: v.$null ? 'isNull' : 'isNotNull', value: '' });
+        row = { id: `c${i}`, field, operator: v.$null ? 'isNull' : 'isNotNull', value: '' };
       } else {
         const op = readBackOperator(mop, fields?.find((f) => f.value === field)?.type);
         if (!op) return { group: empty, representable: false };
-        conditions.push({ id: `c${i}`, field, operator: op, value: v[mop] });
+        row = { id: `c${i}`, field, operator: op, value: v[mop] };
       }
     } else {
-      conditions.push({ id: `c${i}`, field, operator: 'equals', value: v }); // implicit equality
+      row = { id: `c${i}`, field, operator: 'equals', value: v }; // implicit equality
     }
+    // Every arm, every token: a row the builder cannot hold sends the whole
+    // filter to the Source tab rather than opening where the next commit of
+    // ANY row would rewrite or drop it (objectui#10257).
+    if (!builderHolds(row, fields)) return { group: empty, representable: false };
+    conditions.push(row);
   }
   return { group: { id: 'g', logic: 'and', conditions }, representable: true };
 }

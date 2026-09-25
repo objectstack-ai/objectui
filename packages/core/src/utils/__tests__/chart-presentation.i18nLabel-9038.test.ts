@@ -103,14 +103,31 @@ describe('chartConfigPresentation — an inline-locale-map heading survives the 
     expect(Object.keys(withMap).sort()).toEqual(Object.keys(withString).sort());
   });
 
-  it('leaves the ledgered neighbours picked, not forwarded', () => {
-    // objectui#4020's first-string-wins pick for a series `label` and an axis
-    // `title` is a DIFFERENT question — a locale-unaware CHOICE a caller can
-    // override, not an erasure — and is out of this card's scope. Pinned here
-    // so a later edit cannot quietly fold them in under this card's banner, and
-    // so the asymmetry is visible rather than inferred: these two resolve to a
-    // string HERE, the three chrome keys resolve at the renderer.
+  it('leaves the ledgered series label picked, not forwarded', () => {
+    // objectui#4020's first-string-wins pick for a series `label` is a
+    // DIFFERENT question — a locale-unaware CHOICE a caller can override, not
+    // an erasure — and is out of this card's scope. Pinned here so a later edit
+    // cannot quietly fold it in under this card's banner, and so the asymmetry
+    // is visible rather than inferred: this one resolves to a string HERE, the
+    // three chrome keys resolve at the renderer.
+    //
+    // `DatasetWidget` is the caller the ledger's justification names: it
+    // replaces a series label from the locale bundle, so the pick is a value
+    // that gets overridden rather than a value a viewer sees.
     expect(seriesPresentation({ name: 'total', label: MAP }).label).toBe('Pricing');
-    expect(axisPresentation({ field: 'total', title: MAP }).title).toBe('Pricing');
+  });
+
+  it('no longer holds the AXIS title to that pick — moved by objectui#10132, not quietly', () => {
+    // This assertion used to sit in the case above, reading `.toBe('Pricing')`.
+    // objectui#10132 measured what the ledger's justification assumed and found
+    // it absent on this arm: nothing overrides an axis title — it is spread
+    // onto the chart schema and drawn — so the pick was not a choice a caller
+    // could correct, it was the rendered answer. `axisPresentation` now
+    // forwards the union for `normalizeChartSchema` to resolve.
+    //
+    // Kept HERE rather than deleted so this file stays the ledger it was
+    // written to be: the asymmetry it records is now one picked slot and one
+    // forwarded one, and a reader sees which moved and under which card.
+    expect(axisPresentation({ field: 'total', title: MAP }).title).toBe(MAP);
   });
 });

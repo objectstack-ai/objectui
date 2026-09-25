@@ -60,6 +60,17 @@
  * under a view supplying `7` put `$top: 100` on the wire — the view's cap never
  * reached it, so the read was WIDER than the view asked for.
  *
+ * The VIEW's own cap can be refused too, and `@object-ui/core` drops it before
+ * it reaches this relay (objectui#9928). The drop is right, but it left the
+ * consuming renderer nothing to refuse, so it went silent — and this relay
+ * reports the view's refusal instead (objectui#10015). See
+ * {@link describeRefusedViewRowLimit} for when that message applies.
+ *
+ * The BINDING's own cap follows the same rule (objectui#10016): a `limit` the
+ * contract refuses is not authored, so `@object-ui/core` lets the view's cap
+ * through in its place, and that cap is a baseline here like any other
+ * view-sourced value. See {@link describeRefusedBindingRowLimit}.
+ *
  * ## What a mapping may NOT do
  *
  * {@link ElementDataSourceMapping} names only keys the target block genuinely
@@ -91,9 +102,11 @@
 
 import * as React from 'react';
 import {
+  elementDataSourceRefusedLimitMessage,
   isElementDataSourceConfig,
   mergeFilterNodes,
   type ElementDataSourceConfig,
+  type ElementSavedView,
 } from '@object-ui/core';
 import {
   useElementDataSource,
@@ -229,6 +242,79 @@ const describeDisplacedRowLimit = (
   );
 };
 
+/**
+ * The loud half for a cap the SAVED VIEW declared and the contract refuses
+ * (objectui#10015).
+ *
+ * `@object-ui/core` drops such a cap while composing, so `composed.limit`
+ * never carries it and the renderer below never sees it. Its own diagnostic
+ * treats an absent key as "not a mistake", so after that drop nothing said
+ * anything. The wording is the core builder's, not this file's: it is the one
+ * sentence both consumers of the composed binding use, and `ViewDataProvider`
+ * already reports it on the path with no renderer. The builder is pure because
+ * the composer runs inside a `useMemo`; this relay reports its result from an
+ * effect, the same way it reports {@link describeDisplacedRowLimit}.
+ *
+ * It speaks only when the refusal CHANGED what this block receives — when a
+ * usable view cap would have been written here:
+ *
+ *  - the binding declared no usable `limit` of its own (if it did, the
+ *    binding's cap is what the block gets whatever the view carries). The
+ *    builder applies this condition itself, because `ViewDataProvider` needs
+ *    it too (objectui#10016), so this relay hands it the binding; and
+ *  - the component's own cap is not a usable one (a usable one wins over any
+ *    view cap).
+ *
+ * In both of those excluded cases the builder's sentence — the block falls
+ * back to its own default — would not be true, so silence is the honest
+ * answer, not a gap. The caller adds the third condition: the block reads a
+ * row cap at all.
+ *
+ * ## Never together with {@link describeDisplacedRowLimit}
+ *
+ * That message needs a usable cap to have been WRITTEN. With a refused view
+ * cap, the only usable cap left is a binding's usable `limit`, and that is
+ * excluded above. So the two are exclusive by construction. When the component
+ * AND the view both carry a refused cap, this message names the view and the
+ * renderer names the component: two declarations, one message each.
+ */
+const describeRefusedViewRowLimit = (
+  view: ElementSavedView | undefined,
+  config: ElementDataSourceConfig | undefined,
+  authored: unknown,
+): string | null => {
+  if (!config) return null;
+  if (isUsableRowLimit(authored)) return null;
+  return elementDataSourceRefusedLimitMessage(view, config.view, config.object, config);
+};
+
+/**
+ * The loud half for a cap the BINDING declared and the contract refuses
+ * (objectui#10016), in the core builder's words for that operand.
+ *
+ * `@object-ui/core` treats such a cap as not authored: it lets the view's
+ * usable cap through in its place, or none. Nothing downstream can see the
+ * refused value any more, so this relay reports it, from an effect, the same
+ * way it reports the view's refusal.
+ *
+ * It needs no condition beyond the caller's (the block reads a row cap at
+ * all). A usable binding cap is written whatever the component or the view
+ * carries, so a refused one is always a cap this block did not get.
+ *
+ * It can fire beside the other two, and that is one message per declaration,
+ * not two per mistake: beside {@link describeRefusedViewRowLimit} when the view
+ * ALSO carries a refused cap, and beside {@link describeDisplacedRowLimit} when
+ * the component ALSO carries a refused cap and the view's usable one displaced
+ * it.
+ */
+const describeRefusedBindingRowLimit = (
+  view: ElementSavedView | undefined,
+  config: ElementDataSourceConfig | undefined,
+): string | null => {
+  if (!config) return null;
+  return elementDataSourceRefusedLimitMessage(view, config.view, config.object, config, 'binding');
+};
+
 const readLimit = (base: Record<string, any>, key: ElementDataSourceLimitKey): unknown => {
   if (key === 'pagination.pageSize') return base.pagination?.pageSize;
   return base[key];
@@ -277,16 +363,23 @@ export function useElementDataSourceSchema<S>(
   const binding = useElementDataSource(schema, adapter);
   const { object: objectKey = 'objectName', columns, filter, sort, limit, viewType } = mapping;
 
-  const mapped = React.useMemo((): { schema: S; capMessage: string | null } => {
+  const mapped = React.useMemo((): {
+    schema: S;
+    capMessage: string | null;
+    viewCapMessage: string | null;
+    bindingCapMessage: string | null;
+  } => {
     const composed = binding.composed;
     // BY REFERENCE when there is nothing to apply — a fresh object every render
     // would remount the block and refetch. The wrapper is memoised alongside it,
     // so the identity this carries is the one the caller sees.
-    if (!composed) return { schema, capMessage: null };
+    if (!composed) return { schema, capMessage: null, viewCapMessage: null, bindingCapMessage: null };
 
     const base = (schema ?? {}) as Record<string, any>;
     const next: Record<string, any> = { ...base };
     let capMessage: string | null = null;
+    let viewCapMessage: string | null = null;
+    let bindingCapMessage: string | null = null;
 
     if (objectKey !== false) next[objectKey] = composed.object;
 
@@ -314,7 +407,11 @@ export function useElementDataSourceSchema<S>(
     }
 
     if (limit && composed.limit !== undefined) {
-      const fromView = binding.config?.limit === undefined;
+      // For the row cap, "declared one" means a cap the contract admits
+      // (objectui#10016): a refused binding `limit` is not authored, so the
+      // composer let the view's cap through in its place, and that cap is a
+      // baseline the component's usable cap still wins over.
+      const fromView = !isUsableRowLimit(binding.config?.limit);
       // PRESENCE is not authorship (objectui#9899) — the same question the
       // `columns` branch above answers by CONTENT, answered the same way here.
       const authored = readLimit(base, limit);
@@ -330,20 +427,35 @@ export function useElementDataSourceSchema<S>(
       }
     }
 
+    // Outside the branch above on purpose: a refused cap never reaches
+    // `composed.limit`, so that branch does not run for it (objectui#10015,
+    // and objectui#10016 for the binding's).
+    if (limit) {
+      viewCapMessage = describeRefusedViewRowLimit(binding.view, binding.config, readLimit(base, limit));
+      bindingCapMessage = describeRefusedBindingRowLimit(binding.view, binding.config);
+    }
+
     if (viewType && composed.viewType !== undefined && base.viewType === undefined) {
       next.viewType = composed.viewType;
     }
 
-    return { schema: next as S, capMessage };
-  }, [schema, binding.composed, binding.config, objectKey, columns, filter, sort, limit, viewType]);
+    return { schema: next as S, capMessage, viewCapMessage, bindingCapMessage };
+  }, [schema, binding.composed, binding.config, binding.view, objectKey, columns, filter, sort, limit, viewType]);
 
   // Keyed on the MESSAGE, so it is one warning per declaration rather than one
   // per render — and it fires from an effect, never from render, which is the
   // same shape the renderer sites use for "you declared it, we dropped it".
-  const { schema: boundSchema, capMessage } = mapped;
+  // One effect per message, so a change to one never re-emits another.
+  const { schema: boundSchema, capMessage, viewCapMessage, bindingCapMessage } = mapped;
   React.useEffect(() => {
     if (capMessage) console.warn(capMessage);
   }, [capMessage]);
+  React.useEffect(() => {
+    if (viewCapMessage) console.warn(viewCapMessage);
+  }, [viewCapMessage]);
+  React.useEffect(() => {
+    if (bindingCapMessage) console.warn(bindingCapMessage);
+  }, [bindingCapMessage]);
 
   return React.useMemo(
     () => ({
@@ -428,7 +540,10 @@ export function ElementDataSourceLoadingPanel({
  * it off and you get `unknown`, which is the honest default.
  */
 export function useResolvedDataSource<T = unknown>(explicit?: unknown): T | undefined {
-  const context = React.useContext(SchemaRendererContext as React.Context<any>);
+  // Read AS DECLARED (objectui#7209): the only cast in this hook is the
+  // caller's `T` on the way out, never one erasing the context on the way in.
+  // Pinned by `useResolvedDataSource.schemaRendererContextRead-7209.test.ts`.
+  const context = React.useContext(SchemaRendererContext);
   const named = isElementDataSourceConfig(explicit) ? undefined : explicit;
   return (named ?? context?.dataSource ?? undefined) as T | undefined;
 }

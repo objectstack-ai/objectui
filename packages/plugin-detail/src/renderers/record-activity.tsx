@@ -68,6 +68,7 @@ import {
   mergeFeedItems,
   normalizeFilterMode,
   normalizeLimit,
+  describeRefusedFeedLimit,
   type SysActivityRow,
 } from './recordActivityFeed';
 import { useRecordAriaProps } from './recordComponentAria';
@@ -76,6 +77,14 @@ const splitDesigner = (props: Record<string, any>) => {
   const { 'data-obj-id': id, 'data-obj-type': type, style, ...rest } = props || {};
   return { designer: { 'data-obj-id': id, 'data-obj-type': type, style }, rest };
 };
+
+/**
+ * The name every author diagnostic from this block is addressed to. The shared
+ * feed pipeline takes it as a required argument (objectui#9557), because
+ * `record:chatter` / `record:discussion` run the same pipeline and must not be
+ * reported under this name.
+ */
+const BLOCK_NAME = 'record:activity';
 
 export interface RecordActivityRendererProps {
   schema?: RecordActivityComponentProps & {
@@ -118,8 +127,17 @@ export const RecordActivityRenderer: React.FC<RecordActivityRendererProps> = ({
   const bag = (schema.properties ?? {}) as Record<string, any>;
   const read = (key: string) => (schema as any)[key] ?? bag[key];
 
-  const limit = normalizeLimit(read('limit'));
-  const defaultFilterMode = normalizeFilterMode(read('filterMode'));
+  const authoredLimit = read('limit');
+  const limit = normalizeLimit(authoredLimit);
+  // [objectui#10145] The loud half of the row-cap refusal, on the channel
+  // objectui#9925 uses: fired from an effect, never from render, and keyed on
+  // the message — which spells the authored value and its type — so a
+  // re-render with the same declaration says nothing a second time.
+  const refusedLimitMessage = describeRefusedFeedLimit(BLOCK_NAME, authoredLimit);
+  React.useEffect(() => {
+    if (refusedLimitMessage) console.warn(refusedLimitMessage);
+  }, [refusedLimitMessage]);
+  const defaultFilterMode = normalizeFilterMode(read('filterMode'), BLOCK_NAME);
   const types = read('types');
   const showCompleted = read('showCompleted');
   const unifiedTimeline = read('unifiedTimeline');
@@ -226,7 +244,7 @@ export const RecordActivityRenderer: React.FC<RecordActivityRendererProps> = ({
   const discussionItems = discussion?.items as FeedItem[] | undefined;
   const applied = React.useMemo(() => {
     const sourceItems: FeedItem[] = hostItems ?? discussionItems ?? fetched ?? [];
-    return applyFeedConfig(sourceItems, { types, showCompleted, unifiedTimeline }, pageSize);
+    return applyFeedConfig(sourceItems, { types, showCompleted, unifiedTimeline }, pageSize, BLOCK_NAME);
   }, [hostItems, discussionItems, fetched, types, showCompleted, unifiedTimeline, pageSize]);
   const items = applied.items;
   const hasMore = applied.hasMore || (canSelfFetch && fetchedHasMore);

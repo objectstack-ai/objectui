@@ -24,6 +24,12 @@ import type { BaseSchema } from './base.js';
 // kanban faces judge a card the same way. Type-only: no runtime edge.
 import type { KanbanCard } from './complex.js';
 import type { DrillDownConfig } from './data-display.js';
+// `QueryParams` is the destination `ObjectGallerySchema.filter`'s own docblock
+// names — the value is forwarded verbatim into that slot — so the declaration
+// is an INDEXED ACCESS on it rather than a copy of its arms (objectui#9309).
+// Type-only: no runtime edge, and `./data.ts` imports nothing from here, so
+// this adds no cycle in either direction.
+import type { QueryParams } from './data.js';
 import type { BulkActionOperation } from '@objectstack/spec/ui';
 import type { FormField } from './form.js';
 // ListView type is now derived from the zod schema (issue #2231) — see ListViewSchema below.
@@ -899,6 +905,13 @@ export interface ObjectGridSchema extends BaseSchema {
   /**
    * Enable/disable built-in operations
    * NOTE: This is ObjectUI-specific and not part of @objectstack/spec
+   *
+   * `update` / `delete` are the CEILING over {@link rowActions}: `update: false`
+   * (or `delete: false`) withholds the row menu's generic Edit (or Delete)
+   * entry whatever `rowActions` says. A declared block REPLACES the default
+   * rather than merging under it, so a member the block does not name is
+   * withheld too; omit the whole block to keep the default (Edit / Delete
+   * offered wherever the host wires `onEdit` / `onDelete`).
    */
   operations?: {
     /**
@@ -906,41 +919,50 @@ export interface ObjectGridSchema extends BaseSchema {
      * @default true
      */
     create?: boolean;
-    
+
     /**
      * Enable read/view operation
      * @default true
      */
     read?: boolean;
-    
+
     /**
-     * Enable update operation
-     * @default true
+     * Enable update operation. Not named in a declared block ⇒ withheld;
+     * block omitted ⇒ allowed wherever the host wires `onEdit`.
      */
     update?: boolean;
-    
+
     /**
-     * Enable delete operation
-     * @default true
+     * Enable delete operation. Not named in a declared block ⇒ withheld;
+     * block omitted ⇒ allowed wherever the host wires `onDelete`.
      */
     delete?: boolean;
-    
+
     /**
      * Enable export operation
      * @default false
      */
     export?: boolean;
-    
+
     /**
      * Enable import operation
      * @default false
      */
     import?: boolean;
   };
-  
+
   /**
    * Custom row actions
    * NOTE: This is ObjectUI-specific and not part of @objectstack/spec
+   *
+   * `'edit'` and `'delete'` are canonical: they select the row menu's generic
+   * Edit / Delete entries; any other name is a custom action resolved against
+   * the object's declared actions. {@link operations} is the CEILING: a
+   * `rowActions` entry cannot offer what `operations` withholds. Inside that
+   * ceiling a declared list NARROWS: the generic Edit / Delete are offered only
+   * for the canonical names it carries, so `[]` or a list naming only custom
+   * actions offers neither. Omit `rowActions` to keep the default generic
+   * entries.
    */
   rowActions?: string[];
   
@@ -1339,9 +1361,12 @@ export interface ObjectFormSchema extends BaseSchema {
   mode: 'create' | 'edit' | 'view';
   
   /**
-   * Record ID (required for edit/view modes)
+   * Record ID (required for edit/view modes). A record id is a `string` on every
+   * boundary (objectui#9511) — a numeric primary key is converted at the
+   * adapter's own boundary, so an authored `42` is refused with `'42'`
+   * prescribed.
    */
-  recordId?: string | number;
+  recordId?: string;
   
   /**
    * Optional title for the form
@@ -2189,26 +2214,46 @@ export interface NamedListView {
   /** Type-specific options (kanban groupField, calendar startDateField, etc.) */
   options?: Record<string, any>;
 
-  /** Show search box in toolbar @default true */
-  showSearch?: boolean;
+  /* ── objectui#7924 — RETIRED on the authoring face (director-seat ruling,
+   * bucket ② A and bucket ③) ────────────────────────────────────────────────
+   *
+   * Each member below is a `?: never` tombstone: a TypeScript author who writes
+   * it fails to compile, and the message points at the canonical key. The
+   * member is KEPT rather than deleted so the refusal is BY NAME — a deleted
+   * member would fall through to nothing and read as a generic excess-property
+   * error with no pointer.
+   *
+   * ⚠️ Only the AUTHORING face changes. Stored view documents that still carry
+   * a legacy spelling keep parsing: `normalizeListViewSchema`
+   * (`@object-ui/core`) folds the eight `show*` spellings onto `userActions` /
+   * `appearance` at runtime, and that fold stays until the next major cleanup.
+   * Hosts that read a stored view through a loose type are unaffected.
+   *
+   * ⛔ No alias mapping is created for any of them. The census that partitions
+   * every member of this interface — and asserts which ones are tombstones — is
+   * `__tests__/object-view-unmirrored-keys-7779.test.ts`.
+   */
 
-  /** Show sort controls in toolbar @default true */
-  showSort?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — author `userActions.search` instead. Not a protocol key on a view. */
+  showSearch?: never;
 
-  /** Show filter controls in toolbar @default true */
-  showFilters?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — author `userActions.sort` instead. Not a protocol key on a view. */
+  showSort?: never;
 
-  /** Show hide-fields button in toolbar @default false */
-  showHideFields?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — author `userActions.filter` instead. Not a protocol key on a view. */
+  showFilters?: never;
 
-  /** Show group button in toolbar @default true */
-  showGroup?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — author `userActions.hideFields` instead. Not a protocol key on a view. */
+  showHideFields?: never;
 
-  /** Show color button in toolbar @default false */
-  showColor?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — author `userActions.group` instead. Not a protocol key on a view. */
+  showGroup?: never;
 
-  /** Show density/row-height button in toolbar @default false */
-  showDensity?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — author `userActions.rowColor` instead. Not a protocol key on a view. */
+  showColor?: never;
+
+  /** @deprecated RETIRED (objectui#7924) — author `userActions.rowHeight` instead. Not a protocol key on a view. */
+  showDensity?: never;
 
   /**
    * Collapse the appearance/grouping cluster (Group + Color + Density + Hide Fields)
@@ -2218,41 +2263,54 @@ export interface NamedListView {
    */
   compactToolbar?: boolean;
 
-  /** Allow data export @default undefined */
+  /**
+   * Allow data export @default undefined
+   *
+   * ⚠️ objectui-only (the protocol declares no `allowExport` on a view), but
+   * ⛔ NOT retired with its bucket-③ neighbours: it is READ. `app-shell`'s
+   * object page relays it off the active named view into the `list-view` node,
+   * and `ListView` gates its export control on `schema.allowExport !== false`.
+   * Reported on objectui#7924 rather than tombstoned.
+   */
   allowExport?: boolean;
 
-  /** Color field for row/card coloring */
-  color?: string;
+  /**
+   * @deprecated RETIRED (objectui#7924) — the protocol declares no `color` on a
+   * view. The likely intent is the row-colour CONFIGURATION `rowColor`
+   * (`{ field }`, declared below). ⚠️ Not `userActions.rowColor`: that is the
+   * boolean toggle for the toolbar's colour panel.
+   */
+  color?: never;
 
   /** Enable inline editing @default false */
   inlineEdit?: boolean;
 
-  /** Wrap column headers in grid view @default false */
-  wrapHeaders?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — the protocol declares no `wrapHeaders` on a view, and no renderer acts on it. */
+  wrapHeaders?: never;
 
-  /** Navigate to record detail view when row is clicked @default true */
-  clickIntoRecordDetails?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — the protocol declares no `clickIntoRecordDetails`; row-click behaviour is `navigation`. */
+  clickIntoRecordDetails?: never;
 
-  /** Add records via a form dialog @default false */
-  addRecordViaForm?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — the protocol declares no `addRecordViaForm`; the likely intent is the `userActions.addRecordForm` toggle (with `addRecord` configuring creation). */
+  addRecordViaForm?: never;
 
-  /** Enable inline add/delete of records @default false */
-  addDeleteRecordsInline?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — the protocol declares no `addDeleteRecordsInline`, and no renderer acts on it. */
+  addDeleteRecordsInline?: never;
 
-  /** Collapse all grouped sections by default @default false */
-  collapseAllByDefault?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — the protocol declares no `collapseAllByDefault`, and no renderer acts on it. */
+  collapseAllByDefault?: never;
 
-  /** Field name for custom text color */
-  fieldTextColor?: string;
+  /** @deprecated RETIRED (objectui#7924) — the protocol declares no `fieldTextColor`, and no renderer acts on it. */
+  fieldTextColor?: never;
 
-  /** Prefix field displayed before the main title */
-  prefixField?: string;
+  /** @deprecated RETIRED (objectui#7924) — the protocol declares no `prefixField`, and no renderer acts on it. */
+  prefixField?: never;
 
   /** View description */
   description?: string;
 
-  /** Show field descriptions below headers @default false */
-  showDescription?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — author `appearance.showDescription` instead. Not a protocol key on a view. */
+  showDescription?: never;
 
   /** Navigation configuration for row click behavior */
   navigation?: ViewNavigationConfig;
@@ -2272,7 +2330,16 @@ export interface NamedListView {
   /** Allow column resizing @default false */
   resizable?: boolean;
 
-  /** Density mode for controlling row/item spacing */
+  /**
+   * Density mode for controlling row/item spacing
+   *
+   * ⚠️ objectui-only (the protocol's name for this is `rowHeight`), but ⛔ NOT
+   * retired with its bucket-③ neighbours: it is READ. `normalizeListViewSchema`
+   * (`@object-ui/core`) folds it onto `rowHeight` at the `ListView` boundary, so
+   * it is a legacy SPELLING with a runtime fold — the bucket-② shape, whose
+   * canonical key is top-level `rowHeight` (⛔ not `userActions.rowHeight`, the
+   * boolean toolbar toggle). Reported on objectui#7924 rather than tombstoned.
+   */
   densityMode?: 'compact' | 'comfortable' | 'spacious';
 
   /**
@@ -2387,8 +2454,10 @@ export interface NamedListView {
    * host `views` prop (objectui#5321). ⛔ None of them may be dropped from the
    * type on that basis: the report is the evidence a protocol card would need.
    *
-   * The 19 legacy spellings this interface declares BEYOND the protocol are
-   * objectui#7924's remedy and stay there (ruling item 4) — ⛔ not touched here.
+   * The 19 legacy spellings this interface declared BEYOND the protocol were
+   * objectui#7924's remedy (ruling item 4) — ⛔ not touched by that card. It
+   * retired sixteen of them as tombstones; `options`, `allowExport` and
+   * `densityMode` stay declared because each is read.
    */
 
   /**
@@ -2439,8 +2508,9 @@ export interface NamedListView {
   rowColor?: ListViewSchema['rowColor'];
 
   /** User action toggles for the view toolbar — the protocol's canonical home
-   * for the eight legacy `show*` spellings this interface still declares
-   * (objectui#7924 owns their retirement, ⛔ not this card). */
+   * for seven of the eight legacy `show*` spellings, which objectui#7924
+   * retired to `?: never` tombstones above (`showDescription`, the eighth, is
+   * `appearance.showDescription`). */
   userActions?: ListViewSchema['userActions'];
 
   /** Appearance and visualization configuration (`showDescription`,
@@ -2543,8 +2613,9 @@ export interface NamedListView {
  * (`@objectstack/spec` `ui/view.zod.ts` `NavigationConfigSchema`), and a
  * `.default()` lands on the AUTHORING side as `| undefined` — which is why the
  * spec publishes its own type as `z.input< typeof NavigationConfigSchema >`.
- * So `navigation: { view: 'summary_view' }` is legal authored metadata that
- * lets the mode default, and the hand copy refused it.
+ * So `navigation: { openNewTab: true }` is legal authored metadata that lets
+ * the mode default (to `'page'`, the mode `openNewTab` applies to), and the
+ * hand copy refused it.
  *
  * `index.ts` already re-exports that same spec type under its own name
  * (`NavigationConfig`), so this package published two disagreeing spellings of
@@ -2815,6 +2886,27 @@ export interface ObjectTreeSchema extends BaseSchema {
   type: 'object-tree';
   /** ObjectQL object name */
   objectName: string;
+  /**
+   * Query filter, forwarded verbatim as `$filter` on the tree's own fetch.
+   *
+   * Typed as that DESTINATION by an indexed access on {@link QueryParams}, the
+   * shape objectui#9309 settled for {@link ObjectGallerySchema.filter}, so the
+   * declaration cannot drift away from the slot it is forwarded into
+   * (objectui#9549). The key was already delivered and read before it was
+   * declared: `ListView` puts `filter` on the `baseProps` every child view
+   * receives, and `ObjectTree` sends `$filter: schema.filter`. Until this
+   * declaration the value survived only on `BaseSchema`'s index signature, so
+   * declaring it NARROWS: `filter: 'stage=won'` and `filter: 42` are compile
+   * errors now.
+   *
+   * ⛔ It is a query filter and nothing else. The renderer used to also read
+   * `filter.tree` as a stash for the tree block; that second dialect had no
+   * author and was removed in the same change. The tree block is `tree`.
+   *
+   * ⛔ Do not re-spell the arms here — what `QueryParams['$filter']` resolves to
+   * is stated once, in `./data.ts`.
+   */
+  filter?: QueryParams['$filter'];
   /**
    * Field holding the parent record reference (single-parent pointer).
    * When omitted, the renderer auto-detects the object's `tree`/self-reference field.
@@ -3146,6 +3238,20 @@ export interface ObjectGanttSchema extends BaseSchema {
   filter?: any[];
   /** Sort configuration, forwarded as `$orderby` via `convertSortToQueryParams`. Array only — the legacy string clause is retired (objectui#8221). */
   sort?: SortConfig[];
+  /**
+   * Full-text search term, forwarded as `$search` (objectui#10250). The server
+   * resolves which fields it matches from the object's metadata (ADR-0061).
+   * `ListView` writes it from its toolbar Search box: the chart runs its own
+   * query, so without this key the box changed the list's fetch and nothing
+   * drawn.
+   */
+  search?: string;
+  /**
+   * Narrows the fields {@link ObjectGanttSchema.search} matches, forwarded as
+   * `$searchFields` — and only alongside a term, as a list's own query sends
+   * it. Same key and meaning as {@link ObjectGridSchema.searchableFields}.
+   */
+  searchableFields?: string[];
 }
 
 /**
@@ -3742,11 +3848,13 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * Spelled exactly as {@link ObjectGanttSchema.filter}, so the two views'
    * query keys cannot fork.
    *
-   * ⚠️ There is deliberately NO `sort` twin on this interface, and its absence
-   * is measured rather than overlooked: `ObjectKanban.tsx` has ZERO
-   * `schema.sort` read sites (the board groups records into lanes and issues no
-   * `$orderby`), and the spec's `object-kanban` entry declares no `sort`
-   * either. Only {@link ObjectCalendarSchema} declares both keys.
+   * ⚠️ There is deliberately NO `sort` twin on this interface: the spec's
+   * `object-kanban` entry declares no top-level `sort` (and refuses one). The
+   * board's ordering is authored on the per-element binding instead —
+   * `dataSource.sort`, which `ElementDataSourceGate` hands to `ObjectKanban` as
+   * `schema.sort` and the fetch lowers onto `$orderby` (objectui#10068). That
+   * read is the gate's carrier, not an authoring key. Only
+   * {@link ObjectCalendarSchema} declares both keys.
    */
   filter?: any[];
   /**
@@ -4154,11 +4262,18 @@ export interface ObjectChartSchema extends BaseSchema {
    *
    * ⚠️ Narrowing to ONE arm is a decision LOCAL TO THIS NODE, not a
    * cross-widget one — an earlier draft of this docblock said the opposite and
-   * the census refutes it. Six sibling `object-*` widgets declare `filter` on
-   * this interface and every one of them is array-only
-   * ({@link ObjectGanttSchema.filter}, {@link ObjectKanbanSchema.filter} and
-   * four more); this key is the only `object-*` `filter` with a record arm. So
-   * there is no fleet-wide convention to renegotiate — what is unresolved is
+   * the census refutes it. ⛔ The census is no longer WRITTEN DOWN here, and
+   * that is objectui#9309's doing on both halves of what used to stand in this
+   * spot. This paragraph stated a sibling count and called this key the only
+   * `object-*` `filter` with a record arm; {@link ObjectGallerySchema.filter}
+   * is now `QueryParams['$filter']`, which HAS a record arm, and one of the
+   * counted siblings was `NamedListView` — the named-view interface, not a
+   * view schema at all. Read the population off the instrument that re-derives
+   * it on every run, `__tests__/object-gallery-filter-9309.test.ts`, which
+   * charges every `filter` declaration in this file to its owning interface
+   * through the parser; ⛔ do not copy its table back into prose here
+   * (AGENTS.md #9). So there is no fleet-wide convention to renegotiate — what
+   * is unresolved is
    * only this component's own two-armed read, and objectui#7946 declares the
    * accept set it measured rather than picking an arm without a ruling.
    *
@@ -4374,8 +4489,28 @@ export interface ObjectGallerySchema extends BaseSchema {
   type: 'object-gallery';
   /** ObjectQL object name; omitted when the records arrive through `bind` or `data` */
   objectName?: string;
-  /** Query filter, forwarded verbatim as `$filter` */
-  filter?: unknown;
+  /**
+   * Query filter, forwarded verbatim as `$filter`.
+   *
+   * Typed as the DESTINATION the sentence above names, by an indexed access on
+   * {@link QueryParams} rather than a copy of its arms, so the declaration
+   * cannot drift away from the slot it is forwarded into (objectui#9309).
+   *
+   * It was `unknown` until then, which promised a destination it did not type:
+   * the docblock mandated a verbatim forward and the compiler refused it, so
+   * the only way through was an assertion at the call site — the shape that
+   * teaches casting, and the opposite of the repo's own direction (AGENTS.md
+   * #0.1: fix the declaration, do not widen the consumer). `unknown` is the
+   * widest type there is, so this is a NARROWING of the published accept set:
+   * `filter: 'stage=won'` and `filter: 42` are compile errors now, where
+   * before they compiled and the downstream assertion un-checked them again.
+   *
+   * ⛔ Do not re-spell the arms here. What `QueryParams['$filter']` resolves to
+   * is stated once, in `./data.ts`, next to the readers that honour it; a copy
+   * in this docblock would be a second dialect of one key the moment that slot
+   * moves.
+   */
+  filter?: QueryParams['$filter'];
   /** Inline records — rendered ahead of a fetch when present */
   data?: Record<string, unknown>[];
   /** Gallery configuration — aligned with @objectstack/spec `GalleryConfig` */
@@ -4447,12 +4582,14 @@ export interface ObjectGallerySchema extends BaseSchema {
    * `navigation`, `objectName`, `titleField` (in
    * `packages/plugin-list/src/ObjectGallery.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `object-gallery` reads — nothing renders it.
    */
@@ -4472,12 +4609,14 @@ export interface ObjectGallerySchema extends BaseSchema {
    * `navigation`, `objectName`, `titleField` (in
    * `packages/plugin-list/src/ObjectGallery.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `object-gallery` reads — nothing renders it.
    */
@@ -4568,12 +4707,14 @@ export interface ObjectDataTableSchema extends BaseSchema {
    * `bind`, `columns`, `data`, `drillDown`, `filter`, `objectName`,
    * `onRowClick` (in `packages/plugin-dashboard/src/ObjectDataTable.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `object-data-table` reads — nothing renders it.
    */
@@ -4592,12 +4733,14 @@ export interface ObjectDataTableSchema extends BaseSchema {
    * `bind`, `columns`, `data`, `drillDown`, `filter`, `objectName`,
    * `onRowClick` (in `packages/plugin-dashboard/src/ObjectDataTable.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `object-data-table` reads — nothing renders it.
    */

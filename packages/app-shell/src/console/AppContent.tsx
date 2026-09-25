@@ -30,6 +30,7 @@ import {
 import { buildExpressionUser } from '../providers/expressionUser.js';
 import { useTrackRouteAsRecent } from '../hooks/useTrackRouteAsRecent.js';
 import { useHomePath } from '../hooks/useHomePath.js';
+import { useSignedInUserLocale } from '../hooks/useUserLocale.js';
 import { resolveRecordFormTarget, resolveFormViewLayout, resolveNavigateCreateUrl, resolveNavigateEditUrl, resolvePostCreateTarget } from '../utils/recordFormNavigation.js';
 import { deriveRecordSurface, deriveRecordFlowSurface } from '@object-ui/plugin-view';
 import { RECORD_FORM_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_LINK_PARAM } from '../urlParams.js';
@@ -447,6 +448,14 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // nothing is remounted for a data refresh.
   useMutationInvalidationBridge(dataSource);
 
+  // objectui#10059 — the signed-in user's language has ONE source of truth,
+  // `sys_user.locale`. Mounted here, beside the bridge above, because it reads
+  // the column back off that bus: the profile page's language card writes the
+  // same column through the same adapter, so its save reaches this reader and
+  // the UI follows without a reload. See `hooks/useUserLocale.ts` for why the
+  // device-local value is a cache from here on rather than a second setting.
+  useSignedInUserLocale();
+
   useGlobalUndo({
     dataSource: dataSource ?? undefined,
     onUndo: (op: any) => {
@@ -480,9 +489,13 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     // imperative `handleEdit` callback. These let JSON schemas open the
     // full-screen create/edit pages directly via `<action:button>` without
     // any custom code:
-    //   { "action": "navigate_create", "params": { "objectName": "..." } }
-    //   { "action": "navigate_edit",
-    //     "params": { "objectName": "...", "recordId": "..." } }
+    //   { "type": "action:button", "actionType": "navigate_create",
+    //     "properties": { "params": { "objectName": "..." } } }
+    //   { "type": "action:button", "actionType": "navigate_edit",
+    //     "properties": { "params": { "objectName": "...", "recordId": "..." } } }
+    // The button forwards `properties.params` as the runner's `params`,
+    // which is what the handlers below read (objectui#10289, ruling A: a
+    // node-level `params` is only the `ActionParam[]` input list).
     // The `objectName` param falls back to the action context's
     // `objectName` (set per view) so action buttons mounted inside an
     // ObjectView can omit it.

@@ -39,6 +39,7 @@ import {
   I18nLabelSchema as SpecI18nLabelSchema,
   DashboardWidgetSchema as SpecDashboardWidgetSchema,
   UserFilterFieldSchema as SpecUserFilterFieldSchema,
+  checkListViewCalendarVisualization,
 } from '@objectstack/spec/ui';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
 import { aliasKeyRefusal, handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
@@ -315,7 +316,14 @@ export const ObjectGridSchema = BaseSchema.extend({
     + 'nothing in this renderer ever read the key, so an authored value parsed green and drew nothing. '
     + '`operations` is the CRUD-affordance toggle object ({ create, read, update, delete }).',
   ),
-  rowActions: z.array(z.string()).optional(),
+  rowActions: z.array(z.string()).optional().describe(
+    'Names of actions offered on each row\'s menu. `edit` and `delete` are canonical: they select the grid\'s generic Edit / Delete entries; '
+    + 'any other name is a custom action resolved against the object\'s declared actions. '
+    + '`operations` is the CEILING: `operations.update: false` (or `delete: false`), or a member a declared `operations` block does not name, '
+    + 'withholds that generic entry whatever this list says. Inside that ceiling a declared list NARROWS: the generic Edit / Delete are offered '
+    + 'only for the canonical names it carries, so `[]` or a list naming only custom actions offers neither. '
+    + 'Omit `rowActions` to keep the default generic entries.',
+  ),
   batchActions: z.array(z.string()).optional(),
   editable: z.boolean().optional(),
   keyboardNavigation: z.boolean().optional(),
@@ -353,13 +361,30 @@ export const ObjectGridSchema = BaseSchema.extend({
 });
 
 /**
+ * The prescription an author gets when a record id arrives as a number.
+ *
+ * ⚠️ Declared file-locally in each of the three mirrors that carry a record id
+ * rather than shared from one module, and PINNED BY CONTENT — not by line — in
+ * `../__tests__/authorable-record-id-string-9511.test.ts`, which asserts that
+ * every one of the three refusals names the quoted form. So this text drifting
+ * out of one mirror turns that pin red instead of going quiet.
+ */
+const RECORD_ID_IS_A_STRING_GUIDANCE =
+  "A record id is a string on every boundary (objectui#9511): write it quoted \u2014 42 becomes '42'. "
+  + 'A backend whose primary keys are numeric converts at its OWN adapter boundary, in one typed '
+  + 'place, so every author, every caller and every adapter sees one shape.';
+
+/**
  * ObjectForm Schema
  */
 export const ObjectFormSchema = BaseSchema.extend({
   type: z.literal('object-form'),
   objectName: z.string().describe('ObjectQL object name'),
   mode: z.enum(['create', 'edit', 'view']).describe('Form mode'),
-  recordId: z.union([z.string(), z.number()]).optional().describe('Record ID'),
+  recordId: z
+    .string({ error: (issue) => (issue.code === 'invalid_type' ? RECORD_ID_IS_A_STRING_GUIDANCE : undefined) })
+    .optional()
+    .describe('Record ID \u2014 a string, never a number (objectui#9511)'),
   title: z.string().optional().describe('Form title'),
   description: z.string().optional().describe('Form description'),
   fields: z.array(z.string()).optional().describe('Included fields'),
@@ -817,11 +842,13 @@ const KanbanStrayGroupByRefusal = aliasKeyRefusal(
   '`groupBy` is the lane key of the generated `object-kanban` NODE, not of the view-level '
   + 'kanban configuration (objectui#8365). `@objectstack/spec`\'s `KanbanConfigSchema` is a '
   + 'strict object of `columns` / `groupByField` / `summarizeField` and refuses `groupBy` by '
-  + 'name, so a view carrying it never came through the validated path. Write `groupByField` '
-  + '(or the deprecated `groupField`, which folds onto it). Until this refusal the key rode '
-  + 'this object\'s `.passthrough()` into `ListView`\'s kanban branch and OVERRODE the lane '
-  + 'that branch had already resolved from `groupByField` — the board grouped by the stray '
-  + 'key, and nothing said so.',
+  + 'name. Write `groupByField` (or the deprecated `groupField`, which folds onto it). This '
+  + 'package, by contrast, accepted the key green until this refusal: it passed '
+  + '`safeValidateSchema` in either nesting, kept by this object\'s `.passthrough()` or by the '
+  + 'untyped legacy `options` bag, and reached `ListView`\'s kanban branch, where it OVERRODE the '
+  + 'lane that branch had already resolved from `groupByField` — the board grouped by the stray '
+  + 'key, and nothing said so. That branch now drops the key, so it is refused here instead of '
+  + 'being kept and then ignored.',
 );
 
 /**
@@ -978,11 +1005,13 @@ const CALENDAR_DATE_ALIAS_CONSEQUENCE: Record<
   Record<CalendarAliasSurfaceKind, string>
 > = {
   dateField: {
+    // Quotes the refusal screen's FIRST clause only — the one objectui#8170 kept.
+    // Its second clause was rewritten there, so a whole-screen quote goes false
+    // the next time that copy moves (objectui#10030).
     binding:
       'Write `startDateField` for the event start. Kept rather than refused, an authored '
-      + '`dateField` binds nothing: the calendar falls through to "Calendar configuration required. '
-      + 'Please specify startDateField and titleField.", a screen that names the canonical keys and '
-      + 'never the key you wrote.',
+      + '`dateField` binds nothing: the calendar falls through to "Calendar configuration required", '
+      + 'a screen that names the canonical keys and never the key you wrote.',
     container:
       'Write `startDateField` for the event start. Kept rather than refused, an authored '
       + '`dateField` fails without even reaching that refusal screen: this container is read WHOLE, '
@@ -1078,12 +1107,16 @@ const CalendarNodeDateAliasRefusals = {
  * check is for. The gap here is NOT specific to the calendar and was NOT opened
  * by this card: measured on the same instrument, a named view carrying the
  * objectui#8365 stray `kanban.groupBy` is ACCEPTED, while the identical key on a
- * `list-view` document is refused. Every alias refusal this module declares
- * stops at `listViews`. What this card regressed on the object-view route is the
- * BEHAVIOUR — a document that drew at the merge-base goes mute once the ladder
- * is gone — and this check is what makes that failure loud. ⛔ It is not a
- * general repair of the unmirrored key, and the kanban twin is still silent
- * here; that belongs to objectui#8365's own text, not to this card.
+ * `list-view` document is refused. Until this check, no alias refusal this
+ * module declares reached inside `listViews`. This check is the only door in,
+ * and it judges the two calendar spellings only, at both nestings (so
+ * `listViews.KEY.calendar.dateField` IS refused); a search for `listViews` in
+ * this file re-derives that. What this card regressed on the object-view route
+ * is the BEHAVIOUR — a document that drew at the merge-base goes mute once the
+ * ladder is gone — and this check is what makes that failure loud. ⛔ It is not
+ * a general repair of the unmirrored key, and the kanban twin is still silent
+ * here (no pin re-derives that silence); that belongs to objectui#8365's own
+ * text, not to this card.
  *
  * ⛔ Scoped to the TWO keys under `calendar`: `timeline.dateField` on a named
  * view stays accepted (the timeline alias is live by ruling), and nothing else
@@ -1521,7 +1554,33 @@ export const ListViewSchema = BaseSchema
     onDensityChange: handlerKeyRefusal('onDensityChange', 'runtime-slot', 'Row density change handler'),
     onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'Record navigation handler'),
     onPageSizeChange: handlerKeyRefusal('onPageSizeChange', 'runtime-slot', 'Page size change handler'),
-  });
+  })
+  // ⭐ THE SPEC'S OBJECT-LEVEL CHECKS, re-attached (objectui#7715, ruling B1).
+  //
+  // `specFieldsExcept` above rebuilds a fresh object from the spec's `.shape`,
+  // so it carries the spec's FIELDS and drops every check the spec attached to
+  // the OBJECT. The spec exports each such check as a named function
+  // (objectstack#16489) precisely so a mirror can attach the one the spec runs
+  // instead of restating it. The spec's `ListViewSchema` carries two; each is
+  // judged by whether this node carries the fields the check reads:
+  //
+  //   `checkListViewCalendarVisualization` — ATTACHED. It reads
+  //     `appearance.allowedVisualizations` (a spec field, by reference) and only
+  //     whether `calendar` is PRESENT; the local `CalendarConfig` override keeps
+  //     `calendar` omissible, so "absent" means the same thing on both faces and
+  //     the refusal is the spec's own, message included.
+  //   `checkListViewPageMount` — NOT ATTACHABLE. It reads `type`, and on this
+  //     node `type` is the component discriminator `'list-view'`; the spec's view
+  //     kind rides as `viewType`. Attached as-is it would refuse EVERY `pageName`,
+  //     a valid page mount included, and its remedy tells the author to write
+  //     `type: 'page'`, which this node's literal refuses. The spec kind it binds
+  //     is retired upstream (objectstack#17063 — see `UNDRAWABLE_VIEW_KINDS` in
+  //     `@object-ui/core`), so no adapter is written for it here.
+  //
+  // `__tests__/spec-object-refinements-7715.test.ts` re-derives that split from
+  // the spec object's own check count, so a check the spec adds to this object
+  // later reddens there instead of being dropped here in silence.
+  .superRefine(checkListViewCalendarVisualization);
 
 /**
  * TS type for the ListView component node (spec-derived; issue #2231).
@@ -1672,6 +1731,15 @@ export const ObjectMapSchema = BaseSchema.extend({
 export const ObjectTreeSchema = BaseSchema.extend({
   type: z.literal('object-tree'),
   objectName: z.string().describe('ObjectQL object name'),
+  // objectui#9549 — declared in step with the twin in `../objectql.ts`
+  // (`QueryParams['$filter']`), spelled exactly as `ObjectGallerySchema.filter`
+  // below spells it (objectui#9309): the two arms of that slot, ARRAY FIRST.
+  // Before this the key rode `.passthrough()` unjudged, so a string or number
+  // parsed clean while the renderer forwarded it into `$filter`.
+  filter: z.union([
+    z.array(z.any()),
+    z.record(z.string(), z.any()),
+  ]).optional().describe('Query filter, forwarded verbatim as $filter. FilterArray (the spec array sugar) OR the ObjectQL $filter object — the two arms of QueryParams[$filter]'),
   parentField: z.string().optional().describe('Single-parent pointer field (auto-detected when omitted)'),
   labelField: z.string().optional().describe('Field rendered indented in the first column'),
   fields: z.array(z.string()).optional().describe('Additional flat columns'),
@@ -1817,6 +1885,11 @@ export const ObjectGanttSchema = BaseSchema.extend({
   staticData: z.array(z.any()).optional().describe('Inline records, wrapped into a { provider: value } data config — read SECOND by getDataConfig'),
   filter: z.array(z.any()).optional().describe('Query filter, forwarded verbatim as $filter'),
   sort: z.array(SortConfigSchema).optional().describe('Sort configuration, forwarded as $orderby (array only; the legacy string clause is retired — objectui#8221)'),
+  // objectui#10250 — the full-text pair the record query carries, declared in
+  // step with the twin in `../objectql.ts`. ListView's toolbar Search writes
+  // both onto a gantt node, because the chart queries for itself.
+  search: z.string().optional().describe('Full-text search term, forwarded as $search (the server resolves the matched fields, ADR-0061)'),
+  searchableFields: z.array(z.string()).optional().describe('Narrows the fields `search` matches, forwarded as $searchFields alongside a term'),
 }).superRefine(requireRecordSource('object-gantt'));
 
 /**
@@ -2132,9 +2205,10 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   // as `../objectql.ts` (optional) so the zod-mirror-parity ratchet stays at
   // zero drift for this pair.
   //
-  // ⚠️ No `sort` twin here, and the absence is measured: `ObjectKanban.tsx` has
-  // ZERO `schema.sort` read sites and the spec's `object-kanban` entry declares
-  // no `sort` either. Only `ObjectCalendarSchema` above carries both.
+  // ⚠️ No `sort` twin here: the spec's `object-kanban` entry declares no
+  // top-level `sort`. `ObjectKanban.tsx` reads `schema.sort` only as the
+  // `ElementDataSourceGate` carrier for the binding's `dataSource.sort`
+  // (objectui#10068). Only `ObjectCalendarSchema` above carries both.
   filter: z.array(z.any()).optional().describe('Query filter, forwarded verbatim as $filter'),
   // objectui#9606 — the CANONICAL card-title spelling, declared beside the
   // legacy alias below exactly as `@objectstack/spec` declares the pair on
@@ -2347,7 +2421,24 @@ export const ObjectChartSchema = BaseSchema.extend({
 export const ObjectGallerySchema = BaseSchema.extend({
   type: z.literal('object-gallery'),
   objectName: z.string().optional().describe('ObjectQL object name'),
-  filter: z.unknown().optional().describe('Query filter, forwarded verbatim as $filter'),
+  // ⭐ NARROWED from `z.unknown()` (objectui#9309), in step with the twin
+  // declaration in `../objectql.ts`, which is now `QueryParams['$filter']` —
+  // the destination this key's own description names. `z.unknown()` left the
+  // runtime door wider than the type: `filter: 'stage=won'` and `filter: 42`
+  // parsed clean here while `tsc` refused them one file over, which is the
+  // two-dialects-of-one-key shape AGENTS.md #0.1 forbids.
+  // ⚠️ It also sat in `zod-mirror-parity`'s DOCUMENTED BLIND SPOT: that file's
+  // `Unconstrained< T >` excludes an `unknown` mirror slot from the
+  // `WiderThanDeclared` comparison by definition, so nothing would have
+  // reported the split. Measured, not assumed — see the ledger note there.
+  // Spelled as the two arms `QueryParams['$filter']` resolves to, in the
+  // ARRAY-FIRST order `ObjectChartSchema.filter` above already uses: a
+  // `z.record` arm placed first would have to be trusted to refuse an array,
+  // and the ordering is the cheaper guarantee.
+  filter: z.union([
+    z.array(z.any()),
+    z.record(z.string(), z.any()),
+  ]).optional().describe('Query filter, forwarded verbatim as $filter. FilterArray (the spec array sugar) OR the ObjectQL $filter object — the two arms of QueryParams[$filter]'),
   data: z.array(z.record(z.string(), z.unknown())).optional().describe('Inline records'),
   gallery: stripImportedDefaults(SpecGalleryConfigSchema).optional().describe('Gallery configuration (@objectstack/spec GalleryConfig)'),
   navigation: stripImportedDefaults(SpecNavigationConfigSchema).optional().describe('Record navigation behaviour (drawer/dialog/page)'),

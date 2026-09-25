@@ -106,6 +106,13 @@ describe('ObjectStackDataSource.listViews', () => {
   // ── objectui#4227 — a personalization override must never read back as a
   //    saved view (which is what let a system view gain Rename/Delete/
   //    Set-default/Pin just because someone toggled its density). ──────────
+  //
+  //    objectui#10210, ruling B (comment 5824008636): the `_isOverride` marker
+  //    is the ONLY thing that classifies a row as an overlay. The shape guess
+  //    (flat body + `viewKind: 'list'`) that also excluded pre-marker rows is
+  //    retired: an "Edit view config → Save" wrote that same shape, and the
+  //    guess turned the user's own view read-only. The case below that pinned
+  //    the guess is rewritten to pin the ruled rule, not deleted.
   describe('excludes personalization overlays (objectui#4227)', () => {
     it('excludes a row carrying the explicit write-side marker', async () => {
       // Exactly what `updateViewConfig` writes today: the marker plus a full
@@ -121,18 +128,23 @@ describe('ObjectStackDataSource.listViews', () => {
       expect(views).toEqual([]);
     });
 
-    it('excludes a legacy (unmarked) override whose viewKind was backfilled server-side', async () => {
+    it('returns an UNMARKED flat row whose viewKind was backfilled server-side — only the marker classifies (objectui#10210 ruling B)', async () => {
       // #7741/#2555: the platform inherits `viewKind`/`object`/`label` from
-      // the REGISTRY baseline for a personalization PUT against a real
-      // system view — so a pre-marker row targeting `crm_lead.default`
-      // still carries `viewKind: 'list'` even though objectui never sent it.
-      const legacyOverride = {
+      // the REGISTRY baseline for a PUT against a code-defined view — so a
+      // pre-marker row targeting `crm_lead.default` carries `viewKind: 'list'`
+      // even though objectui never sent it. This case used to assert that the
+      // row was excluded by that shape. A config save before PR #10332 stored
+      // the same shape, and the two cannot be told apart by it, so under
+      // ruling B the row reads back as the plain row it is stored as: the
+      // repair for a config-save row, the accepted exposure for a pre-marker
+      // overlay (`viewOverlayMarkerOnly-10210.test.ts` pins both).
+      const unmarkedFlatRow = {
         name: 'crm_lead.default', object: 'crm_lead', viewKind: 'list',
         label: 'All', type: 'grid', rowHeight: 40,
       };
-      const ds = makeDS([legacyOverride]);
+      const ds = makeDS([unmarkedFlatRow]);
       const views = await ds.listViews('crm_lead');
-      expect(views).toEqual([]);
+      expect(views).toEqual([unmarkedFlatRow]);
     });
 
     it('a marked row is excluded even without the legacy viewKind signal', async () => {

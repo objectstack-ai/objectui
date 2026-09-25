@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from '@object-ui/components';
 import { CalendarIcon, RotateCcw } from 'lucide-react';
-import { useSafeTranslate, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
+import { useSafeTranslate, useObjectTranslation, useSafeFieldLabel, pickLocalized } from '@object-ui/i18n';
 import {
   DATE_RANGE_PRESETS,
   type DashboardFilterDef,
@@ -62,10 +62,35 @@ import {
  * controls do not share one: the built-in `dateRange` falls back to a
  * TRANSLATED "Date range", the others to the raw `def.name`. Folding those
  * together here would have made an unlabelled date filter read `dateRange`.
+ *
+ * ## The translation-bundle rung (objectui#10132)
+ *
+ * `GlobalFilterSchema.object` names the object whose bundle entry keys this
+ * filter's labels — the spec's describe text for it reads "Object whose
+ * `fields.<object>.<field>` translation-bundle entry resolves this filter's
+ * field label and option labels". Nothing here read it, so a filter declaring
+ * it rendered the raw field name on a translated console.
+ *
+ * `useSafeFieldLabel().fieldLabel` IS that convention's resolver — the one
+ * every list and form already calls, walking the app namespaces for
+ * `fields.<object>.<field>`. ⛔ No second resolver was written: the spec's own
+ * wording for this key is "zero new i18n vocabulary, one resolver path", and a
+ * private lookup here would have been the second path it forbids.
+ *
+ * Precedence follows that resolver's own signature — `fieldLabel(object,
+ * field, fallback)` returns the bundle entry when there is one and the
+ * fallback otherwise — so a translator's bundle wins over the metadata
+ * literal, exactly as it does for every other field label on the console. The
+ * authored `label` (resolved first, since it may itself be an inline locale
+ * map) is that fallback. A filter that names no `object` never reaches the
+ * resolver at all, so every dashboard authored before this key existed renders
+ * unchanged.
  */
 function useFilterLabel(def: DashboardFilterDef): string {
   const { language } = useObjectTranslation();
-  return pickLocalized(def.label, language);
+  const { fieldLabel } = useSafeFieldLabel();
+  const authored = pickLocalized(def.label, language);
+  return def.object ? fieldLabel(def.object, def.field, authored) : authored;
 }
 
 /** Sentinel for the Select's clear item (Radix Select forbids empty values). */
@@ -236,6 +261,7 @@ function pairOptionRows(
 function SelectFilter({ def, value, onChange, dataSource }: { def: DashboardFilterDef; value: string | undefined; onChange: (v: string | undefined) => void; dataSource?: any }) {
   const tt = useSafeTranslate();
   const { language } = useObjectTranslation();
+  const { translateOptions } = useSafeFieldLabel();
   const resolvedLabel = useFilterLabel(def);
   const [dynamicOptions, setDynamicOptions] = useState<Array<{ value: string; label: string }> | null>(null);
 
@@ -326,7 +352,7 @@ function SelectFilter({ def, value, onChange, dataSource }: { def: DashboardFilt
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from?.object, from?.valueField, from?.labelField, dataSource]);
 
-  const options = useMemo(() => {
+  const localizedOptions = useMemo(() => {
     // `def.options` is already normalized to `{ value, label }` PAIRS by
     // `resolveDashboardFilterDefs`; the label's own vocabulary is not, and
     // deliberately so (`@object-ui/core` is locale-free — see
@@ -336,6 +362,21 @@ function SelectFilter({ def, value, onChange, dataSource }: { def: DashboardFilt
     const authored = def.options?.length ? def.options : (dynamicOptions ?? []);
     return authored.map((o) => ({ value: o.value, label: pickLocalized(o.label, language) || o.value }));
   }, [def.options, dynamicOptions, language]);
+
+  // The second half of `GlobalFilterSchema.object` (objectui#10132): the spec
+  // gives that key BOTH the field label and the option labels, and
+  // `translateOptions` is the same convention's option resolver — the one lists
+  // and forms call, keyed by option VALUE under the field this filter reads.
+  // Each authored label above stays the fallback, so an untranslated option
+  // keeps its authored text rather than collapsing to the raw stored value.
+  //
+  // Deliberately NOT inside the memo above: the resolver arrives as a member of
+  // `useSafeFieldLabel()`'s memoised object, and keying a `useMemo` on that
+  // identity is what AGENTS.md #10 rules out. The work is one pass over a
+  // dropdown's worth of options.
+  const options = def.object
+    ? translateOptions(def.object, def.field, localizedOptions)
+    : localizedOptions;
 
   const label = resolvedLabel || def.name;
   const selectedLabel = value

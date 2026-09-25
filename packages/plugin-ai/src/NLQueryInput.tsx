@@ -10,6 +10,8 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Button, Input, Badge } from '@object-ui/components';
 import type { NLQuerySchema, NLQueryResult } from '@object-ui/types';
 import { Search, Sparkles, Clock, ArrowRight, Loader2, Table } from 'lucide-react';
+import { useDisplayLocale } from '@object-ui/i18n';
+import { useAiTranslation, formatPercent } from './useAiTranslation';
 
 export interface NLQueryInputProps {
   schema: NLQuerySchema;
@@ -22,8 +24,12 @@ export interface NLQueryInputProps {
  * Allows users to query data using natural language, with AI-powered parsing.
  */
 export const NLQueryInput: React.FC<NLQueryInputProps> = ({ schema, onSubmit: onSubmitProp }) => {
+  const { t } = useAiTranslation();
+  // Dates and percentages read the DISPLAY locale, never the machine's
+  // (objectui#10232).
+  const displayLocale = useDisplayLocale();
   const {
-    placeholder = 'Ask a question about your data...',
+    placeholder = t('ai.nlQuery.placeholder'),
     result: initialResult,
     suggestions = [],
     showHistory = false,
@@ -49,7 +55,7 @@ export const NLQueryInput: React.FC<NLQueryInputProps> = ({ schema, onSubmit: on
       setTimeout(() => {
         setResult({
           query: queryText,
-          summary: `Results for: "${queryText}"`,
+          summary: t('ai.nlQuery.simulatedSummary', { query: queryText }),
           confidence: 0.85,
           data: [],
           columns: [],
@@ -94,7 +100,7 @@ export const NLQueryInput: React.FC<NLQueryInputProps> = ({ schema, onSubmit: on
                   ) : (
                     <>
                       <Sparkles className="h-3.5 w-3.5 mr-1" />
-                      Ask
+                      {t('ai.nlQuery.ask')}
                     </>
                   )}
                 </Button>
@@ -127,11 +133,11 @@ export const NLQueryInput: React.FC<NLQueryInputProps> = ({ schema, onSubmit: on
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Table className="h-4 w-4" />
-                Results
+                {t('ai.nlQuery.results')}
               </CardTitle>
               {result.confidence !== undefined && (
                 <Badge variant={result.confidence >= 0.7 ? 'default' : 'secondary'} className="text-xs">
-                  {Math.round(result.confidence * 100)}% match
+                  {t('ai.nlQuery.match', { percent: formatPercent(result.confidence, displayLocale) })}
                 </Badge>
               )}
             </div>
@@ -172,7 +178,7 @@ export const NLQueryInput: React.FC<NLQueryInputProps> = ({ schema, onSubmit: on
             {/* Empty results */}
             {(!result.data || result.data.length === 0) && (
               <div className="text-center py-6 text-muted-foreground text-sm">
-                No matching records found
+                {t('ai.nlQuery.noResults')}
               </div>
             )}
           </CardContent>
@@ -185,7 +191,7 @@ export const NLQueryInput: React.FC<NLQueryInputProps> = ({ schema, onSubmit: on
           <CardHeader className="pb-2">
             <CardTitle className="text-xs text-muted-foreground flex items-center gap-1">
               <Clock className="h-3 w-3" />
-              Recent Queries
+              {t('ai.nlQuery.recentQueries')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
@@ -198,7 +204,7 @@ export const NLQueryInput: React.FC<NLQueryInputProps> = ({ schema, onSubmit: on
                 <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
                 <span className="truncate">{item.query}</span>
                 <span className="text-xs text-muted-foreground shrink-0 ml-auto">
-                  {new Date(item.timestamp).toLocaleDateString()}
+                  {new Date(item.timestamp).toLocaleDateString(displayLocale)}
                 </span>
               </button>
             ))}

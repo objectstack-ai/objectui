@@ -150,6 +150,13 @@ interface CachedDraftReview {
   verification?: { errors: number; warnings: number };
   issues?: Array<{ severity: 'error' | 'warning'; code: string; message: string; fix?: string }>;
   nextSteps?: string[];
+  /**
+   * objectui#10109 — the producer's incremental-edit marker (`apply_edit`
+   * answers `kind: 'edit'`). Kept through the cache because an edit's `items`
+   * can include the `app` it re-staged: without it a cache-fallback reload
+   * reads the edit as a whole-app build.
+   */
+  kind?: 'edit';
 }
 
 /** Mirrors the subset of plugin-chatbot's `ProposedPlan` the "Proposed plan" card needs. */
@@ -229,6 +236,7 @@ function draftReviewToCachedResult(dr: CachedDraftReview): Record<string, unknow
     ...(dr.verification ? { verification: dr.verification } : {}),
     ...(dr.issues && dr.issues.length ? { issues: dr.issues } : {}),
     ...(dr.nextSteps && dr.nextSteps.length ? { nextSteps: dr.nextSteps } : {}),
+    ...(dr.kind === 'edit' ? { kind: 'edit' } : {}),
   };
 }
 
@@ -477,8 +485,10 @@ export function sanitizeChatMessagesForCache(
           //
           //   * `output` is the only carrier that survives API mode's SDK
           //     store, because `useObjectChat`'s `aiInitialMessages` rebuilds
-          //     each part from `{type,toolCallId,toolName,input,output,
-          //     errorText,state}` and drops every other key, after which
+          //     each part through `toSdkToolPart`, which constructs the chat
+          //     runtime's own discriminated tool part — a per-state key set
+          //     that carries `output` and has no place for a cache-side key —
+          //     and drops every other key, after which
           //     `extractToolInvocations` re-derives the id by re-parsing the
           //     result. A pending-only turn — the only shape API mode can
           //     actually produce, since `detectDraftResult` and

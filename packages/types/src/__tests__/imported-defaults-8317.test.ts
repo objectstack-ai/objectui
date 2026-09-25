@@ -76,7 +76,10 @@ import {
   ChartAggregateSchema as SpecChartAggregateSchema,
   ChartDrillDownSchema as SpecChartDrillDownSchema,
   UserFilterFieldSchema as SpecUserFilterFieldSchema,
+  ViewFilterRuleSchema as SpecViewFilterRuleSchema,
   objectNavTargetExclusivity,
+  checkListViewCalendarVisualization,
+  checkPageSourceCompleteness,
 } from '@objectstack/spec/ui';
 import { SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
 import { stripImportedDefaults } from '../zod/imported-defaults.js';
@@ -185,6 +188,10 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // stopped being a hand copy of the spec's field shape and now derives from
   // it, so that crossing is measured here like every other one.
   ['UserFilterFieldSchema', SpecUserFilterFieldSchema],
+  // objectui#9559 (ruling B): `FilterOperatorSchema` stopped being a hand-kept
+  // 14-member literal and is now this rule's own `operator` member, so the
+  // crossing is measured here like every other one.
+  ['ViewFilterRuleSchema', SpecViewFilterRuleSchema],
 ] as const;
 
 /** The subset that actually carries an imported default — where the strip does work. */
@@ -420,6 +427,11 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
      */
     const REFINEMENT_EXCEPTIONS = new Map<string, unknown>([
       ['objectNavTargetExclusivity', objectNavTargetExclusivity],
+      // objectui#7715 (ruling B1): the spec's exported object-level checks that
+      // `ListViewSchema` and `PageNodeSchema` re-attach after `specFieldsExcept`
+      // rebuilt them without the spec object's own checks.
+      ['checkListViewCalendarVisualization', checkListViewCalendarVisualization],
+      ['checkPageSourceCompleteness', checkPageSourceCompleteness],
     ]);
 
     const isSpecModule = (m: string): boolean =>

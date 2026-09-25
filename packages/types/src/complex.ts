@@ -484,23 +484,24 @@ export interface CalendarViewSchema extends BaseSchema {
 }
 
 /**
- * Filter operator
+ * Filter operator — the spec's canonical view-filter vocabulary, taken BY
+ * REFERENCE (`ViewFilterOperator`, the element type of `VIEW_FILTER_OPERATORS`
+ * in `@objectstack/spec/ui`), so this declaration and its zod mirror
+ * (`FilterOperatorSchema`, which is the spec rule's own operator member) state
+ * one set (objectui#9559, ruling B).
+ *
+ * It used to be a 14-member local union that disagreed with BOTH the protocol
+ * and the mirror: it carried `is_empty` / `is_not_empty` where the mirror
+ * carried `is_null` / `is_not_null`, and neither face had `icontains`,
+ * `before`, `after` or `between`.
+ *
+ * Canonical spellings only, deliberately narrower than what the mirror PARSES:
+ * the mirror also accepts the spec's legacy aliases (`lessThan`, `gt`, …) and
+ * normalises them to these members on parse, because stored metadata carries
+ * them — but the spec marks that table a deprecated migration bridge that new
+ * producers must not emit, and a type is what a new producer writes against.
  */
-export type FilterBuilderOperator =
-  | 'equals'
-  | 'not_equals'
-  | 'contains'
-  | 'not_contains'
-  | 'starts_with'
-  | 'ends_with'
-  | 'greater_than'
-  | 'less_than'
-  | 'greater_than_or_equal'
-  | 'less_than_or_equal'
-  | 'is_empty'
-  | 'is_not_empty'
-  | 'in'
-  | 'not_in';
+export type FilterBuilderOperator = SpecViewFilterOperator;
 
 /**
  * Filter condition

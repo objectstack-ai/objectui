@@ -76,6 +76,7 @@ import {
   ChartAggregateSchema as SpecChartAggregateSchema,
   ChartDrillDownSchema as SpecChartDrillDownSchema,
   UserFilterFieldSchema as SpecUserFilterFieldSchema,
+  ViewFilterRuleSchema as SpecViewFilterRuleSchema,
   objectNavTargetExclusivity,
   checkListViewCalendarVisualization,
   checkPageSourceCompleteness,
@@ -187,6 +188,10 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // stopped being a hand copy of the spec's field shape and now derives from
   // it, so that crossing is measured here like every other one.
   ['UserFilterFieldSchema', SpecUserFilterFieldSchema],
+  // objectui#9559 (ruling B): `FilterOperatorSchema` stopped being a hand-kept
+  // 14-member literal and is now this rule's own `operator` member, so the
+  // crossing is measured here like every other one.
+  ['ViewFilterRuleSchema', SpecViewFilterRuleSchema],
 ] as const;
 
 /** The subset that actually carries an imported default — where the strip does work. */

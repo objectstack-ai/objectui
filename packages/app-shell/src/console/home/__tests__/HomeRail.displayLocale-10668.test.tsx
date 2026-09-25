@@ -44,7 +44,7 @@ function railUnder(locale: string) {
             notificationsStatus="ready"
             onOpenApprovals={() => {}}
             onOpenNotification={() => {}}
-            t={t as any}
+            t={t}
           />
         </div>
         <div data-testid="activity">
@@ -60,7 +60,7 @@ function railUnder(locale: string) {
               },
             ]}
             onViewAll={() => {}}
-            t={t as any}
+            t={t}
           />
         </div>
       </LocalizationProvider>

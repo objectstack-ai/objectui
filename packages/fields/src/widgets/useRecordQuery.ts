@@ -145,6 +145,9 @@ export function useRecordQuery(options: UseRecordQueryOptions): UseRecordQueryRe
   const [sort, setSortState] = useState<RecordQuerySort | null>(null);
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // objectui#10712 (objectui#10713) — the number of the latest `runQuery` call
+  // that issued a read. Held in a ref: nothing renders from it.
+  const runSeqRef = useRef(0);
 
   // Stable signatures for object/array inputs so the fetch effect keys on their
   // *value*, not a fresh reference every render.
@@ -163,10 +166,21 @@ export function useRecordQuery(options: UseRecordQueryOptions): UseRecordQueryRe
 
   // Core fetch. Takes the controlled inputs as arguments so the debounced
   // search path and the effect path share one implementation.
+  //
+  // objectui#10712 (objectui#10713) — the page / sort / filter effect, the
+  // debounced search and `refetch` all call this, and a later call can be
+  // issued while an earlier one is in flight. Only the LATEST call commits its
+  // records, total or error, and only it ends `loading`: a superseded answer
+  // that lands last would otherwise show the results of an earlier query, and
+  // one that lands first would end the loading state the current query is
+  // still in. A call that returns before reading is not a run: it issues no
+  // read and sets no `loading`, so it supersedes nothing.
   const runQuery = useCallback(
     async (searchTerm: string, pageArg: number, sortArg: RecordQuerySort | null) => {
       if (!canQuery || !dataSource || !objectName) return;
 
+      const seq = ++runSeqRef.current;
+      const isCurrent = () => runSeqRef.current === seq;
       setLoading(true);
       setError(null);
 
@@ -187,15 +201,17 @@ export function useRecordQuery(options: UseRecordQueryOptions): UseRecordQueryRe
         if (expand && expand.length > 0) params.$expand = expand;
 
         const result = await dataSource.find(objectName, params);
+        if (!isCurrent()) return;
         const data: any[] = result?.data ?? (result as any) ?? [];
 
         setRecords(data);
         setTotal(result?.total ?? data.length);
       } catch (err) {
+        if (!isCurrent()) return;
         setError(err instanceof Error ? err.message : String(err));
         setRecords([]);
       } finally {
-        setLoading(false);
+        if (isCurrent()) setLoading(false);
       }
     },
     // filter/expand/searchFields are referenced via their signatures below so

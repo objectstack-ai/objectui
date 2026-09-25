@@ -3333,6 +3333,7 @@ const zh = {
         reseedQueued: '示例数据将在下次访问该环境时重新加载。',
         reseedLocalSuccess: '已重新加载示例数据：新增 {{inserted}} 条，更新 {{updated}} 条。',
         reseedPartialErrors: '（有 {{count}} 条记录写入失败）',
+        sampleDataKernelUnavailable: '此控制面没有环境内核，因此无法在这里重新加载或清除示例数据。请在该环境自己的运行时中操作。',
         updateAvailable: '有可用更新',
       },
       action: {

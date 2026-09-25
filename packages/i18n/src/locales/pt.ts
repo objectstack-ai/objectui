@@ -3202,6 +3202,7 @@ const pt = {
       reseedQueued: 'Os dados de exemplo serão recarregados no próximo acesso ao ambiente.',
       reseedLocalSuccess: 'Dados de exemplo recarregados: {{inserted}} inseridos, {{updated}} atualizados.',
       reseedPartialErrors: '({{count}} registro(s) não puderam ser gravados)',
+      sampleDataKernelUnavailable: 'Este plano de controle não tem um kernel de ambiente, portanto os dados de exemplo não podem ser recarregados nem removidos aqui. Faça isso no runtime do próprio ambiente.',
       updateAvailable: 'Atualização disponível',
     },
     action: {

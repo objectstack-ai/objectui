@@ -3205,6 +3205,7 @@ const ja = {
       reseedQueued: 'サンプルデータは次回の環境アクセス時に再投入されます。',
       reseedLocalSuccess: 'サンプルデータを再投入しました：{{inserted}} 件追加、{{updated}} 件更新。',
       reseedPartialErrors: '（{{count}} 件のレコードの書き込みに失敗しました）',
+      sampleDataKernelUnavailable: 'このコントロールプレーンには環境カーネルがないため、ここではサンプルデータを再投入・削除できません。環境自身のランタイムから実行してください。',
       updateAvailable: 'アップデートあり',
     },
     action: {

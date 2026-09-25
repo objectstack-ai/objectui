@@ -36,11 +36,11 @@ import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRendererProvider } from '@object-ui/react';
 import { ListView } from '../ListView';
 
-let chartNodes: Array<Record<string, any>> = [];
+let chartNodes: Array<Record<string, unknown>> = [];
 
 ComponentRegistry.register(
   'object-chart',
-  ({ schema }: { schema: Record<string, any> }) => {
+  ({ schema }: { schema: Record<string, unknown> }) => {
     chartNodes.push(schema);
     return <div data-testid="chart-standin" />;
   },
@@ -67,7 +67,7 @@ function makeDataSource() {
     update: vi.fn(),
     delete: vi.fn(),
     getObjectSchema: vi.fn(async () => objectDef),
-  } as any;
+  } as never;
 }
 
 const DATASET_BLOCK = { chartType: 'bar', dataset: 'task_ds', dimensions: ['status'], values: ['total_estimate'] };

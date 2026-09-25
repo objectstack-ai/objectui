@@ -24,8 +24,9 @@ type of `useColumnSummary` gains an optional `currencyConfig` member, typed as
 the spec's own `CurrencyConfig`. The footer reads `currencyConfig` from the
 field only: `ListColumnSchema` declares no such column key.
 
-**Behaviour change.** On those paths, a field that declares `currencyConfig`
-now shows `currencyConfig.defaultCurrency` in the cell and the footer where it
-used to show the tenant currency. That includes a field in `dynamic` mode,
-because `resolveFieldCurrency` does not read `currencyMode`. The grid's
-auto-generated columns already showed that currency.
+**Behaviour change.** On those paths, a field whose `currencyConfig` is in
+`fixed` mode now shows `currencyConfig.defaultCurrency` in the cell and the
+footer where it used to show the tenant currency. A field in `dynamic` mode
+still shows the tenant currency, because `resolveFieldCurrency` reads
+`currencyConfig.defaultCurrency` only in `fixed` mode (objectui#10422). The
+grid's auto-generated columns already showed a fixed field's currency.

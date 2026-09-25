@@ -2661,7 +2661,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
   // objectui#10583 — a MASKED field is REFUSED as a grouping key, loudly, once
   // `objectSchema` has loaded (until then an untyped column's object-declared
-  // type is unknown: the host-fetched window, objectui#NEWCARD).
+  // type is unknown: the host-fetched window, objectui#10706).
   // Grouping by it printed the raw value as each group's label. Masking the
   // label would not be enough: the buckets would still show which records
   // share a credential, ordered by its raw value. So the entry is dropped (the

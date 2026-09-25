@@ -25,7 +25,7 @@ import { isMaskedFieldType } from '@object-ui/fields';
  * ⚠️ Every one of those paths asks with the object-declared type, which the grid
  * reads from the object schema it fetches after first paint. On the host-fetched
  * path (rows handed down as `data`) an untyped view column is therefore
- * unmasked until that schema settles (objectui#NEWCARD).
+ * unmasked until that schema settles (objectui#10706).
  *
  * The rule itself is NOT restated here — it is `isMaskedFieldType()` from
  * `@object-ui/fields`, the one authority for "is this field type's cell drawn

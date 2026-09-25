@@ -397,7 +397,7 @@ Not covered:
 - On the host-fetched path (rows handed down as `data`, as `ListView` and `ObjectView`
   do), the grid's guards and the cell's own mask depend on the object schema, which
   the grid fetches after first paint. Until it settles, an untyped view column over a
-  `password` / `secret` field draws and hands out the raw value (objectui#NEWCARD).
+  `password` / `secret` field draws and hands out the raw value (objectui#10706).
 - The server-streamed export (`exportDownload`) sends the masked columns as before
   and relies on the server's masking.
 - The client JSON export writes an expanded lookup record whole, so a credential

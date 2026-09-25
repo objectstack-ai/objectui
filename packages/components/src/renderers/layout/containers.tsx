@@ -54,6 +54,7 @@ import {
   TooltipTrigger,
 } from '../../ui';
 import { RecordTitleChip } from '../../custom/RecordTitleChip';
+import { readActionEntryParamValues } from '../action/static-params';
 import { useObjectLabel, useSafeFieldLabel, useObjectTranslation, useSafeTranslate, createSafeTranslation, pickLocalized } from '@object-ui/i18n';
 import { MoreHorizontal, RefreshCw } from 'lucide-react';
 
@@ -1837,19 +1838,28 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   // also keeps ActionRunner's collected-params merge (which writes
   // `action.params` in place) from mutating the authored schema node between
   // invocations. Non-record hosts (no RecordContext data) dispatch unchanged.
+  //
+  // One exception on both paths (objectui#10462, ruling A on objectui#10289):
+  // an OBJECT `params` is carried as values only for a `type: 'api'` action,
+  // the objectstack#5777 payload window. On any other type it is dropped, with
+  // a development warning, and the stash alone rides `params`.
   const record = ctx?.data;
   const dispatchHeaderAction = React.useCallback((action: any) => {
+    const { params: rawParams, ...rest } = (action ?? {}) as Record<string, any>;
+    const values = Array.isArray(rawParams)
+      ? undefined
+      : readActionEntryParamValues({ ...rest, params: rawParams }, rest.type || rest.actionType, 'page:header');
     if (!record || typeof record !== 'object') {
-      void execute(action);
+      const dropsObjectParams = rawParams != null && !Array.isArray(rawParams) && values === undefined;
+      void execute(dropsObjectParams ? rest : action);
       return;
     }
-    const { params: rawParams, ...rest } = (action ?? {}) as Record<string, any>;
     const dispatch: any = { ...rest };
     if (Array.isArray(rawParams)) {
       if (!dispatch.actionParams && rawParams.length > 0) dispatch.actionParams = rawParams;
       dispatch.params = { _rowRecord: record };
     } else {
-      dispatch.params = { ...(rawParams || {}), _rowRecord: record };
+      dispatch.params = { ...(values || {}), _rowRecord: record };
     }
     void execute(dispatch);
   }, [record, execute]);

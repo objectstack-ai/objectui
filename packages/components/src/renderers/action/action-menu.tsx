@@ -15,6 +15,7 @@
 
 import React, { forwardRef, useCallback, useMemo, useState } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
+import type { ActionDef } from '@object-ui/core';
 import type { UIActionSchema } from '@object-ui/types';
 import { useAction } from '@object-ui/react';
 import { useCondition, toPredicateInput, usePredicateRecordContext } from '@object-ui/react';
@@ -32,6 +33,7 @@ import { Loader2, MoreHorizontal } from 'lucide-react';
 import { resolveIcon } from './resolve-icon';
 import { hasDeclaredVisibilityGate } from './visibility-gate';
 import { useAutoTriggerOnce } from './auto-trigger';
+import { readActionEntryParamValues } from './static-params';
 
 function useMoreActionsLabel(): string {
   // useObjectTranslation is provider-safe (never throws); no try/catch, which
@@ -234,6 +236,13 @@ const ActionMenuRenderer = forwardRef<HTMLButtonElement, { schema: ActionMenuSch
             await action.onClick();
             return;
           }
+          // `params` is the `ActionParam[]` input list (ruling A on objectui#10289):
+          // an array is forwarded as `actionParams`, as `action:button` does. An
+          // object is forwarded as values only for `type: 'api'`, the objectstack#5777
+          // payload window; any other type drops it (objectui#10462).
+          const paramsPayload: ActionDef = Array.isArray(action.params)
+            ? { actionParams: action.params as any }
+            : { params: readActionEntryParamValues(action, action.type, 'action:menu') };
           await execute({
             type: action.type,
             name: action.name,
@@ -255,7 +264,7 @@ const ActionMenuRenderer = forwardRef<HTMLButtonElement, { schema: ActionMenuSch
             openIn: (action as any).openIn,
             endpoint: action.endpoint,
             method: action.method,
-            params: action.params as Record<string, any> | undefined,
+            ...paramsPayload,
             // See action-button.tsx — the `type: 'api'` payload key (objectstack#6837).
             bodyExtra: action.bodyExtra,
             // See action-button.tsx — the body-WRAPPING key (objectstack#6938).

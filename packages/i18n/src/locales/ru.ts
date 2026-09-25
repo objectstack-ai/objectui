@@ -783,6 +783,7 @@ const ru = {
     },
     aria: {
       taskList: "Список задач",
+      refreshing: "Обновление…",
     },
     tooltip: {
       days: "дн",

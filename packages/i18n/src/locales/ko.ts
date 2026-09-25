@@ -167,6 +167,7 @@ const ko = {
     noPermissionToSave: "이 레코드를 저장할 권한이 없습니다.",
     submitFailed: "저장하지 못했습니다. 다시 시도해 주세요.",
     uploadInFlight: "업로드가 완료된 후에 저장하세요.",
+    clearedOnHide: "현재 값에 더 이상 해당하지 않는 항목을 비웠습니다: {{fields}}",
     discardTitle: "변경 내용을 버릴까요?",
     discardMessage: "저장하지 않은 변경 내용이 있습니다. 지금 이 양식을 닫으면 편집 내용이 사라집니다.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible

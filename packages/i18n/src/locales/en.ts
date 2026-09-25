@@ -199,6 +199,12 @@ const en = {
     noPermissionToSave: "You don't have permission to save this record.",
     submitFailed: 'Could not save. Please try again.',
     uploadInFlight: 'Wait for the upload to finish before saving.',
+    // The notice the record form raises when a field's own `visibleWhen` turns
+    // it invisible and the form clears the value it held (objectui#8070 names
+    // the objectui#6958 clear). `{{fields}}` is the cleared fields' labels joined
+    // with `validation.formInvalidJoiner`. A list after a colon, so no word has
+    // to agree with how many fields were cleared.
+    clearedOnHide: 'Cleared — no longer applicable given the current values: {{fields}}',
     removeItem: 'Remove item',
     fieldRequired: 'This field is required',
     invalidFormat: 'Invalid format',

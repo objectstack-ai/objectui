@@ -288,6 +288,7 @@ const useSafeFormTranslation = createSafeTranslation(
     'errors.forbidden': 'Access denied.',
     'form.noPermissionToSave': "You don't have permission to save this record.",
     'form.submitFailed': 'Could not save. Please try again.',
+    'form.clearedOnHide': 'Cleared — no longer applicable given the current values: {{fields}}',
   },
   'common.selectOption',
 );
@@ -2014,6 +2015,7 @@ ComponentRegistry.register('form',
       const before = previouslyHiddenFieldNames.current;
       previouslyHiddenFieldNames.current = conditionallyHiddenFieldNames;
       if (!before) return;
+      const cleared: string[] = [];
       for (const name of conditionallyHiddenFieldNames) {
         if (before.has(name)) continue;
         const current = form.getValues(name);
@@ -2022,7 +2024,15 @@ ComponentRegistry.register('form',
           shouldValidate: false,
           shouldDirty: true,
         });
+        if (!(Array.isArray(current) && current.length === 0)) cleared.push(name);
       }
+      if (cleared.length === 0) return;
+      toast.warning(
+        t('form.clearedOnHide', {
+          fields: cleared.map((n) => fieldLabelByName[n] || n).join(t('validation.formInvalidJoiner')),
+        }),
+        { id: outcomeToastId },
+      );
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [conditionallyHiddenFieldNames]);
 

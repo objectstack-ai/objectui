@@ -293,6 +293,10 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
 
   // Fetch object schema
   React.useEffect(() => {
+    // objectui#10712 — a read an `objectName` or data-source change has
+    // superseded commits nothing (the record read's `cancelled` below, applied
+    // here), so it cannot land last and replace the current object's schema.
+    let cancelled = false;
     // objectui#10682 — this run's writes to the schema read's failure; a newer
     // run of this effect makes them no-ops.
     const run = beginLoadRun(loadRunSeqRef, setLoadFailures, 'schema');
@@ -301,17 +305,20 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
         setLoading(false);
         return;
       }
-      
+
       try {
         const schemaData = await dataSource.getObjectSchema(schema.objectName);
+        if (cancelled) return;
         setObjectSchema(schemaData);
         run.commit();
       } catch (err) {
+        if (cancelled) return;
         run.fail(err);
       }
     };
-    
+
     fetchSchema();
+    return () => { cancelled = true; };
   }, [schema.objectName, dataSource]);
 
   // The record whose data `formData` currently holds. The fetch effect reads it

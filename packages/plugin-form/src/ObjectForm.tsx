@@ -679,6 +679,11 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
 
   // Fetch object schema from ObjectQL/ObjectStack (inline members merge OVER it)
   useEffect(() => {
+    // objectui#10712 — a read an `objectName` or data-source change has
+    // superseded commits nothing: not the schema, and not the `loading` release
+    // the current read owns. Otherwise it could land last and draw the current
+    // object's record against the previous object's fields.
+    let cancelled = false;
     // objectui#10682 — this run's writes to the schema read's failure; a newer
     // run of this effect makes them no-ops.
     const run = beginLoadRun(loadRunSeqRef, setLoadFailures, 'schema');
@@ -695,12 +700,14 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
           throw new Error('DataSource is required when using ObjectQL schema fetching (inline fields not provided)');
         }
         const schemaData = await dataSource.getObjectSchema(schema.objectName);
+        if (cancelled) return;
         if (!schemaData) {
           throw new Error(`No schema found for object "${schema.objectName}"`);
         }
         setObjectSchema(schemaData);
         run.commit();
       } catch (err) {
+        if (cancelled) return;
         // objectui#9778: for the inline path the metadata is an OVERLAY, not a
         // prerequisite. A form that renders its authored members today must not
         // become an error panel because the adapter cannot describe the object —
@@ -734,6 +741,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       // No objectName or dataSource and no inline fields — cannot proceed
       setLoading(false);
     }
+    return () => { cancelled = true; };
   }, [schema.objectName, dataSource, hasInlineFields]);
 
   // objectui#10572 — the data-invalidation bus (`notifyDataChanged` from
@@ -792,9 +800,15 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   useEffect(() => {
     const inPlace = recordRefetch !== appliedRecordRefetchRef.current;
     appliedRecordRefetchRef.current = recordRefetch;
+    // objectui#10712 — a read a newer run has superseded (another `recordId`,
+    // say, while it was in flight) commits nothing: not the values, not the
+    // baseline, and not the `loading` release the current run owns. Otherwise
+    // the answer for the previous record could land last and be shown, and
+    // saved against, under the new one. The shape the four other sectioned
+    // layouts already use (recordSwapLoading.test.tsx).
+    let cancelled = false;
     // objectui#10682 — this run's writes to the record read's failure; a newer
-    // run of this effect makes them no-ops. Only the failure is scoped: the
-    // values this run commits are written as they always were.
+    // run of this effect makes them no-ops.
     const run = beginLoadRun(loadRunSeqRef, setLoadFailures, 'record');
     const fetchInitialData = async () => {
       if (!schema.recordId || schema.mode === 'create') {
@@ -823,6 +837,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       if (!inPlace) setLoading(true);
       try {
         const data = await dataSource.findOne(schema.objectName, schema.recordId);
+        if (cancelled) return;
         // Tagged with the object and record it was read for, so a save that
         // runs against a different one finds no baseline and sends everything.
         loadedRecordRef.current = snapshotLoadedRecord(schema, data);
@@ -832,6 +847,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         // read says nothing about the object's fields.
         run.commit();
       } catch (err) {
+        if (cancelled) return;
         console.error('Failed to fetch record:', err);
         // A failed background re-read (the bus above) is reported like any
         // other: the form has no silent mode, so the last good values stay in
@@ -839,13 +855,14 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         // screen back.
         run.fail(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     if (objectSchema && !hasInlineFields) {
       fetchInitialData();
     }
+    return () => { cancelled = true; };
   }, [schema.objectName, schema.recordId, schema.mode, schema.initialValues, schema.initialData, dataSource, objectSchema, hasInlineFields, recordRefetch]);
 
   // FormField `visibleOn` (spec FormFieldSchema CEL expression) is consumed

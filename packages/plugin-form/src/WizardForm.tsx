@@ -505,6 +505,10 @@ export const WizardForm: React.FC<WizardFormProps> = ({
 
   // Fetch object schema
   React.useEffect(() => {
+    // objectui#10712 — a read an `objectName` or data-source change has
+    // superseded commits nothing (the record read's `cancelled` below, applied
+    // here), so it cannot land last and replace the current object's schema.
+    let cancelled = false;
     // objectui#10682 — this run's writes to the schema read's failure; a newer
     // run of this effect makes them no-ops.
     const run = beginLoadRun(loadRunSeqRef, setLoadFailures, 'schema');
@@ -513,24 +517,33 @@ export const WizardForm: React.FC<WizardFormProps> = ({
         setLoading(false);
         return;
       }
-      
+
       try {
         const schemaData = await dataSource.getObjectSchema(schema.objectName);
+        if (cancelled) return;
         setObjectSchema(schemaData);
         run.commit();
       } catch (err) {
+        if (cancelled) return;
         run.fail(err);
       }
     };
-    
+
     fetchSchema();
+    return () => { cancelled = true; };
   }, [schema.objectName, dataSource]);
 
   // Fetch initial data
   React.useEffect(() => {
+    // objectui#10712 — a read a newer run has superseded (another `recordId`,
+    // say, while it was in flight) commits nothing: not the values, not the
+    // baseline or `persistedRecord`, and not the `loading` release the current
+    // run owns. Otherwise the answer for the previous record could land last
+    // and be shown, and saved against, under the new one. The shape the four
+    // other sectioned layouts already use (recordSwapLoading.test.tsx).
+    let cancelled = false;
     // objectui#10682 — this run's writes to the record read's failure; a newer
-    // run of this effect makes them no-ops. Only the failure is scoped: the
-    // values this run commits are written as they always were.
+    // run of this effect makes them no-ops.
     const run = beginLoadRun(loadRunSeqRef, setLoadFailures, 'record');
     const fetchData = async () => {
       if (schema.mode === 'create' || !schema.recordId || !dataSource) {
@@ -551,6 +564,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
       
       try {
         const data = await dataSource.findOne(schema.objectName, schema.recordId);
+        if (cancelled) return;
         loadedRecordRef.current = snapshotLoadedRecord(schema, data);
         setFormData(data || {});
         setPersistedRecord(data || {});
@@ -559,15 +573,17 @@ export const WizardForm: React.FC<WizardFormProps> = ({
         // read says nothing about the object's fields.
         run.commit();
       } catch (err) {
+        if (cancelled) return;
         run.fail(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
-    
+
     if (objectSchema || !dataSource) {
       fetchData();
     }
+    return () => { cancelled = true; };
   }, [objectSchema, schema.mode, schema.recordId, schema.initialData, schema.initialValues, dataSource, schema.objectName]);
 
   // Build section fields from object schema

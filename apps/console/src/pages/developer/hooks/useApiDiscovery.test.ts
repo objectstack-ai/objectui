@@ -1,26 +1,24 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * useApiDiscovery — service-gated endpoint groups (#4240, #5286).
+ * useApiDiscovery — service-gated endpoint groups (#4240, #5286, #5291).
  *
- * ## The defect #4240 pinned, and how #9683 reshaped it
+ * ## The defect #4240 pinned, and where #9683 left it
  *
  * `SERVICE_ENDPOINT_CATALOG` keys are looked up in `/discovery`'s `services`
  * map, which the framework keys by `CoreServiceName`. #4240 fixed a mis-key
- * (the storage group was keyed `storage` when the slot was `file-storage`)
- * by moving the catalog to `file-storage` — the then-canonical spelling. A
- * miss here is indistinguishable from "no such service" — the deliberate
- * fail-closed branch (ADR-0076 D12) then hides the group everywhere, on
- * every deployment, silently.
+ * (the storage group was keyed by its route while the slot was spelled
+ * differently). A miss here is indistinguishable from "no such service" —
+ * the deliberate fail-closed branch (ADR-0076 D12) then hides the group
+ * everywhere, on every deployment, silently.
  *
- * The framework's #9683 ruling (2026-08-18) inverted the slot's own
- * canonical spelling: `storage` is now canonical, and `file-storage` is a
- * deprecated alias both discovery producers mirror byte-equal for the
- * alias's v17 lifetime. #5286 is the consumer-side follow-up pinned here:
- * the lookup now reads `services.storage` first and falls back to
- * `services['file-storage']`, so this page keeps rendering the group
- * against BOTH an upgraded backend and one that predates the #9683 mirror
- * row — never regressing to the #4240 failure on either spelling.
+ * The framework's #9683 ruling (2026-08-18) made `storage` the canonical
+ * slot and kept `file-storage` as a deprecated v17 alias, which both
+ * discovery producers fill with a byte-equal copy of the `storage` row.
+ * #5286 bridged the two spellings on this side while the installed spec
+ * enum still lacked `storage`; #5291 re-keyed the catalog to `storage` and
+ * removed that bridge. The page now reads the canonical key and nothing
+ * else — pinned below in both directions.
  *
  * ## What is asserted, and why the gate is left real
  *
@@ -31,19 +29,10 @@
  * data / schema endpoint families stay empty — that isolates these assertions
  * to the service-gated path without mocking any module.
  *
- * The last block is the tripwire the fix would have needed to be caught: it
- * derives the expected key vocabulary from the spec itself rather than
- * restating it, so a rename on EITHER side goes red instead of going quiet.
- * It still pins `SERVICE_ENDPOINT_CATALOG` to `file-storage`, not `storage`:
- * the locally pinned `@objectstack/spec` dependency has not published
- * `storage` as a `CoreServiceName` member yet (verified 2026-08-19 —
- * `CoreServiceName.options` from the installed package lists `file-storage`
- * only), so asserting `storage` membership here would fail against real,
- * currently-installed types, not against the fix. See
- * `DEPRECATED_SERVICE_SLOT_ALIASES`'s doc comment in the source file for the
- * re-key-when-the-dependency-catches-up plan; the last `it` in that block
- * pins the alias table directly instead, since it needs no spec version to
- * be true.
+ * The last block is the tripwire the #4240 fix would have needed to be
+ * caught: it derives the expected key vocabulary from the spec itself rather
+ * than restating it, so a rename on EITHER side goes red instead of going
+ * quiet.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -53,7 +42,6 @@ import { CoreServiceName } from '@objectstack/spec/system';
 import {
   useApiDiscovery,
   SERVICE_ENDPOINT_CATALOG,
-  DEPRECATED_SERVICE_SLOT_ALIASES,
   type EndpointGroup,
 } from './useApiDiscovery';
 
@@ -100,51 +88,58 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('useApiDiscovery — the storage group (#4240, #5286)', () => {
+describe('useApiDiscovery — the storage group (#4240, #5286, #5291)', () => {
+  const STORAGE_ENDPOINTS = [
+    'POST /api/v1/storage/upload',
+    'GET /api/v1/storage/:fileId',
+    'DELETE /api/v1/storage/:fileId',
+  ];
+
   it('renders the Storage group from the canonical `storage` slot (framework #9683)', async () => {
     const groups = await groupsFor({ storage: USABLE_STORAGE });
 
     const storage = storageGroup(groups);
     expect(storage, 'Storage group must render when /discovery reports the canonical `storage` slot usable').toBeDefined();
-    expect(storage!.endpoints.map(e => `${e.method} ${e.path}`)).toEqual([
-      'POST /api/v1/storage/upload',
-      'GET /api/v1/storage/:fileId',
-      'DELETE /api/v1/storage/:fileId',
-    ]);
+    expect(storage!.endpoints.map(e => `${e.method} ${e.path}`)).toEqual(STORAGE_ENDPOINTS);
   });
 
-  // The v17 alias still resolves — a hard swap to `storage`-only would pass
-  // the case above but fail this one, and would break this console against
-  // any backend that has not deployed the #9683 mirror row yet.
-  it('still renders the Storage group from the deprecated `file-storage` slot while the v17 alias lives', async () => {
+  // The shape a v17 backend actually sends: the canonical row plus the
+  // byte-equal copy under the deprecated alias key. One slot, one group.
+  it('renders the group once against a backend that also mirrors the row under the deprecated alias', async () => {
+    const groups = await groupsFor({ storage: USABLE_STORAGE, 'file-storage': { ...USABLE_STORAGE } });
+
+    expect(groups.filter(g => g.key === 'Storage')).toHaveLength(1);
+    expect(storageGroup(groups)!.endpoints.map(e => `${e.method} ${e.path}`)).toEqual(STORAGE_ENDPOINTS);
+  });
+
+  // #5291: the deprecated alias is not read at all — no fallback, no merge.
+  // Before the re-key this page fell back to `file-storage` when `storage`
+  // was absent; a consumer-side alias read is the tolerance the
+  // contract-first rule forbids, and it would outlive the alias itself.
+  it('does not read the deprecated `file-storage` alias — a row under it alone renders no Storage group', async () => {
     const groups = await groupsFor({ 'file-storage': USABLE_STORAGE });
 
-    const storage = storageGroup(groups);
-    expect(storage, 'Storage group must keep rendering against a backend that has not deployed the #9683 mirror row yet').toBeDefined();
-    expect(storage!.endpoints.map(e => `${e.method} ${e.path}`)).toEqual([
-      'POST /api/v1/storage/upload',
-      'GET /api/v1/storage/:fileId',
-      'DELETE /api/v1/storage/:fileId',
-    ]);
-  });
-
-  // In production the two rows are byte-equal (the framework mirrors one
-  // into the other), so this scenario cannot occur against a real backend —
-  // it exists only to pin READ ORDER: canonical-first, not an OR/merge of
-  // the two. A `file-storage`-first (or merged) lookup would read the
-  // disabled row here and fail-close.
-  it('reads the canonical `storage` slot before the deprecated one when both are present', async () => {
-    const groups = await groupsFor({
-      storage: USABLE_STORAGE,
-      'file-storage': { enabled: false },
-    });
-    expect(storageGroup(groups), 'canonical `storage` must be read first, not merged with `file-storage`').toBeDefined();
+    expect(storageGroup(groups), 'only the canonical `storage` slot may gate the Storage group').toBeUndefined();
   });
 
   it('honours the route /discovery advertises for the slot, not just the default', async () => {
     const groups = await groupsFor({
-      'file-storage': { ...USABLE_STORAGE, route: '/api/v2/files' },
+      storage: { ...USABLE_STORAGE, route: '/api/v2/files' },
     });
+
+    expect(storageGroup(groups)!.endpoints.map(e => e.path)).toEqual([
+      '/api/v2/files/upload',
+      '/api/v2/files/:fileId',
+      '/api/v2/files/:fileId',
+    ]);
+  });
+
+  // `routes` is keyed like `ApiRoutesSchema`, which spells this family
+  // `storage`. With the catalog keyed by the canonical slot, the same key
+  // finds the flat route map when the service row carries no `route`.
+  it('falls back to `routes.storage` when the service row advertises no route', async () => {
+    const rowWithoutRoute: ServiceEntry = { enabled: true, status: 'available', handlerReady: true };
+    const groups = await groupsFor({ storage: rowWithoutRoute }, { storage: '/api/v2/files' });
 
     expect(storageGroup(groups)!.endpoints.map(e => e.path)).toEqual([
       '/api/v2/files/upload',
@@ -172,12 +167,12 @@ describe('useApiDiscovery — fail-closed posture is preserved (ADR-0076 D12)', 
   ];
 
   it.each(notUsable)('hides the Storage group when the slot is present but not usable — %s', async (_label, entry) => {
-    expect(storageGroup(await groupsFor({ 'file-storage': entry }))).toBeUndefined();
+    expect(storageGroup(await groupsFor({ storage: entry }))).toBeUndefined();
   });
 
   it('still renders the group when the slot is degraded — a serving fallback must stay visible', async () => {
     const groups = await groupsFor({
-      'file-storage': { enabled: true, status: 'degraded', handlerReady: true, route: '/api/v1/storage' },
+      storage: { enabled: true, status: 'degraded', handlerReady: true, route: '/api/v1/storage' },
     });
     expect(storageGroup(groups)?.endpoints).toHaveLength(3);
   });
@@ -196,13 +191,13 @@ describe('SERVICE_ENDPOINT_CATALOG keys are canonical service-slot names', () =>
 
   it('the spec exports a usable slot vocabulary (guards the derivation itself)', () => {
     expect(SLOTS.size).toBeGreaterThan(5);
-    expect(SLOTS.has('file-storage'), 'file-storage must be a declared CoreServiceName slot').toBe(true);
+    expect(SLOTS.has('storage'), 'storage must be a declared CoreServiceName slot').toBe(true);
   });
 
-  it('the storage group is keyed by the canonical slot name, not by its route', () => {
-    expect(SERVICE_ENDPOINT_CATALOG['file-storage'], 'catalog must be keyed `file-storage`').toBeDefined();
-    expect(SERVICE_ENDPOINT_CATALOG.storage, '`storage` is the ROUTE, never the slot key').toBeUndefined();
-    expect(SERVICE_ENDPOINT_CATALOG['file-storage'].defaultRoute).toBe('/api/v1/storage');
+  it('the storage group is keyed by the canonical slot, never by the deprecated alias', () => {
+    expect(SERVICE_ENDPOINT_CATALOG.storage, 'catalog must be keyed by the canonical `storage` slot').toBeDefined();
+    expect(SERVICE_ENDPOINT_CATALOG['file-storage'], '`file-storage` is a deprecated alias, never a catalog key').toBeUndefined();
+    expect(SERVICE_ENDPOINT_CATALOG.storage.defaultRoute).toBe('/api/v1/storage');
   });
 
   it('every service-gated catalog key is a canonical slot', () => {
@@ -214,16 +209,5 @@ describe('SERVICE_ENDPOINT_CATALOG keys are canonical service-slot names', () =>
         + 'and their groups will never render on any host — key them by the canonical slot name, '
         + 'or retire the entry',
     ).toEqual([]);
-  });
-
-  // #5286: the DISCOVERY LOOKUP already prefers the canonical `storage` wire
-  // key (framework #9683) even though the catalog's own key vocabulary above
-  // has not been re-keyed yet (see the comment on the `file-storage` catalog
-  // entry in the source file). Pin the alias table directly rather than
-  // through `CoreServiceName.options`, which does not yet list `storage` in
-  // the locally pinned `@objectstack/spec` dependency — this assertion does
-  // not depend on that dependency catching up.
-  it('maps the deprecated `file-storage` catalog key to the canonical `storage` discovery key', () => {
-    expect(DEPRECATED_SERVICE_SLOT_ALIASES['file-storage']).toBe('storage');
   });
 });

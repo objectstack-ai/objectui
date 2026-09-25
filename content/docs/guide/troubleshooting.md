@@ -126,7 +126,7 @@ This logs each expression evaluation to the browser console.
 
 ## 5. Schema Validation Errors
 
-**Symptom:** Schema renders incorrectly or `ValidationEngine` throws errors about invalid schema structure.
+**Symptom:** Schema renders incorrectly, the development console shows `[ObjectUI] Invalid schema detected:`, or `assertValidSchema` throws `Schema validation failed:`.
 
 **Fix:** Validate your schema before passing it to the renderer:
 
@@ -140,7 +140,7 @@ Common schema issues:
 - Invalid action type (must be one of: `script`, `url`, `api`, `modal`, `flow`)
 - Referencing a field type that doesn't exist (e.g., `rich-text` without importing `plugin-editor`)
 
-The validation engine lives in `packages/core/src/validation/` and uses Zod schemas from `@object-ui/types`.
+Schema-structure validation is `validateSchema` / `assertValidSchema` from `@object-ui/core` (`packages/core/src/validation/schema-validator.ts`); `SchemaRenderer` runs `validateSchema` once per schema object in development.
 
 ## 6. TypeScript Errors with Schema Types
 

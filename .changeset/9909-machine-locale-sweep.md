@@ -72,10 +72,15 @@ does) avoids the notice.
 
 **Additive API** (nothing that compiled before stops compiling):
 
-- `@object-ui/types`: `ValidationContext` gains an optional `locale`. The
-  `@object-ui/core` validation engine prints the `date_min` / `date_max` bound in
-  it; omitted, `Intl` follows the runtime default, as `formatDisplayNumber`
-  already declares for a caller with no locale in hand.
+- `@object-ui/types`: `ValidationContext` gains an optional `locale`. At this
+  change, the `@object-ui/core` validation engine prints the `date_min` /
+  `date_max` bound in it; omitted, `Intl` follows the runtime default, as
+  `formatDisplayNumber` already declares for a caller with no locale in hand.
+
+  ⚠️ **Dated note, 2026-09-25 — that engine (`ValidationEngine`) is removed from
+  `@object-ui/core` by a later change; `ValidationContext.locale` stays declared in
+  `@object-ui/types`, and at that change nothing in `@object-ui/core` reads it —
+  objectui#7659.**
 - `@object-ui/plugin-report`: `exportReport`, `exportAsHTML` and `exportAsPDF`
   take a trailing optional `locale` for the exported file's "Generated:" time,
   and `LiveExportOptions` gains an optional `locale` that `exportWithLiveData`

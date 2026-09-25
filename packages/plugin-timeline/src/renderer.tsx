@@ -427,7 +427,6 @@ function calculateDateRange(rows: readonly GanttRow[]): { minDate: string; maxDa
  * ## What was wrong with `instanceof Date`
  *
  * It is this repo's idiom for the question (see
- * `packages/core/src/validation/validation-engine.ts` and
  * `components/src/renderers/complex/data-table.tsx`), and it answers a
  * DIFFERENT question: "does this inherit from `Date.prototype`?". A `Date` is
  * a Date because it owns a `[[DateValue]]` internal slot; the prototype chain

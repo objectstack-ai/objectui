@@ -517,7 +517,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
         setLoading(false);
         return;
       }
-
+      
       try {
         const schemaData = await dataSource.getObjectSchema(schema.objectName);
         if (cancelled) return;
@@ -528,7 +528,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
         run.fail(err);
       }
     };
-
+    
     fetchSchema();
     return () => { cancelled = true; };
   }, [schema.objectName, dataSource]);
@@ -579,7 +579,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
         if (!cancelled) setLoading(false);
       }
     };
-
+    
     if (objectSchema || !dataSource) {
       fetchData();
     }

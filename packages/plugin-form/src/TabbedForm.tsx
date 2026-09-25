@@ -305,7 +305,7 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
         setLoading(false);
         return;
       }
-
+      
       try {
         const schemaData = await dataSource.getObjectSchema(schema.objectName);
         if (cancelled) return;
@@ -316,7 +316,7 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
         run.fail(err);
       }
     };
-
+    
     fetchSchema();
     return () => { cancelled = true; };
   }, [schema.objectName, dataSource]);

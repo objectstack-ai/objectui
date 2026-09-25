@@ -215,11 +215,12 @@ export function seriesPresentation(raw: Record<string, unknown>): AuthoredSeries
  * turns on the secondary axis (`yAxes.length > 1`) — survives, including for
  * an entry that declares nothing but its own existence.
  *
- * Keys the renderer does not read on a given axis are dropped by
- * `normalizeChartSchema`, the ONE normalization layer (#2880 S1): today it
- * keeps `format`/`title`/`showGridLines` on the x-axis and the full set on the
- * y-axes. That narrowing is deliberately NOT mirrored here — a second copy
- * would drift from the renderer's real capability the moment it grew.
+ * Which of these keys survive onto each axis is decided by
+ * `normalizeChartSchema`, the ONE normalization layer (#2880 S1), and is
+ * deliberately neither mirrored nor restated here: a second copy drifts from
+ * the renderer's real capability the moment it moves — this paragraph's own
+ * spelled-out x-axis answer did, at objectui#10516. The x-axis rule is pinned
+ * in plugin-charts by `normalizeChartSchema.xAxisPresentationGate-10516.test.ts`.
  */
 export function axisPresentation(raw: unknown): Record<string, unknown> {
   const out: Record<string, unknown> = {};

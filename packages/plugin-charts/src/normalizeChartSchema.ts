@@ -467,9 +467,20 @@ export function normalizeChartSchema(
   // ── axes ────────────────────────────────────────────────────────────────
   // Spec `xAxis` is an object; the report surface narrows it to a bare string.
   // Both mean "the column on the category axis".
+  //
+  // The x-axis object is kept whenever it carries ANY presentation key — every
+  // key `normalizeAxis` kept except `field`, the data key hoisted to `xAxisKey`
+  // below (objectui#10516). The set is what `normalizeAxis` read, so it is the
+  // spec's `ChartAxisSchema` key set by construction
+  // (`normalizeChartSchema.specAxisKeys-7690.test.ts` ties the two), and ⛔ it
+  // is not restated here: this gate used to name `format` / `title` /
+  // `showGridLines` by hand, so an axis carrying only `min` / `max` /
+  // `stepSize` / `logarithmic` / `position` was dropped whole and a scatter's
+  // authored x scale never reached its axis. The test asks which keys
+  // survived, never how truthy their values are: `min: 0` counts.
   const xAxisRaw = schema.xAxis;
   const xAxisSpec = normalizeAxis(xAxisRaw, language);
-  if (xAxisSpec && (xAxisSpec.format || xAxisSpec.title || xAxisSpec.showGridLines !== undefined)) {
+  if (xAxisSpec && Object.keys(xAxisSpec).some((key) => key !== 'field')) {
     out.xAxis = xAxisSpec;
   }
   const xAxisKey = str(schema.xAxisKey) ?? xAxisSpec?.field ?? str(xAxisRaw);

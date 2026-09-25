@@ -73,6 +73,7 @@ import {
   mergeFilterNodes,
   columnIdentity,
   convertSortToQueryParams,
+  recordDelete,
 } from '@object-ui/core';
 import { SchemaRenderer as ImportedSchemaRenderer, useSettledSchema } from '@object-ui/react';
 import type { HandleClickModifiers } from '@object-ui/react';
@@ -298,11 +299,13 @@ const VIEW_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'form.editTitle': 'Edit {{object}}',
   'form.viewTitle': 'View {{object}}',
   // objectui#10383 — the grid's row / bulk Delete. Not new keys: these are the
-  // ones the console's own list delete resolves (`useObjectActions` for the
-  // confirm text and the toasts, the console `ObjectView` for the bulk confirm,
-  // `ActionConfirmDialog` for the dialog chrome), all present in the ten packs.
-  // Reusing them is what keeps this path's dialog and toasts word-for-word the
-  // console list's, in every language.
+  // ones the console's own list delete resolves, all present in the ten packs.
+  // The `objectActions.*` rows are asked for by the shared `recordDelete` core
+  // (`@object-ui/core`), which this view hands `tView`, so a provider-less host
+  // reads them here; the ADR-0094 reset rows carry their own inline
+  // `defaultValue` there. `console.objectView.bulkDeleteConfirm` and the
+  // `actionConfirm.*` chrome are this host's dialog, in the console's
+  // `ActionConfirmDialog` shape.
   'actionConfirm.title': 'Confirm Action',
   'actionConfirm.confirm': 'Continue',
   'actionConfirm.cancel': 'Cancel',
@@ -1366,16 +1369,16 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // this path — the registered `object-view` renderer, no host list view — a
   // Delete offered by default deleted nothing and the row came back.
   //
-  // They now do what the console's own list does with the same two callbacks
-  // (`app-shell` `ObjectView` → `useObjectActions`), step for step:
-  //  - a row asks `objectActions.deleteConfirm`; a selection asks
-  //    `console.objectView.bulkDeleteConfirm` once for the whole batch;
-  //  - a row without an `id` is skipped, as the console skips it;
-  //  - one record: `dataSource.delete`, then refresh + `deleteSuccess`, or the
-  //    `deleteFailed` toast with the error's message and NO refresh;
-  //  - several: `dataSource.delete` per record, settled together (the console
-  //    does not use the optional `bulkDelete`), then refresh, then
-  //    `bulkDeleteSuccess` or `bulkDeletePartial`.
+  // They now bind to the SAME record-delete core the console's own list binds
+  // to (`recordDelete` in `@object-ui/core`, which `app-shell`'s
+  // `useObjectActions` registers as its `delete` handler). This host owns only
+  // its confirm UI (the AlertDialog below) and the bulk question; the one-row
+  // question — including ADR-0094's reset question for a package-owned
+  // permission set — the delete, the toasts and when to refresh all come from
+  // that core, so the two paths cannot drift. The requests are shaped the way
+  // the console's are: a row as `{ recordId, record }`, a selection as
+  // `{ records }`, rows without an `id` skipped first.
+  //
   // The permission half needs nothing here: whether the Delete affordance is
   // offered at all is `ObjectGrid`'s verdict on both paths (`operations`, the
   // principal's `can(object, 'delete')`, the object's bucket / `userActions` /
@@ -1397,37 +1400,6 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     if (valid.length === 0) return;
     setDeleteRequest({ open: true, records: valid, bulk: true });
   }, []);
-
-  const performDelete = async (records: Record<string, unknown>[]) => {
-    const objectName = schema.objectName;
-    const label = (objectSchema?.label as string) || objectName;
-    if (records.length > 1) {
-      // `async` callback on purpose: a throw inside it becomes a rejected
-      // settlement and is counted as a failure, instead of escaping `map`
-      // before `allSettled` ever sees the batch.
-      const results = await Promise.allSettled(
-        records.map(async (r) => dataSource.delete(objectName, String(r.id))),
-      );
-      const failed = results.filter((r) => r.status === 'rejected').length;
-      const succeeded = results.length - failed;
-      setRefreshKey(prev => prev + 1);
-      if (failed === 0) {
-        toast.success(tView('objectActions.bulkDeleteSuccess', { count: succeeded, label }));
-      } else {
-        toast.error(tView('objectActions.bulkDeletePartial', { succeeded, failed }));
-      }
-      return;
-    }
-    try {
-      await dataSource.delete(objectName, String(records[0].id));
-      setRefreshKey(prev => prev + 1);
-      toast.success(tView('objectActions.deleteSuccess', { label }));
-    } catch (err) {
-      toast.error(tView('objectActions.deleteFailed', { label }), {
-        description: (err as Error | undefined)?.message,
-      });
-    }
-  };
 
   // Handle form submission
   const handleFormSuccess = useCallback(() => {
@@ -2595,9 +2567,10 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // empty `mb-4` spacer div above the content.
   const toolbar = renderToolbar();
 
-  // The delete confirmation (objectui#10383) — the console's
-  // `ActionConfirmDialog` shape and keys: `actionConfirm.*` chrome, the
-  // question as the description. Close flips `open` and KEEPS the request, so
+  // The delete confirmation (objectui#10383) — this host's confirm UI, in the
+  // console's `ActionConfirmDialog` shape and keys (`actionConfirm.*` chrome,
+  // the question as the description). The one-row question and the delete
+  // itself come from the shared `recordDelete` core. Close flips `open` and KEEPS the request, so
   // the description does not blank during the exit animation (the objectui#6034
   // lesson); the `open` guard on Continue is what stops a click during that
   // animation from deleting twice.
@@ -2614,7 +2587,10 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           <AlertDialogDescription>
             {deleteRequest?.bulk
               ? tView('console.objectView.bulkDeleteConfirm', { count: deleteRequest.records.length })
-              : tView('objectActions.deleteConfirm')}
+              : recordDelete.confirmText(
+                  { objectName: schema.objectName, t: tView },
+                  deleteRequest?.records[0],
+                )}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -2622,9 +2598,21 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           <AlertDialogAction
             onClick={() => {
               if (!deleteRequest?.open) return;
-              const { records } = deleteRequest;
+              const { records, bulk } = deleteRequest;
               setDeleteRequest({ ...deleteRequest, open: false });
-              void performDelete(records);
+              void recordDelete.run(
+                {
+                  objectName: schema.objectName,
+                  label: (objectSchema?.label as string) || schema.objectName,
+                  dataSource,
+                  t: tView,
+                  toast,
+                  onRefresh: () => setRefreshKey(prev => prev + 1),
+                },
+                bulk
+                  ? { params: { records } }
+                  : { params: { recordId: String(records[0].id), record: records[0] } },
+              );
             }}
           >
             {tView('actionConfirm.confirm')}

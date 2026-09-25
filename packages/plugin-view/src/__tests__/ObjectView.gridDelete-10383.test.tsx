@@ -35,6 +35,11 @@
  *    the same one the console list rides: a principal without the delete grant
  *    sees neither the row Delete nor the bulk Delete on this path.
  *
+ * Those steps are not re-implemented on this path: both hosts bind to ONE
+ * record-delete core (`recordDelete`, `@object-ui/core`). The last block pins
+ * the part a copy got wrong — ADR-0094's reset question and toast for a
+ * package-owned permission set.
+ *
  * Every case drives the real `ObjectGrid` through `ObjectView`, the way the
  * registered renderer composes them, against an in-memory data source whose
  * `delete` really removes the row — so "the row is gone" is read off the
@@ -331,5 +336,108 @@ describe('objectui#10383 — the affordance follows the same gate as the console
     expect(await rowMenuEntries('Bob')).toEqual({ edit: true, delete: false });
     selectRows(['Alice']);
     expect(screen.queryByTestId('bulk-action-delete')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * ADR-0094 on this path — the reason the delete core is SHARED rather than
+ * copied. "Deleting" a package-owned `sys_permission_set` row resets it to its
+ * shipped baseline, so the console asks the reset question and toasts "reset".
+ * A copied flow asked this row the plain delete question; bound to the shared
+ * `recordDelete` core, this path asks what the console asks.
+ */
+describe('objectui#10383 — ADR-0094 reset copy on the registered object-view path', () => {
+  const PERMISSION_SET = 'sys_permission_set';
+
+  function makePermissionSetSource(managedBy: string) {
+    const ds = {
+      find: vi.fn(async () => ({
+        data: [{ id: 'ps1', name: 'Sales Rep', managed_by: managedBy }],
+        total: 1,
+      })),
+      findOne: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(async () => true),
+      getObjectSchema: vi.fn(async () => ({
+        name: PERMISSION_SET,
+        label: 'Permission Set',
+        fields: {
+          id: { type: 'text' },
+          name: { type: 'text', label: 'Name' },
+          managed_by: { type: 'text', label: 'Managed by' },
+        },
+      })),
+    };
+    return ds;
+  }
+
+  function renderPermissionSets(ds: ReturnType<typeof makePermissionSetSource>) {
+    return render(
+      <ActionProvider>
+        <SchemaRendererProvider dataSource={ds}>
+          <ObjectView
+            schema={{
+              type: 'object-view',
+              objectName: PERMISSION_SET,
+              table: { columns: ['name'] },
+            } as unknown as ObjectViewSchema}
+            dataSource={ds as unknown as DataSource}
+          />
+        </SchemaRendererProvider>
+      </ActionProvider>,
+    );
+  }
+
+  async function deleteSalesRep() {
+    await waitFor(() => expect(screen.getByText('Sales Rep')).toBeInTheDocument());
+    const deleteItem = await (async () => {
+      const row = screen.getByText('Sales Rep').closest('tr');
+      await waitFor(() =>
+        expect(row?.querySelector('[data-testid="row-action-trigger"]')).not.toBeNull(),
+      );
+      return openRowMenu('Sales Rep');
+    })();
+    expect(deleteItem, 'the row kebab offers no Delete — the harness is not reaching the subject').not.toBeNull();
+    await userEvent.click(deleteItem!);
+    return confirmDialog();
+  }
+
+  it('a package-owned permission set asks the RESET question and toasts the reset', async () => {
+    const ds = makePermissionSetSource('package');
+    renderPermissionSets(ds);
+
+    const dialog = await deleteSalesRep();
+    expect(
+      within(dialog).getByText(
+        'This permission set ships with an installed package and cannot be removed. ' +
+          'Deleting resets it to the shipped baseline and discards your environment customization. Continue?',
+      ),
+    ).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(ds.delete).toHaveBeenCalledWith(PERMISSION_SET, 'ps1'));
+    await waitFor(() =>
+      expect(successSpy).toHaveBeenCalledWith('Permission set reset to its shipped baseline'),
+    );
+    // The row itself answered the ownership question — no lookup was needed.
+    expect(ds.findOne).not.toHaveBeenCalled();
+  });
+
+  it('an environment-owned permission set keeps the plain delete copy (control)', async () => {
+    const ds = makePermissionSetSource('user');
+    renderPermissionSets(ds);
+
+    const dialog = await deleteSalesRep();
+    expect(
+      within(dialog).getByText('Are you sure you want to delete this record?'),
+    ).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() =>
+      expect(successSpy).toHaveBeenCalledWith('Permission Set deleted successfully'),
+    );
   });
 });

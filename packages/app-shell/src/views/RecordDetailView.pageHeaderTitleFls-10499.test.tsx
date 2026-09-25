@@ -212,6 +212,16 @@ describe('RecordDetailView — `page:header` builds the H1 from the fields the v
     expect(text).toContain('555-0100');
   });
 
+  it('BLAST RADIUS — every block reads the same row, so the default `record:highlights` strip stops printing a denied value too', async () => {
+    // The host hands ONE row to the whole page. The default composition's
+    // highlight strip gates by field only when a page opts into
+    // `enforceFieldSecurity`, so on the served row it printed the denied
+    // email even with no title reading it. It now reads the gated row, as it
+    // reads a stripping backend's.
+    await renderRecordPage({}, denying('email'), 'Ada Lovelace');
+    expect(document.body.textContent).not.toContain(EMAIL);
+  });
+
   it('CONTROL — a loaded policy denying a field the title does not read renders the served row’s title', async () => {
     await renderRecordPage({ titleFormat: '{email}' }, denying('phone'), EMAIL);
   });

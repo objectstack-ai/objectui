@@ -29,6 +29,7 @@
 
 import * as React from 'react';
 import { describe, it, expect, afterEach, vi } from 'vitest';
+import type { MockInstance } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, cleanup } from '@testing-library/react';
 import { I18nProvider } from '@object-ui/i18n';
@@ -86,7 +87,7 @@ const BLOCKS: Block[] = [
 ];
 
 /** The `console.warn` calls that report a served `aria.label` on `type`. */
-function reportsFor(warn: ReturnType<typeof vi.spyOn>, type: string): string[] {
+function reportsFor(warn: MockInstance<typeof console.warn>, type: string): string[] {
   return warn.mock.calls
     .map((args) => String(args[0]))
     .filter((message) => message.includes(type) && message.includes('`aria.label`'));

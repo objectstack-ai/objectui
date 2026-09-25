@@ -232,8 +232,17 @@ describe('boundaries the repair must not cross', () => {
     expect(conditionToGroup({ closed_at: { $gt: '2026-01-01' } }).group.conditions[0].operator).toBe('greaterThan');
   });
 
-  it('reads back through the fixed table when the field is not in the list', () => {
-    expect(conditionToGroup({ mystery: { $gt: 1 } }, FIELDS).group.conditions[0].operator).toBe('greaterThan');
+  it('a field not in the list is judged against the text bucket the builder draws for it, not given an invented operator', () => {
+    // This leg used to expect `greaterThan` here. `readBackOperator` still
+    // gives the fixed-table answer for an unknown type, so nothing is
+    // invented. But the builder draws an unlisted column with its default text
+    // bucket, which does not offer `greaterThan`, so the row would open under a
+    // BLANK operator trigger. objectui#10257 sends it to the Source tab, as
+    // objectui#10062 already did for `$between` on the same column.
+    expect(offeredBy('text')).not.toContain('greaterThan');
+    expect(conditionToGroup({ mystery: { $gt: 1 } }, FIELDS).representable).toBe(false);
+    // CONTROL: a token the text bucket offers still reads back unchanged there.
+    expect(conditionToGroup({ mystery: { $eq: 1 } }, FIELDS).group.conditions[0].operator).toBe('equals');
   });
 
   it('leaves the unambiguous tokens alone on a date column', () => {

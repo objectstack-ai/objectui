@@ -162,8 +162,10 @@ async function openEditor(host: 'default' | 'scoped') {
   );
   const select = await screen.findByRole('button', { name: 'select the form variant' });
   if (host === 'scoped') fireEvent.click(select);
-  // Wait for the inspector (either host) to mount its curated Label field.
-  return screen.findByLabelText('Label');
+  // Wait for the inspector (either host) to mount its curated Label field —
+  // found by its placeholder, since the variant's spec form below it carries
+  // "Label" inputs of its own (one per section).
+  return screen.findByPlaceholderText('e.g. All Leads');
 }
 
 /** Dirty the draft, so Save is live at all and only the gate can hold it. */
@@ -176,10 +178,13 @@ describe.each([['default'], ['scoped']] as const)(
   (host) => {
     it('Save stays disabled on an identity-gated section holding an object-required field', async () => {
       const label = await openEditor(host);
-      await screen.findByTestId('view-gated-required-issues', {}, { timeout: 4000 });
+      // Dirty FIRST: an unedited draft keeps Save disabled on its own, so only
+      // an edited one can show that the refusal is what holds it shut.
       dirty(label);
       await settle();
-      expect(saveButton()).toBeDisabled();
+      await waitFor(() => expect(saveButton()).toBeDisabled(), { timeout: 4000 });
+      // And the refusal the author reads is on screen beside it.
+      expect(await screen.findByTestId('view-gated-required-issues')).toHaveTextContent('Salary');
     });
 
     it('control: the same form with the field NOT required on the object saves', async () => {

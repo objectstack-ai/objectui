@@ -3277,6 +3277,69 @@ function MaskedCellRenderer({ value }: CellRendererProps): React.ReactElement {
 }
 
 /**
+ * The field types this package DECLARES masked: their standard cell is
+ * {@link MaskedCellRenderer}, which draws `••••••` in place of the value
+ * (objectui#8686). The read-side twin of the credential entry in
+ * `INLINE_EXCLUDED_FIELD_TYPES`, which lives in `FieldEditWidget`.
+ *
+ * ⭐ This set BUILDS the table's masked entries — `buildStandardCellRendererMap`
+ * spreads one {@link MaskedCellRenderer} entry per member — so adding a type
+ * here masks its cell AND makes {@link isMaskedFieldType} answer `true` for it,
+ * in one edit. There is no second list to keep in step.
+ *
+ * ⚠️ Membership answers "what ships masked", ⛔ not "what is masked right now":
+ * `registerFieldRenderer` can add or replace a masked type at runtime, and a
+ * set cannot see that. Consumers deciding what to do with a cell's value ask
+ * {@link isMaskedFieldType}.
+ *
+ * RAW spellings, deliberately: the cell path does not resolve form aliases
+ * (`getCellRenderer` is an exact-key lookup), so `field:password` renders in
+ * the clear and is not a member.
+ *
+ * Owned here for now. The objectui#8686 ruling made the protocol the first
+ * place to look: if `@objectstack/spec` comes to declare which field types are
+ * credentials, this set derives from that declaration instead of listing types.
+ */
+export const MASKED_FIELD_TYPES: ReadonlySet<string> = new Set<string>(['password', 'secret']);
+
+/**
+ * Is a cell of this field type drawn as a mask instead of as its value? The
+ * one authority for that question (objectui#8686): ask it rather than keep a
+ * list of types. The read-side twin of `isInlineExcludedFieldType()`.
+ *
+ * A LIVE reading of the cell registry, taken at call time, in the order
+ * {@link getCellRenderer} resolves: the runtime registry first, then the
+ * standard table.
+ *
+ *  1. The type resolves to THE mask ({@link MaskedCellRenderer}) → `true`,
+ *     declared or not. That is how a host adds a masked type:
+ *     `registerFieldRenderer('api_token', getCellRenderer('password'))`.
+ *  2. Otherwise, a type outside {@link MASKED_FIELD_TYPES} → `false`.
+ *  3. A declared type whose mask a host REPLACED at runtime
+ *     (`registerFieldRenderer('password', X)`) → the override is read:
+ *     - X is one of this package's own cell renderers (e.g. `TextCellRenderer`)
+ *       → `false`. None of them masks, so the cell now shows the value.
+ *     - X is the host's own component → `true`, the declared answer. Nothing
+ *       here can tell whether an opaque component masks. Answering `false`
+ *       would offer a credential to anything that trusts this predicate
+ *       (the detail page's copy affordance, objectui#8440) while a custom mask
+ *       hides it on screen. So an unreadable override falls back to the
+ *       declared set, on the side that withholds.
+ *
+ * RAW spelling, no alias resolution, for the reason {@link MASKED_FIELD_TYPES}
+ * states. Side-effect free, like `isInlineExcludedFieldType()`: unlike
+ * {@link getCellRenderer}, it never reports a retired spelling.
+ */
+export function isMaskedFieldType(fieldType: string | undefined): boolean {
+  if (!fieldType) return false;
+  const standardMap = buildStandardCellRendererMap();
+  const live = fieldRegistry.has(fieldType) ? fieldRegistry.get(fieldType) : standardMap[fieldType];
+  if (live === MaskedCellRenderer) return true;
+  if (!MASKED_FIELD_TYPES.has(fieldType)) return false;
+  return !Object.values(standardMap).some((standard) => standard === live);
+}
+
+/**
  * `vector` / `grid` cell renderers: the placeholder literal for a value that is
  * stored, and the shared affordance for none (objectui#8678). Before this, both
  * were argument-less arrows that printed their literal for every input. Neither
@@ -3374,8 +3437,10 @@ function buildStandardCellRendererMap(): Record<string, React.FC<CellRendererPro
     summary: FormulaCellRenderer,
     auto_number: TextCellRenderer,
     user: UserCellRenderer,
-    password: MaskedCellRenderer,
-    secret: MaskedCellRenderer,
+    // `password` / `secret` — spread from THE declared set, so the table that
+    // draws the mask and the set `isMaskedFieldType` falls back to are one
+    // fact (objectui#8686).
+    ...Object.fromEntries([...MASKED_FIELD_TYPES].map((type) => [type, MaskedCellRenderer])),
     location: LocationCellRenderer,
     geolocation: LocationCellRenderer,
     address: AddressCellRenderer,

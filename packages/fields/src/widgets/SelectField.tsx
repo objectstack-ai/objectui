@@ -122,7 +122,15 @@ function SingleSelectField({
     // reasoning, at length, in `MultiSelectField`.
     if (gated) return;
     if (value === undefined || value === null || (value as unknown) === '') return;
-    if (!isValueStillOffered(value, options)) onChange?.(undefined as unknown as string);
+    // A cleared scalar is `null`, never `undefined` (objectui#10291). The
+    // write contract reads an explicit `null` as "clear the stored value" and
+    // an absent key as "leave it unchanged" — and `undefined` becomes the
+    // absent key on the wire, because `JSON.stringify` omits it. Emitting
+    // `undefined` here showed the user an emptied field that no save ever
+    // wrote, on every host (inline edit and forms alike), while the
+    // multi-value prune beside it wrote a real array. `null` is the sentinel
+    // the other clearing widgets in this package already emit.
+    if (!isValueStillOffered(value, options)) onChange?.(null as unknown as string);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options, gated]);
 
@@ -178,7 +186,13 @@ function SingleSelectField({
   return (
     <Select
       name={domName}
-      value={value}
+      // `null` is how an empty value arrives — the cascade clear above emits it
+      // (objectui#10291), and so does a record whose column is empty. Radix
+      // shows the placeholder only for `''` / `undefined`, so a raw `null` paints
+      // a blank trigger; `''` is the controlled spelling of "nothing chosen".
+      // `undefined` passes through untouched: mapping it too would move every
+      // host that never sets a value from uncontrolled to controlled mode.
+      value={(value as string | null) === null ? '' : value}
       onValueChange={onChange}
       disabled={readonly || props.disabled}
     >

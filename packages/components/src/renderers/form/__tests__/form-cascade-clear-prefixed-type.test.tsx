@@ -116,8 +116,8 @@ describe('form host cascade clear — prefixed widget ids are option fields too 
     });
 
     const payload = await submitAndRead(onSubmit);
-    expect(payload.province).toBeUndefined();
-    expect(payload.homeProvince).toBeUndefined();
+    expect(payload.province).toBeNull();
+    expect(payload.homeProvince).toBeNull();
     expect(payload.provinces).toEqual([]);
     expect(payload.visited).toEqual([]);
   });
@@ -144,8 +144,8 @@ describe('form host cascade clear — prefixed widget ids are option fields too 
     );
 
     const payload = await submitAndRead(onSubmit);
-    expect(payload.province).toBeUndefined();
-    expect(payload.homeProvince).toBeUndefined();
+    expect(payload.province).toBeNull();
+    expect(payload.homeProvince).toBeNull();
     expect(payload.provinces).toEqual([]);
     expect(payload.visited).toEqual([]);
   });
@@ -212,8 +212,8 @@ describe('control — the bare-name (hand-written SDUI) path is unchanged', () =
     });
 
     const payload = await submitAndRead(onSubmit);
-    expect(payload.province).toBeUndefined();
-    expect(payload.homeProvince).toBeUndefined();
+    expect(payload.province).toBeNull();
+    expect(payload.homeProvince).toBeNull();
     expect(payload.provinces).toEqual([]);
     expect(payload.visited).toEqual([]);
   });

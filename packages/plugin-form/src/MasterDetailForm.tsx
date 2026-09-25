@@ -161,11 +161,11 @@ interface SavedChildRows {
    * is still the collection's baseline: a reload that replaced the row state
    * while the save was in flight has set a newer one.
    */
-  diffedAgainst: Record<string, any>[];
+  diffedAgainst: Record<string, unknown>[];
   /** Each row the batch CREATED (the row object it was built from) → the id the server gave it. */
-  createdIds: Map<Record<string, any>, unknown>;
+  createdIds: Map<object, unknown>;
   /** The baseline after the save: every persisted row, laid over with what this batch wrote to it. */
-  original: Record<string, any>[];
+  original: Record<string, unknown>[];
 }
 
 /**
@@ -174,8 +174,8 @@ interface SavedChildRows {
  * The builder only drops keys from a row (sanitize) and never rewrites one.
  */
 function isBuiltFrom(
-  data: Record<string, any> | undefined,
-  row: Record<string, any>,
+  data: Record<string, unknown> | undefined,
+  row: Record<string, unknown>,
   relationshipField: string,
 ): boolean {
   return Object.entries(data ?? {}).every(
@@ -230,8 +230,8 @@ function childRowsAfterSave(
     const { childObject, relationshipField } = input;
     const rows = input.rows || [];
     const original = input.original || [];
-    const createdIds = new Map<Record<string, any>, unknown>();
-    const written = new Map<unknown, Record<string, any>>();
+    const createdIds = new Map<object, unknown>();
+    const written = new Map<unknown, Record<string, unknown>>();
 
     for (const row of rows) {
       if (pairingLost) break;
@@ -254,19 +254,19 @@ function childRowsAfterSave(
       }
     }
 
-    const before = new Map<unknown, Record<string, any>>();
+    const before = new Map<unknown, Record<string, unknown>>();
     for (const r of original) {
       const id = idOf(r);
       if (id != null) before.set(id, r);
     }
-    const next: Record<string, any>[] = [];
+    const next: Record<string, unknown>[] = [];
     for (const row of rows) {
       const id = idOf(row) ?? createdIds.get(row);
       if (id == null) continue;
       const was = before.get(id);
       const wrote = written.get(id);
       if (!was && !wrote) continue;
-      const entry: Record<string, any> = { ...(was ?? {}), ...(wrote ?? {}) };
+      const entry: Record<string, unknown> = { ...(was ?? {}), ...(wrote ?? {}) };
       if (idOf(entry) == null) entry.id = id;
       next.push(entry);
     }

@@ -36,9 +36,13 @@
  * field the principal may not read is never requested, and a name the object
  * does not declare is never sent.
  *
- * The `$expand` twin collects the same bindings: a map binding that names a
- * LOOKUP is resolved, the row shape `ObjectMap`'s own fetch and a column-less
- * `ListView` (both expand every declared relation) already deliver.
+ * The `$expand` twin collects the same bindings but one: a coordinate or title
+ * binding that names a LOOKUP is resolved, the row shape `ObjectMap`'s own
+ * fetch and a column-less `ListView` (both expand every declared relation)
+ * already deliver. The DESCRIPTION is projected but never expanded: `ObjectMap`
+ * renders it as a React child, so an expanded lookup there (an object) throws
+ * when the marker is clicked, where a bare id renders as text. Expanding it
+ * here would add a route to that crash.
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -228,6 +232,19 @@ describe('ListView — a map view projects its location bindings (objectui#10370
     cleanup();
     const unbound = await paramsFor({ map: { locationField: 'geo' } });
     expect(unbound.$expand).toBeUndefined();
+  });
+
+  it('projects a description bound to a lookup but does not expand it', async () => {
+    const params = await paramsFor({ map: { locationField: 'geo', descriptionField: 'account' } });
+    expect(
+      params.$select,
+      'the marker description is read off the row, so it is projected',
+    ).toContain('account');
+    expect(
+      params.$expand,
+      '`ObjectMap` renders the description as a React child: an expanded lookup (an object) '
+        + 'throws on marker click, a bare id renders as text',
+    ).toBeUndefined();
   });
 
   // ── (c) Controls ────────────────────────────────────────────────────────

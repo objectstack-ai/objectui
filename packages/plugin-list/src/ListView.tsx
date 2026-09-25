@@ -1833,10 +1833,18 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         v.colorField, v.allDayField,
         v.coverField, v.imageField,
         v.swimlaneField, v.valueField,
-        // The map's row reads (objectui#10370): the coordinates, and the
-        // marker description. Its title rides `titleField` above.
+        // The map's coordinate bindings (objectui#10370). Its title rides
+        // `titleField` above; an expanded lookup there resolves to the related
+        // record's display name.
+        //
+        // ⛔ NOT `descriptionField`, which the `$select` twin below does
+        // collect. `ObjectMap` renders the marker description as a React
+        // child, so an EXPANDED lookup there (an object) throws "Objects are
+        // not valid as a React child" when the marker is clicked, where a bare
+        // id renders as text — measured on objectui#10370. That crash is
+        // already reachable wherever every relation is expanded (a column-less
+        // list, `ObjectMap`'s own fetch); this collector must not add a route.
         v.locationField, v.latitudeField, v.longitudeField,
-        v.descriptionField,
         // Spec `columns` = the fields shown on each kanban card (legacy: cardFields).
         // ⛔ No timeline chip-field list (the retired `metaFields`) is
         // collected: the spec declares none, and the timeline no longer reads
@@ -1861,9 +1869,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     collectViewFields((schema as any).options?.gantt);
     // [objectui#10370] The map, read through the resolver its render branch
     // and capability gate share — see the `$select` twin below for why the
-    // resolver rather than the two blocks one at a time. A map binding that
-    // names a lookup is then expanded, the row shape `ObjectMap`'s own fetch
-    // and a column-less list already deliver: both expand every relation.
+    // resolver rather than the two blocks one at a time. A coordinate or title
+    // binding that names a lookup is then expanded, the row shape `ObjectMap`'s
+    // own fetch and a column-less list already deliver: both expand every
+    // relation. The description binding is left out on purpose (see the
+    // candidate list above).
     collectViewFields(resolveListMapConfig(schema));
     // [objectui#7179] The GRID's grouping block, which this collector had no
     // arm for: it reads `groupByField` (kanban / gantt / timeline) but the grid
@@ -2222,6 +2232,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               // marker from `locationField` or the `latitudeField` +
               // `longitudeField` pair (`extractCoordinates`) and shows
               // `descriptionField` under it. Its title rides `titleField` above.
+              // The `expandFields` twin collects all of these but the
+              // description, for the reason stated there.
               v.locationField, v.latitudeField, v.longitudeField,
               v.descriptionField,
               // Spec `columns` = the fields shown on each kanban card (legacy: cardFields).

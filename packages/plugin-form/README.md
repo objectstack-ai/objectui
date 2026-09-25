@@ -917,10 +917,12 @@ After a successful save, the form treats the fields it just wrote as saved. A
 form that stays open therefore compares its next save with the record as it
 stands now, not as it was first read.
 
-The concurrency guard is unchanged. The update still carries
-`ifMatch` = the `updated_at` the form read, and a `409` still offers
-**Keep editing** or **Overwrite**. **Overwrite** now resends only the changed
-fields, so it no longer rewrites fields this user never touched.
+The concurrency guard is unchanged by this rule. The update carries
+`ifMatch` = the `updated_at` the form read. Once a form that stays open has
+saved the record, its next save carries the `updated_at` that save returned
+instead, so the form is not refused over its own earlier save. A `409` still
+offers **Keep editing** or **Overwrite**. **Overwrite** now resends only the
+changed fields, so it no longer rewrites fields this user never touched.
 
 ⚠️ A host `submitHandler` gets the same payload in edit mode. Normally that is
 the changed fields; after a save with nothing changed, it is the full payload.

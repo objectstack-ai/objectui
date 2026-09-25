@@ -35,7 +35,12 @@ import { isFileIdToken } from '@objectstack/spec/data';
 export interface FileValueView {
   /** `sys_file` id, when the value carries one. */
   id?: string;
-  /** Best available display name. Never empty. */
+  /**
+   * Best available display name: the value's own, else the caller's
+   * `fallbackName`. Empty only when the caller passed an empty fallback to ask
+   * for "no name" (the image cell does, so a nameless image reaches its
+   * translated alt — objectui#10493).
+   */
   name: string;
   /** Resolvable URL, when the value carries one. A bare reference does not. */
   url?: string;

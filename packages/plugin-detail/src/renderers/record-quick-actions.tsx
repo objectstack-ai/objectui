@@ -78,8 +78,9 @@ export interface RecordQuickActionsRendererProps {
     /**
      * Accessible name for the toolbar. `ariaLabel` is the spelling
      * `@objectstack/spec`'s `AriaPropsSchema` accepts; `label` is that shape's
-     * alias entry — refused on parse — and is kept here as a back-compat read
-     * for documents written before the contract closed (objectui#4663).
+     * alias entry, refused on parse. objectui#4663 kept `label` as a
+     * back-compat read for documents written before the contract closed, and
+     * objectui#9945 retired that read: a served `label` is reported, not read.
      *
      * ⚠️ `RecordQuickActionsProps` in `@objectstack/spec` declares NO `aria`
      * key at all — measured, not recalled, by
@@ -113,11 +114,12 @@ export const RecordQuickActionsRenderer: React.FC<RecordQuickActionsRendererProp
    * Called up here with the other hooks because two early returns sit below
    * (the permission gate and the empty-bar placeholder).
    *
-   * objectui#4663 established the read ORDER this now shares with the rest of
-   * the `record:*` family — canonical `aria.ariaLabel` first, the refused
-   * `aria.label` alias behind it, the built-in name when neither resolves. It
-   * used to be spelled here and only here, which is how five sibling blocks
-   * came to read nothing and `record:path` came to read only the alias.
+   * objectui#4663 made this bar read canonical `aria.ariaLabel` first, the
+   * refused `aria.label` alias behind it, the built-in name when neither
+   * resolves. It used to be spelled here and only here, which is how five
+   * sibling blocks came to read nothing and `record:path` came to read only the
+   * alias. The family now shares the canonical half; objectui#9945 retired the
+   * alias half, so `aria.ariaLabel` or the built-in name is all this reads.
    *
    * `SchemaRenderer`'s generic ARIA channel is no escape hatch on this surface:
    * it reads the FLAT `schema.ariaLabel` and injects `aria-label` as a
@@ -133,9 +135,11 @@ export const RecordQuickActionsRenderer: React.FC<RecordQuickActionsRendererProp
   const toolbarAria = useRecordAriaProps(schema.aria, {
     defaultRole: 'toolbar',
     defaultLabel: 'Quick actions',
-    // ⛔ The other of the two callers that opt in — objectui#4663 installed this
-    // fold here deliberately, for documents written before the shape closed.
-    legacyLabelFold: true,
+    // Named so a served `aria.label` is REPORTED (objectui#9945). objectui#4663
+    // gave this bar a fold for that spelling, for documents written before the
+    // shape closed; objectui#9945 retired it. Such a document now gets the
+    // built-in name above, and the report says why.
+    block: 'record:quick_actions',
   });
   const perms = usePermissions();
   // The ONE resolver for a declared action's authored strings (objectui#4265).

@@ -237,8 +237,9 @@ export const DETAIL_DEFAULT_TRANSLATIONS: Record<string, string> = {
   // `record:path`'s own container label — the accessible name of the stage LIST
   // (objectui#5956). Was a hardcoded `'Record path'` literal in the renderer, so
   // a zh/ja/ar session heard English for the list while every stage inside it
-  // announced in the session locale. The `schema.aria.label` author override
-  // still wins ahead of this fallback.
+  // announced in the session locale. The author's `schema.aria.ariaLabel`
+  // still wins ahead of this fallback (the refused `aria.label` no longer
+  // does: objectui#9945).
   'detail.pathLabel': 'Record path',
   // `record:path` stage state, composed into each stage's accessible name
   // (objectui#5916). A `role="listitem"` takes its name from the AUTHOR only —

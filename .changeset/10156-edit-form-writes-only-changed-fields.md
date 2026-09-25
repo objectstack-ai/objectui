@@ -1,5 +1,6 @@
 ---
 '@object-ui/plugin-form': patch
+'@object-ui/types': patch
 ---
 
 An edit form now writes only the fields that changed (objectui#10156).
@@ -17,5 +18,6 @@ An edit form now writes only the fields that changed (objectui#10156).
 - After a successful save, the form counts the fields it just wrote as saved. A form that stays open compares its next save with the record as it is now. Changing a field back to its first-read value is therefore still sent.
 - The concurrency guard is unchanged. The update still carries `ifMatch` = the `updated_at` the form read, and a `409` still offers **Keep editing** or **Overwrite**. **Overwrite** now resends only the changed fields.
 - ⚠️ A host `submitHandler` on an edit form receives the payload the form would have written. That is the changed fields, or the full sanitized payload when nothing changed. A host that needs the whole record must read it itself. In this repository, only `MasterDetailForm` passes a `submitHandler` to an edit form. Its header form receives the changed fields. Its row editor has no `recordId`, so it still receives every value.
+- The JSDoc of `ObjectFormSchema.submitHandler` in `@object-ui/types`, and its copies on `ModalFormSchema` and `DrawerFormSchema`, now say what an edit-mode handler receives.
 
 **Not covered.** The `tabbed`, `wizard` and `split` variants have save paths of their own and still send every value they hold. That includes a master-detail header laid out `tabbed`, and a simple form whose mobile `stepper` option shows it one step at a time through the wizard.

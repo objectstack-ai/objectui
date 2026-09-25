@@ -152,6 +152,12 @@ function descriptions(): Array<string | null> {
   return Array.from(document.querySelectorAll('[data-testid="timeline-canvas"] p')).map((el) => el.textContent);
 }
 
+/** The `$expand` the settled query actually asked the server for. */
+function lastExpand(dataSource: ReturnType<typeof makeDataSource>): string[] {
+  const calls = dataSource.find.mock.calls;
+  return calls[calls.length - 1]?.[1]?.$expand ?? [];
+}
+
 /** Mount over the component's own object fetch. */
 async function mountFetched(schema: Record<string, unknown>, values: Row[]) {
   const dataSource = makeDataSource(values);
@@ -180,7 +186,7 @@ describe('timeline titles and descriptions render as a display string (objectui#
   it("the reach path: the timeline's own fetch expands a lookup-typed description, and the rail shows its name", async () => {
     const dataSource = await mountFetched(DESCRIPTION_IS_ACCOUNT, [{ subject: 'Ship it', account: ACME }]);
 
-    expect(dataSource.find.mock.calls.at(-1)?.[1]?.$expand).toContain('account');
+    expect(lastExpand(dataSource)).toContain('account');
     expect(renderError(), 'the rail must render, not throw').toBeNull();
     expect(titles()).toEqual(['Ship it']);
     expect(descriptions()).toEqual(['Acme']);
@@ -189,7 +195,7 @@ describe('timeline titles and descriptions render as a display string (objectui#
   it("the reach path: the timeline's own fetch expands a lookup-typed title, and the rail shows its name", async () => {
     const dataSource = await mountFetched(TITLE_IS_ACCOUNT, [{ account: ACME }]);
 
-    expect(dataSource.find.mock.calls.at(-1)?.[1]?.$expand).toContain('account');
+    expect(lastExpand(dataSource)).toContain('account');
     expect(renderError(), 'the rail must render, not throw').toBeNull();
     expect(titles()).toEqual(['Acme']);
   });

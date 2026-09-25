@@ -226,6 +226,48 @@ const schema: ChartSchema = {
 }
 ```
 
+##### Axis options
+
+`xAxis` and `yAxis` take `@objectstack/spec`'s axis object — the `ChartAxis` a dashboard widget's `chartConfig` uses, with the same keys and the same checks. `xAxis` is one object; `yAxis` is a **list**, one entry per value axis, and a second entry declares the right-hand axis. The object is strict: an undeclared key is refused at parse, with the spec's own hint (`Did you mean grid → showGridLines?`).
+
+| Key | Type | Effect |
+|---|---|---|
+| `field` | `string` | **Required.** The column the axis reads. On `xAxis` it names the category column (`xAxisKey` wins when both are written); on `yAxis`, when the chart has neither `series` nor `categories`, the entries' `field`s are the plotted columns. |
+| `title` | `string` or inline locale map | Axis title, resolved to the viewer's language. |
+| `format` | `string` | Tick number format, e.g. `"$0,0.00"` or `"0.0%"`. A string the renderer does not recognise keeps the default ticks. |
+| `min` / `max` | `number` | Pin the ends of a numeric axis: the value axes, and the x axis of a `scatter` chart. |
+| `stepSize` | `number` | Distance between ticks on a numeric axis. |
+| `showGridLines` | `boolean` | `false` on the first `yAxis` entry hides the horizontal grid lines; `true` on `xAxis` draws vertical ones. |
+| `position` | `'left' \| 'right' \| 'top' \| 'bottom'` | The side of the chart the axis belongs to. |
+| `logarithmic` | `boolean` | Logarithmic scale on a numeric axis. |
+
+⚠️ On `xAxis`, `min`, `max`, `stepSize` and `logarithmic` currently take effect only when the same object also carries `title`, `format` or `showGridLines`.
+
+A bare string is not an axis object. `xAxis: 'month'` is the sibling spelling of `xAxisKey` and folds onto it at parse; a single object or a bare string on `yAxis` is refused — write a one-entry list.
+
+```tsx
+import type { ChartSchema } from '@object-ui/types'
+
+const schema: ChartSchema = {
+  type: 'chart',
+  chartType: 'bar',
+  data: [
+    { month: 'Jan', revenue: 4000, margin: 0.21 },
+    { month: 'Feb', revenue: 3000, margin: 0.18 }
+  ],
+  xAxis: { field: 'month', title: 'Month' },
+  yAxis: [
+    { field: 'revenue', title: 'Revenue', format: '$0,0', min: 0 },
+    // the second entry is the right-hand axis the `margin` line binds to
+    { field: 'margin', title: { en: 'Margin', fr: 'Marge' }, format: '0.0%' }
+  ],
+  series: [
+    { name: 'revenue' },
+    { name: 'margin', type: 'line', yAxis: 'right' }
+  ]
+}
+```
+
 ## Examples
 
 ### Revenue Dashboard

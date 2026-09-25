@@ -197,7 +197,8 @@ export function detectPendingApproval(
  *   • single — `{ status:'drafted', type, name, summary, changedKeys }`
  *     (create_object / add_field / create_metadata / update_metadata / …)
  *   • batch  — `{ status:'drafted', drafted:[{type,name}], failed, summary }`
- *     (apply_blueprint)
+ *     (apply_blueprint), or the same batch with `kind:'edit'` (apply_edit,
+ *     an INCREMENTAL edit — objectui#10109)
  * We lift the reviewable `{ type, name }` targets so the chat can render a
  * "Review N change(s)" affordance that opens the designer's review/diff.
  * `blueprint_proposed` (propose_blueprint) has no draft yet → not surfaced here.
@@ -225,6 +226,17 @@ export interface DraftReview {
    * status panel, never asserted as done).
    */
   nextSteps?: string[];
+  /**
+   * objectui#10109 — the producer's marker for an INCREMENTAL edit, lifted
+   * from the envelope's own `kind`: `apply_edit` answers `kind: 'edit'`, and a
+   * whole-app `apply_blueprint` build carries no `kind`. An edit's `items` may
+   * honestly include the `app` artifact it re-staged (an `add_object` op
+   * merges the nav), so every reader that asks "is this a whole-app build?"
+   * checks this before inferring a build from the staged artifact types.
+   * Only the value such a reader acts on is declared: an envelope that does
+   * not say `'edit'` lifts nothing here.
+   */
+  kind?: 'edit';
 }
 
 /**
@@ -623,6 +635,10 @@ export function detectDraftResult(result: unknown): DraftReview | undefined {
     ...(obj.materialized === true ? { materialized: true } : {}),
     ...(verification ? { verification } : {}),
     ...(issues.length ? { issues } : {}),
+    // objectui#10109 — the producer's incremental-edit marker rides the draft
+    // review, so a reader that only sees the review can still tell an edit
+    // from a whole-app build.
+    ...(obj.kind === 'edit' ? { kind: 'edit' as const } : {}),
   };
 }
 
@@ -643,12 +659,15 @@ function humanizeArtifactName(name: string): string {
  * reconstruct the done-state from the draft result, which IS persisted, so the
  * summary + its preview/open affordances survive a refresh. Only whole-app
  * builds (a draft set that includes an `app`) get a panel — incremental edits
- * keep their draft card but no build tree, matching the live behaviour.
+ * keep their draft card but no build tree, matching the live behaviour. An
+ * edit is known by the producer's `kind: 'edit'`, not by its staged types: it
+ * can re-stage the `app` artifact too (objectui#10109).
  */
 export function buildProgressFromDraftReview(
   draft: DraftReview | undefined,
 ): ChatBuildProgress | undefined {
   if (!draft || !Array.isArray(draft.items) || draft.items.length === 0) return undefined;
+  if (draft.kind === 'edit') return undefined;
   const app = draft.items.find((it) => it.type === 'app');
   if (!app) return undefined;
   return {

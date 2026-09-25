@@ -87,6 +87,7 @@ import {
   toRuntimeMessages,
   type AgentDescriptor,
   type ChatbotEnhancedToolInvocation,
+  type DraftReview,
   // The ENHANCED message shape — the one `<ChatbotEnhanced>` renders and the
   // one this file actually produces (`toolInvocations`, `buildProgress`).
   //
@@ -2029,8 +2030,14 @@ export function ChatPane({
         // staging: reopening a built conversation stayed on the full page).
         const pkg = detectBuiltAppPackage(tool.result);
         if (pkg) return pkg;
-        const dr = tool.draftReview;
-        if (dr?.packageId && dr.items?.some((it) => it.type === 'app')) return dr.packageId;
+        // objectui#10109 — an INCREMENTAL edit's draft review can list the `app`
+        // it re-staged; the producer's `kind: 'edit'` says it is not a build.
+        // Read through the detector's own `DraftReview`, which declares that
+        // `kind` (every draft review here is minted by `detectDraftResult`).
+        const dr: DraftReview | undefined = tool.draftReview;
+        if (dr?.packageId && dr.kind !== 'edit' && dr.items?.some((it) => it.type === 'app')) {
+          return dr.packageId;
+        }
       }
     }
     return undefined;

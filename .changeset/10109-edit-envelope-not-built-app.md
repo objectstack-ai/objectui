@@ -1,7 +1,11 @@
 ---
-'@object-ui/plugin-chatbot': patch
+'@object-ui/plugin-chatbot': minor
 ---
 
-`detectBuiltAppPackage` no longer reads a tool result whose envelope declares `kind: 'edit'` (an `apply_edit` result) as a whole-app build, even when its `drafted[]` lists the `app` artifact the edit re-staged — an `add_object` op re-stages it for the nav merge. The producer marks an incremental edit with `kind: 'edit'` and leaves `kind` off an `apply_blueprint` build, so the whole-app test reads that field instead of inferring a build from which artifact types were staged. `detectDraftResult` reads the same edit exactly as before, so the edit keeps its draft card and its one-click publish (objectui#10109).
+An incremental edit is no longer read as a whole-app build. An `apply_edit` result says `kind: 'edit'` on its envelope, and its `drafted[]` may list the `app` artifact the edit re-staged, because an `add_object` op re-stages it for the nav merge. An `apply_blueprint` build carries no `kind`. The chat now takes the producer's field as the only thing that separates the two, instead of guessing a build from which artifact types were staged (objectui#10109):
 
-Scope of the change: it covers a raw result envelope, which is what the chat's built-moment transition reads in an auto-publish environment (`status: 'published'`). In the drafted posture, the draft review lifted from that same envelope is still read as a whole-app build by `@object-ui/app-shell`'s built-moment transition and by the reload build panel; objectui#10109 tracks that half.
+- `detectBuiltAppPackage` returns `undefined` for an envelope that says `kind: 'edit'`, in both the drafted and the auto-publish (`status: 'published'`) postures.
+- `DraftReview` has a new optional `kind?: 'edit'`, and `detectDraftResult` fills it from the envelope. The edit still gets its draft card, its items and its `packageId`, so one-click publish still works.
+- `buildProgressFromDraftReview` builds no finished "Built X" panel for a draft review whose `kind` is `'edit'`, so a reloaded edit shows the same thing it showed live.
+
+An envelope without `kind` behaves as before. `DraftReview.kind` declares only the value these readers act on, and an envelope that says anything else leaves it unset.

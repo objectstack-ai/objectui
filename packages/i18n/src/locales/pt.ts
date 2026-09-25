@@ -288,6 +288,10 @@ const pt = {
       refusedResidue:
         "Não salvo: {{name}} “{{text}}” e {{otherName}} “{{otherText}}” não são números. Informe decimais simples (exemplo: 30.2741, 120.1551).",
     },
+    dateTime: {
+      impossibleDay:
+        "O valor salvo “{{value}}” não é uma data real. Escolha uma data e uma hora para substituí-lo.",
+    },
     number: {
       badInput:
         "Não salvo: o texto deste campo não é um número. Informe um decimal simples (exemplo: {{example}}).",

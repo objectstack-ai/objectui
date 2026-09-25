@@ -65,7 +65,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import type { BaseSchema } from '../base.js';
-import type { DrillDownConfig } from '../data-display.js';
+import type { ObjectDataTableDrillDownConfig } from '../data-display.js';
 import type { ObjectGallerySchema, ObjectDataTableSchema } from '../objectql.js';
 import {
   ObjectGallerySchema as ObjectGalleryMirror,
@@ -88,8 +88,13 @@ export type assertionGalleryExtendsBase = Expect<ExtendsBase<ObjectGallerySchema
 export type assertionDataTableExtendsBase = Expect<ExtendsBase<ObjectDataTableSchema>>;
 export type assertionGalleryTypeIsRegistryKey = Expect<Equal<ObjectGallerySchema['type'], 'object-gallery'>>;
 export type assertionDataTableTypeIsRegistryKey = Expect<Equal<ObjectDataTableSchema['type'], 'object-data-table'>>;
-/** objectui#6914 — declared with the types measured at their prior homes. */
-export type assertionDrillDownDeclared = Expect<Equal<ObjectDataTableSchema['drillDown'], DrillDownConfig | undefined>>;
+/**
+ * objectui#6914 — declared with the types measured at their prior homes.
+ * `drillDown` has since moved to this block's own shape, the shared
+ * `DrillDownConfig` with `filter` / `maxRows` / `report` refused and `target`
+ * narrowed (objectui#10685); `Equal` keeps it from drifting back to the shared type.
+ */
+export type assertionDrillDownDeclared = Expect<Equal<ObjectDataTableSchema['drillDown'], ObjectDataTableDrillDownConfig | undefined>>;
 /**
  * ⭐ STILL measured at its prior home, which is the point of leaving this pin
  * `Equal` rather than relaxing it: objectui#6576 declared `onRowClick` here with

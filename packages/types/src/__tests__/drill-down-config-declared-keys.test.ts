@@ -70,10 +70,12 @@ describe('DrillDownConfig declares no key that no renderer reads', () => {
     type _MaxRowsSurvives = Assert<HasKey<DrillDownConfig, 'maxRows'>>;
     type _TargetSurvives = Assert<HasKey<DrillDownConfig, 'target'>>;
 
-    // `'navigate'` is delivered by every widget that shares this type now:
-    // `DrillDownDrawer.navigateOnly` for table / pivot / metric, and
-    // ObjectChart's own branch since objectui#3354. Narrowing the union would
-    // be a spec change, not a cleanup.
+    // `'navigate'` is delivered by every block whose drill shape admits it:
+    // `DrillDownDrawer.navigateOnly` for pivot / metric, and ObjectChart's own
+    // branch since objectui#3354. `object-data-table` drills to the one record
+    // its row already is, so its own shape narrows the arm away instead
+    // (`ObjectDataTableDrillDownConfig`, objectui#10685); the shared union stays
+    // whole. Narrowing it here would be a spec change, not a cleanup.
     type _TargetUnion = Assert<
       Equal<NonNullable<DrillDownConfig['target']>, 'drawer' | 'dialog' | 'navigate'>
     >;

@@ -23,7 +23,7 @@ import type { BaseSchema } from './base.js';
 // and read here by `ObjectKanbanSchema.columns` (objectui#8913) so the two
 // kanban faces judge a card the same way. Type-only: no runtime edge.
 import type { KanbanCard } from './complex.js';
-import type { DrillDownConfig } from './data-display.js';
+import type { ObjectDataTableDrillDownConfig } from './data-display.js';
 // `QueryParams` is the destination `ObjectGallerySchema.filter`'s own docblock
 // names — the value is forwarded verbatim into that slot — so the declaration
 // is an INDEXED ACCESS on it rather than a copy of its arms (objectui#9309).
@@ -4767,8 +4767,15 @@ export interface ObjectDataTableSchema extends BaseSchema {
   /**
    * Drill-to-record: clicking a row opens that record in a detail drawer.
    * `DashboardRenderer` defaults object-backed table widgets to `{ enabled: true }`.
+   *
+   * This block's own drill shape, not the shared `DrillDownConfig`
+   * (objectui#10685): `filter`, `maxRows` and `report` are refused by name,
+   * because a row drills to the one record it already is and there is no
+   * drilled list for them to act on, and `target` is `'drawer'` or `'dialog'`,
+   * because `'navigate'` opens the object's list page. The zod mirror's
+   * `drillDown` refuses the same members.
    */
-  drillDown?: DrillDownConfig;
+  drillDown?: ObjectDataTableDrillDownConfig;
   /**
    * Row click handler — a RUNTIME SLOT a React host supplies through this
    * interface, never through authored JSON (objectui#6124; the zod mirror

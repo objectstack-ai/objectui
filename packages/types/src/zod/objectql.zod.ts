@@ -2711,7 +2711,10 @@ export const ObjectGallerySchema = BaseSchema.extend({
  *     and left it unmirrored — minting the mirror was a new export outside
  *     that ruling — so `UnmirroredDeclared` carried it, as it had carried
  *     `ChartSchema.drillDown` since objectui#6058; both entries left the
- *     ledger with that mirror.
+ *     ledger with that mirror. Since objectui#10685 it is this block's OWN
+ *     drill shape, the twin of `ObjectDataTableDrillDownConfig`: the shared
+ *     mirror extended so that `filter`, `maxRows` and `report` are refused by
+ *     name and `target` takes `'drawer'` or `'dialog'` only.
  *   - `dataProvider` is a RETIREMENT TOMBSTONE (objectui#7353), `?: never` on
  *     the TS twin: refused by name, pointing at `objectName`. Deleting it
  *     instead would leave an authored value KEPT unchecked, because
@@ -2730,8 +2733,41 @@ export const ObjectDataTableSchema = BaseSchema.extend({
   columns: z.array(z.any()).optional().describe('Column definitions (names or column objects)'),
   searchable: z.boolean().optional().describe('Forwarded to the rendered data-table'),
   pagination: z.boolean().optional().describe('Forwarded to the rendered data-table'),
-  drillDown: DrillDownConfigSchema.optional().describe(
-    'Drill-to-record: clicking a row opens that record in a detail drawer (DashboardRenderer defaults object-backed table widgets to { enabled: true, mode: record })',
+  // objectui#10685 — this block's OWN drill shape, the twin of
+  // `ObjectDataTableDrillDownConfig` (`../data-display.ts`). A row drills to the
+  // one record it already is, so the three members that configure a drilled
+  // record LIST have nothing to act on, and `'navigate'` (the object's list
+  // page) is the wrong destination for one record. `retirementTombstone` is the
+  // repo's one declared-and-refused mechanism; here it refuses per block, not a
+  // retirement: the shared mirror keeps all three keys for the blocks that read
+  // them. `enabled`, `mode`, `title` and `columns` parse exactly as the shared
+  // mirror parses them.
+  drillDown: DrillDownConfigSchema.extend({
+    filter: retirementTombstone(
+      'REFUSED on `object-data-table` (objectui#10685) — `drillDown.filter` scopes a drilled record list, and '
+      + 'this block drills to the one record its row already is, so there is no list to filter. A drill `filter` '
+      + 'applies on `object-chart` and `object-pivot`. Delete the key.',
+    ),
+    maxRows: retirementTombstone(
+      'REFUSED on `object-data-table` (objectui#10685) — `drillDown.maxRows` caps a drilled record list, and '
+      + 'this block drills to the one record its row already is. It applies on `object-chart`, `object-pivot` '
+      + 'and `object-metric`, whose drill lists page by it. Delete the key.',
+    ),
+    report: retirementTombstone(
+      'REFUSED on `object-data-table` (objectui#10685) — `drillDown.report` replaces a drilled record list with '
+      + 'a report, and this block drills to the one record its row already is. It applies on `object-pivot` and '
+      + '`object-metric`, whose drill drawer renders it. Delete the key.',
+    ),
+    target: z.enum(['drawer', 'dialog'], {
+      error: '`drillDown.target` on `object-data-table` is `\'drawer\'` or `\'dialog\'` (objectui#10685). '
+        + '`\'navigate\'` is refused here: it opens the object\'s full list page, and this block\'s row opens one '
+        + 'record. `\'navigate\'` applies on `object-chart`, `object-pivot` and `object-metric`.',
+    }).optional().describe(
+      "Where the record drill lands: 'drawer' (default) or 'dialog'. 'navigate' is refused on this block (objectui#10685)",
+    ),
+  }).optional().describe(
+    'Drill-to-record: clicking a row opens that record in a detail drawer (DashboardRenderer defaults object-backed table widgets to { enabled: true, mode: record }). '
+    + 'This block\'s own drill shape: filter, maxRows and report are refused by name, and target is drawer or dialog (objectui#10685)',
   ),
   onRowClick: handlerKeyRefusal('onRowClick', 'runtime-slot', 'Row click handler (overrides drill-to-record)'),
   body: retirementTombstone(

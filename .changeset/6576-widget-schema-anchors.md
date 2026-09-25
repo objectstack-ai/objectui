@@ -14,7 +14,15 @@ objectui#6914).
   BaseSchema`, beside the other `Object*Schema` declarations, with zod mirrors
   of the same names under `@object-ui/types/zod`. `ObjectDataTableSchema`
   declares the two keys the widget was reading behind casts — `drillDown`
-  (`DrillDownConfig`) and `onRowClick` — which no declaration carried before.
+  (`DrillDownConfig`, at this change) and `onRowClick` — which no declaration
+  carried before.
+
+  ⚠️ **Dated note, 2026-09-25 — `drillDown` now takes the table's own shape —
+  objectui#10685.** `ObjectDataTableSchema.drillDown` is
+  `ObjectDataTableDrillDownConfig`, on both faces: `filter`, `maxRows` and
+  `report` are refused by name, and `target` is `'drawer'` or `'dialog'`. None of
+  the four was ever read by this block. The rest of this entry is kept as the
+  reading of this change.
 - `@object-ui/plugin-list`: the published `ObjectGalleryProps.schema` is
   `ObjectGallerySchema`. Its accept set WIDENS — every `BaseSchema` member is
   writable (`visibleWhen`, a real base member, was a compile error on the

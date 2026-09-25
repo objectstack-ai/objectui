@@ -539,8 +539,8 @@ export const WizardForm: React.FC<WizardFormProps> = ({
     // say, while it was in flight) commits nothing: not the values, not the
     // baseline or `persistedRecord`, and not the `loading` release the current
     // run owns. Otherwise the answer for the previous record could land last
-    // and be shown, and saved against, under the new one. The shape the four
-    // other sectioned layouts already use (recordSwapLoading.test.tsx).
+    // and be shown under the new one. The shape the four other sectioned
+    // layouts already use (recordSwapLoading.test.tsx).
     let cancelled = false;
     // objectui#10682 — this run's writes to the record read's failure; a newer
     // run of this effect makes them no-ops.

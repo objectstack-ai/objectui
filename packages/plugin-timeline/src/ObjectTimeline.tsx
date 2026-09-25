@@ -519,7 +519,7 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
      *  ⛔ Not authorable, and nothing reads an authored list here
      *  (objectui#10222, ruling batch #223 item 5b, letter A). The spec's
      *  `TimelineConfigSchema` is a strict object that declares no chip-field
-     *  member and refuses one, so an undeclared chip-field key read off this
+     *  member and refuses one, so the retired `metaFields` read off this
      *  block reached the renderer only through a stored view's unjudged
      *  `options` bag (objectui#10380). If a producer ever asks for authored
      *  chip fields, the reserved spelling is `cardFields` (the kanban /

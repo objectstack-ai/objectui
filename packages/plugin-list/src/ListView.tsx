@@ -1834,8 +1834,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         v.coverField, v.imageField,
         v.swimlaneField, v.valueField,
         // Spec `columns` = the fields shown on each kanban card (legacy: cardFields).
-        // ⛔ No timeline chip-field list is collected: the spec declares none,
-        // and the timeline no longer reads one (objectui#10222).
+        // ⛔ No timeline chip-field list (the retired `metaFields`) is
+        // collected: the spec declares none, and the timeline no longer reads
+        // one (objectui#10222).
         ...(Array.isArray(v.columns) ? v.columns : []),
         ...(Array.isArray(v.cardFields) ? v.cardFields : []),
         ...(Array.isArray(v.visibleFields) ? v.visibleFields : []),
@@ -2207,8 +2208,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               v.coverField, v.imageField,
               v.swimlaneField, v.valueField,
               // Spec `columns` = the fields shown on each kanban card (legacy: cardFields).
-              // ⛔ No timeline chip-field list is collected: the spec declares
-              // none, and the timeline no longer reads one (objectui#10222).
+              // ⛔ No timeline chip-field list (the retired `metaFields`) is
+              // collected: the spec declares none, and the timeline no longer
+              // reads one (objectui#10222).
               ...(Array.isArray(v.columns) ? v.columns : []),
               ...(Array.isArray(v.cardFields) ? v.cardFields : []),
               ...(Array.isArray(v.visibleFields) ? v.visibleFields : []),
@@ -2232,7 +2234,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           //
           // Unconditional on purpose (objectui#10222, ruling batch #223 item
           // 5b, letter A): this used to be skipped when the block carried an
-          // undeclared chip-field list, which the spec refuses and the
+          // undeclared `metaFields` list, which the spec refuses and the
           // timeline no longer reads. The chips are always the built-in pair
           // now, so their values are always fetched.
           {

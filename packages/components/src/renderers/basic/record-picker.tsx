@@ -120,6 +120,10 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const filterKey = React.useMemo(() => (filter ? JSON.stringify(filter) : ''), [filter]);
+  // objectui#10664 — the sort reaches `$orderby` below, so the fetch effect
+  // keys on it, by CONTENT the way `filterKey` keys the filter: a fresh array
+  // with the same entries is not a change (AGENTS.md #10).
+  const sortKey = React.useMemo(() => (sort ? JSON.stringify(sort) : ''), [sort]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -156,7 +160,7 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adapter, object, filterKey, limit]);
+  }, [adapter, object, filterKey, sortKey, limit]);
 
   // Reflect the bound variable's value back into the control. When a variable
   // targets this picker we stay controlled for its whole lifetime (empty string

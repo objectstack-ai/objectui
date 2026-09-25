@@ -111,6 +111,10 @@ function RepeaterRenderer({ schema }: { schema: any }) {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const filterKey = React.useMemo(() => (props.filter ? JSON.stringify(props.filter) : ''), [props.filter]);
+  // objectui#10664 — the sort reaches `$orderby` below, so the fetch effect
+  // keys on it, by CONTENT the way `filterKey` keys the filter: a fresh array
+  // with the same entries is not a change (AGENTS.md #10).
+  const sortKey = React.useMemo(() => (props.sort ? JSON.stringify(props.sort) : ''), [props.sort]);
 
   const cols: RepeaterColumn[] = React.useMemo(
     () => (props.fields ?? []).map((f) => (typeof f === 'string' ? { field: f } : f)),
@@ -161,7 +165,7 @@ function RepeaterRenderer({ schema }: { schema: any }) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adapter, props.object, filterKey, props.limit, invalidationNonce]);
+  }, [adapter, props.object, filterKey, sortKey, props.limit, invalidationNonce]);
 
   if (loading) return <p className="py-2 text-sm text-muted-foreground">Loading…</p>;
   if (error) return <p className="py-2 text-sm text-destructive">{error}</p>;

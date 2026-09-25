@@ -5219,8 +5219,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                   <div className="flex items-center justify-between gap-2 mb-1">
                     {amountCol && (
                       <span className="text-sm tabular-nums font-medium">
+                        {/* objectui#10423 — the currency resolves from the FIELD
+                            def, as the desktop cell's does (objectui#10354);
+                            `amountCol` is a column draft and carries neither
+                            `currency` nor `currencyConfig`. */}
                         {typeof row[amountCol.accessorKey] === 'number'
-                          ? formatCompactCurrency(row[amountCol.accessorKey], resolveFieldCurrency(amountCol as any, tenantCurrency), displayLocale)
+                          ? formatCompactCurrency(row[amountCol.accessorKey], resolveFieldCurrency(objectSchema?.fields?.[amountCol.accessorKey], tenantCurrency), displayLocale)
                           : (coerceToSafeValue(row[amountCol.accessorKey]) ?? '—')}
                       </span>
                     )}

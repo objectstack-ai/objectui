@@ -2195,11 +2195,17 @@ export function FileCellRenderer({ value, field }: CellRendererProps): React.Rea
  * never disagree about what "drawable" means: were the signature cell to route
  * a value here that this list then drops, it would draw "No value" again —
  * the defect objectui#8677 removed, returning by drift.
+ *
+ * An image whose value carries no name of its own (a `data:` URI, a bare id)
+ * comes back NAMELESS, so the cell's alt and its lightbox fall through to the
+ * translated `fields.image.imageAlt` (objectui#10493). The literal `'Image'`
+ * this passed as the fallback name used to fill that gap, which named every
+ * such image `Image` on every locale and left the translated alt unreachable.
  */
-function displayableImagesOf(value: unknown): Array<{ url: string; name: string }> {
-  return readFileValues(value, 'Image')
+function displayableImagesOf(value: unknown): Array<{ url: string; name?: string }> {
+  return readFileValues(value, '')
     .filter((v) => v.url)
-    .map((v) => ({ url: v.url as string, name: v.name }));
+    .map((v) => ({ url: v.url as string, name: v.name || undefined }));
 }
 
 /**

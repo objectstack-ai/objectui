@@ -427,16 +427,20 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
     if (dispatch.family === 'pivot') {
       const widgetData = (widget as any).data || options.data;
 
-      // provider: 'object' — pass through object config for async data loading
-      if (isObjectProvider(widgetData)) {
-        const { data: _data, ...restOptions } = options;
-        return {
-          type: 'pivot',
-          ...restOptions,
-          objectName: widgetData.object,
-          data: [],
-        };
-      }
+      // provider: 'object' — RETIRED, with the same placeholder object
+      // `DashboardRenderer`'s pivot arm returns (objectui#10528). A pivot is a
+      // cross-tab, and ADR-0021 puts cross-tabs on the dataset layer only: the
+      // shared dispatch types this family "dataset-bound only; a non-dataset
+      // pivot is stale metadata" (`widgetDispatch.ts`). This branch used to emit
+      // a static `pivot` node with `data: []` and an `objectName` that
+      // `PivotTable` never reads, so the tile drew an empty cross-tab and sent
+      // no query, while the read dashboard showed this placeholder for the same
+      // widget. Mapping it to the self-fetching `object-pivot` instead would
+      // have revived the removed inline analytics shape in the editor alone.
+      // A dataset-bound pivot still renders through `DatasetWidget` (the fork
+      // at the render site below), and the static-data pivot under this branch
+      // is unchanged.
+      if (isObjectProvider(widgetData)) return LEGACY_RETIRED_WIDGET_SCHEMA;
 
       return {
         type: 'pivot',

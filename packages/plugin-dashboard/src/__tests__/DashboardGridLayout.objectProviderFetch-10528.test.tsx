@@ -8,7 +8,8 @@
 
 /**
  * objectui#10528 — on the editable `dashboard-grid`, a `provider: 'object'`
- * table widget fetches its rows and draws them.
+ * table widget fetches its rows and draws them, and a `provider: 'object'`
+ * pivot widget shows the retired-widget placeholder.
  *
  * ## The defect
  *
@@ -18,28 +19,29 @@
  * the tile drew an empty table and issued no query. The read dashboard
  * (`DashboardRenderer`) maps the same stored widget to `object-data-table`,
  * the self-fetching node, so the two dashboard surfaces disagreed on the same
- * metadata.
+ * metadata. The pivot arm had the same shape (a static `pivot` node with
+ * `data: []`), while the read dashboard showed the retired-widget placeholder
+ * for the same pivot.
  *
  * ## The fix, and what this file pins
  *
  * The grid's table arm now emits the same `object-data-table` node, with the
- * same props, that `DashboardRenderer`'s table arm emits. Three things are
- * pinned:
+ * same props, that `DashboardRenderer`'s table arm emits. Its pivot arm, for a
+ * `provider: 'object'` pivot, now returns the retired-widget placeholder that
+ * `DashboardRenderer`'s pivot arm returns (the card's option B: ADR-0021 puts a
+ * cross-tab on the dataset layer only). Four things are pinned:
  *
  *  1. The grid composes `object-data-table` (bound through `objectName`, with
  *     no retired `dataProvider`, objectui#7353). The adapter's `find` is called
  *     for that object, and the rows it returns are on screen.
  *  2. Parity: for the same stored widget, the node the grid composes EQUALS the
- *     node `DashboardRenderer` composes. `DashboardRenderer.tsx` is not edited
- *     here, so this equality is what stops the two copies from drifting.
- *  3. Lit controls: a static-data table and a static-data pivot on the grid
+ *     node `DashboardRenderer` composes. The two surfaces build the table node
+ *     separately, so this equality is what stops the two copies from drifting.
+ *  3. A provider-object pivot on the grid shows the placeholder, composed as
+ *     the SAME object `DashboardRenderer` composes (not a copy), with no `pivot`
+ *     node and no query.
+ *  4. Lit controls: a static-data table and a static-data pivot on the grid
  *     still draw their authored rows (objectui#4618's `Array.isArray` arm).
- *
- * ⚠️ Not pinned here: the grid's `provider: 'object'` PIVOT arm. It is left
- * unchanged. The read dashboard answers a non-dataset pivot with the retired
- * placeholder (ADR-0021: a pivot is dataset-bound), so the grid's pivot arm
- * has no node on the read surface to copy. The pivot half is an open question
- * on the card.
  *
  * ## Why a listener, not a recorder
  *
@@ -76,6 +78,7 @@ import type { DashboardComponentSchema } from '@object-ui/types';
 // and the package barrel registers `object-data-table` / `pivot`.
 import '@object-ui/components';
 import { DashboardRenderer, DashboardGridLayout } from '../index';
+import { LEGACY_RETIRED_WIDGET_SCHEMA } from '../legacyRetiredWidget';
 
 afterEach(() => {
   cleanup();
@@ -194,6 +197,49 @@ describe('objectui#10528 — grid and renderer compose the same object-data-tabl
     // Non-vacuity: both surfaces really bound the object.
     expect(gridNode.objectName).toBe('account');
     expect(gridAdapter.find).toHaveBeenCalled();
+  });
+});
+
+describe('objectui#10528 — grid: a provider-object pivot widget shows the retired-widget placeholder', () => {
+  const pivotWidget = {
+    id: 'account-pivot',
+    type: 'pivot',
+    title: 'Accounts by region',
+    options: {
+      rowField: 'region',
+      columnField: 'stage',
+      valueField: 'amount',
+      aggregation: 'sum',
+      data: { provider: 'object', object: 'account' },
+    },
+  };
+
+  it('renders the placeholder, composes no pivot node, and issues no query', async () => {
+    const adapter = renderGrid(pivotWidget);
+
+    expect(await screen.findByText(LEGACY_RETIRED_WIDGET_SCHEMA.content)).toBeTruthy();
+    expect(received).toContain(LEGACY_RETIRED_WIDGET_SCHEMA);
+    expect(nodesOfType('pivot')).toHaveLength(0);
+    expect(nodesOfType('object-pivot')).toHaveLength(0);
+    expect(adapter.find).not.toHaveBeenCalled();
+  });
+
+  it('is the same placeholder object DashboardRenderer composes for the same widget', async () => {
+    renderGrid(pivotWidget);
+    await waitFor(() => expect(received).toContain(LEGACY_RETIRED_WIDGET_SCHEMA));
+    cleanup();
+    received.length = 0;
+
+    const rendererAdapter = makeAdapter();
+    render(
+      <SchemaRendererProvider dataSource={rendererAdapter as never}>
+        <DashboardRenderer schema={dash([pivotWidget])} dataSource={rendererAdapter} />
+      </SchemaRendererProvider>,
+    );
+    // `toContain` compares by identity: both surfaces hand SchemaRenderer the
+    // one shared declaration, never a restated copy of it.
+    await waitFor(() => expect(received).toContain(LEGACY_RETIRED_WIDGET_SCHEMA));
+    expect(rendererAdapter.find).not.toHaveBeenCalled();
   });
 });
 

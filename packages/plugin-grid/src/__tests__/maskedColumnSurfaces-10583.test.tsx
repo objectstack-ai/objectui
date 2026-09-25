@@ -138,9 +138,11 @@ describe('ObjectGrid — a masked column opens no inline editor (objectui#10583)
       expect(document.body.innerHTML, 'the raw value is nowhere in the DOM').not.toContain(RAW.pin);
 
       // CONTROL — the text column in the same editable grid opens its editor.
-      fireEvent.click(cellUnder('Name'));
+      // Held by reference: once it edits, its text lives in an input value.
+      const control = cellUnder('Name');
+      fireEvent.click(control);
       await waitFor(() =>
-        expect(cellUnder('Name').querySelector('input, textarea'), 'CONTROL: the text cell edits').not.toBeNull(),
+        expect(control.querySelector('input, textarea'), 'CONTROL: the text cell edits').not.toBeNull(),
       );
     });
   }

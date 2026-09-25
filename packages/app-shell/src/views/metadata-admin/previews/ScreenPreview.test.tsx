@@ -140,7 +140,9 @@ describe('ScreenPreview — visibleWhen field gating', () => {
     config: {
       fields: [
         { name: 'createOpp', label: 'Create Opportunity?', type: 'boolean' },
-        { name: 'oppName', label: 'Opportunity Name', type: 'text', visibleWhen: '{createOpp} == true' },
+        // Bare CEL: this slot is declared bare CEL, and a `{createOpp}` brace is
+        // the brace trap `registerFlow` refuses (objectui#10692).
+        { name: 'oppName', label: 'Opportunity Name', type: 'text', visibleWhen: 'createOpp == true' },
       ],
     },
   };
@@ -158,10 +160,13 @@ describe('ScreenPreview — visibleWhen field gating', () => {
     expect(screen.queryByText(/hidden by .*visible when/i)).not.toBeInTheDocument();
   });
 
-  it('fail-opens: an undecidable condition (no run state) keeps the field visible', () => {
-    // The inspector passes declared defaults; an unset controller can't decide.
+  // Re-judged in objectui#10692: this used to expect the field shown (fail-open).
+  // A predicate that cannot be evaluated is read as the runtime reads it on
+  // resume: hidden (`validateScreenInputs`), and counted in the hint.
+  it('an undecidable condition (the variable is not set) hides the field, with a hint', () => {
     render(<ScreenPreview node={node} variables={{}} />);
-    expect(screen.getByText('Opportunity Name')).toBeInTheDocument();
+    expect(screen.queryByText('Opportunity Name')).not.toBeInTheDocument();
+    expect(screen.getByText(/hidden by .*visible when/i)).toBeInTheDocument();
   });
 });
 
@@ -172,17 +177,22 @@ describe('isFieldVisibleWhen', () => {
     expect(isFieldVisibleWhen('discount > 0', undefined)).toBe(true);
   });
 
-  it('evaluates {var} and bare-var conditions against the variables', () => {
-    expect(isFieldVisibleWhen('{createOpp} == true', { createOpp: true })).toBe(true);
-    expect(isFieldVisibleWhen('{createOpp} == true', { createOpp: false })).toBe(false);
+  // Re-judged in objectui#10692: the `{createOpp}` spelling used to be
+  // normalised to a bare name. It is the brace trap `registerFlow` refuses in
+  // this bare-CEL slot, so the field is hidden; the bare spelling evaluates.
+  it('evaluates bare CEL conditions against the variables; a {var} brace is refused', () => {
+    expect(isFieldVisibleWhen('createOpp == true', { createOpp: true })).toBe(true);
+    expect(isFieldVisibleWhen('createOpp == true', { createOpp: false })).toBe(false);
+    expect(isFieldVisibleWhen('{createOpp} == true', { createOpp: true })).toBe(false);
     expect(isFieldVisibleWhen('stage == "review"', { stage: 'review' })).toBe(true);
     expect(isFieldVisibleWhen('stage == "review"', { stage: 'draft' })).toBe(false);
     expect(isFieldVisibleWhen('discount > 0', { discount: 5 })).toBe(true);
     expect(isFieldVisibleWhen('discount > 0', { discount: 0 })).toBe(false);
   });
 
-  it('fail-opens when a referenced variable is not set', () => {
-    expect(isFieldVisibleWhen('{createOpp} == true', {})).toBe(true);
+  // Re-judged in objectui#10692: this used to expect `true` (fail-open).
+  it('hides the field when a referenced variable is not set (the runtime reading of a fault)', () => {
+    expect(isFieldVisibleWhen('createOpp == true', {})).toBe(false);
   });
 });
 
@@ -216,7 +226,7 @@ describe('buildScreenSpec', () => {
       config: {
         fields: [
           { name: 'createOpp', label: 'Create?', type: 'boolean' },
-          { name: 'oppName', label: 'Name', type: 'text', visibleWhen: '{createOpp} == true' },
+          { name: 'oppName', label: 'Name', type: 'text', visibleWhen: 'createOpp == true' },
         ],
       },
     };

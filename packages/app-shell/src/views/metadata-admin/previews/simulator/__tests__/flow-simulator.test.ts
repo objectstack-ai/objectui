@@ -196,7 +196,10 @@ describe('FlowSimulator', () => {
     expect(sim.state.visitedNodeIds).toContain('lo');
   });
 
-  it('errors a decision dead-end (no match, no default)', () => {
+  // Re-judged in objectui#10692: this used to expect an error. The runtime's
+  // `traverseNext` takes nothing here and ends the branch with no error, so the
+  // Debug run says so on the step and completes, as a real run does.
+  it('ends the branch at a decision dead-end (no match, no default), as the runtime does', () => {
     const sim = run(
       [
         { id: 's', type: 'start' },
@@ -209,8 +212,11 @@ describe('FlowSimulator', () => {
       ],
       { amount: 5 },
     );
-    expect(sim.state.status).toBe('error');
-    expect(sim.state.steps.find((s) => s.nodeId === 'd')?.status).toBe('error');
+    expect(sim.state.status).toBe('done');
+    expect(sim.state.visitedNodeIds).not.toContain('hi');
+    const dStep = sim.state.steps.find((s) => s.nodeId === 'd');
+    expect(dStep?.status).toBe('ok');
+    expect(dStep?.note).toMatch(/No out-edge was taken/);
   });
 
   it('surfaces a CEL evaluation error in the edge diagnostics', () => {
@@ -578,7 +584,9 @@ describe('decision guards in the spec expression envelope (#3216)', () => {
     const guarded = specEdge({ id: 'e_hi', source: 'd', target: 'hi', condition: 'amount > 10' });
     const sim = run(NODES, [START, guarded], { amount: 5 });
 
-    expect(sim.state.status).toBe('error');
+    // A dead end completes the run since objectui#10692, as it does at runtime.
+    expect(sim.state.status).toBe('done');
+    expect(sim.state.visitedNodeIds).not.toContain('hi');
     const hiEval = edgeEval(sim, 'hi');
     expect(hiEval.error).toBeUndefined();
     expect(hiEval.condition).toBe('amount > 10');

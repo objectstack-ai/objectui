@@ -11,10 +11,10 @@
  * which fails the node the way the runtime does.
  */
 
-import { ExpressionEvaluator } from '@object-ui/core';
 import { ExpressionEngine, validateExpression } from '@objectstack/formula';
 import {
   ASSIGNMENT_VALUE_ENVELOPE_REFUSAL,
+  predicateSlotRefusal,
   structuralConditionRefusal,
   type AssignmentExpressionValue,
 } from '@objectstack/spec/automation';
@@ -25,39 +25,13 @@ import { valueEnvelopeRefusal } from '../../inspectors/flow-value-envelope.js';
 import { t as tr, tFormat } from '../../i18n.js';
 
 /**
- * Evaluate a condition on `@object-ui/core`'s `ExpressionEvaluator`,
- * capturing (not swallowing) any failure.
- *
- * This is not CEL, and it is not how the simulator evaluates an edge guard:
- * guards go through {@link evalGuard} (objectui#10615). Its one caller is the
- * screen preview's `visibleWhen` gate (`isFieldVisibleWhen` in
- * `../screen-spec.ts`).
- */
-export function evalCondition(
-  expr: string,
-  variables: Record<string, unknown>,
-): { result: boolean; error?: string } {
-  const source = expr.trim();
-  if (!source) return { result: false, error: 'Empty condition.' };
-  try {
-    const evaluator = new ExpressionEvaluator({ ...variables, data: variables });
-    const isTemplate = /\$\{/.test(source);
-    const raw = isTemplate
-      ? evaluator.evaluate(source, { throwOnError: true })
-      : evaluator.evaluateExpression(source);
-    return { result: raw === true };
-  } catch (err) {
-    return { result: false, error: (err as Error).message || 'Evaluation failed.' };
-  }
-}
-
-/**
  * The CEL scope the runtime evaluates a flow expression in: the automation
  * engine's `celScope` (`AutomationEngine` in `@objectstack/service-automation`),
  * which its predicate and value paths share. A dotted variable key
  * (`step.result`) becomes a nested path, and the variables are bound three
  * ways: bare (`n`), under `vars` (`vars.n`) and as `record` (`record.n`).
- * There is no `data` root, unlike {@link evalCondition}'s scope.
+ * There is no `data` root, unlike the scope `@object-ui/core`'s legacy
+ * `ExpressionEvaluator` was given here before objectui#10615 and objectui#10692.
  *
  * One deliberate difference: the runtime descends into a variable's own object
  * when it nests a dotted key, and so writes into it. Here each object on the
@@ -95,7 +69,7 @@ function flowCelScope(variables: Record<string, unknown>): {
  *    flow with at registration.
  * 3. Value: `ExpressionEngine.evaluate` against {@link flowCelScope}.
  *
- * {@link evalCondition}'s `ExpressionEvaluator` is not used for this. Its
+ * `@object-ui/core`'s `ExpressionEvaluator` is not used for this. Its
  * bare-expression path is not CEL: when this landed it had no CEL stdlib
  * (`joinNonEmpty`, `size`), no macros (`rows.map(r, …)`) and no `in`, and it
  * bound `data` where the runtime binds `vars`. The engine and scope pins in
@@ -171,13 +145,16 @@ export type GuardEvaluation =
  *    read as `Boolean(value)`, as `evaluateCondition` reads it.
  *
  * Steps 2 to 4 are refusals the runtime makes before any node runs; step 5's
- * fault is the one it throws mid-run. The simulator reports both on the
- * decision and stops there.
+ * fault is the one it throws mid-run. The simulator reports both on the node
+ * whose out-edge it is, and stops there.
  *
  * A bare string is CEL. The runtime's legacy `{var}` template dialect is never
  * reached for an edge: `FlowEdgeSchema` turns every bare string into a
  * `{ dialect: 'cel', source }` envelope, and `registerFlow` refuses a
  * `template` envelope at step 4. So this has no template branch to mirror.
+ *
+ * Steps 4 and 5 are {@link evalCelPredicate}, the one CEL call every predicate
+ * in the simulator goes through (objectui#10692).
  */
 export function evalGuard(condition: unknown, variables: Record<string, unknown>): GuardEvaluation {
   try {
@@ -196,8 +173,32 @@ export function evalGuard(condition: unknown, variables: Record<string, unknown>
       }
     }
     const input = condition as SimEdge['condition'];
-    const source = conditionText(input) ?? '';
-    const parsed = validateExpression('predicate', input as string | { dialect?: string; source?: string });
+    return evalCelPredicate(input as string | { dialect?: string; source?: string }, conditionText(input) ?? '', variables);
+  } catch (err) {
+    return { kind: 'fault', error: (err as Error).message || 'Evaluation failed.' };
+  }
+}
+
+/**
+ * The one CEL call every predicate in the simulator goes through: an edge
+ * guard ({@link evalGuard}), a screen field's `visibleWhen`
+ * ({@link evalVisibleWhen}) and a decision branch's `expression`
+ * ({@link evalBranchPredicate}). There is no second evaluator (objectui#10692).
+ *
+ * 1. `validateExpression('predicate', …)`, the parse `registerFlow` refuses a
+ *    flow with. A `{var}` or `${…}` template is not CEL and is refused here,
+ *    and so is a dialect other than `cel`.
+ * 2. `ExpressionEngine.evaluate` against {@link flowCelScope}. A CEL error is a
+ *    fault. A value is read as `Boolean(value)`, as the runtime's
+ *    `evaluateCondition` reads it.
+ */
+function evalCelPredicate(
+  input: string | { dialect?: string; source?: string },
+  source: string,
+  variables: Record<string, unknown>,
+): Exclude<GuardEvaluation, { kind: 'absent' }> {
+  try {
+    const parsed = validateExpression('predicate', input);
     if (parsed.errors.length > 0) {
       return { kind: 'fault', error: parsed.errors.map((e) => e.message).join(' ') };
     }
@@ -207,6 +208,56 @@ export function evalGuard(condition: unknown, variables: Record<string, unknown>
   } catch (err) {
     return { kind: 'fault', error: (err as Error).message || 'Evaluation failed.' };
   }
+}
+
+/**
+ * Evaluate a screen field's `visibleWhen` the way the runtime evaluates it
+ * when a screen is resumed (`refuseInvalidScreenInput` in `AutomationEngine`,
+ * which calls `evaluateCondition` over the run's variables), through
+ * {@link evalCelPredicate} (objectui#10692).
+ *
+ * 1. Absent: `undefined`, `null` or a blank string. This is the runtime's own
+ *    test for "declares a predicate" (`validateScreenInputs`), and the field is
+ *    then always shown.
+ * 2. Shape: the spec's `predicateSlotRefusal`. The slot is declared bare CEL
+ *    text, so an envelope, a boolean or any other non-string is refused, as
+ *    `registerFlow` refuses it.
+ * 3. The CEL call: a `{var}` brace is refused (it is the brace trap in a
+ *    bare-CEL slot, and `registerFlow` refuses it), and a CEL error is a fault.
+ *
+ * What a fault means is the caller's to state: the screen preview reads it as
+ * hidden (see `isFieldVisibleWhen`).
+ */
+export function evalVisibleWhen(visibleWhen: unknown, variables: Record<string, unknown>): GuardEvaluation {
+  if (visibleWhen === undefined || visibleWhen === null) return { kind: 'absent' };
+  if (typeof visibleWhen === 'string' && !visibleWhen.trim()) return { kind: 'absent' };
+  const shape = predicateSlotRefusal(visibleWhen);
+  if (shape) return { kind: 'fault', error: shape.message };
+  return evalCelPredicate(visibleWhen as string, visibleWhen as string, variables);
+}
+
+/**
+ * Evaluate one entry of a decision's `config.conditions` (`{ label,
+ * expression }`), the way the runtime's `decision` executor does
+ * (`registerLogicNodes` in `@objectstack/service-automation`): as a
+ * `{ dialect: 'cel', source: expression }` predicate, through
+ * {@link evalCelPredicate} (objectui#10692).
+ *
+ * - A blank `expression` is `false`: `evaluateCondition` answers an empty
+ *   source `false` ("an unauthored branch must not open").
+ * - A non-string `expression` is refused with the spec's
+ *   `predicateSlotRefusal`, the refusal `registerFlow` applies to this slot.
+ */
+export function evalBranchPredicate(
+  expression: unknown,
+  variables: Record<string, unknown>,
+): Exclude<GuardEvaluation, { kind: 'absent' }> {
+  const shape = predicateSlotRefusal(expression);
+  if (shape) return { kind: 'fault', error: shape.message };
+  const source = expression as string;
+  if (!source.trim()) return { kind: 'value', result: false };
+  // Parsed as the bare text `registerFlow` checks this slot as.
+  return evalCelPredicate(source, source, variables);
 }
 
 /**

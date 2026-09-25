@@ -37,9 +37,10 @@ export interface ScreenPreviewProps {
    * Variable values for `{var}` interpolation in the title/description AND for
    * evaluating each field's `visibleWhen`. The inspector passes the flow's
    * declared defaults; the simulator passes the live run state at the pause
-   * point. Unknown `{var}` refs stay literal, and fields whose `visibleWhen`
-   * can't be decided stay visible — the design preview never hides on missing
-   * data.
+   * point. Unknown `{var}` refs stay literal. A field whose `visibleWhen` can't
+   * be evaluated against these variables is hidden, the runtime's reading of a
+   * predicate it cannot evaluate (`fieldVisibility` in `./screen-spec.ts`,
+   * objectui#10692).
    */
   variables?: Record<string, unknown>;
   className?: string;

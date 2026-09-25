@@ -9,7 +9,7 @@
  */
 
 import type { ScreenSpec, ScreenFieldSpec } from '../../ScreenView.js';
-import { evalCondition } from './simulator/flow-sim-validate.js';
+import { evalVisibleWhen } from './simulator/flow-sim-validate.js';
 
 /** Minimal node shape the preview needs (id + authored config). */
 export interface ScreenPreviewNode {
@@ -32,33 +32,70 @@ export function interpolate(text: string | undefined, vars: Record<string, unkno
   });
 }
 
+/** What the preview made of one field's `visibleWhen` (see {@link fieldVisibility}). */
+export interface FieldVisibility {
+  visible: boolean;
+  /** Set when the predicate is refused or fails to evaluate; the field is then hidden. */
+  error?: string;
+}
+
 /**
- * A field's `visibleWhen` gate, evaluated against the current variables with
- * `evalCondition`, `@object-ui/core`'s expression evaluator. Since
- * objectui#10615 that is not the evaluator the simulator uses for edge
- * guards, which is the runtime's CEL engine. Real metadata mixes `{var}` and
- * bare-var styles (e.g. `{createOpportunity} == true`, `stage == "review"`),
- * so brace placeholders are normalised to bare identifiers first.
+ * A field's `visibleWhen` gate, evaluated against `variables` with the
+ * simulator's one CEL call, the one its edge guards use (`evalVisibleWhen` in
+ * `./simulator/flow-sim-validate.ts`, objectui#10692): the runtime's
+ * `@objectstack/formula` engine over the runtime's flow scope (bare names,
+ * `vars.*`, `record.*`).
  *
- * Fail-OPEN: a missing condition, an unparseable one, or one that references a
- * not-yet-set variable (the inspector has no run state) keeps the field
- * visible — the design preview never hides a configured field just because it
- * lacks the data to decide. With live run state (the simulator) it gates
- * faithfully: `createOpportunity == false` hides the field.
+ * - No predicate (absent or blank), or no `variables` at all: visible.
+ * - A predicate that evaluates: visible when the value is truthy.
+ * - A predicate that is refused or faults — a `{var}` brace (the brace trap
+ *   `registerFlow` refuses in this bare-CEL slot), a non-string, a CEL error
+ *   such as a variable not in `variables` — is read as HIDDEN, and the error
+ *   is returned. That is the runtime's reading: when a screen is resumed,
+ *   `refuseInvalidScreenInput` reports a `visibleWhen` it cannot evaluate and
+ *   `validateScreenInputs` treats the field as hidden. A flow `registerFlow`
+ *   refuses never runs, so its field is never shown either.
  */
+export function fieldVisibility(visibleWhen: unknown, variables: Record<string, unknown> | undefined): FieldVisibility {
+  if (!variables) return { visible: true };
+  const g = evalVisibleWhen(visibleWhen, variables);
+  if (g.kind === 'absent') return { visible: true };
+  if (g.kind === 'fault') return { visible: false, error: g.error };
+  return { visible: g.result };
+}
+
+/** Whether a field is shown: {@link fieldVisibility}'s `visible`. */
 export function isFieldVisibleWhen(visibleWhen: unknown, variables: Record<string, unknown> | undefined): boolean {
-  if (typeof visibleWhen !== 'string' || !visibleWhen.trim()) return true;
-  if (!variables) return true;
-  const normalized = visibleWhen.replace(/\{([\w.]+)\}/g, '$1');
-  const { result, error } = evalCondition(normalized, variables);
-  return error ? true : result;
+  return fieldVisibility(visibleWhen, variables).visible;
+}
+
+/**
+ * The authored field rows of a screen whose `visibleWhen` is refused or fails
+ * to evaluate against `variables`, with the error. Each is hidden (see
+ * {@link fieldVisibility}); the Debug run names them on the screen's step.
+ */
+export function unevaluableVisibleWhen(
+  node: ScreenPreviewNode,
+  variables: Record<string, unknown> | undefined,
+): Array<{ name: string; error: string }> {
+  const raw = (node.config as Record<string, unknown> | undefined)?.fields;
+  if (!Array.isArray(raw)) return [];
+  const out: Array<{ name: string; error: string }> = [];
+  for (const f of raw) {
+    if (!f || typeof f !== 'object') continue;
+    const row = f as Record<string, unknown>;
+    if (typeof row.name !== 'string' || !row.name) continue;
+    const { error } = fieldVisibility(row.visibleWhen, variables);
+    if (error) out.push({ name: row.name, error });
+  }
+  return out;
 }
 
 /**
  * Coerce the authored `config.fields` rows into runtime `ScreenFieldSpec`s,
- * dropping any whose `visibleWhen` evaluates false against `variables` — exactly
- * what the runtime `screen` executor emits (it filters server-side before
- * sending the ScreenSpec).
+ * dropping any that {@link fieldVisibility} reads as hidden against
+ * `variables`. (The runtime `screen` executor sends `visibleWhen` to the
+ * client raw; this preview decides it up front, with the runtime's reading.)
  */
 function toScreenFields(raw: unknown, variables: Record<string, unknown> | undefined): ScreenFieldSpec[] {
   if (!Array.isArray(raw)) return [];

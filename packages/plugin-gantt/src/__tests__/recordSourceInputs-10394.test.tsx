@@ -23,7 +23,8 @@
  * Declaration:
  * 1. The html tier accepts a block authored on `staticData` alone, and on a
  *    `data` configuration alone — no diagnostic at all.
- * 2. Control for row 1: a bogus key on the same node is still reported.
+ * 2. Control for row 1: a bogus key is still reported, on a node bound by
+ *    `objectName` so the row holds before and after the fix alike.
  * 3. The registration declares both keys (`objectName` as non-vacuity).
  * 4. Each declared ARM is the schema's own, read from `ObjectGanttSchema` with
  *    the refused spelling as the control, and the html tier enforces it: a
@@ -123,9 +124,9 @@ describe('objectui#10394 — the object-gantt registration declares data and sta
     expect(diagnosticsOf({ data: VALUE_CONFIG })).toEqual([]);
   });
 
-  it('control: a bogus key on the same node is still reported', () => {
+  it('control: a bogus key is still reported', () => {
     expect(
-      diagnosticsOf({ staticData: STATIC_ROWS, bogusProp: 'x' }).map((d) => [d.code, d.message]),
+      diagnosticsOf({ objectName: 'task', bogusProp: 'x' }).map((d) => [d.code, d.message]),
     ).toEqual([['unknown-prop', `<${TYPE}> has no prop "bogusProp"`]]);
   });
 

@@ -20,7 +20,8 @@
  * Declaration, per registration key:
  * 1. The html tier accepts a block authored on `staticData` alone, and on a
  *    `data` configuration alone — no diagnostic at all.
- * 2. Control for row 1: a bogus key on the same node is still reported.
+ * 2. Control for row 1: a bogus key is still reported, on a node bound by
+ *    `objectName` so the row holds before and after the fix alike.
  * 3. The registration declares both keys (`objectName` as non-vacuity).
  * 4. Each declared ARM is the schema's own, read from `ObjectMapSchema` with
  *    the refused spelling as the control, and the html tier enforces it: a
@@ -124,9 +125,9 @@ describe('objectui#10394 — map registrations declare data and staticData', () 
     expect(diagnosticsOf({ type, map: MAP, data: VALUE_CONFIG })).toEqual([]);
   });
 
-  it.each(MAP_KEYS)('$label — control: a bogus key on the same node is still reported', ({ type }) => {
+  it.each(MAP_KEYS)('$label — control: a bogus key is still reported', ({ type }) => {
     expect(
-      diagnosticsOf({ type, map: MAP, staticData: STATIC_ROWS, bogusProp: 'x' }).map((d) => [d.code, d.message]),
+      diagnosticsOf({ type, map: MAP, objectName: 'store', bogusProp: 'x' }).map((d) => [d.code, d.message]),
     ).toEqual([['unknown-prop', `<${type}> has no prop "bogusProp"`]]);
   });
 

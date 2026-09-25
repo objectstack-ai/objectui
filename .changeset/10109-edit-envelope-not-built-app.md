@@ -6,6 +6,7 @@ An incremental edit is no longer read as a whole-app build. An `apply_edit` resu
 
 - `detectBuiltAppPackage` returns `undefined` for an envelope that says `kind: 'edit'`, in both the drafted and the auto-publish (`status: 'published'`) postures.
 - `DraftReview` has a new optional `kind?: 'edit'`, and `detectDraftResult` fills it from the envelope. The edit still gets its draft card, its items and its `packageId`, so one-click publish still works.
+- `ChatbotEnhancedToolInvocation['draftReview']` (`ChatToolInvocation.draftReview`) is now typed as `DraftReview` instead of an inline copy of its fields, so it declares `kind` too. The two were field-identical before this change, and the published tool-invocation type now describes exactly what the chat mapper puts on it.
 - `buildProgressFromDraftReview` builds no finished "Built X" panel for a draft review whose `kind` is `'edit'`, so a reloaded edit shows the same thing it showed live.
 
 An envelope without `kind` behaves as before. `DraftReview.kind` declares only the value these readers act on, and an envelope that says anything else leaves it unset.

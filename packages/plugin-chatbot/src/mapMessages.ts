@@ -207,9 +207,25 @@ export interface DraftReview {
   items: Array<{ type: string; name: string }>;
   summary?: string;
   packageId?: string;
+  /**
+   * Backend lifecycle intent (from the tool result). `true` for whole-app
+   * builds (apply_blueprint) — eligible for the auto-publish "magic moment".
+   * Omitted for incremental edits, which stay drafts for explicit review.
+   */
   autoPublishable?: boolean;
+  /** Count of artifacts that failed in a partial build, surfaced not hidden. */
   failedCount?: number;
+  /**
+   * ADR-0045: the build was MATERIALIZED in-turn — real tables and seed
+   * rows exist; the app is live but `hidden` (unlisted). Preview should
+   * open the REAL app URL, not the draft overlay.
+   */
   materialized?: boolean;
+  /**
+   * ADR-0038 L1 graph-lint verdict for the staged build. Rendered as a
+   * verified/issues chip so "drafted" and "verified" read as the two
+   * separate statements they are. Absent on older tool output.
+   */
   verification?: { errors: number; warnings: number };
   /**
    * ADR-0038 L1 — the individual lint findings behind the `verification`
@@ -231,10 +247,11 @@ export interface DraftReview {
    * from the envelope's own `kind`: `apply_edit` answers `kind: 'edit'`, and a
    * whole-app `apply_blueprint` build carries no `kind`. An edit's `items` may
    * honestly include the `app` artifact it re-staged (an `add_object` op
-   * merges the nav), so every reader that asks "is this a whole-app build?"
-   * checks this before inferring a build from the staged artifact types.
-   * Only the value such a reader acts on is declared: an envelope that does
-   * not say `'edit'` lifts nothing here.
+   * merges the nav), so the readers that infer a whole-app build from a draft
+   * review's staged artifact types check this first: `buildProgressFromDraftReview`
+   * here, and app-shell's built-moment transition (`detectBuiltAppPackage` reads
+   * the envelope's own `kind` instead). Only the value those readers act on is
+   * declared: an envelope that does not say `'edit'` lifts nothing here.
    */
   kind?: 'edit';
 }

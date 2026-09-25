@@ -417,6 +417,14 @@ interface MasterDetailLinesProps {
   /** Row state addressed by ENTRY ID, never by array position (objectui#6371). */
   rowState: Record<string, RowState>;
   setRows: (entryId: string, rows: Record<string, any>[]) => void;
+  /**
+   * A save is in flight: every grid takes no input (objectui#10631). A created
+   * row takes its echoed id by identity with the row object the batch was built
+   * from, and a grid with a sort field maps EVERY row to a new object on any
+   * change, so a single keystroke during the save would leave every row it
+   * created without its id.
+   */
+  saving: boolean;
   /** Host wrapping the header <ObjectForm> — scraped for the live parent record. */
   formHostRef: React.RefObject<HTMLDivElement | null>;
   taxRateField: string;
@@ -449,6 +457,7 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
   entries,
   rowState,
   setRows,
+  saving,
   formHostRef,
   taxRateField,
   formKey,
@@ -599,6 +608,11 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
             <LineItemsField
               value={rowState[entry.id]?.rows ?? []}
               onChange={(rows) => setRows(entry.id, rows)}
+              // The grid's own `disabled`: cells locked, and no ghost row, add,
+              // duplicate, remove or reorder while the save is in flight
+              // (objectui#10631). Its row "expand" control stays; the editor it
+              // opens is held by the same state in <MasterDetailForm>.
+              disabled={saving}
               // The live header record — a line cell's readonlyWhen/requiredWhen
               // CEL rule evaluates against it as `parent` (e.g. lock when
               // parent.status == 'paid').
@@ -886,9 +900,24 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
   // Bumped after a successful CREATE to remount the parent <ObjectForm> (which
   // owns react-hook-form state) so its fields clear for the next entry.
   const [formKey, setFormKey] = useState(0);
+  /**
+   * The save guard: set from the moment a save is asked for until its OUTCOME
+   * (objectui#10631). While it is set, Save and Cancel are disabled and the
+   * lines take no input (`MasterDetailLines`, the row editor below).
+   */
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
+  /**
+   * Armed by a Save click and cleared as soon as that submit reaches the batch.
+   * It covers only the stretch BEFORE the batch: see `handleSave`.
+   */
   const saveGuardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * Set while `submitViaBatch` has a batch in flight. One batch at a time: a
+   * second batch built from the same baseline writes every created row twice
+   * (objectui#10631).
+   */
+  const batchInFlightRef = useRef(false);
   /**
    * The sonner id BOTH save outcomes of THIS form are published under.
    *
@@ -914,14 +943,27 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
    */
   const formInstanceId = React.useId();
   const outcomeToastId = `form-outcome:${formInstanceId}`;
-  const releaseSave = useCallback(() => {
-    savingRef.current = false;
-    setSaving(false);
+  const clearSaveGuardTimer = useCallback(() => {
     if (saveGuardTimer.current) {
       clearTimeout(saveGuardTimer.current);
       saveGuardTimer.current = null;
     }
   }, []);
+  const releaseSave = useCallback(() => {
+    savingRef.current = false;
+    setSaving(false);
+    clearSaveGuardTimer();
+  }, [clearSaveGuardTimer]);
+  /**
+   * A batch is about to go out: hold the guard until its outcome. Also reached
+   * by a submit that did not come through the Save button (an implicit
+   * submission of the header form), which must hold the form just the same.
+   */
+  const holdSaveForBatch = useCallback(() => {
+    savingRef.current = true;
+    setSaving(true);
+    clearSaveGuardTimer();
+  }, [clearSaveGuardTimer]);
 
   // Edit mode: load existing children for each detail collection.
   useEffect(() => {
@@ -1072,7 +1114,11 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
    */
   const handleError = useCallback(
     (err: Error) => {
-      releaseSave();
+      // A submit refused because another batch is still in flight (see
+      // `submitViaBatch`) is not that batch's outcome: releasing here would
+      // re-arm Save and the grid under a save that has not landed. Every other
+      // failure, including the in-flight batch's own, has settled by now.
+      if (!batchInFlightRef.current) releaseSave();
       schema.onError?.(err);
     },
     [schema, releaseSave],
@@ -1085,7 +1131,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
   // otherwise. This covers BOTH create (parent + child creates via `$ref`) and
   // edit (parent update + child create/update/delete diffs). There is no
   // separate client-orchestrated / cleanup path anymore (#2679).
-  const submitViaBatch = useCallback(
+  const sendBatch = useCallback(
     async (parentValues: Record<string, any>) => {
       if (!dataSource) throw new Error('MasterDetailForm: dataSource is required');
       const parentData: Record<string, any> = { ...parentValues };
@@ -1153,9 +1199,10 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
             const cur = prev[s.entryId];
             if (!cur || cur.original !== s.diffedAgainst) continue;
             // A created row takes its id by identity with the row the batch
-            // was built from. A row edited while the save was in flight is a
-            // new object and keeps none: the next save then deletes the created
-            // record and creates the row as it now stands.
+            // was built from. The lines take no input while the save is in
+            // flight (objectui#10631), so every such row is still that object.
+            // Were one replaced anyway, it keeps no id: the next save then
+            // deletes the created record and creates the row as it now stands.
             const rows = s.createdIds.size === 0
               ? cur.rows
               : cur.rows.map((r) => {
@@ -1171,6 +1218,36 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
       return res?.results?.[0] ?? { ...parentData, id: schema.recordId };
     },
     [dataSource, entries, schema.objectName, schema.recordId, isEdit],
+  );
+
+  /**
+   * The header form's `submitHandler`: one batch at a time, with the save
+   * guard held until its outcome (objectui#10631).
+   *
+   * A second batch built while the first is in flight diffs against the same
+   * baseline and writes every created row again. The Save button cannot start
+   * one while the guard holds it, but a submit of the header form that does
+   * not come through that button can (an implicit submission, when the header
+   * has a single text input). That submit is refused by THROWING, so the
+   * header `ObjectForm` neither advances its baseline nor reports a success
+   * for a write that was never sent, and `handleError` releases nothing.
+   */
+  const submitViaBatch = useCallback(
+    async (parentValues: Record<string, any>) => {
+      if (batchInFlightRef.current) {
+        throw new Error('This save was not sent: another save of this form was still in progress.');
+      }
+      batchInFlightRef.current = true;
+      holdSaveForBatch();
+      try {
+        return await sendBatch(parentValues);
+      } finally {
+        // Cleared before the header form sees the outcome, so `handleSaved` and
+        // `handleError` read this save as settled.
+        batchInFlightRef.current = false;
+      }
+    },
+    [sendBatch, holdSaveForBatch],
   );
 
   // The parent form renders WITHOUT its own submit button — the master-detail
@@ -1247,9 +1324,15 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
       const liveForm = formHostRef.current?.querySelector('form') as HTMLFormElement | null;
       liveForm?.requestSubmit();
     }, 0);
-    // Safety net: react-hook-form blocks invalid submits without firing
-    // onSuccess/onError, which would otherwise leave the button stuck. Release
-    // the guard after a beat so the user can correct fields and retry.
+    // Safety net for the stretch BEFORE the batch: react-hook-form blocks an
+    // invalid submit without firing onSuccess/onError, and the deferred submit
+    // above has been seen to drop, either of which would otherwise leave the
+    // button stuck. Release the guard after a beat so the user can correct
+    // fields and retry. `submitViaBatch` clears this timer the moment the
+    // submit reaches the batch: from there only the batch's outcome releases
+    // the guard. Releasing on this timer whatever the batch was doing re-armed
+    // Save under a batch slower than it, and a second click wrote the same
+    // records again (objectui#10631).
     saveGuardTimer.current = setTimeout(() => releaseSave(), 1500);
   }, [releaseSave, outcomeToastId, uploadGate.uploading, uploadGate.reason]);
 
@@ -1270,6 +1353,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
         entries={entries}
         rowState={rowState}
         setRows={setRows}
+        saving={saving}
         formHostRef={formHostRef}
         taxRateField={taxRateField}
         formKey={formKey}
@@ -1303,27 +1387,35 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
             </Button>
           </CardHeader>
           <CardContent>
-            <ObjectForm
-              key={`row-${expanded.entryId}-${expanded.rowIdx}`}
-              schema={{
-                type: 'object-form',
-                objectName: expandedDetail.childObject,
-                mode: 'edit',
-                // No recordId → ObjectForm uses initialData (no backend fetch).
-                initialData: expandedRow ?? {},
-                ...(expandedDetail.formFields?.length ? { fields: expandedDetail.formFields } : {}),
-                submitText: 'Apply',
-                // Non-persisting: return the values; the atomic batch on the
-                // parent Save does the real write.
-                submitHandler: async (values: any) => values,
-                onSuccess: (values: any) => {
-                  applyRowEdit(expanded.entryId, expanded.rowIdx, values);
-                  setExpanded(null);
-                },
-                onCancel: cancelRowEdit,
-              } as any}
-              dataSource={dataSource}
-            />
+            {/* Held while a save is in flight, like the grid (objectui#10631):
+                "Apply" writes the edited values over the row as a NEW object,
+                and a created row takes its echoed id by identity with the row
+                the batch was built from, so an apply mid-save would cost that
+                row its id. A disabled fieldset disables every control in the
+                editor, "Apply" included, until the save has settled. */}
+            <fieldset disabled={saving} className="min-w-0">
+              <ObjectForm
+                key={`row-${expanded.entryId}-${expanded.rowIdx}`}
+                schema={{
+                  type: 'object-form',
+                  objectName: expandedDetail.childObject,
+                  mode: 'edit',
+                  // No recordId → ObjectForm uses initialData (no backend fetch).
+                  initialData: expandedRow ?? {},
+                  ...(expandedDetail.formFields?.length ? { fields: expandedDetail.formFields } : {}),
+                  submitText: 'Apply',
+                  // Non-persisting: return the values; the atomic batch on the
+                  // parent Save does the real write.
+                  submitHandler: async (values: any) => values,
+                  onSuccess: (values: any) => {
+                    applyRowEdit(expanded.entryId, expanded.rowIdx, values);
+                    setExpanded(null);
+                  },
+                  onCancel: cancelRowEdit,
+                } as any}
+                dataSource={dataSource}
+              />
+            </fieldset>
           </CardContent>
         </Card>
       )}

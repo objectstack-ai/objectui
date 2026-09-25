@@ -16,5 +16,5 @@ A master-detail edit form that stays open after a save no longer re-creates the 
 
 - After a successful edit save, the rows that save created take the ids the batch returned for them, and the collection's baseline takes on what the save wrote. The next save compares with the lines as they now stand. This is the same rule the parent record already followed after a save (objectui#10156).
 - A save that fails advances nothing, neither the parent nor the lines, so a retry still sends every operation.
-- A line created by a save and edited while that save was still in flight is not duplicated. The next save deletes the created record and creates the line as it now stands.
+- The lines take no input while a save is in flight (objectui#10631), so nothing typed during a save can separate a line the save created from its id.
 - Create mode is unchanged: a successful create still clears the lines and the header for the next entry.

@@ -248,7 +248,7 @@ ComponentRegistry.register(
         { name: 'fallbackValue', type: 'string', description: 'Value shown when no data source resolves. For static/demo tiles; a bound metric should not need it.' },
         { name: 'trend', type: 'object', description: 'Static trend badge: `{ value, label, direction }`. Use `compareTo` instead when the trend should be computed from data.' },
         { name: 'compareTo', type: 'object', description: 'Period-over-period comparison, `{ kind: "previousPeriod" }` or `{ kind: "previousYear" }` — the computed alternative to a static `trend`.' },
-        { name: 'drillDown', type: 'object', description: 'Click-through config that opens the records behind the number.' },
+        { name: 'drillDown', type: 'object', description: 'Click-through config that opens the records behind the number. `drillDown.filter` and `drillDown.mode` do not apply to a metric, which has no clicked point to filter by and no row to open, so the list is always scoped by this block’s own `filter`; a drill `filter` belongs on `object-chart` or `object-pivot`, and `mode` on `object-data-table`.' },
     ],
     defaultProps: {
       label: 'Metric',

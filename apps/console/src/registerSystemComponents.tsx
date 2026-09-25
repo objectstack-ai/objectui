@@ -53,7 +53,7 @@
  * `system/audit-log` and `system/ai-approvals` (declared in `AppContent.tsx`'s
  * `systemRoutes` fragment) are NOT replaced: bookmarks and deep links carry
  * them. These component refs are purely additive. Pinned in
- * `__tests__/systemComponentRefs.test.tsx`.
+ * `__tests__/orphanedPageComponentRefs-10520.test.tsx`.
  */
 
 import { lazy, Suspense } from 'react';

@@ -26,7 +26,7 @@
  * The standalone `/developer/*` routes in `AppContent.tsx` stay in place,
  * because bookmarks and deep links carry them. This module only wires the
  * metadata-driven entry from app sidebars. Pinned in
- * `__tests__/developerIntegrationsComponentRef.test.tsx`.
+ * `__tests__/orphanedPageComponentRefs-10520.test.tsx`.
  */
 
 import { lazy, Suspense } from 'react';

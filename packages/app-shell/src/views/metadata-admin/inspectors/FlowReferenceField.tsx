@@ -46,6 +46,8 @@ import { LookupField } from '@object-ui/fields';
 import type { FlowReferenceSpec, ReferenceKind, RefValueSource } from './flow-node-config.js';
 import { useMetadataClient } from '../useMetadata.js';
 import { useObjectFields } from '../previews/useObjectFields.js';
+import { t, useMetadataLocale } from '../i18n.js';
+import { flagUnknownValue } from './_shared.js';
 
 /** Context the reference picker needs to resolve dynamic option sources. */
 export interface FlowReferenceContext {
@@ -613,6 +615,9 @@ export interface ReferenceComboboxProps {
  */
 export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect, disabled, placeholder, context, showHint = true }: ReferenceComboboxProps) {
   const listId = React.useId();
+  // No `locale` prop here: the out-of-enum tier flag reads the designer's
+  // locale itself, as the sibling `FlowObjectListField` does (objectui#10448).
+  const locale = useMetadataLocale();
   const ctx: FlowReferenceContext = context ?? { draft: {}, node: null };
   const kind = resolved?.kind;
   // Picker-style commits have no blur event; default to commit-then-flush.
@@ -700,7 +705,7 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
     const current = value != null ? String(value) : '';
     const tiers = membershipLevelOptions(resolved?.source);
     const shown = current && !tiers.some((o) => o.value === current)
-      ? [...tiers, { value: current, label: `${current} (invalid)` }]
+      ? [...tiers, { value: current, label: flagUnknownValue(current, t('engine.form.invalid', locale), locale) }]
       : tiers;
     return (
       <Select value={current || undefined} onValueChange={commitSelection} disabled={disabled}>

@@ -97,7 +97,7 @@ const retype = (next: string) =>
 const save = () => fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
 /** The text of every notice raised so far. */
-const notices = () => warningSpy.mock.calls.map((c) => String(c[0]));
+const notices = () => warningSpy.mock.calls.map((c: unknown[]) => String(c[0]));
 
 describe('#8070 — a visibleWhen clear is named to the user', () => {
   it('a populated field whose visibleWhen turns false renders one notice naming its label', async () => {

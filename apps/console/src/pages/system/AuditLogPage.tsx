@@ -1,8 +1,10 @@
 /**
  * Audit Log Page (system route)
  *
- * Read-only browser for `sys_audit_log` records, surfaced via the System
- * Hub card at `/system/audit-log`. Talks to the framework REST endpoint
+ * Read-only browser for `sys_audit_log` records, served at the standalone
+ * route `/system/audit-log` and registered as the `audit:log` component ref
+ * that framework navigation can name (`registerSystemComponents.tsx`,
+ * objectui#10520). Talks to the framework REST endpoint
  * `/api/v1/data/sys_audit_log` with standard ObjectQL filter params.
  *
  * Field shape mirrors framework/packages/platform-objects/src/audit/

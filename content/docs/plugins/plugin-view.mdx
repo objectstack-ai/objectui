@@ -99,8 +99,8 @@ declared member of `ObjectViewSchema`, and none is read anywhere in
 `packages/plugin-view/src`. Because `type: 'object-view'` *is* registered, a
 node built from those keys still resolves to a renderer; it just never receives
 an `objectName`, and the component's data effects are all guarded on it
-(`ObjectView.tsx:403`, `:420`), so the result is a silent empty view rather than
-an error.
+(`ObjectView.tsx`'s `if (!dataSource || !schema.objectName) return;` guards), so
+the result is a silent empty view rather than an error.
 
 Three structural facts about this node:
 
@@ -128,41 +128,48 @@ object through. Anything else you put in them is ignored:
 
 | Sub-config | Keys `ObjectView` forwards |
 | --- | --- |
-| `table` | `columns`, `fields`, `title`, `description`, `filter`, `defaultFilters`, `sort`, `defaultSort`, `pagination`, `pageSize`, `selection`, `selectable`, `operations`, `className` |
+| `table` | `columns`, `fields`, `title`, `description`, `filter`, `defaultFilters`, `sort`, `pagination`, `pageSize`, `selection`, `selectable`, `operations`, `className` |
 | `form` | `fields`, `customFields`, `sections`, `groups`, `layout`, `columns`, `title`, `description`, `subforms`, `buttons`, `defaults`, `initialValues`, `readOnly`, `showSubmit`, `submitText`, `showCancel`, `cancelText`, `showReset`, `className` |
 
 The forwarding is literal, key by key, spread across three sites in
-`ObjectView.tsx` — the non-grid data fetch (around `:604-611`), the grid
-schema (around `:1041-1078`), and the schema handed to a host-supplied list
-renderer (around `:1201-1209`) — so the four keys below behave the same on
-every rendering path.
+`ObjectView.tsx` — the non-grid data fetch, the `gridSchema` memo, and the
+`mergedFilters` / `mergedSort` pair handed to a host-supplied list renderer —
+so the keys below behave the same on every rendering path.
+
+> **`table.defaultSort` is retired (objectui#5861).** It was the legacy
+> single-entry spelling of `table.sort`. `@objectstack/spec` 17.3.0 turned
+> `object-grid`'s `defaultSort` into a retired-key tombstone the protocol
+> refuses by name, and `ObjectView` no longer reads it on any of the three
+> paths above (nor does `ObjectGrid`): a view that still carries it renders
+> **unsorted**. Rename the key to `sort` and wrap the value in an array —
+> `defaultSort: { field: 'name', order: 'asc' }` becomes
+> `sort: [{ field: 'name', order: 'asc' }]`.
 
 #### Canonical keys now take effect (objectui#5102)
 
-Four of the forwarded `table` keys are pairs — a canonical `ObjectGridSchema`
-key and the `@deprecated` legacy spelling it replaced. Both now work; write
-the canonical one:
+Three of the forwarded `table` keys are pairs — a canonical `ObjectGridSchema`
+key and the `@deprecated` legacy spelling it replaced. Both work; write the
+canonical one. (A fourth pair, `sort` / `defaultSort`, used to be listed here;
+its legacy half is retired — see the note above.)
 
 | write this (canonical) | not this (legacy alias — still works) |
 | --- | --- |
 | `pagination: { pageSize, pageSizeOptions? }` | `pageSize: number` |
 | `selection: { type: 'single' \| 'multiple' \| 'none' }` | `selectable: boolean \| 'single' \| 'multiple'` |
 | `filter: [{ field, operator, value }, …]` (same shape as a named view's `filter`) | `defaultFilters: Record<field, value>` (equality-only) |
-| `sort: SortConfig[]` (`[{ field, order }]`) | `defaultSort: { field, order }` (a single entry, not an array) |
 
 Before objectui#5102, `pagination` / `selection` / `filter` / `sort` had **no
 read point at all** in this file: an author who wrote the canonical shape
 `ObjectGridSchema`'s own JSDoc recommends got a view that compiled, read
 correctly, and silently did nothing. That is fixed — the legacy spellings on
-the right are not going away, they are simply no longer the ones to reach for.
+the right are simply no longer the ones to reach for.
 
 **When a key is written both ways, the canonical spelling wins** — that is
 `ObjectGrid`'s own existing resolution (`schema.pagination?.pageSize ||
 schema.pageSize`; `if (schema.selection?.type) … else if (schema.selectable
-!== undefined)`; `schemaFilter !== undefined ? … : schema.defaultFilters`;
-`schemaSort ?? (schema.defaultSort ? [schema.defaultSort] : undefined)`), and
-`ObjectView` defers to it by forwarding both slots rather than re-resolving
-the pair itself:
+!== undefined)`; `schemaFilter !== undefined ? … : schema.defaultFilters`), and `ObjectView`
+defers to it by forwarding both slots rather than re-resolving the pair
+itself:
 
 ```typescript
 import type { ObjectViewSchema } from '@object-ui/types';
@@ -183,9 +190,9 @@ predates this change: an **active named view's own** `filter` / `sort`
 `table` — `table.filter` does **not** universally win over the legacy
 `table.defaultFilters`, it wins only when no active named view supplies its
 own filter. In order, highest first: the active named view's `filter`/`sort`,
-then `table.filter`/`table.sort`, then
-`table.defaultFilters`/`table.defaultSort`. If you never write `listViews`,
-that first tier never applies.
+then `table.filter`/`table.sort`, then `table.defaultFilters` (filter only —
+`sort` has no legacy tier since `table.defaultSort` was retired). If you never
+write `listViews`, that first tier never applies.
 
 `pagination` and `selection` have no such tier, and no effect outside the
 grid: `defaultViewType: 'kanban' | 'gallery' | 'calendar' | 'timeline' |
@@ -223,8 +230,9 @@ types:
 
 Both spellings resolve here: `ComponentRegistry.register` publishes
 `namespace:type` and, unless the call passes `skipFallback: true`, the bare
-`type` as a back-compat fallback (`packages/core/src/registry/Registry.ts:194`,
-fallback at `:226`). No call in this package sets `skipFallback`. Note the
+`type` as a back-compat fallback (`ComponentRegistry.register` in
+`packages/core/src/registry/Registry.ts`, its `!meta?.skipFallback` branch). No
+call in this package sets `skipFallback`. Note the
 namespaces are not uniform — `object-view`, `view` and `view:simple` register
 under `plugin-view`, the four control components under `view`.
 

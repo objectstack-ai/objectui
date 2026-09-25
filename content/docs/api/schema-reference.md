@@ -589,8 +589,9 @@ than one node. Build it from the shapes that do render:
 
 The `defaultSort` and `defaultSortOrder` keys documented here were `CRUDSchema`'s
 own — a flat field name plus a separate direction. They are gone with it.
-[ObjectGridSchema](#objectgridschema) declares its own, differently shaped
-`defaultSort` (an object with `field` and `order`); that key is unaffected.
+[ObjectGridSchema](#objectgridschema) used to declare its own, differently shaped
+`defaultSort` (an object with `field` and `order`); that key has since been
+retired too — see the note under [ObjectGridSchema](#objectgridschema).
 
 Authoring `crud` is now refused by name: `validateSchema` from `@object-ui/core`
 returns a `RETIRED_TYPE` error on `schema.type` naming the migration above, and
@@ -745,7 +746,7 @@ A data grid that auto-fetches from an ObjectQL object definition. Includes searc
     { "field": "phone" },
     { "field": "status", "label": "Status", "sortable": true }
   ],
-  "defaultSort": { "field": "name", "order": "asc" },
+  "sort": [{ "field": "name", "order": "asc" }],
   "operations": {
     "create": true,
     "read": true,
@@ -781,6 +782,15 @@ A data grid that auto-fetches from an ObjectQL object definition. Includes searc
 | `grouping` | `GroupingConfig` | Row grouping configuration. **Page-scoped**: the grid groups the rows it has fetched, so group counts are page slices and a group beyond the page is absent — the grid marks the grouping partial when it can tell. |
 | `frozenColumns` | `number` | Number of columns frozen on scroll. |
 | `navigation` | `ViewNavigationConfig` | SPA navigation configuration. |
+
+> **`defaultSort` is retired (objectui#5861).** `ObjectGridSchema` used to accept a
+> legacy single-entry `defaultSort: { field, order }` beside `sort`. `@objectstack/spec`
+> 17.3.0 turned it into a retired-key tombstone the protocol refuses by name, and no
+> renderer reads it any more: a grid that still carries it renders **unsorted**, and
+> `@object-ui/types` refuses it on both faces (a `?: never` member and a named zod
+> refusal). Rename the key to `sort` and wrap the value in an array —
+> `"defaultSort": { "field": "name", "order": "asc" }` becomes
+> `"sort": [{ "field": "name", "order": "asc" }]`, as in the example above.
 
 **Related:** [ObjectViewSchema](#objectviewschema), [TableSchema](#tableschema)
 

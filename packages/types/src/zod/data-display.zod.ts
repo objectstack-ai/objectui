@@ -284,12 +284,13 @@ export const TableColumnSchema = z.object({
   // `z.boolean()`, like `fitContent` and `wrap`. Without this line the
   // non-strict object would silently STRIP an authored `masked`, and the
   // table would copy, tooltip, export and edit the raw value again: the same
-  // second de-facto contract #6424 closed for `headerIcon`. The producer that
-  // sets it is `ObjectGrid`, from `isMaskedFieldType()` (`@object-ui/fields`).
+  // second de-facto contract #6424 closed for `headerIcon`. The producers that
+  // set it are `ObjectGrid`, `RelatedList` and `ObjectDataTable`, from
+  // `isMaskedFieldType()` (`@object-ui/fields`).
   masked: z
     .boolean()
     .optional()
-    .describe('Masked column: the table withholds the raw value from Ctrl+C / Cmd+C copy, the cell title tooltip, its CSV export and inline edit. Client-side search, sort and the column auto width still read the raw value. It withholds only: the producer\'s cell renderer draws the mask, and the table draws a column with no cell as its value'),
+    .describe('Masked column: the table withholds the raw value from Ctrl+C / Cmd+C copy, the cell title tooltip, its CSV export, inline edit, the client search and the sort, and sizes the column from its header instead of its values. It withholds only: the producer\'s cell renderer draws the mask, and the table draws a column with no cell as its value'),
 });
 
 /**

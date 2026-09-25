@@ -1372,6 +1372,23 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
    */
   const chipsRemovable = !props.disabled;
 
+  /**
+   * A search-first chip's avatar, read only from a field the user may read on
+   * `referenceTo` (objectui#10433). The option carries the row as served (see
+   * `recordToOption`), so the chip used to draw a denied avatar on a backend
+   * that does not strip it. Both keys the chip reads are judged, each by its
+   * own name: the configured avatar field, and `image`, the fallback, which is
+   * a field of the same row. Before a policy loads nothing is withheld, as at
+   * every other gate in this file.
+   */
+  const chipAvatarReadable = fieldReadGate(perms, referenceTo, idField);
+  const chipAvatarUrl = (opt: LookupOption | undefined): string | undefined => {
+    const drawn = (key: string) =>
+      !chipAvatarReadable || chipAvatarReadable(key) ? opt?.[key] : undefined;
+    const url = drawn(avatarField) || drawn('image');
+    return url ? String(url) : undefined;
+  };
+
   return (
     <div className={compact ? '' : 'space-y-2'}>
       {/* Selected values display (full mode only — compact shows it in-trigger) */}
@@ -1382,7 +1399,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
             // Search-first (people) fields show avatar chips; classic lookups
             // keep the plain text Badge.
             if (pickerVariant === 'search') {
-              const avatarUrl = (opt as any)?.[avatarField] || (opt as any)?.image;
+              const avatarUrl = chipAvatarUrl(opt);
               return (
                 <span
                   key={idx}

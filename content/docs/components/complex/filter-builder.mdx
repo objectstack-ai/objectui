@@ -61,6 +61,8 @@ interface FilterBuilderSchema {
   maxDepth?: number;                     // Maximum nesting depth (default: 3)
   
   // Events
+  // RUNTIME SLOT (objectui#6124): a React host supplies it; JSON refuses it
+  // by name. Author behaviour as a node type, e.g. an action:button node.
   onChange?: (filter: FilterGroup) => void;  // Change handler
   
   // Styling

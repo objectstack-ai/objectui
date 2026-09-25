@@ -135,11 +135,11 @@
  * that touches a governed path and names no pull request is UNATTRIBUTED — its
  * own refusal, with its own exit code.
  *
- * ## Why this is objectui-native rather than a pinned port
+ * ## Why this is objectui-native rather than a copy
  *
  * The sibling repository runs this mechanism already, and this file follows its
- * shape closely. It is NOT registered in `scripts/upstream-port-pin.json`, and
- * that is a measurement rather than a preference:
+ * shape closely. It is NOT a copy of the sibling's files, and that is a
+ * measurement rather than a preference:
  *
  *   - Upstream splits the mechanism over two files, and the register half
  *     (`scripts/pm/check-governed-merges.mjs`, 2,614 lines) is mostly a
@@ -150,15 +150,9 @@
  *     react-blocks contract) — measured on the tree this landed against. Every
  *     row of that register is inapplicable, so a port would carry ~1,500 lines
  *     of machinery that can never fire.
- *   - `scripts/check-upstream-port-parity.mjs` cannot express that. Its
- *     `validatePin` refuses a divergence whose `ported` side is empty
- *     (`files[0].divergences[0].ported is empty`, exit 2 — measured directly
- *     against the shipped function), so a pin has no way to declare a DELETION.
- *     A pinned port here is structurally impossible, not merely undesirable.
  *
- * So the divergence is declared in prose, where a reader can act on it, and the
- * obligation the pin would have carried is stated instead: when the sibling's
- * predicate changes, this file is a hand re-read, not an automatic re-sync.
+ * So the divergence is declared in prose, where a reader can act on it: when
+ * the sibling's predicate changes, this file is a hand re-read.
  *
  * ## The SECOND leg: the contract-review carrier (objectui#9018)
  *
@@ -200,8 +194,8 @@
  * check — a strictly larger rule than the one ruled. ⚠️ objectui has no verdict
  * checker to defer that question to: the sibling defers it to its
  * `scripts/pm/check-clause2-carriers.mjs`, and this repository has no such file
- * (measured). `scripts/pm/check-half-states.mjs` H31 compares the gate's two
- * CARRIERS with each other; it does not answer whether a verdict exists either.
+ * (measured). Nor does anything here compare the gate's two CARRIERS any more:
+ * the sweeper copy whose H31 did that was retired by objectui#10208.
  * The CLEAR rendering says all of this out loud, so nobody reads a green carrier
  * leg as "the review happened".
  *
@@ -340,35 +334,19 @@ export const GOVERNED_APPROVERS = Object.freeze(['os-zhuang', 'hotlong']);
 /**
  * The clause-② enqueue gate's label (objectui#9018).
  *
- * ⚠️ THIS IS A MIRROR, NOT THE SOURCE. `scripts/pm/check-half-states.mjs` OWNS
- * this constant — H31 declares it as 「一个常量,两个载体」 — and a second
- * spelling that can drift from it would be worse than useless on a gate.
+ * ⚠️ THIS IS A MIRROR, NOT THE SOURCE. The spelling was owned by H31 of the PM
+ * half-state sweeper — 「一个常量,两个载体」. This repository no longer holds a
+ * copy of that sweeper (objectui#10208: the seats run objectstack's original),
+ * so the mirror can no longer be pinned by reading a local source, and a drift
+ * is found by hand — the cost the maintainer accepted for the retired port
+ * (objectui#10205).
  *
- * ⭐ A REAL IMPORT IS POSSIBLE HERE AND IS STILL NOT TAKEN, and the reason is
- * this repository's own rather than the sibling's. objectstack mirrors the same
- * constant because importing its `check-half-states.mjs` would be a MODULE-EVAL
- * CYCLE (that file resolves a governed register with a top-level `await` that
- * imports the sibling's queue guard back). ⛔ That reason does NOT hold here and
- * must not be restated as if it did: objectui's `check-half-states.mjs` contains
- * no top-level `await` and no import of this file at all — measured, and pinned
- * below. The reason the mirror stays is AVAILABILITY, not cyclicity:
- *
- *   `.github/workflows/governed-surface-guard.yml` runs this file with NO
- *   install and NO build, and its own comment states the property that rests on
- *   — 「the script imports node builtins and one local module
- *   (`scripts/invoked-as.mjs`) only」. Importing a 13,000-line PM sweeper for one
- *   string would couple the ONE script whose failure direction is "the gate
- *   stops running" to every future edit of a file with entirely different
- *   constraints. `scripts/check-pre-install-import-graph.mjs` would catch a
- *   package appearing in that graph; it would not catch the load-time cost, and
- *   a gate that stops running is the failure AGENTS.md names as worse than no
- *   verifier at all.
- *
- * So the spelling is mirrored here and PINNED to H31's by reading THAT file's
- * SOURCE in the self-test — a constant asserting against itself proves nothing,
- * the same idiom the workflow wiring pin below uses. Drift in either direction
- * reddens. The self-test also pins the REASON, in the falsifiable direction:
- * it asserts this file imports nothing out of `scripts/pm/`.
+ * The self-test still pins the property the mirror rests on, in the
+ * falsifiable direction: it asserts this file imports nothing out of
+ * `scripts/pm/`. `.github/workflows/governed-surface-guard.yml` runs this file
+ * with NO install and NO build, and its own comment states that property —
+ * 「the script imports node builtins and one local module
+ * (`scripts/invoked-as.mjs`) only」.
  */
 export const CONTRACT_REVIEW_LABEL = 'needs:contract-review';
 
@@ -985,9 +963,7 @@ export function renderCarrierVerdict(verdict) {
   const boundary = [
     '      ⚠️ This leg reads the LABEL, not the verdict. A carrier stripped before any PASS was on record',
     '      is indistinguishable here from one that was never hung, and this repository has NO check that',
-    '      answers whether a clause-② verdict EXISTS — scripts/pm/check-half-states.mjs H31 compares the',
-    "      gate's two CARRIERS with each other, which is a different question. ⛔ Do not read a green here",
-    '      as "the review happened".',
+    '      answers whether a clause-② verdict EXISTS. ⛔ Do not read a green here as "the review happened".',
   ];
 
   if (verdict.conclusion === 'clear') {
@@ -1804,29 +1780,11 @@ export async function selfTest() {
   // leg is "it would have refused these" — and SIX of them it would NOT have,
   // which is the boundary that must keep being measured rather than remembered.
 
-  // ⭐ The mirror pin. `scripts/pm/check-half-states.mjs` OWNS this spelling;
-  // this file mirrors it (see the constant's own comment for why an import is
-  // possible here and still not taken) and the two are held equal by reading
-  // that file's SOURCE. A constant asserting against itself would prove nothing.
-  let h31Source = '';
-  try {
-    h31Source = readFileSync(join(repoRoot, 'scripts', 'pm', 'check-half-states.mjs'), 'utf8');
-  } catch (error) {
-    h31Source = '';
-    assert('H31s-file-is-readable-so-the-mirror-can-be-pinned-at-all', false, String(error?.message ?? error).split('\n')[0]);
-  }
-  const h31Spelling = /^export const CONTRACT_REVIEW_LABEL = '([^']+)';$/m.exec(h31Source)?.[1] ?? null;
-  assert(
-    'the-carrier-label-MIRRORS-H31s-OWNED-constant-read-from-that-files-source',
-    h31Spelling !== null && h31Spelling === CONTRACT_REVIEW_LABEL,
-    `H31 spells ${JSON.stringify(h31Spelling)}, this mirror spells ${JSON.stringify(CONTRACT_REVIEW_LABEL)}`,
-  );
-  // ⭐ The REASON, pinned in the falsifiable direction and NOT the sibling's.
-  // objectstack mirrors this constant because an import would be a module-eval
-  // cycle; ⛔ that reason does not hold in objectui and restating it would be a
-  // comment describing a mechanism this repository does not have. What holds
-  // HERE is the pre-install import graph: this guard runs with no install, so it
-  // does not reach into `scripts/pm/` for anything.
+  // ⭐ The mirror is no longer pinned against a local source: the sweeper whose
+  // H31 owned the spelling is not in this tree since objectui#10208 (see the
+  // constant's own comment). What is still pinned is the property the mirror
+  // rests on: this guard runs with no install, so it does not reach into
+  // `scripts/pm/` for anything.
   try {
     const selfSource = readFileSync(join(repoRoot, 'scripts', 'check-governed-queue-guard.mjs'), 'utf8');
     const pmImports = selfSource.split('\n').filter((l) => /^import\s.*from\s+'[^']*\/pm\//.test(l));
@@ -1834,11 +1792,6 @@ export async function selfTest() {
       'this-guard-imports-NOTHING-out-of-scripts-pm-which-is-WHY-the-label-is-mirrored',
       pmImports.length === 0,
       `${pmImports.join(' | ')} — the workflow runs this file with no install; coupling it to a PM sweeper is how a gate stops running`,
-    );
-    assert(
-      'and-objectui-H31-has-NO-module-scope-top-level-await-so-the-siblings-CYCLE-reason-must-not-be-restated-here',
-      !/^(export )?const \w+ = await /m.test(h31Source) && !/check-governed-queue-guard/.test(h31Source),
-      'H31 grew a module-scope await or an import of this file — the sibling’s cycle reason would then apply here too, and this comment needs rewriting rather than copying',
     );
   } catch (error) {
     assert('this-guards-own-source-is-readable-so-the-mirror-REASON-can-be-pinned', false, String(error?.message ?? error).split('\n')[0]);
@@ -2043,13 +1996,14 @@ export async function selfTest() {
     renderCarrierVerdict(bareOne),
   );
   // ⚠️ objectui has no `check-clause2-carriers.mjs` to defer the verdict question
-  // to — the sibling does. Naming a file that does not exist here would be a
-  // refusal pointing a reader at nothing, so the boundary names the ABSENCE.
+  // to — the sibling does — and no sweeper copy since objectui#10208. Naming a
+  // file that does not exist here would be a refusal pointing a reader at
+  // nothing, so the boundary names the ABSENCE.
   assert(
-    'the-boundary-names-the-instrument-this-repo-ACTUALLY-has-and-says-it-answers-a-different-question',
-    renderCarrierVerdict(bareOne).includes('scripts/pm/check-half-states.mjs') &&
-      /NO check that/.test(renderCarrierVerdict(bareOne)) &&
-      !renderCarrierVerdict(bareOne).includes('check-clause2-carriers'),
+    'the-boundary-names-the-ABSENCE-and-no-file-this-repo-does-not-have',
+    /NO check that/.test(renderCarrierVerdict(bareOne)) &&
+      !renderCarrierVerdict(bareOne).includes('check-clause2-carriers') &&
+      !renderCarrierVerdict(bareOne).includes('check-half-states'),
     renderCarrierVerdict(bareOne),
   );
   const carrierKinds = [gatedText, renderCarrierVerdict(unreadableOne), renderCarrierVerdict(noPull)];
@@ -2240,7 +2194,7 @@ export async function selfTest() {
       '--test, refusal and early-warning texts with the pre-ruling-C wording pinned ABSENT, and the workflow ' +
       '+ required-context wiring pins), plus the SECOND queue predicate objectui#9018 added on the merge_group ' +
       'leg — the contract-review carrier, read from the pull object under the scope the review read already ' +
-      'needs, its label mirrored from and pinned to the constant scripts/pm/check-half-states.mjs owns with ' +
+      'needs, its label a hand-kept mirror with ' +
       'this file proven to import nothing out of scripts/pm/, fail-closed on an unreadable label set, on a ' +
       'reading that never arrived and on a group naming no pull request, enumerated PER COMMIT so a bare ' +
       'pull request cannot carry a gated sibling through and the under-enumeration defect itself is replayed ' +

@@ -59,8 +59,8 @@ one has its own section below.
 | `published-dist-gate.yml` | Published Dist Tooling Scan | Nightly cron `41 3 * * *`; push to `main` touching the gate; manual | No — the blocking copy runs on the publish path, not here |
 | `spec-range-floors.yml` | Spec Range Floor Scan | Nightly cron `11 4 * * *`; push to `main` touching the gate; manual | No — the blocking copy runs on the publish path, not here |
 | `node-esm-load-gate.yml` | Node ESM Load Scan | Nightly cron `17 4 * * *`; push to `main` touching the gate; manual | No — the per-PR half is `pnpm check:esm-specifiers` in **Type Check** |
-| `half-state-patrol.yml` | Half-State Patrol | 6-hourly cron `37 1,7,13,19 * * *`; manual; PR touching the sweeper or the workflow | No — **report-only**; it fails only when the sweep could not run, or a *configured* anchor could not be written |
-| `board-snapshot.yml` | Snapshot the board to the archive branch | 6-hourly cron `14 2,8,14,20 * * *`; manual; PR touching the archiver, the sweeper it imports, the entry-guard helper or the workflow | No — it is path-filtered, so it does not report on most PRs; **blocking when it does run** |
+| `half-state-patrol.yml` | Half-State Patrol | 6-hourly cron `37 1,7,13,19 * * *`; manual; PR touching the workflow | No — **report-only**; it fails only when the sweep could not run, or a *configured* anchor could not be written |
+| `board-snapshot.yml` | Snapshot the board to the archive branch | 6-hourly cron `14 2,8,14,20 * * *`; manual; PR touching the workflow | No — it is path-filtered, so it does not report on most PRs; **blocking when it does run** |
 | `merge-queue-head-patrol.yml` | Merge queue head patrol | Every 15 minutes (cron `7,22,37,52 * * * *`); manual | No — it gates no branch and blocks no queue, but it **goes red on a finding**: a merge-queue head with no `merge_group` build is a live repo-wide block |
 | `required-check-set-patrol.yml` | Required check set patrol | Daily (cron `23 5 * * *`); manual | No — it gates no branch and blocks no queue, but it **goes red on a finding**: a merge queue whose required set has lost `Type Check` validates nothing that a type error would fail |
 | `hook-selftests.yml` | Hook Self-Tests | PR / push touching `.claude/hooks/**` or the workflow | **Yes** |
@@ -304,15 +304,6 @@ first, which is what stops a scanner that recognises nothing from reporting a cl
   ([#6092](https://github.com/objectstack-ai/objectui/issues/6092)). (Named without its `scripts/`
   path on purpose: this section reads as the `lint` job's gate list, and that script runs in
   `skills-paths.yml`, so spelling the path here would credit this job with a gate it does not run.)
-- `scripts/check-upstream-port-parity.mjs` — the objectstack tooling ported into this tree is a
-  **pinned** copy, and drift from the pin is red in either direction. It reverses the declared
-  divergences back out of each ported file and requires the reconstruction to hash to the pinned
-  upstream digest; it fetches nothing, because a gate that reached `api.github.com` would be red on
-  a network hiccup and green on a cached 200. The direction of harm is this repository's least
-  visible one — a drifted copy does not fail, it *reports*: before this gate, the ported half-state
-  patrol stood 4,637 `diff` lines behind upstream and went on rendering a confident report with the
-  corresponding rows simply missing
-  ([#6642](https://github.com/objectstack-ai/objectui/issues/6642)).
 - `scripts/check-bash32-floor.mjs` — this repository's own shell must run on bash 3.2, which is what
   macOS ships and what CI never exercises. Under bash 5 a `mapfile`, a `declare -A` or an unguarded
   `$EPOCHSECONDS` in a hand-run script is invisible: the defect *and* its repair both read green,
@@ -1754,9 +1745,10 @@ never hung. Of the eleven enqueues measured on 2026-09-09, five carried the labe
 this leg refuses them; six did not and it passes them — including
 [#8164](https://github.com/objectstack-ai/objectui/pull/8164), which landed a real defect. Upgrading
 the predicate until it catches that would make it a *verdict* check, which is a strictly larger rule
-than the one that was ruled. Nothing in this repository answers the verdict question:
-`scripts/pm/check-half-states.mjs` H31 compares the gate's two carriers with each other, which is a
-different question. The `CLEAR` rendering says so out loud, so a green is never read as "the review
+than the one that was ruled. Nothing in this repository answers the verdict question, and since
+the sweeper copy whose H31 compared the gate's two carriers was retired
+([#10208](https://github.com/objectstack-ai/objectui/issues/10208)) nothing here compares the
+carriers either. The `CLEAR` rendering says so out loud, so a green is never read as "the review
 happened".
 
 **What it deliberately does not do.** It does not govern its own workflow or CI configuration
@@ -2378,8 +2370,10 @@ draft and had to be fixed to match under
 [#3766](https://github.com/objectstack-ai/objectui/issues/3766); the root vitest suite exercises it
 on any PR touching `scripts/**`), `scripts/invoked-as.mjs` (a dependency the gate scripts import, but a
 widely shared one — 40+ importers under `scripts/` — that `published-dist-gate.yml`,
-`spec-range-floors.yml` and `node-esm-load-gate.yml` also import without listing; only
-`half-state-patrol.yml` lists it, as a documented one-off) and the script's own
+`spec-range-floors.yml` and `node-esm-load-gate.yml` also import without listing;
+`half-state-patrol.yml` listed it as a documented one-off until
+[#10208](https://github.com/objectstack-ai/objectui/issues/10208) moved that sweeper to an objectstack
+checkout) and the script's own
 `__tests__/check-changeset-no-major.test.ts` (it already runs in the root vitest suite on any PR
 that touches `scripts/**`, the same `~ partial` reasoning `published-dist-gate.yml` and
 `spec-range-floors.yml` apply to their own gate scripts' `__tests__` files).
@@ -2629,11 +2623,10 @@ and calls the issues API.
 ### Half-State Patrol (`half-state-patrol.yml`)
 
 **Trigger:** Four times a day at `:37` past the hour (cron `37 1,7,13,19 * * *`), manual dispatch,
-or a pull request touching `scripts/pm/check-half-states.mjs`, `scripts/invoked-as.mjs` or the
-workflow itself.
+or a pull request touching the workflow itself.
 
-Runs `scripts/pm/check-half-states.mjs` against **this** repository's issue board and rewrites one
-pinned anchor issue's body with what it found. The sweeper carries a family of predicates over the
+Checks out `objectstack-ai/objectstack`, runs *its* `scripts/pm/check-half-states.mjs` against
+**this** repository's issue board and rewrites one pinned anchor issue's body with what it found. The sweeper carries a family of predicates over the
 dispatch protocol's label/assignee/PR invariants — a `pm:dispatched` card with no assignee, a card
 carrying both `pm:queue` and `pm:dispatched`, a merged PR whose card still says it is in flight, a
 `Blocked-by:` block whose blocker already closed, and so on.
@@ -2669,17 +2662,20 @@ live only in run summaries, which notify nobody
 ([#5791](https://github.com/objectstack-ai/objectui/issues/5791) measured 58% of this board's
 machine-readable blocks false, one for a week, in exactly that silence).
 
-**Ported from objectstack, with the divergences listed in the workflow header.** The pair
-(`scripts/pm/check-half-states.mjs` + this workflow) is adopted from `objectstack-ai/objectstack`
-and is meant to stay re-syncable, so this install keeps its differences in one place
-([#5791](https://github.com/objectstack-ai/objectui/issues/5791)). The behavioural one is how the
-sweeper's closed-card reader (`pm:*` labels left on cards that already closed) is *called* here: the
-reader is **on**, with a dated floor. The sweep step sets `PM_SWEEP_CLOSED_FLOOR: '2026-08-28'`, so
-only cards closed on or after that cutover are judged, and the page window is deliberately left
-unset — back to the sweeper's own upstream default, which `scripts/pm/check-half-states.mjs` exports
-as `CLOSED_ISSUE_WINDOW_PAGES` rather than being restated here, a constant copied into prose being a
-number that rots the moment the export moves. The floor, not a zeroed window, is what holds the
-historical carriers out.
+**The sweeper is objectstack's; this repository keeps no copy of it**
+([#10208](https://github.com/objectstack-ai/objectui/issues/10208)). The workflow checks it out of
+`objectstack-ai/objectstack` at that repository's `main` on every run — not pinned to a sha — and
+names this board with `PM_SWEEP_REPO` and this checkout with `PM_SWEEP_CHECKOUT`. What is decided
+here is how the sweeper's closed-card reader (`pm:*` labels left on cards that already closed) is
+*called*: the reader is **on**, with a dated floor. The sweep step sets
+`PM_SWEEP_CLOSED_FLOOR: '2026-08-28'`, so only cards closed on or after that cutover are judged, and
+the closed-card window is left to the sweeper's own upstream default, which it exports as
+`CLOSED_ISSUE_WINDOW_DAYS` rather than being restated here, a constant copied into prose being a
+number that rots the moment the export moves.
+
+**Running it by hand.** A seat runs the same sweeper from an objectstack checkout:
+`cd ../objectstack && PM_SWEEP_REPO=objectstack-ai/objectui PM_SWEEP_CHECKOUT=../objectui node scripts/pm/check-half-states.mjs`
+— the board comes from `PM_SWEEP_REPO`; the script takes no `--repo` flag and refuses one by name.
 
 **Why a floor rather than a plain "on".** Stripping `pm:*` on close only became this repo's practice
 on the cutover date, and the measurement taken just before it says what an unfloored reader would do
@@ -2692,19 +2688,19 @@ with no backfill: no bulk relabelling of closed cards was run, none is owed, and
 no label under any code path ([#5985](https://github.com/objectstack-ai/objectui/issues/5985)). A
 malformed floor is refused outright rather than degraded to "no floor", because a silent degrade
 would restore the flood four times a day and a flooded anchor reads exactly like a working patrol.
-The sweeper still carries an objectui-only escape hatch that switches the closed reader fully off —
-that is what this install ran until the cutover; it is unset now, and while it is set the rendered
-summary says that surface is **UNREAD**, never that it is clean.
+Until the cutover this install switched the closed reader fully off through an objectui-only switch;
+that switch was dropped with the retired copy, not carried into objectstack
+([#10205](https://github.com/objectstack-ai/objectui/issues/10205)).
 
 ### Board Snapshot (`board-snapshot.yml`)
 
 **Trigger:** four times a day at `:14` past the hour (cron `14 2,8,14,20 * * *`), manual dispatch,
-or a pull request touching one of the four paths the run actually loads — `'scripts/pm/board-snapshot.mjs'`,
-`'scripts/pm/check-half-states.mjs'`, `'scripts/invoked-as.mjs'` or the workflow itself. That list is the
-archiver's import closure, not a guess: the archiver imports the sweeper module and the entry-guard helper,
-and the sweeper imports the helper too.
+or a pull request touching the workflow itself — the only path in this repository the run loads, since
+the archiver and the modules it imports come from an objectstack checkout
+([#10208](https://github.com/objectstack-ai/objectui/issues/10208)).
 
-Runs scripts/pm/board-snapshot.mjs against **this** repository's issue board and commits what it read
+Checks out `objectstack-ai/objectstack`, runs *its* scripts/pm/board-snapshot.mjs against **this**
+repository's issue board (`PM_SWEEP_REPO`; the script takes no `--repo` flag) and commits what it read
 to `board-archive`, an **orphan branch** of this same repository. Why a branch: a suspended GitHub
 account loses every issue, pull request and comment it authored, while every branch and commit
 survives, because those belong to the repository rather than to a user. The job runs as
@@ -2731,11 +2727,8 @@ workflow. The minute is `14` rather than upstream's `7`: the merge queue head pa
 
 **A pull-request run writes nothing.** No archive branch is checked out, the snapshot goes `--dry-run`
 into the runner's temp dir capped to a handful of numbers, and the commit step is skipped. What it does
-prove is the tool on a real runner — and, before that, the archiver's own `--self-test`, which is the
-only thing in this repository that exercises the archiver before it merges. ⚠️ That makes this
-workflow's own path filter the whole of its pre-merge coverage: unlike upstream, this repository has no
-lint-job step running the self-test unconditionally, so a change that breaks the archiver while touching
-none of the four paths above merges unexercised.
+prove is the tool on a real runner — and, before that, the archiver's own `--self-test`. A change to the
+archiver itself is exercised where it lives: objectstack's lint job runs that self-test unconditionally.
 
 **The Cloudflare R2 mirror is optional and unset is a supported configuration.** After the commit, the
 job mirrors the archive checkout to one R2 prefix and, once per UTC day, writes the tree as a tarball
@@ -2749,11 +2742,11 @@ hard-codes its own repository name in the sync target and the tarball key while 
 archives in as `github.repository`. Two repositories aimed at one bucket with the same literal would
 share a single `--delete` target and each run would erase the other's objects.
 
-**Ported from objectstack, with the divergences declared in the pin.** Both this workflow and the
-archiver are adopted from `objectstack-ai/objectstack` and registered in `scripts/upstream-port-pin.json`,
-so the **upstream port parity** gate — which runs in the `Lint` workflow, not here — holds them to their
-upstream bytes modulo the divergences declared in that pin. The archiver is byte-identical; the workflow's divergences are the schedule, the R2 prefix, and
-the header paragraphs that named gates this repository does not have.
+**The workflow is adopted from objectstack; the archiver is objectstack's.** This workflow was adopted
+from `objectstack-ai/objectstack` and differs from it in the schedule, the R2 prefix, the header
+paragraphs that named gates this repository does not have, and the objectstack checkout it runs the
+archiver from. No gate compares it with upstream: the port pin and its parity gate were retired
+([#10208](https://github.com/objectstack-ai/objectui/issues/10208)), and drift is found by hand.
 
 **The order of the steps is deliberate.** The commit and the R2 mirror run BEFORE the step that reads
 the snapshot's exit code, so a failing count check or a stale-archive verdict never costs the records

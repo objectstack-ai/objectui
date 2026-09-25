@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// copied from objectstack@61362932b5ad4c85b39169e70cf9be64d4332ce5
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
@@ -8,10 +9,9 @@
  * commit `6136293`, which is where the class, the construct table and the
  * exemption rules were worked out. This header states which claims are
  * upstream's and which were re-measured HERE; ⛔ do not read an inherited
- * measurement as a reading about this tree. REGISTERED in
- * `scripts/upstream-port-pin.json`; that entry carries the ref this copy was
- * taken at, its digest and every declared divergence, and the section "## The
- * drift gate over this port" below says what follows from it.
+ * measurement as a reading about this tree. The `copied from objectstack@`
+ * line above names the commit this copy was last synced at; the section "## No
+ * drift gate over this copy" below says what follows from it.
  *
  *   node scripts/check-bash32-floor.mjs
  *   node scripts/check-bash32-floor.mjs --self-test
@@ -160,31 +160,13 @@
  * closure needed is written at the row itself rather than here, because that is
  * where a future reader tempted to loosen the pattern will be standing.
  *
- * ## The drift gate over this port
+ * ## No drift gate over this copy
  *
- * This file IS registered in `scripts/upstream-port-pin.json`, so
- * `check-upstream-port-parity` reverses the divergences declared on its entry
- * and compares the reconstruction's bytes against the pinned upstream digest.
- * That ledger is how this repository stops a ported copy drifting into a
- * confident-but-stale report — `scripts/pm/check-half-states.mjs` reached a
- * 4,637-line diff from upstream while reporting greenly. The argument applies
- * to this file with force: its whole subject is that "an absence from a
- * denylist reads as an approval", and upstream actively sweeps the table.
- *
- * ⚠️ So these bytes are PINNED, and this prose pays that cost too. An edit
- * anywhere inside a declared region — this paragraph included — has to move
- * that divergence's `ported` side in the SAME change, or the gate reds with
- * `expected its ported text exactly once, found 0`. That is the intended
- * failure direction: loud, and naming the divergence it could not reverse.
- *
- * ⛔ Do not write a revision into this prose. A port's ref lives on that port's
- * entry in the ledger, beside the digest it was taken with, where `--resync`
- * keeps it correct. This section has gone stale THREE times for want of that
- * rule: objectui#7749 moved a then-ledger-wide ref out from under the sentence
- * describing it, objectui#8288 deleted the field that sentence named, and
- * objectui#8694 registered this file while the section went on arguing it was
- * unregistered. Each time the prose stayed confident and wrong — which is this
- * file's own subject, aimed at itself.
+ * This file was registered in a port pin whose parity gate reversed the
+ * declared divergences and compared the result with the upstream digest.
+ * objectui#10208 retired both on the maintainer's ruling (objectui#10205): this
+ * is now a plain copy, its differences from upstream are simply its text, and
+ * drift from upstream is found by hand.
  *
  * ## Population
  *

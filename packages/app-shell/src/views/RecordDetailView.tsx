@@ -264,6 +264,30 @@ function withoutDeniedFields<T>(
   return withheld ? (shown as T) : record;
 }
 
+/** Gated copies of served rows, keyed on the served row object itself. */
+const READABLE_ROWS = new WeakMap<object, { kept: string; row: unknown }>();
+
+/**
+ * `withoutDeniedFields`, but the SAME gated object for the same served row and
+ * the same kept keys (objectui#10499). The record page hands this row to every
+ * block through `RecordContext`, so a new object on every render would reach
+ * every consumer as a changed record. The cache lives on the served row, a
+ * payload object, not on a memoised identity (AGENTS.md #10).
+ */
+function readableRow<T>(
+  record: T,
+  perms: Pick<ReturnType<typeof usePermissions>, 'isLoaded' | 'checkField'>,
+  objectName: string | undefined,
+): T {
+  const row = withoutDeniedFields(record, perms, objectName);
+  if (row === record || !record || typeof record !== 'object') return row;
+  const kept = JSON.stringify(Object.keys(row as object));
+  const cached = READABLE_ROWS.get(record as object);
+  if (cached && cached.kept === kept) return cached.row as T;
+  READABLE_ROWS.set(record as object, { kept, row });
+  return row;
+}
+
 export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverride, recordIdOverride, embedded }: RecordDetailViewProps) {
 
   const params = useParams<{
@@ -547,19 +571,10 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   //
   // Before the policy loads (and with no provider mounted) nothing is removed,
   // the objectui#10411 rule. When nothing is withheld the served object itself
-  // comes back. When something is, the gated copy is cached on the served row
-  // and the set of kept keys, NOT on a `useMemo` (AGENTS.md #10), so a
+  // comes back. When something is, the gated copy is cached outside React on
+  // the served row (`readableRow`), NOT on a `useMemo` (AGENTS.md #10), so a
   // re-render never republishes an equal row as a new object to the page.
-  const readableRecordCache = useRef<{ served: unknown; kept: string; row: unknown } | null>(null);
-  const readablePageRecord = (() => {
-    const row = withoutDeniedFields(pageRecord, perms, objectName);
-    if (row === pageRecord) return pageRecord;
-    const kept = JSON.stringify(Object.keys(row));
-    const cached = readableRecordCache.current;
-    if (cached && cached.served === pageRecord && cached.kept === kept) return cached.row as typeof pageRecord;
-    readableRecordCache.current = { served: pageRecord, kept, row };
-    return row;
-  })();
+  const readablePageRecord = readableRow(pageRecord, perms, objectName);
 
   // Derive a human-readable record title from the loaded record so
   // favourites (record:*) and the breadcrumb show e.g. "Acme Corporation"

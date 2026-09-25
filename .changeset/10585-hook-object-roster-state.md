@@ -17,8 +17,8 @@ the catalog had answered; on a failed fetch the claims never cleared.
 `useObjectOptions` now reports a failure as its own fact: beside `options` and
 `loading` it returns `error`, spelled the way `useObjectFields` spells it, and
 `null` while in flight and after an answer. `options` and `loading` are
-unchanged, so the action and page-block object pickers, which read only those
-two and fall back to a free-text input while the list is empty, behave as
+unchanged, so the action and page-block object pickers, which read only
+`options` and fall back to a free-text input while it is empty, behave as
 before.
 
 The Hook inspector reads the three through `rosterFrom`, the rule the

@@ -18,7 +18,8 @@
  * pins for that inspector:
  *
  *   • in flight   → no flag, no "publish" copy, no failure notice
- *   • FAILED      → no flag, no "publish" copy, plus a notice naming the cause
+ *   • FAILED      → no flag, no "publish" copy, plus a notice naming the cause,
+ *                   and the selection stays editable
  *   • answered, object genuinely absent → flag, and an empty answered catalog
  *                   still prints the "publish" copy (the controls that the
  *                   claims still fire when they are true)
@@ -28,7 +29,7 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, act, waitFor } from '@testing-library/react';
+import { render, screen, cleanup, act, waitFor, fireEvent } from '@testing-library/react';
 
 const state = vi.hoisted(() => {
   let settle = {
@@ -72,16 +73,18 @@ const PUBLISH_COPY = /publish an object/;
 
 function mount(object?: string) {
   state.hold();
+  const onPatch = vi.fn();
   render(
     <HookDefaultInspector
       type="hook"
       name="audit_hook"
       draft={{ name: 'audit_hook', events: ['beforeInsert'], ...(object ? { object } : {}) }}
-      onPatch={vi.fn()}
+      onPatch={onPatch}
       readOnly={false}
       locale="en-US"
     />,
   );
+  return { onPatch };
 }
 
 /** The failure notice the picker renders for a failed roster, if any. */
@@ -134,6 +137,17 @@ describe('HookDefaultInspector — the object roster FAILED to load (objectui#10
     expect(failureNotice()?.getAttribute('role')).toBe('status');
     expect(failureNotice()?.textContent).toContain('Options could not be loaded');
     expect(failureNotice()?.textContent).toContain('503 Service Unavailable');
+  });
+
+  it('leaves the selection EDITABLE after the failure — un-ticking it reaches the draft', async () => {
+    const { onPatch } = mount('ghost_object');
+    await failRequest(new Error('boom'));
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'ghost_object' }));
+    expect(
+      onPatch,
+      'a failed catalog must not also block authoring',
+    ).toHaveBeenCalledWith({ object: [] });
   });
 });
 

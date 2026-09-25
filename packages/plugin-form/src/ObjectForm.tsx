@@ -27,7 +27,13 @@ import {
 } from './submitRedirectNavigation';
 import { usePermissions } from '@object-ui/permissions';
 import { sectionPredicateUnsupportedWarning } from './sectionPredicateDiagnostic';
-import { warnUnresolvedTopLevelField, warnSectionMemberExcludedByFields } from './sectionFields';
+import {
+  warnUnresolvedTopLevelField,
+  warnSectionMemberExcludedByFields,
+  buildSectionFields,
+  sectionEntryName,
+  type SectionFieldsContext,
+} from './sectionFields';
 import { TabbedForm } from './TabbedForm';
 import { WizardForm, NAVIGATE_ON_SUCCESS_REFUSED_NOTE } from './WizardForm';
 import { SplitForm } from './SplitForm';
@@ -45,7 +51,13 @@ import {
 import { deriveFieldGroupSections, projectSectionDivider, resolveSectionCollapse } from './fieldGroups';
 import { mergeCustomFields } from './customFieldsMerge';
 import { hasSectionGroupReference, resolveSectionGroupReferences } from './sectionGroups';
-import { sanitizeFormData } from './sanitize';
+import {
+  sanitizeFormData,
+  dirtyEditPayload,
+  snapshotLoadedRecord,
+  advanceLoadedRecord,
+  type LoadedRecordSnapshot,
+} from './sanitize';
 import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
 import { resolveInitialRecord } from './initialRecord';
 import { noSubmitTargetError } from './submitTarget';
@@ -623,6 +635,16 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   // OCC-guarded edit save + its conflict dialog (see occSave.tsx).
   const { saveWithOcc, conflictDialog } = useOccSave();
 
+  // The record this form READ for the record it edits — the baseline an edit
+  // save diffs against, so only the fields that changed are written
+  // (objectui#10156). A ref, not state: only the save path reads it, and
+  // nothing renders from it. Set by the `findOne` below and nowhere else, so a
+  // caller-supplied record (inline fields, `initialData`) never becomes a
+  // baseline and its save keeps sending every field. `initialData` itself is
+  // left alone: it seeds the form and supplies the OCC token, and advancing it
+  // after a save would reseed the one and move the other.
+  const loadedRecordRef = React.useRef<LoadedRecordSnapshot | null>(null);
+
   // Check if using inline fields (fields defined as objects, not just names)
   const hasInlineFields = schema.customFields && schema.customFields.length > 0;
 
@@ -698,6 +720,8 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   useEffect(() => {
     const fetchInitialData = async () => {
       if (!schema.recordId || schema.mode === 'create') {
+        // Seeded from something other than a read: no baseline to diff against.
+        loadedRecordRef.current = null;
         setInitialData(resolveInitialRecord(schema));
         setLoading(false);
         return;
@@ -717,6 +741,9 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       setLoading(true);
       try {
         const data = await dataSource.findOne(schema.objectName, schema.recordId);
+        // Tagged with the object and record it was read for, so a save that
+        // runs against a different one finds no baseline and sends everything.
+        loadedRecordRef.current = snapshotLoadedRecord(schema, data);
         setInitialData(data);
       } catch (err) {
         console.error('Failed to fetch record:', err);
@@ -1103,6 +1130,15 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     if (isCreateFormMode(schema)) {
       payload = omitServerResolvedDefaults(payload, hasInlineFields ? null : objectSchema);
     }
+    // An EDIT writes only the fields that differ from the record this form
+    // read (objectui#10156) — on BOTH write routes below: the host-owned seam,
+    // which is how a master-detail form's parent operation is built, and the
+    // plain OCC-guarded update. Anything that cannot be settled is sent; see
+    // `dirtyEditPayload` for the whole rule, including why an empty diff sends
+    // the full payload. Every other mode gets `payload` back unchanged. The
+    // full `payload` stays the submit-redirect scope below: it is the record as
+    // the form now holds it, whether or not a field was written.
+    const writePayload = dirtyEditPayload(payload, loadedRecordRef.current, schema);
 
     try {
       let result;
@@ -1111,7 +1147,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         // The host owns persistence (e.g. MasterDetailForm batching the parent
         // + children into one atomic transaction). The form just validates and
         // hands over the values; it does NOT create/update itself.
-        result = await schema.submitHandler(payload);
+        result = await schema.submitHandler(writePayload);
       } else if (!dataSource) {
         // No route left: no host seam and no adapter. Refuse instead of
         // reporting success — the `catch` below hands this to `schema.onError`
@@ -1128,7 +1164,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
           dataSource,
           objectName: schema.objectName,
           recordId: schema.recordId,
-          payload,
+          payload: writePayload,
           baseRecord: initialData,
         });
         if (outcome.status === 'cancelled') return;
@@ -1136,6 +1172,9 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       } else {
         throw new Error('Invalid form mode or missing record ID');
       }
+      // The write landed: the next save from this still-mounted form diffs
+      // against the record as it now stands, not as first read.
+      loadedRecordRef.current = advanceLoadedRecord(loadedRecordRef.current, schema, writePayload);
 
       // Call success callback if provided, else give default feedback. Skip the
       // default when a `submitHandler` owns persistence (e.g. MasterDetailForm
@@ -1443,34 +1482,38 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       clampCol(schema.columns) ??
       (declaredSectionCols.length ? Math.max(...declaredSectionCols) : inferColumns(approxInputs));
     const groupedFields: FormField[] = [];
+    // The section builder every other arm uses (objectui#10475), handed this
+    // arm's parent field POOL: a section's members come out in the section's
+    // AUTHORED order with each entry's full override set applied (`label`,
+    // `required`, `readonly`, `helpText`, `visibleWhen`, …), onto the POOLED
+    // field as the base. The pool still decides membership (objectui#9884's
+    // intersection, warned below) and the per-field facts only this arm's
+    // generator knows — see `SectionFieldsContext.pool`.
+    const sectionCtx: SectionFieldsContext = {
+      objectSchema,
+      objectName: schema.objectName,
+      readOnly: schema.readOnly,
+      mode: schema.mode,
+      recordId: schema.recordId,
+      fieldLabel,
+      customFields: schema.customFields,
+      pool: sourceFields,
+    };
     effectiveSections.forEach((section, index) => {
-      // Section field defs may carry a per-field `visibleOn` predicate (spec
-      // FormFieldSchema, #2212). The filter below matches by name only, so the
-      // predicate must be merged onto the resolved field or it is silently
-      // dropped — the form renderer evaluates it with the canonical engine.
-      const sectionDefByName = new Map<string, any>(
-        // AUTHORED section defs, pre-normalization — here `field` may
-        // legitimately be the spec identity STRING (the cast is the boundary,
-        // not a leak; on runtime FormFields the declared `field` slot is
-        // always the metadata object, #3090).
-        // ⚠️ `?? []`, not a bare `.map` — the second containment layer for
-        // objectui#7051. The group-reference resolution above this component
-        // means a `{ group }` section never arrives here carrying no `fields`,
-        // but this loop runs in `SimpleObjectForm`'s own body, ABOVE the JSX it
-        // returns: a throw here is outside every per-section subtree, so no
-        // error boundary that a section could own would contain it. That is
-        // exactly how a spec-legal section blanked the entire form — the
-        // well-formed siblings with it — before this card. The five container
-        // variants have always spelled this read `section.fields ?? []` in
-        // `buildSectionFields`; this is the sixth joining them, so no section
-        // shape can take the form down again through this line.
-        (section.fields ?? []).map(f => [typeof f === 'string' ? f : ((f as any).field ?? f.name), f]),
-      );
-      const sectionFieldNames = Array.from(sectionDefByName.keys());
+      // ⚠️ `?? []`, not a bare `.map` — the second containment layer for
+      // objectui#7051. The group-reference resolution above this component
+      // means a `{ group }` section never arrives here carrying no `fields`,
+      // but this loop runs in `SimpleObjectForm`'s own body, ABOVE the JSX it
+      // returns: a throw here is outside every per-section subtree, so no
+      // error boundary that a section could own would contain it. That is
+      // exactly how a spec-legal section blanked the entire form — the
+      // well-formed siblings with it — before objectui#7051. `buildSectionFields`
+      // spells the same read `section.fields ?? []` for the members below.
+      const sectionFieldNames = (section.fields ?? []).map(sectionEntryName);
 
       // objectui#9884 — make the INTERSECTION audible.
       //
-      // The filter below resolves a section's members against the parent field
+      // The builder below resolves a section's members against the parent field
       // POOL, and that pool was built from `schema.fields` (`fieldsToShow`
       // above). So top-level `fields` and `sections` intersect: a member this
       // section names, that the object really declares, is dropped for the one
@@ -1511,21 +1554,10 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         });
       }
 
-      const sectionFields = applyFieldPerms(sourceFields.filter(f => sectionFieldNames.includes(f.name)))
-        .map(f => {
-          const def = sectionDefByName.get(f.name);
-          if (!def || typeof def !== 'object') return f;
-          // Carry the section field def's layout/visibility overrides onto the
-          // resolved field — the name-only filter above would otherwise drop
-          // them. #2578: `span`/`colSpan` are how a section controls per-field
-          // width; #2212: `visibleOn`.
-          const d = def as any;
-          const merged: any = { ...f };
-          if (d.visibleOn != null) merged.visibleOn = d.visibleOn;
-          if (d.colSpan != null) merged.colSpan = d.colSpan;
-          if (d.span != null) merged.span = d.span;
-          return merged as FormField;
-        });
+      // Field-level permissions gate the BUILT members, after the entry
+      // overrides — the order the drawer and modal arms apply them in — so no
+      // override can re-open a field the caller may not edit.
+      const sectionFields = applyFieldPerms(buildSectionFields(section, sectionCtx));
       if (sectionFields.length === 0) return;
 
       const sectionKey = section.name || section.label || String(index);

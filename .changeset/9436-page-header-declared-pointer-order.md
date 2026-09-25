@@ -21,14 +21,25 @@ The header now resolves its title in this order:
 2. the declared pointer: `nameField`, then its deprecated `displayNameField`
    alias. This rung is new, and it only applies when the pointer holds a value
    on the record;
-3. `titleFormat`, rendered with the header's own interpolation, including
-   i18n option labels, exactly as before;
+3. `titleFormat`, rendered at this change with the header's own
+   interpolation, including i18n option labels, exactly as before;
 4. the type-aware derivation, then the record-key rung, then
    `${objectLabel} ${id}`, all unchanged.
 
 A pointer that is blank on a record still falls through to the template.
-Objects that declare a pointer and no `titleFormat`, and objects that declare a
-`titleFormat` and no pointer, render exactly as before.
+At this change, objects that declare a pointer and no `titleFormat`, and
+objects that declare a `titleFormat` and no pointer, render exactly as before.
+
+⚠️ **Dated note, 2026-09-25 — the record title's titleFormat rung now renders through core's formatTitleTemplate — objectui#10447.**
+Later in this same release rung 3 stopped using the header's own
+interpolation: the template goes to `@object-ui/core`'s `formatTitleTemplate`,
+the renderer `getRecordDisplayName`, `DetailView` and the `record:details` H1
+dedupe already use. A select token still reads as its translated option label,
+applied by `withOptionLabels` to a copy of the record before core renders it.
+The order above is unchanged. What the rung now renders differently for a
+`titleFormat`-only object (an expanded lookup token, a whitespace-only value,
+a template with no resolved placeholder) is stated in the objectui#10447 entry;
+the rest of this entry is kept as the reading of this change.
 
 **Upgrade effect.** Any object that declares BOTH a `nameField` (or
 `displayNameField`) and a `titleFormat` whose rendering differs from that

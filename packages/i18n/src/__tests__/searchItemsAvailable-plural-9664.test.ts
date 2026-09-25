@@ -54,7 +54,12 @@ const at = (pack: unknown, dotted: string) =>
 const KEY = 'search.itemsAvailable';
 const KEY_ONE = 'search.itemsAvailableOne';
 
-/** The count ≠ 1 half, unchanged by this card except in `ar` (see below). */
+/**
+ * The count ≠ 1 half, unchanged by this card except in `ar` (see below). The
+ * `ar` value is objectui#10425's: this half serves two, few, many and other,
+ * so it is a count label (a label, a colon, then the number) rather than the
+ * 3-10 plural noun this card first gave it.
+ */
 const PLURAL: Record<LocaleCode, string> = {
   en: '{{count}} items available',
   zh: '共 {{count}} 项可搜索',
@@ -65,7 +70,7 @@ const PLURAL: Record<LocaleCode, string> = {
   es: '{{count}} elementos disponibles',
   pt: '{{count}} itens disponíveis',
   ru: '{{count}} доступно',
-  ar: '{{count}} عناصر متاحة',
+  ar: 'عدد العناصر المتاحة: {{count}}',
 };
 
 /** The count === 1 half, added by this card. */
@@ -147,9 +152,10 @@ describe('search.itemsAvailable carries a singular half in every pack (objectui#
     // (`marketplace-preview-namespace-3546.test.tsx`, key-scoped to
     // `preview.history.items`); here it is not merely unidiomatic but dead
     // weight, because the key it sat on can no longer be reached at one item —
-    // the parentheses would render at every count it DOES serve. The noun pair
-    // it was replaced with is the one `ar.common.itemCount`/`itemCountOne`
-    // already uses.
+    // the parentheses would render at every count it DOES serve. It was
+    // replaced with a singular noun at one and, since objectui#10425, a count
+    // label at every other count: the shape `ar.common.itemCount`/`itemCountOne`
+    // uses.
     //
     // The class is Unicode-aware on purpose (objectui#3866): JS `\w` is
     // [A-Za-z0-9_] with or without `u`, so an ASCII formulation is constant-false

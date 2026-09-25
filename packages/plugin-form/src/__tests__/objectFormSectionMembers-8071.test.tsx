@@ -42,18 +42,22 @@
  * otherwise be satisfiable by breaking those four. ⛔ It re-derives no other
  * fact about them and is ⛔ not a second home for their pins.
  *
- * ⭐ Row 1 is the one a plausible "improvement" breaks, and it is why this is a
- * pin rather than a restatement of "array". A section's `fields` members read
- * as a SET, not as an order: the loop spells the resolution
- * `sourceFields.filter((f) => sectionFieldNames.includes(f.name))`, so the
- * fields come out in the OBJECT's order and the order the author wrote inside
- * the section is discarded. Re-ordering that filter by the authored member
- * position is exactly what a contributor reading "sections[].fields" would
- * write, and every other row in this file stays green when they do. ⚠️ Note it
- * is the OPPOSITE of the sibling key on the same block: `object-form.fields`
- * is pinned (objectFormFieldsMembers-8071) on authored order being PRESERVED.
- * One block, one spelling, two answers — which is precisely the kind of fact a
- * declaration reading "array" can never publish.
+ * ⭐ Row 1 is the member ORDER, and it FLIPPED with objectui#10475 — the way
+ * rows 4, 6, 7, 8 and 9 below flipped before it: it pinned a DEFECT as
+ * behaviour. It used to require that a section's `fields` read as a SET, not
+ * as an order, because the loop spelled the resolution as a name filter over
+ * the parent field pool — so the fields came out in the OBJECT's order, the
+ * order the author wrote inside the section was discarded, and the five
+ * sibling arms, which build a section through `buildSectionFields`, drew the
+ * same `sections` block in the authored order. objectui#10475 was graded as
+ * that divergence (triage execution notes: 「the section's authored order」)
+ * and moved this arm onto the shared builder, so the row now pins the
+ * AUTHORED order, which also agrees with the sibling key on the same block:
+ * `object-form.fields` is pinned (objectFormFieldsMembers-8071) on authored
+ * order being PRESERVED. Its job did not change — it is still the only row
+ * here watching the member order, and it must fail if the order stops being
+ * the section's. The member overrides the same card moved, and the order on
+ * every arm, are pinned in `sectionEntryOverrides-10475`.
  *
  * Row 2 is the silent one: a section whose members resolve to no field at all
  * is dropped WHOLE — the loop returns before it pushes a heading, so a typo in
@@ -279,17 +283,20 @@ async function mountArm(
 }
 
 describe('`object-form` — the member shape of `sections`', () => {
-  it('1. a member’s `fields` are field NAMES read as a SET — the OBJECT’s order wins, ⛔ not the authored one', async () => {
+  it('1. a member’s `fields` are field NAMES drawn in the SECTION’s authored order, ⛔ not the object’s (objectui#10475)', async () => {
+    // ⚠️ FLIPPED by objectui#10475, in the same change that made it true — see
+    // this file's header. It used to assert `['customer', 'note']`, pinning the
+    // object's order winning over the authored one as behaviour.
     const c = await mount({
       sections: [{ name: 'main', label: 'Main', fields: ['note', 'customer'] }],
     });
     expect(headings(c)).toEqual(['Main']);
     expect(
       drawnFields(c),
-      'the section resolves its members by filtering the object’s own field list, so the ' +
-        'authored member order (`note` before `customer`) is discarded — the opposite of the ' +
-        'sibling key `object-form.fields`, which preserves it',
-    ).toEqual(['customer', 'note']);
+      'the section draws its members in the order it lists them (`note` before `customer`, the ' +
+        'reverse of the object’s), as the five sibling arms do and as the sibling key ' +
+        '`object-form.fields` does',
+    ).toEqual(['note', 'customer']);
   });
 
   it('2. a member whose `fields` resolve to NOTHING is dropped whole — heading and all', async () => {

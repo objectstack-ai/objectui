@@ -142,7 +142,7 @@ function recordToOption(
   objectDef?: any,
   readable?: FieldReadGate,
 ): LookupOption {
-  const val = record[idField] ?? record.id ?? record._id ?? record.externalId;
+  const val = recordValue(record, idField);
   const shown = withoutDeniedFields(record, readable);
 
   // Object-level resolver, excluding its id floor so we don't shadow the
@@ -173,6 +173,16 @@ function recordToOption(
   // withheld, the label built from the shown row stands instead, so a denied
   // `label` field cannot come back through the spread.
   return shown === record ? option : { ...option, label: String(label) };
+}
+
+/**
+ * The committed value a fetched row stands for: the `value` of the option
+ * `recordToOption` builds from it. The hydrated rows are keyed by it, so a
+ * cached row and the option `findOption` matches can never disagree about
+ * which value they belong to.
+ */
+function recordValue(record: Record<string, unknown>, idField: string): unknown {
+  return record[idField] ?? record.id ?? record._id ?? record.externalId;
 }
 
 /** "May the user read this field?" on one object, once a policy has loaded. */
@@ -279,6 +289,13 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   // Stored as LookupOption so that findOption can resolve display labels
   // even when the record wasn't part of the Level 1 popover fetch.
   const [pickerResolvedRecords, setPickerResolvedRecords] = useState<LookupOption[]>([]);
+
+  // Records fetched to label a value the field already holds (the hydration
+  // effect below). Kept as the ROWS the DataSource served, not as options: the
+  // option — its label above all — is derived from them on every render
+  // (`hydratedOptions`), so it follows the referenced object's schema when that
+  // arrives after the record (objectui#10487).
+  const [hydratedRecords, setHydratedRecords] = useState<Record<string, unknown>[]>([]);
 
   // Ids whose hydration attempt has FINISHED — found or not — keyed by
   // String(id). Distinguishes "still loading" from "unresolvable" (deleted
@@ -733,8 +750,18 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
    * Hydrate the picker's display when the field already has a value (e.g.
    * edit-mode load, prefill via query-string from a related-list "+ New")
    * but no option resolves it yet. Fetches the referenced record(s) via
-   * the DataSource and caches them in `pickerResolvedRecords` so the chip
+   * the DataSource and keeps the rows in `hydratedRecords` so the chip
    * shows a friendly label instead of an empty placeholder.
+   *
+   * It fetches rows and builds no label (objectui#10487). The referenced
+   * object's schema is requested at mount too, and nothing orders the two: a
+   * label built here, in whichever render the fetch returned to, was built on
+   * the no-schema path whenever the record won, and nothing rebuilt it when the
+   * schema arrived. `hydratedOptions` derives the label on every render
+   * instead. So the dependency list names only what the FETCH reads. The
+   * display and description fields are not in it: a change to either relabels
+   * through `hydratedOptions`, and never cancels an in-flight fetch to issue a
+   * second one.
    *
    * Deliberately UNFILTERED, unlike the recents rail below (#5195). These ids
    * are what the record already holds, not candidates being offered: the value
@@ -766,10 +793,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     let cancelled = false;
     (async () => {
       try {
-        const fetched: LookupOption[] = [];
-        // Labels are built from the row as the user may read it — the policy
-        // this effect ran under (objectui#10373).
-        const readable = fieldReadGate(perms, referenceTo, idField);
+        const fetched: Record<string, unknown>[] = [];
         // Single id: the pre-existing cheap paths — a primary-id `findOne`
         // GET, or an equality filter when the field commits a different
         // column (`idField: 'name'` — e.g. position machine names,
@@ -778,14 +802,14 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
           const id = unresolved[0];
           if (typeof (dataSource as any).findOne === 'function' && idField === 'id') {
             const rec = await (dataSource as any).findOne(referenceTo, id);
-            if (rec) fetched.push(recordToOption(rec, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, readable));
+            if (rec) fetched.push(rec);
           } else {
             const res = await dataSource.find(referenceTo, {
               $filter: { [idField]: id },
               $top: 1,
             } as QueryParams);
             const rows = (res as any)?.data ?? res ?? [];
-            if (rows[0]) fetched.push(recordToOption(rows[0], declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, readable));
+            if (rows[0]) fetched.push(rows[0]);
           }
         } else {
           // SEVERAL unresolved ids: one `$in` query per chunk. A multi-value
@@ -809,15 +833,13 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
           for (const res of results) {
             const rows = (res as any)?.data ?? res ?? [];
             if (!Array.isArray(rows)) continue;
-            for (const row of rows) {
-              fetched.push(recordToOption(row, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, readable));
-            }
+            for (const row of rows) fetched.push(row);
           }
         }
         if (!cancelled && fetched.length) {
-          setPickerResolvedRecords((prev) => {
-            const map = new Map(prev.map((o) => [o.value, o]));
-            for (const o of fetched) map.set(o.value, o);
+          setHydratedRecords((prev) => {
+            const map = new Map(prev.map((r) => [recordValue(r, idField), r]));
+            for (const r of fetched) map.set(recordValue(r, idField), r);
             return Array.from(map.values());
           });
         }
@@ -840,18 +862,38 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, hasDataSource, referenceTo, declaredDisplayField, idField, effectiveDescriptionField, multiple]);
+  }, [value, hasDataSource, referenceTo, idField, multiple]);
 
-  // Get selected option(s) — check static, fetched, and picker-resolved options
+  // The hydrated rows as options, derived exactly as the dropdown derives its
+  // own (`fetchedOptions`): the same `recordToOption`, the same inputs, read on
+  // every render. The label therefore follows the referenced object's schema
+  // when it arrives after the record, and the field-read gate of the policy
+  // loaded now — the row as the user may read it (objectui#10373) — rather than
+  // whatever either was in the render the fetch returned to (objectui#10487).
+  const hydratedOptions = useMemo(
+    () =>
+      hydratedRecords.map((r) =>
+        recordToOption(
+          r, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema,
+          fieldReadGate(perms, referenceTo, idField),
+        ),
+      ),
+    [hydratedRecords, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, perms, referenceTo],
+  );
+
+  // Get selected option(s) — check static, fetched, picked, then hydrated
+  // options. A pick outranks the hydrated row for the same value, as it did
+  // when both shared one cache and the later write won.
   const findOption = useCallback(
     (v: any): LookupOption | undefined => {
       return (
         staticOptions.find(opt => opt.value === v) ??
         fetchedOptions.find(opt => opt.value === v) ??
-        pickerResolvedRecords.find(opt => opt.value === v)
+        pickerResolvedRecords.find(opt => opt.value === v) ??
+        hydratedOptions.find(opt => opt.value === v)
       );
     },
-    [staticOptions, fetchedOptions, pickerResolvedRecords],
+    [staticOptions, fetchedOptions, pickerResolvedRecords, hydratedOptions],
   );
 
   // String-coerced fallback for `findOption` — matches the read cell's tolerant
@@ -864,10 +906,11 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       return (
         staticOptions.find(opt => String(opt.value) === key) ??
         fetchedOptions.find(opt => String(opt.value) === key) ??
-        pickerResolvedRecords.find(opt => String(opt.value) === key)
+        pickerResolvedRecords.find(opt => String(opt.value) === key) ??
+        hydratedOptions.find(opt => String(opt.value) === key)
       );
     },
-    [staticOptions, fetchedOptions, pickerResolvedRecords],
+    [staticOptions, fetchedOptions, pickerResolvedRecords, hydratedOptions],
   );
 
   // Collapse an expanded-reference value (the related record object returned by

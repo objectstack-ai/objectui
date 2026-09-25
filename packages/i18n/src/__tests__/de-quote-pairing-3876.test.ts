@@ -288,7 +288,9 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // 63 once objectui#4191 added `actions.notAvailableHere`, the refused
     // auto-trigger notice, which quotes the action's label („{{action}}“) —
     // one interpolated span, runtime data.
-    expect(okSpans, 'correctly paired spans').toBe(63);
+    // 64 once objectui#10474 added `fields.dateTime.impossibleDay`, which quotes
+    // the stored value („{{value}}“) — one interpolated span, runtime data.
+    expect(okSpans, 'correctly paired spans').toBe(64);
   });
 
   it('keeps the count identity that replaces the card’s count(„) === count(“)', () => {
@@ -317,8 +319,9 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // 62 / 62 / 0 after objectui#6888 keyed `LocationField`'s residue refusal —
     // three more matched pairs across its two arity siblings, and `rdq` still 0.
     // 63 / 63 / 0 after objectui#4191 added `actions.notAvailableHere`, one
-    // more matched pair.
-    expect({ open, close, rdq }).toEqual({ open: 63, close: 63, rdq: 0 });
+    // more matched pair. 64 / 64 / 0 after objectui#10474 added
+    // `fields.dateTime.impossibleDay`, one more matched pair.
+    expect({ open, close, rdq }).toEqual({ open: 64, close: 64, rdq: 0 });
     // The durable shape: every „ closed by a “, every surplus “ an English
     // opener answered by a ”. Survived translating the two English values.
     expect(close).toBe(open + rdq);

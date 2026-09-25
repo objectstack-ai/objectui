@@ -14,6 +14,7 @@ import { activityRowToFeedItem, InlineEditSaveBar, buildDefaultPageSchema, deriv
 import { Empty, EmptyTitle, EmptyDescription } from '@object-ui/components';
 import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, useGlobalUndo, useDataInvalidation, notifyDataChanged, useRowPredicate } from '@object-ui/react';
 import { buildExpandFields, resolveRecordIdParamSeed, userActionPredicates } from '@object-ui/core';
 import { toast } from 'sonner';
@@ -310,6 +311,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     };
   }, [originFromState, location.search, appName]);
   const { t, language } = useObjectTranslation();
+  // The DISPLAY locale the audit-history dates format with (objectui#10442).
+  // `language` above stays for what it is: the key into per-locale LABEL maps.
+  const displayLocale = useDisplayLocale();
   const { objectLabel, viewLabel: _vLabel, sectionLabel, actionParamText, actionParamOptionLabel, actionDescription, actionResultDialog, fieldLabel, fieldOptionLabel } = useObjectLabel();
   // label + confirmText + successMessage through ONE call (objectui#4265) —
   // the three keys of an `_actions.<name>` bundle entry can no longer be
@@ -1438,7 +1442,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         );
         if (cancelled) return;
 
-        const fmtCtx = { t, locale: language, lookupLabels };
+        // `locale` is spent on the date faces only, so it is the display
+        // locale, never the UI language (objectui#10442).
+        const fmtCtx = { t, locale: displayLocale, lookupLabels };
         const enriched = items.map((it, idx) => {
           const u = it?.user_id ? userMap.get(it.user_id) : undefined;
           // Attribution fallback chain: resolved user name → service/automation
@@ -1479,10 +1485,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         if (!cancelled) setHistoryLoading(false);
       });
     return () => { cancelled = true; };
-    // `t` is identity-stable per language; `language` already refires the
-    // effect on locale switches so formatted diff values re-localize.
+    // `t` is identity-stable per language; `language` refires the effect on a
+    // language switch so the translated values re-localize, and
+    // `displayLocale` on a display-locale switch so the dates do.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataSource, pureRecordId, objectDef, historyEnabled, objects, language]);
+  }, [dataSource, pureRecordId, objectDef, historyEnabled, objects, language, displayLocale]);
 
   // Fetch a directory of active users once per dataSource mount and expose
   // them as @-mention suggestions to the DiscussionContext. Capped at 50 to

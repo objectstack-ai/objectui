@@ -131,10 +131,12 @@ describe('PageHeaderRenderer — record title resolution', () => {
  *     `getRecordDisplayName` walks from a blank steps 1+2 to step 3;
  *   - an object that declares no pointer still takes its title from the
  *     template, ABOVE the type-aware derivation, which stays where it was;
- *   - the template keeps THIS renderer's interpolation, which routes a select
- *     value through its option label. Core's `formatTitleTemplate` renders the
- *     raw value, so a ladder that consulted the whole unified resolver above
- *     the template would change this H1 and not just the order;
+ *   - the template's select value still reads as its option label. Since
+ *     objectui#10447 the rung renders through core's `formatTitleTemplate`
+ *     over a record copy whose select values read as their labels; the
+ *     unified resolver renders the raw value, so a ladder that consulted the
+ *     whole resolver above the template would change this H1 and not just the
+ *     order;
  *   - an explicit `schema.title` still outranks both.
  */
 describe('PageHeaderRenderer — the declared pointer outranks `titleFormat` (#9436)', () => {

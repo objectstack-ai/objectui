@@ -274,13 +274,19 @@ describe('ObjectForm Integration', () => {
         );
 
         // Wait for the record read to seed the form.
-        const nameInput = await waitFor(() => {
+        await waitFor(() => {
             const el = container.querySelector('input[name="name"]') as HTMLInputElement | null;
             if (!el || el.value !== 'Website') throw new Error('form not seeded yet');
             return el;
         });
-        fireEvent.change(nameInput, { target: { value: 'Website v2' } });
 
+        // Submitted with NOTHING changed, on purpose. An edit writes only the
+        // fields that differ from the record it read (objectui#10156), so after
+        // a real edit an unchanged computed column is kept off the wire by the
+        // dirty diff alone and this row could no longer fail for the sanitizer.
+        // A save with nothing changed sends the full sanitized payload — the
+        // one edit route where the sanitizer is the only filter between these
+        // round-tripped columns and the server.
         const form = container.querySelector('form') as HTMLFormElement;
         fireEvent.submit(form);
 
@@ -290,8 +296,8 @@ describe('ObjectForm Integration', () => {
         const [obj, id, payload] = ds.update.mock.calls[0];
         expect(obj).toBe('test_project');
         expect(id).toBe('p1');
-        // Edited writable field is sent...
-        expect(payload).toMatchObject({ name: 'Website v2', budget: 150000 });
+        // The writable fields are sent...
+        expect(payload).toMatchObject({ name: 'Website', budget: 150000 });
         // ...but the computed and server-managed keys are stripped.
         expect(payload).not.toHaveProperty('budget_remaining');
         expect(payload).not.toHaveProperty('task_count');

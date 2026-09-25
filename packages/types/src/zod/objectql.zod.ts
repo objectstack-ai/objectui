@@ -2584,12 +2584,14 @@ export const ObjectChartSchema = BaseSchema.extend({
   // BY REFERENCE, not restated: the key set, the value domains and the strict
   // refusal are the spec's. `stripImportedDefaults` keeps the spec's two
   // `.default()`s out of the parse output, exactly as on `ChartSchema`.
-  // Only the spec's shapes are members: a bare column name or a list on
-  // `xAxis`, and a single object or a bare column name on `yAxis` — the
-  // tolerances `normalizeChartSchema` honours — are refused, each with its
-  // remedy (the liveness read on objectui#10518, a one-time reading, found no
-  // producer on this node writing any of them). ⛔ No string arm and no fold on
-  // `xAxis`: see `objectChartXAxisError` above.
+  // Only the spec's shapes are members: a bare column name, a list or any
+  // other non-object on `xAxis`, and a single object or a bare column name on
+  // `yAxis`, are refused, each with its remedy (the liveness read on
+  // objectui#10518, a one-time reading, found no producer on this node writing
+  // any of them). Of those, `normalizeChartSchema` honours the bare string on
+  // `xAxis` and both `yAxis` shapes as tolerances; a list on `xAxis` names no
+  // category there. ⛔ No string arm and no fold on `xAxis`: see
+  // `objectChartXAxisError` above.
   xAxis: z
     .union([stripImportedDefaults(SpecChartAxisSchema), z.never()], { error: objectChartXAxisError })
     .optional()

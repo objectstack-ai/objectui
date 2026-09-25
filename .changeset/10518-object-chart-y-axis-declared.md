@@ -21,18 +21,28 @@ the `object-chart` sibling of the objectui#7690 declaration on `ChartSchema`.
   has no string arm (seat decision on objectui#10518, option A).
 
 ⚠️ Shipped as `minor`, not `patch`: documents that validated before now **refuse** (the accept set
-narrows), and each of them draws a chart today:
+narrows), and most of them draw a chart today. The exceptions are named in their bullets:
 
 - An `xAxis` object with a malformed value (`min: 'zero'`, `position: 'middle'`), an undeclared
   key (`grid`, `logScale`) or no `field`. It is refused as one issue at `xAxis` whose message carries
-  the spec's own diagnostic, including its alias hint.
+  the spec's own diagnostic, including its alias hint. With a malformed value or an undeclared key
+  the chart draws today, because the object's `field` still names the category column. An object
+  with no `field` names no category, so the chart draws only when another source names one: an
+  `xAxisKey`, or the dimension of a dataset-bound chart. Otherwise it draws a refusal instead: the
+  objectui#8168 missing-category-axis screen on an object-bound chart that also declares no
+  `aggregate.groupBy`, and the renderer's `missing-category-key` error on any other chart.
 - An `xAxis` written as a bare column name (`xAxis: 'status'`), a list of axis objects, or any other
   non-object value. It is refused with the remedy `xAxis: { field }`. The renderer's normalizer still
   honours a bare string as a tolerance, and that is unchanged, but no producer on this node writes
-  one.
+  one. A bare string draws a chart today. A list or another non-object names no category either,
+  so it draws a chart only under the same condition as an `xAxis` object with no `field`, and
+  otherwise the same refusal.
 - A `yAxis` entry with a malformed value (`stepSize: 'big'`, `position: 'middle'`), an undeclared
   key (`logScale`, `grid`) or no `field`. It is refused at the entry's own path. The renderer ignores
-  what it cannot read and draws the rest.
+  what it cannot read and draws the rest. The exception is a chart whose series come from `yAxis`
+  alone (no `series`, no `categories`, not dataset-bound): there an entry with no `field` plots
+  nothing, and when no entry names a `field` the chart draws the renderer's `no-plottable-series`
+  refusal instead.
 - A `yAxis` written as a single object or a bare column name. The renderer's normalizer honours
   both as a tolerance. Neither is a member of the spec's list, and no producer on this node writes
   either, so they are refused with a remedy (the reading objectui#7690 applied to

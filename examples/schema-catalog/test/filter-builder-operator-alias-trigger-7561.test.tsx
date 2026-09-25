@@ -29,7 +29,9 @@
  * was lifted by objectui#6939's remainder, which rewrote those seven spellings
  * to the DECLARED vocabulary so the entries validate. ⇒ the assertion is
  * INVERTED below, not dropped: it still names the key that moved, and it still
- * refuses a migration back to a dialect the mirror does not accept.
+ * refuses a migration back to a legacy alias dialect (which the mirror has
+ * accepted and normalised since objectui#9559, so the fence now guards the
+ * published example rather than validation).
  *
  * ## Why the swap is the control and not a repair
  *
@@ -60,8 +62,12 @@ import { SchemaRenderer, toRenderableSchema } from '@object-ui/react';
 import { FilterOperatorSchema } from '@object-ui/types/zod';
 import { getExample } from '../src/index.js';
 
-/** Taken FROM the mirror, never restated beside it. */
-const DECLARED_OPERATORS: readonly string[] = FilterOperatorSchema.options;
+/**
+ * Taken FROM the mirror, never restated beside it — the OUTPUT side's options,
+ * since objectui#9559 made the mirror the spec rule's own preprocess-into-enum
+ * member: the canonical members, which is what a parse hands back.
+ */
+const DECLARED_OPERATORS: readonly string[] = FilterOperatorSchema.out.options;
 
 /** The three entries whose rows carry an alias-table operator. */
 const AFFECTED = [
@@ -221,15 +227,18 @@ describe('objectui#7561 — the alias spellings the catalog authors render a lab
     }
   });
 
-  it('⛔ the catalog files author the DECLARED vocabulary, not a dialect the mirror refuses', () => {
+  it('⛔ the catalog files author the CANONICAL vocabulary, not a legacy alias', () => {
     // INVERTED by objectui#6939's remainder — see this file's header. The
-    // entries now spell their operators the way `FilterOperatorSchema` declares
-    // them, which is what makes them pass `safeValidateSchema`; the two-column
-    // equality above is what says the rewrite cost no pixel.
+    // entries spell their operators the way `FilterOperatorSchema` declares its
+    // canonical members; the two-column equality above is what says the
+    // rewrite cost no pixel.
     //
     // ⛔ If someone migrates them back to `eq` / `lt` / `gt`, or forward to the
-    // dropdown's own `greaterThan`, this reddens: both are spellings the mirror
-    // refuses, and the render is no longer the thing at stake.
+    // dropdown's own `greaterThan`, this reddens. Since objectui#9559 the
+    // mirror ACCEPTS both and normalises them on parse (they are rows of the
+    // spec's alias table), so this is no longer a validation question: the
+    // catalog is what new authors copy, and the spec marks that table a
+    // deprecated bridge new producers must not emit.
     for (const id of AFFECTED) {
       const group = builderNode(asAuthored(id)).value as {
         conditions: { operator: string }[];

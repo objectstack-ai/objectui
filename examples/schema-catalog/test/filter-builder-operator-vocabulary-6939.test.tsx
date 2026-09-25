@@ -37,14 +37,18 @@
  * from the same tree by swapping only the operator spellings back, so the proof
  * keeps working in a checkout that never saw the old bytes.
  *
- * ## ⛔ The open half, recorded rather than repaired
+ * ## objectui#9559 — the two refusal legs that MOVED (ruling B, ratified)
  *
- * The dropdown EMITS a third vocabulary — its own camelCase ids
- * (`notEquals`, `greaterThan`) — which this mirror also refuses. A filter a
- * user edits in the UI and stores is therefore refused exactly as these
- * fixtures once were. That is the larger half of the same defect and no card
- * owns it; it is pinned here as a refusal so it cannot go quiet, and ⛔ it is
- * not ruled here.
+ * This file used to pin the alias dialect (`eq` / `lt` / `gt`) and the
+ * dropdown's camelCase ids (`notEquals`, `greaterThan`) as REFUSED. The ruling
+ * on objectui#9559 made `FilterOperatorSchema` the spec rule's own operator
+ * member, which accepts every spelling the protocol accepts and normalises it
+ * on parse — so both legs now assert ACCEPTED, and that the parsed document
+ * comes back in the canonical spelling these fixtures author. The
+ * contract-first control moved one level up and is still here:
+ * `an invented operator is refused` below — nothing wider than the protocol.
+ * The fixtures themselves stay canonical, and the NEW-direction legs above
+ * still hold unchanged.
  */
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
@@ -85,8 +89,12 @@ const DROPDOWN_ID: Record<string, string> = {
   less_than: 'lessThan',
 };
 
-/** Taken FROM the mirror rather than restated beside it. */
-const DECLARED_OPERATORS: readonly string[] = FilterOperatorSchema.options;
+/**
+ * Taken FROM the mirror rather than restated beside it. Since objectui#9559 the
+ * mirror is a preprocess-into-enum pipe (the spec rule's own member), so the
+ * declared canonical members are its OUTPUT side's options.
+ */
+const DECLARED_OPERATORS: readonly string[] = FilterOperatorSchema.out.options;
 
 function asAuthored(id: AffectedId): Record<string, unknown> {
   return getExample(id).schema as Record<string, unknown>;
@@ -174,25 +182,32 @@ describe('objectui#6939 — NEW: the catalog entries now pass `safeValidateSchem
     for (const op of ops) expect(DECLARED_OPERATORS).toContain(op);
   });
 
+  /** The document the whole-document gate hands back — the PARSED shape. */
+  function parsedDoc(schema: unknown): Record<string, unknown> {
+    const r = safeValidateSchema(schema);
+    if (!r.success) throw new Error(r.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '));
+    return r.data as Record<string, unknown>;
+  }
+
   it.each(AFFECTED)(
-    '%s: ⛔ the alias dialect it used to author is still REFUSED',
+    '%s: the alias dialect it used to author is ACCEPTED and normalised back (objectui#9559)',
     (id) => {
-      // The control that carries the contract-first claim. A "repair" that
-      // widened `FilterOperatorSchema` to accept `eq` / `lt` / `gt` would turn
-      // THIS green, and it must not.
       const aliased = withOperators(id, FORMER_ALIAS);
-      expect(reasons(aliased)).not.toEqual([]);
       // Anti-vacuity: the reconstruction really did move every row, so the
-      // refusal is about the alias and not about an untouched document.
+      // acceptance is about the alias and not about an untouched document.
       const before = operatorsOf(asAuthored(id));
       const after = operatorsOf(aliased);
       expect(after.length).toBe(before.length);
       for (const [i, op] of before.entries()) expect(after[i]).not.toBe(op);
+      expect(reasons(aliased)).toEqual([]);
+      // The one visible change the ruling names: the parsed document carries the
+      // canonical spelling, i.e. exactly what the fixture itself authors.
+      expect(operatorsOf(parsedDoc(aliased))).toEqual(before);
     },
   );
 
   it.each(AFFECTED)(
-    '%s: ⛔ the dropdown\'s own camelCase dialect is still REFUSED — the open half',
+    '%s: the dropdown\'s own camelCase dialect is ACCEPTED and normalised back (objectui#9559)',
     (id) => {
       const dropdown = withOperators(id, DROPDOWN_ID);
       // `equals` coincides across the two vocabularies, so only the rows that
@@ -200,7 +215,8 @@ describe('objectui#6939 — NEW: the catalog entries now pass `safeValidateSchem
       const before = operatorsOf(asAuthored(id));
       const after = operatorsOf(dropdown);
       expect(after).not.toEqual(before);
-      expect(reasons(dropdown)).not.toEqual([]);
+      expect(reasons(dropdown)).toEqual([]);
+      expect(operatorsOf(parsedDoc(dropdown))).toEqual(before);
     },
   );
 
@@ -227,7 +243,8 @@ describe('objectui#6939 — PRESERVED: the rewrite cost no pixel', () => {
     const aliased = withOperators(id, FORMER_ALIAS);
     // ⛔ Anti-vacuity on the ARM, before anything is rendered — the same guard
     // the NEW-direction twin carries on its own use of this table (the leg
-    // named `⛔ the alias dialect it used to author is still REFUSED`).
+    // named `the alias dialect it used to author is ACCEPTED and normalised
+    // back`).
     // `withOperators` falls through on a key it does not hold
     // (`table[c.operator] ?? c.operator`) and `FORMER_ALIAS` is keyed on the
     // DECLARED spellings, so against a corpus re-authored in the alias dialect

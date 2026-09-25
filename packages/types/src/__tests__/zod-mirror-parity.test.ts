@@ -840,7 +840,10 @@ export type IsAny< T > = 0 extends 1 & T ? true : false;
  * on that card: `app.zod.ts#NavigationItemSchema` and
  * `complex.zod.ts#FilterBuilderConditionSchema` because the mirror already accepts
  * more than the declaration states (`id` optional against a required one; `is_null` /
- * `is_not_null` against `FilterBuilderOperator`), so the assignment `tsc` performs to
+ * `is_not_null` against `FilterBuilderOperator` — the reading of that card's day: since
+ * objectui#9559 the declaration is the spec's `ViewFilterOperator`, which carries both,
+ * and what the mirror accepts beyond it is the spec's legacy operator aliases, which it
+ * normalises on parse), so the assignment `tsc` performs to
  * check the annotation IS this ledger's comparison and it fails; and
  * `complex.zod.ts#FilterGroupSchema` transitively, since its `conditions` arm is the
  * first of those two. ⛔ None of the three is an inference cycle — that was the risk

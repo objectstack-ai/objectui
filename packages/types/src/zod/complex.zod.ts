@@ -23,6 +23,7 @@ import {
   DashboardSchema as SpecDashboardSchema,
   DashboardWidgetSchema as SpecDashboardWidgetSchema,
   GlobalFilterSchema as SpecGlobalFilterSchema,
+  ViewFilterRuleSchema as SpecViewFilterRuleSchema,
 } from '@objectstack/spec/ui';
 import { BaseSchema, SchemaNodeSchema, specFieldsExcept } from './base.zod.js';
 import { DASHBOARD_COLOR_VARIANTS, DASHBOARD_WIDGET_TYPES } from '../designer.js';
@@ -284,24 +285,47 @@ export const CalendarViewSchema = BaseSchema.extend({
 });
 
 /**
- * Filter Operator Enum
+ * Filter Operator — DERIVED from `@objectstack/spec/ui`, never hand-copied
+ * (objectui#9559, ruling B, ratified).
+ *
+ * This is the protocol's own operator member of `ViewFilterRuleSchema`, which
+ * the spec builds from its declared set and its alias fold:
+ * `z.preprocess(normalizeFilterOperator, z.enum(VIEW_FILTER_OPERATORS))`. So
+ * this mirror accepts exactly what the protocol's rule accepts and answers with
+ * exactly what it answers:
+ *
+ *   - every canonical member of `VIEW_FILTER_OPERATORS` parses as itself;
+ *   - every legacy spelling in the spec's alias table (`lessThan`, `gt`,
+ *     `isEmpty`, …) parses AND IS NORMALISED to its canonical member — the parse
+ *     output of an authored `lessThan` is `less_than`;
+ *   - every other spelling is refused, as the protocol refuses it
+ *     (`containsCaseInsensitive`, `exists` and `notExists` among them: the
+ *     protocol's table has no row for them, and this mirror adds none).
+ *
+ * It used to be a 14-member local literal that had fallen six members behind
+ * the protocol (`icontains`, `is_empty`, `is_not_empty`, `before`, `after`,
+ * `between`) and refused every alias the protocol normalises, so the authoring
+ * gate refused operators the runtime and the protocol both accept. Taking the
+ * spec's member ends that drift class rather than this instance of it: a
+ * member the spec adds, an alias row it adds, or a change to how it folds
+ * reaches this mirror with no edit here.
+ *
+ * Why the rule's member and not a local `z.enum(VIEW_FILTER_OPERATORS)`:
+ * the result is the same schema, and this spelling is the one the objectui#8317
+ * import boundary can police — every spec value read in a mirror goes through
+ * `stripImportedDefaults`, which has an arm for a schema and none for a bare
+ * array or a function. The rule carries no default, so the strip hands back the
+ * spec's own object.
+ *
+ * ⚠️ A `ZodPipe` (preprocess into the enum), not a `ZodEnum`: the member list is
+ * `FilterOperatorSchema.out.options`, and the input side takes any value so the
+ * fold can run before the enum judges it. The TypeScript twin,
+ * `FilterBuilderOperator` in `../complex.ts`, is the spec's `ViewFilterOperator`
+ * taken by reference — the canonical spellings only, because the aliases are a
+ * read-side migration bridge the spec marks deprecated, not a vocabulary new
+ * producers may emit.
  */
-export const FilterOperatorSchema = z.enum([
-  'equals',
-  'not_equals',
-  'contains',
-  'not_contains',
-  'starts_with',
-  'ends_with',
-  'greater_than',
-  'greater_than_or_equal',
-  'less_than',
-  'less_than_or_equal',
-  'in',
-  'not_in',
-  'is_null',
-  'is_not_null',
-]);
+export const FilterOperatorSchema = stripImportedDefaults(SpecViewFilterRuleSchema).shape.operator;
 
 /**
  * Filter Condition Schema

@@ -144,7 +144,7 @@ function writeSiblings(draft: Record<string, unknown>, hops: Hop[], nextSiblings
   return { [rootKey]: root };
 }
 
-type MetadataOptionRow = { name?: string; label?: string; type?: string; pageType?: string };
+type MetadataOptionRow = { name?: string; label?: string; type?: string };
 
 /** Fetch a metadata type's items as combobox options (name → label (name)). */
 function useMetadataOptions(

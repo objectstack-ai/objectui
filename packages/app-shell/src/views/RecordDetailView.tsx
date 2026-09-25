@@ -3,7 +3,7 @@
  *
  * Renders a detail view for a single record, resolved by URL params.
  * Renders via the SchemaRenderer Page pipeline: an authored
- * PageSchema(pageType='record') when one is assigned, else a canonical
+ * PageSchema(type='record') when one is assigned, else a canonical
  * default page synthesized from the object definition
  * (`buildDefaultPageSchema`).
  */
@@ -369,7 +369,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   }, [favoriteRecord, toggleFavorite]);
 
   // ─── Page Assignment (Salesforce Lightning-style record Pages) ──────
-  // If a PageSchema(pageType='record') is authored for this object, render
+  // If a PageSchema(type='record') is authored for this object, render
   // it via SchemaRenderer (which dispatches to the registered 'record'
   // PageRenderer in @object-ui/components). Otherwise the no-assignedPage
   // branch synthesizes a canonical Page via `buildDefaultPageSchema(objectDef)`

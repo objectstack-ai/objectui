@@ -128,7 +128,6 @@ function authoredPage(components: any[]) {
   return {
     name: 'account_record_page',
     type: 'record',
-    pageType: 'record',
     object: OBJECT_NAME,
     regions: [{ name: 'main', components }],
   };

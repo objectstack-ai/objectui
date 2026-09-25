@@ -76,14 +76,17 @@ describe('runtime-metadata-persistence seam (ADR-0034)', () => {
     it('recordPageEnvelope sets the record-page identity fields the resolver matches on', () => {
       const env = recordPageEnvelope('invoice', { type: 'page', title: 'Invoice', regions: [{ name: 'main' }] });
       expect(env).toMatchObject({
-        type: 'page',
+        type: 'record',
         name: 'invoice_record',
         object: 'invoice',
-        pageType: 'record',
         kind: 'full',
         title: 'Invoice',
         regions: [{ name: 'main' }],
       });
+      // `type` is the one discriminator the resolver reads; `pageType` is a key
+      // `PageSchema` refuses as an alias of `type`, so the envelope never writes
+      // it (objectui#9674).
+      expect(env).not.toHaveProperty('pageType');
     });
 
     it('recordPageEnvelope keeps an explicit/existing page name', () => {

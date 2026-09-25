@@ -144,7 +144,6 @@ const OBJECTS = [
 const AUTHORED_PAGE_WITH_DISCUSSION = {
   name: 'account_record_page',
   type: 'record',
-  pageType: 'record',
   object: OBJECT_NAME,
   regions: [
     {

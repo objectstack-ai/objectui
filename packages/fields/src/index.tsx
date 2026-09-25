@@ -4106,7 +4106,7 @@ export const RetiredFieldTombstone: React.FC<Record<string, any>> = (props) => {
 };
 
 /** One bound tombstone per retired spelling — see {@link retiredFieldTombstoneFor}. */
-const retiredFieldTombstonesBySpelling = new Map<string, React.ComponentType<any>>();
+const retiredFieldTombstonesBySpelling = new Map<string, React.ComponentType<Record<string, unknown>>>();
 
 /**
  * {@link RetiredFieldTombstone}, bound to the retired spelling a resolver
@@ -4126,10 +4126,10 @@ const retiredFieldTombstonesBySpelling = new Map<string, React.ComponentType<any
  * component. `reportRetiredFieldType` stays once per spelling: it dedupes on
  * the spelling, which is now the right one.
  */
-function retiredFieldTombstoneFor(spelling: string): React.ComponentType<any> {
+function retiredFieldTombstoneFor(spelling: string): React.ComponentType<Record<string, unknown>> {
   let Bound = retiredFieldTombstonesBySpelling.get(spelling);
   if (!Bound) {
-    const BoundTombstone: React.FC<Record<string, any>> = (props) => (
+    const BoundTombstone: React.FC<Record<string, unknown>> = (props) => (
       <RetiredFieldTombstone {...props} retiredFieldType={spelling} />
     );
     BoundTombstone.displayName = `RetiredFieldTombstone(${spelling})`;

@@ -378,6 +378,13 @@ a render function used to be written for. A genuinely custom cell **renderer** i
 a component-layer concern: `VirtualGridColumn.cell` on `VirtualGrid`, a React prop,
 not an authoring key.
 
+A `password` or `secret` field draws a mask (`••••••`), and the cell does not hand
+the raw value out: Ctrl+C / Cmd+C on it copies nothing, and it has no tooltip. The
+grid decides this from `isMaskedFieldType()` in `@object-ui/fields` and passes it to
+the table as the column's `masked` flag (see the data table's "Masked columns"). A
+column `type` authored over such a field (`type: 'text'` on a `secret` field) cannot
+lift the refusal.
+
 ### Selectable Grid
 
 ```typescript

@@ -21,6 +21,7 @@ interface TableColumn {
   accessorKey: string;                   // Data property key
   width?: string;                        // Column width (e.g., '100px', '20%')
   sortable?: boolean;                    // Enable sorting for this column
+  masked?: boolean;                      // Never hand the raw value out (see Masked columns)
 }
 
 interface DataTableSchema {
@@ -131,6 +132,21 @@ The context carries the row twice, on purpose: `row` is the persisted record, an
 a sibling field — a `dependsOn` lookup — should read `pendingRow`, so a parent
 edited in the same row re-scopes the child before anything is saved; `row` stays
 the place to read what the data source last returned.
+
+## Masked columns
+
+A column with `masked: true` holds a credential: the table hands its raw value to
+nobody. Ctrl+C / Cmd+C on one of its cells writes nothing to the clipboard, the cell
+carries no `title` tooltip, and the CSV export leaves the column out. Every other
+column copies, shows and exports exactly as before.
+
+The flag withholds; it does not draw. What a reader sees in the cell comes from the
+column's `cell` renderer, and a column without one still draws its value. You rarely
+set the flag by hand: `object-grid` sets it for every column whose field type is
+drawn as a mask (`password`, `secret`, or a type registered with the mask), from
+`isMaskedFieldType()` in `@object-ui/fields`. It reads both the view's column
+`type` and the object's field type, so a view that shows a `secret` field as
+`text` keeps the flag.
 
 ## Examples
 

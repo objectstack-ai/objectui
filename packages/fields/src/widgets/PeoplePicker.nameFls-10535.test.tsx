@@ -46,7 +46,7 @@ import * as React from 'react';
 import { render, screen, waitFor, cleanup, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { PermissionProvider } from '@object-ui/permissions';
-import type { ObjectPermissionConfig } from '@object-ui/types';
+import type { DataSource, ObjectPermissionConfig } from '@object-ui/types';
 import { PeoplePicker } from './PeoplePicker';
 
 const AMY = {
@@ -68,7 +68,7 @@ function stripped<T extends Record<string, unknown>>(row: T, ...denied: string[]
 /** A backend that does NOT strip denied keys: it serves `row` as given, to every query. */
 function makeDataSource(row: Record<string, unknown> = AMY) {
   const find = vi.fn(async () => ({ data: [row], total: 1 }));
-  return { find } as any;
+  return { find } as unknown as DataSource;
 }
 
 /** The real role-based policy, denying the named `sys_user` fields to `viewer`. */
@@ -163,19 +163,19 @@ beforeEach(() => {
     addListener: () => {},
     removeListener: () => {},
     dispatchEvent: () => false,
-  })) as any;
+  })) as unknown as typeof window.matchMedia;
   try {
     window.localStorage.clear();
   } catch {
     /* ignore */
   }
   realImage = window.Image;
-  (window as any).Image = LoadedImage;
+  window.Image = LoadedImage as unknown as typeof window.Image;
 });
 
 afterEach(() => {
   cleanup();
-  (window as any).Image = realImage;
+  window.Image = realImage;
 });
 
 describe('PeoplePicker — field-level security gates the drawn person name (objectui#10535)', () => {

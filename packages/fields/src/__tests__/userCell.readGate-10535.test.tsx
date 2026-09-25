@@ -120,12 +120,12 @@ let realImage: typeof window.Image;
 
 beforeEach(() => {
   realImage = window.Image;
-  (window as any).Image = LoadedImage;
+  window.Image = LoadedImage as unknown as typeof window.Image;
 });
 
 afterEach(() => {
   cleanup();
-  (window as any).Image = realImage;
+  window.Image = realImage;
 });
 
 describe('UserCellRenderer — the name and the avatar are drawn from the fields the viewer may read (objectui#10535)', () => {

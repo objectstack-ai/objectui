@@ -52,6 +52,7 @@ import { useDetailTranslation } from './useDetailTranslation';
 import { useRecordEditable } from './useRecordEditable';
 import { getCellRenderer, resolveCellRendererType, coerceToSafeValue, formatPercent } from '@object-ui/fields';
 import { hasCellValue } from './emptiness';
+import { withoutDeniedFields } from './withoutDeniedFields';
 import { enrichDetailField } from './fieldEnrichment';
 import { chipTakesCellRenderer } from './summaryChipRenderers';
 import { summaryChipPercentPoints } from './summaryChipPercent';
@@ -80,6 +81,10 @@ const EMPTY_DRAFT: Record<string, any> = {};
  *      skips (e.g. an `autonumber` `name`) and whose caller set no title
  *      (objectui#2688).
  *   5. `Record #<id>` floor, else the translated "Details" fallback.
+ *
+ * `data` is the record as the viewer may read it: the caller removes the
+ * fields the loaded policy denies first (`titleRow`, objectui#10434), so a
+ * denied field is read by every rung below as an absent one.
  */
 function resolveDisplayTitle(
   data: any,
@@ -354,6 +359,23 @@ export const DetailView: React.FC<DetailViewProps> = ({
       summaryFields: filterFields(rawSchema.summaryFields as any[]) as any,
     };
   }, [rawSchema, perms]);
+
+  /**
+   * The record the header TITLE is built from: `data` without the fields the
+   * loaded policy denies on this object, `id` kept (objectui#10434).
+   *
+   * `gatedSchema` above hides a denied field's ROW, but the title ladder in
+   * `resolveDisplayTitle` reads the record itself, so a denied `primaryField`,
+   * name pointer or `titleFormat` token still printed in the H1. Built from
+   * this row, a denied field reads as an absent one and the ladder falls
+   * through to its next source, the title ObjectStack's `FieldMasker` row
+   * already yields. Before the policy loads nothing is removed, and `perms`
+   * in the deps re-derives the row when the answer arrives.
+   */
+  const titleRow = React.useMemo(
+    () => withoutDeniedFields(data, perms, rawSchema.objectName),
+    [data, perms, rawSchema.objectName],
+  );
 
   /**
    * Record-level write gate (objectstack#3821). Object-level permissions say
@@ -1099,7 +1121,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl sm:text-2xl font-bold truncate">
-                  {resolveDisplayTitle(data, schema, objectSchema, t('detail.details'))}
+                  {resolveDisplayTitle(titleRow, schema, objectSchema, t('detail.details'))}
                 </h1>
                 {effectiveSummaryFields.map((fieldName) => {
                   const val = data?.[fieldName];

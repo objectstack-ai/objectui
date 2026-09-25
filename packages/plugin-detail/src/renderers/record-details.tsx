@@ -25,6 +25,7 @@ import {
   resolveNameField,
 } from '@object-ui/core';
 import { DetailView } from '../DetailView';
+import { withoutDeniedFields } from '../withoutDeniedFields';
 import { deriveFieldGroupDetailSections } from '../synth/buildDefaultPageSchema';
 import { useRecordAriaProps } from './recordComponentAria';
 
@@ -465,7 +466,18 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // above rather than a one-line deletion. Pinned in
   // `__tests__/record-details.primaryFieldRetired-7586.test.tsx`, which
   // asserts the DEDUPE outcome (which row the grid hides), not the title.
-  const data: any = ctx.data ?? {};
+  //
+  // ⭐ The ladder reads the record AS THE VIEWER MAY READ IT (objectui#10434):
+  // the fields the loaded policy denies on this object are removed first,
+  // `id` kept, the row ObjectStack's `FieldMasker` already serves. The title
+  // is computed from that row (`DetailView`'s header builds its H1 from the
+  // same one), so a denied pointer or `titleFormat` token reads here exactly
+  // as an absent one: the ladder falls through to the rung the header lands
+  // on, and the row it hides is the one that header now shows. Reading the
+  // raw row instead printed that row under the heading. A denied field's own
+  // row is hidden by `DetailView`'s field gate whatever this ladder picks.
+  // Before the policy loads nothing is removed.
+  const data: any = withoutDeniedFields(ctx.data ?? {}, perms, objectName);
   // The `.filter(…): n is string` guard is back, for a different reason than
   // the one objectui#7586 retired: it used to drop an `objSchema?.primaryField`
   // entry that was absent always, and now it drops the two resolver rungs when

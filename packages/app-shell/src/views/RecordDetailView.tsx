@@ -234,6 +234,33 @@ export function resolveRecordHeaderActionGates(
   return { edit: affordances.edit, delete: affordances.delete };
 }
 
+/**
+ * `record` without the fields the loaded permission policy denies on
+ * `objectName`, for building the record's TITLE (objectui#10434). What is
+ * left is the row ObjectStack's `FieldMasker` already serves. `id` and `_id`
+ * are never judged: the resolver's `Record #<id>` floor reads them. Before a
+ * policy loads (also the answer with no provider mounted) the record comes
+ * back as is, and when nothing is withheld the same object comes back.
+ *
+ * `@object-ui/plugin-detail` applies the same rule to `DetailView`'s header
+ * and `record:details`' title dedupe; neither copy is a package export, which
+ * is why this package spells its own.
+ */
+function withoutDeniedFields<T>(
+  record: T,
+  perms: Pick<ReturnType<typeof usePermissions>, 'isLoaded' | 'checkField'>,
+  objectName: string | undefined,
+): T {
+  if (!perms?.isLoaded || !objectName || !record || typeof record !== 'object') return record;
+  const shown: Record<string, unknown> = {};
+  let withheld = false;
+  for (const [key, value] of Object.entries(record)) {
+    if (key === 'id' || key === '_id' || perms.checkField(objectName, key, 'read')) shown[key] = value;
+    else withheld = true;
+  }
+  return withheld ? (shown as T) : record;
+}
+
 export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverride, recordIdOverride, embedded }: RecordDetailViewProps) {
 
   const params = useParams<{
@@ -501,13 +528,21 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // Derive a human-readable record title from the loaded `pageRecord` so
   // favourites (record:*) and the breadcrumb show e.g. "Acme Corporation"
   // instead of the raw record id.
+  //
+  // The title is built from the record AS THE VIEWER MAY READ IT
+  // (objectui#10434): `withoutDeniedFields` removes the fields the loaded
+  // policy denies on this object, `id` kept, so a denied name pointer or
+  // `titleFormat` token reads as an absent one and the resolver falls through
+  // to its next rung. The breadcrumb, the favourite and the "Recently
+  // Accessed" label all carry this title. Before the policy loads nothing is
+  // removed; `perms` in the deps re-derives the title when it arrives.
   useEffect(() => {
     if (!pageRecord || typeof pageRecord !== 'object' || !objectDef) return;
-    const resolved = getRecordDisplayName(objectDef, pageRecord);
+    const resolved = getRecordDisplayName(objectDef, withoutDeniedFields(pageRecord, perms, objectName));
     if (resolved && resolved !== 'Untitled' && resolved !== recordTitle) {
       setRecordTitle(resolved);
     }
-  }, [pageRecord, objectDef, recordTitle]);
+  }, [pageRecord, objectDef, recordTitle, perms, objectName]);
 
   // Once we have a human-readable title, (a) record this visit into the
   // "Recently Accessed" rail on the home page and (b) self-heal any

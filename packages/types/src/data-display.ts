@@ -2263,19 +2263,21 @@ export interface DrillDownConfig {
   /** Master switch. Set to true (or supply any other field) to enable. */
   enabled?: boolean;
   /**
-   * Which drill interaction the widget performs:
+   * Which drill interaction a row click performs. Read by `object-data-table`
+   * alone, on its row click (objectui#10685):
    *
-   * - `'filter'` (default) — **drill-through**: the click point is an
-   *   aggregated bucket (pivot cell, chart segment, KPI). The drawer lists
-   *   the underlying records filtered by the click context. Used by charts,
-   *   pivot tables and metric cards.
-   * - `'record'` — **drill-to-record**: the click point already *is* a single
-   *   record (a row in a table / list widget). The drawer shows that record's
-   *   detail instead of a filtered list. This is the default for table / list
-   *   widgets, mirroring Salesforce list-view row → record and Power BI's
-   *   "see records" row interaction.
+   * - `'record'` (the default) — **drill-to-record**: the clicked row already
+   *   *is* a single record, so the drawer shows that record's detail. This
+   *   mirrors Salesforce list-view row → record and Power BI's "see records"
+   *   row interaction.
+   * - `'filter'` — **drill-through**: the interaction of a click point that is
+   *   an aggregated bucket, listing the records behind it filtered by the click
+   *   context. A table row is not such a bucket, and `object-data-table` has no
+   *   drill-through arm, so there this value turns the row drill off.
    *
-   * When omitted the consuming widget picks the natural default for its type.
+   * A block whose every click point is an aggregate always drills through, so
+   * it has nothing for this key to choose and refuses it on its own drill shape
+   * ({@link ObjectPivotDrillDownConfig}, {@link ObjectMetricDrillDownConfig}).
    */
   mode?: 'filter' | 'record';
   /**
@@ -2380,6 +2382,41 @@ export interface ObjectMetricDrillDownConfig extends DrillDownConfig {
    * number. `mode` applies on `object-data-table`, whose row click reads it.
    *
    * @deprecated Not a member `object-metric` reads. A metric always lists its records.
+   */
+  mode?: never;
+}
+
+/**
+ * The `object-pivot` block's drill-down shape: {@link DrillDownConfig} with
+ * `mode` REFUSED BY NAME (objectui#10685, which applies objectui#9002's ruling
+ * B, a per-block refusal, to the sibling blocks of `object-metric`).
+ *
+ * Every click point on a pivot is an aggregated bucket: a cell, a row or
+ * column header, or a total, and never a single record. So a pivot always
+ * drills through to the records behind the clicked value, and `mode`, which
+ * chooses drill-to-record for a clicked ROW, has nothing to choose here. Every
+ * other member is read: `enabled` by `isDrillEnabled`, `filter` by
+ * `computeDrillFilter`, `title` by `resolveDrillTitle`, and `target`,
+ * `columns`, `maxRows` and `report` by the `DrillDownDrawer` the block opens.
+ *
+ * A `?: never` tombstone rather than an omission, for the reason
+ * {@link ObjectMetricDrillDownConfig} gives: it also refuses a value that is
+ * not a fresh literal, and it carries the reason into the error an author (or
+ * an AI) sees.
+ *
+ * ⚠️ This is a TypeScript declaration, so it refuses the key where an author
+ * types against it (`ObjectPivotTable`'s `schema.drillDown`). Neither
+ * `object-pivot` nor `PivotTableSchema` has a zod mirror, so a stored JSON
+ * config is checked by no validator and reaches the block unchanged.
+ */
+export interface ObjectPivotDrillDownConfig extends DrillDownConfig {
+  /**
+   * REFUSED BY NAME on `object-pivot` (objectui#10685). A pivot's click point
+   * is always an aggregated bucket, so it always drills through to the records
+   * behind it, and there is no row to open as a record. `mode` applies on
+   * `object-data-table`, whose row click reads it.
+   *
+   * @deprecated Not a member `object-pivot` reads. A pivot always lists the records behind the clicked value.
    */
   mode?: never;
 }

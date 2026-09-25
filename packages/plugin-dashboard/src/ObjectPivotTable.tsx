@@ -14,7 +14,7 @@ import { Skeleton, cn } from '@object-ui/components';
 import { PivotTable } from './PivotTable';
 import { DrillDownDrawer } from './DrillDownDrawer';
 import { resolveFilterPlaceholders } from './utils';
-import type { PivotTableSchema } from '@object-ui/types';
+import type { ObjectPivotDrillDownConfig, PivotTableSchema } from '@object-ui/types';
 
 /**
  * Shared empty fallback for the resolved row list (objectui#4629).
@@ -95,6 +95,14 @@ export interface ObjectPivotTableProps {
     // takes `unknown` and routes every shape through the repo's single filter
     // sink, so the drill is correct for both arms whatever this key is typed.
     filter?: any;
+    /**
+     * This block's drill-down shape, not the shared `DrillDownConfig` that
+     * `PivotTableSchema` carries: `mode` is refused by name
+     * (`ObjectPivotDrillDownConfig`, objectui#10685, applying objectui#9002's
+     * ruling B). Every click point on a pivot is an aggregated bucket, so it
+     * always drills through; there is no row for `mode` to open as a record.
+     */
+    drillDown?: ObjectPivotDrillDownConfig;
   };
   dataSource?: any;
   className?: string;
@@ -302,7 +310,7 @@ export const ObjectPivotTable: React.FC<ObjectPivotTableProps> = ({ schema, data
   const rowFieldLabel = schema.rowField ? fieldNameLabels[schema.rowField] : undefined;
 
   // --- Drill-down wiring ---------------------------------------------------
-  const drillDown = (schema as any).drillDown;
+  const drillDown = schema.drillDown;
 
   const handleDrillDown = isDrillEnabled(drillDown)
     ? (event: DrillEvent) => setDrillEvent(event)
@@ -350,7 +358,7 @@ export const ObjectPivotTable: React.FC<ObjectPivotTableProps> = ({ schema, data
         dataSource={dataSource}
         columns={drillDown?.columns}
         maxRows={drillDown?.maxRows}
-        report={(drillDown as any)?.report}
+        report={drillDown?.report}
       />
     );
   };

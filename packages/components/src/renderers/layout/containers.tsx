@@ -379,16 +379,17 @@ const withOptionLabels = (
   objectName: string | undefined,
 ): any => {
   if (!data || typeof data !== 'object') return data;
+  const source: Record<string, any> = data;
   let copy: Record<string, any> | undefined;
-  for (const key of Object.keys(data)) {
-    const v = data[key];
+  for (const key of Object.keys(source)) {
+    const v = source[key];
     if (v === null || v === undefined || typeof v === 'object') continue;
     const label = optionLabelFor(objectSchema, fieldOptionLabel, objectName, key, String(v));
     if (label === undefined) continue;
-    copy ??= { ...data };
+    if (!copy) copy = { ...source };
     copy[key] = label;
   }
-  return copy ?? data;
+  return copy ?? source;
 };
 
 /**

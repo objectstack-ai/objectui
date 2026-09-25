@@ -117,7 +117,20 @@ describe('objectui#7531 — no relational key is read off a list column', () => 
     }
   });
 
-  it('before the object definition loads, a column carrying them offers the same candidates as a plain one', async () => {
+  it('control: before the definition loads, a plain column yields the columns-only candidate', async () => {
+    await renderAndOpenFilter(PLAIN_COLUMNS, neverLoads);
+    const plain = latestCandidates();
+
+    // These ARE the columns-only candidates: the declared columns, in order,
+    // labelled by the column, with no definition behind them.
+    expect(plain.map((f: any) => [f.value, f.label, f.type])).toEqual([
+      ['account_id', 'Account', 'lookup'],
+      ['name', 'Name', 'text'],
+    ]);
+    expect(plain[0].referenceTo).toBeUndefined();
+  });
+
+  it('before the definition loads, a column carrying the five keys offers the same candidates as a plain one', async () => {
     await renderAndOpenFilter(PLAIN_COLUMNS, neverLoads);
     const plain = latestCandidates();
     cleanup();
@@ -125,23 +138,16 @@ describe('objectui#7531 — no relational key is read off a list column', () => 
     await renderAndOpenFilter(COLUMNS_CARRYING_KEYS, neverLoads);
     const carrying = latestCandidates();
 
-    // Lit control: these ARE the columns-only candidates — the declared
-    // columns, in order, labelled by the column, with no definition behind them.
-    expect(plain.map((f: any) => [f.value, f.label, f.type])).toEqual([
-      ['account_id', 'Account', 'lookup'],
-      ['name', 'Name', 'text'],
-    ]);
-
     expect(carrying).toStrictEqual(plain);
     for (const key of ['referenceTo', 'displayField', 'idField']) {
       expect(carrying[0][key], key).toBeUndefined();
     }
   });
 
-  it('the relational target arrives with the object definition (lit control: the capture sees `referenceTo` when one exists)', async () => {
+  it('control: the relational target arrives with the object definition, and the capture sees it', async () => {
     let deliver!: (def: unknown) => void;
     const definition = new Promise<unknown>((resolve) => { deliver = resolve; });
-    await renderAndOpenFilter(COLUMNS_CARRYING_KEYS, () => definition);
+    await renderAndOpenFilter(PLAIN_COLUMNS, () => definition);
 
     expect(latestCandidates()[0].referenceTo).toBeUndefined();
 
@@ -153,7 +159,6 @@ describe('objectui#7531 — no relational key is read off a list column', () => 
       },
     });
 
-    // The definition's own target, not the column's `account`.
     await waitFor(() => expect(latestCandidates()[0].referenceTo).toBe('crm_account'));
   });
 });

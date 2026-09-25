@@ -30,13 +30,18 @@ Ruled 2026-09-01: one concept, one spelling, and the spelling is `children`.
   reads named below** — `div`, `card`, `button`, `aspect-ratio`, the sectioning tags,
   the safe-HTML tag factory behind ~36 tags, `page`'s flat content list, and
   `@object-ui/core`'s recursive `validateSchema`.
-- **Item-level `body` is a DIFFERENT key and is untouched.** `list` draws each entry
-  as `item.content || renderChildren(item.body)` and `tabs` as
+- **Item-level `body` is a DIFFERENT key and is untouched.** At this change, `list`
+  draws each entry as `item.content || renderChildren(item.body)` and `tabs` as
   `item.content || item.body`, both filed under the ITEM type rather than the node,
   and `tabs` still ships `body` inside its own `defaultProps`. ⛔ Neither is this
   spelling and neither is refused here: the node-level retirement does not reach a
   member of a declared `items` array. Retiring the item-level dialect is
   objectui#9590's card, and the two named above are recorded on it.
+  ⚠️ **Dated note, 2026-09-25 — the `tabs` half of this bullet no longer holds — objectui#9590.**
+  objectui#9941 respelled the `tabs` `defaultProps` items to `content`, and
+  objectui#9590 retired the `tabs` fallback, so a `tabs` item draws `item.content`
+  and nothing else. The `list` half is unchanged by that note's change. The rest of
+  this bullet is kept as the reading of this change.
 - **What still reads `body` at NODE level, and why.** Four renderer reads, all `page:*`: `page:card`
   (renderer and Studio canvas) and the three thin `page:section` / `page:footer` /
   `page:sidebar` containers. ⛔ Authoring the key is refused on them as it is

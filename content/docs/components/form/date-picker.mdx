@@ -31,6 +31,8 @@ interface DatePickerSchema {
   placeholder?: string;           // Placeholder text
   
   // Events
+  // RUNTIME SLOT (objectui#6124): a React host supplies it; JSON refuses it
+  // by name. Author behaviour as a node type, e.g. an action:button node.
   onChange?: (date: Date | undefined) => void;
   
   // States

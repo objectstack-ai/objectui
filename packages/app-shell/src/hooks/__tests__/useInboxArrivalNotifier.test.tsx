@@ -302,6 +302,33 @@ describe('constraint 2 — several messages in one cycle announce once', () => {
   });
 });
 
+describe('constraint 4 — a message the signed-in user caused does not pop (objectui#8667)', () => {
+  // The comparand is the signed-in user's ID as `useAuth` reports it
+  // ('u_alice' in this file's mock), not their name or email. Both actors are
+  // concrete and distinct, so neither case can pass by comparing two absences.
+  it('stays silent for a self-caused row, then announces the next row someone else caused', async () => {
+    const view = mountNotifier({ notifications: [row('m1')], status: 'ready' });
+    await settle();
+
+    view.rerender({ notifications: [row('m2', { actor_id: 'u_alice' }), row('m1')], status: 'ready' });
+    await settle();
+    expect(presentNotificationToast).not.toHaveBeenCalled();
+
+    view.rerender({
+      notifications: [row('m3', { actor_id: 'u_bob' }), row('m2', { actor_id: 'u_alice' }), row('m1')],
+      status: 'ready',
+    });
+    await settle();
+
+    // Exactly the other person's row: the self-caused one was remembered, not
+    // held back to be announced alongside it.
+    expect(presentNotificationToast).toHaveBeenCalledTimes(1);
+    expect(presentNotificationToast.mock.calls[0][0]).toMatchObject({
+      title: 'Assigned to you: m3',
+    });
+  });
+});
+
 describe('constraint 5 — toast and desktop notification are mutually exclusive', () => {
   it('a VISIBLE tab gets the toast and NO system notification', async () => {
     FakeNotification.permission = 'granted';

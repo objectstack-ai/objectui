@@ -383,7 +383,6 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
           type: 'data-table',
           ...restOptions,
           objectName: widgetData.object,
-          dataProvider: widgetData,
           data: [],
           searchable: false,
           pagination: false,
@@ -422,7 +421,6 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
           type: 'pivot',
           ...restOptions,
           objectName: widgetData.object,
-          dataProvider: widgetData,
           data: [],
         };
       }

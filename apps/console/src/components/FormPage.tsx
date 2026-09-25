@@ -107,8 +107,9 @@
  * The page shell above is this file's own; the FIELD layer is not. Each row
  * renders the widget the shared resolver names for it — `resolveFormWidgetType`
  * + `getLazyFieldWidget`, the ADR-0059 door — including the two axes a
- * type-keyed switch cannot see: an authored `widget` (which wins over `type`,
- * exactly as `form.tsx` resolves `f?.widget || f?.field?.widget || f?.type`)
+ * type-keyed switch cannot see: an authored `widget` (which wins over `type`
+ * when it names a registered widget, and otherwise degrades to the `type`
+ * renderer as the spec's `FieldSchema.widget` declares — objectui#10472)
  * and arity (`select` + `multiple: true` is the multiselect widget). Until
  * #10179 a hand-rolled `switch (field.type)` stood here that knew a subset of
  * the declared types and rendered every other one as a text box, silently.
@@ -622,14 +623,49 @@ export function normalizeOptions(opts: unknown): Array<{ value: string; label: s
 }
 
 /**
+ * What `resolveFormWidgetType` answers for a spelling nothing registers — its
+ * documented fallback ("anything unknown falls back to `text`"). Read by
+ * {@link namesRegisteredWidget} alone.
+ */
+const UNKNOWN_SPELLING_WIDGET = 'text';
+
+/**
+ * Does an authored `widget` spelling name a widget the shared registry holds
+ * (objectui#10472)?
+ *
+ * The spec's `FieldSchema.widget` declares that the override "names a
+ * registered field component" and "Degrades to the `type` renderer when
+ * unregistered". The `widget` leg of {@link resolveFieldWidgetKey} used to
+ * return `resolveFormWidgetType(widget)` unconditionally, and that resolver
+ * answers a spelling nothing registers with its `text` fallback — so a
+ * `select` field carrying `widget: 'no_such_widget'` rendered a free-text box
+ * instead of its select.
+ *
+ * ⛔ No list of widgets lives here. The question goes to the SAME resolver the
+ * row renders through (`getLazyFieldWidget` mounts what it names), and is read
+ * for that one documented answer: a spelling it answers with `text`, when the
+ * author did not write `text`, named nothing. Everything else it knows keeps
+ * resolving as before — a registered key, a retired spelling (whose tombstone
+ * still refuses visibly) and an alias of a registered key (`secret` →
+ * `password`).
+ */
+function namesRegisteredWidget(widget: string): boolean {
+  return resolveFormWidgetType(widget) !== UNKNOWN_SPELLING_WIDGET || widget === UNKNOWN_SPELLING_WIDGET;
+}
+
+/**
  * The registered widget key a row renders (objectui#10179, objectui#10177).
  *
  * ⛔ No mapping lives here. Every step is the shared chain's own answer, in the
  * order the sibling renderer applies them:
  *
- *  1. an authored `widget` wins over `type` outright, un-arity'd — `form.tsx`
- *     resolves `f?.widget || f?.field?.widget || f?.type`, where only the
- *     `type` leg was produced by `mapFieldTypeToFormType(type, { multiple })`;
+ *  1. an authored `widget` that names a REGISTERED widget wins over `type`
+ *     outright, un-arity'd — `form.tsx` resolves
+ *     `f?.widget || f?.field?.widget || f?.type`, where only the `type` leg was
+ *     produced by `mapFieldTypeToFormType(type, { multiple })`. One that names
+ *     nothing takes the next two steps instead (objectui#10472), because the
+ *     spec's `FieldSchema.widget` declares that it "Degrades to the `type`
+ *     renderer when unregistered" — see {@link namesRegisteredWidget};
  *  2. otherwise ARITY: `mapFieldTypeToFormType` is asked for the multi-value
  *     answer, and it is taken only where the shared table says the arity MOVES
  *     the widget (`select` + `multiple` → `multiselect`). Every other
@@ -646,7 +682,9 @@ function resolveFieldWidgetKey(field: {
   widget?: string;
   multiple?: boolean;
 }): string {
-  if (field.widget) return resolveFormWidgetType(field.widget);
+  if (field.widget && namesRegisteredWidget(field.widget)) {
+    return resolveFormWidgetType(field.widget);
+  }
   if (field.multiple) {
     const multi = mapFieldTypeToFormType(field.type, { multiple: true });
     if (multi !== mapFieldTypeToFormType(field.type)) {

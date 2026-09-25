@@ -2003,6 +2003,19 @@ export function InterfacesPillar({
   // cedes the right side to the chat dock), so they are built once here. The
   // extraction is presentation-neutral: the classic branch composes exactly
   // the pre-P3c tree.
+  // objectui#8219 — true exactly when the canvas below renders its `Preview`
+  // branch (same guards, same order). A registered preview brings its own
+  // frame (PreviewShell), so the wrapper then draws none: one frame, and the
+  // wrapper's border and padding go back to the preview. Every other canvas
+  // state (no app, nothing picked, loading, the studio-canvas records grid,
+  // no designer) has no shell of its own and keeps the wrapper's card.
+  const canvasHostsPreviewShell =
+    !(appStatus === 'missing' && !error) &&
+    !!current &&
+    !loading &&
+    !StudioCanvas &&
+    !isSourcePage &&
+    !!Preview;
   const canvasEl = (
     <main className="flex min-w-0 flex-1 flex-col overflow-auto bg-muted/30 p-4">
       <div className="mb-3 flex shrink-0 items-center gap-2">
@@ -2073,7 +2086,11 @@ export function InterfacesPillar({
           // Source pages: let the live preview fill the canvas height (it
           // brings its own PreviewShell chrome), so it balances the taller
           // editor panel instead of floating as a short card.
-          isSourcePage ? 'min-h-0 flex-1 overflow-hidden' : 'rounded-lg border bg-background p-4',
+          isSourcePage
+            ? 'min-h-0 flex-1 overflow-hidden'
+            : canvasHostsPreviewShell
+              ? undefined
+              : 'rounded-lg border bg-background p-4',
         )}
       >
         {appStatus === 'missing' && !error ? (

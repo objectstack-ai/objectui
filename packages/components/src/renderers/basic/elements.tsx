@@ -27,7 +27,7 @@
 import * as React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import type { ActionDef } from '@object-ui/core';
-import { useAdapter, useAction, useDataInvalidation } from '@object-ui/react';
+import { useAdapter, useAction, useDataInvalidation, useFilterScope, useResolvedFilter } from '@object-ui/react';
 import {
   useObjectTranslation,
   pickLocalized,
@@ -389,7 +389,16 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
   const [value, setValue] = React.useState<number | null>(null);
   const [loading, setLoading] = React.useState<boolean>(true);
   const [error, setError] = React.useState<string | null>(null);
-  const filterKey = React.useMemo(() => (props.filter ? JSON.stringify(props.filter) : ''), [props.filter]);
+  // objectui#10666 — the number's own `filter`, with every context token
+  // (`{current_user_id}`, `{current_org_id}`, the date macros) resolved ONCE
+  // through `@object-ui/core`'s shared `resolveFilterPlaceholders`, against the
+  // session scope the host provides, and HELD by structure (`useResolvedFilter`
+  // in `@object-ui/react`). Both reads below (the `aggregate` filter and the
+  // `find` fallback's `$filter`) sent the literal token before; they and the
+  // content key read THIS, never the raw `props.filter`.
+  const filterScope = useFilterScope();
+  const queryFilter = useResolvedFilter(props.filter, filterScope);
+  const filterKey = React.useMemo(() => (queryFilter ? JSON.stringify(queryFilter) : ''), [queryFilter]);
   // objectui#10623 — the data-invalidation bus (`notifyDataChanged` from
   // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
   // write to the object this number AGGREGATES is declared, and the effect
@@ -412,7 +421,7 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
             field: props.field,
             function: props.aggregate,
             groupBy: '_all',
-            filter: props.filter,
+            filter: queryFilter,
           });
           const row = Array.isArray(rows) ? rows[0] : rows;
           const measureKey = props.aggregate === 'count' ? 'count' : `${props.field ?? ''}_${props.aggregate}`;
@@ -425,7 +434,7 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
         } else if (typeof adapter.find === 'function') {
           // Last-resort: pull all rows and aggregate client-side. Costly
           // but matches the chart renderer fallback path.
-          const res = await adapter.find(props.object, props.filter ? { $filter: props.filter } : undefined);
+          const res = await adapter.find(props.object, queryFilter ? { $filter: queryFilter } : undefined);
           // `data` is the ONE rows member `QueryResult` (`@object-ui/types`)
           // declares; the bare-array arm stays because fakes at this seam
           // really do answer with a plain array. A `res?.records` arm sat

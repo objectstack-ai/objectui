@@ -19,7 +19,7 @@
 
 import * as React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
-import { useAdapter, useDataInvalidation } from '@object-ui/react';
+import { useAdapter, useDataInvalidation, useFilterScope, useResolvedFilter } from '@object-ui/react';
 import { cn } from '../../lib/utils';
 import { readProps } from './readProps';
 
@@ -110,7 +110,15 @@ function RepeaterRenderer({ schema }: { schema: any }) {
   const [rows, setRows] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const filterKey = React.useMemo(() => (props.filter ? JSON.stringify(props.filter) : ''), [props.filter]);
+  // objectui#10666 — the repeater's own `filter`, with every context token
+  // (`{current_user_id}`, `{current_org_id}`, the date macros) resolved ONCE
+  // through `@object-ui/core`'s shared `resolveFilterPlaceholders`, against the
+  // session scope the host provides, and HELD by structure (`useResolvedFilter`
+  // in `@object-ui/react`). It sent the literal token on `$filter` before. The
+  // query and its content key below read THIS, never the raw `props.filter`.
+  const filterScope = useFilterScope();
+  const queryFilter = useResolvedFilter(props.filter, filterScope);
+  const filterKey = React.useMemo(() => (queryFilter ? JSON.stringify(queryFilter) : ''), [queryFilter]);
   // objectui#10664 — the sort reaches `$orderby` below, so the fetch effect
   // keys on it, by CONTENT the way `filterKey` keys the filter: a fresh array
   // with the same entries is not a change (AGENTS.md #10).
@@ -141,7 +149,7 @@ function RepeaterRenderer({ schema }: { schema: any }) {
     (async () => {
       try {
         const query: any = {};
-        if (props.filter) query.$filter = props.filter;
+        if (queryFilter) query.$filter = queryFilter;
         if (props.sort) query.$orderby = props.sort;
         if (props.limit) query.$top = props.limit;
         const res = await adapter.find(props.object, query);

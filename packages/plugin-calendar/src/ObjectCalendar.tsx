@@ -36,6 +36,8 @@ import {
   useSettledSchema,
   NonGridRowCeilingNote,
   useDataInvalidation,
+  useFilterScope,
+  useResolvedFilter,
 } from '@object-ui/react';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -592,6 +594,18 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     !hasExternalData && dataProvider === 'object' ? schemaObjectName || undefined : undefined,
   );
 
+  // objectui#10666 — the node's own `filter`, with every context token
+  // (`{current_user_id}`, `{current_org_id}`, the date macros) resolved ONCE
+  // through `@object-ui/core`'s shared `resolveFilterPlaceholders`, against the
+  // session scope the host provides, and HELD by structure (`useResolvedFilter`
+  // in `@object-ui/react`). A directly authored calendar sent the literal token
+  // on `$filter` before. Both query paths below (the `object` fetch and the
+  // inline `ValueDataSource`) and the effect's dependency list read THIS, never
+  // the raw `schema.filter`, so a re-render that rebuilds an equal filter does
+  // not re-query.
+  const filterScope = useFilterScope();
+  const queryFilter = useResolvedFilter(schema.filter, filterScope);
+
   // Fetch data based on provider
   useEffect(() => {
     // Skip internal fetch when data is managed by a parent component
@@ -658,7 +672,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
           // `object` arm below resolves.
           const inlineSource = new ValueDataSource<any>({ items: (dataItems as any[]) ?? [] });
           const result = await inlineSource.find('', {
-            $filter: schema.filter,
+            $filter: queryFilter,
             $orderby: convertSortToQueryParams(schema.sort),
             // The same platform ceiling the `object` arm sends, on the same
             // probe-row convention (objectui#7210, ruling a′). The ruling's
@@ -741,7 +755,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
             ? expandable
             : expandable.filter((f) => perms.checkField(objectName, f, 'read'));
           const result = await dataSource.find(objectName, {
-            $filter: schema.filter,
+            $filter: queryFilter,
             $orderby: convertSortToQueryParams(schema.sort),
             // The platform ceiling (objectui#7210, ruling a′). A calendar
             // still fetches the whole FILTERED set — it cannot lay out a month
@@ -791,7 +805,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     fetchData();
     return () => { isMounted = false; };
   }, [hasExternalData, dataProvider, schemaObjectName, dataItems, dataSource, hasInlineData,
-      schema.filter, schema.sort, refreshKey, objectSchemaReady, objectSchema, perms, invalidationNonce]);
+      queryFilter, schema.sort, refreshKey, objectSchemaReady, objectSchema, perms, invalidationNonce]);
 
   // Transform data to calendar events, and separate out the records that have
   // no date to be placed on at all (objectui#7071 — see the early return in the

@@ -25,7 +25,7 @@ import type { BaseSchema } from './base.js';
 import type { KanbanCard } from './complex.js';
 import type { DrillDownConfig } from './data-display.js';
 // `QueryParams` is the destination `ObjectGallerySchema.filter`'s own docblock
-// names — the value is forwarded verbatim into that slot — so the declaration
+// names — the value is forwarded into that slot, context tokens resolved — so the declaration
 // is an INDEXED ACCESS on it rather than a copy of its arms (objectui#9309).
 // Type-only: no runtime edge, and `./data.ts` imports nothing from here, so
 // this adds no cycle in either direction.
@@ -2852,7 +2852,10 @@ export interface ObjectMapSchema extends BaseSchema {
   data?: ViewData;
   /** Inline records, wrapped into a `{ provider: 'value' }` data config; read SECOND */
   staticData?: any[];
-  /** Query filter, forwarded verbatim as `$filter` */
+  /**
+   * Query filter, forwarded as `$filter` with its
+   * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666).
+   */
   filter?: any[];
   /** Sort configuration, forwarded as `$orderby`. Array only — the legacy string clause is retired (objectui#8221). */
   sort?: SortConfig[];
@@ -2911,14 +2914,15 @@ export interface ObjectTreeSchema extends BaseSchema {
   /** ObjectQL object name */
   objectName: string;
   /**
-   * Query filter, forwarded verbatim as `$filter` on the tree's own fetch.
+   * Query filter, forwarded as `$filter` on the tree's own fetch, with its
+   * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666).
    *
    * Typed as that DESTINATION by an indexed access on {@link QueryParams}, the
    * shape objectui#9309 settled for {@link ObjectGallerySchema.filter}, so the
    * declaration cannot drift away from the slot it is forwarded into
    * (objectui#9549). The key was already delivered and read before it was
    * declared: `ListView` puts `filter` on the `baseProps` every child view
-   * receives, and `ObjectTree` sends `$filter: schema.filter`. Until this
+   * receives, and `ObjectTree` sends it as `$filter`. Until this
    * declaration the value survived only on `BaseSchema`'s index signature, so
    * declaring it NARROWS: `filter: 'stage=won'` and `filter: 42` are compile
    * errors now.
@@ -3259,7 +3263,10 @@ export interface ObjectGanttSchema extends BaseSchema {
   // and `sort` as the two keys the element data-source binding maps onto.
   /** Inline records, wrapped into a `{ provider: 'value' }` config by `resolveRecordSourceConfig`. */
   staticData?: any[];
-  /** Query filter (JSON Rules format), forwarded verbatim as `$filter`. */
+  /**
+   * Query filter (JSON Rules format), forwarded as `$filter` with its
+   * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666).
+   */
   filter?: any[];
   /** Sort configuration, forwarded as `$orderby` via `convertSortToQueryParams`. Array only — the legacy string clause is retired (objectui#8221). */
   sort?: SortConfig[];
@@ -3472,10 +3479,12 @@ export interface ObjectCalendarSchema extends BaseSchema {
    */
   defaultView?: 'month' | 'week' | 'day';
   /**
-   * Query filter (JSON Rules format), forwarded verbatim as `$filter` on the
-   * calendar's own fetch — `plugin-calendar/src/ObjectCalendar.tsx` reads
-   * `schema.filter` at the `dataSource.find` call and again in that effect's
-   * dependency list.
+   * Query filter (JSON Rules format), forwarded as `$filter` on the
+   * calendar's own fetch — `plugin-calendar/src/ObjectCalendar.tsx` holds it
+   * through `useResolvedFilter` (`@object-ui/react`), with its
+   * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666),
+   * and reads the held value at the `dataSource.find` call and again in that
+   * effect's dependency list.
    *
    * Undeclared here until objectui#8174, so an authored value reached the
    * renderer only through {@link BaseSchema}'s `[key: string]: any` — admitted,
@@ -3858,10 +3867,12 @@ export interface ObjectKanbanSchema extends BaseSchema {
    */
   limit?: number;
   /**
-   * Query filter (JSON Rules format), forwarded verbatim as `$filter` on the
-   * board's own fetch — `plugin-kanban/src/ObjectKanban.tsx` reads
-   * `schema.filter` at the `dataSource.find` call, alongside the `$top` that
-   * {@link limit} feeds, and again in that effect's dependency list.
+   * Query filter (JSON Rules format), forwarded as `$filter` on the board's
+   * own fetch — `plugin-kanban/src/ObjectKanban.tsx` holds it through
+   * `useResolvedFilter` (`@object-ui/react`), with its
+   * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666),
+   * and reads the held value at the `dataSource.find` call, alongside the
+   * `$top` that {@link limit} feeds, and again in that effect's dependency list.
    *
    * Undeclared here until objectui#8174, so an authored value reached the
    * renderer only through {@link BaseSchema}'s `[key: string]: any` — admitted,
@@ -4282,8 +4293,10 @@ export interface ObjectChartSchema extends BaseSchema {
   /** Dataset measure names */
   values?: string[];
   /**
-   * AUTHORABLE — query filter, forwarded verbatim as `$filter` on both query
-   * legs (`ds.aggregate` and `ds.find`), and conjoined with the click context
+   * AUTHORABLE — query filter, forwarded as `$filter` on both query legs
+   * (`ds.aggregate` and `ds.find`) with its context tokens (`{current_user_id}`,
+   * `{current_org_id}`, the date macros) resolved first through
+   * `@object-ui/core`'s `resolveFilterPlaceholders`, and conjoined with the click context
    * to scope a drill-down.
    *
    * ⚠️ BOTH shapes, and the union is measured rather than tidied. The array arm
@@ -4294,7 +4307,7 @@ export interface ObjectChartSchema extends BaseSchema {
    * {@link ObjectKanbanSchema.filter} carry. The RECORD arm is what the reads
    * require: the in-repo corpus authors the ObjectQL object form
    * (`{ close_date: { $gte, $lte } }`) against fakes that read it that way, and
-   * both arms travel verbatim to `ds.aggregate` / `ds.find` as `$filter`.
+   * both arms travel to `ds.aggregate` / `ds.find` as `$filter`, resolved.
    * Declaring only the array arm would have refused live, working charts.
    *
    * ⚠️ Narrowing to ONE arm is a decision LOCAL TO THIS NODE, not a
@@ -4579,7 +4592,8 @@ export interface ObjectGallerySchema extends BaseSchema {
   /** ObjectQL object name; omitted when the records arrive through `bind` or `data` */
   objectName?: string;
   /**
-   * Query filter, forwarded verbatim as `$filter`.
+   * Query filter, forwarded as `$filter` with its
+   * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666).
    *
    * Typed as the DESTINATION the sentence above names, by an indexed access on
    * {@link QueryParams} rather than a copy of its arms, so the declaration

@@ -178,16 +178,38 @@ export interface PermissionContext {
   field?: string;
 }
 
-/** Permission guard configuration for UI components */
-export interface PermissionGuardConfig {
-  /** Required permission */
-  permission: string | PermissionAction;
-  /** Target object */
-  object?: string;
-  /** Fallback behavior when denied */
-  fallback?: 'hide' | 'disable' | 'redirect' | 'custom';
-  /** Custom fallback component type */
-  fallbackComponent?: string;
-  /** Redirect path for 'redirect' fallback */
-  redirectPath?: string;
-}
+// RETIRED (objectui#8024, ADR-0049 enforce-or-remove, maintainer ruling on
+// that card): `PermissionGuardConfig` — the "permission guard configuration
+// for UI components" record `{ permission, object?, fallback?, fallbackComponent?,
+// redirectPath? }` — is gone, not narrowed. It was a declaration plus two
+// barrel re-exports (this package's root barrel and `@object-ui/permissions`'s)
+// and nothing else. Measured before removal: nothing in this repo, the example
+// apps or the `objectstack` sibling checkout constructed, accepted, annotated
+// or read one, and `@objectstack/spec` declares no guard-config shape of its
+// own, so there was no upstream contract for it to mirror.
+//
+// ⭐ The shape the shipped guard reads is `PermissionGuardProps`, declared
+// beside the component in `@object-ui/permissions` (`PermissionGuard.tsx`) and
+// exported from that package's root. Author a guard against it: the required
+// permission is `action` (not `permission`), `object` is required, denied
+// content is `fallbackContent` (a React node, not a `fallbackComponent` type
+// name), and `fallback` is `'hide' | 'disable' | 'custom'`.
+//
+// ⛔ `fallback: 'redirect'` and `redirectPath` NEVER EXISTED as a capability.
+// They were declared here and honoured nowhere: `'redirect'` was never a
+// member of the union `PermissionGuard` switches on, and no code in this
+// repository ever read `redirectPath` — no guard ever sent a denied user
+// anywhere. Removing them takes away no behaviour. Declaring them again
+// without a guard that implements them is the declare-without-enforce shape
+// this removal closes.
+//
+// Removed outright rather than kept as a `?: never` carcass, on this
+// package's retire-vs-remove discriminator — cited, not restated: the rule is
+// stated on `ChatbotSchema` in `complex.ts`, in the form objectui#7678 amended
+// it to (precedent changesets objectui#5941 / #7526). `PermissionGuardConfig`
+// is a whole exported type name, so there is no surviving carrier to hang a
+// `never` key on and that precondition settles the route by itself. Nor is
+// there a silent-strip hazard to guard: this module has never had a `zod/`
+// twin, so nothing ever parsed the shape. Same route as
+// `MobileResponsiveConfig` / `GestureConfig` (objectui#7519) in `mobile.ts`.
+// Pinned in `./__tests__/permission-guard-config-retired-8024.test.ts`.

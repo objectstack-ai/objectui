@@ -310,7 +310,7 @@ param support ⊇ form support).
 ## Rule: Layout Responsiveness
 
 `grid` declares its column count as `columns` — either a number, or a
-breakpoint object keyed `xs` / `sm` / `md` / `lg` / `xl` (`GridSchema` in
+breakpoint object keyed `xs` / `sm` / `md` / `lg` / `xl` / `2xl` (`GridSchema` in
 `packages/types/src/layout.ts`):
 
 <!-- os:check -->
@@ -328,10 +328,15 @@ A bare `"columns": 4` already gets a mobile-first ramp (1 column, 2 at `sm`,
 spelled out.
 
 **`2xl` is the sixth key.** Six keys — `xs` … `xl` **plus `2xl`** — are
-objectui's own breakpoint vocabulary, declared as `BreakpointColumnMap` in
-`@object-ui/layout`, and the `grid` renderer reads all six. Measured:
-`{xs:1, xl:5}` → `grid grid-cols-1 xl:grid-cols-5 gap-4`; `{xs:1, "2xl":6}` →
-`grid grid-cols-1 2xl:grid-cols-6 gap-4`.
+objectui's own breakpoint vocabulary: `BreakpointName` in `@object-ui/types` is
+the key set of `GridSchema.columns`, and `BreakpointColumnMap` in
+`@object-ui/layout` (`responsive-grid`) spells the same six. Since objectui#7097
+the `grid` renderer reads all six. Measured on main: `{xs:1, xl:5}` →
+`grid grid-cols-1 xl:grid-cols-5 gap-4`; `{xs:1, "2xl":6}` →
+`grid grid-cols-1 2xl:grid-cols-6 gap-4`. On an `@object-ui/components` release
+that predates objectui#7097 the `2xl` step is accepted and silently dropped
+(`grid grid-cols-1 gap-4`): there, stop at `xl` or carry the widest step in
+`className`.
 
 **❌ DO NOT** spell it `cols` — no schema, renderer or registry declares that
 key, so the value is dropped on the floor and the grid renders a flat two

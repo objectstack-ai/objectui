@@ -37,7 +37,7 @@
     {
       "id": 3,
       "prompt": "I have a grid in an ObjectUI page that should show 1 column on phones, 2 on tablets and 6 on wide desktops. I wrote { \"type\": \"grid\", \"props\": { \"cols\": { \"xs\": 1, \"md\": 2, \"2xl\": 6 } } } and it renders as a flat two-column grid at every width.",
-      "expected_output": "Names three separate faults: the keys are under props and so are never read; the key is columns, not cols, which no schema or renderer declares; and 2xl parses but the grid renderer reads only xs through xl, so a 2xl entry emits no class. Rewrites it as columns on the node, stopping at xl, and offers className for a wider step.",
+      "expected_output": "Names the two faults that cause the flat grid: the keys are under props and so are never read; the key is columns, not cols, which no schema or renderer declares. Rewrites it as columns on the node with xs, md and 2xl. Notes that 2xl is the sixth breakpoint key and is read by the grid renderer since objectui#7097; on an earlier @object-ui/components release the 2xl step is accepted and silently dropped, so there stop at xl or carry the widest step in className.",
       "files": [],
       "assertions": {
         "must_contain": [

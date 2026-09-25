@@ -1833,6 +1833,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         v.colorField, v.allDayField,
         v.coverField, v.imageField,
         v.swimlaneField, v.valueField,
+        // The map's row reads (objectui#10370): the coordinates, and the
+        // marker description. Its title rides `titleField` above.
+        v.locationField, v.latitudeField, v.longitudeField,
+        v.descriptionField,
         // Spec `columns` = the fields shown on each kanban card (legacy: cardFields).
         // ⛔ No timeline chip-field list (the retired `metaFields`) is
         // collected: the spec declares none, and the timeline no longer reads
@@ -1855,6 +1859,12 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     collectViewFields((schema as any).options?.timeline);
     collectViewFields((schema as any).gantt);
     collectViewFields((schema as any).options?.gantt);
+    // [objectui#10370] The map, read through the resolver its render branch
+    // and capability gate share — see the `$select` twin below for why the
+    // resolver rather than the two blocks one at a time. A map binding that
+    // names a lookup is then expanded, the row shape `ObjectMap`'s own fetch
+    // and a column-less list already deliver: both expand every relation.
+    collectViewFields(resolveListMapConfig(schema));
     // [objectui#7179] The GRID's grouping block, which this collector had no
     // arm for: it reads `groupByField` (kanban / gantt / timeline) but the grid
     // groups through `grouping.fields[]`, a different key with a different
@@ -1916,6 +1926,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     (schema as any).gallery,
     (schema as any).timeline,
     (schema as any).gantt,
+    (schema as any).map,
     (schema as any).options,
     perms,
     schema.objectName,
@@ -2207,6 +2218,12 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               v.colorField, v.allDayField,
               v.coverField, v.imageField,
               v.swimlaneField, v.valueField,
+              // The map's row reads (objectui#10370): `ObjectMap` places a
+              // marker from `locationField` or the `latitudeField` +
+              // `longitudeField` pair (`extractCoordinates`) and shows
+              // `descriptionField` under it. Its title rides `titleField` above.
+              v.locationField, v.latitudeField, v.longitudeField,
+              v.descriptionField,
               // Spec `columns` = the fields shown on each kanban card (legacy: cardFields).
               // ⛔ No timeline chip-field list (the retired `metaFields`) is
               // collected: the spec declares none, and the timeline no longer
@@ -2246,6 +2263,25 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           }
           collectViewFields(schema.gantt);
           collectViewFields(schema.options?.gantt);
+          // [objectui#10370] The MAP's bindings, which this collector had no
+          // arm for: a map view whose columns omit its location field asked
+          // for `id` plus those columns, and on a backend that honours
+          // `$select` every row arrived without coordinates — a map with no
+          // markers, no error, no warning.
+          //
+          // Read through `resolveListMapConfig`, the resolver `case 'map'` and
+          // the capability gate already share, not through `schema.map` and
+          // `schema.options?.map` one at a time: it reads both of those, per
+          // key with the view-level block winning, so the projection asks for
+          // exactly the bindings the markers are drawn from. A bag value the
+          // block shadows is read by nothing and is not requested. A top-level
+          // `locationField` is no spelling at all — the spec's list view
+          // refuses it by name and no map branch reads it — so it stays out.
+          //
+          // Through `addSpeculative`, like every binding here: a location field
+          // the principal may not read is never requested, and a name the
+          // object does not declare is never sent.
+          collectViewFields(resolveListMapConfig(schema));
 
           // The fields the view's PREDICATES read (objectui#3501).
           // `$select` was built from the COLUMNS alone, so a row action gated on
@@ -2549,7 +2585,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // silently un-suppresses nothing, because the finding it was suppressing
     // simply moves elsewhere. Add prose ABOVE this point, never below it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema.objectName, schema.data, dataSource, schema.filter, effectivePageSize, currentSort, currentFilters, userFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, ganttOwnsData]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
+  }, [schema.objectName, schema.data, dataSource, schema.filter, effectivePageSize, currentSort, currentFilters, userFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, (schema as any).map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, ganttOwnsData]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
 
   // Any change to the result-defining inputs (object, filters, sort, search,
   // grouping, page size) invalidates the current page number — snap back to

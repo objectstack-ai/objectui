@@ -19,7 +19,7 @@
 
 import * as React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
-import { useAdapter } from '@object-ui/react';
+import { useAdapter, useDataInvalidation } from '@object-ui/react';
 import { cn } from '../../lib/utils';
 import { readProps } from './readProps';
 
@@ -117,6 +117,15 @@ function RepeaterRenderer({ schema }: { schema: any }) {
     [props.fields],
   );
 
+  // objectui#10623 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+  // write to the object this list REPEATS over is declared, and the effect
+  // below names it, so the rows are re-read. Subscribed only when the effect
+  // can query: without an adapter `find` there is no read to repeat.
+  const invalidationNonce = useDataInvalidation(
+    adapter && typeof adapter.find === 'function' ? props.object : undefined,
+  );
+
   React.useEffect(() => {
     let cancelled = false;
     if (!adapter || !props.object || typeof adapter.find !== 'function') {
@@ -152,7 +161,7 @@ function RepeaterRenderer({ schema }: { schema: any }) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adapter, props.object, filterKey, props.limit]);
+  }, [adapter, props.object, filterKey, props.limit, invalidationNonce]);
 
   if (loading) return <p className="py-2 text-sm text-muted-foreground">Loading…</p>;
   if (error) return <p className="py-2 text-sm text-destructive">{error}</p>;

@@ -27,7 +27,7 @@
 import * as React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import type { ActionDef } from '@object-ui/core';
-import { useAdapter, useAction } from '@object-ui/react';
+import { useAdapter, useAction, useDataInvalidation } from '@object-ui/react';
 import {
   useObjectTranslation,
   pickLocalized,
@@ -390,6 +390,12 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
   const [loading, setLoading] = React.useState<boolean>(true);
   const [error, setError] = React.useState<string | null>(null);
   const filterKey = React.useMemo(() => (props.filter ? JSON.stringify(props.filter) : ''), [props.filter]);
+  // objectui#10623 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+  // write to the object this number AGGREGATES is declared, and the effect
+  // below names it, so the value is re-read. Subscribed only when the effect
+  // can query: no adapter or no aggregate means no read to repeat.
+  const invalidationNonce = useDataInvalidation(adapter && props.aggregate ? props.object : undefined);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -452,7 +458,7 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adapter, props.object, props.field, props.aggregate, filterKey]);
+  }, [adapter, props.object, props.field, props.aggregate, filterKey, invalidationNonce]);
 
   return (
     <div className={cn('flex flex-col gap-1', schema?.className)} {...ariaAttrs(props.aria)}>

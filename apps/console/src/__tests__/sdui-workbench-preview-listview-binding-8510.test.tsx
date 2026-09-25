@@ -36,7 +36,6 @@
  * be the only one. The contract case carries a control too: the same source
  * with the retired spelling put back must go red.
  */
-import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
@@ -82,40 +81,44 @@ const objectDef = {
   },
 };
 
+/** The part of a view's props this file reads: the schema ListView hands down. */
+interface ViewSpyProps {
+  schema?: { objectName?: unknown };
+}
+
 /** Props the view spy received, in order. */
-let gridProps: Array<Record<string, any>> = [];
+let gridProps: ViewSpyProps[] = [];
 
 // The default kind is `grid` (the page authors no `type`), so the view ListView
 // hands its binding to is `object-grid`. A spy stands in for the real grid: the
 // question here is what ListView resolved, not how a grid draws.
 ComponentRegistry.register(
   'object-grid',
-  (props: Record<string, any>) => {
+  (props: ViewSpyProps) => {
     gridProps.push(props);
     return <div data-testid="grid-spy" />;
   },
   { namespace: 'test', label: 'Grid spy', category: 'view' },
 );
 
-const makeDataSource = () =>
-  ({
-    find: vi.fn(async () => rows),
-    findOne: vi.fn(async () => null),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    count: vi.fn(async () => rows.length),
-    getObjectSchema: vi.fn(async () => objectDef),
-    getObjects: vi.fn(async () => []),
-    onMutation: () => () => {},
-  }) as any;
+const makeDataSource = () => ({
+  find: vi.fn<(object: string, params?: unknown) => Promise<typeof rows>>(async () => rows),
+  findOne: vi.fn(async () => null),
+  create: vi.fn(),
+  update: vi.fn(),
+  delete: vi.fn(),
+  count: vi.fn(async () => rows.length),
+  getObjectSchema: vi.fn<(object: string) => Promise<typeof objectDef>>(async () => objectDef),
+  getObjects: vi.fn(async () => []),
+  onMutation: () => () => {},
+});
 
 /** Mount a page source through the real `kind:'react'` tier, as the harness does. */
 function renderWorkbench(source: string) {
   const dataSource = makeDataSource();
   const { container } = render(
-    <AdapterCtx.Provider value={dataSource}>
-      <SchemaRendererProvider dataSource={dataSource}>
+    <AdapterCtx.Provider value={dataSource as never}>
+      <SchemaRendererProvider dataSource={dataSource as never}>
         <SchemaRenderer schema={{ type: 'home', kind: 'react', name: workbench.name, source } as never} />
       </SchemaRendererProvider>
     </AdapterCtx.Provider>,
@@ -146,7 +149,7 @@ describe('sdui-workbench-preview — the react-tier ListView binding (objectui#8
 
     await waitFor(() => expect(gridProps.length).toBeGreaterThan(0));
     // The object the view was handed came from `data={{ provider: 'object' }}`.
-    expect(gridProps[gridProps.length - 1].schema.objectName).toBe(OBJECT);
+    expect(gridProps[gridProps.length - 1]?.schema?.objectName).toBe(OBJECT);
     // And it is live: ListView fetched that object's definition — a call no
     // other code on the page makes while the form is closed …
     expect(dataSource.getObjectSchema).toHaveBeenCalledWith(OBJECT);

@@ -17,7 +17,9 @@
  * forms were the only link in the chain not sending it.
  *
  * `useOccSave` centralises the guarded write:
- *   1. `update` is issued with `ifMatch` = the `updated_at` the form read.
+ *   1. `update` is issued with `ifMatch` = the `updated_at` the form read —
+ *      or, once this hook has itself saved that record, the version its last
+ *      successful write returned (objectui#10565; see `versionToSend`).
  *   2. On `409 CONCURRENT_UPDATE` a dialog offers **Keep editing** (stay in
  *      the form, draft intact) or **Overwrite** (retry re-keyed to the
  *      server's `currentVersion` — "I know it changed, mine wins").
@@ -95,8 +97,55 @@ export interface OccSaveArgs {
   /**
    * The record as the form read it (`findOne` result) — supplies the
    * `updated_at` version token. Optional: without it the write is unguarded.
+   * It decides WHETHER the write is guarded; after this hook's own save of
+   * the same record it no longer decides WHICH version is sent (see
+   * `versionToSend`).
    */
   baseRecord?: unknown;
+}
+
+/**
+ * What this hook remembers about its last successful write to one record.
+ */
+interface WrittenVersion {
+  /** `occVersionOf(baseRecord)` when that write was made: the read it superseded. */
+  readVersion: string;
+  /** `occVersionOf(result)`: the version that write returned. */
+  version: string;
+}
+
+/** One key per record, so a save to one record never carries another's version. */
+function recordKey(objectName: string, recordId: string | number): string {
+  return JSON.stringify([objectName, String(recordId)]);
+}
+
+/**
+ * The `ifMatch` a save sends (objectui#10565).
+ *
+ * The forms hand in the record they READ as `baseRecord`, and a form that
+ * stays open after a save still holds that read. Its `updated_at` stops being
+ * current the moment this hook's own write lands: the server stamps a new one
+ * and returns it with the saved record. Sending the read's token again made
+ * the second save from a form that stays open answer `409 CONCURRENT_UPDATE`,
+ * and the user met the conflict dialog over their own earlier save. That was
+ * measured once against a real ObjectStack stack; the reading is on
+ * objectui#10565 and nothing in this package re-derives it. The pins in
+ * `occSave.secondSave.test.tsx` hold this rule against a double shaped like
+ * that measurement.
+ *
+ * So once a write through this hook has landed, the version it returned is
+ * sent instead, but only while the form still holds the SAME read. A
+ * `baseRecord` with a different token is a newer read of the record (a
+ * reload), and its token wins over anything remembered. With no token on
+ * the read the save stays unguarded exactly as before: this changes which
+ * version a guarded save sends, never whether a save is guarded.
+ */
+function versionToSend(
+  written: WrittenVersion | undefined,
+  readVersion: string | undefined,
+): string | undefined {
+  if (!readVersion) return undefined;
+  return written && written.readVersion === readVersion ? written.version : readVersion;
 }
 
 interface ConflictState {
@@ -144,6 +193,10 @@ export function useOccSave(): {
   const [conflict, setConflict] = React.useState<ConflictState | null>(null);
   // Resolver for the promise `saveWithOcc` awaits while the dialog is open.
   const decisionRef = React.useRef<((overwrite: boolean) => void) | null>(null);
+  // Per record, the version this hook's last successful write returned
+  // (objectui#10565). It lives exactly as long as the form that mounted this
+  // hook; a remounted form reads the record again.
+  const writtenRef = React.useRef(new Map<string, WrittenVersion>());
 
   const settle = React.useCallback((overwrite: boolean) => {
     decisionRef.current?.(overwrite);
@@ -157,11 +210,22 @@ export function useOccSave(): {
 
   const saveWithOcc = React.useCallback(
     async ({ dataSource, objectName, recordId, payload, baseRecord }: OccSaveArgs): Promise<OccSaveOutcome> => {
-      const ifMatch = occVersionOf(baseRecord);
+      const key = recordKey(objectName, recordId);
+      const readVersion = occVersionOf(baseRecord);
+      const ifMatch = versionToSend(writtenRef.current.get(key), readVersion);
+      // After a write lands, remember the version it returned for the next
+      // save of this record. A result without one clears the entry, so that
+      // save falls back to the read's token rather than to an older write's.
+      const remember = (result: unknown) => {
+        const version = occVersionOf(result);
+        if (readVersion && version) writtenRef.current.set(key, { readVersion, version });
+        else writtenRef.current.delete(key);
+      };
       try {
         const result = await dataSource.update(
           objectName, recordId, payload, ifMatch ? { ifMatch } : undefined,
         );
+        remember(result);
         return { status: 'saved', result };
       } catch (err) {
         if (!isConcurrentUpdateError(err)) throw err;
@@ -190,6 +254,9 @@ export function useOccSave(): {
         const result = await dataSource.update(
           objectName, recordId, payload, cv ? { ifMatch: cv } : undefined,
         );
+        // The overwrite is a write like any other: the next save sends the
+        // version it returned, not the stale read and not the 409's version.
+        remember(result);
         return { status: 'saved', result };
       }
     },

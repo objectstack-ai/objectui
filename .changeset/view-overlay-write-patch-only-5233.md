@@ -28,6 +28,8 @@ an explicitly runtime-only overlay key (objectstack#9933, released in
 `@objectstack/spec` 17.1.0) — before that a `columnState`-only patch was refused
 `422 INVALID_METADATA`, and the fat copy was the only thing supplying a
 recognized key. The read half (`narrowPersonalizationOverlay`) shipped earlier
-and stays: rows written before this land are still tolerated on read, and because
-the write replaces the whole document, the next toolbar toggle also strips such a
-row at rest. No migration.
+and stays: rows written before this land are still tolerated on read when they
+carry the overlay marker (a row older than the marker is not narrowed — see the
+`@object-ui/data-objectstack` change for objectui#10210), and because the write
+replaces the whole document, the next toolbar toggle also strips such a row at
+rest. No migration.

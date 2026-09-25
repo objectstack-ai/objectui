@@ -2700,7 +2700,9 @@ export function viewItemObjectName(item: any): string | undefined {
 /**
  * The explicit discriminant {@link ObjectStackAdapter.updateViewConfig} stamps
  * on the rows it writes for a **system**-view target, and
- * {@link ObjectStackAdapter.listViews} excludes on read (objectui#4227).
+ * {@link ObjectStackAdapter.listViews} excludes on read (objectui#4227). It is
+ * the ONLY thing that classifies a row as an overlay (objectui#10210, ruling B —
+ * see {@link isPersonalizationOverlayRow}).
  *
  * `updateViewConfig` has exactly ONE production caller — `ObjectView`'s
  * `persistViewPatch`, invoked only for the toolbar-driven density / sort /
@@ -2736,63 +2738,43 @@ export function viewItemObjectName(item: any): string | undefined {
 const VIEW_OVERLAY_MARKER = '_isOverride' as const;
 
 /**
- * Best-effort classification of a `view` row {@link ObjectStackAdapter.listViews}
- * reads back from BEFORE {@link VIEW_OVERLAY_MARKER} existed (objectui#4227) —
- * a legacy personalization row written by an older `updateViewConfig` carries
- * no discriminant at all.
- *
- * Measured against the actual write paths, not guessed:
- *
- * - A genuine saved view is always created with a NESTED `config` — the
- *   ViewItem-record shape `{name, object, viewKind, config}` (app-shell's
- *   `viewEnvelope`, and this adapter's own {@link ObjectStackAdapter.createView}
- *   `fullSpec`). `viewKind` lives OUTSIDE `config` on that shape.
- * - A personalization overlay (`updateViewConfig`) is always FLAT — its
- *   fields sit at the top level, never wrapped in `config`.
- *
- * `viewKind` on a FLAT row is therefore never something objectui itself
- * authors: the only way it gets there is the platform's own server-side
- * identity inheritance (`viewIdentityPatch`, `@objectstack/metadata-protocol`
- * #2555 / #7741), which fires ONLY when the write's `name` resolves against a
- * REGISTRY-backed (i.e. system, code-defined) view. A runtime-created saved
- * view has no registry entry to inherit from, so its row — even flattened by
- * a later toolbar toggle — never gains a `viewKind`. So "flat body + a
- * `viewKind`" is a reliable signature of "override on a system view", while a
- * flat row with NO `viewKind` is left alone — exactly the shape the existing
- * legacy-bare-spec pin relies on staying a saved view (`listViews.test.ts` —
- * "keeps legacy bare specs without a viewKind (saved/list views)").
- *
- * Deliberately does NOT try to catch every legacy override: a row the
- * CURRENT `persistViewPatch` writes (pre-marker) also copies the system
- * view's full body — `type`/`columns`/`data` — into the override, and *that*
- * shape is structurally indistinguishable from an untouched saved view's own
- * body without this `viewKind` signal or the new marker above. Those rows
- * self-heal on their NEXT write (which carries the marker); until then this
- * predicate is a best-effort net over the realistic current-state case, not a
- * guarantee for every possible legacy row. See the PR description for the
- * measured readings this was decided against.
- */
-function isLegacyOverlayRow(item: any, spec: any): boolean {
-  // A ViewItem record (nested `config`) is never an overlay row, regardless
-  // of what else it carries.
-  if (spec && spec.config && typeof spec.config === 'object') return false;
-  const viewKind = item?.viewKind ?? spec?.viewKind;
-  // 'form' rows are already dropped upstream by the FORM_FAMILY filter before
-  // this runs; a bare 'list' here is what a system-view override looks like.
-  return viewKind === 'list';
-}
-
-/**
  * Whether a `view` row {@link ObjectStackAdapter.listViews} enumerated is a
- * personalization overlay rather than a saved view — the marker (new writes)
- * or the best-effort legacy shape (pre-marker writes). Both layers are
- * needed: excluding only the marker would leave every row written before
- * this fix still masquerading as a saved view (objectui#4227).
+ * personalization overlay rather than a saved view: the row carries
+ * {@link VIEW_OVERLAY_MARKER}, on the item or on its `{list: …}` body. Nothing
+ * else classifies a row. Both {@link ObjectStackAdapter.listViews} and
+ * {@link narrowPersonalizationOverlay} ask this one predicate, so a row cannot
+ * be a saved view for one reader and an overlay for the other.
+ *
+ * ## The shape guess is retired (objectui#10210, ruling B)
+ *
+ * This predicate used to answer `true` by SHAPE as well: a flat row (no nested
+ * `config`) carrying `viewKind: 'list'`, the identity the platform's
+ * `viewIdentityPatch` inherits onto a write addressed to a code-defined view.
+ * That net was cast for toolbar overlays written before the marker existed
+ * (objectui#4227). "Edit view config → Save" then wrote the same shape: the
+ * flat panel draft, with `viewKind` inherited server-side. The net dropped the
+ * user's own view out of `listViews()`, the tab was stamped read-only, and
+ * publishing made that permanent. PR #10332 fixed that save going forward; the
+ * rows it had already written stayed caught. The card measured both
+ * populations shape-identical, so no narrower shape test exists.
+ *
+ * The maintainer ruled B (objectui#10210, ruling comment 5824008636): an overlay
+ * is a row carrying the marker, nothing else. Both consequences are accepted
+ * and pinned in `viewOverlayMarkerOnly-10210.test.ts`:
+ *
+ * - a row an earlier config save left flat reads as the saved view it is, so
+ *   the view heals on read and keeps its edits;
+ * - an overlay row written BEFORE the marker (objectui#4227, closed 2026-08-15)
+ *   and never touched since also reads as a plain row, so its frozen `label`,
+ *   `columns` and `filter` copy covers the code definition again. No
+ *   deployment is named as holding one.
+ *
+ * ⛔ Do not bring a shape test back to win the second population back: a shape
+ * that another writer can produce is not a discriminant. The marker is one, and
+ * the write side stamps it ({@link ObjectStackAdapter.updateViewConfig}).
  */
 function isPersonalizationOverlayRow(item: any, spec: any): boolean {
-  if (item?.[VIEW_OVERLAY_MARKER] === true) return true;
-  if (spec?.[VIEW_OVERLAY_MARKER] === true) return true;
-  return isLegacyOverlayRow(item, spec);
+  return item?.[VIEW_OVERLAY_MARKER] === true || spec?.[VIEW_OVERLAY_MARKER] === true;
 }
 
 /**
@@ -2820,7 +2802,9 @@ function isPersonalizationOverlayRow(item: any, spec: any): boolean {
  *
  * - **read** (PR #5272, {@link narrowPersonalizationOverlay}): the consumer
  *   that MERGES an overlay over a source view contributes only these keys, so
- *   every already-stored fat row stops shadowing its source.
+ *   every already-stored fat row that carries the marker stops shadowing its
+ *   source. A fat row written before the marker is no longer narrowed
+ *   (objectui#10210, ruling B — see {@link isPersonalizationOverlayRow}).
  * - **write** (objectui#5233, `buildPersistedViewBody` in app-shell's
  *   `ObjectView`, unblocked by `columnState`'s admission to the view-metadata
  *   surface as a runtime-only overlay key — objectstack#9933, released in
@@ -2874,8 +2858,8 @@ const VIEW_OVERLAY_IDENTITY_KEYS = Object.freeze([
  * {@link VIEW_OVERLAY_OWNED_KEYS}). Of the three dispositions the issue names
  * for them — strip on next write, migrate, tolerate on read — this is the
  * third, chosen deliberately and stated here rather than left implicit,
- * because it is the only one that is already true for every existing row the
- * moment it ships: strip-on-next-write heals a row only when its user happens
+ * because it is the only one that is already true for every existing marked
+ * row the moment it ships: strip-on-next-write heals a row only when its user happens
  * to touch that view again (and leaves the frozen filter live until then),
  * and a migration needs a runner this product does not have for `sys_metadata`
  * rows an operator may not even know exist. What the issue forbids is SILENT
@@ -2896,7 +2880,9 @@ const VIEW_OVERLAY_IDENTITY_KEYS = Object.freeze([
  * IS the view, and every key on it is an opinion its author expressed.
  * Classification is {@link isPersonalizationOverlayRow}, the same predicate
  * {@link ObjectStackAdapter.listViews} excludes rows by, so a row cannot be a
- * saved view for one reader and an overlay for the other.
+ * saved view for one reader and an overlay for the other. It reads the marker
+ * only (objectui#10210, ruling B): an unmarked row is returned by reference
+ * whatever its shape, including a fat row written before the marker existed.
  */
 export function narrowPersonalizationOverlay<T>(row: T): T {
   if (!row || typeof row !== 'object' || Array.isArray(row)) return row;
@@ -5453,8 +5439,9 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
         // inlineEdit — written by `updateViewConfig`) are NOT saved views:
         // returning one here is what let a system view's override row read
         // back as user-created and gain Rename/Delete/Set-default/Pin
-        // (objectui#4227). Marked rows and the best-effort legacy shape are
-        // both excluded — see {@link isPersonalizationOverlayRow}.
+        // (objectui#4227). Only a row carrying the marker is excluded: the
+        // shape guess that also caught unmarked flat rows is retired
+        // (objectui#10210, ruling B) — see {@link isPersonalizationOverlayRow}.
         if (isPersonalizationOverlayRow(v, spec)) return false;
         return true;
       }).map((v: any) => {

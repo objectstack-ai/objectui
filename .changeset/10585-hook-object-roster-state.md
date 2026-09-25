@@ -21,9 +21,9 @@ unchanged, so the action and page-block object pickers, which read only
 `options` and fall back to a free-text input while it is empty, behave as
 before.
 
-The Hook inspector reads the three through `rosterFrom`, the rule the
-objectui#8862 / objectui#9651 family set for the designer's pickers: only an
-answered roster may make a claim.
+The Hook inspector folds `loading` and `error` through `rosterFrom`, the rule
+the objectui#8862 / objectui#9651 family set for the designer's pickers: only
+an answered roster may make a claim.
 
 - Answered: unchanged — a selected object the catalog does not list is flagged,
   and an empty catalog prints the "publish an object" copy.

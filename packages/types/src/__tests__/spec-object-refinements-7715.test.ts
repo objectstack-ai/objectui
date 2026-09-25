@@ -30,13 +30,25 @@
  * rather than leaving a pin that compares two acceptances.
  */
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
 import { z } from 'zod';
-import * as specUi from '@objectstack/spec/ui';
+import {
+  AppSchema as SpecAppSchema,
+  DashboardSchema as SpecDashboardSchema,
+  DashboardWidgetSchema as SpecDashboardWidgetSchema,
+  GlobalFilterSchema as SpecGlobalFilterSchema,
+  ListViewSchema as SpecListViewSchema,
+  NavigationAreaSchema as SpecNavigationAreaSchema,
+  PageSchema as SpecPageSchema,
+  checkGlobalFilterDateDefaultValue,
+  checkListViewCalendarVisualization,
+  checkListViewPageMount,
+  checkPageSourceCompleteness,
+} from '@objectstack/spec/ui';
 import { ListViewSchema, PageNodeSchema, safeValidateSchema } from '../zod/index.zod';
 import { GlobalFilterSchema } from '../zod/complex.zod';
-
-const SpecListViewSchema = specUi.ListViewSchema;
-const SpecPageSchema = specUi.PageSchema;
 
 /** The spec-shaped view: the spec requires `columns`, objectui does not. */
 const specView = (extra: Record<string, unknown>) => ({ columns: ['name'], ...extra });
@@ -119,14 +131,14 @@ describe('objectui#7715 — the Page source-completeness refusal reaches objectu
  * adds on a later release reddens this row by name instead of being dropped.
  */
 const SITES = [
-  { site: 'NavigationAreaSchema (app.zod.ts)', spec: specUi.NavigationAreaSchema, attached: [], notAttachable: [] },
-  { site: 'SpecAppFields → AppComponentSchema (app.zod.ts)', spec: specUi.AppSchema, attached: [], notAttachable: [] },
-  { site: 'DashboardWidgetSchema (complex.zod.ts)', spec: specUi.DashboardWidgetSchema, attached: [], notAttachable: [] },
-  { site: 'SpecDashboardFields → DashboardComponentSchema (complex.zod.ts)', spec: specUi.DashboardSchema, attached: [], notAttachable: [] },
-  { site: 'SpecPageFields → PageNodeSchema (layout.zod.ts)', spec: specUi.PageSchema, attached: ['checkPageSourceCompleteness'], notAttachable: [] },
+  { site: 'NavigationAreaSchema (app.zod.ts)', spec: SpecNavigationAreaSchema, attached: [], notAttachable: [] },
+  { site: 'SpecAppFields → AppComponentSchema (app.zod.ts)', spec: SpecAppSchema, attached: [], notAttachable: [] },
+  { site: 'DashboardWidgetSchema (complex.zod.ts)', spec: SpecDashboardWidgetSchema, attached: [], notAttachable: [] },
+  { site: 'SpecDashboardFields → DashboardComponentSchema (complex.zod.ts)', spec: SpecDashboardSchema, attached: [], notAttachable: [] },
+  { site: 'SpecPageFields → PageNodeSchema (layout.zod.ts)', spec: SpecPageSchema, attached: ['checkPageSourceCompleteness'], notAttachable: [] },
   {
     site: 'ListViewSchema (objectql.zod.ts)',
-    spec: specUi.ListViewSchema,
+    spec: SpecListViewSchema,
     attached: ['checkListViewCalendarVisualization'],
     // Reads `type`, which on this node is the component discriminator — see the
     // measurement below.
@@ -141,6 +153,34 @@ const SITES = [
  * runs there — measured below rather than assumed.
  */
 const CARRIED_ELSEWHERE = ['checkGlobalFilterDateDefaultValue'] as const;
+
+/** The bindings behind every name above, so each is proven a live function. */
+const SPEC_CHECK_BINDINGS: Record<string, unknown> = {
+  checkGlobalFilterDateDefaultValue,
+  checkListViewCalendarVisualization,
+  checkListViewPageMount,
+  checkPageSourceCompleteness,
+};
+
+/**
+ * The `check*` FUNCTIONS `@objectstack/spec/ui` exports, read from the spec's own
+ * published export surface (`api-surface/ui.json`, every `name (kind)` of the
+ * entry point, generated from the built `dist`) rather than from a runtime
+ * namespace import — a namespace import of `@objectstack/spec/ui` is restricted
+ * in this repository, for reasons that have nothing to do with this census.
+ */
+function specCheckExports(): string[] {
+  const require = createRequire(import.meta.url);
+  const pkgDir = dirname(require.resolve('@objectstack/spec/package.json'));
+  const surface = JSON.parse(readFileSync(join(pkgDir, 'api-surface', 'ui.json'), 'utf8')) as { entry: string; exports: string[] };
+  expect(surface.entry).toBe('./ui');
+  // Control: the surface lists a schema this file imports, so a reading of zero
+  // checks would be a real zero and not an unreadable file.
+  expect(surface.exports).toContain('ListViewSchema (const)');
+  return surface.exports
+    .map((e) => /^(check[A-Z]\w*) \(function\)$/.exec(e)?.[1])
+    .filter((n): n is string => Boolean(n));
+}
 
 const objectLevelChecks = (schema: unknown): number =>
   ((schema as { _zod: { def: { checks?: unknown[] } } })._zod.def.checks ?? []).length;
@@ -161,10 +201,11 @@ describe('objectui#7715 — census: the spec\'s object-level checks at the six d
   });
 
   it('every `check*` the spec exports is named by exactly one site or carried elsewhere', () => {
-    const exported = Object.keys(specUi).filter((k) => /^check[A-Z]/.test(k)).sort();
+    const exported = specCheckExports().sort();
     const named = [...SITES.flatMap((s) => [...s.attached, ...s.notAttachable]), ...CARRIED_ELSEWHERE].sort();
     expect(exported).toEqual(named);
-    for (const name of named) expect(typeof (specUi as Record<string, unknown>)[name]).toBe('function');
+    expect(Object.keys(SPEC_CHECK_BINDINGS).sort()).toEqual(named);
+    for (const name of named) expect(typeof SPEC_CHECK_BINDINGS[name], name).toBe('function');
   });
 
   it('`checkListViewPageMount` is not attachable: it reads `type`, which the list-view node spends on its discriminator', () => {
@@ -172,14 +213,14 @@ describe('objectui#7715 — census: the spec\'s object-level checks at the six d
     expect(SpecListViewSchema.safeParse({ type: 'page', pageName: 'home_page', columns: [] }).success).toBe(true);
     // Attached as-is, the check would refuse objectui's spelling of it, at
     // `pageName` — the verdict a mirror must never add.
-    const asIs = runCheck(specUi.checkListViewPageMount, { type: 'list-view', viewType: 'page', pageName: 'home_page', columns: [] });
+    const asIs = runCheck(checkListViewPageMount, { type: 'list-view', viewType: 'page', pageName: 'home_page', columns: [] });
     expect(asIs.success).toBe(false);
     expect(asIs.error!.issues.map((i) => i.path.join('.'))).toEqual(['pageName']);
   });
 
   it('`checkGlobalFilterDateDefaultValue` already runs on objectui\'s GlobalFilterSchema, with the spec\'s own issue', () => {
     const bad = { field: 'created_at', type: 'date', defaultValue: 'last_7_dayz' };
-    const spec = specUi.GlobalFilterSchema.safeParse(bad);
+    const spec = SpecGlobalFilterSchema.safeParse(bad);
     expect(spec.success).toBe(false);
     const specIssue = spec.error!.issues.find((i) => i.path.join('.') === 'defaultValue')!;
     const mirror = GlobalFilterSchema.safeParse(bad);
@@ -188,7 +229,7 @@ describe('objectui#7715 — census: the spec\'s object-level checks at the six d
       .toContainEqual({ code: 'custom', path: 'defaultValue', message: specIssue.message });
     // Control: a preset name resolves on both.
     const good = { ...bad, defaultValue: 'last_7_days' };
-    expect(specUi.GlobalFilterSchema.safeParse(good).success).toBe(true);
+    expect(SpecGlobalFilterSchema.safeParse(good).success).toBe(true);
     expect(GlobalFilterSchema.safeParse(good).success).toBe(true);
   });
 });

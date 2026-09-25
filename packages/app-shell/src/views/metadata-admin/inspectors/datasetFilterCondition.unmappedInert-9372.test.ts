@@ -158,11 +158,13 @@ describe('(ii) an operator this bridge cannot express is inert, not destructive 
 
   it('an operator this bridge does not map at all is still inert, not destructive', () => {
     // The unmapped arm outlives objectui#10062 for operators this inspector
-    // does not offer — `containsCaseInsensitive` is an opt-in the builder draws
-    // only when a caller grants it, and this caller grants none.
-    expect(operatorsForFieldType('text', []).map((o) => o.value)).not.toContain('containsCaseInsensitive');
-    expect(groupToCondition(row('containsCaseInsensitive', 'ac'))).toBeUndefined();
-    expect(commitFor(row('containsCaseInsensitive', 'ac'))).toEqual({ hold: true });
+    // does not offer — `exists` is an opt-in the builder draws only when a
+    // caller grants it, and this caller grants none. (The fixture was
+    // `containsCaseInsensitive` until objectui#9306 made the case-insensitive
+    // contains an ordinary, mapped operator.)
+    expect(operatorsForFieldType('text', []).map((o) => o.value)).not.toContain('exists');
+    expect(groupToCondition(row('exists'))).toBeUndefined();
+    expect(commitFor(row('exists'))).toEqual({ hold: true });
   });
 
   it('THE GESTURE, blank-value route: blanking the only row\'s value commits NOTHING — no operator needed', () => {
@@ -204,11 +206,16 @@ describe('(ii) an operator this bridge cannot express is inert, not destructive 
   });
 });
 
-describe('(i) the three text operators this bridge now expresses (objectui#9372)', () => {
+describe('(i) the text operators this bridge now expresses (objectui#9372, objectui#9306)', () => {
+  // `icontains` joined in objectui#9306, when it stopped being opt-in: every
+  // leg below — the token, the round trip, both conformance tables, both
+  // doors and the text-only offering — holds for it exactly as for the three
+  // objectui#9372 bridged.
   const MAPPED: ReadonlyArray<readonly [string, string]> = [
-    ['notContains', '$notContains'],
-    ['startsWith', '$startsWith'],
-    ['endsWith', '$endsWith'],
+    ['icontains', '$icontains'],
+    ['not_contains', '$notContains'],
+    ['starts_with', '$startsWith'],
+    ['ends_with', '$endsWith'],
   ];
 
   it('serializes each one to the spec\'s own token', () => {

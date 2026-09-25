@@ -48,8 +48,7 @@ interface BuilderGroup {
 const EMPTY_GROUP: BuilderGroup = { id: 'root', logic: 'and', conditions: [] };
 
 /**
- * Opt-in FilterBuilder operators this widget offers (objectui#4023,
- * objectui#4736).
+ * Opt-in FilterBuilder operators this widget offers (objectui#4736).
  *
  * The shared dropdown withholds these because two of its three consumers
  * persist into dialects that cannot carry them (see `OPT_IN_OPERATORS` in
@@ -59,14 +58,19 @@ const EMPTY_GROUP: BuilderGroup = { id: 'root', logic: 'and', conditions: [] };
  * folded into a `ViewFilterRule` — so the spec's `FILTER_OPERATORS` is the only
  * vocabulary it has to satisfy.
  *
- *   - `containsCaseInsensitive` authors `$icontains`, executable on every
- *     driver and evaluation face the platform ships (objectstack#5702 +
- *     objectstack#6520).
  *   - `exists` / `notExists` author `$exists`, which `condToMongo` has emitted
  *     and `kvToCondition` has read back since objectui#2942. Naming them here
  *     is what KEEPS them reachable now that the shared dropdown no longer
  *     offers them to the list and view surfaces, whose dialects have no
- *     existence operator at all (objectui#4736).
+ *     existence operator at all (objectui#4736). They are NOT folded onto
+ *     `is_not_null` / `is_null` (objectui#9559 ruling B, objectui#9306): on the
+ *     key-presence drivers that would change which records a stored sharing
+ *     rule matches.
+ *
+ * The case-insensitive contains used to be named here too, as
+ * `containsCaseInsensitive`. Since objectui#9306 it is the protocol's own
+ * `icontains` and an ordinary operator every consumer is offered, so there is
+ * nothing to opt into; it still authors `$icontains`, exactly as before.
  *
  * Module scope, not an inline literal: a fresh array each render would reset
  * `FilterBuilder`'s memo inputs on every keystroke.
@@ -74,7 +78,6 @@ const EMPTY_GROUP: BuilderGroup = { id: 'root', logic: 'and', conditions: [] };
  * @internal exported for tests
  */
 export const FILTER_CONDITION_EXTRA_OPERATORS: readonly string[] = [
-  'containsCaseInsensitive',
   'exists',
   'notExists',
 ];
@@ -141,9 +144,15 @@ function coerceByType(value: any, type?: string): any {
  * and which therefore have an "operator chosen, box still empty" state
  * (objectui#8748).
  *
- * `isEmpty` / `isNotEmpty` / `isNull` / `exists` and their kin are not on this
- * list: they read no value at all, so an empty box is their normal resting
+ * `is_empty` / `is_not_empty` / `is_null` / `exists` and their kin are not on
+ * this list: they read no value at all, so an empty box is their normal resting
  * state rather than an unfinished row.
+ *
+ * Keyed, like every table in this file, on the builder's ids — which are the
+ * protocol's canonical operator ids since objectui#9306. Rows reach this widget
+ * from {@link kvToCondition} and from the builder's `onChange`, and both carry
+ * those ids (the builder folds a deprecated camelCase id at its own read
+ * boundary), so a camelCase key here would match nothing.
  *
  * ⚠️ This is a SECOND "is this row finished" rule, beside `isFilterValueComplete`
  * in `@object-ui/components`' `filter-builder.tsx`, and the divergence is
@@ -164,10 +173,10 @@ function coerceByType(value: any, type?: string): any {
  */
 const TEXT_COMPARAND_OPERATORS: ReadonlySet<string> = new Set([
   'contains',
-  'containsCaseInsensitive',
-  'notContains',
-  'startsWith',
-  'endsWith',
+  'icontains',
+  'not_contains',
+  'starts_with',
+  'ends_with',
 ]);
 
 /**
@@ -196,6 +205,14 @@ function toArray(value: any): any[] {
  * chokepoint where a builder token becomes a spec `FieldOperatorsSchema` key,
  * and a wrong spelling here is rejected downstream by `convertFiltersToAST`
  * rather than at authoring time. @internal
+ *
+ * ⚠️ The arms are keyed on the builder's PROTOCOL ids (objectui#9306), and the
+ * `default` arm stores an EQUALITY. So an operator id with no arm here is not
+ * refused — it silently becomes `{ [field]: value }`, which for a
+ * `greater_than_or_equal` row would share a different set of records than the
+ * one on screen. Every id the dropdown can draw has its own arm, and
+ * `filter-builder-protocol-ids-census-9306.test.ts` (app-shell) pins each one's
+ * stored predicate, so a missing arm is a red test rather than a quiet `$eq`.
  */
 export function condToMongo(c: BuilderCondition, typeOf: (f: string) => string | undefined): Record<string, any> | null {
   const { field, operator, value } = c || ({} as BuilderCondition);
@@ -219,7 +236,7 @@ export function condToMongo(c: BuilderCondition, typeOf: (f: string) => string |
   const cv = coerceByType(value, t);
   switch (operator) {
     case 'equals': return { [field]: cv };
-    case 'notEquals': return { [field]: { $ne: cv } };
+    case 'not_equals': return { [field]: { $ne: cv } };
     case 'contains': return { [field]: { $contains: value } };
     // Case-insensitive contains (objectui#4023). `$contains` and its ASCII-case-
     // folding twin are two operators, not one with a flag: `contains` keeps
@@ -227,30 +244,30 @@ export function condToMongo(c: BuilderCondition, typeOf: (f: string) => string |
     // The fold is ASCII-only by contract (objectstack#4706 Q1 = A) — `café` does
     // NOT match `CAFÉ` — which is why the label says "ignore case" rather than
     // promising an accent-blind search.
-    case 'containsCaseInsensitive': return { [field]: { $icontains: value } };
+    case 'icontains': return { [field]: { $icontains: value } };
     // `$notContains` is the spec spelling (FieldOperatorsSchema, data/filter.zod.ts).
     // This emitted `$ncontains` — a token that appears nowhere in @objectstack/spec and
     // that convertFiltersToAST throws on, so every "does not contain" rule authored here
     // was rejected downstream. See kvToCondition for reading the old spelling back.
-    case 'notContains': return { [field]: { $notContains: value } };
+    case 'not_contains': return { [field]: { $notContains: value } };
     // String-specific spec operators — previously unreachable from the
     // builder UI even though FieldOperatorsSchema accepts them (#2942).
-    case 'startsWith': return { [field]: { $startsWith: value } };
-    case 'endsWith': return { [field]: { $endsWith: value } };
-    case 'isEmpty': return { [field]: { $in: [null, ''] } };
-    case 'isNotEmpty': return { [field]: { $nin: [null, ''] } };
-    // Null / existence spec operators. Distinct from isEmpty/isNotEmpty,
+    case 'starts_with': return { [field]: { $startsWith: value } };
+    case 'ends_with': return { [field]: { $endsWith: value } };
+    case 'is_empty': return { [field]: { $in: [null, ''] } };
+    case 'is_not_empty': return { [field]: { $nin: [null, ''] } };
+    // Null / existence spec operators. Distinct from is_empty/is_not_empty,
     // which also treat '' as empty.
-    case 'isNull': return { [field]: { $null: true } };
-    case 'isNotNull': return { [field]: { $null: false } };
+    case 'is_null': return { [field]: { $null: true } };
+    case 'is_not_null': return { [field]: { $null: false } };
     case 'exists': return { [field]: { $exists: true } };
     case 'notExists': return { [field]: { $exists: false } };
-    case 'greaterThan':
+    case 'greater_than':
     case 'after': return { [field]: { $gt: cv } };
-    case 'lessThan':
+    case 'less_than':
     case 'before': return { [field]: { $lt: cv } };
-    case 'greaterOrEqual': return { [field]: { $gte: cv } };
-    case 'lessOrEqual': return { [field]: { $lte: cv } };
+    case 'greater_than_or_equal': return { [field]: { $gte: cv } };
+    case 'less_than_or_equal': return { [field]: { $lte: cv } };
     // objectui#9914 — a range reaches storage only once BOTH bounds are filled
     // in; a half-filled one is DROPPED, exactly as the unfinished text row
     // above is.
@@ -290,7 +307,7 @@ export function condToMongo(c: BuilderCondition, typeOf: (f: string) => string |
       return { [field]: { $gte: coerceByType(a, t), $lte: coerceByType(b, t) } };
     }
     case 'in': return { [field]: { $in: toArray(value).map((v) => coerceByType(v, t)) } };
-    case 'notIn': return { [field]: { $nin: toArray(value).map((v) => coerceByType(v, t)) } };
+    case 'not_in': return { [field]: { $nin: toArray(value).map((v) => coerceByType(v, t)) } };
     default: return { [field]: cv };
   }
 }
@@ -345,6 +362,8 @@ function criteriaKey(mongo: any): string {
  * Criteria → builder condition (the reverse of {@link condToMongo}). Returning
  * `null` makes the builder refuse to load the rule ("criteria can't be
  * represented"), so this must keep accepting spellings previously written.
+ * The rows it produces carry the builder's protocol ids (objectui#9306); the
+ * stored criteria are `$`-tokens, which that change did not touch.
  * @internal
  */
 export function kvToCondition(field: string, v: any, idx: number): BuilderCondition | null {
@@ -357,33 +376,33 @@ export function kvToCondition(field: string, v: any, idx: number): BuilderCondit
     const op = opKeys[0];
     const val = v[op];
     switch (op) {
-      case '$ne': return { id, field, operator: 'notEquals', value: val };
+      case '$ne': return { id, field, operator: 'not_equals', value: val };
       case '$contains': return { id, field, operator: 'contains', value: val };
       // Without this arm a criteria the builder itself just wrote would fail to
       // load on reopen ("criteria can't be represented") and drop the admin into
       // the raw-JSON editor — the degradation objectui#4023 deliverable 2 names.
-      case '$icontains': return { id, field, operator: 'containsCaseInsensitive', value: val };
+      case '$icontains': return { id, field, operator: 'icontains', value: val };
       // `$ncontains` is the pre-fix spelling this widget used to emit. Criteria saved
       // before the fix still carry it, so keep reading it — dropping it here would make
       // those rules fail to load ("criteria can't be represented") instead of migrating.
       case '$notContains':
-      case '$ncontains': return { id, field, operator: 'notContains', value: val };
-      case '$gt': return { id, field, operator: 'greaterThan', value: val };
-      case '$lt': return { id, field, operator: 'lessThan', value: val };
-      case '$gte': return { id, field, operator: 'greaterOrEqual', value: val };
-      case '$lte': return { id, field, operator: 'lessOrEqual', value: val };
-      case '$startsWith': return { id, field, operator: 'startsWith', value: val };
-      case '$endsWith': return { id, field, operator: 'endsWith', value: val };
-      case '$null': return { id, field, operator: val === false ? 'isNotNull' : 'isNull', value: '' };
+      case '$ncontains': return { id, field, operator: 'not_contains', value: val };
+      case '$gt': return { id, field, operator: 'greater_than', value: val };
+      case '$lt': return { id, field, operator: 'less_than', value: val };
+      case '$gte': return { id, field, operator: 'greater_than_or_equal', value: val };
+      case '$lte': return { id, field, operator: 'less_than_or_equal', value: val };
+      case '$startsWith': return { id, field, operator: 'starts_with', value: val };
+      case '$endsWith': return { id, field, operator: 'ends_with', value: val };
+      case '$null': return { id, field, operator: val === false ? 'is_not_null' : 'is_null', value: '' };
       case '$exists': return { id, field, operator: val === false ? 'notExists' : 'exists', value: '' };
       case '$in':
         return arraysEqual(val, [null, ''])
-          ? { id, field, operator: 'isEmpty', value: '' }
+          ? { id, field, operator: 'is_empty', value: '' }
           : { id, field, operator: 'in', value: val };
       case '$nin':
         return arraysEqual(val, [null, ''])
-          ? { id, field, operator: 'isNotEmpty', value: '' }
-          : { id, field, operator: 'notIn', value: val };
+          ? { id, field, operator: 'is_not_empty', value: '' }
+          : { id, field, operator: 'not_in', value: val };
       default: return null;
     }
   }
@@ -546,8 +565,8 @@ export function FilterConditionField({
    * emitted. That was survivable only while every row round-tripped. Since the
    * same change makes `condToMongo` DROP a text row whose value box is still
    * empty, a projected row deletes itself: switching a row's operator to any of
-   * `contains` / `containsCaseInsensitive` / `notContains` / `startsWith` /
-   * `endsWith` emits no fragment, the criteria goes back to empty, and
+   * `contains` / `icontains` / `not_contains` / `starts_with` /
+   * `ends_with` emits no fragment, the criteria goes back to empty, and
    * `FilterBuilder` — which re-seeds its internal rows whenever the incoming
    * `value` differs from them — drops the row before a comparand can be typed.
    * Measured: those five operators were unreachable through this UI, except by

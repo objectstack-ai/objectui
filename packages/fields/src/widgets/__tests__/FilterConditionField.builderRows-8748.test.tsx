@@ -17,10 +17,13 @@
  * `FilterBuilder` re-seeds its internal rows whenever the incoming `value`
  * differs from them (`filter-builder.tsx`). Dropping at `condToMongo` therefore
  * DELETED THE ROW FROM THE SCREEN: switching a row to any of `contains` /
- * `containsCaseInsensitive` / `notContains` / `startsWith` / `endsWith` emitted
- * no fragment, the criteria went back to empty, and the row vanished before a
- * comparand could be typed. Those five operators were unreachable through this
- * UI except by typing the value under `equals` first.
+ * `containsCaseInsensitive` / `notContains` / `startsWith` / `endsWith` (the
+ * builder's ids when this was written; `contains` / `icontains` /
+ * `not_contains` / `starts_with` / `ends_with` since objectui#9306, and the
+ * case-insensitive one is no longer opt-in) emitted no fragment, the criteria
+ * went back to empty, and the row vanished before a comparand could be typed.
+ * Those five operators were unreachable through this UI except by typing the
+ * value under `equals` first.
  *
  * No unit test could see it: `condToMongo` is a pure function and answers
  * correctly in isolation. It takes a RENDER-level round-trip — a controlled

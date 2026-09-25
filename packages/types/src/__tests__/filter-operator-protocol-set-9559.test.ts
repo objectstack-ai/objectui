@@ -49,7 +49,15 @@ expectType<Equal<z.output<typeof FilterOperatorSchema>, ViewFilterOperator>>();
 /** The spec rule's own operator member — the side this mirror must agree with. */
 const PROTOCOL = ViewFilterRuleSchema.shape.operator;
 
-/** The filter-builder dropdown's ids, as `FILTER_BUILDER_OPERATORS` spells them today. */
+/**
+ * The filter-builder dropdown's ids as `FILTER_BUILDER_OPERATORS` spelled them
+ * when objectui#9559 landed — the camelCase ids that objectui#9306 then retired
+ * in favour of the protocol's own spellings. They stay the corpus here because
+ * they are exactly what a filter stored before objectui#9306 still carries, so
+ * "which of them does the mirror accept" is still the question worth pinning.
+ * (The dropdown's CURRENT ids are the 20 canonical members plus `exists` /
+ * `notExists`; `@object-ui/components` pins those against the spec.)
+ */
 const DROPDOWN_IDS = [
   'equals', 'notEquals', 'contains', 'containsCaseInsensitive', 'notContains',
   'isEmpty', 'isNotEmpty', 'greaterThan', 'lessThan', 'greaterOrEqual', 'lessOrEqual',
@@ -145,7 +153,7 @@ describe('objectui#9559 — the mirror is the protocol operator set (pin a)', ()
     expect(normalised).toBeGreaterThan(0);
   });
 
-  it('the dropdown\'s ids: 19 of 22 are accepted, and the 3 refusals are the protocol\'s gaps', () => {
+  it('the dropdown\'s pre-objectui#9306 ids: 19 of 22 are accepted, and the 3 refusals are the protocol\'s gaps', () => {
     // A reading, not a target: it moves only with the protocol's table. The
     // three are recorded upstream-blocked in `OPT_IN_OPERATORS` (exists /
     // notExists) or lack a spec alias row (containsCaseInsensitive -> icontains).

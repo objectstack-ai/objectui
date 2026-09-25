@@ -11,12 +11,12 @@ describe('datasetFilterCondition', () => {
   it('serializes multiple conditions as a flat $and', () => {
     expect(groupToCondition({ logic: 'and', conditions: [
       { field: 'stage', operator: 'equals', value: 'won' },
-      { field: 'amount', operator: 'greaterThan', value: 1000 },
+      { field: 'amount', operator: 'greater_than', value: 1000 },
     ] })).toEqual({ $and: [{ stage: { $eq: 'won' } }, { amount: { $gt: 1000 } }] });
   });
 
   it('maps isEmpty/isNotEmpty to $exists', () => {
-    expect(groupToCondition({ logic: 'and', conditions: [{ field: 'closed_at', operator: 'isNotEmpty' }] }))
+    expect(groupToCondition({ logic: 'and', conditions: [{ field: 'closed_at', operator: 'is_not_empty' }] }))
       .toEqual({ closed_at: { $exists: true } });
   });
 
@@ -25,9 +25,11 @@ describe('datasetFilterCondition', () => {
     // being unmapped in objectui#9372 and `between` in objectui#10062 (both
     // asserted as EMITTED in `datasetFilterCondition.unmappedInert-9372`), so
     // keeping either here would pin a branch it no longer reaches — an
-    // assertion that passes because nothing is produced. `containsCaseInsensitive`
-    // is an opt-in operator this bridge does not map.
-    expect(groupToCondition({ logic: 'and', conditions: [{ field: 'x', operator: 'containsCaseInsensitive', value: 'ac' }] }))
+    // assertion that passes because nothing is produced. `exists` is an opt-in
+    // operator this bridge does not map (the fixture was
+    // `containsCaseInsensitive` until objectui#9306 made that one ordinary and
+    // mapped it).
+    expect(groupToCondition({ logic: 'and', conditions: [{ field: 'x', operator: 'exists', value: '' }] }))
       .toBeUndefined();
   });
 
@@ -43,10 +45,10 @@ describe('datasetFilterCondition', () => {
     // a complete row alongside an incomplete one keeps only the complete one
     expect(groupToCondition({ logic: 'and', conditions: [
       { field: 'stage', operator: 'equals', value: 'won' },
-      { field: 'amount', operator: 'greaterThan', value: '' },
+      { field: 'amount', operator: 'greater_than', value: '' },
     ] })).toEqual({ stage: { $eq: 'won' } });
     // value-less operators are still kept
-    expect(groupToCondition({ logic: 'and', conditions: [{ field: 'closed_at', operator: 'isNotEmpty', value: '' }] }))
+    expect(groupToCondition({ logic: 'and', conditions: [{ field: 'closed_at', operator: 'is_not_empty', value: '' }] }))
       .toEqual({ closed_at: { $exists: true } });
   });
 

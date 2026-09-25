@@ -48,7 +48,7 @@ import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { ViewConfigPanel } from './ViewConfigPanel.js';
 import { useMetadataClient } from './metadata-admin/useMetadata.js';
 import { persistRuntimeMetadata, createRuntimeMetadata, viewEnvelope, type ViewEnvelope } from './runtime-metadata-persistence.js';
-import { ListViewSchema as SpecListViewSchema } from '@objectstack/spec/ui';
+import { ListViewSchema as SpecListViewSchema, normalizeFilterOperator } from '@objectstack/spec/ui';
 import { CreateViewDialog } from './CreateViewDialog.js';
 import {
   usePreviewDrafts,
@@ -696,8 +696,19 @@ export function defaultListColumnsFromObject(
  *
  * The split of duties is the helper's own: it answers the VALUE question only,
  * while which operators want no value at all stays with
- * {@link VALUELESS_FILTER_OPERATORS} above — this layer additionally sees the
- * canonical spec spellings (`is_null`) that never reach the dropdown.
+ * {@link VALUELESS_FILTER_OPERATORS} above.
+ *
+ * That membership is asked of the row's spelling FOLDED through the spec's own
+ * `normalizeFilterOperator` (objectui#9306), never of the raw spelling — the
+ * same both-sides fold objectui#9302 / #9359 put on the builder's gate and the
+ * live grid, and that {@link isFilterValueComplete} already applies to the
+ * arity question. The set's members are protocol ids (plus `exists` /
+ * `notExists`), on which the fold is the identity, so folding the row is
+ * folding both sides. It became load-bearing when the builder's ids became the
+ * protocol's: a row stored under the deprecated camelCase id —
+ * `{ operator: 'isEmpty', value: '' }` — no longer matches the set raw, and a
+ * raw lookup would hand it to the value test, which reads `''` as unfilled and
+ * DROPS it, so the stored filter would lose a condition on read.
  */
 export function sanitizeViewOverride(override: any): any {
     if (!override || typeof override !== 'object') return override;
@@ -715,17 +726,20 @@ export function sanitizeViewOverride(override: any): any {
     if (narrowed !== override) return narrowed;
     if (!Array.isArray(override.filter)) return override;
 
+    // Folded before the lookup — see the docblock (objectui#9306).
+    const isValueless = (operator: unknown): boolean =>
+        VALUELESS_FILTER_OPERATORS.has(normalizeFilterOperator(String(operator)));
     const kept = override.filter.filter((entry: any) => {
         if (Array.isArray(entry)) {
             // Legacy runtime triple: [field, operator, value]
             if (entry.length < 2) return false;
             const [, operator, value] = entry;
-            if (VALUELESS_FILTER_OPERATORS.has(String(operator))) return true;
+            if (isValueless(operator)) return true;
             return isFilterValueComplete(String(operator), value);
         }
         if (!entry || typeof entry !== 'object') return false;
         if (typeof entry.field !== 'string' || entry.field === '') return false;
-        if (VALUELESS_FILTER_OPERATORS.has(String(entry.operator))) return true;
+        if (isValueless(entry.operator)) return true;
         const value = entry.value;
         return isFilterValueComplete(String(entry.operator), value);
     });

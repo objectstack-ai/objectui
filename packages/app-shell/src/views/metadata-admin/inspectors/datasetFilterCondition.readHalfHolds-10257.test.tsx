@@ -206,12 +206,12 @@ describe('class 2 — a stored token is not opened as an operator the column\'s 
   /** The addendum's measured rows (comment 5817965568), plus the value-less tokens on a boolean column. */
   const OFF_BUCKET: ReadonlyArray<{ stored: FilterCondition; type: string; readAs: string }> = [
     { stored: { closed_at: { $in: ['2026-01-01', '2026-02-01'] } }, type: 'date', readAs: 'in' },
-    { stored: { name: { $gt: 'm' } }, type: 'text', readAs: 'greaterThan' },
+    { stored: { name: { $gt: 'm' } }, type: 'text', readAs: 'greater_than' },
     { stored: { amount: { $in: [1, 2] } }, type: 'number', readAs: 'in' },
     // "Every token" includes the value-less arms: the boolean bucket offers
     // only `equals` / `notEquals`.
-    { stored: { flag: { $exists: true } }, type: 'boolean', readAs: 'isNotEmpty' },
-    { stored: { flag: { $null: false } }, type: 'boolean', readAs: 'isNotNull' },
+    { stored: { flag: { $exists: true } }, type: 'boolean', readAs: 'is_not_empty' },
+    { stored: { flag: { $null: false } }, type: 'boolean', readAs: 'is_not_null' },
   ];
 
   it('the premise: each read-back operator is missing from its column\'s bucket, and the builder would reconcile it to `equals`', () => {
@@ -341,7 +341,7 @@ describe('the invariant, swept: every row the read half opens, the panel draws a
     const finished = (operator: string): unknown => {
       if (VALUELESS_FILTER_BUILDER_OPERATORS.has(operator)) return '';
       if (operator === 'between') return ['2026-01-01', '2026-03-31'];
-      if (operator === 'in' || operator === 'notIn') return ['a'];
+      if (operator === 'in' || operator === 'not_in') return ['a'];
       return '2026-01-01';
     };
     const lost: string[] = [];

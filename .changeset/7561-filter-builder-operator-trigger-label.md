@@ -47,3 +47,16 @@ marker:
 
 Which of the two vocabularies should win remains open and is deliberately not
 answered here (objectui#7561).
+
+Superseded in this release by objectui#9306: the mounted `SelectItem` ids are
+no longer camelCase. The dropdown now draws the protocol's own ids — the twenty
+`VIEW_FILTER_OPERATORS` members (`greater_than`, `not_in`, …) plus the opt-in
+`exists` / `notExists` — so picking **Less than** makes `onChange` hand back
+`less_than`: still never `lt`, and no longer `lessThan`. The vocabulary question
+this entry leaves open is answered by that change: the protocol's spelling is
+the one the dropdown emits, and a retired camelCase id a stored filter still
+carries is read as the deprecated alias it is and written back canonical on the
+author's next edit. The fold this entry added is unchanged, and the builder now
+also folds a row's spelling when the group arrives, so the alias table (`gt` /
+`lt` / `eq`) and the retired camelCase ids both still draw their operator's
+label.

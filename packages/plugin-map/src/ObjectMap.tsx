@@ -26,6 +26,7 @@ import { ObjectMapConfigSchema } from '@object-ui/types/zod';
 import {
   useNavigationOverlay,
   NonGridRowCeilingNote,
+  useDataInvalidation,
 } from '@object-ui/react';
 import { NavigationOverlay, cn, useIsMobile } from '@object-ui/components';
 import { usePermissions } from '@object-ui/permissions';
@@ -775,11 +776,35 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
   // PR #7428 recorded for `ListView`'s memo and `ObjectCalendar`'s effect).
   const perms = usePermissions();
 
+  /**
+   * objectui#10623 — the data-invalidation bus (`notifyDataChanged` from
+   * `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+   * write to the object this map QUERIES is declared, and the fetch effect
+   * below names it, so the markers are re-read. Subscribed only on the
+   * `object` provider without host rows: a host `data` array is the host's to
+   * refresh, and an inline `value` set queries its own array, not an object.
+   *
+   * ⭐ The re-read the bus causes is SILENT: it does not flip `loading`. The
+   * `loading` gate further down unmounts `MapGL` for the duration of a fetch,
+   * which is the right answer when the QUERY changed (the one-shot camera then
+   * re-fits the new record set) and the wrong one for a write to the same
+   * query: it would throw away the camera the user has panned and zoomed, the
+   * loss a remount causes, one level down (AGENTS.md #8's corollary: refresh
+   * data, don't rebuild UI). `ObjectGantt` answers the bus with a silent
+   * reload for the same reason. A run is the bus's when the nonce differs
+   * from the last one the effect answered.
+   */
+  const fetchesForItself = !Array.isArray(dataProp) && dataProvider === 'object';
+  const invalidationNonce = useDataInvalidation(fetchesForItself ? dataObjectName : undefined);
+  const answeredInvalidationRef = useRef(invalidationNonce);
+
   // Fetch data based on provider
   useEffect(() => {
+    const silent = invalidationNonce !== answeredInvalidationRef.current;
+    answeredInvalidationRef.current = invalidationNonce;
     const fetchData = async () => {
       try {
-        setLoading(true);
+        if (!silent) setLoading(true);
 
         // Prioritize data passed via props (from ListView). `dataProp` is a
         // declared prop (not the `rest` spread), so it can sit in this
@@ -939,7 +964,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
     };
 
     fetchData();
-  }, [dataProp, dataProvider, dataObjectName, dataItems, dataSource, hasInlineData, schema.filter, schema.sort, objectSchema, perms]);
+  }, [dataProp, dataProvider, dataObjectName, dataItems, dataSource, hasInlineData, schema.filter, schema.sort, objectSchema, perms, invalidationNonce]);
 
   // Fetch object schema for field metadata
   useEffect(() => {
@@ -1125,10 +1150,12 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
 
   /**
    * Initial camera. Read once, when `MapGL` mounts — which is also every time
-   * the record set changes, because the `loading` gate below unmounts the map
-   * for the duration of each fetch. So the one-shot camera always reflects the
-   * records currently in hand, and nothing here ever yanks a camera the user
-   * has since panned.
+   * the query changes, because the `loading` gate below unmounts the map for
+   * the duration of each fetch the query's inputs cause. So the one-shot
+   * camera always reflects the records that query returned, and nothing here
+   * ever yanks a camera the user has since panned. A re-read the
+   * data-invalidation bus causes (objectui#10623) is silent and keeps the map
+   * mounted: the markers move and the camera stays where the user left it.
    */
   const initialViewState = useMemo(() => {
     // Records, no declared camera: hand MapLibre the box and let it fit at the

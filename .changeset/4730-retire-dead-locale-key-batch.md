@@ -4,7 +4,7 @@
 
 Retire 25 confirmed-dead locale keys from all ten packs — 250 translated strings
 with no reader anywhere in the repo (objectui#4730's key-level trim round;
-`calendar.agenda` closes objectui#5783).
+`calendar.agenda` included).
 
 Every key was confirmed individually, not swept from a tool's output. The
 inventory comes from `scripts/check-i18n-dead-keys.mjs`, which stays report-only

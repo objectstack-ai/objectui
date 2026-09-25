@@ -3467,7 +3467,7 @@ export interface ObjectCalendarSchema extends BaseSchema {
   allDayField?: string;
   /**
    * Default view mode — the renderer's rendered set. `'agenda'` was retired
-   * (objectui#5784, following #5740): `CalendarView` renders no agenda view,
+   * (`ed8df3e50`, following `b55a34647`): `CalendarView` renders no agenda view,
    * and the enforcement points read only these three values.
    */
   defaultView?: 'month' | 'week' | 'day';

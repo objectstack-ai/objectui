@@ -1177,8 +1177,8 @@ function checkNamedViewCalendarAliases(ctx: { value: unknown; issues: unknown[] 
 const CalendarConfig = stripImportedDefaults(SpecCalendarConfigSchema).partial().extend({
   // objectui-only: the calendar renderer's initial view mode. No spec counterpart —
   // promote it rather than growing this extension. `'agenda'` was retired
-  // (objectui#5784, following #5740): `CalendarView` renders no agenda view.
-  defaultView: z.enum(['month', 'week', 'day']).optional().describe("Initial calendar view mode — 'month' | 'week' | 'day' ('agenda' was retired: objectui#5784)"),
+  // (`ed8df3e50`, following `b55a34647`): `CalendarView` renders no agenda view.
+  defaultView: z.enum(['month', 'week', 'day']).optional().describe("Initial calendar view mode — 'month' | 'week' | 'day' ('agenda' was retired)"),
   // ⭐ The two named alias-refusal arms — objectui#8355. Declared above with the
   // whole reading; ⛔ do not re-spell either message here, each has ONE source.
   dateField: CalendarBlockDateAliasRefusals.dateField,
@@ -2070,7 +2070,7 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // have shipped declared here, and absent from `inputs`, for releases.
   colorField: z.string().optional().describe('Field carrying the per-record event colour — a CSS colour or a semantic palette name'),
   allDayField: z.string().optional().describe("Field carrying the all-day flag — objectui-local: the spec's CalendarConfigSchema is a strict object of startDateField, endDateField, titleField and colorField, so it refuses this key as undeclared, exactly as it refuses any other. LOAD-BEARING since objectui#8026"),
-  defaultView: z.enum(['month', 'week', 'day']).optional().describe("Default view — 'month' | 'week' | 'day', the renderer's rendered set ('agenda' was retired: objectui#5784)"),
+  defaultView: z.enum(['month', 'week', 'day']).optional().describe("Default view — 'month' | 'week' | 'day', the renderer's rendered set ('agenda' was retired)"),
   // objectui#8174 — the two query keys `ObjectCalendar.tsx` lowers onto its own
   // `dataSource.find` (`$filter: schema.filter`,
   // `$orderby: convertSortToQueryParams(schema.sort)`). The spec declares both

@@ -872,12 +872,14 @@ A complete object management interface combining grid, form, search, filters, an
   "listViews": {
     "all": {
       "label": "All Deals",
+      "columns": ["name", "stage", "value", "owner", "closeDate"],
       "filter": [],
       "sort": [{ "field": "value", "order": "desc" }]
     },
     "my-deals": {
-      "filter": [["owner", "=", "${currentUser.id}"]],
-      "label": "My Deals"
+      "label": "My Deals",
+      "columns": ["name", "stage", "value", "owner", "closeDate"],
+      "filter": [{ "field": "owner", "operator": "equals", "value": "${currentUser.id}" }]
     }
   },
   "defaultListView": "my-deals",

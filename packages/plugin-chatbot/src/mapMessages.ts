@@ -525,10 +525,17 @@ export function detectAuthoringVerdict(
  * `drafted[]` + `packageId`), so keying the built-moment transition on
  * `draftReview` (drafted-only) missed every staging/cloud build — measured
  * live: reopening a built conversation stayed on the full page.
+ *
+ * objectui#10109 — an envelope that says `kind: 'edit'` is an INCREMENTAL
+ * edit (`apply_edit`), never a whole-app build, even when its `drafted[]`
+ * honestly lists the `app` artifact it re-staged (an `add_object` op merges
+ * the nav). The producer declares the difference on the envelope, so it is
+ * read here rather than inferred from which artifact types were staged.
  */
 export function detectBuiltAppPackage(result: unknown): string | undefined {
   const obj = parseResultEnvelope(result);
   if (!obj) return undefined;
+  if (obj.kind === 'edit') return undefined;
   if (obj.status !== 'drafted' && obj.status !== 'published') return undefined;
   const pkg = (obj as { packageId?: unknown }).packageId;
   if (typeof pkg !== 'string' || !pkg) return undefined;

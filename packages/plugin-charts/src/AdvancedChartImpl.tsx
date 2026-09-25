@@ -1676,8 +1676,10 @@ function AdvancedChartImplInner({
 
   // Spec `xAxis.position` — which side the category axis sits on, or the side
   // it was refused (objectui#10587; see `placeXAxis`). `chartType` is the
-  // EFFECTIVE family, so a horizontal-bar that became a combo through its
-  // series draws, and is placed, as the vertical combo it now is.
+  // EFFECTIVE family: a bar / line / area whose series disagree is placed as
+  // the vertical combo it became; `comboBaseFamily` never widens a
+  // horizontal-bar, so one with mixed series stays horizontal and keeps the
+  // `left` / `right` reading.
   const categoriesRunDown = chartType === 'horizontal-bar';
   const {
     across: xAxisAcross,

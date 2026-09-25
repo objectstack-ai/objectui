@@ -1233,7 +1233,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
    * for a write that was never sent, and `handleError` releases nothing.
    */
   const submitViaBatch = useCallback(
-    async (parentValues: Record<string, any>) => {
+    async (parentValues: Parameters<typeof sendBatch>[0]) => {
       if (batchInFlightRef.current) {
         throw new Error('This save was not sent: another save of this form was still in progress.');
       }

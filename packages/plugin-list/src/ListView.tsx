@@ -689,7 +689,7 @@ export function buildEffectiveFilter(
  * constants, so every render hands the fetch effect the same identity.
  */
 const WITHHELD_FILTER_GROUP: FilterGroup = { id: 'root', logic: 'and', conditions: [] };
-const WITHHELD_USER_FILTER_CONDITIONS: any[] = [];
+const WITHHELD_USER_FILTER_CONDITIONS: unknown[] = [];
 
 export function convertFilterGroupToAST(group: FilterGroup): any[] {
   if (!group || !group.conditions || group.conditions.length === 0) return [];

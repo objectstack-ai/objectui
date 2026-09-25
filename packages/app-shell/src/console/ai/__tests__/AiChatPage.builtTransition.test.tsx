@@ -5,7 +5,7 @@
  *
  * The maintainer's form ruling: cold start keeps the full-page build surface;
  * the moment a WHOLE-APP build exists, the conversation lives in the Studio
- * workbench. Three pins:
+ * workbench. The pins:
  *
  *  1. REOPENING a conversation that already built an app lands in
  *     `/studio/<pkg>/interfaces` — the kill criterion ("no path stays on the
@@ -15,6 +15,11 @@
  *  3. The Studio dock's 以完整页面打开 door is the ONE sanctioned way back:
  *     its one-shot sessionStorage opt-out keeps the arrival on the full page
  *     instead of bouncing straight back to Studio.
+ *  4. objectui#10109 — an INCREMENTAL edit is not a whole-app build. An
+ *     `apply_edit` envelope says `kind: 'edit'` and may list the `app` it
+ *     re-staged (an `add_object` op merges the nav); neither reopening nor a
+ *     live completion of such an edit moves the conversation to Studio, in
+ *     either posture. The `apply_blueprint` pins above are the controls.
  *
  * Same faked-chat harness as AiChatPage.buildHistorySurvives.test.tsx: the
  * hook instance owns the thread; hydration (the REAL AiChatPage path) derives
@@ -135,6 +140,46 @@ const BUILT_TURNS = [
             drafted: [
               { type: 'app', name: 'k9_app' },
               { type: 'object', name: 'k9_task' },
+            ],
+          }),
+        },
+      },
+    ],
+  },
+];
+
+/** objectui#10109 — a persisted thread whose only authoring turn is an
+ *  INCREMENTAL edit: the `apply_edit` envelope says `kind: 'edit'` and lists the
+ *  `app` artifact its `add_object` op re-staged. The envelope shape is the
+ *  producer's declaration as recorded on the card; the producer lives outside
+ *  this repository. */
+const editTurns = (status: 'drafted' | 'published') => [
+  { id: 'r1', role: 'user', content: [{ type: 'text', text: 'add an invoice object' }] },
+  {
+    id: 'r2',
+    role: 'assistant',
+    content: [
+      { type: 'text', text: 'Added it.' },
+      { type: 'tool-call', toolCallId: 't1', toolName: 'apply_edit' },
+    ],
+  },
+  {
+    id: 'r3',
+    role: 'tool',
+    content: [
+      {
+        type: 'tool-result',
+        toolCallId: 't1',
+        toolName: 'apply_edit',
+        output: {
+          type: 'text',
+          value: JSON.stringify({
+            status,
+            kind: 'edit',
+            packageId: 'app.k9',
+            drafted: [
+              { type: 'object', name: 'k9_invoice' },
+              { type: 'app', name: 'k9_app' },
             ],
           }),
         },
@@ -274,5 +319,56 @@ describe('AiChatPage — built-moment transition (objectui#5799)', () => {
     expect(screen.queryByTestId('studio-page')).not.toBeInTheDocument();
     // consumed: the NEXT built conversation transitions normally
     expect(window.sessionStorage.getItem('objectstack:ai-full-page-requested')).toBeNull();
+  });
+
+  it.each(['drafted', 'published'] as const)(
+    'objectui#10109 — reopening a conversation whose only turn is an apply_edit (%s posture) stays on the full page',
+    async (status) => {
+      serverTurns = editTurns(status);
+      renderPage();
+      await waitFor(() => expect(screen.getByTestId('pane')).toBeInTheDocument(), { timeout: 4000 });
+      await new Promise((r) => setTimeout(r, 300));
+      expect(screen.queryByTestId('studio-page')).not.toBeInTheDocument();
+    },
+  );
+
+  it('objectui#10109 — a LIVE apply_edit completion does not transition', async () => {
+    serverTurns = UNBUILT_TURNS;
+    chat.isLoading = true;
+    renderPage();
+    await waitFor(() => expect(screen.getByTestId('pane')).toBeInTheDocument(), { timeout: 4000 });
+
+    // The edit turn lands with the draft review the live mapper lifts from the
+    // envelope — it lists the re-staged `app`, and says `kind: 'edit'`.
+    act(() => {
+      chat.append?.({
+        id: 'live-1',
+        role: 'assistant',
+        content: 'added',
+        toolInvocations: [
+          {
+            toolCallId: 't9',
+            toolName: 'apply_edit',
+            state: 'output-available',
+            draftReview: {
+              kind: 'edit',
+              packageId: 'app.k9',
+              items: [
+                { type: 'object', name: 'k9_invoice' },
+                { type: 'app', name: 'k9_app' },
+              ],
+            },
+          },
+        ],
+      });
+      chat.isLoading = false;
+    });
+    act(() => {
+      chat.append?.({ id: 'live-2', role: 'assistant', content: 'done' });
+    });
+    await new Promise((r) => setTimeout(r, 300));
+    expect(screen.queryByTestId('studio-page')).not.toBeInTheDocument();
+    // Not vacuous: the settled turn (the one that re-arms the transition) did render.
+    expect(screen.getByTestId('pane')).toHaveTextContent('live-2');
   });
 });

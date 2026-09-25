@@ -82,7 +82,7 @@ import {
   SourcesContent,
   Source,
 } from './elements/sources';
-import { parseResultEnvelope, detectAuthoringVerdict } from './mapMessages';
+import { parseResultEnvelope, detectAuthoringVerdict, type DraftReview } from './mapMessages';
 
 export interface ChatMessage {
   id: string;
@@ -268,43 +268,13 @@ export interface ChatToolInvocation {
    * lifts the reviewable targets here so chat UIs can render a "Review N
    * change(s)" affordance that opens the designer's review/diff. Nothing is
    * live until the human publishes — this is the review entry point.
+   *
+   * The shape is `mapMessages.ts`'s `DraftReview`, the type `detectDraftResult`
+   * returns, referenced rather than repeated: an inline copy of its fields
+   * drifted the moment `DraftReview` gained the producer's `kind`
+   * (objectui#10109).
    */
-  draftReview?: {
-    items: Array<{ type: string; name: string }>;
-    summary?: string;
-    packageId?: string;
-    /**
-     * Backend lifecycle intent (from the tool result). `true` for whole-app
-     * builds (apply_blueprint) — eligible for the auto-publish "magic moment".
-     * Omitted for incremental edits, which stay drafts for explicit review.
-     */
-    autoPublishable?: boolean;
-    /** Count of artifacts that failed in a partial build, surfaced not hidden. */
-    failedCount?: number;
-    /**
-     * ADR-0045: the build was MATERIALIZED in-turn — real tables and seed
-     * rows exist; the app is live but `hidden` (unlisted). Preview should
-     * open the REAL app URL, not the draft overlay.
-     */
-    materialized?: boolean;
-    /**
-     * ADR-0038 L1 graph-lint verdict for the staged build. Rendered as a
-     * verified/issues chip so "drafted" and "verified" read as the two
-     * separate statements they are. Absent on older tool output.
-     */
-    verification?: { errors: number; warnings: number };
-    /**
-     * ADR-0038 L1 — the individual findings behind the `verification` counts,
-     * surfaced under the chip so "N issues" expands into WHAT is wrong instead
-     * of being a dead-end badge.
-     */
-    issues?: Array<{ severity: 'error' | 'warning'; code: string; message: string; fix?: string }>;
-    /**
-     * Post-build "what's next" steps (apply_blueprint `nextSteps`). Rendered as
-     * a short getting-started checklist under the build summary.
-     */
-    nextSteps?: string[];
-  };
+  draftReview?: DraftReview;
   /**
    * ObjectStack extension. `propose_blueprint` returns a PLAN before anything
    * is staged (`status: 'blueprint_proposed'`). `mapMessages.ts` lifts the

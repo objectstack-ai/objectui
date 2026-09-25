@@ -2029,8 +2029,12 @@ export function ChatPane({
         // staging: reopening a built conversation stayed on the full page).
         const pkg = detectBuiltAppPackage(tool.result);
         if (pkg) return pkg;
+        // objectui#10109 — an INCREMENTAL edit's draft review can list the `app`
+        // it re-staged; the producer's `kind: 'edit'` says it is not a build.
         const dr = tool.draftReview;
-        if (dr?.packageId && dr.items?.some((it) => it.type === 'app')) return dr.packageId;
+        if (dr?.packageId && dr.kind !== 'edit' && dr.items?.some((it) => it.type === 'app')) {
+          return dr.packageId;
+        }
       }
     }
     return undefined;

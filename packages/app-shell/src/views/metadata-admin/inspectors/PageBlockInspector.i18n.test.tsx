@@ -382,15 +382,21 @@ describe('PageBlockInspector placeholders follow the locale — but only the pro
     expectNoRawKeyPlaceholders();
   });
 
-  it('translates element:text and ai:input, the remaining prose sites', () => {
+  it('translates element:text and element:button, prose sites no other case here renders', () => {
     renderInspector(pageDraft('element:text'), 'zh-CN');
     expect(screen.getByPlaceholderText('文本…')).toBeTruthy();
     expect(screen.queryByPlaceholderText('Text…')).toBeNull();
 
+    // The second half rendered `ai:input` until objectui#8280 removed that
+    // block's panel — the palette never offered it, so the hint it pinned sat
+    // in a panel no author could open. Re-pointed rather than dropped, to a
+    // `text` field with a prose placeholder in a block the palette does offer:
+    // `element:button.icon`, whose hint no other case in this file asserts
+    // (the other element:button cases read its JSON literal and parse error).
     cleanup();
-    renderInspector(pageDraft('ai:input'), 'zh-CN');
-    expect(screen.getByPlaceholderText('智能体名称')).toBeTruthy();
-    expect(screen.queryByPlaceholderText('agent name')).toBeNull();
+    renderInspector(pageDraft('element:button'), 'zh-CN');
+    expect(screen.getByPlaceholderText('lucide 图标名')).toBeTruthy();
+    expect(screen.queryByPlaceholderText('lucide icon name')).toBeNull();
     expectNoRawKeyPlaceholders();
   });
 

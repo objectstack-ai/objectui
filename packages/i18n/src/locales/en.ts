@@ -3662,6 +3662,7 @@ const en = {
         reseedQueued: 'Sample data will be re-seeded on next environment access.',
         reseedLocalSuccess: 'Re-seeded sample data: {{inserted}} inserted, {{updated}} updated.',
         reseedPartialErrors: '({{count}} record(s) failed to write)',
+        sampleDataKernelUnavailable: 'This control plane has no environment kernel, so sample data cannot be re-seeded or purged from here. Do it from the environment\'s own runtime.',
         updateAvailable: 'Update available',
       },
       action: {

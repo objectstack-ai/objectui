@@ -3205,6 +3205,7 @@ const fr = {
       reseedQueued: 'Les données d\'exemple seront rechargées au prochain accès à l\'environnement.',
       reseedLocalSuccess: 'Données d\'exemple rechargées : {{inserted}} ajoutés, {{updated}} mis à jour.',
       reseedPartialErrors: '({{count}} enregistrement(s) n\'ont pas pu être écrits)',
+      sampleDataKernelUnavailable: 'Ce plan de contrôle n\'a pas de noyau d\'environnement : les données d\'exemple ne peuvent donc être ni rechargées ni supprimées ici. Faites-le depuis le runtime propre à l\'environnement.',
       updateAvailable: 'Mise à jour disponible',
     },
     action: {

@@ -3202,6 +3202,7 @@ const ko = {
       reseedQueued: '샘플 데이터는 다음 환경 접속 시 다시 적재됩니다.',
       reseedLocalSuccess: '샘플 데이터를 다시 적재했습니다: {{inserted}}개 추가, {{updated}}개 업데이트.',
       reseedPartialErrors: '({{count}}개 레코드 쓰기 실패)',
+      sampleDataKernelUnavailable: '이 컨트롤 플레인에는 환경 커널이 없어 여기서는 샘플 데이터를 다시 적재하거나 삭제할 수 없습니다. 해당 환경 자체의 런타임에서 실행하세요.',
       updateAvailable: '업데이트 가능',
     },
     action: {

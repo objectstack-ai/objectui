@@ -3203,6 +3203,7 @@ const de = {
       reseedQueued: 'Beispieldaten werden beim nächsten Zugriff auf die Umgebung neu geladen.',
       reseedLocalSuccess: 'Beispieldaten neu geladen: {{inserted}} hinzugefügt, {{updated}} aktualisiert.',
       reseedPartialErrors: '({{count}} Datensatz/-sätze konnten nicht geschrieben werden)',
+      sampleDataKernelUnavailable: 'Diese Control Plane hat keinen Umgebungs-Kernel, daher können Beispieldaten hier weder neu geladen noch gelöscht werden. Führen Sie dies im eigenen Laufzeitsystem der Umgebung aus.',
       updateAvailable: 'Update verfügbar',
     },
     action: {

@@ -3227,6 +3227,7 @@ const ru = {
       reseedQueued: 'Демоданные будут перезагружены при следующем доступе к среде.',
       reseedLocalSuccess: 'Демоданные перезагружены: добавлено {{inserted}}, обновлено {{updated}}.',
       reseedPartialErrors: '(не удалось записать записей: {{count}})',
+      sampleDataKernelUnavailable: 'У этой control plane нет ядра среды, поэтому здесь нельзя перезагрузить или удалить демоданные. Выполните это действие в собственном рантайме среды.',
       updateAvailable: 'Доступно обновление',
     },
     action: {

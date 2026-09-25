@@ -147,6 +147,12 @@ export function MarketplacePackagePage() {
   const [cloudInstall, setCloudInstall] = useState<CloudInstallationInfo | null>(null);
   const [sampleDataBusy, setSampleDataBusy] = useState<'reseed' | 'purge' | null>(null);
   const [sampleDataMsg, setSampleDataMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  // Set once the control plane refuses a cloud Re-seed / Purge with
+  // `ENVIRONMENT_KERNEL_UNAVAILABLE` (cloud#2072): it registers no environment
+  // kernel, a fact of this deployment's composition rather than a passing
+  // fault, so neither action can succeed here and neither is offered again
+  // (objectui#10432). Every other code leaves both actions enabled, as before.
+  const [cloudSampleDataRefused, setCloudSampleDataRefused] = useState(false);
 
   // Local-install state (this runtime's own kernel — separate flow from cloud).
   const [localInstalls, setLocalInstalls] = useState<LocalInstallEntry[]>([]);
@@ -451,6 +457,9 @@ export function MarketplacePackagePage() {
           ok: true,
           text: t('marketplace.detail.reseedQueued'),
         });
+      } else if (errorCodeIs(r, 'ENVIRONMENT_KERNEL_UNAVAILABLE')) {
+        setCloudSampleDataRefused(true);
+        setSampleDataMsg({ ok: false, text: t('marketplace.detail.sampleDataKernelUnavailable') });
       } else {
         setSampleDataMsg({ ok: false, text: r.error || 'Re-seed failed' });
       }
@@ -482,6 +491,9 @@ export function MarketplacePackagePage() {
             ? t('marketplace.detail.purgeSuccess', { count: removed })
             : t('marketplace.detail.purgeNoData'),
         });
+      } else if (errorCodeIs(r, 'ENVIRONMENT_KERNEL_UNAVAILABLE')) {
+        setCloudSampleDataRefused(true);
+        setSampleDataMsg({ ok: false, text: t('marketplace.detail.sampleDataKernelUnavailable') });
       } else {
         setSampleDataMsg({ ok: false, text: r.error || 'Purge failed' });
       }
@@ -771,7 +783,7 @@ export function MarketplacePackagePage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem onSelect={doReseedSampleData} disabled={sampleDataBusy !== null}>
+                <DropdownMenuItem onSelect={doReseedSampleData} disabled={sampleDataBusy !== null || cloudSampleDataRefused}>
                   {sampleDataBusy === 'reseed'
                     ? <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
                     : <Database className="h-4 w-4 mr-2" aria-hidden="true" />}
@@ -781,7 +793,7 @@ export function MarketplacePackagePage() {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onSelect={doPurgeSampleData}
-                  disabled={sampleDataBusy !== null || !cloudInstall.withSampleData}
+                  disabled={sampleDataBusy !== null || cloudSampleDataRefused || !cloudInstall.withSampleData}
                   className="text-destructive focus:text-destructive"
                 >
                   {sampleDataBusy === 'purge'

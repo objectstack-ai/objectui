@@ -3207,6 +3207,7 @@ const es = {
       reseedQueued: 'Los datos de ejemplo se volverán a cargar en el próximo acceso al entorno.',
       reseedLocalSuccess: 'Datos de ejemplo recargados: {{inserted}} insertados, {{updated}} actualizados.',
       reseedPartialErrors: '({{count}} registro(s) no se pudieron escribir)',
+      sampleDataKernelUnavailable: 'Este plano de control no tiene un kernel de entorno, por lo que los datos de ejemplo no se pueden volver a cargar ni eliminar desde aquí. Hágalo desde el propio runtime del entorno.',
       updateAvailable: 'Actualización disponible',
     },
     action: {

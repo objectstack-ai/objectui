@@ -1184,11 +1184,12 @@ export const ObjectChart = (props: ObjectChartProps) => {
       )
     : null;
 
-  // Rows the author handed over (`data`, or a `bind` scope) rather than rows
-  // this component fetched through `schema.aggregate`. Read by the category
-  // forward just below and by the objectui#8168 screen further down, which
-  // guard the same path.
+  // The path the objectui#8168 screen further down guards, as ONE predicate
+  // that screen and the category forward just below both read: an object-bound
+  // chart (`objectName`, no `dataset`) drawing rows it fetched itself, not rows
+  // the author handed over (`data`, or a `bind` scope).
   const hasAuthoredRows = !!boundData || Array.isArray(schema.data);
+  const drawsFetchedObjectRows = !!schema.objectName && !schema.dataset && !hasAuthoredRows;
 
   /**
    * objectui#10634 — the category column an object-bound chart forwards when
@@ -1228,11 +1229,12 @@ export const ObjectChart = (props: ObjectChartProps) => {
    *     shadowed. An authored category axis therefore always wins; ⛔ this never
    *     writes over one.
    *
-   * The dataset path sets `xAxisKey` from its own dimensions just below and is
-   * untouched; so is a chart drawing authored rows.
+   * The dataset path takes the other arm of `finalSchema` just below, which
+   * sets `xAxisKey` from its own dimensions, and is untouched; so is a chart
+   * drawing authored rows.
    */
   const groupByCategoryKey =
-    schema.objectName && !schema.dataset && !hasAuthoredRows && !normalizeChartSchema(schema, language).xAxisKey
+    drawsFetchedObjectRows && !normalizeChartSchema(schema, language).xAxisKey
       ? aggregateGroupByKey(schema.aggregate)
       : undefined;
 
@@ -1334,7 +1336,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
    * halves: that the refusal fires, and that it does NOT fire on the schema
    * every producer composes today.
    */
-  if (schema.objectName && !schema.dataset && !hasAuthoredRows && !resolveChartCategoryField(schema)) {
+  if (drawsFetchedObjectRows && !resolveChartCategoryField(schema)) {
       return (
         <div className={"p-4 text-destructive " + (schema.className || '')} data-testid="chart-missing-category-axis" role="alert">
             {tt(

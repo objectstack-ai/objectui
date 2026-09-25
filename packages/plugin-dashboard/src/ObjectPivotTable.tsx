@@ -41,7 +41,26 @@ const EMPTY_ROWS = Object.freeze([]) as unknown as any[];
 export interface ObjectPivotTableProps {
   schema: PivotTableSchema & {
     objectName?: string;
-    dataProvider?: { provider: string; object?: string };
+    /**
+     * RETIRED (objectui#7353, ADR-0049 remove arm, ruling 5809008870) — write
+     * `objectName`, the key this widget fetches through.
+     *
+     * This member carried the dashboard widget's provider config
+     * (`{ provider, object }`), copied onto the pivot node beside `objectName`
+     * by `DashboardGridLayout` and read by nothing. The producer no longer
+     * writes it and no reader was added.
+     *
+     * A `?: never` tombstone, not a plain deletion: `PivotTableSchema` extends
+     * `BaseSchema`, whose `[key: string]: any` would absorb a deleted member
+     * silently at any value. Licensed by prong 1 of the discriminator
+     * (objectui#5941, #7526, as amended by objectui#7678): it names the live
+     * replacement, `objectName`. ⚠️ This is the ONLY refusal for this node:
+     * neither `object-pivot` nor `PivotTableSchema` has a zod mirror, so a
+     * JSON-authored value is refused by nothing at parse time.
+     *
+     * @deprecated Not read by `ObjectPivotTable` — write `objectName`.
+     */
+    dataProvider?: never;
     // The data-scope binding key is NOT re-declared here. It used to be, as a
     // local member grown because no schema shape declared it — the
     // second-declaration class objectui#6357 measured. `PivotTableSchema
@@ -66,8 +85,9 @@ export interface ObjectPivotTableProps {
     // `ObjectCalendarSchema`, `ObjectKanbanSchema`), plus `ObjectChartSchema`'s
     // two-armed union, `ObjectGallerySchema`'s `unknown` and
     // `ObjectDataTableSchema`'s `any`. `object-pivot` has no such interface at
-    // all, so the consistent fix is to give it one carrying all three members
-    // grown here — `objectName`, `dataProvider`, `filter`. That widens a
+    // all, so the consistent fix is to give it one carrying the two live
+    // members grown here — `objectName`, `filter` — and the `dataProvider`
+    // tombstone beside them. That widens a
     // published authorable surface and wants its own card and ruling, rather
     // than a one-member edit smuggled into a composition fix.
     //

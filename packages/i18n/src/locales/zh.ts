@@ -1168,6 +1168,7 @@ const zh = {
   },
   chart: {
     loading: '图表加载中…',
+    refreshing: '刷新中…',
     nullCategory: '(未指定)',
     scatterOneMeasure: '散点图只绘制一个度量。请只保留一个系列：',
     unconfigured: {
@@ -1221,6 +1222,7 @@ const zh = {
       sourceLabel: '数据源：',
     },
     loading: '加载中…',
+    refreshing: '刷新中…',
     pickMeasures: '请为该数据集组件选择度量（值）。',
     datasetUnsupported: '当前数据源不支持数据集查询。',
     details: '明细',

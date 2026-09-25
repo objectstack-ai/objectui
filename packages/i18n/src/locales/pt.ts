@@ -1128,6 +1128,7 @@ const pt = {
   },
   chart: {
     loading: "Carregando gráfico…",
+    refreshing: "Atualizando…",
     nullCategory: "(Não especificado)",
     scatterOneMeasure: "Um gráfico de dispersão traça uma única medida. Mantenha apenas uma série:",
     unconfigured: {
@@ -1149,6 +1150,7 @@ const pt = {
       sourceLabel: "Fonte de dados:",
     },
     loading: "Carregando…",
+    refreshing: "Atualizando…",
     pickMeasures: "Escolha medidas (valores) para este widget de dataset.",
     datasetUnsupported: "Esta fonte de dados não oferece suporte a consultas de dataset.",
     details: "Detalhes",

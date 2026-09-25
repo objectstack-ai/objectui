@@ -553,7 +553,12 @@ export const ObjectChart = (props: ObjectChartProps) => {
   // `useObjectTranslation` is provider-safe (optional context read, falling back
   // to the react-i18next global instance), which is why it can sit beside
   // `useSafeTranslate` above without a provider in tests.
-  const { language } = useObjectTranslation();
+  //
+  // Its `t` names the refresh bar below (`chart.refreshing`, objectui#10580).
+  // Deliberately not `tt`: that hook takes an English fallback at every call,
+  // and the bar's name carries no English literal anywhere — the pack is the
+  // only source of it.
+  const { t, language } = useObjectTranslation();
 
   // Stable JSON keys for aggregate/filter so that callers passing a fresh
   // object literal on each render (e.g. DashboardRenderer.getComponentSchema)
@@ -1574,7 +1579,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
     // visible at all (#5451). Under auto-height parents `h-full` itself
     // resolves to `auto`, so non-dashboard hosts are unchanged.
     <div className="relative h-full">
-      <RefreshIndicator active={loading && finalData.length > 0} />
+      <RefreshIndicator active={loading && finalData.length > 0} ariaLabel={t('chart.refreshing')} />
       <ChartRenderer {...props} schema={finalSchemaWithColors} onChartClick={onChartClick} />
       {drillDrawer}
     </div>

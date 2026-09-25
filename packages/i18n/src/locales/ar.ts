@@ -1149,6 +1149,7 @@ const ar = {
   },
   chart: {
     loading: "جارٍ تحميل الرسم البياني…",
+    refreshing: "جارٍ التحديث…",
     nullCategory: "(غير محدد)",
     scatterOneMeasure: "المخطط المبعثر يرسم مقياسًا واحدًا فقط. أبقِ سلسلة واحدة:",
     unconfigured: {
@@ -1170,6 +1171,7 @@ const ar = {
       sourceLabel: "مصدر البيانات:",
     },
     loading: "جارٍ التحميل…",
+    refreshing: "جارٍ التحديث…",
     pickMeasures: "اختر المقاييس (القيم) لأداة مجموعة البيانات هذه.",
     datasetUnsupported: "مصدر البيانات هذا لا يدعم استعلامات مجموعات البيانات.",
     details: "التفاصيل",

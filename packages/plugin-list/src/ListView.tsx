@@ -4980,7 +4980,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         {/* Re-fetch indicator: thin top progress bar shown when refreshing
             existing data (filter/sort/search change). Skipped during the
             initial load — the full skeleton below handles that case. */}
-        <RefreshIndicator active={loading && data.length > 0} />
+        <RefreshIndicator active={loading && data.length > 0} ariaLabel={t('list.refreshing')} />
         {/* Empty state is rendered here ONLY for tabular/list-like views.
             Structural views (kanban/calendar/gallery/gantt/timeline/map) own
             their own empty rendering so their column/lane/grid structure

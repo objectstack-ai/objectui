@@ -1,0 +1,37 @@
+{
+  "number": 5705,
+  "kind": "issue",
+  "title": "main is RED: `console.ai.pendingDrafts` exists only in `en` and `zh` — the eight other locale packs have no such block at all, so `all-locales-key-parity` fails on main and on every PR that touches source",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:blocking",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T12:14:34Z",
+  "updated_at": "2026-08-22T12:42:50Z",
+  "closed_at": "2026-08-22T12:42:50Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5705",
+  "body": "Filed by the `domain:ui` execution seat (seat post #5560). Found while landing #5699; that PR is **held** on this, not on its own diff.\n\n## The breakage\n\n`packages/i18n/src/__tests__/all-locales-key-parity.test.ts` fails on `main`. Measured on `origin/main` (`83ec61881`) by **parsing** each locale pack's `pendingDrafts: {` blocks and comparing immediate child keys against `en` — not by grepping, for a reason given below:\n\n```\nen  console.ai.pendingDrafts keys: ['count','failed','publish','published','publishedWithFindings']\n\n  en   block present, missing: NONE\n  zh   block present, missing: NONE\n  ar   NO console.ai.pendingDrafts block at all\n  ru   NO console.ai.pendingDrafts block at all\n  pt   NO console.ai.pendingDrafts block at all\n  es   NO console.ai.pendingDrafts block at all\n  fr   NO console.ai.pendingDrafts block at all\n  de   NO console.ai.pendingDrafts block at all\n  ko   NO console.ai.pendingDrafts block at all\n  ja   NO console.ai.pendingDrafts block at all\n```\n\nEight packs × five keys. The parity test carries **no allowlist** — `expect(missing).toEqual([])` — and has its own non-vacuity guard (`EN.size > 2000`, `OTHER_LOCALES` length 9), so it cannot be passing vacuously.\n\n## How it got here — and why the follow-up did not fix it\n\n- `8e32da7d8` (11:17:36Z, #5696) added the standing unpublished-changes bar with **`en` keys only**. CI on that head: **failure**.\n- `c5200f041` (11:50:27Z, **#5697**) is titled *\"fix(i18n,app-shell): pending-drafts bar keys land in the locale packs (#5696 follow-up)\"*. It landed them in **`zh` only**. CI on that head: **failure**.\n\nSo the follow-up that exists specifically to close this gap closed **one ninth** of it, and `main` has been red across both.\n\n## ⚠️ A measurement trap that nearly made me report this wrong\n\nMy first pass counted occurrences of the string `pendingDrafts` per file and got **2** for `en/zh/pt/es/fr/de` and **1** for `ar/ru/ko/ja` — which reads as \"four packs were fixed, four were not\". That is false. There are **two unrelated `pendingDrafts` blocks** in these files: the new `console.ai.pendingDrafts` (en.ts:1690) and a pre-existing, different one (en.ts:2611, keys `message` / `cta`). The extra occurrence in `pt/es/fr/de` is not a second block — parsing finds exactly one `pendingDrafts: {` in each of the eight. Anyone re-checking this by grep will get the wrong answer; parse the blocks.\n\n## Blast radius — narrower than it looks, and that is the trap\n\nThis does **not** turn every PR red, which is why it has survived several merges unnoticed:\n\n- `ci.yml` skips the expensive steps for a diff that touches no source. #5698 (markdown-only) went green with `Test (shard 1/4)` completing in **13 seconds** — a skip, not a run — and merged at 11:59Z.\n- #5699 touches `.ts`/`.tsx`, so it gets a real run, reaches this test, and goes red on `Test (shard 2/4)`.\n\n**So: docs-only PRs sail through; the first PR that touches source eats it.** On `main` the same failure shows up as `Test (coverage shard 2/4)`.\n\n## ⛔ `check_suite.completed` did not catch this, and could not have\n\nEvery `check_suite.completed` webhook on #5699's head `8faa2fea0` reported `conclusion: success` while `Test (shard 2/4)` and `Test (shard 3/4)` were still `in_progress` — the suites that completed were the *other* ones. Reading those events as a green light would have landed this PR onto a red base ten minutes before the failure arrived. Gates must be read **by name**, per #4986.\n\n## What a fix has to do\n\nAdd `console.ai.pendingDrafts` — `count`, `publish`, `published`, `failed`, `publishedWithFindings` — to the eight remaining packs, matching `en.ts:1690-1696`. `count` and `publishedWithFindings` carry interpolations (`{{count}}`, `{{detail}}`) that must survive translation.\n\nWorth deciding at the same time, because this is the **second** time in a day that a feature landed `en`-only and a follow-up under-delivered: whether the parity test should run in a cheap, unskippable job rather than only inside the shard that a source-free diff skips. As it stands the guard is real but is bypassed by exactly the PRs that are cheapest to merge, so the debt accumulates between source-touching PRs instead of being caught at the commit that creates it.\n\nAdjacent and separately known: `main` is also red on `Build Docs` (#5668) and on `Test (coverage)` (#5402, failing 100% since 2026-08-16). This card is only the parity failure."
+}

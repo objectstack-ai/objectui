@@ -1,0 +1,35 @@
+{
+  "number": 5409,
+  "kind": "issue",
+  "title": "`changelog.yml` has 0 runs too — it waits on release events this repo's own releases can never emit",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-20T14:47:54Z",
+  "updated_at": "2026-08-23T10:14:30Z",
+  "closed_at": "2026-08-23T10:11:57Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5409",
+  "body": "Observation recorded while verifying #5405. Filed unassigned and deliberately **not** acted on: the resolution here is a judgement call about whether the repo wants an auto-updated root `CHANGELOG.md` at all, not a mechanical deletion, and it is a different fact from #5405 with a different fix.\n\n## Measured\n\n`.github/workflows/changelog.yml` (\"Auto Changelog\", id `223701081`) has `total_count: 0` workflow runs, exactly like the `release.yml` of #5405.\n\nCounter-probes, through the identical call: `changeset-release.yml` returns 3902, a bogus workflow name returns HTTP 404 rather than 0. Retention is not hiding old runs either — `stale.yml` shows 216 runs since its creation on 2026-01-15, and `shadcn-check.yml`'s first page still reaches back to 2026-02-09. The zero is real and spans the repo's whole life.\n\n## Why the zero here means something different from #5405\n\n`release.yml` had a trigger nothing in the repo could satisfy — no `v`-prefixed tag has ever existed. `changelog.yml`'s trigger is satisfied constantly, and still does not fire:\n\n```yaml\non:\n  release:\n    types: [published]\n  workflow_dispatch:\n```\n\nReleases *are* published here — hundreds of them, per package, most recently 2026-08-14. But every one is authored by `github-actions[bot]`, created by the Changesets action on `changeset-release.yml` using `secrets.GITHUB_TOKEN`. GitHub deliberately does not start new workflow runs from events raised with `GITHUB_TOKEN`, precisely to stop recursive triggering. So the automated release path structurally cannot wake this workflow.\n\nThat leaves two paths that would work and have apparently never been used: a release published by a human through the UI, or a manual `workflow_dispatch`.\n\n## What follows from it\n\nThe root `CHANGELOG.md` is not being auto-updated by this workflow, and has not been since the repo was created. Anyone reading `.github/workflows/` reasonably concludes it is. Worth noting that per-package changelogs are a separate mechanism that does work — Changesets writes those on the release commit — so this is about the root `CHANGELOG.md` only.\n\nThree defensible resolutions, and picking between them needs a maintainer rather than an agent:\n\n1. **Delete it**, as #5405 did for `release.yml`, if the root `CHANGELOG.md` is not something anyone relies on. Note `cliff.toml` exists solely to configure this workflow's `git-cliff` step and would go with it.\n2. **Give it a trigger that can actually fire** — e.g. run it from the release path itself rather than waiting on an event that path cannot emit.\n3. **Keep it dispatch-only on purpose**, and say so in `content/docs/guide/ci-cd-pipeline.md`, whose inventory row currently reads \"GitHub Release published; manual\" without noting that the first half never happens.\n\nI have not tried to establish which is wanted, and the `release: published` half is a real trigger rather than a dead one, so this is filed as an observation and not as a deletion card.\n\nEvidence: #5405, #5393."
+}

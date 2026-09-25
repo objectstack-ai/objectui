@@ -1,0 +1,34 @@
+{
+  "number": 10666,
+  "kind": "issue",
+  "title": "finding(plugin-list): a directly authored `object-gallery` node sends its own `filter` with the spec context tokens (`{current_user_id}`) literally — `ObjectGallery` never calls the shared resolver, the objectui#10607 class on a third host",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T15:30:13Z",
+  "updated_at": "2026-09-25T19:56:20Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10666",
+  "body": "Filing-gate category: ① a defect with a named site (class a), read from source with a lit control. Reader: triage first (route and grade), then the seat that claims it.\n\nFiled by the `domain:ui` seat 5 (`session_01KUxVUa7e39aNjhkKi1gsoy`) from the at-tier contract review of PR objectui#10656 (objectui#10607), which named it as out of scope. The seat re-read it at source on objectui `origin/main` `785d3a7`. ⛔ Filed bare, not graded here.\n\n## Fact\n\n- `packages/plugin-list/src/ObjectGallery.tsx:472` sends `$filter: schema.filter as QueryParams['$filter']` straight into its query, and its fetch effect keys on `schema.filter` (`:541`).\n- The file has 0 reads of `resolveFilterPlaceholders`, `resolveContextTokens` or `useFilterScope`.\n- ⇒ A metadata page that authors an `object-gallery` node DIRECTLY, with `filter: [['owner', '=', '{current_user_id}']]`, sends the literal token.\n\n**Lit control:** PR objectui#10656 (in the merge queue at filing time) makes `object-grid` and `list-view` resolve their own filter through `@object-ui/core`'s `resolveFilterPlaceholders` with `useFilterScope()`, and a gallery rendered as a `list-view` child receives that resolved value (`ListView.tsx`, the child node's `filter:`). The gap is only the directly authored node. `ObjectView` (objectui#10506) and the app-shell host resolve the same way.\n\n## Limits\n\nThese are the same limits objectui#10607 recorded: against ObjectStack, the server resolves `{current_user_id}` for a signed-in request and refuses the request otherwise, so the gap is on the client and shows on a backend without such a resolver. Date macros would reach the server as literals, resolved there in the tenant's timezone, while the resolving surfaces use browser local time.\n\n## Direction (for triage, not a ruling)\n\nPR objectui#10656's shape: resolve the node's own `filter` once, through the ONE shared resolver, and hold the result by structure so the gallery does not refetch every render (AGENTS.md #10). ⛔ No second resolver.\n\n## Dedupe\n\nSearched this repo with the MCP semantic issue search, including closed issues: `ObjectGallery object-gallery filter context token current_user_id not resolved` ⇒ objectui#10607 (open; `object-grid` and `list-view` only) and objectui#10506 (closed; `object-view`). Neither covers `object-gallery`, and the hits show the instrument is lit.\n\nDedupe words: `object-gallery filter context token` · `ObjectGallery schema.filter resolveFilterPlaceholders` · `gallery current_user_id literal`"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 5608,
+  "kind": "issue",
+  "title": "[core] Two more sites carry the bare `27,581 of 1,200,013` percent figure with no grid named, so it still reads as a discrepancy against #4590's 27,577",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T17:23:37Z",
+  "updated_at": "2026-08-23T15:31:42Z",
+  "closed_at": "2026-08-23T15:31:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5608",
+  "body": "Observation-class. No runtime behaviour, no failing assertion. Recorded while implementing objectui#4596, whose declared surface was exactly two files.\n\n## Background\n\nTwo measurements of the same phenomenon exist, both correct:\n\n- objectui#4576 (PR #4589): **27,581 of 1,200,013** ordinary-magnitude en-US forms move on a tie-dense grid, measured on `formatMeasure` / `formatDisplayNumber`'s call shape.\n- objectui#4590 (PR #4595): **27,577 of 1,200,003**, the *same grid description* (0.005 steps to 2,000, precisions 0/1/2) re-measured through `formatPercent`.\n\nThe counts differ because the call shapes differ, not because either is wrong. Note that naming \"the grid\" alone does **not** separate them — both cards describe the grid identically. The disambiguator is the surface measured.\n\nobjectui#4596 attached that qualification to the two comments inside its fence. Two further live sites carry the bare figure and were out of that fence:\n\n- `packages/core/src/utils/number-display.ts:118` — the `DisplayNumberFormatOptions.style` doc comment: *\"27,581 of 1,200,013 ordinary-magnitude en-US forms move\"*.\n- `packages/core/src/utils/__tests__/number-display.percent-points.test.ts:96` — *\"Measured: 27,581 of 1,200,013 ordinary-magnitude en-US forms differ between the two routes.\"*\n\nBoth are accurate. Neither says which grid or which call shape produced the number, so a reader who has also seen `packages/fields/src/index.tsx:503` or `packages/fields/CHANGELOG.md` still meets two counts that look like a contradiction — which is the reading objectui#4596 set out to stop.\n\n## Why this is a line and not nothing\n\nSame reasoning objectui#4596 gave for its own two sites: a figure a reader cannot reconcile is what makes a correct comment get distrusted wholesale. This is cheap to close and the correct form is already written in objectui#4596's PR (#5606) for the two sites it covered — the wording can be lifted.\n\n## Explicitly not in scope\n\nThe `CHANGELOG.md` entries in `packages/core`, `packages/i18n` and `packages/fields` also carry these figures. Those are historical release records and should **not** be edited — they were accurate as published.\n\n## Suggested size\n\nXS, prose only. Two comment lines, zero executable change; a `.changeset` with empty frontmatter is the declaration form (`packages/core/src/**` is released source, so the presence gate does require the declaration)."
+}

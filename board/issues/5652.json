@@ -1,0 +1,35 @@
+{
+  "number": 5652,
+  "kind": "issue",
+  "title": "[finding] A THIRD hand-written FormViewSchema mirror survives in `packages/react`'s spec bridge, and it has drifted on three keys #5596 just measured",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T00:33:14Z",
+  "updated_at": "2026-08-23T18:43:41Z",
+  "closed_at": "2026-08-23T18:43:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5652",
+  "body": "Found while implementing #5596. Filed unassigned as an observation, for PM triage — #5596's\ndeclared surface was the `app-shell` / `apps/console` pair only, and this is deliberately not\nwidened into it.\n\n## Mechanism\n\n#5040 / #5542 / #5596 are one contract described several times, each description only ever\nchecked against itself. #5542 converged the leaf (`FormFieldSpec`); #5596 converged the two\ncontainers (`FormSectionSpec` / `FormViewSpec`) across `packages/app-shell` and\n`apps/console`. A **third** hand-written description of the same `FormViewSchema` contract\nsurvives in a different package and was outside both scopes:\n\n`packages/react/src/spec-bridge/bridges/form-view.ts` declares its own `FormViewSpec`\n(line 54), `FormSection` (line 34) and `FormField` (line 12), and says so in its own docstring:\n\n> The subset of `@objectstack/spec` FormViewSchema the bridge consumes. Every serializable\n> spec key is either mapped onto the `object-form` node or listed here with an explicit\n> reason for being ignored — the bridge must never silently drop spec configuration (#2545).\n\nThat is the mirror shape `scripts/check-spec-symbol-derivation.mjs` exists to catch: a mirror\nnothing checks is one spec release from being a fork.\n\n## It has already drifted — on the exact keys #5596 measured\n\nThis is not a hypothetical. Three of its keys disagree with what the contract accepts, and in\neach case #5596 measured the contract's answer while converging the other two copies:\n\n| key | bridge declares | the contract admits |\n| --- | --- | --- |\n| `FormSection.columns` (l.42) and `FormViewSpec.columns` (l.57) | `number` | the string arm too — `FormSectionSchema.columns` unions `z.enum(['1','2','3','4'])` with the four numeric literals |\n| `FormField.dependsOn` (l.28) | `string[]` | `string \\| string[]` — the bare-string arm is the one that makes `field-selector` work (#5040) |\n| `FormField.visibleWhen` (l.30), `FormSection.visibleWhen` (l.44) | `string` | `string \\| { dialect?, source }` — the object arm is what `evalFieldPredicate` takes (ADR-0089) |\n\n`columns` is the same numbers-only narrowing #5596 found in app-shell's copy and removed as\n\"rejecting metadata the platform accepts, not a deliberate narrowing\". The bridge still has it.\n\n## Why file it rather than fold it into #5596\n\n#5596's fence was the `app-shell` ↔ `console` pair, and its ruling was explicitly conditional\non the shape staying derived from spec symbols. This bridge is a different call with its own\narchitecture behind it, not a mechanical repeat:\n\n- The bridge's declaration is **load-bearing documentation**, not just a type. Its comment\n  block records deliberate NON-declarations with issue numbers — `defaultSort` and `aria` are\n  omitted on purpose (#3901 / #3974), because re-adding either \"is the first half of re-adding\n  a read that can never fire\". A blanket `Omit<FormView, …>` derivation would erase that\n  retirement ledger, so #5596's exact pattern is not obviously right here.\n- The bridge consumes rather than authors: it maps spec keys onto an `object-form` node. So\n  \"narrower layer, pin the subset\" may well be the honest answer — but the three drifted keys\n  above are not narrowings, they are stale.\n\nThat is a triage decision, which is why this is a `finding` and not a queued card.\n\n## Severity note\n\nNo user-reachable failure proven from this repo's tests. The reachable consequence is the\n#5040 shape: a spec-authored form that spells `columns: '3'`, `dependsOn: 'objectName'`, or an\nobject-form `visibleWhen` is legal metadata the bridge's type refuses to describe. Severity is\ntriage's call.\n\n## Boundary\n\n- Searched open issues before filing (spec-bridge / form-view / FormViewSpec / mirror /\n  duplicate-declaration phrasings). #3901, #3974, #2545, #4585 all touch this file but are\n  closed and are about *dormant reads* and *alignment*, not about it being a third hand-written\n  declaration of the container contract. Nothing open covers this.\n- Related landed work: #5542 (leaf), #5596 (the two containers, app-shell + console)."
+}

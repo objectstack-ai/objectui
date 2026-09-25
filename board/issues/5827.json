@@ -1,0 +1,30 @@
+{
+  "number": 5827,
+  "kind": "issue",
+  "title": "Dashboard `table` widget: right-align numeric columns, sortable headers, null bucket last, row hover — it currently reads as a raw dump",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T13:41:29Z",
+  "updated_at": "2026-08-23T14:44:40Z",
+  "closed_at": "2026-08-23T14:42:43Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5827",
+  "body": "The dashboard `table` widget reads as a raw dump: numeric columns left-aligned, unsortable, no row affordances, null dimension bucket floats to the top\n\nMeasured on objectui `origin/main` (313cc3ce6, includes #5814), rendering HotCRM's `executive_dashboard` → \"按行业统计客户\" (`type: 'table'`, dataset-backed, `dimensions: ['industry']`, `values: ['annual_revenue_sum', 'account_count']`). All numbers below are computed-style/DOM readings, not impressions.\n\n## What renders today\n\n| defect | reading |\n|---|---|\n| **Numeric columns left-aligned** | `th` and `td` for both measures: `text-align: left/start`. `font-variant-numeric: tabular-nums` is already applied — and wasted, since digits only line up when right-aligned. With column widths 321/310/201px and 4px/8px cell padding, the value sits ~250px of dead space away from the next column's label. |\n| **Not sortable** | No sort affordance on any header (`sortable: false` — no button/icon in any `th`). Rows arrive alphabetically by dimension label, so for a \"who are our biggest industries\" table, Technology (30,000,000, the largest) renders **last**. |\n| **Null bucket floats to the top** | The account with no `industry` renders as row 1: `— / 0 / 1`. An empty-dimension bucket sorting *first* reads as a data bug to the viewer; it belongs at the end (keep the `—` label, sort nulls last). |\n| **No row affordances** | Both sampled `tbody tr` backgrounds are `rgba(0,0,0,0)` — no zebra, no hover; 9 thin rows spanning 832px with hairline separators only. |\n| **No totals row** | The app's own list views render aggregate footers (`合计`, `平均值`); the dashboard table stops at the rows. |\n\n## Suggested contract (renderer-level, zero metadata changes required)\n\n1. **Right-align numeric columns** — header and cells — detected from the resolved value type/format the renderer already has (it applies `tabular-nums` today, so it knows which columns are numeric).\n2. **Sortable headers** with the usual affordance; default remains the authored/dataset order, click cycles per column. Nulls sort last in either direction.\n3. **Null dimension bucket**: keep `—` as the label, pin it after non-null rows in the default order.\n4. **Row hover (and/or subtle zebra)** consistent with the console's table idiom elsewhere.\n5. *(Optional, flag if taken)* totals row when every non-dimension column is numeric — matches the list-view footer idiom; skip if it fights the widget's height budget.\n\nKnown-adjacent, NOT this card: measure header labels render untranslated (\"Annual Revenue\" beside 行业) — that is the dataset-label i18n gap already filed as objectstack#10292; do not solve it here.\n\nFiled from the HotCRM exemplar walkthrough with the maintainer; maintainer instruction verbatim (未译): 「按行业统计客户 二维表的显示效果不好看，需要优化objectui。」\n"
+}

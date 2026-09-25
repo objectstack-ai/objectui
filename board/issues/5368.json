@@ -1,0 +1,35 @@
+{
+  "number": 5368,
+  "kind": "issue",
+  "title": "finding: `apps/console/src/hooks/useBranding.ts` is a deprecated hook with zero callers — dead file, not just a dead key",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-20T01:33:26Z",
+  "updated_at": "2026-08-22T01:09:27Z",
+  "closed_at": "2026-08-22T01:09:27Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5368",
+  "body": "Found while implementing #4818 (PR #5366). Unassigned, observation-class — nothing user-visible depends on it. Filed rather than fixed in that PR: deleting a whole file exceeds the ruling on #4818, which authorised removing the dead `logo` **key** and its feed lines, not retiring the hook.\n\n## Fact, measured on `origin/main` `bdf8cf76e`\n\n`apps/console/src/hooks/useBranding.ts` exports one function, `useBranding`, and it is already marked `@deprecated` in its own header:\n\n```\n * @deprecated Prefer passing `branding` directly to `AppShell` from `@object-ui/layout`.\n```\n\nA repo-wide scan finds no caller at all — the only hits for the identifier are the file's own declaration and its own doc comment:\n\n```\n$ grep -rn \"useBranding\" --include=*.ts --include=*.tsx apps/ packages/ | grep -v node_modules\napps/console/src/hooks/useBranding.ts:2: * useBranding Hook\napps/console/src/hooks/useBranding.ts:20:export function useBranding(app: { branding?: AppBranding; label?: string } | undefined) {\n```\n\nThe migration the deprecation note asks for has evidently already happened: `packages/app-shell/src/layout/ConsoleLayout.tsx` passes `branding` straight to `AppShell`, which is exactly what the note recommends. Nothing was left behind to call the wrapper.\n\n## Why it is worth recording\n\nIt is the same declared-but-unconsumed family as #4818, one level up: #4818 was a dead key inside a live-looking type; this is a dead file that still compiles, still type-checks, and still shows up in a grep for branding as though it were a live path. #4818's own dispatch had to name it as a feeder precisely because it reads like one.\n\nIt is also a small ongoing tax with no upside — PR #5366 had to edit it (twice: the feed line and its local `AppBranding` interface) purely to keep a file nobody calls compiling.\n\n## Suggested disposition\n\nDelete the file. Confirm first that nothing outside this repo imports it — it lives under `apps/console/src/`, not a published package's `src/`, so the exposure looks internal, but that is worth one check rather than an assumption.\n\n## References\n\n- `apps/console/src/hooks/useBranding.ts` (whole file)\n- `packages/app-shell/src/layout/ConsoleLayout.tsx` — the live path the deprecation note points at\n- #4818 / PR #5366 — where this was found\n"
+}

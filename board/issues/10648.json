@@ -1,0 +1,34 @@
+{
+  "number": 10648,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): the inline date editor marks an impossible stored day instead of blanking it (objectui#10625)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: i18n",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T14:22:55Z",
+  "updated_at": "2026-09-25T15:06:25Z",
+  "closed_at": "2026-09-25T15:06:23Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-25T15:06:23Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10648",
+  "body": "Part of #10625 (the `plugin-detail` half). The `data-table` half is NOT in this PR: it is a dependency-graph fork that needs a PM or maintainer decision, described below. #10625 remains open for it.\n\n## What changed\n\n`InlineFieldInput`'s date branch (for `date` AND `datetime` fields) now renders `@object-ui/fields`' public `DateField` widget instead of a hand-rolled `input type=date`. `DateField` already answers a stored day that does not exist the objectui#10026 direction A way, since objectui#10567 (PR objectui#10618): the control is handed an empty value, marked `aria-invalid`, and its `aria-describedby` points at a notice naming the stored string. The judgement is `isImpossibleStoredDay` and the notice key is `fields.date.impossibleDay`, both reused through the widget. There is no second predicate and no new export.\n\n- Read side: `toDateInputValue`. A leading `YYYY-MM-DD` passes through verbatim, so an ISO timestamp is still sliced to its date, as before. A non-string value goes through local calendar getters, which gives the same day the old `toLocaleDateString('en-CA')` gave.\n- Write side stays this editor's own. The widget hands back the control's `YYYY-MM-DD`, which is re-emitted as full ISO at local midnight, exactly as before. It emits only on a user edit, never on mount.\n- The raw-text fallback below the date branch lost only its `isDate` ternaries. Its behaviour is unchanged.\n- Visible side effect (acceptance note): the date control is now the shadcn `Input` (the form's control) rather than the plain bordered input. On click it opens the native picker (`openNativePicker`), and it carries an explicit `aria-invalid=\"false\"` when valid, as every `fields` widget does.\n\n## Reach measurement for the data table (measured before any edit)\n\nSetup: the registered `data-table` renderer, `editable: true`, one column `type: date` and one `type: datetime`, `onCellChange` recording what was staged, happy-dom, `TZ=UTC`, `origin/main` `4a3d500fd`. The probe was a throwaway test file, not committed.\n\n| stored | control shows | aria-invalid / describedby / notice | committed with no edit | committed after changing only the minutes |\n|---|---|---|---|---|\n| `2026-02-30` (date) | `''` (value attribute `2026-02-30`) | null / null / none | `2026-02-30` | n/a |\n| `2026-02-30T10:00:00Z` (datetime) | `2026-03-02T10:00` | null / null / none | `2026-02-30T10:00:00Z` | `2026-03-02T10:05:00.000Z` |\n| `2026-02-14` (date) | `2026-02-14` | null / null / none | `2026-02-14` | n/a |\n| `2026-02-14T10:00:00Z` (datetime) | `2026-02-14T10:00` | null / null / none | `2026-02-14T10:00:00Z` | n/a |\n\nSo on a directly authored `data-table` the private copies do what the card says. The date copy blanks silently. The datetime copy shows the rolled day, and any user edit of the time writes the rolled day. Committing with no edit re-stages the stored string unchanged, so nothing rolls on mount or on a bare commit.\n\nScope of that reach: `ObjectGrid` (the object-view grid) injects `renderCellEditor`, which renders `FieldEditWidget` for every field type that has a widget, `date` and `datetime` included. So the object grid never reaches these private copies, and it already gets the repaired `DateField` / `DateTimeField`. The copies are reached by a schema-authored `data-table` node with `editable: true` and a `date` / `datetime` column, and by an `ObjectGrid` column that has no matching field definition.\n\n## The data-table fork (not implemented; PM decision needed)\n\nThe ruling says to replace the private `toDateInputValue` / `toDateTimeInputValue` copies in `packages/components/src/renderers/complex/data-table.tsx` with the shared `@object-ui/fields` adapters. That import cannot exist. `@object-ui/fields` declares `@object-ui/components` as a dependency, and 55 files under `packages/fields/src` import from it, so `components` importing `fields` is a package cycle. AGENTS.md section 3 also places `components` below `fields` (Atoms, then Fields). Per the dispatch, the work stopped there. Options are in the report on the card.\n\n## Red, then green\n\n- Red, on the first commit `61f0c0727` against the unfixed editor: `pnpm exec vitest run packages/plugin-detail/src/__tests__/InlineFieldInput.impossibleDay-10625.test.tsx` gives `Tests 2 failed | 2 passed (4)`. Both impossible-day cases fail with `AssertionError: expected null to be 'true'` on `aria-invalid`. The control value was already empty (the silent blank). The real-day and no-emit pins pass.\n- Green on merged head `1e1a2cc14`: the same file plus `InlineFieldInput.test.tsx`, `InlineFieldInput.delegation.test.tsx` and `inlineEditTypeCoverage.test.tsx` give `Test Files 4 passed (4)`, `Tests 117 passed (117)`.\n\n## Gates\n\n- `pnpm --filter @object-ui/plugin-detail test`: `Test Files 212 passed | 1 skipped (213)`, `Tests 2082 passed | 8 skipped (2090)`. This ran on the fix commit, before the merge of `origin/main`. The merge touched none of `plugin-detail`, `fields`, `core`, `components` or `i18n`.\n- `pnpm --filter @object-ui/plugin-detail type-check`: exit 0, after building the `@object-ui/plugin-detail^...` dependency closure with turbo.\n- `pnpm --filter @object-ui/plugin-detail lint`: exit 0, `0 errors`.\n- `check:changeset-claims`, `check:pending-changeset-literals`, `check:new-line-citations` (0 new), `check:control-bytes`, `check:i18n-keys`, `scripts/check-changeset-presence.mjs` and `scripts/check-changeset-no-major.mjs`: all exit 0.\n- No i18n key was added, so no locale-completeness run was owed.\n- Repo-wide `pnpm lint` / `pnpm test` are left to CI.\n\nSession `https://claude.ai/code/session_01D486C1axmXnrkJMNUfz2eb`, seat `domain:ui#3`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01D486C1axmXnrkJMNUfz2eb)_\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 5695,
+  "kind": "issue",
+  "title": "Confirm card is a black box after 确认修改 — no applying/applied/drafted/refused terminal state",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T11:00:31Z",
+  "updated_at": "2026-08-23T11:51:51Z",
+  "closed_at": "2026-08-23T11:51:51Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5695",
+  "body": "## What\n\nAfter the user clicks 「确认修改」 on a confirm card, everything goes dark: the runtime re-dispatches the proposal (confirm-replay), the apply may succeed, publish in-turn, stay a draft, or be REFUSED with a rollback — and the card shows none of it. In the 2026-08-22 staging E2E (cloud#1584) the replayed dashboard apply was refused by the publish gate (`publishFailed:true, publishOutcome:'rolled_back'` on the replay envelope) and the only place that fact existed was a tool-result JSON the user never sees; the card still looked exactly as it did before the click, and the agent narrated success over it.\n\n## Ask\n\nThe confirm card should carry a terminal state after approval, driven by the replay envelope it already correlates with (`replay_<id>` tool results):\n\n- **应用中** while the replay is in flight;\n- **已生效** on `status:'published'`;\n- **已暂存为草稿 · 发布** on `status:'drafted'` (with the same inline publish affordance);\n- **未生效 — <headline>** on `publishFailed:true`, surfacing `publishError`'s first line so the failure exists somewhere a USER can see it, independent of whether the model narrates it honestly.\n\nThat last state is the point: cloud#1587's skill rules tell the model to lead with failure, but a UI-rendered failure state is the layer that cannot be talked over.\n\nFrom the journey-UX review on cloud#1521 (maintainer-accepted priority B5, 2026-08-22). Related: cloud#1584 D2/D4; the standing unpublished-drafts card (filed alongside).\n"
+}

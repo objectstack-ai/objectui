@@ -1,0 +1,33 @@
+{
+  "number": 5815,
+  "kind": "pull_request",
+  "title": "fix(chatbot): resolve confirm cards over replay DISPATCH errors, with self-repair supersede (#5695)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T12:50:37Z",
+  "updated_at": "2026-08-23T12:52:16Z",
+  "closed_at": "2026-08-23T12:51:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T12:51:21Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5815",
+  "body": "Found live on the local demo rig minutes after #5805 merged: an `apply_edit` replay carrying a blueprint-local object name errored with a **bare `{error: …}` envelope** — a third replay shape the detector did not know — so the 确认修改 card stuck on the optimistic 应用中 forever, while the model self-repaired through different tool calls (`list_objects` → `Add field`) and the change actually landed.\n\n- `detectReplayOutcome`: bare `{error}` (no `status`) → provisional failure (`dispatchError: true`).\n- New `detectAuthoringVerdict`: classifies any tool result as an authoring verdict; the card walk supersedes a dispatch error with the model's later successful result — the card must never say 未生效 over a change that actually landed (the original bug, mirrored). **Real publish failures are never superseded** (pinned).\n- Cache round-trip preserves the bare-error shape so rehydration keeps the supersedable semantics.\n\n20 focused tests + 728 regression green (plugin-chatbot + app-shell hooks/ai). Root cause (proposals carry unresolved blueprint-local names) is cloud-side and carded separately — this PR is the renderer's honest handling of the shape either way.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 5620,
+  "kind": "issue",
+  "title": "`MarketplacePackagePage`'s third request — `listLocalInstalls` — is still ungated: it fires on a marketplace-off runtime and for a refused viewer",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T19:08:53Z",
+  "updated_at": "2026-08-23T07:54:40Z",
+  "closed_at": "2026-08-23T07:54:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5620",
+  "body": "Measured while implementing #5583, and deliberately left out of that PR: the card enumerated two requests and this is a third, gated on a different flag.\n\n## Observation\n\n`packages/app-shell/src/console/marketplace/MarketplacePackagePage.tsx` has three fetch effects. After #5533 and #5583, two of them (`getMarketplacePackage`, `getCloudInstallationInfo`) are gated on `marketplaceEnabled` and on `isAdmin`. The third is gated on neither:\n\n```ts\nuseEffect(() => {\n  if (!getRuntimeConfig().features.installLocal) return;\n  let cancelled = false;\n  (async () => {\n    const items = await listLocalInstalls();\n    if (!cancelled) setLocalInstalls(items);\n  })();\n  return () => { cancelled = true; };\n}, [packageId, localResult]);\n```\n\n`listLocalInstalls` is a real request — `fetch(\\`${API_BASE}/install-local\\`)` in `marketplaceApi.ts` — and its only consumer is `localInstalls.find(...)` in the **content** branch, which is unreachable whenever the page returns `MarketplaceDisabled` or `MarketplaceAccessDenied`. So on any runtime with `features.installLocal: true`:\n\n- with `features.marketplace: false`, the request fires and the answer is discarded;\n- for a non-admin, the same, now that the refusal is decided ahead of the load.\n\nThis is the same class #5533 closed for this page (\"a request it knows it will not use should be skipped rather than fired and discarded\") — one instance of it, on the flag that card was not about.\n\n## Not claimed\n\nThat it is an oversight rather than a decision. `features.installLocal` is a genuinely separate deployment axis from `features.marketplace`, and the local-kernel install list is not marketplace-proxy traffic, so there is a reading on which firing it unconditionally is intended. The correct shape is not pinned by anything currently in the tree, which is why this is filed rather than folded into #5583's PR as a bounded in-place fix.\n\nSeverity is low on its own terms: the request is `try`/`catch`-wrapped and returns `[]` on any failure, so the cost is one wasted round trip and one more line in an operator's network log, not a visible defect.\n\n## Refs\n\n- #5583 / its PR — gated the other two requests on `isAdmin`\n- #5533 — established the skip-the-request discipline on this page"
+}

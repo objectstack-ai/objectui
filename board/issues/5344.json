@@ -1,0 +1,35 @@
+{
+  "number": 5344,
+  "kind": "issue",
+  "title": "finding(app-shell): the designer's ViewColumnInspector writes back whichever column spelling it found, so editing a stored `accessorKey` column re-saves a spelling `object-grid` no longer renders",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-19T17:15:35Z",
+  "updated_at": "2026-08-23T01:21:44Z",
+  "closed_at": "2026-08-23T01:21:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5344",
+  "body": "Found while implementing #5068 (retiring `ObjectGrid`'s undeclared `accessorKey` / `header` tolerance branch, and migrating its one in-repo producer `bridgeListView`). Filed unassigned, not claiming. Observation class — nothing is broken today by this alone.\n\n## The fact\n\n`packages/app-shell/src/views/metadata-admin/inspectors/ViewColumnInspector.tsx` is the designer's scoped editor for a selected view column. It reads column identity through both spellings and, on write, **preserves whichever one the stored document already used**:\n\n```\n// :64\nfunction colFieldKey(c: ViewColumn): string {\n  return c.field ?? c.accessorKey ?? '';\n}\n// :155\nconst patchIdentity = (updates: Partial<ViewColumn>) => {\n  const targetField = 'field' in col || !('accessorKey' in col) ? 'field' : 'accessorKey';\n  const targetLabel = 'label' in col || !('header' in col) ? 'label' : 'header';\n```\n\nIts own header comment names the intent: *\"the column IDENTITY (field key + label) … round-trip through two shapes: the ObjectStack canonical `{ field, label }` and the legacy TanStack `{ accessorKey, header }`.\"*\n\n## Why it is worth recording now\n\n#5068 removes the runtime that made the second shape work. After that PR:\n\n- **creating** a column in the designer is already canonical and unaffected — `makeColumn` (`previews/view-column-io.ts:60`) emits `{ field }` plus `label` only when the author's label differs from the machine name;\n- **editing** a column of a stored view that already carries `{ accessorKey, header }` re-saves it in that spelling. The inspector shows the value (it reads both), the author changes the field key, saves — and the column still does not render in an `object-grid`, because the spec refuses those keys by name (`ListColumnSchema` is strict: `unrecognized_keys [\"accessorKey\",\"header\"]`) and the renderer no longer tolerates them.\n\nSo the editor keeps a dialect alive one layer above the renderer that just gave it up. That is the same declared-vs-read divergence #5068 is about, relocated into the authoring tool — where it is arguably worse, since the tool is the surface that is supposed to teach the correct shape.\n\nNote this is a *round-trip* only: the inspector never invents the undeclared spelling, it only preserves one it was handed. Whether such documents exist in a real tenant is unmeasured here (the in-repo census for #5068 found **zero** authored `accessorKey`-shaped `object-grid` columns across `examples/`, `content/docs/`, apps, skills, e2e and package READMEs; every in-repo occurrence belongs to the `table` / `data-table` component, which legitimately owns the key).\n\n## The fork, unruled\n\n1. **Normalize on write** — `patchIdentity` always writes `{ field, label }` and drops `accessorKey` / `header` when it rewrites the column. The designer then migrates legacy documents by the act of editing them, which is the producer-side unification AGENTS.md #0.1 asks for.\n2. **Read both, write canonical, and say so** — same as (1) plus a visible note in the inspector that the column was migrated.\n3. **Leave it** — the round trip is harmless as long as nothing renders those columns, and the spelling dies out with the documents.\n\n(1) matches the disposition #5068 inherited from #3951; (3) is defensible only if no such documents exist, which nobody has measured on real data.\n\n## Scope note\n\nOut of scope for #5068, whose granted file surface is `packages/plugin-grid` + `packages/react` (`packages/app-shell/**` explicitly excluded). Same family as #5120 (`col.accessorKey || col.name` in `packages/components` / `plugin-dashboard`) and #5340 (`bridgeListView`, resolved by #5068's PR). This is the fifth site in that family and the only one that is an *editor* rather than a renderer or a producer.\n\n## Reproduce\n\n```\nsed -n '1,20p;60,70p;150,170p' packages/app-shell/src/views/metadata-admin/inspectors/ViewColumnInspector.tsx\nsed -n '60,70p' packages/app-shell/src/views/metadata-admin/previews/view-column-io.ts   # create path: canonical\n```\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_\n"
+}

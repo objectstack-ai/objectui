@@ -1,0 +1,35 @@
+{
+  "number": 4758,
+  "kind": "issue",
+  "title": "[finding] components 里有第二个 action param 对话框实现,完全不经共享 evaluator —— 逐选项 visibleWhen 在该 surface 根本不参与;连带 ctx.formValues/data 回退链全仓无生产者",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-16T03:42:50Z",
+  "updated_at": "2026-08-22T09:45:11Z",
+  "closed_at": "2026-08-22T09:45:11Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4758",
+  "body": "发现于 #3765 的实施(PR #4756),回传立单。observation-class:生产代码无人引用,今天无用户受害。\n\n## 事实一:重复实现\n\n`packages/components/src/custom/action-param-dialog.tsx` 是**第二个** action param 对话框实现,从 components 的 custom barrel 导出(:21,已发布 API)。它用裸 Radix Select 直接 `param.options?.map(...)` 渲染(:257),**完全不经过共享 evaluator** —— 逐选项 `visibleWhen` 在这个 surface 上不是算错,是根本不参与(全给)。仓内仅其自身 4 个测试 import,生产代码零引用。\n\n待裁:删除(retirement 流程,已发布 API 需按 breaking 纪律)还是并到 app-shell 的共享路径。与 #3765/PR #4756 修的主对话框是平行实现,不修它则 B 案语义在已发布 API 面上不成立。\n\n## 事实二:回退链无生产者(unexercised drift)\n\n`useCascadingOptions.ts:38` 与 `LookupField.tsx:329` 回退链里的 `ctx.formValues` / `ctx.data` 在本仓**没有任何生产者** —— `SchemaRendererContextType` 只声明 `dataSource`/`debug`/`debugFlags`/`apiFetch`,全仓 grep 不到写入者。含义:#3765 里 A 案的前提(「页面记录参与求值」)实践中基本等于 `{}`;PR #4756 的钉子用显式构造的 context 钉住了链本身(host 若供仍生效),所以不是死代码,但今天无人喂。将来裁「链保留还是收敛」时以此为据。\n\n## 参考\n\n- #3765 / PR #4756(发现来源,含实测记录)\n- `packages/components/src/custom/action-param-dialog.tsx:21,:257`\n- `packages/fields/src/widgets/useCascadingOptions.ts:38`、`LookupField.tsx:329`"
+}

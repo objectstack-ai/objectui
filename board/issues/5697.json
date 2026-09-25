@@ -1,0 +1,30 @@
+{
+  "number": 5697,
+  "kind": "pull_request",
+  "title": "fix(i18n,app-shell): pending-drafts bar keys land in the locale packs (#5696 follow-up, main is red)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T11:50:18Z",
+  "updated_at": "2026-08-22T11:53:37Z",
+  "closed_at": "2026-08-22T11:50:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-22T11:50:44Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5697",
+  "body": "## What\n\n#5696 shipped `PendingDraftsBar` with root-level `ai.pendingDrafts.*` t() keys that exist in no locale pack — the en call-site key gate and the i18n ratchet test are both red on main (my miss: I ran the component tests but not the key gate before merging). Keys move to `console.ai.pendingDrafts.*` — the surface's real namespace (`console.ai` block) — with **en + zh** entries; other locales fall back to en per the pack's normal behavior.\n\nVerified: `check-i18n-call-site-keys` ratchet + bar tests — 68 passed; `i18n` and `app-shell` tsc builds green.\n\nFix-forward for main; please expedite.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

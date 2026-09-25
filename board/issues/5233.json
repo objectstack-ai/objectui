@@ -1,0 +1,36 @@
+{
+  "number": 5233,
+  "kind": "issue",
+  "title": "persistViewPatch writes `{...baseViewDef, ...patch}`, freezing the view's effective filter into the overlay — store the patch only",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T19:14:09Z",
+  "updated_at": "2026-08-23T06:34:22Z",
+  "closed_at": "2026-08-23T06:34:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 13,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5233",
+  "body": "Blocked-by: objectstack-ai/objectstack#9933\n\nFiled by the triage seat (session `session_014tGY3fzu4uwCoe7HrfUtWg`) as the destination card for a defect the maintainer ruled on 2026-08-12 but which never got its own card. Unassigned — for the `repo:objectui` lane.\n\n## The defect\n\n`persistViewPatch` (`packages/data-objectstack/src/index.ts`) writes `{...baseViewDef, ...patch}`, so an overlay written by a mere sort/columnState change copies the view's **current effective filter** (and every other base key) into the overlay verbatim. The filter is pinned as-of-write: a later change to the SOURCE view's filter never reaches users whose overlay carries the frozen copy.\n\nDiagnosed on objectstack#7494 (PM escalation comment `5252396682`, \"related observation\"); re-verify the write site on current `main` before coding — line numbers and shape may have moved since PR #4713 touched this file. *(Claim amendment on this thread: the write site actually lives in `packages/app-shell/src/views/ObjectView.tsx` on current main — defect reproduces verbatim, only attribution was off.)*\n\n## Provenance (ruled, not to be re-opened)\n\nMaintainer huangyiirene, 2026-08-12, objectstack#7494 comment `5261754173`, verbatim:\n\n> **`persistViewPatch` 只存 patch,不存 merged base** —— 独立小修,现在做:它把写入时的有效 filter 冻进 overlay,导致源视图后续的 filter 变更到不了带 overlay 的用户,这与 per-user 之争无关,是纯粹的存储形状错误。\n\nThe PM analysis on the same thread notes this is a bug under either scoping contract — it does not depend on the org-wide ruling.\n\n## Care points\n\n- Existing overlay rows already carry frozen base keys; decide (and state in the PR) whether the fix strips them on next write, migrates them, or tolerates them on read — silent tolerance is the shape to avoid. *(2026-08-19 status: the read-side half shipped in PR #5272 — existing rows' disposition = documented + tested tolerate-on-read. The remaining work is the write half, blocked on the spec-side key admission above; see the 2026-08-19 maintainer-ruling comment.)*\n- Sibling card (same ruling): the org-wide wording + permission-gate card filed alongside this one. Same file surface — serialize or combine per the lane PM's call.\n\n## Related\n\nobjectstack#7494 (ruling record) · objectui#4227 / PR #4713 (same namespace, closed) · objectstack-ai/objectstack#9933 (the spec half this card waits on)"
+}

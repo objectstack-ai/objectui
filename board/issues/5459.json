@@ -1,0 +1,34 @@
+{
+  "number": 5459,
+  "kind": "issue",
+  "title": "Port the guard-main-checkout-bash.sh quote-escape fix from objectstack — this repo's copy is declared case-for-case identical and has now drifted",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-21T00:18:47Z",
+  "updated_at": "2026-08-23T08:16:54Z",
+  "closed_at": "2026-08-23T08:16:28Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5459",
+  "body": "Moved from objectstack-ai/objectstack#10408 by the triage seat (file-at-destination rule: the edited files are this repo's `.claude/hooks/guard-main-checkout-bash.sh` + its selftest). Original filed by the objectstack-ai/objectstack#10247 dev.\n\nBlocked-by: objectstack-ai/objectstack#10247\n\n(The source fix ships in objectstack PR #10406; port only after that PR merges, so review changes there don't have to be re-ported.)\n\n---\n\n## The drift\n\nobjectstack's `.claude/hooks/guard-main-checkout-bash.sh` carries this in its own header:\n\n> Ported from objectui's hook of the same name (objectstack-ai/objectui#3452, filed there as objectui#3435) — the logic below is **deliberately kept case-for-case identical to it so the two repos' guards cannot drift**; only issue references, example paths and the package name in the self-test are localised.\n\nobjectstack PR #10406 changes the parsing logic in that repo's copy: a backslash-escaped `\\\"` inside a double-quoted word no longer ends the quote (POSIX — backslash keeps its meaning inside `\"…\"` only before `\"`, `\\`, `$` and a backtick). This repo's copy is, by that header's own claim, still the pre-fix logic, so the two have drifted in exactly the way the header says must not happen.\n\n## Why it matters beyond tidiness\n\nThe bug being fixed is not cosmetic. In this repo's copy, as in objectstack's before the fix:\n\n- a pure-read `node -e \"…\"` whose program contains an escaped quote followed by a JS arrow function gets **blocked** with a confidently-wrong write \"target\" — the false positive that trains agents onto `OS_ALLOW_MAIN_EDITS=1`;\n- and, measured under ablation in objectstack PR #10406, the same desync makes the guard **miss real writes**: `sed -i \"s/\\\"a\\\"/\\\"b\\\"/\" pkg/x.ts` was allowed through. That is precisely the reflexive `sed -i` the guard exists to catch, so this repo's shared checkout is currently unguarded against that shape.\n\n## Suggested shape\n\nPort the two hunks and the self-test section from objectstack PR #10406 into this repo's `.claude/hooks/guard-main-checkout-bash.sh` and `guard-main-checkout-bash.selftest.sh`, localising issue references per the existing convention. The self-test port matters as much as the logic: the probes are what keep the two copies honest.\n\nWorth deciding at triage whether \"case-for-case identical\" is worth a gate rather than a header comment — a check that diffs the two copies modulo the localised lines would have caught this drift at the moment it was introduced, instead of relying on the next reader of the header.\n\nGoverned surface (`.claude/**`): draft PR, human merge."
+}

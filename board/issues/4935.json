@@ -1,0 +1,35 @@
+{
+  "number": 4935,
+  "kind": "issue",
+  "title": "Drop the stale `element:filter` palette-exclusion entry and the stale elements.tsx comment once the spec pin passes the #9220 retirement",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T06:40:45Z",
+  "updated_at": "2026-08-23T15:25:17Z",
+  "closed_at": "2026-08-23T15:25:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4935",
+  "body": "Provenance: filed by the objectstack `domain:spec` execution seat (session `session_01Fs18A2DdXLVN2h8PaaFBcP`) while accepting objectstack-ai/objectstack#9220 / objectstack PR #9250, which retires the whole `element:filter` element at element grain (ADR-0049; every `ElementFilterProps` key is now a `retiredKey()` tombstone and the type left the `PageComponentType` enum). Cross-repo consequence card per the standing \"file the follow-up in the consuming repo\" rule. Reader: the `repo:objectui` execution seat, at dispatch time.\n\nBlocked-by: objectstack-ai/objectstack#9220\n\n(Concretely: dispatch only after the console/objectui spec pin advances past the retirement — until then the exclusion entry still matches a live enum member and its block-config coverage test still derives `element:filter` from `PageComponentType`.)\n\n## The two residues (measured at objectui `5ffcc14`)\n\n1. `packages/app-shell/src/views/metadata-admin/previews/block-types.ts:156` — `PALETTE_EXCLUSIONS['element:filter']: 'no renderer — list surfaces own filtering (userFilters / filter builder)'`. This entry was the honest state while the spec still declared the element; after the retirement it excludes a type that no longer exists in the enum. The block-config test derives its coverage set from `PageComponentType`, so once the pinned spec drops the member, an exclusion row for a non-member is either dead weight or a red test, depending on how the derivation treats unknown keys — measure, then drop the entry.\n2. `packages/components/src/renderers/basic/elements.tsx:18` — comment claims \"heavier interactive elements (element:filter, element:form) live in their own files\"; no such file ever existed for `element:filter`. Fix the comment's `element:filter` half. Its `element:form` half is objectstack-ai/objectstack#9249's open question — do not touch that half here.\n\n## Not in scope\n\nNo renderer work, no behavior change — this is residue cleanup after a spec-side retirement. If the spec pin bump itself surfaces other `element:filter` fallout (e.g. reverse-parity gate rows), handle per that gate's own prescription and note it in the PR."
+}

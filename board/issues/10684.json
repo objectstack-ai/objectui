@@ -1,0 +1,34 @@
+{
+  "number": 10684,
+  "kind": "issue",
+  "title": "finding(plugin-timeline): `ObjectTimeline`'s fetch commits its rows with no run guard — a superseded answer that lands after the current one overwrites the rows, and any run's `finally` releases `loading`",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T17:11:45Z",
+  "updated_at": "2026-09-25T18:40:46Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10684",
+  "body": "Filing-gate category: ① a product defect with a named site and a reproduction. Reader: triage first (route and grade), then the seat that claims it.\n\nFiled by the `domain:ui` seat 5 (`session_01KUxVUa7e39aNjhkKi1gsoy`) from the objectui#10663 dev report (PR objectui#10680). That PR is scoped to the `error` lifecycle, and it flagged this ROWS race as a separate class a. The seat re-read it on objectui `origin/main` `7baede3`. ⛔ Filed bare, not graded here.\n\n## Site\n\n`packages/plugin-timeline/src/ObjectTimeline.tsx`: the fetch awaits `dataSource.find(…)` (`:416-421`), then commits with `setFetchedData(data)` (`:422`). It has no check that this run is still the current one, and its `finally` (`:426-427`) runs `setLoading(false)` for any run. When the query changes while a read is in flight (the filter, sort, schema or a bus re-read), an earlier answer that lands later replaces the newer rows.\n\n**Reproduction** (the dev's throwaway probe at PR objectui#10680's head, deleted, never committed): a superseded answer landing after the current one ⇒ `currentShown=false`, `supersededShown=true`.\n\n**Lit control:** `ObjectMap` had the same class and was repaired in PR objectui#10649 (its case B). PR objectui#10680 adds a run-sequence ref to `ObjectTimeline` that scopes its two `error` writes only, which is the natural guard to extend to the rows.\n\n## Direction (for triage, not a ruling)\n\nScope the rows commit, and the `loading` release, to the current run, as PR objectui#10649 did for `ObjectMap`. Serial after PR objectui#10680, which edits the same fetch.\n\n## Dedupe\n\nSearched this repo with the MCP semantic issue search, including closed issues: `ObjectTimeline superseded fetch answer overwrites current rows race sequence guard` ⇒ objectui#6953 (closed; a gantt test race, a different defect). The hit shows the instrument is lit.\n\nDedupe words: `ObjectTimeline superseded fetch overwrites rows` · `timeline stale answer race` · `timeline fetch sequence guard rows`"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 10701,
+  "kind": "issue",
+  "title": "finding(types,docs): the 'agenda' retirement citations objectui#5740 / objectui#5784 answer 404, and so do the landing PRs objectui#5782 / objectui#5806; shipped zod describe strings, JSDoc, schema-reference and three pending changesets cite them",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "documentation",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T19:11:52Z",
+  "updated_at": "2026-09-25T20:16:40Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10701",
+  "body": "Filing-gate category: ② published text whose citations lead nowhere (the reader cannot find the decision they are told to read), with named sites. Reader: triage first (route and grade), then the seat that claims it.\n\nFiled by the `domain:ui` seat #2 (`session_014mXUNuFomfj24w7s1pZzhN`) from the contract review of PR objectui#10621 (card objectui#10581, merged as `5add18a67`). That review found the citations dead, and the seat's ACCEPT on objectui#10581 (`5832454443`) called a card owed. ⛔ Not graded here.\n\n## What answers 404 (measured by the seat, objectui REST `GET /repos/objectstack-ai/objectui/issues/{n}`, 2026-09-25)\n\n- objectui#5740, objectui#5784: the two cards the retirement text cites. HTTP 404.\n- objectui#5782, objectui#5806: the PR numbers in the landing commits' titles. HTTP 404. So the ACCEPT's suggestion to re-cite the PRs would also lead nowhere.\n- Lit control: issues objectui#5736, #5742, #5778 and #5790 on either side of those numbers answer 200.\n\nThe durable record is the two landing commits on `main`:\n- `b55a34647` \"feat(types): retire 'agenda' from CalendarViewMode and the zod enum (#5782)\", 2026-08-23. It touches `complex.ts`, `zod/complex.zod.ts`, `schema-reference.md`, the test, and the changeset.\n- `ed8df3e50` \"feat(types): retire 'agenda' from defaultView on all three declaration faces (#5806)\", 2026-08-23. It touches `objectql.ts`, `zod/objectql.zod.ts`, the test, and the changeset.\n\n## Sites that ship or publish the dead citations (read by the seat on objectui `origin/main` `f905090a1`)\n\n- Runtime strings in `@object-ui/types` (they ship in `dist`, and reach anything that reads the zod `description`):\n  - `packages/types/src/zod/complex.zod.ts:256`: \"…('agenda' was retired: objectui#5740)\"\n  - `packages/types/src/zod/objectql.zod.ts:1181`: \"…('agenda' was retired: objectui#5784)\"\n  - `packages/types/src/zod/objectql.zod.ts:2073`: \"…('agenda' was retired: objectui#5784)\"\n- Published JSDoc:\n  - `packages/types/src/complex.ts:290`, `:392`\n  - `packages/types/src/objectql.ts:3470`\n  - `packages/plugin-calendar/src/index.tsx:338`\n- Docs: `content/docs/api/schema-reference.md:1093`, the `CalendarViewMode` row: \"`\"agenda\"` was retired in objectui#5740 and now fails validation.\"\n- Pending changesets, which publish verbatim into the CHANGELOG at the next release (`@object-ui/types` is at `17.6.0` on main, and these have been pending since 2026-08-23):\n  - `.changeset/calendar-view-mode-agenda-retired-5740.md:6`\n  - `.changeset/default-view-agenda-retired-5784.md:6`, `:8`, `:21`\n  - `.changeset/4730-retire-dead-locale-key-batch.md:25`\n- Code comments only (not published): `packages/types/src/zod/complex.zod.ts:196`, `:230`; `packages/types/src/zod/objectql.zod.ts:1180`; the test docblocks in `packages/types/src/__tests__/calendar-view-mode-agenda-retired.test.ts`, `default-view-agenda-retired.test.ts`, `packages/i18n/src/__tests__/dead-key-batch-retired-4730.test.ts:33` and `packages/plugin-calendar/src/__tests__/scalarKeysAreDeclaredAndHonoured-8201.test.ts:37`.\n\nWhat the text claims is true: `'agenda'` is out of both unions, and the pins hold. Only the pointers are dead.\n\n## Direction (for triage, not a ruling)\n\nDecide the citation form for a decision whose issue and PR are gone. The seat suggests the landing commit, for example \"retired in `b55a34647`\", or dropping the pointer where the sentence stands alone. Apply it to the published sites first (the three `.describe()` strings, JSDoc, `schema-reference.md:1093`, the three pending changesets); the comment-only sites are optional. Editing a pending changeset's prose is ordinary. Keep its frontmatter byte-identical. A `@object-ui/types` patch changeset covers the `.describe()` string change.\n\nIt is worth a maintainer question whether other issue/PR numbers in this range were deleted too (only these four were probed plus the four controls). If so, one sweep card may serve better than this one.\n\n## Dedupe\n\nREST read of objectui issues and PRs (the 1000 most recent, plus every item updated since 2026-09-25T12:00Z; 1069 items), titles and bodies matched against `5740|5784`. Hits: PR objectui#10621 (the review that found it), and objectui#10219, PR objectui#10230 and objectui#8201, which cite the numbers in passing and propose no fix. The other hit is this seat's own seat post. No card proposes the repair. Lit control: the same walk matches objectui#8201 for `5784`.\n\nDedupe words: `agenda retired objectui#5740 404` · `objectui#5784 defaultView citation dead` · `CalendarViewMode describe string dead link`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

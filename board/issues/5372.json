@@ -1,0 +1,36 @@
+{
+  "number": 5372,
+  "kind": "issue",
+  "title": "finding(components): the only working route from a provider `dataSource` into a `data-table` is the `properties` envelope protocol.md tells authors not to use",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-20T01:37:46Z",
+  "updated_at": "2026-08-21T22:41:19Z",
+  "closed_at": "2026-08-21T22:41:19Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5372",
+  "body": "Found while implementing #5126 / #5337 (PR #5371), which corrects three skill guides that taught `data-table` + `bind`. Direction there was settled by inheritance from #5125 — `data-table` does not gain `bind`, the teaching changes — so this is filed separately rather than folded in. It is the measurement anyone weighing that decision again would want, and it is not an argument for re-opening it.\n\n## The question\n\nAfter PR #5371 the guides teach `data-table`'s inline `data` array, which is correct and renders. That leaves an unanswered one: how does an author put *provider* data (`SchemaRendererProvider dataSource`) into a `data-table` at all, without the host pre-resolving the array into the schema?\n\n## Measured\n\nReal `SchemaRenderer` inside a `SchemaRendererProvider` holding `dataSource = { customers: [ 2 records ] }`, columns identical in all three legs, reading `tbody td` text (objectui@`99d8721a3`, vitest from the repo root):\n\n| leg | node | rendered body cells |\n|---|---|---|\n| A | `{ \"type\": \"data-table\", \"data\": \"${data.customers}\", \"columns\": [...] }` | `[\"No results foundTry adjusting your filters or search query.\"]` |\n| B | `{ \"type\": \"data-table\", \"properties\": { \"data\": \"${data.customers}\" }, \"columns\": [...] }` | `[\"Ada Lovelace\",\"ada@example.com\",\"Grace Hopper\",\"grace@example.com\"]` |\n| C | `{ \"type\": \"data-table\", \"props\": { \"data\": \"${data.customers}\" }, \"columns\": [...] }` | `[\"No results foundTry adjusting your filters or search query.\"]` |\n\nSo exactly one of the three spellings works, and it is **B**.\n\n## Why\n\n`SchemaRenderer`'s `evaluatedSchema` memo evaluates expressions in exactly four places: `properties.*`, `content`, `props.*`, and the visibility / disabled predicates. A top-level key is never evaluated, which kills **A** — `Array.isArray` is false for the raw `${...}` string, so `DataTableRenderer` falls back to `EMPTY_ROWS`.\n\nThen the COMPAT hoist copies every `properties.*` value onto the node's top level. `props.*` gets evaluated but is **not** hoisted, and `DataTableRenderer` destructures `data` off the node, not off `schema.props` — which kills **C**.\n\n**B** survives because it is the only spelling that gets both halves: evaluated, then hoisted.\n\n## Why it is worth recording\n\n`skills/objectui/rules/protocol.md` opens by telling authors the opposite:\n\n> **The one exception is the `element:*` namespace.** Those components read their config out of `properties` / `props` by design ... Match the envelope to the namespace; do not apply either shape everywhere.\n\nSo the one envelope the published rules tell an author not to reach for is the only one that reaches the provider's data, and the two spellings the rules endorse both fail in the shape this repo keeps paying for — no throw, no console line, a header over an empty state. An AI author following the rules file cannot get there; one ignoring it can.\n\nThis is also the inverse of the shape #4799 corrected. There the canonical `properties` spelling was starved while the legacy `props` alias was fed; here `properties` is the only fed spelling and the canonical node-level one is starved. Same seam, opposite polarity.\n\n## Not proposed here\n\nNo fix is proposed and none should be inferred. The plausible directions all cost something and at least one of them was already declined in the neighbourhood:\n\n1. Evaluate `data` (or a declared set of array-valued keys) at the node level. Widens what expressions reach, on the generic path, for every component.\n2. Give `data-table` a `bind` read. This is the direction #5125's ruling declined for its sibling renderer; it would need a new Feature card through the decision inbox.\n3. Rule that host-side resolution is the only supported route, and say so in the guides — the cheapest, and it makes the current teaching complete rather than merely true.\n4. Change nothing and record the measurement, which is what this card does today.\n\nNothing here is blocked on it and no behaviour is broken; **#5126 is not addressed by this card and #5120 remains open** as its own separate question about the `columns` key spelling.\n\n## Reproducing\n\nThree nodes above, rendered through `SchemaRenderer` with a provider; the evaluation order is in `packages/react/src/SchemaRenderer.tsx` (the `evaluatedSchema` memo), and the row read is `data: rawData = EMPTY_ROWS` in `packages/components/src/renderers/complex/data-table.tsx`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_\n"
+}

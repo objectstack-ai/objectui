@@ -1,0 +1,36 @@
+{
+  "number": 5627,
+  "kind": "issue",
+  "title": "Console FormPage still drops the other three conditional-rule surfaces after #5594: section-level visibleWhen/visibleOn, and the object-level field rules visibleWhen/readonlyWhen/requiredWhen",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T19:16:13Z",
+  "updated_at": "2026-08-23T01:26:40Z",
+  "closed_at": "2026-08-23T01:26:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5627",
+  "body": "Found while implementing #5594 (wiring the **view-level field** visibility predicate into\n`apps/console/src/components/FormPage.tsx`). Filed unassigned for PM triage — outside that\ncard's scope: its triage fence declared it \"the predicate wiring plus a regression pin\",\nand the two surfaces below are different keys with different user-visible consequences, so\nfolding them in would have been unreviewable scope creep rather than a bounded fix.\n\nVerified on `8c87f0583` (the merge-base of the #5594 branch), before and after that change.\n\n## Mechanism\n\n`FormPage.tsx` is the second, independent form renderer — its own `buildSections`, its own\nJSX, serving both `/f/:slug` (public, anonymous) and `/forms/:name` (internal). After\n#5594 it honours **one** of the four conditional-rule surfaces the sibling chain honours.\nThe other three are still dropped, and both drops happen in the same place: the two local\ntypes that describe the payloads, which admit none of these keys, so nothing downstream can\nread them.\n\n### 1. Section-level `visibleWhen` / `visibleOn`\n\nThe local section type declares four keys and no visibility at all:\n\n```ts\ninterface FormSectionSpec {\n  label?: string;\n  collapsible?: boolean;\n  collapsed?: boolean;\n  columns?: 1 | 2 | 3 | 4 | '1' | '2' | '3' | '4';\n  fields: Array[string | FormFieldSpec];   // angle brackets spelled out; see note below\n}\n```\n\nand the render maps every section unconditionally (`FormPage.tsx:1398`):\n\n```\n{sections.map((sec, i) => (\n```\n\nThe app-shell counterpart **does** declare and honour it — `FormSectionSpec` in\n`packages/app-shell/src/views/metadata-admin/SchemaForm.tsx` carries\n`visibleWhen`/`visibleOn` (documented there as \"Canonical section visibility predicate\n(ADR-0089)\"), and `SchemaFormBody` filters sections through `readVisibility` before\nrendering. So a section an author conditioned away renders in full on the two console form\nroutes, including the public one.\n\n### 2. Object-level field rules `visibleWhen` / `readonlyWhen` / `requiredWhen`\n\nThe local object-schema field type admits eight keys and none of the ADR-0036 rules:\n\n```ts\ninterface ObjectFieldDef {\n  type: string;\n  label?: string;\n  required?: boolean;\n  defaultValue?: unknown;\n  maxLength?: number;\n  options?: ...;\n  placeholder?: string;\n  helpText?: string;\n}\n```\n\n`buildSections` reads only those, so `RenderableField.readonly` is `override.readonly ?? false`\nand `required` is `override.required ?? def.required ?? false` — static, never conditional.\n\nThe sibling chain carries all three out of the object schema and resolves them through\n`resolveFieldRuleState` — `packages/plugin-form/src/sectionFields.ts`, `fromObjectSchema`:\n\n```ts\n    // Field-level conditional rules (ADR-0036) — the form renderer resolves\n    // them via `resolveFieldRuleState`; without this copy a sectioned form\n    // silently dropped rules that the flat (schema-order) form honors.\n    visibleWhen: field.visibleWhen,\n    readonlyWhen: field.readonlyWhen,\n    requiredWhen: field.requiredWhen,\n```\n\nNote that #5594's fix reads the **view-level** predicate off the `FormField` override only.\nAn object-level `visibleWhen` — authored on the object's field, not on the form view — is a\nseparate slot the sibling keeps separate on purpose (`sectionFields.ts` routes the view\npredicate into `visibleOn` precisely so the object rule is never clobbered), and this\nrenderer reads neither of those two.\n\n## Why this is not a duplicate\n\n- #2212 and PR #2214: the view-level `FormField.visibleOn` on the **plugin-form** chain.\n- #4755: `DrawerForm`'s no-sections field builder dropping the same three object-level\n  rules — same class, a **third** renderer, closed.\n- #5594: the view-level field predicate in **this** renderer. Landed; this issue is what it\n  deliberately left.\n- #5596: the type-drift class one level up (`FormViewSpec` / `FormSectionSpec` each\n  hand-declared twice). Adjacent and relevant — converging `FormSectionSpec` would make the\n  section keys *declarable* here — but declarable is not evaluated. That is exactly the\n  #5542 / #5594 relationship repeating one level up: #5542 made `visibleWhen` declarable on\n  the console's field type, and the predicate still rendered unconditionally until #5594.\n\nSearched open issues before filing (section visibility / `FormSectionSpec` / `readonlyWhen`\n/ `requiredWhen` / console form renderer / conditional field phrasings). #5596 is the only\nopen match and it is about the type declarations, not the evaluation.\n\n## Severity note\n\nUser-reachable on the public `/f/:slug` route, same as #5594 — and the object-level half is\nworse than fail-open hiding: a `readonlyWhen` that should lock a field leaves it editable,\nwhich pairs badly with the server's fail-CLOSED behaviour for the unbound-scope case\n(`objectstack#4889`, described in `packages/core/src/evaluator/fieldRules.ts`) — the user\nedits, the save reports success, and the value never lands.\n\nTwo questions a fix has to answer rather than assume, which is part of why this is filed\ninstead of folded in:\n\n1. Whether a section hidden by its predicate should also suppress its fields' values on\n   submit — #5594 deliberately kept conditional visibility a **rendering** rule for fields\n   (a hidden field still submits its value, matching the plugin-form chain), and the same\n   question repeats at section granularity.\n2. Whether `requiredWhen` here needs the `serverOwnedValue` carve-out `resolveFieldRuleState`\n   applies (#4069 / #4085), given this route serves both create and edit (#4278).\n\n## Note on the code blocks above\n\nThe two type excerpts have their generic angle brackets spelled out as `Array[...]` —\nGitHub's body sanitizer eats short angle-bracket fragments, fenced code included (this was\nmeasured on the #5594 PR body, which had `Record` of `string` to `unknown` silently reduced\nto `Record`). Read the real declarations at `apps/console/src/components/FormPage.tsx`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_012u2pRjcqAYtoEjgr3wwhnK)_\n"
+}

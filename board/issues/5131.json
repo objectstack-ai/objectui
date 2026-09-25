@@ -1,0 +1,36 @@
+{
+  "number": 5131,
+  "kind": "issue",
+  "title": "finding(plugin-form): README 说字段级 `className`「只在 section-divider 上被读」,实测它经 `...fieldProps` 展开落到内置控件的 class 上",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-18T03:46:09Z",
+  "updated_at": "2026-08-22T11:59:11Z",
+  "closed_at": "2026-08-22T11:59:11Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5131",
+  "body": "发现于 #5118 的实施(PR #5130)。Filed unassigned, not claiming。\n\n半径外:#5118 的半径是 `content/docs/plugins/plugin-form.mdx` 的两块,本卡说的是\n`packages/plugin-form/README.md` 的一句括注,故分离立卡,未夹带进那个 PR。文档站那半我\n按实测措辞写了(见下),两边因此不同源 —— 这条就是为了让它们重新对齐。\n\n读数取自 `origin/main` @ `0046d8f8c`。\n\n## 现象\n\n`packages/plugin-form/README.md:227`(#5075 / PR #5100 写入)的「不是 `FormField` 键」表:\n\n> | `className` | `span` / `colSpan` for width, `FormSchema.fieldContainerClass` for the grid.\n> (A field-level `className` is read on exactly one pseudo-field, `type: 'section-divider'`,\n> where it styles the inline section header.) |\n\n括注里的 **exactly one** 只在「渲染器**显式解构并读取**」这个意义上成立\n(`form.tsx:1637` 的 `const fp = fieldProps as any; … className={fp.className}`)。但同一个\n渲染器把**未解构的剩余键整包转发**给解析出的组件:\n\n```\npackages/components/src/renderers/form/form.tsx:1554  const { name, label, description, type = 'input', … , ...fieldProps } = field;\npackages/components/src/renderers/form/form.tsx:2031    ...fieldProps,\n```\n\n`stripRendererOnlyProps`(`:302`)的剔除名单里没有 `className`,所以它一路到内置控件。\n\n## 实测\n\n真渲染器 + jsdom,`ComponentRegistry.get('form')`,字段\n`{ name: 'city', type: 'input', label: 'City', className: 'PROBE-CLASS' }`:\n\n```\n[E] input class = \"flex h-10 w-full rounded-md border border-input … md:text-sm PROBE-CLASS\"\n[E] PROBE-CLASS anywhere in DOM = true\n```\n\n也就是说在 `type: 'input'` 这类内置控件上,字段级 `className` **可见地生效**了。\n\n## 为什么仍然值得改一句\n\n表里给的**建议本身没错**(布局用 `span` / `colSpan`,栅格用 `fieldContainerClass`):\n`className` 确实不是 `FormField` 的声明成员,靠索引签名通行,契约不做任何承诺,注册 widget\n只有在自己透传剩余 props 时才会生效。错的是「exactly one」这个量词 —— 一个照字面理解的\n读者会得出「普通字段上这个键完全没作用」,而实测相反。准确的说法是「不在契约里」而不是\n「不被读」。\n\n文档站那半(PR #5130)已经按实测写:\n\n> An undeclared key still rides the props spread down to whichever component the field\n> resolves to, so a field-level `className` can visibly land on a built-in control — but\n> nothing in the contract promises that, and a registered widget honours it only if it\n> happens to spread its leftover props.\n\n## 复核方式\n\n```\nsed -n '225,228p' packages/plugin-form/README.md\nsed -n '1554,1572p;2029,2033p;302,320p' packages/components/src/renderers/form/form.tsx\n```\n\n## 分级\n\n打 `finding`:没有用户今天会撞上的坏结果 —— 建议是对的,只是量词过窄;属于文档准确性,\n不是缺陷。交 PM 分诊。\n"
+}

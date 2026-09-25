@@ -1,0 +1,35 @@
+{
+  "number": 5727,
+  "kind": "issue",
+  "title": "Console FormPage seeds a RUNTIME-default `defaultValue` literally into the control (`readPrefill`), suppressing the server-side resolution the declaration asks for",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T01:13:51Z",
+  "updated_at": "2026-08-23T17:42:42Z",
+  "closed_at": "2026-08-23T17:42:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5727",
+  "body": "Found while implementing #5627 (wiring the section-level and object-level conditional\nrules into `apps/console/src/components/FormPage.tsx`). **Not fixed in that PR** — it is a\ndifferent defect class (seeding, not conditional-rule evaluation), and that card's fence was\nthe four conditional-rule surfaces.\n\nMeasured on `origin/main` `c7cd2b60b`.\n\n## Mechanism\n\n`readPrefill` in `apps/console/src/components/FormPage.tsx` seeds every declared default\nunconditionally:\n\n```ts\nfor (const f of fields) {\n  if (f.defaultValue !== undefined) out[f.name] = f.defaultValue;\n  ...\n}\n```\n\nA `defaultValue` may be a literal, or an **instruction the server resolves per insert** —\nthe `DEFAULT_VALUE_TOKENS` family (`NOW()`, `current_user`) or a CEL `Expression` envelope.\n`@object-ui/core` owns the classifier for exactly that distinction\n(`packages/core/src/validation/server-owned-value.ts`, `isRuntimeDefault`), and its own\ndocstring names seeding as consumer #1:\n\n> seeding (#4047 / #4068) — such a default is not seeded, because putting the literal text\n> `NOW()` into a datetime input and submitting it suppresses the very resolution the\n> declaration asked for\n\n`@object-ui/plugin-form` `schemaDefaults.ts` routes its seeding through that classifier\n(`return !isRuntimeDefault(v)`). `FormPage.tsx` calls neither: `isRuntimeDefault` returns\nzero hits in that file. So on the console's two form routes a field declared\n`defaultValue: 'NOW()'` opens with the literal string `NOW()` in the input, and a submit\nsends that string as the value — which is not \"absent or null\", so\n`ObjectQL.applyFieldDefaults` never resolves the declared default.\n\n## Why this is not a duplicate\n\n- #4047 / #4068 fixed the seeding rule on the **plugin-form** chain, and #4069 / #4085 the\n  required-ness half that hangs off the same classifier.\n- #5627 (this renderer, in flight) wires the **conditional rules** and reuses\n  `resolveFieldRuleState`, which brings the `serverOwnedValue` carve-out for `required` with\n  it — so after that PR a server-owned control is correctly not marked required here. The\n  SEEDING half is untouched and is what this issue records.\n- Same class as #4755 in shape (a second/third renderer missing what the first one carries),\n  different key.\n\nSearched open issues before filing (`readPrefill`, seeding, runtime default, `NOW()`,\nconsole form, server-owned) — no open match.\n\n## Severity note, honestly bounded\n\nUser-reachable on the public `/f/:slug` route as well as the internal one. The visible harm\nis a control pre-filled with the text `NOW()` and a record whose column stores that string\nrather than a timestamp. **Not browser-verified** — this is static evidence (the call site,\nthe absent classifier, and the sibling chain's guard). A fix presumably means routing this\nseed through `isRuntimeDefault` the way `schemaDefaults.ts` does, but whether the console's\nhand-rolled prefill path should import that classifier or grow a shared helper is a call for\ntriage, not for this note.\n\nRelated: #5627, #4047, #4068, #4069, #4085.\n"
+}

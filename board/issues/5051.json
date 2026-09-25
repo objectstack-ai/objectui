@@ -1,0 +1,35 @@
+{
+  "number": 5051,
+  "kind": "issue",
+  "title": "registry meta 的 `defaultChildren` 没有任何消费面 —— 设计器拖放只读 `defaultProps`,11 处声明是惰性的",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T20:54:55Z",
+  "updated_at": "2026-08-22T01:56:02Z",
+  "closed_at": "2026-08-22T01:56:02Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5051",
+  "body": "发现于 #5027 的普查(那一单在 `span` 的 register meta 旁边路过这个键),**不在该 PR 处理**。observation-class:今天没人因此看到错的东西,只是一整条声明面是惰性的 —— 按填报纪律打 `finding`,不打 `pm:queue`。\n\n## 读数(仓内全文,排除 node_modules / dist / CHANGELOG)\n\n声明面 4 处:\n\n- `packages/core/src/registry/Registry.ts:106` —— `defaultChildren?: SchemaNode[]; // Default children when dropped`(紧邻的 `defaultProps` 注释是 `// Default props when dropped`)\n- `packages/types/src/base.ts:508`\n- `packages/types/src/plugin-scope.ts:155`\n- `packages/types/src/zod/base.zod.ts:250` —— `describe('Default children')`\n\n生产面 11 处:`packages/components/src/renderers/navigation/sidebar.tsx`(10 处)、`packages/components/src/renderers/basic/span.tsx:138`。\n\n已发布的插件作者文档 1 处:`skills/objectui/guides/plugin-development.md:80` 把它列进 register meta 的表格(`| defaultChildren | SchemaNode[] | Default child schema |`)。\n\n**消费面 0 处。** 拖放路径读的是它的孪生键:`packages/plugin-designer/src/PageDesigner.tsx:173` —— `props: paletteItem?.defaultProps ?? {}`,没有对应的 `children:` 一行。对 `defaultChildren` 的全仓搜索只命中上面那些声明与字面量,没有任何读取。\n\n## 影响\n\n从调色板把一个声明了 `defaultChildren` 的类型拖进设计器,不会带出声明的默认子节点(拖 `span` 本应带出 `{ type: 'text', content: 'Inline text' }`,拖 sidebar 的 10 个类型同理)。用户看到的是一个空节点而不是错的节点,所以属于\"声明了但不生效\",不是可见回归。\n\n## 可能的处置(交裁定,本单不做)\n\n1. 在 `PageDesigner` 的拖放里读它(`children: paletteItem?.defaultChildren ?? []`)—— 让声明生效;要顺带裁一下它落到哪个子节点键上(#5027 已把 `span` 的规范键钉成 `children`,#4631 是那张类问题)。\n2. 按 ADR-0049 enforce-or-remove 把这个键连同 11 处声明与 skills 文档那一行一起删掉。\n\n无论哪条,`skills/objectui/guides/plugin-development.md` 那一行要跟着走 —— 它是插件作者今天能读到的、当真会照着写的表格。\n\n关联:#5027(发现场景)、#4631(声明面与读取面互不一致的类问题,pm:on-hold)"
+}

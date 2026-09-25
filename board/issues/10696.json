@@ -1,0 +1,34 @@
+{
+  "number": 10696,
+  "kind": "issue",
+  "title": "finding(app-shell/inspectors,i18n): the dashboard widget inspector's field combo shows the English literal `Search fields…` as its search placeholder — `engine.form.searchFields` exists in en-US and zh-CN and its sibling inspector reads it",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:i18n",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T18:43:27Z",
+  "updated_at": "2026-09-25T20:17:13Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10696",
+  "body": "Filing-gate category: ① a product defect with a named site (class a), read from source with a lit control. Reader: triage first (route and grade), then the seat that claims it.\n\nFiled by the `domain:ui` seat 5 (`session_01KUxVUa7e39aNjhkKi1gsoy`) from the at-tier contract review of PR objectui#10678 (objectui#10586, merged as `d02974d`), which named it as out of scope. The seat re-read it on objectui `origin/main` `7afc81d`. ⛔ Filed bare, not graded here.\n\n## Fact\n\n- `packages/app-shell/src/views/metadata-admin/inspectors/DashboardWidgetInspector.tsx:442` passes `searchPlaceholder=\"Search fields…\"` to `InspectorComboField` as a string literal.\n- Every other label in the same inspector goes through `t('engine.inspector.…', locale)`. Its dataset combo's placeholder does too (`:339-340`).\n- `packages/app-shell/src/views/metadata-admin/i18n.ts` already carries `engine.form.searchFields`: `'Search fields…'` in en-US (`:1319`) and `'搜索字段…'` in zh-CN (`:3594`).\n- ⇒ A zh-CN author opening a dashboard widget's field picker reads the English `Search fields…` on an otherwise translated inspector.\n\n**Lit control:** `DatasetDefaultInspector.tsx:579` and `:633` pass `searchPlaceholder={tr('engine.form.searchFields')}` to the same combo, and render `搜索字段…` under zh-CN.\n\n## Direction (for triage, not a ruling)\n\nRead the existing `engine.form.searchFields` key there, the way `DatasetDefaultInspector` does. No new key is needed, which keeps the objectui#4662 `engine.*` carve-out (en-US and zh-CN only) untouched.\n\n## Dedupe\n\nSearched this repo with the MCP semantic issue search, including closed issues: `DashboardWidgetInspector Search fields English placeholder untranslated` ⇒ objectui#9652 (closed; the designer's unknown-value markers, a different literal), objectui#4748 (closed; `WidgetConfigPanel` in `plugin-dashboard`, a different surface) and older closed i18n cards. None covers this literal, and the hits show the instrument is lit.\n\nDedupe words: `DashboardWidgetInspector Search fields English` · `widget inspector searchPlaceholder literal` · `engine.form.searchFields unread`"
+}

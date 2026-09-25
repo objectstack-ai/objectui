@@ -1,0 +1,35 @@
+{
+  "number": 5745,
+  "kind": "issue",
+  "title": "Dev and split-host configs point VITE_SERVER_URL at an origin the page is not served from — the ruled prerequisite for #5702's sameOriginOnly default",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T03:42:23Z",
+  "updated_at": "2026-08-23T05:46:25Z",
+  "closed_at": "2026-08-23T05:46:25Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5745",
+  "body": "Filed by the `domain:ui` execution seat (seat post #5560) as the **ruled prerequisite** for #5702. Filed unassigned and unlabelled: the file surface is build/dev configuration, and routing is triage's single-producer job — see \"Routing clue\" below. **Sequencing matters here** (the ruling names it), so this is not an ordinary queue position.\n\n## Why this card exists\n\nMaintainer, 2026-08-23, on #5702: **option A, sequenced** — land `sameOriginOnly` as the action-runtime default, *sequenced with a config repair card that empties `VITE_SERVER_URL` in the dev envs and revisits `console-starter/.env.production`*. This is that card. #5702's own branch is written and pushed; it waits on this one.\n\nThe reason is measured, not anticipated. `packages/app-shell/src/hooks/useConsoleActionRuntime.tsx` prefixes any non-`http` action target with the configured server origin:\n\n```\n:326    const baseUrl = import.meta.env.VITE_SERVER_URL || '';\n:346    const url = resolvedTarget.startsWith('http') ? resolvedTarget : `${baseUrl}${resolvedTarget}`;\n```\n\nand the committed environment files point that origin somewhere the page is not served from:\n\n| file | committed value | page origin | verdict |\n| --- | --- | --- | --- |\n| `apps/console/.env.development:4` | `http://localhost:3000` | `:5180` (`apps/console/vite.config.ts` `server.port`) | cross-origin |\n| `examples/console-starter/.env.development:4` | `http://localhost:3000` | `:5173` (no `server` block ⇒ Vite default) | cross-origin |\n| `examples/console-starter/.env.production:3` | `https://demo.objectstack.ai` | deployment origin | cross-origin unless deployed there |\n| `apps/console/.env.production:7` | *(empty)* | same-origin | **fine, do not touch** |\n\nUnder #5702's ruled default, every **relative-target** `type: 'api'` action in those configurations resolves cross-origin and is fetched bare — no `Authorization`, no `X-Tenant-ID`, no `Accept-Language` — i.e. **401 for the standard `pnpm dev` stack**. That is not an exotic deployment; it is what a contributor gets out of the box.\n\n⚠️ **The blast radius is wider than one handler.** `sameOriginOnly` would be added at `useConsoleActionRuntime.tsx:308`, and that `authFetch` is consumed at `:399` (`apiHandler`), `:534`, `:592`, `:695`, and is **returned from the hook at `:721`** — so external consumers get it too. Four of those lanes build URLs from `VITE_SERVER_URL` (`:326`, `:509`, `:593`, `:696`). Any repair scoped to `apiHandler` alone misses the rest.\n\n## What this card should establish, then do\n\nThe ruling's own phrase for the target state is *\"proxies same-origin\"*. Concretely:\n\n1. **`apps/console`** — the proxy already exists: `vite.config.ts` has `proxy: { '/api': { target: process.env.DEV_PROXY_TARGET || 'http://localhost:3000', changeOrigin: true } }`. So emptying `VITE_SERVER_URL` in `.env.development` should route `/api/...` same-origin through it. **Verify that end to end rather than assuming** — including any lane that builds a URL from `VITE_SERVER_URL` for a path that is *not* under `/api`, which the proxy would not cover.\n2. **`examples/console-starter`** — `vite.config.ts` has **no `server` block at all**, so there is no proxy and no pinned port. Adding the same one-stanza proxy (and emptying `.env.development`) is the parallel repair.\n3. **`examples/console-starter/.env.production`** — revisit per the ruling. A committed production origin of `https://demo.objectstack.ai` is a different question from the dev stack and may be deliberate; establish which before changing it.\n\n⛔ Do **not** change `apps/console/.env.production` — its `VITE_SERVER_URL` is already empty (same-origin) and is the shape the others are being moved toward.\n\n⛔ Do **not** implement #5702's `sameOriginOnly` change here. That card is written, pushed and waiting; this card is only the ground it lands on.\n\n## Establish-first, before any edit\n\n- Is `VITE_SERVER_URL` read anywhere that would break if it were empty? There are ~20 read sites across `packages/app-shell/**` alone (`ConditionalAuthWrapper.tsx:52`, `AiChatPage.tsx:374`, `marketplaceApi.ts:19`, `useAiSurface.ts:55`, `sharedUserFeeds.ts:524`, `AppHeader.tsx:303`, …). Most coalesce to `''`, which is the same-origin shape — **verify, do not assume**, and name any that do not.\n- Does every path those sites build actually sit under `/api`, i.e. inside what the proxy covers? A read that builds `${VITE_SERVER_URL}/something-else` is the failure mode that turns \"empty it\" from a fix into an outage.\n- ⛔ Any zero result in the above needs a control term known to hit, or it is not a reading.\n\n## Landing order (the ruled part)\n\nThis card lands **first, or in the same stroke** as #5702. Landing #5702 alone breaks the dev stack; landing this alone is harmless (it converges the configs on one origin regardless). If the two cannot be sequenced, say so rather than landing #5702 first.\n\n## Routing clue (label deliberately not applied here)\n\nThe surface is `.env.*` files and a `vite.config.ts` `server` block — build/dev tooling, which reads as **`domain:devx`**. But the blocking relationship and the blast-radius reasoning live entirely in `domain:ui`'s action runtime, and the `domain:ui` seat is holding #5702 against it. Triage's call; this seat did not label it.\n\n## Refs\n\n- #5702 — the ruled card this unblocks (branch `claude/issue-5702-action-runtime-same-origin`, head `074121474`, pushed and unlanded)\n- #5279 — raised the `X-Tenant-ID` gating question the ruling defers to a follow-up\n- #2725 — the original `sameOriginOnly` mitigation, applied then to `ConsoleShell.tsx:213` only"
+}

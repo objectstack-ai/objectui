@@ -1,0 +1,33 @@
+{
+  "number": 5863,
+  "kind": "pull_request",
+  "title": "docs(plugin-dashboard): de-duplicate the DashboardGridLayout H2",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T16:18:44Z",
+  "updated_at": "2026-08-23T16:42:09Z",
+  "closed_at": "2026-08-23T16:42:08Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T16:42:08Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5863",
+  "body": "Fixes #5095\n\n## What\n\n`packages/plugin-dashboard/README.md` carried the H2 `DashboardGridLayout — persisting drag / resize edits` **twice**. The first occurrence sat immediately above the `DashboardRenderer` design-mode reorder section, so that section rendered under a heading describing something else — `onWidgetsReorder` / dnd-kit has nothing to do with `DashboardGridLayout` persistence — and every TOC/anchor generator emitted a duplicate entry with a `-1` disambiguation suffix.\n\nThe whole diff is three lines removed, one added:\n\n```diff\n-## DashboardGridLayout — persisting drag / resize edits\n-\n-### DashboardRenderer — design-mode widget reorder\n+## DashboardRenderer — design-mode widget reorder\n```\n\nEach section now sits under a heading that describes it. Prose and code fences are untouched — this is a doc-structure fix, not a README rewrite, and nothing else in the file was reorganised.\n\n## Premise re-measured on current `main`\n\nThe card's line numbers were dated (taken right after #5093). Re-measured at merge-base `58770f329`, the defect is still present, just moved:\n\n```\n508:## DashboardGridLayout — persisting drag / resize edits\n510:### DashboardRenderer — design-mode widget reorder\n523:## DashboardGridLayout — persisting drag / resize edits\n```\n\nAfter:\n\n```\n508:## DashboardRenderer — design-mode widget reorder\n521:## DashboardGridLayout — persisting drag / resize edits\n```\n\n`grep '^#\\{1,6\\} ' … | sort | uniq -d` over the whole file now returns nothing — no duplicate heading of any level remains.\n\n## Anchors — checked BEFORE the rename, not after\n\nA re-seated heading changes its anchor, so the link surface was enumerated first:\n\n| Anchor | Before | After |\n|---|---|---|\n| `#dashboardrenderer--design-mode-widget-reorder` | H3 | **preserved** — slug derives from heading *text*, not level; H3 → H2 does not move it |\n| `#dashboardgridlayout--persisting-drag--resize-edits` | pointed at the *wrong* (misplaced) heading | **preserved** — now points at the persistence section it always claimed to name |\n| `#dashboardgridlayout--persisting-drag--resize-edits-1` | the de-dup suffix GitHub minted for the second copy | **gone** |\n\nOnly the third one disappears. Repo-wide greps for in-repo references (excluding `node_modules`/`.git`) found **zero** hits for `dashboardgridlayout--persisting` and zero for `dashboardrenderer--design`. The README has no intra-file `](#…)` links. The single fragment link into this README anywhere in the tree is `content/docs/plugins/plugin-dashboard.mdx:348` → `…/README.md#type-aware-listtable-widget-cells`, which this diff does not touch. `content/docs/plugins/plugin-dashboard.mdx` mirrors neither section, so it has nothing pointing at either anchor.\n\n## Verification — union re-run on the final commit `11f6a6a15`\n\nAll from the repo root, exit codes captured before any pipe:\n\n| Gate | Verdict line |\n|---|---|\n| `node scripts/check-doc-links.mjs` | `Links are valid across 13 scan roots.` |\n| `node scripts/check-changeset-presence.mjs` | `✅  No source of a released package changed in this range, so no changeset is owed.` |\n| `node scripts/check-control-bytes.mjs` | `✅  check-control-bytes: OK (scanned 4880 tracked text file(s); skipped 85 binary).` |\n| `pnpm exec vitest run scripts/__tests__/{check-doc-links,doc-version-claims,check-changeset-presence}.test.ts` | `Test Files  3 passed (3)` / `Tests  136 passed (136)`, `RUN v4.1.10 /home/user/objectui-5095` (root = repo root) |\n\n`packages/*/README.md` is scan root #4 of `check-doc-links.mjs` (rule `disk`), so that gate genuinely covers the edited file rather than waving it through.\n\n**No changeset**: `check-changeset-presence` reports 1 file changed, 0 under the `src/` of a released package — none owed.\n\n**No ablation.** This is a doc-only diff with no behavioural leg; staging a reverse-verification here would be decorative. The evidence is the before/after heading census plus the anchor accounting above.\n\n### One gate narrowed, declared\n\n`node scripts/check-doc-snippet-types.mjs` keys a ratchet entry on this exact file (`'packages/plugin-dashboard/README.md': '19 parse diagnostic(s) …; 4 undefined-name diagnostic(s)'`). It **refuses to run** against an unbuilt workspace rather than reporting a false green:\n\n```\nThe snippet program was NOT run: the packages it resolves against are not built, or are typed from source.\n```\n\nRunning it locally needs a full 15-package workspace build. CI builds and runs it for real. What is shown here instead is that the diff **cannot** move it: the gate compiles fenced `ts`/`tsx`/`typescript` blocks (`TS_FENCE_LANGUAGES`), and the fenced-snippet stream of this file — every fence body, its language tag, and the marker line immediately above each opening fence — is byte-identical before and after:\n\n```\nBEFORE  fences=16 sha256=4496af1118fadb32b6e7ce4a19a4c43a9eba9d150c7aa01db6cf68a4a6a89e59\nAFTER   fences=16 sha256=4496af1118fadb32b6e7ce4a19a4c43a9eba9d150c7aa01db6cf68a4a6a89e59\n```\n\nThat extractor is not a no-op — mutating one fence body (`saveItem` → `saveItemMUTATED`, mutation confirmed on disk by `grep -c`, not by the editor's exit code) yields `sha256=b250579c…`. No other file is touched, so the gate's verdict is invariant under this diff.\n\n## Scope\n\nSame-family **#4517** (the `plugin-calendar` duplicate) is deliberately not folded in — triage recorded it as a different file and kept it separate from this card. No out-of-scope findings; the rest of the README was read but not disturbed.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01EuPCi56cnGyykygi3z9w4m)_"
+}

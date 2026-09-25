@@ -1,0 +1,35 @@
+{
+  "number": 5437,
+  "kind": "issue",
+  "title": "The root `package.json` declares one runtime dependency and it is npm's security placeholder: `\"coverage-v8\": \"0.0.1-security\"`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "domain:devx"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-20T18:21:28Z",
+  "updated_at": "2026-08-23T04:51:08Z",
+  "closed_at": "2026-08-23T04:50:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5437",
+  "body": "Found while working #5421 (reading the coverage lane's install log). Filed unassigned.\n\n## What is there\n\n`package.json` at the repo root, on `main` (`9f7d786bd`):\n\n```json\n\"dependencies\": {\n  \"coverage-v8\": \"0.0.1-security\"\n}\n```\n\nThat is the entire `dependencies` block — the monorepo root otherwise declares everything under `devDependencies`, including the real one, `\"@vitest/coverage-v8\": \"4.1.10\"`.\n\n`coverage-v8@0.0.1-security` is not a coverage tool. `0.0.1-security` is the version npm publishes under a name it has taken over after removing the original package; the tarball contains a README saying the name is held for security reasons and no code. It installs cleanly and does nothing, which is why it has gone unnoticed — every CI install prints it as a real-looking line:\n\n```\ndependencies:\n+ coverage-v8 0.0.1-security\n```\n\n(visible in the install step of any `Test (coverage shard N/4)` job, e.g. [run 32397046084](https://github.com/objectstack-ai/objectui/actions/runs/32397046084)).\n\n## Why it is worth removing rather than shrugging at\n\n1. It is almost certainly a typo for `@vitest/coverage-v8` — someone ran the install without the scope. The scoped package is present and correct, so nothing is missing; this entry is pure residue.\n2. It sits in **`dependencies`**, not `devDependencies`. A held name is not guaranteed to stay held forever, and the entry is pinned to an exact version so a re-release under a different version would not be picked up automatically — but the shape (an unscoped, single-word name in the root's only runtime dependency block) is the exact shape a supply-chain mistake takes, and nothing in the repo currently explains why it is there.\n3. It occupies the root's `dependencies` block, so a reader looking for \"what does the monorepo root depend on at runtime\" gets one meaningless answer instead of the correct one (nothing).\n\n## Suggested fix\n\nDelete the `dependencies` block from the root `package.json` and refresh `pnpm-lock.yaml`. ⚠️ Touching the root lockfile has a wide blast radius while several agents hold worktrees, so this wants a quiet moment rather than a rider on another card — which is why it is filed rather than folded into #5421."
+}

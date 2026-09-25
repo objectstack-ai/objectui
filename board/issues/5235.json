@@ -1,0 +1,36 @@
+{
+  "number": 5235,
+  "kind": "issue",
+  "title": "Form renderer: \"a defaultValues reset is not a user edit\" holds only for callers who do NOT memoize the callback",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "auto-adjudicated",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T19:21:51Z",
+  "updated_at": "2026-08-22T13:13:03Z",
+  "closed_at": "2026-08-22T13:13:03Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5235",
+  "body": "Filed unassigned per Prime Directive #10. Surfaced while wiring `FormSchema.onChange` for #4259, and deliberately not addressed there — see \"Why this is not part of that card\" below.\n\n## What happens\n\n`packages/components/src/renderers/form/form.tsx` places its value subscriptions in **layout** effects, on purpose, so that a `defaultValues` reset (a record landing in edit mode) is not reported to the host as if the user had edited every field the record filled. The comment above the `onAction` subscription states the mechanism precisely: React runs every layout DESTROY before any layout CREATE, so a caller passing a fresh callback each render \"has this subscription torn down before the reset runs and re-established after.\"\n\nThe load-bearing words are **\"a fresh callback each render.\"** The guarantee is delivered by the callback's *identity changing*, which is what forces the effect to re-run and therefore to unsubscribe across the reset. A caller who wraps the same callback in `React.useCallback` — normally a pure performance optimization — keeps a stable identity, the effect never re-runs, the subscription stays live through the reset, and the reset **is** delivered.\n\n## Measured\n\nAgainst `origin/main` + the #4259 wiring, a host passing `onChange` and `onDirtyChange` through `React.useCallback(..., [])`, then committing a new `defaultValues` (the edit-mode record landing):\n\n```\nonChange calls after the reset:      [ { name: 'Loaded', note: 'from server' } ]\nonDirtyChange calls after the reset: [ false, false ]\n```\n\nWith the same host passing inline arrows instead, `onChange` receives nothing for the reset. Same component, same data, same code path — the only difference is whether the caller memoized.\n\nNote `onDirtyChange` is **correct in both cases**: it reports `false`, because the renderer calls it explicitly after the reset with a computed dirtiness rather than relying on the subscription ordering. So the file already contains the shape that does not depend on caller identity; the subscription-ordering channels are the ones that do.\n\n## Why it matters\n\n- Memoizing a callback is supposed to be semantically neutral. Here it silently flips a behavioural guarantee, in the direction that produces a false \"the user edited this\" signal — the exact failure #2968 was filed about.\n- It is invisible at the call site: nothing in the type, the docs or the renderer says \"do not memoize this callback.\"\n- It is identity-dependent, so it will reproduce intermittently across consumers depending on unrelated refactors.\n\n## Scope: which channels\n\n- `onAction` (`type: 'form_change'`) — pre-existing, unchanged by #4259.\n- `onChange` — inherits the same property as of #4259, because the ruling there was explicitly to reuse this plumbing.\n\n## Why this is not part of that card\n\nThe maintainer ruling on #4259 was to wire `onChange` \"using the same subscription plumbing `onDirtyChange` proves exists in the file\". Changing the ordering mechanism would change `onAction` behaviour as well, which is pinned by other tests, and picking the correct semantics is a design question rather than a mechanical fix: it is genuinely arguable whether a value-change channel *should* report a programmatic reset (for `onChange`, \"the values changed\" is arguably true; for an action typed `form_change` it is more clearly meant as a user edit). That fork needs deciding, not guessing, so #4259 pinned only the inline-arrow case its ruling described and left this one open. #4259 is not addressed by this issue and remains a separate concern.\n\n## Possible exits (not decided here)\n\n- Make it identity-independent the way `onDirtyChange` already is — drive the notification explicitly around the reset instead of relying on subscribe/unsubscribe ordering.\n- Or accept it and document the constraint on the declared callbacks.\n\n## Reachability\n\nAny consumer that memoizes a `onChange` / `onAction` callback on a form that also receives `defaultValues` asynchronously (every edit-mode form that fetches its record). No in-repo caller currently does both, which is why this reads as latent rather than a live break.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_\n"
+}

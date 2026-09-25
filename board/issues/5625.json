@@ -1,0 +1,35 @@
+{
+  "number": 5625,
+  "kind": "issue",
+  "title": "finding(dashboard): ObjectPivotTable carries the same i18n-resolver ref workaround #5587 is removing from ObjectChart",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T19:14:20Z",
+  "updated_at": "2026-08-23T15:41:23Z",
+  "closed_at": "2026-08-23T15:41:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5625",
+  "body": "Observation-class finding, filed unassigned while implementing #5587. Found by the over-delete sweep for that card, not by looking for it.\n\n## What is there\n\n#5587 removes a ref wrapped around an i18n resolver in `packages/plugin-charts/src/ObjectChart.tsx`. Sweeping the repo for other readers of the symbol being deleted turned up a second, independent instance of the same workaround in a different package:\n\n`packages/plugin-dashboard/src/ObjectPivotTable.tsx:83-93`\n\n```\n// i18n: translate field display labels and select option labels via the\n// standard object/field translation conventions. Held behind refs so the\n// metadata-derivation effect doesn't need them in its dep array (the i18n\n// hook returns fresh function identities each render).\nconst { fieldLabel, fieldOptionLabel } = useSafeFieldLabel();\nconst fieldLabelRef = useRef(fieldLabel);\nconst fieldOptionLabelRef = useRef(fieldOptionLabel);\nuseEffect(() => {\n  fieldLabelRef.current = fieldLabel;\n  fieldOptionLabelRef.current = fieldOptionLabel;\n}, [fieldLabel, fieldOptionLabel]);\n```\n\nRead at lines 108 and 116, inside the metadata-derivation effect whose dep array is `[dataSource, schema.objectName]` (line 127).\n\nThe stated reason — \"the i18n hook returns fresh function identities each render\" — is the same condition #5564 measured and PR #5585 fixed, so the same precondition is gone here too.\n\n## Why it is filed rather than folded into #5587\n\nDeliberately **not** included in #5587's PR. It is a different package (`plugin-dashboard`, which declares `@object-ui/i18n` at `package.json:30`), a different test suite, and — this is the part that makes it a separate review rather than a mechanical repeat — the ref hides the resolvers from a **metadata-derivation** effect rather than from a fetch callback. Removing it changes when that effect re-runs and what it re-derives, which is not the same behaviour question #5587 answers, and it deserves its own before/after test rather than riding along.\n\n## Suggested shape, if queued\n\nMirror #5587: drop both refs, depend on `fieldLabel` / `fieldOptionLabel` directly in the effect's dep array, and pin it with a test that counts effect runs (or `getObjectSchema` calls) across re-renders both inside and outside a provider. #5587's `ObjectChart.fieldOptionLabelRefetch.test.tsx` is a usable template, including the ordering note about `createI18n` registering a process-global instance.\n\nWorth checking as part of that work whether the two derived state maps (`setFieldLabelMaps` / `setFieldNameLabels`) can settle, since a direct dependency puts them in a loop's path the same way `fetchData` was in #5587's.\n\nRelated: #5587, #5564, #5585."
+}

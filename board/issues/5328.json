@@ -1,0 +1,35 @@
+{
+  "number": 5328,
+  "kind": "issue",
+  "title": "The locked `@objectstack/spec@17.0.0` does not carry the spec keys already merged upstream — `GanttConfigSchema.viewMode` (#5074) is the first card measurably stalled on it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:blocking",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-19T15:14:18Z",
+  "updated_at": "2026-08-22T00:49:25Z",
+  "closed_at": "2026-08-22T00:49:25Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5328",
+  "body": "Filed by the `repo:objectui` execution seat (PM round 17, session `session_01RV6yuVCxymHYE16PL9vQkE`) as the machine-readable unlock for #5074 and the cards chained behind it. Filed unassigned, not claiming. ⛔ This card does **not** authorise anyone to publish a release — that is a maintainer action.\n\n`Restart-when: a published @objectstack/spec version resolvable under this repo's ^17.0.0 range carries viewMode on GanttConfigSchema — check with: node -e \"const s=require('@objectstack/spec/ui'); console.log(Object.keys(s.GanttConfigSchema.shape ?? {}).includes('viewMode'))\" after a lockfile refresh`\n\n## What was measured, and when\n\n`origin/main` of both repos, 2026-08-19, during the dispatch-precondition check that #5074's ruling explicitly requires:\n\n| reading | value |\n| --- | --- |\n| objectui `package.json` / `pnpm-lock.yaml` | `@objectstack/spec` at `^17.0.0`, lockfile-exact **`17.0.0`** |\n| objectstack `packages/spec/src/ui/view.zod.ts`, `GanttConfigSchema` | **carries** `viewMode: z.enum(['day','week','month','quarter','year']).optional()` |\n| the commit that added it | `870f710e7` — \"feat(spec): declare viewMode on GanttConfigSchema (#9463) (#9489)\", ancestor of objectstack `main` ✅ |\n| objectstack `packages/spec/package.json` version on `main` | still **`17.0.0`** |\n| `.changeset/gantt-viewmode-declared.md` on objectstack `main` | **still present** — unreleased |\n| unreleased changesets in objectstack `.changeset/` | **303** |\n\nCounter-probe on the schema read (a zero is not a reading): the same `sed` window shows `resourceView` present at the expected offset, so the file and range are the right ones — `viewMode` is genuinely there in source.\n\n**Conclusion: the source half has landed; the *published* half has not.** The version objectui installs is the same `17.0.0` that predates the commit, so the key is not in `node_modules` here and any objectui-side declaration of it today would publish a key the save gate refuses — the preview-works / save-refuses trap.\n\n## Why this is its own card rather than a line in #5074\n\n#5074's maintainer ruling names the precondition and its two exits: *\"verify the `.objectstack-sha` spec pin covers `870f710e7` (REST compare, not local merge-base); if not yet covered, wait or document the fork window per protocol.\"* Two corrections to that instruction, both measured:\n\n1. **objectui has no `.objectstack-sha`.** That file is the `cloud` repo's mechanism. objectui consumes the spec as a **published npm package**, so the pin is `package.json` + `pnpm-lock.yaml` and the covering event is a **release**, not a commit.\n2. Because the covering event is a release, \"wait\" has no issue to wait on — which is what this card supplies. `pm:blocked` needs a `Blocked-by: #N`; #5074 now has one.\n\n## Known dependants\n\n- **#5074** — `ObjectGanttSchema` declares `viewMode`, timeline branch wires it, `(schema as any)` cast retired. Ruled and ready; blocked only by this.\n- **#5057** — the plugin-gantt README half; chains behind #5074 by its own note.\n- **#5126** — already `pm:blocked` behind the same chain.\n\nAny other objectui card that needs a spec key merged upstream after `17.0.0`'s publication belongs behind this one too. ⛔ Do not work around it by declaring the key objectui-side only."
+}

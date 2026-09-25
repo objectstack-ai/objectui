@@ -1,0 +1,33 @@
+{
+  "number": 5849,
+  "kind": "pull_request",
+  "title": "docs(core): name the grid and surface behind the 27,581 of 1,200,013 figure",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T15:19:42Z",
+  "updated_at": "2026-08-23T15:31:42Z",
+  "closed_at": "2026-08-23T15:31:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T15:31:41Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5849",
+  "body": "Fixes #5608\n\nTwo live sites still carried the bare `27,581 of 1,200,013` figure with neither the grid nor the measured surface named. Both were accurate; neither was *reconcilable*. A reader who had also seen `packages/fields`'s `27,577 of 1,200,003` met two counts that look like a contradiction — and a correct-but-unreconcilable figure is what makes correct comments get distrusted wholesale. That reasoning is recorded on #4596, and preserving it is the point of the wording.\n\n## What changed\n\nComments only. Two lines of prose, zero executable change.\n\n| site | what it is |\n| --- | --- |\n| `packages/core/src/utils/number-display.ts:118` | the `DisplayNumberFormatOptions.style` doc comment |\n| `packages/core/src/utils/__tests__/number-display.percent-points.test.ts:96` | the tie-case comment |\n\nBoth line numbers were dated on the card; both were re-measured against `origin/main` before editing and both were still accurate.\n\nThe wording is **lifted from #5606**, not phrased a third way — a third phrasing for one fact is the defect one level up. That PR wrote the qualification in two forms: an em-dash form for a source comment and a parenthetical form for a test header. Each of the two sites here takes the matching form, with only the surface name changed to the one these two sites actually sit on.\n\n**Nothing about the figure moves.** Both counts stand exactly as measured. Per the card, naming \"the grid\" alone does *not* separate them — both cards describe the grid identically — so the disambiguator each site now carries is the **surface measured**: #4576's tie-dense grid (0.005 steps to 2,000, precisions 0/1/2) on `formatDisplayNumber` / `formatMeasure`'s call shape, against #4590's re-measure of the same route through `formatPercent`.\n\n`formatMeasure` delegates to `formatDisplayNumber`, so the compound name is what makes this reconcilable with the already-corrected comment in `dataset-format.ts`, which cites the same count as \"THIS formatter's call shape\".\n\n### Left untouched, deliberately\n\nThe `CHANGELOG.md` entries in `packages/core`, `packages/i18n` and `packages/fields` carry these figures too. They are historical release records, accurate as published, and the card puts them explicitly out of scope. No value, assertion, type or behaviour is touched anywhere in this diff.\n\n## The changeset, and why the empty form\n\n`scripts/check-changeset-presence.mjs` does require a declaration here (`packages/core/src/**` is released source), and the empty-frontmatter form is the right one — but the measured reason is the **mirror image** of #5606's, so it is restated rather than carried over.\n\nIn that PR a function *body* comment changed, so the emitted `.js` moved and the `.d.ts` did not. Here the changed source comment is the JSDoc on an exported interface member: the interface erases at runtime, so on a real build of the package the new prose reaches `dist/utils/number-display.d.ts` and is **absent** from `dist/utils/number-display.js`. The second site is a test file, excluded from the build program by `src/**/__tests__/**`, and never in `dist` at all.\n\nSo a consumer-visible byte does move — the text shown on hover. That is documentation of an existing measurement, not a change to the measurement, the type, or any behaviour. Bytes moving is not the criterion; released behaviour and consumer-visible surface are, and neither moves.\n\n## Verification\n\nUnion re-run after the final commit, at `cca26ab5f`:\n\n| gate | verdict line |\n| --- | --- |\n| `check-changeset-presence` | `✅ 2 source file(s) of 1 released package(s) changed, and this change declares 1 changeset(s)` — empty frontmatter, the explicit exemption |\n| `check-changeset-no-major` | `✅ No changeset declares a 'major' bump.` |\n| `check-control-bytes` | `✅ check-control-bytes: OK (scanned 4869 tracked text file(s); skipped 85 binary).` |\n| vitest (from repo root) | `Test Files 3 passed (3)` / `Tests 39 passed (39)` |\n| `@object-ui/core type-check` | `tsc --noEmit && tsc -p tsconfig.test.json`, exit 0 |\n| eslint (targeted, `--no-inline-config`) | 2 files, 0 errors, 0 warnings |\n\nvitest covered the edited test plus the sibling `dataset-format.percent-convention.test.ts` and `scripts/__tests__/doc-version-claims.test.ts` — the last of those runs only in the CI shards, and it is the gate that catches a bare version literal written into prose, so it was pulled forward locally rather than left to CI. Every exit code was read from `PIPESTATUS[0]`, never from a bare `$?` after a pipe.\n\n**No ablation, and none is owed.** This diff is comment-only: there is no behavioural leg to remove, and staging one would be decoration. The discriminating evidence is a before/after grep on the two sites, run with a positive control on the same pipeline against the two already-corrected #5606 sites (which hit, confirming the pattern is findable where it exists):\n\n- **before** — the qualification was absent from both target sites (`0` hits each), while the control sites hit\n- **after** — both sites carry the grid, the precisions, the named surface, the sibling count and the \"a different form set, not a correction of this one\" clause; the old bare phrasings return `0`\n- the figure `27,581 of 1,200,013` itself is still present at both sites, unchanged\n\nThe lint run is narrowed to the two changed files rather than the repo-wide farm, and the narrowing is a measurement, not a gap: the file count is read from eslint's own `--format json` output (2), the diff touches no eslint, turbo or tsconfig file, the added lines contain no `eslint-disable` or `@ts-` directive comment, and `eslint.config.js` declares no `projectService`, `project:` or `parserOptions` — type-aware linting is not enabled, so no untouched file's verdict can move. CI runs the full farm regardless.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01EuPCi56cnGyykygi3z9w4m)_"
+}

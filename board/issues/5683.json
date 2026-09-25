@@ -1,0 +1,30 @@
+{
+  "number": 5683,
+  "kind": "issue",
+  "title": "Create-form does not resolve the current_user defaultValue token — spec-correct \"default applicant = me\" renders as an empty field until save",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T09:29:54Z",
+  "updated_at": "2026-08-22T11:10:16Z",
+  "closed_at": "2026-08-22T10:09:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5683",
+  "body": "## What\n\nThe spec's `defaultValue` runtime token `current_user` (`@objectstack/spec/data` `DEFAULT_VALUE_TOKENS`, #7127 family — legal on `user` fields and `lookup` with `reference: 'sys_user'`) is resolved **only by the engine at INSERT time** (`objectql/engine.ts` — `isCurrentUserDefaultToken` → `out[f.name] = execCtx.userId`). ObjectForm resolves neither this token nor any dynamic default client-side: a new-record form renders the field **empty**, and the value appears only after save.\n\n## Why it matters (live prod repro, 2026-08-22)\n\nEnv `os-6vp51e.objectos.ai`, app `app.v4b4` (报销流程): the owner asked the build agent 「报销单申请人默认不应该就是自己吗？」. The agent authored the spec-correct metadata —\n\n```json\n\"applicant\": { \"type\": \"lookup\", \"reference\": \"sys_user\", \"defaultValue\": \"current_user\" }\n```\n\n— and the engine WILL stamp the actor on save (verified: an untouched lookup is **omitted** from ObjectForm's insert payload — server error text \"insert … did not supply 'project'\" proves absence, not `''` — so the omitted-or-null default path fires). But the user opened the new-record form, saw 申请人 empty, and reasonably concluded the change did not work. Two sessions of back-and-forth followed. The \"default = current user\" a user asks for IS form pre-fill; engine-on-save alone reads as broken.\n\n## Ask\n\nWhen building the initial values for a create form, resolve `defaultValue: 'current_user'` on `user` / `lookup→sys_user` fields to the session user (id + display), the same way static schema defaults are seeded today (the `objectui-form-defaults-and-falsy` seam). The token spelling must come from `@objectstack/spec` (`DEFAULT_VALUE_TOKEN_CURRENT_USER`), not a local literal — that drift is exactly how #4560 happened engine-side. `NOW()` on date/datetime deserves the same treatment while in there. Engine-side resolution stays as the authority for non-form writers; the form seed is a UX mirror, and an untouched pre-filled value submits the same id the engine would have chosen, so no behavior fork.\n\nCross-refs: engine token application `packages/objectql/src/engine.ts` (#4560/#4597 comments); agent-side narration fix tracked in cloud#1584 (D2 addendum).\n"
+}

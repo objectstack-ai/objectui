@@ -1,0 +1,36 @@
+{
+  "number": 5206,
+  "kind": "issue",
+  "title": "finding: `runtime-config.ts` 的 \"Server-side: see\" 指针指向已迁走的框架路径(`packages/runtime/src/cloud/runtime-config-plugin.ts` 不存在,实际在 `packages/cloud-connection/src/`)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-18T14:30:09Z",
+  "updated_at": "2026-08-23T16:57:25Z",
+  "closed_at": "2026-08-23T16:57:25Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5206",
+  "body": "观察类发现,顺路撞见,**未在任何 PR 中修改** —— 记录而非认领。\n\n## 观察\n\n`packages/app-shell/src/runtime-config.ts` 顶部的模块注释把服务端实现指给读者:\n\n```\n * Server-side: see\n *   cloud/packages/service-cloud/src/multi-environment-plugins.ts\n *   cloud/packages/service-cloud/src/single-environment-plugin.ts\n *   framework/packages/runtime/src/cloud/runtime-config-plugin.ts\n```\n\n第三行的框架路径已经失效。在 framework 仓 `origin/main` 上实测,**带对照**:\n\n| probe | result |\n|---|---|\n| `packages/runtime/src/cloud/runtime-config-plugin.ts` | 不存在 |\n| `find packages -name runtime-config-plugin.ts` | 唯一命中 `packages/cloud-connection/src/runtime-config-plugin.ts` |\n| **对照** —— `packages/runtime/src` 目录本身 | 存在 |\n\n对照是让这个「不存在」成为读数而不是路径打错的原因:`packages/runtime/src` 确实在,只是那个文件不在它下面 —— `RuntimeConfigPlugin` 已迁到 `@objectstack/cloud-connection`。\n\n## 为什么值得记一笔\n\n这一行注释是 app-shell 读者从消费端跳到生产端的唯一线索,而 `branding` / `features` 的形状恰好是两仓之间没有 import 约束、只靠文档对齐的契约面。指针失效时,下一个要核对「服务端到底推了什么」的人会先落到一个不存在的路径。\n\n顺带:同注释里的两条 cloud 路径未核验(本次运行无该仓上下文的必要),修这一行时值得一并核对。\n\n## 发现语境\n\nframework 仓 objectstack-ai/objectstack#9252(`OS_PRODUCT_STAGE` → `branding.stage`)的实现过程中撞见 —— 那张卡正是沿着这条指针去找生产端的。修复 PR:objectstack-ai/objectstack#9658。\n\n⛔ 未打 `pm:queue`:这是文档漂移观察,不是缺陷,留给分诊定级。"
+}

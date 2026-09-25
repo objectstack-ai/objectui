@@ -1,0 +1,35 @@
+{
+  "number": 10653,
+  "kind": "pull_request",
+  "title": "fix(fields): a file URL whose last segment holds a bare `%` renders, named by its raw segment (objectui#10614)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: fields",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T14:34:41Z",
+  "updated_at": "2026-09-25T15:04:19Z",
+  "closed_at": "2026-09-25T15:04:17Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-25T15:04:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10653",
+  "body": "Fixes #10614\n\nClause-②: no\n\n## What changed\n\n`nameFromUrl` in `packages/fields/src/widgets/file-value.ts` names a file value that carries no name after its URL's last path segment, decoded with `decodeURIComponent`. A segment that is not a valid percent-encoding made the decode throw `URIError: URI malformed`, and the throw left `readFileValue` during render. The decode is now guarded once, in that helper. On `URIError` the name is the raw segment; any other error is rethrown. No caller changed, and no caller has its own try/catch (triage ruling on the card, comment `5833345168`). A valid escape decodes exactly as before.\n\nFiles: `packages/fields/src/widgets/file-value.ts` (the guard and its doc comment), `packages/fields/src/widgets/file-value.test.ts` (helper pins), `packages/fields/src/widgets/file-value.bare-percent-10614.test.tsx` (rendered-face pins, new), `.changeset/10614-file-name-bare-percent.md` (patch, `@object-ui/fields`).\n\n## Reach, measured first at the base `eca2760`\n\nA scratch harness (not committed) mounted every face that reaches the helper. Values: `https://cdn.example.com/100%.png` (string) and `{ url: 'https://cdn.example.com/a%zz.pdf' }` (object).\n\n| Face | At the base | After the fix |\n|---|---|---|\n| `file` cell (`FileCellRenderer`), string and array | throws `URIError: URI malformed` | link named `100%.png` / `a%zz.pdf` |\n| `image` cell (`ImageCellRenderer`), string and object | throws `URIError: URI malformed` | renders |\n| `signature` cell (via `getCellRenderer`) | throws `URIError: URI malformed` | renders |\n| `FileField` edit and readonly | throws `URIError: URI malformed` | renders, name shown |\n| `FileCell` | throws `URIError: URI malformed` | renders, name shown |\n| `ImageField` edit and readonly | throws `URIError: URI malformed` | renders |\n| `object-grid` through `SchemaRenderer`, one bad row plus one valid row | the `data-table` node's error boundary replaces the WHOLE table with its panel `Component \"data-table\" failed to render` / `URI malformed` / `Retry`. Neither row is visible. | both rows visible, no alert |\n| `object-gallery` through `SchemaRenderer`, one bad cover plus one valid | the gallery's boundary replaces the whole gallery with `Component \"object-gallery\" failed to render` / `URI malformed` / `Retry` | both cards visible, no alert |\n| control: `file` cell with `report%20q3.pdf` | `report q3.pdf` | `report q3.pdf` |\n\nSo at the base, no face contained the throw. Under `SchemaRenderer`, the nearest error boundary caught it, and one such value hid the whole table or gallery, valid rows included. The measurement did not produce a blank page, because `SchemaRenderer` wraps every node in a boundary. The console's list route reaches the grid through `ListView`, which renders it through `SchemaRenderer`. `ObjectGallery`'s cover (`resolveCoverUrl` calls `readFileValues`) is a caller the card did not list. `git grep` found it, and it was measured above.\n\n## Pins, and the ablation\n\n- `file-value.test.ts`, the describe block whose name ends `names the file by its raw segment (objectui#10614)`. It pins both reported values (no throw, name is the raw segment), the two together through `readFileValues`, and THE CONTROL: `report%20q3.pdf` still decodes to `report q3.pdf`, both as a string and as `{ url }`.\n- `file-value.bare-percent-10614.test.tsx` renders the `file` cell through `getCellRenderer('file')`. It checks both values as links named by the raw segment with the right `href`, a single non-array value, and the control decoding beside a bare-`%` value in the same cell.\n- Ablation, run on the committed fix `551e8ed` with `ablation-replace.mjs` (wrap mode, anchor `if (err instanceof URIError) return seg;` deleted, so the throw escapes again as it did at the base). It printed `anchor x1 -> x0` and blob `a2c261c8e7d4 -> e873660a8615`. The two pin files then read `Tests  6 failed | 39 passed (45)`, `command exited 1`, and every failure is `URIError: URI malformed`. The helper control stays green in that run, as a control should. Restore: `blob == HEAD (a2c261c8e7d4) and git diff HEAD is empty`. Direction observed: red, as expected.\n\n## Gates, at head `1980ada` (after merging `origin/main` `f99f9cd`)\n\n- `pnpm exec vitest run packages/fields/`: exit 0, `Test Files  209 passed | 1 skipped (210)`, `Tests  3399 passed | 7 skipped (3406)`\n- `pnpm turbo run type-check --filter @object-ui/fields --concurrency=2`: exit 0, `Tasks:    12 successful, 12 total`, and `@object-ui/fields:type-check: cache miss, executing`, so it ran rather than replaying a cache. `tsc -p tsconfig.test.json --listFiles` lists both pin files, so the test program covers them.\n- `pnpm exec eslint` on the three changed source and test files: exit 0, no problems\n- `pnpm check:control-bytes`, `check:test-path-roots`, `check:vi-mock-specifiers`, `check:vi-mock-inherit`, `check:vi-mock-override-shape`, `check:new-line-citations` (0 new), `check:changeset-claims`, `check:pending-changeset-literals`, `check:unreferenced-sources`: exit 0 each\n- `node scripts/check-changeset-presence.mjs`, `check-changeset-no-major.mjs`, `check-changeset-overwrite.mjs`, `check-lint-coverage.mjs`: exit 0 each\n- The repo-wide `pnpm lint` and the full test shards belong to CI.\n\n## Acceptance notes\n\n- The boundary granularity is an observation, not a filed card. `SchemaErrorBoundary` sits at the schema node, so any throw from one cell renderer blanks the whole `data-table` node, not the cell. This card removes the throw. It does not change where boundaries sit.\n- The fix names a file by its raw segment. It does not validate the URL. The `href` is the value's own URL, unchanged.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01KUxVUa7e39aNjhkKi1gsoy)_\n"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 5057,
+  "kind": "issue",
+  "title": "plugin-gantt README 教的整片 schema 键面渲染器一个都不读 —— tasks / viewMode / object / startField 全零命中,照抄即空图",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T21:33:28Z",
+  "updated_at": "2026-08-23T19:44:03Z",
+  "closed_at": "2026-08-23T19:44:03Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5057",
+  "body": "Blocked-by: objectstack-ai/objectui#5074\n\n> **PM 状态头(2026-08-17 22:35Z,session `session_01GTRjn8xBqp75dk7kFupVRt`)**:合单派发(与 #5058)后,本卡前提被实测**部分推翻** —— 逐键零命中表九中八成立,但 `viewMode` 有 `as any` 强转读取点(ObjectGantt.tsx:1445,ResourceWorkload 分支守卫内),卡面裸 grep 看不见强转形。整页重写必须对该键统一发声,而其表述取决于 #5074(viewMode 半接线的 enforce-or-remove 契约裁定,已入决策箱)。裁定后重派,重派验证要求按 PR #5072 报告的选项 A 更新:**cast 感知的读取点 grep 作为键面证据**(`BaseSchema` 索引签名 + zod passthrough 使编译探针对授权 schema 键面全盲,TS2353 预期不可用);复核命令须带 cast 感知模式。实测读数与探针证伪细节见 PR #5072 报告与本卡下方 dev 实施评论。#5058 半已由 PR #5072 落地。以下为原卡面。\n\n---\n\n发现于 #5012 的实施(plugin-gantt README 两处虚构导入)。Filed unassigned, not claiming.\n\n与 #5012 **同文件但不同性质**,所以没有夹带进那张卡的 PR:#5012 修的是**自包导入名**(`ganttComponents` / `GanttSchema` —— 照抄即 `TypeError` / TS2305),本单是**schema 键面**的真假。#5012 用的名集合核对看不见这一类(这些块里一个 import 都没有),把 README 的代码块喂 tsc 也看不见(全是无类型标注的 `const schema = { … }`,键再假也编译通过)。这与 #5016 → #5048 的分工同形。\n\n测于 `origin/main` @ `f331f5a8bdb728039519ace070f6433f597e0dd4`。行号按 #5012 的 PR 落地后计(块会移位,内容不变)。\n\n## 事实:渲染器读哪些键\n\n`packages/plugin-gantt/src/ObjectGantt.tsx` 只有两个读取点决定数据与配置:\n\n- `getDataConfig(schema)`(`:299-316`)—— 只读 `schema.data`、`schema.staticData`、`schema.objectName`;\n- `getGanttConfig(schema)`(`:345-395`)—— 先读顶层 `startDateField` / `endDateField`(两者同时存在才成立)及其同族 `titleField` / `progressField` / `dependenciesField` / `colorField` / …,否则退到 `schema.gantt` 整块。\n\n对 README 用到的键逐个实测(`packages/plugin-gantt/src`,排除测试):\n\n| README 写的键 | src 命中 | 后果 |\n| --- | --- | --- |\n| `tasks` | `schema.tasks` **零命中**(全仓亦零) | 任务数组永不被读,图为空 |\n| `viewMode`(schema 上) | ⚠️ **本行已被实测修正(见顶部状态头)**:有 `as any` 强转读取点,仅 ResourceWorkload 分支读作粒度 | 时间轴分支不读;详见 #5074 |\n| `onTaskClick` / `onTaskUpdate`(schema 上) | schema 上零命中 | 回调不接线(且它们是函数,本就不该在可序列化 metadata 里) |\n| `object` | `schema.object` **零命中** | 对象名不被读(真名 `objectName`) |\n| `nameField` / `startField` / `endField` | 各 **零命中** | 字段映射不被读(真名 `titleField` / `startDateField` / `endDateField`) |\n| `fields: { name, start, end, progress }` | `schema.fields` **零命中** | 整块不被读 |\n\n正对照(证明扫描器没坏):`dependenciesField` 12 命中,`schema.objectName` 命中于 `:311`。(⚠️ 该正对照对 cast 形不具证明力 —— 见状态头。)\n\n## 受影响的块\n\n| 小节 | 行(#5012 PR 后) | 问题键 |\n| --- | --- | --- |\n| Schema API → Gantt Chart | `:191-199` | `tasks` / `viewMode` / `onTaskClick` / `onTaskUpdate` / `readOnly` 当作 schema 键(⚠️ `readOnly` 经 PR #5072 报告复测是真键,重派时保留) |\n| Examples → Basic Gantt Chart | `:236-276` | `tasks` / `viewMode`,且 `color: 'bg-blue-500'` |\n| Examples → Interactive Gantt | `:282-293` | `tasks` + 两个函数回调 |\n| Examples → With ObjectQL Integration | `:299-307` | `object` / `nameField` / `startField` / `endField` |\n| View Modes | `:328-332` | `tasks` / `viewMode` |\n| Task Hierarchy … | `:351-356` | 任务字面量用字符串日期(`start: '…'`) |\n| Task Dependencies | `:413-437` | 任务字面量用 `name` + 字符串日期 |\n| Integration with Data Sources | `:465-482` | `object` + `fields: { … }` |\n\n附带一条同源的错:`color` 被当成 Tailwind class 教(`'bg-blue-500'`),而 `GanttView` 把 `task.color` 直接塞进内联 `backgroundColor`(`GanttView.tsx:3637`、`:4239`、`:4319`),所以 `bg-blue-500` 是无效 CSS 颜色,条子回落到默认蓝。#5012 已把 `GanttTask` 参考块的这一处改成 CSS 颜色,但这些示例块没动。\n\n## 真实写法长什么样\n\n数据只有三条路:`objectName`(走宿主 DataSource)、`data: { provider: 'value', items: [...] }`、`staticData: [...]`;字段映射走顶层 `*Field` 键或 `gantt` 配置块。#5012 的 PR 在 TypeScript 一节留了一个已编译验证的样例(`ObjectGanttSchema`,`type: 'object-gantt'` + `objectName` + `*Field`),可作为改写这些块的基准。\n\n## 为什么不是「陈旧散文」\n\n这不是被拒绝,是**静默空结果**:`type: 'gantt'` 是真注册键,节点会渲染;只是没有数据配置、没有 gantt 配置,于是画出一张空图,没有任何诊断。与 #5002(plugin-map「照抄即空地图」)同形,只是这次整片示例面都在。README 在 `package.json` 的 `files` 里,随 npm 发布,同时也是 AI 作者的输入。\n\n## 复核方式\n\n```\ngrep -rn \"schema\\.tasks\\|schema\\.viewMode\\|schema\\.object\\b\\|schema\\.fields\" packages/plugin-gantt/src   # ⚠️ 对 cast 形盲,重派时用 cast 感知模式\ngrep -rn \"startField\\|nameField\\|endField\" packages/plugin-gantt/src                                    # 全零命中\ngrep -n \"function getDataConfig\" -A 18 packages/plugin-gantt/src/ObjectGantt.tsx\ngrep -rn \"dependenciesField\" packages/plugin-gantt/src | head    # 正对照:真键(不带 cast 的读法)\n```\n\n## 分级\n\n交 PM 分诊。倾向具体缺陷而非观察类:照抄任一示例得到的是一张空甘特图,和 #5002 同一档。改法体量不小(近八个块 + Schema API 一节),可能值得按 #5002 → PR #5021 的整页重写形来做,而不是逐块打补丁。\n\n关联:#5012(同文件的导入名半边,已落地)、#5045(plugin-calendar 同类的 schema 键准确性 finding)、#5048(plugin-report「名字真、调用错」的同构分工)、#5002 / PR #5021(整页按代码重写的先例)、#5043(缺门禁的根因单)、#5074(viewMode 半接线,本卡前置)。"
+}

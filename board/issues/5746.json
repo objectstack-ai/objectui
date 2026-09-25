@@ -1,0 +1,36 @@
+{
+  "number": 5746,
+  "kind": "issue",
+  "title": "Observation: MetadataProvider's seed principal collapses to `@anon` in the window where the bearer is absent, so two principals can share one seed scope",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "security"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-23T03:42:34Z",
+  "updated_at": "2026-08-23T13:47:58Z",
+  "closed_at": "2026-08-23T13:47:58Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5746",
+  "body": "Recorded while implementing #5664 (PR #5744). **Static reading, not reproduced in a browser** — filed so triage can decide whether it is worth measuring, not as a claimed defect.\n\n## The reading\n\n`packages/app-shell/src/providers/MetadataProvider.tsx`:\n\n```\nfunction principalScope(): string {\n  let token: string | null = null;\n  try { token = TokenStorage.get(); } catch { /* SSR / storage unavailable */ }\n  return token ? fingerprintToken(token) : ANON_PRINCIPAL;   // '@anon'\n}\n```\n\n`principalScope()` is the half of the seed key that makes a `objectui:metadata:` entry\nunreadable by a different principal — the property pinned by\n`MetadataProvider.crossPrincipalSeed.test.tsx` as \"is unreadable by the next principal even\nwhen the purge never ran\" (#5198). When `TokenStorage.get()` answers `null` that\ndiscrimination collapses: every such session computes the same `@anon` scope, so one\nsession's permission-filtered app list is readable by the next.\n\n## When the bearer can be absent\n\n`createAuthClient.getSession()` writes `TokenStorage` from `payload.session.token` on every\nboot, so for a returning browser the token is normally present. Two paths that reach\n`principalScope()` with it absent:\n\n1. `MetadataProvider` reads the seed **synchronously at mount**, before `getSession()` has\n   resolved. On a browser whose stale token was just purged by\n   `apps/console/src/lib/auth-preflight.ts` (its documented job) there is nothing to read\n   and the mount computes `@anon`.\n2. A deployment or sign-in path whose session is established by cookie alone, which\n   `auth-preflight.ts`'s own header calls out: \"Cookie-based sign-in (better-auth sets a\n   session cookie) does NOT touch this localStorage key.\"\n\n## What is not claimed\n\nThe window is short, and it may be unreachable in practice on every path the console\nactually takes — that is the part that needs measuring rather than reasoning. Enumerating\nwhat the app writes across a real sign-in (the method #5664 was worked with) would settle\nit in one pass.\n\n## Partial mitigation already landed on #5744\n\nPR #5744 makes a change of session user drop the previous user's client state wholesale,\nincluding a `sessionStorage` sweep. That closes the cross-**user** half of this on any boot\nwhere the session user actually changes. What it does not close is two sessions sharing\n`@anon` inside a single page-load, or a browser whose session-user pointer never got\nwritten.\n"
+}

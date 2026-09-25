@@ -1,0 +1,35 @@
+{
+  "number": 5750,
+  "kind": "issue",
+  "title": "observation: the cross-org identity refresh does not re-arm between two organization switches with no session read in between",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-23T04:30:51Z",
+  "updated_at": "2026-08-23T11:57:33Z",
+  "closed_at": "2026-08-23T11:57:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5750",
+  "body": "Found while measuring #5719 (see PR #5749). Filed separately because it is a different failure\nmode from the one that card described, and because its **reachability is unproven** — what is\nmeasured below is a deterministic client-side fact, not a demonstrated user-visible harm.\n\n## Background — how identity re-resolves across an org switch today\n\n`AuthProvider.switchOrganization` never calls `loadSession()`. Identity nonetheless re-resolves,\nthrough the objectui#4467 rotation subscription, because of a **token-spelling asymmetry**:\n\n- `createAuthClient.getSession()` stores `payload.session.token` — the **unsigned** value\n  (`sys_session.token`).\n- `createBearerFetch` stores whatever arrives in `set-auth-token` — the **signed**\n  `token.signature` value, which better-auth's `bearer()` emits for any response that stages a\n  session `Set-Cookie`, and `POST /organization/set-active` always stages one.\n\nTwo spellings of one session, so an org switch flips storage unsigned to signed. `TokenStorage.set`\nnotifies on a value change, that reads as a rotation, and `loadSession()` runs. The follow-up\n`get-session` re-stores the unsigned form, which **re-arms** the mechanism for the next switch.\nMeasured against better-auth 1.6.28 in #5749.\n\n## The observation\n\nThe re-arm is the load-bearing step, and it costs a network round trip. Two `set-active`\nresponses with no `get-session` in between carry the **same** signed value — same session, same\ndeterministic HMAC — so the second one is a no-op write and produces no rotation at all:\n\n```\nTokenStorage.set(unsigned)   // steady state after mount\nTokenStorage.set(signed)     // switch 1  -> rotation fires (1)\nTokenStorage.set(signed)     // switch 2  -> NO rotation    (still 1)\n```\n\nMeasured directly (probe run against `packages/auth`, not landed): rotations after switch 1 = 1,\nafter switch 2 = 1. With an intervening `TokenStorage.set(unsigned)` standing in for the\nfollow-up `get-session`, the count goes to 3 — i.e. the mechanism does re-arm, but only once\nthat read lands.\n\n`AuthProvider`'s `sessionLoadInFlight` guard is a second, independent suppressor on the same\nwindow: a rotation observed while a `loadSession()` is in flight is deliberately dropped.\n\n## What is NOT claimed\n\n- **No server-side authorization impact.** The server re-derives from the session on every\n  request. Anything here is client-side gating only, the same class as #5619 and #5719.\n- **Not shown to be user-reachable.** Whether a person can switch organizations twice inside one\n  `get-session` round trip, and whether the resulting frame is one they can act in, was not\n  measured. It may well be unreachable in practice.\n- The consequence, *if* reachable, would be the over-permissive direction #5719 described:\n  `user.positions` left on an earlier organization's answer while `useWorkspaceAdminStatus`\n  reports `isAdmin: true, isResolved: true`, because that hook short-circuits on any positive leg.\n\n## Suggested next step\n\nDecide whether the console should stop depending on an undeclared spelling accident for\ncross-org identity, rather than patching this window specifically. The obvious candidate — an\nexplicit `refreshSession()` in `switchOrganization` — was deliberately **not** taken in #5749\nbecause the rotation path already spends exactly one `get-session` per switch, so it would\ndouble-fetch on the common path. A cheaper shape may exist (for example, re-resolving only when\nthe switch actually changed the active organization), but that is a design call, not a fix to\nmake in passing.\n\nPR #5749 pins the mechanism that currently provides the guarantee, so any change to it is at\nleast visible."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 5800,
+  "kind": "issue",
+  "title": "Studio 工作台增量二：画布模式切换 设计⇄运行，maker 侧「打开应用」传送门退役 (cloud#1609)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-08-23T11:11:52Z",
+  "updated_at": "2026-08-23T16:48:04Z",
+  "closed_at": "2026-08-23T16:48:04Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5800",
+  "body": "cloud#1609 增量二。Studio 顶栏加画布模式开关：**设计**（现状 edit 态：选中→inspector→草稿/发布）⇄ **运行**（同一渲染器 use 态：真数据、+Create、行内编辑）。ADR-0080 枢纽「设计态=运行态同渲染器」已在三支柱验证，本卡是把它呈现为一个可切换的单画布，替代 maker 被传送去目的地 C 的「打开应用」。范围仅 maker 工作台：业务人员的 /apps 入口不动（三层边界 D2）。注意模式切换需保持当前定位上下文（当前对象/页面/选中态在切回设计时不丢）；发布状态徽标在两模式下同源显示（衔接增量三）。验收：在 /studio 内对同一对象完成 改字段→切运行态录一条真数据→切回设计 不经任何全屏跳转。"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 5702,
+  "kind": "issue",
+  "title": "Metadata `type: 'api'` actions send the Bearer token and X-Tenant-ID to absolute third-party URLs — the #2725 `sameOriginOnly` mitigation was never applied to this lane",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T12:10:21Z",
+  "updated_at": "2026-08-23T06:18:36Z",
+  "closed_at": "2026-08-23T06:15:35Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5702",
+  "body": "Found while documenting the `X-Tenant-ID` edge contract for #5279 (PR forthcoming on that card). Not fixed there — different package, different fence.\n\n## What was measured\n\n`createAuthenticatedFetch({ sameOriginOnly: true })` exists because of #2725: a fetch whose target URL comes from **view metadata** may name a third-party host that must never see the platform bearer token. Reading every construction site in the repo, exactly **one** passes the option:\n\n- `packages/app-shell/src/console/ConsoleShell.tsx:213` — `const apiProviderFetch = withSettleSignal(createAuthenticatedFetch({ sameOriginOnly: true }));`, the `provider: 'api'` data-source lane.\n\nEvery other site builds the bare wrapper, including the one that takes a URL from metadata just as freely:\n\n- `packages/app-shell/src/hooks/useConsoleActionRuntime.tsx:300` — `const authFetch = useMemo(() => createAuthenticatedFetch(), []);`\n\nThat wrapper is what `apiHandler` calls, and `apiHandler` accepts an **absolute** target straight from the action metadata (`useConsoleActionRuntime.tsx:315-337`):\n\n```\nconst isAbsolute = targetStr.startsWith('/') || /^https?:\\/\\//i.test(targetStr);\n...\nconst url = resolvedTarget.startsWith('http') ? resolvedTarget : `${baseUrl}${resolvedTarget}`;\n```\n\nSo a metadata `type: 'api'` action whose `target` is `https://third-party.example/...` is fetched through the bare wrapper. Two headers ride along:\n\n| Header | Gate in `createAuthenticatedFetch` | Sent to a third-party host? |\n| --- | --- | --- |\n| `Authorization: Bearer <session token>` | `isApiCall` = `/\\/api\\//i.test(url)` | **Yes**, whenever the third-party URL happens to contain `/api/` — which is the common shape for one |\n| `X-Tenant-ID: <active organization id>` | none at all | **Yes, unconditionally** |\n\nThe bearer half is already pinned as intended-for-the-other-lane by an existing test — `packages/auth/src/__tests__/createAuthenticatedFetch.test.tsx`, *\"without sameOriginOnly, cross-origin /api/ URLs keep the legacy attach behaviour\"*. That test records the wrapper's behaviour; it says nothing about whether this **call site** should be using the bare wrapper.\n\n## Why it looks like an oversight rather than a decision\n\n#2725's fix hardened the lane it was reported on. Both lanes take their URL from author-supplied metadata, and nothing in the code or comments distinguishes them on that axis — `apiHandler`'s own comment describes the wrapper as \"Bearer + X-Tenant-ID + same-origin cookies\" without noting that the target may be off-origin.\n\n## Not covered by this report\n\nWhether the tenant stamp should be gated on `isApiCall` at all (it is the only one of the three headers that is not) is a separate question raised on #5279. It is listed here only because it changes what a third-party host receives from this call site.\n\n## Suggested repair, for triage rather than as a decision\n\n`useConsoleActionRuntime.tsx:300` builds `createAuthenticatedFetch({ sameOriginOnly: true })`, matching `ConsoleShell`. That would stop attaching credentials to off-origin action targets while leaving every same-origin action untouched. It is a behaviour change for any deployment that today relies on the bearer reaching an off-origin `/api/` target, so it needs a deliberate call, not a drive-by."
+}

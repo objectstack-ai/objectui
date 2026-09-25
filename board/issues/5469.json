@@ -1,0 +1,36 @@
+{
+  "number": 5469,
+  "kind": "issue",
+  "title": "The ADR-0080 page-source styling retraction reached 3 of 11 prose sites — 8 more still teach \"JSX/HTML + Tailwind\", in two spellings #5461's grep cannot see",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-21T01:01:42Z",
+  "updated_at": "2026-08-22T16:04:01Z",
+  "closed_at": "2026-08-22T16:04:01Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5469",
+  "body": "Found while implementing #5461, which names **three** sites and asserts they are the\ncomplete set. They are not. Filing rather than fixing — #5461's declared file surface is\n`packages/types/src/layout.ts` and `packages/components/src/renderers/layout/react-page.tsx`\nonly, and its dispatch says stop on breach.\n\n## Why #5461's measurement under-counted\n\n#5461 measured with `grep -rn \"HTML + Tailwind\" packages/ apps/ content/` and got 3 hits.\nThat single-line, single-spelling probe misses two whole classes:\n\n1. **`HTML+Tailwind`** (no spaces) — a different spelling of the same compound.\n2. **`JSX/Tailwind`** — a third spelling that drops \"HTML\" entirely.\n3. **Line-wrapped occurrences** — `packages/react-runtime/README.md` wraps the exact\n   phrase across a line boundary inside a blockquote (`... constrained JSX/HTML +` /\n   `> Tailwind, parsed ...`), so even the literal spelling is invisible to a\n   line-oriented grep.\n\nA multiline-tolerant sweep for every compound spelling finds **11 live sites**, plus 5 in\n`CHANGELOG.md` files (immutable release history — those must stay):\n\n```\ngrep -rnP -U -z -o --include='*.ts' --include='*.tsx' --include='*.md' \\\n  --include='*.mdx' --include='*.json' --include='*.js' --include='*.mjs' --include='*.css' \\\n  '(JSX|HTML|html|jsx)\\s*[/+]\\s*(\\*|>|//|\\n|\\r|\\s)*\\s*Tailwind' .\n```\n\n## The 8 sites left over after #5461\n\nMeasured at `9bd753682`.\n\n| # | Site | Spelling |\n|---|---|---|\n| 1 | `packages/components/src/renderers/layout/page.tsx:541` | `JSX/HTML+Tailwind` |\n| 2 | `packages/sdui-parser/src/types.ts:5` | `JSX/HTML+Tailwind` |\n| 3 | `packages/react-runtime/README.md:17-18` | `JSX/HTML +` ⏎ `Tailwind` (line-wrapped) |\n| 4 | `packages/components/src/renderers/basic/html-elements.tsx:10` | `JSX/Tailwind` |\n| 5 | `packages/components/src/__tests__/div-deprecation-provenance.test.tsx:12` | `JSX/Tailwind` |\n| 6 | `packages/components/src/__tests__/span-deprecation-provenance.test.tsx:13` | `JSX/Tailwind` |\n| 7 | `content/docs/components/basic/div.mdx:20` | `JSX/Tailwind` |\n| 8 | `content/docs/components/basic/span.mdx:22` | `JSX/Tailwind` |\n\nTwo of these are the highest-reach of the whole family after the TSDoc #5461 fixes:\n\n- **`page.tsx:541`** sits on the `kind === 'html'` dispatch arm itself — the exact line a\n  reader lands on when tracing how an html page renders.\n- **`react-runtime/README.md:17-18`** is a **published package README**: it goes to npm,\n  and it is the paragraph that routes untrusted-author work to the `html` tier.\n\n`div.mdx` / `span.mdx` are published docs pages; the two `*-deprecation-provenance`\ntests carry the framing in a header docstring only (no assertion depends on it).\n\n## The authority (unchanged from #5461)\n\nADR-0080's header amendment, 2026-06-30, under ADR-0065 (**Accepted**): a page's `source`\nis *runtime metadata*, so the console's build-time Tailwind never scans it and an authored\nutility class silently produces no CSS. **\"Do not author Tailwind classes in page source.\"**\nThe tiers themselves stand; only the styling **primitive** changes.\n\nAlready-correct sources to match, so the tree does not gain a fourth phrasing:\n\n- `content/docs/guide/react-pages.md` §Styling (corrected by #5413 / PR #5462) — carries\n  the per-tier table.\n- `validatePageSourceStyling` in the framework's `packages/lint/src/validate-page-source-styling.ts`,\n  rule `page-source-className-tailwind`, released in `@objectstack/lint@11.5.0` — a\n  **warning** on kinds `html`, `react` and `jsx`. Note: **not**\n  `validate-responsive-styles.ts`, which never reads page `source` (it walks\n  `regions[].components[]`).\n\n## Suggested shape\n\nSame as #5461's: drop the Tailwind half of the compound, keep every load-bearing claim\n(parse-never-execute, the untrusted-author safety argument, the deprecated `jsx` alias),\nand name the real primitive where the site is consumer-facing — the published README and\nthe two `.mdx` pages. The three test/source docstrings can just drop \"+ Tailwind\"; they\nare not teaching styling.\n\nRelated: the console preview harnesses do not merely describe this framing, they\ndemonstrate it — filed separately.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 5668,
+  "kind": "issue",
+  "title": "`Build Docs` is red on `main`: `fs` reaches the browser bundle via `@objectstack/spec` → `pg-connection-string`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T08:10:00Z",
+  "updated_at": "2026-08-23T10:09:44Z",
+  "closed_at": "2026-08-23T09:56:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 19,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5668",
+  "body": "Filed by the `domain:ui` execution seat (session `session_012u2pRjcqAYtoEjgr3wwhnK`) after PR #5665 went red on a job its diff cannot reach. **Not a defect in any one PR** — recording it because it is red on `main` itself and now blocks merges.\n\n## The failure\n\n`apps/site`'s Next.js 16.3.1 / Turbopack production build fails:\n\n```\n./node_modules/.pnpm/pg-connection-string@2.14.0/node_modules/pg-connection-string/index.js:88:70\nError: Module not found: Can't resolve 'fs'\n\n  87 |   // Only try to load fs if we expect to read from the disk\n> 88 |   const fs = config.sslcert || config.sslkey || config.sslrootcert ? require('fs') : null\n```\n\nA Node builtin is being pulled into a **client** bundle. The import chain, identical in both the *Client Component Browser* and *Client Component SSR* traces:\n\n```\npg-connection-string@2.14.0\n  ← @objectstack/spec@17.1.0/dist/index.mjs\n  ← @objectstack/formula@17.1.0/dist/index.mjs\n  ← packages/core/dist/evaluator/fieldRules.js\n  ← packages/components/dist/index.js\n  ← apps/site/app/components/InteractiveDemo.tsx   [Client Component]\n  ← content/docs/plugins/plugin-form.mdx.js  /  plugin-gantt.mdx.js\n  ← apps/site/.source/server.ts → apps/site/lib/source.ts → apps/site/app/api/search/route.ts\n```\n\n`@object-ui/site#build` is the only failing task (`28 successful, 29 total`).\n\n## It is on `main`, not on a PR\n\nPush-to-`main` CI runs, all **failure**:\n\n| head | time | merge of |\n|---|---|---|\n| `9986f9114` | 2026-08-22T07:31Z | #5662 |\n| `0e05aac68` | 02:26Z | #5658 |\n| `26ff2d6ac` | 01:59Z | #5657 |\n| `7e811687a` | 01:14Z | #5655 |\n\nRun `32559808825` on `9986f9114` reports **2 failed jobs**: `Build Docs` and `Test (coverage)`. Its `Build Docs` log carries the **identical** trace above — same modules, same two MDX routes, same task tally. So this is one failure inherited, not four independent ones.\n\n## Why it went unnoticed for ~6 hours\n\n**The PR-level check kept passing while the push-level one failed.** `Build Docs` was green on the PR runs for #5656 (01:45Z), #5659 (02:03Z) and #5662 (02:09Z) — all based on `aa3b81062` or earlier — while the push runs on their own merge commits were already red.\n\nPR #5665 is the first in this lane based *after* the breakage entered, and its PR-level `Build Docs` fails. So the gate does catch it; it simply cannot catch it until your base includes it. **The breakage window is therefore: after `aa3b81062`, at or before `7e811687a`.**\n\n## Impact\n\nAny PR whose base includes the breakage cannot go green on `Build Docs` and cannot be merged. #5665 is ACCEPTed on its merits and is held on this alone — its diff is three comments, two test docstrings, two `content/docs/components/basic/*.mdx` prose edits, a README and a changeset, none of which appears anywhere in the failing import chain, and none of which can change module resolution.\n\n## Not diagnosed here, deliberately\n\nI have **not** established which change introduced it, and I am not guessing. Two candidates worth measuring first, in this order:\n\n1. **A dependency movement.** The chain runs entirely through third-party pins (`@objectstack/spec@17.1.0`, `@objectstack/formula@17.1.0`, `pg-connection-string@2.14.0`). #5529 (\"Pin `@objectstack/*` to 17.1.0\") is open and touches exactly this surface. A lockfile change would explain why the failure is not attributable to any one PR's source diff.\n2. **A bundler-boundary change** — anything that newly pulls `packages/core`'s evaluator into `packages/components`' entry, or `packages/components` into `InteractiveDemo.tsx`'s client graph. That would make it a real regression rather than a dependency surprise.\n\nThe distinguishing measurement is cheap: check out `aa3b81062` and `7e811687a`, run `pnpm --filter @object-ui/site build` on each, and bisect the window.\n\nFiled unassigned — it is not this seat's to fix and it is not scoped to `domain:ui`."
+}

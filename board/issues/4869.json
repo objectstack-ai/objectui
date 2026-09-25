@@ -1,0 +1,36 @@
+{
+  "number": 4869,
+  "kind": "issue",
+  "title": "[finding] ObjectView 是最后一处不走共享 sort sink 的读点 —— `$orderby: sort` 原样透传,归一化外包给了某一个 adapter",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:blocking",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T19:16:30Z",
+  "updated_at": "2026-08-23T16:22:45Z",
+  "closed_at": "2026-08-23T16:22:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4869",
+  "body": "承接 #4022「建议范围」第三条 —— 该卡由 PR #4868 关闭时这条观察会随之丢失,故单独立单。**观察类(observation-class)**:今天没有用户能踩到错误行为,只打 `finding`、不入队。\n\n## 事实(复核于 origin/main `65e88e6c2`)\n\nPR #4868 把 gantt / map / calendar 三份私有副本收敛到 `@object-ui/core` 的 `convertSortToQueryParams` 之后,全仓的 object-bound 读点里只剩一处不走这个 sink:\n\n`packages/plugin-view/src/ObjectView.tsx`(约 436-448 行)把解析出来的 sort **原样**塞给查询:\n\n```\nconst sort = currentNamedViewConfig?.sort || activeView?.sort || schema.table?.defaultSort || undefined;\n...\nconst results = await dataSource.find(schema.objectName, {\n  $filter: finalFilter,\n  $orderby: sort,\n  $top: 100,\n  ...\n});\n```\n\n其余五个读点(`object-gantt` / `object-map` / `object-calendar` / `object-timeline` / `record:line_items`)下发的都是 sink 归一后的 `Record< string, 'asc' | 'desc' >` 或 `undefined`。\n\n## 为什么是 finding 而不是 defect\n\n`$orderby` 本身声明就接四种形状,而 `@object-ui/data-objectstack` 的 `serializeOrderBy`(`packages/data-objectstack/src/index.ts:341`)四种都兜得住,且对缺方向的项按升序处理:\n\n```\nconst shorthand = (field: string, order?: unknown) =>\n  String(order).toLowerCase() === 'desc' ? `-${field}` : field;\n```\n\n也就是说 #4022 那个「缺 order 的项被丢掉」的缺陷**在这条路径上并不存在** —— ObjectView 恰好因为不归一化而躲过了它。今天没有可见错误行为。\n\n风险面是**归一化的位置**:五个 block 在到达 adapter 之前就归一,ObjectView 把归一化外包给了 `serializeOrderBy`。于是 `DataSource.find` 契约上,同一个 `$orderby` 参数在仓内存在两种形态 —— 一个自己实现 `find` 的 adapter(不是 ObjectStackAdapter)从五个 block 收到的是归一化的 map,从 ObjectView 收到的是作者原样写的四种形状之一。这是「下一次改语义的人只改一边」的经典面。\n\n## 建议范围(若有人接)\n\n`$orderby: convertSortToQueryParams(sort)`,配一条钉子。需要先确认的一点:ObjectView 的 `sort` 来源包含 `schema.table?.defaultSort`,其声明形状要逐个对过 —— sink 只认「字符串」与「`{ field, order }` 数组」两种拼法,其余(例如字符串数组 `['-name']`,`serializeOrderBy` 是收的)会被 sink 判为 `undefined`。**这不是可以机械照搬的迁移**:若 `defaultSort` 实际存在 sink 不认的拼法,正确的动作是先裁定该拼法算不算已声明的 authoring surface(要么进 sink 的契约,要么在 producer 端拒绝),而不是在 ObjectView 里加一层容忍。\n\n## 去重\n\n已搜 open issues(`orderby` / `ObjectView sort` / 关键词 + 文件路径),无同题单。相关:#4022(三副本收敛,PR #4868)、#4568(同文件的 `handleRefresh` 死入口,不同缺陷)。"
+}

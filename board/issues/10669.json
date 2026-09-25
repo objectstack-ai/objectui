@@ -1,0 +1,35 @@
+{
+  "number": 10669,
+  "kind": "pull_request",
+  "title": "fix(fields): a readonly password field with no value draws the No-value affordance (objectui#10639)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: fields",
+    "tests"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T15:33:31Z",
+  "updated_at": "2026-09-25T16:16:09Z",
+  "closed_at": "2026-09-25T16:16:07Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-25T16:16:07Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10669",
+  "body": "Fixes #10639\nClause-②: no\n\n## What changed\n\n`PasswordField`'s readonly branch returned the eight-dot mask without reading `value`, so `null`, `undefined` and `''` drew exactly what a set credential draws. The branch now asks the password cell's empty predicate, `isEmptyValue(coerceToSafeValue(value))`, the same call `MaskedCellRenderer` has made since objectui#8678, and draws the shared `EmptyValue` affordance (accessible name \"No value\") when it answers empty. A present value keeps today's markup byte for byte: a `span` with class `text-sm` holding eight bullets. The value is never printed.\n\n- `isEmptyValue` comes from `@object-ui/core`, `EmptyValue` from `@object-ui/components`, and `coerceToSafeValue` from `packages/fields/src/coerceToSafeValue.ts`, its own module. The widget imports nothing from the fields barrel `packages/fields/src/index.tsx`, which lazy-loads it, so there is no cycle. Measured: zero `index` specifiers in the widget.\n- No second copy of the predicate. The widget calls the same two helpers, and the pin's THE RULE test holds the widget and the `password` cell to the same answer on every census input, so a later change to either side goes red.\n- The editable branch is unchanged.\n\n## Files (4)\n\n| file | lines |\n|---|---|\n| `packages/fields/src/widgets/PasswordField.tsx` | +18 / -1: three import lines, the docblock, one guard line |\n| `packages/fields/src/__tests__/PasswordField.readonlyEmpty-10639.test.tsx` | new, 176 lines, 10 tests |\n| `.changeset/10639-readonly-password-empty.md` | new, 19 lines, `patch` for `@object-ui/fields` |\n| `content/docs/fields/password.mdx` | +1 / -1: the Features bullet |\n\n## Surface extension, stated\n\nThe claim's file surface names the widget, the pins and one changeset. The Features bullet in `content/docs/fields/password.mdx` read \"Read-only mode always shows\" the mask. This change made that false, and the docs-driven rule in AGENTS.md (Coding Standards, number 2) wants the docs to match the code, so that one bullet now says what read-only mode shows for a stored value and for an empty one. The 17 open pull requests' file lists were read: none touches that file. If the seat rules otherwise, drop that one hunk. Nothing else in the PR depends on it.\n\n## The pin: `PasswordField.readonlyEmpty-10639` (10 tests)\n\n- EMPTY: readonly `null`, `undefined` and `''` draw the affordance with aria-label \"No value\" and no bullet character. The innerHTML is asserted not to be the mask first, so the defect's absence is checked before the replacement.\n- PRESENT: readonly `'hunter2'`, `SECRET_MASK`, `{}` and `'   '` render innerHTML byte-equal to the mask from before this card, with no affordance, and the value's own text never reaches the DOM.\n- THE RULE: for 10 inputs (the seven above plus `[]`, `['']` and `['x']`), the widget draws the affordance exactly when the `password` cell does. A lit control checks that the cell really separates the inputs.\n- CONTROL: the editable widget renders an `input` of type `password` that carries the value (empty when nothing is stored), plus the reveal toggle, and no affordance.\n\n### Red on the base, green on the fix\n\n- Reverse leg, run from the committed fix `a7065a6`: `PasswordField.tsx` was checked out from BASE `f99f9cd`. On disk the fix marker counted 0, the base branch line counted 1, and the blob equalled the BASE blob. Result: `Tests 4 failed | 6 passed (10)`, exit 1. The four failures are EMPTY x3 and THE RULE. Restored with `git checkout HEAD -- PATH`. The restored blob equals the HEAD blob, and `git diff HEAD` is 0 bytes.\n- Fix, at HEAD `2bf5f77`: `Tests 10 passed (10)`, exit 0.\n\n## Verification at HEAD `2bf5f77`\n\n`2bf5f77` is the final commit, a merge of origin/main `785d3a7`. Every exit code below was captured before any pipe.\n\n- `pnpm exec vitest run packages/fields/ --maxWorkers=2`: exit 0, `Test Files 210 passed | 1 skipped (211)`, `Tests 3409 passed | 7 skipped (3416)`.\n- `pnpm turbo run type-check --filter @object-ui/fields --concurrency=2`: exit 0, `12 successful, 12 total`. `@object-ui/fields:type-check` was a cache miss and ran `tsc --noEmit && tsc -p tsconfig.test.json`. The new test is in the test program (`--listFiles`: 1 hit).\n- eslint, plain form, on the two changed source files: exit 0. `--format json` reports 2 files, 0 errors and 0 warnings. The narrowing cannot move any other file's verdict: the root config declares no `parserOptions.project` or `projectService`, so no rule is type-aware, and no local rule under `eslint-rules/` reads the filesystem.\n- Exit 0 each: `check:control-bytes`, `check:test-path-roots`, `check:vi-mock-specifiers`, `check:vi-mock-inherit`, `check:vi-mock-override-shape`, `check:new-line-citations` (0 new), `check:changeset-claims`, `check:pending-changeset-literals`, and `node scripts/check-changeset-presence.mjs` (1 released package, 1 changeset declared).\n- Added for the docs line and the new imports, exit 0 each: `docs:check-links`, `check:doc-fences`, `check:doc-types`, `check:doc-example-ids`, `check:shell-escape-residue`, `check:phantom-deps`, `check:unreferenced-sources` and `check:esm-specifiers`.\n- `node scripts/check-governed-queue-guard.mjs --test` on the 4 paths: NOT GOVERNED.\n- The consumer files that render a `password` field (three components form-renderer files, two plugin-detail files, one console settings file): exit 0, `Tests 166 passed (166)`. This ran at `a7065a6`, before the merge.\n\nNOT MEASURED, declared to CI:\n\n- `check:doc-snippets` and `check:doc-examples`: exit 2, PRECONDITION NOT MET, because the 34-package docs build is not on disk. The docs change is one prose bullet and touches no code block.\n- `check:eager-closure`: exit 2, PREREQUISITE NOT MET, because it reads a console build. The widget's three new specifiers name modules the fields barrel already imports. That comes from reading the import lines, not from a measurement.\n\n## Acceptance notes\n\n- No out-of-scope finding.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01KUxVUa7e39aNjhkKi1gsoy)_\n"
+}

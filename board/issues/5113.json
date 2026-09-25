@@ -1,0 +1,36 @@
+{
+  "number": 5113,
+  "kind": "issue",
+  "title": "plugin-view 文档页的三个 \"Interactive Examples\" 没有一个用到 object-view —— 都是手搭的静态卡片版面,且 id 沿用虚构的 viewMode 三分法",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-18T01:33:28Z",
+  "updated_at": "2026-08-23T16:10:14Z",
+  "closed_at": "2026-08-23T16:10:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5113",
+  "body": "发现于 #5088 的实施(PR #5109)。Filed unassigned, not claiming。\n\n读数取自 `origin/main` @ `405d54e4d`(该三个 JSON 在 `93de4f69b` 上未变)。\n\n## 现象\n\n`content/docs/plugins/plugin-view.mdx` 顶部有一节 \"Interactive Examples\",整节包在 `< PluginLoader plugins={['view']} >` 里 —— 即为这几个示例专门加载 view 插件 —— 然后三个示例**一个都没有用到这个插件**:\n\n| 页面小标题 | 引用的 catalog id | 该 JSON 的节点 `type` 全集 | 含 `object-view`? | 含 `objectName`? |\n| --- | --- | --- | --- | --- |\n| User Directory View | `plugin-view/grid-view-mode` | badge, button, card, flex, stack, text | 否 | 否 |\n| Record Detail View | `plugin-view/detail-view-mode` | avatar, button, card, flex, stack, text | 否 | 否 |\n| Form Create View | `plugin-view/form-view-mode` | button, card, flex, grid, input, label, select, stack, text | 否 | 否 |\n\n三个文件(`examples/schema-catalog/src/schemas/plugin-view/*.json`)都是手搭的静态版面 —— 卡片套 flex 套 text,把一个用户列表、一条记录详情、一个新建表单**画**出来,没有任何一个节点会走到 `ObjectViewRenderer`,也没有数据源。读者看到的是「这就是 `object-view` 渲染出来的样子」,而实际上这是三张与插件无关的模拟图。\n\n## 为什么现在提\n\n- 三个 catalog id 的**名字**(`grid-view-mode` / `detail-view-mode` / `form-view-mode`)正是 #5088 刚判定为虚构的 `viewMode` 三分法词汇。#5088/PR #5109 把页面正文里的 `viewMode` 叙事整片改掉了,这三个 id 与小标题是同一套叙事在页面上残留的最后一处 —— 但它们在 `examples/schema-catalog/**`,在 #5088 的完成范围(仅 `plugin-view.mdx` + changeset)之外,故分离立卡。\n- 与 #4600(9 个 `plugin-dashboard` catalog 示例被 spec 的 `DashboardSchema` 拒绝)**不重叠**:那单是示例写了**错的**键面被 schema 拒;本卡三个示例自身完全合法、渲染正常,问题是它们**根本不是这个插件的示例**。机制不同,文件不同。\n- 与 #5088 / #5077 / #5086 / #5087 / #5102 均不重叠(已逐一比对:前四者是键面与 import 路径,#5102 是 `table` 子配置的类型与转发口径)。\n\n## 复核方式\n\n```\nnode -e \"const j=require('./examples/schema-catalog/src/schemas/plugin-view/grid-view-mode.json');\nconst t=new Set();(function w(n){if(Array.isArray(n))return n.forEach(w);if(n&&typeof n==='object'){if(typeof n.type==='string')t.add(n.type);Object.values(n).forEach(w);}})(j);\nconsole.log([...t].sort().join(', '), '| object-view?', t.has('object-view'));\"\n```\n\n三个文件跑一遍,`object-view?` 全部 `false`。\n\n## 门禁为什么没抓到\n\n`check-doc-component-types` 只核每个 `type` 值是否被注册 —— card / flex / text / avatar / input 全都注册了,故整页绿。`catalog-gallery-render.test.tsx`(#4616)只核每个 catalog 条目渲染时不出 \"Unknown component type\" 面板 —— 这三个都正常渲染。**「某插件页下挂的示例是否真的用到该插件」没有任何检查覆盖**,这是 #4823 第二维度之外的又一维。\n\n## 分级\n\n未打 `finding` 标签,但**分级本身请 PM 定**,两种读法都写在这里,不由我预判:\n\n- 读作**具体缺陷**:读者今天打开这一页,在标着「Interactive Examples」的位置看到三张图,会合理地以为那是 `object-view` 的产出。这与 #5088 修的是同一类误导(文档展示了组件做不到的事),只是载体从代码块换成了渲染出来的示例。\n- 读作**观察类**:三个示例本身没坏、渲染正常、不会让任何人照抄失败;真要修是「补一组真用 `object-view` 的示例」,属增补而非修复,且需要决定 catalog 示例能否带 dataSource(可能牵出更大的话题)。\n\n交 PM 分诊。"
+}

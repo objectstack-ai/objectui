@@ -1,0 +1,36 @@
+{
+  "number": 5648,
+  "kind": "issue",
+  "title": "`content/docs/core/theme-schema.mdx` teaches a schema that does not exist — six independent falsehoods, now including the `type: 'theme'` kind #5489 retires",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T00:06:18Z",
+  "updated_at": "2026-08-23T12:42:54Z",
+  "closed_at": "2026-08-23T12:42:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5648",
+  "body": "Found while executing #5489 (retire the dead `ThemeComponentSchema` / `type: 'theme'` component kind). Filed unassigned rather than fixed inside that PR: the page needs a rewrite around the **retained** theme document, which is an editorial job independent of the removal, and five of the six falsehoods below predate #5489 entirely. Folding it in would have made the removal unreviewable.\n\n`content/docs/core/theme-schema.mdx` (369 lines) is the reference page for theming. Every code block on it is fenced ` ```plaintext `, so nothing typechecks it and `check:doc-snippet-types` never reads it. Measured against `packages/types/src/theme.ts`, `packages/types/src/zod/theme.zod.ts` and `@objectstack/spec/ui`:\n\n| # | The page teaches | Reality |\n|---|---|---|\n| 1 | `import type { ThemeSchema } from '@object-ui/types'` (title, prose, 3 snippets) | No `ThemeSchema` is exported from `@object-ui/types`, and none ever was — the same fabrication `objectui#5343` fixed in `guide/schema-overview.md` by re-spelling it `ThemeComponentSchema` at every site |\n| 2 | `import { ThemeSchema } from '@object-ui/types/zod'` in the \"Runtime Validation\" block | The zod entry exports `ThemeDefinitionSchema`, not `ThemeSchema` |\n| 3 | `type: 'theme'` + `themes[]` / `activeTheme` / `allowSwitching` / `persistPreference` / `storageKey` (2 snippets, 1 property table) | Retired by #5489 under the maintainer ruling of 2026-08-21. No renderer ever implemented `'theme'` |\n| 4 | Per-theme `light: ColorPalette` / `dark: ColorPalette` | The spec `Theme` carries a single `colors` map. `objectui#5343` already rejected exactly this falsehood in `guide/schema-overview.md`; this page kept it |\n| 5 | `typography.fontSize` / `typography.lineHeight` | Retired in `@objectstack/spec` 17.0.0-rc.3 (objectstack#5021). A theme declaring them is now REFUSED, not accepted-and-stripped. `fontFamily.base` is the surviving key; `customVars` is the door for the rest |\n| 6 | `mode: 'system'`, and `radius:` as the border-radius key | The spec `ThemeMode` enum is `light \\| dark \\| auto`; the key is `borderRadius` |\n\nA reader — or an AI agent authoring metadata, which is the population ADR-0033 designs for — who copies any block on this page gets a refused theme or an unknown-component panel.\n\n## What the rewrite should target\n\nThe theme **system** is real and explicitly retained by the same ruling (「objectui 引擎代码与单测保留」): `Theme` from `@objectstack/spec/ui` (the authoring document), `ThemeEngine` (`packages/core/src/theme/ThemeEngine.ts`, CSS-variable generation) and `ThemeProvider` / `ThemeContext` (`packages/react/src/context/ThemeContext.tsx`, application). The page should document *that* — the shape that is loaded, validated and applied — instead of a component wrapper that never rendered. The token sections (ColorPalette, Typography, BorderRadius) are worth keeping once re-derived from the spec rather than from this page's copy.\n\n## Gate note\n\n`scripts/check-doc-component-types.mjs` exempts `theme` / `theme-switcher` / `theme-preview` for this file. #5489 re-points the `theme` reason at the retirement and at this card; the exemption stays live (the literals are still on the page), so CI does not flag it. Deleting those three exemption entries is part of finishing this rewrite. `theme-switcher` / `theme-preview` are themselves unimplemented — #5647."
+}

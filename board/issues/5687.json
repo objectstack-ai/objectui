@@ -1,0 +1,35 @@
+{
+  "number": 5687,
+  "kind": "issue",
+  "title": "SchemaRenderer's node visibility gate resolves a `data.*` predicate against the data-source ADAPTER, so a hoisted `properties.visible` written that way hides the block on every row, silently",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T10:08:05Z",
+  "updated_at": "2026-08-23T05:06:24Z",
+  "closed_at": "2026-08-23T05:06:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5687",
+  "body": "## Where this came from\n\nFound while implementing #4807 (row binding for `record:alert`'s own `properties.visible`). It is one tier **up** from that card and was deliberately left alone there. Duplicate search run before filing: keyword + symbol sweep over open issues (`SchemaRenderer` / node-level `visible` / `data.*` / adapter / #5330 follow-ups) found nothing.\n\n## Facts (read + measured on `origin/main` 3b147a367)\n\n- `packages/react/src/SchemaRenderer.tsx` hoists every `properties.*` value onto the node, so `properties.visible` arrives at the node-visibility chain as `schema.visible` and is evaluated there.\n- That chain's evaluator is built with **`data: dataSource`** — the data-source ADAPTER from `SchemaRendererContext`, defaulting to the module constant `NO_DATA_SOURCE = {}` when no provider is mounted. The docblock states this binding deliberately: `data` is what `${data.total}` in a props bag resolves against, and the row must not overwrite it.\n- Consequence: an author who writes `properties: { visible: \"data.status == 'draft'\" }` on **any** block gets `data.status` resolved against the adapter, not the row. It does **not** throw, so it reads as a real verdict: `undefined == 'draft'` is a constant `false`, and the block is hidden on every row.\n- Silent in both senses. The dev-only \"unresolvable predicate\" reporter added by #5454 keys off a **throw**; this path never throws, so nothing is printed. And the failure direction is hidden-rather-than-shown, which looks like the author's gate working.\n\n## Why it is worth a card rather than a fix-in-place\n\n#5330 ruled **B** (maintainer, 2026-08-20): canon is `record.*`, and the row-action shorthand plus legacy `data.*` are **deprecated but kept** behind a survey-sized window. `usePredicateRecordContext` implements exactly that at the `useCondition` tier. Whether the ruling's reach extends to the **node** tier is a genuine contract question rather than a mechanical fix, because at that tier `data` already means something else and something documented:\n\n- binding the row over `data` there would change `${data.*}` interpolation in props bags — the docblock calls that out as \"a silent interpolation change nobody asked for\";\n- leaving it means one authored key (`visible`) answers differently depending on which tier consults it, which is what #4807's two-gate composition already makes hard to reason about;\n- a third option is to make this case **loud** instead of changing any verdict — the same move #5454 made for the throwing paths — and let the deprecation window close on its own.\n\n## Reproduction\n\n`packages/plugin-detail/src/renderers/__tests__/record-alert.rowBinding.test.tsx` (added by #4807) is the standing evidence: its `data.*` leg has to hold the node gate open with a declared `visibleWhen: cel('true')` before the row-tier binding is observable at all, and the file's header states why. Dropping that isolation is the reproduction — the block goes hidden on both rows.\n\n## Scope note\n\n`record:alert` was fixed at its own tier by #4807 and is **not** affected by whatever is decided here for the canonical `record.*` spelling; only the deprecated `data.*` spelling is, and only through the node gate. This issue is filed unassigned for triage."
+}

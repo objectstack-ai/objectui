@@ -1,0 +1,35 @@
+{
+  "number": 5025,
+  "kind": "issue",
+  "title": "[finding] ObjectView's override.filter keeps the shape-blind emptiness predicate that #8815 replaced on the two builder write paths — same defect shape, third site",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T16:32:54Z",
+  "updated_at": "2026-08-22T01:59:59Z",
+  "closed_at": "2026-08-22T01:59:59Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5025",
+  "body": "Filed unassigned by the PM dispatch seat (session `session_01Y26DJEHSBhhAQ6wwfsHNza`), found while running an **anti-control probe** on PR #4962 after it landed (`a1609a6`). Not a defect in that PR — its two named write paths converted correctly, verified below. Recording a third site the sweep did not reach.\n\n## What #4962 established\n\nThe card's core measurement: one shape-blind predicate answered *\"is this filter row filled in?\"* for every operator —\n\n```ts\nvalue == null || value === '' || (Array.isArray(value) && value.length === 0)\n```\n\n⚠️ Correct for `scalar` and `list`, **wrong for `pair`**: an array of length 2 passes it, so a half-filled `between` (`['2024-01-01', '']`) reached the server, which refuses the whole query (`400 INVALID_FILTER`) — and because `foldFilterGroupToSpecRules` persisted it, the refusal returned on every later read of that view, for every user of it.\n\n## The two paths #4962 fixed — confirmed on `main`\n\n| path | now reads |\n|---|---|\n| `packages/plugin-list/src/ListView.tsx:414` | `isFilterValueComplete(c.operator, c.value)` ✅ |\n| `packages/app-shell/src/views/viewFilterFold.ts:109` | `isFilterValueComplete(...)` ✅ |\n\n## The third site, unconverted\n\n`packages/app-shell/src/views/ObjectView.tsx:330–342` filters `override.filter` and still carries the **verbatim** indicted predicate, on both of its branches:\n\n```ts\nconst kept = override.filter.filter((entry: any) => {\n    if (Array.isArray(entry)) {                       // legacy runtime triple\n        …\n        if (VALUELESS_FILTER_OPERATORS.has(String(operator))) return true;\n        return !(value == null || value === '' || (Array.isArray(value) && value.length === 0));\n    }\n    …\n    if (VALUELESS_FILTER_OPERATORS.has(String(entry.operator))) return true;\n    const value = entry.value;\n    return !(value == null || value === '' || (Array.isArray(value) && value.length === 0));\n});\n```\n\n⭐ Note it also uses `VALUELESS_FILTER_OPERATORS`, **not** the builder's `VALUELESS_FILTER_BUILDER_OPERATORS` that the other two sites share — so this surface already keeps its own copy of the operator vocabulary. That is the same divergence mechanism #4962's own PR body names as *\"how the two came to disagree\"*, still live one file over.\n\n## ⚠️ What is NOT measured — do not treat this as a live bug yet\n\n⛔ **I did not establish reachability.** The open question is whether a `between` carrying a half-filled pair can arrive in `override.filter` at all:\n\n- if `override.filter` is only ever authored programmatically / from a saved view spec that a *converted* path produced, the bad shape can no longer be minted upstream and this is dead-but-misleading code;\n- if any UI or URL-param route can put a builder-shaped `between` into an override, then the #8815 defect is fully live here and the fix is the same one-line swap.\n\nThe `entry.length < 2` / \"legacy runtime triple\" handling suggests this path accepts externally-shaped input, which is what makes it worth checking rather than assuming. ⇒ **Measure that first; the fix is trivial either way, the question is whether it is a fix or a tidy-up.**\n\n## Suggested shape (⛔ not decided)\n\nIf reachable: replace both branches with `isFilterValueComplete` and reconcile `VALUELESS_FILTER_OPERATORS` against the builder's set. If unreachable: still worth converting, because leaving a verbatim copy of a predicate that has been indicted and replaced twice is how it gets copied a fourth time — but then it is a `size/xs` tidy-up, not a bug.\n\n## Reproduce\n\n```\ngit grep -n \"Array.isArray(value) && value.length === 0\" -- packages/app-shell/src packages/plugin-list/src\ngit grep -n \"isFilterValueComplete\" -- packages/app-shell/src packages/plugin-list/src\n```\n\nRefs: #8815 / PR #4962 (`a1609a6`, the two converted paths) · #4873 (bounds of `0` / `false` are real bounds) · #3958 (the pair render)."
+}

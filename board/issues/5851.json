@@ -1,0 +1,33 @@
+{
+  "number": 5851,
+  "kind": "pull_request",
+  "title": "refactor(dashboard): drop ObjectPivotTable's i18n-resolver ref workaround",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T15:28:30Z",
+  "updated_at": "2026-08-23T15:41:24Z",
+  "closed_at": "2026-08-23T15:41:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T15:41:22Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5851",
+  "body": "Fixes #5625\n\nRemoves the hand-rolled ref indirection around the two i18n resolvers in\n`ObjectPivotTable`, mirroring the removal #5587 landed in `ObjectChart`\n(PR #5628) one package over.\n\n## Why the refs were there, and why they no longer buy anything\n\nThe metadata-derivation effect held `fieldLabel` / `fieldOptionLabel` behind\n`fieldLabelRef` / `fieldOptionLabelRef` plus a `useEffect` keeping them current,\nso it would not have to declare them. The stated reason was that the i18n hook\n\"returns fresh function identities each render\" — true at the time:\n`useSafeFieldLabel()` returned a fresh object on every render outside an i18next\nprovider.\n\nThat made a direct dependency genuinely unsafe here, and in a sharper way than\nin `ObjectChart`. This effect ends in two `setState` calls\n(`setFieldLabelMaps` / `setFieldNameLabels`) with **freshly built objects**, so\neach run scheduled a re-render, which produced fresh resolver identities, which\nre-ran the effect: an unbounded derive loop rather than a merely wasteful one.\n\n`useObjectLabel`'s memo now pins both of its dependencies to module constants\nwhile no i18next instance is bound (#5564, PR #5585), so the resolvers have a\nstable identity on **both** paths. `packages/i18n/src/useObjectLabel.ts` carries\nthat fix on `main` today and `useObjectLabel-identity-5564.test.tsx` pins it,\nincluding through `useSafeFieldLabel` specifically. Precondition re-verified on\ncurrent `main` before anything was removed.\n\n## What the removal buys — the user-visible half\n\nA ref-hidden dependency meant the derivation did **not** re-run when the\nresolver genuinely changed. A pivot mounted before its `I18nProvider`, or\nrendered across a language switch, kept showing its top-left header label and\nits select-option cell labels as resolved by the *old* resolver, until some\nunrelated dependency (the data source, the object name) happened to move. It\nnow re-derives exactly once on that transition.\n\n## The two cautions the card raised, as tests\n\n`ObjectPivotTable.i18nResolverDeps.test.tsx` (new) asserts a **derivation\ncount**, not rendered output — nothing renders wrong under the loop, so an\noutput assertion is green against the defect:\n\n1. **Effect-run counting across re-renders, in and out of a provider** —\n   `getObjectSchema` call count across mount plus three forced re-renders, once\n   with no provider (asserting the *raw* labels, so a leaked process-global\n   fails loudly instead of silently duplicating the other case) and once inside\n   one (asserting the localized labels, so the two cases really exercise the two\n   identity paths).\n2. **Settle check on the two derived state maps** — one distinct `rowLabels`\n   identity (`fieldLabelMaps`), one distinct `rowFieldLabel`\n   (`fieldNameLabels`), and a render count that stops growing over a quiet\n   window. The settle question the card flagged is answered: the maps do settle,\n   because the effect runs once per genuine resolver change.\n3. A third case pins the language-switch re-derivation described above.\n\nThe no-provider case runs **first**, because `createI18n` registers its instance\nas react-i18next's process-global and that registration survives `cleanup()`.\n\n## Reverse verification\n\nBoth legs on real commits, mutation confirmed on disk by grep rather than by an\neditor's exit code, each leg driven by a script with a `trap … EXIT INT TERM`\nrestore. `@object-ui/i18n` is vitest-aliased to `packages/i18n/src`, so both\nmutations are live from source with no rebuild step to get wrong.\n\n| Ablation | Result |\n|---|---|\n| Restore the ref workaround in `ObjectPivotTable.tsx` (`git checkout` the base rev; `fieldLabelRef` back to 3 occurrences, direct-deps line to 0) | **RED** — `AssertionError: expected 'Stage (en)' to be 'Stage (ja)'`. 1 failed, 2 passed. |\n| Revert the memo-stability fix in `useObjectLabel.ts` (`NO_INSTANCE_T;` to 0 occurrences, `const t = boundT;` to 1) | **RED** — `AssertionError: expected 258 to be 1`, i.e. 258 derivations instead of one: the loop returns. 1 failed, 2 passed. |\n| Restored tree | **GREEN** — 3 passed, `git diff HEAD --stat` empty. |\n\n**Legs that do NOT discriminate, named rather than implied:** under the first\nablation the two *counting* cases stay green — the ref version also derives\nexactly once, which was the whole point of the ref — so only the language-switch\ncase speaks for the source change. Under the second ablation the two\n*with-provider* cases stay green, because that identity path was stable before\n#5585 too; only the no-provider case speaks for it. Neither leg alone covers the\nchange; the pair does.\n\n## Verification, all at `b83dd427c`\n\n- `pnpm exec vitest run packages/plugin-dashboard/ packages/i18n/` — **129 test\n  files, 1607 tests passed**.\n- `pnpm --filter @object-ui/plugin-dashboard type-check` — exit 0, after\n  `pnpm --filter '@object-ui/plugin-dashboard^...' build`. Output echoed\n  `> tsc --noEmit && tsc -p tsconfig.test.json`, so it was not a zero-match\n  no-op.\n- `pnpm lint` (repo-wide `eslint . --no-inline-config`) — **0 errors** repo-wide.\n  No `react-hooks/exhaustive-deps` finding on the changed files: the new dep\n  array is honest and needed no suppression.\n- `node scripts/check-changeset-presence.mjs` — OK, 1 changeset declared.\n- `check:control-bytes` (4870 files), `check:phantom-deps`,\n  `check:self-import`, `check:i18n-keys` — all OK.\n\nNo type was widened, no pin loosened, no assertion weakened, no exemption added.\n\n_Generated by [Claude Code](https://claude.ai/code/session_01EuPCi56cnGyykygi3z9w4m)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01EuPCi56cnGyykygi3z9w4m)_"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 5844,
+  "kind": "pull_request",
+  "title": "feat(app-shell): one pending-drafts source of truth across every surface (#5801)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T14:45:23Z",
+  "updated_at": "2026-08-23T14:49:15Z",
+  "closed_at": "2026-08-23T14:46:08Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T14:46:07Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5844",
+  "body": "Closes #5801 (cloud#1609 增量三, first of the agreed order 三→四∥一→二).\n\nGrounded in the live reality audit: five surfaces, five hand-rolled `_drafts` fetches, and no publish announced itself — the home banner said 「1 项未发布」 while the Studio topbar said 「没有待发布的草稿」 on the same screen, and a publish from the Studio dock never updated the Studio topbar.\n\n- **One source**: `usePendingDrafts` / `fetchPendingDrafts` (single fetch, all three deployed response shapes, errored read = UNKNOWN not fake-zero) adopted by the home banner, Studio topbar, chat bar, chat draft-card resolver, preview watermark, and the 变更 review panel.\n- **One pulse**: every successful publish path emits `emitMetadataRefresh()`; a chat turn that staged/replayed drafts emits on completion (precise: ordinary Q&A turns don't). The hook subscribes — 聊天里改 → Studio 顶栏即亮；Studio 发布 → 聊天横幅即清.\n- Home banner's post-publish `window.location.reload()` retired.\n\n505 files / 4917 tests green. Per the release directive: staging-only until prod is authorized.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

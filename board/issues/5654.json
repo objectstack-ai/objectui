@@ -1,0 +1,35 @@
+{
+  "number": 5654,
+  "kind": "issue",
+  "title": "finding(app-shell): `ActionParamDialog`'s `isLookupParam` restates the picker family over RAW param spellings, so a degraded `master_detail` param loses the #3405 affordances",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T00:37:34Z",
+  "updated_at": "2026-08-23T17:42:42Z",
+  "closed_at": "2026-08-23T17:42:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5654",
+  "body": "发现于 #5312 的实施(PR 见该卡)。**不在 #5312 范围内** —— 该卡的文件面只有\n`packages/app-shell/src/utils/paramToField.ts`,且这一条不是同一条规则:#5312 收敛的是\n「哪些 widget 要带 reference 目标」,这里是「哪些 param 在降级后要拿到提示」。单独立此单。\n\n## 事实(实读 `origin/main` @ `aa3b81062`,与 #5312 分支 `7784e137e` 同树)\n\n`packages/app-shell/src/views/ActionParamDialog.tsx:351`:\n\n```ts\n// A lookup-typed param that fell back to text (no referenceTo)\n// keeps the \"paste an ID\" placeholder/help hints.\nconst isLookupParam = param.type === 'lookup' || param.type === 'reference';\n```\n\n两个读者:`:355` 的 placeholder(`actionDialog.lookupPlaceholder`)与 `:447` 的 help text\n(`actionDialog.lookupHelpText`)。两处都还要求 `field.type === 'text'`,即**只在降级发生\n后**才生效。\n\n而真正执行降级的是 `packages/app-shell/src/utils/paramToField.ts`,它测的是**解析后的\nwidget key**:\n\n```ts\nconst LOOKUP_WIDGET_TYPES = new Set(['lookup', 'master_detail']);\n...\nif (LOOKUP_WIDGET_TYPES.has(type) && !param.referenceTo) { /* warn + type = 'text' */ }\n```\n\n## 测得的分歧\n\n两个集合在**任一方向上都不是子集关系**:\n\n| 拼写 | `paramToField` 降级? | 对话框给提示? |\n|---|---|---|\n| `lookup` | 是 | 是 |\n| `reference` | 是(`PARAM_TYPE_ALIASES` 先折成 `lookup`) | 是 |\n| `master_detail` | **是** | **否** |\n\n- `master_detail` 只在 `paramToField` 一侧:一个无 `referenceTo` 的 `master_detail` param\n  **确实**降级成纯文本框、**确实**在 dev 下告警,但对话框既不给「粘贴 ID」的 placeholder\n  也不给 help text —— 恰好是 #3405 为这个状态补上的两个可见提示。用户看到的是一个没有任何\n  说明、要求裸 UUID 的空文本框。\n- `reference` 只在对话框一侧,因为它在 `paramToField` 里已被 alias 折走 —— 于是这行把\n  alias 表的一条内容又手抄了一遍。\n\n`master_detail` 是可达的:`ActionParamDef['type']` 是 `string`\n(`packages/core/src/actions/ActionRunner.ts:584`),且 `paramToField.test.ts` 的 drift guard\n断言 `FORM_FIELD_TYPES` 的每个成员(含 `master_detail`)都解析到自己的 widget。\n\n## 为什么不在 #5312 里顺手修\n\n三条都不满足「有界就地修」:① 不是同一条规则(reference-bearing vs degraded-hint);\n② 没有可派生的权威 —— 正确形态是\n`LOOKUP_WIDGET_TYPES.has(resolveParamWidgetType(param.type))`,而 `LOOKUP_WIDGET_TYPES`\n是 surface-local 的、目前还没有导出;③ 改了会**改变行为**(`master_detail` 从此开始拿到\nplaceholder 与 help text),那是修复,不是机械收敛,需要单独的证据与测试。\n\n## 修法方向\n\n把这行改成读**解析后的 widget key**,而不是原始拼写 —— 即从 `paramToField` 导出降级判据\n(例如 `paramDegradesWithoutTarget(param)`),让「谁会降级」与「谁在降级后拿提示」由同一个\n判据回答,而不是两处各自维护。⛔ 不要反过来把 `master_detail` 手加进对话框那行:那是把同\n一个成员集抄成第三份。\n\n## 参考\n\n- #5312 / 其 PR(本单的发现来源;那张卡收敛的是同文件里的**另一条**规则)\n- #3405(降级提示的来源)、#4770 / #4790 / #4815(同型收敛的前三次)\n- `packages/app-shell/src/views/ActionParamDialog.tsx:351,355,447`、\n  `packages/app-shell/src/utils/paramToField.ts:44,65`"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 5870,
+  "kind": "pull_request",
+  "title": "feat(app-shell): the Interfaces canvas gets its 设计⇄运行 switch; the app teleport retires (#5800)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T16:47:28Z",
+  "updated_at": "2026-08-23T16:49:21Z",
+  "closed_at": "2026-08-23T16:48:03Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T16:48:03Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5870",
+  "body": "Closes #5800 (cloud#1609 增量二, the last increment).\n\n- **One canvas, two modes**: the switch flips `editing` — design keeps selection/inspector/overlays; run is pure subtraction and the SAME renderer serves the interactive runtime (dashboard overlays gone, 新建/录入 live). Selection survives the round trip. Pinned through the dashboard leaf, whose `widget-click-overlay` IS the mode.\n- **打开应用 teleport retired** — run mode is the in-workbench way to try the app; 创建应用 + pending badge stay. (No test referenced the button; i18n keys left in place.)\n- **顺手修** the /access app-detection drift found in the live walkthrough: published-only read → now the pillar's draft-fallback resolution, re-resolved on draft saves + the metadata-refresh pulse, so pillar deep-links can't disagree about whether the app exists.\n\n35 files / 197 tests green; 0 eslint errors. Staging-only train per the release directive.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

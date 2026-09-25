@@ -1,0 +1,35 @@
+{
+  "number": 5330,
+  "kind": "issue",
+  "title": "[Decision] Row-predicate spelling contract: does the canon narrow to `record.*`, or do the bare shorthand and `data.*` spellings stay? (the uncarried \"#4075 step 3\" question)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-19T15:22:32Z",
+  "updated_at": "2026-08-23T03:24:06Z",
+  "closed_at": "2026-08-23T03:24:06Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5330",
+  "body": "&lt;!-- os-decision-facets --&gt;\n\nFiled by the triage seat (round of ~14:47Z 2026-08-19, session `session_01FJEQvfQBfvi1cBQet4UkpG`). This question has been referenced as \"#4075 step 3, parked in the decision inbox\" by #4807's sequencing note, but **no card ever carried it** — #4075 closed 08-10 with no step-3 text anywhere in its thread, so #4807 has been blocked on a ruling that had no carrier. This card is that carrier. Dedup: full decision-inbox enumeration (only #5301 / #5240 open) plus keyword search; no existing card covers it.\n\n## The question\n\nRow predicates (`visible` / `disabled` / `enabled` on action renderers, row scopes, record:alert) currently evaluate against THREE spellings of the same row: canonical `record.status`, bare shorthand `status`, and legacy `data.status`. #4075/PR #4079 deliberately bound all four action renderers all three ways (via `usePredicateRecordContext`), matching `evalRowPredicate` on the header/rows — restoring consistency without deciding which spellings are *contract*. The server enforces with `record.*`. What is the declared contract, and what happens to the other two spellings?\n\n- **A — canonize all three**: document the three-way binding as the contract in the evaluator/spec prose; every future predicate surface owes all three bindings forever.\n- **B — canon is `record.*`; shorthand + `data.*` enter a deprecation window**: renderers keep binding three ways for stored metadata, authoring warns on non-canonical spellings now, removal scheduled after a stored-metadata survey (the exact option-② shape the maintainer ruled for the dashboard `globalFilters[].options` bare-string shorthand on objectstack#7917).\n- **C — status quo** (tolerated but undocumented): rejected by AGENTS.md #0.1 — a renderer tolerance quietly becoming a second de-facto contract is the named failure shape.\n\n## Four-facet analysis\n\n- **① Platform long-term coherence**: B shrinks three dialects toward one strict contract and matches the standing #7917 option-② precedent for the identical shape (renderer tolerance vs. strict spec); A multiplies a permanent three-way binding obligation onto every future predicate surface (the #4075 family exists because surfaces drifted on exactly this).\n- **② Measured business pull**: server-declared predicates use `record.*` (e.g. `sys_approval_request`'s `record.viewer.can_act` gates); the bare shorthand appears in row-action authoring habits; `data.*` is legacy. Split in customer-stored metadata is unmeasured — a survey (as delivered for #7917) must size any removal window.\n- **③ AI-agent error-resistance**: one canonical spelling, loudly warned about when violated, beats three silently tolerated dialects — the tolerance is what hid the #4075 fail-closed family (entire approval action set invisible) for months.\n- **④ Startup scope discipline**: B is remove-over-declare-and-maintain; A converts a compatibility measure into a permanent published obligation.\n\n**Recommendation: B** — canon `record.*`, shorthand + `data.*` deprecated behind a survey-sized window, mirroring the #7917 ruling.\n\n**Confidence gap (what this analysis cannot see)**: customer-stored predicate spellings (needs the survey before any removal fires); and whether the server-side CEL evaluator also accepts the bare shorthand — if it does, \"canon\" must state the server's own accept set, not just the client's.\n\n## Downstream\n\n#4807 (record:alert's missing row binding) is `pm:blocked` on this ruling: its fix is a one-line switch to `usePredicateRecordContext` plus pins whose spelling coverage depends on the answer here.\n\nRefs: #4075 / PR #4079 (the three-way binding), #4077 (DeclaredActionsBar half), objectstack#7917 (the option-② precedent), #4807 (blocked consumer)."
+}

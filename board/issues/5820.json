@@ -1,0 +1,33 @@
+{
+  "number": 5820,
+  "kind": "pull_request",
+  "title": "fix(react): report a `${…}` visibility predicate collapsed inside `properties`",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: react",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T13:04:43Z",
+  "updated_at": "2026-08-23T13:41:42Z",
+  "closed_at": "2026-08-23T13:41:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T13:41:41Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5820",
+  "body": "Fixes #5756\n\n## What\n\n`SchemaRenderer`'s `properties.*` evaluation loop interpolates every `${…}` template it finds **before** the visibility chain (and the #5454/#5687 diagnostics riding on it) ever sees the value. So `properties: { visible: \"${data.status == 'draft'}\" }` collapsed to a plain boolean with no signal to the author, while the bare-string spelling of the exact same gate (`properties: { visible: \"data.status == 'draft'\" }`) was already reported — the KNOWN-LIMIT gap #5687 pinned and explicitly left for this card.\n\nFixed by moving the existing `evaluateVisibilityPredicate` helper (unchanged) earlier in the render memo and adding a second, diagnostic-only call site **inside** the `properties` evaluation loop, on the predicate's raw pre-interpolation text, right before it collapses.\n\n## The two design points this card left open — settled here, with rationale\n\n**1. Keyed on the visibility key set, not the value.** The new call site only looks at the six keys the render chain actually consults (`visibleWhen` / `visible` / `visibleOn` / `visibility` / `hidden` / `hiddenOn`). A `properties.content: '${data.total}'` interpolation — or any other non-visibility key — is untouched and stays silent. This was the card's own analysis; implemented as stated.\n\n**2. The outranked-leg false positive — resolved by mirroring #5454's own leg semantics.** `shouldHide` is one early-return chain: only the *first* declared key in precedence order is ever evaluated, so #5454's reporter is (by construction) only ever invoked on the leg that actually decides. The new early call site earns that same restraint explicitly via `winningVisibilityKey(node)`, a small helper that answers \"which key wins?\" using the same precedence rule (properties-key overwrites same-named node-level key; first-declared-wins across the six keys) — called *after* the `properties` loop has run (so its declaredness answers agree bit-for-bit with what `shouldHide` will see later, including the edge case where a template evaluates to a literal `undefined` and the real chain falls through to the next key) but *before* the hoist. A `properties.visible` template outranked by a co-declared `visibleWhen` is not reported for deciding nothing — pinned in test `5a`.\n\n## No verdict change, no interpolation change\n\nThe diagnostic call's return value is discarded; `shouldHide` still computes the real verdict off the post-evaluation, post-hoist schema, via the exact same code as before. Test `5e` pins this at the **value** level (not just the verdict/`shown()` level every other case here pins): it reads `props.schema.properties.visible` off a mounted probe and asserts it is a genuine, unaltered `boolean` — the evaluator's own answer, not something the diagnostic call's extra pass through `evaluateCondition` touched.\n\n**Reverse verification** (commit `212e14a37`): temporarily disabled the new call site (`if (false && __DEV__)`), re-ran the pinned test file — exactly the 3 tests that assert a *new positive report* turned red (the flipped KNOWN-LIMIT test, `5c` hidden-leg, `5e` value control); the negative/control tests (`5a` outranked-leg, `5b` genuine-read-stays-silent, `5d` unresolvable-goes-to-the-other-reporter) stayed green, since they assert silence regardless of whether the new call fires. Restored — `git diff` against the committed fix came back empty, confirming a byte-identical round trip.\n\n## Tests\n\nAt `212e14a37` (HEAD, root-relative `pnpm exec vitest`, per this repo's AGENTS.md):\n\n```\npnpm exec vitest run packages/react/src/__tests__/SchemaRenderer.nodeGateDataPredicate.test.tsx\n Test Files  1 passed (1)\n      Tests  23 passed (23)   # 18 pre-existing (1 flipped 0→1, one production case extended) + 5 new (group 5)\n\npnpm exec vitest run packages/react/ --maxWorkers=2\n Test Files  52 passed (52)\n      Tests  711 passed (711)\n\npnpm --filter '@object-ui/react^...' build   # dependency closure (types, core, i18n, data-objectstack)\npnpm --filter '@object-ui/react' type-check  # tsc --noEmit && tsc -p tsconfig.test.json — clean\npnpm --filter '@object-ui/react' build       # tsc — clean\n\npnpm exec eslint packages/react/src/SchemaRenderer.tsx packages/react/src/__tests__/SchemaRenderer.nodeGateDataPredicate.test.tsx --no-inline-config\n 0 errors, 19 warnings (all pre-existing @typescript-eslint/no-explicit-any; diff adds ZERO new `any` — verified via `git diff origin/main | grep any`)\n\nnode scripts/check-control-bytes.mjs   # OK\nnode scripts/check-changeset-presence.mjs   # OK — .changeset/properties-template-visibility-diagnostic-5756.md declared\nnode scripts/check-changeset-no-major.mjs   # OK\n```\n\n## Scope\n\nTouches only `packages/react/src/SchemaRenderer.tsx` and its test file, plus a changeset. No other file in the repo imports `visibilityDiagnostic.ts` or references `evaluateVisibilityPredicate`. Not touching any of the paths flagged as in-flight by sibling agents (`packages/auth`, `packages/app-shell/src/layout`, `packages/plugin-view`, `packages/components/src/renderers/complex/table.tsx`, `packages/types`).\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01EuPCi56cnGyykygi3z9w4m)_"
+}

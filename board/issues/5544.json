@@ -1,0 +1,36 @@
+{
+  "number": 5544,
+  "kind": "issue",
+  "title": "Console duplicates requests within one cold load (sys_user_preference ×3–×6, meta/object ×2, meta/view ×2)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T09:31:14Z",
+  "updated_at": "2026-08-22T02:26:15Z",
+  "closed_at": "2026-08-22T02:26:15Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5544",
+  "body": "Tracked under objectstack-ai/cloud#1521 (performance epic). Dispatch round R1, parallel with the cloud-side cards — different repo, no territory overlap.\n\nConsole issues several requests to the **same endpoint within a single cold load** (page settles in 3.7s, far too short for pollers to fire a second time). Because the cloud control plane costs ~1.5s per DB-touching request (objectstack-ai/cloud#1518), each duplicate is both direct added latency and extra pressure on a concurrency knee.\n\n## Measured 2026-08-21\n\n**prod `cloud.objectos.ai` `/_console/home`, hard reload** — 27 API calls, of which:\n\n| endpoint | count | individual durations |\n|---|---|---|\n| `/api/v1/data/sys_user_preference` | **×3** | 2947 / 2913 / 2942 ms |\n| `/api/v1/meta/object` | ×2 | 2590 / 4455 ms |\n| `/api/v1/meta/view` | ×2 | 2609 / 4497 ms |\n| `/api/v1/auth/get-session` | ×2 | 831 / 1141 ms |\n| `/api/v1/runtime/config` | ×2 | 512 / 431 ms |\n\n**staging `cloud.objectos.app` welcome, hard reload** — 35 API calls, worse:\n\n| endpoint | count | individual durations |\n|---|---|---|\n| `/api/v1/data/sys_user_preference` | **×6** | 8035 / 8027 / 7573 / 6511 / 7350 / 6242 ms |\n| `/api/v1/data/sys_notification_receipt` | ×2 | 7945 / 7059 ms |\n| `/api/v1/data/sys_inbox_message` | ×2 | 7819 / 6989 ms |\n| `/api/v1/auth/me/localization` | ×2 | 4976 / 4483 ms |\n| `/api/v1/auth/get-session` | ×2 | 2825 / 2377 ms |\n| `/api/v1/runtime/config` | ×2 | 1414 / 629 ms |\n\nOn staging, **15 of 35 calls are duplicates**.\n\n## Why this is worth more than it looks\n\nServer cost is ~1.5s per DB request on prod and ~6s on staging, and it degrades sharply past ~10 concurrent (cloud#1518 §2: at 20 concurrent the median goes from 1.9s to 4.4s). The home page already issues 27 concurrent calls. Removing these 6–15 duplicates saves their own latency **and** pulls total concurrency back under the knee — the benefit is doubled.\n\n## Where to look\n\n`sys_user_preference` ×3 (prod) / ×6 (staging) is the most suspicious: it looks like several components independently fetching the same user preferences with no shared provider or request dedup. `meta/object` / `meta/view` ×2 look more like a MetadataProvider bootstrap effect re-running.\n\nA similar class was fixed once before — AppHeader's notification/approval pollers were coalesced from ×5 to 1 with `mountedRef` + an in-flight guard (PR #1477). The same technique may apply, but these duplicates occur **across different components**, which likely calls for dedup at the request layer (in-flight requests sharing a Promise per key) rather than a guard inside each component.\n\n## Reproduce\n\nLog in to `cloud.objectos.ai`, open `/_console/home`, hard reload, then:\n\n```js\nconst api = performance.getEntriesByType('resource').filter(r => r.name.startsWith(location.origin + '/api/'));\nconst by = {}; for (const r of api) { const p = new URL(r.name).pathname; (by[p] ||= []).push(Math.round(r.duration)); }\nObject.entries(by).filter(([,v]) => v.length > 1);\n```\n\nRelated: objectstack-ai/cloud#1518 (~1.5s fixed server cost per request).\n"
+}

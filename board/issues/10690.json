@@ -1,0 +1,35 @@
+{
+  "number": 10690,
+  "kind": "issue",
+  "title": "decision(plugin-detail): should `RelatedList` gate its fetch on the settled child definition (`useSettledSchema`) like the other views — reversing the DECLARED COST pin that keeps a double read and a refused first multi-value query?",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "auto-adjudicated",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T18:12:56Z",
+  "updated_at": "2026-09-25T18:57:31Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10690",
+  "body": "Filing-gate category: a question that reverses a recorded, pinned decision, so it needs a ruling rather than a dev's change. Reader: triage (route; decide whether it needs the maintainer), then the seat that claims it.\n\nRaised by the objectui#10664 dev (PR objectui#10688, the family closure card for fetch effects whose dependency list does not match the query they issue), in its report's open questions. The seat re-read the pin on objectui `origin/main`. ⛔ Not graded here, and ⛔ not ruled here.\n\n## What is measured\n\n- `RelatedList` (`packages/plugin-detail`) fetches before the child object's definition lands, and the definition then moves `expandKey`, `selectKey` and the arity flag.\n- So a child with expandable columns reads twice per mount.\n- For a multi-valued relationship, the first read is the bare-equality query that `driver-sql` refuses with `400 INVALID_FILTER` (objectui#7299).\n- This is kept on purpose. `RelatedList.multiValueParentScope-7299.test.tsx` pins it as 「DECLARED COST — the arity flip refetches; the first attempt is the pre-card query」 (`:268`). The pin's stated reason is that a gate would strand rows when the adapter has no `getObjectSchema`, or when the read rejects.\n\n## The two options\n\n- **A, the status quo.** It stays ungated: two reads per mount for those children, and a first multi-value read known to be refused.\n- **B.** Gate the fetch on `useSettledSchema(api, dataSource)`, as `object-map` and `object-data-table` now do in PR objectui#10688. Flip the DECLARED COST pin to a one-read pin, and keep its `SINGLE_VALUED` control.\n\nThe dev recommends B, on the four axes:\n- Business need: related lists sit on record detail pages.\n- Long-term soundness: `useSettledSchema` settles with NO definition on a missing `getObjectSchema` or a thrown read, which removes the pin's stated reason. PR objectui#10688's `SETTLES` cases pin that property on two views.\n- AI-error resistance: one gate shape across the views.\n- Startup focus: no new surface. The cost is that every related list waits for its child's definition.\n\n## Dedupe\n\nSearched this repo with the MCP semantic issue search, including closed issues: `RelatedList double read child schema lands after first query multi-valued relationship INVALID_FILTER gate` ⇒ objectui#7299 (closed; the multi-value parent scope, which recorded the DECLARED COST) and objectui#2215 (closed; an unrelated lookup gate). Neither asks this question, and the hits show the instrument is lit.\n\nDedupe words: `RelatedList useSettledSchema gate` · `RelatedList double read` · `DECLARED COST arity flip refetch`"
+}

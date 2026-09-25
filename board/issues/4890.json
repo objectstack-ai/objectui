@@ -1,0 +1,33 @@
+{
+  "number": 4890,
+  "kind": "issue",
+  "title": "`stack` 渲染器读一个从未声明的 `spacing` 键,catalog 里 135 个节点照着它写",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T01:51:16Z",
+  "updated_at": "2026-08-22T10:45:12Z",
+  "closed_at": "2026-08-22T10:45:12Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4890",
+  "body": "发现于 #4003 的实施,**不在该 PR 处理** —— 那一单只把 `div` 转成布局类型并一律写声明键 `gap`,没有碰既有 `stack` 节点。\n\n## 现象\n\n`StackSchema` 继承自 `FlexSchema`,声明的间距键只有 `gap`:\n\n- `packages/types/src/layout.ts:180-182` —— `export interface StackSchema extends Omit<FlexSchema, 'type'> { type: 'stack'; }`\n- `FlexSchema` 的键:`direction` / `justify` / `align` / `gap` / `wrap` / `children`\n\n`spacing` 不在其中。但渲染器额外读它,还特意用 `as any` 绕过类型:\n\n- `packages/components/src/renderers/layout/stack.tsx:25` —— `const gap = schema.gap ?? (schema as any).spacing ?? 2;`\n\n于是 `spacing` 成了一个**只存在于 consumer 里的第二套事实契约**。catalog 里实测 **135 个 `stack` 节点、39 个文件**写的是 `spacing` 而不是 `gap`(例如 `marketing/features-grid.json` 的 `{\"type\":\"stack\",\"spacing\":3}`、`auth/*.json` 全系列、`actions/action-toolbar.json`)。\n\n## 与 #4001 的关系:同一个病,另一种表现\n\n#4001 是\"未声明的键被**静默丢弃**\"(`cols` → 列数丢失,渲染成 2 列)。这条是同一个病的**宽容变体**:未声明的键被**consumer 接住了**,所以渲染看起来是对的,没人会去查,错的写法就一直传播 —— 而 #4001 正文说过,\"碰巧看起来对\"的那一类是最坏的一类。\n\nAGENTS.md #0.1 直接点名这个形状:\"宽容的 fallback 会把错写法固化成第二套事实契约,稀释 spec,并掩盖 producer 的 bug —— 一套严格契约胜过 N 种方言。\"\n\n## 今天没有用户撞到,但作者面已经被教坏\n\n- 渲染正确(`stack.tsx` 接住了),production 构建也正确 —— **没有可见故障**,所以按分诊惯例打 `finding`,由分诊定级。\n- 代价全在第二轴:135 个 shipped 示例是 docs 站的范本、也是 AI 作者的 few-shot 检索源,它们示范的是一个**类型系统里不存在的键**。照抄的作者写 `spacing`;哪天有人把 `stack` 换成 `flex`(语义上只差一个 `direction`),`flex.tsx` **不读 `spacing`**,间距立刻静默变成默认值 —— 那时才是 #4001 的完整重演。\n- 顺带一提,`flex` 节点当前用 `spacing` 的数量是 **0**(实测),所以这个雷还没被踩到。\n\n## 修法方向(契约优先)\n\n改 **producer**:135 个节点 `spacing` → `gap`,然后删掉 `stack.tsx:25` 的 `(schema as any).spacing ??` 那一截。⛔ 不要反过来把 `spacing` 补进 `StackSchema` 来\"合法化\" —— 那是把一个纯粹多余的别名提升成公共契约,`gap` 已经在那里,两个名字做同一件事只会让 AI 作者继续猜。\n\n注意:改完之后渲染**不变**(两条路径本来就归到同一个 `gap`),所以这是一次纯机械替换,适合和 #4003 之后的 catalog sweep 合并成一张卡。#4003 已经留下 `examples/schema-catalog/test/layout-props-conversion.test.tsx` 这个位置,禁令加在那里最省。\n\n## 参考位置\n\n- `packages/types/src/layout.ts:180-182`(`StackSchema`,无 `spacing`)\n- `packages/components/src/renderers/layout/stack.tsx:25`(`(schema as any).spacing`)\n- `packages/components/src/renderers/layout/flex.tsx`(同族,**不**读 `spacing`)\n- `packages/components/src/renderers/layout/stack.tsx:98-103`(注册 `inputs` 只有 `gap`,与渲染器读的键已不一致)\n- `examples/schema-catalog/src/schemas/**`(135 个命中节点)\n\n关联:#4001 / #4003 / #3965\n"
+}

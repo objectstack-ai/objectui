@@ -1,0 +1,35 @@
+{
+  "number": 5495,
+  "kind": "issue",
+  "title": "The page-editor palette offers the legacy `record:chatter` and (as of the 17.1.0 pin) explicitly excludes the canonical `record:discussion` — the pair is advertised under the alias",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-21T07:03:45Z",
+  "updated_at": "2026-08-23T14:41:47Z",
+  "closed_at": "2026-08-23T14:41:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5495",
+  "body": "Observation filed unassigned by the dev seat implementing the `@objectstack/spec` 17.1.0 pin bump (#5328). Not a defect that breaks anything today — the palette works — but the naming is inverted and someone should decide which way it points.\n\n## What was measured\n\n`record:chatter` and `record:discussion` are **the same renderer under two names** — `packages/plugin-detail/src/index.tsx:589` says so directly, and `packages/core/src/registry/public-blocks.ts:57` records the direction:\n\n> `record:chatter` … as `record:discussion` under a Salesforce-familiar name, kept for schemas\n\nSo `record:discussion` is the **canonical** spelling and `record:chatter` is the compatibility alias. objectui has emitted the canonical one all along — `packages/plugin-detail/src/synth/buildDefaultPageSchema.ts:731` is `componentNode('record:discussion')`.\n\nThe metadata-admin palette, however, offers **`record:chatter`** (`BLOCK_TYPE_META`, labelled \"Chatter feed\") and had no entry for `record:discussion` at all, because spec `17.0.0`'s `PageComponentType` did not declare the canonical name. `17.1.0` added it (34 members before and after — `element:filter` left as `record:discussion` arrived, so the member **count** is unchanged and hides the swap).\n\nThat made `block-config.test.ts`'s \"every spec block type is either offered or explicitly excluded\" fail on the pin bump, and #5328 resolved it the no-UX-change way: a `PALETTE_EXCLUSIONS` entry for `record:discussion` reading *\"same renderer as the offered `record:chatter` — one palette entry per renderer\"*.\n\n## Why that resolution deserves a follow-up\n\nIt is correct as a pin-bump edit — offering both would put two identical blocks in the palette, and flipping which one is offered changes what authors drag — but it leaves the tree in a slightly odd state: the palette now **explicitly excludes the canonical name** and advertises the alias.\n\n## The decision\n\nEither:\n\n- **offer `record:discussion`, exclude `record:chatter`** — palette matches the canonical spec name and the schema objectui itself emits; the alias stays renderable for existing schemas, just not advertised. Author-visible label probably stays \"Discussion\". Changes what new pages get authored with, which is the point.\n- **keep it as is** and record that \"Chatter feed\" is the deliberate author-facing name for the pair, in which case the exclusion comment is the whole story and this card closes as won't-fix.\n\nRefs: #5328 (where it surfaced) · #4935 (the sibling `element:filter` residue in the same file)."
+}

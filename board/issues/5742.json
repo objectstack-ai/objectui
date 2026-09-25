@@ -1,0 +1,35 @@
+{
+  "number": 5742,
+  "kind": "issue",
+  "title": "`dashboard` publishes only columns/gap/className as inputs — `widgets`, `title`, `header`, `globalFilters`, `dateRange`, `refreshInterval` all draw `unknown-prop` while the renderer honours them",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T03:36:02Z",
+  "updated_at": "2026-08-23T14:41:47Z",
+  "closed_at": "2026-08-23T14:41:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5742",
+  "body": "Found while implementing the #5709 census (out-of-scope there; recorded, not touched). Same class as the shipped #4668 / #5091 cards: keys the renderer honours that the registration never publishes, so the authoring manifest warns an author off keys that work.\n\n## Measured on `origin/main` at `8689166f6`\n\nThe `dashboard` registration (`packages/plugin-dashboard/src/index.tsx`, the `ComponentRegistry.register('dashboard', DashboardRenderer, ...)` call) declares exactly three inputs: `columns`, `gap`, `className`. Its `defaultProps` even carries `widgets: []` — but `widgets` is not an input.\n\n`DashboardRenderer` (same package) reads all of these off the schema:\n\n- `schema.widgets` — the entire widget tree (read throughout; e.g. the `schema.widgets ?? []` reads in the layout pass)\n- `schema.title` / `schema.label` — header title (spec-canonical `label` per framework#1878)\n- `schema.header` — `showTitle` / `showDescription` / `actions[]`\n- `schema.globalFilters` — the dashboard filter bar (bound to the spec's `GlobalFilter`, objectui#4032)\n- `schema.dateRange` — date-range filter config\n- `schema.refreshInterval` — auto-refresh timer\n- `schema.description`, `schema.aria` — header description, ARIA attributes\n\nConsequence for an author: `validateTree` over the live manifest reports `unknown-prop` on every one of those keys on an inline `dashboard` node — including `widgets` itself, the key the new #5709 unconsumed-options warning descends into. The two diagnostics side by side read incoherently: the validator disclaims the prop and then reasons about its contents.\n\n`dashboard` is in `PUBLIC_BLOCKS` (`packages/core/src/registry/public-blocks.ts`), so this is contract surface, serialized into `sdui.manifest.json` and `sdui-intrinsics.d.ts`.\n\n## What this is not\n\nNot a request to blanket-declare everything: #5091 settled that some honoured keys are deliberately non-author surface, per-key, by ruling. The ask is the same per-key triage for the `dashboard` block: declare the authored ones (at minimum `widgets`, which every example in `content/docs/plugins/plugin-dashboard.mdx` authors), and pin the deliberate exclusions the way `gridNonAuthorKeys.test.tsx` does."
+}

@@ -1,0 +1,36 @@
+{
+  "number": 5703,
+  "kind": "issue",
+  "title": "`ActiveOrganizationStorage`'s in-memory fallback is unreachable when `localStorage` exists but rejects writes — the tenant header is then never stamped for the whole session",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T12:10:41Z",
+  "updated_at": "2026-08-23T02:13:44Z",
+  "closed_at": "2026-08-23T02:13:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5703",
+  "body": "Found while documenting the `X-Tenant-ID` edge contract for #5279 (that card documents the observable consequence; it does not fix this). Measured, not reasoned — the probe is below.\n\n## The shape\n\n`packages/auth/src/createAuthenticatedFetch.ts` — `ActiveOrganizationStorage` keeps a module-level `_memoryValue` as the fallback for environments without `localStorage`. `set()` always writes it. `get()` reads it **only when the `localStorage` read itself throws**:\n\n```\nget(): string | null {\n  try {\n    if (typeof localStorage !== 'undefined') {\n      return localStorage.getItem(ACTIVE_ORG_STORAGE_KEY);   // returns null, no throw\n    }\n  } catch { /* SSR / test */ }\n  return this._memoryValue;                                   // unreachable in that case\n},\n```\n\nThere is a real browser state where `localStorage` **exists**, **reads fine**, and **rejects writes**: Safari private browsing and any quota-exhausted origin, where `setItem` throws `QuotaExceededError`. In that state `set()`'s `try` swallows the write failure (correctly — the fallback is right there), but `get()` never consults the fallback, because the read path succeeded and returned `null`.\n\n## Probe\n\nRun against the built `dist/`, with a `localStorage` that reads but refuses writes:\n\n```\nconst store = new Map();\nglobalThis.localStorage = {\n  getItem: (k) => (store.has(k) ? store.get(k) : null),\n  setItem: () => { throw new Error('QuotaExceededError'); },\n  removeItem: (k) => store.delete(k),\n};\nActiveOrganizationStorage.set('org-42');\n```\n\nResult:\n\n```\nafter set(), _memoryValue = org-42\nafter set(), get()        = null\n```\n\nThe value was stored and cannot be read back.\n\n## What it costs\n\nFor the whole session, in such a browser:\n\n1. **`X-Tenant-ID` is never stamped.** `createAuthenticatedFetch` reads `get()`, so the request looks like a permanent first boot. Per the contract documented on #5279 the header is a routing hint that the edge falls through on, so this is not a data-scoping bug — the framework scopes from the session — but it does mean the tenant-routing input is missing on every request, not just early ones.\n2. **`MetadataProvider`'s org-scoped session cache is permanently keyed `@none`.** `activeOrgScope()` (`packages/app-shell/src/providers/MetadataProvider.tsx`) reads the same storage, and the whole point of that key is that it equals the tenant the entries were fetched under. It stays `@none` forever, and the first-boot relabel path never fires because the org id it waits for never becomes readable.\n3. `switchOrganization` appears to succeed — the server-side active org does change — while the client-side stamp and cache scope never follow.\n\nNone of this is loud. There is no error, no warning, and no test covering the read-succeeds/write-fails combination; the existing tests exercise `localStorage` present and working, or absent entirely.\n\n## Repair sketch, for triage rather than as a decision\n\nMake `get()` prefer a non-null `localStorage` read and fall back to `_memoryValue` otherwise, rather than returning the `localStorage` result unconditionally. That keeps the persisted value authoritative when it exists, and makes the memory fallback reachable in the state it was written for. The one thing to be careful about: after `clear()` the memory value is nulled too, so a fallback on `null` does not resurrect a cleared org — worth a test either way, since sign-out's clear is a security-relevant path."
+}

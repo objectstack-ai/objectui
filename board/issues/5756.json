@@ -1,0 +1,35 @@
+{
+  "number": 5756,
+  "kind": "issue",
+  "title": "A `${…}` visibility predicate written inside `properties` is interpolated to a boolean before the visibility chain sees it, so no node-gate diagnostic can reach it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T04:51:38Z",
+  "updated_at": "2026-08-23T13:41:42Z",
+  "closed_at": "2026-08-23T13:41:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5756",
+  "body": "## Where this came from\n\nMeasured while implementing #5687 (making a node-gate `data.*` predicate the adapter cannot answer emit a dev-only report). It is a **different silence** in the same chain, deliberately left alone there because the 2026-08-22 ruling on #5687 fences off interpolation (\"no interpolation changes\"). Filed unassigned for triage.\n\nDuplicate search run before filing: semantic + keyword sweep of open issues over the properties hoist, the interpolation ordering, and the visibility-diagnostic surface (#5454, #5401, #4051, #3067, #5399) found nothing covering this.\n\n## Facts (measured on `origin/main` 3ece13e33, plus `@object-ui/core`'s built evaluator)\n\n`packages/react/src/SchemaRenderer.tsx`'s evaluation memo evaluates every `properties.*` value **before** the hoist that copies them onto the node. That ordering is deliberate and documented in place — *\"Evaluating first is what makes one key mean one thing whether it is read as `schema.properties.x`, as `schema.x`, or as the `x` prop.\"*\n\nMeasured on `ExpressionEvaluator.evaluate`:\n\n```\nevaluate(\"data.status == 'draft'\")    -> \"data.status == 'draft'\"   (string, verbatim)\nevaluate(\"${data.status == 'draft'}\") -> false                      (boolean)\n```\n\nConsequence for the two spellings of the same authored gate:\n\n| authored as | reaches the visibility chain as | a node-gate diagnostic can see it? |\n|---|---|---|\n| `properties: { visible: \"data.status == 'draft'\" }` | the string, intact | yes — this is #5687's pinned repro |\n| `properties: { visible: \"${data.status == 'draft'}\" }` | `false` (a plain boolean) | **no** — nothing is left to inspect |\n\nThe second row hides the block on every row exactly like the first, and the author gets no signal at all. Pinned as a known limit in `packages/react/src/__tests__/SchemaRenderer.nodeGateDataPredicate.test.tsx` (\"KNOWN LIMIT, measured and pinned\"), which asserts the verdict and the silence rather than papering over either.\n\n## Why this is not just a `data.*` problem\n\nThe pre-interpolation is spelling-agnostic. Any predicate written as a `${…}` template inside `properties` arrives at the chain as an already-collapsed value, so **no** diagnostic that inspects the predicate at the gate — #5454's unresolvable-predicate reporter included — can ever fire for it. A `record.*` typo written as `properties: { visible: \"${record.staus == 'draft'}\" }` is in the same position.\n\nThis matters because `${…}` is not an exotic spelling. `@object-ui/types`' own protocol comments use it for exactly these keys:\n\n```ts\nhidden?: string;    // expression: \"${data.role != 'admin'}\"\ndisabled?: string;  // expression\n```\n\n## Scope note / why it was not fixed in #5687\n\nReaching it means adding a diagnostic **inside** the interpolation loop, gated on the key being one of the visibility keys. That is a small change, but it sits directly on the surface the #5687 ruling fenced off, and it needs a decision this card cannot take for itself:\n\n- reporting there fires **before** the chain decides which leg is consulted, so a `properties.visible` that a co-declared `visibleWhen` outranks (#5454 leg 2) would be reported even though it decides nothing;\n- the same loop carries genuine interpolations (`properties: { content: '${data.total}' }`) that must stay silent, so the check has to be keyed on the visibility key set rather than on the value.\n\nNeither is hard; both are choices, not mechanics.\n\n## Reproduction\n\n`packages/react/src/__tests__/SchemaRenderer.nodeGateDataPredicate.test.tsx`, case *\"KNOWN LIMIT, measured and pinned: a `${…}` template INSIDE `properties` is invisible to this leg\"* — mounts the template spelling on two different rows, asserts the block is hidden on both, and asserts zero diagnostics. Flipping the expected report count from 0 to 1 is the failing reproduction."
+}

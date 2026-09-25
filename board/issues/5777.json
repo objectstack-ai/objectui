@@ -1,0 +1,36 @@
+{
+  "number": 5777,
+  "kind": "issue",
+  "title": "`purgeSignedOutClientCaches`'s try wraps the whole loop, so one throwing `removeItem` silently cancels the rest of the sign-out sweep",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-23T07:36:15Z",
+  "updated_at": "2026-08-23T13:41:42Z",
+  "closed_at": "2026-08-23T13:41:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5777",
+  "body": "Found while implementing #5763 (`sweepStore`'s try wraps the whole loop — same defect, sign-in path). Same defect class, different function and different caller (sign-out rather than sign-in), so it is filed rather than fixed on that PR — #5763's own scope note rules out widening into a general refactor of the module, and this function lives in a different file (`AuthProvider.tsx`, not `ActiveOrganizationStorage.ts`).\n\n## The shape\n\n`packages/auth/src/AuthProvider.tsx`, `purgeSignedOutClientCaches()`:\n\n```ts\nfunction purgeSignedOutClientCaches(): void {\n  if (typeof sessionStorage !== 'undefined') {\n    try {\n      // Snapshot the keys first (`Object.keys`) — removing entries during a\n      // live index walk shifts the ones behind it and skips half of them.\n      // Same idiom as the `MarketplacePackagePage` purge loop.\n      for (const key of Object.keys(sessionStorage)) {\n        if (key.startsWith(METADATA_SEED_CACHE_PREFIX)) {\n          sessionStorage.removeItem(key);\n        }\n      }\n    } catch {\n      /* storage unavailable */\n    }\n  }\n  ActiveOrganizationStorage.clear();\n}\n```\n\nThe `try` wraps the whole loop, not each `removeItem`. A `removeItem` that throws on key *n* aborts the walk (and — unlike `sweepStore` — this loop is a **prefix filter**, so it also never reaches the still-unvisited *non-matching* keys after *n*, though those were never candidates for removal anyway), so metadata-seed-cache keys after *n* are never swept and the failure is swallowed.\n\n## Why it matters\n\nThis is called from `AuthProvider` on **sign-out** (`purgeSignedOutClientCaches();` before `ActiveOrganizationStorage.clear()`). Per its own docstring, the entries it clears are `MetadataProvider`'s org-scoped seed cache — a permission-filtered app list that #5198 classifies as a cross-principal disclosure risk, not mere staleness, when it survives into the next session on a shared browser. A partial sweep leaves an arbitrary subset of that cache behind, depending on `Object.keys` iteration order and where the throw lands.\n\n## Reachability\n\nNot demonstrated here either, for the same reason #5731 and #5763 could not reach it from a browser: the state needed is `Object.keys` succeeding while some `removeItem` throws. #5763's triage graded that card anyway because the remedy restores an invariant and needs no product decision — the identical argument applies here.\n\n## Possible shape\n\nSame remedy as #5763: move the `try` inside the loop so one uncooperative key costs one key; keep `Object.keys(sessionStorage)` inside its own guard. Whether a failed sweep should additionally be reported (`console.warn`, mirroring #5731 and #5763's choice) is the same open question, for the sign-out path this time — #5763's PR discusses why sign-out specifically cannot act on the failure (session already ended).\n\n## Scope note\n\nDeliberately not fixed on the #5763 PR — different file, different caller, and #5763's own card text rules out widening into a general storage-error-handling refactor of the module.\n\nBlocked-by: none. Related: #5763, #5731, #5664, #5198.\n"
+}

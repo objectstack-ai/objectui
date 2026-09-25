@@ -1,0 +1,35 @@
+{
+  "number": 5583,
+  "kind": "issue",
+  "title": "MarketplacePackagePage decides \"not an admin\" only after the package load, so a non-admin sees a load-failure card instead of a refusal",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-21T15:20:11Z",
+  "updated_at": "2026-08-21T19:22:38Z",
+  "closed_at": "2026-08-21T19:22:38Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5583",
+  "body": "Found while implementing #5557 (PR #5582), and deliberately left out of its scope — that card fenced `MarketplacePackagePage.tsx` as read-only.\n\n## Observation\n\n`packages/app-shell/src/console/marketplace/MarketplacePackagePage.tsx` orders its early returns like this (line numbers on `origin/main` at `f2158ec86`):\n\n```\n519:  if (!marketplaceEnabled) return ( MarketplaceDisabled )\n521:  if (loading) { ...skeleton... }\n531:  if (error || !data) { ...destructive card... }\n593:  if (!isAdmin) return ( MarketplaceAccessDenied )\n```\n\nThe admin guard sits **after** both the loading branch and the load-failure branch. Two consequences on a runtime where the marketplace IS enabled (`features.marketplace: true`):\n\n1. **A non-admin who opens a package URL that fails to load gets the destructive \"Failed to load package\" card, carrying the server's own error message — not the refusal the page would otherwise give them.** They are handed a diagnosis about a surface they are not allowed to use.\n2. **The page issues both of its requests on behalf of a viewer it is about to refuse** — `getMarketplacePackage` and `getCloudInstallationInfo` fire during the load it will never show. #5533 established for this same page that a request it knows it will not use should be skipped rather than fired and discarded.\n\nMeasured, not inferred: this is exactly why the sibling-consistency case in PR #5582 has to hand the detail page a package that *resolves* before it can compare refusals. With the 404 the marketplace-off cases use, the detail page never reaches its admin guard at all.\n\n## Not claimed\n\nThat the refusal itself is wrong, or that the catalog page's ordering (#5557) is implicated — that one is about `features.marketplace` and lands ahead of everything. This is only about where `!isAdmin` sits relative to the load, on a runtime that has a marketplace.\n\nWhether it is worth changing is a judgement call for triage: the server remains the real authority on what a non-admin may fetch, and marketplace catalog data is not especially sensitive, so this may be deliberate. Filing it because it was measured, not because a severity was decided.\n\n## Refs\n\n- #5557 / PR #5582 — the catalog-page half, where this was found\n- #5533 — the detail page's disabled state, which established the skip-the-request discipline for this page"
+}

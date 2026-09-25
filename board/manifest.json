@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "repo": "objectstack-ai/objectui",
-  "generated_at": "2026-09-25T14:30:02.314Z",
+  "generated_at": "2026-09-25T20:25:44.603Z",
   "walk_phase": "history",
   "walk": {
     "open_set": {
@@ -10,60 +10,60 @@
       "cursor": null
     },
     "delta": {
-      "complete": false,
-      "cursor": "2026-09-25T14:26:19Z",
-      "since": "2026-09-25T08:24:16Z",
+      "complete": true,
+      "cursor": "2026-09-25T20:22:29Z",
+      "since": "2026-09-25T14:26:19Z",
       "slice": 300
     },
     "history": {
       "complete": false,
-      "cursor": "2026-08-21T17:24:31Z"
+      "cursor": "2026-08-23T19:44:05Z"
     }
   },
-  "since": "2026-08-18T23:36:58Z",
-  "since_reason": "the open set is complete — the closed history resumes at 2026-08-18T23:36:58Z",
-  "next_since": "2026-09-25T14:26:19Z",
+  "since": "2026-08-21T17:24:31Z",
+  "since_reason": "the open set is complete — the closed history resumes at 2026-08-21T17:24:31Z",
+  "next_since": "2026-09-25T20:22:29Z",
   "resume": {
-    "since": "2026-08-21T17:24:31Z",
+    "since": "2026-08-23T19:44:05Z",
     "phase": "history",
     "stopped_by": "budget",
     "reason": "the per-run budget of 800 requests is spent"
   },
   "counts": {
-    "issues_open": 171,
-    "issues_closed": 1967,
-    "pulls_open": 9,
-    "pulls_closed": 3984,
-    "records": 6131
+    "issues_open": 165,
+    "issues_closed": 2156,
+    "pulls_open": 12,
+    "pulls_closed": 4169,
+    "records": 6502
   },
   "board": {
-    "open_issues_count": 187,
-    "open_pull_requests": 14,
-    "read_at": "2026-09-25T14:27:48.413Z"
+    "open_issues_count": 177,
+    "open_pull_requests": 12,
+    "read_at": "2026-09-25T20:23:07.873Z"
   },
   "count_check": {
-    "verdict": "pending",
-    "reason": "the open set is complete but was enumerated in an earlier run and this run's delta did not catch up with the live board, and the closed history is still walking — cards closed or opened since then are archived in their old state",
-    "expected": 173,
-    "archived": 171,
-    "shortfall": null,
-    "surplus": null,
+    "verdict": "ok",
+    "reason": null,
+    "expected": 165,
+    "archived": 165,
+    "shortfall": 0,
+    "surplus": 0,
     "gone_ledger": 0,
-    "ok": null
+    "ok": true
   },
   "freshness": {
     "verdict": "fresh",
-    "pending_since": "2026-09-24T20:28:32.932Z",
-    "reason": "no count-check verdict since 2026-09-24T20:28:32.932Z, still inside the 24 h this archive accepts"
+    "pending_since": null,
+    "reason": null
   },
   "requests": 800,
   "run": {
-    "numbers_read": 430,
-    "files_written": 830,
+    "numbers_read": 411,
+    "files_written": 802,
     "walk_complete": false,
     "open_set_completed_here": false,
     "delta_ran": true,
-    "delta_completed_here": false,
-    "delta_requests": 300
+    "delta_completed_here": true,
+    "delta_requests": 186
   }
 }

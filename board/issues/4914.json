@@ -1,0 +1,35 @@
+{
+  "number": 4914,
+  "kind": "issue",
+  "title": "`owner` survives as a live field-type in ~13 more code faces after #4814's retirement — including a published Zod enum that still accepts it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T04:46:29Z",
+  "updated_at": "2026-08-22T11:41:15Z",
+  "closed_at": "2026-08-22T11:41:15Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 13,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4914",
+  "body": "Measured while implementing #4814 (ruling A′ — retirement of the `owner` widget alias). Filed unassigned, out of that card's scope; recording it rather than widening the ruled batch into 8 packages.\n\n## What the A′ ruling scoped vs. what is actually there\n\nThe A′ ruling (comment 5310924344) scoped \"all three code consumers\" plus the fourth face `app-shell/src/utils/paramToField.ts`, working from the fork report's map (comment 5308145625). That map was built by sweeping for `field:owner` and widget-registration usages. Re-sweeping on the implementation branch for `owner` in the **field-type namespace** (i.e. `type === 'owner'` predicate branches, not the field *name* `owner`) finds substantially more.\n\nPR for #4814 retired these five: `field-type-alias.ts`, `index.tsx` (widget map + cell renderer), `plugin-grid/bulkParamToField.ts`, `app-shell/paramToField.ts`, and `app-shell/paramValueShape.ts` (that last one surfaced only because its own drift guard turned red).\n\n**All of the following were present at the fork report's own base commit `1ef236e18`** — verified with `git show 1ef236e18:path`. They are pre-existing faces the sweep did not reach, not consumers that appeared since.\n\n## Residual faces\n\nPublished contract surfaces (these are the ones that matter):\n\n1. `packages/types/src/zod/reports.zod.ts:49` — a **runtime** Zod enum for `ReportFieldSchema.type` that still lists `'owner'` as legal. After #4814 this is a published validator blessing a spelling the renderer now refuses.\n2. `packages/types/src/reports.ts:105` — the TS twin of the above.\n3. `packages/types/src/field-types.ts:584` — `UserFieldMetadata.type: 'user' | 'owner'`, i.e. published `.d.ts` autocomplete still offers `owner`.\n\nNote #4814 shrank the three *doc* unions (`content/docs/fields/user.mdx`, `filter-builder.mdx:27`, `report-schema.mdx:99`) as ruled. Items 1-3 are the **code twins of those exact docs**, so the repo currently has docs and code disagreeing in the opposite direction from before.\n\nPredicate branches that treat `owner` as a lookup-like/user-like type (dead rather than broken after the retirement, but each is a drift channel of the kind the ruling exists to close):\n\n4. `packages/components/src/custom/filter-builder.tsx:707,982,1442`\n5. `packages/plugin-detail/src/InlineFieldInput.tsx:107,290`\n6. `packages/plugin-detail/src/synth/buildDefaultPageSchema.ts:433`\n7. `packages/plugin-view/src/config/view-config-utils.ts:133`\n8. `packages/plugin-dashboard/src/ObjectDataTable.tsx:102`\n9. `packages/plugin-dashboard/src/recordFields.tsx:34`\n10. `packages/plugin-list/src/UserFilters.tsx:49,505`\n11. `packages/fields/src/FieldEditWidget.tsx:170`\n\nTest fixtures still spelling it:\n\n12. `packages/plugin-list/src/__tests__/list-offered-operator-expressible-parity.test.ts:100`\n13. `packages/plugin-detail/src/__tests__/inlineEditTypeCoverage.test.tsx:234`\n14. `packages/components/src/__tests__/filter-builder-field-switch-value.test.tsx:451`\n15. `packages/fields/src/FieldEditWidget.test.ts:74`\n\nNone of 4-15 turn red from #4814 — they were all green on the implementation branch, which is precisely why they need filing rather than discovering later.\n\n## Why this was not folded into #4814\n\nThree reasons, offered for triage rather than as a settled call:\n\n- it spans 8 packages well outside that card's claimed file surface, with in-flight-agent collision risk that was never checked for those files;\n- the ruled batch is coherent and strictly-better on its own: the retired spelling now fails **loudly**, so the residual faces are surfaced by the tombstone rather than hidden by it;\n- items 1-3 in particular are a contract decision (does `@object-ui/types` mirror `@objectstack/spec`'s closed FieldType?), which overlaps #2231 and is not an implementer's call.\n\n## Suggested disposition\n\nItems 1-3 look worth doing promptly and together — a published runtime validator that accepts a spelling the renderer refuses is exactly the declared-but-unenforced shape ADR-0049 targets. Items 4-15 are mechanical dead-branch cleanup and could ride one follow-up PR.\n\nRelated: #4814 (this measurement's origin), #4855 (the coverage-guard gap — its premise should be re-read against #4814's landed state, since that PR removed `owner` from `CELL_RENDERER_TYPES` while the form half still omits `user`), #2231 (types/spec zod unification).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01DbRmJD3iPhXjKr6vhd4Qkv)_"
+}

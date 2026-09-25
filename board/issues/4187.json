@@ -1,0 +1,35 @@
+{
+  "number": 4187,
+  "kind": "issue",
+  "title": "useObjectChat rebuilds its DefaultChatTransport on every render — the memo's `body` dep is an inline literal every caller recreates (finding, dormant)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-10T19:02:53Z",
+  "updated_at": "2026-08-21T17:32:54Z",
+  "closed_at": "2026-08-21T17:32:54Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4187",
+  "body": "Observation-class. Nothing a user hits today; filing so it is on the record rather than rediscovered.\n\n`packages/plugin-chatbot/src/useObjectChat.ts` memoizes the transport:\n\n```ts\nconst transport = useMemo(() => {\n  if (!isApiMode) return undefined;\n  return new DefaultChatTransport({ api: api!, ... });\n}, [isApiMode, api, headers, body, model, systemPrompt, streamingEnabled, conversationId]);\n```\n\n`body` and `headers` are object props, and every caller passes a fresh literal on each render. `AiChatPage`'s `ChatPane` is the clearest case:\n\n```ts\nbody: {\n  context: {\n    activeApp: 'AI',\n    agentName: activeAgent,\n    autoPublishAiBuilds: getRuntimeConfig().features.autoPublishAiBuilds,\n    ...(editPackageId ? { packageId: editPackageId } : {}),\n  },\n},\n```\n\nThat object has a new identity on every render, so the memo never hits and a `DefaultChatTransport` is constructed on every render of every chat surface — during a streaming turn, that is once per token batch.\n\n## Why it is dormant rather than broken\n\n`@ai-sdk/react@4.0.59`'s `useChat` does not rebuild its `Chat` when the transport identity changes. It stores the latest transport in a ref and its own `chatOptions.transport` delegates through `getTransport()`:\n\n```js\nlatestRef.current = { ..., transport: options.transport };\nconst chatOptions = { ..., transport: { sendMessages: (o) => getTransport().sendMessages(o), ... } };\nconst shouldRecreateChat = \"chat\" in options && options.chat !== chatRef.current\n  || \"id\" in options && options.id != null && chatRef.current.id !== options.id;\n```\n\n`useObjectChat` passes neither `chat` nor `id`, so the `Chat` object — and with it the whole message list — survives. The wasted construction is the entire cost.\n\n## Why it is worth recording anyway\n\nThe safety here is entirely a property of the SDK's internals, not of this call site. The memo *looks* like it is protecting something, and the dep list *reads* as if a changing transport would be disruptive. An SDK upgrade that starts keying the `Chat` on the transport (or a future `id` being threaded through) would turn a silent inefficiency into a thread that resets on every render — and the memo would give a reviewer no warning, because it is already written as though it works.\n\nTwo candidate directions, neither obviously right without measuring:\n\n- memoize at the call sites (`body` / `headers` behind `useMemo`), which fixes it wherever it is done but is unenforceable and will re-rot;\n- drop `body`/`headers` from the dep list and read them through a ref inside `prepareSendMessagesRequest`, which is what the file already does for `model` (`modelRef`) and for the handoff id (`parentConvRef`) — the established idiom in this very hook, and the only one that cannot be undone by a new caller.\n\nFound while working #2627 (the AI build thread's blank-out was a different mechanism entirely — a pane remount driven by `useChatConversation` clearing the conversation id; PR #4183). This was ruled out as its cause and is unrelated to it.\n"
+}

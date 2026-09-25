@@ -1,0 +1,32 @@
+{
+  "number": 5865,
+  "kind": "pull_request",
+  "title": "feat(app-shell): the built-moment transition into the Studio workbench (#5799)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T16:26:05Z",
+  "updated_at": "2026-08-23T16:41:52Z",
+  "closed_at": "2026-08-23T16:41:51Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T16:41:50Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5865",
+  "body": "Closes #5799 (cloud#1609 增量一, the agreed 「建成时刻转场」 form).\n\n- Transition trigger = the persisted whole-app draftReview envelope (packageId + `app` item), never runtime canvas state — so **reopening** a built conversation lands in the workbench too (the kill criterion), while cold-start/unbuilt threads keep the full-page surface.\n- **Conversation continuity is free**: the effect calls the existing A1.b `onPackageBound` → `rekeyScope(app:<pkg>:build)` before navigating — that cache key is exactly what `StudioChatDock` resolves, so the workbench right rail resumes the same thread (pinned end-to-end by the existing #2627 suite).\n- The dock's 以完整页面打开 door gets a sticky per-conversation opt-out (a consumable flag bounced on the pane's second mount — found while testing).\n\n4 new pins; 84 files / 581 tests green across ai/studio-design/hooks; 0 eslint errors. Staging-only train per the release directive.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

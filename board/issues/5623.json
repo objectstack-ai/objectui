@@ -1,0 +1,35 @@
+{
+  "number": 5623,
+  "kind": "issue",
+  "title": "finding(timeline): ObjectTimeline hand-rolls a third `useSafeFieldLabel`, with a 3-member fallback where the shared one has 5",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T19:14:03Z",
+  "updated_at": "2026-08-23T08:35:46Z",
+  "closed_at": "2026-08-23T08:35:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5623",
+  "body": "Observation-class finding, filed unassigned while implementing #5587. Split out rather than folded in: #5587 is a workaround **removal** with its own reverse-verification, and this is a **duplication** question that wants its own decision. Recording it so the sweep is not lost.\n\nNoted on #5587's body (item 2) and in that card's triage comment, which asked for whoever implements #5587 to file it as its own card rather than let it ride along.\n\n## What is there\n\n`packages/plugin-timeline/src/ObjectTimeline.tsx` carries a local re-implementation of `useSafeFieldLabel`:\n\n- **lines 19-29** — a docstring arguing the no-`try`/`catch` design, almost verbatim the argument already written above `useSafeFieldLabel` in `packages/i18n/src/useObjectLabel.ts`\n- **lines 30-34** — `OBJECT_LABEL_FALLBACK`, a **3-member** object (`fieldOptionLabel`, `translateOptions`, `fieldLabel`), cast `as any`\n- **lines 36-38** — `function useSafeObjectLabel() { return useObjectLabel() ?? OBJECT_LABEL_FALLBACK; }`\n\nIts single consumer is line 233: `const { fieldOptionLabel } = useSafeObjectLabel();`\n\nThe shared one it duplicates is `useSafeFieldLabel` in `packages/i18n/src/useObjectLabel.ts` — the same `useObjectLabel() ?? FALLBACK` shape, over a **5-member** `SAFE_FIELD_LABEL_FALLBACK`.\n\n## Why it is worth a decision rather than a silent tidy\n\n1. **The fallbacks disagree in size, and that gap has bitten before.** PR #5585 added a case to `useObjectLabel-identity-5564.test.tsx` guarding exactly this: narrowing the no-instance path to the 5-member `SAFE_FIELD_LABEL_FALLBACK` would make `record:reference-rail`'s `useSafeFieldLabel().objectLabel(...)` throw `i18n.objectLabel is not a function`. The local 3-member copy here is narrower still. It is only unreachable-in-practice because `useObjectLabel()` never actually returns nullish — which is the same reasoning that makes the copy pointless.\n\n2. **`as any` erases the disagreement.** The cast means a destructure of a member the local fallback does not carry type-checks fine and fails at runtime only on the nullish path.\n\n3. **The import is already available.** `ObjectTimeline.tsx:11` imports `useObjectLabel` from `@object-ui/react`, and `packages/react/src/index.ts:33-34` re-exports **both** `useObjectLabel` and `useSafeFieldLabel`. So the shared hook is reachable by adding one name to an import that is already there — no new package dependency.\n\n## Suggested shape\n\nReplace `useSafeObjectLabel` with `useSafeFieldLabel` from the existing `@object-ui/react` import and delete `OBJECT_LABEL_FALLBACK` and the docstring restating the shared one's argument. Worth confirming first that the timeline's one call site (`fieldOptionLabel`) behaves identically on both the bound and unbound paths — after #5585 the returned surface is the same object on both.\n\nNot urgent. The cost is the usual one for a duplicated safety wrapper: it reads as load-bearing, and the next person has to re-derive that it is not."
+}

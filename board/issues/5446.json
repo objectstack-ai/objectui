@@ -1,0 +1,36 @@
+{
+  "number": 5446,
+  "kind": "issue",
+  "title": "finding(docs): `guide/building-crud-app.md` Step 7 documents a view switcher and a search box that `object-grid` never reads — `view` and `data.queryParams` are both inert",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-20T19:49:16Z",
+  "updated_at": "2026-08-23T12:42:37Z",
+  "closed_at": "2026-08-23T12:42:37Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5446",
+  "body": "Filed unassigned while implementing #5378 + #5377 (PR on `claude/issue-5378-datasource-wiring-convergence`). Deliberately NOT carried in that PR: those two cards are the **wiring** axis and the **key-spelling** axis, and this is a third thing — a documented *capability* that does not exist. Fixing it needs a choice, which is why it is filed rather than patched.\n\n## Measured, on `origin/main` @ `32ef595f4`\n\nRendering the guide's own Step 5 / Step 7 `object-grid` literals through the real registry with a fake adapter, provider wiring, keys held correct:\n\n| snippet as rendered | `find` calls | `find` params |\n|---|---|---|\n| `{ objectName: 'task', view: 'all', data: { objectSchema } }` | 1 | `{ $select, $top: 50, $skip: 0 }` |\n| `{ objectName: 'task' }` — `view` and `data` both dropped | 1 | `{ $select, $top: 50, $skip: 0 }` |\n\nIdentical. Dropping both keys changes nothing that reaches the wire, so neither is read.\n\nConfirming statically:\n\n- `grep -n \"schema\\.view\" packages/plugin-grid/src/ObjectGrid.tsx` — zero hits. `view` is not in `GRID_QUERY_INPUTS` either. The only `view` this system honours is the one **inside** the spec binding (`dataSource: { object, view }`), which `ElementDataSourceGate` resolves against `listViews`.\n- `data` is declared as `ViewData`, the spec's union discriminated on `provider` (`object` / `api` / `value` / `schema`). `{ objectSchema, queryParams }` is none of those arms: `getDataConfig` hands it straight through, `hasInlineData` is false, and every key inside it is dropped. There is no `queryParams` read point anywhere in `ObjectGrid`.\n\n## Why it matters\n\nStep 7 asserts two behaviours in prose that the measurements above say do not happen:\n\n> The `filter` and `sort` arrays defined in the `active` list view are applied automatically when that view is selected. The `$search` query param is passed through to your `DataSource.find()` method.\n\nA reader who builds the view switcher and the search box gets a grid that answers with **every record**, whichever button they press and whatever they type — the #5349 shape, one level up: the page renders, so nothing looks wrong. This is the getting-started guide, so it is the first thing a new author (very often an AI author) copies.\n\nStep 5 and Step 6 carry the same inert `data: { objectSchema: TaskSchema }` without a prose claim attached.\n\n## What needs deciding\n\nTwo legitimate correct forms exist, which is exactly why the PR left this alone:\n\n1. **Move it into the spec binding** — `dataSource: { object: 'task', view: activeView }`, which `ElementDataSourceGate` really does resolve. Teaches the declared surface, but changes runtime behaviour for the reader: a `view` name the backend does not publish makes the gate render its configuration-error panel where today the reader gets a working (if unfiltered) grid. That trade needs a person.\n2. **Spell the view's own keys on the block** — `filter` / `sort` are declared in `GRID_QUERY_INPUTS` and read by `ObjectGrid` (`schemaFilter` reaches `$filter`, `schemaSort` reaches `$orderby`), so Step 7 could set them from `TaskSchema.list_views[activeView]` and drive search through `filter` instead of the fictional `$search` passthrough. Smaller blast radius, but it stops teaching saved views on the page that introduces them.\n\nEither way the inert `data: { objectSchema }` in Steps 5 and 6 should go with it, and the Step 7 prose has to be rewritten to whatever is chosen.\n\n## Reproduce\n\n```\ngrep -n \"view: 'all'\\|view: activeView\\|queryParams\\|objectSchema: TaskSchema\" content/docs/guide/building-crud-app.md\ngrep -n \"schema.view\" packages/plugin-grid/src/ObjectGrid.tsx        # zero hits\ngrep -n \"name: 'data'\" packages/plugin-grid/src/index.tsx            # ViewData, discriminated on `provider`\n```\n\nRelated: #5377 (the key axis on the same five snippets — its filer measured these two keys as inert and set them aside), #5378 (the wiring axis), #5349 (the silent-empty failure mode), #4041 (published vocabulary vs. the renderer's read point, same family).\n\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

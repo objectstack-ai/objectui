@@ -1,0 +1,36 @@
+{
+  "number": 4319,
+  "kind": "issue",
+  "title": "FormPage: the FORM_RECORD_ID_PARAM comment cites a resolver unreachability that PR #4318 removed",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-11T13:50:11Z",
+  "updated_at": "2026-08-21T18:24:20Z",
+  "closed_at": "2026-08-21T18:24:20Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4319",
+  "body": "Observation-class, comment-only. Filed unassigned by the #4280 dev agent (PR #4318), which created the drift and was fenced out of `FormPage.tsx` for that dispatch.\n\n## Fact\n\n`apps/console/src/components/FormPage.tsx` (around line 120-125) explains why `FORM_RECORD_ID_PARAM` is a literal rather than an import:\n\n> It is a literal here rather than an import only because `@object-ui/app-shell` exports its package root alone and that root does not re-export `./urlParams` — the same unreachability `createdRecordPath.ts` documents for `resolveHostAppSegment`.\n\nThe **claim** is still true: the root barrel still does not re-export `./urlParams`, so the literal is still justified. Only the **comparison** is stale. PR #4318 (part of #4280) published `resolveHostAppSegment` from the package root and deleted the console's local subset, so `createdRecordPath.ts` documents no such unreachability any more — it imports the resolver.\n\n## Why this is worth recording rather than sitting on\n\nThe sentence is a cross-reference to a sibling module as the second witness for a shared constraint. A reader who follows it now finds the opposite of what it promises, which makes the surviving `./urlParams` justification read as though it had also been resolved. That is the same \"two readers of one prose contract\" family (#3367 / #3842) the parent card is about, one level down in the comments.\n\n## Surface\n\nOne clause in `apps/console/src/components/FormPage.tsx`. No behaviour, no tests. The honest replacement points at the `./urlParams` fact directly instead of borrowing a sibling's now-resolved case — and could note that the resolver case was collected by #4280, which is the precedent for collecting this one too.\n\nRefs #4280, PR #4318, #4109, #4292.\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 5850,
+  "kind": "pull_request",
+  "title": "feat(app-shell): Studio simplification first cut — sub-tab fold, draft auto-save, access demotion (#5813)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T15:22:10Z",
+  "updated_at": "2026-08-23T15:43:02Z",
+  "closed_at": "2026-08-23T15:43:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T15:43:01Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5850",
+  "body": "Closes #5813 (cloud#1609 增量四). Three cuts per the maintainer's simplification ruling, all capability-preserving:\n\n1. **Object sub-tabs 7 → 2 + 「高级」**: 记录/表单 stay; 验证/钩子/操作/API/设置 fold into one menu whose trigger wears the open panel's name + active pill. A separate 字段 tab was consciously not added — fields are the grid's columns with 添加字段 beside them; a third field surface would add UI, not remove it.\n2. **Draft auto-save**: debounced 1.5s `useDraftAutoSave` replaces all four 保存草稿 buttons. CEL-blocking gates the TIMER (objectui#4306's own rule); failed saves re-arm only on the next edit; quiet spinner + last-saved hint instead of per-save toasts.\n3. **权限 → 「更多」**: primary nav = Data/Automations/Interfaces exactly; overflow items carry the same dirty-guard; route & pages untouched.\n\nToward the card's measurable acceptance: Data pillar default chrome drops from 7 tabs + save button + add-field to 2 tabs + 1 menu + add-field; topbar loses 保存草稿 and the 权限 tab (with #5801's merged 变更 anchor, the topbar is now 3 pillars + 更多 + 变更/发布).\n\nstudio-design suite: 34 files / 195 tests green (guard tests drive Access through the overflow; gate suites pin the auto-save semantics). Staging-only train per the release directive.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

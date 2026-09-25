@@ -1,0 +1,35 @@
+{
+  "number": 5596,
+  "kind": "issue",
+  "title": "[finding] The SAME drift class one level up: FormViewSpec and FormSectionSpec are each hand-declared twice (console + app-shell), and #5542 only converged the leaf",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-21T16:35:10Z",
+  "updated_at": "2026-08-22T01:15:19Z",
+  "closed_at": "2026-08-22T01:14:15Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5596",
+  "body": "Found while implementing #5542. Filed unassigned as an observation, for PM triage — the\ncard's declared surface was `FormFieldSpec` only, and this is deliberately not widened\ninto it.\n\n## Mechanism\n\n#5040 and #5542 are about one contract having several independent hand-written\ndescriptions. #5542 converged the leaf of that contract — the field spec. The two\ncontainers **above** it have exactly the same shape of duplication, and nobody has\ncounted them.\n\nBoth files describe the same artifact, `@objectstack/spec`'s `FormView`, and both say so:\n\n| site | declaration | how it says it is the spec's FormView |\n| --- | --- | --- |\n| `packages/app-shell/src/views/metadata-admin/SchemaForm.tsx:629` | `FormViewSpec` | docstring: \"Lightweight shape of the spec `FormView` we consume\" |\n| `apps/console/src/components/FormPage.tsx:89` | `FormViewSpec` | header comment chain, and the identical `type` union |\n| `packages/app-shell/src/views/metadata-admin/SchemaForm.tsx:660` | `FormSectionSpec` | element type is `FormFieldSpec` |\n| `apps/console/src/components/FormPage.tsx:271` | `FormSectionSpec` | element type is `FormFieldSpec` |\n\nLine numbers verified on the merged ref `cad512fe1`, before #5542's branch.\n\nThe tell that these are one contract and not two coincidences: both `FormViewSpec`\ndeclarations spell a **character-identical six-member union**, in the same order —\n\n```\ntype?: 'simple' | 'tabbed' | 'wizard' | 'split' | 'drawer' | 'modal';\n```\n\n— and both name the element type of `FormSectionSpec.fields` `FormFieldSpec`. That is\nthe same evidence #5542 used to rule the field spec one contract rather than two layers.\n\n## They have already drifted, which is the point\n\nUnlike the field spec — where the console's copy was a clean 9-of-26 subset with no\ndisagreements — these two **differ in both directions**, so neither is a subset of the\nother:\n\n- `FormSectionSpec`: app-shell has `description`, `visibleWhen`, `visibleOn`; console has\n  none of those. Console's `columns` admits the string arm\n  (`1 | 2 | 3 | 4 | '1' | '2' | '3' | '4'`), app-shell's admits numbers only. Same key,\n  two different answers about what an author may write.\n- `FormViewSpec`: console has `label`, `groups`, `sharing`, `submitBehavior`; app-shell\n  has none of those and stops at `type` plus `sections`.\n\nSo this is not a hypothetical future drift, the way the field spec's was at filing time\n— it is drift that has already happened and that nothing can see, because each\ndescription is only ever checked against itself. That is #5040's mechanism, unresolved,\none level up from where #5542 closed it.\n\n## Why file it rather than fold it into #5542\n\n#5542's scope fence was explicit and correct: the field spec, its pin, and one\nchangeset, with the converged `form-spec.ts` a read-only reuse target. Converging the\ncontainers is a materially bigger call than converging the leaf, because the two\ncontainers genuinely serve different surfaces — `sharing` and `submitBehavior` are\npublic-form concerns the metadata-admin designer has no use for, and `columns`' string\narm is a tolerance for hand-authored layouts. So unlike the field spec, \"same contract,\nimport it\" is **not** obviously the answer here; \"narrower layer, rename and pin the\nsubset\" may well be, and for `FormViewSpec` the honest answer might be a third thing —\nthat both should read the spec's own `FormViewSchema` type rather than either hand copy.\n\nThat is a triage decision with an architecture behind it, not a mechanical convergence,\nwhich is why this is a `finding` and not a queued card.\n\n## Severity note\n\nNo user-reachable failure. Recording it because a reader of #5040 and #5542 would\nreasonably conclude the class is now closed for this contract, and it is not — the leaf\nis pinned, the containers are not. Severity is triage's call.\n\n## Boundary\n\n- Searched open issues before filing (FormViewSpec / FormSectionSpec / FormPage /\n  duplicate declaration phrasings). #5040 and #5542 are the field spec; nothing covers\n  the containers.\n- Sibling findings from the same read, filed separately: #5594 (dead visibility\n  predicate in the console renderer) and #5595 (dropped `maxLength` override)."
+}

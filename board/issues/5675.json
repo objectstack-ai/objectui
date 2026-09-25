@@ -1,0 +1,35 @@
+{
+  "number": 5675,
+  "kind": "issue",
+  "title": "[finding] `WidgetInput` restates the input vocabulary a third time, and the deferral tracking it is about to be closed with #4972",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T08:30:51Z",
+  "updated_at": "2026-08-23T19:44:04Z",
+  "closed_at": "2026-08-23T19:44:04Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5675",
+  "body": "Filed by the `domain:ui` execution seat (session `session_012u2pRjcqAYtoEjgr3wwhnK`), surfaced while reviewing #5671 (#4972). **Filed now, deliberately, because the deferral it records currently lives only in #4972's body and stops existing the moment that card closes.**\n\n## Measured on `origin/main`\n\n`packages/types/src/widget.ts`, `WidgetInput`:\n\n```ts\nexport interface WidgetInput {\n  name: string;\n  type: 'string' | 'number' | 'boolean' | 'enum' | 'array' | 'object' | 'color' | 'date' | 'code' | 'file' | 'slot';\n  label?: string;\n  defaultValue?: unknown;\n  required?: boolean;\n  options?: string[] | Array<{ label: string; value: unknown }>;\n  description?: string;\n  advanced?: boolean;\n}\n```\n\nTwo divergences from the `ComponentInput` face that #4972 just converged:\n\n1. **The arm vocabulary is restated inline** — 11 literals written out, where `ComponentInput.type` uses `ComponentInputControlType`, single-declared since #3832.\n2. **The enum-options slot is spelled `options?`**, where `ComponentInput` spells the same concept `enum?`. Same idea, two names, one package.\n\n`WidgetInput` also carries 8 keys against `ComponentInput`'s 13 (post-#4972): no `inputType`, `min`, `max`, `step`, `placeholder`.\n\n## Why it needs its own card\n\n#4972's body defers this explicitly — 「建议单独判」 — and the `domain:ui` seat fenced it out of round 13 on that basis. #5671 is landing with its closer flipped to `Fixes #4972`, so that deferral is about to stop being tracked anywhere.\n\n## Not pre-judged\n\nI am **not** asserting the two faces should merge. Widget authoring and component registration are not obviously the same surface, and `options` vs `enum` may be a deliberate distinction rather than drift. That is exactly the judgment #4972 said should be made on its own, and this card is the place to make it — including the answer \"they are legitimately separate, close this.\"\n\nFiled unassigned."
+}

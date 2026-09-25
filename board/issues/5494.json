@@ -1,0 +1,35 @@
+{
+  "number": 5494,
+  "kind": "issue",
+  "title": "`ReferenceRailEntry` is owned by @objectstack/spec as of 17.1.0 and objectui's local copy declares an extra `icon` key the spec's strict schema refuses",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T06:59:49Z",
+  "updated_at": "2026-08-23T09:31:21Z",
+  "closed_at": "2026-08-23T09:27:59Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5494",
+  "body": "Filed unassigned by the dev seat implementing the `@objectstack/spec` 17.1.0 pin bump (#5328, branch `claude/issue-5328-spec-pin-17-1-0`). Not claiming — resolving it requires a contract call the pin-bump card cannot make.\n\n## What was measured\n\n`@objectstack/spec@17.1.0` newly exports `ReferenceRailEntry` (and `ReferenceRailEntrySchema`) from `@objectstack/spec/ui`. It is absent from 17.0.0 — `grep -rl ReferenceRailEntry node_modules/@objectstack/spec/dist/` returns nothing on 17.0.0 and hits `dist/ui/index.js` on 17.1.0.\n\nobjectui declares its own `interface ReferenceRailEntry` at `packages/plugin-detail/src/renderers/record-reference-rail.tsx:33`, so `check:spec-symbols` (`scripts/check-spec-symbol-derivation.mjs`) now fails: a spec-named symbol is hand-written rather than derived.\n\nCounter-probe that this is the bump: the gate exits **0** on `origin/main` (`2524e7450`) with the 17.0.0 lockfile, **1** with only `pnpm-lock.yaml` moved to 17.1.0.\n\n## The part that is not mechanical\n\nThe two declarations are **not** the same shape, and the difference is contract-bearing:\n\n| key | spec 17.1.0 `ReferenceRailEntrySchema` | objectui local |\n| --- | --- | --- |\n| `objectName` | ✅ required | ✅ required |\n| `relationshipField` | ✅ required | ✅ required |\n| `title` | ✅ optional | ✅ optional |\n| `limit` | ✅ optional | ✅ optional |\n| `displayField` | ✅ optional | ✅ optional |\n| **`icon`** | ❌ **not declared** | ✅ **optional, and read by the renderer** |\n\nThe spec's object is `z.core.$strict`. An author who writes `icon` on a reference-rail entry is therefore **refused at save**, while objectui's renderer reads and honours it — the \"preview-works / save-refuses\" trap #5328 was filed about, arriving here as a real instance rather than a hypothetical.\n\nSo the gate's three mechanical remedies all beg the question:\n\n- **import / derive** from the spec — drops `icon` from the type and breaks the renderer's read of it; that is a decision to retire an objectui-side affordance.\n- **rename to a declared dialect** (`ObjectUiLocalReferenceRailEntry`) — records the divergence as deliberate and keeps `icon` unsaveable, i.e. decides the opposite way. Also renames a symbol `@object-ui/plugin-detail` exports.\n- **`ALLOW` entry** — asserts \"deliberately differs\", a judgement nobody has actually made.\n\n## What is needed\n\nA ruling on `icon`: either objectui drops it and derives the type from the spec, or `icon` is proposed upstream for `ReferenceRailEntrySchema`, or the divergence is formalised as a named dialect. Whichever way it goes, the local declaration should stop sitting under the spec's own symbol name.\n\nRecorded meanwhile in the `DEBT` ledger of `scripts/check-spec-symbol-derivation.mjs` (regenerated with its own `--ledger` flag), which is shrink-only and ratcheted, so the entry fails the gate as soon as the collision is resolved.\n\nRefs: #5328 (the pin bump that surfaced it) · objectstack#4115 (the ledger's umbrella card)."
+}

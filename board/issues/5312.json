@@ -1,0 +1,35 @@
+{
+  "number": 5312,
+  "kind": "issue",
+  "title": "finding(app-shell): `paramToField` is now the LAST private copy of the reference-bearing rule — and its \"moves in lockstep with plugin-grid\" comment stopped being true",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-19T12:20:18Z",
+  "updated_at": "2026-08-22T01:15:45Z",
+  "closed_at": "2026-08-22T01:14:58Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5312",
+  "body": "发现于 #4815 的实施(PR 见该卡)。**不在 #4815 范围内**(该卡正文只点名 plugin-grid 的表,文件面也只给了 `packages/plugin-grid/src/**` + `packages/core/src/**`),单独立此单记录。\n\n## 事实(实读 origin/main @ de4e29a81)\n\n`packages/app-shell/src/utils/paramToField.ts:44,97`:\n\n```\nconst LOOKUP_WIDGET_TYPES = new Set(['lookup', 'master_detail']);\n...\n// `|| type === 'owner'` stood here until objectui#4814 retired that spelling\n// (ruling A'). It moves in lockstep with plugin-grid's `bulkParamToField`\n// twin — the two param faces are never split.\nif (LOOKUP_WIDGET_TYPES.has(type) || type === 'user') {\n  Object.assign(field, { reference_to: ..., display_field: ..., id_field: ..., ... });\n}\n```\n\n这条 `LOOKUP_WIDGET_TYPES.has(type) || type === 'user'` 判的正是 #4770 / #4790 / #4815 三次收敛的同一件事 ——「这个 widget 要查记录,所以要把 reference 目标递给它」—— 写成一条内联析取,成员集 `{lookup, master_detail, user}`。\n\n## 为什么现在才值得单独记\n\n#4815 落地后,四个消费面里已有三个 **派生自** `@object-ui/core` 的 `EXPANDABLE_FIELD_TYPES`(`buildExpandFields`、predicate-record、表单的 `needsDataSourceWiring`,加上刚接上的 bulk 对话框),`paramToField` 是**唯一仍在自己重述**的那一面。\n\n而上面那条注释说它「moves in lockstep with plugin-grid's `bulkParamToField` twin」—— 这句话在 #4815 之前是靠人守的,#4815 之后**机制上已不成立**:twin 现在读共享对象,这里读自己的字面量,两边再不共享任何东西。这正是 #4770 / #4790 / #4815 三张卡各自描述过的前夜状态:注释声称同步、机制不保证。\n\n## 为什么今天没有用户症状(据此判为 observation-class)\n\n与 #4815 同因:两个 param 面的 `type` 都先过 `resolveFormWidgetType`,而 `tree` 不在 `fields` 的 widget map 里、`mapFieldTypeToFormType` 把它送到 `field:lookup`,所以 core 多出的 `tree` 这一格在这里同样到不了;`owner` 已随 #4814 退役。即成员差异当前全部无症状 —— 但没有任何 gate 能发现它开始漂。\n\n## 修法方向(与 #4790 / #4815 同型)\n\n派生 + 归一化 + identity 钉(钉对象身份,成员相同的私有副本必须红)。plugin-grid 侧刚落地的形状可直接照抄:`EXPANDABLE_FIELD_TYPES.has(t)`,需要本面扩展时 OR 上一张 surface-local 表,**不要** `new Set([...EXPANDABLE_FIELD_TYPES, ...])`(复制会重新分叉,且钉子按设计会红)。钉子写法见 `packages/plugin-grid/src/__tests__/bulkParamToField.test.ts` 与 `packages/components/src/renderers/form/__tests__/form-data-source-wiring.test.tsx`。\n\n一并复核:`LOOKUP_WIDGET_TYPES` 在这两个文件里还各自承担「哪些类型需要 reference 目标、缺了就降级为文本」的第二条规则(与 data-source 规则不同集),收敛时别把两条规则合成一条。\n\n## 参考\n\n- #4770 / PR #4789、#4790、#4815(本单的前三次同型收敛)\n- `packages/app-shell/src/utils/paramToField.ts:44,97`、`packages/core/src/utils/expand-fields.ts:62`\n"
+}

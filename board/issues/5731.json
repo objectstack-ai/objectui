@@ -1,0 +1,35 @@
+{
+  "number": 5731,
+  "kind": "issue",
+  "title": "`ActiveOrganizationStorage.clear()` swallows a failed `removeItem`, so a cleared org can stay readable — asymmetry noted, reachability NOT demonstrated",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T02:04:02Z",
+  "updated_at": "2026-08-23T05:44:15Z",
+  "closed_at": "2026-08-23T05:44:15Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5731",
+  "body": "Noticed while pinning the `clear()` path for #5703. Filing it plainly for triage to grade: I verified the code shape by reading it, but **I could not identify a concrete browser state that reaches it**, so this is an unhandled asymmetry rather than a measured defect. Grading it as such is the point of filing.\n\n## The shape\n\n`packages/auth/src/createAuthenticatedFetch.ts`:\n\n```ts\nclear(): void {\n  this._memoryValue = null;\n  try {\n    if (typeof localStorage !== 'undefined') {\n      localStorage.removeItem(ACTIVE_ORG_STORAGE_KEY);\n    }\n  } catch { /* SSR / test */ }\n},\n```\n\nIf `removeItem` throws, the `catch` swallows it and the persisted key survives. `get()` prefers a non-null `localStorage` read (that ordering is the #5703 fix), so it keeps returning the org that `clear()` was supposed to remove. Sign-out is one of `clear()`'s callers, so the failure mode is \"sign-out does not stick\" — and it is silent, exactly like the defect on #5703.\n\nNote this is **not** a regression from #5703: before that fix `get()` returned the `localStorage` read unconditionally, so the same stale value came back. The read ordering is unchanged for a non-null persisted read. What #5703 did change is that `clear()` nulling `_memoryValue` became load-bearing, which is what made this neighbouring path worth looking at.\n\n## Why reachability is not demonstrated\n\nThe state required is `getItem` succeeding while `removeItem` throws. The obvious candidates do **not** produce it:\n\n- **Safari private browsing / quota-exhausted origin** — `setItem` throws; `getItem` and `removeItem` work. This is the #5703 state, not this one.\n- **Storage access revoked in an iframe** — *every* operation throws, `getItem` included. `get()` then takes its own `catch` and falls back to `_memoryValue`, which `clear()` nulled. That path is already safe.\n\nThat leaves wrapped/proxied `localStorage` (an extension, a polyfill) as the only candidate I can name, which is speculation. A reader who can name a real one should say so on this card — it would change the grade.\n\n## Possible shapes, for triage rather than as a decision\n\n1. Leave it. An undemonstrated state may not be worth code.\n2. Have `clear()` verify the removal and fall back to a tombstone in `_memoryValue` so `get()` refuses to answer with the stale persisted value.\n3. Surface the failure rather than swallowing it, so a broken `clear()` is loud instead of silent.\n\nOption 2 is the only one that keeps sign-out sticky, but it adds a third state to a two-state field; option 1 is defensible if reachability stays hypothetical. Not obvious enough to pick without a ruling.\n\n## Scope note\n\nRelated but distinct from #5664, which is about `auth-active-organization-id` not being namespaced per user and something rewriting it after removal. Completing #5664 would not close this: a namespaced key whose `removeItem` throws leaves exactly the same residue. Filed standalone rather than as a sub-issue for that reason.\n\nUnassigned. Found while implementing #5703; deliberately not fixed there, since the correct shape is not pinned by existing evidence.\n"
+}

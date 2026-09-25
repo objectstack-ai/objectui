@@ -1,0 +1,33 @@
+{
+  "number": 5686,
+  "kind": "pull_request",
+  "title": "feat(plugin-form): pre-fill the current_user defaultValue token on create forms",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T09:51:09Z",
+  "updated_at": "2026-08-22T10:09:21Z",
+  "closed_at": "2026-08-22T10:09:20Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-22T10:09:20Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5686",
+  "body": "## What\n\n`defaultValue: 'current_user'` is a spec-legal runtime token (`DEFAULT_VALUE_TOKENS`, legal on `user` and `lookup→sys_user` per `field.zod` #7127) that the engine resolves to the acting user's id at INSERT. No client code resolved it, so a create form rendered the field **empty** and the value appeared only after save.\n\nLive shape that motivated this (prod, 2026-08-22): 报销流程's `applicant: { type:'lookup', reference:'sys_user', defaultValue:'current_user' }` — engine-honoured, yet the owner opened 新建报销单, saw 申请人 empty, and reasonably concluded the change didn't work (#5683; agent-side narration half tracked in cloud#1584).\n\n## How\n\n- **permissions**: `PermissionContextValue.userId` (`/me/permissions` `userId`; `null` = unknown). `MePermissionsProvider` threads it; the role-based provider and no-provider fallback report `null`.\n- **schemaDefaults**: optional `SeedContext{ currentUserId }` on `schemaDefaultValues` / `seedCreateValues`. `current_user` seeds the known id on the token's two legal field shapes only (`type:'user'\", or `lookup` with `reference`/`reference_to` = `sys_user`). The seeded id equals the engine's own resolution **by construction** — no second default contract, a preview of the same one. `NOW()`/CEL stay server-owned (form-open time ≠ insert time; client can't evaluate CEL).\n- **Call sites**: all seven create seeding sites (ObjectForm + Modal/Drawer/Tabbed/Split/Wizard) thread `usePermissions().userId`.\n- **Unknown user seeds nothing** — empty control, key omitted, engine resolves at insert: the exact pre-#5683 contract, which is why every #4047/#4068/#4069 pin passes unchanged.\n\n## Tests\n\nNew `currentUserDefault.test.tsx` (5): legal-shapes-only unit matrix (both reference spellings, illegal type left alone, NOW() untouched, caller initial outranks), plus two ObjectForm component pins — seeded id is SUBMITTED with a provider, and the key is OMITTED without one. Full `plugin-form` + `permissions` suites: 671 passed. Root build green.\n\nCloses #5683\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

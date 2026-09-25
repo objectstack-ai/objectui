@@ -1,0 +1,35 @@
+{
+  "number": 5690,
+  "kind": "issue",
+  "title": "finding: 9 catalog `flex` nodes still hand-write spacing as `space-x-*`, the one spelling #4891's sweep deliberately left behind",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T10:31:19Z",
+  "updated_at": "2026-08-23T13:52:50Z",
+  "closed_at": "2026-08-23T13:52:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5690",
+  "body": "Observation-class finding, recorded while implementing #4891 + #4890 (the two-card catalog sweep). **Not fixed there** — that card's criterion was the token set it enumerated (`items-*` / `justify-*` / `gap-N` / `flex-wrap` / `flex-row|col` / `max-w-*` / `mx-auto` / `p-N` / `space-y-N` / `grid-cols-N`), and `space-x-*` is not in it. That is not an oversight in the card: excluding it is exactly why the card's headline figure re-measured to the digit (`flex` 221 tokens, `container` 7, `stack` 3 — 231 across 140 nodes).\n\n## The observation\n\nNine `flex` nodes in the catalog spell horizontal spacing as a Tailwind utility on a node whose own type declares `gap`:\n\n- `auth/login-simple.children[0].children[2].children[0]` — `className: \"space-x-2\"`\n- `auth/signup.children[0].children[3]` — `className: \"space-x-2\"`\n- `dashboard/recent-activity-card.children[0].children[1].children[0].children[0]` — `className: \"space-x-4\"`\n- `dashboard/recent-activity-card.children[0].children[1].children[1].children[0]` — `className: \"space-x-4\"`\n- `dashboard/recent-activity-card.children[0].children[1].children[2].children[0]` — `className: \"space-x-4\"`\n- `dashboard/recent-activity-card.children[0].children[1].children[3].children[0]` — `className: \"space-x-4\"`\n- `dashboard/recent-activity-card.children[0].children[1].children[4].children[0]` — `className: \"space-x-4\"`\n- `forms/newsletter-signup.children[0].children[2]` — `className: \"space-x-2\"`\n- `forms/settings-form.children[1].children[0].children[3]` — `className: \"space-x-2\"`\n\n(Five of those nine now carry `align: \"center\"` from the #4891 sweep, which took the `items-center` off the same class strings and left the `space-x-*` untouched. `space-y-*` on a `stack`: **0** nodes, measured — the sibling spelling is not present.)\n\nSame reader-facing cost as #4891: these are shipped reference examples and an AI few-shot retrieval source, and what they demonstrate is spacing a first-class layout component by hand instead of with its `gap`.\n\n## Why it is a separate decision, not a rename #4891 could have absorbed\n\n`space-x-N` and `gap: N` are not two spellings of one thing, so this cannot be waved through as mechanical the way `spacing` → `gap` was:\n\n1. **Different CSS.** `space-x-N` compiles to a margin on `& > :not(:last-child) ~ *`; `gap` is the flexbox gap property. They diverge wherever the child list is not a simple static row — a wrapped line gets no `space-x` gutter between rows, and the selector is order-sensitive in a way `gap` is not.\n2. **Different responsive behaviour.** `gap: N` renders a mobile-first ladder in `flex.tsx` (`gap: 3` → `gap-2 sm:gap-3`); `space-x-4` is one dead value at every width. So a conversion is a real rendering change at small breakpoints, needing the same sampled-equivalence treatment #4891's conversions got — not a byte-equivalence claim.\n3. **It may be deliberate somewhere.** A node that genuinely wants \"gutters between siblings but no gutter above a wrapped row\" is asking for `space-x`. Whether any of these nine is that node has not been checked.\n\nSo the question triage owns is whether these nine are drift or intent, and that is a different question from the one #4891 answered.\n\n## Suggested shape, if triage rules it drift\n\n- Convert the nine to `gap`, sampled the way the #4891 conversions were (`examples/schema-catalog/test/layout-props-conversion.test.tsx`, the `ladder` case kind), since the small-breakpoint rendering moves.\n- Then add `space-x-*` on `flex`/`stack` to `ownPropTokens()` in that same file, which is the ratchet that keeps the tenth out. The helper is already shaped for this — one arm, alongside the `space-y-*` arm it already carries for `stack`.\n\nIf triage rules it intent, the honest close is the opposite edit: leave the nodes and record in that helper's docblock why `space-x-*` is excluded, so the next sweep does not re-litigate it.\n\n## References\n\n- #4891 / #4890 — the sweep this was found in, and the ratchet to extend\n- #4003 — the earlier sweep that built the ratchet\n- `packages/components/src/renderers/layout/flex.tsx` — the `gap` ladder\n- `examples/schema-catalog/test/layout-props-conversion.test.tsx` — `ownPropTokens()`\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 5024,
+  "kind": "issue",
+  "title": "[finding] ADR-0010 四态锁的词表在本仓有两份手写 union 副本 + 一处三分支无穷尽兜底的横幅,第五态会静默落空",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "auto-adjudicated",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T16:18:59Z",
+  "updated_at": "2026-08-22T08:38:48Z",
+  "closed_at": "2026-08-22T08:38:48Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5024",
+  "body": "发现于 #5004 的实施(PR #5023)。**不在那个 PR 内修复** —— 超出该卡完成范围(#5004 的范围是审计面板的 zh 词表 + 键绑定 + 死条目),按 Prime Directive #10 立卡,未认领。\n\n打 `finding` 标签:今天四个状态齐全、两份副本内容一致,**用户现在碰不到**。这是休眠的漂移面,不是现行缺陷。定级交 PM triage。\n\n## 事实(逐条 file:line,基线 `origin/main` = `b46cf11d6`)\n\nADR-0010 §3.6 的四态锁 `none` / `no-overlay` / `no-delete` / `full` 在本仓被**逐字写了两遍**,两处都是手写字面 union,彼此无任何门禁比对:\n\n1. `packages/data-objectstack/src/metadata-client.ts:298` —— `MetadataLayered`:\n   `lock?: 'none' | 'no-overlay' | 'no-delete' | 'full';`\n2. `packages/data-objectstack/src/metadata-client.ts:340` —— `MetadataAuditEntry`:\n   `lockState: 'none' | 'no-overlay' | 'no-delete' | 'full' | null;`\n\n同一文件、相隔 42 行,一个 optional 一个 nullable,除此之外完全相同。没有一处从另一处派生,`@objectstack/spec` 也没有对应的 `z.enum` 可派生 —— 所以只给其中一处加第五态,编译器不会有任何意见。\n\n第三处枚举点是消费侧,且**没有穷尽检查**:`packages/app-shell/src/views/metadata-admin/ResourceEditPage.tsx:1935-1937` 的锁定横幅标题是三条彼此独立的 `&&`,没有 else / 没有兜底:\n\n```\n{layered?.lock === 'full' && t('engine.edit.lockFull', locale)}\n{layered?.lock === 'no-overlay' && t('engine.edit.lockNoOverlay', locale)}\n{layered?.lock === 'no-delete' && t('engine.edit.lockNoDelete', locale)}\n```\n\n开关它的是 `:1439` 的 `isLocked = layered?.lock && layered.lock !== 'none'` —— **对 `none` 以外的任何值都为真**。\n\n## 后果(第五态落地那天)\n\n- 只给两份 union 之一加值:另一处编译照绿,漂移无声开始;\n- `ResourceEditPage` 的 `isLocked` 判真 → 琥珀色横幅正常展开(图标 + 边框 + 可选的 `lockReason`),但三条 `&&` 全假 → **标题那个 div 渲染成空**。用户看到一条没有说明文字的锁定横幅;\n- 对照:PR #5023 之后,审计面板那侧的 `LOCK_STATE_ZH` 键绑了 `MetadataAuditEntry['lockState']`,同样的第五态会让 `type-check` 变红并点名缺失的标签。所以本仓现在对同一套词表有**两种截然不同的严格度** —— 一处编译期报错,一处界面上静默留白。\n\n## 建议(交维护者定,不预设)\n\n两条路,取舍是归属权问题,不是实现细节:\n\n- **A. 归 `@objectstack/spec`**:spec 出 `z.enum`,两份 union 改为派生,消费侧的键表照 `LAYER_SCOPE_ZH` / `LOCK_STATE_ZH` 绑到 spec,跨仓漂移一并关闭。长期正确,但需要 spec 侧动作与跨仓协调。\n- **B. 留在本仓收敛为一份**:抽一个导出的 `MetadataLockState` 类型别名,两处引用它;`ResourceEditPage` 的三分支改成键绑的查表(或补一条 `satisfies` 穷尽的 switch),让第五态在编译期就红。成本小得多,但如果 spec 终究该拥有这个词表,这是一次中途站。\n\n无论走哪条,`ResourceEditPage` 横幅那三条 `&&` 的穷尽性都值得单独补上 —— 它是唯一一处「新状态 = 界面空白」而非「编译期报错」的读点。\n\n相关同族:#4984(date-range 词表的两份未钉副本)、#4972(`ComponentInput` 的三份结构副本)—— 都是「声明了 N 份、没有门禁比对」的同一失败类。\n"
+}

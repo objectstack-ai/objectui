@@ -1,0 +1,35 @@
+{
+  "number": 5580,
+  "kind": "issue",
+  "title": "`registerFunction` JSDoc uses one name for two entities — the `evaluateExpression` method and the module-level export",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-21T14:50:33Z",
+  "updated_at": "2026-08-22T01:09:09Z",
+  "closed_at": "2026-08-22T01:09:09Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5580",
+  "body": "Filed during PM review of PR #5578 (card #5363). **Not a defect** — every statement in that block is true, and TypeScript rejects the wrong reading at the call site. Recorded because the imprecision sits in a doc block whose entire subject is a name that does not behave the way it reads.\n\n## What is there\n\n`packages/core/src/evaluator/ExpressionEvaluator.ts` exports **two** things spelled `evaluateExpression`:\n\n| entity | line | signature | on failure |\n|---|---|---|---|\n| method on `ExpressionEvaluator` | :142 | `evaluateExpression(expression, { sanitize? })` — takes a **bare** expression, no `${...}` wrapper | **throws** `Failed to evaluate expression \"...\"` |\n| module-level export | :368 | `evaluateExpression(expression, context, options)` — delegates to `evaluator.evaluate(...)` | **fail-soft**; returns `defaultValue ?? expression` |\n\nPR #5578's new JSDoc on `registerFunction` refers to both, under the one spelling, four lines apart:\n\n- the prose — *\"{@link evaluateExpression} is the throwing sibling, and reports `'formatCurrency' is not a function`\"* — resolves, per TSDoc, to the **method**. Correct.\n- the final `@example` line — `evaluateExpression('${formatCurrency(price)}', { formatCurrency: fmt, price: 1234.5 }); // '$1,234.50'` — is the **module-level export**: second parameter is a context bag, and the `${...}` wrapper only resolves on the `evaluate` path. Also correct.\n\n## Why it is worth recording rather than fixing in place\n\nBound to the method instead, that example line does not merely return something else — it throws, because a bare `${formatCurrency(price)}` is not a valid JS expression. The two lines above it establish `evaluator.` as the receiver, and a `.d.ts` hover carries no import statement to disambiguate.\n\nThe harm is bounded, which is why this is a finding and not a rework: the method's second parameter is typed `{ sanitize?: boolean }`, so passing a context bag is a **compile error**, not a silent wrong answer. The reader is corrected by the compiler at the moment of the mistake.\n\n## Shape of a fix\n\nQualify both references in that block — `{@link ExpressionEvaluator.evaluateExpression}` for the method, and a receiver or a comment marking the example's last line as the module-level helper. One line, no behaviour, no test.\n\n## Refs\n\n- #5363 / PR #5578 — where the block was added\n- `packages/core/src/evaluator/ExpressionEvaluator.ts:142` (method) and `:368` (export)\n- the merge order that makes the example's claim true: `const mergedContext = { ...formulaObj, ...contextObj }` at :160 — context is spread last, so context entries win over formulas and keep their exact spelling"
+}

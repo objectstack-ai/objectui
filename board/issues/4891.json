@@ -1,0 +1,35 @@
+{
+  "number": 4891,
+  "kind": "issue",
+  "title": "catalog:140 个已经是 `flex`/`stack`/`container` 的节点,仍在 className 里手写自己已声明的 props",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T01:51:49Z",
+  "updated_at": "2026-08-22T10:45:12Z",
+  "closed_at": "2026-08-22T10:45:12Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4891",
+  "body": "发现于 #4003 的实施,**不在该 PR 处理** —— 那一单的范围是把 `div` 节点转成布局类型(生产者侧的**类型**问题),这一条是**已经是正确类型**的节点上的**props 写法**问题,另一批节点、另一个判据。\n\n## 现象\n\n#4003 把 103 个 `div` 转成 `flex` / `stack` / `container` / `grid` 并把布局意图写进 props 之后,顺手扫了一遍整个 catalog:**140 个节点(33 个文件)本来就是这四种类型之一,却仍然把该类型自己声明的 props 手写在 `className` 里**。\n\n例子(全部是当前 main 上的真实节点):\n\n```\nactions/action-toolbar.json  $.children[0]\n  {\"type\": \"flex\", \"className\": \"items-center justify-between border-b pb-3 mb-4\"}\n  —— items-center / justify-between 就是 align / justify\n\napp/application-header.json  $\n  {\"type\": \"flex\", \"className\": \"items-center justify-between p-3 border rounded-lg bg-background\"}\n\nactions/action-button-variants.json  $.children[0]\n  {\"type\": \"flex\", \"className\": \"gap-2 flex-wrap\"}\n  —— gap / wrap 都是声明键\n```\n\ntoken 命中分布:`flex` 221 处、`container` 7 处、`stack` 3 处(同一节点可命中多个 token,去重后 **140 个节点**)。\n\n## 为什么今天不报错\n\n`cn()` = `clsx` + `tailwind-merge`,className 排在渲染器注入的类之后,冲突时后者胜 —— 所以 `className: \"items-center\"` 会把渲染器按默认 `align: 'start'` 注入的 `items-start` 顶掉,**渲染结果是作者想要的**。没有可见故障,production 也正确。按分诊惯例打 `finding`,由分诊定级。\n\n## 代价(与 #3965 同一条立论,第二轴)\n\ncatalog 是\"每个示例都是该写法范本\"这一契约的载体,也是 AI 作者的 few-shot 检索源。这 140 个节点示范的是:**拿到一个一等公民布局组件,然后无视它的 props,用 Tailwind 把它的能力重新实现一遍**。这正是 #4003 要消除的反模式 —— 只不过 #4003 处理的是\"连类型都错\"的那批,这批是\"类型对了、props 还是没用\"。照抄的作者学到的东西一模一样。\n\n而且它有真实的下游后果:props 是**响应式感知**的(`gap: 3` 渲染成 `gap-2 sm:gap-3` 的 mobile-first 阶梯,`columns` 走断点降级),手写的 `gap-2` 是死的单值。用 className 绕过 props,等于连带放弃了这些组件存在的理由之一。\n\n## 与 #4003 的边界(为什么当时没有一起做)\n\n#4003 的判据是\"`div` 节点的 className 写着布局意图\",这 140 个不是 `div`,一个都不命中;而且它们的转换**不是**零渲染差异(手写单值 → 响应式阶梯会改变小断点下的渲染,和 #4003 里 flex gap 的情况相同,是正确的语义升级但不是逐字节等价),需要单独的抽样断言。混进去会让那个 PR 的等价论证失去边界。\n\n## 修法方向\n\n与 #4003 同形:className 里**无前缀**的 `items-*` / `justify-*` / `gap-N` / `flex-wrap` / `flex-row|col` / `max-w-*` / `mx-auto` / `p-N` / `space-y-N` / `grid-cols-N` 提取成 props,其余(装饰类、带断点前缀的响应式覆盖)留在 className。带前缀的必须留下 —— props 不是响应式的(`grid.columns` 除外)。\n\n#4003 已经建好了落点:`examples/schema-catalog/test/layout-props-conversion.test.tsx` 目前只对 `div` 节点设了棘轮,把判据扩到这四种类型本身即可机械拦住第 141 个。届时该文件里\"棘轮\"那一条的 allowlist 需要同步。\n\n同一批节点里有 135 个还写着未声明的 `spacing` 键(#4890),两者文件面高度重叠,**建议合并成一次 sweep**。\n\n## 参考位置\n\n- `examples/schema-catalog/src/schemas/**`(140 个命中节点,33 个文件)\n- `packages/components/src/renderers/layout/{flex,stack,container,grid}.tsx`(各自声明的 props)\n- `examples/schema-catalog/test/layout-props-conversion.test.tsx`(#4003 建的棘轮,扩判据的落点)\n\n关联:#4003 / #4890 / #3965\n"
+}

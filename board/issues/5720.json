@@ -1,0 +1,35 @@
+{
+  "number": 5720,
+  "kind": "issue",
+  "title": "observation: `AppSidebar` has no mount point in this repo — `ConsoleLayout` renders `UnifiedSidebar`, and the two carry near-duplicate admin nav clusters",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T20:59:32Z",
+  "updated_at": "2026-08-23T13:41:42Z",
+  "closed_at": "2026-08-23T13:41:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5720",
+  "body": "Measured while implementing #5619, which had to reason about every surface that gates on the workspace-admin verdict.\n\n## Observation\n\n`packages/app-shell/src/layout/AppSidebar.tsx` is exported from the package barrel but is rendered by nothing in this repository. A `git grep` for `AppSidebar` outside its own file, tests, and prose returns only a doc comment in `ExpressionProvider.tsx` and a cross-reference comment in `AppContent.tsx`. The component that actually mounts is `UnifiedSidebar`:\n\n```\npackages/app-shell/src/layout/ConsoleLayout.tsx:29:import { UnifiedSidebar } from './UnifiedSidebar.js';\n```\n\nIt is a published export, so this is not dead code in the strict sense — a consumer can mount it. But nothing in this repo exercises it in a real tree, which has two consequences worth recording:\n\n1. **Its admin nav cluster is a near-duplicate of `UnifiedSidebar`'s and drifts silently.** Both build the same `sys-settings` / `sys-apps` / `sys-marketplace` / `sys-objects` / `sys-datasources` / `sys-users` / `sys-orgs` / `sys-roles` / `sys-config` list, gated on the same predicate, with the same `#3660` / `#3739` canonical-route notes copied across both. They already differ: `AppSidebar` gates only `sys-marketplace` on the admin flag and leaves the other eight ungated, while `UnifiedSidebar` gates the whole cluster. Whether that difference is deliberate is not recorded in either file.\n\n2. **It gets counted as a live surface in triage.** The grading on #5619 lists `AppSidebar` as one of four \"hide-affordance\" surfaces where an admin nav entry is dropped and re-added. That is true of the code, but on this repo's console no user reaches it — the observable count is three (`UnifiedSidebar`, `AppHeader`, `HomePage`). A reader auditing that card's blast radius will over-count without this note.\n\n## Not claimed\n\nThat it should be deleted. It is published, it may have consumers outside this repo, and #3631 is already open on `UnifiedSidebar`'s own storage-key behaviour — so the two are not obviously interchangeable. The disposition is a judgement call: keep and dedupe the shared cluster into one builder, keep and document why the two gate differently, or retire it under the usual published-export process. That call is triage's, which is why this is filed rather than acted on.\n\n## Refs\n\n- #5619 — where this was measured; its grading lists `AppSidebar` among the affected surfaces\n- #3631 — an open observation on `UnifiedSidebar`, the component that actually mounts"
+}

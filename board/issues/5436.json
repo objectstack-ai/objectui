@@ -1,0 +1,35 @@
+{
+  "number": 5436,
+  "kind": "issue",
+  "title": "`Test (coverage)` is red on every push to `main` because `CODECOV_TOKEN` is unset — the four shards are green, the upload is rejected",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-20T18:21:10Z",
+  "updated_at": "2026-08-23T10:14:29Z",
+  "closed_at": "2026-08-23T10:11:57Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5436",
+  "body": "Found while working #5421. Filed unassigned.\n\n## What is actually red\n\nRun [32397046084](https://github.com/objectstack-ai/objectui/actions/runs/32397046084) on `main` (`32ef595f4`), the first fully-completed CI run after #5403 landed:\n\n| job | conclusion | elapsed (job's own `started_at` → `completed_at`) |\n|---|---|---|\n| Test (coverage shard 1/4) | success | 17:21:19Z → 17:31:50Z |\n| Test (coverage shard 2/4) | success | 17:21:19Z → 17:30:01Z |\n| Test (coverage shard 3/4) | success | 17:21:19Z → 17:31:56Z |\n| Test (coverage shard 4/4) | success | 17:21:19Z → 17:31:56Z |\n| **Test (coverage)** (merge + upload) | **failure** | 17:31:58Z → 17:32:40Z |\n\nAll four shards pass. The merge job gets as far as `Merge the shard reports into one coverage report` (success), then fails at `Upload coverage to Codecov`:\n\n```\n-> Token length: 0\ninfo -- Found 1 coverage files to report\ninfo -- > /home/runner/work/objectui/objectui/coverage/coverage-final.json\ninfo -- Upload queued for processing complete\nerror -- Upload queued for processing failed: {\"message\":\"Token required - not valid tokenless upload\"}\n==> Failed to run upload-coverage\n```\n\n`#5403`'s loud verdict step then reports it exactly as designed:\n\n```\nSHARDS: success\nUPLOAD: failure\n##[error]shards=success upload=failure — no report was uploaded for 32ef595f4b6765c61f763a1116a55bbb6f963455,\nso the coverage number on the dashboard is STALE, not unchanged\n```\n\n## The cause\n\n`.github/workflows/ci.yml` already spells the step correctly — it passes `token: ${{ secrets.CODECOV_TOKEN }}` and sets `fail_ci_if_error: true`. The uploader reports `Token length: 0`, i.e. the repository secret resolves to the empty string: it is not set (or is set empty). Codecov no longer accepts tokenless uploads for this repository, so the upload is refused server-side.\n\nNothing about the test suite is involved. The merge step is also where the configured `coverage.thresholds` are enforced over the whole map, and that step passed — so the *gate* half of this lane is working; only the *dashboard* half is broken.\n\n## Why it needs a decision, not just a commit\n\nThis cannot be closed by a PR: setting a repository secret is a maintainer action in GitHub settings. And there is a real choice underneath it, because #5403 deliberately chose `fail_ci_if_error: true` so that a silent upload failure could not pass as green:\n\n- **A. Set the `CODECOV_TOKEN` repository secret.** No code change; the workflow already reads it. The lane goes green and the dashboard resumes tracking `main`.\n- **B. Retire the Codecov upload.** Keep the merged report as a build artifact plus the existing step summary. The thresholds are enforced in the merge step either way, so the gate survives; what is lost is the trend dashboard and PR coverage comments.\n- **C. Make the upload conditional on the secret being present.** ⛔ Not recommended: it converts a declared dependency into an optional one and restores exactly the quiet green that #5403 removed.\n\nBetween A and B the question is whether anyone actually reads the Codecov dashboard. If yes, A. If no, B is the honest subtraction and removes a third-party dependency from the merge lane.\n\n## Not to be confused with #5421\n\n#5421 reports a deterministic `Test (coverage shard 3/4)` failure. That measurement was taken on the throwaway instrument branch `claude/issue-5403-proto`, whose own added workflow file broke a documentation gate that hashes into shard 3; it was never a property of `main`. Details in the dev report on #5421. This card is the separate, still-live reason the lane is red."
+}

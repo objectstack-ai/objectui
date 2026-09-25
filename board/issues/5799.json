@@ -1,0 +1,33 @@
+{
+  "number": 5799,
+  "kind": "issue",
+  "title": "Studio 工作台增量一：建成时刻转场 — 蓝图确认后路由进 /studio 工作台（冷启动全屏面保留）(cloud#1609)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-08-23T11:11:51Z",
+  "updated_at": "2026-08-23T16:41:52Z",
+  "closed_at": "2026-08-23T16:41:52Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5799",
+  "body": "cloud#1609 增量一，**形态经维护者定案（2026-08-24）：建成时刻转场**，非整体落 Studio。\n\n冷启动保留现在的全屏 AI 搭建面（沉浸感是它的优点，ADR-0080「AI=冷启动建造者」）；**蓝图确认/应用成形的那一刻起**，路由自动进 `/studio/<pkg>/interfaces` 且 AI 面板保持展开（「迭代副驾」形态）。目的地 A 只保留「从零到首个蓝图」一段；既有 `/ai/build/conv…` 链接不 404（重开的包会话直接落工作台）。\n\n已有地基：build agent 进 aiSlot 的接线（cloud 填充）、刀①②的 CTA 桥（#2623——本卡把「点按钮进 Studio」升级为「建成即转场」）、packageId 从 draftReview 信封取（勿依赖 canvasApp 运行态，重载会话为 null，#2623 教训）。\n\n验收：新建会话→蓝图→确认，无需点击自动落 /studio 工作台（AI 面板在）；重开该包会话也落工作台。杀死标准：建成后不再有任何停留在全屏聊天面的路径。"
+}

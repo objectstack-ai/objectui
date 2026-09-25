@@ -1,0 +1,33 @@
+{
+  "number": 5801,
+  "kind": "issue",
+  "title": "Studio 工作台增量三：发布状态单一真相 — B4 横幅/Studio 草稿徽标/聊天内联 Publish 同源 (cloud#1609)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-08-23T11:11:53Z",
+  "updated_at": "2026-08-23T14:46:09Z",
+  "closed_at": "2026-08-23T14:46:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5801",
+  "body": "cloud#1609 增量三。今天「有改动未发布」在三处各有一套呈现与数据口径：聊天的 B4 待发布横幅（cloud#1593 收官后已可靠）、Studio 的「未发布草稿」badge、建成卡/工具卡的内联 Publish（gates on packageId）。收敛为一个状态模型：同一 drafts 查询口径（`listDrafts({packageId})`，三层修复后 packageId 已可信）、同一「N 项改动未发布 · 发布」组件，在聊天与 Studio 顶栏复用；发布动作走同一 per-package publish。验收：在聊天里改→Studio 顶栏计数即亮；在 Studio 发布→聊天横幅即清；两处数字永远相等。依赖：无（数据层已就绪）；建议排在增量一之后做以复用其 aiSlot 内嵌布局。"
+}

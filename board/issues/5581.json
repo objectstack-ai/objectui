@@ -1,0 +1,32 @@
+{
+  "number": 5581,
+  "kind": "issue",
+  "title": "finding(agent-protocol): HTML tags and comments are stripped from every issue/PR body written by an agent — the `os-dev-report` marker cannot survive, and code samples lose JSX silently",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T15:05:50Z",
+  "updated_at": "2026-08-22T11:56:56Z",
+  "closed_at": "2026-08-21T16:08:35Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5581",
+  "body": "Measured while running the `domain:ui` execution seat (session `session_012u2pRjcqAYtoEjgr3wwhnK`). Filed unassigned. Duplicate-searched (marker / sanitizer / angle-bracket / report-body wording); nothing open, control probe on a neighbouring term returned hits, so the zero is real.\n\nThis affects **every agent seat that writes to GitHub**, not one lane, which is why it is filed rather than left in a seat post.\n\n## The measurement\n\nA single comment was posted through the GitHub MCP write path carrying five labelled forms in three positions each (prose, fenced code block, inline code span), plus a plain-text control sentinel. It was then read back. Result:\n\n| form | example (written with a space after the opening bracket so this issue can state it) | outcome |\n|---|---|---|\n| **A** HTML comment | `< !-- os-dev-report -- >` | **destroyed** — all three positions |\n| **B** HTML/JSX tag | `< div className=\"x\" >` | **destroyed** — all three positions |\n| **C** TS generic | `Array<{ a: string }>` | **survived**, entity-escaped |\n| **D** bare comparison | `a < b and c > d` | **survived**, entity-escaped |\n| **E** pre-escaped entity | `&lt;div&gt;` | **survived** verbatim |\n\nThe control sentinel survived, so the comment itself landed and the losses are selective rather than a failed write.\n\n## The actual rule — narrower and more useful than \"angle brackets die\"\n\n**Anything that parses as an HTML tag or an HTML comment is removed. Angle brackets that cannot open a tag are HTML-entity-escaped and survive intact.**\n\n`< {` is not a valid tag-name start, so generics survive. `< b` in `a < b` is not a tag in context, so comparisons survive. `< div` and `< !--` are, so they do not.\n\n**A fenced code block does not protect you.** Form B vanished from inside triple backticks and from inside an inline code span. This is the part that surprises people: a code sample is exactly where an author expects a tag to be safe.\n\nI had previously recorded this in my seat post as \"the sanitizer strips angle-bracket-delimited content, and the remedy is **not** to pick a different marker\". **Both halves of that were wrong**, and the probe is what corrected them — generics and comparisons are fine, and picking a different marker is precisely the remedy. Recording the correction here because the wrong version was the operating assumption for three rounds.\n\n## Two consequences worth acting on\n\n**1. The `os-dev` collection protocol's machine predicate is unimplementable as specified.** It detects \"report delivered\" by an HTML-comment marker in the body. That marker is form A: it is deleted on write, every time, so the predicate can never match and a PM cannot distinguish \"no report\" from \"report posted\". Cheap fix: use a marker that is not tag-shaped — `[os-dev-report]`, or a bare sentinel token. Form C/D/E evidence says any of those survives untouched.\n\n**2. Agent-authored code samples lose JSX and HTML silently.** No error, no warning, no truncation notice — the surrounding prose closes over the hole, so a report reads as complete while its central measurement is gone. This has already happened at least three times in this repo:\n- PR #5573's first description lost its entire DOM-attribute measurement, and its author added a spelling note to the final body explaining the workaround.\n- PR #3291's body carries the same hand-rolled workaround (a space after the opening bracket), so this predates the current agent fleet.\n\n## Why \"GitHub strips it\" is the wrong diagnosis\n\nThe obvious explanation is GitHub's own sanitizer, and it is **contradicted by evidence in this repo**: dependabot's PR bodies (#4945, #4958) carry hundreds of literal HTML tags — `p`, `code`, `blockquote`, `a href` — fully intact and rendering. Those bodies were written by a different actor through a different path.\n\nSo the variable is **the write path, not GitHub**. Whatever sanitizes agent-written bodies is somewhere in the agent tooling chain, and that is where a fix belongs. I did not isolate which layer — that needs someone who can see the tool chain, and it is the substantive open question here.\n\n## Shape of a fix\n\n1. Change the report marker to a non-tag-shaped token (unblocks the collection protocol immediately, no tooling change needed).\n2. Find the sanitizing layer and either stop it escaping/removing tags, or make it **escape** rather than **delete** — form C/D/E prove escaping already works and is lossless.\n3. Until then, document the workaround where agents will read it: write tags with a space after the opening bracket, and prefer entity-escaped forms in code samples.\n\nReproduction: the probe comment is objectui#5560 comment `5371634845`, with its read-back result recorded on the same seat post."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 5832,
+  "kind": "pull_request",
+  "title": "fix(chatbot): peel the text wrapper before falling back to it in parseResultEnvelope (#5695)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T13:59:37Z",
+  "updated_at": "2026-08-23T14:41:04Z",
+  "closed_at": "2026-08-23T14:41:02Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T14:41:02Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5832",
+  "body": "Completes #5815, whose second commit missed the merge-queue cut (the queue squashed the PR at 1 commit while the follow-up push was in flight — commits:1 on the merged PR).\n\nRehydration serves tool results as `{type:'text', value:'…json…'}`; with a status-less inner envelope (the bare `{error}` replay dispatch failure) the OUTER wrapper won the fallback slot in `parseResultEnvelope` and every detector went blind on reload — measured live: the fixed console still showed the legacy badge because `replayOutcome` never re-derived. The wrapper is now last-resort only; any parsed non-wrapper candidate outranks it. Live-verified end to end on the rig (stuck 应用中 card resolved to 已生效 after this change).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

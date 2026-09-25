@@ -1,0 +1,32 @@
+{
+  "number": 5811,
+  "kind": "pull_request",
+  "title": "test(app-shell): pin hollow view + personalization overlay hydration behaviour",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T12:14:52Z",
+  "updated_at": "2026-08-23T12:42:37Z",
+  "closed_at": "2026-08-23T12:42:36Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T12:42:36Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5811",
+  "body": "Fixes #5773\n\n## What this is\n\nStep 1 + 2 of the triage-queued card: **measure reachability, then pin the intended behaviour** for the coupling recorded in `narrowPersonalizationOverlay`'s docblock (`packages/data-objectstack/src/index.ts`) while shipping #5233's write half (#5772):\n\n> those two [`listViewOverrides` / `getView`] answer with the stored DOCUMENT … and `InterfaceListPage` hydrates a hollow view out of that document.\n\n`InterfaceListPage`'s hollow-view hydration effect (`packages/app-shell/src/views/InterfaceListPage.tsx:288-315`, re-anchored on this branch's own base — line numbers match the card) fetches a view's per-view overlay row through `listViewOverrides`/`getView` whenever the ADR-0017 expansion serves a source view with no `columns`. Before #5233, a system view's overlay row carried a frozen COPY of the source view's columns at write time, so the merge `{ ...resolvedView, ...hydratedView }` rendered STALE columns. After #5233 the same write site stores the patch alone — no `columns` key — so the merge contributes nothing towards `hasColumns`, and the page's own `defaultColumnsFromObject` fires instead.\n\n**No production code changed.** `InterfaceListPage.tsx`'s hydration effect already behaves this way today — the card's own framing is that this was *untested*, not unreachable, and the maintainer-endorsed disposition (an overlay was never a legitimate source of a view body) is already what the current code does. This PR adds the pin that was missing.\n\n## Reachability — constructed, not reasoned about\n\nNew file: `packages/app-shell/src/views/InterfaceListPage.hollowOverlayHydration.test.tsx`. Two cases, driven through the REAL `ObjectStackAdapter` write (`updateViewConfig` / `buildPersistedViewBody`, the same seam `ObjectView.overlayPatchOnly.test.ts` uses) and the REAL `InterfaceListPage` render — not a hand-written override fixture:\n\n1. **REACHABLE**: a hollow ADR-0017 expansion item (system view, `columns: []`) plus the CURRENT (post-#5233) thin overlay row a toolbar toggle writes today ⇒ the page renders `defaultColumnsFromObject`'s defaults (`[\"name\",\"status\"]`).\n2. **CONTROL**: the same hollow view with a PRE-#5233 fat overlay row (the shape an install that hasn't touched this view since before the fix is still carrying, per `overlayPatchOnly.test.ts`'s own \"PRE-FIX\" framing) ⇒ the page renders the frozen stale columns (`[\"status\"]`) instead.\n\nThe two cases disagree on purpose — that disagreement is what proves case 1 is measuring the hydration effect rather than passing vacuously.\n\n**Confirmed load-bearing by reverse verification**: committed the new test, then short-circuited the hydration effect's guard to always bail out early, confirmed the mutation landed on disk (grep), reran — the CONTROL case flipped from the frozen `[\"status\"]` to the un-hydrated defaults `[\"name\",\"status\"]`, so the assertion genuinely depends on the fetch + merge running. Restored the source file from the branch's own commit afterwards and confirmed a clean `git diff` before reporting.\n\n## Scope discipline\n\nPer the card's explicit fence: did **not** widen `narrowPersonalizationOverlay`'s read-side narrowing into `listViewOverrides`/`getView` — the docblock says that exclusion is deliberate, and this PR only pins the current (already-shipped) hollow+overlay outcome.\n\n## Tests\n\n```\npnpm exec vitest run packages/app-shell/src/views/InterfaceListPage.hollowOverlayHydration.test.tsx \\\n  packages/app-shell/src/views/InterfaceListPage.defaults.test.tsx \\\n  packages/app-shell/src/views/ObjectView.overlayPatchOnly.test.ts --maxWorkers=2\n# Test Files  3 passed (3) / Tests  32 passed (32)\n```\n\nDependency closure build (`pnpm --workspace-concurrency=2 --filter '@object-ui/app-shell^...' build`) green before running. `eslint` on the new file: 0 errors (12 pre-existing-style `no-explicit-any` warnings, matching the sibling `overlayPatchOnly.test.ts` file's convention). `node scripts/check-changeset-presence.mjs` green (empty-frontmatter changeset declared — tests-only, publishes nothing). No control bytes in the diff.\n\nHead at the time of this report: `61d9b6a37`.\n\n## Not done in this PR\n\nA full `packages/app-shell/` suite run (543 files) was started to check for collateral regressions and stopped early (`git status`/diff confirm nothing else changed) — the change is purely additive (one new test file, zero edits to production or existing test files) and Vitest isolates `vi.mock` per file, so the collateral-regression risk from an additive-only file is structurally near zero; the targeted three-file run above (32/32 passing, including the sibling suites the same hydration/overlay machinery touches) is the evidence this PR relies on instead.\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01EuPCi56cnGyykygi3z9w4m)_\n"
+}

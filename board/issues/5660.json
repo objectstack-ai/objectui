@@ -1,0 +1,36 @@
+{
+  "number": 5660,
+  "kind": "issue",
+  "title": "Pre-boot branding script reads window.__CONSOLE_SERVER_URL (set nowhere); modules read VITE_SERVER_URL — dev setups fetch runtime/config against the wrong origin",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T02:03:27Z",
+  "updated_at": "2026-08-23T02:28:50Z",
+  "closed_at": "2026-08-23T02:28:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5660",
+  "body": "Filed by the PM on behalf of the #5544 dev agent, whose search-before-file step was blocked by a GitHub API rate limit. Found during PR #5658.\n\nThe pre-boot branding script inlined at `apps/console/index.html:49` reads `window.__CONSOLE_SERVER_URL` — **which is set nowhere in this repository** — while every module-side consumer reads `import.meta.env.VITE_SERVER_URL` (`apps/console/src/main.tsx:65`).\n\nConsequence: a dev setup that points the console at a separate server via `VITE_SERVER_URL` has the two code paths targeting **different origins** — the inline script fetches `/api/v1/runtime/config` against the Vite dev origin, 404s, and early branding silently never applies. Pre-existing, dev-only: both resolve to `''` in production builds (same-origin), which is why PR #5658's dedup works there.\n\nNot graded — severity is a triage call. The narrow fix is to inject the same value the modules read (or drop the inline fetch now that PR #5658 shares the in-flight promise between the two callers, which may make the inline script's fetch redundant entirely — worth checking before patching the variable).\n"
+}

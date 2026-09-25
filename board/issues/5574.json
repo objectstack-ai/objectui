@@ -1,0 +1,35 @@
+{
+  "number": 5574,
+  "kind": "issue",
+  "title": "finding: the DOM-leak sweep never reaches `packages/components/src/renderers/**` — four layout/basic renderers still carry the unfixed spread",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-21T14:23:20Z",
+  "updated_at": "2026-08-23T14:47:13Z",
+  "closed_at": "2026-08-23T14:47:13Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5574",
+  "body": "Observation-class finding, recorded while implementing #4787 (PR #5573). Not fixed there — that card's file surface was `grid.tsx` alone, and `packages/components` is a large shared package.\n\n## The gap\n\n`packages/app-shell/src/__tests__/widget-dom-leak-sweep.test.tsx` is the measurement gate for the #3291 / #4425 whitelist migration. Its target list is **four plugin packages** (`plugin-charts`, `plugin-calendar`, `plugin-chatbot`, `plugin-dashboard`). It does not sweep the `packages/components` renderers at all.\n\nThat is why `ui:grid` leaked unobserved: #4008's ratchet pins only `className`, and nothing else looked at the rendered attributes of a `packages/components` renderer. The leak was found by hand during #4011 / PR #4785, not by a gate.\n\n## The renderers still carrying it\n\nThe same bare-spread shape `grid.tsx` had — destructure `data-obj-id` / `data-obj-type` / `style`, spread the rest onto a host element — is present in at least these, all on `origin/main` at `ac73c24b0`:\n\n- `packages/components/src/renderers/layout/flex.tsx` (`flex.tsx:63-76`)\n- `packages/components/src/renderers/layout/stack.tsx` (`stack.tsx:65-77`)\n- `packages/components/src/renderers/layout/container.tsx` (`container.tsx:78-90`)\n- `packages/components/src/renderers/basic/text.tsx` (`text.tsx:18-22`)\n\n**Listed as candidates to measure, not asserted as defects** — the shape is the same, but whether a given node's keys actually reach an element was verified only for `grid`. That verification is cheap and is exactly what the sweep does.\n\nFor reference, the measured `grid` reading before PR #5573, on a canary node — eight illegitimate attributes. (Tags are written with a space after `<` and before `>`, the same workaround #3291's body uses: GitHub's body sanitizer eats angle-bracket-delimited runs even inside fenced code blocks, and it emptied this block on the first revision of this issue.)\n\n```\n< div class=\"grid grid-cols-4 sm:grid-cols-2 md:grid-cols-2 gap-4 authored-class\"\n      columns=\"4\" gap=\"4\" mdcolumns=\"2\" smcolumns=\"2\" id=\"grid-node\" name=\"grid_node\"\n      props=\"[object Object]\" zzcanary=\"leak\" data-testid=\"g\" aria-label=\"A grid\"\n      role=\"region\" colorvariant=\"x\" data-obj-id=\"grid-node\" data-obj-type=\"grid\" >\n```\n\n## Why this is the pin worth having, rather than a warning-as-error pin\n\n#4787 also asked whether React's unknown-attribute warning should be pinned as an error so the class stays closed. PR #5573 answers that in full; the short version is **no**, because such a pin is blind to most of the defect:\n\n1. React does not warn for unknown **all-lowercase** attributes at all — it passes them through by design and stringifies object values. `columns`, `gap`, `name`, `props` produce zero output. Measured: 8 leaked attributes, 3 `console.error` calls.\n2. The warning that does fire is the camelCase one, and React's own suggested remedy (\"spell it lowercase\") *silences the warning while keeping the leak*.\n3. Vitest 4's reporter defaults to `silent: 'passed-only'`, so console output from a **passing** test is discarded — the warning can only be seen in a run that is already red for another reason.\n4. React latches the warning per prop name per module instance, so it fires only on the first render carrying a key. This produced a real phantom check in PR #5573: a `console.error` case written against a shared canary passed against code leaking ten attributes, because earlier cases consumed the latch.\n\nThe technique that actually closes the class reads the **DOM**, not the console — which is what the sweep already does, and it catches lowercase and camelCase alike.\n\n## Suggested shape\n\nExtend the existing sweep's target list to the registry-reachable renderers in `packages/components`, deleting rows from its ledger as each renderer converges on `toDomProps` — the same per-package migration pattern #4425 phase 2 already runs. The dependency-direction argument in that file's docblock still holds (`app-shell` may import `components`).\n\nSizing note: `packages/components` registers far more renderers than the four plugin packages did, so the first run should be expected to record a ledger, not to come back clean.\n\n## References\n\n- #4787 / PR #5573 — the `grid` fix and the full React-warning answer\n- #4425 — the tracking card for the whitelist migration (this is filed as its sub-issue)\n- #3291 / PR #3313 — where the whitelist discipline was established\n- `packages/core/src/utils/dom-props.ts` — the shared executor\n- `packages/app-shell/src/__tests__/widget-dom-leak-sweep.test.tsx` — the gate to extend\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_012u2pRjcqAYtoEjgr3wwhnK)_\n"
+}

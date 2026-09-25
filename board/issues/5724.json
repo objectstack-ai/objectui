@@ -1,0 +1,32 @@
+{
+  "number": 5724,
+  "kind": "pull_request",
+  "title": "fix(auth): AuthGuard requiredRoles reads positions; retire the roles mirror key",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T00:55:41Z",
+  "updated_at": "2026-08-23T01:07:06Z",
+  "closed_at": "2026-08-23T01:07:05Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T01:07:05Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5724",
+  "body": "Fixes #5424\n\nThe residual of the card after PR #5555 landed sites 2/3/4, implementing the maintainer's 2026-08-22 ruling (同意 / Option A): the gates read `positions`.\n\n## What changed\n\n- **`packages/auth/src/AuthGuard.tsx`** — `requiredRoles` now matches against `user.positions` (framework ADR-0090 D3's one published spelling), keeping the `user.role` scalar fallback **only when the session carries no `positions` key at all** (guest / legacy identities). A present `positions` array is authoritative, empty included — falling back to the scalar on a present-but-empty array would re-open the over-admission this card closes. The retired `roles` spelling is not read.\n- **`packages/auth/src/AuthProvider.tsx`** — preview mode emits `positions: [role]` instead of `roles: [role]`. It was the **last producer** of the retired key; a preview identity is now shaped like a protocol-17 session for every `positions` consumer (this gate, the approver-identity derivations, workspace-admin leg 3). Measured before changing it: with the new gate and the old producer, preview users still passed every gate via the scalar fallback — so this half is producer retirement and shape consistency, not what keeps demos alive. The guest identity (`enabled={false}`) is untouched: it never produced `roles` and the scalar fallback covers it, behavior-identical.\n- **`packages/auth/src/types.ts`** — the hand-copied `roles?: string[]` mirror key retires now that its last reader is gone. Verified the promised compile-time death: a temporary `user?.roles?.includes('admin')` probe fails `@object-ui/auth` type-check with `src/AuthGuard.tsx(55,21): error TS2339: Property 'includes' does not exist on type '{}'` — the same signature the card measured when the removal was attempted while site 1 still read the key.\n\nExplicitly NOT done, per the ruling: no compatibility shadow key re-emitting `roles`; `packages/permissions`' separate `roles` surface untouched.\n\n## Both directions pinned (`authGuardPositions-5424.test.tsx`)\n\nThis is an access-control gate, so the pins cover refusals as much as admissions:\n\n| pin | direction it catches |\n|---|---|\n| position-holder admitted at their own gate | the under-admission defect (red before fix) |\n| coarse scalar refused when `positions` is present | the over-admission defect (red before fix) |\n| neither position nor scalar → still refused | a fix that widens admission |\n| present-but-empty `positions` → refused | scalar re-opening over-admission |\n| no `positions` key → scalar still admits | the ruling's kept fallback |\n| retired `roles` spelling → refused | ADR-0090 D3 dialect resurrection (also pinned in `AuthProvider.test.tsx`) |\n| preview admin admitted / preview viewer refused | preview continuity — nobody new passes |\n| preview identity has `positions: [role]`, `hasOwnProperty('roles')` false | the producer retirement |\n\nFixture triage: `AuthProvider.test.tsx`'s \"one of the required roles\" fixture spelled the array `roles` — it stayed green precisely because of the alias branch this PR deletes. Converted to `positions` and given a companion negative pinning the retired spelling refused.\n\n## Verification (all at `cc6e27d7a`, the head of this PR)\n\n- `pnpm exec vitest run packages/auth/` — **20 files, 209 tests passed** (verify-lock verdict: command-exit 0).\n- Reverse verification A (committed fix, `AuthGuard.tsx` reverted to `origin/main`, mutation confirmed on disk by grep): **exactly the 4 direction pins fail** (`4 failed | 5 passed`), the widening guard, scalar fallback and preview cases stay green; restored, tree clean.\n- Reverse verification B (`AuthProvider.tsx` reverted alone): **only the producer-retirement pin fails** (`1 failed | 8 passed`) — the two preview gate cases staying green is the direct measurement that the scalar fallback alone covers preview at this gate.\n- `turbo run type-check --filter=...@object-ui/auth` (auth **and its dependents** — downstream consumer direction): **40/40 tasks successful** (verify-lock verdict: command-exit 0).\n- `turbo run lint --filter=@object-ui/auth` (plus root lint): **0 errors** (29 pre-existing warnings, none in this diff; the 4 warnings on touched files pre-date it). Narrowed deliberately: `eslint.config.js` has no type-aware linting (`projectService`/`parserOptions.project` absent) and no custom rule reads other files, so this diff cannot move an untouched package's verdict; CI runs the full farm regardless.\n- `check:control-bytes` ✅ (4778 files) · `check:phantom-deps` ✅ · `check:esm-specifiers` ✅ · `changeset:check` ✅ (no `major`) · `check-changeset-presence` ✅ (`.changeset/authguard-positions-5424.md`, `minor`).\n\nBreaking only for TypeScript consumers that compiled against `AuthUser['roles']` — no protocol-17 payload ever carried the key at runtime. Declared in the changeset body; `minor` per this repo's version-alignment policy.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01EuPCi56cnGyykygi3z9w4m)_"
+}

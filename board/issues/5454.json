@@ -1,0 +1,34 @@
+{
+  "number": 5454,
+  "kind": "issue",
+  "title": "Component-level `visibleWhen` binds no `record` on record pages — every `record.*` predicate fails soft to permanently visible, on every block",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "qq9340100"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-20T22:46:39Z",
+  "updated_at": "2026-08-22T12:05:23Z",
+  "closed_at": "2026-08-21T08:10:05Z",
+  "closed_by": {
+    "login": "qq9340100",
+    "id": 313832657,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5454",
+  "body": "Filed unassigned by the dev agent working #5401 (session `session_01RV6yuVCxymHYE16PL9vQkE`), as the census that card asked for as its first deliverable. Priority and lane routing belong to this repo's PM seat — filing with the measurements, not a grade.\n\n**Related: #5401** — that card's re-ruling depends on this one. It is not a duplicate: #5401 is scoped to `record:alert`; this is the platform-wide hole the census turned up underneath it.\n\n## The defect\n\n`@objectstack/spec` documents the component node's `visibleWhen` as *\"Visibility predicate (CEL) — component rendered only when TRUE. Binds `record`, `current_user`, `page.*`\"* (`packages/spec/src/ui/page.zod.ts:189`).\n\n**`record` is bound nowhere on that path.** `SchemaRenderer` builds the evaluator that decides `visibleWhen` from exactly three sources (`packages/react/src/SchemaRenderer.tsx:371-380`, `:419-424`):\n\n- the ambient predicate scope from app-shell's `ExpressionProvider` — `current_user`, `user`, `ctx.user`, `os.user`, `app`, `data`, `features`;\n- `data: dataSource`, which is the data-source **connector adapter** from `SchemaRendererContext`, not the row;\n- `page: pageVariables`.\n\n`ExpressionProvider` is mounted with `data={{}}` at both of its call sites (`console/AppContent.tsx:877`, `views/RecordFormPage.tsx:270`), and `RecordDetailView` renders the page through `SchemaRenderer` with no `data` prop, so the region components get `NO_DATA_SOURCE`. The record lives in `RecordContext`, which this evaluator never reads.\n\nBecause the surface is fail-soft, an unresolvable predicate resolves to **shown**. So a `record.*` gate does not merely misfire — it renders the component unconditionally, which is a visibility gate that silently does not gate.\n\n## Measured, not reasoned\n\nThrough the shipped pipeline (`PredicateScopeProvider` carrying the scope `ExpressionProvider` really mounts, plus `RecordContextProvider`), on `objectui` `c40f3b8ca`. Harness committed at `packages/plugin-detail/src/renderers/__tests__/record-alert.visibleWhen.evidence.test.tsx` on branch `claude/issue-5401-record-alert-visiblewhen` (no PR — see #5401):\n\n| node-level `visibleWhen` | record | `record:alert` | `record:path` |\n|---|---|---|---|\n| `false` (constant) | any | HIDDEN | HIDDEN |\n| `current_user.email_verified == false` | any | HIDDEN | — |\n| `current_user.email_verified == true` | any | SHOWN | — |\n| `record.status == 'in_review'` | `status: 'done'` | **SHOWN** | — |\n| `record.status == 'in_review'` | `status: 'in_review'` | **SHOWN** | — |\n| `record.status == 'done'` | `status: 'done'` | — | **SHOWN** |\n| `record.status == 'zzz'` | `status: 'done'` | — | **SHOWN** |\n| absent | any | SHOWN | SHOWN |\n\nEvery bold row is the defect: the two polarities of the same predicate produce the same verdict, so the gate is inert.\n\n**Counter-probes for each zero.** The constant-`false` and `current_user` rows are the paired controls — the same blocks CAN be hidden through this channel, so \"SHOWN\" above is a verdict rather than an inability to render or an inability to hide. The `absent` row pairs against every HIDDEN cell, so \"hidden\" is not \"never rendered\".\n\n## Why it is easy to miss\n\nConstants and `current_user` predicates work, and those are what a smoke test reaches for. `#5401`'s browser run used `visibleWhen: {cel, 'false'}` and concluded the mechanism was alive and honoured generally — true for that predicate, and only that class of predicate.\n\nThe one component that gets `record` right does it in its **props**, not on the node: `record:alert` evaluates `properties.visible` through `toPredicateInput` + `useCondition`, which merges `usePredicateRecordContext(record)` over the ambient scope. Measured, that gate keeps its verdict on both polarities. `@objectstack/spec` already knows this — `RecordAlertProps` declares `visible` and aliases `visibleWhen` onto it, and `component.zod.ts` carves this component out of the \"move visibility up to the node\" guidance for exactly this reason.\n\n## Second, smaller defect on the same chain — precedence\n\n`SchemaRenderer` hoists `properties.*` onto the node, then tests `visible` **before** `visibleWhen` (`SchemaRenderer.tsx:511` vs `:519`). A node declaring both therefore has its `visibleWhen` silently ignored. Measured identically on `record:alert`, `record:path`, `page:card` and `element:text`, so it is generic to the chain. This is the mechanism behind the browser symptom #5401 reported.\n\n## Not proposing a fix here\n\nWhich way this should go is a real decision, not a mechanical repair — binding `record` into the node evaluator would give `visibleWhen` a scope it has never had and would change the verdict of any shipped `record.*` node predicate from \"shown\" to whatever it actually evaluates to. That wants a ruling, and it is entangled with #5401's. Reporting the census; leaving the call to the maintainer.\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 5661,
+  "kind": "issue",
+  "title": "`kind:'html'` page source loses the space between a text run and an adjacent inline element — `A <strong>x</strong> page` renders as `Axpage`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T02:07:06Z",
+  "updated_at": "2026-08-22T22:45:32Z",
+  "closed_at": "2026-08-22T22:45:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5661",
+  "body": "Found while implementing #5470 (rewriting `apps/console/src/sdui-tiers-preview.tsx`'s\npage sources off Tailwind). Filing rather than fixing — outside that card's declared file\nsurface, and it is in `packages/sdui-parser`, not the console.\n\n## What happens\n\n`packages/sdui-parser/src/parse.ts:177`, inside the children loop:\n\n```ts\nconst text = this.readTextRun();\nconst trimmed = text.replace(/\\s+/g, ' ').trim();\nif (trimmed) children.push(trimmed);\n```\n\nThe collapse (`\\s+` → one space) is correct and matches HTML's own whitespace model.\nThe **`.trim()`** is not: it deletes the leading and trailing space of *every* text run,\nincluding the space that separates that run from an adjacent inline element. HTML\ncollapses a whitespace run to one space; it does not remove it.\n\n## Measured\n\nRendered through the real `PageRenderer` in Chromium against\n`apps/console/sdui-tiers-preview.html` (vite dev), reading `textContent`:\n\n| source | rendered |\n|---|---|\n| `A <strong …>kind:'html'</strong> page — …` | `Akind:'html'page — …` |\n| `Full HTML tag set in the <em …>html</em> tier.` | `Full HTML tag set in thehtmltier.` |\n| `A trusted <a …>react tier</a> behind a flag.` | `A trustedreact tierbehind a flag.` |\n\nPresent **before and after** #5470's change, byte-for-byte identical output — measured by\nchecking out `apps/console/src/sdui-tiers-preview.tsx` at `7e811687a` (26 `className`s in\nits page sources, i.e. the pre-change file) and re-rendering the same page:\n\n```\nNEW  \"intro\": \"Akind:'html'page — native HTML tags and the blocks' structured props, …\"\nBASE \"intro\": \"Akind:'html'page — plain native HTML tags, Tailwind classes, …\"\n```\n\nSo this is not a regression from that card — it is the tier's own behaviour, and it has\nbeen visible in the repo's own worked example for as long as the example has existed.\n\n## Why it matters beyond the preview\n\n`kind:'html'` is the tier the guide tells authors and AI agents to reach for **by default**\n(`content/docs/guide/react-pages.md` §Choosing between them), and the tag set it advertises\nis exactly the prose set — `strong`, `em`, `a`, `code`, `b`, `i`, `abbr`, `q`, `cite`\n(`packages/components/src/renderers/basic/html-elements.tsx`). Any authored sentence with\nemphasis or a link inside it renders with the words run together. It is silent: the page\nrenders, the structure is right, nothing reports anything.\n\n## What needs deciding\n\nThe fix is small but the exact rule is worth stating rather than guessing, because it is a\nsave-time parse that pins metadata:\n\n- **(a)** Replace `.trim()` with HTML's rule — collapse the run to a single space, and drop\n  a run only when it is *entirely* whitespace **and** sits between block-level boundaries.\n  Highest fidelity; needs a decision about what counts as a boundary in a schema tree that\n  has no block/inline distinction of its own.\n- **(b)** Narrower: keep one leading/trailing space whenever the run is adjacent to a\n  sibling element (rather than to the start/end of the parent). Mechanical, no boundary\n  taxonomy, slightly over-generous inside block containers like `<ul>`.\n\nEither way this changes parser output for existing sources, so it wants a pin in\n`packages/sdui-parser/src/__tests__` and a look at whether any snapshot depends on the\ncurrent trimming."
+}

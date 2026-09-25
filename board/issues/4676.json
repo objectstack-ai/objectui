@@ -1,0 +1,33 @@
+{
+  "number": 4676,
+  "kind": "issue",
+  "title": "Both field designers author `placeholder`, a key FieldSchema rejects by name — but the designer's own preview renders it, so this is a contract question not a deletion",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-15T07:38:23Z",
+  "updated_at": "2026-08-23T05:28:44Z",
+  "closed_at": "2026-08-23T05:28:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4676",
+  "body": "Found while implementing #4644 (retire the `Indexed` toggle); filed unassigned rather than folded into that PR, because the correct form is **not** mechanically pinned the way `indexed`'s was. Backlink: PR #4675.\n\n## Measured\n\nAgainst the `@objectstack/spec` 17.0.0-rc.6 installed in this repo, probing `FieldSchema.safeParse({ name:'foo', label:'Foo', type:'text',  })`:\n\n| key | verdict |\n| --- | --- |\n| _(control, no extra key)_ | success |\n| `indexed` | `unrecognized_keys` — handled by #4644 |\n| **`placeholder`** | **`unrecognized_keys`** |\n| `externalId` | success |\n| `trackHistory` | success |\n| `hidden`, `readonly`, `unique` | success |\n\nThe `placeholder` rejection carries its own prescription:\n\n```\nUnrecognized key(s) on this field: `placeholder`.\n  • never a FieldSchema key. Author hint text through `inlineHelpText` or\n    `description`. Until #4001 closed this shape these were dropped silently —\n    the field was still created, minus whatever the key was meant to\n    constrain, protect or compute.\n```\n\nSo the same 422 (`INVALID_METADATA`) that #4644 documents for `indexed` is reachable by typing into the **Placeholder** box, on the same `PUT /api/v1/meta/object/:name` route.\n\n## Where it is authored\n\nBoth field designers, plus the surrounding write paths:\n\n- `packages/app-shell/src/views/metadata-admin/inspectors/ObjectFieldInspector.tsx` — the `designer.field.placeholder` text field in the ADVANCED section, `patchDef({ placeholder: … })`\n- `packages/plugin-designer/src/FieldDesigner.tsx` — the `placeholder` entry in the type-specific section\n- `packages/plugin-designer/src/MetadataFieldsPage.tsx` — `toDesignerField` / `fromDesignerField`\n- `packages/app-shell/src/services/MetadataService.ts` — `FieldMetadataPayload.placeholder`, `toFieldPayload`\n- `packages/app-shell/src/utils/metadataConverters.ts` — `MetadataField.placeholder`, `toFieldDefinition`\n- `packages/types/src/designer.ts` — `DesignerFieldDefinition.placeholder`\n- label keys: `designer.field.placeholder`, `appDesigner.fieldDesigner.placeholder`, and `placeholder` in all ten locale packs\n\n## Why this is NOT the #4644 treatment\n\n`indexed` was inert everywhere in this repo — nothing read it, so retiring the control cost no capability. `placeholder` is different: it is genuinely **consumed by the designer's own form preview**.\n\n`packages/app-shell/src/views/metadata-admin/previews/object-fields-bridge.ts` maps it in and back out:\n\n```ts\n// buildFieldsBridge\nplaceholder: typeof def?.placeholder === 'string' ? def.placeholder : undefined,\n// serializeDesignerField\nif (f.placeholder) out.placeholder = f.placeholder;\n```\n\nso an author who types a placeholder **sees it render** in the preview, and only discovers on save that it cannot be persisted. Deleting the control therefore removes a visibly-working affordance, which is a product decision rather than a contract clean-up.\n\n## The options (not decided here)\n\n- **A. Retire the control**, matching #4644 / the #4001 / #2377 doctrine — a designer must not offer a key the contract refuses. The spec's own message names the replacements, and `ObjectFieldInspector` already renders `inlineHelpText` right there, so authors are not left without a hint-text surface. Cost: the preview loses per-field placeholder rendering.\n- **B. Re-route the control to write `inlineHelpText`.** Keeps the affordance, but it would collide with the existing `inlineHelpText` control (two boxes writing one key), and `inlineHelpText` is help text, not in-input placeholder text — different rendering semantics.\n- **C. Add `placeholder` to `FieldSchema` in `objectstack`.** Only correct if there is measured pull for field-level placeholder as real, applied behaviour; otherwise it grows the declared surface ahead of any consumer, which the #7176 doctrine refuses from the producer side.\n\nDeciding needs a measurement this card does not have: whether anything **outside the designer preview** applies a field-level `placeholder` at render time (the form/field renderers in `packages/fields`, `packages/plugin-form`), and whether any example app or real deployment authors one.\n\nWhatever is chosen, the stale-draft half of #4644 applies identically: objects already carrying `placeholder` keep failing every save until the key is stripped on load.\n\nRefs: #4644 (sibling retirement, same ADVANCED section), PR #4675 (where this was measured), objectstack#4001 (silent drop → loud rejection), objectstack#2377.\n\n---\n\n**2026-08-16 ruling: Option C** (see ruling comment) — the producer moves; implementation filed at destination.\n\nBlocked-by: objectstack-ai/objectstack#9019\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RnQd8iMMUwXQEV1crFmQiQ)_"
+}

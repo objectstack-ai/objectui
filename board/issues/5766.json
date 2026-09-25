@@ -1,0 +1,36 @@
+{
+  "number": 5766,
+  "kind": "issue",
+  "title": "Console and console-starter READMEs state VITE_SERVER_URL dev defaults that no longer exist, and claim a /_account/* dev proxy that never existed",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T05:34:31Z",
+  "updated_at": "2026-08-23T11:58:41Z",
+  "closed_at": "2026-08-23T11:58:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5766",
+  "body": "Filed unassigned by the developer agent on #5745 (PR #5765), as an out-of-scope finding. Two of the three items are drift **created by** that PR and were left unfixed only because the READMEs sit outside its write fence; the third is pre-existing.\n\n## 1 & 2 — stale env values (created by PR #5765)\n\nPR #5765 empties `VITE_SERVER_URL` in both dev env files, per the 2026-08-23 ruling on #5702. Two docs still tabulate the old values:\n\n- `examples/console-starter/README.md`, the \"Backend\" table:\n\n  | File | Value |\n  | --- | --- |\n  | `.env.development` | `http://localhost:3000` |\n  | `.env.production` | `https://demo.objectstack.ai` |\n\n  Both cells are now wrong — both files are empty (same-origin) after that PR.\n\n- `apps/console/README.md:36` — \"Point it at any running ObjectStack instance via `VITE_SERVER_URL` in `apps/console/.env.development` (defaults to `http://localhost:3000`)\" — and `:53`, \"Talks to the ObjectStack backend defined by `VITE_SERVER_URL` (default `http://localhost:3000`)\".\n\nThe replacement guidance in both cases is the same: leave `VITE_SERVER_URL` empty and point the dev stack elsewhere with `DEV_PROXY_TARGET`, e.g. `DEV_PROXY_TARGET=https://demo.objectstack.ai pnpm dev`, which keeps one origin. Both edited `.env` files carry that recipe in their comments already.\n\n## 3 — a dev proxy claim that was never true (pre-existing)\n\n`apps/console/README.md:54` states:\n\n> Vite proxies `/api/*` and `/_account/*` to that backend.\n\n`apps/console/vite.config.ts:709-711` proxies **only** `/api`:\n\n```\nproxy: {\n  '/api': { target: process.env.DEV_PROXY_TARGET || 'http://localhost:3000', changeOrigin: true },\n},\n```\n\nThis predates PR #5765 and is independent of it. It is worth more than a typo fix, because `/_account/` is one of exactly two path families outside `/api` that the code builds off the server origin — `packages/core/src/actions/ActionRunner.ts:1343` promotes `/api/`, `/_auth/` and `/_account/` to `apiBase` before a full-page `window.location.href`. So the README describes coverage that the config does not provide for a path family that really is reachable in principle.\n\nReachability measured on `origin/main` at `9850c6e4e`: a repo-wide scan for `/_auth/` and `/_account/` returns 7 hits, all of them CHANGELOG entries, one ActionRunner test, and doc prose — **no first-party producer of such an action target exists today**. `/_account/*` is additionally a sibling SPA mount (`apps/console/src/utils/consoleBase.ts:37`) that `apps/console/src/App.tsx:7` records as being retired into the console SPA itself.\n\nSo there are two coherent resolutions and this card should pick one rather than assume:\n\n- **Fix the doc** — say `/api/*` only, and note that `/_auth/` and `/_account/` are not proxied. Cheapest, and matches the retirement direction.\n- **Fix the config** — widen the proxy to `/api`, `/_auth`, `/_account` in `apps/console/vite.config.ts` (and correspondingly in `examples/console-starter/vite.config.ts`, which PR #5765 gives a `/api` stanza). Makes the README true and closes the gap before the `sameOriginOnly` default lands.\n\nPR #5765 deliberately did neither: its fence makes `apps/console/vite.config.ts` read-only, and the `/api` proxy already covers every `fetch` site it enumerated, so widening was not needed to make that card correct.\n\n## Refs\n\n- #5745 / PR #5765 — the config repair that makes items 1 and 2 stale\n- #5702 — the `sameOriginOnly` action-runtime default this sequence serves"
+}

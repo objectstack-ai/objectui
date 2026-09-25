@@ -1,0 +1,35 @@
+{
+  "number": 5647,
+  "kind": "issue",
+  "title": "finding: `ThemeSwitcherSchema` / `ThemePreviewSchema` are the same dead component kind #5489 retires — `theme-switcher` and `theme-preview` are registered by nothing either",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T00:05:51Z",
+  "updated_at": "2026-08-23T13:41:43Z",
+  "closed_at": "2026-08-23T13:41:43Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5647",
+  "body": "Found while executing #5489 (retire `ThemeComponentSchema`, `type: 'theme'`). Filed unassigned, out of that card's scope — the 2026-08-21 maintainer ruling named the `themes` carrier and its schema, not these two siblings, so widening #5489 to cover them would have been an undeclared scope expansion.\n\n## Measurement\n\nThe same sweep that proved `'theme'` unregistered proves the same for both siblings. Enumerating every registered component key in non-`dist` package sources:\n\n```\ngrep -rhoE \"ComponentRegistry\\.(register|registerLazy)\\(\\s*'[a-z0-9-]+'\" \\\n  --include='*.ts' --include='*.tsx' packages/*/src | sed -E \"s/.*'([a-z0-9-]+)'/\\1/\" | sort -u\n```\n\n- `theme-switcher` → 0 hits · `theme-preview` → 0 hits\n- positive control on the same pipeline: `tooltip` → 1 hit (so the command can match)\n- neither appears in `PROTOCOL_COMPONENTS` / `PALETTE_PLACEHOLDER_BLOCKS` (`packages/components/src/renderers/placeholders.tsx`), so not even a placeholder renders them\n- no fixture anywhere declares them: `grep -rn '\"type\": *\"theme-switcher\"'` and the `-preview` twin → 0, control `\"type\": \"form\"` → 98\n\nSo a page declaring either gets the registry's \"Unknown component type\" panel (OBJUI-001), never a switcher or a preview — the identical declared-but-unenforced shape #5489 measured for `'theme'`.\n\n## Declaration sites\n\n- `packages/types/src/theme.ts` — `ThemeSwitcherSchema`, `ThemePreviewSchema` (TS interfaces)\n- `packages/types/src/zod/theme.zod.ts` — the two Zod objects, both members of `ThemeUnionSchema`, plus `ThemeSwitcherSchemaType` / `ThemePreviewSchemaType`\n- exported from `packages/types/src/index.ts` and `packages/types/src/zod/index.zod.ts`\n- `packages/types/src/__tests__/phase2-schemas.test.ts` asserts `ThemeSwitcherSchema.safeParse` succeeds — a test that pins the *declaration*, not any behaviour\n\nAfter #5489 lands, `ThemeUnionSchema` consists of exactly these two unimplemented kinds, so the union itself becomes a candidate for removal if they go.\n\n## Not a decision this card can take\n\nRetiring them removes declared types from the published `@object-ui/types`, and — unlike #5489 — no maintainer ruling covers them. Needs triage: either a ruling extending 2026-08-21's option B to the two siblings, or a decision to implement renderers."
+}

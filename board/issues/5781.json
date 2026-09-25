@@ -1,0 +1,33 @@
+{
+  "number": 5781,
+  "kind": "pull_request",
+  "title": "finding(timeline): dedup ObjectTimeline's useSafeObjectLabel onto the shared useSafeFieldLabel",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T08:17:38Z",
+  "updated_at": "2026-08-23T08:35:46Z",
+  "closed_at": "2026-08-23T08:35:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T08:35:45Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5781",
+  "body": "Fixes #5623\n\n## What\n\n`ObjectTimeline.tsx` hand-rolled its own `useSafeObjectLabel` wrapper: a\ndocstring near-verbatim from the shared hook, a 3-member `OBJECT_LABEL_FALLBACK`\ncast `as any`, and `useSafeObjectLabel() { return useObjectLabel() ?? OBJECT_LABEL_FALLBACK; }`.\nIts single consumer (`const { fieldOptionLabel } = useSafeObjectLabel();`) is\nreplaced with the shared `useSafeFieldLabel` from `@object-ui/react`\n(re-exported from `@object-ui/i18n`), and the local docstring/const/function\n(21 lines) are deleted.\n\n- `packages/plugin-timeline/src/ObjectTimeline.tsx` — swap the import\n  (`useObjectLabel` → `useSafeFieldLabel`), delete the local wrapper, update\n  the call site.\n- `packages/plugin-timeline/src/ObjectTimeline.test.tsx` — its `@object-ui/react`\n  mock replaces the whole module (no `...actual` spread), so it needed\n  `useSafeFieldLabel` added in place of the now-unused `useObjectLabel` entry\n  or the destructure would throw on `undefined`.\n- New test:\n  `packages/plugin-timeline/src/__tests__/timeline-shared-safe-field-label-5623.test.tsx` —\n  pins the triage-named acceptance check directly against the REAL\n  `@object-ui/react` / `@object-ui/i18n` exports (no `useSafeFieldLabel` mock):\n  the timeline's one call site (`fieldOptionLabel`, used to resolve the\n  `status`/`priority` meta-chip labels) resolves to the **same** raw metadata\n  label with no `I18nProvider` mounted (unbound) and with one mounted but\n  carrying no matching translation (bound) — and a third case confirms a real\n  translation resolves when one *is* bound, so the equivalence isn't just\n  because the resolver is inert.\n\n## Why this is safe (the `as any` cast erased a real disagreement)\n\nThe local fallback was 3 members (`fieldOptionLabel`, `translateOptions`,\n`fieldLabel`); the shared `SAFE_FIELD_LABEL_FALLBACK` in\n`packages/i18n/src/useObjectLabel.ts` is 5 (adds `sectionLabel`,\n`actionLabel`). Per PR #5585, `useObjectLabel()` never actually returns\nnullish any more (its memo holds on both the bound and no-instance paths), so\nin both the old and new code the `?? FALLBACK` branch is dead in practice —\nwhich is exactly why swapping the fallback SHAPE underneath it is safe for\nthis one call site. Confirmed directly (see Testing) rather than asserted.\n\n## Testing\n\nReverse-verification, run while writing this: restored `ObjectTimeline.tsx`\nto its pre-fix state (`git checkout HEAD~1 -- packages/plugin-timeline/src/ObjectTimeline.tsx`,\ni.e. the local `useSafeObjectLabel`/`OBJECT_LABEL_FALLBACK`) with the NEW test\nfile in place, and re-ran it — **same 3/3 pass**, which is the direct proof of\nthe equivalence claim (not merely \"didn't regress\"): the call site behaves\nidentically whether reached through the local 3-member fallback or the shared\n5-member one. Then restored the fix by checking out\n`claude/issue-5623-timeline-shared-safe-field-label`'s version of the file\n(`git status` clean afterward).\n\n```\npnpm exec vitest run packages/plugin-timeline/ --maxWorkers=2\n Test Files  9 passed (9)\n      Tests  68 passed (68)\n\npnpm --filter @object-ui/plugin-timeline type-check   # tsc --noEmit && tsc -p tsconfig.test.json\nEXIT=0\n\npnpm --filter @object-ui/plugin-timeline build        # vite build\nEXIT=0\n```\n\nTargeted `eslint --no-inline-config` on the touched files: 0 errors, 41\nwarnings — all pre-existing (`@typescript-eslint/no-explicit-any` on\nlong-standing `any` props typing, `react-hooks/exhaustive-deps`), confirmed\nby linting the pre-fix `ObjectTimeline.tsx` for comparison: 32 warnings there\nvs 31 on the fixed file — one FEWER, the `as any` cast this PR removes.\n\nDependency closure built first (`pnpm --filter '@object-ui/plugin-timeline^...' build`),\nexit 0.\n\n`node scripts/check-changeset-presence.mjs` / `check-changeset-no-major.mjs` /\n`check-control-bytes.mjs`: all pass; changeset has empty frontmatter per\n`.changeset/README.md`'s own \"DON'T create a changeset for internal\nrefactoring with no API changes\" — the removed symbols\n(`useSafeObjectLabel`, `OBJECT_LABEL_FALLBACK`) were never exported.\n\nNeither `useSafeObjectLabel` nor `OBJECT_LABEL_FALLBACK` had any other\nreference anywhere in the repo (grepped `packages/`).\n\n## Scope\n\nPer triage (2026-08-22) and the claim comment: mechanical dedup only. #5625\n(the pivot-table ref workaround) shares the #5587 lineage but has its own\nbehaviour surface and stays a separate card, out of scope here.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01EuPCi56cnGyykygi3z9w4m)_"
+}

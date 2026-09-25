@@ -1,0 +1,35 @@
+{
+  "number": 5667,
+  "kind": "issue",
+  "title": "finding(types/plugin-calendar): `CalendarViewSchema` declares 9 of its 13 keys that the `calendar-view` renderer never reads — including `events`, its only required key, which the renderer deliberately drops",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T08:09:48Z",
+  "updated_at": "2026-08-23T03:31:14Z",
+  "closed_at": "2026-08-23T03:31:14Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5667",
+  "body": "Found while implementing #5045 (correcting `packages/plugin-calendar/README.md`'s \"Schema API / CalendarView\" block against `CalendarViewSchema`). Filed unassigned, not claiming.\n\n#5045 was scoped to prose and is fixed as scoped. This card is the thing the measurement turned up underneath it: **the published authored type and the registered renderer describe two nearly-disjoint surfaces.**\n\n## Measured\n\n`CalendarViewSchema` (`packages/types/src/complex.ts:174`, mirrored in `packages/types/src/zod/complex.zod.ts:90`) declares **13 own keys**:\n\n```\ntype (required)   events (required)   defaultView?   view?    defaultDate?   date?\nviews?            editable?           onEventClick?  onEventCreate?\nonEventUpdate?    onDateChange?       onViewChange?\n```\n\nThe renderer registered for `calendar-view` (`packages/plugin-calendar/src/calendar-view-renderer.tsx`) declares **10 registry inputs**, and they are almost a different set:\n\n```\ndata  titleField  startDateField  endDateField  allDayField  colorField\nview  currentDate  allowCreate  className\n```\n\nCross-referencing the two (grep for each key's read sites in `packages/plugin-calendar/src/`):\n\n| `CalendarViewSchema` key | read by the `calendar-view` path? |\n| --- | --- |\n| `type` | yes — registry dispatch |\n| `view` | yes — `resolveAuthoredView` |\n| `onEventClick`, `onViewChange` | only as **host** props — they are in `HOST_CALLBACKS`, forwarded when the value is a function, which authored JSON can never produce |\n| `events` | **explicitly dropped** — destructured out as `events: _authoredEvents` and never used (objectui#4433) |\n| `defaultView`, `defaultDate`, `date`, `views`, `editable`, `onEventCreate`, `onEventUpdate`, `onDateChange` | **no read site anywhere** — 0 occurrences outside `packages/types` |\n\nSo **9 of the 13 keys** (`events` plus those eight) do nothing when authored on a `calendar-view` node, and the events the component actually renders are computed from the node's `data` array plus `titleField` / `startDateField` / `endDateField` / `colorField` / `allDayField` — none of which `CalendarViewSchema` declares. `data` and `className` reach it only through `BaseSchema`.\n\n## Why this is worth a card rather than a note\n\nThe two halves are individually defensible and jointly misleading:\n\n- **The type requires a key the renderer refuses.** `events` has no `?`, so `const schema: CalendarViewSchema = { type: 'calendar-view' }` does not compile — an author *must* write `events` — and objectui#4433 then drops it by design, with a pin test. The one key TypeScript forces you to supply is the one key guaranteed to have no effect.\n- **It is the AI-authoring failure shape.** A metadata author (human or model) reading the published type writes `defaultView` / `views` / `editable` / `onDateChange` and gets silence — no error, no console warning, no red panel. Declared-but-inert is exactly the state ADR-0049's enforce-or-remove framing says must not persist, and this repo has already answered that question twice on this very renderer, in opposite directions: objectui#4454 ENFORCED `allowCreate`, objectui#4493 REMOVED `colorMapping`. Both were *registry inputs*; nobody has yet asked the same question of the `@object-ui/types` layer above them.\n- **It keeps regenerating documentation defects.** #5045 is one. `content/docs/api/schema-reference.md:1077` publishes `onDateChange` as a working callback. The README's \"Basic Calendar\" example still authors `events: [...]`, which renders nothing. Each gets corrected in isolation because the underlying contradiction is not written down anywhere.\n\n## What this needs from a maintainer\n\nWhich side is authoritative? The answers differ a lot in cost and are not mine to pick:\n\n- **A — the renderer is authoritative:** retire the inert keys from `CalendarViewSchema` and give it the keys the renderer actually reads (`data`, the field-name inputs, `currentDate`, `allowCreate`). Honest, and makes the type usable as authoring guidance. Breaking to any consumer type-annotating with it, and `events` becoming optional/absent is a published type change.\n- **B — the type is authoritative:** implement the nine keys in the renderer. Large, and buys authoring surface nobody has been measured asking for — which the startup-scope principle argues against.\n- **C — declare the split explicitly:** keep both, document that `CalendarViewSchema` is a component-shaped type and the authored node surface is the registry inputs. Cheapest, changes no bytes, but leaves the trap armed for the next author.\n\nMy read is **A, scoped by measurement** — retire only what a liveness check shows no app authors, rather than a blanket rewrite — because it is the option that makes the declared surface and the enforced surface the same thing, which is the property that stops this recurring. But `packages/types/**` is a published surface and #4972 / #4984 are already in flight there this round, so this wants sequencing rather than a fast follow.\n\n## Notes\n\n- Not a duplicate of objectui#4454 or objectui#4493 (both closed): those are the *registry inputs* layer on the same renderer. This is the `@object-ui/types` layer above them, which neither touched.\n- Point 3 of #5045 overlaps objectui#5044's \"authorable vs runtime same-name\" question in prose only; this card is about read sites, not naming.\n- #5045's fix does not paper over this — its PR adds a \"The type is not the renderer\" note to the README naming the `events` drop, precisely so that correcting `events` to *required* did not ship as a new wrong instruction. That note is a signpost, not a resolution."
+}

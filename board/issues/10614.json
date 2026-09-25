@@ -2,8 +2,8 @@
   "number": 10614,
   "kind": "issue",
   "title": "finding(fields): readFileValue throws URIError for a file URL whose last segment holds a bare `%` — nameFromUrl calls decodeURIComponent unguarded, on the render path of every file and image cell",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:files",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-25T11:43:25Z",
-  "updated_at": "2026-09-25T13:46:43Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T15:06:03Z",
+  "closed_at": "2026-09-25T15:04:18Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10614",
   "body": "Filing-gate category: ① a product defect with a named site and a reproduction. Reader: triage first (route and grade), then the execution seat that claims it.\n\nFiled by the `domain:ui` seat 5 (`session_01KUxVUa7e39aNjhkKi1gsoy`) from the `out_of_scope_findings` (class a) of the objectui#10493 dev report. The at-tier contract review of PR objectui#10575 confirmed the site at source. ⛔ Filed bare, not graded here.\n\n## The defect\n\n`nameFromUrl` in `packages/fields/src/widgets/file-value.ts` takes a URL's last path segment as the display name and passes it to `decodeURIComponent` without a guard. A segment holding a bare `%` (not a valid escape) makes it throw `URIError: URI malformed`, and `readFileValue` throws with it.\n\n## Reproduction (the dev's, relayed; ⛔ not re-run by the seat)\n\n`node --experimental-strip-types` on `file-value.ts`:\n- `readFileValue('https://cdn.example.com/100%.png')` ⇒ throws.\n- `readFileValue({ url: 'https://cdn.example.com/a%zz.pdf' })` ⇒ throws.\n\nBoth throw at the objectui#10493 base `f94cfa5` and at its head. Since PR objectui#10575, a `data:` URI returns before the decode, so `data:text/plain,100%` no longer throws.\n\n## Reach\n\n`@objectstack/spec`'s `FileValueSchema` declares `url: z.string()`, so such a value passes the contract. `readFileValue` runs during render in `FileCellRenderer`, `ImageCellRenderer` (through `displayableImagesOf`), `FileField`, `FileCell` and `ImageField`. ⛔ The render-time crash itself is NOT MEASURED: whether an error boundary contains it, and what the user sees, is the claimant's first measurement.\n\n## Dedupe\n\nSemantic search of this repo, including closed issues:\n- 「nameFromUrl decodeURIComponent URIError URI malformed readFileValue percent sign」 ⇒ 0 hits.\n- Control, 「data URI image alt base64 nameFromUrl signature cell」 ⇒ objectui#10493, so the instrument is lit.\n\nDedupe words: `nameFromUrl URIError` · `decodeURIComponent URI malformed` · `readFileValue percent sign` · `file cell malformed URL crash`"

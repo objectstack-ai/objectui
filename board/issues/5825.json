@@ -1,0 +1,34 @@
+{
+  "number": 5825,
+  "kind": "pull_request",
+  "title": "feat(gantt): declare viewMode on ObjectGanttSchema and wire both renderer branches",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T13:33:06Z",
+  "updated_at": "2026-08-23T13:45:31Z",
+  "closed_at": "2026-08-23T13:45:29Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T13:45:29Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5825",
+  "body": "Fixes #5074\n\nExecutes the maintainer-confirmed ruling of 2026-08-19 (issue comment 5339681862): **declare `viewMode` and wire BOTH branches**. The triage seat's \"remove\" recommendation was rejected there and is not re-opened here.\n\n## Precondition re-verified in `node_modules`\n\nCounter-probed the installed `@objectstack/spec` (the repo's pinned release) before writing anything, same probe shape as the unlock scan:\n\n| probe | result |\n| --- | --- |\n| `GanttConfigSchema.viewMode` (via `@objectstack/spec/ui`) | **present** — `z.enum(['day','week','month','quarter','year']).optional()`, no default |\n| `resourceView` (known-present control) | present |\n| `zzNotAKey` (known-absent control) | absent |\n\n## What changed\n\n- **`packages/types/src/objectql.ts`** — `ObjectGanttSchema` declares `viewMode?: SpecGanttConfig['viewMode']`, DERIVED from the spec type so the member list cannot drift. Doc comment pins the absence semantics (no default; persisted layout may seed granularity).\n- **`packages/types/src/zod/objectql.zod.ts`** — the zod mirror declares `viewMode: SpecGanttConfigSchema.shape.viewMode.describe(...)` — the spec's own optional enum **by reference** (`.describe()` wraps; the inner enum object stays reference-identical, pinned by test).\n- **`packages/plugin-gantt/src/ObjectGantt.tsx`** —\n  - `getGanttConfig` picks `viewMode` into `GanttConfigEx` on the flattened path, so both the flattened `object-gantt` style and the spec `gantt` config block carry it;\n  - the timeline branch now passes `viewMode={ganttConfig?.viewMode}` to `GanttView` — deliberately **without** `|| 'day'`, so an omitted key keeps letting the persisted layout (`persistLayoutKey`) seed the granularity before GanttView's own `'day'` fallback (a guard comment marks this as load-bearing);\n  - the `ResourceWorkload` branch reads `ganttConfig?.viewMode || 'day'` — the `(schema as any).viewMode` cast is **retired** (zero remaining `as any).viewMode` reads in the repo); the now-unused `GanttViewMode` type import is dropped.\n- **Accept-set note**: `viewMode` is now a DECLARED key, so an off-enum value (e.g. `'hour'`) fails the zod parse where it previously passed through `.passthrough()` unvalidated. Values on the published spec enum are unaffected. Repo sweep found **no** fixture, example, or app authoring `viewMode` on a gantt schema (only the unrelated `previewMode` and gantt demo i18n labels), so nothing in-repo is re-judged by the narrowing.\n- **Changeset**: `.changeset/gantt-viewmode-declared-both-branches-5074.md` (`minor` for `@object-ui/types` + `@object-ui/plugin-gantt`; no bare version literals).\n\n## Out of scope, untouched\n\nThe other nine undeclared `as any` reads (`readOnly`, `markers`, `holidays`, `skipWeekends`, `criticalPath`, `showBaselines`, `mobileReadOnly`, `navigation`, `persistLayout`) stay with the #5043 family track. #5057 and #5126 chain behind this card and remain open — nothing here closes them. The stale `GanttViewMode` JSDoc card (#5132) and `content/docs/plugins/plugin-gantt.mdx` are untouched.\n\n## Tests\n\nNew suites:\n\n- `packages/plugin-gantt/src/ObjectGantt.viewmode.test.tsx` — wiring pins (GanttView/ResourceWorkload mocked to thin shells, the file's established convention): timeline honours an authored `viewMode` in both authoring styles; timeline receives **exactly `undefined`** when omitted (the pin that stops someone \"simplifying\" `|| 'day'` back in); ResourceWorkload still honours the key and keeps its `'day'` fallback.\n- `packages/types/src/__tests__/gantt-view-mode-declared.test.ts` — contract pins: key declared; inner enum reference-identical to the spec's (anti-fork); every spec member accepted; off-enum value refused with an `invalid_value` issue on the `viewMode` path; omitted key stays absent after parse (no default materialised); TS member mutually assignable with the spec type + `@ts-expect-error` non-member pin (compiled by `tsconfig.test.json`, so it is real enforcement).\n\n**Reverse verification on a real commit** (`git checkout HEAD~1 -- <3 source files>`, tests kept; then restored, `git diff HEAD --stat` empty, re-run green 11/11):\n\n- **Red on reverted source (5 discriminating legs)**: both \"honours an authored viewMode\" wiring legs (flattened + gantt block); \"declares the key\"; \"reference identity\"; \"refuses an off-enum value\".\n- **Legs that do NOT discriminate** (pass either way, stated per protocol): \"passes NO viewMode when omitted\" (prop was absent pre-fix too — it discriminates the future `|| 'day'` regression, not the pre-fix state); both ResourceWorkload legs (that branch already honoured the key); \"accepts every member\" (passthrough accepted the undeclared key pre-fix); \"no default materialised\" (absent either way at runtime — its compile-time half red-shifts only under `tsc -p tsconfig.test.json` against the reverted interface); the TS mutual-assignability leg (runtime-erased).\n\n**Verification union at `c4a12f52e`** (the PR head), all through the container's shared verify lock, verdict lines read from the gate's own output:\n\n- `pnpm exec vitest run packages/plugin-gantt/ packages/types/` (repo root, per AGENTS.md) — **Test Files 92 passed (92), Tests 912 passed (912)**\n- `pnpm --filter @object-ui/types type-check` and `pnpm --filter @object-ui/plugin-gantt type-check` (dependency closure built first) — both clean, script names echoed\n- `pnpm lint` (`turbo run lint`, full farm — not narrowed) — **47/47 tasks successful**\n- `node scripts/check-changeset-presence.mjs` ✅ · `check-changeset-no-major.mjs` ✅ · `check-control-bytes.mjs` ✅ · `check-spec-symbol-derivation.mjs` ✅\n\nCI is expected to run the same farm; per dispatch protocol this PR is reported at draft time without waiting for CI convergence.\n\n_Generated by [Claude Code](https://claude.ai/code/session_01EuPCi56cnGyykygi3z9w4m)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01EuPCi56cnGyykygi3z9w4m)_"
+}

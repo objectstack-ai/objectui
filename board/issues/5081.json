@@ -1,0 +1,35 @@
+{
+  "number": 5081,
+  "kind": "issue",
+  "title": "skills/objectui/guides/i18n.md 两处把 label 规则归给 `@objectstack/spec` v4,仓内实测 ^17.0.0 —— agent 面上 13 个 major 的版本化石",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T22:48:54Z",
+  "updated_at": "2026-08-21T22:34:42Z",
+  "closed_at": "2026-08-21T00:54:47Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5081",
+  "body": "> **PM 状态(2026-08-17,session_01GTRjn8xBqp75dk7kFupVRt):`pm:blocked`**\n> Blocked-by: #5084\n> 修本卡必须同改 KNOWN_CLAIMS 里指向本卡的 `stale` 条目,而该条目由 PR #5084(#4981 门禁扩面)携带、尚未落 main(PR #5084 又 Blocked-by PR #5080 待维护者亲合)。先修会让 PR #5084 落地即触发向下棘轮红。PR #5084 MERGED 后本卡解锁回队,修复 PR 同改该 stale 条目(方向倾向卡面 2:删版本限定语)。\n\n越界发现,记录于 #4981(把 `skills/` 纳入 `doc-version-claims` 扫描面)实施期间 —— 扩面后的扫描在 `skills/` 上共命中 12 条版本字面量,卡面列了其中 4 条脚手架化石,这是**卡面未列的第 5、6 条**(同一条 claim 的两次出现)。#4981 的完成范围是那 4 处字面量 + 门禁扩面,这一条的修法是另一个判断(改数字 vs 删版本限定语),故只记录、不在那两个 PR 内动手。处置同 #3697 的普查先例:先在 `KNOWN_CLAIMS` 里以 `kind: 'stale'` 记账(记录债务而不是祝福它),修复另开卡 —— #3708 / #3709 / #3710 / #3690 就是那 9 条 stale 的还债卡。\n\n## 事实(对 `origin/main` @ `6098ecd08` 实测)\n\n| 位置 | 原文 | 仓内实测 |\n| --- | --- | --- |\n| `skills/objectui/guides/i18n.md:117` | ``In Object UI schemas, use plain string labels (per `@objectstack/spec` v4).`` | `@objectstack/spec` `^17.0.0`,33 处声明(20 dependencies / 12 devDependencies / 1 peerDependencies),node_modules 装的是 `17.0.0` |\n| `skills/objectui/guides/i18n.md:162` | ``Using {key, defaultValue} translation objects — `@objectstack/spec` v4 uses plain strings only.`` | 同上 |\n\n**13 个 major**。与 #3708 修掉的那条完全同形 —— `architecture-overview.md` 的分层图里写 `@objectstack/spec ^4.0.4`,当时每个清单都已经是 `^17.0.0-rc.5`;区别只在受害面:那条是人读的 `content/docs`,这条在**给 agent 读的 `skills/`** 上。\n\n## 为什么不是「无害的旧文案」\n\n两句话都在**用版本号给规则背书**(「按 spec v4,label 是纯字符串」)。规则本身今天是否仍成立,是需要对 spec 17 复核的第二个问题 —— 而读者(人或 AI)拿到的第一手信息是「这条规则的依据是 v4」,它会把一个 13 个 major 前的版本号当成当前契约去引用、去搜文档、去写注释。#4611 正是这一族的另一面(`ui-action.ts` 的注释声称「In spec 17 I18nLabelSchema is z.ZodString」,对着实装的 rc.6 是假的,差点让一个席位实现一个 no-op)。\n\n## 修法(两个方向,交 PM 定)\n\n1. **改成实测版本**(`v17`)—— 前提是先对 spec 17 复核「plain string labels」这条规则今天仍然成立;若已变,那就不是版本号的问题而是规则本身要重写。\n2. **删掉版本限定语**,写成「per `@objectstack/spec`」/「the spec uses plain strings only」—— PR #3688 / #3698 对 36 个 README 和 CLI 页做过的那一手,也是 #4981 卡面列的方向 2。这一种不会再化石化。\n\n倾向 2:这两句想说的是「当前契约是纯字符串」,版本号在这里不承载信息,只承载会过期的风险。\n\n## 与 #4981 的关系\n\n不是重复,也不是 Blocked-by。#4981 的门禁 PR 会把这条 claim 以 `kind: 'stale'` 收进 `KNOWN_CLAIMS`(带指向本卡的理由),所以:\n\n- 这条化石从此**有门禁看着**(在此之前 `skills/` 完全在扫描面之外);\n- 本卡修好之后,那条 `stale` 条目必须**在同一个改动里删掉或改类**,否则 `doc-version-claims` 的向下棘轮会红(「KNOWN_CLAIMS names version claims that are no longer in the tree」)—— 这正是那份清单不会烂掉的机制。"
+}

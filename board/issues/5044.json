@@ -1,0 +1,35 @@
+{
+  "number": 5044,
+  "kind": "issue",
+  "title": "finding: 两个结构不兼容的 `CalendarEvent` 同名并存(`@object-ui/types` 授权型 vs `@object-ui/plugin-calendar` 运行时型),已造成一处文档示例不可编译",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T20:33:15Z",
+  "updated_at": "2026-08-23T16:47:01Z",
+  "closed_at": "2026-08-23T16:47:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5044",
+  "body": "发现于 #5010 的实施(plugin-calendar README)。Filed unassigned, not claiming.\n\n## 现象\n\n仓里有**两个都叫 `CalendarEvent` 的公开导出类型**,结构不兼容,分属两个包:\n\n| | `@object-ui/types`(`packages/types/src/complex.ts:136`) | `@object-ui/plugin-calendar`(`packages/plugin-calendar/src/CalendarView.tsx:96`) |\n| --- | --- | --- |\n| 语义 | **授权型**(JSON 元数据里写的事件) | **运行时型**(`CalendarViewProps['events']`,React 组件收的事件) |\n| `id` | `string` | `string \\| number` |\n| `start` | `string \\| Date` | `Date` |\n| `end` | `string \\| Date`(**必填**) | `Date`(**可选**) |\n| `description` | 有 | 无 |\n\n`CalendarViewSchema.events` 要的是**前者**;`CalendarView` 组件收的是**后者**。两者互不可赋值(`id` 与 `start` 两处都冲突)。\n\n## 已造成的实际损害\n\n`packages/plugin-calendar/README.md` 的 \"TypeScript Support\" 一节把两者混用了,而且**这个错误在 #5010 修掉导入路径之后依然存在** —— 因为它不是路径错、也不是虚构名,两个名字都是真导出。实测(#5010 实施中的编译探针,tsc 直接读源):\n\n```\na-pathfix-only.ts(10,3): error TS2322: Type 'string' is not assignable to type 'Date'.\na-pathfix-only.ts(11,3): error TS2322: Type 'string' is not assignable to type 'Date'.\na-pathfix-only.ts(16,12): error TS2322: Type '…/plugin-calendar/src/CalendarView\").CalendarEvent'\n  is not assignable to type '…/types/src/complex\").CalendarEvent'.\n    Types of property 'id' are incompatible.\n      Type 'string | number' is not assignable to type 'string'.\n```\n\n#5010 的 PR 已把该 README 的示例改成两个授权型都从 `@object-ui/types` 取,并加了一段并列说明两者区别 —— 但那只治了这一处文档,**同名本身没动**(动它是契约变更,不在 #5010 卡面内)。\n\n## 为什么单独立这一单\n\n这正是「让 AI 写的元数据难以出错」那条轴上的典型坑:两个名字一样、语义一层是授权一层是运行时、IDE 自动导入会按字母序或最近使用**随机挑一个**,挑错了报的还是一个绕远的 `TS2322`(而不是「你导错包了」)。一个 AI 生成 calendar 元数据的场景里,这个坑会被反复踩。README 那处漂移能活到今天,一部分原因就是它「看起来对」。\n\n顺带一记:`plugin-calendar` 已经有过一次同源的同名撞车并留了注释 —— `src/index.tsx:23-30` 的 `ObjectCalendarProps` 被 `@objectstack/spec/ui` 从 17.0.0 起占用(objectui#4650),当时的处理是**改名 + 留 deprecated alias**(`ObjectCalendarComponentProps`)。`CalendarEvent` 是同一类问题的下一个实例,可参照那次的处置形。\n\n## 可能的方向(未选定,交维护者裁)\n\n- **A. 运行时型改名**(如 `CalendarEventInput` / `CalendarViewEvent`),沿用 #4650 的 rename + deprecated alias 形。授权型保住 `CalendarEvent` 这个「正名」,因为它是 spec 侧的契约名。\n- **B. 运行时型不再导出**,只留 `CalendarViewProps` 让消费者用 `CalendarViewProps['events'][number]` 取。收窄导出面,但对现有 importer 是破坏性的。\n- **C. 什么都不改,只靠文档**(#5010 已做的那段并列说明)。最便宜,但把「别踩」的责任留给每个读者,IDE 自动导入照样踩 —— 按 AGENTS.md #0.1 的精神,这是消费侧宽容,不是结构性预防。\n\n倾向 **A**:它在「长期架构」和「结构上防止出错」两条轴上都成立 —— 授权型保留契约正名,运行时型有了自解释的名字,且 deprecated alias 让现有 importer 继续编译,迁移成本可控;仓里已有 #4650 的先例可循。\n\n## 分级\n\n交 PM 分诊。挂 `finding`:今天没有用户运行时因此出错(#5010 已把唯一已知的受害文档修好),这一单是结构性隐患 + 契约命名决策,需要维护者裁方向再动手。"
+}

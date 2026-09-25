@@ -1,0 +1,36 @@
+{
+  "number": 5424,
+  "kind": "issue",
+  "title": "Four more client sites still read the retired `user.roles` — role-addressed approvals and `requiredRoles` gates degrade silently at protocol 17",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-20T16:43:40Z",
+  "updated_at": "2026-08-23T01:07:06Z",
+  "closed_at": "2026-08-23T01:07:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5424",
+  "body": "Found while implementing objectui#5389 (which fixes the **fifth** site, `useIsWorkspaceAdmin`). #5389 scoped itself to that one hook, so these four are filed separately rather than folded in — three of them are authorization/routing-adjacent and at least one needs a semantics decision, not a mechanical rename.\n\n## Claim\n\n`user.roles` is not emitted by the protocol-17 session face. Framework ADR-0090 D3 renamed it to `positions`, with no deprecation window. Five objectui sites still read it; #5389 fixes one; these are the other four.\n\n## Evidence — measured, not inferred\n\nBooted a real single-tenant server on published `@objectstack/cli` / `@objectstack/plugin-auth` **17.1.0** (`objectstack dev --seed-admin --fresh`, `Tenancy: single`) and read `GET /api/v1/auth/get-session` for a permission-set-derived platform admin:\n\n```json\n{\n  \"role\": \"user\",\n  \"positions\": [\"user\", \"platform_admin\"],\n  \"isPlatformAdmin\": true\n}\n```\n\n`Object.prototype.hasOwnProperty.call(user, 'roles')` on that payload answers **false**. The published bundle agrees at the source: `@objectstack/plugin-auth@17.1.0`'s `customSession` returns exactly\n\n```\nuser: { ...user, positions, isPlatformAdmin: platformAdmin, ...authGate ? { authGate } : {} }\n```\n\nand no `roles` key appears anywhere in its emission path.\n\n## The four sites\n\n1. **`packages/auth/src/AuthGuard.tsx:58`**\n   ```ts\n   const userRoles = user.roles ?? (user.role ? [user.role] : []);\n   ```\n   `user.roles` is always absent now, so every `requiredRoles` gate falls through to the single stored scalar. On the deployment shape above that scalar is `'user'`, so `requiredRoles={['platform_admin']}` (or any business position name) denies a user who genuinely holds it.\n\n2. **`packages/app-shell/src/hooks/sharedUserFeeds.ts:490`** — `approverIdentities()` builds `role:` + name identities from `u?.roles ?? []` only. At protocol 17 that array is always empty, so **no role-addressed identity is ever sent**: approvals addressed to a position rather than to a person vanish from the bell badge, the Approvals tab and Home's To-do card. This is the site the framework's own `customSession` docblock names — *\"Consumers that match individual role names (e.g. the Console approvals inbox resolving role-addressed approvers) also read `positions` — business names such as `manager` survive only there.\"* Arguably as severe as #5389 and equally silent.\n\n3. **`apps/console/src/services/approvalsApi.ts:375`** — the same approver-identity derivation, but it also splits `user.role`, so it degrades rather than dying: it yields `role:user` and loses every business position name. Its own comment still describes the two shapes as *\"multi-role shape (some auth providers)\"* vs better-auth's scalar, which is no longer the distinction that matters.\n\n4. **`packages/app-shell/src/console/AppContent.tsx:860`** — forwards `roles: (user as any).roles` into `expressionUser`. Lowest severity of the four: the same object already forwards `isPlatformAdmin` and `positions` correctly, so this key is vestigial rather than load-bearing. It should go with the rest so the shape stops advertising a field that is always `undefined`.\n\n## The type that hid all five\n\n`packages/auth/src/types.ts` declares `roles?: string[]` on the client `AuthUser` — a hand-copied mirror key with an `?`, so nothing ever failed to compile. #5389 tried to retire it in the same pass and **could not**: removing it breaks site 1 at compile time (measured — `src/AuthGuard.tsx(59,60): error TS2339: Property 'includes' does not exist on type '{}'`, because `AuthUser`'s index signature then types the read as `unknown`). So the key is not dead; it has one live reader, and retiring it is gated on deciding site 1. #5389 left the declaration in place with a corrected docblock naming this issue.\n\n## What is NOT claimed\n\n- No runtime reproduction of sites 1-4 specifically. The session payload above is measured and re-runnable; what each consumer then does with the empty array is read from source, not observed in a browser.\n- Site 1 is **not** a mechanical rename. `requiredRoles` is a consumer-supplied list with its own semantics: whether it should read `positions`, whether it keeps the `user.role` fallback, and how it relates to `packages/permissions`' separate `roles` surface (fed by `/api/v1/me`, a different endpoint that is out of this scope) are open questions. Whoever takes this should settle them rather than guess.\n- `packages/permissions` has its own unrelated `roles: string[]` on its own user shape. Not in scope here.\n\n## Refs\n\n- objectui#5389 (the fifth site; carries the same measurement)\n- objectstack-ai/cloud#1442 (the sibling actor-face defect, five service-ai read sites)\n- framework ADR-0090 D3, framework #6011 / PR #6048"
+}

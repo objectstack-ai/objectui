@@ -1,0 +1,36 @@
+{
+  "number": 5619,
+  "kind": "issue",
+  "title": "`useIsWorkspaceAdmin` collapses \"not resolved yet\" into `false`, so an org-role admin renders once as a non-admin — every admin-gated surface can refuse or hide from a real admin",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T19:08:39Z",
+  "updated_at": "2026-08-22T22:42:10Z",
+  "closed_at": "2026-08-22T22:42:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5619",
+  "body": "Measured while implementing #5583 (guard ordering on `MarketplacePackagePage`), and deliberately left out of that PR's scope — it is a property of the hook, not of any one page's ordering.\n\n## Observation\n\n`packages/auth/src/useIsWorkspaceAdmin.ts` returns a bare `boolean` derived from three legs of `useAuth()`:\n\n```ts\nexport function useIsWorkspaceAdmin(): boolean {\n  const { activeMember, user } = useAuth();\n  if (isAdminRole(activeMember?.role)) return true;\n  if (isAdminRole(user?.role)) return true;\n  const positions = user?.positions;\n  if (Array.isArray(positions) && positions.some(isAdminRole)) return true;\n  return false;\n}\n```\n\nThere is no third answer for \"the inputs have not arrived yet\". Two of the three legs are not settled at the moment a console page first mounts:\n\n1. `ConnectedShell` (`packages/app-shell/src/console/ConsoleShell.tsx`) gates its children on `isAuthLoading` — `if (!adapter || isAuthLoading) return <LoadingFallback />;` — so `user` (legs 2 and 3) **is** resolved before any console page renders. That part is fine.\n2. `activeMember` (leg 1) is **not** covered by that gate. `AuthProvider.refreshActiveMember` runs from its own `useEffect`, keyed on `activeOrganization`, which itself only appears after `refreshOrganizations` → `client.listOrganizations()` → `client.getActiveOrganization()` resolve. `isOrganizationsLoading` is a separate flag, and `isLoading` is never raised for it.\n\nSo on a multi-tenant deployment, an administrator whose adminship comes from the **organization member row** — the ADR-0068 D2 `owner`/`admin` → `org_owner`/`org_admin` path, i.e. the ordinary tenant case — renders at least once with `isAdmin === false`, then flips to `true` when `getActiveMember()` lands. Legs 2 and 3 do not cover that viewer: a tenant org owner has no `user.role` overwrite (deliberately removed, per the hook's own docstring) and `platform_admin` is not their position.\n\n## Why it is visible now\n\nNothing in the hook or its callers distinguishes that window, and 11 live call sites branch on it directly:\n\n`ReportView`, `PageView`, `ObjectDataPage`, `ObjectView`, `HomePage`, `AppSidebar`, `AppHeader`, `UnifiedSidebar`, `MarketplacePage`, `MarketplacePackagePage`, `InstalledListWidget`.\n\nThe ones that render a **refusal** (`MarketplacePage`, and `MarketplacePackagePage` as of #5583) can paint `MarketplaceAccessDenied` at a real admin before flipping. The ones that **hide affordances** (the three chrome components, `HomePage`) can drop a nav entry and re-add it. `MarketplacePage` has had this shape since #5557; it is not introduced by #5583.\n\nWorth stating plainly, since it bounds the severity: today `MarketplacePackagePage`'s package fetch *incidentally* masks the window with a skeleton, for as long as an unrelated network request happens to take. That is not an auth gate and it is not a fix — it is why the window has stayed invisible on that one page.\n\n## Not claimed\n\nThat any current refusal is wrong, or that the server-side authorization is affected — it is not; this is a client render-ordering artefact only. Nor that the fix is obviously \"add a loading state\": widening the hook's return type touches 11 call sites, and an alternative is to extend `ConnectedShell`'s existing gate to cover active-member resolution the way it already covers the session. Which of those is right is a judgement call, which is why this is filed rather than fixed.\n\n## Refs\n\n- #5583 / its PR — where this was measured; it handles the one consequence local to that page (the `loading` seed stays `marketplaceEnabled`-only so the flip cannot paint a destructive card)\n- #5557 — gave `MarketplacePage` the same unmasked shape\n- #5389 — the previous admin-detection defect in this hook, a different leg"
+}

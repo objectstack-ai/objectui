@@ -1,0 +1,35 @@
+{
+  "number": 5642,
+  "kind": "issue",
+  "title": "`warnOnUnknownActionKeys`'s dev-console message states a fact step 3 retired, and points the author at the wrong file",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T22:36:09Z",
+  "updated_at": "2026-08-23T18:09:42Z",
+  "closed_at": "2026-08-23T18:09:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5642",
+  "body": "Found while implementing #5611 (declaring `overrideNotice` on `ActionDef`). Filed rather than fixed there: different defect class — that card is a missing declaration, this is shipped prose that outlived the change it describes. Not folded into #5611's PR.\n\nThe dev-mode warning at `packages/core/src/actions/actionKeys.ts:367-373` ends with:\n\n```\n'check for a typo, or promote the key to an explicit field on `ActionDef` ' +\n'(packages/core/src/actions/actionKeys.ts). Warned rather than rejected because `ActionDef` ' +\n'still carries `[key: string]: any`, so the compiler cannot see this (objectstack#4075).',\n```\n\nTwo separate problems, both in text that reaches an author's console.\n\n## 1. The stated reason is false\n\n`ActionDef` does **not** still carry `[key: string]: any` — objectstack#4075 step 3 deleted it, and `actionKeys.pin.test.ts:107` pins the deletion in the opposite direction:\n\n```ts\n}).toEqual({ ActionDef: false, ActionContext: true });\n```\n\nSo the message tells the author the compiler is structurally unable to see an unknown key, while `actionDef-closed-surface.test.ts` pins that `tsc` now rejects exactly that at the construction site. The warning's *own module header* already explains the real reason it survived step 3 — the two mechanisms cover disjoint populations (`tsc` sees action literals authored in code, the warning sees actions arriving as data from unparsed `sys_metadata` rows, objectstack#3903). That is the sentence the message should be carrying; it is a genuinely good reason, and the message currently substitutes a retired one for it.\n\n## 2. The prescription names the wrong file\n\nIt says \"promote the key to an explicit field on `ActionDef` (packages/core/src/actions/actionKeys.ts)\". The `ActionDef` interface is at `packages/core/src/actions/ActionRunner.ts:112`. `actionKeys.ts` holds the *inventory* (`ACTION_DEF_KEYS`), not the interface.\n\nThis one has teeth rather than being a typo: an author who follows the path as given edits only the inventory, which is precisely the half-change `actionKeys.pin.test.ts` goes red on (it re-derives `ACTION_DEF_KEYS` from the interface's AST, so the entry becomes `stale`). #5611 had to carry an explicit \"steps 1 and 2 must be in the same commit\" instruction to keep a dev off that exact rock; the shipped message steers onto it.\n\n## Same-root prose elsewhere\n\nComments that also describe the pre-step-3 world, worth sweeping in the same pass so the file stops contradicting its own pin:\n\n- `actionKeys.pin.test.ts:9` — \"`ActionDef` cannot be enumerated at runtime — its `[key: string]: any` widens `keyof` to `string | number`\". The *conclusion* (the list stays data) is still right; the stated cause is retired.\n- `actionKeys.pin.test.ts:163` — \"`targt` type-checks today: ActionDef's index signature accepts it.\" It does not type-check today; the sibling closed-surface test pins the rejection.\n\n## Suggested disposition\n\nRewrite the message's tail to give the surviving reason (data-borne actions no compiler ever sees) and point at `ActionRunner.ts` for the interface, naming the inventory as the second, same-commit edit. Refresh the two comments. No behaviour change — the classification logic is correct and is not in question here.\n\nRefs #5611, objectstack#4075, objectstack#3903, #4046.\n"
+}

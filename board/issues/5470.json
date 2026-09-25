@@ -1,0 +1,34 @@
+{
+  "number": 5470,
+  "kind": "issue",
+  "title": "The three console SDUI preview harnesses author 79 Tailwind classNames inside real page `source` strings — the practice the shipped lint rule warns on, working only by the coincidence ADR-0065 names as the failure",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-21T01:02:12Z",
+  "updated_at": "2026-08-22T12:33:05Z",
+  "closed_at": "2026-08-22T12:29:37Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5470",
+  "body": "Found while implementing #5461 (which corrects the *prose* framing on `PageSchema.kind`\nand `react-page.tsx`). Filing rather than fixing — outside that card's declared file\nsurface, and the right resolution here is a judgement call rather than a mechanical edit.\n\n## What is there\n\n`apps/console/src/` holds three browser preview harnesses for the ADR-0080 source tiers,\neach served by its own `.html` entry (`sdui-jsx-preview.html`, `sdui-tiers-preview.html`,\n`sdui-workbench-preview.html`). Each defines a real page `source` string and renders it\nthrough the real `PageRenderer`. Measured at `9bd753682`, counting only `className=`\noccurrences **inside** the page-source template literals:\n\n| File | `className=` inside page `source` | Tier |\n|---|---|---|\n| `apps/console/src/sdui-jsx-preview.tsx` | 40 | `kind:'jsx'` |\n| `apps/console/src/sdui-tiers-preview.tsx` | 25 | `kind:'html'` + `kind:'react'` |\n| `apps/console/src/sdui-workbench-preview.tsx` | 14 | `kind:'react'` |\n| **total** | **79** | |\n\n## Why this is the defect and not just style\n\nADR-0080's 2026-06-30 header amendment (under ADR-0065, **Accepted**) retracted the\n\"HTML + Tailwind\" framing for page `source`: `source` is *runtime metadata*, the console's\nTailwind is compiled at build time by scanning the console's own `src` with no safelist,\nso an authored utility class silently produces no CSS. **\"Do not author Tailwind classes\nin page source.\"**\n\nThese previews are the one place in the repo where that rule is **violated and still\nlooks right**, and the files say why in their own headers:\n\n```\n * Tailwind v4 scans this file's text for class candidates, so the runtime\n * source strings below are fully styled.\n```\n\n```\n/* ADR-0080 browser preview: a kind:'jsx' page rendered through the real\n * PageRenderer (compile -> SchemaRenderer). Tailwind v4 scans this file's text\n * for class candidates, so the runtime source string is fully styled. */\n```\n\nThat is the ADR-0065 failure mode stated as the mechanism: styling that \"works only by\ncoincidence\" — here, the coincidence that the page source happens to live inside a `.tsx`\nfile the console's own Tailwind scan reaches. Lift the same string into actual page\nmetadata (which is what these previews are demonstrating) and every one of the 79 classes\nproduces nothing, with no error anywhere.\n\nTwo consequences worth separating:\n\n1. **Teaching.** These are the repo's worked examples of the two tiers. An author or an\n   authoring agent copying `sdui-tiers-preview.tsx`'s html source into a real page gets a\n   correctly structured, correctly bound, entirely unstyled page.\n2. **Gate disagreement.** Run through `os validate`, all three sources would trip\n   `page-source-className-tailwind` (`validatePageSourceStyling`, shipped in\n   `@objectstack/lint@11.5.0`) — a warning on kinds `html`, `react` and `jsx`. The repo's\n   own demo of a tier fails the framework's own rule for that tier.\n\nCounter-evidence that the previews are the outlier and not the practice: #5461 measured\nthe three real `kind:'react'` pages in the framework's `examples/app-showcase` at **zero**\n`className` and 37 `style={{` between them.\n\n## What needs deciding\n\nNot mechanical, which is why this is its own card:\n\n- **(a) Rewrite the three sources** to the real per-tier primitive — `react` via inline\n  `style` objects with `hsl(var(--token))` theme colours, `html` via the blocks' own\n  structured props (flex `direction`/`gap`, grid `columns`) plus a JSON `style` object,\n  per `content/docs/guide/react-pages.md` §Styling. Highest fidelity: the previews would\n  then demonstrate what authors are told to write, and would exercise the token path in a\n  browser. Cost: the visual richness of the current previews is doing real work in a\n  manual dogfood loop, and some of it may not survive the translation.\n- **(b) Keep them and annotate.** Add a header note stating that these are console-internal\n  harnesses whose sources are build-scanned, that authored metadata gets no such scan, and\n  that the shown classes are therefore not a pattern to copy. Cheap, honest, but leaves a\n  worked example that contradicts the rule for anyone who reads the source rather than the\n  header.\n- **(c) Split.** Keep the current files as renderer-plumbing previews, and add one small\n  token-styled source per tier as the *authoring* example.\n\nI recommend **(a)** for `sdui-tiers-preview.tsx` at minimum — it is the file that\nexplicitly labels itself \"Browser preview for the two AI-authoring tiers\", so it is the\none making an authoring claim — and **(b)** for the other two if the rewrite cost is\njudged too high.\n\nRelated: #5469 tracks the 8 remaining *prose* sites of the same retracted framing; #5461\nfixes the published `PageSchema.kind` TSDoc and `react-page.tsx`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_"
+}

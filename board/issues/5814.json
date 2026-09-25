@@ -1,0 +1,33 @@
+{
+  "number": 5814,
+  "kind": "pull_request",
+  "title": "fix(plugin-dashboard): collapse the dashboard header wrapper when it has nothing to show",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T12:28:03Z",
+  "updated_at": "2026-08-23T12:41:04Z",
+  "closed_at": "2026-08-23T12:41:03Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T12:41:02Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5814",
+  "body": "Fixes #5812\n\n## The defect\n\n`DashboardRenderer` rendered the header wrapper whenever `schema.header` was merely **declared**, while each of its children was independently suppressible:\n\n```tsx\nconst headerSection = schema.header && (\n  <div className=\"col-span-full mb-4\">\n    {!hideHeaderText && schema.header.showTitle !== false && headerTitle && (<h2 …>…</h2>)}\n    {!hideHeaderText && schema.header.showDescription !== false && schema.description && (<p …>…</p>)}\n    {schema.header.actions && schema.header.actions.length > 0 && (…)}\n  </div>\n);\n```\n\n`hideHeaderText` is set by the console page chrome, which already renders the dashboard's title and description itself. Chrome present + no `header.actions` therefore emitted `<div class=\"col-span-full mb-4\"></div>` — zero children, but a full grid row (measured 64px) plus `mb-4`, opening every console dashboard page with a blank band above the filter bar. Measured on HotCRM 17.1.0's `executive_dashboard`; all five of its dashboards declare `header: { showTitle: true, showDescription: true }`, which is *correct* authoring since a standalone embed does render that text. Authors had no lever: removing `header` would have traded the dead band for the standalone embed's lost title.\n\n## The fix\n\nCompute the three children as booleans first, and render the wrapper only if one of them survives:\n\n```tsx\nconst showHeaderTitle = !hideHeaderText && header?.showTitle !== false && !!headerTitle;\nconst showHeaderDescription = !hideHeaderText && header?.showDescription !== false && !!schema.description;\nconst headerActions = header?.actions ?? [];\nconst headerSection = header && (showHeaderTitle || showHeaderDescription || headerActions.length > 0) && (…);\n```\n\nNothing else moves. The children's own conditions are unchanged — they are now read from the booleans instead of restated inline.\n\n## Usage sweep (asked for at dispatch)\n\n`headerSection` has exactly two consumers, both plain JSX placement: the mobile flex column (`DashboardRenderer.tsx:1108`) and the desktop grid (`:1166`). **Nothing reads its truthiness.** Widget indices come from `schema.widgets.map((w, index) => …)`, drag reordering keys off `widgetIds` / `arrayMove` on the widgets array, and every widget positions itself with `gridColumn: span W` / `gridRow: span H` — spans only, no explicit start lines, so grid auto-placement simply starts one row earlier. Removing the node changes pixels and nothing else. `DashboardGridLayout` has no header section of its own, so there is no sibling defect to file.\n\n## Contract pinned by tests\n\nExtended the existing header test file (`DashboardRenderer.headerActions.test.tsx`) rather than adding a second one; it now carries four new cases:\n\n| Case | Expectation |\n|---|---|\n| `header` declared + `hideHeaderText` + no actions | no wrapper in the DOM, and the dashboard root has **zero** element children |\n| standalone embed (`hideHeaderText` false) | title + description render exactly as today |\n| `header.actions` present + `hideHeaderText` | wrapper renders regardless of chrome, carrying the buttons, no title text |\n| standalone + `showTitle: false` + `showDescription: false` | no wrapper |\n\n## Verification — all at `2c20e5d63`\n\n| Gate | Verdict line |\n|---|---|\n| `pnpm exec vitest run packages/plugin-dashboard/` | `Test Files  75 passed (75)` / `Tests  682 passed (682)` — exit 0 |\n| `pnpm --filter @object-ui/plugin-dashboard type-check` | exit 0 (`tsc --noEmit && tsc -p tsconfig.test.json`, after building the dependency closure — before that build it was a false red of `TS2307 Cannot find module '@object-ui/…'`) |\n| `pnpm --filter @object-ui/plugin-dashboard lint` | `✖ 365 problems (0 errors, 365 warnings)` — exit 0; every warning is pre-existing `no-explicit-any` |\n| consumer sweep: `vitest run` over app-shell's dashboard consumers + `views/metadata-admin` | `Test Files  197 passed (197)` / `Tests  2211 passed` + 1 skipped (2212) — exit 0 |\n| `pnpm changeset:check` | `✅  No changeset declares a 'major' bump.` — exit 0 |\n| `pnpm check:control-bytes` | `✅  check-control-bytes: OK (scanned 4838 tracked text file(s); skipped 85 binary).` — exit 0 |\n\n**Reverse verification.** With the fix committed, `DashboardRenderer.tsx` was reverted to `origin/main` under an `EXIT INT TERM` restore trap. The mutation was confirmed on disk by marker counts, not by an editor exit code: `const showHeaderTitle` 1 → 0, `schema.header.showTitle !== false` 0 → 1. The suite then went red in the expected direction, naming the exact node from the report:\n\n```\n× emits no wrapper when the console chrome suppresses the text and no actions are declared\n× emits no wrapper for a standalone embed that authored both text flags off\nAssertionError: expected <div class=\"col-span-full mb-4\"></div> to be null\n Tests  2 failed | 6 passed (8)\n```\n\nThe two unchanged-behaviour cases stayed green, which is what they are for. The restore leg was confirmed the same way (markers back to 1 / 0) plus an empty `git status` and empty `git diff HEAD`. No build/`dist` is involved — the tests import `../DashboardRenderer` from source.\n\nSource card with the original measurement context: objectstack-ai/objectstack#11329.\n\n_Generated by [Claude Code](https://claude.ai/code/session_61f28fb9-8e31-4a6f-b4d8-10f749a092d2)_"
+}

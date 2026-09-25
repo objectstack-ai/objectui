@@ -1,0 +1,30 @@
+{
+  "number": 5845,
+  "kind": "issue",
+  "title": "Dashboard table: numeric measure columns sort descending on first click",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T14:53:44Z",
+  "updated_at": "2026-08-23T15:46:05Z",
+  "closed_at": "2026-08-23T15:43:02Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5845",
+  "body": "Dashboard table: numeric measure columns sort descending on first click\n\n## Ruling\n\nMaintainer, verbatim (未译, in-session 2026-08-23): 「我觉得合理的需求都应该开发」 — ruling on the open question #5827's dev flagged and shipped as option A (asc-first uniformly). This card flips numeric measure columns to option B.\n\n## Why it is reasonable (the four-axis case, condensed)\n\n- **真实业务需求**: the motivating complaint on #5827 was \"the largest industry renders last\". For a *measure* column in an analytics widget, the question a click asks is \"who is biggest\" — descending-first answers it in one click instead of two. Every mainstream analytics table (BI pivot tables, spreadsheet auto-filters on numeric ranges) treats measures this way.\n- **长期正确性**: the deviation is scoped to what is *semantically a measure* in a dataset widget — not to \"columns that look numeric\" and not to the console's general DataTable, whose asc-first idiom is correct for text/record lists and stays untouched.\n- **AI 难写错**: #5827 already built the semantic distinction (measure vs dimension, defensively inferred); this rides it. First-click direction becomes a property of column *role*, which is the distinction the code already carries.\n- **创业阶段聚焦**: per the #5827 report, a two-line change to `cycleSort` plus test updates.\n\n## Contract\n\n- Numeric **measure** columns (as classified by #5827's `numericColumns` inference): first click ⇒ descending, second ⇒ ascending, third ⇒ dataset order.\n- Dimension columns and non-numeric measures: unchanged (asc → desc → original).\n- Blanks last in both directions — unchanged invariant, must survive the flip (the negate-trap #5827 documented).\n- `aria-sort` reflects the actual direction.\n\nQueued serially behind nothing; #5834 merged (62c0fa16). The totals-row card is queued behind THIS one (same file).\n"
+}

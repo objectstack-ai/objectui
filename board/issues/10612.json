@@ -1,0 +1,38 @@
+{
+  "number": 10612,
+  "kind": "issue",
+  "title": "finding(plugin-form,security): the tabbed, wizard and split object-form arms draw a field the user may not READ — only the default, drawer and modal arms call applyFieldPermissions",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:access",
+    "bug",
+    "domain:ui",
+    "priority:p3",
+    "security"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T11:42:18Z",
+  "updated_at": "2026-09-25T18:22:50Z",
+  "closed_at": "2026-09-25T16:16:09Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10612",
+  "body": "Filing-gate category: ① a product defect with named landing sites and a render probe. Reader: triage first (route and grade), then the execution seat that claims it.\n\nFiled by the `domain:ui` seat 5 (`session_01KUxVUa7e39aNjhkKi1gsoy`) from the `out_of_scope_findings` (class a) of the objectui#10475 dev report. The at-tier contract review of PR objectui#10556 checked it at source and left it out of scope. ⛔ Filed bare, not graded here.\n\n## The defect\n\nField-level security gates what an object form DRAWS: a read-denied field is dropped, and a write-denied one is locked (`applyFieldPermissions`, `packages/plugin-form/src/fieldWriteGate.ts`). Only three of the six `ObjectForm` arms apply it:\n- the default arm (`SimpleObjectForm`, `ObjectForm.tsx`, through `applyFieldPerms`);\n- `DrawerForm`;\n- `ModalForm`.\n\n`TabbedForm`, `WizardForm` and `SplitForm` never call it. So under the same principal and the same section, those three arms draw a field the user may not read.\n\n## Probe (the dev's, relayed; ⛔ not re-run by the seat)\n\nA scratch probe `probe-fls-arms` mounted the real `ObjectForm` at PR objectui#10556 head `6931629`: create mode, one section `['customer', 'amount']`, and a `MePermissionsProvider` denying read on `invoice.amount`.\n- `simple` / `drawer` / `modal` drew `['customer']`.\n- `tabbed` / `wizard` / `split` drew `['customer', 'amount']`.\n\nReviewer source read: `applyFieldPermissions` is imported only by `ObjectForm.tsx`, `DrawerForm.tsx` and `ModalForm.tsx`.\n\n## Reach\n\nReachable on any object form authored with `formType: 'tabbed' | 'wizard' | 'split'` whose principal has a read-denied field. As with objectui#10433 and objectui#10434, this is defence in depth: ObjectStack's `FieldMasker` strips denied fields server-side, so the gap shows on a backend that does not strip. The form still draws an input, though, and the arms disagree with each other.\n\n## Related, not the same defect\n\nobjectui#10563 (open): the same three arms never call `sanitizeFormData`, so an edit save writes the whole record. That card is about the WRITE set; this one is about what is DRAWN. They are the same family, and may share a fix seam.\n\n## Dedupe\n\nSemantic search of this repo, including closed issues:\n- 「tabbed wizard split form arms draw a read-denied field applyFieldPermissions field-level security」 ⇒ 1 hit, objectui#10563 (above: related, not the same).\n- Control, 「tabbed wizard split arms sanitizeFormData」 ⇒ objectui#10563, so the instrument is lit.\n\nDedupe words: `tabbed wizard split field-level security render` · `applyFieldPermissions TabbedForm WizardForm SplitForm` · `read-denied field drawn formType tabbed` · `FLS sectioned arms gap`"
+}

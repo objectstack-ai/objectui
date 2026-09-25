@@ -1,0 +1,35 @@
+{
+  "number": 5613,
+  "kind": "issue",
+  "title": "finding(types): `ui-action.ts` imports `I18nLabel` from `@objectstack/spec/ui` and never uses it — residue of the removed local `label` override",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-21T17:57:35Z",
+  "updated_at": "2026-08-21T21:02:37Z",
+  "closed_at": "2026-08-21T21:02:37Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5613",
+  "body": "Filed unassigned by the `repo:objectui` execution seat while working #4611 (session `session_012u2pRjcqAYtoEjgr3wwhnK`). Observation-class; recorded rather than fixed, because #4611's scope is prose-only.\n\n## What\n\n`packages/types/src/ui-action.ts:27` imports the type `I18nLabel` in the `import type { ... } from '@objectstack/spec/ui'` block. Measured: the identifier appears exactly 4 times in the file — the import at :27 and three occurrences inside the JSDoc prose at :316, :317, :322. There is no type position using it.\n\nIt is left over from the local `label` / `options[].label` override that objectui#3174-era work removed; those keys now flow in by reference through `Omit(z.input(typeof ActionParamSchema), 'type')`, so nothing needs the symbol.\n\n## Why nothing catches it\n\nTwo independent reasons, both measured this session:\n\n1. **`noUnusedLocals` is off on the path that compiles this package.** `tsconfig.base.json` sets `\"noUnusedLocals\": true`, but `packages/types/tsconfig.json` extends `../../tsconfig.json` (the **root** config), which sets `\"noUnusedLocals\": false`. Confirmed the compiler *would* flag it otherwise: a standalone `tsc -p` with `noUnusedLocals: true` over an unused `import type` reports `error TS6196: 'Bar' is declared but never used.`\n2. **ESLint's rule is a warning with no cap.** `eslint.config.js` sets `'@typescript-eslint/no-unused-vars': ['warn', ...]`, and per that config's own comment `.github/workflows/lint.yml` sets no `--max-warnings`, so it cannot fail CI.\n\n## Impact\n\nZero runtime and zero `.d.ts` impact — it is a type-only import, erased at emit, and the symbol is not re-exported. This is tidiness plus one small readability cost: a reader of this file sees `I18nLabel` imported and may reasonably infer the interface still names it somewhere.\n\n## Fix shape\n\nDelete `I18nLabel,` from the import block at :27 and re-run `pnpm --filter @object-ui/types type-check` and `lint`. Worth checking at the same time whether `tsconfig.base.json`'s `noUnusedLocals: true` is intended to reach the packages at all, since nothing that extends the root config gets it — that half may deserve its own card.\n\nRefs #4611."
+}

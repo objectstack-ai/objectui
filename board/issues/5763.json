@@ -1,0 +1,36 @@
+{
+  "number": 5763,
+  "kind": "issue",
+  "title": "`sweepStore`'s try wraps the whole loop, so one throwing `removeItem` silently cancels the rest of the session-user purge",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T05:30:28Z",
+  "updated_at": "2026-08-23T07:56:19Z",
+  "closed_at": "2026-08-23T07:56:19Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5763",
+  "body": "Found while implementing #5731 (`ActiveOrganizationStorage.clear()` swallowing a failed removal). Same defect class, different function and different callers, so it is filed rather than fixed on that PR. Unassigned.\n\n## The shape\n\n`packages/auth/src/ActiveOrganizationStorage.ts`:\n\n```ts\nfunction sweepStore(store: Storage | undefined): void {\n  if (!store) return;\n  try {\n    for (const key of Object.keys(store)) {\n      if (DEVICE_SCOPED_KEYS.has(key)) continue;\n      store.removeItem(key);\n    }\n  } catch {\n    /* storage unavailable */\n  }\n}\n```\n\nThe `try` wraps the **whole loop**, not each removal. A `removeItem` that throws on key *n* aborts the walk, so keys *n+1..end* are never swept — and the failure is swallowed, so `purgePreviousUserClientState()` returns normally and its caller believes the purge completed.\n\n## Why it matters\n\n`sweepStore` is part 3 of the #5664 fix, and its own comment says why that part is the load-bearing one: it is an **allowlist** sweep precisely so the next un-namespaced key — one nobody has written yet — cannot re-open the cross-user pollution class. A partial sweep is a partial allowlist. Which keys survive depends on `Object.keys` iteration order, so the residue is arbitrary rather than bounded: the previous user's org id, recents, favourites, or a `sessionStorage` metadata seed (their permission-filtered app list, which #5198 classifies as a cross-principal disclosure rather than staleness) can all be on the wrong side of the abort.\n\nBoth `sweepStore` call sites are inside `purgePreviousUserClientState`, which runs on `SessionUserScope.adopt` — the **sign-in** path.\n\n## Reachability — same honesty as #5731\n\n**Not demonstrated.** The state needed is `Object.keys` succeeding while some `removeItem` throws, which is the same state #5731 could not reach from a browser and for the same reasons. Triage graded #5731 anyway because the remedy restores an invariant and needs no product decision; the identical argument applies here, but that is triage's call and not mine to make.\n\nWorth noting for the grade: a wrapped or proxied `localStorage` (an extension, a polyfill) is a candidate here in a way it is not everywhere, since this loop calls `removeItem` many times in a row and only needs one of them to fail.\n\n## Possible shape\n\nMove the `try` inside the loop so one uncooperative key costs one key. `Object.keys(store)` itself can also throw and needs to stay guarded — that is the reason the outer `try` exists at all, so it should be kept for the snapshot and narrowed for the walk. Whether a failed sweep should additionally be reported is the same question #5731 answered for `clear()`, and the answer there may or may not transfer: `sweepStore`'s caller is on the sign-in path.\n\n## Scope note\n\nDeliberately not fixed on the #5731 PR. That card is about `ActiveOrganizationStorage.clear()`'s own removal and its interaction with `get()`'s read order; this is a different function whose behaviour is pinned by `__tests__/sessionUserChangePurge-5664.test.tsx`, and changing it means a test of its own for partial-failure behaviour. Keeping the two apart keeps both reviewable.\n\nBlocked-by: none. Related: #5731, #5664, #5198."
+}

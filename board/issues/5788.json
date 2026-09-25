@@ -1,0 +1,30 @@
+{
+  "number": 5788,
+  "kind": "pull_request",
+  "title": "fix(app-shell): invert the nav-selection -> AppNavInspector edge",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T08:33:06Z",
+  "updated_at": "2026-08-23T08:44:17Z",
+  "closed_at": "2026-08-23T08:44:15Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T08:44:15Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5788",
+  "body": "Fixes #5600\n\n## What changed\n\n`nav-selection.ts` (pure URL-parsing plumbing — `parseSurfaceParam` / `formatSurfaceParam`\n/ `parseNavSelParam` and friends) statically imported `APP_NAV_ROOT_KEYS` from the\n510-line `AppNavInspector.tsx`, so every consumer of the URL helpers pulled a\nRadix/dnd-kit-backed React inspector component into its static import graph for one\narray of root keys.\n\n`APP_NAV_ROOT_KEYS` (`['nav', 'navigation', 'tabs', 'items', 'menu']`) is a plain\nstring-literal array — it describes nav SHAPE, not the editor — so it now lives in\n`nav-selection.ts`. Checked whether `AppNavInspector.tsx` needed to import it back:\ngrepping the file for any use of `ROOT_KEYS` beyond its declaration and the trailing\n`export const APP_NAV_ROOT_KEYS = ROOT_KEYS;` found none — the component never reads\nthe array, it only re-exported it. So the fix is a straight move, no back-import: the\ndeclaration + export are deleted from `AppNavInspector.tsx` entirely, and nothing\noutside this repo depends on the old path (no barrel/index re-export surfaces it, and\n`@object-ui/app-shell`'s package `exports` field never touched it).\n\n## Re-measuring the card's importer list\n\nThe card lists five non-test importers of `nav-selection`, including `utils/appRoute.ts`.\nRe-checking against current `main`: `appRoute.ts` has **no import statements at all** —\nits one `nav-selection` hit is a doc-comment mention (`` `?surface=` restore honors (see\n`nav-selection.ts`) ``), not an import. The actual non-test importer set today is four\nfiles: `views/studio-design/useSurfaceDeepLink.ts`, `views/studio-design/StudioDesignSurface.tsx`,\n`views/metadata-admin/ResourceEditPage.tsx`, `console/ai/artifactStudioPath.ts`. The\nsmall-utility case the card makes still holds — `artifactStudioPath.ts` is exactly that —\njust naming one file, not two.\n\n## Proving the edge is gone (not by reading the import line)\n\nA `grep` can't see a transitive edge, so this is verified structurally: a small BFS\nscript (`trace-static-imports.mjs`, not part of this PR — a throwaway verification tool)\nwalks STATIC (non-`import type`, non-dynamic-`import()`) relative imports from the four\nimporters above, confined to `packages/app-shell/src`, and checks whether it ever\nreaches `AppNavInspector.tsx`.\n\n- **Pre-fix** (`origin/main`, in a scratch comparison worktree): reached in 6 files\n  visited — `nav-selection.ts -> AppNavInspector.tsx` directly.\n- **Post-fix** (this branch): 158 files visited, target never reached.\n\nBare package specifiers (workspace packages, npm deps) aren't traversed — they're\nseparate, already-built chunk boundaries, which is the right cut here since\n`AppNavInspector.tsx` lives in-package and was only reachable via the one relative\nimport this PR removes.\n\n## Eager-closure budget (bonus, not the bar per triage)\n\nBuilt `apps/console` and ran `scripts/check-eager-closure-budget.mjs` before and after,\nusing `git checkout HEAD~1 -- <2 files>` / `git checkout HEAD -- <2 files>` to swap\nbetween pre- and post-fix content in place (same install, same dependency closure, so\nthe only variable is these two files) rather than a second full `pnpm install`:\n\n| | gzipped | headroom (budget 3990.2 KB) |\n|---|---|---|\n| pre-fix | 3918.5 KB | 71.7 KB |\n| post-fix | 3918.4 KB | 71.8 KB |\n\n`metadata-admin-*.js` shrank 175.8 KB -> 175.6 KB. A ~100-byte-gzipped reclaim — the\narray itself is tiny and this is well within measurement noise. Reported as asked;\nmatches the triage note that a reclaim here is a bonus, not the acceptance bar. The bar\nis the edge being gone, shown above.\n\n## Tests\n\nAll run via `pnpm exec vitest run <paths>` from the repo root (this repo's\n`vitest-invocation-guard` requires it):\n\n- Directly-affected: `nav-selection.surface.test.ts`, `useSurfaceDeepLink.test.ts`,\n  `appRoute.test.ts`, `artifactStudioPath.test.ts`, `nav-target.test.ts`,\n  `StudioDesignSurface.navItemInspector.test.tsx` — **77 passed (6 files)**.\n- `ResourceEditPage.*.test.tsx` (6 files covering the fifth importer) — passed as part\n  of an earlier 8-file/40-test run alongside `StudioDesignSurface.navItemInspector.test.tsx`.\n- `pnpm --filter '@object-ui/app-shell^...' build` (dependency closure) and\n  `pnpm --filter '@object-ui/app-shell' build` (`tsc`) both exit 0.\n- `pnpm exec eslint packages/app-shell/src/views/metadata-admin/nav-selection.ts\n  packages/app-shell/src/views/metadata-admin/inspectors/AppNavInspector.tsx\n  --no-inline-config` — 0 errors (18 pre-existing `any`/hooks warnings, unrelated to\n  this diff, all on lines this PR doesn't touch).\n- `node scripts/check-changeset-presence.mjs` — passes; empty-frontmatter changeset\n  declares this behaviour-unchanged (no release).\n\nNo behaviour change — `AppNavInspector`'s root-key handling and `nav-selection`'s\nparsing/formatting functions are byte-identical in logic, only the constant's home\nmodule moved.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01EuPCi56cnGyykygi3z9w4m)_"
+}

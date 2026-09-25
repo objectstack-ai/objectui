@@ -1,0 +1,36 @@
+{
+  "number": 5622,
+  "kind": "issue",
+  "title": "Two more retired lucide spellings reach the `icons`-record resolver — `edit` in DetailView's mobile Edit action, `smile` as the `icon` renderer's own default — and only one of the four resolver copies is pinned",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-21T19:12:55Z",
+  "updated_at": "2026-08-21T21:37:35Z",
+  "closed_at": "2026-08-21T21:37:35Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5622",
+  "body": "Measured while implementing #5586 on `origin/main` @ `8c87f0583`. **Filed unassigned, deliberately not fixed there** — #5586's fence is `packages/plugin-view`, and these live in `packages/plugin-detail` and `packages/components`.\n\n## The measurement\n\n#5586's root cause is that lucide retires a spelling by dropping it from the runtime `icons` record while keeping it as a deprecated named export, so a by-name lookup silently returns `null` and the site renders no icon at all. That card fixed the two instances in `plugin-view`. Scanning the whole repo for the same shape finds two more on live paths.\n\nEvery `icon: '<kebab-name>'` literal in `packages/**` and `apps/**` (53 distinct names, 109 sites) was PascalCased the way the resolvers do and tested against the installed `lucide-react@1.31.0` record:\n\n```\nicon-name literals scanned: 53\nNOT in the icons record: 15\n   check-circle -> CheckCircle        (canonical CircleCheckBig)\n   edit         -> Edit               (canonical SquarePen)\n   smile        -> Smile              (canonical FaceSlightlySmiling)\n   x-circle     -> XCircle            (canonical CircleX)\n   chevron, not-a-real-icon, text-*-500 …   (see \"not defects\" below)\n```\n\n### 1. `packages/plugin-detail/src/DetailView.tsx:784` — production\n\n```\nitems.push({\n  name: 'sys_edit_mobile',\n  label: t('detail.edit'),\n  icon: 'edit',\n  …\n```\n\nThose items become an `action:bar` schema (same file, `type: 'action:bar'`), and the `packages/components` action renderers resolve `action.icon` through `renderers/action/resolve-icon.ts`, which reads the `icons` record. `Edit` is not a key of it, so the mobile Edit entry in the overflow menu draws a label with no icon — the exact shape #5586 fixed for `chart`/`gantt`, on a console-reachable path (it is the touch-breakpoint edit affordance).\n\n### 2. `packages/components/src/renderers/basic/icon.tsx:83` — the `icon` renderer's own default\n\n```\nComponentRegistry.register('icon', IconRenderer, {\n  …\n  icon: 'smile',\n  inputs: [ { name: 'name', type: 'string', label: 'Icon Name', defaultValue: 'smile' }, … ]\n```\n\n`Smile` is not a key of the record either, and this renderer's own lookup is the one that `console.warn`s and returns `null` when it misses. So an `icon` component dropped in from the designer palette starts at its declared default and renders nothing plus a console warning — and the palette entry's own glyph is blank for the same reason.\n\n### 3. `packages/plugin-list/src/ViewSwitcher.tsx:13-21` — the same staleness, not (yet) user-visible\n\n`VIEW_ICONS` names `Grid`, `GanttChartSquare` and `BarChart3` — the same three deprecated aliases #5586 replaced in `plugin-view`'s `DEFAULT_VIEW_ICONS`. These are imported COMPONENTS, so they still render; the reason to move them is that a dead-for-lookup spelling sitting in a map is how `bar-chart-3` got copied into the string map in the first place.\n\n## Why the same name works in some places and not others\n\nThere are two different lucide surfaces in this repo, and they disagree about aliases — measured on the installed version:\n\n| resolver | reads | entries | carries `edit` / `check-circle` |\n| --- | --- | --- | --- |\n| `plugin-view/src/ViewSwitcher.tsx`, `components/renderers/action/resolve-icon.ts`, `components/renderers/basic/icon.tsx`, `plugin-list/src/components/TabBar.tsx` | `icons` record | 1767 | **no** |\n| `app-shell/src/utils/getIcon.ts`, `layout/src/NavigationRenderer.tsx` (via `getLazyIcon`) | `lucide-react/dynamic.mjs`'s `iconNames` | 2025 | **yes** |\n\nSo `icon: 'edit'` renders correctly in the sidebar and renders nothing in an action bar. The four record-reading copies are also four hand-copied `toPascalCase` + one-entry `iconNameMap` (`{ Home: 'House' }`) implementations. Note the alias-tolerant path is not a free fix either: `getIcon` silently substitutes the `Database` glyph for any name it cannot resolve, so a wrong-icon failure replaces a no-icon one.\n\n## Suggested shape (for triage, not a ruling)\n\n1. Fix the two live names against the record (`edit` → `square-pen`, `smile` → the spelling picked for the palette default) and the three `plugin-list` component aliases.\n2. #5586 added a resolvability pin covering every name `plugin-view`'s two maps supply (`packages/plugin-view/src/__tests__/ViewSwitcher.test.tsx`). Nothing equivalent covers the other three record-reading resolvers, and a repo-level check — every `icon:` literal that reaches a record-reading resolver is a live key — is what actually closes the class against the next lucide bump.\n\n## Not defects (recorded so the next scan does not re-triage them)\n\n- `text-amber-500` and eight siblings (`app-shell/…/previews/AppNavCanvas.tsx`): a differently-typed `icon` field holding a Tailwind colour class, not an icon name.\n- `not-a-real-icon` (two notification tests): deliberate negative controls.\n- `chevron` (`types/…/accordion-item-authorable-keys.test.ts`): an authorable-keys fixture, never resolved.\n- `check-circle` / `x-circle` (`app-shell/…/DeclaredActionsBar.overrideAffordance.test.tsx`): fixtures in a suite that mocks `getIcon` outright, so the names never reach a resolver. They are still retired spellings and worth correcting with the rest.\n- `area-chart`, `bar-chart`, `line-chart`, `pie-chart`, `scatter-chart` elsewhere: ComponentRegistry / schema type names that merely collide with lucide spellings.\n\n## Dedup\n\nSearched open issues for the lucide-name shape, the icon-resolution shape, and lucide upgrade cards; nothing open covers these sites. Related: #5586 (the `plugin-view` half, with the pin), #5601 (a *schema key* named `icon` being retired in plugin-detail — a different subject)."
+}

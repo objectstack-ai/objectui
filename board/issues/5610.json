@@ -1,0 +1,35 @@
+{
+  "number": 5610,
+  "kind": "issue",
+  "title": "`RecordDetailView` carries a second copy of the param dialog's dead `action?.title` fallback",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T17:28:09Z",
+  "updated_at": "2026-08-21T18:37:09Z",
+  "closed_at": "2026-08-21T18:37:09Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5610",
+  "body": "Found while implementing #4282 (deleting the same limb from `useConsoleActionRuntime`). Observation-class: dormant, nothing a user hits today. Filed rather than fixed — that card's file fence was `packages/app-shell/src/hooks/**`, and another PR in the same round was touching `packages/app-shell/src/views/`.\n\n## The read\n\n`packages/app-shell/src/views/RecordDetailView.tsx:539`, titling the param-collection dialog:\n\n```ts\nsetParamState({\n  open: true,\n  params: localized,\n  // Title the dialog as the action rather than the generic \"Action parameters\".\n  title: action?.label || action?.title,\n  description: actionDescription(objForI18n, action?.name, action?.description),\n  resolve,\n});\n```\n\nThis is a near-identical second `paramCollectionHandler` — same shape, same `action?: any` parameter (`:500`), same dead right-hand side — living alongside the one #4282 fixed. `RecordDetailView` builds its own runtime rather than routing through `useConsoleActionRuntime`, so the two handlers have drifted as a pair for a while; #4282's comment about the localization mirroring says as much (\"mirrors useConsoleActionRuntime\").\n\n## The reachability argument, re-measured for this site\n\nIdentical to #4282's, because it is the same key on the same surface. Re-verified on `origin/main` @ `7a28e1e3f`, every zero paired with a control probe:\n\n- **not in `@objectstack/spec`'s `ActionSchema`** — walked live against the installed `@objectstack/spec@17.0.0` with the pin test's own zod-internals walk: 44 keys, `title` absent, controls `description` and `label` both present;\n- **not in `@object-ui/core`'s `ACTION_DEF_KEYS` / `SPEC_ACTION_KEYS`** (0 entries; controls `description` 2, `label` 2) nor as a field on the `ActionDef` interface;\n- **not on `@object-ui/types`' `ui-action.ts`** (1 hit, prose only — `titleFormat` in a doc comment at `:273`);\n- **not on `crud.ts`'s `ActionSchema`** (2 hits, both non-action: retired-`confirm` prose at `:136`, and the nested `dialog.title` at `:163`) nor inherited from `BaseSchema` — `base.ts`'s only `title` field at `:599` belongs to `HTMLAttributes`;\n- **forwarded by none of the four action renderers** — `action:button`, `action:icon`, `action:group`, `action:menu` each carry exactly one or two `title` hits and all of them are prose in comments.\n\nA repo-wide sweep for reads of the key found exactly two live ones, this and the one #4282 removed:\n\n```\npackages/app-shell/src/hooks/useConsoleActionRuntime.tsx:259   (removed by #4282)\npackages/app-shell/src/views/RecordDetailView.tsx:539          (this one)\npackages/components/src/renderers/action/action-menu.tsx:223                    prose\npackages/components/src/renderers/action/__tests__/action-forward-parity.test.tsx:21   prose\n```\n\n## Suggested disposition\n\nMirror #4282 exactly: delete `|| action?.title`, leaving `title: action?.label`, and extend the pin. `useConsoleActionRuntime.paramDialogTitle.test.tsx` (added by #4282) is the template — it pins the **reader** rather than the deletion, because the `action` parameter here is `any` too, so nothing in the compiler stops the alias coming back.\n\nOnce this lands, the two prose mentions above go stale and can be refreshed in the same PR — `action-forward-parity.test.tsx`'s header quotes the expression verbatim and cites `useConsoleActionRuntime.tsx:205-207` (already stale line numbers today).\n\n## Second half, blocked\n\nNarrowing this handler's `action?: any` to `ActionDef` hits the same wall #4282 measured — `overrideNotice` is read off the action but declared nowhere. That is filed separately; this issue's first half does not depend on it.\n\nRefs #4282, #4046, #4192.\n"
+}

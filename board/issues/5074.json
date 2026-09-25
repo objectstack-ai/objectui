@@ -1,0 +1,37 @@
+{
+  "number": 5074,
+  "kind": "issue",
+  "title": "plugin-gantt: schema 上的 viewMode 只被 ResourceWorkload 分支读,时间轴静默忽略 —— 且该键在 ObjectGanttSchema 与 spec 的 GanttConfigSchema 都未声明",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:blocking",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T22:19:00Z",
+  "updated_at": "2026-08-23T13:45:31Z",
+  "closed_at": "2026-08-23T13:45:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5074",
+  "body": "发现于 #5058 的实施(PR #5072),复测 #5057 的「逐键零命中表」时命中。Filed unassigned, not claiming.\n\n测于 `origin/main` @ `82a94170c4058d451ce3ac179d99296d90554479`。\n\n## 现象\n\n`schema.viewMode` 在 `packages/plugin-gantt/src` 有且只有**一个**读取点,而且它在一个受守卫的分支里:\n\n```\npackages/plugin-gantt/src/ObjectGantt.tsx:1445:            viewMode={((schema as any).viewMode as GanttViewMode) || 'day'}\n```\n\n该行位于 `:1439` 的三元真分支内。结构(标签名照抄会被正文清洗器吞掉,故此处用文字描述):`:1439` 判 `ganttConfig?.resourceView && assigneeAccessor` —— 真分支渲染 `ResourceWorkload` 元素并把上面那行 `viewMode` 传给它;假分支从 `:1447` 起渲染 `GanttView` 元素,其属性里**没有** `viewMode`(复核:`sed -n '1447,1500p' … | grep viewMode` 无输出)。\n\n于是 `GanttView` 落到自己的默认粒度。净效果:作者在 gantt 节点上写 `viewMode: 'month'`,\n\n- 配了 `resourceView` + `assigneeField` → 资源负载网格按 month 分列,**生效**;\n- 没配(即绝大多数甘特视图)→ **静默忽略**,时间轴仍是默认粒度,无任何诊断。\n\n同一个键在同一个组件上一半生效一半不生效,取决于一个看起来无关的配置(`resourceView`)。\n\n## 契约侧:这个键两处都没声明\n\n- `ObjectGanttSchema`(`packages/types/src/objectql.ts:1856-1870`)声明的是 `type` / `objectName` / `startDateField` / `endDateField` / `titleField` / `dependencyField` / `progressField` —— **没有** `viewMode`;\n- spec 的 `GanttConfigSchema`(`gantt` 块的 vocabulary)那 17 个键里也**没有** `viewMode`(实测 `node_modules/@objectstack/spec/dist/view.zod-CktyTeqO.d.ts:765` 起的 shape:`startDateField` `endDateField` `titleField` `progressField` `dependenciesField` `colorField` `parentField` `typeField` `baselineStartField` `baselineEndField` `groupByField` `resourceView` `assigneeField` `effortField` `capacity` `tooltipFields` `quickFilters` `autoZoomToFilter` …);\n- 所以这个读取点走的是 `(schema as any).viewMode` 强转,读的是一个**未声明的键**。之所以没被类型系统挡下,是因为 `ObjectGanttSchema` 继承的 `BaseSchema` 带索引签名 `[key: string]: any`(`packages/types/src/base.ts:318`),其 Zod 对应物是 `.passthrough()`(`packages/types/src/zod/base.zod.ts:154`)—— 两层都不拒未知键。\n\n按 #0.1 契约优先,这属于 ADR-0049 「enforce-or-remove」的形状:要么在契约里声明它(并把时间轴那半边接上),要么把这个未声明的读取点移除。**两条路的取舍是维护者的裁定,不在本卡内擅定。**\n\n## 与 #5057 的关系(为什么单独立卡)\n\n#5057 把 `viewMode` 列进「schema 上零命中」的假键表,并据此要求 README 把它改写成「纯组件 prop」。实测该表这一行**不成立**:命中数是 1,不是 0。#5057 卡面的复核命令只写了裸 `schema\\.viewMode`,看不见 `(schema as any).viewMode` 强转形;其正对照 `dependenciesField` 恰好是不带强转的读法,所以正对照证明不了扫描器对强转形不盲。cast 感知复测下,该表另外八个键(`tasks` / `onTaskClick` / `onTaskUpdate` / `object` / `nameField` / `startField` / `endField` / `fields`)全部成立,只有 `viewMode` 这一行被推翻。\n\n#5057 明确 ⛔ 不加渲染器能力来把 README 变真,所以**渲染器侧的半接线不在 #5057 的完成范围内**,单独立卡;反过来 #5057 要怎么描述 `viewMode`,取决于本卡的裁定结果。\n\n顺带同源一条(不构成本卡范围):`readOnly` 是**真** schema 键(`ObjectGantt.tsx:1471`、`:1516`),但同样未在 `ObjectGanttSchema` 声明、同样走 `as any` 读 —— 与 `viewMode` 是同一类契约缺口,只是它两个分支都生效,所以没有半接线问题。`markers` / `holidays` / `skipWeekends` / `criticalPath` / `showBaselines` / `mobileReadOnly` / `navigation` / `persistLayout` 亦同(全部 `as any` 读未声明键),规模上像是这个组件的通例而非孤例。\n\n## 复核方式\n\n```\ngrep -n \"as any)\\.viewMode\" packages/plugin-gantt/src/ObjectGantt.tsx        # :1445,唯一命中\nsed -n '1438,1450p' packages/plugin-gantt/src/ObjectGantt.tsx               # 看清它在 ResourceWorkload 分支内\nsed -n '1447,1500p' packages/plugin-gantt/src/ObjectGantt.tsx | grep viewMode # 无输出 = 时间轴分支不传\ngrep -n \"viewMode\" packages/plugin-gantt/src/GanttView.tsx | head           # :339 是组件 prop,有自己的默认\nsed -n '1856,1870p' packages/types/src/objectql.ts                          # ObjectGanttSchema 未声明 viewMode\n```\n\n## 分级\n\n交 PM 分诊。我不预判档位:一方面这是用户今天可达的静默无效(作者写了 `viewMode` 却只在一种配置下生效,和 #5002 / #5057 同一类「无诊断的静默不生效」);另一方面 `viewMode` 从未是被声明的授权键,可以论证成「本就不该被读」的休眠漂移。两个方向我都不该替 PM 定,故不挂 `finding` 也不挂 `pm:queue`,请在分诊轮里评级。\n\n关联:#5057(同键的 README 半边,其零命中表这一行被本卡推翻)、#5058 / PR #5072(本卡的发现来源)、#5043(缺门禁的根因单;本卡是「索引签名 + passthrough 使假键面无法被任何门禁看见」的实测特例)。"
+}

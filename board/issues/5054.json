@@ -1,0 +1,36 @@
+{
+  "number": 5054,
+  "kind": "issue",
+  "title": "finding(cloud-connection): a server-detected bind failure now reads English, while the same failure detected by the panel's own timer reads the locale — two languages for one condition",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "auto-adjudicated",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T21:01:56Z",
+  "updated_at": "2026-08-22T07:30:28Z",
+  "closed_at": "2026-08-22T07:30:28Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5054",
+  "body": "**Observation class.** Nothing is broken and no user is blocked; this is the UX call objectui#5028 deliberately left undecided, now with a measurement attached and re-scoped by it. Filed unassigned, no `pm:queue` — the PM's triage round should grade it, not me.\n\nFound while verifying #5028 (PR #5052). Baseline `dc9d651a2c55c10a9e4d30434e429e5fdc5ae968`.\n\n## The measurement\n\n#5028's card asked whether the panel should \"prefer a translated string over any machine code\". Verification moved the question, because it found which reader actually renders a bind failure:\n\n- `packages/app-shell/src/console/cloud-connection/CloudConnectionPanel.tsx:76` — `getJson` builds `body?.error?.message ?? body?.error?.code ?? body?.error ?? …` and throws it as an `Error`;\n- `:130` catches that and `:193` renders `phase.message` verbatim;\n- `/bind/poll` serves the terminal device-authorization failure with **HTTP 400** (objectstack `packages/cloud-connection/src/cloud-connection-plugin.ts`), so `getJson` throws before `poll()`'s own display branch is reached.\n\nAfter objectstack#9267 / PR #9369 that wire `message` is an English sentence built server-side: `Device authorization failed: expired_token` (and `access_denied`, whatever RFC 8628 spelling arrives — it also rides `error.declaredCode` now).\n\nSo the question is no longer about **readability** — the wire text is perfectly readable. It is about **language**.\n\n## The asymmetry that makes it concrete\n\nThe panel already ships translated copy for this exact condition, and already uses it — for the other clock:\n\n- `:112` — when the panel's own deadline (`expires_in`) fires first, it renders `t('cloudConnection.errors.expired')`, i.e. `The request expired before it was approved. Start again.` / zh `请求在获批前已过期，请重新开始。`\n- `:76` / `:130` — when the **server** notices the same expiry first, it renders the server's English sentence.\n\nOne user, one failure, two languages, decided by which clock noticed first. On a zh console that is visible: the same abandoned approval reads Chinese or English depending on whether the tab sat open past `expires_in`.\n\n## The question left open\n\nShould the panel map the codes it can recognize — `error.declaredCode` for the RFC 8628 spellings, `error.code` for the ADR-0112 members — onto `cloudConnection.errors.*`, and fall back to the wire `message` only for codes it does not know?\n\nOptions, none of them decided here:\n\n- **A. Code-to-key map in the panel**, wire `message` as the fallback. Every code the console knows reads in the user's language; a new upstream code falls back to English until a key is added. Needs a key per code and a decision about how much of the RFC 8628 vocabulary is worth naming (`expired_token`, `access_denied` are the two a user can actually cause).\n- **B. Keep displaying the wire `message`.** Zero maintenance, one source of truth, permanently English on ten locales. Defensible if this surface is considered operator-facing rather than end-user-facing — which is itself the call to make.\n- **C. Ask the producer for a translatable structure** (code plus params, translated console-side). Contract-correct and it generalizes past this one panel, but it is a cross-repo change and no other consumer needs it today; objectstack#9364 is already carrying that surface's conformance work.\n\nMy own lean is A restricted to the two user-causable codes, with B's behavior as the fallback — it is local, it removes the asymmetry a zh user can actually see, and it does not ask another repo for anything. But this is a copy/UX policy call for whoever owns console i18n, which is why it is a finding and not a PR.\n\n## Out of scope of PR #5052 on purpose\n\n#5052 only aligns `poll()`'s display precedence with `getJson`'s (`message` before `code`) and pins the surface with four cases, including a control that records where the device-authorization text comes from. It changes no copy and adds no keys.\n\nNeighbouring, not duplicate: objectui#4645 (record-detail tabs untranslated) is about hardcoded literals in this repo; this one is about a **server-supplied** string reaching the user, which no i18n pass over this codebase can see."
+}

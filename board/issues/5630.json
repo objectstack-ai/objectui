@@ -1,0 +1,35 @@
+{
+  "number": 5630,
+  "kind": "issue",
+  "title": "finding: three `element:` renderers are swept by the DOM-leak gate only in their empty-state branch, so their clean reading covers the branch that never spreads",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T19:27:17Z",
+  "updated_at": "2026-08-23T08:35:46Z",
+  "closed_at": "2026-08-23T08:35:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5630",
+  "body": "Observation-class finding, recorded while widening the DOM-leak sweep in #5574 (PR #5629). Not fixed there — that card's job was reaching the family at all, and this is a depth-of-fixture gap the widening created rather than one it inherited.\n\n## The gap\n\n`packages/app-shell/src/__tests__/widget-dom-leak-sweep.test.tsx` now sweeps all 158 registry-reachable types from `packages/components/src/renderers/**`. Three of them reach their readiness selector through a **placeholder branch** that returns before the element the renderer spreads onto is ever constructed:\n\n| target | source | what actually rendered |\n|---|---|---|\n| `element:definition-list` | `basic/data-list.tsx:56-57` | `No details` — `items.length === 0`, early return |\n| `element:repeater` | `basic/data-list.tsx:157` | `No records` — the sweep's `FAKE_ADAPTER` answers with no rows by design |\n| `element:metadata_viewer` | `basic/metadata-viewer.tsx:100` | the amber not-found placeholder — the canary node names no resolvable metadata |\n\nAll three currently read **clean**, and PR #5629 records that reading as covering the placeholder branch only (`READY_OVERRIDE_REASONS` in that file, pinned two-way so the list cannot grow quietly).\n\n## Why it matters, and why it is not urgent\n\nThis is the trap-1 shape from that file's own docblock — \"a lazy boundary answers with a skeleton\" — in a different dress. A clean reading taken off a branch that structurally cannot spread says nothing about the branch that can. It is a *phantom clean* in waiting: not currently misleading anyone, because it is written down, but it is exactly the reading that would be misread as \"these three converged\" once the surrounding rows start disappearing.\n\nOf the 16 phantom cleans that widening surfaced, 12 were removed by authoring a schema and 4 by adding a `SidebarProvider` host. These three are the residue: they need **data**, not schema, and `FAKE_ADAPTER` returning empty is load-bearing elsewhere in the file (it is what keeps every data-bound target on its real render path rather than an error state).\n\n## Suggested shape\n\nAuthor `items` for `element:definition-list` (pure schema — no adapter involved, so this one is cheap). For `element:repeater` and `element:metadata_viewer`, either a per-target adapter override on `Target`, or a data-bearing fixture adapter used only by the targets that declare it. Re-measure the three; if a leak appears, it is a new ledger row rather than a new gate.\n\nWhoever picks this up should confirm the leak set from a real render before changing any row — the whole discipline of that file is that a row records a measurement, never a prediction.\n\n## References\n\n- #5574 / PR #5629 — the widening, and where the three are recorded\n- #4425 — the tracking card for the whitelist migration\n- `packages/app-shell/src/__tests__/widget-dom-leak-sweep.test.tsx` — `READY_OVERRIDE_REASONS`\n- `packages/components/src/renderers/basic/data-list.tsx`, `basic/metadata-viewer.tsx`"
+}

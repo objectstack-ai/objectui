@@ -1,0 +1,35 @@
+{
+  "number": 5474,
+  "kind": "issue",
+  "title": "finding(components): the static `table` renderer reads 9 of the 20 keys `TableSchema`/`TableColumn` declare — `hoverable`, `striped`, `align`, `sortable`, `cell` and 6 more are inert, and the reference page documents two of them as working",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-21T01:46:18Z",
+  "updated_at": "2026-08-23T13:41:42Z",
+  "closed_at": "2026-08-23T13:41:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5474",
+  "body": "Found while implementing #5350 (retiring that renderer's undeclared column aliases). Observation class — filed unassigned and deliberately NOT fixed there, because which way it resolves is an ADR-0049 enforce-or-remove contract decision, not a re-spelling. #5350 stayed inside the spelling question the family ruling settled.\n\n## Measured\n\nEvery key `packages/components/src/renderers/complex/table.tsx` reads, derived from the file rather than recalled:\n\n```\ngrep -oE '(schema|col)\\.[a-zA-Z]+' packages/components/src/renderers/complex/table.tsx | sort -u\n```\n```\ncol.accessorKey  col.cellClassName  col.className  col.header  col.width\nschema.caption   schema.columns     schema.data    schema.footer\n```\n\nNine. Against that, `packages/types/src/data-display.ts` declares:\n\n| declaring type | declared and **read** | declared and **inert** |\n|---|---|---|\n| `TableSchema` | `caption`, `columns`, `data`, `footer` | `hoverable`, `striped` |\n| `TableColumn` | `header`, `accessorKey`, `className`, `cellClassName`, `width` | `minWidth`, `align`, `fixed`, `type`, `sortable`, `filterable`, `resizable`, `editable`, `cell` |\n\nEleven declared keys are never read. `hoverable` and `striped` even carry `@default` annotations (`true` / `false`) describing behaviour that does not exist on this renderer.\n\n## The published page documents two of them as working\n\n`content/docs/api/schema-reference.md` §TableSchema:\n\n| Property | Type | Description |\n|---|---|---|\n| `hoverable` | `boolean` | Highlight rows on hover. |\n| `striped` | `boolean` | Alternate row background colors. |\n\nand its copyable example sets `\"hoverable\": true, \"striped\": true`. Both are inert. The section header one line above likewise reads *\"A data table with columns, optional striping, and hover effects.\"*\n\nThis is the same **declared-but-unenforced** shape as #5373 (`type: 'crud'`: four declaration faces, no renderer), one level down: the type renders, but a majority of what it declares does not. #5350 corrected the same section's *spelling* contract and deliberately left `hoverable`/`striped` in the example, because deleting them would have pre-empted this decision.\n\n## Not merely cosmetic for AI authoring\n\n`align` and `sortable` are the two most likely for a generator to emit — a right-aligned amount column is the obvious thing to author, and the pre-#5350 reference example did exactly that (`{ \"name\": \"amount\", \"label\": \"Amount\", \"align\": \"right\" }`). It is accepted, type-checks, and does nothing, with no diagnostic. Same silent class as #5349.\n\n## The routes, not pre-decided\n\n1. **Implement** the inert keys on this renderer (`hoverable`/`striped`/`align` are a few lines each; `sortable`/`filterable`/`resizable`/`editable`/`cell` are substantially more, and arguably why `data-table` exists).\n2. **Retire** them from `TableSchema`/`TableColumn` under ADR-0049 and point authors at `data-table` for the interactive set — the narrow reading being that `table` is deliberately the dumb static renderer and its type over-declares.\n3. **Split the type**: keep `TableColumn` as the rich shared shape `data-table` honours and give the static renderer a narrow declared subset, so `declared = enforced` holds per renderer.\n\nRoute 2 or 3 look consistent with the startup-focus / implementation-first standing instruction, but the pick is a maintainer call. Note `TableColumn` is shared: `DataTableSchema` and others consume it, so a retirement must be checked against those consumers first — this is not a single-renderer edit.\n\n## Reproduce\n\n```\ngrep -oE '(schema|col)\\.[a-zA-Z]+' packages/components/src/renderers/complex/table.tsx | sort -u\nsed -n '227,278p' packages/types/src/data-display.ts    # TableColumn\nsed -n '285,313p' packages/types/src/data-display.ts    # TableSchema\nsed -n '394,422p' content/docs/api/schema-reference.md  # the page, post-#5350\n```\n\nRelated: #5350 (the spelling half, which left this alone), #5373 (same enforce-or-remove class), #5349 (the silence).\n\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_"
+}

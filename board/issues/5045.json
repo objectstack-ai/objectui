@@ -1,0 +1,36 @@
+{
+  "number": 5045,
+  "kind": "issue",
+  "title": "finding(plugin-calendar): README 的 \"Schema API / CalendarView\" 块把必填的 `events` 标成选填,且只列了 CalendarViewSchema 13 个键里的 6 个",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T20:35:10Z",
+  "updated_at": "2026-08-22T08:30:14Z",
+  "closed_at": "2026-08-22T08:30:14Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5045",
+  "body": "发现于 #5010 的实施(plugin-calendar README 导入面漂移)。Filed unassigned, not claiming.\n\n与 #5010 **同文件但不同性质** —— #5010 修的是 import 名/路径漂移(照抄即 `TypeError` / TS2305 / TS2322),本单是 schema 键断言的准确性,所以没有夹带进 #5010 的 PR。\n\n## 现象\n\n`packages/plugin-calendar/README.md` 的 \"Schema API → CalendarView\" 块:\n\n```typescript\n{\n  type: 'calendar-view',\n  events?: CalendarEvent[],\n  defaultDate?: string,           // ISO date string\n  onEventClick?: (event) => void,\n  onDateClick?: (date) => void,\n  className?: string\n}\n```\n\n对照 `CalendarViewSchema`(`packages/types/src/complex.ts:174`)实测两点不符:\n\n1. **`events` 是必填的,README 标成了 `events?`**。`CalendarViewSchema` 里 `events: CalendarEvent[];` 无 `?`。按 README 省掉 `events` 写一个 `calendar-view` 节点,TS 直接报缺必填属性 —— README 恰恰把「唯一一个除 `type` 以外的必填键」标成了可省。\n2. **只列了 13 个键里的 6 个**。缺 `defaultView`、`view`、`date`、`views`、`editable`、`onEventCreate`、`onEventUpdate`、`onDateChange`、`onViewChange`;其中 `defaultView` / `view` / `views` / `editable` 是作者会真的想写的授权键(README 前文 \"Drag-and-Drop\" 一节还在讲 week/day 视图,但列表里看不到 `view` 怎么设)。\n3. 附带:`defaultDate?: string` 实为 `string | Date`;`onDateClick` 不在 `CalendarViewSchema` 上(schema 上是 `onDateChange`;`onDateClick` 是 `CalendarViewProps` 的**组件**回调)。第 3 条与 #5044 记的「授权型 vs 运行时型同名混用」是同一个根源。\n\n实测键集(脚本对 `CalendarViewSchema` 取键):\n\n```\ntype (required=YES)      events (required=YES)    defaultView?   view?\ndefaultDate?             date?                    views?         editable?\nonEventClick?            onEventCreate?           onEventUpdate?\nonDateChange?            onViewChange?\n```\n\n## 备注\n\n这个块显然是**有意的摘要**而非穷举(所以「缺键」本身可以是设计选择),但 (1) 是实打实的错 —— 必填标成选填 —— 而 (3) 会把读者引向另一个包的类型。若要修,建议顺带在块上写明「部分键,完整定义见 `CalendarViewSchema`」,免得下一个读者再把它当穷举读。\n\n`@object-ui/plugin-calendar` 的 README 在 `package.json` 的 `files` 里,随 npm 发布。\n\n## 分级\n\n交 PM 分诊。挂 `finding`:不是运行时故障,是文档准确性;体量小,但按 #4949 的纪律不自行压下,由 PM 分诊评级。"
+}

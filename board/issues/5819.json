@@ -1,0 +1,33 @@
+{
+  "number": 5819,
+  "kind": "pull_request",
+  "title": "fix(plugin-view): remove the inert showRefresh designer input from object-view",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T13:04:36Z",
+  "updated_at": "2026-08-23T13:41:44Z",
+  "closed_at": "2026-08-23T13:41:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T13:41:41Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5819",
+  "body": "Fixes #5567\n\nExecutes the maintainer ruling recorded on the card (2026-08-22, decision-inbox digest, accepted verbatim 「接受所有」): **Option A — remove the inert toggle.** The `object-view` registration declared, defaulted, and documented a \"Show Refresh Button\" toggle that `ObjectView` never read, so an author's `showRefresh: false` was always a no-op. The real refresh channel stays `userActions.refresh` (live in `@object-ui/plugin-list`, untouched); the affordance is **not** resurrected — Option B was considered and rejected, and this PR pins that.\n\n## What changed\n\n- **Designer input + default deleted** — `packages/plugin-view/src/index.tsx` (the card's `:81` and `:94`, both re-anchored exact on today's `main`): the `showRefresh` entry is gone from `inputs` and from `defaultProps`.\n- **Producer writes cleaned (re-measured: still exactly three, one line moved)** — `packages/app-shell/src/views/ObjectView.tsx` (audit said `:1624`, card said `:2192`, actually `:2315` — the `objectViewSchema` literal), `packages/app-shell/src/views/metadata-admin/previews/ViewPreview.tsx:136` (exact), and the `defaultProps` entry above.\n- **Docs — corrected census: 3 lines across 2 files, not 2 lines.** `content/docs/api/schema-reference.md:871` (example line, deleted) and `:914` (shared toolbar table row — only the `showRefresh` token removed; `showSearch`/`showFilters`/`showCreate` are genuinely read at `plugin-view/src/ObjectView.tsx:1016/1018/1636` and stay documented), plus `content/docs/plugins/plugin-view.mdx:77` (example line, deleted). The ruling's \"two docs lines\" matches the card's two docs bullets; the raw line count is three.\n- **Retirement pinned** — new `packages/plugin-view/src/__tests__/objectViewShowRefreshRetired.test.tsx` asserts the registration publishes no `showRefresh` input and no default (with positive controls on surviving keys, so the assertions cannot pass vacuously against an empty registration). Reverse-verified: re-adding both lines (mutation confirmed on disk, `grep -c` 0 → 2) turns both tests red (`Test Files 1 failed (1)`, `Tests 2 failed (2)`); restore leg confirmed (`grep -c` back to 0).\n- **Changeset** — `.changeset/remove-inert-showrefresh-5567.md` (`@object-ui/plugin-view` minor, `@object-ui/app-shell` patch), written in migration terms: an author who wrote `showRefresh` on an `object-view` node sees the key disappear from the designer's property panel; behaviour never changed because nothing ever read it; `userActions.refresh` is the live channel.\n\n## Premise verification (all held)\n\n- **Zero readers, re-proven on today's `main`:** `git grep showRefresh` in `packages/plugin-view/src` hits only the two removed lines; `OBJECT_VIEW_DECLARED_FORWARDED_KEYS` remains exactly four keys without it. The only genuine readers are `plugin-list/src/ListView.tsx:803/:3087`, fed by `userActions.refresh` — not by any of the removed writes.\n- **Deliberately untouched:** the `@object-ui/types` declarations (`ObjectViewSchema` interface `objectql.ts:1487` + zod `objectql.zod.ts:194`, and `CRUDToolbar` `crud.ts:355` + zod) — the card records these as the key's live/real surface, and the accepted Option A scope (triage comment, accepted verbatim) enumerates only the designer input, default, three producers, and docs. The types-side fold of the `show*` booleans into `userActions` is already tracked by #2231 / #2890 and the `object-view-spec-parity` test's counterpart map. Also untouched: `docs/audits/2026-07-objectview-detailview-schema.md` (a point-in-time audit record) and the historical mention in `ObjectView.refreshSignal.test.tsx`, which describes plugin-list's live channel and stays accurate. Out of scope here: #4568 remains the prior card this finding was measured under (already closed).\n\n## Verification (all on head `291f79778`, the final commit)\n\n- Union vitest run from the repo root under the shared verify lock: full `packages/plugin-view/` suite (incl. the new pin), `object-view-spec-parity.test.ts`, `scripts/__tests__/doc-version-claims.test.ts`, and the 9 app-shell suites covering the two edited files — vitest verdict: `Test Files 32 passed (32)`, `Tests 358 passed (358)`.\n- `node scripts/check-changeset-presence.mjs` — \"✅ 3 source file(s) of 2 released package(s) changed, and this change declares 1 changeset(s)\".\n- `node scripts/check-doc-component-types.mjs` — \"✅ Every documented component type is registered.\"\n- `node scripts/check-doc-snippet-types.mjs` (after `turbo run build` of the gate's own `--build-filter` closure, 32/32 tasks) — \"Semantic phase: 101 of 101 block(s) judged, 0 failed.\"\n- `node scripts/check-control-bytes.mjs` — \"✅ check-control-bytes: OK (scanned 4844 tracked text file(s))\".\n- `turbo run type-check --filter=@object-ui/plugin-view --filter=@object-ui/app-shell` — \"Tasks: 31 successful, 31 total\" (both target tasks cache-miss executed).\n- Targeted `eslint` on the four edited/added TS files: 0 errors (pre-existing warnings only).\n- Declared narrowing: app-shell's full 504-file suite and the repo-wide `lint`/`test` farm are CI-owned; local app-shell coverage is the 9 suites that exercise the two edited files. The diff there deletes two writes of a key with zero readers repo-wide (census above), so no test outside those files' surface can observe the change.\n\n⚠️ Note for the gate reader: `Test (coverage)` is red on `main` (#5436 / #5422) — pre-existing, not from this PR.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01EuPCi56cnGyykygi3z9w4m)_"
+}

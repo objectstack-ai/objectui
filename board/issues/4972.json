@@ -1,0 +1,35 @@
+{
+  "number": 4972,
+  "kind": "issue",
+  "title": "[finding] `ComponentInput` 有三份结构副本(types 两份 + core 一份)外加一个窄孪生 `WidgetInput`,而 #4580 的裁定说的是「re-export 而不是 restate」—— 副本之间今天已经有一处分歧",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T09:00:18Z",
+  "updated_at": "2026-08-22T08:34:27Z",
+  "closed_at": "2026-08-22T08:34:27Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4972",
+  "body": "发现于 #3832 的实施:那张卡的正文与派发都写「两声明位」,实际动手时是**三**处 —— 而且第三处才是组件注册真正 import 的那一份。观察类:今天没有用户撞得到,分歧是休眠的。\n\n## 三份副本\n\n| 声明位 | 导出名 | 谁在用 |\n|---|---|---|\n| `packages/types/src/base.ts:357` | `ComponentInput` | 类型包的公开面 |\n| `packages/types/src/plugin-scope.ts:170` | `ComponentInput`,再导出为 `PluginComponentInput` | 插件作用域面 |\n| `packages/core/src/registry/Registry.ts:14` | `ComponentInput` | **组件注册**(`containers.tsx`、`plugin-detail/index.tsx`、`plugin-grid/index.tsx` … 都是 `import type { ComponentInput } from` core) |\n\n外加 `packages/types/src/widget.ts:163` 的 `WidgetInput` —— 名字不同、`type` 的词表逐字相同(同样 11 个粗类型)、`enum` 那一位拼作 `options`。它是 widget 注册面,不经 `checkType` / manifest,所以 #3832 没有动它;结果是 widget 面现在**比组件面窄一条臂**(不能声明联合)。\n\n## 今天已经存在的分歧\n\n`base.ts` 的 `ComponentInput` 有 `min` / `max` / `step` / `placeholder` 四个键,core 的那份**没有**。注册用的是 core 那份,所以这四个键对任何真实注册都是写不出来的(TS 直接报错),而 `ComponentInputSchema`(zod)与 `ComponentMeta.inputs` 又都接受它们。全仓实测:零个注册声明过这四个键中的任何一个,所以分歧休眠 —— 但它是「同一个名字两种形状」的既成事实。\n\n## 为什么值得记档\n\n#4580 的裁定正是为这个形状写的:`SchemaNode` 曾在 core 与 types 各有一份不同的声明,同一批消费者同时 import 两个包,取到哪一份取决于 import 顺序 —— #4548 的探针实测 **19/35** 个错误就是这个碰撞。裁定的处置是**re-export 而不是结构复制**,理由逐字是「a structural copy would reproduce the defect the moment either side moved」。\n\n`ComponentInput` 就是「either side moved」的下一个候选,而 #3832 刚好演示了成本:一次向后兼容的扩展要同时改三处,漏掉任一处的症状是 TS 在注册点报错(响,但归因指向错的地方),或者更糟 —— 只改了公开面而注册面没跟上,发布面说一套、作者写不出来。#3832 这次把三处一起改了,并且把臂词表(`ComponentInputControlType`)做成了 base.ts 的单一声明、另两处 import 它,所以**臂**这一维已经不会再漂;剩下的是接口本体的其余键。\n\n## 可能的方向\n\n- **(a)** 照 #4580 的裁定收敛:core 的 `ComponentInput` 改成从 types re-export(core 已经依赖 types,`core/src/types/index.ts:41` 就是这么处理 `SchemaNode` 的),差集(`min`/`max`/`step`/`placeholder`)一并进入注册面。要先确认 core 的 `dist/index.d.ts` 变化面 —— #4580 当时是实测「byte-identical」才落的。\n- **(b)** 只收敛 `plugin-scope.ts` 那份(同包内,零风险),core 那份留作独立的结构边界。半步。\n- **(c)** 三份都留,加一条结构一致性门禁(同名接口的键集合必须相等),把漂移变成响的。\n\n`WidgetInput` 是否一并联合化(#3832 的臂能力)建议单独判:它的门在别处,现在放行一切。\n\n关联:#4580 / #4548(同名双声明的裁定与实测)、#3832(这次三处同移的那张卡)、#3407 / PR #3795(`ComponentInput` 表达力的另一维:成员形状)"
+}

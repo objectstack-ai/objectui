@@ -1,0 +1,34 @@
+{
+  "number": 5804,
+  "kind": "pull_request",
+  "title": "fix(plugin-charts): keep the height chain intact through ObjectChart's wrapper (#5451)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "plugin: charts",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T11:51:22Z",
+  "updated_at": "2026-08-23T11:53:18Z",
+  "closed_at": "2026-08-23T11:51:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T11:51:49Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5804",
+  "body": "Closes #5451.\n\n**The blank itself is already cured**: the reported first-mount blank predates the #5503 floor fix (repro build `fd227eae1` < `6f017e99c`), and I verified live on the deployed staging build (which carries #5503) that an AI-built dashboard's metric card, pie, and bar all paint on first navigation with no reload.\n\n**What this PR closes is the residual structural defect** the #5503 commit itself flagged unmeasured: the height chain from a dashboard grid cell dies at `ObjectChart`'s plain auto-height wrapper — `DashboardGridLayout` sends `className: \"h-full\"` down the schema to `ChartContainer`, whose `height: 100%` resolves against the wrapper and computes to `auto`, so recharts measures a permanent zero and the `CHART_MIN_HEIGHT` floor is the ONLY thing between a dashboard chart and invisibility (charts render at the fixed floor instead of filling their cell). One class on the wrapper (`h-full`) completes the chain; under auto-height parents it resolves to `auto`, so non-dashboard hosts are byte-identical (charts+dashboard suites: 110 files / 918 tests green).\n\nNew pin: `ObjectChart.heightChain.test.tsx`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

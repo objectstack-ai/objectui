@@ -1,0 +1,34 @@
+{
+  "number": 5805,
+  "kind": "pull_request",
+  "title": "feat(chatbot): confirm card carries the replay's terminal state — applied/drafted/failed/applying (#5695)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "plugin: charts",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T11:51:24Z",
+  "updated_at": "2026-08-23T11:55:05Z",
+  "closed_at": "2026-08-23T11:51:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T11:51:50Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5805",
+  "body": "Closes #5695 (maintainer-accepted B5 of the cloud#1521 journey-UX review).\n\nAfter 确认修改 the card went dark: a published replay collapsed into an anonymous Completed chip, and a REFUSED in-turn publish (`publishFailed:true, publishOutcome:'rolled_back'`, cloud#1467) rendered as an **ordinary successful draft card with a live Publish button** — the exact 'agent narrates success over a rollback' failure from the cloud#1584 staging E2E, in UI form.\n\n- `detectReplayOutcome(toolCallId, result)` lifts the `replay_*` envelope (cloud `runApprovedProposalReplay`) into `{kind: published|drafted|failed, outcome?, error?, packageId?}`.\n- The original confirm card correlates the replay positionally (same per-tool convention as `confirmedChangeIds`) and renders: **应用中** (optimistic on click, rollback on unsent, + in-flight replay) → **已生效** / **已暂存为草稿** (+ inline publish from the replay's own packageId) / **未生效** (+ `publishError` first line). The failure state renders on every surface including the read-only share page — a UI-rendered refusal is the layer a model cannot narrate over.\n- All three converters carry the shape: live (`mapMessages`), hydration + `/s/:token` readOnly (`AiChatPage`), and the localStorage cache (`useChatConversation`, minimal-envelope round-trip). Replays suppress the `draftReview` lift on every path, so a rollback can never re-grow a Publish button. Adapter seam declares the new render-only key.\n- i18n: four `console.ai.changes*` keys in all ten packs.\n\nSuites: plugin-chatbot 340, app-shell 4907 (+1 skipped), i18n 881 — green; i18n gate scripts (call-site keys / dead keys / en-drift) clean; eslint 0 errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

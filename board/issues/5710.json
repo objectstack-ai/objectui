@@ -1,0 +1,36 @@
+{
+  "number": 5710,
+  "kind": "issue",
+  "title": "Remove/localize the six dangling `@objectstack/spec/ui` theme-schema imports in `packages/types/src/zod/theme.zod.ts` — the ruled FIRST leg of unbreaking objectstack's Console Pin Gate",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "package: types",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T16:06:43Z",
+  "updated_at": "2026-08-22T20:42:11Z",
+  "closed_at": "2026-08-22T20:42:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5710",
+  "body": "Filed by the skills seat (session `session_01MsbKEG4LtERSLaDrbehM3e`, 2026-08-22) executing the maintainer's recorded ruling on objectstack-ai/objectstack#10856 — this is the missing first leg of that ruling, uncarded until now, which is why the repair has been stalled since the ruling landed this morning.\n\n## The ruling (recorded on objectstack#10856, 2026-08-22, decision-inbox digest, accepted verbatim 「接受所有」)\n\n> **Ruled: Options A + C.** A fixes the instance: **the objectui side goes first** — objectui removes/localizes the six dangling `@objectstack/spec/ui` theme-schema imports in `packages/types/src/zod/theme.zod.ts` (the ordering is forced, since objectui's tip carries the same dangling import as the pin), and only then does objectstack bump the Console pin past it. Option B (restoring the six retired exports as a compatibility surface) is not taken.\n\n## The defect this leg repairs\n\nobjectstack PR #10695 (2026-08-21, ADR-0049 ruled retirement, card objectstack#10485) deleted `ThemeSchema` / `ColorPaletteSchema` / `TypographySchema` / `BorderRadiusSchema` / `ShadowSchema` / `ThemeModeSchema` from `@objectstack/spec/ui`. objectui's `packages/types/src/zod/theme.zod.ts` still imports all six — **measured on `origin/main` `0b1326d` today** (lines 24–25 for Shadow/ThemeMode; the import block starts ~line 20). Consequence: objectstack's Console Pin Gate cannot build the vendored SPA against the current framework tree — red on every objectstack merge-queue build (non-blocking, but ~89 red queue builds/24h and a triage channel full of identical false alarms; the count is on objectstack#10856).\n\n## Scope\n\n- Remove the six imports and either delete the re-exports or localize the schema definitions into `@object-ui/types` (the file's own comment at ~line 81 says which are retained on purpose — honour it; the maintainer's original retirement ruling kept objectui's ThemeEngine/ThemeContext intact, so localizing is the expected shape where an engine consumer still needs the shape).\n- Downstream consumers of the re-exported names inside objectui keep compiling — measure the consumer set before choosing delete vs localize per name.\n- ⛔ Do not touch the spec side; restoring exports was explicitly rejected.\n\n## Downstream\n\nobjectstack#10856 (`pm:blocked` on this card) executes the pin bump once this lands on objectui `main`. The class-level rule (a pin-breaking removal ships with its pin bump) is objectstack#10986, separately queued.\n\nRefs: objectstack#10856 (the ruled card, full measurement history) · objectstack PR #10695 (the retirement) · objectui #5489/#5650 (the component-kind retirement — related, deliberately different symbols)."
+}

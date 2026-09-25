@@ -1,0 +1,33 @@
+{
+  "number": 5873,
+  "kind": "pull_request",
+  "title": "feat(app-shell): the Studio copilot sends surfaceContext — the URL is the single source (cloud#1610 send half)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T17:06:22Z",
+  "updated_at": "2026-08-23T17:43:00Z",
+  "closed_at": "2026-08-23T17:42:58Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T17:42:58Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5873",
+  "body": "The console send half of cloud#1610 (契约: objectstack#11417; cloud parse+inject half follows its pin bump).\n\n- `ChatPane.surfaceContext` → `context.surface` per turn (transport reads the body per send — always fresh).\n- Studio copilot derives it **from the URL alone**: `:tab` = pillar, `?surface=type:name` (the deep-link every pillar already mirrors) = artifact **with its type discriminator** — the maintainer's 「界面菜单类型不同」 point, satisfied with zero new plumbing.\n- Visible: 「正在讨论：dashboard · sales_overview」 chip above the composer (`console.ai.discussing`, all ten packs) — the sent context is never invisible grounding.\n\n4 route→context pins; 132 files / 1552 tests; i18n call-site gate clean. Staging-only train.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 5095,
+  "kind": "issue",
+  "title": "finding(docs): plugin-dashboard README 有两个同名 H2「DashboardGridLayout — persisting drag / resize edits」,DashboardRenderer 一节夹在第一个下面",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T23:36:40Z",
+  "updated_at": "2026-08-23T16:42:09Z",
+  "closed_at": "2026-08-23T16:42:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5095",
+  "body": "发现于 #5066 + #5064 文档半的实施(PR #5093)。Filed unassigned, not claiming。**Observation class**:纯结构/观感,读者拿不到错的代码或错的键,所以按纪律带 `finding` 标签、不带 `pm:queue`,严重度交分诊评。\n\n## 现象\n\n`packages/plugin-dashboard/README.md` 里同一个 H2 出现两次(行号取 PR #5093 合入后的分支状态):\n\n```\n:480  ## DashboardGridLayout — persisting drag / resize edits\n:482  ### DashboardRenderer — design-mode widget reorder\n:495  ## DashboardGridLayout — persisting drag / resize edits\n```\n\n第一个 H2 下面接的是 `DashboardRenderer` 的 design-mode 拖拽重排一节(`onWidgetsReorder` / dnd-kit),与标题所写的「DashboardGridLayout 的持久化」无关;真正讲持久化的正文在第二个同名 H2 之后。所以读者(以及所有按标题建目录的渲染器 / 锚点生成器)会看到一个重复标题,并且第一个标题对它下面的内容是错的。\n\n看起来的成因:`DashboardRenderer` 那一节是后插进来的,插点落在 H2 之后而不是之前。最小修法是把 `### DashboardRenderer …` 一节移到第一个 H2 之前(或给它自己的 H2),然后删掉重复的那个 H2 —— 一处纯文档结构改动,不动任何代码块。\n\n⛔ 未在 PR #5093 里顺手修:那个 PR 的范围是 #5066 的 `onSchemaChange` 示例与 #5064 的手动注册段两块,本条与两者都无关,按 Prime Directive #10 另立。\n\n## 同族\n\n#4517 是同一形状的另一处(`plugin-calendar` 文档的「ObjectCalendar Component」标题与引言整段重复),不是同一文件,故不作为重复卡而列为同族。\n\n## 复核方式\n\n```\ngrep -n \"^## DashboardGridLayout\" packages/plugin-dashboard/README.md\ngrep -n \"^### DashboardRenderer\" packages/plugin-dashboard/README.md\n```"
+}

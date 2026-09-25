@@ -1,0 +1,33 @@
+{
+  "number": 5719,
+  "kind": "issue",
+  "title": "observation: after `switchOrganization`, `user.positions` is still the PREVIOUS org's answer unless the server happens to rotate the session token",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T20:59:14Z",
+  "updated_at": "2026-08-23T04:45:36Z",
+  "closed_at": "2026-08-23T04:45:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5719",
+  "body": "Noticed while implementing #5619 (the unresolved-admin window) and deliberately left out of that PR — it is a different direction of the same leg, and unlike #5619 I could not close the last step of it from this repo.\n\n## What is certain\n\nframework `packages/plugins/plugin-auth/src/auth-manager.ts` computes `user.positions[]` inside `customSession`, and its organization leg is keyed on the session:\n\n```js\nconst orgId = (session as any)?.activeOrganizationId;\nif (!orgId) return [];\n```\n\nSo `positions` carries `org_owner` / `org_admin` / `org_member` **for whichever organization was active when the session payload was built**.\n\n`AuthProvider.switchOrganization` (`packages/auth/src/AuthProvider.tsx`) does not rebuild that payload:\n\n```ts\nconst org = await client.setActiveOrganization(orgId);\nsetActiveOrganization(org);\n// … ActiveOrganizationStorage.set(org.id)\n```\n\nNo `loadSession()`. The active-member row does re-resolve (the effect keyed on `activeOrganization`), so leg 1 catches up — but leg 3 keeps answering from the old organization.\n\n`useWorkspaceAdminStatus` (post-#5619) is `leg1 || leg2 || leg3`, so a stale `org_owner` in `positions` reads as **admin** regardless of what the new organization's member row says. That is the over-permissive direction, which #5619's window is not: an owner of org A who switches into org B, where they are an ordinary member, can keep the admin affordances.\n\n## What I could NOT determine, and why this is filed as an observation\n\nThere is a plausible path that already closes it. `createAuthClient` gives better-auth's client `customFetchImpl: bearerFetch`, and `bearerFetch` captures `set-auth-token` into `TokenStorage`; `TokenStorage.subscribeRotation` then drives `loadSession()` (objectui#4467). **If** the server re-issues a bearer token on `POST /organization/set-active`, identity re-resolves on its own and there is no defect here at all.\n\nWhether it does is a framework/better-auth question that cannot be answered from this repo, and I did not have a live multi-org server to measure it against. Deciding it needs one measurement:\n\n1. Sign in as an owner of org A who is an ordinary member of org B.\n2. Switch to org B in the console.\n3. Read `GET /api/v1/auth/get-session` and check whether `user.positions` still contains `org_owner`.\n\nIf it does, this is a real defect and the fix is presumably an explicit `refreshSession()` in `switchOrganization` — with the caveat that `refreshSession` deliberately does not raise `isLoading`, so the console would not blank during the switch.\n\n## Not claimed\n\nThat server-side authorization is affected — it is not; the server re-derives from the session on every request. This is a client-side gating artefact only, the same class as #5619.\n\n## Refs\n\n- #5619 — the same leg, the other direction (unresolved rather than stale); its PR added `isMembershipResolved`, which already reports \"unresolved\" across a switch for **leg 1**, but cannot speak for leg 3.\n- objectui#4467 — the rotation subscription that may or may not already cover this."
+}

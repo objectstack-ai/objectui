@@ -1,0 +1,33 @@
+{
+  "number": 5698,
+  "kind": "pull_request",
+  "title": "docs(plugin-form): state the field-level className rule as contract, not reader count",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T11:53:16Z",
+  "updated_at": "2026-08-22T11:59:11Z",
+  "closed_at": "2026-08-22T11:59:09Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": "2026-08-22T11:59:09Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5698",
+  "body": "Fixes #5131\n\n`packages/plugin-form/README.md`'s \"Not a `FormField` key\" table said:\n\n> (A field-level `className` is read on exactly one pseudo-field, `type: 'section-divider'`, where it styles the inline section header.)\n\nThe quantifier was checked against the source at the branch base (`6c6cee704`), not taken from the card. It is wrong for anyone who reads \"read\" literally:\n\n| Step | Where (at `6c6cee704`) | What happens to `className` |\n|---|---|---|\n| field destructure | `packages/components/src/renderers/form/form.tsx:1848-1867` (`renderFormField`, `...fieldProps` at `:1866`) | not one of the 16 destructured names, so it stays in `fieldProps` |\n| renderer-only strip | `form.tsx:348-388` (`stripRendererOnlyProps`) | not in the strip list |\n| forward to the control | `form.tsx:2326-2327` — `renderFieldComponent(resolvedType, { ...fieldProps, … })` | forwarded whole |\n| built-in `input` branch | `form.tsx:3195-3196`, then the `Input` element at `:3251-3267` | the second destructure and the second strip both keep it; it is spread onto that element via `{...inputProps}` |\n| the `Input` component itself | `packages/components/src/ui/input.tsx:14-20` | `cn(baseClasses, className)` — the authored class is appended, not dropped |\n\nSo a field-level `className` does visibly land on an ordinary built-in control — the jsdom measurement on the card (`PROBE-CLASS` appended to the input's class list) is the same fact from the other end. The true half of the old sentence, the renderer's *explicit* read at `form.tsx:1942` (`className={fp.className}` on the `section-divider` branch), is kept and now named as explicit.\n\n## The change\n\nOne table cell. The advice in the row is unchanged and was never wrong (`span` / `colSpan` for width, `FormSchema.fieldContainerClass` for the grid); only the reader-count claim is replaced by a statement about the contract, in the wording the docs site already ships (`content/docs/plugins/plugin-form.mdx`, from #5130) — the two sources now agree again.\n\n## Scope\n\nExactly the one quantifier at `README.md:227`, plus the changeset. No other prose in the file, no other README, no source file. No audit of the rest of the file was performed, and none is claimed.\n\n## Verification\n\nThe diff is markdown only (`packages/plugin-form/README.md` + one `.changeset/*.md`). `ci.yml` and `lint.yml` skip their expensive steps on such a diff through their own `Decide whether this change needs a full run` step, whose exclusion list carries `**/*.md` and `.changeset/**` — so what actually judges this PR are the gates that carry no path filter. All four were run locally on the final commit `1066b1cdf`, quoting each gate's own verdict line:\n\n```\nnode scripts/check-control-bytes.mjs       ✅  check-control-bytes: OK (scanned 4754 tracked text file(s); skipped 85 binary).\nnode scripts/check-changeset-presence.mjs  ✅  No source of a released package changed in this range, so no changeset is owed.\nnode scripts/check-changeset-no-major.mjs  ✅  No changeset declares a `major` bump.\nnode scripts/check-doc-links.mjs           Links are valid across 13 scan roots.\n```\n\nPlus the author-side control-byte scan over the two touched files: `grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f]'` → no match.\n\n**Declared narrowing.** No build and no test was run, and the shared verify lock was not held. The diff changes no byte that a compiler, bundler or test reads — two markdown files, one of them a changeset — so the provable superset of what it can affect is the markdown gate set above. This is a declared narrowing, not a skipped step; CI still runs the full farm.\n\nThe changeset carries a `patch` on `@object-ui/plugin-form` rather than empty frontmatter, following the precedent set for the sibling README correction in `.changeset/calendar-readme-schema-keys-5045.md`: `README.md` is in this package's `files`, so the npm landing page only picks the correction up on a release. No behaviour, export, type or `dist` byte changes.\n\nNeither `content/docs/**` nor `apps/site/**` is touched, so `Build Docs` does not run on this PR.\n\n(Body edited once after creation: the three `Input` JSX fragments in the table above were written in angle-bracket form and the body sanitizer deleted them outright, leaving empty backticks. Rewritten as prose names — no other change.)\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_012u2pRjcqAYtoEjgr3wwhnK)_"
+}

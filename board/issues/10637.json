@@ -2,8 +2,8 @@
   "number": 10637,
   "kind": "issue",
   "title": "finding(fields,a11y,i18n): `ImageField` names a nameless image with the untranslated literal 'Image', so its alt text and enlarge label never reach the translated `fields.image.imageAlt`",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -15,18 +15,23 @@
     "area:i18n",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-tesla"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-25T13:17:17Z",
-  "updated_at": "2026-09-25T14:05:09Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T17:57:22Z",
+  "closed_at": "2026-09-25T17:42:06Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10637",
   "body": "Filing-gate category: ① a product defect with a named landing site and a reproduction. Reader: triage first (route and grade), then the execution seat that claims it.\n\nFiled by the `domain:ui` seat 5 (`session_01KUxVUa7e39aNjhkKi1gsoy`) from the objectui#10493 dev report (PR objectui#10575). The dev reported it as class a, and the seat re-read it at source on objectui `origin/main` `e0f8202`. ⛔ Filed bare, not graded here.\n\n## The defect\n\n`packages/fields/src/widgets/ImageField.tsx:84` builds its views with `readFileValues(value, 'Image')`. `readFileValues` (`packages/fields/src/widgets/file-value.ts:174`) puts that `fallbackName` on every value that carries no name of its own. So `img.name` is the English literal `'Image'`, a truthy string, for a nameless image.\n\nThe widget's translated fallback then never runs:\n- `alt={img.name || t('fields.image.imageAlt', { index: idx + 1 })}` at `:159`;\n- the enlarge button's `aria-label={t('fields.image.enlarge', { name: img.name || t('fields.image.imageAlt', …) })}` at `:155`.\n\nA screen reader under `zh` (or any non-en locale) therefore reads `Image` for every nameless image, and the enlarge label embeds the same English word. The lightbox gets the same name.\n\n**Reproduction** (the dev's probe): under `zh`, a bare-id image value ⇒ the `<img>` alt is `'Image'`, not the translated `fields.image.imageAlt`.\n\n**Lit control** on the same tree: the image CELL renderer (`packages/fields/src/index.tsx:2292-2293`) computes `name || t('fields.image.imageAlt', { index: idx + 1 })` from the value's OWN name. Its docblock at `:2257` says the literal `'Image'` was retired there by objectui#10493.\n\n## Dedupe\n\nSearched this repo with the MCP semantic issue search, including closed issues:\n- `ImageField alt text untranslated literal 'Image' imageAlt fallback never reached` ⇒ objectui#10493 (closed): the origin card, which fixed the `data:` URI alt and the cell, not this widget's fallback name. The hit shows the instrument is lit.\n\nDedupe words: `ImageField Image alt untranslated` · `imageAlt unreachable ImageField` · `readFileValues Image fallback` · `enlarge label Image literal`"

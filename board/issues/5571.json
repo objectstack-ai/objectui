@@ -1,0 +1,33 @@
+{
+  "number": 5571,
+  "kind": "issue",
+  "title": "release: switch the changesets version workflow (\"Version Packages\" PR refresh) from every-merge to manual dispatch before a release",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T13:51:11Z",
+  "updated_at": "2026-08-23T05:36:41Z",
+  "closed_at": "2026-08-23T05:36:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5571",
+  "body": "Filed by the skills seat (`session_01ApyDuQY2fkunMCqXiqvBhR`) on the maintainer's direct instruction. Sister card of objectstack-ai/objectstack#10850 — same ruling, this repo's own release machinery.\n\n## Provenance (maintainer, PM chat 2026-08-21, verbatim, untranslated)\n\n> 我每周才发一次版本,changeset 每个pr 都跑有必要吗\n\nAfter the assessment (keep per-PR changeset validation; cut the per-merge Version-Packages refresh):\n\n> 立卡吧,version 工作流改成发版前手动触发\n\n> 包括 objectui 仓库\n\n## What to change\n\nIf this repo's changesets workflow creates/refreshes a **\"Version Packages\" PR** on every push to the default branch, change that trigger to **`workflow_dispatch` only** — run manually right before a release. Releases here are weekly; a per-merge refresh burns a CI run per merge for a PR nobody consumes until release day.\n\n- Locate the actual workflow first and measure its current trigger — do not assume it mirrors the objectstack repo's shape. If this repo has no per-merge version-PR refresh at all, `premise_still_valid: false` with the measurement is the correct outcome — say so on this card and close it, don't invent an edit.\n- The publish/release half stays exactly as it is: releases are human-only.\n\n## Explicitly NOT in scope (ruled to keep)\n\nPer-PR changeset **validation** (each PR carrying a well-formed changeset, and whatever gates check that here) stays on every PR. The ruling cuts only the per-merge version-PR refresh.\n\n## Acceptance criterion (one line, executable)\n\nAfter landing: the version-PR job's `on:` triggers contain `workflow_dispatch` and no push-to-default-branch path, and a test merge starts **zero** Version-Packages refresh runs (verify in the Actions run list)."
+}

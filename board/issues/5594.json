@@ -1,0 +1,36 @@
+{
+  "number": 5594,
+  "kind": "issue",
+  "title": "Console FormPage (the standalone /forms and internal FormView renderer) never evaluates visibleWhen/visibleOn — objectui#2212 was fixed in the OTHER form renderer",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-21T16:34:22Z",
+  "updated_at": "2026-08-21T19:26:31Z",
+  "closed_at": "2026-08-21T19:26:31Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5594",
+  "body": "Found while implementing #5542 (converging the console's `FormFieldSpec` onto the\nshared app-shell declaration). Filed unassigned for PM triage — outside that card's\ndeclared file surface, which was the type declaration and its pin, not the renderer.\n\n## Mechanism\n\n`apps/console/src/components/FormPage.tsx` is a **second, independent form renderer**:\nit has its own `buildSections` and its own JSX, and it serves both the public\n`/forms/:slug` route and the internal `/forms/:name` route. Verified on the merged ref\n`cad512fe1`, it contains **zero** occurrences of `visibleWhen` or `visibleOn`:\n\n```\ngrep -c 'visibleWhen\\|visibleOn' apps/console/src/components/FormPage.tsx   ->   0\n```\n\nThe only visibility it honours is the static boolean, at `:1300`:\n\n```\n{sec.fields.filter((f) => !f.hidden).map((f) => (\n```\n\nSo a FormView field carrying a conditional predicate — legal, spec-strict metadata that\n`@objectstack/spec` normalises to `visibleWhen` (ADR-0089), and that the metadata-admin\ndesigner both authors and honours — renders **unconditionally** on these two routes.\nFail-open and silent: an author who conditions a field on `record.priority == 'urgent'`\nsees it always, with no diagnostic.\n\n## Why this is not a duplicate of #2212\n\n#2212 recorded exactly this symptom and PR #2214 fixed it — in a **different chain**:\n`ModalForm` → `resolveFormViewLayout` → `packages/plugin-form` `sectionFields.ts` →\n`packages/components` `renderers/form/form.tsx`. `FormPage.tsx` is not on that chain at\nany point; it never calls `buildSectionFields` and never renders through\n`SchemaRenderer type:'form'`. The fix landed in one of the two renderers that read this\nkey, and the fact that there were two was not visible from inside either.\n\nThat is the same reason #5542 exists one level down: one contract, several independent\nimplementations, each only ever checked against itself. #2212's own regression test\nlives with the chain it fixed, so nothing in the suite can see this renderer's copy.\n\n## Severity note\n\nUser-reachable, unlike #5542 — this is a rendered-page behaviour on the public form\nroute, not a typing gap. But it is a fail-open, not a data-integrity defect, and the\ncorrect fix direction is #2212's ruling verbatim: route the predicate through the\ncanonical engine (`evalFieldPredicate`, `packages/core` `evaluator/fieldRules.ts`),\nwhich already accepts `string` and the `dialect`/`source` object arm. Whether that is\nworth doing here or whether `FormPage.tsx` should instead be folded onto the plugin-form\nchain is an architectural call, not mine at filing time — the second renderer is arguably\nthe real finding.\n\n## Boundary\n\n- Searched open issues before filing (visibleWhen / visibleOn / console form renderer /\n  conditional field phrasings). #2212, #4051, #4755 and #2661 all match the class; all\n  are **closed**, and none of them touches `apps/console/src/components/FormPage.tsx`.\n- Not caused by #5542: the predicate was ignored before that change and is ignored after\n  it. #5542 only made the key *declarable* in this file — the console's local type did\n  not admit `visibleWhen` at all, so the gap was previously invisible from the type side\n  too."
+}

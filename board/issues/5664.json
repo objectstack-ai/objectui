@@ -1,0 +1,36 @@
+{
+  "number": 5664,
+  "kind": "issue",
+  "title": "Cross-user client-state pollution: previous user's workspace shown to a new user, and the guided first-run flow suppressed",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T07:44:43Z",
+  "updated_at": "2026-08-23T03:56:50Z",
+  "closed_at": "2026-08-23T03:56:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5664",
+  "body": "Found during the full signup-onwards E2E on staging (2026-08-22, build 0de1c130), in a browser that had previously held a different user's session.\n\n## Symptom chain, reproduced live\n\nA brand-new user (`magicflow-…@e2e.objectos.app`) signs in on a browser previously used by another account:\n\n1. Header workspace chip renders **the previous user's workspace** — literally \"JIANGUO Zhuang's Workspace\" and the \"JZ\" avatar — for a user whose `organization/list` is `[]`.\n2. `auth-active-organization-id` in localStorage is **not namespaced per user** (its own siblings ARE: `objectui-recent-items:u:<userId>`, `flow-palette-recents:u:<userId>`). The new session reads the old user's org id.\n3. **Removing the key does not stick — something rewrites it** from another client-side cache (the workspace *name* also survives, so at least one more unnamespaced store exists; the writer needs locating).\n4. Consequence beyond cosmetics: the polluted state **suppresses the RequireOrganization → guided \"Create your workspace\" routing**. The new user lands on a Welcome page furnished for the *old* context instead of the guided first-run — on a shared/handed-over browser the new-user flow silently never happens. (After a full `localStorage.clear()` + IndexedDB wipe, the clean flow works exactly as designed: chip \"MF\", \"创建你的环境\" → guided dialog → org+env born. Verified end to end.)\n\n## Server side is CLEAN — verified, not assumed\n\nWith the stale org id, as the new user: `get-full-organization` → **403 USER_IS_NOT_A_MEMBER**, `set-active` → **403**, `sys_environment` list → 0 rows. The #957 wall holds; this is purely client state.\n\n## Fix shape\n\n- Namespace `auth-active-organization-id` (and whatever store carries the workspace display name) with `:u:<userId>` like its siblings — or key the whole persisted workspace state by user id.\n- Find the writer that re-creates the key after removal; it will point at the second unnamespaced store.\n- On session-user change (`get-session` user id differs from the persisted one), drop the previous user's UI state wholesale — that is the invariant that keeps any future unnamespaced key from re-opening this.\n"
+}

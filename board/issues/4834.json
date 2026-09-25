@@ -1,0 +1,35 @@
+{
+  "number": 4834,
+  "kind": "issue",
+  "title": "MetadataClient's `options.actor` is inert against the server after the #7941 attribution ruling",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-16T11:17:13Z",
+  "updated_at": "2026-08-22T10:33:52Z",
+  "closed_at": "2026-08-22T10:33:52Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4834",
+  "body": "Observation-class finding, filed unassigned from the census run for objectstack-ai/objectstack#7941. Nothing here is broken today; this records a declared option that has stopped being able to do anything.\n\n## What\n\n`packages/data-objectstack/src/metadata-client.ts` sends an `X-Actor` request header whenever a caller passes `options.actor`, at four sites:\n\n- `save` (PUT), line ~742\n- `reset` (DELETE), line ~918\n- `publish` (POST), line ~941\n- `rollback` (POST), line ~970\n\nobjectstack-ai/objectstack#7941 ruled that the authenticated identity is the recorded actor on all five `/meta` write sites and removed the `X-Actor` limb from the server's resolver. So from that release on, the header this client sends is **ignored by the server** — the audit and history rows record the authenticated caller regardless of what `options.actor` says.\n\n## Why it is only a finding\n\nThe census run for that card searched this whole repo, all paths: **no caller anywhere passes `actor`**. Every real call site omits it —\n\n```\napps/… / packages/app-shell/src/views/metadata-admin/EmbeddedItemEditor.tsx:116   client.save(parentType, parentName, updated)\npackages/app-shell/src/views/metadata-admin/ResourceEditPage.tsx:1233             client.reset(type, name)\npackages/app-shell/src/views/metadata-admin/ResourceHistoryPage.tsx:190           client.rollback(type, name, version)\npackages/app-shell/src/views/runtime-metadata-persistence.ts:339                  ctx.metadataClient.publish(type, name)\n```\n\n— and the only place `actor:` is passed to this client in the repo is the client's own unit test (`packages/data-objectstack/src/metadata-client.test.ts:97`), which asserts the header is emitted when provided. So no user-visible behaviour changes here, and nothing needs an urgent fix. That emptiness is exactly what let the server-side ruling land as option A rather than option C.\n\n## The decision this records\n\nThe option is now a parameter that types cleanly, sends a header, and cannot affect the outcome — the \"declared but nothing consumes it\" shape. Worth a deliberate choice rather than leaving it to be discovered by whoever next tries to use it and finds their attribution silently ignored:\n\n1. **Remove `options.actor`** from the four methods and drop the header emission (plus its unit test). Matches the server: there is no way to choose the recorded actor, so the client should not offer one.\n2. **Keep it, documented as inert** against current servers — only worth it if this client is expected to talk to older servers where the header still wins.\n3. **Keep it and make it loud** — e.g. a deprecation note on the option so an author is told the server ignores it.\n\nNo recommendation is forced from here; option 1 is the one that matches the server contract, and it is a deletion rather than a new obligation.\n\nRelated: objectstack-ai/objectstack#7941 (the ruling and the server change), objectstack-ai/objectstack#7749 (the producer fix that made the precedence load-bearing).\n"
+}

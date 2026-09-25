@@ -1,0 +1,35 @@
+{
+  "number": 5735,
+  "kind": "issue",
+  "title": "components: `element:text_input`'s `description` renders as an unassociated paragraph — no `aria-describedby`, so assistive tech never announces it with the field",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T02:29:33Z",
+  "updated_at": "2026-08-23T06:29:59Z",
+  "closed_at": "2026-08-23T06:29:59Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5735",
+  "body": "Found while implementing #5717 (declaring the `I18nLabel` arm on this block's `label` / `placeholder` / `description`). Out of that card's fence — filed, not fixed there.\n\n## Measured\n\n`packages/components/src/renderers/basic/text-input.tsx` renders the resolved `description` as a bare sibling paragraph:\n\n```tsx\n{description && <p className=\"text-sm text-muted-foreground\">{description}</p>}\n```\n\nThe paragraph carries no `id`, and the `Input` above it receives no `aria-describedby`. The two elements are siblings with no programmatic relationship, so a screen reader moving to the field announces the label and the value and never the helper text. The `label` half IS wired — `Label htmlFor={schema?.id}` against `Input id={schema?.id}` — which is what makes the gap specific to `description` rather than a general \"this block has no a11y wiring\".\n\nThe Shadcn primitive does not supply it either: `packages/components/src/ui/input.tsx` adds no aria attributes of its own.\n\n## Why this reads as a defect and not a missing nice-to-have\n\nThe platform already does this correctly one renderer over. `packages/components/src/renderers/form/form.tsx` wires `aria-describedby` to its rendered `FormDescription` and documents the mechanism at length (`:492`, `:522`, `:534`) — the Slot injects `aria-describedby` / `aria-invalid` into the control. So a `description` authored on a field INSIDE a form is announced, and the identical key authored on a standalone `element:text_input` is not. One authoring key, two behaviours, decided by which container the author happened to reach for — and nothing tells them which one they got.\n\nThat asymmetry also now sits in published prose. #5717 rewrote this key's `ComponentInput.description` from what the renderer does, which meant writing the gap down:\n\n> Presentational only: the renderer renders it as a sibling paragraph and does not tie it to the field with `aria-describedby`, so a screen reader does not announce it together with the input — instructions a user must not miss belong in `label`.\n\nThat sentence is accurate today and should stop being accurate.\n\n## What a fix would decide\n\nMechanically small — derive an id from `schema.id` (which already gates the `htmlFor` wiring), put it on the paragraph, and pass `aria-describedby` to the `Input`. Two things worth a triage look rather than assuming:\n\n1. **What happens when the node carries no `id`.** The `label` wiring already degrades silently in that case (`htmlFor={undefined}`), so a `description` fix inherits the same question: generate a fallback id (React's `useId`) so the association always holds, or stay consistent with `label` and wire it only when the author gave the node an id. These are different answers and the block should not end up with two conventions.\n2. **Whether this is one block or a class.** This card is scoped to `element:text_input` because that is where it was measured. Whether other standalone (non-form) input renderers render an unassociated description the same way is unmeasured here and should be swept before the fix is scoped, so the answer is not re-litigated one block at a time.\n\nFiled unassigned and unqueued."
+}

@@ -1,0 +1,36 @@
+{
+  "number": 5771,
+  "kind": "issue",
+  "title": "components: `element:record_picker` renders a label element with no `htmlFor` against a trigger with no `id` — the caption its own docs advertise names nothing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-23T06:18:00Z",
+  "updated_at": "2026-08-23T11:40:14Z",
+  "closed_at": "2026-08-23T11:40:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5771",
+  "body": "Found while implementing #5735 (the sibling gap on `element:text_input`, PR #5770). Out of that card's fence — filed, not fixed there. Unassigned.\n\n## Dedup performed before filing\n\nSemantic search over this repo returned the family but nothing covering this block: #3341 (closed — `InlineCreateRelated` plus the `custom` ActionParamDialog select branch), #3976 and #3306 (closed — the form renderer's builtin `select`), #3991 (**open** — the form renderer's empty-options / dependency-gate branch putting the host id on a div). All of those are the *form* renderer or the *custom* dialog. None is `element:record_picker`.\n\nNote for whoever searches next: `search_issues` in this fleet is **semantic**, and it takes `owner` / `repo` as parameters. Passing GitHub search qualifiers (`repo:...`, `is:open`) inside the query string returns **zero for everything**, including terms known to be present in an open issue — a silent false-clean. The REST `/search/issues` endpoint is blocked for these sessions entirely (\"sessions are bound to their configured repositories\"), so it cannot be used as the second instrument.\n\n## Measured\n\n`packages/components/src/renderers/basic/record-picker.tsx`, render body:\n\n```tsx\n{label && <label className=\"text-sm font-medium text-foreground\">{label}</label>}\n<Select value={value} onValueChange={handleChange} disabled={loading || !!error || !object}>\n  <SelectTrigger className=\"w-full max-w-xs\" data-testid=\"record-picker-trigger\">\n```\n\nThe label element carries **no `htmlFor`**, and the `SelectTrigger` carries **no `id`**. A repo-scoped grep for `htmlFor` and `aria-` across that whole file returns zero hits of either (controlled — the same grep pattern returns the `Label` / `htmlFor` pair from `text-input.tsx` next door, so the zero is a reading).\n\nSo the association is missing from **both** ends. This is a step worse than the `element:text_input` gap #5735 closes: there the `label` half was correctly wired and only `description` was adrift. Here the caption names nothing at all, and the picker has no accessible name unless a `placeholder` happens to supply one.\n\nThe block's own registration prose advertises the wiring the code does not do — `record-picker.tsx:358`:\n\n> 'Caption rendered above the picker, in a `label` element. Display-only …'\n\nA `label` element with no association is not a caption for the control; it is styled text that happens to use a `label` tag.\n\n## Why this reads as a defect and not a nice-to-have\n\nThe platform has already ruled on this exact class and fixed three instances of it: #3341 gave the ActionParamDialog's `SelectTrigger` the `id` its `Label` already pointed at, and #3976 / #3306 dealt with the form renderer's builtin `select`. The reasoning in #3341's landed test file transfers verbatim — `SelectTrigger` renders a `button` with `role=\"combobox\"`, and `button` is a labelable element, so a plain `htmlFor` / `id` pair is the correct association with no `aria-labelledby` needed (Radix sets none on the trigger).\n\n`element:record_picker` is also the block `element:text_input`'s own module header names as its complement (\"the data-entry complement to element:record_picker\"), so the two sit side by side in a pure-SDUI page with opposite a11y behaviour.\n\n## What a fix would decide (for triage, not decided here)\n\n1. **Where the trigger's id comes from.** The picker's `schema?.id` is optional, exactly as on `element:text_input` — it is already read for `usePageVariableBinding(schema?.id)` and published as `data-picker-id`. #5735 resolved the analogous question by observing that `htmlFor` needs an id on the *control* (author-supplied, so the wiring can only hold when the author gave one) while `aria-describedby` needs one on an element the renderer owns. Here it is squarely the first case, so \"wire only when `schema.id` exists\" matches both the `element:text_input` precedent and #3341's shape — but minting a `useId` fallback so the picker is *always* named is a defensible alternative, and the two answers differ.\n2. **Whether the `label` element is right at all.** #3341 concluded `htmlFor` / `id` is correct against a `SelectTrigger`, so this is likely just the missing pair rather than a switch to `aria-labelledby` — worth confirming against Radix's current trigger output rather than assuming.\n\nA fix should pin the resolution (the label resolves to the combobox, and the combobox's accessible name is the label), not the two attributes separately — the failure mode #3341's test file documents is an association that looks wired and resolves to nothing.\n\n## Refs\n\n- #5735 / PR #5770 — the sibling gap on `element:text_input`, where this was found\n- #3341 — the same class, ruled and fixed on two other surfaces\n- #3976, #3306, #3991 — the form renderer's instances of the class"
+}

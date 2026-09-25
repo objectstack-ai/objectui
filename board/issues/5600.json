@@ -1,0 +1,35 @@
+{
+  "number": 5600,
+  "kind": "issue",
+  "title": "[finding] `nav-selection.ts` re-exports a constant out of the 510-line `AppNavInspector`, so every URL-parsing consumer drags a React editor into its graph",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T16:43:03Z",
+  "updated_at": "2026-08-23T08:44:16Z",
+  "closed_at": "2026-08-23T08:44:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5600",
+  "body": "Found while implementing #5476 (PR #5599). Filed unassigned, not fixed there — out of that card's scope, and it is an observation about layering rather than a user-reachable defect.\n\n## What is there\n\n`packages/app-shell/src/views/metadata-admin/nav-selection.ts` is otherwise pure string plumbing — `parseSurfaceParam` / `formatSurfaceParam` / `parseNavSelParam` and friends, the URL-boundary translation the designer's deep-links use. Its only import is:\n\n```ts\n// nav-selection.ts:14\nimport { APP_NAV_ROOT_KEYS } from './inspectors/AppNavInspector.js';\n```\n\nand on the other end:\n\n```ts\n// AppNavInspector.tsx:510 — the last line of a 510-line React component module\nexport const APP_NAV_ROOT_KEYS = ROOT_KEYS;\n```\n\nSo a module whose job is parsing a query-string statically pulls in a full inspector component — Radix, dnd-kit, icons and all — for one array of root keys.\n\n## Why it is worth recording\n\nThe pull is real and it reaches small consumers. Non-test importers of `nav-selection` today:\n\n```\nviews/studio-design/useSurfaceDeepLink.ts\nviews/studio-design/StudioDesignSurface.tsx\nviews/metadata-admin/ResourceEditPage.tsx\nutils/appRoute.ts\nconsole/ai/artifactStudioPath.ts\n```\n\nThe last two are small utilities that want a URL helper and nothing else.\n\nIt also already shapes code around itself. #5476 needed the pending-changes sheet — which sits in the console's EAGER graph — to consume a small piece of surface plumbing, and the fix had to be put in a **separate React-only module** specifically so that importing it would not reach `nav-selection`, and through it the inspector. That is a workaround for this edge, written down in a comment in `surfaceDeepLinkChannel.ts`. It is the second bundle-defensive note in that neighbourhood; `DraftChangesPanel.tsx` already carries a measured one about `@objectstack/spec`.\n\n## Shape of a fix (not a decision, just the obvious one)\n\nMove `ROOT_KEYS` to a leaf module both sides import — or into `nav-selection.ts` itself, with `AppNavInspector` importing it from there, since the constant describes the nav SHAPE rather than the editor. Either direction ends the edge; the second inverts it the way the dependency actually runs.\n\nWorth measuring against `check-eager-closure-budget` before and after: the console's eager closure is currently 3785.3 KB gzipped against a 3867.2 KB budget, i.e. 81.9 KB of headroom, so this is a candidate for buying some back rather than only a tidiness argument.\n"
+}

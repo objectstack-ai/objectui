@@ -1,0 +1,37 @@
+{
+  "number": 5586,
+  "kind": "issue",
+  "title": "`ViewSwitcher` renders NO icon for `chart` and `gantt` views: both icon names were dropped from lucide's `icons` record",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "plugin-view",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-21T15:29:04Z",
+  "updated_at": "2026-08-21T19:27:48Z",
+  "closed_at": "2026-08-21T19:27:47Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5586",
+  "body": "Measured while implementing #5321 on `origin/main` @ `f2158ec86`. **Filed unassigned, not claimed, and deliberately not fixed there** — #5321 owns the missing `tree` KEY in the same map, and this is a different defect (a key that is present but whose VALUE no longer resolves), needing new icon names chosen rather than a key added.\n\n## What was measured\n\n`ViewSwitcher.resolveIcon` (`packages/plugin-view/src/ViewSwitcher.tsx`) turns an icon NAME into a component by PascalCasing it and looking it up in lucide's `icons` record:\n\n```\nconst iconName = toPascalCase(name);\nconst mapped = iconNameMap[iconName] || iconName;\nreturn (icons as any)[mapped] || null;\n```\n\nTwo of the names `ObjectView`'s `iconMap` supplies do not exist in that record on the installed `lucide-react@1.31.0`. Probed directly against the installed package:\n\n```\nkanban    kanban         -> Kanban           RESOLVES\ncalendar  calendar       -> Calendar         RESOLVES\nmap       map            -> Map              RESOLVES\ngallery   layout-grid    -> LayoutGrid       RESOLVES\ntimeline  activity       -> Activity         RESOLVES\ngantt     gantt-chart    -> GanttChart       *** MISSING ***\ngrid      table          -> Table            RESOLVES\nlist      list           -> List             RESOLVES\ndetail    file-text      -> FileText         RESOLVES\nchart     bar-chart-3    -> BarChart3        *** MISSING ***\ntree      list-tree      -> ListTree         RESOLVES\n```\n\nThe cause is that lucide keeps the old spellings as deprecated NAMED EXPORTS while dropping them from the `icons` record that a by-name lookup reads. Measured on the same version:\n\n| name | named export | in `icons` |\n| --- | --- | --- |\n| `BarChart3` | yes | **no** |\n| `GanttChart` | yes | **no** |\n| `GanttChartSquare` | yes | **no** |\n| `ChartColumn` | yes | yes |\n| `ChartGantt` | yes | yes |\n\nSo the compiler is no help here: `ViewSwitcher.tsx` imports `BarChart3` and `GanttChartSquare` by name for its own `DEFAULT_VIEW_ICONS` and type-checks clean, while the by-name path beside it silently misses.\n\n## User-visible effect\n\n`getViewIcon` does not fall back to `DEFAULT_VIEW_ICONS` once an explicit `icon` is set — it returns `resolveIcon(view.icon)`, i.e. `null`:\n\n```\nfunction getViewIcon(view: ViewSwitcherItem): LucideIcon | null {\n  if (view.icon) {\n    return resolveIcon(view.icon);\n  }\n  return DEFAULT_VIEW_ICONS[view.type] || null;\n}\n```\n\nand the render site is `{Icon ? ( Icon ) : null}`. `ObjectView` always supplies an icon string (`icon: iconMap[v.type] || 'table'`), so a host-composed `chart` or `gantt` view is drawn as a label with **no icon at all**, while every other type in the same switcher has one. No crash. The console reaches this: `CreateViewDialog` offers both `chart` and `gantt` among the view types a user can create, and those records arrive as `ObjectView`'s `views` prop.\n\n## Why it is worth a card rather than a drive-by\n\nPicking the replacements is a judgement call, not a mechanical rename — lucide offers several candidates per glyph (`ChartColumn`, `ChartColumnBig`, `ChartGantt`, `ChartNoAxesGantt`), and the choice should probably be made together with the `DEFAULT_VIEW_ICONS` entries beside them, which still import the deprecated aliases. There is also a guard question worth settling in the same breath: nothing today fails when a name stops resolving, which is exactly why this survived a major lucide bump. A pin asserting that every name the map supplies resolves in `icons` would close the class; #5321 deliberately left its resolvability assertion scoped to `tree` alone and says so in a comment, so that the widening happens here with the fix rather than as a surprise red.\n\n## Not fixed in #5321\n\n#5321's ruling was about which view types are authorable, and its one behaviour change was adding the missing `tree` KEY (`tree: 'list-tree'`, verified resolving). Its scope fence is `packages/plugin-view/src/**` plus the record; changing two working-looking icon names on a judgement call is outside it.\n\n## Dedup\n\nSearched open issues for the lucide-name shape, for the `iconMap` / view-switcher icon shape, and for lucide upgrade cards. Nothing open covers it. Related and closed: #2916 (added the `chart` key to this same map — the key it added is the one now failing to resolve), #1885 (tree view added). Related and open: #5321 (the missing `tree` key, and the host-only view-type record)."
+}

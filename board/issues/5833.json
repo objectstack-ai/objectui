@@ -1,0 +1,32 @@
+{
+  "number": 5833,
+  "kind": "pull_request",
+  "title": "docs(core): name the out-of-runner producer of ConfirmationHandler's `options` (#5205)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T14:11:02Z",
+  "updated_at": "2026-08-23T14:41:47Z",
+  "closed_at": "2026-08-23T14:41:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T14:41:45Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5833",
+  "body": "Fixes #5205\n\nExecutes the maintainer ruling recorded on the card (2026-08-22): **Option A — keep `ConfirmationHandler`'s `options` parameter and add an explanatory comment.** Option B (remove it) is rejected and is not reopened here. Nothing narrows: the diff is one doc comment plus a no-release changeset.\n\n## The card's title is false, and saying why is the deliverable\n\n`options` is **live**. Its producer is simply not in `ActionRunner.ts`: `handleDeleteView` in `packages/app-shell/src/views/ObjectView.tsx` — the admin \"delete saved view\" confirmation — invokes a `ConfirmationHandler` with all three fields populated and localized, and `app-shell`'s `ActionConfirmDialog.tsx` renders them over its generic `actionConfirm.*` fallbacks. The runner's own call site passes one argument (the structured `confirm` arm that used to forward a bag was retired in #4314), so a **runner-scoped** sweep sees zero producers and files the parameter for removal — which is exactly how this card came to exist.\n\nA comment saying \"keep this, it's used\" would not prevent the next sweep from re-deriving the same wrong answer. The comment therefore names the producing symbol, its file and what it does, names the three i18n keys, states what removal would cost, and says what re-measuring correctly looks like: grep the repo — not this package — for two-argument calls of `ConfirmationHandler`-typed values.\n\n## Re-verified on current `main` before writing (@ `5da008463`)\n\n| Claim | Status |\n| --- | --- |\n| Producer exists and is two-argument | ✅ `ObjectView.tsx` `handleDeleteView`, all three fields via `t()` |\n| Reachable UI, not dead code | ✅ wired as `onDeleteView={isAdmin ? handleDeleteView : undefined}` and `onDelete={handleDeleteView}` |\n| Typed as the published type | ✅ `confirmHandler` comes from `useConsoleActionRuntime`, declared `ConfirmationHandler` |\n| Terminal reader renders the bag | ✅ `ActionConfirmDialog.tsx` reads `title` / `cancelText` / `confirmText` |\n| Localized, not merely wrapped in `t()` | ✅ the three keys are present in all 8 `packages/i18n/src/locales/*.ts` bundles |\n| Sole two-argument producer | ✅ repo-wide grep of `confirmHandler(` / `onConfirm(` finds no other |\n\n⚠️ **The card's pointer had already drifted**: the producer it cites as `ObjectView.tsx:1397` is at **:1520** on today's `main`. That is the reason the comment deliberately carries **no line numbers** — anchoring on a line number would just have queued up the next stale pointer. It anchors on the symbol (`handleDeleteView`), the file, and the i18n keys, all of which survive movement and are greppable.\n\n## Verification — gate union re-run after the final commit, at `5af910c80`\n\nAll from the repo root, one lock acquisition, `set -o pipefail`, verdict lines quoted from the gates themselves:\n\n- `node scripts/check-changeset-presence.mjs` → `✅  1 source file(s) of 1 released package(s) changed, and this change declares 1 changeset(s): .changeset/tidy-jars-confirm.md.` (empty frontmatter — declared as releasing nothing, the gate's own explicit exemption)\n- `node scripts/check-changeset-no-major.mjs` → `✅  No changeset declares a `major` bump.`\n- `node scripts/check-control-bytes.mjs` → `✅  check-control-bytes: OK (scanned 4856 tracked text file(s); skipped 85 binary).`\n- `pnpm --filter @object-ui/core type-check` → clean (`tsc --noEmit && tsc -p tsconfig.test.json`, exit 0). First run failed `TS6305` on an unbuilt `packages/types/dist`; re-run after `pnpm --filter '@object-ui/core^...' build`.\n- `pnpm --filter @object-ui/core lint` → `✖ 510 problems (0 errors, 510 warnings)` — 0 errors, all warnings pre-existing `no-explicit-any`. This is the package's own lint task, i.e. exactly what `turbo run lint` schedules for the one package this diff touches; the repo's eslint config enables no type-aware linting, so a comment-only diff cannot move any judgment in a package it does not touch.\n- `pnpm exec vitest run packages/core/src/actions/__tests__/ActionRunner.test.ts packages/app-shell/src/hooks/__tests__/useConsoleActionRuntime.test.tsx` → `Test Files  2 passed (2)` / `Tests  129 passed (129)`\n\nNo ablation was run: the change is a comment, and it has no runtime or type behaviour to ablate.\n\n## Scope\n\nComment only, in one file, plus the changeset the presence gate asked for. `ConfirmationHandler`'s signature, `ActionConfirmDialog.tsx`, `ObjectView.tsx` and the runner's logic are untouched.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01EuPCi56cnGyykygi3z9w4m)_"
+}

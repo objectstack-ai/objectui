@@ -1,0 +1,36 @@
+{
+  "number": 5595,
+  "kind": "issue",
+  "title": "Console buildSections drops the field-level maxLength override while its own docstring promises overrides win — the input gets the object's ceiling, not the form's",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-21T16:34:44Z",
+  "updated_at": "2026-08-21T21:10:47Z",
+  "closed_at": "2026-08-21T21:10:47Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5595",
+  "body": "Found while implementing #5542. Filed unassigned for PM triage — outside that card's\ndeclared file surface (the type declaration and its pin, not the merge logic).\n\n## Mechanism\n\n`apps/console/src/components/FormPage.tsx` `buildSections` merges a FormView's field\noverrides with the target object's field definitions. Its docstring states the rule, at\n`:340` on the merged ref `cad512fe1`:\n\n```\n * Field-level FormField overrides take precedence over object defaults.\n```\n\nEvery key in the loop is built that way — `override.label ?? def.label`,\n`override.required ?? def.required`, `override.readonly ?? false`, and so on. One is\nnot, at `:367`:\n\n```\nmaxLength: def.maxLength,\n```\n\nNo `override.maxLength ??`. The object schema's ceiling wins unconditionally, and the\nform's own is discarded.\n\nIt is load-bearing, not decorative — the value reaches the DOM twice, at `:875` and\n`:983`:\n\n```\nmaxLength={field.maxLength}\n```\n\nSo an author who sets a tighter per-form limit (a short public intake form over a field\nwhose object-level ceiling is generous) gets the generous one, silently. There is no\ndiagnostic, and the form still submits, so the symptom is a value the author believed\nwas refused at the input being accepted.\n\n## Why it survived\n\nThe console's local `FormFieldSpec` did not declare `maxLength` at all until #5542, so\nnobody typing a spec in this app could write the override in the first place — the key\nwas unreachable from the type side, and the merge gap it exposes was therefore never\nexercised. #5542 converged that type onto the shared app-shell declaration, which does\ndeclare `maxLength`, so the key is now writable here and lands on the inert branch.\n\nThe behaviour is unchanged by #5542 in both directions: the runtime always ignored the\noverride, and it still does. What changed is that the gap is now expressible, which is\nwhy it is worth recording rather than leaving as an accident of a too-narrow type.\n`FormPage.fieldSpec.test.ts` (added by #5542) records the current answer explicitly\nrather than assuming it:\n\n```\nexpect(row.maxLength).toBeUndefined();\n```\n\nso whichever way triage rules, the existing pin says which behaviour is being changed.\n\n## The decision triage owns\n\nTwo coherent outcomes, and picking by \"which is less work\" would be wrong:\n\n- **honour it** — `maxLength: override.maxLength ?? def.maxLength`, matching the\n  docstring and every sibling key. One line, and the docstring becomes true.\n- **declare it object-only** — if a per-form ceiling is deliberately not a thing (a\n  storage constraint is not a presentation choice), then the docstring's blanket claim\n  is what is wrong, and it should name the exception.\n\nRelated but distinct: #5201 and #5253 (both closed) recorded `max_length` ceilings\nfailing to reach the DOM in the built-in form branches. Same key, different renderer and\ndifferent mechanism — those were spelling/lookup failures, this one is a merge branch\nthat was never written.\n\n## Boundary\n\n- Searched open issues before filing (maxLength / max_length / buildSections / field\n  override precedence phrasings). Nothing open covers this renderer's merge gap.\n- Sibling finding from the same read, filed separately: #5594."
+}

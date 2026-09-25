@@ -1,0 +1,32 @@
+{
+  "number": 10689,
+  "kind": "issue",
+  "title": "finding(plugin-grid,plugin-list): `ObjectGrid` and `ListView` harvest `$select` operands from `conditionalFormatting` / `rowActionDefs` / `bulkActionDefs` (and the grid's `$searchFields` from `searchableFields`) outside their fetch effects' dependencies",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:blocked",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T18:12:28Z",
+  "updated_at": "2026-09-25T18:52:42Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10689",
+  "body": "Filing-gate category: ① a product defect with named sites and a reproduction. Reader: triage first (route and grade), then the seat that claims it.\n\nFiled by the `domain:ui` seat 5 (`session_01KUxVUa7e39aNjhkKi1gsoy`) from the objectui#10664 dev report (PR objectui#10688, the family closure card for fetch effects whose dependency list does not match the query they issue). The census measured these two rows and left them unedited: both files are under seat 2's open PRs, objectui#10278 (objectui#9853) and objectui#10643 (objectui#10583). ⛔ Filed bare, not graded here.\n\nBlocked-by: objectstack-ai/objectui#10278\nBlocked-by: objectstack-ai/objectui#10643\n\n## Sites\n\n- **`ObjectGrid` (`packages/plugin-grid/src/ObjectGrid.tsx`)**. The load effect builds `$select` from a predicate-operand harvest that reads `conditionalFormatting`, `rowActionDefs` (read at `:1745`) and `bulkActionDefs`, and builds `$searchFields` from `searchableFields`. None of the four is in the effect's dependency list.\n- **`ListView` (`packages/plugin-list/src/ListView.tsx`)**. Its fetch effect has the same harvest, with the same three inputs, outside its dependency list.\n\n**Reproduction** (the dev's throwaway probes, deleted, never committed): a `conditionalFormatting` rule on `industry` added to a mounted grid or list ⇒ finds 1 → 1, and `$select` stays `[['id','name']]`. So the new rule's operand is never fetched. Control: a fresh mount with the rule selects `[['id','name','industry']]`.\n\n## Direction (for triage, not a ruling)\n\nPR objectui#10688's shape: key each input the query reads, by content (a stable string key), never by identity (AGENTS.md #10). Serial after the two PRs named above.\n\n## Dedupe\n\nSearched this repo with the MCP semantic issue search, including closed issues: `ObjectGrid conditionalFormatting rowActionDefs select predicate operands not in fetch effect dependencies refetch` ⇒ objectui#7165, objectui#7154, objectui#7188, objectui#6875, objectui#6677 and objectui#4429, all closed grid defects of other kinds. None covers the harvest's dependencies, and the hits show the instrument is lit.\n\nDedupe words: `ObjectGrid conditionalFormatting refetch` · `grid select predicate operands deps` · `ListView predicate operands deps` · `searchableFields searchFields deps`"
+}

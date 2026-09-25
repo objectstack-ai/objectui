@@ -1,0 +1,35 @@
+{
+  "number": 5587,
+  "kind": "issue",
+  "title": "finding(charts): ObjectChart's fieldOptionLabel ref workaround is removable once the i18n hook's memo holds without a provider",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-21T15:29:20Z",
+  "updated_at": "2026-08-21T19:29:24Z",
+  "closed_at": "2026-08-21T19:29:24Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5587",
+  "body": "Observation-class finding, filed unassigned while implementing #5564. Not queued — this is a cleanup that only becomes correct after #5564 lands.\n\n`Blocked-by: #5564`\n\n## What is there\n\n`packages/plugin-charts/src/ObjectChart.tsx:268-271` keeps a hand-rolled ref around one i18n resolver, with this comment:\n\n> Keep a stable ref to fieldOptionLabel — the i18n hook returns a fresh function reference on every render, which would otherwise invalidate fetchData's useCallback identity and trigger an infinite refetch loop.\n\nThat is an independent consumer diagnosing, and locally working around, exactly the defect #5564 measures: `useSafeFieldLabel()` returned a fresh object every render outside an i18next instance, so every closure on it was fresh too.\n\n## Why it is now removable\n\n#5564 (PR #5585) stabilises `useObjectLabel`'s memo on both paths, so `fieldOptionLabel` now has a stable identity with or without a provider. The ref indirection — `fieldOptionLabelRef` plus the `useEffect` that keeps it current — no longer buys anything, and it costs the usual price of a ref-hidden dependency: `fetchData` no longer re-runs when the resolver genuinely does change, which is now a real possibility rather than a permanent one.\n\nDeliberately **not** removed in PR #5585: that PR's fence is `packages/i18n`, and removing a refetch-loop guard is a change that wants its own review and its own test rather than riding along in a diff about memo identity.\n\n## Suggested shape\n\n1. Confirm the loop does not return: drop the ref, depend on `fieldOptionLabel` directly in `fetchData`'s `useCallback`, and pin it with a test that counts fetches across re-renders both inside and outside a provider.\n2. While there, `packages/plugin-timeline/src/ObjectTimeline.tsx:25-37` carries a third hand-rolled wrapper (`useSafeObjectLabel`, a local `useObjectLabel() ?? OBJECT_LABEL_FALLBACK` with a 3-member fallback) duplicating `useSafeFieldLabel` from `@object-ui/i18n`. That one is a duplication question rather than a workaround question, so it may deserve a separate card — noting it here so the sweep is not lost.\n\nNeither is urgent; both are dead weight that reads as load-bearing to the next person, which is the cost worth removing."
+}

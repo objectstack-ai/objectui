@@ -1,0 +1,35 @@
+{
+  "number": 4947,
+  "kind": "issue",
+  "title": "finding: 墓碑判据还剩两份本地副本(plugin-detail / app-shell),都只有结构通道,共享 judge 已就位",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T07:54:18Z",
+  "updated_at": "2026-08-23T17:03:55Z",
+  "closed_at": "2026-08-23T17:03:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4947",
+  "body": "发现于 #3809 的实施(PR 见该卡)。**今天没有假绿假红** —— 这两处的判据都是对的,所以按 observation-class 只贴 `finding`、不排队;记下来是因为它正好是 #4434 关掉过一次的那个类:同一个判断被抄成 N 份,然后各自漂移。\n\n## 现状\n\n#3809 把 ADR-0087 D2 墓碑识别(`retiredKey()` 把成员换成 `z.never().optional()` 而**不删条目**,所以 `Object.keys(shape)` 照样报告它)收进了 `packages/test-support/src/spec-tombstones.ts`,两个消费者已改为导入它:\n\n- `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`(两个方向共用一处收窄)\n- `packages/layout/src/__tests__/page-header-authorable-keys.test.tsx`(原来有一份本地副本,已删)\n\n还剩两份本地副本,都在做同一件事:\n\n- `packages/plugin-detail/src/__tests__/recordDetailsInputs.spec-parity.test.ts` —— 本地 `isTombstoned` / `shapeMember`,判据是 unwrap 后 `_def.type === 'never'`;\n- `packages/app-shell/src/views/metadata-admin/previews/__tests__/block-config.test.ts` —— 测试体内联的 `memberType`,同一判据,只用于 `page:header.icon` 那条 pin。\n\n## 为什么仍值得收掉\n\n两份副本**都只有结构通道**,没有共享 judge 的第二条通道(成员 description 以 `retiredKey()` 盖的 `[REMOVED]` 前缀开头)。共享 judge 把两条通道 OR 起来不是为了覆盖率(实测 rc.6 的八个墓碑两条通道都成立),而是为了**任一条被改坏时不会静默变宽**:Zod 内部结构一次重构就能让 `_def.type` 读不出来,那时这两份副本会把墓碑判成活键 —— 正是 #3809 修的那个方向。共享 judge 还带一条把结构判据钉在契约**实际行为**上的校准(每个被判为墓碑的键喂给 `safeParse`,必须在该键路径上报出 issue),两份副本没有这层保障。\n\n`packages/test-support` 的 README 就是为这件事写的:两个包的测试互相 import 不了,于是判断被抄了两份,等到 #4434 立卡时两份已经漂移了。这次是同一个形状,只是还没漂移。\n\n## 建议的处置\n\n两处各删本地判据,改 `import { isShapeKeyTombstoned, listedShapeKeys, authorableShapeKeys } from '@object-ui/test-support'`(consumer 加 `devDependencies` 的 `workspace:*`,README「Conventions」段有写)。纯重构,不改任何断言的语义;改完 `packages/test-support/README.md` 里点名这两处的那段也一并删掉。\n\n反向验证照 #3809 的做法:把某个真墓碑从识别里排除,这两处的相应 pin 应当变红(`recordDetailsInputs` 的 `layout` 撤声明断言、`block-config` 的 `icon` 那条),否则说明它们对判据其实不敏感,那是另一件事。\n\n参考:#3809(共享 judge 的落点与两个方向的相反症状)、#4434(同类 judge 抄两份并已漂移的前情)、ADR-0087 D2、`packages/spec/src/shared/retired-key.ts`(objectstack)。\n"
+}

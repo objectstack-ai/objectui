@@ -1,0 +1,34 @@
+{
+  "number": 5611,
+  "kind": "issue",
+  "title": "`overrideNotice` is produced, read, and declared nowhere — it blocks narrowing the param handlers' `action?: any`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-21T17:28:34Z",
+  "updated_at": "2026-08-22T18:18:08Z",
+  "closed_at": "2026-08-22T18:18:08Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 16,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5611",
+  "body": "Found while implementing #4282. That card's second half asked for `paramCollectionHandler`'s `action?: any` to be narrowed to `ActionDef` — \"the larger and more valuable half\", since it is what makes the compiler cover that file at all. The narrowing was attempted, measured, and backed out; these are the diagnostics it produced.\n\n## What the narrowing costs today\n\n`ParamCollectionHandler` already declares its second parameter as `ActionDef`, and `ActionDef` is already imported by `useConsoleActionRuntime.tsx` — so the narrowing needs **no new import and no barrel export**. It is a one-token change to the annotation. Applied and type-checked on `origin/main` @ `7a28e1e3f`:\n\n```\nsrc/hooks/useConsoleActionRuntime.tsx(253,45): error TS2339: Property 'overrideNotice' does not exist on type 'ActionDef'.\nsrc/hooks/useConsoleActionRuntime.tsx(253,83): error TS2339: Property 'overrideNotice' does not exist on type 'ActionDef'.\nsrc/hooks/useConsoleActionRuntime.tsx(254,18): error TS2339: Property 'overrideNotice' does not exist on type 'ActionDef'.\n```\n\nThree diagnostics, one key. Nothing else in the handler moved — every other read (`objectName`, `params`, `name`, `description`, `label`) is a declared field.\n\n## Why this is the opposite of #4282's `title`\n\nThey look alike and are not. `title` had **no producer** — that is why #4282 deleted it. `overrideNotice` has a live producer *and* a live reader, and is simply undeclared:\n\n- **producer**: `packages/app-shell/src/views/DeclaredActionsBar.tsx:305` — `dispatch.overrideNotice = overrideNotice;`, on an object literal that is then cast `dispatch as ActionDef` at `:316`. The cast is what makes it compile; the key never passes through a declaration.\n- **reader**: `packages/app-shell/src/hooks/useConsoleActionRuntime.tsx:253-254`, the three sites above.\n- **declared**: nowhere. Absent from `ActionDef` (`packages/core/src/actions/ActionRunner.ts:112`), from `ACTION_DEF_KEYS`, from `SPEC_ACTION_KEYS`, and from `@objectstack/spec`'s `ActionSchema` (44 keys walked live at spec 17.0.0).\n\nThis is exactly the shape objectstack#4075 step 3 promoted `description` out of, and for the same stated reason — \"authorable, forwarded, read, and undeclared\". `overrideNotice` arrived later (#5178) and did not get the same treatment.\n\nWorth noting where it currently sits in the warning path: because the key is unknown to `KNOWN_ACTION_KEYS`, `warnOnUnknownActionKeys` reports it in dev as \"a key no reader recognizes\" on every privileged-override dispatch — which is false, and points the author at a typo that isn't one.\n\n## Suggested disposition\n\nPromote it, the way `description` was:\n\n1. declare `overrideNotice?: string` on `ActionDef` in `packages/core/src/actions/ActionRunner.ts`, documented at its declaration as objectui dialect (there is no spec counterpart, and #5178's ruling is explicit that it must NOT be folded into `description` — `actionDescription` prefers a `_actions.NAME.description` bundle hit, and `plugin-approvals` ships one for `approval_reject`, so a warning routed through `description` gets silently translated away);\n2. add it to `ACTION_DEF_KEYS` in `packages/core/src/actions/actionKeys.ts` — `actionKeys.pin.test.ts` re-derives that list from the interface's AST, so the two must move together or the pin goes red;\n3. then narrow both param handlers' `action?: any` to `ActionDef` — `useConsoleActionRuntime.tsx:196` and `RecordDetailView.tsx:500`.\n\nStep 3 is the payoff and should not be attempted before 1-2: the alternative that \"works\" today is casting the `overrideNotice` read at its use site, which swaps a visible `any` for an invisible cast and re-hides the undeclared key. That was rejected on #4282 and should stay rejected.\n\nScope note for whoever picks this up: it spans `@object-ui/core` (declaration + pinned inventory + pin test) and `@object-ui/app-shell` (two annotations). Step 3's `RecordDetailView` half overlaps #5610, which removes the dead `title` limb from that same handler — worth sequencing, not merging.\n\nRefs #4282, #5178, #4046.\n"
+}

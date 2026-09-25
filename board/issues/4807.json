@@ -1,0 +1,35 @@
+{
+  "number": 4807,
+  "kind": "issue",
+  "title": "finding: record:alert 是唯一没接 #4075/#4077 行绑定的谓词面 —— 裸 { record } 作用域下 row-action 简写与 data.* 拼法 unbound,fail-soft 使作者门控的横幅永远显示",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-16T09:15:44Z",
+  "updated_at": "2026-08-22T10:33:52Z",
+  "closed_at": "2026-08-22T10:33:52Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4807",
+  "body": "## 发现来源\n\n#3941(PR #4803)实施时 dev 回传,PM 查重后立卡(关键词/符号名检索零重复)。\n\n## 事实(dev 实读 + probe,基线 8a9deceea)\n\n- `packages/plugin-detail/src/renderers/record-alert.tsx:141` 调 `useCondition(predicateInput, { record })` —— **裸 root-only 作用域**;\n- 四个通用 action 渲染器(action-button/menu/group/icon)与 app-shell 的 DeclaredActionsBar 都走 `usePredicateRecordContext(record)`(spread + `record` + `data` 三拼法);\n- 后果:record:alert 横幅上 canonical 的 `record.status` 拼法可解析,但 row-action 简写(`status == 'x'`)与 legacy `data.*` 拼法抛 unbound-identifier fault —— 而该调用点是 **fail-soft**,fault 落成 SHOWN:**作者写了门控的横幅永远可见**(console 有报错,UI 上不可见的失效);\n- 渲染器自己的头注释(record-alert.tsx:32-37)声称与「every ActionButton / ActionBar」同一作用域求值 —— 对行绑定不成立,注释失真。\n\n## 与 #4075 家族的关系(为何不直接修)\n\n采用共享 helper 是生产行为变更,且拼法口径(简写/data.* 的存废)正是 #4075 step 3 挂在决策箱的契约题(visible/disabled 两契约)。PR #4803 的新钉子刻意只钉 canonical `record.` 拼法、对简写零断言 —— 不预决该裁定。本卡排程应 **sequencing:#4075 step 3 裁定后**,届时修法大概率是一行换 `usePredicateRecordContext` + 注释改真 + 按裁定补简写钉。\n\n## 参考\n\n- `record-alert.tsx:141`(调用点)、`:32-37`(失真注释)\n- #4075 / #4077(行绑定家族)、#3941 / PR #4803(发现出处,谓词 verdict 钉已就位 —— 该 suite 现在能看见这类缺陷了)\n\nobservation-class,未认领。"
+}

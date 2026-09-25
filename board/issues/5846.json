@@ -1,0 +1,30 @@
+{
+  "number": 5846,
+  "kind": "issue",
+  "title": "Dashboard flat table: server-supplied totals row (tfoot) via the cross-tab's marginal-totals machinery",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T14:54:27Z",
+  "updated_at": "2026-08-23T16:43:27Z",
+  "closed_at": "2026-08-23T16:41:34Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5846",
+  "body": "Dashboard flat table: server-supplied totals row (tfoot), riding the marginal-totals machinery the cross-tab already uses\n\n## Ruling\n\nMaintainer, verbatim (未译, in-session 2026-08-23): 「我觉得合理的需求都应该开发」 — ruling on the second open question from #5827, which declined the totals row as beyond a rendering-polish card and parked it as option B: \"file a follow-up to request the `[]` grouping for flat tables and render a tfoot\".\n\n## Why it is reasonable\n\nThe exemplar app's own list views render aggregate footers (`合计` / `平均值`) on the same numbers; a dashboard table showing 9 industry rows with no total makes the reader do the addition the product exists to do. And the correctness constraint is already settled in the file: **no client-side re-aggregation** (avg/min/max cannot be recombined from displayed rows) — which is exactly why this is a query-shape card and not a rendering card.\n\n## Contract\n\n- The flat `table` branch requests the server's marginal totals (the `[]` grouping the cross-tab path already requests via `totalsGroupings`) and renders them as a `tfoot` row.\n- Totals are **server-computed per aggregate semantics** — a `sum` column totals, an `avg`/`min`/`max` column shows the server's whole-set aggregate, never a client recombination. If the executor cannot answer `[]` for some dataset shape, the tfoot is omitted for that widget rather than approximated.\n- The totals row is exempt from sorting (pinned last), styled per the console's existing footer idiom, and the null-bucket `—` row sorts above it.\n- Label for the row: the console's existing footer vocabulary if one exists; otherwise `Total` (i18n note: dataset-label translation is objectstack#10292's gap — do not solve it here, but do not add a *new* hardcoded string without checking the console's own message catalog first).\n- **Measure the query cost before shipping**: this adds a grouping to every dashboard flat-table query. State the measured overhead in the report; if it is non-trivial, gate the tfoot on an authored widget option (default off) and say so — that widens the widget schema, which needs flagging as a declared deviation.\n\n## Serial constraint\n\nSame file as #5845 (`DatasetWidget.tsx`) — queued behind it; do not dispatch while #5845's branch is open.\n"
+}

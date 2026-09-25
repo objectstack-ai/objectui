@@ -1,0 +1,36 @@
+{
+  "number": 5717,
+  "kind": "issue",
+  "title": "components: `element:text_input`'s `label` / `placeholder` / `description` are the INVERSE of #5637 — the renderer already resolves the locale map, the declaration still says `'string'`, so the gate warns on a legal write",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T20:33:12Z",
+  "updated_at": "2026-08-23T02:50:20Z",
+  "closed_at": "2026-08-23T02:50:20Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5717",
+  "body": "Found while implementing #5637 (`element:record_picker`'s `label` / `placeholder`). Out of that card's fence — filed, not fixed there.\n\nThis is the **same family, opposite direction**. #5590 and #5637 are \"the contract admits the map, the renderer drops it, so the declaration correctly stays narrow until the render site catches up\". `element:text_input` is the case where **the render site already caught up and the declaration never moved**.\n\n## Measured\n\n`packages/components/src/renderers/basic/text-input.tsx` resolves all three keys at their read sites:\n\n```\n 96:  const label = pickLocalized(props.label, language);\n 97:  const placeholder = pickLocalized(props.placeholder, language);\n 98:  const description = pickLocalized(props.description, language);\n```\n\nThe contract for all three is the `I18nLabel` union — measured on the installed `@objectstack/spec` **17.1.0** pin, `ElementTextInputPropsSchema`:\n\n```\nlabel        union [string | record] | map safeParse: OK\nplaceholder  union [string | record] | map safeParse: OK\ndescription  union [string | record] | map safeParse: OK\n```\n\nBut the `ComponentMeta` entries still declare one arm each (`text-input.tsx:146`, `:147`, `:183`):\n\n```ts\n{ name: 'label', type: 'string', label: 'Label' },\n{ name: 'placeholder', type: 'string', label: 'Placeholder' },\n…\n{ name: 'description', type: 'string', label: 'Description' },\n```\n\nDriven through the same `manifestFromConfigs` + `validateTree` path the console specimen test uses, with `{ en: 'Owner', 'zh-CN': '负责人' }`:\n\n```\nPROBE label       declaredArms=\"string\" codes=[\"type-mismatch :: <element:text_input> prop \\\"label\\\" expected a string\"]\nPROBE placeholder declaredArms=\"string\" codes=[\"type-mismatch :: <element:text_input> prop \\\"placeholder\\\" expected a string\"]\nPROBE description declaredArms=\"string\" codes=[\"type-mismatch :: <element:text_input> prop \\\"description\\\" expected a string\"]\n```\n\n## Why this is the defect and not a harmless narrowing\n\n`ComponentInput.type` in `packages/types/src/base.ts` states the rule in both directions: declare an arm the renderer drops and you advertise a shape that never reaches the screen; withhold an arm the renderer resolves and the manifest gate reports `type-mismatch` on a legal write. Its own words for the second half — \"one platform authority contradicting itself on the write it just recommended, at warning severity — which is worse than it sounds, because noise on legal writes trains authors (AI authors included) to dismiss the `unknown-prop` and `type-mismatch` reports that ARE real.\"\n\nHere the author writes a map, the renderer renders it correctly in the viewer's language, and the gate warns anyway. That is precisely the direction #5590's changeset called \"the false declaration in the other direction\".\n\n## Not a duplicate of the `defaultValue` specimen\n\n`apps/console/src/__tests__/component-input-union-specimens.test.ts:214` asserts that an `I18N_MAP` on `element:text_input.defaultValue` **does** report `type-mismatch`, and that assertion is correct and must stay: `defaultValue`'s spec type is `string | number`, a key whose contract has no object arm. It is the control that keeps the widening per-key. The three keys above are a different set with a different contract, and none of them is pinned anywhere today.\n\n## What a fix would decide\n\nMechanically it looks like the `emptyText` move run backwards: widen the three `inputs` arms to `['string', 'object']` and rewrite the descriptions from what the renderer does. Two things worth a triage look rather than assuming:\n\n1. Whether all three travel together, or `description` is separable — it has a different destination than the two label-ish keys.\n2. Whether the console specimen file should gain a pin for this block, since the specimens are where \"declared arms == contract arms\" is currently guarded, and a fix with no pin can silently regress the same way.\n\nFiled unassigned and unqueued."
+}

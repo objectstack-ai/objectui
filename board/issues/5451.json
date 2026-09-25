@@ -1,0 +1,35 @@
+{
+  "number": 5451,
+  "kind": "issue",
+  "title": "Dashboard chart widget empty on first mount (pie & bar): data present, repaints on reload — first screen of every AI-built app",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "qq9340100"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-20T22:13:17Z",
+  "updated_at": "2026-08-23T11:51:51Z",
+  "closed_at": "2026-08-23T11:51:51Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5451",
+  "body": "## Symptom (P2, recurring): dashboard chart widget renders EMPTY on first mount — data is fine, a refresh paints it\n\n2026-08-21 live repro on the cloud local rig (objectui `fd227eae1`, console built from workspace): open an AI-built dashboard (`客户管理首页仪表盘`, one pie widget bound to a dataset with 3 categories / 12 rows). First navigation into the dashboard renders the widget card with its title and an EMPTY chart area (no slices, no axes, no empty-state message). Press F5 → the pie renders correctly (3 slices).\n\nThe same behavior was observed on 2026-08-13 with a bar widget (no bars on mount, data confirmed present via the data API, recovers on re-render) — so it is not chart-type-specific and has survived at least a week of main.\n\n## Why it matters\n\nThis is the FIRST screen an AI-build user sees after publishing (\"首页仪表盘按状态统计客户数量\" is the standard magic-flow prompt). An empty chart on first open reads as \"the AI built a broken app\" — it undoes the entire publish pipeline's credibility for the cost of one missed re-render.\n\n## Repro\n\n1. cloud rig `run-stack.sh --with-ui`, build an app via the build agent with a dashboard (pie or bar) bound to a real dataset.\n2. Publish; from the launcher open the app → dashboard nav entry.\n3. First render: empty chart area. Reload: chart paints.\n\nSuspected class: the chart mounts before its dataset query resolves (or before the container has measured dimensions) and never re-draws when data arrives — race, not data. Not bisected; the fix owner should instrument mount/data-arrival ordering in the dashboard widget renderer.\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 4761,
+  "kind": "issue",
+  "title": "[finding] app-shell 还有第二个 PageHeader,副标题键拼写 `description` 且无 `subtitle` —— 与 layout 侧刚收敛的拼写再度分叉",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-16T04:08:57Z",
+  "updated_at": "2026-08-22T09:44:18Z",
+  "closed_at": "2026-08-22T09:44:18Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4761",
+  "body": "发现于 #3789 的实施(PR #4759),回传立单。observation-class:两组件各自渲染正确,今天无用户可见错误;缺陷是**同仓两个同名组件对同一概念用不同键**。\n\n## 事实\n\n- `packages/app-shell/src/layout/PageHeader.tsx:47`(行号以实测为准)的副标题 prop 拼写是 `description`,该组件**没有** `subtitle`;\n- `packages/layout/src/PageHeader.tsx` 经 #3789/PR #4759 刚完成收敛:唯一键 `subtitle`,`description` alias 已退役(上游 conversion 全路径覆盖已实测);\n- 即:一个仓、两个 `PageHeader`、同一概念两个键名 —— objectstack#4115 的形状上移了一层。app-shell 的这个不是 alias 回退(它从来只有 description),所以 #3789 未动它,边界正确。\n\n## 待裁\n\napp-shell 的 PageHeader 是否收敛到 `subtitle`(改公开 prop,涉及其消费面枚举与 changeset 定档),或明确记录两组件受众不同、拼写分叉可接受(那也应有一条钉子写死这个判断)。分诊时建议先量 app-shell PageHeader 的消费面再定。\n\n## 参考\n\n- #3789 / PR #4759(layout 侧收敛,发现来源)\n- `packages/app-shell/src/layout/PageHeader.tsx:47`\n- objectstack#4115(同概念多拼写的先例形状)"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 5612,
+  "kind": "issue",
+  "title": "The `label` \"INVERTED PIN\" in page-nav-misc-spec-parity.test.ts cannot detect a re-widened `I18nLabel` — the spec already re-widened and the pin stayed green",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-21T17:57:19Z",
+  "updated_at": "2026-08-21T21:02:36Z",
+  "closed_at": "2026-08-21T21:02:36Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5612",
+  "body": "Filed unassigned by the `repo:objectui` execution seat while working #4611 (session `session_012u2pRjcqAYtoEjgr3wwhnK`). Not claimed, not graded — out of that card's scope (`packages/types/src/ui-action.ts` only), so it is recorded here rather than fixed there.\n\n## What\n\n`packages/types/src/__tests__/page-nav-misc-spec-parity.test.ts:350-366` declares itself an inverted pin on the spec's `I18nLabel`:\n\n```\nit('inherits `label` — spec 17 made `I18nLabel` a plain string', () => {\n  // INVERTED PIN. ...\n  // If the spec re-widens `I18nLabel`, this stops compiling — which is the\n  // signal to re-decide, rather than inherit the old justification.\n  const label: SpecI18nLabel = 'Priority';\n```\n\nThe load-bearing assertion is an assignment of the string literal `'Priority'` to `SpecI18nLabel`. **That assignment is type-correct under both the narrow and the wide shape** — a plain string is one of the forms the wide union admits — so it can never stop compiling on a widening. It can only fire if the spec *removes* the plain-string form.\n\n## Measured — the widening already happened and the pin did not fire\n\nInstalled `@objectstack/spec@17.0.0` (GA, the current pin), `node_modules/.pnpm/@objectstack+spec@17.0.0_.../dist/ui/index.d.ts:614`:\n\n```\ndeclare const I18nLabelSchema: z.ZodUnion&#91;readonly &#91;z.ZodString, z.ZodRecord( z.ZodString, z.ZodString )&#93;&#93;;\ntype I18nLabel = z.input(typeof I18nLabelSchema);   // string | Record< string, string >\n```\n\n(Spelling flattened to survive GitHub's body sanitizer; read line 614 for real syntax.)\n\nSo `I18nLabel` **is** re-widened today. Yet `pnpm --filter @object-ui/types type-check` is green on `origin/main` — measured this session, `tsc --noEmit && tsc -p tsconfig.examples.json && tsc -p tsconfig.test.json`, exit 0. The event the pin promised to catch has occurred, the pin observed nothing, and the stale justification it guards (\"spec 17 made `I18nLabel` a plain string\") stayed in the tree until #4611 corrected the copy of it in `ui-action.ts`.\n\n## Why it matters\n\nThis is not a wrong comment — it is a guard that reports protection it does not provide. The decision it guards (inheriting `label` / `options[].label` by reference instead of locally overriding them) is still correct on the merits, but nothing is currently watching the premise, and the test name asserts the false premise as fact to every reader.\n\n## Fix shape\n\nRewrite the case so its assertion is sensitive to the thing it claims to watch, e.g. assert the *map* form is assignable (`const inline: SpecI18nLabel = { en: 'Priority' }` — fails the day the map form is withdrawn) and/or assert the inherited `ActionParam['label']` still admits both forms. Retitle the `it(...)` and rewrite its comment: the spec's own doc block (`dist/ui/index.d.ts:571-613`) states two authorized forms and \"Both are real; neither is deprecated by this schema\" (#5728, maintainer ruling 2026-08-06).\n\nPrior art for this exact failure mode: #3177 (three inverted pins that flipped in `17.0.0-rc.1` and needed a burn-down).\n\nRefs #4611, #4163, #5081."
+}

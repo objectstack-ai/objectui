@@ -1,0 +1,36 @@
+{
+  "number": 4984,
+  "kind": "issue",
+  "title": "finding(types,i18n): after #4167 pinned PRESET_RANGES, two unpinned copies/consumers of the date-range vocabulary remain — the `defaultRange` TS union and the 10-locale label table",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "package: types",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T12:19:52Z",
+  "updated_at": "2026-08-22T08:30:31Z",
+  "closed_at": "2026-08-22T08:30:31Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4984",
+  "body": "Filed while measuring #4017 (whose premise had already expired — objectui#4167 derived `@object-ui/core`'s `DATE_RANGE_PRESETS` from `@objectstack/spec/ui`). Measured against `origin/main` 7d1017790 with `@objectstack/spec@17.0.0` (GA) installed.\n\n**Observation-class, both items: nothing a user hits today.** Both copies are byte-faithful to the GA spec right now; what is missing is the tie that keeps them faithful. Recording them so the next spec release does not discover them the expensive way. Severity is the PM's call, not mine.\n\n## Item 1 — `dateRange.defaultRange` is a hand-written copy of `DATE_RANGE_DEFAULT_RANGES`\n\n`packages/types/src/complex.ts:786-794` (in `DashboardComponentSchema`):\n\n```\n   * Aligned with @objectstack/spec DashboardSchema.dateRange.\n   */\n  dateRange?: {\n    field?: string;\n    defaultRange?: 'today' | 'yesterday' | 'this_week' | 'last_week' | 'this_month' | 'last_month'\n      | 'this_quarter' | 'last_quarter' | 'this_year' | 'last_year'\n      | 'last_7_days' | 'last_30_days' | 'last_90_days' | 'custom';\n    allowCustomRange?: boolean;\n  };\n```\n\nThe spec owns that exact vocabulary and publishes it (`node_modules/@objectstack/spec/src/ui/dashboard.zod.ts:683,918`):\n\n```ts\nexport const DATE_RANGE_DEFAULT_RANGES = [...DATE_RANGE_PRESETS, 'custom'] as const;\n// …\ndefaultRange: z.enum(DATE_RANGE_DEFAULT_RANGES).default('this_month')\n```\n\n`DATE_RANGE_DEFAULT_RANGES` and `type DateRangeDefaultRange` are both exported from `@objectstack/spec/ui` in GA (measured: 14 members, presets + `custom`). The local union has all 14, in the same order — **no live drift**, a latent one.\n\nWhy it matters when the spec next moves: `resolveDashboardFilterDefs` takes `Pick< DashboardComponentSchema, 'globalFilters' | 'dateRange' >`, so this union is what typechecks every TS-constructed dashboard. A preset the spec ADDS would be a legal document that objectui's own types say cannot exist — the same \"narrower than the contract it implements\" shape as objectui#4163's `label`, whose consequence was that the bad reads were invisible to `tsc`.\n\nWhy no gate reports it (worth writing down, it is the objectui#4607 asymmetry in the wild):\n\n- `check:spec-symbols` rule 1 matches **by name**, and this is an inline union on an interface member — there is no colliding symbol to match.\n- Rule 2 (the claim heuristic) fires only when the declaration references nothing spec-bound; `DashboardComponentSchema` references `SpecGlobalFilter` a few lines up, so the tie test waves the whole interface through. Exactly the asymmetry the script's own header records: the more spec-integrated a declaration is, the weaker the check on its prose became.\n\nFix direction (one line, plus its import): `defaultRange?: DateRangeDefaultRange` from `@objectstack/spec/ui`, which also makes the claim structural instead of prose.\n\nNote for whoever takes it: the zod twin at `packages/types/src/zod/complex.zod.ts:444` declares `defaultRange: z.string().optional()` — deliberately looser, and its ledger entry (`SpecDashboardFields`, same file, lines 414-429) says so: \"both local configs are deliberately looser than spec's; migration deferred\". Converging the TS union does not require touching the zod side; whether the zod side should follow is a separate decision and belongs on #2231's pile rather than being folded in silently.\n\n## Item 2 — the preset LABEL table has no tie to the vocabulary either\n\n`packages/plugin-dashboard/src/DashboardFilterBar.tsx:105`:\n\n```ts\nconst presetLabel = (p: string) => tt(`dashboard.filters.range.${p}`, p.replace(/_/g, ' '));\n```\n\nThe key is built dynamically from the (now spec-owned) member name, and `packages/i18n/src/locales/*.ts` carry `dashboard.filters.range.*` by hand. Measured today: **all 13 presets present in all 10 locales** (ar, de, en, es, fr, ja, ko, pt, ru, zh) — clean.\n\nBut nothing connects the two lists. A preset the spec adds arrives in the dropdown by reference (that is the point of #4167's re-export) and renders as the fallback — `next_week` displayed as \"next week\", in Chinese, Japanese and Arabic alike — while `check:i18n-keys` cannot see a template-literal key and no test asserts coverage. So the one class of change the vocabulary extraction was designed to make painless (upstream grows a preset) is also the one that would ship untranslated in ten locales with every gate green.\n\nCheap fix if it is judged worth doing: a parity test asserting every `DATE_RANGE_PRESETS` member has an `en` key under `dashboard.filters.range`, in the same spirit as the existing \"every offered preset resolves to date-macro bounds\" test (`packages/core/src/utils/__tests__/dashboard-filters.test.ts:475`) — that one pins the BOUNDS half of the same fan-out; this would pin the LABEL half. The 10-locale spread is then the i18n channel's normal business.\n\n## Not filed, deliberately\n\n- `packages/types/src/data-protocol.ts:586-607` `FilterBuilderDateRangePreset` (21 members incl. `tomorrow` / `next_*`) is a **different** vocabulary for the filter builder, already renamed off the spec's symbol name with the reason at the declaration. Not a copy of this one.\n- `packages/plugin-dashboard/README.md:213` and `content/docs/guide/dashboard-filters.md:103` list the presets in prose. Doc copies, no mechanism; mentioning for completeness only."
+}

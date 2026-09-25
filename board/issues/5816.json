@@ -1,0 +1,32 @@
+{
+  "number": 5816,
+  "kind": "pull_request",
+  "title": "fix(auth): stop purgeSignedOutClientCaches aborting the sign-out sweep on one throwing removeItem",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T12:51:58Z",
+  "updated_at": "2026-08-23T13:41:42Z",
+  "closed_at": "2026-08-23T13:41:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T13:41:41Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5816",
+  "body": "Fixes #5777\n\n## The defect\n\n`purgeSignedOutClientCaches()` in `packages/auth/src/AuthProvider.tsx` wrapped its whole\n`removeItem` loop in one `try`. A `removeItem` that threw on key `n` aborted the walk, so\nevery still-unvisited `objectui:metadata:*` key after it was never swept, and the failure\nwas swallowed — `signOut()` believed the purge had completed. Same defect class as\n#5763 (`sweepStore` in `ActiveOrganizationStorage.ts`), different file and caller\n(sign-out, not sign-in) — filed separately per that card's scope note and fixed here.\n\nPer its own docstring and #5198, the entries this purges are the previous principal's\norg-scoped, PERMISSION-FILTERED app list — a cross-principal disclosure risk on a shared\nbrowser when they survive, not mere staleness. A partial sweep here is the sharper half\nof the pair the triage comment names.\n\n## The fix\n\nMirrors #5763's landed shape on `main` (`ff2d54717`, merged 07:56:17Z — read there per\ndispatch, not from that PR's discussion):\n\n- `try` now guards only the `Object.keys(sessionStorage)` snapshot (the reason a guard\n  exists at all — partitioned iframes, some privacy modes).\n- Each `removeItem` gets its own `try`; one uncooperative key now costs exactly that key.\n- A partial sweep is reported via `console.warn` naming the unswept keys, mirroring\n  `sweepStore`'s reporting channel — **not** quarantined the way\n  `ActiveOrganizationStorage.clear()` (#5731) quarantines a key.\n\n## Whether #5763's report-vs-silent reasoning transfers (dispatch's open question)\n\nIt does, and the reasoning is the same on both axes `sweepStore`'s doc comment gives for\nchoosing \"report, don't quarantine\" over `clear()`'s read-back quarantine:\n\n- **No local `get()` to guard.** `purgeSignedOutClientCaches` does not own reads for the\n  metadata seed cache — `MetadataProvider` (`@object-ui/app-shell`) does, per this\n  function's own docstring (the prefix is spelled out rather than imported specifically\n  because ownership sits on that side of the dependency boundary). There is nothing here\n  for a quarantine to guard, same as `sweepStore` walking \"another package's recents\n  cache, a metadata seed\" it does not own reads for either.\n- **The caller cannot act on it either way.** `sweepStore`'s caller (`SessionUserScope.adopt`,\n  sign-in) cannot act on a partial-sweep failure and must not throw. The sign-out caller\n  is even further foreclosed: the session is already ending when `purgeSignedOutClientCaches()`\n  runs in `signOut`'s `finally` block, so there is no decision left to make either.\n\nSo this PR mirrors `sweepStore` exactly rather than diverging: report via `console.warn`,\nnever throw, no quarantine layer added (which would have been the general\nstorage-error-handling refactor both cards' scope notes rule out).\n\n## Tests\n\n`packages/auth/src/__tests__/signOut-client-cache-purge-5198.test.tsx` — two new cases,\nsame pattern as #5763's sibling test in `sessionUserChangePurge-5664.test.tsx`:\n\n- **`sweeps every other metadata key when one removeItem throws (#5777)`** — a poisoned\n  key with real metadata keys on both sides of it (insertion order), asserting the\n  poisoned key survives, every other metadata key is still removed, a non-matching key\n  is untouched either way, `ActiveOrganizationStorage.clear()` still runs, and exactly\n  one `console.warn` names the poisoned key.\n- **`reports nothing when every removal sticks (#5777)`** — control: the warning is a\n  measurement of an actual failure, not a constant.\n\n**Reverse-verification, on a real commit (per dispatch's ⛔ never against uncommitted\nedits):** committed the fix (`da392fbbd`), then `git checkout HEAD~1 -- packages/auth/src/AuthProvider.tsx`\nto restore the pre-fix whole-loop-`try` shape and re-ran the same test file:\n\n```\n❯ sweeps every other metadata key when one removeItem throws (#5777)\nAssertionError: expected '[{\"name\":\"account\"}]' to be null\n Test Files  1 failed (1)\n      Tests  1 failed | 5 passed (6)\n```\n\nThe new test fails against the pre-fix shape exactly as expected (the other 5 pass\neither way — they don't exercise a throwing `removeItem`). Restored the fix via\n`git checkout claude/issue-5777-signout-purge-per-key-try -- packages/auth/src/AuthProvider.tsx`,\nconfirmed `git diff HEAD --stat` empty (working tree matches the commit), and re-ran:\n\n```\n Test Files  1 passed (1)\n      Tests  6 passed (6)\n```\n\nFull package: `pnpm exec vitest run packages/auth/ --maxWorkers=2` (run from repo root,\nper AGENTS.md — never `pnpm --filter`/package-cwd, which silently collects\n`apps/console` instead) → **24 files / 251 tests passed**, on `c0b7876ba` (this PR's head).\n\n`pnpm --filter '@object-ui/auth' type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`,\nafter building the dependency closure first) → clean, on `c0b7876ba`.\n\n`node scripts/check-changeset-presence.mjs`, `check-control-bytes.mjs`,\n`check-type-check-coverage.mjs`, `check-lint-coverage.mjs` → all ✅ on `c0b7876ba`.\n`eslint` on the two changed files → 0 errors, 3 pre-existing warnings unrelated to this\ndiff (React effect `setState` warnings at lines 300/760/767, outside the edited region).\n\n## Scope\n\n`purgeSignedOutClientCaches()` and its own test file only, per the card's scope note —\nnot a general refactor of `AuthProvider.tsx` or the storage-error-handling module.\n\n_Generated by [Claude Code](https://claude.ai/code/session_01EuPCi56cnGyykygi3z9w4m)_\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01EuPCi56cnGyykygi3z9w4m)_"
+}

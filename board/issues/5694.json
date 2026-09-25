@@ -1,0 +1,30 @@
+{
+  "number": 5694,
+  "kind": "issue",
+  "title": "AI build surface: standing 「未发布改动」 affordance — the only publish entry point is buried in chat history",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T11:00:29Z",
+  "updated_at": "2026-08-22T13:35:54Z",
+  "closed_at": "2026-08-22T11:17:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5694",
+  "body": "## What\n\nWhen a package has pending drafts, the ONLY affordance to publish them is the inline 「发布 (N)」 button on the tool card that staged them — buried however many screens up the chat transcript happens to have grown. In the 2026-08-22 staging E2E (cloud#1584) the user's dashboard sat in `state='draft'` for 10+ minutes across three repair rounds, with a working publish button sitting off-screen the whole time; the remediation was an operator scrolling back through the transcript to find it.\n\n## Ask\n\nA **standing** unpublished-drafts affordance on the AI build surface: while the active package has `state='draft'` metadata rows, show a persistent badge/bar (e.g. next to the composer: 「有 N 项改动未发布 · 发布」) that (a) survives scrolling, (b) publishes via the same `POST /packages/:id/publish-drafts` the inline button uses, (c) disappears when the count reaches zero. The app shell (outside chat) ideally shows the same signal when the user is previewing an app whose package has pending drafts — that is the moment they experience 「未找到仪表板」.\n\nDraft-count source: the packages/drafts API the inline button's envelope already draws on; poll or refetch on tool-result arrival.\n\nFrom the journey-UX review on cloud#1521 (maintainer-accepted priority B4, 2026-08-22 「接受你的建议，继续」). Related: cloud#1584 D4; the confirm-card terminal-state card (filed alongside).\n"
+}

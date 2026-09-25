@@ -1,0 +1,32 @@
+{
+  "number": 5576,
+  "kind": "issue",
+  "title": "`holdsStudioAccess` is unreachable from `@object-ui/app-shell`, so the library's surfaces cannot share the console's one definition of \"platform operator\"",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T14:27:31Z",
+  "updated_at": "2026-08-22T02:28:57Z",
+  "closed_at": "2026-08-22T02:28:57Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5576",
+  "body": "Found while implementing #5521 (PR #5575), where it blocked one of that card's two proposed signals. Deliberately left out of that PR's scope.\n\n## Claim\n\n`holdsStudioAccess(systemPermissions)` — the fail-closed predicate for \"may this principal enter Studio\", and this repo's single definition of \"is this principal a platform operator rather than a business user\" — lives in the **console app**:\n\n```\napps/console/src/components/studioEntry.ts\n```\n\n`apps/console` **depends on** `@object-ui/app-shell`. So no module in `packages/app-shell/**` can import it: the dependency runs the other way and app-shell's manifest declares no console dependency (it could not, without a cycle).\n\nThat is fine while every consumer is a console page — which was true when #5563 reused it for the Approvals raw-payload panel. It stops being true as soon as a surface **inside the library** needs the same answer.\n\n## Where it just bit\n\n#5521 asks the Console home page to honour `studio.access` for the \"Build an app\" card. That page is `packages/app-shell/src/console/home/HomePage.tsx`, re-exported as `DefaultHomePage` — inside the library. PR #5575 closed that card's `features.aiStudio` half and had to leave the `studio.access` half undone, because the only ways to do it were:\n\n1. re-derive the predicate in app-shell — the exact drift #5563 argued against, in its own words *\"one definition of 'is this principal a platform operator rather than a business user', so the two surfaces cannot drift into two spellings of one fact\"*;\n2. relocate it, which is this issue;\n3. skip it.\n\n#5575 took (3) and recorded why.\n\n## Not claimed\n\nThat `studioEntry.ts` is in the wrong place *for the route gate*. `useStudioEntry` — the hook, its retry policy, its endpoint, its pending/failed states — is console routing policy and belongs where it is. Only the **pure predicate** plus its capability constant are the shared fact:\n\n```ts\nexport const STUDIO_ENTRY_CAPABILITY = 'studio.access';\nexport function holdsStudioAccess(systemPermissions: string[] | undefined): boolean {\n  if (!Array.isArray(systemPermissions)) return false;\n  return systemPermissions.includes(STUDIO_ENTRY_CAPABILITY);\n}\n```\n\nIt has no React dependency and no fetch dependency — it is a membership test over the array `MePermissionsResponse` already carries.\n\n## Shape of a fix\n\n`@object-ui/permissions` is the natural home: it already owns `MePermissionsResponse`, already exposes the raw `systemPermissions: string[] | undefined` on its context, and is already a dependency of **both** `apps/console` and `packages/app-shell`. Move the predicate and the constant there; re-export from `studioEntry.ts` so its existing importers and its docblock stay put.\n\nThe load-bearing part is the **inversion doctrine**, which must travel with the code rather than being left behind as a comment on a re-export: this predicate fails **closed** on `undefined`, opposite to `usePermissions().hasCapabilities`, which fails **open** by design. Both live in `@object-ui/permissions` after this move, one module apart, so the docblock explaining why they differ is more necessary there than it is today, not less. The `undefined`-vs-`[]` distinction objectui#4656 preserved is what makes the difference expressible at all.\n\n## Worth weighing before doing it\n\nWhether a **library** surface should consume `studio.access` at all is a real design question and not settled by this issue. `@object-ui/app-shell` is embedded by hosts other than the console, and `studio.access` semantics are currently the console's route policy. A reviewer may reasonably conclude the home page should keep asking a deployment-level question (`features.aiStudio`, which is what #5575 shipped) and leave principal-level Studio entry to the route gate. In that case this issue closes as `not planned` and #5521's `studio.access` row is answered rather than implemented — which is a fine outcome, but it should be decided rather than defaulted into.\n\n## Refs\n\n- #5521 / PR #5575 — where the import was needed and could not be written\n- #5563 — the precedent that established one shared predicate, inside the console\n- objectui#4656 — the absent-vs-empty distinction the fail-closed posture depends on\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_012u2pRjcqAYtoEjgr3wwhnK)_"
+}

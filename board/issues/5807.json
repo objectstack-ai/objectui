@@ -1,0 +1,33 @@
+{
+  "number": 5807,
+  "kind": "pull_request",
+  "title": "test(plugin-detail): pin record:quick_actions resultDialog reaches the shared runner",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T11:59:58Z",
+  "updated_at": "2026-08-23T12:11:19Z",
+  "closed_at": "2026-08-23T12:11:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-23T12:11:18Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5807",
+  "body": "Fixes #5711\n\n## What\n\nTest-only pin, no product change — triage graded this Task on exactly that basis.\n\n`RecordQuickActionsRenderer` (`record:quick_actions`) never touches `resultDialog` itself — it resolves actions through `useActionEngine`, which reuses the surrounding `<ActionProvider>`'s `ActionRunner` when one is mounted and falls back to a local, unwired one otherwise. `resultDialog` is honoured centrally in `ActionRunner.handlePostExecution`: on success it suppresses the `successMessage` toast and awaits the registered `ResultDialogHandler`; with none registered it `console.warn`s and discards the response value while still reporting success.\n\nNothing pinned that a handler registered on an *ambient* `<ActionProvider>` (the one `RecordDetailView` mounts around a record page) is actually reachable from a `record:quick_actions` bar mounted as its child — the shape objectstack#10681 depends on (`sys_user.generate_backup_codes`, a one-shot `resultDialog` at `record:quick_actions { location: 'record_section' }`).\n\nNew file: `packages/plugin-detail/src/renderers/__tests__/record-quick-actions.resultDialog.test.tsx`, two legs:\n\n1. **Positive** — mounted under `<ActionProvider onResultDialog onToast>`, running the action opens the dialog with the response value and the success toast stays suppressed.\n2. **Negative** — mounted with no `<ActionProvider>` (the fallback-to-local-runner shape), the response is silently discarded and the documented `console.warn` fires. This is the defect class the finding is about: a refactor that accidentally drops the ambient provider keeps every affected action reporting success while showing the user nothing.\n\n## Gap verification (before writing the test)\n\n- `grep -rni resultDialog packages/plugin-detail/src` → 0 hits, confirming the issue's claim.\n- `ActionRunner.resultDialog.test.ts` pins the runner in isolation with the handler registered directly — no React tree, no `useActionEngine`, no `<ActionProvider>`.\n- `useActionEngine.sharedRunner.test.tsx` pins runner-sharing (instance identity + `ctx` merge) but never touches `resultDialog`.\n- `MetadataTypeActions.test.tsx` has a same-named assertion (\"shows the result dialog when the action declares resultDialog\") but on a *different* bar — `MetadataTypeActions` mounts its own internal `<ActionProvider>` (like `DeclaredActionsBar`), so it doesn't exercise the shared-runner path `record:quick_actions` relies on.\n\nNone of the four exercise the actual missing link. Gap confirmed real.\n\n## Reverse verification\n\nCommitted the test first, then mutated `packages/react/src/hooks/useActionEngine.ts` (`const sharedRunner = null;`, simulating a refactor that falls back to a local runner) and reran:\n\n```\nFAIL  record-quick-actions.resultDialog.test.tsx > opens the result dialog … 1078ms\nAssertionError: expected \"vi.fn()\" to be called once, but got 0 times\n```\n\nstderr showed the exact documented warning fired instead:\n```\n[ActionRunner] action.resultDialog set but no resultDialogHandler registered — the response value will not be shown to the user. { action: 'generate_backup_codes', data: 'BACKUP-CODE-0000' }\n```\n\nRestored with `git checkout -- packages/react/src/hooks/useActionEngine.ts` (confirmed clean via `git status --porcelain`), reran green: `Test Files 1 passed (1)`, `Tests 2 passed (2)`.\n\n## Tests\n\nAt d44e2054d:\n\n- `pnpm exec vitest run packages/plugin-detail/src/renderers/__tests__/record-quick-actions.resultDialog.test.tsx --maxWorkers=2` → `Test Files 1 passed (1)`, `Tests 2 passed (2)`.\n- `pnpm exec vitest run packages/plugin-detail/ --maxWorkers=2` (full package, dependency closure built first) → `Test Files 95 passed (95)`, `Tests 870 passed (870)`.\n- `pnpm --filter @object-ui/plugin-detail type-check` → exit 0.\n- `pnpm exec eslint packages/plugin-detail/src/renderers/__tests__/record-quick-actions.resultDialog.test.tsx --no-inline-config` → 0 errors, 2 `no-explicit-any` warnings (identical pattern to the sibling `record-quick-actions.disabled-declared-gate.test.tsx`, same schema-cast convention).\n- `node scripts/check-changeset-presence.mjs` → ✅ (empty-frontmatter changeset declared).\n- `node scripts/check-changeset-no-major.mjs` → ✅.\n- `node scripts/check-control-bytes.mjs` → ✅ (4828 tracked text files scanned).\n\n## Out of scope\n\n`record:alert`'s CTA path shares the exact same wiring (`useActionEngine` under the same ambient `<ActionProvider>`) and has no `resultDialog` coverage either — the issue itself flagged this as worth checking. Filed as a separate unassigned finding rather than folded into this PR (different renderer, different test file, and this card's scope is `record:quick_actions` only).\n\n_Generated by [Claude Code](https://claude.ai/code/session_01EuPCi56cnGyykygi3z9w4m)_\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01EuPCi56cnGyykygi3z9w4m)_"
+}

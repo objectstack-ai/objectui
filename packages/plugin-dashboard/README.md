@@ -603,6 +603,7 @@ object schema once and infers the renderer from the bound field:
 | `date` / `datetime` | Locale-formatted date |
 | `currency` | Locale currency (or honour `format: '$0,0'`) |
 | `percent` | `0%` / `0.0%` formatted (honour `format`) |
+| `password` / `secret` | `••••••`, and the column is flagged `masked` (see below) |
 
 Author overrides always win — pass `type`, `format`, `options`,
 `currency`, or your own `cell` function on a column to bypass
@@ -611,6 +612,17 @@ wins over both the symbol inferred from `format` and the tenant default
 currency. A lookup column's related-object target always comes from the
 object schema's own field definition — there is no column-level override
 for it (objectui#6597: measured no authoring story for one).
+
+A masked column (objectui#10657) is one the table withholds: no Ctrl+C / Cmd+C
+copy, no tooltip, no CSV export column, no match in the search box, no header
+sort, and a width sized from its header rather than its values. The widget
+decides it with `isMaskedFieldType()` from `@object-ui/fields`, over the
+column's authored `type` and the object's field type, so this is the one place
+an author override does not win: `type: 'text'` over a `secret` field keeps the
+flag, though the cell then draws the value as text. Rows handed in as `data`
+or through `bind` can be drawn before the object schema arrives, and a failed
+schema read never delivers one; in that window the widget flags every column,
+and a masked field is still drawn as text.
 
 ```jsonc
 {

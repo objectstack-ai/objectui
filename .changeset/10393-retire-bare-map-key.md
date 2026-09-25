@@ -41,11 +41,25 @@ should be migrated there.
 - `@object-ui/core`: `recordSourceDataArmForType` no longer lists the `map` and
   `view:map` rows, since no block is registered under either key.
 - `@object-ui/cli`: the generated known-type list that `objectui check` reads no
-  longer contains bare `map`, so the check now flags it. ⚠️ `view:map` stays on
+  longer contains bare `map`, so the check now reports `map` as an unknown
+  schema type in a file it recognises. ⚠️ `view:map` stays on
   that list, because the opt-in protocol placeholder (`registerPlaceholders()`
   in `@object-ui/components`) registers it — in the console a `view:map` node
   renders that placeholder panel, not a map, and `objectui check` does not flag
   it. Search documents for `view:map` directly.
+
+⚠️ **Dated note, 2026-09-25 — `objectui check` flags `map` only in a file it
+recognises — objectui#10606.** This entry first said, unscoped, that the check now
+flags bare `map`. `check` checks the `type` of each file it recognises, and a file
+whose root carries an ObjectUI structural key (`children`, `className`, `body`, …)
+is recognised by that key alone. A file with none of those keys is parsed against
+the schema and recognised only if it validates; one that does not validate is
+listed by name when its root `type` is on that known-type list, and is otherwise
+counted as skipped. `map` is no longer on it, so `{ "type": "map" }` is
+counted as skipped ("no ObjectUI recogniser admitted") and gets no unknown-type
+line, while `{ "type": "map", "className": "h-64" }` gets one. `check` exits
+non-zero on unreadable JSON only; the verdict is `objectui validate`'s: it refuses
+`{ "type": "map" }` at `type` (`invalid_union`) and exits non-zero.
 
 The `@object-ui/plugin-map` README now describes one registered type, and its
 sentence claiming a bare array under `data` reaches the in-memory adapter is

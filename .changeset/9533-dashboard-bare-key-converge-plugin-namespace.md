@@ -8,9 +8,25 @@ Converge the bare `dashboard` key on `plugin-dashboard`, and retire
 
 **Breaking for authored metadata.** `{ "type": "view:dashboard" }` no longer
 renders a dashboard. It now resolves to a refusal that names the spelling and
-names its replacement, and `objectui check` reports it as an unknown schema
-type. `{ "type": "dashboard" }` and `{ "type": "plugin-dashboard:dashboard" }`
-both render `DashboardRenderer`, unchanged and newly-working respectively.
+names its replacement. `objectui validate` refuses the document at `type`
+(`invalid_union`). `{ "type": "dashboard" }` and
+`{ "type": "plugin-dashboard:dashboard" }` both render `DashboardRenderer`,
+unchanged and newly-working respectively.
+
+⚠️ **Dated note, 2026-09-25 — `objectui check` names the spelling only in a
+file it recognises — objectui#10606.** This entry first said `objectui check`
+reports `{ "type": "view:dashboard" }` as an unknown schema type, and **What
+changed** below said, unscoped, that `check` names the spelling. `check` checks
+the `type` of each file it recognises, and a file whose root carries an ObjectUI
+structural key (`children`, `className`, `body`, …) is recognised by that key
+alone. A file with none of those keys is parsed against the schema and
+recognised only if it validates; one that does not validate is listed by name
+when its root `type` is on the known-type list `check` reads, and is otherwise
+counted as skipped. `view:dashboard` is withheld from that list, so the document
+above is counted as skipped ("no ObjectUI recogniser admitted") and gets no
+unknown-type line, while `{ "type": "view:dashboard", "className": "h-64" }` gets one.
+`check` exits non-zero on unreadable JSON only; the verdict is
+`objectui validate`'s.
 
 **What was wrong.** `apps/console` declares the lazy stub for bare `dashboard`
 under `plugin-dashboard` — twice, in `preview-gallery.tsx` and
@@ -44,9 +60,9 @@ key name ONE full type. The retired `view:dashboard` key answers
 carrying the same text — registered with `skipFallback: true` so it claims no
 bare key. Its spelling is withheld from the derived key universe by declaration
 in `scripts/check-doc-component-types.mjs`, the same disposition the
-`RETIRED_FIELD_TYPES` tombstones take, so `objectui check` names it rather than
-blessing it; `packages/cli/src/utils/known-schema-types.ts` regenerates and loses
-that one entry.
+`RETIRED_FIELD_TYPES` tombstones take, so `objectui check` names it in a file it
+recognises rather than blessing it; `packages/cli/src/utils/known-schema-types.ts`
+regenerates and loses that one entry.
 
 **Also published: four new symbols on the package entry.** `src/index.tsx`
 re-exports `RETIRED_DASHBOARD_NODE_TYPES`, `RetiredDashboardNodeTombstone`,

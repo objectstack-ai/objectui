@@ -246,8 +246,10 @@ export interface KanbanColumn {
  * documents.
  *
  * {@link KanbanCard}, {@link KanbanColumn}, {@link CardTemplate} and
- * {@link ColumnWidthConfig} are NOT retired — the renderer, the `CardTemplates`
- * component and the `useColumnWidths` hook still consume them.
+ * {@link ColumnWidthConfig} are NOT retired — the renderer and the
+ * `CardTemplates` component still consume the first three. The one
+ * `plugin-kanban` reader of {@link ColumnWidthConfig} was removed by
+ * objectui#8522, whose ruling did not reach the type itself.
  *
  * Pinned in `./__tests__/bare-kanban-node-key-retired-8802.test.ts`.
  */

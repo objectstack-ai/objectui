@@ -3727,7 +3727,7 @@ export interface ObjectKanbanSchema extends BaseSchema {
    *
    * `id` / `title` / `cards` / `limit` / `className` / `collapsed` are exactly
    * the lane members the two board implementations read, counted off
-   * `KanbanImpl`, `KanbanEnhanced`, `useColumnWidths`, `useCrossSwimlaneMove`,
+   * `KanbanImpl`, `KanbanEnhanced`, `useCrossSwimlaneMove`,
    * `useQuickAddReorder` and `bucketCardsIntoColumns`. Their VALUE types come
    * from those read sites too — see {@link id} for the one this card had to
    * correct.

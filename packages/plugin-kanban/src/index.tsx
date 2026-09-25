@@ -212,8 +212,6 @@ export { InlineQuickAdd } from './InlineQuickAdd';
 export type { InlineQuickAddProps } from './InlineQuickAdd';
 export { CardTemplates } from './CardTemplates';
 export type { CardTemplatesProps } from './CardTemplates';
-export { useColumnWidths } from './useColumnWidths';
-export type { UseColumnWidthsOptions, UseColumnWidthsReturn } from './useColumnWidths';
 export { useCrossSwimlaneMove } from './useCrossSwimlaneMove';
 export type { Swimlane, CrossSwimlaneMoveEvent, UseCrossSwimlaneOptions, UseCrossSwimlaneMoveReturn } from './useCrossSwimlaneMove';
 export { useQuickAddReorder } from './useQuickAddReorder';

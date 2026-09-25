@@ -389,11 +389,12 @@ column's `masked` flag (see the data table's "Masked columns"). A column `type`
 authored over such a field (`type: 'text'` on a `secret` field) cannot lift the
 refusal, though such a cell then draws the value as the text it was told to be.
 
+The table also leaves such a column out of its client-side search, disables its sort,
+and sizes it from its header rather than its values (objectui#10657, which folded
+objectui#10658).
+
 Not covered:
 
-- The table's client-side search and sort still run over the raw values, and a
-  masked column's width is still sized from the raw value's length (objectui#10657,
-  which folded objectui#10658).
 - On the host-fetched path (rows handed down as `data`, as `ListView` and `ObjectView`
   do), the grid's guards and the cell's own mask depend on the object schema, which
   the grid fetches after first paint. Until it arrives, and for good if that read fails

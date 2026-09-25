@@ -704,45 +704,57 @@ export interface TableColumn {
   wrap?: boolean;
   /**
    * The column holds a MASKED value — a credential whose cell is drawn as a
-   * mask. `data-table` withholds the raw value on four paths of its own:
-   * Ctrl+C / Cmd+C on one of its cells writes nothing to the clipboard, the
-   * cell carries no `title` tooltip, the table's CSV export leaves the column
-   * out, and the column never enters inline edit (on any trigger), because
-   * every editor is seeded with the raw value. Absent or `false` leaves every
-   * one of those paths exactly as it was.
+   * mask. `data-table` withholds the raw value on every path of its own that
+   * reads it:
+   * - Ctrl+C / Cmd+C on one of its cells writes nothing to the clipboard;
+   * - the cell carries no `title` tooltip;
+   * - the table's CSV export leaves the column out;
+   * - the column never enters inline edit (on any trigger), because every
+   *   editor is seeded with the raw value;
+   * - the client search leaves the column out of its predicate;
+   * - its sort is disabled: the header is inert and the header menu offers no
+   *   sort, under client and manual sorting alike, and a client sort already
+   *   set on it stops ordering the rows;
+   * - its auto width is sized from its header, never from its values.
    *
-   * ⚠️ What the flag does NOT cover: the table's client-side search and sort
-   * still run over the raw values, so where they run on the client they can
-   * answer questions about a masked value, and the column's auto width is
-   * still sized from the raw value's length (objectui#10657, which folded
-   * objectui#10658).
+   * Absent or `false` leaves every one of those paths exactly as it was. The
+   * last three are objectui#10657, which folded objectui#10658. Under
+   * `manualSearch` the table searches nothing itself: what the host's search
+   * matches is the host's.
    *
    * ⚠️ The flag withholds; it does not DRAW. The mask a reader sees comes from
    * the PRODUCER's {@link TableColumn.cell} renderer. The table draws a column
    * with no `cell` as its value, flag or not.
    *
-   * ⭐ The producer decides, and the rule is not restated here: `ObjectGrid`
-   * stamps this flag from `isMaskedFieldType()` in `@object-ui/fields`
-   * (objectui#8686), the one authority for "is this field type's cell drawn as
-   * a mask", reading the view-authored type and, once the grid's object schema
-   * has loaded, the object-declared type as a narrow-only UNION — a view
-   * authoring `type: 'text'` over a `secret` column keeps the flag once that
-   * schema has loaded. Once the grid's object schema has loaded, the same
-   * rule also leaves every masked field of the grid's object out of the grid's
-   * own client export, draws those fields through `cell` on its mobile card,
-   * and refuses them as grouping keys. `@object-ui/components` cannot import
-   * `@object-ui/fields`, so the table obeys the flag instead of asking the
-   * question itself. Not covered there: on the host-fetched path (rows handed
-   * down as `data`, as `ListView` and `ObjectView` do), the grid's guards and
-   * the cell's own mask depend on the object schema, which the grid fetches
-   * after first paint, so until it arrives, and for good if that read fails,
-   * an untyped view column over a `password` / `secret` field draws and hands
-   * out the raw value (objectui#10657, which folded objectui#10706); the server-streamed export (`exportDownload`) sends the masked columns as
-   * before and relies on the server's masking; the client JSON export, and
+   * ⭐ The producer decides, and the rule is not restated here. `ObjectGrid`,
+   * `RelatedList` (`@object-ui/plugin-detail`) and `ObjectDataTable`
+   * (`@object-ui/plugin-dashboard`) stamp this flag from `isMaskedFieldType()`
+   * in `@object-ui/fields` (objectui#8686), the one authority for "is this
+   * field type's cell drawn as a mask", reading the column's authored type and
+   * the object-declared type as a narrow-only UNION — a column authoring
+   * `type: 'text'` over a `secret` field keeps the flag once the object's
+   * types are known. `@object-ui/components` cannot import `@object-ui/fields`,
+   * so the table obeys the flag instead of asking the question itself.
+   *
+   * `RelatedList` and `ObjectDataTable` fail closed: while their object
+   * definition is in flight, or after its read failed, they stamp EVERY column.
+   * Not covered there: in that same window their cells draw a field the object
+   * declares `password` / `secret` as text, because the mask comes from that
+   * declaration (objectui#10657).
+   *
+   * Once the grid's object schema has loaded, `ObjectGrid` also leaves every
+   * masked field of its object out of its own client export, draws those
+   * fields through `cell` on its mobile card, and refuses them as grouping
+   * keys. Not covered there: on the host-fetched path (rows handed down as
+   * `data`, as `ListView` and `ObjectView` do), the grid's guards and the
+   * cell's own mask depend on the object schema, which the grid fetches after
+   * first paint, so until it arrives, and for good if that read fails, an
+   * untyped view column over a `password` / `secret` field draws and hands out
+   * the raw value (objectui#10657, which folded objectui#10706); the
+   * server-streamed export (`exportDownload`) sends the masked columns as
+   * before and relies on the server's masking; and the client JSON export, and
    * this table's CSV export of a lookup column, write an expanded lookup
-   * record whole, so a credential field of the related object is not pruned;
-   * and other producers of these columns (`RelatedList`, `ObjectDataTable`)
-   * do not set the flag yet (objectui#10657).
+   * record whole, so a credential field of the related object is not pruned.
    *
    * Declared by objectui#10583: the grid drew the mask while the table's
    * keyboard copy wrote `String(row[accessorKey])` for every cell — the grid

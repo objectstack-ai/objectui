@@ -7,7 +7,7 @@ Core logic, types, and validation for Object UI. Zero React dependencies.
 - 🎯 **Type Definitions** - Re-exported runtime types; the component schema
   vocabulary itself is `@object-ui/types`
 - 🔍 **Component Registry** - Framework-agnostic component registration system
-- 📊 **Data Scope** - Data scope management and expression evaluation
+- 🧮 **Expressions** - `${...}` expression evaluation against a context
 - ✅ **Validation** - Zod-based schema validation
 - 🚀 **Zero React** - Can run in Node.js or any JavaScript environment
 
@@ -60,19 +60,13 @@ here is renderable from schema anywhere in the app. `register()`'s second
 argument is the component itself; registration metadata is its optional third
 argument, and `getMeta()` — not `get()` — reads that metadata back.
 
-### Data Scope
+### Expressions
 
-`DataScopeManager` owns the named scopes a component tree reads from, and
-`evaluateExpression` evaluates a `${...}` expression against a context. They
-are separate exports: a scope holds data, it does not evaluate.
+`evaluateExpression` evaluates a `${...}` expression against a context.
 
 ```typescript
-import { DataScopeManager, evaluateExpression } from '@object-ui/core'
+import { evaluateExpression } from '@object-ui/core'
 
-const manager = new DataScopeManager()
-manager.registerScope('user', { data: { name: 'John', role: 'admin' } })
-
-const userName = manager.getScope('user')?.data.name // 'John'
 const isAdmin = evaluateExpression('${user.role === "admin"}', {
   user: { name: 'John', role: 'admin' },
 }) // true

@@ -616,12 +616,6 @@ export const UNGATED_EXAMPLES = {
     reason:
       'usage fragment: references `contextDataSource`, which the example never declares, so what depends on it is judged unbound',
   },
-  'packages/core/src/data-scope/DataScopeManager.ts DataScopeManager #1': {
-    card: null,
-    codes: [2304],
-    reason:
-      'usage fragment: references `myDataSource`, which the example never declares',
-  },
   'packages/core/src/data-scope/ViewDataProvider.ts ViewDataProvider #1': {
     card: null,
     codes: [2304],

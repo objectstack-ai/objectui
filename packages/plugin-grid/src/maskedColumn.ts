@@ -17,7 +17,8 @@ import { isMaskedFieldType } from '@object-ui/fields';
  * obeys the flag: no Ctrl+C / Cmd+C copy, no `title` tooltip, no column in its
  * CSV export, no inline edit. `ObjectGrid` also asks it directly where it
  * handles values itself: its client export (CSV and JSON) leaves masked fields
- * out, and its mobile card draws them through `cell`. `@object-ui/components`
+ * out, its mobile card draws them through `cell`, and its grouping refuses them
+ * as keys. `@object-ui/components`
  * cannot import `@object-ui/fields`, which is why the answer is computed HERE,
  * on the producer side, and handed across as a flag.
  *

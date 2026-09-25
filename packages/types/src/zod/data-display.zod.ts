@@ -289,7 +289,7 @@ export const TableColumnSchema = z.object({
   masked: z
     .boolean()
     .optional()
-    .describe('Masked column: the table withholds the raw value from Ctrl+C / Cmd+C copy, the cell title tooltip, its CSV export and inline edit. Client-side search and sort still read the raw value. It withholds only: the producer\'s cell renderer draws the mask, and the table draws a column with no cell as its value'),
+    .describe('Masked column: the table withholds the raw value from Ctrl+C / Cmd+C copy, the cell title tooltip, its CSV export and inline edit. Client-side search, sort and the column auto width still read the raw value. It withholds only: the producer\'s cell renderer draws the mask, and the table draws a column with no cell as its value'),
 });
 
 /**

@@ -20,6 +20,10 @@
  *     raw value and JSON wrote whole records.
  *  3. THE MOBILE CARD — the title row printed the first column raw, and the
  *     amount / stage branches, chosen by the field's NAME, printed it too.
+ *  4. GROUPING (round 3) — a grouping entry on a masked field printed the raw
+ *     value as the group label. The entry is now REFUSED (dropped, with a
+ *     warning), not masked: masked labels would still bucket the records that
+ *     share a credential, in its raw order.
  *
  * Each case carries a control in the same mounted tree (an ordinary field
  * edits, exports, draws), and the export pins carry a grid with no masked
@@ -282,5 +286,63 @@ describe('ObjectGrid — the mobile card draws a masked field through its cell (
     }
     const masks = (document.body.textContent ?? '').split(MASK).length - 1;
     expect(masks, 'the title and both named fields draw the mask').toBe(3);
+  });
+});
+
+/* ── 4. grouping ─────────────────────────────────────────────────────────── */
+
+describe('ObjectGrid — a masked field is refused as a grouping key (objectui#10583)', () => {
+  const RAW_GROUP = 'RAW-GROUP-10643';
+  // Two records SHARE the credential: a masked-label grouping would still say so.
+  const ROWS = [
+    { id: 'r1', name: CONTROL_VALUE, category: 'Alpha', api_key: RAW_GROUP },
+    { id: 'r2', name: 'Row two', category: 'Beta', api_key: RAW_GROUP },
+    { id: 'r3', name: 'Row three', category: 'Alpha', api_key: 'RAW-OTHER-10643' },
+  ];
+  const FIELDS = {
+    id: { type: 'text' },
+    name: { type: 'text', label: 'Name' },
+    category: { type: 'text', label: 'Category' },
+    api_key: { type: 'password', label: 'API Key' },
+  };
+  const COLUMNS = [
+    { field: 'name', label: 'Name' },
+    { field: 'category', label: 'Category' },
+    { field: 'api_key', label: 'API Key' },
+  ];
+  const groupRows = () => Array.from(document.querySelectorAll('[data-testid^="group-row-"]'));
+
+  function renderGrouped(fields: Array<{ field: string }>) {
+    renderGrid(
+      { objectName: 'masked_group_probe', columns: COLUMNS, grouping: { fields } },
+      makeDataSource(ROWS, FIELDS),
+    );
+  }
+
+  it('CONTROL — grouping by a text field draws its values as group labels', async () => {
+    renderGrouped([{ field: 'category' }]);
+    await waitFor(() => expect(groupRows().length, 'CONTROL: the grid grouped').toBe(2));
+    const labels = groupRows().map((g) => g.textContent ?? '');
+    expect(labels.some((l) => l.includes('Alpha')) && labels.some((l) => l.includes('Beta'))).toBe(true);
+  });
+
+  it('grouping by a password field is refused: no group, no raw label, and a warning names the field', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    renderGrouped([{ field: 'api_key' }]);
+    await waitFor(() => expect(screen.queryByText(CONTROL_VALUE), 'CONTROL: the rows rendered').not.toBeNull());
+    expect(groupRows(), 'no group was built on the masked field').toHaveLength(0);
+    expect(document.body.innerHTML).not.toContain(RAW_GROUP);
+    expect(document.body.innerHTML).not.toContain('RAW-OTHER-10643');
+    expect(
+      warn.mock.calls.some((call) => String(call[0]).includes('ObjectGrid grouping') && String(call[0]).includes('api_key')),
+      'the refusal is reported, naming the field',
+    ).toBe(true);
+  });
+
+  it('a masked level is dropped and the other levels still group', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    renderGrouped([{ field: 'category' }, { field: 'api_key' }]);
+    await waitFor(() => expect(groupRows().length, 'the category level still groups').toBe(2));
+    expect(document.body.innerHTML).not.toContain(RAW_GROUP);
   });
 });

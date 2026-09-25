@@ -4,7 +4,7 @@
 '@object-ui/plugin-grid': patch
 ---
 
-A masked grid field's raw value is withheld from copy, tooltip, inline edit, export and the mobile card title (objectui#10583).
+A masked grid field's raw value is withheld from copy, tooltip, inline edit, the client export and the mobile card, and a masked field is refused as a grouping key (objectui#10583).
 
 `@object-ui/fields` draws `password` and `secret` cells as `••••••`. In `object-grid` the
 cell drew the mask, but the raw value still left through other paths:
@@ -13,10 +13,11 @@ cell drew the mask, but the raw value still left through other paths:
   focused cell.
 - The cell's `title` tooltip carried the raw value, so a hover showed it and the DOM
   held it.
-- Inline edit seeded its editor with the raw value.
+- Inline edit, for a view-typed password column, seeded its editor with the raw value.
 - The grid's client export wrote it: the CSV per column, the JSON as whole records.
 - The mobile card printed the first column, and fields named like an amount or a
   stage, raw.
+- Grouping by a masked field printed its raw value as each group's label.
 
 This is the grid face of the disclosure the detail page closed in objectui#8440.
 
@@ -39,13 +40,25 @@ This is the grid face of the disclosure the detail page closed in objectui#8440.
   object-declared type as a narrow-only union, the same shape as the detail page's
   `isMaskedDetailFieldType`. So a view that authors `type: 'text'` over a `secret` field
   keeps the refusal, and a view that authors `type: 'password'` masks a field the object
-  declares as text. The same rule leaves every masked field out of the grid's client
-  export (CSV and JSON, used when the data source has no server export) and draws a
-  masked field through its cell on the mobile card. Unmasked columns and files are
-  unchanged.
+  declares as text. The same rule leaves every masked field of the grid's object out of
+  the grid's client export (CSV and JSON, used when the data source has no server
+  export) and draws a masked field through its cell on the mobile card. It also refuses
+  a masked field as a grouping key: the entry is ignored, the other grouping levels
+  still apply, and a console warning names the field. Masking the group label was not
+  enough, because the groups would still show which records share a credential, in its
+  raw order. Unmasked columns, files and groupings are unchanged.
 
-**Not covered.** The flag withholds; it does not draw. The mask comes from the
-producer's `cell` renderer, and `data-table` draws a column with no `cell` as its
-value. The table's client-side search and sort still run over the raw values. The
-related list and `object-data-table` produce `data-table` columns too, and they do not
-set the flag yet.
+**Not covered.**
+
+- The flag withholds; it does not draw. The mask comes from the producer's `cell`
+  renderer, and `data-table` draws a column with no `cell` as its value.
+- The table's client-side search and sort still run over the raw values
+  (objectui#10658).
+- A masked column's width is still sized from the raw value's length (objectui#10658).
+- The server-streamed export (`exportDownload`) sends the masked columns as before and
+  relies on the server's masking.
+- The client JSON export writes an expanded lookup record whole, so a credential field
+  of the related object is not pruned. The same holds for the table's CSV export of a
+  lookup column.
+- The related list and `object-data-table` produce `data-table` columns too, and they do
+  not set the flag yet (objectui#10657).

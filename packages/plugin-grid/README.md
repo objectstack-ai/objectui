@@ -382,12 +382,21 @@ A `password` or `secret` field draws a mask (`••••••`), and the grid
 raw value on these paths: Ctrl+C / Cmd+C on the cell copies nothing, the cell has no
 tooltip, it never enters inline edit, the table's CSV export and the grid's own
 client export (CSV and JSON, used when the data source has no server export) leave
-it out, and the mobile card draws it through its cell. The grid decides this with
-`isMaskedFieldType()` from `@object-ui/fields` and passes it to the table as the
+it out, the mobile card draws it through its cell, and it cannot be a grouping key
+(a grouping entry on it is ignored with a console warning). The grid decides this
+with `isMaskedFieldType()` from `@object-ui/fields` and passes it to the table as the
 column's `masked` flag (see the data table's "Masked columns"). A column `type`
 authored over such a field (`type: 'text'` on a `secret` field) cannot lift the
 refusal, though such a cell then draws the value as the text it was told to be.
-Not covered: the table's client-side search and sort still run over the raw values.
+
+Not covered:
+
+- The table's client-side search and sort still run over the raw values, and a
+  masked column's width is still sized from the raw value's length (objectui#10658).
+- The server-streamed export (`exportDownload`) sends the masked columns as before
+  and relies on the server's masking.
+- The client JSON export writes an expanded lookup record whole, so a credential
+  field of the related object is not pruned.
 
 ### Selectable Grid
 

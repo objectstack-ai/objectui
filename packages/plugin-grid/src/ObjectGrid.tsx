@@ -2535,8 +2535,46 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     };
   }, [schema.grouping, schema.columns, schema.objectName, objectSchema, translateOptions, t]);
 
+  // objectui#10583 — a MASKED field is REFUSED as a grouping key, loudly.
+  // Grouping by it printed the raw value as each group's label. Masking the
+  // label would not be enough: the buckets would still show which records
+  // share a credential, ordered by its raw value. So the entry is dropped (the
+  // other entries still group, as `usableGroupingFields` does for an unusable
+  // one) and the drop is reported through the grid's warning channel. The rule
+  // is the column flag's: `isMaskedGridColumn` over the view column's type and
+  // the object-declared type.
+  const groupingFieldsRaw = schema.grouping?.fields;
+  const maskedGroupingSignature = React.useMemo(() => {
+    const cols = normalizeColumns(schema.columns) as any[] | undefined;
+    return JSON.stringify(
+      usableGroupingFields(groupingFieldsRaw)
+        .map((gf) => gf.field)
+        .filter((field) => isMaskedGridColumn(
+          cols?.find?.((c) => typeof c === 'object' && c?.field === field)?.type,
+          objectSchema?.fields?.[field]?.type,
+        )),
+    );
+  }, [groupingFieldsRaw, schema.columns, objectSchema]);
+  // Keyed on the authored array and the signature STRING, never on a memo's
+  // identity (AGENTS.md #10), so the unmasked path hands `useGroupedData` the
+  // authored array itself.
+  const unmaskedGroupingFields = React.useMemo(() => {
+    const masked: string[] = JSON.parse(maskedGroupingSignature);
+    if (masked.length === 0) return groupingFieldsRaw;
+    return usableGroupingFields(groupingFieldsRaw).filter((gf) => !masked.includes(gf.field));
+  }, [groupingFieldsRaw, maskedGroupingSignature]);
+  useEffect(() => {
+    const masked: string[] = JSON.parse(maskedGroupingSignature);
+    if (masked.length === 0) return;
+    console.warn(
+      `[ObjectUI] ObjectGrid grouping: ${schema.objectName ?? 'object-grid'} groups by the masked `
+      + `field(s) ${masked.join(', ')}. A masked field cannot be a grouping key: its group labels would `
+      + 'show the raw value, and its groups would show which records share it. The entry was ignored.',
+    );
+  }, [maskedGroupingSignature, schema.objectName]);
+
   const { groups, isGrouped, toggleGroup } = useGroupedData(
-    schema.grouping,
+    maskedGroupingSignature === '[]' ? schema.grouping : { ...schema.grouping, fields: unmaskedGroupingFields },
     data,
     schema.aggregations,
     groupValueFormatter,

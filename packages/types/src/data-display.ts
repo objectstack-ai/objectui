@@ -713,7 +713,8 @@ export interface TableColumn {
    *
    * ⚠️ What the flag does NOT cover: the table's client-side search and sort
    * still run over the raw values, so where they run on the client they can
-   * answer questions about a masked value.
+   * answer questions about a masked value, and the column's auto width is
+   * still sized from the raw value's length (objectui#10658).
    *
    * ⚠️ The flag withholds; it does not DRAW. The mask a reader sees comes from
    * the PRODUCER's {@link TableColumn.cell} renderer. The table draws a column
@@ -724,11 +725,17 @@ export interface TableColumn {
    * (objectui#8686), the one authority for "is this field type's cell drawn as
    * a mask", reading the view-authored type and the object-declared type as a
    * narrow-only UNION — a view authoring `type: 'text'` over a `secret`
-   * column keeps the flag. The same rule also leaves masked fields out of the
-   * grid's own client export and draws them through `cell` on its mobile card.
+   * column keeps the flag. The same rule also leaves every masked field of the
+   * grid's object out of the grid's own client export, draws those fields
+   * through `cell` on its mobile card, and refuses them as grouping keys.
    * `@object-ui/components` cannot import `@object-ui/fields`, so the table
-   * obeys the flag instead of asking the question itself. Other producers of
-   * these columns (`RelatedList`, `ObjectDataTable`) do not set it yet.
+   * obeys the flag instead of asking the question itself. Not covered there:
+   * the server-streamed export (`exportDownload`) sends the masked columns as
+   * before and relies on the server's masking; the client JSON export, and
+   * this table's CSV export of a lookup column, write an expanded lookup
+   * record whole, so a credential field of the related object is not pruned;
+   * and other producers of these columns (`RelatedList`, `ObjectDataTable`)
+   * do not set the flag yet (objectui#10657).
    *
    * Declared by objectui#10583: the grid drew the mask while the table's
    * keyboard copy wrote `String(row[accessorKey])` for every cell — the grid

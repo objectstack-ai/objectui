@@ -710,6 +710,17 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
                 // against the window THIS request carried, because that is the
                 // only point where the two numbers are both in hand.
                 setFetchWindowSaturated(data.length >= query.$top);
+                // objectui#10663 — `error` is an early return in the render, so
+                // a report nothing clears kept the board off screen until a
+                // remount, and since objectui#10572 one failed data-invalidation
+                // re-read was enough to get there. It is cleared HERE, when the
+                // current run commits cards: those cards answer the current
+                // query, so no earlier failure describes the screen any more
+                // (objectui#10578's rule on `ObjectGantt`). `isMounted` is this
+                // run's own flag, false once a newer run has started, so a
+                // superseded run's clear is discarded with its answer. ⛔ Not
+                // when a run starts: until cards land, the report stays.
+                setError(null);
             }
         } catch (e) {
             console.error('[ObjectKanban] Fetch error:', e);

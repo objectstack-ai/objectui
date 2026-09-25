@@ -42,50 +42,74 @@ import {
   fieldTypeToDimensionType,
 } from './useDatasetFields.js';
 import type { MetadataDefaultInspectorProps } from '../default-inspector-registry.js';
+import { t, tFormat, type SupportedLocale } from '../i18n.js';
+
+/**
+ * An option whose label is a catalogue key, resolved in the designer locale at
+ * render (objectui#10586). The stored `value` never moves.
+ */
+type KeyedOption = { value: string; labelKey: string };
+
+function localizeOptions(options: ReadonlyArray<KeyedOption>, locale: SupportedLocale): Array<{ value: string; label: string }> {
+  return options.map((o) => ({ value: o.value, label: t(o.labelKey, locale) }));
+}
+
+/**
+ * Render a catalogue sentence whose `{token}` slots are React nodes (a code
+ * span, an emphasised word) — the split-and-interleave `ResourceEditPage`
+ * already uses for `engine.edit.readOnlyBanner`. Where a slot sits, and the
+ * words around it, belong to the locale rather than to this JSX.
+ */
+function withSlots(template: string, slots: Record<string, React.ReactNode>): React.ReactNode {
+  return template.split(/\{(\w+)\}/).map((part, i) =>
+    i % 2 === 1 ? <React.Fragment key={i}>{part in slots ? slots[part] : `{${part}}`}</React.Fragment> : part,
+  );
+}
 
 // Closed to what the dataset compiler supports (no array_agg/string_agg in v1).
-const AGGREGATE_OPTIONS = [
-  { value: 'count', label: 'count' },
-  { value: 'sum', label: 'sum' },
-  { value: 'avg', label: 'avg' },
-  { value: 'min', label: 'min' },
-  { value: 'max', label: 'max' },
-  { value: 'count_distinct', label: 'count distinct' },
+const AGGREGATE_OPTIONS: KeyedOption[] = [
+  { value: 'count', labelKey: 'engine.inspector.dataset.aggregate.count' },
+  { value: 'sum', labelKey: 'engine.inspector.dataset.aggregate.sum' },
+  { value: 'avg', labelKey: 'engine.inspector.dataset.aggregate.avg' },
+  { value: 'min', labelKey: 'engine.inspector.dataset.aggregate.min' },
+  { value: 'max', labelKey: 'engine.inspector.dataset.aggregate.max' },
+  { value: 'count_distinct', labelKey: 'engine.inspector.dataset.aggregate.count_distinct' },
 ];
 
-const DIMENSION_TYPE_OPTIONS = [
-  { value: 'string', label: 'string' },
-  { value: 'number', label: 'number' },
-  { value: 'date', label: 'date' },
-  { value: 'boolean', label: 'boolean' },
-  { value: 'lookup', label: 'lookup' },
+const DIMENSION_TYPE_OPTIONS: KeyedOption[] = [
+  { value: 'string', labelKey: 'engine.inspector.dataset.dimType.string' },
+  { value: 'number', labelKey: 'engine.inspector.dataset.dimType.number' },
+  { value: 'date', labelKey: 'engine.inspector.dataset.dimType.date' },
+  { value: 'boolean', labelKey: 'engine.inspector.dataset.dimType.boolean' },
+  { value: 'lookup', labelKey: 'engine.inspector.dataset.dimType.lookup' },
 ];
 
-const DATE_GRANULARITY_OPTIONS = [
-  { value: '', label: '— none —' },
-  { value: 'day', label: 'day' },
-  { value: 'week', label: 'week' },
-  { value: 'month', label: 'month' },
-  { value: 'quarter', label: 'quarter' },
-  { value: 'year', label: 'year' },
+const DATE_GRANULARITY_OPTIONS: KeyedOption[] = [
+  { value: '', labelKey: 'engine.inspector.dataset.granularity.none' },
+  { value: 'day', labelKey: 'engine.inspector.dataset.granularity.day' },
+  { value: 'week', labelKey: 'engine.inspector.dataset.granularity.week' },
+  { value: 'month', labelKey: 'engine.inspector.dataset.granularity.month' },
+  { value: 'quarter', labelKey: 'engine.inspector.dataset.granularity.quarter' },
+  { value: 'year', labelKey: 'engine.inspector.dataset.granularity.year' },
 ];
 
-const DERIVED_OP_OPTIONS = [
-  { value: 'ratio', label: 'ratio (a ÷ b)' },
-  { value: 'sum', label: 'sum (a + b)' },
-  { value: 'difference', label: 'difference (a − b)' },
-  { value: 'product', label: 'product (a × b)' },
+const DERIVED_OP_OPTIONS: KeyedOption[] = [
+  { value: 'ratio', labelKey: 'engine.inspector.dataset.derivedOp.ratio' },
+  { value: 'sum', labelKey: 'engine.inspector.dataset.derivedOp.sum' },
+  { value: 'difference', labelKey: 'engine.inspector.dataset.derivedOp.difference' },
+  { value: 'product', labelKey: 'engine.inspector.dataset.derivedOp.product' },
 ];
 
 // Display-format picker options — a business user shouldn't have to know numeral
 // syntax (`$0,0.00`), so the inspector offers kind + decimals + currency and
 // generates the `format`/`currency` strings.
-const FORMAT_KIND_OPTIONS = [
-  { value: 'raw', label: 'Raw number' },
-  { value: 'number', label: 'Number — 1,234.5' },
-  { value: 'currency', label: 'Currency — $1,234.50' },
-  { value: 'percent', label: 'Percent — 12.3%' },
+const FORMAT_KIND_OPTIONS: KeyedOption[] = [
+  { value: 'raw', labelKey: 'engine.inspector.dataset.formatKind.raw' },
+  { value: 'number', labelKey: 'engine.inspector.dataset.formatKind.number' },
+  { value: 'currency', labelKey: 'engine.inspector.dataset.formatKind.currency' },
+  { value: 'percent', labelKey: 'engine.inspector.dataset.formatKind.percent' },
 ];
+// Digits and ISO codes: the same in every locale, so plain labels.
 const DECIMALS_OPTIONS = [
   { value: '0', label: '0' },
   { value: '1', label: '1' },
@@ -132,13 +156,13 @@ function SectionHeader({ title, count, onAdd, addLabel }: { title: string; count
 }
 
 /** Native disclosure for a row's optional / advanced fields. */
-function Advanced({ children }: { children: React.ReactNode }) {
+function Advanced({ children, locale }: { children: React.ReactNode; locale: SupportedLocale }) {
   return (
     <details className="group">
       <summary className="cursor-pointer select-none list-none text-[11px] text-muted-foreground hover:text-foreground">
         <span className="inline-flex items-center gap-1">
           <ArrowRight className="h-3 w-3 transition-transform group-open:rotate-90" />
-          Advanced
+          {t('engine.inspector.dataset.advanced', locale)}
         </span>
       </summary>
       <div className="mt-1.5 space-y-1.5 border-l pl-2.5">{children}</div>
@@ -173,7 +197,7 @@ function buildMeasureFormat(kind: string, decimals: number, currency: string): {
  * ⇄ the spec's `format`/`currency` strings and shows a live sample so a business
  * user never has to hand-write a numeral pattern.
  */
-function MeasureFormatField({ measure, onPatch, disabled }: { measure: Measure; onPatch: (p: Partial<Measure>) => void; disabled?: boolean }) {
+function MeasureFormatField({ measure, onPatch, disabled, locale }: { measure: Measure; onPatch: (p: Partial<Measure>) => void; disabled?: boolean; locale: SupportedLocale }) {
   const { kind, decimals } = parseMeasureFormat(measure.format, measure.currency);
   const currency = measure.currency || 'USD';
   const apply = (k: string, d: number, c: string) => onPatch(buildMeasureFormat(k, d, c));
@@ -190,16 +214,18 @@ function MeasureFormatField({ measure, onPatch, disabled }: { measure: Measure; 
   return (
     <div className="space-y-1.5">
       <div className="grid grid-cols-2 gap-1.5">
-        <InspectorSelectField label="Display format" value={kind} options={FORMAT_KIND_OPTIONS} onCommit={(v) => apply(v, decimals, currency)} disabled={disabled} />
+        <InspectorSelectField label={t('engine.inspector.dataset.displayFormat', locale)} value={kind} options={localizeOptions(FORMAT_KIND_OPTIONS, locale)} onCommit={(v) => apply(v, decimals, currency)} disabled={disabled} />
         {kind !== 'raw' && (
-          <InspectorSelectField label="Decimals" value={String(decimals)} options={DECIMALS_OPTIONS} onCommit={(v) => apply(kind, parseInt(v, 10) || 0, currency)} disabled={disabled} />
+          <InspectorSelectField label={t('engine.inspector.dataset.decimals', locale)} value={String(decimals)} options={DECIMALS_OPTIONS} onCommit={(v) => apply(kind, parseInt(v, 10) || 0, currency)} disabled={disabled} />
         )}
       </div>
       {kind === 'currency' && (
-        <InspectorSelectField label="Currency" value={currency} options={CURRENCY_OPTIONS} onCommit={(v) => apply(kind, decimals, v)} disabled={disabled} />
+        <InspectorSelectField label={t('engine.inspector.dataset.currency', locale)} value={currency} options={CURRENCY_OPTIONS} onCommit={(v) => apply(kind, decimals, v)} disabled={disabled} />
       )}
       {kind !== 'raw' && (
-        <p className="text-[10px] text-muted-foreground">Sample: <span className="font-mono tabular-nums">{sample}</span></p>
+        <p className="text-[10px] text-muted-foreground">
+          {withSlots(t('engine.inspector.dataset.sample', locale), { sample: <span className="font-mono tabular-nums">{sample}</span> })}
+        </p>
       )}
     </div>
   );
@@ -215,13 +241,13 @@ function missingRelationship(field: string | undefined, include: string[]): stri
 }
 
 /** Inline author-time warning: a `relationship.field` whose join isn't declared in `include`. */
-function RelWarning({ rel, onAdd, disabled }: { rel: string; onAdd?: () => void; disabled?: boolean }) {
+function RelWarning({ rel, onAdd, disabled, locale }: { rel: string; onAdd?: () => void; disabled?: boolean; locale: SupportedLocale }) {
   return (
     <p className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400">
       <AlertTriangle className="h-3 w-3 shrink-0" />
-      <span>Relationship <code className="font-mono">{rel}</code> isn't in Included relationships.</span>
+      <span>{withSlots(t('engine.inspector.dataset.relWarning', locale), { rel: <code className="font-mono">{rel}</code> })}</span>
       {!disabled && onAdd && (
-        <button type="button" className="underline hover:no-underline" onClick={onAdd}>Add it</button>
+        <button type="button" className="underline hover:no-underline" onClick={onAdd}>{t('engine.inspector.dataset.relWarningAdd', locale)}</button>
       )}
     </p>
   );
@@ -234,13 +260,14 @@ function RelWarning({ rel, onAdd, disabled }: { rel: string; onAdd?: () => void;
  * (nested / `$or` / multi-op) degrade to a "edit in Source" note rather than being
  * silently rewritten. See {@link conditionToGroup} / {@link groupToCondition}.
  */
-function DatasetFilterField({ label, help, value, onCommit, fields, disabled }: {
+function DatasetFilterField({ label, help, value, onCommit, fields, disabled, locale }: {
   label: string;
   help?: string;
   value: FilterCondition | undefined;
   onCommit: (fc: FilterCondition | undefined) => void;
   fields: Array<{ value: string; label?: string; type?: string }>;
   disabled?: boolean;
+  locale: SupportedLocale;
 }) {
   // `fields` is handed to the READ half as well as to the builder: it is what
   // lets a stored `$gt` on a date column read back as `after` — the operator
@@ -278,19 +305,25 @@ function DatasetFilterField({ label, help, value, onCommit, fields, disabled }: 
       <Label className="text-xs text-muted-foreground">{label}</Label>
       {!representable ? (
         <p className="rounded-md border border-dashed bg-muted/30 px-2.5 py-1.5 text-[11px] text-muted-foreground">
-          Advanced filter (nested / OR) — edit it in the <span className="font-medium">Source</span> tab.
+          {withSlots(t('engine.inspector.dataset.filterAdvanced', locale), {
+            source: <span className="font-medium">{t('engine.inspector.dataset.sourceTab', locale)}</span>,
+          })}
         </p>
       ) : (
         <Popover>
           <PopoverTrigger asChild>
             <Button type="button" variant="outline" size="sm" disabled={disabled} className="h-8 w-full justify-between text-xs font-normal">
-              <span className="truncate text-left">{count ? `${count} condition${count === 1 ? '' : 's'}` : <span className="text-muted-foreground">+ Add filter…</span>}</span>
+              <span className="truncate text-left">
+                {count
+                  ? tFormat(count === 1 ? 'engine.inspector.dataset.filterConditionsOne' : 'engine.inspector.dataset.filterConditionsOther', locale, { count })
+                  : <span className="text-muted-foreground">{t('engine.inspector.dataset.addFilter', locale)}</span>}
+              </span>
               <ChevronDown className="h-3.5 w-3.5 opacity-60 shrink-0" />
             </Button>
           </PopoverTrigger>
           <PopoverContent align="start" className="w-[440px] max-w-[90vw] p-3">
             {fields.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Pick a base object to add filter conditions.</p>
+              <p className="text-xs text-muted-foreground">{t('engine.inspector.dataset.filterNeedsObject', locale)}</p>
             ) : (
               <FilterBuilder fields={fields as any} value={group as any} onChange={commitFilterGroup} />
             )}
@@ -314,7 +347,11 @@ export function objectChangePatch(next: string, current: string): Record<string,
   return { object: next, include: [], dimensions: [], measures: [], filter: undefined };
 }
 
-export function DatasetDefaultInspector({ draft, onPatch, readOnly, name }: MetadataDefaultInspectorProps) {
+export function DatasetDefaultInspector({ draft, onPatch, readOnly, name, locale }: MetadataDefaultInspectorProps) {
+  // The designer's chrome language, handed in by the host like every other
+  // default inspector's (objectui#10586). A plain function, not a memoised
+  // one: nothing below may key on its identity (AGENTS.md #10).
+  const tr = (key: string) => t(key, locale);
   const label = typeof draft.label === 'string' ? draft.label : '';
   const description = typeof draft.description === 'string' ? draft.description : '';
   const object = typeof draft.object === 'string' ? draft.object : '';
@@ -380,7 +417,7 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name }: Meta
   };
 
   return (
-    <InspectorShell kindLabel="Dataset" title={String(label || draft.name || 'Dataset')} onClose={() => {}} hideClose>
+    <InspectorShell kindLabel={tr('engine.inspector.dataset.kind')} title={String(label || draft.name || tr('engine.inspector.dataset.kind'))} onClose={() => {}} hideClose>
       {datasetName && !usage.loading && (
         <p
           className={
@@ -390,23 +427,26 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name }: Meta
           }
         >
           {usage.reports + usage.dashboards > 0
-            ? `Bound by ${usage.reports} report${usage.reports === 1 ? '' : 's'} · ${usage.dashboards} dashboard${usage.dashboards === 1 ? '' : 's'} — changes affect them.`
-            : 'Not yet bound by any report or dashboard.'}
+            ? tFormat('engine.inspector.dataset.usage.bound', locale, {
+                reports: tFormat(usage.reports === 1 ? 'engine.inspector.dataset.usage.reportsOne' : 'engine.inspector.dataset.usage.reportsOther', locale, { count: usage.reports }),
+                dashboards: tFormat(usage.dashboards === 1 ? 'engine.inspector.dataset.usage.dashboardsOne' : 'engine.inspector.dataset.usage.dashboardsOther', locale, { count: usage.dashboards }),
+              })
+            : tr('engine.inspector.dataset.usage.unbound')}
         </p>
       )}
 
       {createMode && (
         <InspectorTextField
-          label="Name"
+          label={tr('engine.inspector.dataset.name')}
           value={nameValue}
           onCommit={(v) => { nameTouched.current = true; onPatch({ name: toFieldName(v) }); }}
-          placeholder="snake_case identifier"
+          placeholder={tr('engine.inspector.dataset.namePlaceholder')}
           disabled={readOnly}
           mono
         />
       )}
       <InspectorTextField
-        label="Label"
+        label={tr('engine.inspector.dataset.label')}
         value={label}
         onCommit={(v) => {
           // Live-derive the snake_case name from the label until the author edits
@@ -417,33 +457,36 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name }: Meta
         }}
         disabled={readOnly}
       />
-      <InspectorTextField label="Description" value={description} onCommit={(v) => onPatch({ description: v })} disabled={readOnly} />
+      <InspectorTextField label={tr('engine.inspector.dataset.description')} value={description} onCommit={(v) => onPatch({ description: v })} disabled={readOnly} />
       <InspectorComboField
-        label="Base object"
+        label={tr('engine.inspector.dataset.baseObject')}
         value={object}
         onCommit={(v) => onPatch(objectChangePatch(v, object))}
         options={objectComboOptions}
         loading={objectsLoading}
-        placeholder="Select an object…"
-        searchPlaceholder="Search objects…"
+        placeholder={tr('engine.inspector.dataset.baseObjectPlaceholder')}
+        searchPlaceholder={tr('engine.inspector.dataset.searchObjects')}
         disabled={readOnly}
         mono
       />
       {object && (dimensions.length > 0 || measures.length > 0 || include.length > 0 || !!datasetFilter) && (
-        <p className="text-[10px] text-muted-foreground">Changing the base object clears its dimensions, measures, joins &amp; filters.</p>
+        <p className="text-[10px] text-muted-foreground">{tr('engine.inspector.dataset.baseObjectChangeHint')}</p>
       )}
 
       {/* Included relationships (the join allowlist) */}
       <div className="border-t pt-3 space-y-1.5">
         <SectionHeader
-          title="Included relationships"
+          title={tr('engine.inspector.dataset.includedRelationships')}
           count={include.length}
-          addLabel="Add"
+          addLabel={tr('engine.form.add')}
           onAdd={readOnly ? undefined : () => onPatch({ include: appendArray(include, '') })}
         />
         {include.length === 0 ? (
           <p className="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-center text-[11px] text-muted-foreground">
-            No joins. Add a relationship (a lookup field on <code>{baseLabel || 'the base object'}</code>) to use <code>relationship.field</code> dimensions/measures.
+            {withSlots(tr('engine.inspector.dataset.noJoins'), {
+              object: <code>{baseLabel || tr('engine.inspector.dataset.baseObjectFallback')}</code>,
+              path: <code>relationship.field</code>,
+            })}
           </p>
         ) : (
           include.map((rel, i) => (
@@ -452,18 +495,18 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name }: Meta
                 // One row per join under the "Included relationships" heading;
                 // no per-row visible label, so the trigger is named directly
                 // rather than left anonymous (objectui#3997).
-                ariaLabel="Included relationship"
+                ariaLabel={tr('engine.inspector.dataset.includedRelationship')}
                 value={rel}
                 onCommit={(v) => onPatch({ include: include.map((r, idx) => (idx === i ? v : r)) })}
                 options={relationshipComboOptions}
                 loading={catalogLoading}
-                placeholder="Select a relationship…"
-                searchPlaceholder="Search relationships…"
+                placeholder={tr('engine.inspector.dataset.relationshipPlaceholder')}
+                searchPlaceholder={tr('engine.inspector.dataset.searchRelationships')}
                 disabled={readOnly}
                 mono
               />
               {!readOnly && (
-                <Button type="button" variant="ghost" size="sm" className="h-7 w-7 shrink-0 p-0" onClick={() => onPatch({ include: spliceArray(include, i, null) })} aria-label="Remove relationship">
+                <Button type="button" variant="ghost" size="sm" className="h-7 w-7 shrink-0 p-0" onClick={() => onPatch({ include: spliceArray(include, i, null) })} aria-label={tr('engine.inspector.dataset.removeRelationship')}>
                   <X className="h-3.5 w-3.5" />
                 </Button>
               )}
@@ -489,34 +532,35 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name }: Meta
       {/* Scope filter — the dataset's intrinsic FilterCondition */}
       <div className="border-t pt-3">
         <DatasetFilterField
-          label="Scope filter"
-          help="Intrinsic scope, ANDed into every query (e.g. exclude soft-deleted records)."
+          label={tr('engine.inspector.dataset.scopeFilter')}
+          help={tr('engine.inspector.dataset.scopeFilterHelp')}
           value={datasetFilter}
           onCommit={(fc) => onPatch({ filter: fc })}
           fields={filterFields}
           disabled={readOnly}
+          locale={locale}
         />
       </div>
 
       {/* Dimensions */}
       <div className="border-t pt-3 space-y-2">
         <SectionHeader
-          title="Dimensions"
+          title={tr('engine.inspector.dataset.dimensions')}
           count={dimensions.length}
-          addLabel="Add dimension"
+          addLabel={tr('engine.inspector.dataset.addDimension')}
           onAdd={readOnly ? undefined : () => onPatch({ dimensions: appendArray(dimensions, { name: '', field: '', type: 'string' }) })}
         />
         {dimensions.map((d, i) => (
           <div key={i} className="rounded-md border p-2 space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-muted-foreground">Dimension {i + 1}</span>
+              <span className="text-[11px] font-medium text-muted-foreground">{tFormat('engine.inspector.dataset.dimensionN', locale, { index: i + 1 })}</span>
               {!readOnly && (
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  aria-label="Remove dimension"
-                  title="Remove dimension"
+                  aria-label={tr('engine.inspector.dataset.removeDimension')}
+                  title={tr('engine.inspector.dataset.removeDimension')}
                   className="h-6 w-6 shrink-0 p-0 text-muted-foreground hover:text-destructive"
                   onClick={() => onPatch({ dimensions: spliceArray(dimensions, i, null) })}
                 >
@@ -524,24 +568,24 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name }: Meta
                 </Button>
               )}
             </div>
-            <InspectorTextField label="Name" value={d.name ?? ''} onCommit={(v) => patchDimension(i, { name: v })} placeholder="e.g. region" disabled={readOnly} mono />
+            <InspectorTextField label={tr('engine.inspector.dataset.name')} value={d.name ?? ''} onCommit={(v) => patchDimension(i, { name: v })} placeholder={tr('engine.inspector.dataset.dimensionNamePlaceholder')} disabled={readOnly} mono />
             <InspectorComboField
-              label="Field"
+              label={tr('engine.inspector.dataset.field')}
               value={d.field ?? ''}
               onCommit={(v) => pickDimensionField(i, v)}
               options={fieldComboOptions}
               loading={catalogLoading}
-              placeholder="field or relationship.field"
-              searchPlaceholder="Search fields…"
+              placeholder={tr('engine.inspector.dataset.dimensionFieldPlaceholder')}
+              searchPlaceholder={tr('engine.form.searchFields')}
               disabled={readOnly}
               mono
             />
-            {(() => { const rel = missingRelationship(d.field, include); return rel ? <RelWarning rel={rel} disabled={readOnly} onAdd={() => onPatch({ include: appendArray(include, rel) })} /> : null; })()}
-            <InspectorSelectField label="Type" value={d.type} options={DIMENSION_TYPE_OPTIONS} onCommit={(v) => patchDimension(i, { type: v })} disabled={readOnly} />
-            <Advanced>
-              <InspectorTextField label="Label (optional)" value={d.label ?? ''} onCommit={(v) => patchDimension(i, { label: v || undefined })} placeholder={d.name || 'Display label'} disabled={readOnly} />
+            {(() => { const rel = missingRelationship(d.field, include); return rel ? <RelWarning rel={rel} disabled={readOnly} locale={locale} onAdd={() => onPatch({ include: appendArray(include, rel) })} /> : null; })()}
+            <InspectorSelectField label={tr('engine.inspector.dataset.type')} value={d.type} options={localizeOptions(DIMENSION_TYPE_OPTIONS, locale)} onCommit={(v) => patchDimension(i, { type: v })} disabled={readOnly} />
+            <Advanced locale={locale}>
+              <InspectorTextField label={tr('engine.inspector.dataset.labelOptional')} value={d.label ?? ''} onCommit={(v) => patchDimension(i, { label: v || undefined })} placeholder={d.name || tr('engine.inspector.dataset.displayLabel')} disabled={readOnly} />
               {d.type === 'date' && (
-                <InspectorSelectField label="Date bucket" value={d.dateGranularity ?? ''} options={DATE_GRANULARITY_OPTIONS} onCommit={(v) => patchDimension(i, { dateGranularity: v || undefined })} disabled={readOnly} />
+                <InspectorSelectField label={tr('engine.inspector.dataset.dateBucket')} value={d.dateGranularity ?? ''} options={localizeOptions(DATE_GRANULARITY_OPTIONS, locale)} onCommit={(v) => patchDimension(i, { dateGranularity: v || undefined })} disabled={readOnly} />
               )}
             </Advanced>
           </div>
@@ -551,9 +595,9 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name }: Meta
       {/* Measures */}
       <div className="border-t pt-3 space-y-2">
         <SectionHeader
-          title="Measures"
+          title={tr('engine.inspector.dataset.measures')}
           count={measures.length}
-          addLabel="Add measure"
+          addLabel={tr('engine.inspector.dataset.addMeasure')}
           onAdd={readOnly ? undefined : () => onPatch({ measures: appendArray(measures, { name: '', aggregate: 'sum', field: '' }) })}
         />
         {measures.map((m, i) => {
@@ -562,14 +606,14 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name }: Meta
           return (
             <div key={i} className="rounded-md border p-2 space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-medium text-muted-foreground">Measure {i + 1}</span>
+                <span className="text-[11px] font-medium text-muted-foreground">{tFormat('engine.inspector.dataset.measureN', locale, { index: i + 1 })}</span>
                 {!readOnly && (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    aria-label="Remove measure"
-                    title="Remove measure"
+                    aria-label={tr('engine.inspector.dataset.removeMeasure')}
+                    title={tr('engine.inspector.dataset.removeMeasure')}
                     className="h-6 w-6 shrink-0 p-0 text-muted-foreground hover:text-destructive"
                     onClick={() => onPatch({ measures: spliceArray(measures, i, null) })}
                   >
@@ -577,44 +621,45 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name }: Meta
                   </Button>
                 )}
               </div>
-              <InspectorTextField label="Name" value={m.name ?? ''} onCommit={(v) => patchMeasure(i, { name: v })} placeholder="e.g. revenue" disabled={readOnly} mono />
-              <InspectorSelectField label="Aggregate" value={m.aggregate} options={AGGREGATE_OPTIONS} onCommit={(v) => patchMeasure(i, { aggregate: v })} disabled={readOnly} />
+              <InspectorTextField label={tr('engine.inspector.dataset.name')} value={m.name ?? ''} onCommit={(v) => patchMeasure(i, { name: v })} placeholder={tr('engine.inspector.dataset.measureNamePlaceholder')} disabled={readOnly} mono />
+              <InspectorSelectField label={tr('engine.inspector.dataset.aggregate')} value={m.aggregate} options={localizeOptions(AGGREGATE_OPTIONS, locale)} onCommit={(v) => patchMeasure(i, { aggregate: v })} disabled={readOnly} />
               <InspectorComboField
-                label="Field"
+                label={tr('engine.inspector.dataset.field')}
                 value={m.field ?? ''}
                 onCommit={(v) => pickMeasureField(i, v)}
                 options={fieldComboOptions}
                 loading={catalogLoading}
-                placeholder="field (optional for count)"
-                searchPlaceholder="Search fields…"
+                placeholder={tr('engine.inspector.dataset.measureFieldPlaceholder')}
+                searchPlaceholder={tr('engine.form.searchFields')}
                 disabled={readOnly}
                 mono
               />
-              {(() => { const rel = missingRelationship(m.field, include); return rel ? <RelWarning rel={rel} disabled={readOnly} onAdd={() => onPatch({ include: appendArray(include, rel) })} /> : null; })()}
-              <Advanced>
-                <InspectorTextField label="Label (optional)" value={m.label ?? ''} onCommit={(v) => patchMeasure(i, { label: v || undefined })} placeholder={m.name || 'Display label'} disabled={readOnly} />
-                <MeasureFormatField measure={m} onPatch={(pp) => patchMeasure(i, pp)} disabled={readOnly} />
+              {(() => { const rel = missingRelationship(m.field, include); return rel ? <RelWarning rel={rel} disabled={readOnly} locale={locale} onAdd={() => onPatch({ include: appendArray(include, rel) })} /> : null; })()}
+              <Advanced locale={locale}>
+                <InspectorTextField label={tr('engine.inspector.dataset.labelOptional')} value={m.label ?? ''} onCommit={(v) => patchMeasure(i, { label: v || undefined })} placeholder={m.name || tr('engine.inspector.dataset.displayLabel')} disabled={readOnly} />
+                <MeasureFormatField measure={m} onPatch={(pp) => patchMeasure(i, pp)} disabled={readOnly} locale={locale} />
                 <DatasetFilterField
-                  label="Filter (measure-scoped)"
-                  help="Only rows matching this filter feed this measure (e.g. won_amount = sum(amount) where stage = won)."
+                  label={tr('engine.inspector.dataset.measureFilter')}
+                  help={tr('engine.inspector.dataset.measureFilterHelp')}
                   value={m.filter}
                   onCommit={(fc) => patchMeasure(i, { filter: fc })}
                   fields={filterFields}
                   disabled={readOnly}
+                  locale={locale}
                 />
                 <InspectorCheckboxField
-                  label="Derived — computed from other measures"
+                  label={tr('engine.inspector.dataset.derived')}
                   value={!!derived}
                   onCommit={(v) => patchMeasure(i, { derived: v ? { op: 'ratio', of: [] } : undefined })}
                   disabled={readOnly}
                 />
                 {derived && (
                   <div className="space-y-1.5 rounded-md border border-dashed p-2">
-                    <InspectorSelectField label="Operation" value={derived.op} options={DERIVED_OP_OPTIONS} onCommit={(v) => patchMeasure(i, { derived: { ...derived, op: v } })} disabled={readOnly} />
-                    <Label className="text-xs text-muted-foreground">Operands (other measures)</Label>
-                    {(() => { const need = derived.op === 'ratio' || derived.op === 'difference' ? 2 : 1; const have = Array.isArray(derived.of) ? derived.of.length : 0; return have < need ? <p className="text-[10px] text-amber-600 dark:text-amber-400">Select {need === 2 ? 'exactly 2 measures' : 'at least 1 measure'} for {derived.op}.</p> : null; })()}
+                    <InspectorSelectField label={tr('engine.inspector.dataset.operation')} value={derived.op} options={localizeOptions(DERIVED_OP_OPTIONS, locale)} onCommit={(v) => patchMeasure(i, { derived: { ...derived, op: v } })} disabled={readOnly} />
+                    <Label className="text-xs text-muted-foreground">{tr('engine.inspector.dataset.operands')}</Label>
+                    {(() => { const need = derived.op === 'ratio' || derived.op === 'difference' ? 2 : 1; const have = Array.isArray(derived.of) ? derived.of.length : 0; return have < need ? <p className="text-[10px] text-amber-600 dark:text-amber-400">{tFormat(need === 2 ? 'engine.inspector.dataset.derivedNeedTwo' : 'engine.inspector.dataset.derivedNeedOne', locale, { op: derived.op ?? '' })}</p> : null; })()}
                     {otherMeasures.length === 0 ? (
-                      <p className="text-[11px] italic text-muted-foreground">Add other measures first.</p>
+                      <p className="text-[11px] italic text-muted-foreground">{tr('engine.inspector.dataset.addOtherMeasuresFirst')}</p>
                     ) : (
                       <div className="space-y-1">
                         {otherMeasures.map((nm) => {

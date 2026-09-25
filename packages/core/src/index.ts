@@ -112,6 +112,11 @@ export * from './utils/number-display.js';
 // below could not import, so a date-valued measure rendered its raw ISO
 // string. `@object-ui/fields` re-exports these names unchanged.
 export * from './utils/date-display.js';
+// The native date/time control adapters (objectui#3127), moved down from
+// `@object-ui/fields` so `@object-ui/components`' data table can share them
+// instead of keeping private copies (objectui#10625). `@object-ui/fields`
+// re-exports these names unchanged.
+export * from './utils/native-date-value.js';
 export * from './utils/dataset-format.js';
 // Pivot lookup-key encoders, shared by every cross-tab renderer so the
 // dashboard widget and the report renderer key their buckets identically

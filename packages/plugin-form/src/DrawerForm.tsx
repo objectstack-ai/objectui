@@ -58,7 +58,7 @@ import {
   advanceLoadedRecord,
   type LoadedRecordSnapshot,
 } from './sanitize';
-import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
+import { fieldWriteGate, gateFormFields } from './fieldWriteGate';
 import { seedCreateValues, omitServerResolvedDefaults } from './schemaDefaults';
 import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
@@ -210,28 +210,30 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
   const { fieldLabel, sectionLabel } = useSafeFieldLabel();
   const perms = usePermissions();
   const { userId: currentUserId } = perms;
-  /**
-   * FLS gate: drop non-readable fields, render non-editable ones read-only.
-   * The drawer is the third container of this family and used to carry NEITHER
-   * half of it — the same edit that the modal and the simple form refused to
-   * send, this one sent, and the field the other two rendered disabled this one
-   * rendered as a live input (objectui#10120). One pass, shared.
-   */
-  const applyFieldPerms = useCallback(
-    (fields: FormField[]): FormField[] =>
-      applyFieldPermissions(fields, {
-        perms,
-        objectName: schema.objectName,
-        mode: schema.mode,
-      }) as FormField[],
-    [perms, schema.objectName, schema.mode],
-  );
   const { t } = useDiscardTranslation();
   // Upload-in-flight gate (objectui#10166): Save is refused, disabled and
   // EXPLAINED while a file/image widget below is still uploading.
   const uploadGate = useUploadGate();
   const previewMode = usePreviewMode();
   const [objectSchema, setObjectSchema] = useState<any>(null);
+  /**
+   * The ONE field-gate step every layout draws through (`gateFormFields`,
+   * objectui#10612): FLS drops non-readable fields and locks non-editable ones,
+   * and the ADR-0092 D4 managed-object lock disables every field when the
+   * object's affordance for the mode is closed. The drawer used to carry
+   * neither half: FLS joined in objectui#10120, the lock in objectui#10612 —
+   * before it, a managed object drew live inputs here.
+   */
+  const gateFields = useCallback(
+    (fields: FormField[]): FormField[] =>
+      gateFormFields(fields, {
+        perms,
+        objectName: schema.objectName,
+        mode: schema.mode,
+        objectSchema,
+      }) as FormField[],
+    [perms, schema.objectName, schema.mode, objectSchema],
+  );
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
@@ -660,7 +662,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         const sectionKey = section.name || String(index);
         // Resolved before the divider push so the membership claim below can
         // name exactly the fields this group contributes (#6236).
-        const sectionFields = applyFieldPerms(buildSectionFields(section));
+        const sectionFields = gateFields(buildSectionFields(section));
         // The ONE `collapsed` / `collapsible` resolution (objectui#9849):
         // objectui#9780's `collapsed` implies `collapsible`, read from the
         // DECLARATION. The control lives on the divider row (director ruling
@@ -719,7 +721,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       const columns = (Number(derivedSections[0]?.columns) || 1) as 1 | 2 | 3 | 4;
       const allFields: FormField[] = [];
       derivedSections.forEach((section, index) => {
-        const body = applyFieldPerms(buildSectionFields(section));
+        const body = gateFields(buildSectionFields(section));
         if (!body.length) return;
         const sectionKey = section.name || String(index);
         // Group headers go through the same i18n hook ObjectForm and ModalForm
@@ -764,7 +766,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
 
     // Apply auto-layout for flat fields (infer columns + colSpan)
     const autoLayoutResult = applyAutoLayout(
-      applyFieldPerms(formFields), objectSchema, schema.columns, schema.mode,
+      gateFields(formFields), objectSchema, schema.columns, schema.mode,
     );
 
     // Flat fields layout — use container-query grid classes so the form

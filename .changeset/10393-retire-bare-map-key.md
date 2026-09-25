@@ -48,7 +48,7 @@ should be migrated there.
   renders that placeholder panel, not a map, and `objectui check` does not report
   it as an unknown schema type in a file it recognises. A bare
   `{ "type": "view:map" }` with no structural key is listed in `check`'s advisory
-  did-not-validate list instead, because `view:map` is on that list and
+  did-not-validate list instead, because `view:map` is on the known-type list and
   `AnyComponentSchema` has no arm for it; that line does not say the node renders
   a placeholder. Search documents for `view:map` directly.
 

@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import type { DataSource, TimelineSchema, ListViewTimelineConfig } from '@object-ui/types';
 import { useDataScope, useNavigationOverlay, useSafeFieldLabel, useSettledSchema, useDataInvalidation } from '@object-ui/react';
 import { NavigationOverlay } from '@object-ui/components';
@@ -256,6 +256,13 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
     return !hasInlineItems && !hasInlineData && !!schema.objectName;
   });
   const [error, setError] = useState<Error | null>(null);
+  /**
+   * objectui#10663 — which run of the fetch effect below is the CURRENT one.
+   * Every run takes the next number, so a run a newer one has superseded can
+   * tell, and it may then neither clear the current run's `error` nor raise its
+   * own. Read only by the two `error` writes; nothing renders from it.
+   */
+  const fetchSeqRef = useRef(0);
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Resolve nested TimelineConfig (spec-compliant)
@@ -353,6 +360,8 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
   const invalidationNonce = useDataInvalidation(fetchesForItself ? schema.objectName : undefined);
 
   useEffect(() => {
+    const seq = ++fetchSeqRef.current;
+    const isCurrent = () => fetchSeqRef.current === seq;
     const fetchData = async () => {
         if (!dataSource || typeof dataSource.find !== 'function' || !schema.objectName) {
             // Can't fetch — clear loading so we don't sit in skeleton forever.
@@ -420,9 +429,22 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
             });
             const data = extractRecords(results);
             setFetchedData(data);
+            // objectui#10663 — `error` is an early return in the render, so a
+            // report nothing clears kept the canvas off screen until a remount,
+            // and since objectui#10623 one failed data-invalidation re-read was
+            // enough to get there. It is cleared HERE, when the current run
+            // commits rows: those rows answer the current query, so no earlier
+            // failure describes the screen any more (objectui#10578's rule on
+            // `ObjectGantt`). ⛔ Not when a run starts: until rows land, the
+            // report stays.
+            if (isCurrent()) setError(null);
         } catch (e) {
             console.error(e);
-            setError(e as Error);
+            // A superseded run's failure no longer describes the screen, so it
+            // may not raise the error screen over the current run's rows. A
+            // failed background re-read is reported like any other: this
+            // block has no silent mode.
+            if (isCurrent()) setError(e as Error);
         } finally {
             setLoading(false);
         }

@@ -45,13 +45,16 @@ describe('resolveFieldCurrency (i18n canonical home)', () => {
  * Every row runs under a USD tenant, so a row that reads anything but `USD`
  * took its code from the field.
  *
- * ── Directions on the base tree (predicted before the first run) ─────────
+ * ── Directions on the base tree (predicted before the first run, then observed) ──
  *   fixed                                   GREEN (the base read it anyway)
  *   dynamic                                 RED   (read EUR)
  *   parsed-empty, both spellings            RED   (read CNY)
  *   no mode (the spec defaults it dynamic)  RED   (read EUR)
  *   dynamic with no tenant default          RED   (read EUR, not undefined)
- *   explicit `currency`, legacy, none       GREEN (untouched legs)
+ *   explicit `currency`, none               GREEN (untouched legs)
+ *   legacy `defaultCurrency`                RED
+ * Predicted: the legacy row GREEN. Observed: RED. Its second assertion pairs
+ * the legacy key with a DYNAMIC config, whose EUR the base tree read first.
  */
 describe('currencyMode decides whether currencyConfig.defaultCurrency is read (objectui#10422)', () => {
   const TENANT = 'USD';

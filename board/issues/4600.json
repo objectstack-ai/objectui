@@ -1,0 +1,35 @@
+{
+  "number": 4600,
+  "kind": "issue",
+  "title": "schema-catalog: all 9 `plugin-dashboard` examples are refused by the spec's `DashboardSchema` — the AI few-shot corpus teaches the pre-ADR-0021 widget shape",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-13T17:12:02Z",
+  "updated_at": "2026-08-24T12:16:22Z",
+  "closed_at": "2026-08-24T12:16:22Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 14,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4600",
+  "body": "Found while implementing #4356 (Phases 0+1), measuring whether the guardrail that card asked for could be built as suggested. Not fixed there — that card's scope is the `globalFilters[].options` shorthand, and this is strictly larger.\n\n**Blocked-by: objectstack-ai/objectstack#8593**\n\n## What was measured\n\nParsing every `examples/schema-catalog/src/schemas/plugin-dashboard/*.json` entry with the real `@objectstack/spec` `DashboardSchema`, on `origin/main` at `92250d648`:\n\n```\nREJECT  basic-dashboard.json                        (17 issues)\nREJECT  e-commerce-dashboard.json                   (22 issues)\nREJECT  filtered-dashboard.json\nREJECT  filtered-dashboard-dataset-widgets.json\nREJECT  filtered-dashboard-date-presets.json\nREJECT  filtered-dashboard-dynamic-options.json\nREJECT  filtered-dashboard-filter-types.json\nREJECT  filtered-dashboard-target-widgets.json\nREJECT  support-dashboard.json\n```\n\n**9 of 9.** Fixing #4356's bare-string `options` shorthand does not change this — those three entries stay refused for the reasons below, which is why #4356 pinned its guardrail at `GlobalFilterSchema` (the sub-schema that owns the property that regressed) rather than at `DashboardSchema` as the objectstack#7917 survey had suggested. That narrowing is deliberate and recorded in that PR; this issue is the remainder.\n\nTwo distinct causes, and they are not the same kind of problem:\n\n**1. Metadata identity keys — arguably by design.** Every entry reports `[name] Invalid input: expected string, received undefined` and `[label] Invalid input`. These are objectui **SDUI component** schemas (`{ \"type\": \"dashboard\", \"title\": …, \"columns\": … }`), not stored platform metadata documents, so they legitimately carry no `name` / `label` identity. If that is the intended reading, then `DashboardSchema` is simply the wrong schema for an SDUI node and the interesting question is which schema *is* right.\n\n**2. The widget shape — this is the real finding.** Most entries' widgets use the pre-ADR-0021 inline analytics form:\n\n```\n[widgets.0] Unrecognized key(s) on this dashboard widget: `object`, `categoryField`, `aggregate`.\n  • The pre-ADR-0021 inline analytics shape (`object` + `categoryField` + `valueField` + `aggregate`,\n    pivot `rowField`/`columnField`) was removed — bind a `dataset` and select `dimensions` + `values`\n    by name. Renderer-only settings belong under `options`. Undeclared top-level keys were dropped\n    silently before strict validation, shipping inert metadata; a stale or mis-layered key is now a\n    loud parse error.\n```\n\n`@objectstack/spec` 17 **removed** that shape. And objectui's own `DashboardWidgetSchema` (`packages/types/src/complex.ts`) does not declare `object` / `categoryField` / `aggregate` either — it takes its keys from the spec through `extends` and adds only `component`, `layout`, `type`, `options`, `chartConfig`, `filter`, `responsive`. So these examples author keys that **neither contract declares**. Nothing catches it because the entries are imported as JSON and the catalog's only assertions are structural (`smoke.test.tsx`) and render-without-throw.\n\n## Why it matters\n\nThis is the same defect class as #4356, in the same corpus, with the same blast radius — and #4356's was judged worth a card. `examples/schema-catalog/package.json` describes itself as the \"single source of truth for example schemas consumed by the docs site, smoke tests, and **AI few-shot retrieval**\", and `test/fields-form-hosted.test.tsx` records the #3910 lesson verbatim: *\"these examples are the docs site's field demos and a few-shot retrieval source for AI authors, so what they show is what gets copied.\"*\n\nSo an AI author retrieving `filtered-dashboard.json` today is taught a widget shape the platform refuses at publish, exactly as it was being taught the bare-string `options` shorthand until #4356. The objectstack#7917 survey's core point applies unchanged: the stored population of these documents is still growing, because the corpus is still producing them.\n\n## Uncertainty, stated plainly\n\nNot measured here: whether objectui's renderer still *supports* the inline analytics form at runtime. It evidently renders (the catalog's render-without-throw tests pass), so this may be a live compat arm rather than dead metadata — in which case the finding is a documented-tolerance divergence of the #4356 shape (renderer accepts, spec refuses) and wants the same enforce-or-retire treatment, not a silent rewrite of the examples. Whoever picks this up should establish that before choosing between \"migrate the 9 examples to `dataset` + `dimensions` + `values`\" and \"retire the renderer arm too\".\n\nRelated, both closed and from an earlier era: #824 (examples' dashboard/widget metadata vs spec) and #3965 (48 catalog examples using the deprecated `div` component type) — same corpus, same failure mode, which suggests the catalog needs a standing spec-validation gate rather than another one-off sweep. #4356 added one for `globalFilters` only.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_\n\n---\nState note (seat, 2026-08-14): `Blocked-by: objectstack-ai/objectstack#8593` added above — the remainder of this card (which schema an SDUI dashboard COMPONENT node validates against; classes A/B + metric-card) gates on that spec-seat decision. The C1 half (retired inline-analytics shape in the example entries) was already fixed by PR #4615. See the state-correction comment of the same date."
+}

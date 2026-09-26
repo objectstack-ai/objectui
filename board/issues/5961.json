@@ -1,0 +1,33 @@
+{
+  "number": 5961,
+  "kind": "issue",
+  "title": "feat(console): org join-link UI — manage/copy dialog on the Team surface + /join/:token self-serve landing route",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:on-hold"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T05:02:38Z",
+  "updated_at": "2026-08-24T14:38:50Z",
+  "closed_at": "2026-08-24T14:38:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5961",
+  "body": "Part of objectstack-ai/objectstack#11586 (epic — ruling and V1 scope live there).\nBlocked-by: objectstack-ai/objectstack#11587\n\n## Deliverable (console UI half of the universal org join link)\n\n1. **Link management dialog** on the org Team surface (the `sys_organization` record page toolbar and/or the platform org console's Members/Invitations pages — pick the entry that coexists with the just-landed `invite_user` toolbar mirror, objectstack#11544): owner/admin-only \"Invite via link\" — shows the active link (full URL), Copy, Rotate (with confirm — old link dies), Revoke, expiry display. No active link ⇒ Create.\n2. **`/join/:token` console route**: fetch token info (org display name + validity). Unauthenticated ⇒ login/signup with return-to back to the join page. Authenticated ⇒ confirmation (\"Join <org>?\") → POST join → set active organization → land in the org shell. Distinct UI states for expired / revoked / exhausted / invalid / already-a-member (the backend card publishes the error codes in its PR body).\n3. i18n: en / zh-CN / ja-JP / es-ES for all new strings (follow the console's existing org-surface i18n patterns; aria-labels included — see the objectui#8094 class).\n\n## Constraints\n- URL shape mirrors the existing invitation route family (`/_console/accept-invitation/<id>` ⇒ `/_console/join/<token>`); build URLs through the same single-source console-URL helper the accept-invitation flow uses.\n- The link is a bearer credential: never log it, never put it in analytics payloads.\n- Do not start until the Blocked-by lands: endpoint paths + error codes come from that PR's body.\n"
+}

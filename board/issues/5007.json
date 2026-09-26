@@ -1,0 +1,35 @@
+{
+  "number": 5007,
+  "kind": "issue",
+  "title": "parity 门 GLOBALLY_UNPUBLISHED_SPEC_KEYS 的理由串引用 plugin-detail/src/index.tsx:335-337,实际位置差约 70 行",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T14:48:17Z",
+  "updated_at": "2026-08-24T11:37:11Z",
+  "closed_at": "2026-08-24T11:37:11Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5007",
+  "body": "发现于 #4668 的实现(PR 见下),**不在该 PR 处理** —— 那一单的面是五个 GA 键的发布。这一条是门里散文的引用精度问题,与 #4902 同族(判据/指引指向不存在或不正确的位置)。\n\n## 机制\n\n`apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` 的 `GLOBALLY_UNPUBLISHED_SPEC_KEYS` 只有 `aria` 一条,理由串里逐字写着:\n\n> Accessibility escape hatch, not a layout choice — renderers derive accessible names from labels and object metadata, and every block omits it for this one reason (plugin-detail/src/index.tsx:335-337).\n\n同一条的上方 doc comment 也复述了这个坐标,并说「the blocks that omit it say so in the same words at their registration sites (`plugin-detail/src/index.tsx:335-337`, verbatim: ...)」。\n\n被引的那句话在 `packages/plugin-detail/src/index.tsx` 里的实际位置(#4668 之前的 `origin/main` @ `ec1f4d728`)是 **第 405 行**:\n\n```\n// page is supposed to fetch. `aria` is omitted for the same reason it is\n```\n\n而第 335-337 行是完全另一段内容(`filter` / `ViewFilterRuleSchema` 的成员形状说明)。差约 **70 行**,且**在 #4668 之前就已经是错的** —— #4668 只是让它更远(该文件的 `record:details` inputs 块加了两条声明加注释,那句话移到 **第 430 行**)。\n\n## 为什么值得记一笔\n\n理由串是**人读的**:它是「为什么 `aria` 全局不发布」这个决定的唯一说明,读者按坐标跳过去会落在一段讲 `filter` 成员形状的注释上,看不到「every block omits it for this one reason」的那句原文,于是这条全局排除读起来就成了无据的洞。误报本身不存在(没有任何门断言这个行号),成本全在**读者被指向错地方**,和 #4902 记的是同一种成本。\n\n顺带体检:同文件里的其它坐标引用是准的(`packages/sdui-parser/src/validate.ts:74` 指到 `unknown-prop` 那个 push 的内部、`page.tsx:462` 指到 `ComponentRegistry.getKnownTypes()` 那行、`text-input.tsx:60` 的路径已从 `renderers/element/` 移到 `renderers/basic/`),所以这不是「全仓坐标都烂了」,是**单点漂移** —— 但漂移的机制是普遍的:任何 `file:line` 引用都会在被引文件下一次编辑时静默作废。\n\n## 可能的处置(供分诊,未实施)\n\n1. **只修这一处坐标**(改成当前行号)—— 最小,但下一次编辑该文件又会作废。\n2. **改引符号而非行号** —— 例如「`plugin-detail/src/index.tsx`,`record:related_list` 注册位的 `aria` 段」。坐标从「会漂的数」变成「不会漂的名」,与门里其它按名钉住的做法一致。\n3. **把那句原文当断言读** —— 门已经在别处这么干过(`the renderer contains no schema.layout read` 直接读源文件文本),这里也可以断言 `plugin-detail/src/index.tsx` 真的含那句话,行号漂了也不影响、句子被删了会红。代价:又多一条文本级判据(#4902 提醒的那类)。\n\n倾向 2(最省且消除漂移源),3 可作为加强。\n\n## 退出条件\n\n- 该引用不再指向错误位置(任一处置);或\n- 门改为按符号/文本断言后本条自动关闭。\n\n参考位置:`apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` 的 `GLOBALLY_UNPUBLISHED_SPEC_KEYS` 及其上方 doc comment;`packages/plugin-detail/src/index.tsx` 第 430 行(#4668 之后)/ 第 405 行(之前)。"
+}

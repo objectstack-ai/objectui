@@ -1,0 +1,36 @@
+{
+  "number": 5721,
+  "kind": "issue",
+  "title": "`classifyAnalyticsFailure` reads the status before the code, so `/analytics/query`'s `CUBE_NOT_FOUND` is warned as a missing capability and silently degraded",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-22T21:16:00Z",
+  "updated_at": "2026-08-24T04:40:13Z",
+  "closed_at": "2026-08-24T04:40:13Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5721",
+  "body": "Found while fixing the sibling defect on `queryDataset` (related to #5663, which covers `POST /analytics/dataset/query` only). Not fixed there: this is a **different route face** with a **different failure mode**, and correcting it changes *degradation* behaviour rather than copy, so it needs its own measurement and its own pins.\n\n## The defect\n\n`packages/data-objectstack/src/index.ts`, `classifyAnalyticsFailure`:\n\n```ts\nif (code === 'VALIDATION_FAILED' || status === 400) return { kind: 'rejected', code, message };\nif (status === 404 || status === 501 || code === 'NOT_IMPLEMENTED' || code === 'ROUTE_NOT_FOUND') {\n  return { kind: 'not-installed', code, message };\n}\nreturn { kind: 'unknown', code, message };\n```\n\nThe status is tested **before** the code and short-circuits it, so any 404 from the `/analytics/query` face is classified `not-installed` no matter what code it carries. The code operands after the `||` can only ever be reached by a 404-less/501-less error, i.e. they are effectively dead for the conditions they name.\n\n## Why this is not cosmetic\n\nThe consumer (same file, the `aggregate` catch) does two things with `not-installed`:\n\n```ts\nif (failure.kind === 'not-installed') {\n  this.warnAnalyticsCapabilityOnce(failure.message);\n}\n// …then degrade to find() + client-side aggregation\n```\n\nSo a misclassified 404 both (a) tells the operator the analytics capability is missing and (b) **silently answers the chart from a different code path**. That is the misdirection `framework#3878` documents, arrived at from the other direction.\n\n## A measured 404 that is not a missing capability\n\n`@objectstack/service-analytics`'s cube-existence gate (`analytics-service.ts`, `assertInferableCube`, framework#3867):\n\n```ts\nerr.code = 'CUBE_NOT_FOUND';\nerr.status = 404;\n```\n\n`@objectstack/rest`'s dataset route comment names the same gate as `CUBE_NOT_FOUND`/404 in its ADR-0112 passthrough list, and `packages/spec/src/api/error-code-ledger.zod.ts` carries `CUBE_NOT_FOUND` as a catalog member. A misspelled or unregistered cube name is an **authoring mistake**; today it reads as \"this deployment has no analytics\" and the chart quietly renders numbers from `find()` + client-side aggregation instead.\n\n`401 UNAUTHENTICATED` on this face is a second case: it lands in `unknown` and degrades silently, so an expired session renders a chart built from a `find()` that is itself about to be refused.\n\n## What the fix probably is\n\nMirror what landed for `queryDataset`: branch on the ADR-0112 `code` first and consult the status only as a residual when the answer declares no code at all. Two things must be established first, which is why this is not a drive-by:\n\n1. **The envelope family differs.** `/analytics/query` exits through `@objectstack/runtime`'s `dispatcher-plugin.errorResponseBase`, i.e. the **wrapped** `{ success: false, error: { code, message } }` shape, not the flat one the dataset route writes. Whether `@objectstack/client`'s fetch wrapper flattens `error.code` onto the thrown error for this face needs to be measured, not assumed.\n2. **The blast radius is behavioural.** Every reclassification moves a chart between \"degrade silently\", \"degrade loudly\" and \"throw\", so each new branch needs a pin saying which of the three it gets and why.\n\n## Where to look\n\n- `packages/data-objectstack/src/index.ts` — `classifyAnalyticsFailure` and its single caller in the `aggregate` catch.\n- `packages/data-objectstack/src/aggregate-capability.test.ts` — the existing pins for this classifier.\n- Framework (read-only reference): `packages/runtime/src/dispatcher-plugin.ts` for the wrapped envelope, `packages/services/service-analytics/src/analytics-service.ts` for `CUBE_NOT_FOUND`."
+}

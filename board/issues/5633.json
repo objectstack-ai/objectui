@@ -1,0 +1,35 @@
+{
+  "number": 5633,
+  "kind": "issue",
+  "title": "Nothing checks that an `icon:` literal reaching a record-reading lucide resolver is a live `icons` key — four hand-copied resolvers, four local pins, no gate over the population",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T20:48:15Z",
+  "updated_at": "2026-08-24T02:50:43Z",
+  "closed_at": "2026-08-24T02:50:43Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5633",
+  "body": "Split out of #5622 (suggestion 2), where triage fenced it out of the repair deliberately: *\"That is a new gate over a new population, not a repair, and folding it in would turn a five-name fix into a gate-design card carrying its own evidence burden.\"* Filed unassigned so it can be triaged on its own terms.\n\n## The class\n\nlucide retires a spelling by **dropping it from the runtime `icons` record while keeping it as a deprecated named export**. A retired name therefore still imports, still type-checks, and still renders wherever it is used as a **component** — and resolves to `null` wherever it is used as a **string**, because the string lookups read that record. Nothing goes red in either direction.\n\nThis has now been repaired twice, in two different packages, by two different cards:\n\n- #5586 — `chart` / `gantt` rendered no icon in `plugin-view`'s `ViewSwitcher`.\n- #5622 — `edit` on `DetailView`'s mobile Edit action, `smile` as the `ui:icon` renderer's own declared default, plus three component aliases in `plugin-list` and two retired fixture spellings in `app-shell`.\n\nBoth cards added a **local** resolvability pin. Neither could add one over the population, because there is no population — just four hand-copied `toPascalCase` + one-entry `iconNameMap` (`{ Home: 'House' }`) implementations, each with its own set of call sites:\n\n| resolver | reads |\n| --- | --- |\n| `packages/components/src/renderers/action/resolve-icon.ts` | `icons` record |\n| `packages/components/src/renderers/basic/icon.tsx` | `icons` record |\n| `packages/plugin-list/src/components/TabBar.tsx` | `icons` record |\n| `packages/plugin-view/src/ViewSwitcher.tsx` | `icons` record |\n| `packages/app-shell/src/utils/getIcon.ts`, `packages/layout/src/NavigationRenderer.tsx` | `lucide-react/dynamic.mjs`'s `iconNames` |\n\nThe two surfaces disagree about aliases, so the same `icon: 'edit'` renders correctly in the sidebar and renders nothing in an action bar.\n\n## What the gate would have to decide\n\nRecorded because they are the design questions, not implementation detail — this is not a \"just add a check\" card:\n\n1. **What is the population?** Every `icon:` string literal in `packages/**` / `apps/**` is 53 distinct names across 109 sites, and #5622's scan found 15 that are not record keys of which **only 4 were defects**. The other 11 are false positives of three distinct kinds — a differently-typed `icon` field holding a Tailwind class (`text-amber-500` and eight siblings in `app-shell/…/previews/AppNavCanvas.tsx`), deliberate negative controls (`not-a-real-icon`), an authorable-keys fixture that is never resolved (`chevron`), and ComponentRegistry/schema type names that merely collide with lucide spellings (`area-chart`, `bar-chart`, `line-chart`, `pie-chart`, `scatter-chart`). A gate that cannot separate \"reaches a record-reading resolver\" from \"is a string that looks like an icon name\" is a gate that gets suppressed.\n2. **Which record does a given site read?** The answer differs per resolver (table above), and a gate that checks the wrong one is worse than none: it would bless `edit` because the *dynamic* surface carries it.\n3. **Does it also cover imported COMPONENTS, not just strings?** #5622 measured that `Grid === Grid3x3`, `BarChart3 === ChartColumn`, `Edit === SquarePen`, `Smile === FaceSlightlySmiling`, `CheckCircle === CircleCheckBig` and `XCircle === CircleX` are all `true` — a retired component alias is the very same object under a dead name, renders perfectly, and only record membership can see it. Both prior cards had to pin identifiers as well as strings.\n4. **Or is the real fix upstream of the gate** — collapsing the four hand-copied resolvers into one shared helper, so there is a single place a check can attach and a single `iconNameMap` to maintain? That would make the gate small; it is also a bigger change than the gate.\n\n## ⛔ Not the fix\n\nRouting everything through the alias-tolerant `getIcon` is **not** the answer and should be ruled out up front: it silently substitutes the `Database` glyph for anything it cannot resolve, so it trades a no-icon failure for a **wrong-icon** failure. Recorded in #5622's body and re-stated by triage there.\n\n## Prior art to reuse\n\nThe membership-assertion shape is settled — four pins now use it (`packages/plugin-view/src/__tests__/ViewSwitcher.test.tsx` from #5586; `plugin-detail`, `plugin-list` and `components` pins from #5622). Each reads the map or registry entry, applies the consumer's own `toPascalCase` + `iconNameMap`, and asserts `Object.prototype.hasOwnProperty.call(icons, key)` — with a control that a name lucide keeps only as a deprecated export is rejected. A repo-level gate would generalise exactly that predicate.\n\nRelated: #5586, #5622, #5631 (`ui:icon` reading the SDUI identity key `name` as an icon name — a different defect on the same renderer)."
+}

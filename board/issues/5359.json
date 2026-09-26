@@ -1,0 +1,35 @@
+{
+  "number": 5359,
+  "kind": "issue",
+  "title": "finding(app-shell/console): the DraftChangesPanel `/meta` spelling fold puts `@objectstack/spec/shared` on the console's EAGER graph — +60.1 KB gzipped that no budget weighs",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-20T01:12:02Z",
+  "updated_at": "2026-08-24T01:58:08Z",
+  "closed_at": "2026-08-24T01:58:08Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5359",
+  "body": "Recorded while implementing #5356 (PR pending). Not a defect in that change — the import there is the *sanctioned* form and the alternative is refused by a gate (below). This card exists so the bytes are not invisible.\n\n## What was measured\n\n`packages/app-shell/src/preview/DraftChangesPanel.tsx` now imports `canonicalMetaUrlType` from `@objectstack/spec/shared` to fold a stored metadata type to its canonical singular before it reaches a `/meta` item route.\n\nMarginal cost of adding that subpath to a graph that already holds the `@objectstack/spec` entries app-shell imports statically (`/ui`, `/kernel`), measured with the repo's esbuild (`--bundle --minify --format=esm --platform=browser`), the same method `postureHasOrgWall`'s comment in `packages/app-shell/src/hooks/useTenancyPosture.ts` used:\n\n| entry graph | minified | gzipped |\n|---|---|---|\n| `spec/ui` + `spec/kernel` | 1289.8 KB | 342.6 KB |\n| the same + `spec/shared` | 1503.2 KB | 402.7 KB |\n| **marginal** | **+213.4 KB** | **+60.1 KB** |\n\nMechanism: every published spec subpath is a self-contained bundle (`dist/ui/index.mjs` inlines its dependencies rather than importing a shared chunk), so `/shared` re-ships registry and schema modules the other entries already carry, and nothing tree-shakes them — `@objectstack/spec` declares no `sideEffects`, and `shared/index.mjs` runs `assertMetaUrlSpellingsAgree()` at module load, which pins `META_URL_TO_SINGULAR` to `DEFAULT_METADATA_TYPE_REGISTRY`.\n\n## Why the bytes are eager, and why laziness cannot move them\n\nThe panel is reached through static imports only: `console/AppContent.tsx` → `layout/ConsoleLayout.tsx` → `preview/DraftPreviewBar.tsx` → `preview/DraftChangesPanel.tsx`.\n\nAn `await import('@objectstack/spec/shared')` would not help. `apps/console/vite.config.ts`'s `vendor-objectstack` `advancedChunks` group claims every `@objectstack/*` module except `@objectstack/lint` (`VENDOR_OBJECTSTACK_TEST`), and that group's chunk is a static import of the app entry — so a dynamically reached spec module is folded into the eager closure exactly as objectui#5266 documents for the linter.\n\nNothing fails today: the console's performance budget weighs the `index-*.js` entry chunk alone and these bytes land in a vendor chunk — the blindness #5324 is about. `assertLazyLinterStaysLazy` is unaffected (it asserts about `@objectstack/lint`, and its counter-probe *requires* an eager spec chunk).\n\n## Why the panel does not just keep a local copy of the 35-entry table\n\nTried first, and refused mechanically: `node scripts/check-spec-symbol-derivation.mjs` flags a local `META_URL_TO_SINGULAR` / `canonicalMetaUrlType` as spec-named symbols that are hand-written rather than derived, and its own header explains that a faithful copy is precisely the fork the guard exists to prevent (reference identity is the only thing that distinguishes a re-export from a fork). The `ALLOW` map governs *deliberate divergence*, which a mirror is not. So the import is the correct spelling for #5356; the weight is the cost of it.\n\n## The lever, if this is worth paying down\n\nBoth halves live outside #5356's file surface (`apps/console/vite.config.ts`), which is why this is a separate card:\n\n1. exclude the `@objectstack/spec` `shared` subpath from `VENDOR_OBJECTSTACK_TEST`, the way `@objectstack/lint` is excluded, and\n2. switch the panel's fold to `await import('@objectstack/spec/shared')` inside the async boundary that already exists (`listPendingDrafts`), with a build-time assertion in the spirit of `assertLazyLinterStaysLazy` so it cannot silently become eager again.\n\nWorth weighing against the failure mode it introduces (a chunk-load failure would then break the panel's list) and against the upstream alternative: a finer-grained spec export for the `/meta` spelling contract, which would make this whole trade disappear.\n\nRelated: #5324 (the budget cannot see these bytes), #5325 (dynamic imports defeated by a static import of the same module), objectui#5266 (the linter's eager-vendor-chunk precedent).\n"
+}

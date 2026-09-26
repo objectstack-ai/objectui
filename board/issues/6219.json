@@ -1,0 +1,36 @@
+{
+  "number": 6219,
+  "kind": "issue",
+  "title": "react-i18next's not-ready `t` returns `defaultValue` VERBATIM — 65 inline defaults at bare `useObjectTranslation()` sites carry `{{holes}}` that reach the user as literal braces",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-25T02:11:51Z",
+  "updated_at": "2026-08-25T05:42:04Z",
+  "closed_at": "2026-08-25T05:42:04Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6219",
+  "body": "Measured while implementing objectui#4905 (PR #6218) — **not in that PR's scope**, and it is the reason that card's route C reached only 5 of its 66 sites instead of all of them.\n\n## The mechanism\n\n`react-i18next/dist/es/useTranslation.js` ships a fallback `t` used whenever no i18next instance is initialised:\n\n```js\nconst notReadyT = (k, optsOrDefaultValue) => {\n  if (isString(optsOrDefaultValue)) return optsOrDefaultValue;\n  if (isObject(optsOrDefaultValue) && isString(optsOrDefaultValue.defaultValue)) return optsOrDefaultValue.defaultValue;\n  return Array.isArray(k) ? k[k.length - 1] : k;\n};\n```\n\nIt returns `options.defaultValue` **verbatim. It does not interpolate.** So an inline default written as `'Deleted {{count}} rows'` renders those braces to the user, character for character.\n\nThis is a different code path from objectui#3865 / objectui#3512, which are both about `createSafeTranslation`'s `fallbackT` — that one *does* interpolate (`value.split(\\`{{${k}}}\\`).join(String(v))`), which is exactly why those cards are about the *spelling* of the hole rather than whether it is filled at all. A call site bound to a **bare `useObjectTranslation()`** never reaches `fallbackT`; `useObjectTranslation` returns react-i18next's `t` directly (`packages/i18n/src/provider.tsx`), so with no instance it gets `notReadyT`.\n\n## The census on `main`\n\nA sweep of `defaultValue: '…{{…}}…'` string literals under `packages/` and `apps/`, classified by the translator the file binds:\n\n| translator | files | inline defaults with a `{{hole}}` |\n|---|---|---|\n| bare `useObjectTranslation()` — **`notReadyT`, does not interpolate** | 24 | **65** |\n| a `createSafeTranslation` hook — `fallbackT`, interpolates | 3 | 4 |\n| `t` received as a parameter/prop — provenance depends on the caller | 4 | 6 |\n\nThe 24 affected files, worst first: `AppManagementPage.tsx` (23), `InboxPopover.tsx` (6), `BulkActionBar.tsx` (5), `ImpersonationBanner.tsx` (4), then `AiChatPage.tsx`, `LiveCanvas.tsx`, `PendingDraftsBar.tsx`, `MarketplacePackagePage.tsx`, `AppSidebar.tsx`, `UnifiedSidebar.tsx`, `FlowRunner.tsx` (2 each), and 13 files with one each.\n\nNote these are only the defaults written as **string literals**. The far more common shape at these sites is a pre-interpolated template literal (`` `Deleted ${n} rows` ``), which is correct precisely because `notReadyT` will not interpolate — that is what PR #6218 measured when three `objectBulkActionDispatch.test.tsx` cases went red on converting ten of them to `{{hole}}` form.\n\n## Reachability, stated honestly\n\nWith `I18nProvider` mounted — the console's own path — i18next is ready, the pack value wins, and the inline default never renders at all. The not-ready path is reachable in:\n\n- **tests that render a component with no provider** (this is how it surfaced),\n- **any host embedding an ObjectUI component without `I18nProvider`** — which is the entire scenario `createSafeTranslation` was built for (objectui#3865), so it is a supported configuration rather than a hypothetical one.\n\nSeverity is a triage call, not this finding's to make: 0 users are known to have hit it, and the same sweep is what makes it 0-by-measurement rather than 0-by-guarantee.\n\n## What a fix would have to decide\n\nNot attached as a recommendation — the interesting question is which of these the project wants, and that is a partition decision:\n\n- **Bind these call sites to a `createSafeTranslation` hook** so `fallbackT` interpolates. Consistent with objectui#3865's direction, but it is 24 files and each needs a defaults map.\n- **Pre-interpolate at these call sites** (the template-literal form the repo already uses at the majority of them), and gate the `{{hole}}` form *out* at bare-`useObjectTranslation` sites. Cheap, and mechanically checkable — PR #6218's new `unresolvable-default-spelling` class in `scripts/check-i18n-call-site-keys.mjs` already walks exactly these call sites and reads exactly this text; it would need the binding's *factory* as one more input.\n- **Teach `useObjectTranslation` to interpolate its own not-ready result**, i.e. stop handing back react-i18next's `notReadyT` bare. One place, but it forks from react-i18next's behaviour, which objectui#3512 explicitly declined to do in the other direction.\n\nRelated: objectui#4905 (where this was measured, PR #6218), objectui#3865 (the `fallbackT` chain step this is the react-i18next half of), objectui#3512 (the spelling rule that assumes an interpolating fallback).\n"
+}

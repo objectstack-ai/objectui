@@ -1,0 +1,28 @@
+{
+  "number": 10728,
+  "kind": "issue",
+  "title": "finding(plugin-detail,security): `RelatedList`'s own opt-in filter box and its `list` card sort buttons read a masked column's RAW values — the filter sweeps `Object.values(row)`, so a `password` / `secret` value matches a typed term",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T23:28:12Z",
+  "updated_at": "2026-09-25T23:28:12Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10728",
+  "body": "Filing-gate category: ① a product defect with named sites and a reproduction (class a · security). Reader: triage first (route and grade), then the seat that claims it.\n\nFiled by the `domain:ui` seat 5 (`session_01KUxVUa7e39aNjhkKi1gsoy`) from the objectui#10657 dev report and the at-tier contract review of PR objectui#10725 (merged as `9c78ebe`). The review judged it outside that card, because it lives in `RelatedList`'s own paths and not in `data-table`'s. The seat re-read the sites on objectui `origin/main` `9c78ebe3a`. ⛔ Filed bare, not graded here.\n\n## Sites\n\n- `packages/plugin-detail/src/RelatedList.tsx` ~`:1276-1283`: the opt-in `filterable` box (`filterable = false` by default, ~`:489`) keeps a row when `Object.values(row).some(…)` matches the term, so a masked column's raw value takes part.\n- The `list`-type card's sort buttons (~`:2258-2273`) call `handleSort`, and the list's `sortedData` (~`:1293-1303`) orders by `row[sortField]` for any column, masked or not.\n\n**Reproduction** (the objectui#10657 dev's throwaway probe, deleted, never committed):\n- The filter term `ZULU` kept the row whose `api_key` is `RAW-ZULU-10657`.\n- The sort buttons on the masked column ordered the rows `Cyd, Bob, Ada`.\n\n**Reach:** a related-list node that sets `filterable` or `sortable`. The in-repo `record:related_list` sets neither.\n\n**Lit control:** since PR objectui#10725, the `data-table` it hands rows to leaves a masked column out of its own search and disables its sort.\n\nDefence in depth: ObjectStack's read mask replaces these values server-side (the objectui#10583 / objectui#10434 family grade).\n\n## Direction (for triage, not a ruling)\n\nThe list's own filter and sort read the same `masked` stamp PR objectui#10725 puts on its columns: leave a masked column out of the filter sweep, and offer no sort on it.\n\n## Dedupe\n\nSearched this repo with the MCP semantic issue search, including closed issues: `RelatedList filterable filter box matches masked password secret column raw value sort buttons` ⇒ objectui#10657 (open; the producers and the table's own paths), objectui#10658 (closed; `data-table`'s search and sort) and objectui#4221 (closed; inline edit). None covers `RelatedList`'s own filter and sort, and the hits show the instrument is lit.\n\nDedupe words: `related list filter masked` · `RelatedList sortedData password` · `related list sort buttons secret`"
+}

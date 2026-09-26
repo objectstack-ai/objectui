@@ -1,0 +1,35 @@
+{
+  "number": 5380,
+  "kind": "issue",
+  "title": "packages/runner/vite.config.ts 的 `\"@app\"` 别名指向不存在的 src/app-data（全仓唯一引用），与已关闭的 #3593 同一形态",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-20T03:04:12Z",
+  "updated_at": "2026-08-25T00:47:56Z",
+  "closed_at": "2026-08-25T00:47:56Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5380",
+  "body": "Out-of-scope finding，做 #5168（给包级 `vite.config.ts` 的 alias 表补目标存在性门禁）时,**由新门禁自己测出来的第一条实例**。#5168 的 PR 不修这个（半径外,且修法是维护者裁决),只把它 carve-out 成 shrink-only ratchet,让它不再隐形。\n\n## 事实\n\n`packages/runner/vite.config.ts:25`:\n\n```\n\"@app\": path.resolve(__dirname, \"./src/app-data\"),\n```\n\n- `packages/runner/src/app-data` **不存在** —— 不是目录,也没有任何 `app-data.{mjs,js,mts,ts,jsx,tsx,json}`。`ls packages/runner/src/` 只有 `App.navigation.test.tsx`、`App.tsx`、`LayoutRenderer.tsx`、`__tests__`、`index.css`、`lib`、`main.tsx`、`plugin-integration.test.ts`。\n- **全仓唯一引用就是这行声明本身**：`grep -rn \"@app\" packages/runner/src packages/runner/*.ts packages/runner/*.json` 只回这一行。没有任何模块 import `@app` 或 `@app/...`，所以今天没有人会撞到 —— 它是纯粹的死条目,不是坏掉的功能。\n- 它自己的注释写着 `DX: App Data Symlink`,暗示当初预期是本地建一个 symlink 把外部 app 数据挂进来。\n\n## 为什么值得单独一张卡,而不是顺手删掉\n\n修法有两个方向,选哪个是维护者裁决:\n\n- **A. 删掉这一行。** 若「App Data Symlink」这套 DX 已经不用了,这是最干净的收尾,和 #3593 的处置同形。\n- **B. 补回它指向的东西**(以及说明文档)。若 `@app` 仍是 runner 「从外部挂 app 数据」的预期入口,那缺的是 symlink 约定与文档,删掉反而抹掉一个还想要的 affordance —— 但今天既没有目录也没有任何一处 import,这个方向需要人来确认它是否还活着。\n\n同一文件的注释里已经记着 #3593：`@object-ui/data-objectql` 的别名活得比它的包久,当时是因为一条 `2>/dev/null` 把 `No such file or directory` 吞掉了。这是同一个文件、同一类失效的第二次。\n\n## 与 #5168 的关系\n\n- #5168 建立的门禁**能测到它**（不是断言,是实测：新门禁在这条上红）。因此本卡在 #5168 落地后是 shrink-only ratchet 里唯一的条目 —— `KNOWN_MISSING_PACKAGE_ALIAS_TARGETS`。无论按 A 还是按 B 处置,处置完必须把它从那份名单删掉,否则 #5168 的 carve-out pin 会红（那条 pin 断言列表里的条目「仍被声明且仍然缺失」）。\n- 顺带一条对分诊有用的事实：这条 key **不是** `@object-ui/*`。#5168 的原始 finding 清点的是 196 条 `@object-ui/*` 条目;一道只盯这个前缀的门禁会在这条上绿着发出去。#5168 的门禁因此按「表里每一条」而不是按前缀取范围。\n\n## 严重度\n\n按「filing time 的严重性判断不可靠」的惯例平铺事实、不自评级。可参考的两点:今天 0 个消费者(没有任何 import),且这是仓内构建配置、不是发布代码。"
+}

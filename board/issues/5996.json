@@ -1,0 +1,35 @@
+{
+  "number": 5996,
+  "kind": "issue",
+  "title": "emit-eager-closure-report crashes with ENOENT when a fully-unresolvable dependency lands in the vendor-objectstack chunk",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T11:23:58Z",
+  "updated_at": "2026-08-24T17:20:35Z",
+  "closed_at": "2026-08-24T17:20:35Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5996",
+  "body": "Observation, found while reproducing #5391's late-failure repro. Not filed against a specific consumer; not blocking anything currently known — filing so triage can rank it.\n\n## What I measured\n\nReproducing #5391 (injecting a spec dist with no reachable `node_modules` via `OBJECTSTACK_SPEC_DIST`, before that issue's fix) surfaced two of the override's declared `dependencies` unresolvable: `zod` and `pg-connection-string`. On this repo's current toolchain (`vite@8.2.1` + `rolldown@1.2.3`, base `d8b48f495`), the two failed differently through the SAME real `apps/console` `vite build`:\n\n- `zod` — silently kept as an unresolved bare `import ... from \"zod\"` in the `vendor-objectstack` chunk. No warning, no error, transform reports `8613 modules transformed` and moves on.\n- `pg-connection-string` — appears to become its own \"chunk\" entry in the Rollup/Rolldown output bundle map (`type: \"chunk\"`, `fileName: \"pg-connection-string\"`, no extension), but that chunk's file is never actually written to `dist/`. `apps/console/vite.config.ts`'s `emit-eager-closure-report` plugin (`writeBundle` hook) walks the eager closure and calls `fs.readFileSync(path.join(outDir, fileName))` for every chunk it finds — including this one — and crashes:\n\n```\nerror during build:\nBuild failed with 1 error:\n[plugin emit-eager-closure-report]\nError: ENOENT: no such file or directory, open '.../apps/console/dist/pg-connection-string'\n    at Object.openSync (node:fs:560:18)\n    at Object.readFileSync (node:fs:444:35)\n    at .../vite.config.ts...:519:20 (emitEagerClosureReport's writeBundle)\n```\n\nConfirmed the underlying chunk really is empty/unwritten: `find dist -iname \"*pg-connection*\"` returns nothing after the build, even though the bundle map handed to `writeBundle` names it.\n\n## Why it's worth a line\n\n`emitEagerClosureReport`'s own header documents two counter-probes specifically so an under-counting walk fails loudly rather than silently reporting a small number — real care was taken here. This is a gap the same spirit should probably close: the walk assumes every chunk in `bundle` with `type === 'chunk'` was actually written to `outDir`, which is not true for at least one shape of externalized/unresolvable import. The crash IS loud (in that sense it's the \"good\" failure direction the module's header cares about), but the message names neither the real cause (an unresolvable bare import reaching the eager closure) nor points at `emit-eager-closure-report`'s own assumption — it reads as a generic Node `ENOENT`, several frames removed from the actual problem.\n\n## Scope note\n\nNot reachable via #5391's own path any more once that issue's fix lands (the spec-dist override's own `dependencies` are now validated before the build ever starts). Still reachable by any other future eager-closure member that ends up genuinely unresolvable for other reasons — e.g. the `OBJECTSTACK_CLIENT_DIST` sibling hook, or a future `advancedChunks` group misconfiguration.\n\n## Possible shapes (not a recommendation)\n\n- Guard the `fs.readFileSync` in `emitEagerClosureReport` with an existence check, and `this.error()` with a message naming the missing chunk file and suggesting an unresolved import is the likely cause — turning this from a bare `ENOENT` into a self-diagnosing failure, matching the two existing counter-probes' spirit.\n- Or: investigate why Rolldown emits a chunk entry for `pg-connection-string` at all rather than folding it into the importing chunk as a plain external — that may point at a `advancedChunks.groups` test unintentionally matching bare external specifiers.\n\nRelated: #5391 (where this was found), #5324 / #5266 (the eager-closure report's own history).\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 5725,
+  "kind": "issue",
+  "title": "finding(app-shell): `view-column-io`'s colLabel/colFieldName still read the retired `accessorKey`/`header` aliases, so the column LIST re-shows an identity the column inspector just stopped showing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-23T01:03:55Z",
+  "updated_at": "2026-08-24T17:06:23Z",
+  "closed_at": "2026-08-24T17:06:22Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5725",
+  "body": "Found while implementing #5344 (retiring the READ tolerance in `ViewColumnInspector`). Filed unassigned, not claiming. Out of that card's granted file surface (`ViewColumnInspector.tsx` + its tests only), so recorded rather than fixed.\n\n## The fact\n\n`packages/app-shell/src/views/metadata-admin/previews/view-column-io.ts` carries the same undeclared-alias read that #5344 just retired one file over:\n\n```\n// :29 — colLabel()\nreturn String(o.label ?? o.header ?? o.field ?? o.accessorKey ?? `col ${i + 1}`);\n// :39 — colFieldName()\nconst v = o.field ?? o.accessorKey;\n```\n\nIts sole importer is `previews/FieldsListEditor.tsx`, which supplies the row labels for the column manager — and `FieldsListEditor` renders **inside `ViewColumnInspector`'s own panel** (it is rendered by both `ViewVariantInspector` and `ViewColumnInspector`; see that file's header docblock).\n\n## Why it is worth recording now\n\nAfter #5344 the two surfaces disagree **within one panel**. Measured on the #5344 branch, mounting the real component with a stored column `{accessorKey: 'name', header: 'Name'}`:\n\n- the inspector's **Field key** control shows `''` and its **Header** control shows `''` — the ruled behaviour, since `ListColumn` refuses both keys by name (`unrecognized_keys [\"accessorKey\",\"header\"]`);\n- the **column list row one line above** still reads `Name`, because `colLabel` consults `o.header`.\n\nSo the ruling's observable requirement — *\"the inspector stops presenting a spec-refused spelling as a valid column identity\"* — is met by the identity controls and **not** by the list rendered beside them. A pin for exactly this is committed in `ViewColumnInspector.identityRead.test.tsx` (the test named *\"records the residue this card is fenced out of\"*), which asserts `getAllByText('Name')` has length 1 and carries a comment saying the expectation flips when this is fixed.\n\n## Two details worth having before triage\n\n1. **`colLabel`'s precedence is not merely tolerant, it is inverted.** The chain is `label ?? header ?? field ?? accessorKey` — `header` is preferred **over** `field`. A perfectly canonical column that also happens to carry a stray `header` key displays `header`'s value rather than its declared `label`/`field`. That is a different (and stronger) defect than the plain `?? accessorKey` alias.\n2. **`colFieldName` feeds more than a label.** It backs `usedFieldNames()`, which is what the Add-field picker uses to decide which object fields are already taken. Reading `accessorKey` there means a spec-refused column still reserves a field name in the picker.\n\n## Scope note\n\nSame family as #5068 (renderer), #5120 (`packages/components` / `plugin-dashboard`), #5340 (`bridgeListView`), and #5344 (the column inspector, now fixed). This is the sixth site and the second *editor*-side one. Whether it should be retired the same way #5344 was, or whether the list deliberately wants a best-effort human label for a column it cannot otherwise name, is a judgement this finding does not take — note the two surfaces are not symmetric: an empty field-key box invites re-authoring, an empty **list row** would leave the author with nothing to click.\n\n## Reproduce\n\n```\nsed -n '1,45p' packages/app-shell/src/views/metadata-admin/previews/view-column-io.ts\ngrep -rn \"view-column-io\" packages/app-shell/src --include=*.tsx   # sole importer\n```\n"
+}

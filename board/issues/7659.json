@@ -2,8 +2,8 @@
   "number": 7659,
   "kind": "issue",
   "title": "[Decision] Two client-side field-validation vocabularies, one job — retire `ValidationEngine`'s snake_case rules onto `buildValidationRules`, or keep both?",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-zhuang",
@@ -12,7 +12,6 @@
   },
   "labels": [
     "domain:ui",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -21,11 +20,15 @@
   "milestone": null,
   "type": "Task",
   "created_at": "2026-09-04T15:21:35Z",
-  "updated_at": "2026-09-25T20:11:24Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T21:01:09Z",
+  "closed_at": "2026-09-25T20:59:50Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 4,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/7659",
   "body": "Successor to **#6964**, filed by the objectstack triage seat (R+145) as option **D** of that card's fork. #6964 is closed: it asked for a reachability ban, and the measurement showed the maintainer had already ruled that file **outside** the ban. What survives is the question underneath, and it is a published-surface retirement — manual floor.\n\n## The measured situation\n\n`@object-ui/core` publishes **two** client-side field-validation vocabularies for one job:\n\n| | vocabulary | consumers |\n|:--|:--|--:|\n| **live** | `buildValidationRules` → react-hook-form's compiled `rules` | 11 hits across 6 files |\n| **dead** | `ValidationEngine` / `defaultValidationEngine` / `validateFields`, dispatching `min_length`, `max_length`, `email`, `url`, `phone`, `date_min`, `min_items`, `field_match`, `field_compare` | **0**, ever |\n\n⭐ **Zero is not \"currently unused\" — it is \"never used, once, in the repo's entire history.\"** `git log -S --all` over `packages` returns exactly **one** commit for `defaultValidationEngine` and one for `validateFields`: the commit that created them. Control `export class ValidationEngine` is lit at the same commit, so the zeros are readings.\n\nAnd it is reachable public API by path: `packages/core/src/index.ts:15` → `validation/index.ts:18` → four named exports.\n\n## Why #6964 could not answer it\n\nThat card's disposition was to extend the existing `#3110` reachability ban to cover this engine. Falsified before any code was written: `aebfa4fd0` — the commit that **created** the ban test — added, in the same commit, `packages/core/src/validation/index.ts:10-13`:\n\n> The object-level rule ENGINE (`validators/`) is @deprecated (#3110) … **Field/record SHAPE validation (`schema-validator.js`, `validation-engine.js`) is unaffected: it is client-side form validation, not a mirror of a server rule.**\n\n⇒ The author named this file and put it **outside** the decision, while it was already consumer-free. ⭐ The carve-out is about **kind**, not liveness — corroborated by its other member, `schema-validator.js`, being live in production today.\n\n⇒ Banning it under the #3110 rationale would compile a claim that decision's own author denied, and would teach the next agent that **objectui bans client-side field validation** — false, and it would misroute work on the live `buildValidationRules` path. **A false rule is worse than no rule.**\n\n## The fork\n\n**A — retire it.** ADR-0049 enforce-or-remove: drop the four exports, delete the engine, and amend the `#3110` carve-out sentence so one record describes one decision.\n**B — keep both**, and say in the carve-out why two vocabularies are wanted.\n\n<!-- os-decision-facets -->\n\n- **① 项目长远合理性(权重 ≥50%,领起推荐)** —— 一份工作两套词表,其中一套**从未被消费过一次**,而两者都在公开 barrel 上。这正是「声明即强制」要消灭的形状:一个消费者(人或 agent)读到 `validateFields` 会合理认为它是这个库做字段校验的方式,而真正的路径是 `buildValidationRules`。①指向 **A** —— 收窄到一套,而不是为并存写一段解释。⛔ 「留着并加注释」是把架构问题降级成散文问题。\n- **② 实际业务拉动 —— 实测为零,且是最强的那种零**:不是「现在没人用」,是**仓库全部历史里从未被用过一次**,有点亮的对照。⇒ 按分歧推荐序,零拉动 ⇒ 荐不扩散;而这里「不扩散」的具体形态就是删除,因为它已经在公开面上了。⛔ 已发布零消费的能力不因沉没成本获得豁免。\n- **③ 防 AI 犯错 —— 决定性。** 今天一个 agent 要给表单加校验,库里给它两条路,其中一条**接不上任何渲染器**:写完 `validateFields` 调用,表单行为不变,测试不红,没有任何信号。⇒ 这是「AI 写元数据/代码犯错而无反馈」的教科书形态。A 让错误路径在编译期消失;B 只能靠文档,而文档正是 #6964 证明了会被读反的东西。\n- **④ 创业阶段不扩散** —— A 是删除,面变小;B 是承诺长期维护两套词表。④指向 **A**。\n\n**推荐:A。** 四棱同向。⭐ 但它必须走 `Clause-②: yes` 与契约复审档位:删的是 `@object-ui/core` 的公开导出,是破坏性收窄,需要 changeset 明说。\n**回退:B**,仅当维护者判断这套 snake_case 词表是要兑现的产品能力(例如给非 react-hook-form 的渲染器留的通用求值器)。若是,它需要的是**消费者**,不是注释。\n**置信缺口:** ⛔ 未测量仓外是否有人从 `@object-ui/core` 导入这四个符号。这是已发布包,所以「零消费者」只对本仓成立。\n\n## Implementation note, if A is ruled\n\n⚠️ **Do not anchor any pattern on the bare token `validate`.** It is a live react-hook-form rule **key** written by `buildValidationRules` (`rules.validate = { … }`, `packages/fields/src/index.tsx`), and `validateSchema` / `assertValidSchema` / `validateBaseSchema` are live production identifiers in the same package tree. Anchor on the module path or the qualified symbols.\n\n⚠️ Amend the `#3110` carve-out sentence in the same change. Leaving it would produce two contradictory records of one decision in one directory — the exact failure `#3110` was filed to fix.\n\nRefs: #6964 (closed; the measurement and the falsified premise) · objectui `aebfa4fd0` (#3110 / #3111) · `packages/core/src/validation/index.ts:10-13`."

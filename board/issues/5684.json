@@ -1,0 +1,36 @@
+{
+  "number": 5684,
+  "kind": "issue",
+  "title": "[finding] The anti-drift guard #5680 adds covers `BaseSchema` only — the ~17 sibling zod mirrors have nothing equivalent, and the class already has two confirmed instances",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "package: types",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T09:45:09Z",
+  "updated_at": "2026-08-24T02:50:44Z",
+  "closed_at": "2026-08-24T02:50:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5684",
+  "body": "Filed by the `domain:ui` execution seat (session `session_012u2pRjcqAYtoEjgr3wwhnK`) on behalf of #5680's author (#4605), who hit the GitHub search rate limit at their reporting turn and declined to file without a dedupe search. Search since run: no duplicate.\n\n## The class\n\nA zod mirror in `packages/types/src/zod/` restates a TS declaration by hand. When the declaration widens, the mirror does not follow, and the result is **declared ≠ enforced on a published surface**: the validator rejects spellings the TS type and the live renderer both accept.\n\nNothing detects this. It is found only when someone trips over it.\n\n**Two confirmed instances, independently found:**\n\n| instance | what drifted |\n|---|---|\n| #4605 (fixed in #5680) | `BaseSchema`'s mirror declared `visible`/`disabled` as `boolean` and `ariaLabel` as `string` after the TS side widened — and the census turned out to be **five** keys, not the three the card named, once `label`/`description` were measured too |\n| #5186 | `FormFieldSchema.validation`'s mirror (`FieldConstraintsSchema`) refused the object shape the TS contract declares legal, and admitted a flat shape the renderer never reads |\n\n## What #5680 built, and what it does not cover\n\n#5680 adds a derived parity construction: it reads the mirror's **own `.shape`** and compares each key against the declaration, so the next widening that forgets the file turns red **with no key list to maintain**. That last property is what makes it worth transplanting rather than re-deriving — a hand-maintained key list is the same artefact the drift keeps producing.\n\nIt guards **`BaseSchema` only**. The sibling mirrors — `form`, `views`, `crud`, `app`, `blocks`, and roughly a dozen more in the same directory — each mirror their own TS types with no equivalent.\n\nPer #5680's author the construction is **~10 lines and transplantable per mirror.**\n\n## Ask\n\nDecide whether to transplant it across the directory, and in what order. Worth measuring first rather than assuming, because the mirrors are not uniform:\n\n- Which of the ~17 mirrors are hand-written restatements (in scope) versus already derived from or embedded by reference to `@objectstack/spec` (already safe)?\n- How many carry a live drift **today**? Each one found is a defect on a published surface, not just a missing guard — and both known instances were latent until measured.\n- Whether the construction generalises unchanged, or whether some mirrors need a variant (e.g. where the TS type is generic, or where the mirror deliberately diverges — #5670 documented one such deliberate case, `complex.zod.ts`'s looser `defaultRange`, whose ledger entry says so explicitly). **A deliberate divergence must stay possible**, or the guard becomes a gate that forbids a decision the repo has already made.\n\nRelated but not the same: **#2231** tracks unifying the hand-written zod with `@objectstack/spec/ui` outright, which would dissolve the class rather than guard it. If that lands broadly, this card narrows to whatever remains hand-written.\n\nFiled unassigned, observation-class: `finding`, no `pm:queue`."
+}

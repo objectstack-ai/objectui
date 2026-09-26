@@ -1,0 +1,35 @@
+{
+  "number": 4991,
+  "kind": "issue",
+  "title": "[finding] 落盘清单那条 lucide-react pin 用 `inRepoRangesOf(...).sort()[0]` 取仓内区间的任意一员(最小值),自己不断言一致性 —— 分裂时可能对着少数派判绿",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T12:51:51Z",
+  "updated_at": "2026-08-24T14:21:10Z",
+  "closed_at": "2026-08-24T14:21:09Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4991",
+  "body": "Filed **unassigned** while implementing #4974(PR 见该卡)。**不由那个 PR 修**:#4974 的完成范围是两条锚**漂移**规则的报告完整性(逐名 `expect` 改累积);这一条是同文件另一条 `it` 里的**锚解析可靠性**,是另一类事实,不该顺手改进那个 PR。\n\n## 事实\n\n`packages/cli/src/__tests__/app-generator.test.ts` 的 `writes a manifest whose @object-ui ranges name this CLI version`(#4974 的 PR 落地后在 :1178 附近;#4973 引用过它的旧行号 :1139)末尾一行:\n\n```ts\nexpect(manifest.dependencies?.['lucide-react']).toBe(\n  Object.keys(inRepoRangesOf('lucide-react')).sort()[0]\n);\n```\n\n`inRepoRangesOf(name)` 返回的是**按区间分组**的字典(`{ range: [manifest, …] }`)—— 它被设计成能表达「仓内不一致」这件事,所以同文件那条锚规则在引用 `ranges[0]` **之前**先断言 `toHaveLength(1)`(仓内必须一致),分裂时点名分歧清单并要求先收敛。\n\n这一行没有那道前置:它直接取 `Object.keys(...).sort()[0]`,即**字符串序最小的那个区间**。也就是说仓内一旦分裂,它判的是「模板 == 分裂集合里字典序最小的那一员」,而这一员既不是多数派,也与「该依赖在本仓的区间」无关 —— 它只是排序的副产品。\n\n## 实测(#4974 反向验证 ②b 的副产物)\n\n为构造「前置败」把 `packages/plugin-tree/package.json` 的 `lucide-react` 单独改成 `^1.30.0`(其余 21 处为 `^1.31.0`)后,这条断言的期望值变成 **`^1.30.0`** —— 一个清单的少数派 —— 并以此判模板的 `^1.31.0` 为错:\n\n```\nFAIL … > writes a manifest whose @object-ui ranges name this CLI version\nAssertionError: expected '^1.31.0' to be '^1.30.0'\n```\n\n它这次是红的,但**红的理由是错的**:模板与 21 个清单一致,分歧在仓内。反过来更值得注意:若分裂里字典序最小的那一员恰好等于模板当时的区间,这一行就会**绿**,而锚本身是有歧义的。\n\n今天不可达:22 处声明一致,不存在分裂;并且同文件那条锚规则会在分裂时先红并点名(#4974 的 PR 把这一点固化为「前置整趟先跑」)。所以这条属观察类 —— 它的安全性来自邻居,而不是来自它自己。\n\n## 建议方向(不预设,交 triage)\n\n- 走同一条一致性前置:让这条 pin 也经「仓内必须一致」后再引用唯一区间(或直接复用锚规则算出的期望值),而不是 `.sort()[0]`;\n- 或者承认这条 pin 与锚规则重合(它判的是**落盘**清单,而锚规则判的是**构建**清单,而同文件 `writes exactly the routed app file map, byte for byte` 已经钉住两者逐字节相等),把 lucide 这一行删掉、只留 `@object-ui/*` 那一段。\n\n第二个方向要先确认那条 byte-for-byte 断言是否真的覆盖同一份清单(看起来是),否则会丢覆盖。\n\n同族参考:同文件注释自己写下过「这一行曾硬编码字面量,是锚规则的**第二份、更弱的副本**」——`.sort()[0]` 是那份副本残留的另一半。"
+}

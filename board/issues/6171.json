@@ -1,0 +1,37 @@
+{
+  "number": 6171,
+  "kind": "issue",
+  "title": "finding(docs): `core/report-schema.mdx` names its subject `ReportSchema` — a name this tree does not declare, and one `@objectstack/spec` uses for a different thing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "finding",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T22:10:14Z",
+  "updated_at": "2026-08-25T00:08:11Z",
+  "closed_at": "2026-08-25T00:08:11Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6171",
+  "body": "Filed unassigned out of #6086 round 3, noticed while naming the shape on that page's property tables. The tables were named `ReportComponentSchema` in PR #6168; this is the surrounding prose, which is a different sentence and was left alone.\n\n## The fact\n\n`content/docs/core/report-schema.mdx` calls its subject `ReportSchema` in three places:\n\n- frontmatter `title: \"Report Schema (ReportSchema)\"`\n- the H1 lead: *\"The `ReportSchema` enables creating comprehensive data reports…\"*\n- (the page's own example fence, by contrast, imports `ReportComponentSchema`)\n\n`ReportSchema` resolves to nothing in this repo — not in `@object-ui/types`' built `.d.ts`, not in `packages/*/src`. The shape the page actually documents is **`ReportComponentSchema`** (`packages/types/src/reports.ts:354`), which is what its own example imports and what all four rows of its Basic Configuration table are members of.\n\n## Why it is worse than a typo\n\n`ReportSchema` is not an unused name — `@objectstack/spec` **does** export it, for the dataset-bound report shape shipped as `json-schema/ui/Report.json` (`name` / `label` / `dataset` / `rows` / `columns` / `values` / …). That is the shape `content/docs/plugins/plugin-report.mdx` documents, and it is a different thing from the `type: 'report'` component node this page is about. So a reader who follows the name lands on a real, wrong declaration rather than on nothing.\n\nThe two pages therefore use one name for two shapes, in the same docs tree.\n\n## Suggested resolution\n\nRename the subject on this page to `ReportComponentSchema` (title, H1 lead, and any other prose reference), which is what the page's own code already says. No source change.\n\n## Reproduce\n\n```\nhead -12 content/docs/core/report-schema.mdx\ngrep -rn 'ReportComponentSchema' packages/types/src/reports.ts | head -3\nls node_modules/@objectstack/spec/json-schema/ui/Report.json\n```\n\nRefs: #6086 · PR #6168 (named the tables on this page) · #6155 (the same disease: one name, several shapes)."
+}

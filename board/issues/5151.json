@@ -1,0 +1,37 @@
+{
+  "number": 5151,
+  "kind": "issue",
+  "title": "没有任何门禁校验文档里 fenced shell 示例的可执行性:实测 shell 转义泄漏进代码块对全部门禁不可见",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-18T06:31:53Z",
+  "updated_at": "2026-08-25T02:33:46Z",
+  "closed_at": "2026-08-25T02:33:46Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5151",
+  "body": "在修 #5150(`AGENTS.md` §9 的 `git commit -F -` 示例带着 `'\"'\"'` 转义残留落地)时做反向验证得到的测量结果。缺陷本身一行就修完了;**值得单开一卡的是它为什么能活着通过一次合并**。\n\n## 测量\n\n在修复分支上把损坏字节**原样重新植入**(重新植入后 `check-changeset-presence` 报告「0 file(s) changed」对比 merge-base,这独立证明了重植的字节与 `origin/main` 上的缺陷逐字节相同),然后跑按变更路径 `AGENTS.md` 推导出的完整门禁并集:\n\n| 门禁 | 损坏形态在场时的退出码 |\n|---|---|\n| `check-control-bytes` | `0` |\n| `check-doc-links` | `0` |\n| `check-changeset-presence` | `0` |\n| `check-changeset-no-major` | `0` |\n\n**全绿。没有任何一条变红。**\n\n各自的原因都不是疏忽,是扫描面本来就不覆盖:\n\n- `check-control-bytes` 只判控制字节(`SCANNED_BYTES`)。`'` 是 0x27、`\"` 是 0x22,都是可打印 ASCII —— 按设计不在集合里。\n- `check-doc-links` 确实把 `AGENTS.md` 收进扫描面(`{ path: 'AGENTS.md', rule: 'disk' }`),但它解析的是**链接与路径**;该脚本自己的注释就写着 `AGENTS.md` 根本没有 markdown 链接。代码块内容它不看。\n- 两条 changeset 门禁只判「有没有声明」,不读文件内容。\n\n## 泛化后的洞\n\n这不是「`AGENTS.md` 少了一条检查」,而是:**仓库里任何 markdown 的任何 fenced shell 示例,其可执行性都不被任何门禁判定**。一段 ` ```bash ` 代码块可以是语法不成立的、可以是永不终止的 heredoc、可以带着写入时泄漏的转义残留,CI 全绿照常合并。\n\n放大项有两个,叠在一起才是这卡的分量:\n\n1. **失败形态无报错可看。** #5150 那条照抄下去不是「报错退出」,是 heredoc 终止符不匹配、命令**挂住**。读者不会归因到文档写错了。\n2. **agent 面文本按会话次数放大。** `AGENTS.md` / `CLAUDE.md` / `skills/**` 是之后每个会话都要读的输入,坏示例不是被踩一次,是被每个读到它的座席各踩一次 —— 而这三处恰恰是最常用 shell 代码块做示范的地方。\n\n而且**写入路径本身就是产生这类残留的地方**:agent 用套在单引号里的 shell heredoc 写文件时,`'` + `\"` + `'` + `\"` + `'` 这串转义会漏进内容。#5150 就是这么来的。也就是说这个缺陷类有一个固定的、可复现的产生机制,却没有任何一侧拦它 —— 产生侧没拦,校验侧也没看。\n\n## 可能的方向(未做取舍,留给 triage)\n\n- 便宜的一档:对 markdown 里 ` ```bash ` / ` ```sh ` 块跑 `bash -n` 语法检查(需要一份「示意性片段」的豁免约定,因为文档里合法地存在尖括号占位符 `< placeholder >` 之类不可解析的写法)。\n- 更窄也更准的一档:只针对已知的机器产生的残留形态做字面扫描(`'\"'\"'` 这一串出现在 fenced 块里几乎必然是泄漏),扫描面覆盖 `AGENTS.md`、`CLAUDE.md`、`skills/**`、`content/docs/**`。窄、零误报、直接盖住已实测发生过的那一类。\n- 也可以判定为不值得建门禁 —— 那么这卡的价值就是把测量结果留档,让下一个人不必重跑一遍才知道这里是盲区。\n\n推荐从第二档起步:它成本最低、误报为零,且精确覆盖已经实际发生过一次的缺陷类;第一档可以之后再谈。\n\n相关:#5150(本次的实例,已修)、#4938(`check-doc-links` 扫描面的另一个洞,判的是链接不是代码块,不是同一件事)。\n\n由 dev 座席在 #5150 的反向验证中测得,未认领。\n\n注:上面那处尖括号占位符原本写作紧贴的 `<` + 字母形式,被 GitHub 正文 sanitizer 当作 HTML 标签吃掉了,已改为 `<` 后加空格的写法 —— 恰好又是一个「写入路径本身产生残留」的同族例子。"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 5442,
+  "kind": "issue",
+  "title": "16 of 90 versioned releases never reached npm — a release-PR merge that lands with changesets pending versions again instead of publishing (npm is currently a release behind: repo 17.6.0, npm 17.5.0)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-20T18:59:54Z",
+  "updated_at": "2026-08-24T14:38:01Z",
+  "closed_at": "2026-08-24T14:38:01Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5442",
+  "body": "Found while implementing #5404 (release lane). Out of that card's scope — filing rather than fixing. ⛔ Not fixed by #5404 and #5404 does not address it.\n\n## The reading\n\n`packages/core/CHANGELOG.md` declares **90 versions**. npm has **74** of them. Missing:\n\n`17.6.0, 17.4.0, 17.0.0, 13.0.0, 12.1.0, 12.0.0, 11.1.0, 5.2.0, 5.1.0, 4.3.1, 4.2.0, 4.1.0, 4.0.0, 3.2.0, 0.2.2, 0.2.1`\n\n`@object-ui/react` and `@object-ui/types` are missing **exactly the same set**, which is the counter-probe that matters: this is not a package failing to publish, it is whole releases never publishing. The repo publishes a 39-package fixed group, so every release bumps every package; a gap is a release, not a package.\n\n**Right now**: `packages/core/package.json` on `main` says `17.6.0`; npm `dist-tags.latest` is `17.5.0`.\n\n## The mechanism\n\n`changesets/action@v1` publishes only in the branch where the working tree holds **no changeset files at all** ([src/index.ts](https://raw.githubusercontent.com/changesets/action/v1/src/index.ts)):\n\n- `!hasChangesets && hasPublishScript` → publish\n- `hasChangesets && !hasNonEmptyChangesets` → \"All changesets are empty; not creating PR\" → **does nothing**\n- `hasChangesets` → `runVersion` (create/update the release PR) → **no publish**\n\nA release PR is cut from `main` at time T and merges at T+n. On a branch taking ~18 merges a day, `main` has almost always accumulated new changesets in between, and the merge PR does not remove them. So the release-merge commit lands with changesets present, the action takes `runVersion`, and the version it just bumped to is never published — the next release PR bumps past it.\n\nMeasured, all three from the same commits:\n\n| release-merge commit | run | run conclusion | changesets at that commit | version bumped to | on npm? |\n|---|---|---|---|---|---|\n| `cfeb378b5` (#3598) | 3370 | **success** | **3** | 17.4.0 | **no** |\n| `5bf5d2cb6` (#4126) | 3606 | failure (`Run tests`) | 0 | 17.5.0 | yes, 6h50m late |\n| `59f61cfb8` (#4655) | 3901 | failure (`Run tests`) | **1** | 17.6.0 | **no** |\n\n`cfeb378b5` is the load-bearing row: a **green** release run that published nothing, purely because three changesets were pending. And `5bf5d2cb6` shows the recovery path that does exist — its publish was blocked, then a later push that still found `.changeset/` empty published 17.5.0 at `2026-08-14T15:39:55Z`. That recovery is luck: it only works while no changeset lands first.\n\n## Corollary worth noting\n\nThe repo's declared convention for CI/docs-only PRs is a changeset with **empty frontmatter** (`.changeset/delete-dead-release-workflow-5405.md`, and #5404's own). Those files make `hasChangesets` true, so they land in the middle branch above: the action does nothing — and, in particular, an empty-frontmatter changeset merging first is enough to block the catch-up publish of an already-bumped version.\n\n## Why #5404 does not close this\n\n#5404 removes the duplicate `pnpm test` (so the `Run tests` failure column above goes away) and stops the concurrency group discarding runs (so the run always executes). Both make it *more* likely that a publish-eligible commit gets its run. Neither changes the branch the action takes: a merge commit that carries changesets still versions instead of publishing, whatever the workflow does around it.\n\n## Not proposing a fix here\n\nThe shapes differ in what they trade, and picking one is a maintainer call — e.g. having the release PR consume only the changesets it was cut from, or a separate publish path keyed on \"manifest version not on npm\" rather than on \"no changesets pending\". Both touch the publish path, which #5404 is explicitly forbidden to change.\n\nEvidence gathered read-only against the Actions API and `registry.npmjs.org`. ⛔ No release was executed."
+}

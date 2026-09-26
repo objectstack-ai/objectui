@@ -1,0 +1,36 @@
+{
+  "number": 5786,
+  "kind": "issue",
+  "title": "`content/docs/guide/release-notes.md` still presents v3.3.0 (2026-04-17) as the newest release, ~14 major versions behind the packages it documents",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T08:23:49Z",
+  "updated_at": "2026-08-24T16:44:57Z",
+  "closed_at": "2026-08-24T16:44:57Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5786",
+  "body": "Observed while implementing #5409 (direction C) on that same page. Filed unassigned, deliberately **not** fixed in that PR — #5409's ruled scope is the changelog-automation claims only, and this is a different fact with a different fix.\n\n## Measured\n\n`content/docs/guide/release-notes.md` is a published docs page (\"Release Notes\", reachable on the site). Its newest and only versioned section is:\n\n```\n## v3.3.0 — 2026-04-17 · First Official Release 🚀\n```\n\nMeanwhile the packages it describes are far past that. Measured against the GitHub Releases API on 2026-08-23:\n\n| source | version |\n|:--|:--|\n| latest releases page (`@object-ui/types`, `@object-ui/react`, `@object-ui/runner`, … 10 of 10) | `17.5.0`, published 2026-08-14 |\n| `QUICK_REFERENCE.md` \"Current Release\" (pinned by `quick-reference-current-release-4143.test.ts`) | `17.6.0` |\n| this page | `3.3.0`, 2026-04-17 |\n\nThe page says \"This page summarises **every** released version of ObjectUI\" while stopping ~14 major versions short, and the v3.3.0 section is still headed \"**First** Official Release\".\n\n## The compatibility table drifted with it\n\nThe same section's table (around the \"Compatibility\" heading) states:\n\n| claim on the page | measured |\n|:--|:--|\n| `@objectstack/spec` `^4.0.4` | repo pins `^17.0.0-rc.5` |\n| `@objectstack/client` `3.3.0` | far behind |\n| Node.js `≥ 18` | root `engines` is `>=22` |\n\nThis is the same drift shape as the already-closed #3689 (`content/docs/utilities/cli.mdx`) and #3645 (35 package READMEs) — a hand-written version block on a docs page, pinned by nothing. Those two were fixed at their own sites; this page was not in either's scope and has no pin, so it kept drifting.\n\n## Why it is worth a card rather than a shrug\n\nThree surfaces point readers here or at its neighbour as the place to learn what shipped, and #5409 is in the middle of making those pointers honest. A \"Release Notes\" page whose newest entry is four months and fourteen majors old undercuts that work: a reader who follows the corrected pointers still lands on a page telling them 3.3.0 is current.\n\nNote the neighbouring mechanism that *does* hold: `QUICK_REFERENCE.md`'s \"Current Release\" block is pinned by `scripts/__tests__/quick-reference-current-release-4143.test.ts` and `sync-quick-reference-release.test.ts`, which is why it tracks 17.6.0 — and why its drift shows up as a red gate (#4642, #5394) instead of silently. This page has no equivalent, which is the durable half of any fix here.\n\n## Not proposing a resolution\n\nWhether the answer is to refresh the page, to pin it the way `QUICK_REFERENCE.md` is pinned, to generate it, or to retire it in favour of the per-package changelogs is a judgement call about what this page is for — not a mechanical edit. Recording the measurement only.\n\nEvidence: #5409 (and its PR #5785), #3689, #3645, #4143, #4642, #5394."
+}

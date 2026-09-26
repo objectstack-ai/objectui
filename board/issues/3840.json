@@ -1,0 +1,34 @@
+{
+  "number": 3840,
+  "kind": "issue",
+  "title": "[finding] `object-form` 与 `object-master-detail-form` 在 binding-reach 探针的自动 fixture 下渲染成错误卡(`reading 'map'`)—— 断言仍成立,但两个分支的崩溃守卫因此没法一起开",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-08T18:53:29Z",
+  "updated_at": "2026-08-24T02:56:13Z",
+  "closed_at": "2026-08-24T02:55:34Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3840",
+  "body": "发现于 #3808 的实施过程:给 `public-block-binding-reach.test.tsx` 的 ledgered 分支加崩溃守卫时,顺手把守卫加到了两个分支上,于是这两个块立刻红了 —— 它们**一直**在这个探针里渲染成错误卡,只是没人看。#3808 的 PR 已把守卫收窄回 ledgered 分支(那才是它的改动可能造成的空绿),这两条另记本单。\n\n按 observation-class 只贴 `finding`、不排队:这两个块的**断言本身仍然成立**(见下),所以今天没有假绿,请 triage 决定是产品缺陷还是 fixture 缺陷。\n\n## 事实(objectui `origin/main` @ `c85268256` + #3808 分支)\n\n`apps/console/src/__tests__/public-block-binding-reach.test.tsx` 用 `sampleFor` 按每个 block 声明的 `inputs` 自动填一份 schema,然后挂载并记录数据层调用。把「渲染没崩」这一条也断言上之后:\n\n```\n× object-form asks the data layer for its objectName\n  <object-form> threw during render …\n  Component \"object-form\" failed to render\n  Cannot read properties of undefined (reading 'map')\n\n× object-master-detail-form asks the data layer for its objectName\n  Component \"object-master-detail-form\" failed to render\n  Cannot read properties of undefined (reading 'map')\n```\n\n其余 14 个候选块全部渲染正常。\n\n## 为什么今天不是假绿\n\n这两个块**不在** `NO_DATA_REACH` 里,所以它们走的是「必须有数据调用」那一支:\n\n```\nexpect(reached.length, …).toBeGreaterThan(0);\n```\n\n实测它们**确实**发出了带 `PROBE_OBJECT` 的调用 —— 崩溃发生在取到数据之后的某一趟渲染里,不是在 fetch 之前。所以断言是**挣来的**,不是靠「什么都没产出」蒙的。\n\n对比 ledgered 分支(如 `record:related_list`)就完全不同:那里的通过条件是「**没有**数据调用」,一个崩掉的块恰好满足它 —— 那才是必须堵的空绿,#3808 堵的就是那一处。\n\n## 两种可能,需要 triage 分辨\n\n- **(a) fixture 缺陷**。这个探针的头注释已经记了**四次**同一个教训:「a plausible value for EVERY input is not the same as a plausible CONFIGURATION」(`columns: []` 让列表走空态不 fetch;裸 Proxy 被 spread 后丢掉所有方法;`sections: ['name']` 被 spread 成 `{0:'n',1:'a'}` 后在 `DetailView` 里死于 `reading 'name'`)。`reading 'map'` 的形状高度相似 —— 某个 `array` 输入被填成 `['name']`,而 form 侧期待的是对象数组,于是在某处 `.map` 前先取了个 `undefined`。若是这一类,修法是给该 input 一个像样的样本,并把它加进这个文件的样本表 + 头注释(第五、第六次)。\n- **(b) 产品缺陷**。form 家族在某个合法但不完整的配置下裸取了一层。若是这一类,和 #3838(`RelatedList.tsx:1299` 裸取 `add.picker.object`)是同一族:一个可选子键缺失,整块变错误卡。\n\n分辨成本很低:把 `sampleFor` 生成的 schema 打出来,逐个 input 换成 `undefined` 二分,定位到具体那一条,再看该 input 的 spec 形状是不是允许样本那种值。\n\n## 附带的建议\n\n无论 (a) 还是 (b),这个探针最终都应该像它的兄弟 `record-block-record-reach.test.tsx` 那样对**两个**分支都断言「渲染没崩」(那个文件里叫 `assertRendered`)。现在只有 ledgered 分支有,是因为 #3808 不该把两个 pre-existing 崩溃拖进一个补 `inputs` 声明的 PR。这两条修掉之后,守卫就可以提到断言之前、对所有候选生效。\n\n## 参考位置\n\n- `apps/console/src/__tests__/public-block-binding-reach.test.tsx` —— `sampleFor`(样本生成)、`dataCallsFor`(现在会把 `html` 一起带出来)、ledgered 分支的崩溃守卫\n- `apps/console/src/__tests__/record-block-record-reach.test.tsx` —— `assertRendered`,两分支通用守卫的现成形状\n\n关联:#3808、#3838、#3149、objectstack#4472、objectstack#4413\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 5367,
+  "kind": "issue",
+  "title": "check-node-esm-load.mjs's readTsconfig() destroys any tsconfig whose JSON strings contain `/*`, so effectiveNoEmit() silently answers from its catch block for packages/auth and packages/fields",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "tooling"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-20T01:32:48Z",
+  "updated_at": "2026-08-24T02:44:56Z",
+  "closed_at": "2026-08-24T02:44:27Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5367",
+  "body": "Found while clearing the six small packages of #5214, by running the gate's own exported helpers directly. Not fixed there — it is gate machinery, not the defect that card is about, and the direction of the failure is currently safe.\n\n## What was measured, 2026-08-20\n\n```js\nimport { readTsconfig, effectiveNoEmit } from './scripts/check-node-esm-load.mjs';\nreadTsconfig('packages/auth/tsconfig.json')\n//   SyntaxError: Expected ':' after property name in JSON at position 182\nreadTsconfig('packages/fields/tsconfig.json')\n//   SyntaxError: Expected ',' or '}' after property value in JSON at position 87\n```\n\n`readTsconfig` strips comments with two regexes over the raw text:\n\n```js\n.replace(/\\/\\*[\\s\\S]*?\\*\\//g, '')      // block comments\n.replace(/^[ \\t]*\\/\\/.*$/gm, '')       // whole-line comments\n```\n\nNeither knows what a JSON string is. `packages/auth/tsconfig.json` contains\n\n```json\n\"paths\": { \"@/*\": [\"src/*\"] },\n...\n\"exclude\": [\"node_modules\", \"dist\", \"**/*.test.ts\", \"**/*.test.tsx\"]\n```\n\nThe `/*` inside `\"@/*\"` opens a \"block comment\" that runs to the `*/` inside `\"**/*.test.ts\"` at the bottom of the file, eating `paths`, `include` and most of `exclude`. What survives the strip is:\n\n```\n  \"paths\": {\n    \"@*.test.ts\", \"**/*.test.tsx\"]\n}\n```\n\n`packages/fields/tsconfig.json` loses everything after `\"outDir\": \"dist\"` the same way, via the `packages/*/src` written inside one of its `//` comments.\n\n## Why nothing is red today\n\n`effectiveNoEmit` catches the parse failure deliberately:\n\n```js\n} catch {\n  // An unreadable config is graded as emitting, so a parse failure widens the\n  // scan rather than silently dropping a package out of it.\n  return false;\n}\n```\n\nSo both packages are graded \"emitting\", `buildPreservesSpecifiers` returns true, and they land **inside** the ratchet's scope — which is where they belong. The gate's verdict is right; it just is not being reached by the code that is supposed to decide it.\n\n## Why it is still worth fixing\n\n- The conservative catch is the documented fallback for an *unreadable* config. It is silently absorbing a *readable* one, so the safety margin the comment describes is already spent, and nobody can see it.\n- `packages/fields` is the case where the answer actually matters and is actually wrong: its `tsc` step inherits the root's `noEmit: true` (it only type-checks; `dist` comes from vite). Correctly parsed, `effectiveNoEmit` returns **true** and `fields` would drop **out** of the specifier leg. Measured alongside #5214: `fields`' `dist` carries **0** extensionless relative specifiers even before that card's fix — its published entry failed via `@object-ui/providers`, never on its own file. So the gate is currently ratcheting `fields`' *sources* on the strength of a verdict it never computed. (Whether it *should* keep ratcheting them is a real question and probably yes — but it should be a decision, not an accident.)\n- Any future package whose tsconfig genuinely should be excluded will be included instead, with no signal.\n\n## Suggested shape\n\nParse with a real JSONC reader rather than regexes — TypeScript itself ships `ts.parseConfigFileTextToJson`, and the repo already depends on `typescript`. If a dependency-free strip is preferred, it has to be string-aware: track `\"` and skip comment openers inside strings.\n\nWhatever the fix, it should come with the assertion this class of bug needs: that `readTsconfig` round-trips **every** tsconfig in the repository without throwing. That is the check that would have caught it, and it is cheap.\n\nFound via #5214."
+}

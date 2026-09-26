@@ -1,0 +1,30 @@
+{
+  "number": 6139,
+  "kind": "pull_request",
+  "title": "docs(layout): annotate the sidebar-nav grouped-navigation example as NavGroup[]",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T20:30:12Z",
+  "updated_at": "2026-08-24T20:51:44Z",
+  "closed_at": "2026-08-24T20:51:43Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": "2026-08-24T20:51:43Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6139",
+  "body": "Fixes #6131\n\nTwo files: `content/docs/layout/sidebar-nav.mdx` (two lines) and a changeset.\n\n## The defect\n\nThe \"Complete Example\" block left `navigationItems` unannotated, so its\n`badgeVariant: 'destructive'` widened to `string`. `SidebarNav` declares\n`badgeVariant?: 'default' | 'destructive' | 'outline'`, so the array stopped assigning to\n`items: NavItem[] | NavGroup[]`. TypeScript then reports the union's *other* branch, which\nis why the message reads \"missing the following properties from type 'NavItem': title,\nhref\" and looks at first like a wrong data shape. The data shape was always right — the\nannotation was missing.\n\n## The fix\n\n```ts\nimport { SidebarNav, type NavGroup } from '@object-ui/layout';\nconst navigationItems: NavGroup[] = [\n```\n\nThe type is imported **in the same block**, because every block compiles in isolation. An\nannotation naming a type the block cannot see errors on the annotation itself, at which\npoint TypeScript stops checking the literal underneath and the TS2322 disappears — the\nfalse-green shape already recorded for `guide/theming` in\n`scripts/check-doc-snippet-types.mjs`. The import here resolves; the measurements below\nare what prove it.\n\n## Measurement, re-derived on current `origin/main` (base `d5b80c678`, verified at `1803226b7`)\n\nThe issue's numbers were taken before PR #6129 merged; the population has since grown from\n211 to 224, so every number below is re-derived rather than inherited.\n\nThe block is still `plaintext`-fenced on main, so it is **not** in the compile population —\n`--build-filter` does not even list `@object-ui/layout`. Re-fencing `content/docs/layout`\nis #5867's lane, so the fence is left alone here and every measurement uses a throwaway\nre-fence of that one fence under an `EXIT` trap.\n\n| run | blocks | declared fragments | failed | exit |\n|---|---|---|---|---|\n| baseline, branch as shipped (fence `plaintext`) | 223 | 111 | 0 | 0 |\n| probe re-fenced, **before** the annotation | 224 | 111 | **1** | **1** |\n| probe re-fenced, **after** the annotation | 224 | 111 | 0 | 0 |\n\nReproduced diagnostic, before the fix:\n\n```\ncontent/docs/layout/sidebar-nav.mdx:235:7  TS2322: Type '{ label: string; items: (...)[] }[]'\n  is not assignable to type 'NavItem[] | NavGroup[]'.\n```\n\n**Non-vacuity.** The annotation is load-bearing, not decorative: removing it again (still\nre-fenced) returns the identical `TS2322` at the identical site `235:7`, and\n`Semantic phase: 224 of 224 block(s) judged, 1 failed`. Restoring it returns exit 0. Both\nmutation legs were confirmed on disk by grepping for the specific text inserted and removed\nbefore reading any result, and both restore legs ran from an `EXIT` trap against the\ncommitted fix — `git checkout HEAD -- ` followed by the path, never the bare form that\nomits `HEAD`.\n\nDeclared fragment count is **unmoved at 111**, no `FRAGMENT_MARKER` is added, and\n`UNGATED_DOCS`, the ledger and the gate itself are untouched.\n\n## Gates run, each quoting its own verdict line (all at `1803226b7`, tree clean)\n\n- `check:doc-snippets` exit 0 — `Semantic phase: 223 of 223 block(s) judged, 0 failed.` /\n  `Every covered documentation snippet compiles against the built types.`\n- `check:doc-types` exit 0 — `Every documented component type is registered.`\n- `check:control-bytes` exit 0 — `check-control-bytes: OK (scanned 5083 tracked text file(s); skipped 85 binary).`\n- `docs:check-links` exit 0 — `Links are valid across 15 scan roots.`\n- vitest from the repo **root**, `packages/layout/src/__tests__` plus\n  `scripts/__tests__/check-doc-snippet-types.test.ts` — `Test Files 20 passed (20)`,\n  `Tests 232 passed (232)`.\n- Docs site build (`@object-ui/site`) exit 0, and the rendered\n  `apps/site/.next/server/app/docs/layout/sidebar-nav.html` contains both the annotated\n  `navigationItems: NavGroup[]` and the `type NavGroup` import, so the page still renders.\n\n**Lint, narrowing declared rather than skipped.** The linted population was read from\neslint's own configuration, not guessed: `eslint --no-inline-config --format json` over the\ntwo changed files reports **2 files, 0 errors**, both with\n`File ignored because no matching configuration was supplied` — `content/docs/**` and\n`.changeset/**` are outside the lint population entirely. No TypeScript or JavaScript source\nfile changed, so no untouched file's lint verdict can move either.\n\nOne note on the environment, not on this diff: the site build fails with\n`Module not found: Can't resolve '@object-ui/plugin-gantt'` until the workspace packages are\nbuilt, because the root `build` script excludes the site. After\n`turbo run build --filter='!@object-ui/site'` it is green.\n\n## Scope\n\nThe **type** defect only. The fence stays `plaintext` and no other `content/docs/layout`\npage is touched — #5867 remains open and its layout batch is not addressed here. With this\nlanded, the layout group has no remaining type defect of its own, so that batch should be a\npure re-fence.\n\nNot marked ready and auto-merge is not enabled; the PM verifies CI and lands it.\n\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_\n"
+}

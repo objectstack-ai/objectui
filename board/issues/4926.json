@@ -1,0 +1,35 @@
+{
+  "number": 4926,
+  "kind": "issue",
+  "title": "tsconfig.scripts.json claims to match apps/console/tsconfig.node.json's option set but omits allowImportingTsExtensions — the shared vite-*.ts files are green in one program, red in the other",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T05:40:30Z",
+  "updated_at": "2026-08-24T10:34:24Z",
+  "closed_at": "2026-08-24T10:34:24Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4926",
+  "body": "Observation-class finding, dormant today. Filed while implementing objectui#4854; **not** fixed there (out of scope, and the PR routed around it instead).\n\n## The claim, and where it stops holding\n\n`tsconfig.scripts.json`'s header states the invariant explicitly:\n\n> Two of the files here (`scripts/vite-crypto-stub.ts`, `scripts/vite-maplibre-worker.ts`) ARE already compiled, by `apps/console/tsconfig.node.json` … They are deliberately NOT excluded below … The cost of the overlap is paid by **matching that project's option set** (strict, ESNext, bundler resolution, and notably NO `noImplicitReturns`), so a shared file cannot be green in one project and red in the other.\n\nThe option sets do not in fact match. `apps/console/tsconfig.node.json:30` sets `\"allowImportingTsExtensions\": true` (its header explains why: the console's config imports carry real `.ts` extensions so Vite's `configLoader: 'native'` can load them — objectui#3384). `tsconfig.scripts.json` sets no such option, and its `compilerOptions` are spelled out rather than inherited, so nothing supplies it.\n\n## Measured\n\n`tsconfig.scripts.json` sets `\"noEmit\": true`, so `allowImportingTsExtensions` is legal there; it is simply absent. The divergence is invisible today only because no `.ts` file under `scripts/` currently writes a specifier ending in `.ts` — the two named shared files import nothing relative, and `scripts/__tests__/*.ts` spell their imports extensionless.\n\nIt surfaces the moment anything under `scripts/` reaches the console's build config. Adding a test there that statically imported `apps/console/vite.config.ts` produced, from `pnpm type-check:scripts`:\n\n```\napps/console/vite.config.ts(16,32): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.\napps/console/vite.config.ts(17,36): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.\n```\n\nLines 16 and 17 are the pre-existing imports of `scripts/vite-crypto-stub.ts` and `scripts/vite-maplibre-worker.ts` — the exact two files the header names as deliberately shared, red in one program while `tsc -b apps/console/tsconfig.node.json --force` stays green on the same bytes. That is the shape the header says the matched option set prevents.\n\n## Why it is filed rather than fixed\n\nPR for objectui#4854 needed to evaluate the console's config from a `scripts/__tests__` test. It assembles the specifier at runtime instead, which keeps `apps/console/vite.config.ts` out of the scripts program entirely — the program boundary the header is really defending. Widening a shared tsconfig as a rider on a build-hook PR is the wrong place for the decision, so it is left here.\n\nTwo options for whoever picks it up, neither obviously free:\n\n1. Add `\"allowImportingTsExtensions\": true` to `tsconfig.scripts.json`, restoring the stated invariant. Cheap, and it makes the header true again.\n2. Decide the invariant is narrower than written — the option is a property of *how the console loads its config*, not of the shared files — and correct the header instead, naming `allowImportingTsExtensions` as a deliberate difference with its reason.\n\nEither way, `scripts/__tests__/scripts-type-check.test.ts` is where the choice should be pinned; it already asserts `noEmit`/`strict`/`composite` on this project and would be the natural home for an option-parity assertion against `apps/console/tsconfig.node.json`, which is what would have caught this.\n\nNothing a user hits, nothing red on `main` — hence `finding` and no `pm:queue`."
+}

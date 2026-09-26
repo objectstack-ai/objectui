@@ -1,0 +1,32 @@
+{
+  "number": 6091,
+  "kind": "pull_request",
+  "title": "test(scripts): assert shipped sidebar.tsx keeps the Tailwind v4 `(--var)` spelling",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T16:25:13Z",
+  "updated_at": "2026-08-24T17:00:03Z",
+  "closed_at": "2026-08-24T17:00:02Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": "2026-08-24T17:00:02Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6091",
+  "body": "Fixes #6027\n\nTests only — no published behaviour changes. Verified green at `0eadb67ab`.\n\n## What and why\n\nThe Tailwind v4 custom-property migration (`925051db6`) on `packages/components/src/ui/sidebar.tsx` is an **undeclared** local edit: it lives only as prose in `shadcn-components.json` (`localEdits`), with nothing in `scripts/shadcn-local-patches.mjs` re-applying it. A `--force` sync — which bypasses the `localOnlyLines` refusal by design — drops it.\n\nOf `sheet`/`sidebar`'s four undeclared edits it is the outlier: the v3 spelling **compiles, renders, and emits invalid CSS that browsers silently discard** (the sidebar collapses to 0 width over the main content). This adds the cheap offline assertion that catches that regression from the other side.\n\nPer the dispatch ruling, the migration is deliberately **not** declared as a patch family — that would anchor ~20 class strings, each a maintenance surface that can drift out of agreement with upstream, the exact failure class #4996 just finished measuring.\n\nWired into the existing `scripts/__tests__/shadcn-local-patches.test.ts` suite. No new workflow.\n\n## Asserted against the SHIPPED file, not a fixture\n\nThe regression guarded is \"a forced sync overwrote the shipped file\", so a fixture-based check would pass while the defect landed. The block reads `packages/components/src/ui/sidebar.tsx` off disk.\n\n## The pattern distinguishes the two spellings\n\nIt refuses `[` followed **immediately** by a custom-property name and closed by `]` (`w-[--sidebar-width]`) — not any `--var` occurrence. Measured on the shipped file:\n\n| kind | count | verdict |\n|---|---|---|\n| v4 shorthand (`w-(--sidebar-width)`) | **7** | tolerated |\n| `var()` inside an arbitrary value (`w-[calc(var(--sidebar-width-icon)_+_1rem)]`, `shadow-[0_0_0_1px_hsl(var(--sidebar-border))]`) | **6** | tolerated |\n| v3 bare custom property (`w-[--sidebar-width]`) | **0** | refused |\n\nAlso deliberately tolerated: the arbitrary *property* form `[--sidebar-width:16rem]`, which **sets** a variable and remains valid on v4 — the trailing `:` breaks the match. Guarding the inverse matters: without it the check is a trap for whoever does the next migration correctly.\n\nAll three counts are pinned, so a sync that quietly **deletes** the custom-property utilities rather than respelling them cannot pass as \"no v3 spellings found\".\n\n## Non-vacuity — shown going red\n\nReintroduced the v3 spelling on line 199, proved it reached disk by grepping the literal (not by trusting the editor's exit code):\n\n```\n-- injected literal 'w-[--sidebar-width]' occurrences: 1\n199:            \"flex h-full w-[--sidebar-width] flex-col bg-sidebar text-sidebar-foreground\",\n-- removed literal 'w-(--sidebar-width) flex-col' occurrences (expect 0): 0\n```\n\nThe assertion failed **naming the spelling and the file**:\n\n```\nAssertionError: packages/components/src/ui/sidebar.tsx contains Tailwind v3\nbare-custom-property arbitrary value(s), which Tailwind 4.x compiles to invalid\nCSS that browsers silently discard. Rewrite each `[--var]` as `(--var)`\n(see 925051db6). Offenders:\n  packages/components/src/ui/sidebar.tsx:199: [--sidebar-width]\n```\n\nThree tests went red (`3 failed | 40 passed`) — the guard, the inverse guard (`expected 6 to be greater than or equal to 7`) and the count pin (`v4Shorthand: 6` vs `7`). Restored with `git checkout HEAD -- <path>`; `git diff HEAD` empty, counts back to 7 v4 / 0 v3. The mutation script carried a `trap … EXIT INT TERM` restore so a mid-run kill could not leave the tree mutated.\n\nNo rebuild leg applies here: the assertion reads the `.tsx` source directly via `fs.readFileSync`, so there is no `dist/` resolution path that could serve stale bytes.\n\n## The record of the other three edits\n\nHalf the deliverable, and it lives in the assertion's docblock: each of the other three undeclared edits with the gate that catches its loss — `eslint-disable react-hooks/purity` → Lint (the rule arrives via `reactHooks.configs.recommended.rules` at `eslint.config.js:39` and is **not** downgraded by the repo's overrides), and the unconditional `data-collapsible` qualifiers → the locator `[data-collapsible][data-side][data-state]` pinned in `packages/app-shell/src/__tests__/print-stylesheet-4462.test.ts`.\n\n⚠️ One correction the record carries: `hideOverlay` — credited with a type-check failure — has **zero consumers** in the tree (the `DesignDrawer` that `ROADMAP.md` credits no longer exists). It is an optional prop, so a sync dropping it type-checks clean; that gate is vacuous as things stand. Recorded in the docblock and filed separately as #6090 rather than fixed here. Out of scope for this PR.\n\n## Scope\n\nUntouched, as ruled: `scripts/shadcn-local-patches.mjs` patch declarations, the vendored registry fixtures (#4996 / PR #6030 owns those — branched off current `main`, `7c96c9420`, which includes it), and `shadcn-components.json`. No `shadcn` sync of any kind was run.\n\n## Verification\n\n- `npx vitest run scripts/__tests__/` from the repo **root** (never package-scoped) at `0eadb67ab` — **65 files, 1793 tests passed**, including `scripts-type-check.test.ts` and `check-changeset-fixed.test.ts`.\n- `npx eslint scripts/__tests__/shadcn-local-patches.test.ts` — exit 0.\n- Control-byte scan over the changed file — clean.\n\nExit codes captured before any pipe, not through `tail`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_"
+}

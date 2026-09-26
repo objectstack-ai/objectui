@@ -1,0 +1,34 @@
+{
+  "number": 6191,
+  "kind": "pull_request",
+  "title": "fix(plugin-form): decline to fetch a detail collection with no child object",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T23:49:08Z",
+  "updated_at": "2026-08-25T00:12:05Z",
+  "closed_at": "2026-08-25T00:12:04Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": "2026-08-25T00:12:04Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6191",
+  "body": "Fixes #5940\n\n`object-master-detail-form` called `getObjectSchema(d.childObject)` with no guard on the key being resolved, so a malformed detail entry made the block ask the data layer for an object literally named `undefined`.\n\n## The discriminating step the card asked for\n\nThe card left both of its halves open and named the measurement that decides the second. Both readings, taken from the source rather than from the sample:\n\n**1. Which key does the renderer read the child object off?** Neither `.object` nor `.objectName` — it is **`childObject`**, at `MasterDetailForm.tsx:341` (pre-fix numbering):\n\n```\nconst childSchema = await dataSource.getObjectSchema(d.childObject);\n```\n\n**2. What is a `details` entry declared to be?** An **object with a required child-object key** — not a bare string. `MasterDetailFormSchema.details` is `MasterDetailDetailConfig[]`, and that interface opens with a non-optional `childObject: string` (\"Child object name, e.g. `'expense_line'`\"). Every other key on the entry is optional and derived from the child's metadata. It is what all three downstream reads are keyed on: `deriveDetail(d.childObject, …)`, the child-schema cache, and each child fetch's FK scope.\n\nSo the fixture half **is** taken: `['name']` is not a detail collection any author could publish, and the probe's sample table is corrected — on the **declared shape**, not on the bad call going away (the #3840 discriminator).\n\n## The fix, and the precedent it follows\n\nThe resolve effect now skips an entry whose `childObject` is unresolved and warns, leaving the entry in place — exactly what the adjacent `catch` already does, so the grid card still shows its config hint and `details` stays length-matched to `rawDetails` (the row-state array is indexed against it).\n\nThis is the decline `RelatedList` already makes for the same class of missing key — *\"has no referenceField/parentId — refusing to fetch all rows\"* (`RelatedList.tsx:498`), whose schema fetch is likewise gated `if (api && dataSource?.getObjectSchema)`. The **sibling effect in this same component**, the child-schema cache, already spelled it `.filter(Boolean)`. The three now agree rather than failing three ways.\n\n## What was measured, each direction predicted before running\n\nVerified at `fd8df8399`, root vitest (objectui#3378), against the #3840 binding-reach fixture with a call-recording Proxy data source of the same shape as the probe's.\n\n**Before** — predicted two calls, second `getObjectSchema(undefined)`. Reproduced exactly:\n\n```\n[\"getObjectSchema(\\\"probe_object__c\\\")\", \"getObjectSchema(undefined)\"]\n```\n\n**After** — predicted the second absent *and* the first still made. Both hold:\n\n```\n[\"getObjectSchema(\\\"probe_object__c\\\")\"]\n```\n\n⭐ Both halves are asserted, because a \"fix\" that declined to fetch *everything* would also make the bad call vanish and would pass an absence-only test. The regression test pins the **exact call list**, and a second test independently proves a well-formed `{ childObject: 'invoice_line' }` still fetches.\n\n**Reverse verification.** The fix was committed first, then reverted alone (`git checkout HEAD~1 -- MasterDetailForm.tsx`) under a restore `trap`. Mutation confirmed on disk by grepping the text intended to be removed (`if (!d.childObject)` → 0 occurrences, the warn string → 0), not by the edit tool's exit code. Predicted red on test 1 only; observed exactly that:\n\n```\n× declines to fetch instead of calling getObjectSchema(undefined)\nAssertionError: expected [ …(2) ] to deeply equal [ Array(1) ]\nTests  1 failed | 1 passed (2)\n```\n\nTest 2 stayed green, which is correct — a well-formed detail was always fetched, so it does not depend on the guard. The restore leg was confirmed byte-identical (`git status` empty against the commit).\n\nNote this call is **invisible to the binding-reach probe's assertions**: that probe asks whether *any* call carried the object name, and the first, correct call already satisfies it. The probe was green for as long as the defect was live, so its green is not evidence for this fix — hence an assertion that reads the full call list.\n\n## Gates\n\nEach quoted from the gate's own verdict line; exit codes captured by redirect before any pipe.\n\n- `pnpm lint` (full repo, `eslint . --no-inline-config`) — `Tasks: 47 successful, 47 total`, `0 errors`. Run in full under the shared verify lock (`VERDICT command-exit 0 · held the lock 178s`), so no narrowing is claimed.\n- `pnpm --filter @object-ui/plugin-form type-check` — exit 0 (`tsc --noEmit && tsc -p tsconfig.test.json`), after building the dependency closure.\n- `pnpm --filter @object-ui/console type-check` — `VERDICT command-exit 0`.\n- `packages/plugin-form` — `Test Files 61 passed (61)`, `Tests 615 passed (615)`.\n- Union on the final commit `fd8df8399`: plugin-form + both reach probes — `Test Files 63 passed (63)`, `Tests 644 passed (644)`.\n- `public-block-binding-reach` after the sample change — `Tests 16 passed (16)`.\n- Sibling parity suites (`record-block-record-reach`, `registry-inputs-spec-parity`, `masterDetailFormTypeManifest`, `public-contract`, `catalog-gallery-render`) — `Tests 672 passed (672)`.\n- `pnpm check:control-bytes` — `OK (scanned 5110 tracked text file(s))`.\n- `pnpm changeset:check` — all three checks OK.\n\nBranched from today's `origin/main` (`b37d3f0`), which already carries #6177; the `formType` enum it landed was read from the file as it stands, not quoted from before 22:58Z.\n\n## Scope\n\nThe renderer's detail-collection resolution, its test, and the probe's sample table. The sweep turned up one same-family site left untouched and filed instead: #6188 — `record:line_items` (`LineItemsPanel.tsx:114`) reads `schema.childObject` through the identical unguarded path. That card is out of scope here and #3838 is not addressed here.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_"
+}

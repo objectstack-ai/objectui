@@ -1,0 +1,36 @@
+{
+  "number": 4964,
+  "kind": "issue",
+  "title": "finding(i18n): template-literal `t()` key families are only PREFIX-checked, so a member missing from all ten packs is invisible to every gate — ~20 families exposed",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T08:13:57Z",
+  "updated_at": "2026-08-24T14:50:16Z",
+  "closed_at": "2026-08-24T14:50:16Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4964",
+  "body": "Recorded while fixing objectstack-ai/objectstack#8815 (PR #4962). That card is the proof this class is live; this issue is about the class, not that card.\n\n## The hole\n\nWhen a call site builds its key from a template literal, no gate in the repo can tell which members it needs:\n\n```tsx\n{t(`filterBuilder.operators.${op.value}`)}\n```\n\n- `scripts/check-i18n-call-site-keys.mjs` classifies these as `missing-prefix` and asks only whether the **prefix** resolves. Its own header is explicit that this is deliberate — it is \"about a dynamic key that is true without knowing the value.\" `filterBuilder.operators` resolved sixteen members deep, so it passed.\n- `packages/i18n/src/__tests__/all-locales-key-parity.test.ts` asks whether the ten packs **agree** with each other. Its header already records the consequence in as many words: \"Ten packs identically missing it is full parity, so this file is green on it by construction.\"\n- `check:i18n-drift` only fires when an existing `en` **value** changes. A key that was never added never changes.\n\nSo a member missing from **all ten packs at once** is invisible to the whole gate farm, and the user is shown the raw key — i18next resolves a missing key to the key itself.\n\nNote this is not covered by the `createSafeTranslation` defaults table: that table serves only the **no-provider** path, and the Console mounts a provider, so the pack's answer is the one that renders.\n\n## Measured instance (already fixed, do not re-fix here)\n\n`filterBuilder.operators.*` was missing `startsWith`, `endsWith`, `isNull`, `isNotNull`, `exists`, `notExists` from all ten packs. Users saw `filterBuilder.operators.isNull` in the list-filter operator dropdown. Fixed in PR #4962, which also adds a parity test pinning the packs against `FILTER_BUILDER_OPERATORS` in both directions — but that guard is **specific to that one family**. Nothing generalises it.\n\n## Exposed families\n\nEvery other dynamic key family has the same structural exposure. Enumerated with:\n\n```bash\ngrep -rnoP \"t\\(\\`[a-zA-Z][a-zA-Z0-9_.]*\\.\\\\\\$\\{\" --include=*.ts --include=*.tsx packages/ apps/ \\\n  | grep -v node_modules | grep -v __tests__\n```\n\nRoughly twenty, including: `engine.fieldType.*`, `engine.fieldCategory.*`, `engine.inspector.appNav.type.*`, `engine.studio.access.explain.layer.*`, `home.recentApps.itemType.*`, `managedByBadge.*`, `organization.invitations.status.*`, `grid.import.type.*`, `grid.import.jobStatus.*`, `grid.import.confidence.*`, `marketplace.category.*`, `marketplace.disclosure.runtime.*`, `approvalsInbox.*`, `report.aggregate.*`, `perm.tabs.vis.*`, `perm.cel.type.*`, `gantt.viewMode.*`.\n\n⚠️ **I did not measure these.** I confirmed the mechanism and enumerated the call sites; whether any given family actually has missing members is exactly what nobody currently knows, which is the point. Triage should decide whether this is worth a sweep. `engine.*` is partly accounted for by the closed #4662 (module-local two-locale table) and may need different treatment.\n\n## Shape of a general fix, if wanted\n\nThe generalisable move is what PR #4962 did for one family: assert the pack contents against the **vocabulary export the call site iterates**, since a dynamic key is nearly always built from a known finite set in code. Options worth pricing at triage:\n\n1. A per-family parity test wherever such an export exists (what #4962 did) — precise, but manual and easy to forget for the next family.\n2. Teach `check-i18n-call-site-keys.mjs` to resolve a template key whose interpolated expression is a statically-known union or a `readonly` array of literals, and check each member. Wider reach, real parser work.\n3. A ratchet listing the known dynamic families and requiring each to name its vocabulary source, so a new one cannot land unguarded.\n\nNo `pm:queue` — filing as an observation for triage to grade, not a claim that a sweep is warranted.\n"
+}

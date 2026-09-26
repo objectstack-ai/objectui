@@ -1,0 +1,35 @@
+{
+  "number": 5949,
+  "kind": "issue",
+  "title": "`createLazyPlugin`'s own JSDoc teaches a call that does not compile — `import('@object-ui/plugin-grid')` has no `default` export",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-24T04:12:03Z",
+  "updated_at": "2026-08-24T11:37:11Z",
+  "closed_at": "2026-08-24T11:37:11Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5949",
+  "body": "Found while clearing `content/docs/guide/deployment.md` off the `UNGATED_DOCS` ledger for #5174 (PR for `claude/issue-5174-md-ledger-triage-batch1`). Filed unassigned and **not** fixed there: the guide copy is inside that card's file surface and is fixed; the **source JSDoc** is not, and it is where the wrong shape is authored.\n\n## What\n\n`packages/react/src/LazyPluginLoader.tsx:123` declares:\n\n```ts\nexport function createLazyPlugin<P extends object = any>(\n  importFn: () => Promise<{ default: React.ComponentType<P> }>,\n  options?: LazyPluginOptions\n): React.ComponentType<P>\n```\n\nIts own `@example` block, three times over (`:98`, `:103`, `:109`, carried through to `packages/react/dist/LazyPluginLoader.d.ts:40/45/51`), passes:\n\n```tsx\nconst ObjectGrid = createLazyPlugin(\n  () => import('@object-ui/plugin-grid')\n);\n```\n\n`@object-ui/plugin-grid` has **no default export**. `packages/plugin-grid/dist/index.d.ts` opens `export { ObjectGrid, VirtualGrid, ImportWizard };` and the only `default` token in the whole file is `import { default as React } from 'react'`. What the call actually supplies is TypeScript's synthetic namespace `default` — the module object — so the argument is `Promise<{ default: typeof import('@object-ui/plugin-grid'), ObjectGrid: FC<…>, … }>`.\n\n## Measured\n\nCompiled against the built `dist/` by `scripts/check-doc-snippet-types.mjs` (the same harness, same `--strict` program):\n\n```\nTS2322: Type 'Promise<{ default: typeof import(\".../packages/plugin-grid/dist/index\"); ObjectGrid: FC<ObjectGridComponentProps>; … }>'\n        is not assignable to type 'Promise<{ default: ComponentType<any>; }>'.\n          Type 'typeof import(\".../packages/plugin-grid/dist/index\")' is not assignable to type 'ComponentType<any>'.\n```\n\nThis is not only a type error. At runtime `React.lazy` would receive the module namespace object as the component and render nothing useful — the documented call is wrong in both dimensions.\n\n## The shape that does compile\n\nVerified green in the same program, and this is what the guide now says:\n\n```tsx\nconst ObjectGrid = createLazyPlugin(\n  // The plugin package has no default export — name the component you want.\n  async () => ({ default: (await import('@object-ui/plugin-grid')).ObjectGrid }),\n  { fallback: <div>Loading grid...</div> }\n);\n```\n\nNote the `async` form specifically: the `.then((m) => ({ default: m.ObjectGrid }))` spelling infers `P` as `never` on one branch of the `then` overload and stays red.\n\n## Why this is filed rather than folded in\n\n⛔ **Do not \"fix\" this by adding a default export to `@object-ui/plugin-grid`.** That is a contract change on a published package, and the documented surface is the thing that is wrong, not the package. Two candidate shapes for whoever picks this up, and they are not the same decision:\n\n1. **Correct the three JSDoc examples in place** (cheapest, matches what the guide now teaches).\n2. **Tighten `importFn`'s parameter type** so a namespace object cannot satisfy it silently — worth checking whether any in-repo caller currently relies on the loose shape before proposing it.\n\n## Reachability\n\n`packages/react`'s README is already covered by `check-doc-snippet-types`, but a JSDoc `@example` inside a `.tsx` source file is not read by any gate — neither this one nor `check-doc-component-types`. So the wrong call survives in the published `.d.ts` that editors surface on hover, which is the highest-traffic place a reader meets it. Same class as #5160, one layer in: a documented symbol whose usage does not compile against the surface it is documented on.\n\nRelated: #5174 (the ledger card that surfaced it), #5160, #5053.\n"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 5994,
+  "kind": "pull_request",
+  "title": "fix(components): resolve ui:dropdown-menu item icons instead of rendering the name as text",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "examples",
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T11:20:55Z",
+  "updated_at": "2026-08-24T11:43:47Z",
+  "closed_at": "2026-08-24T11:43:45Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-24T11:43:45Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5994",
+  "body": "Fixes #5930\n\nBoth arms of `renderMenuItems` in `packages/components/src/renderers/overlay/dropdown-menu.tsx` rendered a menu item's authored `icon` **string** straight into a text node, so the catalog fixture literally named `with-icons.json` drew `edit Edit`, `copy Copy`, `trash Delete`.\n\nBoth arms now resolve the name through `resolveIcon`.\n\n## Route taken\n\nPer the dispatch ruling, the **record** surface (`resolveIcon` from `renderers/action/resolve-icon.ts`) — what `action:*` and `ui:button` next door already resolve against. A retired or unknown spelling renders nothing. The dynamic surface (`LazyIcon`) was **not** used: it degrades an unknown name to the `Database` glyph, trading a no-icon failure for a wrong-icon one, recorded as ruled out for authored icon fields by #5622 and #5633. Retiring the key was likewise not taken.\n\n**Premise verified before any edit.** `resolveIcon` lives in the *same package*, one directory over; `renderers/complex/data-table.tsx:12` already imports it as `'../action/resolve-icon'`, so this is an established sibling import, no new cross-package dependency and no layering inversion.\n\nOne nuance worth recording: `ui:button` is the same resolver *by behaviour*, not by identity — `renderers/form/button.tsx` carries a byte-equivalent inlined copy (its own `toPascalCase`, its own `Home -> House` map, its own index into `icons`) rather than importing the shared function. Same population, same casing, same outcome, so the ruling holds exactly. Filed as #5993.\n\n## Line numbers re-derived\n\nThe card's `~40` / `~52` were days old. Re-derived from the tree: **exactly 40 and 52**, with a control probe (a deliberately nonsensical `item.iconXYZZY` returned exit 1) so a zero-hit would have read as real rather than as a silent miss.\n\n## The fixture carried a RETIRED spelling\n\n`edit` is **not** a live key of lucide's runtime `icons` record (measured against the installed lucide-react 1.31.0: 1767 keys, `Edit` absent, `Copy` and `Trash` present). It survives only as a deprecated export. So after this fix the first item of `with-icons.json` would have drawn **no glyph at all** — a fixture named for its icons, silently showing two of three.\n\nCorrected to `square-pen`, derived **by identity** rather than by preference — the method the gate itself documents for naming a replacement:\n\n```\nidentity-derived live key(s) for Edit: [\"SquarePen\"]\n```\n\nThis matches the repo's own established repair: `packages/plugin-detail/src/DetailView.tsx:792` already spells this same glyph `icon: 'square-pen'`, from #5622's fix of the same retired name.\n\n⚠️ **Flagging this as the one judgment call.** The dispatch said a non-live name is \"a finding worth reporting, not a reason to change the fixture to easier names\", while also requiring that the fixture \"must actually render glyphs\" after the fix. This is read as correcting a dead spelling to its identity-equivalent live one — the documented repair, not an easier name — but it is a one-line change and trivially reversible if the maintainer reads it the other way.\n\n## Does this make the #5633 gate newly relevant here?\n\n**No — and that is itself a finding.** Measured both directions:\n\n- **Census unchanged.** Part 1 rediscovers modules reading the `icons` record *directly*. This PR imports `resolveIcon` instead, so `dropdown-menu.tsx` correctly does not enter `DECLARED_RECORD_READERS`; the gate still reports 8 record-reading resolvers.\n- **The names still are not judged.** Part 2 keys on a node's own `type`, and menu items are untyped child objects. Restoring `edit` to the fixture on top of this fix and re-running the gate gave **exit 0**, same 64 names — a dead spelling in a published fixture passes silently.\n\nFiled as #5992, which also notes that this PR falsifies a measured parenthetical in the gate's header (\"the fourth renders it as raw text\"), left untouched here as out of fence.\n\n## Verification\n\nUnion re-run **after the final commit, at `368f1c510`**:\n\n| check | result |\n| --- | --- |\n| `dropdown-menu-item-icon.test.tsx` (new) | 7 passed |\n| adjacent suites + catalog gallery (471 tests) | 3 files passed |\n| `check:icon-record-names` | `OK  lucide icon names: 64 authored/declared names ... are live` |\n| `check:control-bytes` | `✅  check-control-bytes: OK (scanned 4958 tracked text file(s))` |\n| `check:changeset-presence` | `✅  2 source file(s) ... declares 1 changeset(s)` |\n| `check:doc-types` | `✅  Every documented component type is registered.` |\n| `check:doc-snippets` | `Every covered documentation snippet compiles against the built types.` |\n| `@object-ui/components` `type-check` | exit 0 |\n| eslint (both changed sources) | 0 errors |\n\n`check:doc-snippets` first refused as a blind instrument (unbuilt sibling packages); the full workspace was built (43/43 tasks) and it was re-run rather than declared narrowed.\n\n**Reverse-verification.** With the fix committed, both `Icon` JSX sites were reverted to the pre-fix `<span>` form under a `trap ... EXIT INT TERM` restore. Mutation confirmed on disk against the exact text targeted (injected pre-fix span present ×2, post-fix JSX absent ×0) — not by an editor exit code. Predicted direction **red**, observed **5 failed | 2 passed**; the two survivors are the no-icon case and the retired-spelling-renders-nothing half, neither of which depends on the fix in the failing direction. Restore leg verified in both directions with a clean `git status`.\n\nThe suite asserts **both** directions — the glyph appears *and* the bare name does not — because an svg-only assertion passes against the broken renderer too.\n\n## Scope\n\nFence respected. `context-menu.tsx` and `menubar.tsx` were checked and read `icon` nowhere at all, so they carry no narrower version of this defect. Nothing under `examples/schema-catalog/src/schemas/plugin-dashboard/` was touched, and no catalog-wide gate was added.\n\n_Generated by [Claude Code](https://claude.ai/code/session_01CSoz9uGhaaSgiq3hshtN7L)_\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01CSoz9uGhaaSgiq3hshtN7L)_"
+}

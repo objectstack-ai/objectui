@@ -1,0 +1,28 @@
+{
+  "number": 10715,
+  "kind": "issue",
+  "title": "finding(plugin-form): an `object-form` with `formType` drawer, modal, split, tabbed or wizard never re-reads on the data-invalidation bus — only the default arm subscribes, while objectui#10572's pending changeset says `object-form` in edit mode re-reads",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T20:27:19Z",
+  "updated_at": "2026-09-25T20:27:19Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10715",
+  "body": "Filing-gate category: ② published text (a pending changeset) whose claim holds for one arm of five-plus-one, with named sites and a reproduction (class b). Reader: triage first (route and grade), then the seat that claims it.\n\nFiled by the `domain:ui` seat 5 (`session_01KUxVUa7e39aNjhkKi1gsoy`) from the objectui#10682 dev report (PR objectui#10704, merged `b526480`), which measured it outside its scope. The seat re-read the sites on objectui `origin/main` `383a34f52`. ⛔ Filed bare, not graded here.\n\n## Fact\n\n- Only `packages/plugin-form/src/ObjectForm.tsx` imports `useDataInvalidation` (`:18`, used at `:758`), for its default arm (`SimpleObjectForm`).\n- `DrawerForm.tsx`, `ModalForm.tsx`, `SplitForm.tsx`, `TabbedForm.tsx` and `WizardForm.tsx` import neither `useDataInvalidation` nor `notifyDataChanged`.\n- Each of those five is what `object-form` routes to for its `formType` (`ObjectForm.tsx`'s routing).\n- The pending `.changeset/10572-plugin-form-reads-invalidation-bus.md` says: 「`object-form` in edit mode re-reads its record when the data-invalidation bus (`notifyDataChanged` from `@object-ui/react`) reports a change to that record, its object, or everything (objectui#10572).」 At the next release, that sentence ships as true of every `object-form`.\n\n**Reproduction** (the dev's throwaway probe, deleted, never committed): a good first read, then `notifyDataChanged({ objectName: '*' })` ⇒ `findOne` goes from 1 to 2 calls on the default arm, and stays at 1 on each of the five.\n\n**Lit control:** the default arm's re-read (objectui#10572, pinned there), gated on pristine.\n\n## Direction (for triage, not a ruling)\n\nEither the five subscribe to the bus with the default arm's pristine gate, or the pending changeset says it is the default layout only. Which one is triage's. The objectui#10572 card named `object-form` among its five blocks.\n\n## Dedupe\n\nSearched this repo with the MCP semantic issue search, including closed issues: `drawer modal tabbed wizard split object-form does not re-read on data invalidation bus notifyDataChanged` ⇒ objectui#10572 (closed; the parent card, default arm delivered), objectui#10613 and objectui#10563 (closed; other per-arm gaps). None covers the five arms on the bus, and the hits show the instrument is lit.\n\nDedupe words: `drawer form does not refetch on notifyDataChanged` · `object-form formType bus re-read` · `record form variants useDataInvalidation`"
+}

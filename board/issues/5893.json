@@ -1,0 +1,35 @@
+{
+  "number": 5893,
+  "kind": "issue",
+  "title": "[finding] `ComponentMeta` has two published declarations (`base.ts` + `plugin-scope.ts`), already diverged by `tags`/`description`, and the `PluginComponentMeta` alias has zero consumers",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-23T18:14:30Z",
+  "updated_at": "2026-08-24T15:54:04Z",
+  "closed_at": "2026-08-24T15:54:04Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5893",
+  "body": "Noticed while retiring `PluginComponentInput` (#5674). Filed rather than fixed: it is out of that card's fence, and it is **not** the same shape as `PluginComponentInput` despite sitting on the adjacent line.\n\n## Measured\n\n`packages/types/src/index.ts` publishes `ComponentMeta` twice, from two different declarations:\n\n| line | spelling | declaration |\n|---|---|---|\n| `index.ts:99` | `ComponentMeta` | `packages/types/src/base.ts:511` |\n| `index.ts:921` | `ComponentMeta as PluginComponentMeta` | `packages/types/src/plugin-scope.ts:149` |\n\nThese are **structural copies**, not an alias pair — which is exactly what makes this different from #5674. `PluginComponentInput` became a pure alias once #5671 converged its declaration; `PluginComponentMeta` still names a genuinely separate `interface` with a different key set.\n\n## The divergence is already live\n\nTop-level keys, both declarations read off `origin/main`:\n\n- `base.ts` (11): `label` `icon` `category` `inputs` `defaultProps` `examples` `isContainer` `resizable` `resizeConstraints` `tags` `description`\n- `plugin-scope.ts` (9): the same nine, **minus `tags` and `description`**\n\n`resizeConstraints`' six members are identical in both. So the delta is exactly two keys, and it is the same defect class #4972 recorded for `ComponentInput` — where the delta was `min`/`max`/`step`/`placeholder` — one release before it bit.\n\n## Why it is worth recording\n\n#4580's ruling was written for this shape, and the wording is general: *\"a structural copy would reproduce the defect the moment either side moved.\"* Either side has moved: `tags` and `description` exist on the published `ComponentMeta` and not on the plugin-facing twin, so a plugin author typing against the plugin-scope declaration cannot write two keys the main surface advertises.\n\nThere is already a test paying for the duplication. `packages/types/src/__tests__/default-children-retired-contract-twins.test.ts` asserts the *same* contract twice — once against `ComponentMeta` from `base.ts` (line 116) and once against `ComponentMeta` from `plugin-scope.ts` (line 131) — and its own header calls the second one \"its plugin-facing twin\". That file is the running cost of the copy.\n\nNote this is **not** covered by #4972, which is closed and was scoped to `ComponentInput`'s three copies plus `WidgetInput`. `ComponentMeta` is named nowhere in it.\n\n## Zero consumers at the published alias name\n\n`PluginComponentMeta` has **one** occurrence repo-wide excluding `node_modules/`/`dist/`: its own export line at `index.ts:921`. Nothing imports it.\n\nSearch scope: every root in the repo (`packages/` `apps/` `content/` `docs/` `skills/` `examples/` `e2e/` `scripts/` `eslint-rules/` `public/` `.changeset/` and the root `*.md`), plus the sibling `objectstack` framework checkout. Control, searched identically so a broken search could not read as a clean one: `AppMetadataPlugin`, a neighbour in the *same* `export type { ... }` block, returns 12 hits including a real cross-package import at `packages/core/src/registry/PluginSystem.ts:10`; in the framework checkout the control `SchemaRenderer` returns 30 files and `@object-ui/types` 23. The apparatus finds names that are there.\n\nThe in-repo half is measurable; an importer on npm is not. That distinction is what #5674 was filed about and it applies here unchanged.\n\n## Possible directions\n\n- **(a)** Converge, per #4580: `plugin-scope.ts`'s `ComponentMeta` becomes `export type { ComponentMeta } from './base.js'`, and `tags`/`description` reach the plugin surface. Same move #5671 made for `ComponentInput`, same package, and its PR measured the emitted `.d.ts` both ways.\n- **(b)** Converge *and* retire `PluginComponentMeta`, which after (a) is a second published name for one type — i.e. the state #5674 is retiring. Sequencing it as one job avoids deprecating a name that is about to change meaning.\n- **(c)** Keep both and add a structural gate (same-named interfaces must have equal key sets), turning silent drift into a loud failure. This is #4972's option (c), which was not taken there.\n\nNot urgent: no user hits this today, the same way #4972's divergence was dormant until it wasn't. Recording it while the measurement is fresh.\n\nRelated: #4580 / #4548 (the ruling and the 19/35 probe), #4972 (the `ComponentInput` census), #5671 (the convergence PR), #5674 (the alias retirement this was found under).\n\nFiled unassigned.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01EuPCi56cnGyykygi3z9w4m)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

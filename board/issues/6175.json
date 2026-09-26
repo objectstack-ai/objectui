@@ -1,0 +1,35 @@
+{
+  "number": 6175,
+  "kind": "issue",
+  "title": "ObjectGrid's column width/order persistence never fires — `saveColumnState`'s only two call sites hang off `onColumnResize`/`onColumnReorder`, which `data-table.tsx` never invokes",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-24T22:29:46Z",
+  "updated_at": "2026-08-25T02:53:36Z",
+  "closed_at": "2026-08-25T02:53:36Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6175",
+  "body": "Filed unassigned, no `pm:*` label — triage owns grading and routing. Found while measuring the callback subset of #6152 (the 23 `on*` keys in `UnmirroredDeclared`); **out of scope there and deliberately not fixed in that round.**\n\n## The defect\n\n`ObjectGrid`'s column-state persistence has a fully wired **inbound** half and a **dead outbound** half.\n\nInbound (works, and is pinned): `ObjectGrid.tsx:632-659` seeds `columnState` from `(schema as any).columnState`, falls back to `localStorage`, and re-syncs on external change. The docblock at `:610-630` records the 2026-08-18 maintainer ruling on #5091 that this is user-state, not authoring surface, and `__tests__/gridNonAuthorKeys.test.tsx` pins it.\n\nOutbound (dead): `saveColumnState` (`ObjectGrid.tsx:661`) writes `localStorage` **and** notifies the host via `onColumnStateChange`, which `app-shell/src/views/ObjectView.tsx:1867` turns into `dataSource.updateViewConfig`. It has **exactly two call sites**, both in the same object literal:\n\n```\npackages/plugin-grid/src/ObjectGrid.tsx:3084   onColumnResize:  (columnKey, width) => { saveColumnState({ ...columnState, widths: {...} }) }\npackages/plugin-grid/src/ObjectGrid.tsx:3090   onColumnReorder: (newOrder)         => { saveColumnState({ ...columnState, order: newOrder }) }\n```\n\nBoth are written into `const dataTableSchema: any = { … }` (`:2937`) and handed to the renderer via `SchemaRenderer schema={dataTableSchema}` (`:3735`). **`packages/components/src/renderers/complex/data-table.tsx` invokes neither.**\n\n- `onColumnResize` — **zero occurrences** in `data-table.tsx`. Repo-wide, the only non-declaration, non-comment occurrence is the ObjectGrid producer above.\n- `onColumnReorder` — **zero occurrences** in `data-table.tsx`. The renderer calls the *near-duplicate* key `onColumnsReorder` (with the `s`) at `data-table.tsx:1346-1347`, and that is a **different declared key with a different signature**: `DataTableSchema` declares both `onColumnReorder?: (newOrder: string[]) => void` (`data-display.ts:796`) and `onColumnsReorder?: (columns: TableColumn[]) => void` (`data-display.ts:718`).\n\nNet user-visible effect: a user drags a column wider or reorders columns, and nothing is persisted — not to `localStorage`, not through `onColumnStateChange` to `dataSource.updateViewConfig`. The saved state is read back correctly forever; it is simply never written.\n\n`packages/plugin-grid/CHANGELOG.md:713` states the intent that this contradicts: \"the table vocabulary reports per-event `onColumnResize` / `onColumnReorder` rather than the merged `{ order, widths }` layout this reports.\"\n\n## Why it stayed invisible\n\nSame class as #6004 and #5453, and the same enabling cause: **the handoff object is untyped.** #6004 is about `generateColumns()` returning `any[]`; this is its sibling one level up — `const dataTableSchema: any` at `ObjectGrid.tsx:2937`. With `any` on the producer side, writing a key the consumer never reads is not a type error, and `DataTableSchema` declaring both spellings means even a typed producer would have accepted the wrong one.\n\nRuled out before filing: no dynamic handler dispatch in `data-table.tsx` (no `schema[...]` indexing, no `Object.keys(schema)` walk), and `data-table.tsx` has no column-width/order persistence of its own.\n\n## Suggested shape of a fix (not decided here)\n\nTwo independent questions, and they should probably be answered together:\n\n1. Which spelling survives — `onColumnReorder(newOrder: string[])` or `onColumnsReorder(columns: TableColumn[])`? Two declared keys for one event is itself the bug that let this land; one of them should be retired under the usual route.\n2. Wire `onColumnResize` in `data-table.tsx` (the resize handler currently persists nothing), or move persistence to the merged `onColumnStateChange` payload the CHANGELOG describes.\n\nRepro is static — the grep above is the whole reproduction. A behavioural repro would be: drag a column in any `object-grid`, reload, observe the width is not retained.\n\nRefs: #6152 (where this was found, and where it is out of scope) · #6004 / #5453 (same untyped-handoff class) · #5091 (the ruling that `columnState` is user-state, not authoring surface)."
+}

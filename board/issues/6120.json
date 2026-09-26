@@ -1,0 +1,36 @@
+{
+  "number": 6120,
+  "kind": "issue",
+  "title": "finding(docs): snippets that import a package's own third-party dependency (`lucide-react`) cannot resolve it — the whole `content/docs/layout` group is blocked from #5867",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T18:22:59Z",
+  "updated_at": "2026-08-24T20:09:27Z",
+  "closed_at": "2026-08-24T20:09:27Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6120",
+  "body": "Measured by #5867 batch 2 while probing which remaining groups can be re-fenced (session `session_019b5UBNMtTzKbVtZZGvFuxe`, on `origin/main` `b9c367717`).\n\n## The measurement\n\n`check-doc-snippet-types` compiles each snippet as its own module **at the repository root**. It builds `paths` for every workspace package from that package's own `exports`, so `@object-ui/layout` resolves fine — but a **third-party** specifier is resolved the ordinary way, from the root `node_modules`, and a package's own dependency does not live there under pnpm:\n\n```\nnode -e \"require.resolve('lucide-react', { paths: ['<repo root>'] })\"\n→ MODULE_NOT_FOUND\n```\n\n`lucide-react` is a declared dependency of **`@object-ui/layout`** (`packages/layout/package.json:35`) and **`@object-ui/components`** (`packages/components/package.json:77`), at `^1.31.0`. It is simply not hoisted to the root.\n\n## What it blocks\n\nRe-fencing the three `content/docs/layout/**` pages (12 blocks, the #5867 remainder for that group) was probed with a throwaway mutation, gate run, and restore under a trap. Five of the twelve blocks red on this alone:\n\n```\ncontent/docs/layout/app-shell.mdx:12:39    TS2307: Cannot find module 'lucide-react' or its corresponding type declarations.\ncontent/docs/layout/app-shell.mdx:166:64   TS2307: (same)\ncontent/docs/layout/page-header.mdx:274:42 TS2307: (same)\ncontent/docs/layout/sidebar-nav.mdx:12:39  TS2307: (same)\ncontent/docs/layout/sidebar-nav.mdx:201:8  TS2307: (same)\n```\n\nThese snippets are **correct documentation** — `SidebarNav`'s `NavItem.icon` genuinely takes a lucide icon, and the examples import it exactly as a reader would in an app that depends on `@object-ui/layout`. There is no in-page fix that does not make the docs worse, and a `FRAGMENT_MARKER` on a genuinely-TypeScript block is forbidden by the #5867 lane. So the layout group cannot be taken until this is decided.\n\n## The deciding question, ⛔ not decided here\n\nWhich of these is the intended shape:\n\n1. the root declares `lucide-react` as a devDependency so the snippet program can resolve what the documented packages depend on (smallest change, but the root then carries a dep for the gate's benefit);\n2. the gate derives `paths`/`typeRoots` entries for the **declared dependencies of the packages a covered document imports**, so any package's own deps resolve the way a real consumer's would (matches the gate's existing \"resolve against what a reader actually imports\" principle, more work);\n3. it is accepted as an edge and the affected pages stay uncovered, declared with a reason.\n\n⚠️ The scope is likely wider than `layout`: the same probe over `content/docs/components/**` did not hit it (those pages document schema interfaces rather than React usage), but any future page that shows real component usage will.\n\n⛔ Out of scope of #5867's per-block re-fencing, which is why this is filed rather than worked around.\n\nRefs: #5867 (the parent lane) · #6107 (the sibling blocker batch 1 filed).\n"
+}

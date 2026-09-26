@@ -1,0 +1,36 @@
+{
+  "number": 6024,
+  "kind": "issue",
+  "title": "Generalize the catalog \"entries use their own plugin\" pin to every `plugin-*` category — #5856 removed its last obstacle",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T13:47:39Z",
+  "updated_at": "2026-08-24T22:45:52Z",
+  "closed_at": "2026-08-24T22:45:52Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6024",
+  "body": "Filed unassigned while implementing #5856, which is the card that makes this possible. Not claiming.\n\n## Why this could not be done before, and why it can now\n\n`examples/schema-catalog/test/catalog-gallery-render.test.tsx` pins that a catalog entry mounted under a plugin's docs page actually **uses** that plugin — two facts per category:\n\n1. STRUCTURE — every entry authors a node of the type its own package registers.\n2. RENDER — the rendered tile shows a record that exists only in the gallery's data source, so the rows came through the registered renderer and `dataSource.find`, not out of the entry's own JSON.\n\nobjectui#5113 introduced it for `plugin-view` only, and said so explicitly in the test header — the general rule needs a per-plugin map of which types each package registers, and it named **`plugin-grid`'s two entries as the specific reason the rule could not simply be turned on** for all of `plugin-*`.\n\n#5856 fixed exactly those two entries. `plugin-grid` was the last `plugin-*` category whose entries were pictures of the component rather than the component, so **the blocker that kept this per-category is gone.**\n\n## Current state after #5856\n\nThe pin now runs over an explicit two-entry map rather than one hard-coded category:\n\n```\nconst CATEGORY_OWN_TYPE = [\n  ['plugin-view', 'object-view', 3],\n  ['plugin-grid', 'object-grid', 2],\n];\n```\n\nAdding a category is a one-line change. Deliberately left at two entries in that PR rather than expanded, because turning it on for everything is a different piece of work with its own risk, described below.\n\n## What the work actually is\n\nMeasured on `d2fb6efb4` (the merge-base of #5856), walking every `plugin-*` category and collecting the `type` values each entry authors — every remaining category already satisfies the STRUCTURE half:\n\n```\nplugin-calendar   calendar-view          plugin-kanban     kanban\nplugin-charts     chart / bar-chart      plugin-map        object-map\nplugin-chatbot    chatbot                plugin-markdown   markdown\nplugin-dashboard  dashboard              plugin-timeline   timeline\nplugin-editor     code-editor            plugin-form       form\nplugin-gantt      object-gantt           plugin-grid       object-grid   (as of #5856)\nplugin-view       object-view\n```\n\nSo the STRUCTURE half is close to free. The three things that need deciding:\n\n- **The map has to be derived or justified as a literal.** A hard-coded category → type table is the same enumeration the `register()` calls already own, and it rots the first time a plugin renames a type. Deriving it from the register calls is what `scripts/check-doc-component-types.mjs` already does for its own universe, and that technique is probably reusable.\n- **`plugin-charts` breaks the one-type-per-category assumption** — its entries author `chart` *and* `bar-chart`. The map's value has to be a set, or the rule has to be \"at least one type this package registers\".\n- **The RENDER half does not transfer for free.** It asserts a record that exists only in the gallery data source reaches the screen. That works for the object-bound categories because the fixture serves the `users` object. `plugin-markdown` / `plugin-chatbot` / `plugin-editor` and friends are not object-bound at all and have no data source to reach through, so the second half is either inapplicable to them or needs a different formulation of \"this really rendered through the plugin\". `plugin-editor` and `plugin-map` are additionally in `EXCLUSIONS` — Monaco needs a CDN loader and maplibre needs WebGL2 and a live tile host — so they cannot be rendered in that suite at all.\n\nThat last point is the substance of the card: whatever replaces the per-category map must not quietly degrade to the STRUCTURE half for most categories, because STRUCTURE alone is satisfiable by a stray node — that is precisely what the RENDER half exists to catch.\n\n## Not covered by anything today\n\nSame blind spot #5113 and #5856 were both filed on: `check-doc-component-types` only asks whether each `type` is registered, and the `objectui#4616` sweep only asks whether the tile draws. Both stay green on an entry that is a hand-built picture of the component. Confirmed empirically in #5856's PR — with one entry reverted to a hand-built layout, the #4616 sweep still reported `renders without a red tile` while the new pin went red.\n\n## Triage note\n\nSeverity left to triage. Read as a defect it is zero known bad entries today — every category currently passes the STRUCTURE half. Read as a guard, it is the ratchet that keeps the next `plugin-*` category from sliding back, which is the state both #5113 and #5856 had to be filed to fix after the fact.\n"
+}

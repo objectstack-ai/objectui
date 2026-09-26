@@ -1,0 +1,35 @@
+{
+  "number": 6213,
+  "kind": "issue",
+  "title": "finding(docs): `packages/core/src/adapters/README.md` documents an ObjectStack adapter that no longer lives in that directory — only its two import paths were repaired",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "finding",
+    "pm:dispatched"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T01:52:59Z",
+  "updated_at": "2026-08-25T03:10:36Z",
+  "closed_at": "2026-08-25T03:10:36Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6213",
+  "body": "Found while implementing #5043 (PR #6212). Filed unassigned, not claiming.\n\n## What was already fixed, and what was left\n\nThe new `check:readme-exports` gate's first run over the tree flagged two `wrong-path` bindings in `packages/core/src/adapters/README.md`:\n\n```\npackages/core/src/adapters/README.md:21 -- 'createObjectStackAdapter' is exported by @object-ui/data-objectstack, not by @object-ui/core\npackages/core/src/adapters/README.md:44 -- 'ObjectStackAdapter'       is exported by @object-ui/data-objectstack, not by @object-ui/core\n```\n\nPR #6212 changed those two import paths, because that fix is unambiguous — the names are real, `@object-ui/data-objectstack` exports both, and that package's own JSDoc example spells `import { ObjectStackAdapter } from '@object-ui/data-objectstack'`.\n\n**The rest of the page was deliberately left alone**, and it is stale in a way a name-set gate structurally cannot see.\n\n## The residue\n\n`packages/core/src/adapters/` now contains:\n\n```\nApiDataSource.ts   ValueDataSource.ts   batchTransaction.ts   resolveDataSource.ts   index.ts   __tests__/\n```\n\nThere is no ObjectStack adapter in it. The whole README is about one:\n\n- the title section is `## ObjectStack Adapter`, and `### Features`, `### Usage`, `### Advanced Usage`, `### Filter Conversion`, `#### Supported Filter Operators`, `### Query Parameter Mapping` and `### Example with Sorting` are all about that adapter's behaviour;\n- `## Available Adapters` at the end lists exactly one entry, **`ObjectStackAdapter`**, and says \"more adapters coming soon\" — while the four adapters that actually live in this directory are named nowhere on the page;\n- the filter-operator and query-parameter tables document `@object-ui/data-objectstack`'s translation layer, so they are a second copy of that package's documentation living under `packages/core`, free to drift from it silently.\n\nThe one section that is genuinely about this directory is `## Creating Custom Adapters` (implement `DataSource<T>` from `@object-ui/types`), and its snippet imports only from `@object-ui/types`, so it is correct as written.\n\n## Why it is worth a card rather than a drive-by edit\n\nThis is a **placement** question, not a typo, and it has at least three defensible answers:\n\n- **A. Move the ObjectStack content** to `packages/data-objectstack/README.md` (or fold it into that package's docs, checking first what is already duplicated there) and leave `packages/core/src/adapters/README.md` documenting the four adapters that are actually in the directory.\n- **B. Delete the page** and let `packages/data-objectstack` own the material, if that package already carries an equivalent — worth measuring before choosing, since two of the tables may already exist there.\n- **C. Keep it as a pointer**: a short page naming the four local adapters plus a link out.\n\nPicking one needs a look at what `packages/data-objectstack`'s own docs already say, which is more than the #5043 card's scope (it judged import names) and more than an unambiguous repair.\n\n## Blast radius\n\n`packages/core` ships its `src/` in the npm tarball, so this page is published to consumers, not an internal note. A reader following `## Available Adapters` learns that ObjectUI has one adapter and that it comes from `@object-ui/core` — the second half of which #6212 has now corrected in the snippets but not in the prose.\n\n## Bound of the gate that found it\n\n`check:readme-exports` judges import **names** against the real export surface. It cannot see stale prose, a heading about a moved module, or a table duplicating another package's docs — every symbol named in those is either real or not an import at all. This card is that blind spot's user-visible half, the same way #5057 was for authorable-key surfaces.\n\n## Grading\n\nFor PM triage. Labelled `finding`: nothing breaks at runtime today, and the copy-paste defect (the wrong import path) is already repaired. What remains is published documentation that describes the wrong package."
+}

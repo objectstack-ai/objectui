@@ -1,0 +1,32 @@
+{
+  "number": 5979,
+  "kind": "pull_request",
+  "title": "perf(scripts): drop unused setParentNodes in moduleSpecifiers()",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T10:22:30Z",
+  "updated_at": "2026-08-24T10:34:42Z",
+  "closed_at": "2026-08-24T10:34:40Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": "2026-08-24T10:34:40Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5979",
+  "body": "Fixes #5410\n\n`moduleSpecifiers()` (`scripts/check-phantom-dependencies.mjs`) is the single\nTypeScript-backed parser shared by three gates — `check:phantom-deps`,\n`check:self-import`, and `check:esm-specifiers` (via `relativeSpecifiers()` in\n`check-node-esm-load.mjs`, a third consumer not named in the original finding —\nnoted so the verification below covers it too). It parsed every file with\n`setParentNodes: true`, even though:\n\n- the walk only ever descends (`ts.forEachChild`, never `.parent`)\n- its one position lookup calls `node.getStart(source)` with the source file\n  passed **explicitly** — verified against `typescript@6.0.3`'s own source\n  (`getTokenPosOfNode`'s `sourceFile ?? getSourceFileOfNode(node)`): passing\n  `sourceFile` skips the `.parent`-walking fallback entirely\n- `source` is local to the function and never escapes, so no consumer —\n  including `check-package-self-import.mjs` and `check-node-esm-load.mjs`,\n  both checked — can read a parent either\n\nThe fix sets the flag to `false` explicitly, with a comment (not a silent\nflip), per the triage note on the issue.\n\n## Verification\n\n**Byte-identical output**, demonstrated, not asserted: ran all three affected\ngates' full CLI output over this repository, before and after, and diffed\nthem — `diff` exit 0 (no output) on all three:\n\n- `node scripts/check-phantom-dependencies.mjs`\n- `node scripts/check-package-self-import.mjs`\n- `node scripts/check-node-esm-load.mjs --specifiers-only`\n\n**The ~25% cost figure, re-measured**, not repeated: over this repository's\ncurrent corpus (44 packages, 3,301 source files, 33.4 MB, 16,691 module\nspecifiers — grown since the issue was filed), alternating legs to control\nfor JIT warmup:\n\n```\nsetParentNodes=true   5112ms  specifiers=16691\nsetParentNodes=false  3046ms  specifiers=16691\nsetParentNodes=true   4103ms  specifiers=16691\nsetParentNodes=false  2963ms  specifiers=16691\nidentical output across all files: true  diffs: 0\navg true=4608ms avg false=3005ms delta=34.8%\n```\n\n**\"Does anything read a parent\" traced exhaustively**, not just at the one\ncall site: read `getTokenPosOfNode` in `typescript@6.0.3`'s own bundled\nsource to confirm `node.getStart(source)` with an explicit `sourceFile`\nargument never calls `getSourceFileOfNode` (the `.parent`-walking path), and\nconfirmed none of the other codepaths it can fall through\n(`isJSDocNode`/`hasJSDocNodes`/`isInJSDoc`) touch `.parent` either — none of\nthose apply to the node kinds `moduleSpecifiers()` ever visits in valid\nsource (import/export/import-equals/import-type/call-expression). Grepped\nall three consumer files plus both existing test files for any `.parent`\naccess: none.\n\n**New test coverage** in `scripts/__tests__/check-phantom-dependencies.test.ts`:\na regression pin on the source text (so a silent flip back to `true` fails\nthe suite), a behavioral test proving a tree parsed with `setParentNodes:\nfalse` genuinely has no `.parent` while `getStart(source)` still works, and a\nparity test running `moduleSpecifiers()` against an independently\nreimplemented `setParentNodes: true` reference over a fixture exercising\nevery recognized module-edge form.\n\n`check-changeset-presence.mjs` verdict: no changeset owed (no released\npackage's `src/` touched — this is a tooling-only change under `scripts/`).\n\n## Scope note\n\nPer the ruling on the issue, this PR is scoped to exactly this flag. The\nthird consumer (`check-node-esm-load.mjs`) was not previously identified as a\nblast-radius member; it's covered by the same verification above but no\nother changes were made to it or filed as separate scope.\n\n## Gates run\n\n- `node scripts/check-phantom-dependencies.mjs` (before/after diff: empty)\n- `node scripts/check-package-self-import.mjs` (before/after diff: empty)\n- `node scripts/check-node-esm-load.mjs --specifiers-only` (before/after diff: empty)\n- `npx vitest run scripts/__tests__/check-phantom-dependencies.test.ts scripts/__tests__/check-package-self-import.test.ts` — 73 passed\n- `npx vitest run scripts/__tests__/check-node-esm-load.test.ts` — 44 passed\n- `npx tsc -p tsconfig.scripts.json` (`type-check:scripts`) — clean\n- `npx eslint scripts/check-phantom-dependencies.mjs scripts/__tests__/check-phantom-dependencies.test.ts --no-inline-config` — clean (targeted to the changed files; full-repo lint is CI's run)\n- `node scripts/check-changeset-presence.mjs` — no changeset owed\n\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_"
+}

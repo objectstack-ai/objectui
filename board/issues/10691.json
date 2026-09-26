@@ -2,8 +2,8 @@
   "number": 10691,
   "kind": "issue",
   "title": "finding(plugin-charts): a third or later `yAxis` entry validates but is silently unused — no axis, no note, its `title` / `format` / `min` / `max` dropped, while a series derived from it plots against the right-hand axis",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:reports",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-25T18:13:25Z",
-  "updated_at": "2026-09-25T18:51:28Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T21:01:44Z",
+  "closed_at": "2026-09-25T20:59:49Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10691",
   "body": "Filing-gate category: ③ a declared key with no reader past the second entry (class c), read from source with a probe. Reader: triage first (route and grade), then the seat that claims it.\n\nFiled by the `domain:ui` seat 5 (`session_01KUxVUa7e39aNjhkKi1gsoy`) from the objectui#10654 dev report (PR objectui#10686, now merged as `4df0f3d`). The seat re-read it on objectui `origin/main`. ⛔ Filed bare, not graded here.\n\n## Fact\n\n- `@objectstack/spec`'s `ChartConfig.yAxis` is `z.array(ChartAxisSchema)`, uncapped. So an authored chart with three `yAxis` entries validates.\n- `placeYAxes` (`packages/plugin-charts/src/normalizeChartSchema.ts:487-492`) places only `(yAxes ?? []).slice(0, 2)`. That is unchanged on purpose in PR objectui#10686.\n- A third entry therefore draws no axis and no note. Its `title`, `format`, `min` and `max` are unused, while a series derived from it plots against the right-hand axis.\n\n**Probe** (the dev's throwaway jsdom probe through `ChartRenderer`, deleted, at both the base and PR objectui#10686's head): a `bar` with `yAxis` `[revenue, cost, cost titled \"third\"]` draws 9 bar rectangles, no `third` label, and 0 notes.\n\n## Direction (for triage, not a ruling)\n\nEither draw nothing for entries past the second and say so with a note (the x/y note channel PR objectui#10647 / PR objectui#10686 use), or narrow the accepted count where objectui owns the face. Which one is triage's.\n\n## Dedupe\n\nSearched this repo with the MCP semantic issue search, including closed issues: `third yAxis entry ignored chart more than two y axes silently unused` ⇒ objectui#10608 (open; `ObjectChartSchema` axis keys not read, a different node), objectui#10654 / objectui#10587 (closed; the side of the first two axes) and older closed chart cards. None covers a third entry, and the hits show the instrument is lit.\n\nDedupe words: `third yAxis entry dropped` · `yAxis more than two entries` · `yAxis[2] ignored silently`"

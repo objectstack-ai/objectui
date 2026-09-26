@@ -1,0 +1,35 @@
+{
+  "number": 5247,
+  "kind": "issue",
+  "title": "[Decision] Should component-registry lookup normalise case? Two measured instances of \"every node renders Unknown component type\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-18T20:11:31Z",
+  "updated_at": "2026-08-24T18:30:48Z",
+  "closed_at": "2026-08-24T18:30:48Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5247",
+  "body": "Filed by the `repo:objectui` PM seat (round 6, session `session_01RV6yuVCxymHYE16PL9vQkE`) at the explicit instruction of **#5236**, which scoped itself to the broken example and said the registry question *\"should not be inferred from this one example… file the registry-normalisation question on its own if it is wanted.\"* The dev who fixed #5236 (PR5244) reached the same conclusion independently and flagged it rather than implementing it.\n\n## The mechanism\n\n`packages/core/src/registry/Registry.ts` resolves through plain `Map` lookups — `this.components.get(namespacedType)` / `this.components.get(type)` in `get()`, and the same in `has()` / `getEntry()`. There is **no `toLowerCase` anywhere in `packages/core/src/registry/`**, so lookup is exactly case-sensitive. Registered spellings are lowercase (`page`, `card`, `text`, `button`, …).\n\nA node typed `Page` therefore misses `page` and falls through to the OBJUI-001 \"Unknown component type\" panel. Because the failure is per-node and the mistake is usually uniform across a document, the observed symptom is not one broken widget — it is **the entire page rendering as error panels**.\n\n## Two measured instances, both self-inflicted\n\n- **#4061** (closed) — `objectui init` scaffolded an app whose registry was empty, so every node rendered \"Unknown component type\". Fixed at the scaffold.\n- **#5236** (fixed in PR5244, this round) — `examples/hello-world/schema.json`, *the smallest example in the repo and the first thing a newcomer opens*, used PascalCase for all four node types. Every node rendered an error panel. `objectui check` had been reporting it all along, buried under 45 false positives from `package.json` (that was #5127).\n\n**The honest framing, and it cuts against acting:** both instances are **our own artifacts**, not user reports. Each was fixed at its source, and neither is evidence that an outside author reached for PascalCase — only that we did, twice. Nobody should read \"two instances\" as measured user pull; it is measured *authoring* pull, from authors who had the registry in front of them.\n\n## The question\n\nShould `Registry` lookup normalise case, so `Page` and `page` resolve to the same component?\n\n- **A. Leave it case-sensitive.** One spelling is correct and the tooling already names the failure: `objectui check` reports the unknown type, and (as of PR5245) it does so without the noise that hid it. Costs nothing, changes nothing, and keeps one key = one string.\n- **B. Normalise at lookup.** `Page` and `page` become the same key **everywhere, for every registered component, permanently**. Removes a class of silent total-render failure and matches what a React-shaped mental model reaches for first. But it is a contract change across the whole stack: it makes two spellings valid forever, which the docs, the designer, `sdui-intrinsics.d.ts` and every registration site then have to mean consistently — and it makes a *typo class* (`PAGE`, `pAge`) resolve too, not merely the PascalCase convention.\n- **C. Keep lookup strict, but make the failure teach.** When a lookup misses and a case-insensitive match exists, the OBJUI-001 panel (and/or `objectui check`) names it: *\"Unknown component type `Page` — did you mean `page`?\"* Keeps one canonical spelling while removing the part that actually hurts, which is that the failure is silent about the cause.\n\n**PM recommendation: C.** It addresses what both measured instances actually cost — not that the wrong spelling failed, but that the failure gave the reader nothing to act on — without making a second spelling permanently valid. A does nothing about the recurrence; B pays a permanent contract cost to buy tolerance for a mistake C can simply name. If B is chosen, it should be decided as the contract change it is, not as a fix to an example.\n\nThis is on the human floor: B is a public-contract change to how every component key resolves, and even C touches published error text.\n\nRefs #5236 / PR5244 (the example, fixed), #4061 (closed, same shape at the scaffold), #5127 (why the CLI warning was invisible until today), #5237 / PR5245 (the CLI's blocking arm)."
+}

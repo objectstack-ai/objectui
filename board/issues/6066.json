@@ -1,0 +1,33 @@
+{
+  "number": 6066,
+  "kind": "pull_request",
+  "title": "test(console): refresh the reference_rail.entries exemption note after the #5494 ruling",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T15:27:12Z",
+  "updated_at": "2026-08-24T15:54:20Z",
+  "closed_at": "2026-08-24T15:54:19Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-24T15:54:19Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6066",
+  "body": "Fixes #5792\n\nStale-prose cleanup of the #4918 class. Two pieces of comment text in\n`apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` were written\nwhile objectui#5494 was an **open contract question**. That question has since\nbeen ruled (Option B, maintainer 2026-08-22) and the derivation landed, so both\npieces are stale — and one of them was false when it was written.\n\nThe exemption itself is **unchanged**. `inputs` is a flat scalar carrier and\ncannot express an array of objects; that was always the sufficient justification\nand it is all that remains stated.\n\n## What changed\n\n1. **Comment block above the exemption** (now lines 717-734). Dropped \"Also\n   blocked on a real contract question\" and the claim that the local\n   `ReferenceRailEntry` declares an `icon` key \"the renderer reads\". Replaced\n   with the post-ruling facts plus the measurement behind them.\n2. **The exemption reason string.** Dropped the trailing sentence \"An entries\n   editor also needs the `icon` divergence settled first\". The provenance\n   sentence now cites the 17.1.0 pin (objectui#5328) — see the deviation note\n   below for why an issue reference had to stay.\n3. A changeset with **empty frontmatter** — this repo's \"releases nothing\"\n   declaration, which `scripts/check-changeset-presence.mjs` accepts explicitly.\n\n## The \"renderer reads it\" premise — measured, not repeated\n\nThis card exists because the previous comment asserted a renderer read that did\nnot exist, so the replacement text was verified rather than restated.\n\n**Probe** — the only `icon` occurrence left in\n`packages/plugin-detail/src/renderers/record-reference-rail.tsx` is prose (a\ncomment saying no render path read it). `packages/plugin-detail/src/synth/buildDefaultPageSchema.ts:934`\nindependently records that emitting `rel.icon` wrote a key the strict schema\nrefuses.\n\n**Counter-probe**, same grep method, same file — these keys of\n`ReferenceRailEntry` *do* have real reads, which is what makes the null result\nabove a genuine absence rather than a broken probe:\n\n| key | read at |\n| --- | --- |\n| `objectName` | `record-reference-rail.tsx:175, 184, 186, 262, 267, 284, 310` |\n| `relationshipField` | `:187, 284` |\n| `limit` | `:188` |\n| `title` | `:265` |\n| `displayField` | `:308` |\n\n## Deviation from the dispatch's assumption: the reason string is NOT inert\n\nThe dispatch assumed only the map's **keys** are asserted\n(`Object.keys(UNPUBLISHED_EXEMPTIONS)`), making the reason text prose to the\ngate. Measured on the merge-base, that is **not true**: the test `every\nunpublished-key exemption states a reason and references a tracking issue`\n(line ~1129) does `Object.entries(UNPUBLISHED_EXEMPTIONS).filter(([, reason]) => !/#\\d+/.test(reason))`\n— it reads the reason and requires an issue reference. The pre-edit reason's\nonly such reference was the very `objectui#5494` mention being retired, so a\nnaive trim to the surviving first sentence would have gone red. The reason\ntherefore keeps a tracking reference, now the 17.1.0 pin.\n\n**Ablation proving that** (not theatre — it has a real verdict): stripping every\nissue reference from this one reason string turns the suite red on exactly that\ntest and nothing else.\n\n```\nABLATED_VITEST_EXIT=1\n Tests  1 failed | 74 passed (75)\n x  ... > every unpublished-key exemption states a reason and references a tracking issue\n```\n\nMutation was confirmed on disk before the run (injected marker present, removed\ntext absent, zero `#`-digit sequences left on the reason line) and the restore\nleg ran under `trap ... EXIT INT TERM` with a cwd-independent restore, verified\nafterwards. No rebuild step applies — vitest resolves this app suite from source,\nnot from a package `dist/`.\n\n## Gates, all at final head `e9be2bdbf`\n\n| gate | exit | verdict line |\n| --- | --- | --- |\n| `pnpm exec vitest run apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` (root form) | 0 | `Test Files  1 passed (1)` / `Tests  75 passed (75)` |\n| `pnpm --filter @object-ui/console type-check` | 0 | script name echoed as `type-check`; no `Cannot find module '@object-ui/...'` (closure built) and no missing-`node_modules` signature |\n| `pnpm exec eslint src/__tests__/registry-inputs-spec-parity.test.ts` (in `apps/console`) | 0 | 1 file, 0 errors, 0 warnings — merge-base delta 0/0, same file linted at `origin/main` also 0/0 |\n| `node scripts/check-changeset-presence.mjs` | 0 | empty frontmatter accepted as \"releases nothing\" |\n\n**Test count and names unchanged:** 75 before, 75 after; the sorted list of test\nnames diffs clean against the pre-edit baseline (`diff` exit 0). **Exemption\nintegrity:** the map's key list is byte-identical before and after (11 keys, same\norder) and `'record:reference_rail.entries':` is still present and still keyed\nthe same way — the edit landed only in the comment block above it and in that\nentry's value.\n\nDraft on purpose: not ready, not enqueued, no auto-merge — the PM lands it.\n\n_Generated by [Claude Code](https://claude.ai/code/session_01CSoz9uGhaaSgiq3hshtN7L)_"
+}

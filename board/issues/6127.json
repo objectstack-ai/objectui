@@ -1,0 +1,36 @@
+{
+  "number": 6127,
+  "kind": "issue",
+  "title": "finding(docs): `content/docs/fields/location.mdx` welds a JSX element and a bare metadata object literal into one fence, so it parses as neither `ts` nor `tsx`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T19:24:20Z",
+  "updated_at": "2026-08-24T20:29:01Z",
+  "closed_at": "2026-08-24T20:29:01Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6127",
+  "body": "Filed by #5867 **batch 3**, unassigned. Excluded from batch 3 by measurement. Blocks **2 of the 129 blocks** remaining on #5867.\n\n## The measurement\n\nThe block at fence line 81, under *Integration with Maps*, passes triage's classifier — its first line is `import { LocationField } from '@object-ui/fields';` — so under the #5867 ruling it is code. But it does not parse under **either** TypeScript fence language. Both legs measured with the repo's own `typescript`, parsing the block body standalone:\n\n```\nTS:  2 syntactic diagnostic(s)\n   line 4: TS1005 '>' expected.\n   line 4: TS1109 Expression expected.\nTSX: 5 syntactic diagnostic(s)\n   line 10: TS1005 ';' expected.\n   line 11: TS1005 ';' expected.\n   line 13: TS1005 ';' expected.\n   line 14: TS1005 ';' expected.\n   line 17: TS1005 ';' expected.\n```\n\nThe gate agrees — re-fenced to `ts` in the batch-3 probe it was the **only** syntax-phase failure in the 23-block `fields` candidate set:\n\n```\n[syntax]  content/docs/fields/location.mdx:91:13  TS1005: ';' expected.\n[syntax]  content/docs/fields/location.mdx:92:6   TS1005: ';' expected.\n[syntax]  content/docs/fields/location.mdx:94:15  TS1005: ';' expected.\n[syntax]  content/docs/fields/location.mdx:95:9   TS1005: ';' expected.\n[syntax]  content/docs/fields/location.mdx:98:11  TS1005: ';' expected.\n```\n\n## Why neither language works\n\nThe fence holds **two different examples welded together**:\n\n1. an import plus a JSX usage — `LocationField {...props}` as an element, which needs `tsx`; under `ts` the `less-than` is read as a type argument list, which is the line-4 pair above;\n2. immediately after it, a bare metadata object literal (`{ type: 'object-map', objectName: 'store', map: { … } }`) written at statement position, which under `tsx` parses as a block containing a labelled statement and then falls over on the commas — the five line-10-onward diagnostics.\n\nSo the block is not one snippet in the wrong language. It is a JSX usage example and a JSON metadata example sharing a fence.\n\n## Options\n\n- **A — split the fence in two**: a `tsx` fence for the import plus element, and a separate fence for the metadata literal (`json`, or `plaintext` as prose). Both halves then say what they are, and the `tsx` half comes under the gate.\n- **B — drop the JSX half**, keeping only the metadata literal, if the page's subject is really the `object-map` node's config.\n- **C — leave the whole block prose**, at the cost of a standing exception on #5867 for a block whose first line the classifier calls code.\n\n**Recommendation: A.** It is the only option that puts the half a reader would actually copy-paste as TypeScript under the type gate, and the metadata half is a schema-key question the snippet gate explicitly says it does not answer (see the `check-doc-snippet-types.mjs` header, \"Schema-key validity\").\n\n⚠️ Note for whoever takes it: splitting one fence into two **changes the block count**, so the batch that does this cannot assert the plain \"blocks-to-compile rises by exactly the batch size\" identity without stating the split separately.\n\n⛔ Not fixable inside #5867's batch discipline: choosing between A, B and C is a decision about what the page should teach, and a `FRAGMENT_MARKER` is forbidden on a block that is genuinely TypeScript.\n\nRefs: #5867 (parent) · #6126 (the sibling `fields` exclusions) · #6120 · #6122.\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 5791,
+  "kind": "issue",
+  "title": "Install the parameterised half-state patrol (sweeper + workflow pair from objectstack PR #11294)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T09:11:12Z",
+  "updated_at": "2026-08-24T11:16:11Z",
+  "closed_at": "2026-08-24T11:16:11Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5791",
+  "body": "Blocked-by: objectstack-ai/objectstack#11217\n\nFiled by the objectstack skills seat (session `session_01RMTpSRF5CjMmQBFfPtPCwJ`, 2026-08-23) at the ACCEPT of objectstack PR #11294, per the consumer-card duty on that landing. Measured context: 28 open `pm:blocked` cards in this repo have never been machine-swept, and a hand-run of the H19 predicate found 7 stale blocks (objectstack#11217's table).\n\n## What\n\nOnce the upstream landing merges, adopt the pair **verbatim**: `scripts/pm/check-half-states.mjs` + `.github/workflows/half-state-patrol.yml` from objectstack. Both are parameterised for exactly this: the swept repo resolves `PM_SWEEP_REPO` → `GITHUB_REPOSITORY` → default (a copy running here sweeps THIS repo with its own repo-scoped `GITHUB_TOKEN` — no cross-repo credential), and the anchor issue comes from the repository variable `HALF_STATE_ANCHOR_ISSUE` with a loud failure when unconfigured (it will NOT silently write into a wrong issue).\n\n## Executable acceptance criterion\n\nA scheduled (or manually fired) run whose summary names THIS repo and writes its findings into this repo's own anchor issue; `node scripts/pm/check-half-states.mjs --self-test` green at the adopted revision.\n\n## ⚠️ Manual maintainer step (cannot be done by an agent)\n\nCreate the anchor issue here and set the repository **variable** `HALF_STATE_ANCHOR_ISSUE` to its number — repository variables are settings-surface writes. The workflow fails loudly (after the sweep, findings preserved in the run summary) until it is set.\n\nNote: cross-repo `Blocked-by:` targets (e.g. pointing at objectstack) stay UNJUDGED per install — accepted at grading (objectstack#11218 carries the loudness half).\n\nRefs: objectstack-ai/objectstack#11217 · objectstack-ai/objectstack#11196 · PR objectstack-ai/objectstack#11294."
+}

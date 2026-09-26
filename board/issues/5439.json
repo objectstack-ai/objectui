@@ -1,0 +1,35 @@
+{
+  "number": 5439,
+  "kind": "issue",
+  "title": "13 more vite-built packages ship extensionless typings, and their NAMED re-exports degrade to `any` instead of going missing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-20T18:39:02Z",
+  "updated_at": "2026-08-25T01:29:13Z",
+  "closed_at": "2026-08-25T01:29:13Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5439",
+  "body": "Found while implementing #5365, which was fenced by triage to `@object-ui/components` and `@object-ui/layout`. Not fixed there: two of the affected packages (`plugin-list`, `plugin-view`) had sibling cards in flight, and widening past the fence was explicitly out of that dispatch.\n\n*(Generics below are written with a space after `<` — GitHub's body sanitizer strips `<` followed by a letter as an HTML tag, and it ate them on the first revision of this issue.)*\n\n## What was measured, 2026-08-20\n\nFull build in a worktree off `main` `32ef595f4`, counting relative specifiers in every emitted `dist/**/*.d.ts` (AST-located module specifiers, so JSDoc prose is excluded). Only packages that were built are listed; `plugin-ai`, `plugin-gantt`, `plugin-map`, `plugin-markdown`, `plugin-timeline`, `plugin-tree` were outside the closure built here and are untested, not clean.\n\n| package | build | extensionless relative specifiers in `dist/**/*.d.ts` |\n|---|---|---|\n| `@object-ui/plugin-detail` | `vite build` | 81 |\n| `@object-ui/plugin-designer` | `vite build` | 62 |\n| `@object-ui/plugin-chatbot` | `vite build` | 53 |\n| `@object-ui/plugin-grid` | `vite build` | 36 |\n| `@object-ui/plugin-dashboard` | `vite build` | 31 |\n| `@object-ui/plugin-form` | `vite build` | 31 |\n| `@object-ui/plugin-kanban` | `vite build` | 22 |\n| `@object-ui/plugin-view` | `vite build` | 19 |\n| `@object-ui/plugin-list` | `vite build` | 16 |\n| `@object-ui/plugin-report` | `vite build` | 14 |\n| `@object-ui/plugin-charts` | `vite build` | 9 |\n| `@object-ui/plugin-calendar` | `vite build` | 4 |\n| `@object-ui/plugin-editor` | `vite build` | 1 |\n\nEvery `tsc`-built package measured clean in the same sweep (`auth`, `collaboration`, `i18n`, `mobile`, `permissions`, `providers`, `react`, `sdui-parser`, `types`, `core`, `fields` — the two hits each in `core` and `fields` are JSDoc prose, not hops). The split is exactly the one #5365 named: bundler builds emit their typings from the other half of the build, where the source specifier survives verbatim.\n\n## The part that is NOT just \"#5365 again\"\n\n#5365's two packages re-export mostly through `export * from './ui'`. A star re-export from a module the compiler cannot resolve contributes **no names**, so the consumer gets a loud `TS2305: has no exported member`.\n\nThese packages re-export mostly through **named** re-exports — `export { useObjectChat } from './useObjectChat'`. TypeScript still declares the name; it only fails to give it a type. So the consumer gets **no error at all** and a silent `any`.\n\nMeasured on `@object-ui/plugin-chatbot`, probe compiled twice against the same built `dist`:\n\n```\ntype IsAny< T > = 0 extends 1 & T ? true : false;\nconst assertAny: IsAny< typeof useHitlInChat > = true;\n```\n\n- `moduleResolution: nodenext` — compiles clean, i.e. the symbol IS `any`.\n- `moduleResolution: bundler` — `TS2322: Type 'true' is not assignable to type 'false'`, i.e. properly typed.\n\nThat is the worse of the two failure modes: #5365 was a wall a consumer hit immediately, this one is a type hole that opens quietly the moment a consumer pins `nodenext`. It is what produces the 21 residual `TS7006` on `@object-ui/app-shell` reported in #5365's PR.\n\n## Shape of the fix\n\nMechanical, and the mechanism already exists: #5365 landed `scripts/vite-dts-explicit-extensions.ts`, a shared `vite-plugin-dts` `beforeWriteFile` / `afterBuild` pair that resolves each emitted specifier against the source tree the output mirrors, throws on anything it cannot resolve, and re-checks the emitted set afterwards. Wiring it into each package's `vite.config.ts` is three lines per package, identical to the two already done.\n\nWorth deciding as one batch rather than 13 cards, and worth deciding together with whether the repository wants the typings-level gate leg that #5365's triage deliberately deferred — without it, nothing stops the 14th package.\n\nRefs #5365, #4538."
+}

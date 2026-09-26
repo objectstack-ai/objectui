@@ -1,0 +1,33 @@
+{
+  "number": 6202,
+  "kind": "pull_request",
+  "title": "docs(components): cover packages/components/README.md with the doc-snippet type gate",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T01:09:13Z",
+  "updated_at": "2026-08-25T01:40:48Z",
+  "closed_at": "2026-08-25T01:40:46Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": "2026-08-25T01:40:46Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6202",
+  "body": "Fixes #5259\n\nImplements the 2026-08-19 maintainer ruling (「全部接受」, Option A): declare the one remaining fragment, delete the `UNGATED_DOCS` ledger entry, and accept the filter growth. `packages/components/README.md` — a README that ships to npm — moves from unverified to permanently gated.\n\n## What changed\n\n- `packages/components/README.md`: the router-layout excerpt at the notification-surfaces section carries the documented fragment marker. `Outlet` is react-router's, supplied by the host application — precisely the case `scripts/check-doc-snippet-types.mjs` names in its own header (\"a call into the host's own router\"). The marker spelling was taken verbatim from `FRAGMENT_MARKER_EXAMPLES` in the gate's source, not from the card (the card's body shows an empty fence there — GitHub's sanitizer ate it).\n- `scripts/check-doc-snippet-types.mjs`: the `packages/components/README.md` entry is deleted from `UNGATED_DOCS`. No other ledger entry and no gate logic touched.\n\n## Premise re-derivation — confirmed, with one correction to the cost figure\n\nThe card's \"1 diagnostic\" figure is from 2026-08-18. Re-derived on today's `main` (`e9e55524e`), it is exactly right, same code and same line:\n\n```\n[semantic]  packages/components/README.md:183:4  TS2304: Cannot find name 'Outlet'.\nSemantic phase: 256 of 256 block(s) judged, 1 failed.\n```\n\nNothing else. No further host fragments, no real defects, nothing needing classification.\n\n**The build-filter figure, however, is stale — and the correction runs in the cheap direction.** The card priced this at 11 -> 15 packages. On today's `main` the filter is already **20** packages, and it already contains `@object-ui/components` and `@object-ui/i18n`, put there by documents covered in the seven days since. So the measured delta of this PR is:\n\n| | before | after |\n|---|---|---|\n| filter size | 20 | 20 |\n| delta | — | **+0 packages** |\n\nBoth lists are byte-identical:\n\n```\n--filter=@object-ui/app-shell --filter=@object-ui/auth --filter=@object-ui/cli --filter=@object-ui/components --filter=@object-ui/core --filter=@object-ui/data-objectstack --filter=@object-ui/fields --filter=@object-ui/i18n --filter=@object-ui/plugin-charts --filter=@object-ui/plugin-dashboard --filter=@object-ui/plugin-detail --filter=@object-ui/plugin-editor --filter=@object-ui/plugin-form --filter=@object-ui/plugin-grid --filter=@object-ui/plugin-kanban --filter=@object-ui/plugin-markdown --filter=@object-ui/plugin-timeline --filter=@object-ui/plugin-view --filter=@object-ui/react --filter=@object-ui/types\n```\n\nThe reason is mechanical, not a measurement artifact: this README imports only `@object-ui/components`, `@object-ui/react` and `@object-ui/core`, and all three are already in the filter. `@object-ui/react-runtime` and `@object-ui/sdui-parser` are absent from the emitted filter both before and after — they are transitive dependencies turbo pulls in topologically, not packages the gate emits. The ruled cost was +4; the realised cost is **0**, so this lands strictly inside what the ruling priced.\n\n## Coverage is real, not cosmetic — the non-vacuity control\n\nA zero filter delta is exactly the signature the dispatch order warns about (\"a silent no-op wearing a green tick\"), so coverage was proven directly instead of inferred from the filter. A fabricated export was injected into a **different** `tsx` block of this README — the `registerDefaultRenderers`-shaped fabrication the card names by name — and the gate went red on it:\n\n```\n[semantic]  packages/components/README.md:209:18  TS2305: Module '\"@object-ui/components\"' has no exported member 'registerDefaultRenderers'.\nSemantic phase: 255 of 255 block(s) judged, 1 failed.   (exit 1)\n```\n\nMutation and restore were both proven on disk by anchored counts, never by an editor's exit code; the restore leg left `git diff HEAD` empty. That block was unverified before this PR and is verified after it, which is the whole value of the change.\n\n## Verification at `a74f8d748`\n\n| check | result |\n|---|---|\n| `check:doc-snippets` | exit 0 — *\"Every covered documentation snippet compiles against the built types.\"* `255 of 255 block(s) judged, 0 failed`; controls (resolution / sentinel / positive / undeclared) all green |\n| `check:doc-fences` | exit 0 |\n| `check:doc-types` | exit 0 |\n| `check:control-bytes` | exit 0 (5118 tracked text files) |\n| `check-changeset-presence.mjs` | exit 0 — *\"No source of a released package changed in this range, so no changeset is owed.\"* |\n| `vitest run scripts/__tests__/check-doc-snippet-types.test.ts` | exit 0 — 30 passed |\n\nLedger accounting moved as expected: covered blocks `367 — 255 to compile, 112 declared fragment(s)` (was `256 to compile, 111 declared fragment(s)`). Build was the gate's own derived filter, `turbo run build $(node scripts/check-doc-snippet-types.mjs --build-filter) --concurrency=2`, exit 0.\n\nNo changeset: the repo's own presence gate reports none owed, and the README edit is an HTML comment that no reader or renderer sees.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_"
+}

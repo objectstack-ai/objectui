@@ -1,0 +1,36 @@
+{
+  "number": 6090,
+  "kind": "issue",
+  "title": "[finding] sheet.tsx's undeclared `hideOverlay` prop has zero consumers, so the type-check gate credited with catching its loss is vacuous today",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T16:24:39Z",
+  "updated_at": "2026-08-24T17:59:24Z",
+  "closed_at": "2026-08-24T17:59:24Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6090",
+  "body": "Fell out of #6027 while writing the docblock record of \"which gate catches each undeclared local edit\". Recording only — nothing is broken today.\n\n## Fact\n\n#6027's table credits `hideOverlay` with a **loud** failure mode:\n\n| file | undeclared local edit | what a `--force` sync does |\n|---|---|---|\n| `sheet.tsx` | `hideOverlay` prop suppressing `<SheetOverlay />` | drops it → call sites fail to type-check (**loud**) |\n\nThat reasoning requires call sites. Measured on `main` (`7c96c9420`), there are none. Every occurrence of the identifier in the tree:\n\n```\npackages/components/src/ui/sheet.tsx:64:  hideOverlay?: boolean\npackages/components/src/ui/sheet.tsx:70:>(({ side = \"right\", className, children, hideOverlay, ...props }, ref) => (\npackages/components/src/ui/sheet.tsx:72:    {!hideOverlay && <SheetOverlay />}\npackages/components/shadcn-components.json:272:   ... \"localEdits\": \"Adds a `hideOverlay` prop ...\"\nROADMAP.md:485,486\nscripts/__tests__/shadcn-local-patches.test.ts:151,157  (prose about the edit, not a use)\n```\n\nNo `<SheetContent …>` in the repo passes it. `ROADMAP.md:486` credits `DesignDrawer` (`modal={false}` + `hideOverlay` so preview widgets stay clickable while the drawer is open) — **no `DesignDrawer*` file exists** anywhere in the tree.\n\n## Why it matters\n\n`hideOverlay` is an **optional** prop. With no consumer passing it, a `--force` sync that drops it from `sheet.tsx` type-checks clean: nothing references the removed member. So of the four undeclared local edits #6027 enumerated, the count that no gate catches is **two**, not one — the Tailwind v4 spelling (now guarded by #6027's assertion) and this one.\n\nThe difference in severity is real and worth stating: losing the Tailwind migration ships invalid CSS to users, whereas losing `hideOverlay` currently removes an API nobody calls. This is a **stale gate attribution**, not a live user-facing defect — which is exactly why it is worth recording rather than fixing blind.\n\nThe gate re-arms by itself the moment anything passes the prop.\n\n## Options worth weighing (not asserting a direction)\n\n- **Retire it** — an undeclared local edit maintained against upstream drift, serving zero consumers, is pure carrying cost; the ROADMAP entry describing its consumer is already stale. Cheapest, and consistent with removing declared-but-unconsumed surface.\n- **Declare it** as a patch family in `scripts/shadcn-local-patches.mjs` — one small anchor (unlike the ~20-string Tailwind case #6027 declined), which would make its loss loud independently of whether a consumer exists.\n- **Leave it and correct the record** — fix `ROADMAP.md`'s stale `DesignDrawer` claim and #6027's table, accepting that the edit is unguarded until a consumer returns.\n\nDeciding between these is a judgement about whether the prop still has a future, which I have no basis to make from here.\n\nFiled unassigned, `finding` only, no `pm:queue` — observation class, for PM triage.\n\nRefs: #6027 (the assertion whose docblock records this caveat) · #4996."
+}

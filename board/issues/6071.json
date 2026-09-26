@@ -1,0 +1,35 @@
+{
+  "number": 6071,
+  "kind": "issue",
+  "title": "`PALETTE_EXCLUSIONS` reasons say \"no renderer\" for two block types that do have registered renderers",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T15:33:06Z",
+  "updated_at": "2026-08-25T09:50:18Z",
+  "closed_at": "2026-08-25T09:50:18Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6071",
+  "body": "Observation filed unassigned while implementing #5837 (canvas chrome for renderable-but-unoffered block types). Not fixed there — #5837's change is keyed on renderer identity and deliberately leaves these two alone, so correcting the ledger text is a separate decision.\n\n## What was measured\n\n`packages/app-shell/src/views/metadata-admin/previews/block-types.ts` groups four palette exclusions under the comment `// No renderer, by decision.` and gives each a reason string beginning \"no renderer\":\n\n```\n'ai:chat_window':        'no inline renderer — the floating chat overlay (plugin-chatbot) is canonical',\n'element:form':          'no renderer — use the object-bound `object-form` block',\n'element:record_picker': 'no renderer — record picking is a field widget, not a page block',\n'element:text_input':    'no renderer — bare inputs belong to a form, not a page block',\n```\n\nTwo of those four do have real, registered renderers today:\n\n- `packages/components/src/renderers/basic/text-input.tsx:161` — `ComponentRegistry.register('text_input', ElementTextInputRenderer, { namespace: 'element', skipFallback: true, ... })`, with a declared `inputs` list (objectui#3808) and a spec-declared `defaultValue`.\n- `packages/components/src/renderers/basic/record-picker.tsx:303` — `ComponentRegistry.register('record_picker', ElementRecordPickerRenderer, { namespace: 'element', ... })`, and that file's own comment already states the real reason: *\"`element:record_picker` is not in `PUBLIC_BLOCKS` (record picking is a field widget…)\"*.\n\nSo the substantive half of each reason (\"bare inputs belong to a form, not a page block\" / \"record picking is a field widget, not a page block\") is still correct and still the decision. It is only the leading \"no renderer\" clause that is false, and `core/src/registry/public-blocks.ts` already words the same two exclusions without it.\n\n`ai:chat_window` is genuinely unregistered — `placeholders.tsx` keeps it out on purpose so a referencing schema fails loudly — so its reason is accurate. `element:form` was not checked closely enough to claim either way here.\n\n## Why it is worth recording rather than leaving\n\n`block-config.test.ts` enforces that every exclusion *carries* a reason (`reason.length > 10`); nothing enforces that the reason is *true*. That is exactly the drift shape `PALETTE_EXCLUSIONS` was made an explicit ledger to prevent (#2943): the ledger is read by later readers as the decision record, and #5837 had to re-derive registration state from source because the ledger's stated reason could not be trusted.\n\nThere is also a decision hiding behind the correction: if these two render, does the page canvas owe them real chrome the way it now owes the `record:chatter` alias one? #5837 says no — it keys on *renderer identity within an alias group*, not on bare registration, precisely so a block that is deliberately not page content keeps the generic box. Rewording the ledger should not be read as reopening that.\n\n## Shape of a fix, if wanted\n\nReword the two reason strings so the first clause states the actual decision (not page content / field widget) rather than a renderer status that is not true, and move them out from under the `// No renderer, by decision.` heading. Optionally check `element:form` the same way. Docs-only; no behaviour moves.\n\nRefs: #5837 (where it surfaced) · #2943 (the guard that made `PALETTE_EXCLUSIONS` an explicit ledger)."
+}

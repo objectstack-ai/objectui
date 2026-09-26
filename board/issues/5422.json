@@ -1,0 +1,36 @@
+{
+  "number": 5422,
+  "kind": "issue",
+  "title": "`ci.yml`'s `concurrency` cancels the push-lane coverage job mid-run, so Codecov gets nothing on a merge that is followed by another merge",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-20T16:21:43Z",
+  "updated_at": "2026-08-24T15:49:44Z",
+  "closed_at": "2026-08-24T15:49:44Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5422",
+  "body": "Found while measuring the coverage lane for #5403. Filed unassigned; out of that card's scope, and #5403's sharding reduces the exposure without removing the mechanism.\n\n## The mechanism\n\n`ci.yml` carries:\n\n```yaml\nconcurrency:\n  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}\n  cancel-in-progress: true\n```\n\nOn `push`/`main` the group falls back to `github.ref` — the same value for **every** merge — so each merge cancels the previous merge's still-running CI. For the fast jobs that is exactly what is wanted. For `test-coverage`, which is the only job that publishes anything outside the run, cancellation means the report is never produced and the upload step never executes.\n\n## Measured, on this repository, today\n\n- Run 32385114700 (`aa949ba2`, the #5411 merge): job `Test (coverage)` **cancelled at 22 min 20 s into the test step**, `Upload coverage to Codecov` conclusion `skipped`. Cancelled by the next push to `main` (`bd977f86`, 15:38:40Z) — found by an unfiltered re-read after a `status=completed` query had hidden the newer, still-running run.\n- Inter-merge interval on `main` over the last 30 consecutive push runs (2026-08-19T15:31Z .. 2026-08-20T15:38Z): **median 25.2 min**, min 0.3 min, max 240.4 min.\n- The unsharded coverage job needs ~40 minutes (39 min 51 s of tests measured on `aa949ba2`), so it survives to completion in **12 of those 30 windows**. A ~13-minute lane — what #5403 makes it — survives in **20 of 30**.\n\nSo \"Codecov received nothing\" has (at least) three distinct causes today, and this is the one no card owns:\n\n1. the suite is red (#5402, and still #5421),\n2. the upload step's implicit `success()` skipped it (#5403 fixes this),\n3. **the job was cancelled before it got there** (this issue).\n\n## The shape of a fix, for whoever rules on it\n\nNot obvious enough to do without a decision, which is why this is a card and not a patch:\n\n- **A** — give the coverage lane its own `concurrency` group keyed on `github.sha`, so a coverage run for a specific commit is never cancelled by a later merge. Costs runner minutes when merges come in bursts; every merged commit gets its own coverage number.\n- **B** — key it on `github.ref` but with `cancel-in-progress: false`, serialising coverage runs instead of cancelling them. Cheaper than A, but a burst of merges queues up and the newest number lands late.\n- **C** — accept it: with #5403's sharding the job is ~13 min against a 25 min median, and the loud verdict step means a cancelled run is at least visible. Do nothing, knowingly.\n\n⚠️ Note the interaction with #5403's second half: a *cancelled* run also reaches the verdict step (GitHub's `always()` runs on cancellation), so after #5403 this failure mode announces itself rather than passing as green — but announcing is not delivering."
+}

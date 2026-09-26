@@ -1,0 +1,35 @@
+{
+  "number": 6094,
+  "kind": "issue",
+  "title": "OBJECTSTACK_CLIENT_DIST has no dependency-resolution validation, so an out-of-tree client override silently produces a broken bundle",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T16:38:33Z",
+  "updated_at": "2026-08-24T18:29:51Z",
+  "closed_at": "2026-08-24T18:29:51Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6094",
+  "body": "Found while reproducing #5996. Filing so triage can rank it; not fixed there.\n\n## What I measured\n\n`b0de7a85c` (PR #5995, card #5391) gave `OBJECTSTACK_SPEC_DIST` a fail-fast check: `assertDependenciesResolve` confirms the override's own manifest `dependencies` resolve from `packageDir`, and refuses the build otherwise. That check was written because an override whose deps cannot resolve does not fail at injection time — it fails much later, in ways that do not name the override.\n\n`OBJECTSTACK_CLIENT_DIST` — its sibling hook in `apps/console/vite.config.ts`, ~70 lines above — got nothing equivalent. It is still a plain string alias:\n\n```ts\nconst clientDistOverride = process.env.OBJECTSTACK_CLIENT_DIST;\nif (clientDistOverride) {\n  const resolved = path.resolve(clientDistOverride);\n  workspaceAliases['@objectstack/client'] = resolved;\n  clientFsAllow.push(path.dirname(resolved), path.resolve(path.dirname(resolved), '..'));\n}\n```\n\nNo manifest is read, no dependency is checked, and the path is not verified to exist.\n\nReproduced on `apps/console`, `vite@8.2.1` + `rolldown@1.2.3`, base `7c96c9420`: copy the installed `@objectstack/client@17.2.0` `dist/` to a directory outside the workspace and point the hook at it. Its three bare imports — `@objectstack/core/logger`, `@objectstack/spec/api`, `@objectstack/spec/data` — have no reachable `node_modules` from that location, so all three stay unresolved. `vite build` reports **`✓ 8615 modules transformed`** and carries on; the three specifiers survive as external imports inside `assets/framework-*.js`, i.e. bare specifiers in a browser bundle that no browser can load.\n\nThe failure mode is exactly the one #5391 was filed about, on the other hook: nothing in the output names `OBJECTSTACK_CLIENT_DIST`, and the build's own summary reads as success up to the point something unrelated trips over the wreckage.\n\n## Why it is worth a line\n\nThe hook exists so a developer can exercise a locally built client before it ships — i.e. it is pointed at a freshly built, not-yet-installed tree, which is precisely the situation where `node_modules` is absent or incomplete. The validation #5995 wrote is directly transferable: `assertDependenciesResolve` and `packageResolvesFrom` in `scripts/vite-objectstack-spec-dist.ts` are already parameterised over a package directory.\n\nNote the two hooks are not symmetrical in shape and a fix should not assume they are: the spec hook derives 18 aliases from the override's `exports` map, while the client hook is one alias and may legitimately point at either a package directory or a `dist` entry file. Only the dependency check transfers cleanly.\n\n## Possible shapes (not a recommendation)\n\n- Extract the dependency-resolution check from `scripts/vite-objectstack-spec-dist.ts` into something both hooks call, and have the client hook refuse the build the same way the spec hook now does.\n- Cheaper first cut: assert the resolved path exists and that the containing package's declared `dependencies` resolve from it, without touching the spec module.\n- Consider whether unresolved bare imports in a browser bundle should fail the console build generally, independent of either hook — that is a wider question and probably its own card.\n\nRelated: #5391 / #5995 (the spec-dist half), #5996 (where this was found).\n"
+}

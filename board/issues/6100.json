@@ -1,0 +1,36 @@
+{
+  "number": 6100,
+  "kind": "issue",
+  "title": "[finding] ci-cd-pipeline.md carries a fourth hand-copied copy of the two self-test case counts (100 / 32), with no derivation and nothing that re-checks it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T16:59:31Z",
+  "updated_at": "2026-08-24T18:56:42Z",
+  "closed_at": "2026-08-24T18:56:42Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6100",
+  "body": "Found while implementing #6089 (drop the case counts from `hook-selftests.yml`'s step names). Out of scope there — that card and its dispatch ruling are scoped to `.github/workflows/hook-selftests.yml`, and this is a different file with a different gate family — so recorded here instead of folded in.\n\n## The observation\n\n#6089 enumerated three copies of the self-test case counts, all inside `.github/workflows/hook-selftests.yml` (the cost note plus the two step names). There is a **fourth**, in the docs:\n\n```\ncontent/docs/guide/ci-cd-pipeline.md:1135:Runs `.claude/hooks/guard-main-checkout-bash.selftest.sh` (100 cases) and\ncontent/docs/guide/ci-cd-pipeline.md:1136:`.claude/hooks/guard-shared-stash.selftest.sh` (32 cases) — the hermetic self-test matrices for\n```\n\nSame shape as the one #6089 ruled on: a hand-copied number, no derivation recipe, and nothing that re-checks it. `scripts/__tests__/ci-cd-pipeline-doc.test.ts` pins this page hard — the workflow inventory, the `ci.yml` job table, the `name:` each job reports under, and (`what each job runs`) the commands each `ci.yml` job runs — but every one of those pins is scoped to `ci.yml` or to workflow *filenames*. Nothing reads a case count, so these two numbers are unpinned.\n\n## Both numbers are stale or about to be\n\nSame timing as #6089, and this file is not touched by either PR:\n\n- PR #6087 takes `guard-shared-stash.selftest.sh` from **32 to 41** cases.\n- PR #6046 takes `guard-main-checkout-bash.selftest.sh` from **100 to 121** cases.\n\n#6089's fix (PR linked below) removed the workflow's copies, so after it lands this page is the **only** remaining hand-copied copy — and the one a contributor reads to learn what the gate does.\n\n## Why this is worth a card rather than a shrug\n\nThe page itself already carries the opposite principle, enforced: `ci-cd-pipeline-doc.test.ts` has a test named *\"states no job count, so the number cannot drift away from the table\"*, whose comment reads\n\n> a hand-maintained count drifts by construction and a stale one still reads as authoritative. \"Seven jobs, all parallel\" outlived the seventh job by three months.\n\nThat decision (#3451, #3212) was made for the `ci.yml` job count on the same page. These two case counts are the same construction one section down.\n\n## Options, not a recommendation to implement blind\n\n1. **Drop both counts from the prose** — \"Runs `guard-main-checkout-bash.selftest.sh` and `guard-shared-stash.selftest.sh`\". Consistent with #6089's ruling and with the page's own no-job-count pin; the numbers are available from each run's tail (`N passed, N failed`) and from `guard-shared-stash.sh`'s header, which carries its count with the recipe to re-derive it.\n2. **Keep the counts and add a pin** to `ci-cd-pipeline-doc.test.ts` deriving them from the self-test matrices (`grep -c '^expect '` + inline specials). Turns the drift red instead of removing it, at the cost of a new pin over governed-surface content (`.claude/**`) from a docs test.\n3. **Leave it** — accept prose drift on a docs page.\n\nOption 1 mirrors the ruling already made on #6089 one file over; option 2 is the only one that would make the numbers self-correcting. Whichever is chosen, it is a maintainer/PM call, not a dev-agent one — hence unassigned.\n\n⛔ Not fixed in PR for #6089: that PR is scoped to the workflow file, and widening it would put a docs page (a hot merge-conflict file) into a CI-only diff.\n\nRefs: #6089 · #5754 / PR #6022 · #3721 · #3451 · #3212 · #6042 / PR #6087 · #5789 / PR #6046.\n"
+}

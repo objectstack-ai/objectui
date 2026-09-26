@@ -1,0 +1,36 @@
+{
+  "number": 6093,
+  "kind": "issue",
+  "title": "ineffective-dynamic-import-ledger's closeBundle counter-probe replaces the real error whenever an earlier console plugin fails the build",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T16:38:13Z",
+  "updated_at": "2026-08-24T18:28:01Z",
+  "closed_at": "2026-08-24T18:28:01Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6093",
+  "body": "Found while reproducing #5996 (the eager-closure `ENOENT`). Not caused by that card and not fixed there — filing so triage can rank it.\n\n## What I measured\n\n`scripts/vite-ineffective-dynamic-imports.ts` ends with a counter-probe in `closeBundle`: if none of the 43 pinned `INEFFECTIVE_DYNAMIC_IMPORT` warnings fired, it errors. The probe is well-motivated — its own message says so: *\"or this build never got far enough to emit them, in which case the number to distrust is the zero, not the list.\"*\n\nThe problem is what happens to the **other** error. `closeBundle` runs even when the build has already failed, and the error it throws **supersedes** the aggregated build error in `vite build`'s output. The real cause is not appended, not printed above, not present anywhere in the log — it is gone.\n\nMeasured on `apps/console`, `vite@8.2.1` + `rolldown@1.2.3`, base `7c96c9420`, by making `emit-eager-closure-report`'s `writeBundle` fail (an out-of-tree `OBJECTSTACK_CLIENT_DIST` override whose own `dependencies` do not resolve — see the sibling card).\n\n**With the full plugin list — the only thing the developer sees:**\n\n```\nerror during build:\nError [RolldownError]: 43 pinned ineffective dynamic import(s) did NOT fire. Either they were fixed\n— delete them from `DEFEATED_LAZY_FIELD_WIDGETS` in `scripts/vite-ineffective-dynamic-imports.ts`\nand record the win in the PR — or this build never got far enough to emit them, in which case the\nnumber to distrust is the zero, not the list.\n  - packages/fields/src/widgets/AddressField.tsx\n  … 42 more lines …\n```\n\n`grep -c ENOENT` on that log: **0**. The actual failure is invisible.\n\n**Same build, same override, that one plugin removed from the array:**\n\n```\nerror during build:\nBuild failed with 1 error:\n\n[plugin emit-eager-closure-report]\nError: ENOENT: no such file or directory, open '.../apps/console/dist/@objectstack/core/logger'\n```\n\n## Why it is worth a line\n\nThis is generic, not specific to the plugin I happened to be debugging: **any** console build that dies before the pinned warnings are emitted reports the ledger's counter-probe instead of its own cause, and hands the developer a 45-line list of field widgets that have nothing to do with the failure. The `43 did NOT fire` message reads as a ledger drift, so the first instinct is to go edit `DEFEATED_LAZY_FIELD_WIDGETS` — which is exactly the wrong move and would break the ledger for real.\n\nThis also blunts work that lands elsewhere: PR for #5996 replaces that `ENOENT` with a self-diagnosing message naming the unresolved import, and under the real plugin stack **that message is masked too** — zero occurrences in the log, before and after. The improvement is correct but invisible until this is handled.\n\n## Possible shapes (not a recommendation)\n\n- Have the counter-probe stand down when the build has already errored — the condition its own message already describes (\"this build never got far enough\"). Detecting that from `closeBundle` needs a flag set by a `buildEnd`/`renderError` hook, since the probe cannot otherwise tell \"zero because fixed\" from \"zero because dead\".\n- Or keep it unconditional but make it non-masking: emit as a warning when a prior error is known, so the real error still reaches the top.\n- Either way the pinned-drift signal the probe exists for must survive on a **successful** build, which is the case it was written for.\n\nRelated: #5325 (the ledger), #5996 (where this was found).\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 5729,
+  "kind": "issue",
+  "title": "Consume the per-column sortability signal: no sort affordance on columns the platform declares unsortable — downstream leg of objectstack#10235's ruling",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T01:25:16Z",
+  "updated_at": "2026-08-24T18:04:35Z",
+  "closed_at": "2026-08-24T18:04:35Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5729",
+  "body": "Filed by the triage seat as the ruled consumer leg of objectstack-ai/objectstack#10235 (maintainer 2026-08-23, ruling A: the platform serves an explicit per-column sortability signal; the grid reads it and never re-derives \"virtual ⇒ unsortable\" from field type).\n\nBlocked-by: objectstack-ai/objectstack#10235\n\n## Scope (after the upstream signal lands and the spec pin covers it)\n\n1. Grid/table headers drop the sort affordance on any column the served metadata marks unsortable — the click ceases to exist, so neither the silent-unordered behavior (today) nor the 422 refusal (post-#9313) is reachable from the UI.\n2. The personalization PUT is never issued for such a column.\n3. ⛔ No local \"formula ⇒ unsortable\" fallback derivation — if the signal is absent on the pinned spec version, this card is not ready (that is what the `Blocked-by:` is for), not a license to shadow-derive.\n\nOracle: the three measured refusal cells from the upstream card (`crm_opportunity.expected_revenue` ×2 views, `showcase_project.budget_remaining`) must become unofferable clicks; a sortable control column on the same grids keeps its affordance (both directions pinned).\n\nRefs: objectstack-ai/objectstack#10235 (ruling + spec leg) · objectstack#9313 / PR #10234 (the widening that makes today's click loud)."
+}

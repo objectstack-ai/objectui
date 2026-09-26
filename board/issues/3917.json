@@ -1,0 +1,35 @@
+{
+  "number": 3917,
+  "kind": "issue",
+  "title": "文档教作者写的 `ActionSchema.condition` = `{ expression, then, else }` 全仓零消费者:谓词被忽略、then/else 永不派发、零诊断",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-09T02:35:07Z",
+  "updated_at": "2026-08-24T10:37:12Z",
+  "closed_at": "2026-08-24T10:37:12Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3917",
+  "body": "Filed unassigned,来自 #3872(PR #3916)实施时为核对 condition 门文档面而做的只读排查。**只记录发现,不在那个 PR 里修。**\n\n## 现象\n\n`@object-ui/types` 声明了一个与 `ActionRunner` 完全不同的 `condition` 形状,并且有 zod schema:\n\n```ts\n// packages/types/src/crud.ts:65\nexport interface ActionCondition {\n  /** Condition expression @example \"${data.status === 'active'}\" */\n  expression: string;\n  /** Action to execute if condition is true */\n  then?: ActionSchema | ActionSchema[];\n  /** …else */\n  else?: ActionSchema | ActionSchema[];\n}\n\n// packages/types/src/crud.ts:212\ncondition?: ActionCondition;                       // ActionSchema\n// packages/types/src/zod/crud.zod.ts:45 / :86 —— ActionConditionSchema,进 ActionSchema\n```\n\n两处文档把它当成可用能力,带完整示例教作者写:\n\n- `content/docs/core/enhanced-actions.mdx:220` 「## Conditional Execution — Execute different actions based on conditions」,示例是 `condition: { expression: '${data.amount > 1000}', then: {…confirm…}, else: {…} }`。\n- `content/docs/api/schema-reference.md:663` 属性表:``| `condition` | `ActionCondition` | Conditional execution with `expression`, `then`, `else`. |``,示例 body 里也有 `\"condition\": { \"expression\": \"${data.items.length > 0}\" }`。\n\n**全仓没有任何代码读过 `expression` / `then` / `else`。** 在 `2937bcf7d` 上:\n\n```\n$ grep -rn \"condition\\.\\(expression\\|then\\|else\\)\" --include=*.ts --include=*.tsx packages apps examples\n(零命中)\n```\n\n唯一消费 action 上 `condition` 这个键的地方是 `ActionRunner.execute` 的门,它把该键当**谓词**读(布尔 / 裸 CEL / `${…}` / `{ dialect, source }` 信封)。`{ expression, then, else }` 是个没有 `source` 字符串的对象,`toPredicateInput` 归一为 `undefined` = 「没声明门」,于是:\n\n- `expression` 里写的谓词**从不被求值**;\n- `then` / `else` 里的动作**从不被派发**;\n- 动作照常执行,`os validate` / `os build` 全绿,运行时零诊断。\n\n按文档写下「金额超过 1000 就走经理审批,否则直接提交」的作者,得到的是「无条件直接执行」。#3872 前后行为一致(这一形状在真值门下也是「跳过判定 → 执行」),所以**不是** #3872 引入的,也不在它的修法面。\n\n## 为什么按缺陷立卡(而非 observation-class)\n\n`ActionEngine.addMapping` / `dispatch`(#3368)是零生产调用方的 dormant API;这一条不同 —— **文档在教作者用它**,`ActionSchema` 是 `@object-ui/types` 的公开面,zod schema 也照收。作者今天照文档写就能命中,且失败方式是静默的:类型全绿、校验全绿、动作照跑。\n\n不过修法方向要先裁,所以不带自己的判断落地:\n\n- **A:兑现它** —— `ActionRunner.execute` 读 `condition.expression` 求值,按结果派发 `then` / `else`(嵌套 `ActionSchema`,涉及链式执行面)。代价:给执行入口新增一条分派路径,且这个键同时要继续支持谓词形状(布尔/裸 CEL/信封),等于一个键两种语义 —— 与 #0.1 契约优先相冲。\n- **B:按 enforce-or-remove 退役** —— 删 `ActionCondition` / `ActionSchema.condition` 的这一形状与 zod schema,两处文档改写成现役写法(`condition` 是谓词;条件分支用 `chain` + 各自的 `condition`)。代价:公开类型的破坏性变更(按仓内约定标 `minor`,正文写清)。\n- **C:重命名分离** —— 谓词留在 `condition`,分支能力若要保留则换一个键名。\n\n倾向 **B**:仓内现役的条件表达面是「谓词 + 归一器 + `evaluateCondition`」这一套(#3492 家族刚在 `visible` / `disabled` / `condition` 三道门上把它收敛完),再兑现一个同名不同义的分支 DSL 会让同一个键有两种读法,正是 AI 产出的元数据最容易踩空的形状。但这动的是公开类型与文档面,留给 triage 裁。\n\nRelated: #3872(condition 门真值判定 → 已声明,PR #3916)、#3492(不变量出处)、#3850(「空谓词」范围裁决)、#3368(同类的 dormant 面,observation-class)。未认领。"
+}

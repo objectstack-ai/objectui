@@ -1,0 +1,35 @@
+{
+  "number": 6026,
+  "kind": "issue",
+  "title": "check-doc-links 的包内 README 扫描只到顶层:4 个嵌套 README.md 仍未被任何门禁解析(实测 0 死链)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T13:48:35Z",
+  "updated_at": "2026-08-25T08:46:14Z",
+  "closed_at": "2026-08-25T08:46:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6026",
+  "body": "## 现象\n\nobjectui#4938 把 `packages/*` / `apps/*` 两行加进 `SCAN_ROOTS`(`scripts/check-doc-links.mjs`),覆盖了每个包/app 目录下除顶层 `README.md`(已由 `packages/*/README.md` / `apps/*/README.md` 两行覆盖)与逐包生成的 `CHANGELOG.md` 之外的所有 markdown。新行的 `exclude: ['README.md', 'CHANGELOG.md']` 是**按 basename 在任意深度**生效的 —— 这是刻意设计,为的是不重复解析顶层 README,也不误吞逐包 CHANGELOG。\n\n副作用:凡是文件名恰好也叫 `README.md`、但**不在包目录顶层**的文件,同样被这个 `exclude` 挡在扫描面外 —— 而它们从来就不在 `packages/*/README.md` 这种精确顶层 glob 的匹配范围内。两条门禁(旧的顶层行、新的 #4938 行)对它们都是空判。\n\n实测(`main`,`22396fc57` 之后):\n\n```\npackages/core/src/adapters/README.md\npackages/components/src/__tests__/README.md\npackages/plugin-gantt/docs/verification/README.md\npackages/types/src/zod/README.md\n```\n\n## 入场价(按先例口径先量后报)\n\n4 个文件里的仓内相对链接,逐条核验目标是否存在:\n\n- `packages/plugin-gantt/docs/verification/README.md`:10 条相对链接(2 条到同包 `scripts/`、1 条到 `demo/`、6 条到同目录截图、1 条到 `geometry/`),**全部存在**。\n- 其余 3 个文件:`packages/types/src/zod/README.md` 只有 1 条外部 Zod 链接;`packages/components/src/__tests__/README.md` 与 `packages/core/src/adapters/README.md` 不含 markdown 链接。\n\n**入场价:0 死链** —— objectui#3572 的形状,门禁到场时后台已经是绿的。\n\n## 修法方向(未实施,留给分诊/派发定价)\n\n`SCAN_ROOTS` 目前没有「以文件 basename 匹配、不论深度」的行类型 —— 现有的 `disk` 行要么是精确文件、要么是整目录树(可选 `exclude`)。可能的路子:\n\n1. 给 `walk()` 加一种「按 basename 收集」模式(而不是排除),让 `packages/*` / `apps/*` 之外再加一行专门收纳嵌套 `README.md`;或\n2. 直接放宽 `packages/*` / `apps/*` 的 `exclude`,只排除顶层 README(而不是任意深度的 README),让嵌套 README 落进已有的两行里 —— 但这样两行都要跟踪「顶层」的概念,`walk()` 目前不区分深度。\n\n两条都不是本 finding 该敲定的实现细节,只记录缺口与实测入场价。\n\n## 分级\n\n`finding`,不打 `pm:queue`,交分诊定级 —— 观察类:今天没有 CI 会因它变红,入场价也是零,值钱的只是「这一小撮文件从未被任何门禁看过」这一结构事实。\n\n## 出处\n\n发现于 objectui#4938 的实施过程(度量 `packages/*` / `apps/*` 新增扫描面时,顺带核对了 `find` 全量 markdown 列表与该卡列出的 15 个文件的差集)。检索过 open/closed 的相关卡(#3536/#3572/#3603/#3622/#4148/#4938 等),均未覆盖「嵌套 README 因 exclude 落空」这条。\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 5408,
+  "kind": "issue",
+  "title": "README badges a \"CodeQL Security Scan\" workflow that does not exist in this repository",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-20T14:47:34Z",
+  "updated_at": "2026-08-24T15:29:28Z",
+  "closed_at": "2026-08-24T09:43:30Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5408",
+  "body": "Found while verifying #5405 (deleting the dead `release.yml`). Filed unassigned, not fixed there — out of that card's scope, which was limited to `release.yml` and the doc describing it.\n\n## Measured\n\n`README.md` line 11 carries this badge:\n\n```\n[[CodeQL](``https://github.com/objectstack-ai/objectui/workflows/CodeQL%20Security%20Scan/badge.svg)](https://github.com/objectstack-ai/objectui/actions/workflows/codeql.yml)``\n```\n\nBoth halves point at something that is not there:\n\n- **No workflow file.** `find .github -iname '*codeql*'` returns nothing. `.github/` holds `dependabot.yml`, `labeler.yml`, `prompts/` and `workflows/`, and `codeql.yml` is in none of them.\n- **No registered workflow.** `GET /repos/objectstack-ai/objectui/actions/workflows` returns 31 workflows. None is named `CodeQL Security Scan`, and none has the path `.github/workflows/codeql.yml`. The only `dynamic/` entries are the Claude and Copilot agents.\n\nCounter-probe, so that a pair of empty results is a reading rather than a broken query: the same workflow listing resolves 31 real entries including `CI` and `Changeset Release`, and the same `find` pattern with `-iname '*release*'` matches the files that do exist.\n\n## Why it is worth fixing rather than leaving\n\nThis is the failure mode this repository has already written down twice, pointing the dangerous way. From `scripts/__tests__/ci-cd-pipeline-doc.test.ts` (objectui#3197):\n\n> A doc that *understates* a gate is annoying; a doc that advertises a guardrail the CI does not have is worse than no doc, because people make size decisions believing something will stop them.\n\nSame shape here, on the security surface and on the most-read page in the repo: a reader — human or agent — concludes that pushed code gets a CodeQL security scan. Nothing scans it. The badge image itself renders as \"no status\" rather than as an error, so it does not look broken to a casual eye.\n\n## Before fixing, one thing to check\n\nDecide which of two different fixes applies, because they are opposite:\n\n1. **CodeQL was never set up, or was removed** — then the badge and its link are stale and should go, and whether the repo *wants* a CodeQL scan is a separate question worth asking rather than assuming.\n2. **CodeQL \"default setup\" is enabled** in repository settings — that form runs without a workflow file committed to the repo, so the absence of `codeql.yml` would not mean the absence of scanning. In that case the badge is merely pointing at the wrong URL and the fix is to correct it, not delete it. This cannot be settled from inside the checkout; it needs the repository's Security settings, which is why this is filed rather than guessed at.\n\nWhoever picks this up should establish which case holds first. Note also that a fix touching `README.md` alone does not get caught by the `ci-cd-pipeline.md` inventory pins — those cover `content/docs/guide/ci-cd-pipeline.md`, not the README, so the badge block is unpinned by construction and can drift again.\n\nEvidence: #5405, #5393."
+}

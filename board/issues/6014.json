@@ -1,0 +1,36 @@
+{
+  "number": 6014,
+  "kind": "issue",
+  "title": "树形表格(业务单元「组织架构」视图)不做字段格式化:lookup 列显示裸 ID、select 列显示原始值",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T13:06:50Z",
+  "updated_at": "2026-08-24T17:04:50Z",
+  "closed_at": "2026-08-24T17:04:50Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6014",
+  "body": "## 一句话\n\n**内置「业务单元」页面的「组织架构」树形页签,整张树形表格没有走字段格式化:lookup 字段直接显示记录 ID,select 字段显示原始值;同一页面的普通表格页签和记录详情页都是正常的。**\n\n## 复现(@objectstack/* 17.2.0)\n\n1. 全新应用,`--seed-admin` 起服,管理员登录 Console;\n2. 给某业务单元(`sys_business_unit`)设置负责人 `manager_user_id`(指向用户的 lookup 字段);\n3. 打开 系统设置 → 业务单元:\n   - 「组织架构」树形页签:负责人列显示用户记录 **ID 字符串**;「类型」列显示 **`department`** 原始值;\n   - 切到普通表格页签(如「启用」):同一条记录负责人正常显示**用户姓名**,类型正常显示**「部门」**;\n   - 记录详情页:同样正常。\n\n## 定位线索\n\n- 列表接口返回里负责人已 expand 带回整条用户(name 在),数据侧无缺——是树形表格的单元格渲染没取显示值/没走 select 翻译,直接打了原始值;\n- 同页普通表格用同一份数据渲染正常,可对照。\n\n## 期望\n\n树形表格的单元格走与普通表格一致的字段格式化链(lookup 显示 name、select 显示翻译标签)。"
+}

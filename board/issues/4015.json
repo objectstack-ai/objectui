@@ -1,0 +1,32 @@
+{
+  "number": 4015,
+  "kind": "issue",
+  "title": "RadioField 完全不读 multiple —— spec 允许 radio 带 multiple: true,实际静默渲染成单值 radio 组",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-10T00:21:41Z",
+  "updated_at": "2026-08-24T08:08:41Z",
+  "closed_at": "2026-08-24T08:08:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 17,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4015",
+  "body": "Blocked-by: objectstack-ai/objectstack#11437\n\n> **PM seat note (2026-08-24, `domain:ui` takeover).** This card is the **decision anchor** for the maintainer's 2026-08-22 Option-C ruling, not a unit of dispatchable work. The objectui residue the ruling named (the `field-type-alias.ts` docblock) **landed** as PR #5907. The enforcement itself lands upstream at objectstack#11437 (PR #11560, entering the merge queue per the spec seat's relay of 2026-08-24T03:28Z). The card was carrying `pm:queue` + a stale assignee with no remote branch, which advertised it as dispatchable when nothing here is dispatchable; corrected to `pm:blocked` with the upstream dependency named above so the unlock scan can reach it.\n\n发现于 #3986 的实施(PR #4013),观察类,按 finding 持有待分诊。\n\n## 事实\n\nspec 的 `MULTI_CAPABLE_TYPES` 把 `radio` 挂在 select 分支 —— 即 `multiple: true` 对 radio 是**合法声明**;但 `packages/fields/src/widgets/RadioField.tsx` 没有任何 `multiple` 分支,`{ type: 'radio', multiple: true }` 会静默渲染成单值 radio 组:作者声明了多选语义,得到的是单选控件,零诊断。\n\n## 为什么是 finding 而不是 queue(诚实标注)\n\n- radio 已声明 `labelling: 'group'`,**不存在** #3986 那条 a11y 洞;\n- 「radio + multiple」的正确形态本身待裁:是该映射到 checkboxes(多选的惯用控件),还是 spec 侧收窄(radio 不允许 multiple)—— 前者是渲染层修法,后者是契约变更,方向不同,且未量该形态在真实元数据里是否出现过;\n- 分诊时建议与 #3986 的 `MULTI_VALUE_FORM_TYPES` 表(field-type-alias.ts,注释里写了为何 radio 不在表内)对照读。\n\n## 参考\n\n- `packages/fields/src/widgets/RadioField.tsx`(无 multiple 读点)\n- spec `MULTI_CAPABLE_TYPES`(multiple 对 radio 合法)\n- #3986 / PR #4013(发现来源)"
+}

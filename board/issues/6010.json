@@ -1,0 +1,35 @@
+{
+  "number": 6010,
+  "kind": "issue",
+  "title": "Form section/field `visibleWhen` binds no `current_user` — position-gated visibility works on pages and per-option rules, but silently fail-opens on form fields",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-24T12:40:54Z",
+  "updated_at": "2026-08-24T14:37:41Z",
+  "closed_at": "2026-08-24T14:34:52Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6010",
+  "body": "Rebuilt from objectstack-ai/objectstack#11411 by the triage seat (file-at-destination — the code half lands in this repo; the transfer API is unavailable to agent seats, so this is the documented rebuild channel; the source card is closed as moved). Originally measured by session `session_015ahemw8RcTgqtxrj15PEZx` while implementing objectstack-ai/objectstack#11034, on objectstack `origin/main` @ 365e334 with objectui at its then-current checkout. Re-verify every line reference before editing.\n\n## The asymmetry\n\n`current_user` reaches some `visibleWhen` sites and not others:\n\n| Site | `current_user` bound? | Evidence |\n|:--|:--|:--|\n| Page component, app/nav `visible` | **yes** | `packages/app-shell/src/providers/ExpressionProvider.tsx:59,70` builds `{ current_user: user, user, ctx: { user }, os: { user }, app, data, features }` |\n| Per-option `visibleWhen` (select options) | **yes** | `packages/core/src/evaluator/optionRules.ts:103` forwards `scope`; `resolveCascadingOptions(…, predicateScope)` in `packages/components/src/renderers/form/form.tsx:1428,2129` |\n| Form **section / field** `visibleWhen` | **no** | all three `resolveFieldRuleState` call sites — `form.tsx:1201`, `:1237`, `:1935` — pass `undefined` for the `scope` parameter; `predicateScope` is read at `:1276` and used **only** for `resolveCascadingOptions` |\n\n`evalFieldPredicate` (`packages/core/src/evaluator/fieldRules.ts:158`) binds `{ record, previous, extra: scope }`, so with `scope === undefined` a form field's predicate sees `record` and `previous` and nothing else.\n\n## Why it matters\n\n1. **Silent and fail-open in the dangerous direction.** A `visibleWhen` naming an unbound root does not hide the element — `resolveFieldRuleState` passes `true` as the visibility fallback, so a gate that faults shows the field to everyone. Same failure shape as objectstack#11034, one layer over.\n2. **The docs taught the broken pattern** until objectstack#11034's PR split the binding-table row; the generated reference (`field.mdx:333`) already recorded the asymmetry.\n\n## Triage direction anchor (graded, not ruled here)\n\nADR-0068 D1's stated goal — \"a predicate authored against any one form evaluates identically\" — is the declared contract this asymmetry violates, and the fix is small and local: pass `predicateScope` (already in hand at `form.tsx:1276`) as the `scope` argument to the three `resolveFieldRuleState` calls, exactly as `resolveCascadingOptions` already receives it. Graded Bug on that basis: declared≠enforced restoration, not new surface.\n\n**Constraints for the implementing dev:**\n- **Premise-first stop:** if you find a recorded ruling that form-field predicates deliberately exclude `current_user` (the record-purity/per-keystroke-cost design story the source card sketches), stop and report a fork — ⛔ do not pick a side silently.\n- **Behaviour-change honesty:** predicates that today fault-open on form fields will begin evaluating, and any resolving FALSE will start hiding fields that are currently visible. That is the correctness restoration, but it must be loud: changeset names the change; add a pin per binding surface so the three-site parity cannot silently regress.\n- **Cross-repo docs follow-up (联动杂事):** objectstack's `content/docs/protocol/objectui/layout-dsl.mdx` binding table was just split (#11034) to document today's asymmetry. When this lands, that row is wrong again in the other direction — the accepting seat files the follow-up docs card in objectstack at landing time (with `Blocked-by:` this card), ⛔ not as a rider on this PR.\n\n## Not a duplicate of\n\n- objectstack#11258 → this repo's #5926 (three other `visibleWhen` gaps: `emptyAction` bypass, second evaluator, silence on fault) — different sites; none is the form-field scope argument.\n- objectstack#11256 (spec `describe` under-names page-layer roots — the layer where the roots *are* bound)."
+}

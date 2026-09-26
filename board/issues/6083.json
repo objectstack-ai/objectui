@@ -1,0 +1,36 @@
+{
+  "number": 6083,
+  "kind": "issue",
+  "title": "docs(layout): page-header.mdx's PageHeaderProps key list omits two live keys (maxVisible, mobileMaxVisible)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T16:13:21Z",
+  "updated_at": "2026-08-25T05:42:04Z",
+  "closed_at": "2026-08-25T05:42:04Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6083",
+  "body": "Found while fixing #5923 (PR #6082), which corrected the *guide's* copy of this list. Not fixed there — that card's dispatch scoped the file surface to `content/docs/guide/layout.md` and nothing else. Filed unassigned for triage.\n\n## The claim\n\n`content/docs/layout/page-header.mdx:66-68`:\n\n> `subtitle` is the canonical key: `@objectstack/spec/ui`'s `PageHeaderProps` — the contract for the authored `page:header` node — declares `title / subtitle / breadcrumb / actions / recordChrome / showStar / showCopyId / aria` and has no `description`.\n\nThat is 8 keys. The shape declares 10 live ones.\n\n## Measurement\n\nAgainst the installed `@objectstack/spec` **17.2.0**, walking the zod shape's declared keys (not a `safeParse` output-key list, which omits optional keys that carry no default):\n\n```\nDECLARED KEY COUNT: 11\n[\"title\",\"subtitle\",\"icon\",\"breadcrumb\",\"actions\",\"recordChrome\",\n \"showStar\",\"showCopyId\",\"maxVisible\",\"mobileMaxVisible\",\"aria\"]\n\n  icon             optional -> never    <-- ADR-0087 D2 tombstone, correctly excluded by this page\n  maxVisible       optional -> number   <-- not in the page's list\n  mobileMaxVisible optional -> number   <-- not in the page's list\n```\n\nBoth missing keys are live and authorable, and carry their own `describe()` text in the shape:\n\n- `maxVisible` — \"How many header actions render as inline buttons before the rest fold into the overflow menu (renderer default 3).\"\n- `mobileMaxVisible` — \"The `maxVisible` budget on mobile viewports (renderer default 1).\"\n\nConfirmed accepted: `safeParse` of an object carrying all ten live keys returns `success`, with `maxVisible` and `mobileMaxVisible` present in the output.\n\n## Severity note\n\nLower-impact than #5923's defect: this page's list omits two keys rather than naming a retired one, so an author following it writes nothing that gets rejected — they just never learn that the header's action-overflow budget is authorable. The page is otherwise accurate, and its handling of the `icon` spec-tombstone-vs-component-prop split is the clearest treatment of that distinction in the docs tree.\n\n## Why no gate caught it\n\nSame structural reason as #5923: the claim is prose, not a code fence, so `check-doc-component-types` (type literals in code blocks) and `check-doc-snippet-types` (`ts`/`tsx` fence compilation, `TS_FENCE_LANGUAGES = [\"ts\",\"tsx\",\"typescript\"]`) are both blind to it. Unlike the guide page, `content/docs/layout/page-header.mdx` is not in `UNGATED_DOCS` either — it is covered at document level and still fence-blind to prose.\n"
+}

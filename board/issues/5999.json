@@ -1,0 +1,33 @@
+{
+  "number": 5999,
+  "kind": "pull_request",
+  "title": "fix(types): declare QueryParams.$filter as the union it already accepts",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T11:32:22Z",
+  "updated_at": "2026-08-24T11:56:01Z",
+  "closed_at": "2026-08-24T11:56:00Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-24T11:56:00Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5999",
+  "body": "Fixes #3909\n\n`QueryParams.$filter` was declared `Record<string, any>` with a record-only `@example`, while two standing producers have fed ObjectQL AST arrays through the slot all along and the data sources accept them. **The runtime was right; the declaration was narrow.**\n\n## What changed\n\n`$filter` now declares both shapes it accepts. The array half is **bound** to `@objectstack/spec/data`'s `FilterArray` rather than restated locally:\n\n```ts\n$filter?: Record<string, any> | FilterArray;\n```\n\nBinding rather than re-declaring is the file's own stated convention (`Spec-owned names are bound here, not re-declared`), and it matters here specifically: a local `FilterNode` fork would satisfy every call site while being free to drift from the vocabulary the servers parse — the exact failure two hand-written operator lists had in #3948. The spec's `FilterArray` doc even names \"the wire `$filter` face\" as one of its measured producers, so this slot was already in its declared scope.\n\nThe doc comment names `translateFilterToAST` (`@object-ui/data-objectstack`) as the **authoritative** accepted set rather than carrying a second list to drift from, and gains array `@example`s.\n\n## Nothing is narrowed — measured, not assumed\n\n`Record<string, any>` already accepts arrays structurally (they satisfy its string index), so the union documents shapes that were always legal rather than admitting new ones. Measured under the repo's `tsc` with `--strict`, no casts:\n\n| input | old decl | new decl |\n|---|---|---|\n| `{ age: { $gt: 18 } }` | accepted | accepted |\n| `['status', '=', 'active']` | accepted | accepted |\n| `['and', [...], [...]]` | accepted | accepted |\n| `[[...], [...]]` (legacy list) | accepted | accepted |\n| `[{ field, operator, value }]` | accepted | accepted |\n| `42` / `'status eq active'` | **rejected** | **rejected** |\n\nThe rejection row is a negative control: it proves the probe can go red, and that `QueryParams`' `[key: string]: any` index signature is not swallowing the slot.\n\n## Why it was worth fixing anyway\n\nThe harm was entirely on the type face and two-sided:\n\n1. The type **blocked nothing while describing one legal shape as if it were the only one**. #3831 is what that cost: a `Record<string, any>` slot accepted a rule array, an object spread flattened it to `{\"0\": {...}}`, types stayed green, and the query filtered on a column literally named `0`.\n2. A new consumer reads the type and its record-only `@example`, concludes the array path is illegal, and adds a tolerant conversion for it — the \"widen the consumer to tolerate the producer\" shape AGENTS.md #0.1 forbids.\n\n## The #3908 workaround is removed\n\nPR #3908 wrote `filter as Record<string, any>` at one assignment in `packages/fields/src/widgets/useRecordQuery.ts`, deliberately, as debt rather than widening the shared type — its comment said so. The shared type is honest now, so the debt is **paid rather than moved**: `hasFilter` is a type predicate narrowing to the `$filter` slot's own type (`filter is NonNullable<QueryParams['$filter']>`), so the assignment needs no cast and the guard cannot drift from the declaration it guards.\n\n## The pin test was a phantom, and that is why it is an identity check\n\nWorth flagging, because the first version of the guard was wrong in a way that reads like enforcement. Every assignment-shaped pin is **vacuous** as a regression guard here — measured, not assumed. Reverting the declaration to the bare record and re-running `type-check` left it **green (exit 0)**: assignability cannot separate the two, since arrays satisfy `Record<string, any>`'s string index, so `FilterArray extends QueryParams['$filter']` holds under *both* declarations and the old declaration is itself assignable to the new union.\n\nIdentity is the property that actually differs, so the pin asserts it:\n\n```ts\nAssert<Equal<NonNullable<QueryParams['$filter']>, Record<string, any> | FilterArray>>\n```\n\nReverse-verified from a committed state, mutation confirmed on disk, mutation and measurement in one shell invocation with a restoring `trap`:\n\n| leg | result |\n|---|---|\n| baseline `type-check` | green, exit 0 |\n| **mutated** `type-check` | **red, exit 2** — `TS2344: Type 'false' does not satisfy the constraint 'true'` |\n| **mutated** vitest | **green, 6/6** — the blindness reproduced |\n\nThat runtime-green/compile-red split is the drift's own signature: no runtime suite could ever have caught this.\n\n## Verification\n\nAll at `ab70c650`:\n\n- `pnpm --filter @object-ui/types build` — exit 0\n- `pnpm --filter @object-ui/types type-check` — exit 0 (`tsc --noEmit && tsc -p tsconfig.examples.json && tsc -p tsconfig.test.json`)\n- `pnpm --filter @object-ui/fields type-check` — exit 0\n- `pnpm exec vitest run packages/types/src/__tests__/query-params-filter-union.test.ts` — `Tests 6 passed (6)`\n- **Downstream sweep** — `turbo run build --filter '...@object-ui/types'` (prefix = dependents): **43 successful, 43 total**. Each is a `tsc` of its own `src/` against the new `dist/*.d.ts`, which is the evidence a published type change breaks no consumer.\n- `eslint . --no-inline-config` repo-wide: population **3626 files**; my three files contribute **0 errors** (37 warnings, all pre-existing `no-explicit-any` / `react-hooks` on lines untouched by this diff). The 74 error-bearing files are all outside the diff, and type-aware linting is not configured, so this change provably cannot move any untouched file's verdict.\n\nType-only throughout; **no runtime behaviour changes**.\n\n_Generated by [Claude Code](https://claude.ai/code/session_01CSoz9uGhaaSgiq3hshtN7L)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01CSoz9uGhaaSgiq3hshtN7L)_"
+}

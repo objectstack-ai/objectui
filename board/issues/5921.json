@@ -1,0 +1,33 @@
+{
+  "number": 5921,
+  "kind": "pull_request",
+  "title": "fix(app-shell): built-moment transition fires on auto-publish envelopes too (#5799)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T00:56:57Z",
+  "updated_at": "2026-08-24T01:49:49Z",
+  "closed_at": "2026-08-24T01:49:48Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-24T01:49:48Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5921",
+  "body": "Staging verification of #5865 caught the gap: the transition keyed on `draftReview` (drafted-only), but auto-publish environments — the staging/cloud posture — rewrite the whole-app envelope to `status:'published'` (keeping `drafted[]` + `packageId`), so reopening a built conversation stayed on the full page. `detectBuiltAppPackage` reads the raw envelope for either status; new pin drives the published shape end-to-end. 5/5 transition pins + chatbot suites green.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

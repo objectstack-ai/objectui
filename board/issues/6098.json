@@ -1,0 +1,32 @@
+{
+  "number": 6098,
+  "kind": "pull_request",
+  "title": "fix(app-shell): read view-column list identity in the canonical spelling only",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T16:41:40Z",
+  "updated_at": "2026-08-24T17:06:23Z",
+  "closed_at": "2026-08-24T17:06:21Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-24T17:06:21Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6098",
+  "body": "Fixes #5725\n\n`view-column-io`'s `colLabel` and `colFieldName` carried the same\nundeclared-alias read `ViewColumnInspector` retired in #5344, one file over.\n`FieldsListEditor` — the sole importer — renders **inside the inspector's own\npanel**, so after #5344 the two surfaces gave the author two different answers\nabout what one column is called. This is the sixth site in that family and the\nsecond editor-side one; it reuses #5344's retirement shape as triage directed.\n\n## The two defects that were not in dispute\n\n**1. The label chain was INVERTED, not merely tolerant.** It read\n`label ?? header ?? field ?? accessorKey`, preferring the undeclared `header`\n**over** the declared `field`. A canonical column carrying a stray `header` key\ndisplayed the alias' value *instead of* its own declared identity.\n\n**2. The field-name read backs more than a label.** It feeds `usedFieldNames()`,\nwhich the Add-field picker consults, so a spec-refused column reserved a field\nname.\n\nBoth now read `field` / `label` only. The write path is untouched — the raw\n`columns` array is still reordered and spliced without normalising, so no stored\ndocument is rewritten.\n\n## The open question, and what was measured\n\nThe card declined to rule on whether `colLabel` should drop its alias fallback\noutright or keep a best-effort human label, naming the asymmetry: an empty\nfield-key box invites re-authoring, an empty **list row** would leave the author\nwith nothing to click. The PM's lean was to drop the aliases and let the\npositional fallback `col N` — already the last link in that chain — be the\nsomething-to-click, conditional on that fallback actually producing a clickable\nrow.\n\n**Measured, not assumed.** `FieldsListEditor.retiredAliases.test.tsx` mounts the\nreal editor, asserts the legacy row renders as `col 1`, and then **clicks it**\nand asserts `onSelectionChange` fires with that label. `FieldListRow` is a\n`role=\"button\"` div carrying a grip, an icon, the label span and a remove\ncontrol, so it does not collapse on an empty label either — and the positional\nfallback means the label is never empty. No escalation needed.\n\n## Verification\n\nReverse-verified as **two separate legs**, direction predicted before running,\neach mutation proved on disk by grepping the injected text and separately the\nremoved text (landing site printed, anchor uniqueness asserted first), restored\nunder `trap … EXIT INT TERM`:\n\n- **Leg A** (restore the inverted label chain only): **5 red** — the three\n  label/row assertions, the declared-outranks-alias assertion, and the panel\n  agreement pin. Both picker-reservation tests stayed **green**.\n- **Leg B** (restore the `colFieldName` alias only): **4 red** — both field-name\n  binding assertions, the `usedFieldNames` counter-probe, and the picker \"Added\"\n  assertion. Every label/row test and the inspector pin stayed **green**.\n\nThe clean split is the point: the two defects are independent, and neither leg\ncan be satisfied by the other's fix.\n\n**Counter-probes** are load-bearing and included: a canonical `{field, label}`\ncolumn still shows its declared label in the list **and** still reserves its name\nin the picker (\"Added\" badge present), and a bare-string column is untouched.\nOtherwise \"the aliases are gone\" would be satisfiable by breaking the list and\nthe picker outright.\n\nOne assertion was **strengthened after leg A came back 4 red where 5 were\npredicted**: a `{field, label, header}` row is green against both sources\n(the old chain returns `label` too), so it could never reverse-verify. It is now\n`{field, header}` — the shape the inversion actually bit on.\n\n## The flipped pin\n\n#5344 committed a pin **documented to flip** — `ViewColumnInspector.identityRead.test.tsx`,\nthe test named *\"records the residue this card is fenced out of\"*, asserting\n`getAllByText('Name')` had length 1. It is **flipped, not deleted**: it now\nasserts `queryAllByText('Name')` has length **0** over the whole panel, that the\nrow is named `col 1`, and that the identity controls are still empty — so the\n\"the panel agrees\" claim is two-sided. The count goes 2 → 1 → 0 across the two\ncards.\n\n## Gates (union run on `27d56b063`, clean tree)\n\n| gate | exit |\n| --- | --- |\n| `pnpm --filter '@object-ui/app-shell^...' build` | 0 |\n| `pnpm --filter @object-ui/app-shell type-check` | 0 |\n| path-filtered `vitest run` (3 files, 17 tests) | 0 — 17 passed |\n| `pnpm --filter @object-ui/app-shell lint` | 0 errors (2659 pre-existing warnings; none in the new files) |\n| `node scripts/check-changeset-presence.mjs` | 0 |\n| `node scripts/check-control-bytes.mjs` | 0 |\n| `node scripts/check-type-check-coverage.mjs` | 0 |\n| `node scripts/check-lint-coverage.mjs` | 0 |\n| `pnpm check:esm-specifiers` | 0 |\n| `pnpm check:i18n-keys` | 0 |\n\nWhole-package app-shell vitest was **not** run — it is ~784 s and holds the\nshared verify lock; CI runs the farm exactly once regardless.\n\n## Note on the size of defect 2\n\nThe card priced it as \"hiding a field the author is entitled to add\". Measured in\n`AddFieldPopover`'s own source: `usedNames` does **not** filter the option list\n(only the search query does) — it renders an \"Added\" badge and the option stays\nclickable. So a spec-refused column **mislabelled** a field as taken; it never\nblocked adding it. Real and reachable, smaller than priced. Recorded in the test\ndocblock so the pin says what the mechanism does.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01CSoz9uGhaaSgiq3hshtN7L)_"
+}

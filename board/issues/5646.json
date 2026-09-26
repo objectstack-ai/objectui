@@ -1,0 +1,36 @@
+{
+  "number": 5646,
+  "kind": "issue",
+  "title": "Nothing catches a `vi.mock()` whose relative specifier resolves to no file — vitest no-ops it and the suite stays green",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T22:46:07Z",
+  "updated_at": "2026-08-25T00:55:33Z",
+  "closed_at": "2026-08-25T00:55:33Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5646",
+  "body": "Observation filed while implementing #5577 (PR #5645). **No live instance exists today** — the repo is currently clean, measured below. Filed because the failure mode is invisible by construction and nothing prevents the next one.\n\n## The mechanism\n\n`vi.mock('<relative path>', factory)` with a specifier that resolves to **no file on disk** does not error. Vitest registers the mock against a module id nothing imports, and the run proceeds with the *real* module everywhere. The suite passes.\n\nThat is the worst available failure direction: the test does not fail, does not warn, and does not report a smaller number of assertions. It reports exactly the same green as a correct one, so nothing in the output distinguishes \"this stand-in is installed\" from \"this stand-in is inert\".\n\n## How it surfaced\n\nA new suite in PR #5645 mocked the runtime-config module to install a deliberately partial snapshot. The file lives at `packages/app-shell/src/layout/__tests__/`, and the mock was written `vi.mock('../runtime-config', …)` — one `..` short. That resolves to `packages/app-shell/src/layout/runtime-config`, which does not exist; the correct specifier is `'../../runtime-config'`.\n\nThe suite passed. It also passed when the code under test was reverted to the exact pre-fix shape the suite was written to catch — a `TypeError` that, with the mock correctly installed, fails all four cases. The probe was inert and green, and only an ablation leg (mutate the subject, confirm the test goes red) exposed it.\n\nNeighbouring mocks in the same file hid it further: `'../AiUsageIndicator'` (one level) and `'../../hooks/surfaceAgent'` (two levels) are **both correct** from a `__tests__/` subdirectory, because the targets sit at different depths. So a reader scanning the mock block sees a plausible mix of `../` and `../../` with no way to tell which is wrong.\n\n## Current state — measured, not assumed\n\nScanned every `vi.mock` / `vi.doMock` with a relative specifier across the repository:\n\n```\nscanned 1807 test files, 577 relative vi.mock specifiers\nUNRESOLVABLE: 0\n```\n\n(Resolution tried the bare path plus `.ts/.tsx/.js/.jsx/.mjs/.cjs` and the `/index.*` forms, and stripped a trailing `.js` to account for the NodeNext specifier style used throughout `src/`.)\n\nSo this is not a cleanup card. Every one of those 577 is load-bearing today, and the point is that if one of them silently stopped being load-bearing, the only signal would be a test that keeps passing.\n\n## Shape of a fix\n\nA `scripts/check-*.mjs` gate in the existing family. The scan above is the whole check — walk the tracked test files, regex the relative `vi.mock`/`vi.doMock` specifiers, resolve each against the file's own directory, fail on any that resolve to nothing. It needs no build, no install and no vitest run, and it completed over all 1807 files in about a second, so it fits the cheap-gate tier rather than the CI-heavy one.\n\nWorth deciding at implementation time, not assumed here:\n\n- whether to cover **bare** specifiers too (`vi.mock('@object-ui/…')`) — those can also be misspelled, but resolving them needs the workspace map rather than the filesystem, so it is a larger check with a different failure mode;\n- whether an inert mock should be an **error** or a **warning** — there is no legitimate reason to mock a path that does not exist, which argues for error;\n- whether the same treatment is owed to `vi.mock` calls written as `vi.mock(import('…'))`, which the regex above already matches but which no current call site uses.\n\n## Why this is the same family as an already-accepted gate\n\n#4347 (closed) was \"`check-type-check-coverage.mjs` reports green when a `type-check` script chains a tsconfig project that does not exist\" — the same shape one layer up: a declaration pointing at nothing, reported as a pass. This is that failure at the module-mock layer, and it is currently ungated.\n\n## Refs\n\n- #5577 / PR #5645 — where the inert mock was written, caught by ablation, and corrected\n"
+}

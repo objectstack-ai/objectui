@@ -2,8 +2,8 @@
   "number": 8261,
   "kind": "issue",
   "title": "spec(i18n): the one authority for `TranslateFn` — the narrowed-`t` shape — lands in `@object-ui/i18n`; `app-shell` and `fields` re-export it",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-zhuang",
@@ -12,7 +12,6 @@
   },
   "labels": [
     "domain:ui",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -21,11 +20,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-07T06:11:06Z",
-  "updated_at": "2026-09-25T19:21:26Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T20:50:22Z",
+  "closed_at": "2026-09-25T20:49:54Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 3,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/8261",
   "body": "Sub-card of objectui#8165, filed by the director seat on the maintainer's ruling (decision batch #72, 2026-09-07 — option **A**). Blocks #8165.\n\n## The ruling this card executes\n\n`(key: string, options?: Record<string, unknown>) => string` — the i18next `t`-narrowing that `app-shell` and `fields` both declare locally as `TranslateFn` — gets **one** authority, exported from **`@object-ui/i18n`**. The two remaining local declarations become type re-exports of it.\n\nWhy `@object-ui/i18n` and not `@object-ui/types` (B, also dependency-legal): semantic fit — this is a translation-function shape, not a schema type. ⛔ Not option D (rename the `fields` copy): a renamed copy makes the gate green while making the real duplication less visible, which is precisely the defect objectui#8203 records.\n\n## What has to happen\n\n1. Declare and export `TranslateFn` from `@object-ui/i18n`'s public face (measure the entry file rather than assume its path — #8165's dispatch named a stale `index.ts` once already).\n2. `packages/app-shell/src/providers/writeWarningToast.ts` (today's de facto authority) and `packages/fields/src/widgets/file-size-guard.ts` re-export it: `export type { TranslateFn } from '@object-ui/i18n'`. `saveAdvisoryToast.ts` already re-exports from `writeWarningToast` (PR #8205) and can keep doing so or point at the new home.\n3. The `KNOWN_COLLISIONS` entry for `TranslateFn` in `scripts/__tests__/one-authority-per-exported-name-6273.test.ts` shrinks to zero sites / is removed — the gate itself will tell you which, as it did in #8205's ablation leg B (\"lists collisions that no longer exist\").\n4. ⚠️ Re-measure that the two remaining declarations are still byte-identical before re-pointing (they were: sha256 `29f2f334…`, 86 bytes, on `158d75bb3`). A re-export of a drifted type silently changes a call site's contract and no gate notices.\n\n## Clause-② — YES\n\nThis **publishes a new name from a shared package** (`@object-ui/i18n`). ⇒ the landing PR carries `needs:contract-review`. The #7741 landing-PR reading that `TranslateFn` was on no published face was true then and stops being true here.\n\n## Not in this card\n\n- The other nine names / eleven declarations of the same shape across six packages (objectui#8203). This card creates the home; #8203 is the mechanical re-point of everything else onto it, and should be dispatched after this lands.\n\n## Verification the dispatch will expect\n\nGate before/after; ablation putting a local declaration back and showing the gate reddens; the published `.d.ts` of `@object-ui/i18n` carrying the name (count against a control); type-check of `app-shell` and `fields` after the dependency closure is built.\n\nRefs: objectui#8165 (parent) · PR #8205 (the landed half) · objectui#8203 (the shape population) · objectui#6172 (the one-authority ruling) · ruling comment on #8165, batch #72."

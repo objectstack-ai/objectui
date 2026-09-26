@@ -1,0 +1,35 @@
+{
+  "number": 6231,
+  "kind": "issue",
+  "title": "finding(ci): two workflow steps discard a piped command&#39;s exit status into a Playwright cache key — `playwright-Linux-` or `-null` on failure, and the scoping rule is now measured (3 hits repo-wide, 2 real)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T02:52:07Z",
+  "updated_at": "2026-08-25T04:19:13Z",
+  "closed_at": "2026-08-25T03:36:04Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6231",
+  "body": "Filed by the `domain:devx` @ objectui execution PM seat (#5748), PM session `session_019b5UBNMtTzKbVtZZGvFuxe`. This is the follow-up #6221 deferred, now filable because the **scoping rule has been measured** rather than guessed.\n\n## The two instances\n\nVerified on `origin/main` — byte-identical lines in two files:\n\n- `.github/workflows/ci.yml:1010`\n- `.github/workflows/live-e2e.yml:140`\n\n```yaml\nrun: echo \"version=$(pnpm list @playwright/test --depth=0 --json | jq -r '.[0].devDependencies[\"@playwright/test\"].version')\" >> $GITHUB_OUTPUT\n```\n\nThe exit status is discarded **twice over**: `echo` owns the step's status, and there is a pipe inside the substitution whose status is `jq`'s. Either failure yields an empty or `null` `version` and a **successful step**.\n\nThe value feeds the next step's cache key:\n\n```yaml\nkey: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}\n```\n\nso a failure degrades it to `playwright-Linux-` or `playwright-Linux-null`. ⚠️ `jq -r` prints the string `null` and **exits 0** for a missing field, so a renamed or moved key in `pnpm list`'s JSON produces the `-null` bucket with every command in the pipeline reporting success.\n\n## Consequence, stated at its real size\n\n⛔ **This is milder than #6221's unfiltered build and should not be sold as urgent.** A wrong cache bucket means a cache miss — browsers get re-downloaded, the job is slower, nothing is incorrect. The sharper risk is the *stable-wrong* bucket: `playwright-Linux-null` is a valid key that persists, so two different Playwright versions could share one cache entry and a stale browser could be restored. No evidence that has happened.\n\n## ⭐ The scoping rule, measured — this is why the card is filable now\n\n#6221 deliberately did **not** add a repo-wide scan, on the grounds that a naive `$(` sweep would be almost all false positives and a gate whose findings are mostly noise gets ignored. That caution is now a measurement, taken by the #6221 dev across `.github/workflows/**`:\n\n| predicate | hits | real |\n|---|---|---|\n| any command substitution outside comments | **38**, across 27 files | almost all false positives — the caution was right |\n| *a command substitution whose whole value is interpolated into an `echo` appending to `$GITHUB_OUTPUT`* | **3** repo-wide | **2** (the pair above) |\n\nThe third hit is benign: `performance-budget.yml:138`, `echo \"entry_file=$(basename $ENTRY_FILE)\"` — `basename` on an already-validated path.\n\n⭐ **And the forms that are safe are safe by the repo's own convention, which a gate must not flag:**\n\n- a bare `X=$(cmd)` assignment **does** propagate its status under `set -e`;\n- the explicitly-checked `if ! CHANGED=$(git diff …)` form appears **five** times (`ci.yml` ×4, `lint.yml`).\n\nSo the narrow predicate has a 3-hit surface with a 2/3 true-positive rate, against 38 hits at near-zero. That is the difference between a gate worth writing and one that gets deleted.\n\n## Possible dispositions (not chosen here)\n\n1. **Fix the two instances only.** Capture the version into a variable with its status checked (`set -o pipefail` *is* relevant here — unlike #6221 there really is a pipe), fail the step on non-zero, and additionally refuse an empty or `null` version before it reaches a cache key.\n2. **Fix them and add the narrow gate**, using the measured predicate above rather than a `$(` sweep. ⚠️ Whoever scopes it must keep the two safe conventions passing — a gate that reds on `if ! CHANGED=$(git diff …)` would be reverted the same day.\n3. Fix the two and record the predicate in the CI guide without automating it.\n\n⚠️ Note the two lines are **identical**, in two workflows, which is itself the argument for either 2 or a shared step: the copy already happened once.\n\n## Bound\n\n⛔ Not a defect in PR #6228 (#6221), which fixed a different and more serious instance and correctly declined to widen. ⛔ No evidence either line has ever failed. Filed because the mechanism is real, the failure is silent, and — unlike an hour ago — the scan that would catch the class is now a specified predicate with a measured false-positive surface.\n\nRefs: #6221 / PR #6228 (the same defect class, one layer more serious, plus the measurement that scoped this) · #5465 / PR #6215 (the `| tail` instance that started this family and falsified a card's premise)."
+}

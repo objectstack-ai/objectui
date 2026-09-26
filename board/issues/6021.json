@@ -1,0 +1,32 @@
+{
+  "number": 6021,
+  "kind": "pull_request",
+  "title": "test(cli): assert in-repo range consistency before pinning lucide-react",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T13:39:57Z",
+  "updated_at": "2026-08-24T14:21:10Z",
+  "closed_at": "2026-08-24T14:21:08Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": "2026-08-24T14:21:08Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6021",
+  "body": "Fixes #4991\n\n## What\n\n`packages/cli/src/__tests__/app-generator.test.ts` had two call sites that read `inRepoRangesOf(name)` directly and took an **arbitrary member** off it, without ever asserting the repo's in-repo declarations for that dependency actually agree:\n\n- `:1180` (in `writes a manifest whose @object-ui ranges name this CLI version`): `Object.keys(inRepoRangesOf('lucide-react')).sort()[0]`\n- `:652` (in `names every range the pre-fix init manifest had drifted on`): `Object.keys(inRepoRangesOf(name))[0]`\n\nHad this repo's declarations for a dependency split across two ranges, either read would quietly validate against whichever range won that arbitrary tie-break — possibly the minority spelling — and report green while the repo disagreed with itself. The one place that already got this right (the anchor-table precondition in `sources every range from this repo instead of inventing one`, `:588-593`) asserted `toHaveLength(1)` on the sorted range keys before referencing the sole range — the other two sites never went through it.\n\n## Fix\n\nExtracted that precondition into a shared `soleInRepoRangeOf(name)` helper (placed right after `inRepoRangesOf`), and routed all three call sites through it — including the anchor-table loop itself, which now reads `soleInRepoRangeOf(name)` instead of duplicating the same six lines. On a split, the helper fails loudly and names the package plus every competing range and the manifests that declare each:\n\n```\nAssertionError: in-repo manifests disagree on lucide-react: {\"^1.31.0\":[...22 manifests],\"^1.30.0\":[\"packages/plugin-tree/package.json\"]} — settle on one range first: expected [ '^1.30.0', '^1.31.0' ] to have a length of 1 but got 2\n```\n\nOut of scope per the dispatch ruling: changing any package's declared range. Nothing here does.\n\n## Measured — live or latent?\n\nEnumerated `inRepoRangesOf(...)` on `main` @ `53dc89db8` for every name in `DEPENDENCY_ANCHORS` anchored `'in-repo'` (the set the two arbitrary-member sites draw from):\n\n| name | distinct ranges |\n|---|---|\n| `lucide-react` | 1 (`^1.31.0`, 23 manifests) |\n| `@tailwindcss/postcss` | 1 (`^4.3.3`, 8 manifests) |\n| `@vitejs/plugin-react` | 1 (`^6.0.5`, 26 manifests) |\n| `postcss` | 1 (`^8.5.26`, 6 manifests) |\n\nEvery one has exactly 1 range today — **this is a latent gap, not a live wrong-green**. I did not manufacture a split to justify the change; the reverse-verification below created one temporarily, on disk, then restored it (`git checkout HEAD --`, proved clean via `git diff HEAD`).\n\n## Reverse verification\n\nMutated `packages/plugin-tree/package.json`'s `lucide-react` range to `^1.30.0` (creating a real 22-vs-1 split on disk), ran the suite:\n\n- Before this fix, per the issue's own repro, the old `.sort()[0]` line went red **blaming the template** (`expected '^1.31.0' to be '^1.30.0'`) — the wrong diagnosis, since the template agreed with the 22-manifest majority.\n- After this fix, both `writes a manifest whose @object-ui ranges name this CLI version` and `sources every range from this repo instead of inventing one` go red with the correct diagnosis: `in-repo manifests disagree on lucide-react`, naming both ranges and every manifest in each.\n\nRestored the mutation (`git checkout HEAD -- packages/plugin-tree/package.json`), confirmed `git diff HEAD` empty, re-ran the suite: 41/41 pass.\n\n## Tests\n\nAll commands run at final HEAD `58ee056dd`:\n\n- `pnpm exec vitest run packages/cli/src/__tests__/app-generator.test.ts` → 41 passed (41)\n- `pnpm --filter '@object-ui/cli' run type-check` → clean (`tsc --noEmit`, exit 0)\n- `pnpm --filter '@object-ui/cli' run lint` → 0 errors, 11 pre-existing warnings unrelated to this diff (exit 0)\n- `node scripts/check-changeset-presence.mjs` → ✅ (empty-frontmatter changeset added, per the gate's own instruction for a test-only change to a released package)\n\n## Changeset\n\n`packages/cli` is a released package and `src/__tests__/app-generator.test.ts` is under its `src/`, so `check-changeset-presence.mjs` correctly required one even though this is test-only. Added `.changeset/4991-lucide-pin-range-consistency.md` with empty frontmatter (releases nothing).\n\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_"
+}

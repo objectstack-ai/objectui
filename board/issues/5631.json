@@ -1,0 +1,35 @@
+{
+  "number": 5631,
+  "kind": "issue",
+  "title": "`ui:icon` reads the SDUI identity key `name` as its lucide icon name, so any icon node that authors `name` renders nothing at all",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T19:27:35Z",
+  "updated_at": "2026-08-24T13:08:38Z",
+  "closed_at": "2026-08-24T13:08:38Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5631",
+  "body": "Found while widening the DOM-leak sweep in #5574 (PR #5629). Out of that card's scope — it touches no renderer source — so recorded here.\n\n## What happens\n\n`packages/components/src/renderers/basic/icon.tsx` resolves its glyph from `schema.name`:\n\n```\nconst iconName = toPascalCase(schema.name);\nconst mappedIconName = iconNameMap[iconName] || iconName;\nconst Icon = (icons as any)[mappedIconName];\n\nif (!Icon) {\n  console.warn(...);\n  return null;\n}\n```\n\nBut `name` is not this renderer's private prop — it is the **SDUI identity key** every authored node carries, alongside `id`. So a perfectly ordinary node like\n\n```\n{ type: 'ui:icon', id: 'save_icon', name: 'save_icon' }\n```\n\nresolves `SaveIcon`, misses, and **returns `null`**. Nothing renders. There is no error boundary, no placeholder, no visible failure — just an absent icon and one `console.warn`, which Vitest 4 discards for a passing test (`silent: 'passed-only'`) and which nobody reads in a browser either.\n\n## How it was measured\n\nThe sweep renders every registry-reachable widget through the real `SchemaRenderer` path with a canary node that sets `name: 'canary_node'` — an ordinary authored identity, nothing exotic. `ui:icon` was one of 12 targets that rendered **zero elements** and therefore read as clean, because an empty scan reports no leaks. It only started rendering once the target was given `schemaExtras: { name: 'check' }` to override the identity key, and once it did it turned out to leak 14 attributes (it is in PR #5629's ledger under `BARE_SPREAD_ON_SVG`).\n\nSo the collision was invisible in two independent ways at once: silent at runtime, and clean-looking to a gate.\n\n## Why this is a contract question, not a one-line fix\n\nThe tempting fix — read `schema.icon ?? schema.name` in the consumer — is the tolerant-consumer shape #5574's family is being migrated *away* from, and it would make `name` mean two different things depending on whether the lookup happens to hit. The real question is which key names an icon on an icon node, answered once in the spec rather than per renderer:\n\n1. **`icon` is the icon key; `name` is identity, always.** Consistent with every other renderer and with `action:*`, which already reads `schema.icon`. Breaks any authored content relying on `name`, which is why it needs a look at real metadata rather than a guess.\n2. **`ui:icon` keeps `name`**, and the identity key is documented as unavailable on this one node type — cheap, but it is a carve-out in the authoring model that an author cannot discover before it silently renders nothing.\n\nEither way the failure mode should stop being silent: an unresolvable icon should render a visible placeholder or be refused at publish time, not return `null`.\n\nRelated but distinct: #5622 and #5586 both concern *retired lucide spellings* reaching this same `icons`-record resolver. Those are about which names resolve; this is about which schema key is consulted in the first place. A fix for either does not close the other.\n\n## References\n\n- `packages/components/src/renderers/basic/icon.tsx`\n- #5574 / PR #5629 — where it surfaced, and the sweep's `schemaExtras` workaround\n- #5622, #5586 — the lucide-spelling family on the same resolver"
+}

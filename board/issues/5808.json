@@ -1,0 +1,35 @@
+{
+  "number": 5808,
+  "kind": "issue",
+  "title": "[finding] `record:alert`'s CTA path shares the same unpinned resultDialog-through-shared-runner gap as record:quick_actions",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-23T12:00:10Z",
+  "updated_at": "2026-08-24T14:47:05Z",
+  "closed_at": "2026-08-24T14:47:05Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5808",
+  "body": "Follow-up from #5711 (\"Worth checking in the same sweep whether `record:alert`'s CTA path … shares the gap\").\n\n## The observation\n\n`record-alert.tsx`'s own header comment claims its CTA runs through \"the same pipeline that `record:quick_actions` uses\" — and it does: it calls `useActionEngine` (`packages/plugin-detail/src/renderers/record-alert.tsx`), which reuses the surrounding `<ActionProvider>`'s shared `ActionRunner` when one is mounted and falls back to a local, unwired one otherwise (`packages/react/src/hooks/useActionEngine.ts`). `resultDialog` is honoured centrally in `ActionRunner.handlePostExecution` — same mechanism #5711 pins for `record:quick_actions`.\n\nChecked (not recalled): `grep -in \"resultDialog\\|ActionProvider\" packages/plugin-detail/src/renderers/__tests__/record-alert*.test.tsx` → only one hit, a comment in `record-alert.test.tsx` noting the renderer \"require[s] a live provider tree (RecordContext, ActionProvider, …)\" — no assertion anywhere in the four `record-alert*.test.tsx` files that a handler registered on an ambient `<ActionProvider>` is actually reachable from `record:alert`'s CTA button, and no assertion of the negative (no-provider) leg either.\n\n## Why it matters\n\nIdentical failure shape to #5711: if a refactor ever caused `record:alert`'s CTA to fall back to a local runner, an action declaring `resultDialog` would keep reporting success, the success toast would stay suppressed (suppression is unconditional on `resultDialog` being set, independent of whether a handler exists), and the user would see nothing. Only trace is a `console.warn`.\n\n## Suggested shape\n\nMirror #5711's PR (`packages/plugin-detail/src/renderers/__tests__/record-quick-actions.resultDialog.test.tsx`): mount `record:alert` under `<ActionProvider onResultDialog onToast>` with a CTA action declaring `resultDialog`, assert the dialog opens with the response value and the toast is suppressed; plus the negative leg with no provider.\n\nobservation-class, unassigned.\n"
+}

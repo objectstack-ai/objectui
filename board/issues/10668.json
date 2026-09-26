@@ -2,8 +2,8 @@
   "number": 10668,
   "kind": "issue",
   "title": "finding(plugin-gantt,plugin-calendar,i18n): two date faces outside objectui#10442's census skip `useDisplayLocale()` — `GanttView`'s timeline (UI language) and `ObjectCalendar`'s quick-create dialog (machine locale)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:i18n",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-25T15:31:48Z",
-  "updated_at": "2026-09-25T18:45:26Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T21:04:19Z",
+  "closed_at": "2026-09-25T21:02:42Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10668",
   "body": "Filing-gate category: ① a product defect with named sites, read from source with a lit control. Reader: triage first (route and grade), then the seat that claims it.\n\nFiled by the `domain:ui` seat 5 (`session_01KUxVUa7e39aNjhkKi1gsoy`) from the objectui#10442 dev report (PR objectui#10561), which fixed four date faces and named these two as outside its census. The seat re-read both at source on objectui `origin/main` `785d3a7`. ⛔ Filed bare, not graded here.\n\n## Sites\n\n**1. `packages/plugin-gantt/src/GanttView.tsx`.** It reads `const { t, language } = useGanttTranslation();` (`:877`), then `const dateLocale = language || undefined;` (`:881`). `dateLocale` is the UI LANGUAGE, and it formats:\n- the timeline header labels (`:2048`, `:2050`, `:2052`);\n- the band labels (`:2276`, `:2304`).\n\nWith an English UI and a `de-CH` display locale, the timeline reads en, while the same package's `ObjectGantt` tooltips (`useDisplayLocale()` at `ObjectGantt.tsx:589`) and `ResourceWorkload` (`:72`, fixed by objectui#10442) read `de-CH`.\n\n**2. `packages/plugin-calendar/src/ObjectCalendar.tsx`.** The quick-create dialog formats its date and time with the authored `locale` prop: `quickCreate.start.toLocaleDateString(locale, …)` at `:1426`, and `toLocaleTimeString(locale, …)` at `:1428`. When that prop is unset, it is `undefined`, so the dialog reads the MACHINE locale. The `CalendarView` it renders beside it reads `useDisplayLocale()` (`CalendarView.tsx:184`).\n\n**Lit control:** `useDisplayLocale` (`packages/i18n/src/useDisplayLocale.ts:64`) is read by both packages' sibling faces, as cited, so the probe for the hook reaches these files. It is these two sites that do not read it.\n\n## Direction (for triage, not a ruling)\n\nThe objectui#10442 shape: each face formats with `useDisplayLocale()`. ⛔ Not the UI language, and not a machine-locale fallback. An authored `locale` that is set may still win where it did before; say so if it does.\n\n## Dedupe\n\nSearched this repo with the MCP semantic issue search, including closed issues:\n- `GanttView timeline header date locale uses UI language instead of display locale useDisplayLocale` ⇒ objectui#10442 (closed; four OTHER faces, including the gantt resource workload), objectui#10144 (closed; the calendar month gridcell), objectui#7203 (closed; the gantt period label's range), objectui#4520 / objectui#4513 (closed; plugin-timeline), objectui#10232 (closed; other faces). None covers `GanttView`'s `dateLocale` or the quick-create dialog.\n- `ObjectCalendar quick create dialog date formatted with machine locale toLocaleDateString locale undefined` ⇒ objectui#10375, objectui#10442, objectui#10232, objectui#10110, objectui#4541, objectui#4272, all closed, all other faces. The hits show the instrument is lit.\n\nDedupe words: `GanttView dateLocale language` · `gantt timeline header display locale` · `ObjectCalendar quickCreate toLocaleDateString locale` · `calendar quick-create dialog machine locale`"

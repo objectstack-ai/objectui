@@ -1,0 +1,32 @@
+{
+  "number": 5995,
+  "kind": "pull_request",
+  "title": "fix(scripts): fail fast when the spec-dist override's own deps don't resolve",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T11:23:19Z",
+  "updated_at": "2026-08-24T13:56:43Z",
+  "closed_at": "2026-08-24T13:56:42Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": "2026-08-24T13:56:42Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5995",
+  "body": "Fixes #5391\n\n## What changed\n\n`resolveSpecDistInjection` (`scripts/vite-objectstack-spec-dist.ts`) validated that the override's `exports` targets resolve, but not that the override's own `package.json` `dependencies` do. This adds `assertSpecDependenciesResolve`, called right after the package directory is located and before the exports map is read: it walks each `dependencies` entry up from `packageDir`'s ancestor `node_modules` directories and fails loudly, naming both the override and every unresolved dependency, if any are missing.\n\nDeliberately narrow, per the card: only the manifest's own `dependencies` (not `peerDependencies` — those are supplied by the consuming app by design, not the override's own tree — and not transitive dependencies, which fail the same way one frame further into their own resolution, still at build time).\n\n## Measurement note — the reproduction differs from the issue's description\n\nReproduced with a real dep-less copy of the installed `@objectstack/spec` (its `dist/`, no reachable `node_modules`) injected into a real `apps/console` `vite build`. On this repo's current toolchain (vite 8.2.1 + rolldown 1.2.3, `d8b48f495`), the late failure was **not** the hard `Rolldown failed to resolve import \"zod\"` error the issue describes. Instead the build ran to completion of the transform phase (8613 modules) with **zero warning or error for the missing `zod`** — it was silently kept as an unresolved bare `import ... from \"zod\"` in the output chunk — and only crashed downstream, and only because of `pg-connection-string` (the *other* missing dependency), as an unrelated plugin's `ENOENT` reading a chunk file that was never written:\n\n```\nerror during build:\nBuild failed with 1 error:\n[plugin emit-eager-closure-report]\nError: ENOENT: no such file or directory, open '.../apps/console/dist/pg-connection-string'\n```\n\nSo today the late failure is arguably *worse* than described — silent for `zod` specifically, and only incidentally loud (in a confusing, unrelated plugin) for `pg-connection-string`. This does not change the fix; it strengthens the case for it. Full before/after logs are in the dev report.\n\n## A second, load-bearing finding along the way\n\nThe first implementation used `require.resolve(name, { paths: [packageDir] })`, which is the obvious tool for this job and is what the file's own header suggests (\"the same walk Node itself performs\"). It passed the dep-less fixture cleanly — but only when invoked directly with `node`. Run through the real `vite` CLI it never caught anything, because pnpm's own `apps/console/node_modules/.bin/vite` shim exports `NODE_PATH` pointing at pnpm's flat `.pnpm/node_modules` hoist directory (which holds a copy of nearly every package the workspace has ever installed, `zod` included), and Node's `paths` option does not suppress `NODE_PATH` — `Module.globalPaths` is consulted regardless. The shipped implementation instead does a manual ancestor `node_modules` walk (mirroring `findSpecPackageDir`'s own idiom), which consults nothing global. A regression test (`is not fooled by a dependency name that resolves globally but not from the package directory`) pins this directly, using `typescript` — a name genuinely reachable elsewhere in the repo — as the stand-in.\n\n## Tests\n\n- `scripts/__tests__/vite-objectstack-spec-dist.test.ts` — 8 new cases: throws naming the override + dependency; names every unresolved dependency, not just the first; passes once the dependency is reachable (own `node_modules` and an ancestor's); ignores `peerDependencies`; inert when `dependencies` is absent; the real installed spec (which does declare `zod` + `pg-connection-string`) passes; and the `NODE_PATH`-blindness regression test above. All 33 tests in the file pass, including the 25 pre-existing ones.\n- A real `apps/console` `vite build` exercising the injection path three ways: unset (baseline, unaffected, `EXIT=0`), override at a dep-less fixture (now fails in **~1s** at config-load time instead of ~80s–2min into the build), override at the same fixture with its dependencies symlinked in (`EXIT=0`, injection still works end-to-end).\n\n## Gates run\n\n- `pnpm type-check:scripts` — pass\n- `scripts/__tests__/vite-objectstack-spec-dist.test.ts` — 33/33 pass\n- `scripts/__tests__/scripts-type-check.test.ts` — 9/9 pass (relevant: #4926 touched `tsconfig.scripts.json` today)\n- `eslint scripts/vite-objectstack-spec-dist.ts scripts/__tests__/vite-objectstack-spec-dist.test.ts` — 0 errors (5 pre-existing `no-explicit-any` warnings elsewhere in the test file, none in added lines)\n- `node scripts/check-changeset-presence.mjs` — 0 files under a released package's `src/`, no changeset owed\n- `node scripts/check-control-bytes.mjs` — clean\n- Real `apps/console` `vite build`, three configurations (see above)\n\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_"
+}

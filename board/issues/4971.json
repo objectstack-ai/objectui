@@ -1,0 +1,36 @@
+{
+  "number": 4971,
+  "kind": "issue",
+  "title": "[finding] 声明的粗类型「臂」没有任何门禁与 spec 比对 —— #3832 让臂可写之后,一条假臂能让 manifest 门放行 spec 拒绝的值,且全绿",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T08:59:41Z",
+  "updated_at": "2026-08-25T02:42:05Z",
+  "closed_at": "2026-08-25T02:42:05Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4971",
+  "body": "发现于 #3832 实施时的反向验证(变异 ③)。观察类:今天**零个**假臂 —— #3832 落地的五处臂都逐一对 spec / 渲染器实测过 —— 所以这是门禁强度的空缺,不是活缺陷。\n\n## 机制\n\n`apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` 两个方向都只比**键名**(它自己的文件头写着这一条)。类型的宽窄它看不见。\n\n在 #3832 之前这条空缺的后果有限:`type` 只能承载一个粗类型,写窄是唯一的失败模式,而写窄只会产生**噪音**(对合法值报警)。#3832 之后 `type` 可以承载臂数组,于是多出一个**反向**失败模式:多写一条 spec 不接受的臂,门就会**放行** spec 拒绝的值 —— 从「门比契约窄」变成「门比契约宽」,而后者不再是噪音,是漏报。\n\n## 实测(变异 ③,两半答案不同,这正是本卡的判据)\n\n在 PR(#3832)的分支上,分别给一个标本加一条 spec 不接受的假臂:\n\n- **③a** — `element:text_input.defaultValue` 加 `'object'` 臂(spec 在该键上拒绝映射,实测):\n  `packages/components/src/__tests__/text-input-inputs-spec-parity.test.ts` **钉红**,\n  `AssertionError: expected [ 'number', 'object', 'string' ] to deeply equal [ 'number', 'string' ]`\n  —— 因为那个 per-block 测试是把臂当**集合**对 spec 的裁决逐条比对的。\n- **③b** — `page:card.title` 加 `'number'` 臂(spec 拒绝数字标题):\n  `Test Files 93 passed | Tests 856 passed` —— **全绿**,无一处门禁察觉。\n\n同一次变异下门的行为实测:\n\n```\ndeclared arms: [\"string\",\"object\",\"number\"]\nstring                                   -> CLEAN\ni18n map                                 -> CLEAN\nnumber (假臂 —— spec 拒绝)                -> CLEAN     ← 漏报\nboolean (不命中任何臂)                     -> warning/type-mismatch: prop \"title\" expected a string or an object or a number\narray   (不命中任何臂)                     -> warning/type-mismatch: 同上\n```\n\n即:「联合不是放行一切」这半成立(不命中任何臂照旧报告),而「臂对齐契约」这半今天靠的是 per-block 纪律,不是门禁 —— 有 per-block 测试的键(#3832 五个标本都有)红,没有的键全绿。\n\n## 可能的方向(不预设结论)\n\n- **(a)** 给 `registry-inputs-spec-parity` 加类型维度:对每个键,用一组探针值(字符串 / 数字 / 布尔 / 数组 / 对象 / null)分别问 spec 的 `safeParse` 与 `checkType`,断言两边的 accept 集合相等。derived,不是手工清单;和现有的键名方向共用 `covered` 集与豁免纪律。代价:探针值的粒度是粗类型级,`enum` 臂与嵌套形状要么豁免要么另立判据(成员形状是 PR #3795 那条 open question)。\n- **(b)** 只做单向:断言声明的臂集合 ⊆ spec 接受的形状(禁假臂),不管窄。便宜一半,消掉的正是本卡这个新失败模式。\n- **(c)** 留在 per-block 纪律,把「新增/修改臂必须带 per-block spec 断言」写进 AGENTS.md。最便宜,但依赖作者记得 —— #3809 的墓碑盲区同一根因。\n\n倾向 (b) 起步:它对齐的是「declared = enforced」,而且假臂是新引入的那个方向,窄化至少还是响的(噪音),宽化是静默的。\n\n关联:#3832 / 本卡的 PR、#3809(同一个「只比键名」根因的墓碑盲区)、#3795(成员形状的 open question)、#3797 / #3808(键名两个方向)、AGENTS.md #0.1"
+}

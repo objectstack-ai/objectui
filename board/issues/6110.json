@@ -1,0 +1,36 @@
+{
+  "number": 6110,
+  "kind": "issue",
+  "title": "Two authored-predicate evaluators still pass `undefined` scope after #6010 — console FormPage (both routes) and the wizard's submit-time required re-check",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T17:43:10Z",
+  "updated_at": "2026-08-25T06:35:50Z",
+  "closed_at": "2026-08-25T06:35:50Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6110",
+  "body": "Filed unassigned by the objectstack `domain:devx` dev seat while implementing the documentation half of objectui#6010 (objectstack#11740). Recording only — not graded, no `domain:*`.\n\nMeasured on objectui `origin/main` @ `a100f77`, by content.\n\n## What #6010 fixed, and where it did not reach\n\nobjectui#6010 (PR #6037) bound the host `predicateScope` on the five AUTHORED-predicate call sites in `packages/components/src/renderers/form/form.tsx`, so `current_user` (plus the ADR-0068 `user` / `ctx.user` / `os.user` aliases) resolves on form field `visibleWhen` / `visibleOn` the same way it already did on the page/app-nav node gate and per-option `visibleWhen`. Verified at `form.tsx:1229`, `:1265`, `:1272`, `:1990`, `:2003`.\n\nTwo other AUTHORED-predicate evaluators in this repo still pass `undefined` for that argument, so the defect #6010 closed on one chain is still live on them:\n\n**1. `apps/console/src/components/FormPage.tsx` — the SECOND form renderer, on both of its routes.**\n\n```\napps/console/src/components/FormPage.tsx:610   evalFieldPredicate(field.visibleWhen, values, true, previous ?? undefined, undefined, …)\napps/console/src/components/FormPage.tsx:651   evalFieldPredicate(section.visibleWhen, values, true, previous ?? undefined, undefined, …)\n```\n\nThat file's own header names its surfaces: the authed internal form route `/forms/:name` (`GET /api/v1/meta/view/:name` + `POST /api/v1/data/:object`) and the public anonymous form `/f/:slug`. The internal route is a runtime record surface by ADR-0089 D1's own words (*\"runtime record surfaces bind `record` + `current_user`\"*), and its `visibleWhen` metadata is the same `*.view.ts` FormView the object-view chain renders. So a role gate authored once behaves differently depending on which route opens the form — which is the asymmetry #6010's parity pin exists to refuse, one renderer over.\n\nFail direction is the dangerous one, unchanged from #6010: `evalFieldPredicate` is called with `fallback: true`, so the unbound root faults OPEN and the field/section a `current_user` test was meant to hide is shown to everyone.\n\n(The public `/f/:slug` route has no authenticated principal, so \"unbound\" is arguably correct there — but it is the same call site, so the two routes cannot currently be told apart. Deciding what an anonymous form binds is part of this card, not a reason to skip it.)\n\n**2. `packages/plugin-form/src/WizardForm.tsx:440` / `:471` — the submit-time required-field re-check.**\n\n```\npackages/plugin-form/src/WizardForm.tsx:440   resolveFieldRuleState({ visibleWhen, readonlyWhen, requiredWhen }, record, { … }, undefined, undefined, …)\npackages/plugin-form/src/WizardForm.tsx:471   evalFieldPredicate((field as any).visibleOn, record, true, undefined, undefined, …)\n```\n\nThis is not a render path — it is `missingRequiredByStep`, the gate that re-checks the WHOLE declared field set at final submit because `allowSkip` can jump past a step. Its docstring states the intent verbatim: *\"the same one the form renderer and the server's rule-validator use, so a conditionally required/hidden field gets the same verdict from all three rather than a second, divergent dialect.\"* Since #6010 the form renderer's verdict binds `current_user` and this gate's does not, so a field the wizard HIDES from this user (predicate false with the scope bound) is still counted as visible here (predicate faults open with no scope) and, if required, blocks the submit on a field the submitter cannot see or fill in.\n\n## Not covered by this card\n\n- The synthesised legacy `condition: { field, equals }` predicate at `form.tsx:1955` keeps `undefined` deliberately (#6010) — it can only ever name `record.<field>`. Correct; do not \"fix\" it.\n- Whether an authored `FormSection.visibleWhen` reaches the components renderer at all in the object-view chain is a separate defect, filed alongside this one.\n\n## Why it is filed here rather than fixed in the docs PR\n\nFound while correcting objectstack's `visibleWhen` binding docs (objectstack#11740). The docs there now state the binding per surface, and cite this card for the surfaces that are still unbound — so this card closing is what lets that text be simplified.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_015ahemw8RcTgqtxrj15PEZx)_\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

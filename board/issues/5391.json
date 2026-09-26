@@ -1,0 +1,35 @@
+{
+  "number": 5391,
+  "kind": "issue",
+  "title": "resolveSpecDistInjection validates the override's exports targets but not that its own dependencies resolve, so a dep-less spec dist fails ~80s later as a rolldown \"failed to resolve zod\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-20T08:28:06Z",
+  "updated_at": "2026-08-24T13:56:43Z",
+  "closed_at": "2026-08-24T13:56:43Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5391",
+  "body": "Observation, found while working #5388. Not a regression and not blocking anything — filing so triage can rank it rather than sitting on it.\n\n## What I measured\n\n`scripts/vite-objectstack-spec-dist.ts` states two properties on purpose, and the first one is:\n\n> **Loud, never lenient.** Every way the override can be wrong — path absent, not the spec package, an exports entry naming a file the built package does not contain — throws with the offending value named.\n\nIt checks that each exports-map target file exists. It does not check that the overriding package's own runtime dependencies resolve from where the package sits. Pointing `OBJECTSTACK_SPEC_DIST` at a real, fully built `@objectstack/spec` copy that has no reachable `node_modules` produced no error from the helper at all. The console build ran to completion — 8592 modules transformed, ~80 seconds — and then failed with:\n\n```\nError: [vite]: Rolldown failed to resolve import \"zod\" from\n\"/…/framework-spec/packages/spec/dist/index.mjs\".\nThis is most likely unintended because it can break your application at runtime.\n```\n\nSymlinking the package's dependency set next to it made the same build green.\n\n## Why it is worth a line\n\nThe failure IS loud, so this is not the silent-skew class the hook exists to kill. What it costs is diagnosis: the message names `zod` and a rolldown resolver, not `OBJECTSTACK_SPEC_DIST`, and it arrives a build-length after the mistake rather than at the point the override is read. The helper's stated contract is that a wrong override names itself.\n\nOne sharp edge found alongside it, which is why the ordering matters: while #5388 was unfixed, this resolve error was **completely invisible** — the lazy-linter counter-probe threw in `generateBundle` first and aborted the build before the accumulated resolve errors were escalated. Same command, same tree, two different single-error reports depending on which failure got there first.\n\n## Scope note\n\n`scripts/build-console.sh` in the framework points the override at an installed tree, where deps resolve, so this is not reachable from the path that matters today. It is reachable by hand and by any future caller that builds a spec package in isolation.\n\n## Possible shapes (not a recommendation)\n\n- Resolve one known dependency of the override from `packageDir` in `findSpecPackageDir` and fail with the override value named.\n- Or leave it and document the failure mode in the module header, since the build does stop either way.\n\nRelated: #4854 (the hook), #5388 (the counter-probe that masked it), objectstack-ai/objectstack#8134 (the ruling behind the injection).\n"
+}

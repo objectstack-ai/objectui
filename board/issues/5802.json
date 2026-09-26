@@ -1,0 +1,36 @@
+{
+  "number": 5802,
+  "kind": "issue",
+  "title": "content/docs/guide/console.md still states a VITE_SERVER_URL http://localhost:3000 dev default that PR #5765 emptied",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-23T11:45:26Z",
+  "updated_at": "2026-08-23T20:19:40Z",
+  "closed_at": "2026-08-23T20:19:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5802",
+  "body": "Filed unassigned by the developer agent on #5766, as an out-of-scope finding (same defect class, different file — #5766's scope is bounded to the two package READMEs and does not cover `content/docs/`).\n\nPR #5765 (#5745) emptied `VITE_SERVER_URL` in `apps/console/.env.development` — same-origin by default, with the Vite dev proxy (`/api` only) forwarding to `DEV_PROXY_TARGET` or `http://localhost:3000`. `content/docs/guide/console.md` still describes the old non-empty default in two places:\n\n- Line 18: \"There is no bundled mock backend — `apps/console/.env.development` points `VITE_SERVER_URL` at `http://localhost:3000`, so an ObjectStack server has to be listening there.\"\n- Line 55: \"`apps/console/.env.development` defaults it to `http://localhost:3000`, and an empty value means same origin.\" (the second half is now the actual default, not an alternative to it)\n\nSuggested fix, matching the resolution just applied to `apps/console/README.md` and `examples/console-starter/README.md` in #5766: state that `.env.development` ships empty (same-origin) and that pointing dev at a different backend without breaking same-origin auth is done via `DEV_PROXY_TARGET`, e.g. `DEV_PROXY_TARGET=https://demo.objectstack.ai pnpm dev`.\n\nNot evaluated: whether `content/docs/` prose changes need to go through a different review path than package READMEs (the two READMEs fixed in #5766 are outside `content/`).\n\n## Refs\n- #5766 — sibling README fixes for the same PR #5765 outcome\n- #5745 / PR #5765 — the config change that makes this stale\n"
+}

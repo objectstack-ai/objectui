@@ -1,0 +1,35 @@
+{
+  "number": 5640,
+  "kind": "issue",
+  "title": "finding(skills): SKILL.md still teaches the dead `cols` layout spelling that protocol.md and mobile.md both forbid",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T22:27:10Z",
+  "updated_at": "2026-08-23T20:19:41Z",
+  "closed_at": "2026-08-23T20:19:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5640",
+  "body": "Found while implementing #5372 (the envelope-teaching fix). **Not claimed; observation class, filed unassigned.** Different defect class from #5372's envelope rule, so deliberately not fixed on that PR. Baseline objectui `origin/main` @ `f1c27f037`.\n\n## The fact\n\n`skills/objectui/SKILL.md:81` — the top-level file of the published skill, the one an agent loads before any guide — says:\n\n> Layouts are just components that render children. Treat `Grid`, `Stack`, `Container` as first-class citizens. Layout schemas must support responsive props (e.g. `cols: { sm: 1, md: 2, lg: 4 }`).\n\nTwo files in the same published package say that spelling is dead:\n\n- `skills/objectui/rules/protocol.md:252` — \"**❌ DO NOT** spell it `cols` — no schema, renderer or registry declares that key, so the value is dropped on the floor and the grid renders a flat two columns at *every* breakpoint (objectui#4001).\"\n- `skills/objectui/guides/mobile.md:100` — \"`\"props\": { \"cols\": … }` leaves both the columns *and* the card titles unread (objectui#4001).\"\n\n`AGENTS.md` §5 Commandment #5 states the same rule for the codebase.\n\nSo the entry file prescribes the spelling the rule files retire, and it also uses the `sm` base key where `GridSchema`'s base breakpoint is `xs`. An author who reads only `SKILL.md` — which is the intended entry point — writes `cols` and gets a flat two-column grid at every breakpoint, with nothing thrown and nothing logged. That is the same silent-wrong-render failure shape #5372 exists to stop, arriving through a different key.\n\n## Why it is a separate card\n\n#5372's scope is the `props` / `properties` envelope rule and was held to it. This is the layout key spelling, whose direction was already settled by #4001 — no decision is owed, only the edit. Recording it rather than riding it in keeps that PR's diff reviewable as one claim.\n\n## Suggested shape\n\nOne-line in-place replacement in `SKILL.md`, matching the wording already in `rules/protocol.md`: `columns` — a number, or a breakpoint object keyed `xs` / `sm` / `md` / `lg` / `xl`, with `xs` as the base. Net addition zero. Worth checking whether any `evals/*.json` grades the `cols` spelling the same way `evals/schema-expressions.json` was found to grade the retired `props.*` envelope (fixed on #5372's PR).\n\n## Recheck\n\n```\ngrep -rn '`cols`\\|\"cols\"\\|cols:' skills/\nsed -n '81p' skills/objectui/SKILL.md\nsed -n '250,256p' skills/objectui/rules/protocol.md\n```\n\n## Grading\n\n`finding`, not `pm:queue`. Related: #4001, #5372."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 5042,
+  "kind": "issue",
+  "title": "ListView never forwards the view-level `map` config block to plugin-map — spec's `ListMapConfigSchema` (objectstack#9340) is authorable but inert at runtime; switcher wiring included",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T20:15:39Z",
+  "updated_at": "2026-08-23T19:52:09Z",
+  "closed_at": "2026-08-23T19:52:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5042",
+  "body": "Blocked-by: objectstack-ai/objectstack#9340 (MERGED via objectstack-ai/objectstack#9370 — the block now exists in `@objectstack/spec`; this card is the pre-registered consumer follow-up named in that PR's \"Out of scope\" section).\n\n## Facts (measured during objectstack#9370, against the objectui checkout current 2026-08-17)\n\n- `packages/spec` now exports **`ListMapConfigSchema`** and `ListViewSchema` accepts a `map` visualization config block (keys: `latitudeField` / `longitudeField` / `locationField` / `titleField` / `descriptionField` / `zoom` (1-20) / `center`; strict, no defaults on `zoom`/`center` per objectui#5000's \"declared camera wins, no declaration means fit to the queried records\" ruling).\n- The component-level reader already exists: `getMapConfig` in `ObjectMap.tsx` validates `schema.map` against a local zod schema with exactly those seven keys, each with a live read (coordinate extraction, marker title/description, camera init).\n- **The gap**: `ListView.tsx` `case 'map'` forwards only `schema.options?.map` — never the view-level `map` block — so authoring the new spec key changes nothing at runtime. The spec liveness ledger records `map` as **`planned`** (deliberately not `live`) for exactly this reason.\n- Switcher: the showcase map view's `allowedVisualizations` wiring was left untouched on the spec side (\"switcher wiring is the objectui follow-up\").\n\n## Done when\n\n- `ListView.tsx` `case 'map'` forwards the view-level `map` block to plugin-map (precedence vs `schema.options?.map`: follow the sibling visualization blocks' existing convention).\n- Visualization switcher offers `map` where the sibling blocks' convention says it should (`allowedVisualizations` handling).\n- The showcase task map view renders marker titles from its declared `map: { titleField: 'title', locationField: 'location' }` (the original objectui#5001 symptom — `undefined` marker titles — is gone).\n- Follow-up for the spec side once this lands: flip the liveness ledger `map` verdict `planned` → `live` (file it on the objectstack queue; do not edit the ledger from this repo).\n\n## Dispatch condition\n\nNot dispatchable until this repo's pinned `@objectstack/spec` includes the objectstack#9370 landing (probe: `ListMapConfigSchema` present in the consumed spec build). Original evidence trail: objectui#5001 (closed as transferred), objectui#5000, objectstack#9340, objectstack#9370."
+}

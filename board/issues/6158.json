@@ -1,0 +1,35 @@
+{
+  "number": 6158,
+  "kind": "issue",
+  "title": "finding(components): RadioGroupSchema.orientation is declared by the type and the zod schema but read by nothing — the docs page's two Layout Options demos render byte-identical markup",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-24T21:41:18Z",
+  "updated_at": "2026-08-25T04:23:06Z",
+  "closed_at": "2026-08-25T04:23:06Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6158",
+  "body": "Found while implementing #6143 round 2. That card corrected `content/docs/components/form/radio-group.mdx` from the invented key `direction` to the shipped `orientation`. The correction is right — but `orientation` turns out to be declared-and-unconsumed, so the page now documents a real key that does nothing.\n\nThis is the mirror image of #6150 (keys renderers read that no type declares). Here the type declares a key no renderer reads.\n\n## Measured, from the prerendered HTML rather than by eye\n\n`orientation` is declared in both layers:\n\n- `packages/types/dist/form.d.ts:377` — `orientation?: 'horizontal' | 'vertical';` with `@default 'vertical'`\n- `packages/types/dist/zod/form.zod.js:263` — `orientation: z.enum(['horizontal', 'vertical']).optional().describe('Layout orientation')`\n\nIt is read nowhere. `packages/components/src/renderers/form/radio-group.tsx` contains neither the string `orientation` nor `direction`. The renderer passes `defaultValue`, `className`, form-control DOM props and designer props to the Radix `RadioGroup`, and nothing else off `schema`.\n\nThe consequence is visible in the built site. `next build` of `apps/site`, then reading `.next/server/app/docs/components/form/radio-group.html`: **all eight** rendered radiogroup roots on the page are identical —\n\n```\nrole=\"radiogroup\" aria-required=\"false\" dir=\"ltr\" class=\"grid gap-2\" data-obj-type=\"radio-group\" style=\"outline:none\" tabindex=\"-1\"\n```\n\nNo `data-orientation` attribute is emitted on any of them, and no `direction` attribute appears anywhere in the page. So the two demos under the page's `## Layout Options` heading — `vertical-layout` and `horizontal-layout` — produce **byte-identical markup**. The horizontal demo renders vertically.\n\nRadix's own `RadioGroup` does accept an `orientation` prop, so the capability is one forwarded prop away; the renderer simply never forwards it.\n\n## Why this is worth a card rather than a shrug\n\nThe page has a whole section demonstrating a distinction the product cannot make, and it is a distinction an author would reasonably expect from a declared, defaulted, zod-validated enum. An AI author reading the shipped type has every reason to emit `orientation: 'horizontal'` and no way to discover it is inert.\n\n⚠️ Note that the two fixtures behind those demos currently pass `direction`, not `orientation`, so they would stay inert even after the renderer is fixed — filed separately as the fixture divergence card alongside this one.\n\n## Shape of the fix, not taken here\n\nForward `schema.orientation` to the Radix `RadioGroup` and let the flex/grid class follow it. That is a renderer behaviour change, out of scope for a docs card, and it should probably be decided together with #4631, which is the general statement of this class: a component type with three declared surfaces (TS schema type, registry meta inputs, renderer prop reads) that disagree with nothing reconciling them. The registry meta `inputs` for `radio-group` list only `defaultValue`, `id`, `options`, `className` — a third surface that also omits `orientation`.\n\nRefs: #6143 (where this was found) · #6150 (the inverse class, undeclared-but-consumed) · #4631 (the general three-surfaces statement) · #4653 (the same class of key drift, closed per-page)."
+}

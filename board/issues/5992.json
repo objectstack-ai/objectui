@@ -1,0 +1,35 @@
+{
+  "number": 5992,
+  "kind": "issue",
+  "title": "finding(tooling): the lucide icon-record gate cannot see icons on UNTYPED child nodes, so dropdown-menu item icons stay unjudged even now that they reach a resolver",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T11:20:05Z",
+  "updated_at": "2026-08-25T07:43:24Z",
+  "closed_at": "2026-08-25T07:43:24Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5992",
+  "body": "Found while implementing #5930 (routing `ui:dropdown-menu` item icons through `resolveIcon`). Filed unassigned; not repaired there, because changing what the gate judges is a scope of its own.\n\n## What was measured\n\n`scripts/check-lucide-icon-record-names.mjs` part 2 judges `icon` names on nodes **whose own `type` is a censused record-reading renderer**. Menu items in `ui:dropdown-menu` are child objects that carry no `type` key at all, so they are never judged — the gate's own header states this boundary explicitly (\"an `icon` on an UNTYPED node is not judged at all\").\n\nBefore #5930 that was harmless: the site reached no resolver. After #5930 it reaches one, and the gate still does not cover it.\n\nMeasured directly, on the #5930 branch with the fix in place — the retired spelling `edit` was restored to `examples/schema-catalog/src/schemas/components-overlay-dropdown-menu/with-icons.json` and the gate re-run:\n\n```\nproof on disk — retired 'edit' present (expect 1): 1\ngate exit with retired 'edit' in fixture = 0\nOK  lucide icon names: 64 authored/declared names reaching 8 record-reading resolvers are live `icons` keys\n```\n\nExit 0, same 64 names. A dead spelling that now renders **no glyph** in a published fixture passes the gate silently. That fixture is a declared AI few-shot retrieval source, so the failure mode is teaching a dead name, not just a missing icon.\n\n## Why the census part did not catch it either\n\nPart 1 rediscovers modules that read lucide's `icons` record **directly**. #5930 routes through `resolveIcon` rather than importing `icons`, so `renderers/overlay/dropdown-menu.tsx` correctly does not enter `DECLARED_RECORD_READERS` — the census stayed at 8, as designed. The blind spot is entirely in part 2's node-typing rule, not in the census.\n\n## Also stale after #5930\n\nThe gate's header carries a measured parenthetical that PR for #5930 falsifies:\n\n> the eight such names in the schema catalog are child items of `button-group`, `breadcrumb`, `command` and `dropdown-menu` — three of which never read `icon`, and the fourth renders it as raw text\n\n`dropdown-menu` no longer renders it as raw text. Left untouched deliberately (out of that card's fence); it should be corrected with whatever change addresses the above.\n\n## Options, not a recommendation\n\n- Judge an `icon` on an untyped child node against its **nearest typed ancestor** whose renderer is a censused record reader.\n- Or declare, per container type, which child-item keys are icon names.\n\nRelated: #5931 is the fixture-side half of the neighbouring class; #5633 built this gate.\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 5753,
+  "kind": "issue",
+  "title": "finding: `@object-ui/providers` declares an `@objectstack/spec` dependency that nothing in the package imports once #5716 lands",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T04:45:29Z",
+  "updated_at": "2026-08-24T15:06:38Z",
+  "closed_at": "2026-08-24T15:06:38Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5753",
+  "body": "Found while executing #5716 (session `session_01EuPCi56cnGyykygi3z9w4m`, PR #5752). Observation class — no runtime defect.\n\nBlocked-by: PR #5752 (the premise holds only once it lands).\n\n## Measurement (branch `claude/issue-5716-localize-theme-types` at `cf05dd125`)\n\nBefore #5716, `packages/providers` imported `@objectstack/spec/ui` in exactly three places: `src/types.ts:2` (the `ThemeModeSchema` type carrier behind `ThemePreference`) and the two retirement-era test files. The #5716 ruling re-pointed all three at `@object-ui/types` (`ThemeMode` / `THEME_MODES`), so after PR #5752 a grep for `objectstack/spec` across `packages/providers/` returns only:\n\n- `package.json:34` — the dependency declaration itself (caret 17.0.0), and\n- a prose comment in `tsconfig.test.json:13`.\n\nZero import sites. `check:phantom-deps` guards the inverse direction (import without a declaration), so nothing mechanical reddens on a declared-but-unimported dependency: it ships as dead weight in the published package's dependency tree and, more practically, keeps `@object-ui/providers` on the spec's install/refresh treadmill for no reader.\n\n## Why not fixed in PR #5752\n\n`packages/providers/package.json` is outside that card's granted write surface, and removing a published package's dependency is its own reviewable decision (it changes the install graph for consumers). Natural landing spot: the post-release spec-pin refresh chain (the #5668 `Restart-when:` exit), which touches every spec dependency declaration anyway — whoever executes the refresh can drop the entry instead of bumping it, with this issue as the reason. The `tsconfig.test.json` comment can be updated in the same stroke."
+}

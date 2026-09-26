@@ -1,0 +1,35 @@
+{
+  "number": 6044,
+  "kind": "issue",
+  "title": "Both designer field shapes spell the spec's `system` flag as `isSystem` — so system-field detection reads a key the server never sends, and the key round-trips back out as a 422",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-24T14:29:13Z",
+  "updated_at": "2026-08-25T02:53:52Z",
+  "closed_at": "2026-08-25T02:53:52Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6044",
+  "body": "Surfaced by the key-level parity gate built for #5761 (`scripts/check-designer-field-key-parity.mjs`). Filed, not fixed, per #5761's ruling.\n\n## The key\n\n`isSystem` is not in `FieldSchema`'s accept set; the spec spells it **`system`**:\n\n> `system` — Auto-injected system/audit field (e.g. `created_at`, `updated_by`, `organization_id`). Tools that surface system fields separately from author-declared business fields should branch on this flag.\n\n```\nFieldSchema.safeParse({ type:'text', label:'L', isSystem: true })\n  => success = false\n  => [{ code: 'unrecognized_keys', keys: ['isSystem'] }]\n```\n\n## Two distinct defects, one misspelling\n\n**1. The READ is dead (the quieter, probably worse half).**\n\n`packages/plugin-designer/src/MetadataFieldsPage.tsx:95` — `toDesignerField` does `isSystem: raw.isSystem`. `raw` is what the server sent, and a spec-parsed server sends `system`. So `raw.isSystem` is always `undefined` and every field loads as non-system.\n\nThat flag is load-bearing in the UI. `FieldDesigner.tsx:188` refuses to delete a system field (`if (!field || field.isSystem) return;`) and `:299,301` disable the name and type inputs for one. With the read dead, **`organization_id`, `created_at` and friends present as ordinary editable, deletable business fields** in the field designer. Nothing goes red — the flag is optional, so `undefined` is a valid \"not a system field\".\n\n**2. The WRITE can round-trip out as a 422.**\n\n`ServerFieldSchema` declares `[key: string]: unknown` and `fromDesignerField` spreads `carryOver(prev)` verbatim to preserve unknown keys. `carryOver` strips only `RETIRED_FIELD_KEYS = ['indexed']`. So any `isSystem` present on the previous server payload is carried straight back out to `PUT /api/v1/meta/object/:name`, where it is a hard 422 `INVALID_METADATA` blocking every later save. `FieldDesigner.tsx:244` also seeds `isSystem: false` on newly created fields.\n\nWhether a live 422 exists today depends on whether anything upstream ever emits `isSystem` — that is worth measuring rather than assuming, and it is why this card is filed separately from the two live-control instances (#6041 `referenceTo`, #6043 `formula`) rather than folded in with them.\n\n## Scope note for whoever takes it\n\nDo **not** resolve it by adding `isSystem` to `RETIRED_FIELD_KEYS`. That would strip the key while leaving the read still broken, i.e. close the 422 and fossilize the dead system-field detection. Both directions belong to this card. `MetadataObjectsPage.tsx` / `ObjectManager.tsx` also carry an `isSystem` on the **object** shape — a separate schema, check it separately rather than assuming it is the same defect.\n\n## Verification\n\n`pnpm check:designer-field-key-parity` reports it on both `ServerFieldSchema` and `DesignerFieldDefinition`; recorded in that gate's `KNOWN_UNPARSEABLE_KEYS` ledger pointing here.\n\nRefs: #5761 (the gate) · #6041 · #6043 · #4644"
+}

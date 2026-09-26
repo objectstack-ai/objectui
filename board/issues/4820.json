@@ -1,0 +1,34 @@
+{
+  "number": 4820,
+  "kind": "issue",
+  "title": "finding: 根 tsconfig.json paths 另有 2 条死条目 —— @objectstack/plugin-msw 与 @objectstack/objectql 指向 node_modules 里根本没装的包",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-16T10:11:32Z",
+  "updated_at": "2026-08-24T09:48:02Z",
+  "closed_at": "2026-08-24T09:43:30Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4820",
+  "body": "## 发现来源\n\n实施 #4804(删根 `tsconfig.json` 里 engine/ui/renderer 六条死 paths + 扩展守卫读 tsconfig paths 表)时发现。**不在 #4804 范围内,故未在该 PR 里一并删** —— 那张卡的正文逐条点名的是 engine/ui/renderer 六行,这两条是另一种成因(指向 node_modules 而非 workspace 目录),且牵扯「这两个包是不是本该成为依赖」的取舍,属维护者决定,不该搭 XS 卡的顺风车。\n\n## 现状\n\n根 `tsconfig.json` `compilerOptions.paths`(#4804 删掉六行后的行号):\n\n```json\n\"@objectstack/plugin-msw\": [\"node_modules/@objectstack/plugin-msw/src/index.ts\"],\n\"@objectstack/objectql\": [\"node_modules/@objectstack/objectql/src/index.ts\"],\n```\n\n两个目标文件都不存在,而且不是「装了但布局不同」—— 这两个包**整个不在依赖图里**。在干净 worktree 里 `pnpm install` 之后实测(objectui @ `ac600e5d2`):\n\n```\n$ ls node_modules/@objectstack/\nspec\n\n$ ls node_modules/.pnpm/ | grep -E '@objectstack.(plugin-msw|objectql)'\n(零命中 —— pnpm store 里也没有)\n\n$ grep -rn --include=package.json --exclude-dir=node_modules -E '\"@objectstack/(plugin-msw|objectql)\"' .\n(零命中 —— 全仓 38 个 package.json 都没把它俩声明成依赖)\n```\n\n## 影响:observation-class,今天零用户可见后果\n\n仓内源码对这两个 specifier 的 import 数为 **0**;唯二的出现在**面向用户的文档示例**里,不参与任何编译:\n\n```\nskills/objectui/guides/data-integration.md:259: import { ObjectQLPlugin } from '@objectstack/objectql';\nskills/objectui/guides/data-integration.md:261: import { MSWPlugin } from '@objectstack/plugin-msw';\ncontent/docs/guide/objectos-integration.mdx:56:  import { ObjectQLPlugin } from '@objectstack/objectql';\n```\n\n扫描器反查证伪:同一把 grep 对 `@objectstack/spec`(真实依赖)在 39 个 package.json 命中,所以零命中是事实而非扫描器坏了。\n\n于是今天没有任何解析走这两条映射 —— 与 #3944 / #3904 / #4804 完全同一种失效模式:**配置声明了依赖图并不具备的能力**,读起来像「这两个包已接线」,实际删掉它们对编译毫无影响。\n\n## 与 #4804 的守卫的关系(重要)\n\n#4804 的 PR 把「每个声明目标必须存在」的既有断言扩到了 tsconfig paths 表。这两条会让该断言变红,因此在那个 PR 里被**显式列入一条棘轮式豁免名单**(`KNOWN_MISSING_TARGETS`),名单指向本卡:\n\n- 名单**不能悄悄变长** —— 任何**新**的死目标照样红;\n- 名单里的条目若已从 tsconfig 删除,守卫也会红,强制同时清掉豁免项。\n\n所以本卡关掉的动作是:删这两行(或把这两个包变成真依赖),然后把 `KNOWN_MISSING_TARGETS` 清空。\n\n## 建议方向(未决,需维护者判断)\n\n两条路,取舍点在于这两个包到底该不该在本仓:\n\n- **A. 删两行。** 它们不是依赖、没人 import,文档示例是给**下游用户**看的、本来就不需要本仓的 paths 映射。最贴合「声明即真实」,也让 #4804 的守卫无豁免地全覆盖。\n- **B. 把它们变成真依赖。** `AGENTS.md` §7 明确规定「用 `@objectstack/plugin-msw` 初始化 mock API server」,`content/docs/guide/objectos-integration.mdx` 也照此教。若确有让本仓自己跑 MSW/ObjectQL 的意图,该补的是 `package.json` 的依赖(以及正确的 `dist`/`exports` 目标,而不是硬编到 `node_modules/**/src/index.ts` —— 已发布包通常不发 `src/`)。\n\n倾向 **A**:今天没有任何本仓代码需要它们,而 B 是新增依赖的产品决定,不该由一条死配置反推出来。但若维护者认为 §7 的规定意味着本仓早晚要自带这套 mock 栈,B 更符合长期方向 —— 请维护者定。\n\nRelated: #4804(本卡的发现现场)、#3944 / PR #4802、#3904 / PR #3942。observation-class,未认领。\n"
+}

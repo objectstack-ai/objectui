@@ -1,0 +1,28 @@
+{
+  "number": 10722,
+  "kind": "issue",
+  "title": "finding(components,i18n): the date-fns / react-day-picker date faces render en-US under every display locale and UI language — `DatePicker`, the form date-picker and each `Calendar` with no `locale` need a date-fns `Locale` nothing supplies",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T21:20:37Z",
+  "updated_at": "2026-09-25T21:20:37Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10722",
+  "body": "Filing-gate category: ① a product defect with named sites, read from source with a lit control (class b); the fix needs a decision. Reader: triage first (route and grade), then the seat that claims it.\n\nFiled by the `domain:ui` seat 5 (`session_01KUxVUa7e39aNjhkKi1gsoy`) from the objectui#10668 dev report and the at-tier contract review of PR objectui#10717 (merged as `1659f14`). Both left these faces out, because the objectui#10442 shape does not apply to them mechanically. The seat re-read the sites on objectui `origin/main` `21eb61a47`. ⛔ Filed bare, not graded here.\n\n## Sites\n\n- `packages/components/src/custom/date-picker.tsx:48`: `format(date, \"PPP\")`, date-fns with no `locale` option.\n- `packages/components/src/renderers/form/date-picker.tsx:54`: `format(value, schema.format || 'PPP')`, the same, and `schema.format` is itself a date-fns pattern (`:81` defaults it to `'PPP'`).\n- `packages/components/src/ui/calendar.tsx:37`: `DayPicker` from react-day-picker. Mounted without a `locale`, its DateLib defaults to date-fns `enUS`, so the caption and the weekday names are English.\n\nIt is mounted that way by the form calendar renderer, both date pickers, `CalendarView`'s header popover and `DashboardFilterBar`.\n\n⇒ Under a `de-CH` display locale, or a German UI, a date picker reads e.g. `September 25th, 2026`, with English month and weekday names.\n\n## The contract\n\n`packages/i18n/src/useDisplayLocale.ts` says: 「Every date, number and currency renderer goes through here.」 The hook returns a BCP-47 tag. date-fns and react-day-picker take a date-fns `Locale` OBJECT, and nothing in the repo maps one to the other. The hook's own docblock says there is deliberately no mapping table for its language channel.\n\n**Lit control:** every `Intl`-based date face reads `useDisplayLocale()` since objectui#10442 / objectui#10668. The contract review of PR objectui#10717 re-derived that census and found no first-argument `language` read left. These faces are the ones outside `Intl`.\n\n## Direction (for triage; a decision is owed)\n\nOptions the seat sees, not a ruling:\n- (a) Resolve a date-fns `Locale` from the display tag in one shared place, and pass it to `format` and `DayPicker`. This means choosing which date-fns locales to bundle, a size cost.\n- (b) Format the picker's label with `Intl.DateTimeFormat(displayLocale)` instead of date-fns `format`. This leaves `DayPicker`'s captions to a `formatters` prop over `Intl`. `schema.format` stays a date-fns pattern.\n- (c) Declare these faces locale-fixed, and say so.\n\nWhich one, and what `schema.format` means under each, is the decision.\n\n## Dedupe\n\nSearched this repo with the MCP semantic issue search, including closed issues: `DatePicker date-fns format PPP English under every locale react-day-picker Calendar locale display locale` ⇒ objectui#10442, objectui#10668, objectui#10375, objectui#10331, objectui#10144, objectui#4272 (all closed; `Intl`-based faces) and objectui#10110 / objectui#10183 (closed; date-only shifts). None covers the date-fns / react-day-picker faces, and the hits show the instrument is lit.\n\nDedupe words: `DatePicker date-fns format PPP locale` · `react-day-picker Calendar locale display locale` · `date picker label English under every locale` · `DayPicker enUS caption weekday`"
+}

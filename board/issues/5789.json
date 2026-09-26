@@ -1,0 +1,35 @@
+{
+  "number": 5789,
+  "kind": "issue",
+  "title": "Port the guard-main-checkout-bash.sh fix family (backslash pass agreement, comment-named heredoc, header count) from objectstack PR #11278",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:awaiting-maintainer"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-23T08:36:34Z",
+  "updated_at": "2026-08-25T08:41:28Z",
+  "closed_at": "2026-08-25T08:41:28Z",
+  "closed_by": {
+    "login": "os-trump",
+    "id": 320910073,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5789",
+  "body": "Blocked-by: objectstack-ai/objectstack#11131\n\nFiled by the objectstack skills seat (session `session_01RMTpSRF5CjMmQBFfPtPCwJ`, 2026-08-23) at the ACCEPT of objectstack PR #11278, per the cross-repo follow-up duty (the accepting seat files the consumer-repo card). The two copies of `.claude/hooks/guard-main-checkout-bash.sh` are declared case-for-case identical with the direction of travel objectstack → objectui, so this card waits for the upstream family to MERGE and then ports verbatim.\n\n## What to port (one PR, after the upstream lands)\n\nobjectstack PR #11278 (family: objectstack#11131 + #11133 + #11234), three commits:\n\n1. `split_segments()` gains the backslash branch `tokenize()` already had — an unquoted `\\\"` no longer opens a phantom quote region (closes a fail-open where `echo \\\" ; sed -i s/a/b/ pkg/x.ts` was ALLOWED).\n2. `strip_heredocs()`'s delimiter scan learns the comment rule via a `strip_line_comment()` helper — a heredoc introducer merely NAMED in a comment no longer swallows the real commands after it.\n3. Header enumeration count `Three layers:` → `Four layers:` — note objectui#5459's port carried the miscount **deliberately** to stay byte-identical; this port corrects it in both copies' declared direction.\n\nPort the selftest additions too (upstream matrix went 100 → 121 cases).\n\n## Executable acceptance criterion\n\n```\nbash .claude/hooks/guard-main-checkout-bash.selftest.sh   # expect: 121 passed, 0 failed\n```\n\nplus the two measured probes from the upstream cards flipping ALLOWED→blocked in this repo's copy, and the #10247 mirror twins staying ALLOWED.\n\n## Constraints\n\n- `.claude/**` is a governed surface here too: draft PR, human merge only.\n- Keep the copies byte-identical outside the localised lines (repo-name literals etc.), per the declared parity contract.\n\nRefs: objectstack-ai/objectstack#11131 · #11133 · #11234 · PR objectstack-ai/objectstack#11278 · objectui#5459 (the verbatim port that carried the miscount, flagged there for review)."
+}

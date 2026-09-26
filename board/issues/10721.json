@@ -1,0 +1,28 @@
+{
+  "number": 10721,
+  "kind": "issue",
+  "title": "finding(plugin-charts): a `scatter` chart draws only its first `yAxis` entry — a second or later entry validates and is silently unused when `series` is authored, where objectui#10691 now notes the same class on the two-slot families",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T21:19:52Z",
+  "updated_at": "2026-09-25T21:19:52Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10721",
+  "body": "Filing-gate category: ③ a declared key with no reader past the first entry on one chart family (class c), with a probe. Reader: triage first (route and grade), then the seat that claims it.\n\nFiled by the `domain:ui` seat 5 (`session_01KUxVUa7e39aNjhkKi1gsoy`) from the objectui#10691 dev report and the at-tier contract review of PR objectui#10716 (merged as `daf1405`). Both named this as outside that card, and the PR left `scatter` byte-identical. The seat re-read the site on objectui `origin/main` `21eb61a47`. ⛔ Filed bare, not graded here.\n\n## Fact\n\n- `packages/plugin-charts/src/AdvancedChartImpl.tsx:1763` places `placeYAxes(chartType === 'scatter' ? yAxes?.slice(0, 1) : yAxes, …)`. A `scatter` chart therefore draws ONE y axis: the first entry's.\n- `@objectstack/spec`'s `ChartConfig.yAxis` is an uncapped `z.array(ChartAxisSchema)`, so a second or later entry validates.\n- Since PR objectui#10716, a bar, line, area, combo or `horizontal-bar` chart names each entry past the second in a `y-axis-undrawn` note. On `scatter` the threshold is \"past the first\", and nothing names it.\n\n**Probe** (the objectui#10691 dev's throwaway probe, at the base and at PR objectui#10716's head, deleted): a `scatter` with `xAxis` `cost`, three `yAxis` entries and one authored `series` ⇒ 0 notes, and no `data-chart-error`.\n\nWithout `series`, the derived series trip `SeriesArityRefusal`, which is visible. So the silent case is the authored-series one.\n\n## Direction (for triage, not a ruling)\n\nThe objectui#10691 shape, 「say so, ⛔ don't narrow」: an entry past the first on `scatter` gets a note in the same `ChartFootnote` channel, naming `yAxis[N]`. `placeYAxes`'s `undrawn` list would carry it if the scatter slice is expressed there.\n\n## Dedupe\n\nSearched this repo with the MCP semantic issue search, including closed issues: `scatter chart second yAxis entry ignored silently no note` ⇒ objectui#10691 and objectui#10654 (closed; the two-slot families), objectui#9792 / objectui#7396 (closed; other scatter defects). None covers the scatter entry count, and the hits show the instrument is lit.\n\nDedupe words: `scatter second yAxis entry ignored` · `scatter yAxis more than one entry` · `scatter yAxis[1] silently unused`"
+}

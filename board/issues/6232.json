@@ -1,0 +1,33 @@
+{
+  "number": 6232,
+  "kind": "pull_request",
+  "title": "fix(ci): check the Playwright version pipeline's status before it becomes a cache key",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T03:03:32Z",
+  "updated_at": "2026-08-25T03:36:04Z",
+  "closed_at": "2026-08-25T03:36:03Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": "2026-08-25T03:36:03Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6232",
+  "body": "Fixes #6231\n\n## The defect\n\n`.github/workflows/ci.yml:1010` and `.github/workflows/live-e2e.yml:140` carried the same line, byte for byte:\n\n```yaml\nrun: echo \"version=$(pnpm list @playwright/test --depth=0 --json | jq -r '.[0].devDependencies[\"@playwright/test\"].version')\" >> $GITHUB_OUTPUT\n```\n\nThe exit status was discarded twice over — `echo` owned the step's status, and the pipe inside the substitution reported `jq`'s. The value feeds `key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}`, so either failure degraded the key to `playwright-Linux-` or `playwright-Linux-null` with a **green step**. The `-null` bucket is the sharper one: it is a stable, valid key, so two Playwright versions can share one cache entry.\n\n## The fix\n\nBoth steps now:\n\n- run `set -eo pipefail` — the runner's default step shell is `bash -e {0}`, which does **not** set `pipefail`, so a failing `pnpm list` would otherwise be masked by a successful `jq`;\n- read the version through the repo's existing checked-assignment convention, `if ! version=$(… | jq -r …)` — the same shape `ci.yml` (×4) and `lint.yml` already use for `git diff`;\n- refuse an empty or `null` version with a named `::error::` annotation before anything reaches the cache key.\n\nThe two blocks are **byte-identical** (verified: both `run` scripts sha256 `48795af62105ad9b863967e1018869695f5b0942335f26ba22ab78133699e489`). The copy already happened once, and keeping them identical keeps them greppable as a pair; the alternative — a composite action or reusable step — is a bigger change than this card authorises and is noted in the report instead.\n\nScope is deliberately **only these two instances**. No repo-wide scan or gate was added, and the safe forms are untouched: a bare `X=$(cmd)` assignment already propagates its status under `set -e`, and the five checked `if ! CHANGED=$(git diff …)` sites keep working exactly as before.\n\n## Verification — controls, each reading predicted before it was run\n\nThe step scripts were extracted from the shipped YAML with a real parser (PyYAML, keyed on `id: playwright-version`) and executed under `bash -e script` — the runner's default step shell — with `pnpm` shimmed and the real `jq`. Pre-fix behaviour was read from the merge-base blob (`git show 2cf69e433:…`), so both sides are shipped bytes, not paraphrases. Every leg prints anchored counts of the old one-liner and the new checked assignment, so it is provable which text ran.\n\n| leg | step | shim | predicted | observed |\n|---|---|---|---|---|\n| 1 | pre-fix | `pnpm` exits 1 | succeeds, empty version | exit **0**, `GITHUB_OUTPUT` = `version=` |\n| 2 | pre-fix | JSON lacks the field | succeeds, `null` version | exit **0**, `GITHUB_OUTPUT` = `version=null` |\n| 3a | fixed | `pnpm` exits 1 | fails, names the cause | exit **1**, `::error::Reading the @playwright/test version failed …`, nothing written |\n| 3b | fixed | JSON lacks the field | fails, names the cause | exit **1**, `::error::Could not resolve the @playwright/test version (got: 'null') …`, nothing written |\n| 4 | fixed | healthy | version passes through unchanged | exit **0**, `version=1.55.1` |\n\nAll ten legs (five per workflow) matched their predictions. The healthy path was additionally run against **real** `pnpm` + `jq` in this worktree: pre-fix and fixed both produce `version=1.62.1`, exit 0 — the quoting change does not disturb the working path.\n\nOne control worth recording: weakening only `pipefail` (in a scratch copy, never on disk) still fails the `pnpm`-dies case — but via the empty-value guard, reporting `got: ''` instead of the real cause. So the two nets are independent: `pipefail` makes the status check meaningful and gives the correct diagnosis; the value guard is what catches `jq`'s exit-0 `null`.\n\n## Tests\n\nThe set was derived from disk, not assumed: 43 test files reference `workflows` (39 of them `.github/workflows` literally). Run from the repo root on the tree that is this PR's head, `e62eb714b`:\n\n```\npnpm exec vitest run --maxWorkers=2 $(43 files)\n Test Files  43 passed (43)\n      Tests  1280 passed (1280)\n```\n\nPlus `check:control-bytes` (OK, 5147 files), `check:shell-escape-residue` (OK), `check:action-forward-parity` (OK), and `node scripts/check-changeset-presence.mjs` — \"No source of a released package changed in this range, so no changeset is owed\", so no changeset accompanies this PR.\n\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 5490,
+  "kind": "issue",
+  "title": "Add per-chunk budgets on top of the aggregate eager-closure ceiling — vendor-objectstack (38%) first — ruled follow-up of #5468",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T03:53:14Z",
+  "updated_at": "2026-08-25T02:11:20Z",
+  "closed_at": "2026-08-25T02:11:20Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5490",
+  "body": "Work card created by the triage seat executing the maintainer's #5468 ruling. Provenance: maintainer, live PM chat 2026-08-21, verbatim 「其他接受」 accepting the triage recommendation for #5468 — **A now + C next, B rejected**: the absolute aggregate ceiling stays as shipped (PR #5466); this card delivers C, per-chunk budgets, so a single chunk cannot grow unnoticed inside aggregate headroom.\n\n## Scope (S-size per the #5468 clause)\n\n- Extend `scripts/__tests__/check-eager-closure-budget.test.ts` (or a sibling in the same gauge) with per-chunk gzipped ceilings for the largest eager chunks — at minimum `vendor-objectstack` (1,493 KB / 38% of closure), `framework` (484 KB), `ui-components` (380 KB) — set truthful-current-state + small headroom, same discipline as the aggregate ceiling (no unilateral lowering).\n- Chunk names/sizes come from the shipped gauge's own measurement (`eager-closure` report), not hardcoded expectations that rot — pin the mapping loudly if a chunk disappears/renames.\n\n## Constraints from the ruling\n\n- ⛔ No main-comparison ratchet (option B) — rejected for its merge-queue double-ejection failure mode and per-PR build cost.\n- Baseline values need one fresh measurement at implementation time; if the #5325 / #5359 cleave work lands first, set the per-chunk lines after it, not before (the #5468 facet block's recorded caveat).\n\nRefs: objectui#5468 (decision card, closing) · #5324 / PR #5463…#5466 (the gauge) · #5325, #5359 (cleave direction)."
+}

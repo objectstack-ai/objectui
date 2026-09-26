@@ -1,0 +1,35 @@
+{
+  "number": 3909,
+  "kind": "issue",
+  "title": "观察:`QueryParams.$filter` 声明为 `Record< string, any >`,但仓内下沉口早已往里送 ObjectQL AST 数组",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-09T01:32:24Z",
+  "updated_at": "2026-08-24T11:56:01Z",
+  "closed_at": "2026-08-24T11:56:01Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3909",
+  "body": "观察类发现(`finding`,不进 `pm:queue`),发现于 #3831 / PR #3908 的实施过程。运行时正确、今天没有用户会撞到 —— 是类型面与实际契约的漂移。\n\n## 机制\n\n`packages/types/src/data.ts:53` 声明:\n\n```\n/**\n * Filter expression\n * @example { age: { $gt: 18 }, status: 'active' }\n */\n$filter?: Record< string, any >;\n```\n\n即只描述 MongoDB 风格的 field-keyed 记录形式。但仓内规范下沉口 `packages/core/src/utils/filter-converter.ts` 的 `toFilterNode` / `mergeFilterNodes` 返回的是 `FilterNode | Record< string, any > | undefined` —— **AST 数组是其正常返回值之一**,而两个既有消费者一直把它送进 `$filter`:\n\n- `packages/plugin-list/src/ListView.tsx` 的 `buildEffectiveFilter(baseFilter: unknown, …)`,返回 `any[] | Record< string, any > | undefined`(喂表格与导出两条路);\n- `packages/plugin-view/src/ObjectView.tsx`(calendar / kanban / gallery / timeline)。\n\n数据源侧完全支持:`packages/data-objectstack/src/index.ts` 的 `translateFilterToAST` 明确列出五种可接受输入,数组形式在列。所以**运行时是对的,声明是窄的**。\n\n## 有害在哪(只有类型面)\n\n1. 该类型不设防且**方向错误**:`Record< string, any >` 会接受数组(数组满足 `any` 的字符串索引 —— `tsc --strict` 实测 exit 0),所以它既没挡住不该进的形状,也没描述该进的形状。#3831 正是踩在这一点上:`baseFilter?: Record< string, any >` 接受了规则数组、随后被对象展开压成 `{\"0\": {...}}`,类型全绿而查询去过滤名为 `0` 的列。\n2. 新写消费者的人读 `$filter` 的类型与 `@example`,会以为只有记录形式合法,于是可能给数组路径补一段\"容错转换\" —— 正是 AGENTS.md #0.1 反对的方向。\n\n## 落地建议\n\n把 `$filter` 声明成它实际接受的联合(记录形式 | AST 节点),`@example` 补一条数组示例,并在注释里指名 `translateFilterToAST` 为权威可接受集。属 `packages/types` 公共面,会波及若干消费者的类型标注,故不宜搭在功能 PR 上 —— PR #3908 只在单个赋值点(`packages/fields/src/widgets/useRecordQuery.ts`)就地转换并注明原因,没有顺手改这个共享类型。\n\n## 参考位置\n\n- `packages/types/src/data.ts:53`(声明)\n- `packages/core/src/utils/filter-converter.ts`(`toFilterNode` / `mergeFilterNodes` 的返回类型)\n- `packages/plugin-list/src/ListView.tsx`(`buildEffectiveFilter`)/ `packages/plugin-view/src/ObjectView.tsx`(两个既送数组的生产者)\n- `packages/data-objectstack/src/index.ts`(`translateFilterToAST`,实际可接受集)\n\n关联:#3831 / PR #3908(发现来源)、#3948(两份 operator 词汇表漂移的先例)"
+}

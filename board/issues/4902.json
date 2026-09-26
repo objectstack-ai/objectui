@@ -1,0 +1,35 @@
+{
+  "number": 4902,
+  "kind": "issue",
+  "title": "scripts-type-check.test.ts 的 workspace-import 检查按文本 grep,注释里的 import 示例会被判成真 import 并给出错误的修复指引",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T03:16:17Z",
+  "updated_at": "2026-08-24T11:37:11Z",
+  "closed_at": "2026-08-24T11:37:11Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4902",
+  "body": "发现于 #3943 的实现(PR 见下),**不在该 PR 处理** —— 那一单的面是 `sideEffects` 一致性门。这一条是另一个门的判定精度问题。\n\n## 机制\n\n`scripts/__tests__/scripts-type-check.test.ts` 的最后一条断言(`does not need a workspace build, so it can stay in the cheap half of the job`)这样判定「scripts 程序是否 import 了 workspace 包」:\n\n```ts\nconst workspaceImports = parsedProject()\n  .fileNames.flatMap((f) => [...fs.readFileSync(f, 'utf8').matchAll(/from\\s+'(@object-ui\\/[^']+)'/g)])\n  .map((m) => m[1]);\n```\n\n读的是**文件文本**,不是 TS AST。于是任何位置只要出现 `from` + 空白 + 引号包住的 `@object-ui/*` 字面量就算命中 —— 包括**注释**、JSDoc `@example`、以及讲解用的代码片段。`\\s` 匹配换行,所以跨行的散文也能凑出这个形状。\n\n## 实测\n\n在 `scripts/__tests__/check-package-self-import.test.ts` 里写下一行注释(内容是在解释「注释里的包名不是 import 边」这件事本身):\n\n```\n// rewrite of this gate breaks on a documented `import … from '@object-ui/core'`\n```\n\n该断言即变红:\n\n```\n- []\n+ [ \"@object-ui/core\" ]\n ❯ scripts/__tests__/scripts-type-check.test.ts:213:7\n```\n\n## 为什么值得记一笔:失败信息把人指向不存在的东西\n\n红的本身是「安全方向」(宁可误报不可漏报),真正的成本在诊断词:\n\n```\ntsconfig.scripts.json’s program now imports workspace packages, so it needs their built\ndeclaration files. Move the ci.yml step below the build, or drop the import.\n```\n\n而现场**根本没有 import**,没有 import 可 drop,也没有任何 `.d.ts` 需求。读到这条的人会去找一条不存在的 import,或者更糟 —— 真的去动 `ci.yml` 的步骤顺序,把一个廉价步骤挪到 build 之后,而它的前提其实从未被破坏。误报本身廉价,**误报 + 错误的修复指引**才是这条的内容。\n\n同一个仓里已经有过这个教训的反面:`examples/console-starter/vite.config.ts:50` 专门写了一段注释说明它**故意不**在注释里拼出带引号的 specifier,因为「那个诱饵已经骗过一次扫描」。\n\n## 可能的处置(供分诊,未实施)\n\n按代价从低到高:\n\n1. **只改诊断词** —— 承认判据是文本匹配,让信息同时给出两个方向:「这是真 import → 移动 ci.yml 步骤 / 删掉它;这是注释或示例 → 改写措辞,别在 `scripts/` 里拼出带引号的 specifier」。最小、不改判据,消除误导。\n2. **剥掉注释再匹配** —— 与 `vitest-config-alias-targets-3944.test.ts` 的 `withoutCommentLines()` 同形状(该文件已因同类原因这么做)。能挡掉整行注释,挡不掉行尾注释与跨行散文。\n3. **改用 AST** —— `parsedProject()` 已经产出 `fileNames`,拿 `ts.createSourceFile` 遍历 `ImportDeclaration`/`ExportDeclaration` 的 `moduleSpecifier` 即精确判定,顺带覆盖 `import type` 与 `export … from`。判据从「像不像」变成「是不是」。\n\n倾向 3(判据与被判定的事实对齐),但 1 单独就能消掉误导,且可独立落地。\n\n## 退出条件\n\n- 上述任一处置落地(诊断词至少要不再指向不存在的 import);或\n- 判据改为 AST 后本条自动关闭。\n\n参考位置:`scripts/__tests__/scripts-type-check.test.ts:205-214`、`scripts/__tests__/vitest-config-alias-targets-3944.test.ts`(`withoutCommentLines()` 先例)、`examples/console-starter/vite.config.ts:50`(同类诱饵的现场注释)。\n"
+}

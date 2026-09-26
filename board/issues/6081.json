@@ -1,0 +1,37 @@
+{
+  "number": 6081,
+  "kind": "issue",
+  "title": "[finding] The release lane's mirror has no stable referent: `changesets/action@v1` is a moving tag whose bundled `@changesets/read` is a different major from the installed one",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx",
+    "finding",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T16:12:19Z",
+  "updated_at": "2026-08-24T22:47:35Z",
+  "closed_at": "2026-08-24T22:47:35Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6081",
+  "body": "Found while implementing #5775 (aligning and pinning the `lane` job's changeset mirror). Out of that card's scope — filing rather than deciding.\n\n## The measurement\n\n`.github/workflows/changeset-release.yml`'s `lane` job mirrors, in bash and before install, the file scan `changesets/action` performs through `readChangesetState`. Measured 2026-08-24 on `origin/main` `0fe7d0649`, that scan exists in **two copies at different majors**, and they disagree in opposite directions:\n\n| case | copy A: `changesets/action@v1` (v1.9.0, bundles `@changesets/read@^0.6.7`) | copy B: installed `@changesets/read@1.0.0` (via `@changesets/cli@3.0.1`) |\n|---|---|---|\n| `.changeset/AGENTS.md` | **counted** | ignored |\n| `.changeset/CLAUDE.md` | **counted** | ignored |\n| `.changeset/GEMINI.md` | **counted** | ignored |\n| `.changeset/pre/*.md` | not read at all | **counted** |\n| `/^README\\.md$/i`, dotfiles, non-`.md` | ignored | ignored |\n\nCopy A read from the bundle that actually executes (`dist/lt-CTruzcfj.js` at tag `v1`), verbatim:\n\n```js\no=r.filter(e=>!e.startsWith(`.`)&&e.endsWith(`.md`)&&!/^README\\.md$/i.test(e))\n```\n\n#5775 resolves this by having the mirror count the **union** of the two, which is the only rule its one consumer (the release job's clear step) admits: over-counting runs that step needlessly, under-counting skips it while the action still sees a changeset and reproduces #5442's silent lost release.\n\n## What is still unpinned, and why that is the finding\n\nThe union is only correct while copy A's behaviour is known, and **copy A cannot be pinned from this repository**:\n\n- `changesets/action@v1` is a **moving tag**. The maintainers can retag it at any time, and doing so silently changes the bundled reader.\n- The bundle is a minified, code-split chunk. Nothing in this repo installs it, so no test can execute it and no lockfile records it.\n\n#5775's pin therefore does the only mechanical thing available: it asserts the workflow still says `changesets/action@v1`, so a **deliberate** bump fails loudly and prompts a re-measurement. A **retag of `v1` in place changes nothing in this repository and nothing fails.** That is the gap.\n\n## Options, not a proposal\n\n1. Pin `uses:` to a commit SHA (`changesets/action@<sha>  # v1.9.0`). Gives the mirror a genuinely stable referent and makes every change to copy A an explicit, reviewable commit. Costs: security-patch bumps become manual, and Dependabot's `github-actions` ecosystem has to be configured to bump SHAs.\n2. Leave `@v1` and accept that the union is a superset chosen to survive plausible drift in either direction, documented as such. Costs nothing; keeps a silent-retag hole that is invisible until release day.\n3. Stop predicting the action's branch at all — e.g. have the clear step run unconditionally instead of behind `pending_changesets`, so no mirror is needed. Costs: rethinking why the lane job exists; benefits: deletes this whole class of drift.\n\nWorth noting for whoever picks: `changeset-release.yml`'s own header already flags an eventual `changesets/action@v2` migration (v2's `/publish` sub-action is called out there as \"plausibly the shape that makes the clear step unnecessary\"), so options 1 and 3 may collapse into that work rather than being separate.\n\n⛔ Nothing was changed by this issue. Filed unassigned.\n"
+}

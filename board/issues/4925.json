@@ -1,0 +1,35 @@
+{
+  "number": 4925,
+  "kind": "issue",
+  "title": "apps/console 的 workspace alias 表仍是手工清单(今天 34/34 完整),失效模式与 #3890 同类但无门禁",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T05:34:44Z",
+  "updated_at": "2026-08-25T02:03:46Z",
+  "closed_at": "2026-08-25T02:03:46Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4925",
+  "body": "越界发现,记录于 #3890 / PR #4922 期间。观察类:**今天是完整的**(已实测),没有用户能碰到的缺陷;记下来是因为失效模式与 #3890 完全同类,而那一条的代价是整页 500。\n\n## 事实(实测于 `origin/main` = `5ffcc1432`)\n\n`apps/console/vite.config.ts:117-150` 用手写的 34 条把 `@object-ui/*` 指到各自 `src`。按与 #3890 相同的口径量了一次(以 `apps/console/src` 的 value-import 为种子,沿 `packages/*/src` 求传递闭包):\n\n```\nconsole alias table entries : 34\nconsole import closure      : 34\nin closure, NOT in table    : 0\n```\n\n即当前**完整**,与 #3890 里 dev 的 11 条漏 10 个的状态不同。\n\n## 为什么仍值得记\n\n清单要维护的性质是\"console 传递 import 了什么\",而这个集合随任意一个平台包新增一条跨包 import 就会变,没有任何门禁钉住它 —— #3890 就是这条性质在另一个消费者身上失守的结果,症状是 dev server 里成片模块 500、页面空白,静态检查全绿。\n\nPR #4922 为 CLI 落了一个从 `pnpm-workspace.yaml` 派生的 helper(`packages/cli/src/utils/workspace-vite.ts`)+ 与 manifest 对账的测试。console 可以走两条路里的任一条,取舍留给维护者:\n\n- **复用派生**:console 的 vite 配置改成调那个 helper(需要决定 console 是否愿意依赖 `@object-ui/cli`,以及 `scripts/__tests__/side-effects-declaration-consistency.test.ts` 的 alias 文本扫描能否读到派生后的表 —— 它今天按 `'@object-ui/x': path.resolve(...)` 的**字面形状**解析 `vite.config.*`,派生会让那张表在文本上消失)。\n- **保留手写、补一条对账测试**:console 的表与 `pnpm-workspace.yaml` 对账,漂移即红。改动面最小,且不动 sideEffects 门的扫描面。\n\n第二条与 sideEffects 门的互动明显更小,是我倾向的方向,但这是维护者的取舍。\n\n## 已搜重\n\n本仓开放 issue 搜过 `console vite config hand-maintained workspace alias table completeness gate`:命中只有 #3890 本身。\n"
+}

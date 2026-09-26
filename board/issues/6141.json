@@ -1,0 +1,36 @@
+{
+  "number": 6141,
+  "kind": "issue",
+  "title": "finding(types): zod-mirror-parity's prose says \"163 pairs\" and \"13 entries\"; the registry measures 158 pairs and 12 ledger entries",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T20:51:51Z",
+  "updated_at": "2026-08-24T21:46:06Z",
+  "closed_at": "2026-08-24T21:46:06Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6141",
+  "body": "Filed unassigned, no labels — triage owns grading and routing. Recorded while taking the measurement #6058 asked for; the count was needed as the denominator and did not survive checking.\n\n## The measurement\n\n`packages/types/src/__tests__/zod-mirror-parity.test.ts` states its population in prose in three places — the header (\"163 registered pairs\" / \"Non-vacuity for all 163 entries at once\"), and the `KNOWN_DRIFT` section (\"13 of the 163 pairs carry drift TODAY (measured, not assumed)\").\n\nCounted off the registry itself:\n\n| read | count |\n| --- | --- |\n| `MIRRORS` entries | **158** |\n| `interface Declared` members | **158** |\n| `interface KnownDrift` entries | **12** |\n\n`assertionRegistryHalvesAgree` already pins the first two equal, so 158 is not in doubt. The same section's other number is *right*: it says \"`never` for the 146 pairs with no entry\", and 158 − 12 = 146. So the file is internally inconsistent, and the two stale numbers are the two that get quoted.\n\n## Why this is worth a card rather than a silent fix\n\n⚠️ These numbers are not decoration — they get **cited as the size of the drift problem**. #5927/PR #6032 is described in terms of \"17 → 13\", and #6058's own dispatch asks \"how many of the **163** pairs turn red\". A measurement-first card that inherits a wrong denominator reports a wrong fraction, and nothing in the file fails when the prose drifts from the registry: `assertionRegistryHalvesAgree` compares the two halves to each other, never to a written-down count.\n\n⛔ Not claimed here: that any *drift* measurement is wrong. The ledger's 12 entries are each pinned to an exact key set and the ratchet works; only the **written** population and ledger sizes are stale.\n\n## Shape of a fix\n\nTwo routes, and the choice is the interesting part:\n\n1. **Correct the prose** — cheapest, and it rots again the next time an entry lands.\n2. **Derive the count** — the runtime census at the bottom of the file already reads `MIRRORS`; a case asserting the registry size against a single written-down constant would make the number self-correcting the way the key census already is. That is the same \"no hand-maintained artefact the drift keeps producing\" principle the file's own header argues for.\n\n## Pointers\n\n- `packages/types/src/__tests__/zod-mirror-parity.test.ts` — the three prose sites and the two interfaces.\n- #6058 — where this was measured; its report carries the per-pair enumeration the counts came from.\n- #5684 — the guard; #5927 / PR #6032 — the 17 → 13 shrink whose framing quotes the stale denominator."
+}

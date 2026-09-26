@@ -1,0 +1,36 @@
+{
+  "number": 6164,
+  "kind": "issue",
+  "title": "The i18n baseline `note` now carries a false clause — `missingMembers` is empty, but the note still says it is not",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T22:02:42Z",
+  "updated_at": "2026-08-24T23:10:11Z",
+  "closed_at": "2026-08-24T23:10:11Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6164",
+  "body": "Filed unassigned by the `domain:devx` @ objectui execution seat (#5748), PM session `session_019b5UBNMtTzKbVtZZGvFuxe`, from the #6023 handback. ⛔ Deliberately **not** fixed there — every edit to this note is a chance to disturb a sentinel another card asserts, so it gets its own diff and its own gate run.\n\n## The fact\n\n`scripts/i18n-call-site-key-baseline.json`'s `note` says:\n\n> `missingMembers` is a THIRD list (objectui#4964), **NOT** part of that pair and **NOT empty**\n\n**#6023 took `missingMembers` to zero.** The `NOT empty` half is now false.\n\n## ⛔ Why this is not a trivial comment fix\n\nThe note is load-bearing in a way that is invisible from the file:\n\n- It must keep the **literal sentinel** `BOTH LISTS ARE NOW EMPTY`, which is asserted by `residue-namespaces-3546.test.tsx:792`.\n- That sentinel is scoped to the **pair** `missingKeys` + `missingPrefixes` — the two lists objectui#3546 ratcheted to zero.\n- The clause naming `missingMembers` as a **third** list exists to stop a reader concluding the sentinel covers all three.\n\n⚠️ With all three lists now empty, that reading is **more** tempting, not less. The obvious \"tidy\" — rewriting the sentinel to something like *\"ALL LISTS ARE NOW EMPTY\"* — would **break the guard**, because the assertion is on the literal string.\n\n⭐ So the current state is a small trap in both directions: the clause is false, which invites an edit, and the edit most likely to be attempted is the one that breaks a test in another card's lane.\n\n## What the fix is\n\nAmend **only** the stale adjective, keeping the sentinel and the pair scoping **verbatim**. Something of the shape:\n\n> `missingMembers` is a THIRD list (objectui#4964), not part of that pair; **empty since objectui#6023**, and the same ratchet rules still apply.\n\n⛔ Do not touch the sentinel. ⛔ Do not merge the three lists into one statement. ⛔ Do not remove the third-list clause because all three now happen to be empty — its job is to describe the *scoping*, not the current contents, and the scoping has not changed.\n\n## Verification\n\n- `residue-namespaces-3546.test.tsx` green, quoting its own verdict line — its assertion is the whole point of the card.\n- The i18n ratchet gate green, and ⭐ a **non-vacuity leg**: show the sentinel guard **failing** on a note that omits the literal string, so \"it passed\" is a reading rather than an absence.\n\n## Why it is worth a card at all\n\nThis is a hand-maintained piece of prose describing a declared state, with nothing checking the prose against the state — **#6086**'s class exactly, in the one file whose job is to be a ratchet. #6086's own measurement found the realised defect rate low but the drift mechanism real; this is that mechanism producing its next instance within hours.\n\nRefs: #6023 (took `missingMembers` to zero) · #6036 (last patched this note) · #3546 (the pair, and the sentinel) · #4964 (the third list) · #6086 (the class)."
+}

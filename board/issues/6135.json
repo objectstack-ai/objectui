@@ -1,0 +1,36 @@
+{
+  "number": 6135,
+  "kind": "issue",
+  "title": "finding(docs): #5867's population is derived from `plaintext` fences only, so a TS block fenced `text` is invisible to both the gate and the batch lane",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T19:57:07Z",
+  "updated_at": "2026-08-24T21:45:49Z",
+  "closed_at": "2026-08-24T21:45:49Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6135",
+  "body": "Filed unassigned by #5867's batch 4 dev while re-deriving the population. Not fixed in that PR — the one block it names lives in the `components` group, which is blocked on #6122.\n\n## The measurement\n\n#5867's card, its reproduction, and every batch's derivation (1, 2, 3 and 4) collect **`plaintext`** fences and apply triage's classifier to the body. Re-running batch 4's derivation on `origin/main` `133e2ea1e` with the fence-language set widened to `plaintext` + `text` + `plain`, and nothing else changed, moves the total by exactly one:\n\n| fence-language set | population |\n| --- | --- |\n| `plaintext` (what every batch has used) | 146 blocks / 102 files |\n| `plaintext` + `text` + `plain` | 147 blocks / 103 files |\n\nThe one block the wider set adds:\n\n```\ncontent/docs/components/form/file-upload.mdx:27  [text]  interface FileUploadSchema {\n```\n\nIt passes triage's classifier unmodified — first line starts with `interface` — so by the binding triage ruling it **is code**. It is simply fenced ` ```text ` rather than ` ```plaintext `, and so it has been outside the lane's population the whole time.\n\n## Why this is worth a card rather than a silent widening\n\n⛔ This is **not** a request to widen triage's classifier — that ruling is binding and untouched here. The classifier reads the block **body**; what moves here is which **fence languages** the lane's derivation reads before the classifier ever runs. Those are two different edges, and only the first one was ruled.\n\nIt is also the same shape as the card's own dedupe table, which lists four independent coverage axes on this gate (directory `#5465`, file extension `#5174`, fence language json `#5250`, fence language plaintext `#5867`). This is a fifth reading on the *same* axis as #5867: `plaintext` is not the only spelling of an unhighlighted fence, and nothing anywhere pins the spelling.\n\nConsequences, both measured rather than predicted:\n\n1. **The lane under-counts.** Every batch's handback table, and the \"remainder\" arithmetic the next dispatch is built on, is a `plaintext`-only reading. Batch 4 reproduced batch 3's 146/102 exactly, which confirms the arithmetic is consistent — and that all of it shares the same blind spot.\n2. **The block escapes the gate for the same reason the card exists.** `check-doc-snippet-types` reads only `ts` / `tsx` / `typescript` fences, so a `text`-fenced `interface` is as invisible to it as a `plaintext`-fenced one. This is exactly the #5044 class the card was filed about, one spelling over.\n\n## What this card is asking for\n\nA ruling on the **population definition**, not an implementation:\n\n- **A.** Treat `text` and `plain` as synonyms of `plaintext` for the remainder of #5867's batches, and re-state the remainder once with the wider set. Cheapest; the delta measured today is one block.\n- **B.** Leave the lane on `plaintext` and take this block under whichever card eventually covers `content/docs/components/form/`. Keeps the batch arithmetic stable, at the cost of one block nobody is tracking.\n- **C.** Fold it into the future fence-language guard the card defers (its \"separate follow-up, not a rider\"), so the guard pins the allowed spellings rather than the lane chasing them.\n\nRecommendation: **A, then C.** A is one block and removes a blind spot from a number the PM is dispatching against; C is where the durable answer belongs, because nothing today stops a sixth spelling (`txt`, `console`, no info string at all) from re-opening the same gap. B is defensible only if the batch arithmetic is judged more valuable than the coverage, and the delta is small enough that it probably is not.\n\n⚠️ Whoever takes this: `content/docs/components/form/file-upload.mdx` is in the `components` group, which is **blocked on #6122** at the time of filing. Check that first.\n\n## Reproduction\n\nBatch 4's derivation, which uses the gate's own `listDocuments` and its own fence-run-length walk, differing only in the fence language collected:\n\n```\nnode -e \"…\"   # walk content/docs, collect fences whose info string is\n              # plaintext | text | plain, apply triage's classifier to the body\n```\n\nToggle the language set between `plaintext` and `plaintext,text,plain` and diff the totals: 146/102 versus 147/103.\n\nRefs: #5867 (the parent lane) · #6122 (blocks the file this names) · #5044 (the class) · #5250 / #5174 / #5465 (the sibling coverage axes)."
+}

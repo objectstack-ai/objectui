@@ -1,0 +1,34 @@
+{
+  "number": 10712,
+  "kind": "issue",
+  "title": "finding(plugin-form): a superseded record read overwrites the current one — `object-form` (default arm) and `WizardForm` commit a late answer for the previous `recordId` over the new record, with no run guard; `LineItemsPanel` has the same shape",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T20:25:49Z",
+  "updated_at": "2026-09-25T22:15:15Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10712",
+  "body": "Filing-gate category: ① a product defect with named sites and a reproduction (class a). Reader: triage first (route and grade), then the seat that claims it.\n\nFiled by the `domain:ui` seat 5 (`session_01KUxVUa7e39aNjhkKi1gsoy`) from two dev reports:\n- objectui#10682's PR objectui#10704 (merged `b526480`), which is scoped to the `error` lifecycle and measured this values race outside it;\n- objectui#10684's PR objectui#10711, whose data-view census held `packages/plugin-form/` and read the `LineItemsPanel` row.\n\nThe seat re-read the sites on objectui `origin/main` `383a34f52`. ⛔ Filed bare, not graded here.\n\n## Sites\n\n- **Default arm** (`SimpleObjectForm` in `packages/plugin-form/src/ObjectForm.tsx`): the record read commits `setFormData` / `setInitialData` with no current-run check on the VALUES. PR objectui#10704 gated only the failure writes.\n- **`packages/plugin-form/src/WizardForm.tsx`**: same shape. The values commit (~`:555`) has no `cancelled` flag.\n- **Lit control**: `DrawerForm.tsx`, `ModalForm.tsx`, `SplitForm.tsx` and `TabbedForm.tsx` carry an effect-local `cancelled` flag (e.g. `DrawerForm.tsx:324`, `:363`, `:382`). `recordSwapLoading.test.tsx` pins those four only.\n- **`packages/plugin-form/src/LineItemsPanel.tsx`**, by reading only: its load commits `setRows` / `setOriginal` / `setDirty` and releases `loading` with no current-run guard. A runtime reproduction was **NOT MEASURED**, because the probe was inconclusive. The file is under PR objectui#10650 (objectui#10631).\n\n**Reproduction** (the objectui#10682 dev's throwaway probe at PR objectui#10704's head `d41377b`, deleted, never committed; its value writes are byte-identical to the base):\n1. `object-form` in edit mode, with `findOne(r1)` held.\n2. Re-render with `recordId` `r2`; `r2` answers `Two`.\n3. Then `r1` answers late ⇒ the default arm and the wizard show `One (stale)`, while drawer, modal, split and tabbed show `Two`.\n\nRelated, not probed: every layout's schema read writes `setObjectSchema` unguarded.\n\n## Direction (for triage, not a ruling)\n\nThe objectui#10684 shape: scope the values commit (and `loading`) to the current run, in the shape each file already uses. The four guarded arms are the control. `LineItemsPanel` goes after PR objectui#10650.\n\n## Dedupe\n\nSearched this repo with the MCP semantic issue search, including closed issues: `object form recordId swap stale findOne response overwrites current record values WizardForm` ⇒ objectui#10682 (open; the `error` lifecycle only), objectui#10190 (closed; `DrawerForm`'s first-read paint) and older closed plugin-form cards. None covers the values race, and the hits show the instrument is lit.\n\nDedupe words: `ObjectForm stale findOne overwrites current record` · `WizardForm recordId swap stale response` · `record form superseded read values race` · `LineItemsPanel superseded parent rows`"
+}

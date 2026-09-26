@@ -1,0 +1,32 @@
+{
+  "number": 5843,
+  "kind": "pull_request",
+  "title": "docs(adr-0036): re-anchor the enforcement-rule citation to the framework's `ADR-0124 D1` (#5701) [GOVERNED SURFACE — human merge]",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T14:43:43Z",
+  "updated_at": "2026-08-24T02:07:14Z",
+  "closed_at": "2026-08-24T02:07:13Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-24T02:07:13Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5843",
+  "body": "Refs #5701\n\n> ⛔ **GOVERNED SURFACE — this PR touches `docs/adr/**`. It stops at draft for human merge.**\n> Do not flip it ready, do not enqueue it, do not enable auto-merge. It waits on a human's\n> schedule by design.\n\nRe-anchors the enforcement-rule citation in `docs/adr/0036-field-conditional-rules.md` from\nthe framework's `ADR-0057 D10` to the framework's **`ADR-0124 D1`**.\n\n## Why this is a separate PR\n\nThis paragraph is the **wording every other citation of the rule in this repository derives\nfrom** — so leaving it in place re-seeds the misattribution into anything written from it\nnext. That makes it required work, not optional.\n\nBut `docs/adr/**` is governed, and a PR touching it merges on a human's schedule. Bundling\nit with the eight ordinary code sites would make those eight wait on a human for no reason,\nso the sweep splits: the code sites ship in their own PR (see below), and the ADR waits\nhere.\n\n## The change\n\nOne paragraph, `docs/adr/0036-field-conditional-rules.md:89-94`.\n\n**Before**\n\n> Enforcement belongs on the server — *server enforces, client is courtesy*, the rule the\n> framework **cites** throughout its rule-validator, its lint diagnostics and its QA runner\n> **as `ADR-0057 D10`** (that is the **framework's** ADR numbering; this repo's own\n> ADR-0057, `0057-console-ai-chat-one-conversation-docked.md`, is an unrelated document) —\n> and a declared lock that failed open would leave enforcement in the courtesy layer\n> instead.\n\n**After**\n\n> Enforcement belongs on the server — *server enforces, client is courtesy*, the rule the\n> framework **decides in `ADR-0124 D1`** (framework ADR numbering) and **practises**\n> throughout its rule-validator, its lint diagnostics and its QA runner — and a declared\n> lock that failed open would leave enforcement in the courtesy layer instead.\n\nThree deliberate choices in that rewrite:\n\n1. **\"cites … as\" → \"decides in … and practises throughout\".** `ADR-0124 D1` is the record\n   that *decides* the rule; `ADR-0057 D10` was only ever *cited* for it. Keeping \"cites as\"\n   with the new number would swap one inaccuracy for another.\n2. **The rule-validator / lint-diagnostics / QA-runner triple is unchanged** — and is not a\n   guess: framework `ADR-0124`'s own *Consumers* line names `validation/rule-validator.ts`,\n   `@objectstack/lint`, and `docs/qa/platform-checklist` (RUNNER rule 4).\n3. **The `0057`-collision parenthetical retires with the number it disambiguated.** It\n   warned that this repo's own `ADR-0057` is an unrelated document; this repo has no\n   `ADR-0124` at all (its own series stops at `0059`), and framework `ADR-0124` records that\n   a fresh, unambiguous number was chosen precisely so its citations would not need such a\n   warning. `(framework ADR numbering)` keeps the whose-numbering half.\n\n## Why the old anchor is wrong\n\nFramework `ADR-0057` **D10** decides *\"Setup-nav surfacing follows the capability\n(ADR-0029 K2); the object stays open\"* — nav-entry tiering, not enforcement location. The\nrule this paragraph asserts is decided by framework **`ADR-0124 D1`**, *\"The server is the\nenforcement point; client-side gating is a usability courtesy\"* (Accepted 2026-08-18).\n\nThe new anchor is **derived from an authority, not chosen**: framework `ADR-0057` carries a\nnote aimed at exactly this citation — *\"If a citation of `ADR-0057 D10` brought you here\nlooking for that rule, ADR-0124 is where it is decided (#9628).\"*\n\n## Verification — all at `b6fc3b5f5`\n\n| Check | Result (the gate's own verdict line) |\n|---|---|\n| `check-doc-links.mjs` | `Links are valid across 13 scan roots.` |\n| `check-control-bytes.mjs` | `✅ check-control-bytes: OK (scanned 4855 tracked text file(s); skipped 85 binary)` |\n| `check-changeset-presence.mjs` | `✅ No source of a released package changed in this range, so no changeset is owed.` |\n| `pnpm exec vitest run scripts/__tests__/doc-version-claims.test.ts` | `Test Files 1 passed (1)` · `Tests 18 passed (18)` |\n\nThe changeset gate was **run, not assumed** — it reports that a docs-only diff owes nothing,\nso no changeset is added. `doc-version-claims` guards against a bare version literal reaching\nprose; none was written.\n\nProse-only change, one file, `+4 / −5`. **Nothing to ablate** — there is no behavioural leg\nhere, so no mutation could make a test fail differently; a staged reverse-verification would\nbe theatre.\n\n## Companion PR\n\nThe eight code sites that derive their wording from this paragraph move in their own,\nordinary PR — it carries the full before/after enumeration showing that once both land, the\nonly surviving live-source `ADR-0057 D10` citation in this repo is\n`packages/data-objectstack/src/appAccessProbe.test.ts`, which cites it for the\ncapability/service-gating case the decision genuinely does decide.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01EuPCi56cnGyykygi3z9w4m)_"
+}

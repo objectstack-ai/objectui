@@ -1,0 +1,35 @@
+{
+  "number": 5325,
+  "kind": "issue",
+  "title": "finding(fields): every lazy widget import in `packages/fields/src/index.tsx` is defeated by a static import of the same module — 13+ `INEFFECTIVE_DYNAMIC_IMPORT` warnings per console build",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-19T14:45:10Z",
+  "updated_at": "2026-08-24T12:53:51Z",
+  "closed_at": "2026-08-24T12:53:51Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5325",
+  "body": "Noticed while building the console for #5266 (PR #5323). Same defect *class* as that card — a deliberate lazy import that buys nothing — but a different cause and a different package, so filing rather than folding it in.\n\nEvery console `vite build` emits a run of warnings shaped like this:\n\n```\n[INEFFECTIVE_DYNAMIC_IMPORT] ../../packages/fields/src/widgets/ObjectRefField.tsx is dynamically\nimported by ../../packages/fields/src/index.tsx but also statically imported by\n../../packages/fields/src/index.tsx, dynamic import will not move module into another chunk.\n```\n\nRolldown is saying the `import()` cannot do anything: the same file already has a static edge from the same importer, so the module is in the eager graph regardless and the dynamic import is decoration.\n\nWidgets named in one build's output (the log was truncated, so treat this as a floor, not a total):\n\n`ObjectRefField`, `FilterConditionField`, `RecipientPickerField`, `FileField`, `ImageField`, `ImageCropperDialog`, `FormulaField`, `SummaryField`, `AutoNumberField`, `ObjectField`, `VectorField`, `GridField`, `AvatarField` — 13.\n\n`FileField` is listed with two static importers (`index.tsx` and `widgets/GridField.tsx`) and `ImageCropperDialog` is dynamically imported by `ImageField.tsx` while statically imported by `index.tsx`, so the shape is not uniform and each one needs its own look.\n\nPre-existing, not introduced by #5266 — the warnings are present in the unmodified baseline build at `3fbbea1f3`.\n\n## Why this is worth a card\n\nSomeone wrote those `import()` calls on purpose, and the intent is dead. Two costs:\n\n1. **The bytes.** These are heavy widgets (image cropping, grids, vector fields). If the lazy intent were honoured they would leave the eager closure.\n2. **The signal.** The warning text is the only thing saying the laziness does not work; it scrolls past in every build and reads as noise. #5266 is the same failure mode with no warning at all, and it cost ~89 KiB gzipped on every page load until it was measured.\n\n## What this is *not*\n\nNot a one-line fix, which is why it is not in PR #5323. Removing the static imports means deciding how the registry gets populated without them — the barrel appears to statically import each widget in order to register it, and the `React.lazy` path was presumably added later without removing the eager registration. That is a design question for `@object-ui/fields`, and it interacts with the test-flakiness rule in AGENTS.md about module-scope imports of lazily-loaded modules in tests.\n\nSomeone should first confirm whether the lazy path is reachable at all today, before deciding whether to fix the laziness or delete it. Either outcome is an improvement over a dynamic import that silently does nothing."
+}

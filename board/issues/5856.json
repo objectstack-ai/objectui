@@ -1,0 +1,35 @@
+{
+  "number": 5856,
+  "kind": "issue",
+  "title": "Both `plugin-grid` catalog entries are hand-built static card layouts that never author `object-grid` — the last instance of #5113's class",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-23T15:55:14Z",
+  "updated_at": "2026-08-24T14:14:26Z",
+  "closed_at": "2026-08-24T14:14:26Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5856",
+  "body": "Found while implementing #5113 (plugin-view's three \"Interactive Examples\" used no `object-view`). Filed unassigned, not claiming.\n\nMeasured on the #5113 branch (`claude/issue-5113-plugin-view-interactive-examples`), walking every `plugin-*` catalog category and collecting the set of `type` values each entry authors:\n\n```\n== plugin-grid\n   plugin-grid/product-inventory-grid  ->  badge button card flex stack text\n   plugin-grid/team-members-grid       ->  badge button card flex stack text\n```\n\nEvery other `plugin-*` category authors a type its own package registers — `calendar-view`, `chart`/`bar-chart`, `chatbot`, `dashboard`, `code-editor`, `object-gantt`, `kanban`, `object-map`, `markdown`, `timeline`, `form` (registered by `plugin-form` as an alias of `ObjectFormRenderer`, `packages/plugin-form/src/index.tsx:184`), and — as of #5113 — `object-view`. `plugin-grid` is the only category left whose entries are pictures of the component rather than the component.\n\n## Why it matters, and why it is not covered\n\nSame mechanism as #5113: `content/docs/plugins/plugin-grid.mdx` mounts these under a `PluginLoader` for a plugin they do not use, so a reader sees a drawn table where the plugin's output is claimed. Nothing catches it — `check-doc-component-types` only asks whether each `type` is registered (`card`, `flex`, `badge` all are), and `catalog-gallery-render.test.tsx` only asks whether the tile draws (these do).\n\n#5113's PR adds a pin for `plugin-view` only (`objectui#5113 — the plugin-view entries render THROUGH object-view` in `examples/schema-catalog/test/catalog-gallery-render.test.tsx`): every entry in the category authors an `object-view` node **and** the rendered tile shows a record that exists only in the gallery's data source. It is deliberately not generalized — the general rule needs a per-plugin map of which types each package registers, and this category was the reason it could not simply be turned on for all of `plugin-*`.\n\n## What a fix would involve\n\n`object-grid` reaches its data the same way `object-view` does — `dataSource` is a prop the registered renderer pulls off `SchemaRendererContext`, not a schema key. #5113 gave the docs gallery's fixture (`apps/site/app/components/galleryDataSource.ts`) the object surface it needs (`getObjectSchema` / `find` / `findOne` / writes) and pointed `InteractiveDemo` at it, so the machinery a real `object-grid` example needs already exists after that PR lands; the work is authoring the entries and re-seating whatever of the two mock-ups is worth keeping.\n\n⚠️ Note for whoever takes it: deleting a catalog entry moves three corpus-wide counters — `layout-dom-leak-5574.test.tsx`'s `NODE_CENSUS` and two floors in `layout-props-conversion.test.tsx` (`className`-carrying layout nodes, `stack` nodes). #5113 re-seated its three mock-ups into honest categories rather than dropping them, precisely so no floor had to move.\n\n## Triage note\n\nSeverity left to PM. Read as a concrete defect it is #5113 one category over; read as an observation, the two entries render fine and mislead only by where they are mounted.\n"
+}

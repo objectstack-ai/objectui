@@ -1,0 +1,37 @@
+{
+  "number": 6160,
+  "kind": "issue",
+  "title": "finding(ci): `MUST_SUBSCRIBE_MERGE_GROUP` names 6 workflows but 8 unfiltered blocking checks exist — the two doc gates subscribe `merge_group` today with nothing asserting they keep doing so",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx",
+    "finding",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T21:42:15Z",
+  "updated_at": "2026-08-25T00:02:06Z",
+  "closed_at": "2026-08-25T00:02:06Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6160",
+  "body": "Found while doing #6148 (PR #6159). Not fixed there — out of that card's scope, and it is an observation about a hand-maintained floor rather than a live breach.\n\n## What was measured\n\n`scripts/__tests__/merge-queue-reporting.test.ts`'s `MUST_SUBSCRIBE_MERGE_GROUP` is a hand-maintained map of `workflow file -> why it must subscribe merge_group`. Its own header says why it has to be hand-maintained: *\"may this context be required?\"* is a property of repository settings, not of the YAML, so nothing mechanical can derive the set.\n\nIt names six workflows today: `ci.yml`, `lint.yml`, `control-bytes.yml`, `docs-links.yml`, `changeset-presence.yml`, `skills-paths.yml`.\n\n`scripts/dependabot-merge-gate.mjs`'s `REQUIRED_CONTEXTS` — the other declaration of \"this check is blocking and reports on every PR\" — carries **two more** workflows' checks:\n\n| workflow | check | in `REQUIRED_CONTEXTS`? | in `MUST_SUBSCRIBE_MERGE_GROUP`? | subscribes `merge_group` on disk? |\n| --- | --- | --- | --- | --- |\n| `doc-component-types.yml` | Doc Component Type Check | yes | **no** | yes |\n| `doc-snippet-types.yml` | Doc Snippet Type Check | yes | **no** | yes |\n\nMeasured on `main@228909995`: `grep -c '^  merge_group:'` returns 1 for both files.\n\n## Why it is worth recording\n\nNothing is broken right now — both workflows really do subscribe, so the queue is not stalled by either. What is missing is the assertion.\n\nThe map exists precisely because a required context that does **not** report on a queue build does not fail the queue, it **stalls** it until the ruleset's 60-minute status-check timeout (#3523, which cost #3503 / #3510 / #3516 merging with `Type Check` at conclusion=failure). Delete the `merge_group:` trigger from `docs-links.yml` and that test goes red; delete it from `doc-component-types.yml` and nothing anywhere notices until a queue build hangs.\n\nSo this is the same shape as #4154 one file over — a hand-maintained enumeration that fell behind the thing it enumerates — except here the drift is in a *test's* floor rather than in prose, which makes it quieter.\n\n## Shape of a fix, if it is taken\n\nTwo candidates, and the choice is a judgement rather than mechanical:\n\n1. **Add the two entries.** Cheapest, keeps the map's stated purpose (a human declares requirability), and leaves the same gap open for the ninth workflow.\n2. **Cross-check the two declarations against each other.** `REQUIRED_CONTEXTS` already names the checks; `dependabot-merge-gate.test.ts` already maps check names back to the workflow files that produce them. Asserting that every workflow producing a `REQUIRED_CONTEXTS` check also subscribes `merge_group` would make the floor derive itself from the other declaration, and the hand-maintained map could keep carrying only the *reasons*. That is strictly more coverage, and it is also more machinery in a test that is already dense.\n\nPR #6159 added its own new workflow to the map by hand, i.e. it took route 1 for one entry without closing the class.\n\nRefs: #6148 / PR #6159 (where this was measured) · #3523 (the incident the map exists for) · #4154 (the same drift in the doc page's copy of the list)."
+}

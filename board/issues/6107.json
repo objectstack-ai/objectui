@@ -1,0 +1,36 @@
+{
+  "number": 6107,
+  "kind": "issue",
+  "title": "Four fields docs pages import a cell renderer @object-ui/fields does not export — and two of them name a renderer that has no export at all",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T17:26:45Z",
+  "updated_at": "2026-08-24T18:56:42Z",
+  "closed_at": "2026-08-24T18:56:42Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6107",
+  "body": "Found while taking batch 1 of #5867 (PR #6106). Filed unassigned, out of that batch's scope, and the four files are excluded from it for this reason.\n\n## The measurement\n\nFour `content/docs/fields/*.mdx` pages document a \"Cell Renderer\" example whose import names a symbol `@object-ui/fields` does not export. Measured, not read off the prose: the four pages' plaintext fences were re-fenced as `ts` in a throwaway probe, `node scripts/check-doc-snippet-types.mjs` was run against the built `dist/*.d.ts`, and the tree was restored by an `EXIT` trap (`git status` clean afterwards). The gate's own lines:\n\n```\n[semantic]  content/docs/fields/grid.mdx:164:10     TS2724: '\"@object-ui/fields\"' has no exported member named 'GridCellRenderer'. Did you mean 'UrlCellRenderer'?\n[semantic]  content/docs/fields/object.mdx:128:10   TS2724: '\"@object-ui/fields\"' has no exported member named 'ObjectCellRenderer'. Did you mean 'getCellRenderer'?\n[semantic]  content/docs/fields/summary.mdx:105:10  TS2724: '\"@object-ui/fields\"' has no exported member named 'SummaryCellRenderer'. Did you mean 'UrlCellRenderer'?\n[semantic]  content/docs/fields/vector.mdx:73:10    TS2724: '\"@object-ui/fields\"' has no exported member named 'VectorCellRenderer'. Did you mean 'getCellRenderer'?\n```\n\nEach hit is zero occurrences of the name in `packages/fields/dist/index.d.ts`. A reader copying any of those four blocks gets an import that does not resolve — today, independent of what the fence says.\n\n## The four are not one defect, they are two\n\n**`summary` and `object` have a real renderer under a different name.** `getCellRenderer`'s `standardMap` in `packages/fields/src/index.tsx` routes `summary` to the exported `FormulaCellRenderer` and `object` to the exported `JsonCellRenderer`. A rename in the doc is probably the whole fix, but which name a reference page should teach — the concrete export or `getCellRenderer(type)` — is a documentation decision, not a mechanical substitution.\n\n**`grid` and `vector` have no exported renderer at all.** The same map answers both with an inline anonymous component:\n\n```\nvector: () => (a span reading \"[Vector]\"),\ngrid:   () => (a span reading \"[Grid]\"),\n```\n\nThere is no symbol for those pages to import. So the page cannot be corrected by renaming — either the pages stop showing an import (documenting `getCellRenderer('vector')` instead), or `@object-ui/fields` grows the two named exports the docs have been promising. That is the ruling this card wants; it is deliberately not made here.\n\n## Why this is worth its own card rather than a rider\n\nThis is the objectui#5053 class: a name that came from prose rather than from the package's exports. It is wrong regardless of fence language, and it will not be visible to `check-doc-snippet-types` until the four pages are re-fenced — which is exactly what #5867's later batches will do. Whoever takes those four files in a later batch needs this answered first, otherwise the only routes left are a `FRAGMENT_MARKER` on a block that is genuinely TypeScript (a lie the ledger would then carry) or leaving the page out of coverage indefinitely.\n\nRefs: #5867 (the batch lane that surfaced it) · PR #6106 (batch 1, which excludes these four files) · #5044 · #5053."
+}

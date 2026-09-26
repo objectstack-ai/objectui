@@ -1,0 +1,33 @@
+{
+  "number": 5974,
+  "kind": "pull_request",
+  "title": "fix(scripts): add allowImportingTsExtensions to tsconfig.scripts.json",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T10:18:59Z",
+  "updated_at": "2026-08-24T10:34:24Z",
+  "closed_at": "2026-08-24T10:34:23Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": "2026-08-24T10:34:23Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5974",
+  "body": "Fixes #4926\n\n## What\n\n`tsconfig.scripts.json`'s header claims it matches `apps/console/tsconfig.node.json`'s option set so the two files shared between both programs (`scripts/vite-crypto-stub.ts`, `scripts/vite-maplibre-worker.ts`) \"cannot be green in one project and red in the other.\" It omitted `allowImportingTsExtensions`, which the console project sets (line 30) because `apps/console/vite.config.ts` imports the shared files with explicit `.ts` extensions (objectui#3384).\n\n- Added `\"allowImportingTsExtensions\": true` to `tsconfig.scripts.json` (legal under its existing `noEmit: true`), and expanded the header comment to name it as part of the matched set.\n- Added an option-parity assertion test in `scripts/__tests__/scripts-type-check.test.ts` that reads both parsed tsconfigs and asserts `strict`, `module`, `moduleResolution`, `allowImportingTsExtensions`, and the absence of `noImplicitReturns` agree — narrowly scoped to only the options the header itself claims are matched (not `composite`/`outDir`/`rootDir`/`allowJs`/`target`/emit, which differ by design). This is the pin location the issue itself named.\n\n## Mechanism finding (dispatch's open question)\n\nThe dispatch asked whether the divergence produces a live red today or is latent. **Confirmed latent** — `pnpm type-check:scripts` is green both before and after this change; neither shared file itself contains a `.ts`-extension import.\n\nI did find where `allowImportingTsExtensions` is actually exercised (something the PM's `./`-relative grep missed, since these are `../../`-relative):\n\n```\n$ grep -n \"scripts/vite-\" apps/console/vite.config.ts\n17:import { viteCryptoStub } from '../../scripts/vite-crypto-stub.ts';\n18:import { viteMaplibreWorker } from '../../scripts/vite-maplibre-worker.ts';\n19:import { resolveSpecDistInjection } from '../../scripts/vite-objectstack-spec-dist.ts';\n```\n\nThat's on the console side, inside `apps/console/tsconfig.node.json`'s own program — not inside `tsconfig.scripts.json`'s (`include: [\"scripts/**/*.ts\"]` never reaches `apps/console/vite.config.ts`). To reproduce the issue's own repro exactly, I widened a scratch copy of `tsconfig.scripts.json` to also include `apps/console/vite.config.ts` (not committed) and reran `tsc`:\n\n```\napps/console/vite.config.ts(17,32): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.\napps/console/vite.config.ts(18,36): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.\napps/console/vite.config.ts(19,42): error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.\n```\n\nSame three TS5097s the issue reported. So: **invariant restoration, not a live-bug fix** — the gap surfaces only if a shared file gains a `.ts`-extension import, or the scripts program's `include` widens to reach a file that has one (exactly the shape the header defends against). Reverse-verified the new pin test on the *committed* fix by checking out the pre-fix `tsconfig.scripts.json` from `origin/main` and rerunning — the new assertion failed with the expected message, then I restored the fix from `HEAD`.\n\n## Scope\n\nPer dispatch: this PR touches only the one option-set divergence. `tsconfig.scripts.json` is **not** restructured to `extends` anything (its header's `tsconfig.base.json`-`exclude` reasoning stands, unchallenged). No other option differences between the two projects were found or touched.\n\n## Tests\n\n- `pnpm type-check:scripts` — clean (before and after).\n- `pnpm --filter '@object-ui/console^...' build` then `pnpm --filter '@object-ui/console' type-check` (`tsc --noEmit && tsc -b tsconfig.node.json --force`) — clean.\n- `npx vitest run scripts/__tests__` — 62 test files, 1665 tests, all passing (includes the new assertion, 9/9 in `scripts-type-check.test.ts`, up from 8/8).\n- `node scripts/check-type-check-coverage.mjs` — ✅ (45/46 via `type-check`, unrelated pre-existing 1 not-compiled; 41/41 test coverage).\n- `node scripts/check-changeset-presence.mjs` — ✅ no changeset owed (tooling config + test file, not a published package's `src/`).\n- `node scripts/check-control-bytes.mjs` — ✅ clean.\n- `npx eslint scripts/__tests__/scripts-type-check.test.ts --no-inline-config` — 0 errors.\n\nVerified at `2ce7ee4de` (branch head).\n\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_"
+}

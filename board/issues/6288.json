@@ -1,0 +1,33 @@
+{
+  "number": 6288,
+  "kind": "pull_request",
+  "title": "chore(components): delete two unused react-hooks/static-components disable directives",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T07:59:43Z",
+  "updated_at": "2026-08-25T08:53:12Z",
+  "closed_at": "2026-08-25T08:53:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-25T08:53:10Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6288",
+  "body": "Fixes #5973\n\nDeletes the two `eslint-disable-next-line react-hooks/static-components` comment lines (whole line, `--` justification prose included) that no longer suppress anything:\n\n- `packages/components/src/__tests__/record-picker-empty-text-i18n.test.tsx:65`\n- `packages/components/src/renderers/basic/__tests__/record-picker-label-placeholder-i18n.test.tsx:71`\n\nSame defect class as the 47 sites PR #4849 cleaned (suppressed-warning-since-removed), **not** the misplaced-directive class of #4850.\n\n## Premise re-verified on current `origin/main`\n\nThe card's own measurement, re-run at base `a76b18cf2` (not the `2aff580b5` the card measured):\n\n```\npnpm exec eslint . --report-unused-disable-directives -f json\n→ FILES_LINTED=3723  TOTAL_ERRORS=2  TOTAL_WARNINGS=10882  UNUSED_DIRECTIVE_COUNT=2\n  packages/components/src/__tests__/record-picker-empty-text-i18n.test.tsx:65:8\n    Unused eslint-disable directive (no problems were reported from 'react-hooks/static-components').\n  packages/components/src/renderers/basic/__tests__/record-picker-label-placeholder-i18n.test.tsx:71:8\n    Unused eslint-disable directive (no problems were reported from 'react-hooks/static-components').\n```\n\nRepo-wide count is still exactly **2**, at exactly the two named locations. Premise intact; no other unused directives anywhere in the repo, so nothing beyond the two named sites was in scope.\n\n## Both directions proven\n\nUnion re-run on the final commit `7c8beecd6`:\n\n| measurement | before (`a76b18cf2`) | after (`7c8beecd6`) |\n| --- | --- | --- |\n| files linted | 3723 | 3723 |\n| unused directives | **2** | **0** |\n| total errors | 2 (both the unused directives) | **0** |\n| total warnings | **10882** | **10882** |\n\nThe second half is what proves the directives were not load-bearing: repo-wide warning count is **byte-identical at 10882**, so no new warning appeared at the formerly-suppressed lines — or anywhere else. Per-file, both files keep exactly their one pre-existing `@typescript-eslint/no-explicit-any` warning (line 58 and line 64 respectively) and gain nothing.\n\nThe rule is genuinely live for these files, so \"no new warning\" is not vacuous:\n\n```\npnpm exec eslint --print-config packages/components/src/__tests__/record-picker-empty-text-i18n.test.tsx\n→ react-hooks/static-components = [2]\n```\n\nIt is enabled at severity 2 for this exact file and still does not fire on the JSX pattern after the suppression is gone.\n\nDeletion confirmed on disk before any measurement was read: directive anchor `grep -c` went 1 → 0 in each file, line counts 121 → 120 and 179 → 178, `git diff --stat` shows `2 files changed, 2 deletions(-)`.\n\n## Gate verdict lines\n\nExit codes captured by redirect before any pipe.\n\n- Two affected test files by name, from the repo root (`pnpm exec vitest run <paths> --reporter=verbose`) — `Test Files  2 passed (2)` / `Tests  18 passed (18)`\n- `@object-ui/components` test project, unnarrowed (`pnpm exec vitest run packages/components/ --maxWorkers=2`) — `Test Files  187 passed (187)` / `Tests  1708 passed (1708)`\n- `pnpm lint:root`, unnarrowed — `✖ 28 problems (0 errors, 28 warnings)`, exit 0, matching the stated baseline exactly. Note `lint:root` ignores `packages/*/**`, so it does not cover the two edited files; their coverage comes from the repo-wide `eslint .` runs above.\n- `pnpm --filter @object-ui/components type-check` — exit 0, echoing `@object-ui/components@17.6.0 type-check`. First attempt hit the stale-dist trap (`TS2307` in untouched files); resolved by `pnpm --workspace-concurrency=2 --filter '@object-ui/components^...' build` first.\n- `node scripts/check-control-bytes.mjs` — `✅  check-control-bytes: OK (scanned 5179 tracked text file(s); skipped 85 binary).`\n- `node scripts/check-changeset-presence.mjs` — without a changeset: exit 1, `❌  2 source file(s) of 1 released package(s) changed, and this change adds no changeset`. With the empty-frontmatter changeset: exit 0, `✅  … declares 1 changeset(s): .changeset/spotty-pianos-shave.md. Every one of them has an EMPTY frontmatter — declared as releasing nothing, which is the explicit exemption and a complete answer to this gate.`\n- `node scripts/check-changeset-no-major.mjs` — `✅  No changeset declares a `major` bump.`\n- `node scripts/check-changeset-fixed.mjs` — `✅  All workspace packages are in the changeset fixed group.`\n\nTest-only change under a released package's `src/`, so it carries an empty-frontmatter changeset declaring it releases nothing. No `skip-changeset` label was created or applied — that label does not exist in this repo.\n\n## Relation to #4853\n\nSerial, not folded. #4853 (enabling `linterOptions.reportUnusedDisableDirectives`) is a config change with repo-wide blast radius and stays a separate card. This PR is its precondition, and after it `pnpm exec eslint . --report-unused-disable-directives` **exits 0** — #4853 now has zero remaining blockers from this class.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_"
+}

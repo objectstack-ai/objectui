@@ -1,0 +1,35 @@
+{
+  "number": 5837,
+  "kind": "issue",
+  "title": "Page-block canvas draws the generic unknown-block icon for types that render fine but are excluded from the palette (`record:chatter`)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-23T14:15:38Z",
+  "updated_at": "2026-08-24T16:05:12Z",
+  "closed_at": "2026-08-24T16:05:12Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5837",
+  "body": "Observation filed unassigned by the `domain:ui` dev seat implementing #5495 (palette offers the canonical `record:discussion`). Not a regression that change introduced — the same gap existed before it, on the other spelling — but #5495 moves which spelling is affected, so it is worth recording rather than leaving for the next reader to re-derive.\n\n## What was measured\n\n`packages/app-shell/src/views/metadata-admin/previews/PageBlockCanvas.tsx` draws every node's icon and colour tone from the **palette** catalogue:\n\n```\nconst meta = BLOCK_TYPE_META[typeStr as BlockTypeId];\nconst Icon = meta?.Icon ?? UnknownBlockIcon;\nconst tone = resolveBlockTone(typeStr);        // -> BLOCK_CATEGORY_TONE['misc'] on a miss\n```\n\n`BLOCK_TYPE_META` is the palette's **offer** list, and `PALETTE_EXCLUSIONS` (same file, `block-types.ts`) is its documented ledger of block types that are deliberately **not offered**. Those two lists answer \"what may an author drag in\", which is a different question from \"what may an author already have in this page\" — but the canvas chrome reads only the first.\n\nFor every exclusion whose reason is \"no renderer\" (`ai:chat_window`, `element:form`, `element:record_picker`, `element:text_input`) the generic box is arguably right: those nodes genuinely do not render. **One exclusion is different**: the `record:chatter` / `record:discussion` pair is excluded *because the pair is one renderer under two names*, so exactly one of the two spellings is always an unoffered type that renders perfectly. Opening an existing page that carries the unoffered spelling shows that node in the outline with `UnknownBlockIcon` (a plain box) and the neutral `misc` grey tone, instead of `MessageSquare` and the blue `record` tone its twin gets one line above.\n\n`blockLabel()` is not affected — it never reads `BLOCK_TYPE_META`, and falls back to the raw type string. The gap is icon + tone only.\n\n## Why this is not new, and what #5495 changed about it\n\nBefore #5495 the unoffered spelling was the **canonical** `record:discussion` — the one `packages/plugin-detail/src/synth/buildDefaultPageSchema.ts` emits, i.e. the one in every page the platform generates for itself. After #5495 it is the legacy `record:chatter` alias, which is the rarer spelling. So the change strictly reduces how often this is seen; it does not close it.\n\n## Shape of a fix, if it is wanted\n\nThe information needed already exists — the pair shares a renderer, a category and an icon. Options, roughly in order of size:\n\n- a small alias→canonical display map consulted by `PageBlockCanvas` when `BLOCK_TYPE_META` misses, so an unoffered-but-renderable type borrows its twin's icon and tone without becoming offerable (`block-config.test.ts`'s \"no type is both offered and excluded\" must keep holding — which is why this cannot simply be a second `BLOCK_TYPE_META` entry);\n- or split the catalogue into \"display meta\" (every type the canvas can encounter) and \"palette offer list\" (the subset an author may drag), making the two questions above two lists instead of one.\n\nEither is larger than the S-size #5495 card and touches its hot file, so it was deliberately not folded in.\n\nRefs: #5495 (where it surfaced, and the PR that moves which spelling is affected) · #2943 (the guard that made `PALETTE_EXCLUSIONS` an explicit ledger)."
+}

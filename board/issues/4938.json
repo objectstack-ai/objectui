@@ -1,0 +1,37 @@
+{
+  "number": 4938,
+  "kind": "issue",
+  "title": "check-doc-links 扫描面漏掉包内非 README markdown:15 个文件的链接从未被任何门禁解析过(实测 1 条死链)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T06:59:47Z",
+  "updated_at": "2026-08-24T14:25:54Z",
+  "closed_at": "2026-08-24T14:25:54Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4938",
+  "body": "## 现象\n\n`scripts/check-doc-links.mjs` 的 `SCAN_ROOTS` 里,包级两行是**精确文件名**匹配:\n\n```js\n{ path: 'packages/*/README.md', rule: 'disk' },\n{ path: 'apps/*/README.md',     rule: 'disk' },\n```\n\n于是包目录(及其子目录)下**任何不叫 `README.md` 的 markdown** 都在扫描面外。该脚本自己的注释把「包内非 README markdown 未被扫描」记为已知边界,但边界的**代价**一直没被测过。\n\n排除 `CHANGELOG.md`(生成物)后,当前有 **15 个**这样的文件:\n\n```\napps/console/docs/UI_IMPROVEMENT_PROPOSAL.md\napps/console/docs/deployment.md\napps/console/docs/error-tracking.md\npackages/cli/MIGRATION.md\npackages/components/README_SHADCN_SYNC.md\npackages/components/TESTING.md\npackages/components/docs/FilterBuilder.md\npackages/components/src/renderers/complex/README-KANBAN.md\npackages/components/src/renderers/complex/TIMELINE.md\npackages/plugin-dashboard/SKILL.md\npackages/plugin-gantt/ROADMAP.md\npackages/vscode-extension/DESIGN.md\npackages/vscode-extension/ICON.md\npackages/vscode-extension/PUBLISHING.md\npackages/vscode-extension/SUMMARY.md\n```\n\n## 实测入场价(按先例的口径先量后报)\n\n这 15 个文件里共 **4 条**仓内相对 markdown 链接,其中 **1 条死链**:\n\n- `packages/components/src/renderers/complex/TIMELINE.md:349`\n  `See the [prototype app](../../examples/prototype/src/App.tsx) …`\n  → 解析到 `packages/components/src/examples/prototype/src/App.tsx`,不存在;仓根 `examples/prototype/` 也不存在。\n\n所以 markdown 链接这一面**很便宜**(先例 #3603/#3622 的入场价是 9~11 条,这里是 1 条)。\n\n## 真正大的那一面:反引号仓内路径\n\n死链只是一半。#3881 实际被咬的是**反引号包裹的仓内路径**——`README_SHADCN_SYNC.md` 的 `## Files` 声称 `shadcn-sync.js` 在 `packages/components/` 目录下,而它一直在仓根 `scripts/shadcn-sync.js`。这类路径**没有任何门禁看**:`scripts/check-skills-paths.mjs`(#3735 的产物)只覆盖 `skills/**`,带 baseline;包内 markdown 一概不在其内。\n\n两面的失效形状不同,建议分开定价:\n\n1. `SCAN_ROOTS` 加一行把包内非 README markdown 纳入(链接面,入场价实测 1 条);\n2. 反引号仓内路径的校验是否要从 `skills/**` 推广到包内 markdown(面更大,需另测)。\n\n## 分级\n\n按 `finding` 归档,不带 `pm:queue`,交分诊定级。**今天没有 CI 会因它变红**,读者付的成本是照着错误路径去找文件。归为观察类而非具体缺陷:那条死链本身是小事,值钱的是「这一整片文件从未被解析过」这个结构事实。\n\n## 出处与去重\n\n发现于 #3881 的实施过程(PR 见该卡)。#3881 的可选修法 3 曾建议「顺带考虑把包内 README* 纳入 check-doc-links 扫描面」,该 PR **刻意未取**:它是独立的门禁扩面,有自己的入场价,按 #3536 → #3572 → #3603/#3622 → #4148 这条先例链,每次扩面都是一张独立卡。#3881 落地的是文档内容 + 成员集合钉,已把该文件的反引号路径在**包内测试里**局部钉住(`packages/components/src/__tests__/readme-shadcn-sync-categories.test.ts`),不构成全仓覆盖。\n\n检索过开放卡:#3536 / #3572 / #3603 / #3622 / #4148 / #3735 均已关闭,无在途卡覆盖本条。"
+}

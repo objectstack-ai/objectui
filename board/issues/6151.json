@@ -1,0 +1,35 @@
+{
+  "number": 6151,
+  "kind": "issue",
+  "title": "finding(types): `StackSchema`, declared as Omit-of-FlexSchema-minus-type, erases every named member — it ships declaring only `type`, because Omit collapses under `BaseSchema`'s index signature",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-24T21:17:13Z",
+  "updated_at": "2026-08-25T10:38:56Z",
+  "closed_at": "2026-08-25T10:38:56Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6151",
+  "body": "⚠️ **Rewritten 2026-08-24 because GitHub's body sanitizer silently ate every generic argument in the first version** — including inside a fenced code block — which inverted the finding's meaning (`extends Omit-of-FlexSchema-minus-type` was rendered as `extends Omit`). Angle-bracket generics are therefore written **in words** throughout. The sanitizer strips a fragment that opens with an identifier in angle brackets, because it parses as an HTML tag; the escaped and elided spellings survive. Same hazard as AGENTS.md's \"GitHub mutates body BYTES\" clause.\n\nMeasured while sweeping #6143. Filed unassigned, not fixed there.\n\n## The fact\n\n`packages/types/dist/layout.d.ts:215` declares `StackSchema` as extending **Omit of `FlexSchema` minus the key `type`**, then redeclaring `type: 'stack'`. In words, because the literal spelling does not survive here:\n\n> export interface StackSchema extends Omit&lt;FlexSchema, 'type'&gt; { type: 'stack'; }\n\n`FlexSchema` declares 25 members — `gap`, `children`, `align`, `justify`, `direction`, `wrap`, plus everything inherited from `BaseSchema`. `StackSchema` is intended to be all of them minus `type`.\n\nIt is not. Measured against the built `dist` through the gate's own `derivePackageTypePaths()`:\n\n```\nFlexSchema  -> 25 declared properties: align ariaLabel body children className data\n               description direction disabled disabledOn gap hidden hiddenOn id justify\n               label name placeholder style testId type visible visibleOn visibleWhen wrap\nStackSchema ->  1 declared property:  type\n```\n\n`checker.getPropertyOfType(StackSchema, 'gap')` returns **false**. Same for `children`, `align`, `justify`.\n\n## Why\n\n`FlexSchema` inherits `BaseSchema`'s `[key: string]: any` (#5155).\n\n`Omit` of T minus K is defined as `Pick` of T over `Exclude` of `keyof T` minus K. And `keyof T`, on a type carrying a string index signature, is `string | number` — the literal member names are **absorbed**. So excluding `'type'` from `string | number` still leaves `string | number`, and the `Pick` reconstructs a type that has the index signature and **none of the named members**.\n\nThis is the same absorption #5155's clarification comment measures, in its REJECT half — but here it does not merely fail to reject an unknown key, it **deletes known ones from the shipped declaration**.\n\n## What it costs\n\nNothing at runtime, and nothing that produces an error — which is why it has survived. What it costs is every tool that reads the declaration:\n\n- **Editor completion on `StackSchema` offers `type` and nothing else.** An author writing a stack gets no `gap`, no `align`, no `justify`.\n- **Any \"check the docs against the shipped type\" pass reads `stack.mdx` as documenting keys that do not exist.** #6143's sweep flagged `gap`, `children` and `className` on that page as divergences; they are **not** — the docs are right and the type is wrong. Correcting the page to match its type, which is what that card would otherwise have done, would have deleted three correct entries. This card exists so the next sweep does not.\n- `StackSchema` is a member of the `LayoutSchema` union (`layout.d.ts:687`), so the erasure propagates into anything narrowing that union.\n\n## Scope\n\n`StackSchema` is the one measured. ⚠️ **Any other interface whose heritage clause is an Omit, a Pick, or any mapped type over a schema type carries the identical erasure**, and enumerating them is the first step of a fix rather than something this card asserts. Grepping for `extends Omit` and `extends Pick` across `packages/*/src/**/*.ts` would bound it.\n\n## Candidate directions, none ruled here\n\n- **Restate the members** on `StackSchema` instead of deriving them — honest and immediate, but a duplicate to keep in sync.\n- **Drop the Omit** and let `StackSchema` extend `FlexSchema` directly, narrowing `type`. An interface may narrow an inherited property only to a compatible subtype, and `'stack'` is not a subtype of `FlexSchema`'s `type` unless that is widened — so this needs checking rather than assuming.\n- **Fix it at the root** by removing the index signature from `BaseSchema` — which is #5155, already ruled (option C, phased zod `.strict()`). That ruling targets the *rejection* layer, not this erasure, so it is worth confirming whether its program incidentally closes this or leaves it standing.\n\nThe third is why this is filed rather than fixed: it may want sequencing behind #5155 rather than a local patch.\n\nRefs: #5155 (the index signature, and the `keyof` absorption its clarification comment measures) · #6143 (where this surfaced) · #6150 (sibling finding from the same sweep, different mechanism).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_"
+}

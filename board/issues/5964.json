@@ -1,0 +1,36 @@
+{
+  "number": 5964,
+  "kind": "issue",
+  "title": "CONTRIBUTING.md lists CodeQL as an active security scan; it is not registered",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T09:11:56Z",
+  "updated_at": "2026-08-24T15:50:01Z",
+  "closed_at": "2026-08-24T15:50:01Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5964",
+  "body": "Found while fixing #5408 (stale CodeQL badge in `README.md`). Out of that\ncard's file surface (`README.md` only), so filed separately rather than\nfixed there.\n\n## Measured\n\n`CONTRIBUTING.md` line ~391, under `#### Security Scans`:\n\n```\n- **CodeQL**: Scans for security vulnerabilities in code\n- **Dependency Scanning**: Checks for known vulnerabilities in dependencies\n```\n\nSame underlying fact #5408 established: `GET\n/repos/objectstack-ai/objectui/actions/workflows` returns 31 registered\nworkflows, four `dynamic/*` entries (Copilot swe-agent, Copilot PR reviewer,\nDependabot, Claude agent), and no `dynamic/github-code-scanning/codeql` — the\nentry CodeQL \"default setup\" registers when enabled. CodeQL was never set up\nin this repository. This line in `CONTRIBUTING.md` describes a scan that does\nnot run.\n\nThe repo is not unscanned — `.github/workflows/secret-scan.yml` (\"Secret\nScanning\") is registered and active, which is presumably what \"Dependency\nScanning\" / secret coverage should actually be described as here — but this\nline's specific CodeQL claim is false.\n\n## Suggested fix\n\nRemove or correct the CodeQL line under `#### Security Scans`, mirroring the\n#5408 ruling: whether the repo *should* adopt CodeQL is a separate,\nmaintainer-floor decision and should not be back-derived from this doc while\nfixing it.\n\n## Scope\n\n`CONTRIBUTING.md` only, that one line/section."
+}

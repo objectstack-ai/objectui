@@ -1,0 +1,35 @@
+{
+  "number": 5980,
+  "kind": "issue",
+  "title": "A third teaching site still writes the retired `condition: { expression, then }` branch shape — `guide/schema-overview.md`, outside #3917's fence",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T10:23:19Z",
+  "updated_at": "2026-08-24T15:50:18Z",
+  "closed_at": "2026-08-24T15:50:18Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5980",
+  "body": "Filed unassigned from the #3917 implementation (PR retiring the `ActionCondition` `{ expression, then, else }` branch shape). **Not fixed there** — the card, the 2026-08-09 ruling and the dispatch fence all name exactly two teaching sites; this is a third, discovered by a repo-wide sweep. Recording it rather than widening the fenced PR.\n\n## The site\n\n`content/docs/guide/schema-overview.md:84`, inside the \"Advanced Actions\" shape excerpt:\n\n```ts\nconst action: ActionSchema = {\n  type: 'action',\n  actionType: 'ajax',\n  api: '/api/submit',\n  chain: [...],\n  condition: { expression: '${...}', then: {...} },   // ← line 84\n  onSuccess: {...},\n  tracking: {...}\n};\n```\n\nLine 311 of the same page (`- ✅ Conditional execution with the `condition` property`) stays true — `condition` survives as a predicate gate; only the `{ expression, then }` spelling is retired.\n\n## Why it matters after #3917\n\nBefore #3917 this line taught a shape that was accepted by the zod schema and then silently ignored at runtime. After #3917 it teaches a shape `ActionSchema` **refuses** (`invalid_union` on `condition`), while the two ruled teaching sites now describe the live vocabulary — `condition` is a gate; a branch is separate actions with mutually exclusive `condition`s. The page is the \"Schema Overview\" entry point, so it is a likely first read.\n\n## Why no gate catches it\n\nThe block is a **declared fragment** — the page carries `<!-- doc-snippet: fragment — a shape excerpt: `chain`, `condition`, `onSuccess` and `tracking` are written as literal `[...]` / `{...}` ellipses … -->` immediately above it, so `scripts/check-doc-snippet-types.mjs` counts it in coverage but never compiles it. That declaration is correct on its own terms (the block is full of `[...]` / `{...}` ellipses and cannot compile), which is exactly why the stale key spelling inside it survives every gate. Measured on `24d653d5e` with the #3917 change in the tree: `node scripts/check-doc-snippet-types.mjs` → `Semantic phase: 135 of 135 block(s) judged, 0 failed`, exit 0, with this line untouched.\n\n## Scope of the sweep that found it\n\nRepo-wide, `--include=*.md --include=*.mdx`, excluding `node_modules` and `CHANGELOG`s: the only pages writing `then:` under a `condition` were `core/enhanced-actions.mdx` (fixed in #3917), `api/schema-reference.md` (fixed in #3917) and this one. `content/docs/utilities/runner.mdx` matched the same grep on prose (\"…expressions, then looking the component type up…\") and is a false positive.\n\n## Fix\n\nOne line, plus a look at whether the fragment marker's reason text should still name `condition`: write the excerpt's `condition` as the predicate (`condition: '${...}'`). Same edit shape as the two sites #3917 already rewrote.\n\nRelated: #3917 (the ruling and the two fenced teaching sites), #5174 (the doc-snippet ledger workstream that owns this page's coverage)."
+}

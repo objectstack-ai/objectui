@@ -1,0 +1,35 @@
+{
+  "number": 5733,
+  "kind": "issue",
+  "title": "finding: check-changeset-presence counts only a package's own `src/` subtree, so `apps/console/index.html` — shipped and executable — can change with no changeset required",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-23T02:17:00Z",
+  "updated_at": "2026-08-24T16:05:12Z",
+  "closed_at": "2026-08-24T16:05:12Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5733",
+  "body": "Observation-class finding, noticed while working #5660 (PR #5732). Not fixed there — that PR declares a changeset anyway, because it also touches files under `apps/console/src/`.\n\n## What was measured\n\n`scripts/check-changeset-presence.mjs:416` decides whether a changed file counts as package source with:\n\n```js\nif (path.startsWith(`${directory}/src/`)) {\n```\n\nSo the gate's population is each package directory plus `/src/`. `apps/console/index.html` is not under `src/`, and the gate's own summary line confirms it does not count — on PR #5732, which changed four files including `index.html`:\n\n```\nCompared the working tree with d8afbe519 (merge-base with origin/main): 3 file(s) changed,\n2 of them under the src/ of a package the release covers, 0 under a package changesets\nignores, 1 changeset(s) added.\n```\n\nThree files, two counted — `main.tsx` and the test. `index.html` is not in the count.\n\n## Why that surface is worth a second look\n\n`apps/console/index.html` is not an incidental config file. It is the console's HTML entry, it ships in the package's built `dist`, and it carries **two inline classic scripts that run in every user's browser during parse** — the pre-boot branding/`runtime/config` script and the `crypto.randomUUID` shim for insecure origins. Both are graded by tests precisely because they are shipped behaviour (`src/__tests__/runtimeConfigBootDedup.test.ts` and `src/__tests__/insecure-origin-crypto.test.ts` each extract and execute the real script text).\n\nA PR editing only that file would change shipped console behaviour while the changeset gate stays silent.\n\n## What this is not\n\nThe `src/`-only scope looks deliberate for the case the script documents at `:87` — a `package.json` dependency bump should not demand a changeset. The header does not discuss HTML entry points, so whether `index.html` was considered and excluded, or simply never came up, is not recorded. That is the open question; this is not an assertion that the gate is wrong.\n\nIf it is intentional, the rationale is worth a sentence in the script header, since the file it lets through is executable shipped code.\n\n## Search-before-file caveat\n\n`search_issues` was returning `total_count: 0` for every query during this session, **including a control term known to exist** — so those zero-hit searches are not readings. (The same degradation is why #5660 itself was filed by the PM on behalf of a dev agent whose search step was blocked.) `list_issues` worked; I scanned the titles of the 100 most recently updated open issues (of 226) and found nothing covering this. Coverage of the older 126 is therefore unverified — close as a duplicate without ceremony if one exists."
+}

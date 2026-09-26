@@ -1,0 +1,36 @@
+{
+  "number": 5259,
+  "kind": "issue",
+  "title": "packages/components/README.md is one declared fragment away from leaving UNGATED_DOCS — the trade is one extra package in the gate's build filter",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-18T20:58:27Z",
+  "updated_at": "2026-08-25T01:40:47Z",
+  "closed_at": "2026-08-25T01:40:47Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5259",
+  "body": "Observation recorded while implementing #5160, deliberately **not** acted on there. Filing it so the trade is decided rather than taken silently.\n\n## The state after #5160\n\n`packages/components/README.md` went from 5 diagnostics to **1**:\n\n```\npackages/components/README.md:183:4  TS2304: Cannot find name 'Outlet'.\n```\n\nIts `UNGATED_DOCS` entry is now just `1 undefined-name diagnostic(s) — …`.\n\nThat one block is a router-layout excerpt showing where the notification surfaces mount:\n\n```tsx\nimport { NotificationBanners, NotificationAlerts } from '@object-ui/components';\n\n< main >\n  < NotificationBanners / >\n  < Outlet / >\n  < NotificationAlerts / >\n< / main >\n```\n\n`Outlet` is react-router's, supplied by the host. That is precisely the case `scripts/check-doc-snippet-types.mjs` names in its own header as a legitimate declared fragment — *\"a call into the host's own router\"*. Marking it with the documented marker\n\n```\n<!-- doc-snippet: fragment — the host supplies react-router's Outlet -->\n```\n\nwould take the document to zero, let its `UNGATED_DOCS` entry be **deleted**, and put every other `ts`/`tsx` block in this published README under the gate permanently. The ratchet would actually move, which no other document in the #5160 set can currently do.\n\n## Why #5160 did not just do it\n\nCovering the document grows the gate's build filter. `node scripts/check-doc-snippet-types.mjs --build-filter` derives its turbo filters from what the **covered** documents import, and this README imports `@object-ui/components` — which is not in the filter today and is not reachable from anything that is (`@object-ui/react` does not depend on it; the dependency runs the other way). So covering it adds `@object-ui/components` plus `@object-ui/i18n`, `@object-ui/react-runtime`, `@object-ui/sdui-parser` to every gate run.\n\nMeasured on `main` + #5160, the filter is unchanged at 11 packages:\n\n```\n--filter=@object-ui/cli --filter=@object-ui/core --filter=@object-ui/data-objectstack\n--filter=@object-ui/plugin-charts --filter=@object-ui/plugin-editor --filter=@object-ui/plugin-grid\n--filter=@object-ui/plugin-markdown --filter=@object-ui/plugin-timeline --filter=@object-ui/plugin-view\n--filter=@object-ui/react --filter=@object-ui/types\n```\n\nPer-PR build cost is exactly what the 2026-08-16 ruling on #4846 constrained, and the gate's own header calls the scoped build the reason `--build-filter` exists. Growing it is a cost decision, not a mechanical edit — so it was left to a maintainer instead of being taken as a rider on a documentation card.\n\n## The decision\n\n- **A.** Declare the fragment, delete the ledger entry, accept `@object-ui/components` in the filter. One published README moves from unverified to gated.\n- **B.** Leave it ungated. Zero CI cost; the README's other blocks stay unverified, and nothing stops the next `registerDefaultRenderers`-shaped fabrication landing in it.\n\nThe same question will recur for every other near-zero document, so a stated rule (\"cover it when it reaches zero, cost accepted\" vs \"cover it only when the package is already in the filter\") is worth more than this one answer.\n\n## Related\n\n- #5160 — the card that brought it to 1\n- #5138 — the gate and its ledger\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 6085,
+  "kind": "pull_request",
+  "title": "refactor(types): retire the orphaned ObjectTrigger and ObjectRelationship exports",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: types"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T16:19:02Z",
+  "updated_at": "2026-08-24T16:44:26Z",
+  "closed_at": "2026-08-24T16:44:25Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-24T16:44:25Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6085",
+  "body": "Fixes #5859\n\nRetires `ObjectTrigger` and `ObjectRelationship` from `@object-ui/types` — two hand-written interfaces orphaned by the `ObjectSchemaMetadata` derivation (#5362). Option A of the card, per the triage adjudication of 2026-08-24.\n\nVerified at head `2d5cadc6d`.\n\n## What was removed\n\n| Symbol | Declaration | Barrel |\n| --- | --- | --- |\n| `ObjectTrigger` | `packages/types/src/field-types.ts:817` | `packages/types/src/index.ts:477` |\n| `ObjectRelationship` | `packages/types/src/field-types.ts:902` | `packages/types/src/index.ts:480` |\n\nBoth halves for both symbols — declaration and barrel entry together. Deleting either half alone is a build break or a dead declaration. 58 lines removed, type-only; nothing is emitted and no runtime behaviour moves.\n\n## Why they are orphans\n\nBoth existed solely to type members of the hand-written object-document mirror that #5362 retired: `triggers?: ObjectTrigger[]` and `relationships?: ObjectRelationship[]`. That mirror is now derived from `@objectstack/spec/data`'s `ServiceObject`, and the spec's object document declares neither member. `DataModelDesigner`'s `relationships` state is its own local model and never referenced these types.\n\n## Measurements\n\nThe card's premise was re-measured rather than inherited. Every instrument below was given a control, because a zero-hit from an untested instrument is not a measurement.\n\n**Reference sweep** (`packages/`, `apps/`, `examples/`, `*.ts`/`*.tsx`, `node_modules` and `dist` excluded): both names appear only at their own declaration and the barrel re-export. Control by the identical method: `ObjectSchemaMetadata` in 3 files, `ObjectIndex` in 2, `FieldMetadata` in 26 — the instrument finds live names.\n\n**Cross-repo probe** in the sibling `objectstack` checkout (head `3637731`): zero hits for both names. Control: that repo imports `@object-ui/types` in 11 files, so the probe could have found a cross-repo consumer had one existed.\n\n**Spec correspondence**, verified at type level against the installed `@objectstack/spec` 17.2.0 rather than by grep: neither `triggers` nor `relationships` is a key of `ServiceObject`. The probe carried controls in both directions — `fields` and `name` assert present, and flipping one expectation made it fail with `error TS2322`, so the instrument can produce both answers. The `triggers` hits elsewhere in the spec are the plugin-manifest legacy alias (`triggers` maps to `hooks`) and webhook/automation events, neither of which is the object document.\n\n## Verification, and why the green means something\n\nA deletion's verification is the reverse of a feature's: the sweep staying **green** is the positive evidence nothing consumed the symbols.\n\nThat green is weak alone — it is equally consistent with a build that never looked. So the same sweep was shown to go **red**: removing `FieldMetadata`, a live sibling on the *same barrel line*, rebuilt to `dist`, produced `error TS2724: '\"@object-ui/types\"' has no exported member named 'FieldMetadata'` at three consumer sites in `packages/plugin-detail`, exit 2. The sweep detects exactly the failure a wrongly-removed export causes.\n\n| Gate | Exit |\n| --- | --- |\n| `pnpm --filter @object-ui/types type-check` | 0 |\n| `vitest run packages/types/src` — 56 files, 615 tests | 0 |\n| `pnpm --filter '...@object-ui/types' type-check` — 42 consumers, all `Done` | 0 |\n| `eslint` over the merge-base delta | 0 (6 pre-existing `any` warnings, 0 errors) |\n| `pnpm check:esm-specifiers` | 0 |\n\nThe prefix form `...@object-ui/types` is the **downstream/dependent** direction — 42 packages, against 1 for the suffix form, which is the correct direction for a published-type removal. `apps/site` and `packages/components` pass because `@object-ui/react-runtime` was built first. `check:esm-specifiers` was run although the diff moves no relative import.\n\n## Caveat this PR cannot measure away\n\n**In-repo zero is not npm zero.** This is a published removal and an external consumer cannot be detected from this repository. An application importing either name will fail to compile after release. The changeset names both symbols verbatim so a host can search its own sources, and states the caveat rather than implying the removal is free.\n\nChangeset ships **`minor`**, not `major`: objectui's major tracks `@objectstack`'s, and `check-changeset-no-major.mjs` refuses `major` outright.\n\nDraft, not enqueued, no auto-merge — the PM lands it.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01CSoz9uGhaaSgiq3hshtN7L)_"
+}

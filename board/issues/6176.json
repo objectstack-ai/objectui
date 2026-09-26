@@ -1,0 +1,36 @@
+{
+  "number": 6176,
+  "kind": "issue",
+  "title": "`submitHandler` is honoured only by `SimpleObjectForm` — a master-detail parent half rendered as `tabbed` or `split` writes the parent through `dataSource.create` and escapes the atomic batch",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-24T22:31:55Z",
+  "updated_at": "2026-08-25T11:06:07Z",
+  "closed_at": "2026-08-25T11:06:07Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6176",
+  "body": "Found while implementing #5939 (tightening `object-master-detail-form.formType` to a measured vocabulary). Not fixed there — #5939's scope is the declaration shape, this is a persistence path. Filed unassigned for triage.\n\n## Fact (objectui `origin/main` @ `6613f6fbc`)\n\n`MasterDetailForm` owns a **single** Save bar and routes the whole save — parent plus every detail row — through one `dataSource.batchTransaction`. It does that by handing the parent `object-form` a `submitHandler` (`MasterDetailForm.tsx:612`):\n\n```ts\nsubmitHandler: submitViaBatch,\n```\n\n`submitHandler` is read in exactly one place — `ObjectForm.tsx:820`, inside `SimpleObjectForm`:\n\n```ts\nif (schema.submitHandler) {\n  result = await schema.submitHandler(payload);\n```\n\n`TabbedForm`, `WizardForm`, `SplitForm`, `DrawerForm` and `ModalForm` never read the key. `TabbedForm.tsx:294` and its `SplitForm` counterpart persist directly instead:\n\n```ts\nresult = await dataSource.create(schema.objectName, omitServerResolvedDefaults(data, objectSchema));\n```\n\nSo when the parent half is rendered as anything other than the simple variant, the parent record is committed on its own and the batch — the entire reason this block exists (#2679, ADR-0034 item 4) — is bypassed. A failing child leg then leaves a **committed, orphaned parent** with no rollback.\n\n## Measured\n\nMounting `object-master-detail-form` with two parent sections and one detail collection, filling the parent field, then clicking the master-detail's own bottom Save bar. Counts are calls on the same stub `dataSource`:\n\n| parent `formType` | `batchTransaction` | `dataSource.create` | reading |\n|---|---|---|---|\n| `simple` | 1 | 0 | atomic — correct |\n| `tabbed` | 0 | **1** (`[\"po\", {\"ref\":\"PO-1\"}]`) | parent written outside the transaction |\n| `split` | 0 | **1** (`[\"po\", {\"ref\":\"PO-1\"}]`) | same |\n| `wizard` | 0 | 0 | the Save bar drives the wizard's `Next` (observed: \"Step 2 of 2\") — nothing persists |\n| `drawer` / `modal` | 0 | 0 | parent half is in a portal dialog; the Save bar finds no form |\n\nThe `simple` / `tabbed` / `split` / `wizard` rows are pinned as regression coverage by `packages/plugin-form/src/masterDetailFormTypeVocabulary.test.tsx` (added by #5939), where they document *why* the vocabulary excludes four of the six.\n\n## Why it still matters after #5939\n\n#5939 narrows `object-master-detail-form.formType` to `simple | tabbed` — the set the repo's own type (`MasterDetailFormSchema.formType?: 'simple' | 'tabbed'`) and the `ObjectForm.tsx:215` coercion already declare. That removes `split` / `wizard` / `drawer` / `modal` from the authoring surface, but **`tabbed` stays declared and stays broken**: an author who picks the tabbed presentation gets a non-atomic save and no signal. #5939 says so in its PR body rather than quietly declaring a value it knew was broken, and files this.\n\n## Triage question\n\nWhether the fix is to make the variant forms honour `submitHandler` (the narrow, contract-preserving one — the key is already the declared seam), or to have `MasterDetailForm` stop delegating persistence to the parent form at all, or to drop `tabbed` from the vocabulary until the first is done. The first looks right: `submitHandler` is documented as the seam a host uses to own persistence, and five of six renderers silently ignoring a declared seam is the same class of defect as a declared-but-unread prop.\n\nRelated: #5939 (where this surfaced) · #2679 / ADR-0034 item 4 (the atomic-batch decision this leaks around)."
+}

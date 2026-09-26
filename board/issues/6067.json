@@ -1,0 +1,35 @@
+{
+  "number": 6067,
+  "kind": "issue",
+  "title": "[finding] `@object-ui/core`'s `Registry.ts` is a THIRD `ComponentMeta` declaration, and it is missing `tags`/`description` too — the same delta #5893 just closed in `packages/types`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T15:27:34Z",
+  "updated_at": "2026-08-25T11:06:07Z",
+  "closed_at": "2026-08-25T11:06:07Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6067",
+  "body": "Noticed while converging `ComponentMeta`'s two `packages/types` declarations (#5893). Filed rather than fixed: `packages/core` is outside that card's fence, and it is **not** the same shape as the copy #5893 retired, so it is not a mechanical extension of that convergence.\n\n## Measured\n\nRead off `origin/main` at merge-base `efa70ecb2`.\n\n`packages/core/src/registry/Registry.ts:37` declares its own `export type ComponentMeta = { … }`. After #5893, that is the **only remaining** structural copy of the name in the workspace — `packages/types`' two collapsed onto one.\n\nKey sets:\n\n| declaration | keys |\n|---|---|\n| `packages/types/src/base.ts:511` (11) | `label` `icon` `category` `inputs` `defaultProps` `examples` `isContainer` `resizable` `resizeConstraints` `tags` `description` |\n| `packages/core/src/registry/Registry.ts:37` (13) | `label` `icon` `category` `tier` `namespace` `skipFallback` `labelling` `inputs` `defaultProps` `examples` `isContainer` `resizable` `resizeConstraints` |\n\nSo it is a **superset with holes**, not a copy:\n\n- **Only in core** (4): `tier` (ADR-0080 public/internal contract tier), `namespace`, `skipFallback`, `labelling` (the closed three-value host-labelling vocabulary, objectui#3961 / objectui#4857). These are registry mechanics with no counterpart on the types side.\n- **Only in `base.ts`** (2): `tags` and `description` — **the exact pair #5893 was filed about**.\n- Shared (9), including `resizeConstraints`, whose six members are identical in all declarations.\n\n## Why it is worth recording separately\n\n#5893's divergence and this one are the *same two keys*, which is what makes it more than a tidiness note: `tags`/`description` are declared on `base.ts`, declared on the zod mirror `ComponentMetaSchema` (`packages/types/src/zod/base.zod.ts:298`, all eleven keys), and now reachable on the plugin-facing type — but **not** writable at `@object-ui/core`'s registry meta, which is the declaration a great many component registrations actually import. That is the same asymmetry #4972 recorded for `ComponentInput`: the publication face advertises keys the authoring face rejects.\n\nThe difference from #4972's `ComponentInput` case, and the reason this is not just \"do #5671 again\": core's four extra keys mean this cannot be a bare re-export. It needs a decision about shape — which is why it is filed for triage rather than folded into #5893.\n\n**Not covered by the cards that look like they cover it.** #4972 is closed and scoped to `ComponentInput`'s three copies plus `WidgetInput`; `ComponentMeta` is named nowhere in it. #5893 is scoped to the two declarations inside `packages/types` and says so. #5671 converged `ComponentInput` in this very file (`Registry.ts`) and left the `ComponentMeta` immediately below it untouched — visible in its diff, and deliberate, since it was out of that card's fence.\n\n## Possible directions\n\n- **(a)** `core`'s `ComponentMeta` becomes `ComponentMeta` from `@object-ui/types` **extended** with the four registry-only keys — one declaration for the shared nine plus a named registry extension. Nothing narrows; `tags`/`description` reach the registration surface.\n- **(b)** The four registry keys move onto `base.ts`' `ComponentMeta` and `core` re-exports it outright, the way #5671 handled `ComponentInput`. Simplest resulting shape, but it publishes registry mechanics (`skipFallback`, `namespace`) on the general type, which may not be wanted.\n- **(c)** Keep both and add a structural gate that same-named exported declarations must have reconciled key sets — #4972's option (c), still not taken anywhere.\n\nNot urgent: no registration has tried to write `tags` or `description` at core's meta, so nothing a user hits is broken today — the same dormancy #4972's divergence had until it wasn't.\n\nRelated: #4580 (the ruling and its reason), #4972 (the `ComponentInput` census), #5671 (the convergence PR), #5893 (the `packages/types` convergence this was found under), #4631 (the wider three-surfaces-disagree card).\n\nFiled unassigned.\n"
+}

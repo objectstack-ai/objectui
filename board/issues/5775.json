@@ -1,0 +1,36 @@
+{
+  "number": 5775,
+  "kind": "issue",
+  "title": "[finding] The `lane` job's declared mirror of `readChangesetState` names one ignored filename; the installed reader ignores four and also reads `.changeset/pre/*.md`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-23T06:32:28Z",
+  "updated_at": "2026-08-24T16:56:19Z",
+  "closed_at": "2026-08-24T16:56:19Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5775",
+  "body": "Found while implementing #5442 (npm-presence publish predicate). Out of that card's scope — filing rather than fixing, and #5442 deliberately leaves the detector untouched.\n\n## The reading\n\n`.github/workflows/changeset-release.yml`'s `Detect pending changesets` step carries an explicit, load-bearing declaration:\n\n> ⛔ This must stay a faithful mirror of `readChangesetState` in `changesets/action`'s `src/index.ts` (it re-exports `@changesets/read`) […]\n>   - every `.changeset/*.md` counts EXCEPT `README.md`;\n\nMeasured against the copy actually installed in this repository — `node_modules/.pnpm/@changesets+read@1.0.0/node_modules/@changesets/read/dist/index.mjs` — the reader does two things the mirror does not:\n\n```js\nconst ignoredMdFiles = [\n    /^README\\.md$/i,\n    \"AGENTS.md\",\n    \"CLAUDE.md\",\n    \"GEMINI.md\"\n];\n```\n\nand, separately, it also pulls in a whole second directory:\n\n```js\nchangesets.push(...(await fs.readdir(path.join(changesetBase, \"pre\"))).map((file) => `pre/${file}`));\n```\n\nSo the two disagree in **both** directions:\n\n| case | `@changesets/read@1.0.0` | the mirror in the workflow |\n|---|---|---|\n| `.changeset/AGENTS.md` | ignored | **counted as pending** |\n| `.changeset/CLAUDE.md` | ignored | **counted as pending** |\n| `.changeset/GEMINI.md` | ignored | **counted as pending** |\n| `.changeset/ReadMe.MD` | ignored (regex is `/i`) | **counted as pending** (exact `'README.md'` compare) |\n| `.changeset/pre/*.md` | **counted as pending** | not seen at all |\n\nConfirmed empirically: with a `pre/probe.md` plus `AGENTS.md` and `CLAUDE.md` added to a copy of the real `.changeset/`, `readChangesets` returned **161**, counting `pre/probe.md` and ignoring the other two.\n\n## Why it is dormant right now, and why that is not reassuring\n\nNone of `.changeset/AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.changeset/pre/` or a non-canonically-cased README exists today, so the disagreement is currently unobservable. The first of those files anyone adds makes it live, and `.changeset/AGENTS.md` is a plausible thing to add — it is exactly where per-directory agent instructions go in this repo's conventions, and the changesets reader ignores it *because* people do that.\n\nThe blast radius depends on which predicate the release job is on:\n\n- **Before #5442** the mirror gated publishing, so a stray `.changeset/AGENTS.md` would have made `pending_changesets` permanently `true` and skipped the release job on every push — silently, and indistinguishably from the defect #5442 was filed for.\n- **After #5442** publishing is keyed on npm presence, so the mirror no longer decides whether a release exists. It now feeds the clear step, which is a deliberate superset and self-checks, so the disagreement degrades to a cosmetic wrong count in the step summary rather than a lost release.\n\nThat is a real reduction in severity, but it does not make the declaration true, and the comment still tells the next reader that one name is the whole exclusion list.\n\n## Also worth checking, and not checked here\n\nThe mirror is declared against **`changesets/action`'s bundled copy**, not against this repository's `@changesets/read@1.0.0`. Those can be different versions with different `ignoredMdFiles`. The correct fix should establish which copy is authoritative for the mirror before matching it — matching the wrong one would replace a known drift with a confident one.\n\n## Not proposing a fix here\n\nThere is a real choice to make (restate the list in the comment and the shell; or factor the mirror into one shared script that both the workflow and a unit test can call, which would make it testable for the first time), and it is worth a look at whether the mirror still needs to be exact now that #5442 removed its publish-gating role.\n\n⛔ No workflow was changed by this issue and no release was executed. Filed unassigned."
+}

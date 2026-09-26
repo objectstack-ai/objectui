@@ -1,0 +1,35 @@
+{
+  "number": 5944,
+  "kind": "issue",
+  "title": "`no-unprefixed-query-params` cannot see `find()` calls inside page-source template literals, so one of the four #5458 sites has no mechanical gate",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T02:49:49Z",
+  "updated_at": "2026-08-25T08:46:50Z",
+  "closed_at": "2026-08-25T08:46:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5944",
+  "body": "Found while implementing #5458. Recording the coverage gap the rule landed with, measured rather than assumed.\n\n## What is gated, and what is not\n\n`object-ui/no-unprefixed-query-params` (added in #5458) anchors on a `CallExpression` whose callee is `.find`/`.findOne`. Three of that card's four live sites are real calls and the rule reported all three before the fix and none after.\n\nThe fourth — `apps/console/src/sdui-workbench-preview.tsx` — is **not a call as far as any parser is concerned**. The harness holds its page source in a template literal:\n\n```\nconst source = `\nfunction Page() {\n  ...\n  const all = await adapter.find('showcase_project', { $top: 200 });\n```\n\n`source` is runtime page metadata (`const page = { type: 'home', kind: 'react', ..., source }`), so ESLint sees one `TemplateLiteral` token and never a `CallExpression`. No AST rule can reach inside it. That site was corrected by hand in #5458; nothing would reject the next one written there.\n\nMeasured: with the rule enabled repo-wide over 3615 files, the pre-fix tree reported `ObjectView.tsx` and `AssignedUsersSection.tsx` (plus `DashboardFilterBar.tsx`, which the card had not named) — and zero findings in `sdui-workbench-preview.tsx`, whose `{ top: 200 }` was live at the time.\n\n## Why a text scan is not the obvious answer\n\nA `grep` for these key names would match the rule's own docblock, this issue, and the prose in `content/docs/guide/react-pages.md` that documents the convention. The key list is made of ordinary English words (`top`, `limit`, `filter`, `sort`, `count`), which is exactly why the rule is anchored to a call in the first place.\n\n## The shape that would fit\n\n`apps/console/src/__tests__/sdui-preview-page-source-styling.test.ts` already solves the same problem for a different rule: it enumerates the preview harnesses with a Vite `import.meta.glob('../*-preview.tsx', { query: '?raw' })`, extracts each page object's `source` string, and holds the extracted source to a checker. A new preview harness appears in that enumeration without anyone remembering to add it.\n\nA sibling test in that family could parse each extracted `source` (the repo already has `@object-ui/sdui-parser`, which that test imports) and assert no unprefixed query option in a `find`/`findOne` params object — reusing the rule's own key map rather than a second copy of it.\n\nNot done under #5458: that card's declared file surface did not include a new test file, and the hazard at this particular site is pedagogical rather than an unbounded read — the harness's in-memory adapter is `find: async () => store.slice()`, which ignores its params entirely. The teaching risk is real though: the header says \"DO NOT copy its source string into a page\", but the shape is still what a reader sees.\n\n## Not in this issue\n\nThe same `.records`/unprefixed-option misreads in `skills/objectui/guides/data-integration.md` are a published-skill surface with their own line budget — reported separately.\n"
+}

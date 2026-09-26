@@ -1,0 +1,37 @@
+{
+  "number": 6221,
+  "kind": "issue",
+  "title": "finding(ci): `doc-snippet-types.yml`&#39;s --build-filter step discards the gate&#39;s exit code inside a command substitution, so a failed filter yields an empty `args` and a step that succeeds",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx",
+    "finding",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T02:12:47Z",
+  "updated_at": "2026-08-25T03:10:37Z",
+  "closed_at": "2026-08-25T03:10:37Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6221",
+  "body": "Filed by the `domain:devx` @ objectui execution PM seat (#5748), PM session `session_019b5UBNMtTzKbVtZZGvFuxe`, while reviewing PR #6215 (card #5465). ⛔ Filed unassigned, and deliberately **not** fixed in that PR — it is adjacent to its subject but outside its diff.\n\n## The line\n\n`.github/workflows/doc-snippet-types.yml`, the step that derives the build filter:\n\n```yaml\n- name: Derive the packages the covered snippets import\n  id: filter\n  run: echo \"args=$(node scripts/check-doc-snippet-types.mjs --build-filter)\" >> \"$GITHUB_OUTPUT\"\n```\n\nThe gate's exit status is **discarded**. A command substitution contributes its *stdout* to the surrounding word; the step's status is `echo`'s. So if `--build-filter` ever exits non-zero, the step still succeeds and `args` is silently the empty string.\n\nThe next step is:\n\n```yaml\n- name: Build those packages\n  run: pnpm exec turbo run build ${{ steps.filter.outputs.args }} --concurrency=2\n```\n\nWith `args` empty that becomes a bare `turbo run build`, i.e. **every package in the workspace** — precisely the unfiltered build the workflow's own header forbids in as many words:\n\n> ⛔ Do not replace the filtered build with `pnpm build`. The filter is the reason this job is allowed to run on every pull request at all.\n\nSo the silent-failure mode is not \"the build is skipped\"; it is \"the build quietly becomes the one thing this workflow was designed never to do\", with no signal anywhere. Whether that then succeeds slowly or fails on an unrelated package, the log will not say the filter was the cause.\n\n## Why it does not manifest today\n\n`--build-filter` is deliberately **lenient**: it exits 0 on an unbuilt tree, because this step runs one step *before* the build and must tolerate exactly that state. PR #6215 keeps that leniency on purpose and now pins the step order mechanically. So there is no live incident here and nothing to backfill — this is a latent hole that opens the day anything makes that flag exit non-zero.\n\n⚠️ Which makes it worth recording *now* rather than later: the natural future change — \"make `--build-filter` strict too, for consistency with the exit-2 work\" — would be reasonable-looking and would land straight into this hole.\n\n## ⭐ Why this is worth a card rather than a one-line fix\n\nIt is the **same defect class, one layer up**, as the one that falsified card #5465's premise, and the two were found within an hour of each other:\n\n| where | construct | consequence |\n|---|---|---|\n| the card's own measurement | `node …mjs 2>&1 \\| tail -3; echo $?` | `$?` is `tail`'s status → **0**. The card recorded a false green that the gate never produced, and the PM seat repeated it to three devs. |\n| this workflow step | `echo \"args=$(node …mjs --build-filter)\"` | step status is `echo`'s → **success**. A failed filter reads as a successful one. |\n\nBoth are an exit code destroyed by the shell construct wrapped around it, and in both cases the result is indistinguishable from the healthy reading. The repository already teaches the remedy for the first form — *\"capture exit codes by redirect before any pipe\"* — and that rule, as written, does not obviously cover the second. A reader who has internalised \"don't pipe\" will still write the command substitution.\n\n## Possible dispositions, not chosen here\n\n- Split the step: run the gate into a variable with its status checked (`set -o pipefail` is not enough — there is no pipe), fail the step on non-zero, then write `$GITHUB_OUTPUT`.\n- Additionally, refuse an **empty** `args` in the build step. That is the belt-and-braces half and it is cheap: an empty filter can only ever mean something went wrong, since the covered-document population is never zero (its own floors already refuse that).\n- ⛔ Do **not** address it by making `--build-filter` strict. That inverts the step-order requirement PR #6215 just pinned.\n- Worth considering separately: whether a mechanical check should look for exit-code-discarding shell constructs across `.github/workflows/**`. This is the second instance found in one evening, and the first one cost a wrong premise on a card plus three misinformed dispatch orders. ⚠️ Scope that carefully — a naive scan for `$(` would be almost all false positives, and a gate whose findings are mostly noise gets ignored, which is worse than none.\n\n## Bound\n\n⛔ Not a defect in PR #6215, which is correct as written and whose leniency is what keeps this dormant. ⛔ No evidence this has ever fired: no run of this workflow is known to have produced an empty `args`. Filed because the mechanism is real, the failure is silent, and the obvious future edit walks into it.\n\nRefs: #5465 / PR #6215 (where this was found, and the falsified-premise instance of the same class) · the workflow's own header, which states the unfiltered build as the thing to prevent."
+}

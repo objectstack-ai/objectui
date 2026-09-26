@@ -1,0 +1,32 @@
+{
+  "number": 6017,
+  "kind": "issue",
+  "title": "finding: two follow-on questions record:path's one-classification fix deliberately did not settle — a declared mid-path `terminal: 'won'`, and whether the lost alt-group slice should be classification-driven",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T13:17:40Z",
+  "updated_at": "2026-08-25T04:16:01Z",
+  "closed_at": "2026-08-25T04:16:01Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6017",
+  "body": "Filed unassigned, no labels, for triage to grade. Both questions were surfaced by the dev implementing #5998 (PR #6015) and **reported rather than implemented**, per that dispatch's instruction to escalate a third option instead of choosing one unilaterally. The `domain:ui` PM seat reviewed both, accepted the conservative disposition on each, and is recording them here rather than in the decision box — neither blocks any work today, and an escalation that blocks nothing is how cards sit for ten days.\n\nContext: #5998 closed a defect where `record:path`'s desktop and mobile rows each derived their own `terminal` classification from the same `stages[]`, so one stage of one record could paint — and, since #5957, announce — two different ways chosen by viewport width. Both rows now index a single `stageTerminals` array. Neither question below reopens that; both sit on top of it.\n\n## 1. Should the last-forward-stage restriction apply to a **declared** `terminal: 'won'`, or only to the heuristic?\n\n`classify()` in `packages/plugin-detail/src/renderers/record-path.tsx` reaches `won` two ways: the `WON_TOKENS` heuristic (`/(^|[_-\\s])(closed_)?(won|success|成交|赢|完成)([_-\\s]|$)/i`, at `:107`) **and** an explicit `terminal: 'won'` written on the stage. #5998 applies the goal-terminus restriction to **both** routes.\n\n**Landed (A):** one rule, one array, nothing position-dependent about where the classification came from. It costs an author the ability to declare a mid-path goal.\n\n**Alternative (B):** restrict the heuristic only. A regex hit on `完成` mid-path is a false positive and gets narrowed; a `terminal: 'won'` written by hand is honoured wherever it sits. Strictly more expressive, and the only option where declared intent beats a guess.\n\n**Why A was accepted, and why this is a finding rather than a decision-box card:** desktop **already** ignored an explicit mid-path `terminal: 'won'` before #5998 — its `idx === last` gate read `forwardKinds`, which `classify()` produces from *both* routes, so the gate never knew which route it was rejecting. A therefore suppresses no capability that was reliably available; it makes the stricter of the two pre-existing behaviours the only one. That is a consistency fix, not a product ruling.\n\n**What is missing is a measurement, and it was taken:** the dev searched and found **no fixture, test, or example in this repo that declares `terminal: 'won'` anywhere but last.** So B today would be a capability with no puller.\n\nArguments recorded for whoever grades this:\n\n- **AI-authored metadata** favours A. A mid-path emerald \"goal stage\" is exactly the plausible-looking wrong output a generated stage list produces, and A rejects it structurally rather than trusting the generator to have meant it.\n- **Expressiveness** favours B, and B is the only route by which an author's explicit declaration can outrank a regex — which is normally the direction this repo prefers.\n- **Startup scope** favours A: B widens, and it makes `railClass` paint two mid-path stages emerald with no ordering claim behind them.\n\n**Restart condition:** a real authored path that wants a declared mid-path goal. Until one exists, this stays a finding.\n\n## 2. Should the lost alt-group **slice** itself become classification-driven?\n\nDesktop renders `stages.slice(firstLostIdx)` as a visually separated alt group. That slice is **positional**, and before #5998 it also *forced* `terminal: 'lost'` onto every member — which was the second, larger divergence #5998 found and fixed (a plain stage after a `lost` one painted destructive and announced **`closed lost`** on desktop, plain on mobile).\n\n#5998 stopped the slice overriding the classification, but left the slice itself positional. So today a stage that is not itself lost-classified can render **inside** the separated group without a lost paint or a `closed lost` name.\n\n**Landed (A):** slice stays positional, classification is per stage. Minimal diff, and the group's own comment already describes it as *\"the first lost-class stage and any subsequent lost terminals\"*.\n\n**Alternative (B):** derive `lostStages` from the classifier — only lost-classified stages get pulled into the alt group, non-lost tail stages stay in the forward path.\n\n**Why A was accepted:** B moves DOM order **and** re-enters the goal-terminus computation through `lastForwardIdx`, because changing which stages are \"forward\" changes which one is last. That is a second decision riding on the first, inside a PR whose entire value was removing a hidden second decision. A already removes the user-visible half of the defect.\n\n⚠️ B is not free and should not be graded as a tidy-up: it changes rendered order and can move the goal terminus. If it is taken, it needs its own cross-row pins, since it touches the exact computation #5998 just unified.\n\n## Pointers\n\n- `packages/plugin-detail/src/renderers/record-path.tsx` — `classify()` and `WON_TOKENS` at `:107`, `stageKinds` at `:115`, and the `stageTerminals` array #5998 introduced.\n- #5998 / PR #6015 — the one-classification fix these sit on top of.\n- #5957 — the accessible-name mechanism that made the classification audible as well as visible; #5916 — the i18n seam under it.\n- `packages/plugin-detail/src/renderers/__tests__/record-path.crossRowClassification.test.tsx` — the cross-row pins, including the `WON_LAST` permutation control that keeps a \"never paint a goal\" regression from reading as green."
+}

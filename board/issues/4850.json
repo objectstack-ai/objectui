@@ -1,0 +1,35 @@
+{
+  "number": 4850,
+  "kind": "issue",
+  "title": "finding: 两处 eslint-disable-next-line 写错位置,从未生效 —— 作者想压的 warning 至今照常在报",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-16T13:11:36Z",
+  "updated_at": "2026-08-24T10:34:59Z",
+  "closed_at": "2026-08-24T10:34:59Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4850",
+  "body": "发现于 #4833 的清理过程(PR #4849),实测基线 `origin/main` @ `815cad03d`。observation-class:\n今天没有用户会因此出错,两条都只是 warning,而 `.github/workflows/lint.yml` 有意不设 `--max-warnings`。\n单独留档是因为**它需要一个判断**,不是机械修法。\n\n## 现象\n\n#4833 清掉的 49 条失效指令里,有 2 条的失效原因与其余 47 条**不同类**。其余 47 条是\"被压的问题已经不存在了\";\n这 2 条是**指令写错了位置,从落库起就没生效过** —— `eslint-disable-next-line` 的\"下一行\"落在了另一条注释或空行上,\n而作者想压的那条 warning **至今仍在照常报**。\n\n| 站点(清理前的行号) | 指令 | 错位方式 | 作者想压的 warning 现在在哪 |\n|---|---|---|---|\n| `apps/console/src/pages/developer/PublicFormsPage.tsx:151` | `react-hooks/exhaustive-deps` | 指令是行内块注释,写在 `useEffect(() =` 那条语句的**内部行尾**,于是它的\"下一行\"是 152 行的空行 | `react-hooks/exhaustive-deps` 在 **151 行本行**照常报着 |\n| `packages/react/src/SchemaRenderer.tsx:238` | `@typescript-eslint/no-explicit-any` | 指令的 `--` 理由**换行续写**到了 239 行,于是\"下一行\"是那条续写注释 | `@typescript-eslint/no-explicit-any` 在 **240 行**(`type ForwardedProps = Record` 那行)照常报着 |\n\n复现:仓根 `pnpm exec eslint . -f json`,这两个文件里同时存在「`ruleId: null` 的失效指令」与「同一条规则的真实 finding」,\n行号相邻但不重合 —— 这正是错位的指纹。\n\n## 为什么 PR #4849 只删不修\n\n#4849 的口径是\"清理 ESLint 报为失效的指令\",这 2 条按该口径**确实是失效的**,删除没有争议,已随该 PR 删掉。\n但**没有**把它们挪到正确位置,因为那不是同一件事:\n\n挪位置会让两条**现存的、正在报的** warning 被新压制下去 —— 那是**抑制语义的变更**,而不是清理。\n\"这两处该不该被抑制\"是一个独立判断,#4833 那张零决策的机械卡不该顺带替维护者做掉。\n\n## 需要判断的是什么\n\n两处各有两条路,选哪条取决于这两处代码本身是否成立,不是格式问题:\n\n**A. `PublicFormsPage.tsx` 的 `useEffect(() =` … `, [])`**\n- A1:补依赖 / 把 `load` 包进 `useCallback` —— 如果空依赖数组其实是 bug(`load` 变化时不重跑),这才是真修。\n- A2:把指令挪到语句上一行,让它真正生效 —— 如果\"只在挂载时跑一次\"是刻意的,那就把这个意图落实,并把理由写清楚。\n\n**B. `SchemaRenderer.tsx` 的 `type ForwardedProps = Record`(开放转发面)**\n- B1:把指令改成不换行(理由写进上方已有的 doc 注释,那里其实已经把决定写得很清楚了),让它生效。\n- B2:维持现状不压制 —— 这个 `any` 有意为之且上方 doc 注释已详述,让它继续计入 `no-explicit-any` 的总数\n  (该规则全仓 warning 里占 79.2%,本来就是已知历史债,多一条少一条无实质差别)。\n\n我的倾向是 B1 + A 需要读代码才能定,但这属于维护者的判断,不预判。\n\n## 顺带记一笔:同类但无遗留的第三处\n\n`packages/app-shell/src/views/RecordDetailView.tsx:1968` 也是同样的错位(指令下面跟着 5 行说明性注释),\n但它的依赖数组本来就是全的、没有 warning 可压,所以删掉它没有任何遗留,不在本条范围内。\n\n## 一个可选的机械拦网\n\n这一类\"指令写了但没生效\"靠人眼看不出来 —— 它和一条正常生效的指令在源码里长得一模一样,\n唯一的信号就是 ESLint 那条 `Unused eslint-disable directive`,而它淹没在 9779 条 warning 里。\n#4833 正文提到的 `linterOptions.reportUnusedDisableDirectives: 'error'` 正好能把这类**一次性**变红并从此拦住;\n#4833 清理完成后该项计数恰好为 0,关门的前置条件已经具备。是否关门是 #4833 遗留的独立决策,一并交分诊。\n\n关联:#4833(清理本体)、PR #4849(删除这 2 条的 PR)、#4806、#4029。\n\n未认领,仅留档。\n"
+}

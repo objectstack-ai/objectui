@@ -1,0 +1,35 @@
+{
+  "number": 6009,
+  "kind": "issue",
+  "title": "finding(tooling): `ui:icon` becomes a record-reading resolver in #5631, but its type is absent from the lucide gate's census — 96 authored glyph names go unjudged, three of them already retired spellings",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T12:39:25Z",
+  "updated_at": "2026-08-25T08:58:08Z",
+  "closed_at": "2026-08-25T08:58:08Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6009",
+  "body": "Found while implementing #5631 (the `ui:icon` glyph-key contract migration). Out of that card's scope — it is the *wrong resolver table* family, not the wrong schema key — so recorded here rather than folded in.\n\n## What happens\n\n`scripts/check-lucide-icon-record-names.mjs` judges authored icon names by a hand-maintained census, `RECORD_READING_TYPES`, mapping a component `type` to the paths where its glyph names sit:\n\n```\n'button':        { paths: ['icon'], … }\n'action:button': { paths: ['icon'], … }\n'action:icon':   { paths: ['icon'], … }\n…8 entries\n```\n\n`'icon'` — the `ui:icon` node type itself — **is not among them**, and could not have been before #5631: that renderer named its glyph with `name`, and every census path is an `icon` path.\n\nAfter #5631 lands, `ui:icon` resolves `schema.icon` through lucide's runtime `icons` record. It is now exactly the kind of resolver this gate exists for, and its authored names are still not judged.\n\n## How it was measured\n\nThe gate's own `--report` counter, run on the same tree before and after the corpus conversion (the conversion reverted in place under a restoring trap, then restored — the tree verified byte-identical to `HEAD` afterwards):\n\n```\nbefore conversion:  authored icon names judged: 30 | declines to judge: 254\nafter conversion:   authored icon names judged: 30 | declines to judge: 350\n```\n\n+96, and `judged` does not move. The delta is exactly the 96 non-`.mdx` icon nodes the migration converted from `name` to `icon`; they moved out of \"invisible to the gate\" and into \"seen, and declined\". The gate stays **green** either way, which is the property worth noting: this is not a gate that fails, it is a gate whose population quietly shrank relative to what now reaches a resolver.\n\n## Why it matters concretely\n\nThree of those 96 are a **retired lucide spelling today**:\n\n```\nexamples/schema-catalog/src/schemas/marketing/call-to-action.json:53   icon: 'check-circle'\nexamples/schema-catalog/src/schemas/marketing/call-to-action.json:69   icon: 'check-circle'\nexamples/schema-catalog/src/schemas/marketing/call-to-action.json:85   icon: 'check-circle'\n```\n\n`check-circle` is absent from lucide's runtime `icons` record (the #5622 / #5586 mechanism: a retired spelling is dropped from the record while the deprecated named export survives). Those three rendered nothing before #5631 and render the visible placeholder after it — **unchanged behaviour, no regression from that card** — but they are precisely the population `check-lucide-icon-record-names.mjs` was built to catch, and it does not see them.\n\n## The fix is not mechanical, which is why this is filed rather than done\n\nAdding\n\n```\n'icon': { paths: ['icon'], resolver: 'packages/components/src/renderers/basic/icon.tsx' },\n```\n\nto the census turns the gate **red** on the three `check-circle` nodes. That is the correct outcome, but it makes the census entry and a retired-spelling repair land together — and the spelling family (#5622 / #5586) is deliberately kept separate from the key family. Whoever takes this decides whether the repair is `circle-check` in the fixtures or something the #5935 consolidation should absorb first.\n\n## Related but distinct\n\n- **#5992** — same gate, different blind spot: icons on *untyped child nodes*. This one is a *typed* node whose type is simply not in the census.\n- **#5935** — the eight-resolver consolidation. `ui:icon` becoming a ninth record-reading site is an input to that card's table.\n- **#5622 / #5586** — the retired-spelling family that supplies the three concrete instances above.\n\n## References\n\n- `scripts/check-lucide-icon-record-names.mjs` — `RECORD_READING_TYPES`\n- `packages/components/src/renderers/basic/icon.tsx` — the resolver, post-#5631\n- #5631 — where this surfaced"
+}

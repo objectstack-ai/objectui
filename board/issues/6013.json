@@ -1,0 +1,33 @@
+{
+  "number": 6013,
+  "kind": "pull_request",
+  "title": "test(types): drop eight unused schema imports from phase2-schemas.test.ts",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T12:51:10Z",
+  "updated_at": "2026-08-24T13:21:47Z",
+  "closed_at": "2026-08-24T13:21:46Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-24T13:21:45Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6013",
+  "body": "Fixes #5824\n\n`packages/types/src/__tests__/phase2-schemas.test.ts` imported eight schema names from `../zod/index.zod` that no test in the file uses. Each one mildly overstated the suite's pin coverage: an import-based coverage census saw them imported by the acceptance suite and could conclude they were pinned, when nothing asserts against them. Per the triage ruling the imports are **dropped**, not backfilled with new assertions — authoring coverage for schemas nobody asked this file to cover would turn an S card unbounded.\n\nVerified at `81377502c`.\n\n## The card's list of 10 was stale — re-derived, name by name\n\nThe card measured 10 names at `ad404e057`. Two of them no longer exist in the import block, so the real count is **8**:\n\n| Card's name | Status on `main` (`11d3ab999`) |\n|---|---|\n| `AppActionSchema` | present, unused → dropped |\n| `AppMenuItemSchema` | present, unused → dropped |\n| `ThemePreviewSchema` | **already gone** — retired by #5823. Its only remaining occurrence in the file is a prose mention inside a comment at line 118, not an identifier |\n| `ReportViewerSchema` | present, unused → dropped |\n| `BlockEditorSchema` | present, unused → dropped |\n| `BlockInstanceSchema` | present, unused → dropped |\n| `ActionExecutionModeSchema` | present, unused → dropped |\n| `ActionCallbackSchema` | present, unused → dropped |\n| `ActionConditionSchema` | **already gone** — #5981 retired the ActionCondition branch shape and replaced the export with a module-local predicate schema. Zero occurrences in the file |\n| `CRUDSchema` | present, unused → dropped |\n\nDelta against the card: 10 minus `ThemePreviewSchema` minus `ActionConditionSchema` = 8 dropped. The PM's assumption about #5981 held.\n\n## Measurement, not eyeballing\n\nInstrument: `@typescript-eslint/no-unused-vars` (warning level in this repo), count read from `--format json`.\n\nOn the merge-base the file reported **8 warnings, 0 errors** — and the eight names eslint flagged are exactly the eight above. Because typescript-eslint's `no-unused-vars` counts type-position usage as usage, a flagged name is unused as a value *and* as a type; none of the eight was load-bearing as a type-only import.\n\nCounter-probe, both directions:\n\n- Each dropped name occurred **exactly once** in the whole file — the import line itself.\n- Positive control on the same grep: every kept name hits more than once (`AppComponentSchema` 7, `ReportBuilderSchema` 3, `BlockLibrarySchema` 3, `ActionSchema` 13, `ListViewSchema` 13, `AnyComponentSchema` 9, `CrudActionSchema` 2, …), so the zero-hit result is a real measurement and not a broken pattern.\n- After the edit, the file reports **0 warnings** — a fall of exactly 8, no more and no less. A larger fall would have meant something in use went with them.\n- Package-wide, `@object-ui/types` moves **252 to 244 warnings across 115 files, 0 errors both ways** — the whole package delta is this file's own 8, so no other file's verdict moved. The 244 remaining are pre-existing and out of scope for this card.\n\n## Reverse-verification\n\nDirection predicted before running: re-adding one dropped name should raise the file's warning count from 0 to exactly 1 and name that name.\n\nObserved: re-adding `CRUDSchema` produced exactly **1** warning, `'CRUDSchema' is defined but never used`. The mutation was proven on disk in both directions rather than trusted to an editor's exit code — grep for the injected line returned 1, grep confirmed the anchor line was not clobbered, and grep confirmed no other dropped name had reappeared. Restoration ran under `trap … EXIT INT TERM`; afterwards `git diff HEAD --stat` was empty and `git status --porcelain` silent, so the tree is byte-identical to HEAD.\n\nThe same trap discipline covered the package-level base measurement, which mutates the file back to its merge-base content.\n\n## Gates\n\n| Gate | Result |\n|---|---|\n| `pnpm --filter @object-ui/types type-check` | `TYPECHECK_EXIT=0` (`tsc --noEmit` + `tsconfig.examples.json` + `tsconfig.test.json`) |\n| root-form vitest over `packages/types/src/__tests__` | `VITEST_EXIT=0` — Test Files 54 passed (54), Tests 591 passed (591) |\n| the changed file alone under vitest | `VITEST_PHASE2_EXIT=0` — Tests 34 passed (34) |\n| eslint on the changed file | 8 warnings to 0 warnings, 0 errors |\n| `node scripts/check-changeset-presence.mjs` | exit 0 |\n| `node scripts/check-changeset-no-major.mjs` | exit 0 — \"No changeset declares a `major` bump\" |\n\nNo test verdict moved: the diff touches zero `it(`, `describe(` or `expect(` lines — it is eight deleted import lines and nothing else.\n\n## Changeset\n\nMeasured rather than assumed. `check-changeset-presence.mjs` failed on the bare edit, because the file sits under the `src/` of a released package. This is test-only and publishes nothing, so it carries the repo's first-class empty-frontmatter declaration (AGENTS.md line 161) rather than a version bump. objectui has no `skip-changeset` label and none was created.\n\n## Noted, deliberately not acted on\n\nThe ruling says to name a suspicious omission rather than write the assertion, so, for the record: `ReportViewerSchema` sits beside a describe block that pins `ReportComponentSchema` and `ReportBuilderSchema`, and `BlockEditorSchema` / `BlockInstanceSchema` sit beside one that pins `BlockSchema` and `BlockLibrarySchema` — sibling families where some members are pinned and these are not. `CRUDSchema` has no describe block anywhere in the file. `AppActionSchema` and `AppMenuItemSchema` are the weakest candidates: the `AppComponentSchema` fixture exercises both shapes transitively through its `menu` and `actions` arrays, so they are covered in substance already. Whether any of that is a genuine coverage gap worth its own card is a triage call, not this card's.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01CSoz9uGhaaSgiq3hshtN7L)_"
+}

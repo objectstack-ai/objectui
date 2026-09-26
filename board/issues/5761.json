@@ -1,0 +1,36 @@
+{
+  "number": 5761,
+  "kind": "issue",
+  "title": "finding: nothing guards the CLASS \"a field designer authors a key FieldSchema refuses\" — three per-key tombstones, no key-level parity check",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-23T05:25:15Z",
+  "updated_at": "2026-08-24T15:21:51Z",
+  "closed_at": "2026-08-24T15:21:51Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5761",
+  "body": "Observation-class finding, surfaced while verifying #4676 (the `placeholder` chain). No live defect today — all three known instances are resolved. Filed unassigned; `finding`, deliberately **not** `pm:queue`.\n\n## The class\n\nA field designer offers a control that writes a key `FieldSchema` refuses by name. The author sees the control work (and, in metadata-admin, sees the preview render it), then `PUT /api/v1/meta/object/:name` returns a hard 422 `INVALID_METADATA` that blocks **every subsequent save** of that object until the key is stripped.\n\nThis repo has now filed that same shape three times:\n\n| card | key | resolution |\n|---|---|---|\n| #4644 | `indexed` | control retired + strip-on-load |\n| #4687 | `distance_metric` | declaration removed (zero readers/writers) |\n| #4676 | `placeholder` | **producer moved** — declared upstream, objectstack#9019 / PR objectstack#9113, shipped in `@objectstack/spec` 17.1.0 |\n\nThree instances, three different correct answers. That is a class, not a coincidence.\n\n## What exists today\n\nPer-key tombstones, each keyed to one literal:\n\n- `packages/app-shell/src/views/metadata-admin/previews/object-fields-io.ts` — `RETIRED_FIELD_KEYS = ['indexed']`\n- `packages/plugin-designer/src/MetadataFieldsPage.tsx` — a second, independently-maintained `RETIRED_FIELD_KEYS = ['indexed']`\n- prose tombstones in `packages/types/src/field-types.ts`, `MetadataService.ts`, `metadataConverters.ts`, `FieldDesigner.tsx`\n\nEvery one of these is written **after** an instance is discovered in production. Nothing detects the next one.\n\n## What is missing\n\nNo test or gate asserts: *every key the field designers can emit is a key `FieldSchema` accepts.*\n\nMeasured on `origin/main` @ `9850c6e4e`, with controls:\n\n- `grep -rn \"FieldSchema\" packages/app-shell packages/plugin-designer` — 30 hits, **all** prose about `indexed` plus a local structural interface `ServerFieldSchema` (plugin-designer's own subset type, not the spec's schema). Zero executable assertions against the spec's `FieldSchema`.\n- Control: `grep -c \"@objectstack/spec/data\"` across `packages`/`apps` returns 127 hits, so the repo does import that subpath heavily — the zero above is a real absence, not a broken instrument.\n- `scripts/check-spec-symbol-derivation.mjs` is **not** this guard: it checks symbol NAME collisions between app-shell and the spec, a different dimension entirely.\n- Sibling gap already on record: #5138 (\"no gate reads a doc snippet's schema KEYS against the spec\") is the same key-level blind spot in the docs corpus, and was closed unbuilt.\n\n## Shape of the fix\n\nA parity test on the designer write path, not a per-key allowlist. The tractable version: take what the designer draft I/O actually emits and parse it. Measured working during the #4676 verification (throwaway probe, not landed):\n\n```\nreadFields -> writeFields round-trip of { nickname: { type:'text', label:'Nickname', placeholder:'e.g. Jo' } }\n  => {\"type\":\"text\",\"label\":\"Nickname\",\"placeholder\":\"e.g. Jo\"}\n  => FieldSchema.safeParse(...).success = true\ncontrol: un-stripped `indexed`          => success = false, issue codes [\"unrecognized_keys\"]\ncontrol: bogus key `zzzDefinitelyNotAKey` => success = false\n```\n\nThe controls matter: without them a green parity test proves nothing, because a loosened or wrongly-resolved schema accepts everything.\n\nNote the harder half, stated honestly rather than hidden: enumerating the **full** set of keys the two designers can emit is not mechanical — `ObjectFieldInspector` writes through many conditional `patchDef({...})` calls, and `fromDesignerField` spreads `prev` verbatim to preserve unknown keys. A guard over the *statically declared* payload shapes (`FieldMetadataPayload`, `DesignerFieldDefinition`, `ServerFieldSchema`) is the achievable version and would have caught all three instances above.\n\n## Why this is not urgent\n\nAll three known instances are closed, and the two `RETIRED_FIELD_KEYS` sets are correct as they stand. The cost of the gap is that instance four is found by a user hitting a save-blocking 422, not by CI.\n\nRefs: #4676 (where this surfaced), #4644, #4687, #5138, objectstack#9019."
+}

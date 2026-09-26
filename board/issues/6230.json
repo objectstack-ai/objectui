@@ -1,0 +1,36 @@
+{
+  "number": 6230,
+  "kind": "issue",
+  "title": "The eager-closure checker publishes per-chunk and headroom verdicts to $GITHUB_OUTPUT that the Bundle Analysis PR comment never reads",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T02:49:32Z",
+  "updated_at": "2026-08-25T04:19:09Z",
+  "closed_at": "2026-08-25T04:05:19Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6230",
+  "body": "Found while implementing #5924 on `48e53814e`. Filed unassigned, observation class — not graded, not a bug in anything that ships.\n\n## What is there\n\n`scripts/check-eager-closure-budget.mjs` writes five keys to `$GITHUB_OUTPUT`:\n\n```js\nclosure_status, closure_gzip_kb, closure_budget_kb, closure_chunks, closure_chunk_status\n```\n\n`.github/workflows/performance-budget.yml` passes only four of them into the comment step's env:\n\n```yaml\nBUDGET_CLOSURE_STATUS:     ${{ steps.budget.outputs.closure_status }}\nBUDGET_CLOSURE_GZIP_KB:    ${{ steps.budget.outputs.closure_gzip_kb }}\nBUDGET_CLOSURE_BUDGET_KB:  ${{ steps.budget.outputs.closure_budget_kb }}\nBUDGET_CLOSURE_CHUNKS:     ${{ steps.budget.outputs.closure_chunks }}\n```\n\n`closure_chunk_status` — added by PR #6210 with the per-chunk half — is written and never read. PR #6229 (this card's neighbour, for #5924) adds `closure_headroom_status` the same way, deliberately following the existing shape rather than diverging from it inside an unrelated card; so on `main` after both land there will be **two** published verdicts that no consumer reads.\n\n## Why it is worth a line rather than nothing\n\nNothing is broken and no verdict is lost: all three halves print to the step log, and the exit code still decides `budget_status`, which the comment does render. The cost is narrower — a reader of the PR comment sees \"eager closure: pass, 3222.6 KB of 3266.6 KB\" and cannot tell from the comment whether the per-chunk half or the sensitivity half was the one that objected, only that something did. That is the same class of thing #3152 was about: the comment inferring a verdict it was not handed.\n\nTwo dispositions, both cheap, and this is deliberately not choosing between them:\n\n1. Wire both keys into the comment env and render them, so the comment names which half objected.\n2. Decide the step log is the right home for the per-half detail and drop the two unread outputs, so the checker does not publish what nothing consumes.\n\n⛔ What should not happen is a third round of this: a future half added to the checker, publishing a third unread key because the previous two set the precedent.\n\nRefs: #5324 (the gauge) · #5490 / PR #6210 (`closure_chunk_status`) · #5924 / PR #6229 (`closure_headroom_status`) · #3152 (the comment renderer inferring a verdict)."
+}

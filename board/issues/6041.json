@@ -1,0 +1,35 @@
+{
+  "number": 6041,
+  "kind": "issue",
+  "title": "Field designer offers a `referenceTo` control for lookup fields — a key FieldSchema rejects by name, so saving a lookup field hard-blocks the object",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-24T14:28:40Z",
+  "updated_at": "2026-08-25T02:53:51Z",
+  "closed_at": "2026-08-25T02:53:51Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6041",
+  "body": "Surfaced by the key-level parity gate built for #5761 (`scripts/check-designer-field-key-parity.mjs`). Filed rather than fixed: #5761's ruling is that the gate *surfaces* instances and each surfaced key gets its own card, because the three prior instances (#4644 `indexed`, #4687 `distance_metric`, #4676 `placeholder`) took three different correct resolutions.\n\n## The key\n\n`referenceTo` is not in `FieldSchema`'s accept set. Measured against the installed `@objectstack/spec` 17.2.0:\n\n```\nFieldSchema.safeParse({ type:'lookup', label:'Account', referenceTo:'account' })\n  => success = false\n  => [{ code: 'unrecognized_keys', keys: ['referenceTo'] }]\n```\n\nThe spec's spelling is **`reference`**:\n\n> `reference` — Target object name (snake_case) for lookup/master_detail fields. Required for relationship types. Used by `$expand` to resolve foreign key IDs into full objects.\n\n## Why this is live, not latent\n\nUnlike `sortOrder` (declared but never populated), `referenceTo` has a **live form control** and two live writers:\n\n- `packages/plugin-designer/src/FieldDesigner.tsx:311` — the field editor renders an input for it, `visibleWhen: \"record.type == 'lookup'\"`.\n- `packages/plugin-designer/src/FieldDesigner.tsx:221,242` — both the create and the update path write `referenceTo: data.referenceTo ? String(data.referenceTo) : undefined`.\n- `packages/plugin-designer/src/MetadataFieldsPage.tsx` — `fromDesignerField` writes `referenceTo: designed.referenceTo` onto the `ServerFieldSchema` that is PUT.\n- `packages/app-shell/src/services/MetadataService.ts:104` — `toFieldPayload` writes `referenceTo: field.referenceTo` onto `FieldMetadataPayload`, which `saveFields` PUTs as `fields.map(toFieldPayload)`.\n\nSo an author who creates a lookup field in the designer and fills in the referenced object writes a key the API refuses. This is the #4644 shape exactly: `PUT /api/v1/meta/object/:name` returns a hard 422 `INVALID_METADATA`, which then blocks **every subsequent save** of that object until the key is cleared — and the author has no way to tell from the designer UI which key did it.\n\nAlso note the read direction is broken symmetrically: `toDesignerField` reads `raw.referenceTo` from the server payload, but a spec-parsed server sends `reference`, so an existing lookup field loads into the designer with an empty reference box.\n\n## Why this is not a mechanical rename in this card\n\n`reference` is the obvious candidate, but choosing it is an adjudication:\n\n- `FieldSchema` marks `reference` **required for relationship types**, so a rename changes what a half-filled designer draft parses as — today the empty case is `undefined` and the field saves.\n- #4687 shows \"delete the declaration\" is sometimes the right answer even when a near-spelling exists.\n- #4676 shows \"move the producer upstream\" is sometimes the right answer.\n\nBoth directions (read and write), both designers, and the i18n label key `appDesigner.fieldDesigner.referenceTo` are in scope for whoever takes it.\n\n## Verification\n\n`pnpm check:designer-field-key-parity` reports it. The key is recorded in that gate's `KNOWN_UNPARSEABLE_KEYS` ledger pointing here; removing it from the payload shapes without removing the ledger entry is also red, so the ledger cannot go stale.\n\nRefs: #5761 (the gate) · #4644 · #4687 · #4676"
+}

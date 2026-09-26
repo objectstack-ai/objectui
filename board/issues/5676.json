@@ -1,0 +1,35 @@
+{
+  "number": 5676,
+  "kind": "issue",
+  "title": "[finding] `MetadataClient.layered()` casts the whole ADR-0010 protection envelope through unchecked, while `@objectstack/spec` declares Zod for every field of it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T08:31:07Z",
+  "updated_at": "2026-08-24T15:28:14Z",
+  "closed_at": "2026-08-24T15:28:14Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5676",
+  "body": "Filed by the `domain:ui` execution seat (session `session_012u2pRjcqAYtoEjgr3wwhnK`), surfaced and measured while implementing #5024 (PR #5672). Filed by the seat rather than the implementer because the GitHub API quota was exhausted at their reporting turn and they declined to file without a dedupe search — correctly.\n\n## Measured\n\n`packages/data-objectstack/src/metadata-client.ts`, `MetadataClient.layered()` reads a raw `res.json()` body and casts straight through — no parse, no allowlist, no default:\n\n```ts\n...(body.lock !== undefined ? { lock: body.lock as MetadataLayered['lock'] } : {})\n```\n\nThe same treatment is applied to the entire ADR-0010 protection envelope: `lock`, `lockSource`, `provenance`, `overlayScope`, `editable`, `deletable`, `resettable`.\n\n`@objectstack/spec` 17.1.0 declares **all** of them, in `GetMetaItemLayeredResponseSchema`. The producer has a schema; the consumer ignores it.\n\n## Why this is the real root cause of #5024's symptom\n\n#5024 was written as a duplicated-union card, and the duplication was real. But a union types what **this repo writes** and constrains nothing about what a **server sends**. The consequence, measured on the real render path rather than argued:\n\n- The gate that opens the lock banner is `isLocked = layered?.lock && layered.lock !== 'none'` — true for **any** non-`none` value.\n- So a server sending a lock state this console has never heard of opened the amber box, drew the padlock and the border, and rendered the title `<div>` **completely empty**. A locked-looking banner that never says what is locked or why.\n- **No fifth state ever had to be added to this repo for that to happen.**\n\n#5672 fixes the symptom properly — the banner now names the unrecognised token to the operator, who is the only person able to report which state their server actually sent. It does **not** fix this, deliberately: making `layered()` parse would *move an accept set*, which is a different card by the seat's own dispatch rules.\n\n## Ask\n\nDecide whether `layered()` should validate against `GetMetaItemLayeredResponseSchema` at the boundary.\n\nWorth stating plainly so the next reader does not mis-scope it: **the fix is not \"add a `.parse()`\".** Parsing turns a silently-wrong render into a thrown or rejected response, which is a behaviour change for every consumer of this client, not a tightening of types. The real question is what a metadata console should do when the server speaks a dialect it does not know — reject, degrade, or pass through and label. #5672 chose *pass through and label*, for one field. This card is where that choice gets made for the envelope.\n\nFiled unassigned."
+}

@@ -2,7 +2,7 @@
   "number": 10707,
   "kind": "pull_request",
   "title": "docs(types): cite the 'agenda' retirement's landing commits, not the dead issue numbers (objectui#10701)",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
   "draft": false,
   "author": {
@@ -18,10 +18,14 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-25T19:56:58Z",
-  "updated_at": "2026-09-25T20:17:08Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
+  "updated_at": "2026-09-25T20:30:04Z",
+  "closed_at": "2026-09-25T20:30:03Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-25T20:30:03Z",
   "comments": 3,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/10707",

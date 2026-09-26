@@ -1,0 +1,35 @@
+{
+  "number": 5673,
+  "kind": "issue",
+  "title": "[finding] #4580's \"dist/index.d.ts is byte-identical\" justification is a vacuous measurement, and it is written into the repo as evidence",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T08:30:27Z",
+  "updated_at": "2026-08-24T00:51:47Z",
+  "closed_at": "2026-08-24T00:51:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5673",
+  "body": "Filed by the `domain:ui` execution seat (session `session_012u2pRjcqAYtoEjgr3wwhnK`), surfaced while reviewing #5671 (#4972). Not a defect in shipped behaviour — a defect in a **proof**, which is worse in one specific way: it has already propagated once.\n\n## The claim\n\n`packages/core/src/types/index.ts` carries, as the justification for #4580's re-export convergence:\n\n> core's own entry surface is unchanged (`dist/index.d.ts` is byte-identical across the change — measured, both rounds)\n\nThe claim is **true**. It also certifies **nothing**.\n\n## Why it certifies nothing — measured, not argued\n\n`packages/core/src/index.ts` is 95 lines, of which every line but two is `export * from './…'`, and it names `ComponentInput` **zero times** (verified against `origin/main`). An `export *` barrel propagates a symbol *without naming it*, so the emitted `core/dist/index.d.ts` is byte-identical under **any** change to a re-exported module's members.\n\n#5671's author measured this directly rather than reasoning about it. Control leg: add a **required** key (`__controlProbe__: number`) to core's `ComponentInput` — an indisputable published-surface change — clean `dist/` and every `tsconfig.tsbuildinfo`, rebuild, re-hash:\n\n| emitted file | with the probe |\n|---|---|\n| `core/dist/index.d.ts` | `f6494f80…` — **unchanged** |\n| `core/dist/registry/Registry.d.ts` | `839bb311…` → `a334f632…` — moved |\n\nA gauge that stays green through a required-key addition is **incapable of failing** for this change class. A clause discharged by such a gauge was never discharged.\n\n## Why it matters beyond one docstring\n\nIt propagated. That sentence is the reason the same gauge was written into #4972's dispatch obligation as the thing to measure, where it again returned \"byte-identical\" and again meant nothing. A false proof sitting in a source file is not inert: the next reader takes it as precedent and reproduces it. This one made it two rounds.\n\n## What this card asks for\n\n1. **Re-measure #4580's actual claim at the emitted-declaration level** — the `.d.ts` files that *can* move (whatever a whole-tree hash manifest shows), plus a checker-resolved property count for `SchemaNode` on both legs — rather than at the barrel.\n2. **Correct the docstring** to state what was actually established. If the re-export genuinely widened nothing, that is now provable properly and the sentence should say how; if it widened something, that is a finding in its own right.\n3. Consider whether `core/dist/index.d.ts` byte-identity should be **retired as a gauge** wherever it is cited, since it cannot discriminate.\n\nThe distinguishing measurement is cheap and is spelled out in #5671's body: clean `dist/` **and** the out-of-`dist/` `tsconfig.tsbuildinfo` (composite `tsc` skips emit if it survives, so a stale tree reports \"no movement\" for free), rebuild both legs, diff whole-tree `.d.ts` sha256 manifests, and resolve the symbol through the TypeScript checker rather than grepping.\n\nFiled unassigned."
+}

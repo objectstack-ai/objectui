@@ -1,0 +1,36 @@
+{
+  "number": 6023,
+  "kind": "issue",
+  "title": "finding(i18n): `home.recentApps.itemType.report` and `.metadata` are missing from all ten packs — the first members the #4964 exact check measured",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T13:45:37Z",
+  "updated_at": "2026-08-24T22:25:10Z",
+  "closed_at": "2026-08-24T22:25:10Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6023",
+  "body": "Measured by the exact-member check added for #4964 (its first run over `main`). Filed unassigned; **not** fixed there — that card's dispatch rules it out (\"do not add missing keys to the packs to make the gate pass; a missing translation is a real gap the gate exists to surface\").\n\n## The gap\n\n`RecentItem['type']` (`packages/app-shell/src/context/RecentItemsProvider.tsx:47`) is a six-member union:\n\n```ts\ntype: 'object' | 'dashboard' | 'page' | 'report' | 'record' | 'metadata';\n```\n\n`packages/i18n/src/locales/en.ts` defines four of the six under `home.recentApps.itemType` — `object`, `dashboard`, `page`, `record`. `report` and `metadata` are absent from **all ten** packs, which is why no gate saw it: pack-vs-pack parity reads ten packs agreeing, and the prefix rule only ever asked whether `home.recentApps.itemType` resolved (it does, sixteen members deep in the sibling case that opened #4964).\n\n## Both missing members are live, not dead vocabulary\n\n`packages/app-shell/src/hooks/useTrackRouteAsRecent.ts` writes both:\n\n- `type: 'metadata'` at :105 — any `/metadata/<type>/<name>` route visit\n- `type: 'report'` at :148 — any `/report/<name>` route visit\n\n## What the user sees\n\nNot a raw key — all three consumers pass a `defaultValue`, which is what kept this quiet:\n\n| consumer | fallback |\n|---|---|\n| `console/home/HomeRail.tsx:251` | `defaultValue: it.type` → the bare lowercase word `report` / `metadata` |\n| `console/home/RecentApps.tsx:55` | `defaultValue: capitalizeFirst(item.type)` → `Report` / `Metadata` |\n| `console/home/StarredApps.tsx:61` | `defaultValue: capitalizeFirst(item.type)` → `Report` / `Metadata` |\n\nSo English readers see a plausible-looking label (lowercase in the rail, which is its own small inconsistency against the four defined members) and the other **nine locales see English**. This is precisely the shape objectui#3517 established as the mechanism that hides a missing key for months.\n\n## Fix\n\nAdd both keys to `packages/i18n/src/locales/en.ts` under `home.recentApps.itemType`, which makes `packages/i18n/src/__tests__/all-locales-key-parity.test.ts` demand them in the other nine packs — the correct order. Then delete the two entries from `missingMembers` in `scripts/i18n-call-site-key-baseline.json` (the check is a ratchet; a baselined entry whose defect is gone fails the build too).\n\nCopy is a decision for whoever picks this up: the four existing members are single title-case nouns (`Object`, `Dashboard`, `Page`, `Record`), so `Report` and `Metadata` are the obvious shape, but the nine translations are the real work.\n\nNote the alternative resolution the gate also accepts and this issue does **not** recommend: narrowing `RecentItem['type']` by deleting the two members. That is wrong here — both are written at runtime, so narrowing the union would be a lie about the data rather than a fix.\n"
+}

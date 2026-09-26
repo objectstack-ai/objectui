@@ -1,0 +1,36 @@
+{
+  "number": 5940,
+  "kind": "issue",
+  "title": "[finding] `object-master-detail-form` issues `getObjectSchema(undefined)` for a detail collection whose object it never resolved, instead of declining to fetch",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T02:37:05Z",
+  "updated_at": "2026-08-25T00:12:05Z",
+  "closed_at": "2026-08-25T00:12:05Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5940",
+  "body": "Found while resolving #3840. Out of that card's scope (its subject was the `sections` sample and the probe's render guard); filing as observation-class for triage rather than queueing.\n\n## Fact (objectui `origin/main` @ `2074a59`)\n\nMounting `object-master-detail-form` under the #3840 binding-reach fixture, with a data source that records every call, produces **two** calls:\n\n```\ngetObjectSchema(\"probe_object__c\") | getObjectSchema(undefined)\n```\n\nThe first is the parent binding and is correct — that is the call the binding-reach probe exists to observe. The second passes `undefined` as the object name.\n\nIts origin is the `details` input (`{ name: 'details', type: 'array', label: 'Detail Collections', required: true }`). The fixture fills it with the generic array sample `['name']`, so each detail entry is a bare string and whatever key the renderer reads the child object off (`.object` / `.objectName`) is `undefined` — and the renderer then asks the data layer for it anyway.\n\n## The two halves, and why I did not pick one\n\nThis has the same shape as the #3840 fork and deserves the same discriminating step, which I did not spend here:\n\n- **Fixture half.** `['name']` is very likely not a plausible *configuration* for `details` — the same lesson #3840 landed on for `sections`. If the spec's detail-collection entry is an object with a required child-object key, the sample is simply malformed and should be fixed in the probe's sample table.\n- **Product half.** Independently of the sample: a renderer that cannot resolve a detail collection's object should **decline to fetch**, not call `getObjectSchema(undefined)`. A real backend gets a query for an object named `undefined`; the console gets whatever that returns. `record:related_list` is ledgered in that probe precisely for taking the other choice — it declines when it has no parent id.\n\nThe second half is worth a decision even if the first is true, which is why this is filed rather than folded into the fixture fix.\n\nNote this call is invisible to the binding-reach probe's assertions either way: that probe asks whether *any* call carried the object name, and the first call already satisfies it. It surfaced only because the probe now records every call and the full list was read.\n\nRelated: #3840, #3838 (same family — an unresolved optional sub-key reaching a read unguarded)."
+}

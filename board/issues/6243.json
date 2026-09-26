@@ -1,0 +1,35 @@
+{
+  "number": 6243,
+  "kind": "issue",
+  "title": "`invoked-as.mjs`'s \"Nothing here enforces this yet\" section is stale in both halves — the gate landed and the sweep completed, but the header still tells readers neither exists",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T03:39:17Z",
+  "updated_at": "2026-08-25T05:42:04Z",
+  "closed_at": "2026-08-25T05:42:04Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6243",
+  "body": "Found while implementing #6230 (unrelated card — the eager-closure budget comment). Filed unassigned, observation class. Nothing is broken at runtime; the defect is that a header written to be the authoritative answer now asserts four things that are false, and explicitly instructs the reader to believe it over the tree.\n\n## What the header says\n\n`scripts/invoked-as.mjs`, section `## Nothing here enforces this yet -- the rule is a CONVENTION`:\n\n> An earlier version of this paragraph said `scripts/check-entry-guard.mjs` enforces the rule [...]. It does not. **That file has never existed in this repository.**\n\n> `git grep -n 'check-entry-guard'` -> ONE hit: this paragraph\n> `git grep -l 'process.argv[1]' -- scripts` -> 30 files\n\n> The 30 files are this one plus **TWENTY-NINE hand-typed guards** [...] in NINE textually distinct spellings and not one carrying a realpath leg\n\n> Both halves -- the gate and the sweep -- are tracked in #6092. **Until that lands**, `isEntrypoint` here is a convention [...] do not read this file as evidence that the tree already has.\n\nLine 17 of the same header points at this section as the thing to read *before* concluding otherwise:\n\n> read \"## Nothing here enforces this yet\" below **before concluding otherwise**\n\n## What is actually on `origin/main`\n\n#6092 — the issue the header names as tracking both halves — is **closed**. Both halves landed:\n\n- `scripts/check-entry-guard.mjs` **exists** (`git cat-file -e origin/main:scripts/check-entry-guard.mjs` succeeds; last touched by #6156).\n- It is wired in `package.json` as `check:entry-guard`, and it is a real blocking gate. Run on `0409b766d`:\n\n```\n✓ check:entry-guard: 46 scripts/ file(s) — no entry guard outside the baseline;\n  0 file(s) still hand-type one (0 occurrence(s), ⛔ SHRINK-ONLY, objectui#6092);\n  41 export bindings, 41 of them inert on import (0 known-unsafe, ⛔ SHRINK-ONLY).\n```\n\nSo all four claims are now wrong, and in the same direction:\n\n| Header claim | Reality on `origin/main` |\n|---|---|\n| the file \"has never existed in this repository\" | it exists and is a wired gate |\n| `git grep 'check-entry-guard'` → one hit, this paragraph | at minimum the script, the `package.json` script entry, and the gate's own output |\n| 29 hand-typed guards remain, in nine spellings | `0 file(s) still hand-type one`, shrink-only ratcheted at 0 |\n| \"Until that lands, `isEntrypoint` here is a convention\" | it lands; the convention is enforced |\n\n## Why it is worth a card rather than nothing\n\nThis is not ordinary comment rot. The header is written as the single authoritative answer to \"was this module run, or imported?\", and this section exists specifically to stop a reader from over-trusting it — so a reader who follows its instruction is now actively told that a rule with a blocking gate behind it is unenforced, and that a sweep which completed is still outstanding. The cheapest wrong conclusion available is \"nothing stops a thirtieth spelling from being typed next week\", which is exactly what the shrink-only ratchet now does stop.\n\nIt is also self-referentially the failure this file documents: prose ported from objectstack, describing objectstack's tree, that stayed put while this tree changed underneath it — the same mechanism that produced the *earlier* wrong version of this very paragraph, which the paragraph itself narrates.\n\n## Disposition\n\nNot choosing between these; both are cheap:\n\n1. Rewrite the section to describe the tree as it is — the gate exists, the sweep is done, the ratchet is shrink-only at 0 — and keep the measured history as history rather than as present tense.\n2. Delete the section. Its whole purpose was to prevent readers assuming an enforcement that did not exist; that enforcement now exists, so the warning has nothing left to do.\n\nEither way the measurements should be re-taken rather than edited in place: the `7c96c9420` figures are a snapshot, and re-anchoring them to a current commit is what stops the next round of this.\n\n⚠️ Not verified by me: whether the sibling copies this header binds together (`packages/cli/src/utils/invocation.ts` in objectstack, per the \"## The siblings\" section) carry the same stale paragraph. Worth checking in the same pass, since that section says \"change one, change the others\".\n\nRefs: #5984 (the port that brought the prose) · #6078 · #6092 (closed — the gate and the sweep) · #6156 (last touched the gate).\n\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

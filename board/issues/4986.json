@@ -1,0 +1,33 @@
+{
+  "number": 4986,
+  "kind": "issue",
+  "title": "合并队列声称「已强制」却从未产生过一次 merge_group 构建(repo-wide 0),必需集实测不含 4 个 shard / Type Check / Lint —— #3523 的第 3 步从未落地,而 AGENTS.md §9 已按「队列会替你兜住」反转了 auto-merge 禁令",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:on-hold"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T12:35:26Z",
+  "updated_at": "2026-08-24T14:49:50Z",
+  "closed_at": "2026-08-24T14:49:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4986",
+  "body": "Filed **unassigned** while implementing #4973（PR 见该 issue）。不由那个 PR 修:#4973 的修形是让 `dependabot-auto-merge.yml` 自己等门,属仓内代码面;本条是**仓库设置面 + AGENTS.md 指引面**,两者都不该在热修里替维护者决定。\n\n## 实测事实(全部来自 API,已标明哪一条是推断)\n\n### 1. `merge_group` 构建数:repo-wide `total_count = 0`\n\n`#3523` 的第 1、2 步已落地 —— `ci.yml`、`lint.yml`、`control-bytes.yml`、`docs-links.yml`、`skills-paths.yml`、`doc-component-types.yml`、`changeset-presence.yml` 现在都带 `merge_group: types: [checks_requested]`,path filter 也已从 trigger 移进 job。但订阅之后**一次队列构建都没有发生过**:\n\n| 查询 | total_count |\n|---|---|\n| `ci.yml` runs, `event=merge_group` | **0** |\n| 全仓 runs(不限 workflow), `event=merge_group` | **0** |\n| `ci.yml` runs, `event=pull_request` | 4342 |\n\n最后一行是对照:同一个过滤器在 `pull_request` 上返回 4342,所以 0 不是查询写错。\n\n### 2. 必需集实测不含最慢那批检查\n\n#4959 于 `2026-08-17T08:13:36Z` 被 `github-actions[bot]` 合入 `main`(`merged_by` 字段)。该 head SHA(`31745d8b`)共 19 条 check run,合并那一刻仍有 **9 条在飞行**:\n\n| context | 合并时状态 | completed_at |\n|---|---|---|\n| Test (shard 1/4) | in_progress | 08:21:56Z(**failure**) |\n| Test (shard 2/4) | in_progress | 08:22:08Z |\n| Test (shard 3/4) | in_progress | 08:21:01Z(**failure**) |\n| Test (shard 4/4) | in_progress | 08:18:55Z |\n| Type Check | in_progress | 08:22:33Z |\n| Lint | in_progress | 08:17:13Z |\n| Build & E2E | in_progress | 08:16:51Z |\n| Build Docs | in_progress | 08:18:46Z |\n| Bundle Analysis | in_progress | 08:17:12Z |\n\n`--auto` 只在必需集被满足时落地,因此**上表 9 条一条都不在分支保护必需集里** —— 这是从行为反推,不是读到了设置(设置面仓内读不到,`gh` 也不在容器里)。必需集只可能是当时已报到的那 10 条的子集(`Skill Guide Path Check`、`Changeset Fixed Group Check`、`Control Byte Scan`、`Internal Docs Link Check`、`Changeset Declaration`、`Doc Component Type Check`、`Test (coverage)`(skipped)、`Live E2E (informational)`、`label`、`dependabot`),**也可能是空集**,这两者行为上无法区分。\n\n注意 `Type Check` 在列 —— 那正是 #3523 兑现时(#3503/#3510/#3516)带红合入的同一条 context。\n\n### 3. 推断(标明为推断)\n\n0 次队列构建 + 直接合入,最可能的解释是:ruleset 把 GitHub Actions 列为 **bypass actor**,或队列在 #3243 之后被关掉了。仓内无法区分这两种。但无论哪一种,**「队列会在当前 `main` 上重建、不绿就踢出队列」这件事从未发生过一次**。\n\n## 为什么这条比「dependabot workflow 没等门」更严重\n\nAGENTS.md §9 目前对**所有 agent** 教的收尾路径是(原文用 `gh pr merge` 加 PR 号):\n\n> `gh pr merge NNNN --squash --auto --delete-branch    # 挂 auto-merge = 入合并队列`\n>\n> 队列会把 PR **在当前 `main` 上重建**后再落地,重建不绿就把它踢出队列,而不是把红的落到共享 `main` 上。所以旧版那条「绝不 `gh pr merge --auto`」的前提已经反转……(仓内佐证:`.github/workflows/dependabot-auto-merge.yml` 对 Dependabot PR 用的就是 `gh pr merge --auto --squash`)\n\n这段话把「绝不 `--auto`」的禁令**反转**了,而反转所依赖的那个保护(队列重建 + 必需集)按上面的实测**并不在运行**。于是:\n\n- 每个照 §9 收尾的 agent,做的正是 #4973 描述的那个动作 —— 在必需集为空/不含慢 job 的仓库里挂 `--auto`,等价于「立即合并」;\n- 它引用 `dependabot-auto-merge.yml` 作为「仓内佐证」,而那个文件正因为这个用法在 #4973 被判为病根 —— 佐证与病例是同一行代码;\n- `content/docs/guide/ci-cd-pipeline.md` 的 \"Merge Queue\" 一节也以「队列只在重建后全绿才合」为前提描述现状。\n\n#4973 的 PR 只关掉了 dependabot 这一条通道(它自己显式等完整检查集,不再委托必需集)。**人/agent 那条通道仍然开着**,而且是照文档开的。\n\n## 交维护者的两个决定(未替你做)\n\n1. **设置面**:是要把队列真正启用(并按 #3523 第 3 步把 `Test (shard 1/4..4/4)`、`Type Check`、`Lint`、`Build & E2E`、`Build Docs` 及五个无 path filter 的 gate 加进 required checks / 队列必需集),还是承认队列事实上不在用、改走别的门?第 1、2 步已经具备,`#3523` 明确写了「Step 3 before step 1 is the deadlock」——现在顺序是安全的,只差第 3 步。\n2. **AGENTS.md §9 指引面**:上面那段反转在设置面修好之前是**不成立**的。要么先修设置面让它重新成立,要么把 §9 改回「等远端 CI 全绿再挂 `--auto`」(即 #4973 给 dependabot 装的那种显式等待,只是由人执行)。这一条改的是所有 agent 的合并纪律,不适合由某个任务 PR 顺手改。\n\n两个决定的取舍方向不同,但**第 2 条的正确性完全依赖第 1 条的结果**,所以放在同一张卡里,不拆。\n\n## 复现\n\n```\nGET /repos/objectstack-ai/objectui/actions/runs?event=merge_group                    total_count 0\nGET /repos/objectstack-ai/objectui/actions/workflows/ci.yml/runs?event=pull_request  total_count 4342\nGET /repos/objectstack-ai/objectui/pulls/4959       merged_by github-actions[bot], merged_at 08:13:36Z\nGET /repos/objectstack-ai/objectui/commits/31745d8b.../check-runs   19 runs, 上表的 started_at/completed_at\n```\n\n同族前情:#3523(队列必需集为空,当日兑现三例)、#3243(405 与 §9 冲突)、#4973(dependabot 通道)。\n"
+}

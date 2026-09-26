@@ -1,0 +1,36 @@
+{
+  "number": 6111,
+  "kind": "issue",
+  "title": "Authored `FormSection.visibleWhen` is dropped by all four plugin-form layouts — declared, bridged, then never evaluated on the object-view chain",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T17:43:53Z",
+  "updated_at": "2026-08-25T04:23:07Z",
+  "closed_at": "2026-08-25T04:23:07Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6111",
+  "body": "Filed unassigned by the objectstack `domain:devx` dev seat while implementing the documentation half of objectui#6010 (objectstack#11740). Recording only — not graded, no `domain:*`.\n\nMeasured on objectui `origin/main` @ `a100f77`, by content.\n\n## The key is declared, mapped, carried — and then dropped one hop before anything evaluates it\n\n`@objectstack/spec` declares `FormSection.visibleWhen` (`packages/spec/src/ui/view.zod.ts:2119`), and this repo's spec bridge maps it through:\n\n```\npackages/react/src/spec-bridge/bridges/form-view.ts:250   if (section.visibleWhen) mapped.visibleWhen = section.visibleWhen;\n```\n\n`packages/app-shell/src/views/RecordFormPage.tsx:256` then wires `formDef.sections` into `ObjectForm` for every layout family, and `resolveFormViewLayout` (`packages/app-shell/src/utils/recordFormNavigation.ts:139`) does the same for `ModalForm`.\n\nEvery one of the four plugin-form layouts renders a section as a virtual `section-divider` pseudo-field, and none of them copies the section's predicate onto it:\n\n```\npackages/plugin-form/src/ObjectForm.tsx:1197   { name: `__section_${sectionKey}`, label, type: 'section-divider', colSpan, collapsible, collapsed, onToggle, className }\npackages/plugin-form/src/ModalForm.tsx:667     { name: `__section_${g.key}`, label, description, type: 'section-divider', colSpan, className }\npackages/plugin-form/src/ModalForm.tsx:697     { name: `__section_${section.name || index}`, label, type: 'section-divider' }\npackages/plugin-form/src/DrawerForm.tsx:549    { …, type: 'section-divider', colSpan, collapsible, collapsed, onToggle, className }\npackages/plugin-form/src/DrawerForm.tsx:605    { …, type: 'section-divider', colSpan, collapsible, collapsed, onToggle }\npackages/plugin-form/src/SplitForm.tsx:341     { …, type: 'section-divider', colSpan, className }\n```\n\nThe tabbed arm (`ModalForm.tsx:714` `fieldTabs`) carries no predicate either.\n\nSo on the object-view chain — create/edit modal, drawer, split, and the full-page record form — an authored `FormSection.visibleWhen` is **never evaluated**: the section renders unconditionally, silently, with no diagnostic. `grep` finds exactly one runtime reader of the key in this repo, and it is the OTHER renderer:\n\n```\napps/console/src/components/FormPage.tsx:558   visibleWhen: sec.visibleWhen ?? sec.visibleOn,\napps/console/src/components/FormPage.tsx:651   evalFieldPredicate(section.visibleWhen, values, true, previous ?? undefined, undefined, …)\n```\n\n(`packages/components/src/custom/config-panel-renderer.tsx:291` reads a `visibleWhen` too, but that is the metadata-admin config panel's FUNCTION predicate — a different contract, not this key.)\n\n## Why this is worth a card and not a shrug\n\nThis is the declared-not-enforced class objectui#5594 / #5627 closed for the console renderer, still open on the chain that renders most record forms. The renderer's own support already exists — `packages/components/src/renderers/form/form.tsx:2014` handles `type === 'section-divider'` and, since #6010, evaluates a `visibleWhen` on it with the host predicate scope bound (the #6010 parity pin exercises exactly that surface, hand-authoring `{ name: 'pay', type: 'section-divider', visibleWhen }`). What is missing is the one line in each layout that copies the authored predicate onto the pseudo-field it already synthesises.\n\n⚠️ Grading note for whoever picks this up: `visibleWhen`'s fallback is fail-OPEN, so today's behaviour (section always shown) is the same direction a faulting predicate would produce — which is precisely why nobody has noticed. A fix makes previously-inert authored metadata start hiding sections; that is the intended contract (ADR-0089), but it is a behaviour change for any app that authored a section predicate and got used to it doing nothing.\n\n## Relationship to the sibling card\n\nobjectui#6110 covers the two evaluators that DO read authored predicates but pass `undefined` for the predicate scope. This card is the other half of the same measurement: the key that never arrives at an evaluator at all. Fixing #6110 alone leaves section predicates inert on this chain; fixing this alone would deliver them to a call site that (in the console renderer) still cannot bind `current_user`.\n\nDocumentation impact: objectstack#11740 documents the section row as binding `record` + `previous` and **not** `current_user`, because that is what the one renderer reading the key does. It cites this card.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_015ahemw8RcTgqtxrj15PEZx)_\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

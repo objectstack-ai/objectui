@@ -1,0 +1,36 @@
+{
+  "number": 6188,
+  "kind": "issue",
+  "title": "[finding] `record:line_items` issues `getObjectSchema(undefined)` for a panel whose `childObject` is unset, instead of declining to fetch",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T23:44:37Z",
+  "updated_at": "2026-08-25T00:33:01Z",
+  "closed_at": "2026-08-25T00:33:01Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6188",
+  "body": "Found during the scope sweep for #5940 and deliberately left unfixed there — that card's scope was `object-master-detail-form`'s detail-collection resolution, and #5940's dispatch order named other unresolved-sub-key sites as file-not-fix.\n\n## Fact (objectui `origin/main` @ `b37d3f0`)\n\n`LineItemsPanel` (registered as `record:line_items`) reads `schema.childObject` and hands it to the data layer with no guard on it being resolved:\n\n`packages/plugin-form/src/LineItemsPanel.tsx:110-118`\n\n```\nuseEffect(() => {\n  const ds: any = dataSource;\n  if (!ds || typeof ds.getObjectSchema !== 'function') return;\n  let cancelled = false;\n  ds.getObjectSchema(schema.childObject)\n    .then((s: any) => { if (!cancelled) setChildSchema(s ?? null); })\n    .catch(() => { if (!cancelled) setChildSchema(null); });\n  return () => { cancelled = true; };\n}, [dataSource, schema.childObject]);\n```\n\nThe effect guards the *data source* (`ds`, and that `getObjectSchema` is callable) but never the *argument*. A panel authored without `childObject` therefore asks the backend for an object literally named `undefined`; the `.catch` turns whatever comes back into a null schema, so the symptom is a silently unsanitized child grid rather than a visible error.\n\n## Why this is the same defect class as #5940, filed separately\n\nIdentical shape, identical key name, same package — and the same in-repo precedent settles it: `RelatedList` declines when it cannot scope (*\"has no referenceField/parentId — refusing to fetch all rows\"*, `RelatedList.tsx:498`), and after #5940 `MasterDetailForm`'s detail resolve effect declines on this exact key. `MasterDetailForm`'s *other* effect — the child-schema cache — has always spelled it `.filter(Boolean)`. So three sites in this package now decline and this one does not.\n\nNot folded into #5940 because that would have widened a scoped card into a sweep, and because the two blocks differ in one way worth a reading before anyone edits: `record:line_items` is bound to an existing parent record, so whether an unset `childObject` is reachable at all through the registered authoring surface (vs. only through direct component use) has not been measured here. That measurement is what this card is for.\n\n## Not verified here\n\n- Whether the registry declares `childObject` as a required input for `record:line_items`, and whether the spec's own `RecordLineItemsProps` makes it required.\n- Whether a bare mount reproduces the call, the way #5940's premise was reproduced against the binding-reach fixture.\n\nRelated: #5940 (same decline-to-fetch decision, `object-master-detail-form`), #3838 and #3840 (same family — an unresolved optional sub-key reaching a read unguarded)."
+}

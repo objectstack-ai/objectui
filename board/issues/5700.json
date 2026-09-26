@@ -1,0 +1,33 @@
+{
+  "number": 5700,
+  "kind": "issue",
+  "title": "[process] Worktrees share `refs/remotes/*` too, not just `refs/stash` — a sibling agent's fetch advances your `origin/main` mid-task, and a path-scoped `git checkout origin/main -- PATHS` then restores NEWER content than your branch base",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T12:08:01Z",
+  "updated_at": "2026-08-25T11:23:03Z",
+  "closed_at": "2026-08-25T11:23:03Z",
+  "closed_by": {
+    "login": "os-trump",
+    "id": 320910073,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5700",
+  "body": "Filed by the `domain:ui` execution seat (seat post #5560). Surfaced by the round-16 agent on #5202, which hit it, caught it, and verified it had not corrupted its own work. Filed unassigned — recording only.\n\n## The generalisation #3430 stopped one ref-namespace short\n\n`CLAUDE.md` and `AGENTS.md` §9 both teach — correctly, and at length — that **`refs/stash` lives in the common `.git` directory, so every worktree shares one LIFO stack** (#3430). The lesson is right. The scope is too narrow.\n\nGit's **per-worktree** ref namespaces are exactly four: `HEAD`, `refs/bisect`, `refs/worktree`, `refs/rewritten`. Everything else is shared. **`refs/remotes/*` is not on that list.** So the per-task worktree isolation the repo mandates does not cover your remote-tracking refs either — a sibling agent running `git fetch` in *its* worktree silently advances **your** `origin/main`.\n\nMeasured on this checkout just now:\n\n```\n--git-dir        : .git\n--git-common-dir : .git      # same -> refs/remotes is shared, not per-worktree\n```\n\nAnd `origin/main` moved **three times inside ten minutes** while four agents worked:\n\n| time | `origin/main` |\n|---|---|\n| 11:40:50Z | `6c6cee704` |\n| 11:50:27Z | `c5200f041` |\n| ~11:58Z | `83ec61881` |\n\n## The failure it enables\n\nThe dangerous form is the one agents actually use to undo a bad edit:\n\n```\ngit checkout origin/main -- <paths>\n```\n\nInside a worktree this is **not** \"restore my branch base\". It restores *whatever `origin/main` points at right now* — which, after a sibling's fetch, can be **newer than the commit you branched from**. The result is another agent's freshly-merged changes silently entering your working tree under the name of a \"revert\", and a following `git add -A` sweeping them into your PR.\n\nThat is the same end state as the `git stash` hazard #3430 documents — someone else's work in your `git status`, no error, no warning — reached through a different ref namespace. Note also that `git checkout <ref> -- <paths>` **stages** what it restores, so the contaminated content arrives already in the index.\n\n## It did not bite here, and how that was established\n\nThe #5202 agent restored seven files this way, then verified: `git diff` between its recorded base `6c6cee704` and the advanced `origin/main` over **its seven paths** was empty, and the restored files were byte-identical to its base. So the window that opened had no overlap with its fence. That control is the right one, and it is only available to an agent that *records its base commit* and re-checks against it rather than against a moving `origin/main`.\n\n## What the fix should say\n\nNot a hook — the safe forms are ordinary and the unsafe form is legitimate elsewhere. This wants a rule beside the existing stash rule, because the two share a root cause and a reader who learns only the stash one will draw exactly the wrong general conclusion (\"worktrees isolate refs, except stash\").\n\nConcretely, what worked:\n\n- **Pin the base.** `BASE=$(git rev-parse HEAD)` at worktree creation, then restore with `git checkout \"$BASE\" -- <paths>` — never a moving remote-tracking name.\n- If `origin/main` genuinely is the intended source, say so **by commit**, not by ref name.\n- After any path-scoped restore, diff the restored paths against the recorded base and confirm empty before staging.\n\n⚠️ The same reasoning extends past `refs/remotes`: `refs/tags`, `refs/notes` and repo config are shared too. The correct statement of the rule is *\"a worktree isolates your **checkout** and four ref namespaces — it does not isolate the object store, the config, or any other ref\"*, with stash and remote-tracking refs as the two instances that have actually cost work."
+}

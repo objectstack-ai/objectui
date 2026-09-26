@@ -1,0 +1,36 @@
+{
+  "number": 4996,
+  "kind": "issue",
+  "title": "[finding] shadcn 声明式补丁:sheet / sidebar 两族的锚点从未被「作用到 upstream」验证过 —— #4976 的同一盲区,目前休眠",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T13:07:20Z",
+  "updated_at": "2026-08-24T14:32:18Z",
+  "closed_at": "2026-08-24T14:32:18Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4996",
+  "body": "在做 #4976(PR #4995)时旁落的观察。**当前休眠 —— 三族补丁今天都能正常作用到真实 upstream,没有用户会碰到**;记下来是因为它是 #4976 那个失效族的同一个盲区,而 #4976 已经证明这个盲区能让一个死补丁在测试全绿的情况下活四个月。\n\n## 事实\n\n`scripts/shadcn-local-patches.mjs` 声明了四族补丁。`scripts/__tests__/shadcn-local-patches.test.ts` 里 `applyLocalPatches` 的调用面是:\n\n| 族 | 有「作用到 upstream fixture」的覆盖吗 |\n|---|---|\n| `slider`(4 条) | 有 —— PR #4995 之后是 registry 逐字节 fixture + 逐字节往返断言 |\n| `dialog`(2 条) | 有,但 fixture 是手写节选(`UPSTREAM_DIALOG`,注释自称 \"a faithful excerpt\") |\n| `sheet`(2 条) | **没有**。只断言了 id 与盘上 marker |\n| `sidebar`(2 条) | **没有**。只断言了 id 与盘上 marker |\n\n`sheet` / `sidebar` 的锚点因此只被两件事支撑着:盘上 marker 在(`patchedComponents()` 那个循环),以及每周一次的联网 `pnpm shadcn:check`。**前者与锚点能不能对上 upstream 完全无关** —— 这正是 #4976 的机制:marker 齐全、`verifyLocalPatches` 返回 `[]`、测试全绿,而锚点钉的是一行本地编辑,从未匹配过任何 registry 响应。\n\n## 为什么判它休眠\n\n用 shadcn-ui/ui 仓内逐字节签入的 registry JSON(`apps/v4/public/r/styles/default/*.json`,HEAD `8a7701ec27eb9cb8e0377db769fbe6d744113c52`)实测四族:\n\n```\nsheet     applied 2  failed []\ndialog    applied 2  failed []\nsidebar   applied 2  failed []\nslider    applied 3  failed [\"slider-thumb-aria-delivery:0\"]   ← #4976,已由 PR #4995 修掉\n```\n\n也就是说 `sheet`/`sidebar` 的锚点**现在**是对的,只是这件事没有任何仓内断言在守;#4976 那次周检也只报了 slider 一个组件。所以是「未被覆盖的正确」,不是「已经坏了」。\n\n## 建议的修法\n\n把 PR #4995 给 slider 加的那条断言推广开:**把声明的补丁作用在 registry 逐字节内容上,结果必须逐字节等于我们发布的那个文件**。从本地文件臆造的锚点无法满足它,所以它是能离线判死这一族的判据。每族需要一份 registry 逐字节 fixture(连同 URL / 仓内路径 / HEAD sha / content sha256 的 provenance 注释),然后 `it.each(patchedComponents())` 化,顺带让「加了新族但忘了给 fixture」也变红。\n\n`sidebar` 会额外贵一点:它的 upstream 文件很大(周检里 24 local line(s)),整份 fixture 不便宜 —— 需不需要为它破例、或者改用别的等价判据,值得单独判一下。\n\n## 备注\n\n- 与 #4976 / PR #4995 不重叠:那一单只动 slider 一族的锚点与它的 fixture,故意没有扩到别的族(会是范围外)。\n- 无 `Blocked-by`:PR #4995 合入前后都能独立做,只是合入后可以直接照抄那条断言的写法。\n- 未标 `pm:queue` —— 观察类,交 PM 分诊定级。\n"
+}

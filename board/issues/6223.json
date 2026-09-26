@@ -1,0 +1,35 @@
+{
+  "number": 6223,
+  "kind": "issue",
+  "title": "Object-level metadata payloads emit three keys `ObjectSchema` refuses by name (`group`, `sortOrder`, `relationships`) — the #5761 parity gate reaches field shapes only",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-25T02:19:54Z",
+  "updated_at": "2026-08-25T05:00:59Z",
+  "closed_at": "2026-08-25T05:00:59Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6223",
+  "body": "Found while fixing objectui#6041 / objectui#6044 (the field-level members of the #5761 parity family). Filed, not fixed — out of the scope of those cards, and each key plausibly takes a different correct resolution, which is the #5761 ruling.\n\n## The measurement\n\nThe gate built for #5761 (`scripts/check-designer-field-key-parity.mjs`) compares declared payload keys against `FieldSchema`. Its `PAYLOAD_SHAPES` list contains **three field shapes and no object shape**, so nothing checks the parent document the designers actually PUT.\n\nMeasured against the installed `@objectstack/spec` 17.2.0, ESM build (`dist/data/index.mjs`), on `origin/main` @ `7da7b8a1d`:\n\n```\nconst base = { name: 'account', label: 'Account', fields: { n: { type: 'text', label: 'N' } } };\n\nObjectSchema.safeParse(base)                              => success = true     (control)\nObjectSchema.safeParse({ ...base, isSystem: true })       => success = true     (control)\nObjectSchema.safeParse({ ...base, pluralLabel: 'A' })     => success = true     (control)\n\nObjectSchema.safeParse({ ...base, group: 'Sales' })       => success = false\n   unrecognized_keys keys=[\"group\"]\nObjectSchema.safeParse({ ...base, sortOrder: 3 })         => success = false\n   unrecognized_keys keys=[\"sortOrder\"]\nObjectSchema.safeParse({ ...base, relationships: [ … ] }) => success = false\n   unrecognized_keys keys=[\"relationships\"]\n```\n\n`ObjectSchema`'s accept set is 42 keys and contains none of the three. The controls matter: `isSystem` and `pluralLabel` are accepted, so this is a real key-by-key result and not a schema that refuses everything.\n\n## The writers\n\nBoth are on the wire — the body of `PUT /api/v1/meta/object/:name`.\n\n- `packages/app-shell/src/services/MetadataService.ts` — `ObjectMetadataPayload` declares `group`, `sortOrder` and `relationships`; `toObjectPayload` populates all three and `saveObject` PUTs it.\n- `packages/plugin-designer/src/MetadataObjectsPage.tsx` — the merged `ServerObjectSchema` written on save carries `group` verbatim.\n\n`group` is the live one: the Object Manager renders a grouping control, and `toObjectDefinition` populates `group` unconditionally (`'System Objects'` / `'Custom Objects'` in `metadataConverters`, `raw.group` in `MetadataObjectsPage`). So saving an object through the designer looks like the exact shape #5761 describes — a hard 422 `INVALID_METADATA` that then blocks every later save of that object, with nothing in the UI to say which key did it. **Whether it is live today depends on what the deployed route parses with, which is worth measuring rather than assuming** — this issue reports the schema fact, not a reproduced HTTP response.\n\n## Why this is not a mechanical rename\n\nSame reason #5761 gave for the field-level keys, and the reason it ruled one card per key:\n\n- `group` — the spec has `fieldGroups` (field grouping) and no object-level grouping key. It may belong upstream (the #4676 resolution), or the designer's grouping may be a UI-only concern that must not reach the payload at all.\n- `sortOrder` — no spec equivalent; likely the #4687 resolution (delete the declaration), and it is the object-level twin of objectui#6045.\n- `relationships` — the spec models relationships through field-level `reference` / `master_detail` plus `indexes`, so this one is a data-model question, not a spelling one.\n\n## Suggested shape of the fix\n\nExtend `PAYLOAD_SHAPES` with the object-level shapes and give the gate a second oracle (`ObjectSchema` alongside `FieldSchema`), so the class is closed one level up rather than three more tombstones being written after the fact. The gate's ledger already ratchets in both directions and would carry these three the same way it carries `formula` and `sortOrder`.\n\nRefs: #5761 (the gate) · #6041 · #6044 · #6045 · #4644 · #4687 · #4676"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6157,
+  "kind": "issue",
+  "title": "finding(examples): the live SchemaExample fixtures on four component pages teach the same invented keys the prose blocks just stopped teaching",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-24T21:40:59Z",
+  "updated_at": "2026-08-25T04:44:12Z",
+  "closed_at": "2026-08-25T04:44:12Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6157",
+  "body": "Found while implementing #6143 round 2, which corrected four `content/docs/components` **prose** blocks against the shipped `packages/types/dist/*.d.ts`. The prose is now right. The **rendered demo directly beside it** is not: the schema fixtures those pages embed carry the same invented keys and values that were just removed from the prose.\n\nThis is arguably the worse half. A reader copies a working demo more readily than an interface block, and the demo is the artifact that renders on the page.\n\n## Measured\n\nBuilt `packages/types` fresh, then compared each fixture against both the `.d.ts` and the zod schema (the ruled enforcement boundary per #5155).\n\n| fixture | key/value | shipped says |\n| --- | --- | --- |\n| `examples/schema-catalog/src/schemas/components-feedback-toast/destructive.json` | `\"variant\": \"destructive\"` inside `onClick.action` (the toast payload) | `ToastSchema.variant` is `'default'`, `'success'`, `'warning'`, `'error'`, `'info'` — `feedback.d.ts:123`, `zod/feedback.zod.js:59`. `'destructive'` is not a member |\n| `examples/schema-catalog/src/schemas/components-feedback-toast/error-toast.json` | same, inside `onClick.action` | same |\n| `examples/schema-catalog/src/schemas/components-form-command/command-palette-with-shortcuts.json` | `\"shortcut\"` on three `CommandItem` entries | `CommandItem` declares only `value`, `label`, `icon` — `form.d.ts:1329`, `zod/form.zod.js:76` |\n| `examples/schema-catalog/src/schemas/components-form-radio-group/vertical-layout.json` | `\"direction\"` | the slot is `orientation` — `form.d.ts:377`, `zod/form.zod.js:263` |\n| `examples/schema-catalog/src/schemas/components-form-radio-group/horizontal-layout.json` | `\"direction\"` | same |\n\n## One precision that matters\n\n⚠️ Both toast fixtures **also** carry a top-level `\"variant\": \"destructive\"`, and that one is **correct** — it is a `ButtonSchema` variant, and `'destructive'` genuinely is a member there (`form.d.ts:30`, `zod/form.zod.js:153`). Only the nested occurrence inside the `onClick` toast action payload is invented. A blanket find-and-replace across these files would break two working buttons.\n\n## Why nothing catches it\n\n`check:doc-snippets` reads fenced TypeScript in `content/docs`; these are JSON files in `examples/`. `check:doc-types` checks that a `type` literal names a registered component, which these all do. #5250 already records that JSON doc snippets are checked by nothing and that `BaseSchema.passthrough()` makes `objectui validate` accept arbitrary undeclared keys — this is that hole in the examples tree rather than the docs tree.\n\nVerified in the prerendered HTML (`next build` of `apps/site`): the corrected toast prose renders as `variant?: 'default' | 'success' | 'warning' | 'error' | 'info';`, while the demo above it still emits the invented toast variant on click.\n\n## Not fixed here, deliberately\n\n#6143 round 2 was dispatched as exactly four prose corrections with an explicit stop on anything else. Editing these fixtures changes what a demo **renders**, not what a page **says**, so it wants its own consideration — in particular, the toast change (`'destructive'` to `'error'`) alters the rendered toast styling, and the radio-group change is inert until the renderer actually reads the key (see the sibling finding filed alongside this one).\n\nRefs: #6143 (where this was found) · #5250 (JSON snippets checked by nothing) · #6150 / #6151 (the same sweep's types findings) · #3965 (a different divergence in the same fixture tree)."
+}

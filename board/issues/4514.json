@@ -1,0 +1,35 @@
+{
+  "number": 4514,
+  "kind": "issue",
+  "title": "Mounting an I18nProvider in a test file silently changes what every LATER provider-less render in that file resolves",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "tests"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-13T03:00:35Z",
+  "updated_at": "2026-08-24T07:25:02Z",
+  "closed_at": "2026-08-24T07:24:40Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4514",
+  "body": "Measured while writing the locale tests for #4468 (PR #4512). Observation-class: no user hits this, but it costs a debugging lap and it can make a test look like it is asserting one thing while asserting another.\n\n## The mechanism\n\n`useObjectTranslation()` is provider-safe by design — outside `I18nProvider` it falls back to react-i18next's **global** instance:\n\n```ts\n// packages/i18n/src/provider.tsx:637\nlanguage: context?.language || i18n.language || 'en',\n```\n\nThe catch is that the global instance is *shared across the whole test file*, and every `I18nProvider` mounted in that file leaves it on the language it was given. Vitest isolates modules per file, not per test, so the effect persists across `cleanup()` and across `describe` boundaries: once any case has mounted a `zh` provider, every provider-less render later in the same file resolves `zh`.\n\n## Measured twice, in two different shapes\n\n1. **A provider-less assertion that reads as a fallback pin but is really an ordering pin.** In PR #4512 a case asserting `useDisplayLocale()`'s `'en'` last resort was written after the `zh` cases and failed with `3天后` — correct behaviour for react-i18next's state, and nothing to do with the fallback under test. Withdrawn, with the pin left in `DateCellRenderer.test.tsx`, which mounts no provider at all.\n\n2. **An unrelated test in another file broken by adding a provider above it.** Adding one `I18nProvider` case to `packages/fields/src/widgets/GridField.test.tsx` turned `shows an uploaded file as a removable chip` red, ~200 lines further down. That test reads `FileField.tsx:474`'s translated `aria-label`:\n\n   ```ts\n   aria-label={t('fields.file.remove', { defaultValue: `Remove ${file.name}`, name: file.name })}\n   ```\n\n   Deterministic, and it reproduced on a clean re-run; running the chip test alone passes. The zh case was moved to its own file, and `GridField.test.tsx` carries a comment saying why.\n\n## Why this is worth recording\n\nThe failure never names its cause. It surfaces as an assertion about some unrelated label or date in a test that was not touched, several hundred lines from the provider that caused it, and it is invisible when that test is run alone — which is the first thing anyone does to triage it.\n\n## Candidate directions (not a recommendation — this needs measuring first)\n\n- An `afterEach` in the shared DOM setup that restores the global i18next instance's language, so provider-less renders always mean the same thing.\n- Have `I18nProvider` create an instance that is never installed as react-i18next's global default, so a provider can only affect its own subtree. Needs checking against the deliberate design in `provider.tsx` — the global fallback is what makes `useObjectTranslation()` provider-safe in the first place, so this may be a trade rather than a fix.\n- Leave the mechanism alone and document it where tests are written (AGENTS.md §测试纪律), on the grounds that the two occurrences above were both cheap to diagnose once known.\n\nNo suggested severity — filing it plainly for triage.\n"
+}

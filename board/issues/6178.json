@@ -1,0 +1,35 @@
+{
+  "number": 6178,
+  "kind": "issue",
+  "title": "DetailSection `headerColor` reaches the DOM only as `bg-${...}` — a template-literal Tailwind class that generates no CSS, so the key works only by collision with other files' literal classes",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-24T22:42:39Z",
+  "updated_at": "2026-08-25T10:39:13Z",
+  "closed_at": "2026-08-25T10:39:13Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6178",
+  "body": "Measured at `190fbd01` (the current objectstack `.objectui-sha` pin) while working objectstack-ai/objectstack#11661 (declaring renderer-honoured `record:details` section keys):\n\n- `packages/plugin-detail/src/DetailSection.tsx:513` and `:542` are the only read points: `section.headerColor && ` + a template-literal class of the form `bg-` + `${section.headerColor}` inside `cn(...)`.\n- Tailwind here is v4 (`tailwindcss ^4.3.3`) with `@source` scanning over source files and **no safelist** — `apps/console/src/__tests__/sdui-preview-page-source-styling.test.ts` documents this repo's own reading: \"a utility class authored in real page metadata produces no CSS\". A template-literal class is never a complete token in scanned source, so this call site generates **no CSS at all**; an authored value styles the header only when some *other* source file happens to use the identical `bg-<value>` class literally (accidental, unversioned liveness).\n- Dead-in-practice at the pin: zero producers author `headerColor` anywhere in objectstack (examples, platform pages, content) or in objectui outside the `@object-ui/types` mirror and the `detail-section` registry input row (`packages/plugin-detail/src/index.tsx:287`) — both declaration-only surfaces, which is why `check:react-declaration-parity` never saw it (it compares two declarations, never a declaration against a renderer).\n\nConsequence: the key is unsafe-by-construction — advertised by the registry input and the `@object-ui/types` mirror (`views.ts` documents `'muted'`, `'primary/10'` examples) while the renderer cannot deliver it for arbitrary values. objectstack#11661 therefore deliberately does **not** declare `headerColor` on the strict spec section schema (declaring a dead key is the capability-illusion shape).\n\nFix directions (either, plus dropping the registry input row and the mirror examples):\n\n1. Remove the dead read entirely (`headerColor` from `DetailSection.tsx`, the `detail-section` registry inputs, and the `@object-ui/types` mirror) — smallest honest surface; matches the spec-side refusal.\n2. Implement it safely: map a **closed** enum of supported values to static class literals Tailwind can see (e.g. a lookup object with complete `bg-muted` / `bg-primary/10` strings), then propose the enum for spec declaration.\n\nFiled as a finding (observation, unassigned) — the disposition is a triage call.\n\nBack-link: objectstack-ai/objectstack#11661."
+}

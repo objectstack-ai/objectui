@@ -1,0 +1,35 @@
+{
+  "number": 6089,
+  "kind": "issue",
+  "title": "[finding] hook-selftests.yml hard-codes both self-test case counts in its step names, with no derivation recipe and nothing that re-checks them",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T16:24:14Z",
+  "updated_at": "2026-08-24T17:37:08Z",
+  "closed_at": "2026-08-24T17:37:08Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6089",
+  "body": "Observed while porting the `guard-shared-stash.sh` backslash fix (#6042, PR #6087). Out of scope there — that card is a port limited to the hook and its self-test, and the workflow is not a hook — so recorded here instead of folded in.\n\n## The observation\n\n`.github/workflows/hook-selftests.yml` writes the case count of each self-test matrix into the file in **three places**, all of them plain prose:\n\n```\n48:# (100 cases) ~3.2s wall, `guard-shared-stash.selftest.sh` (32 cases) ~0.6s wall.\n92:      - name: guard-main-checkout-bash self-test (100 cases)\n96:      - name: guard-shared-stash self-test (32 cases)\n```\n\nNothing derives these, and nothing re-checks them. They are step **names** and a cost note, so a wrong number never turns a check red — it just shows a wrong count on the CI page for as long as nobody notices.\n\n## Both numbers are stale or about to be\n\nTwo draft PRs against the governed surface each grow a matrix:\n\n- PR #6087 takes `guard-shared-stash.selftest.sh` from **32 to 41** cases.\n- PR #6046 takes `guard-main-checkout-bash.selftest.sh` from **100 to 121** cases.\n\nNeither PR touches the workflow — both are deliberately port-scoped, and the workflow's own header states it is \"a RUNNER, not a rewrite of what it runs\". So when either merges, the step name it runs under is wrong.\n\n## Why this is worth a card rather than a shrug\n\nThe contrast with the hooks themselves is the point. Each hook header carries the same number **with the recipe to re-derive it**, e.g. in `guard-shared-stash.sh`:\n\n```\n# Self-test (41 cases, no network, no build): .claude/hooks/guard-shared-stash.selftest.sh\n# 41 = 39 `expect ` lines + 2 inline specials (empty-tool_input fail-open, no-jq fallback).\n# Re-derive when the matrix changes: `grep -c '^expect ' <selftest>` + 2, and the run's own\n# tail prints the total (\"N passed, N failed\") — keep this number equal to it.\n```\n\nThat drift was considered worth its own card once already (#3721, closed — the header said 26 while the matrix had been 32 since it landed). The workflow copies the same number **without** the recipe and without the \"the run's own tail prints the total\" cross-check, so it is strictly the more drift-prone of the two copies while being the one a reviewer actually sees on the checks page.\n\n## Options, not a recommendation to implement blind\n\n1. **Drop the counts from the step names** — `guard-shared-stash self-test` alone; the run's own tail already prints `N passed, N failed`, which is the number that cannot lie. The cost note keeps its counts as a dated measurement (\"measured on `origin/main` @ 53dc89db8\"), which is honest as history.\n2. **Keep the counts and add the derivation recipe**, mirroring the hook headers, so the next editor knows to re-derive.\n3. **Leave it** — decide the labels are decoration and accept the drift.\n\nOption 1 removes the duplication rather than documenting it, but this is a governed-adjacent CI file and the choice is a maintainer's, not a dev agent's.\n\n⚠️ Whoever takes this: `.github/workflows/**` here is CI surface and `hook-selftests.yml` guards `.claude/**` — check the current merge/review convention before opening anything non-draft.\n\nRefs: #6042 · PR #6087 · #5789 · PR #6046 · #3721.\n"
+}

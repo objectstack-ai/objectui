@@ -1,0 +1,35 @@
+{
+  "number": 5666,
+  "kind": "issue",
+  "title": "A file-header comment in `packages/components/src` DOES project into the published `.d.ts` — #5461's changeset asserts the opposite, and shipped a `@object-ui/components` doc change with no entry",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T08:03:11Z",
+  "updated_at": "2026-08-25T01:20:41Z",
+  "closed_at": "2026-08-25T01:20:30Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5666",
+  "body": "Found while implementing #5469 (the follow-on prose sweep). Filing rather than\nfixing — #5469's file surface is its own 8 sites, and this concerns a file #5469\ndoes not touch.\n\n## The claim\n\n`.changeset/page-source-tailwind-framing-5461.md`, landed by PR #5471\n(`a691c0bee`), closes with:\n\n> `packages/components/src/renderers/layout/react-page.tsx` carries the same\n> correction on its two source comments (the injected-scope note and\n> `buildComponentScope`), and gains the styling note the file was missing. Those\n> are internal comments — **they do not project into any `.d.ts` and change no\n> export** — so they get no entry of their own; there is nothing an\n> `@object-ui/components` consumer could read in a CHANGELOG and act on.\n\n## The measurement\n\nBuilt `@object-ui/components` at `9986f9114` (the last commit touching\n`react-page.tsx` is `a691c0bee` itself, so the emitted `dist` reflects current\nsource):\n\n```\npnpm --filter '@object-ui/components^...' --filter @object-ui/components build\ngrep -n 'page-source-className-tailwind' packages/components/dist/renderers/layout/react-page.d.ts\n```\n\n```\n37: * `page-source-className-tailwind`. (ADR-0065; ADR-0080's 2026-06-30 amendment;\n```\n\nThe whole styling paragraph #5461 added is present **verbatim** in\n`packages/components/dist/renderers/layout/react-page.d.ts`, lines ~30-39.\n\nIt projects because it is part of the **file-header** block comment (the one that\nopens with the MIT licence notice at `react-page.tsx:1`), and the declaration\nemitter preserves leading file comments. The distinction that matters is not\n\"internal vs TSDoc on an export\" — it is **where in the file the comment sits**:\n\n- a file-header block comment → **projects**;\n- a comment inside a function body → does **not**.\n\nConfirmed both directions on the same package while working #5469:\n`src/renderers/basic/html-elements.tsx`'s file header projects into\n`dist/renderers/basic/html-elements.d.ts`, while the `kind === 'html'`\ndispatch-arm comment inside `page.tsx`'s `useMemo` body does not appear in `dist`\nat all.\n\n## Why it matters\n\n`@object-ui/components` is public (`private` unset, `files: [\"dist\", ...]`,\ncurrently `17.6.0`), so `dist/renderers/layout/react-page.d.ts` is in the\npublished tarball. The consequence is exactly the failure\n`scripts/check-changeset-presence.mjs` exists to prevent: published `.d.ts` text\nchanged and no changeset declares it, so it rides the release out as anonymous\ncargo. The gate passed for #5461 because it checks changeset **presence**, not\nper-package correctness — #5461 declared `@object-ui/types`, which satisfied it.\n\nThe larger cost is the **precedent**. That changeset is now a written, merged\nrecord that a future author will reasonably cite as \"source comments in\n`packages/components/src` don't project, so they need no entry\". That reasoning\nis false for any file-header comment, and it is cheap to get wrong because\nnothing surfaces the difference — you only see it by building and reading `dist`.\n\n## Scope note\n\nThe immediate release-notes damage is largely absorbed: #5469's PR (#5665)\ndeclares `@object-ui/components: patch` for its own header correction in the same\npackage, so the package does get versioned. What is left is (a) the released\n`.d.ts` change that no CHANGELOG line describes, and (b) the false precedent in a\nmerged changeset.\n\nDeliberately not proposing the remedy — whether that is a corrective changeset, a\ncorrection to the merged changeset text, or a note somewhere durable (the\n`check-changeset-presence.mjs` header is where this repo keeps such findings) is\na triage call, and one option is \"record it and move on\".\n\nNo behaviour is affected; this is documentation text in a type declaration file."
+}

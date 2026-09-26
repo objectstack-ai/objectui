@@ -1,0 +1,32 @@
+{
+  "number": 6203,
+  "kind": "pull_request",
+  "title": "docs(audits): measure zod to JSON Schema conversion fidelity for `@object-ui/types`",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T01:28:52Z",
+  "updated_at": "2026-08-25T01:47:55Z",
+  "closed_at": "2026-08-25T01:47:54Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-25T01:47:53Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6203",
+  "body": "Part of #5392\n\nReport-only. This PR adds one document under `docs/audits/` and changes nothing\nexecutable: no generator, no drift gate, no published artifact, no edit to\n`packages/types`.\n\nThe 2026-08-22 ruling on #5392 ordered a measurement before the A / B / C fork is\ndecided. ⛔ This PR does not decide it — it reports what the numbers say.\n\n## Measured on\n\n`origin/main` @ `50d0d6cc5`, merged into this branch as `12dcdc110`; the report commit\nis `b149c2b14`. This base **contains** #6117 (`105f3c55c`, `CRUDSchema` retired), so the\ncensus excludes that node type. An earlier run of this measurement was taken before that\nlanded; it is superseded and the delta is stated in the report.\n\n## Answers\n\n| Question | Answer |\n| --- | --- |\n| Converter | `z.toJSONSchema()`, built in to **zod 4.4.3** — already a dependency |\n| Population | `AnyComponentSchema` — 14 union members, **105 leaf node schemas** |\n| Faithful conversions | **0 / 105** |\n| Degraded | **105 / 105** (all open; 5 of 5 refinement predicates silently dropped) |\n| Failed | 105 / 105 under default options, 0 / 105 lenient |\n| Artifact size | **651,908 B** pretty · 369,028 minified — **+21.5 % / +12.2 %** of published `dist` |\n| Closed? | **No.** 276 of 333 objects open; `.strict()` appears **0** times in the mirrors |\n| Stricter than zod anywhere? | **No — 0 / 475** corpus files. It is a strict *relaxation* |\n\n**The decisive result.** `BaseSchema` is `.passthrough()`, so every one of the 105 node\ntypes projects `additionalProperties` to an accept-anything schema. A misspelled real key\n(`classNmae` for `className`) is accepted by the artifact exactly as it is by zod today.\nThe artifact would carry `properties`, `required` and a `const` on every `type` — it\n*reads* closed and is not. The card's own hypothesis, measured rather than predicted.\n\n**The contrast that proves the cause is the source, not the converter.**\n`@objectstack/spec` — already a dependency — ships generated JSON Schema today\n(`json-schema/`, 23.4 MB, 156 UI documents). Its sources are `strictObject(...)`, and\n**118 of its 124** object-rooted UI documents close at the root. Same class of pipeline,\nopposite closedness.\n\n## Which fork the measurement points to\n\n**B**, with **C** untouched by these numbers and **A** blocked on #5155 rather than\nrefuted forever. `safeValidateSchema` already delivers everything the artifact would and\ndelivers it better: 97.1 % agreement over the corpus, never worse, better on 14 files.\nC's value is *completion*, not rejection, and every degradation measured here leaves\nsuggestions intact. ⛔ The choice remains the maintainer's — see the report's four-way\nwrite-up.\n\n## Verification\n\nNumbers, not behaviour, so verification is that they are reproducible and non-vacuous.\nEvery count in the report carries the command that produced it, and every zero sits beside\na non-zero from the identical instrument (`z.bigint(` = 0 next to `z.string(` = 689;\n`{type:'module'}` rejected next to `{type:'button'}` accepted; `z.strictObject` projecting\n`additionalProperties: false` in the same run in which no ObjectUI node does). All five\nrefinement sites were isolated with controls that pass — none inferred. The report has its\nown \"what this measurement cannot see\" section.\n\n⛔ No ablation: there is no behaviour to ablate on a report-only diff. The measurement\nscripts were written outside the repository and are deliberately **not committed** —\ncommitting one would be the generator this card is not ruled to build. `git status` is\nclean apart from the report.\n\n## Gates\n\nReport-only diff, so most of the farm has nothing to judge. ⛔ No green is claimed from a\ngate that did not look.\n\n| Gate | Result |\n| --- | --- |\n| `scripts/check-changeset-presence.mjs` | **green**, its own line: `✅  No source of a released package changed in this range, so no changeset is owed.` |\n| `scripts/check-control-bytes.mjs` | **green**, its own line: `✅  check-control-bytes: OK (scanned 5122 tracked text file(s); skipped 85 binary).` |\n| `pnpm --filter @object-ui/types build` | exit 0 — run because a stale `dist/*.d.ts` would corrupt the measurement in both directions, not because this diff needs it |\n| lint / typecheck / test farm | **not applicable** — no source file changed |\n\nNo changeset: the gate above states none is owed. This repo has no `skip-changeset`\nlabel, and none was created.\n\n## Out of scope, already filed\n\n#6124 — 28 zod-mirror keys declared `z.function()`, which no JSON document can satisfy;\n14 in-repo corpus files author them and are invalid today while sitting outside\n`objectui check`'s judgement surface. Filed unassigned, ⛔ not touched here.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01CSoz9uGhaaSgiq3hshtN7L)_"
+}

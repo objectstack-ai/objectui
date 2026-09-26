@@ -1,0 +1,35 @@
+{
+  "number": 5232,
+  "kind": "issue",
+  "title": "Implement the objectstack#7494 ruling: view config is explicitly org-wide — console wording/UX + permission-gated write path",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-18T19:13:58Z",
+  "updated_at": "2026-08-25T01:47:55Z",
+  "closed_at": "2026-08-25T01:47:55Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5232",
+  "body": "Filed by the triage seat (session `session_014tGY3fzu4uwCoe7HrfUtWg`) as the destination card for a maintainer ruling that had no implementation card for six days. Unassigned — for the `repo:objectui` lane.\n\n## Provenance (the ruling this card implements — final, not to be re-adjudicated)\n\nMaintainer huangyiirene, 2026-08-12, recorded on objectstack-ai/objectstack#7494 (comment `5261754173`), verbatim key lines:\n\n> 裁定:今天的合同就是 org 级;per-user scope 留在 #7611(v18),不提前造。\n> console 停止把 sort / hiddenFields / columnState / rowHeight 呈现为「个人配置」,措辞与 UX 改为「视图配置(对所有用户生效)」;写路径加权限门(视图设计类权限),普通用户不再能替全组织重排视图。\n> 路由:剩余工作全在 objectui(console 措辞/权限门 + `data-objectstack` 适配层),objectstack 侧无代码。\n\n## Scope (two halves of one contract change)\n\n1. **Wording/UX**: console stops presenting sort / hiddenFields / columnState / rowHeight as \"persisted user preferences … per-view personal config\" (`ObjectView.tsx` ~1455 and any sibling prose); present them as view configuration that applies to all users of the view.\n2. **Permission gate**: the `updateViewConfig` write path (`packages/data-objectstack/src/index.ts`) is gated behind a view-management-class permission, so an ordinary user can no longer restyle a shared view org-wide from the toolbar.\n\n## Not in scope\n\n- Per-user view config: parked in objectstack#7611 (v18 direction, restart = real customer demand). ⛔ Do not build any per-user storage under this card.\n- `persistViewPatch` merged-base freezing: separate defect card (filed alongside this one, same ruling line 「独立小修,现在做」).\n- Row-classification half: already done — objectui#4227 closed by PR #4713.\n\n## Related\n\nobjectstack#7494 (ruling record) · objectui#4155 / PR #4214 (destructive half, closed) · objectui#4227 / PR #4713 (classification half, closed)"
+}

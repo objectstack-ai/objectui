@@ -1,0 +1,36 @@
+{
+  "number": 6126,
+  "kind": "issue",
+  "title": "finding(docs): two `content/docs/fields` snippets depend on identifiers the snippet program cannot resolve — a fabricated `db` handle and an undeclared `ajv` — each needs a ruling before #5867 can cover them",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T19:23:58Z",
+  "updated_at": "2026-08-24T20:45:27Z",
+  "closed_at": "2026-08-24T20:45:27Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6126",
+  "body": "Filed by #5867 **batch 3**, unassigned. Both files are **excluded from batch 3** by measurement, not by eye: they were re-fenced in a throwaway probe, compiled by `check-doc-snippet-types`, observed to redden, and the probe was restored under a trap.\n\nBlocks **6 of the 129 blocks** remaining on #5867 — 4 of them here, 2 more in the sibling card for `location.mdx`.\n\n## The measurement\n\nProbe: all 23 classifier-matching `plaintext` fences across the 13 `content/docs/fields` pages re-fenced to `ts`, package closure rebuilt, gate run. Diagnostics, verbatim:\n\n```\n[semantic]  content/docs/fields/auto-number.mdx:119:16  TS2304: Cannot find name 'db'.\n[semantic]  content/docs/fields/auto-number.mdx:119:38  TS7006: Parameter 'tx' implicitly has an 'any' type.\n[semantic]  content/docs/fields/object.mdx:205:17  TS2307: Cannot find module 'ajv' or its corresponding type declarations.\n```\n\nBoth blocks pass triage's classifier — `auto-number`'s first line is `interface SequenceCounter {`, `object`'s is `import Ajv from 'ajv';` — so under the ruling on #5867 they **are** code and should be `ts` fences. They cannot become `ts` fences while they reference these names.\n\n## 1. `content/docs/fields/auto-number.mdx`, block at fence line 109\n\nUnder the heading *Sequence Management* (\"The backend maintains sequence counters\"). It declares `interface SequenceCounter` — fine, self-contained — and then:\n\n```\nconst getNextSequence = async (object: string, field: string) => {\n  return await db.transaction(async (tx) => {\n```\n\n`db` is **not** an ObjectUI export and is declared nowhere in the workspace. It is a stand-in for whatever database handle the reader's backend supplies. `tx` then falls out of it as an implicit `any`.\n\nThe question is what this page should teach, and it is a judgement, not a mechanical fix:\n\n- **A — declare the handle in the block.** Makes it compile, but it means the docs inventing a `db` / `tx` interface that ObjectUI does not ship and does not own. Contract-first says a renderer's docs should not mint a backend contract in passing.\n- **B — leave the block prose.** Honest about it being backend pseudo-code, but it then keeps a `plaintext` fence whose first line the classifier calls code, so #5867 has to record a standing exception for it.\n- **C — narrow the block** to just `interface SequenceCounter` and move the transaction sketch into prose, so the code half is real and compiles.\n\n**Recommendation: C.** It keeps everything the page actually teaches about ObjectUI (the counter shape) under the gate, and stops presenting a fabricated `db` API as if it were code a reader could copy.\n\n## 2. `content/docs/fields/object.mdx`, block at fence line 204\n\nUnder *Backend Validation*. First line is `import Ajv from 'ajv';`. Measured: **`ajv` is not resolvable from the repo root** where the snippet program compiles (no `node_modules/ajv`), and it is declared in **no** workspace `package.json` — I grepped the root and every `packages/*/package.json`.\n\nThis is adjacent to **#6120** but not the same shape. #6120 is about `lucide-react`, a dependency a workspace package **does** declare but that does not resolve from the root. Here nothing in the repo depends on `ajv` at all — it is an external library named in an illustration.\n\n- **A — add `ajv` as a root devDependency** purely so a doc snippet resolves. Pulls a runtime schema validator into the tree for documentation's sake; hard to justify on its own.\n- **B — leave the block prose**, same standing-exception cost as 1B.\n- **C — rewrite the example** against something the repo does depend on, or reduce it to the validation contract without naming a specific validator.\n\n**Recommendation: C**, and if #6120's ruling establishes a general route for \"a snippet imports a package the root cannot resolve\", this should follow it rather than grow a second answer.\n\n## Scope note\n\n⛔ Neither is fixable inside #5867's batch discipline: each needs a decision about what the documentation should say, and #5867's rule is that a reddening block is a real defect to **fix**, never to paper over with a `FRAGMENT_MARKER` — a marker on a block that is genuinely TypeScript is a lie the ledger then carries.\n\nRefs: #5867 (parent) · #6120 (the sibling resolution-environment card) · #6121 · #6122.\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6011,
+  "kind": "issue",
+  "title": "`toSortItems` — a published export — still tolerantly reads the retired `direction` sort spelling (`s.order || s.direction`), dormant because nothing in-tree calls it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T12:43:19Z",
+  "updated_at": "2026-08-25T03:45:46Z",
+  "closed_at": "2026-08-25T03:45:46Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6011",
+  "body": "Found while reworking #5293 (the `views`-prop sort spelling rename). **Filed unassigned, no labels — triage grades it. Deliberately NOT fixed in #5293's PR (#6008)**: removing a tolerant read from a published export is its own Clause-② public-export break and needs its own adjudication.\n\nVerified on `claude/issue-5293-viewsort-order-spelling` @ `604c20366` (branch base `8d3a5294a`).\n\n## The dual-read\n\n`packages/plugin-view/src/config/view-config-utils.ts:324-330`:\n\n```ts\n/** Convert draft sort → SortItem[] for SortBuilder */\nexport function toSortItems(draftSort: any): SortItem[] {\n    return (Array.isArray(draftSort) ? draftSort : []).map((s: any) => ({\n        id: s.id || crypto.randomUUID(),\n        field: s.field || '',\n        order: (s.order || s.direction || 'asc') as 'asc' | 'desc',\n    }));\n}\n```\n\n`s.order || s.direction || 'asc'` accepts two spellings for one key and silently prefers the canonical one. That is precisely the shape #4869 ruled against — verbatim, unmodified:\n\n> 若 `defaultSort` 实际存在 sink 不认的拼法,正确的动作是先裁定该拼法算不算已声明的 authoring surface(要么进 sink 的契约,要么在 producer 端拒绝),而不是在 ObjectView 里加一层容忍。\n\nIt is **published**: re-exported from the package root at `packages/plugin-view/src/index.tsx:38` and documented in `packages/plugin-view/README.md:91` (`toSortItems, // sort config -> SortItem[]`).\n\n## Why it survived\n\nIt has **no in-repo production caller at all**. `git grep -n toSortItems -- packages apps examples` returns exactly:\n\n- `packages/plugin-view/src/config/view-config-utils.ts:324` — the definition\n- `packages/plugin-view/src/index.tsx:38` — the export barrel\n- `packages/plugin-view/README.md:91` — the doc line\n- `apps/console/src/__tests__/insecure-origin-crypto.test.ts:20` / `:226` / `:244` — a **test**, and the only importer of the published symbol\n- `packages/plugin-view/src/SortUI.tsx:58` / `:81` / `:86` — ⚠️ a **different, file-local** `const toSortItems` that shadows nothing and imports nothing; it maps `SortEntry[]`, whose `direction` key is type-correct on `SortUISchema`. It is **not** a caller of the published export, and a naive grep will read it as one.\n\nThe surface it serves is the studio inspector-draft feeding `SortBuilder`, reached only by out-of-tree callers today. It was never on the resolved `activeView.sort` path that #5293 fixed, which is why #5293 correctly left it alone.\n\n## Why it still matters\n\n#5293's changeset promises that the `views[].sort` break is \"loud and searchable\". A host migrating off `direction` greps the old key, lands on a published export that still quietly accepts it, and reasonably concludes the retirement is partial. One spelling repo-wide is the convergence direction #4869 set; this is the last dormant tolerance layer on the sort family's public surface.\n\n## Related stale-spelling fixture — recorded, not batched into this\n\n`packages/plugin-view/src/__tests__/ObjectView.filterSources.test.tsx:161-162`:\n\n```\nconst seen = renderDelegated({ table: { defaultSort: [{ field: 'name', direction: 'asc' }] } as any });\nexpect(seen[0]?.sort).toEqual([{ field: 'name', direction: 'asc' }]);\n```\n\n`table.defaultSort` is an `ObjectGridSchema` surface and it declares **`order`**, not `direction` (`packages/types/src/objectql.ts:673-676`; the zod mirror at `packages/types/src/zod/objectql.zod.ts:130` agrees). The fixture writes the retired spelling behind an `as any` and stays green only because that test asserts **verbatim pass-through** — it never reads the key, so any word would pass. This is not a defect in `ObjectView`; it is a fixture pinned to a spelling its own surface does not declare, and it should be re-spelled (or replaced, if re-spelling would preserve the shape of a bug) by whoever takes this card.\n\n## What the fix costs — options for adjudication\n\nDeleting `|| s.direction` is one line but a **published-export behaviour break**: an out-of-tree caller passing `{ field, direction }` goes from a working `SortItem` to a silent `'asc'`.\n\n1. **Remove the fallback.** One spelling repo-wide, declared equals enforced. objectui ships its own breaks as `minor` per AGENTS.md §版本号策略, with a changeset naming the retired key — the same treatment #5293 got. Matches #4869's direction.\n2. **Keep the fallback but make it loud** (reject, or warn, on `direction`). Converts a silent accept into a signal without dropping the input, at the cost of keeping the word alive in the contract.\n3. **Leave it.** Cheapest; the sort family keeps a tolerance layer and #5293's \"searchable\" promise stays half-true.\n\nRecommendation is **1**, conditional on the reachability question this card most needs answered: is `toSortItems` used by any out-of-tree host at all? It is a documented export with zero in-tree production callers, so the honest answer is not derivable from this repo. Not a dev's own call either way — it is a published export's contract.\n\n## Dedup\n\nSearched open issues (`toSortItems`, `view-config-utils direction`, `tolerant dual-read sort spelling`, plus the file path) — nothing on this. Related: **#5293** (the `views`-prop rename that surfaced it, and which deliberately did not touch it), **#4869** (the sort-sink convergence ruling quoted above).\n"
+}

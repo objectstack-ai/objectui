@@ -1,0 +1,35 @@
+{
+  "number": 5953,
+  "kind": "issue",
+  "title": "`ObjectMap` is the only view renderer that does not resolve marker titles through `getRecordDisplayName` — it reads a hard-coded `'name'` key instead",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-24T04:28:22Z",
+  "updated_at": "2026-08-24T10:32:18Z",
+  "closed_at": "2026-08-24T10:32:18Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5953",
+  "body": "Measured while implementing #5909 (PR pending). That card is fixed at the interface-page seam; this is the general half it does not reach.\n\n## What the sibling renderers do\n\nADR-0079 made `@object-ui/core#getRecordDisplayName` THE unified record display-name resolver, and the view renderers call it:\n\n- `packages/plugin-kanban/src/ObjectKanban.tsx:301` — `getRecordDisplayName(objectDef, item)`\n- `packages/plugin-calendar/src/ObjectCalendar.tsx:356` — `getRecordDisplayName(objectSchema, record)`\n- `packages/plugin-gantt/src/ObjectGantt.tsx:600` — `getRecordDisplayName(objectSchema, record)`\n\nEach takes an explicitly declared title field first and otherwise walks the object-level precedence (`nameField` → `displayNameField`/`NAME_FIELD_KEY` → `titleFormat` → type-aware field derivation → `Record #<id>`).\n\n## What `ObjectMap` does\n\n`packages/plugin-map/src/ObjectMap.tsx` never imports the resolver. `getMapConfig` fills an absent title binding with a string literal:\n\n```ts\ntitleField: schema.titleField || 'name',\n```\n\nand the marker title is then a bare property read (`ObjectMap.tsx:667`):\n\n```ts\nconst title = mapConfig.titleField ? record[mapConfig.titleField] : 'Marker';\n```\n\nSo for any object whose display field is not literally `name`, `record['name']` is `undefined` and every marker popup titles itself `undefined`. Note the asymmetry inside this one function too: the branch that reaches no config at all yields `'Marker'`, while the branch that yields `'name'` yields `undefined` — the *more* configured path degrades worse.\n\n## Why #5909's fix does not close this\n\n#5909 derives a `titleField` in `defaultMapFromObject`, so ADR-0047 interface pages that auto-derive their map binding stop hitting the literal. That covers one seam. Still uncovered:\n\n- a hand-declared `map` block that omits `titleField` (the derivation is skipped entirely — `InterfaceListPage.tsx`'s `mapCfg` is `(view.options as any)?.map ?? …`);\n- every map that does not come through an interface page at all (`ObjectView`, a directly authored `object-map` node, dashboards);\n- objects whose title needs the `titleFormat` template or the record-key probe — steps a static field-name binding structurally cannot carry.\n\nResolving through `getRecordDisplayName` at the read site would cover all of them and delete the literal, which is the shape the other three renderers already have.\n\n## Suggested shape\n\nIn the marker `useMemo`, replace the bare read with the resolver, passing the declared binding as the explicit option so an authored `titleField` still wins:\n\n```ts\nconst title = getRecordDisplayName(objectSchema, record, { titleField: mapConfig.titleField });\n```\n\n`objectSchema` is already fetched in this component for field metadata. Worth checking against the `'Marker'` placeholder the no-config branch produces, and against `ObjectMap.listViewMapConfigReach.test.tsx`, which currently pins the `undefined`/placeholder behaviour.\n\nUnassigned; filed plainly for triage to grade.\n"
+}

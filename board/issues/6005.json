@@ -1,0 +1,30 @@
+{
+  "number": 6005,
+  "kind": "pull_request",
+  "title": "docs(scripts): record the withdrawal of the vacuous byte-identity sentence",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T12:10:53Z",
+  "updated_at": "2026-08-24T12:34:45Z",
+  "closed_at": "2026-08-24T12:34:43Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-24T12:34:43Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6005",
+  "body": "Fixes #5913\n\nImplements the 2026-08-24 ruling (option C, maintainer verbatim: 「接受你的建议。」). One comment block added to the header of `scripts/check-changeset-presence.mjs`. Nothing else in the repo is touched.\n\n## What the ruling required, and what is here\n\nThe #4580 changeset closed with *\"Core's entry surface is unchanged: `dist/index.d.ts` is byte-identical across the change.\"* #5673 withdrew that sentence from the source docstring it was also written into, but the release tooling had already copied the changeset verbatim into five package CHANGELOGs, where it survives with no trace of the withdrawal.\n\nThe new section states all three things the ruling named:\n\n1. **The sentence was a vacuous measurement, withdrawn by #5673.**\n2. **Why it is vacuous** — `core/dist/index.d.ts` is emitted from a barrel that only *forwards* the symbol, and forwarding never restates a shape, so that file is byte-identical under any change to a re-exported declaration's shape. #5673's PR measured it: a probe key on the declaring module moved `@object-ui/types`' `dist/base.d.ts` and brought it back, while `core/dist/index.d.ts` and `core/dist/types/index.d.ts` held one hash across all three legs. The withdrawn sentence was watching the two files that cannot move.\n3. **The file list**, so an archaeologist landing on any one of the five copies can find the withdrawal.\n\nIt also records *why the five are not edited* — compiled release artifacts stay on the changeset pipeline, and the npm copies are immutable — so the next reader does not re-open the question as an oversight.\n\n## The five line references were re-verified, not copied\n\nA correction record whose own pointers are wrong is the same defect class as the sentence it corrects, so the card's search was re-run at `8d3a5294a` (the branch point) rather than trusted:\n\n| control | result |\n| --- | --- |\n| exact sentence | exit 0, the five files below |\n| known-present `is byte-identical across the change` | exit 0, **six** files — the five plus one unrelated i18n test under `packages/fields` |\n| known-absent string | **exit 1**, zero lines — so an empty result is distinguishable from a broken search |\n\nAll five line numbers from the card still hold:\n\n```\npackages/components/CHANGELOG.md:1472\npackages/core/CHANGELOG.md:1021\npackages/plugin-dashboard/CHANGELOG.md:581\npackages/react/CHANGELOG.md:450\npackages/types/CHANGELOG.md:705\n```\n\nBecause CHANGELOGs are append-heavy and these numbers will drift, the record does not rely on them alone: it carries the `git grep -nI` recipe that re-derives them, and states the six-file expectation so a future reader can tell a working search from a broken one.\n\n## Scope: no check, no test, no `UNGATED` entry\n\nThe gate's behaviour is unchanged. The diff is **51 insertions, 0 deletions, one file**, and every added line is a comment line — verified mechanically:\n\n```\n$ git diff -U0 -- scripts/check-changeset-presence.mjs | grep -E '^[+-]' | grep -v '^[+-][+-]' | grep -vE '^\\+ \\*'\n(no output — every changed line is a header comment line)\n```\n\nThe header's own documented trap was respected: the added text contains no comment-terminator sequence that would close the block early (checked with `grep -F` before insertion), and no control bytes.\n\n## Changeset\n\nThe gate that decides this is the file being edited. Run, verdict quoted either way:\n\n```\n$ node scripts/check-changeset-presence.mjs        # exit 0\nCompared the working tree with 8d3a5294a (merge-base with origin/main): 1 file(s)\nchanged, 0 of them under the src/ of a package the release covers, 0 under a\npackage changesets ignores, 0 changeset(s) added.\n✅  No source of a released package changed in this range, so no changeset is owed.\n```\n\nNone owed — so none is added, not even the empty-frontmatter form.\n\n## Gates run locally, union re-run at `ea197938b` (the final commit)\n\n| gate | exit | verdict line |\n| --- | --- | --- |\n| `node scripts/check-changeset-presence.mjs` | 0 | `✅  No source of a released package changed in this range, so no changeset is owed.` |\n| `node scripts/check-control-bytes.mjs` | 0 | `✅  check-control-bytes: OK (scanned 4970 tracked text file(s); skipped 85 binary).` |\n| `vitest run scripts/__tests__/check-changeset-presence.test.ts` | 0 | `Test Files 1 passed (1) · Tests 31 passed (31)` |\n| `tsc -p tsconfig.scripts.json` | 0 | clean |\n| `eslint` over the full `lint:root` scope | 0 | `✖ 26 problems (0 errors, 26 warnings)` — all warnings pre-existing, none in the edited file |\n\nExit codes were captured by redirect-then-capture, never through a pipe. The `lint:root` lane was run at **full scope**, not narrowed. This repo has no `scripts/pm/dispatch-gates.mjs`, so the family was derived by hand from the root `package.json` scripts and `.github/workflows/changeset-presence.yml`; CI runs the full farm.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01CSoz9uGhaaSgiq3hshtN7L)_"
+}

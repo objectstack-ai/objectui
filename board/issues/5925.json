@@ -1,0 +1,30 @@
+{
+  "number": 5925,
+  "kind": "pull_request",
+  "title": "docs(app-shell): correct the eager-graph attribution above the `/meta` spelling fold",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T01:44:34Z",
+  "updated_at": "2026-08-24T01:58:08Z",
+  "closed_at": "2026-08-24T01:58:07Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-24T01:58:07Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5925",
+  "body": "Fixes #5359\n\nComment-only. The card's premise is falsified by measurement, and the artifact that carried the false claim into the repo is corrected — which is why the card closes here rather than shipping the cleave it proposed.\n\n## What the card claimed, and what is true\n\n`packages/app-shell/src/preview/DraftChangesPanel.tsx` carried a 15-line block stating that its `@objectstack/spec/shared` import puts that subpath on the console's EAGER graph, at **+213.4 KB minified / +60.1 KB gzipped**, with a prohibition attached. The attribution is wrong: that cost was never this import's.\n\n**Ablation**, on `origin/main` at `0fce2ef81` — delete the import, rebuild `apps/console`, read `eagerGzipBytes` from `dist/eager-closure.json`:\n\n| | eager closure, gzipped |\n|---|---|\n| baseline | 3,308,221 |\n| with the import ablated | 3,308,506 |\n| **delta** | **+285 bytes** (noise; the vendor chunk's raw bytes fell 46) |\n\nThe mutation was confirmed on disk before the build, by grepping the removed *and* the injected text rather than trusting an editor's exit code: `REMOVED_TEXT_COUNT=0`, `REMOVED_CALL_COUNT=0`, `INJECTED_MARKER_COUNT=2`. The console resolves `@object-ui/app-shell` through a vite alias to `src` (`apps/console/vite.config.ts:414`), so this leg has no package `dist` that could go stale under it. Restoration ran from an `EXIT INT TERM` trap; `git diff HEAD --stat` came back empty.\n\n**Discriminator** — the delta alone admits two readings (\"`/shared` is still eager\" vs \"`/shared` left and was cheap\"), so the bundle was probed directly. `external_catalogs` is a string literal in `dist/shared/index.mjs` and in **no other** published entry the console imports (ui, data, kernel, automation, contracts, security, identity, system, api and the root entry all grep 0). After the ablation it is **still present** in the eagerly loaded `vendor-objectstack` chunk. Counter-probes on that same file: a literal known absent greps 0, a literal known present greps 30 — so the instrument is neither blind nor matching everything.\n\n**The carrier.** Every other importer of `/shared` in this repo's source is type-only (`import type` / `export type *`) and erased at build. The runtime edge is upstream: `@objectstack/core`, shipped inside `@objectstack/client` and a direct `apps/console` dependency, has `import { pluralToSingular } from \"@objectstack/spec/shared\"`. Deferring or deleting this panel's import moves ~nothing while that edge stands, so both levers the card proposed would have been motion with a measured zero payoff. The lever lives at the producer and is tracked in objectstack#11503.\n\n## What this PR changes\n\nOnly the comment block. The import and the call site are untouched, and the diff is comment plus an empty-frontmatter changeset.\n\n- **Corrected**: the attribution and the byte figure.\n- **Kept, because it is true**: self-contained subpath bundles, no `sideEffects`, the `vendor-objectstack` group's static edge to the app entry (objectui#5266), and the prohibition on forking the spelling table into a local copy — which `scripts/check-spec-symbol-derivation.mjs` refuses.\n- **Rewritten toward the mechanism**: the remaining byte figure is stated with the tree and the date it was measured against. A bare magnitude with a prohibition attached is exactly what went wrong here; the mechanism survives the next release, the magnitude does not.\n\n## The other half of the card's title\n\n\"...that no budget weighs\" was already stale when this card was dispatched. The eager-closure gauge from #5324 weighs the whole eager closure including `vendor-objectstack` (926.2 KB gzip of the 3230.7 KB total) and landed after this card was filed. Calibrated rather than assumed: injecting an eager `@objectstack/spec/cloud` import moved the gauge +157,361 bytes (+153.7 KB); removing it returned the measurement to 3,308,221 exactly, same chunk hash. The gauge is not blind to a new eager spec subpath.\n\nThat calibration did surface a real defect in the gate's *sensitivity*, recorded separately in #5924 and deliberately not folded here. Per-chunk budget work remains where triage put it, on #5490.\n\n## Verification\n\nComment-only, so **no ablation of this change is available** — there is no behaviour to remove and re-observe, and staging one would be theatre. The substitute is the evidence above, which is what the comment now asserts.\n\n- `node scripts/check-changeset-presence.mjs` → exit 0 — `✅  1 source file(s) of 1 released package(s) changed, and this change declares 1 changeset(s)` … `Every one of them has an EMPTY frontmatter — declared as releasing nothing, which is the explicit exemption and a complete answer to this gate.`\n- `node scripts/check-changeset-no-major.mjs` → exit 0 — `✅  No changeset declares a major bump.`\n- `node scripts/check-control-bytes.mjs` → exit 0 — `✅  check-control-bytes: OK (scanned 4921 tracked text file(s); skipped 85 binary).` Both touched files were also scanned directly with `grep -naP` for control bytes: clean.\n- `pnpm --filter @object-ui/app-shell type-check` — see the verification note in the report comment on #5359 for its status and, if narrowed, the declared reason.\n\nExit codes were captured before any pipe throughout.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01EuPCi56cnGyykygi3z9w4m)_"
+}

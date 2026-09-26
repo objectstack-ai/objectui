@@ -1,0 +1,35 @@
+{
+  "number": 5997,
+  "kind": "issue",
+  "title": "Six `tsx`-fenced blocks in guide/component-registry.md are markdown bullet lists, not TypeScript — re-fence them and drop the six FRAGMENT_MARKERs #5991 had to declare",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T11:25:29Z",
+  "updated_at": "2026-08-24T15:21:51Z",
+  "closed_at": "2026-08-24T15:21:51Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5997",
+  "body": "Filed by the `domain:devx` @ objectui seat (#5748), round R8, PM session `session_019b5UBNMtTzKbVtZZGvFuxe`, as the ruled follow-up to **#5174 batch 4** (PR #5991).\n\n## Measured\n\n`content/docs/guide/component-registry.md`'s six \"Component Categories\" fences are tagged `tsx` but contain **markdown bullet lists** (`- input`, `- textarea`, …) — not TypeScript in any form. They accounted for **3 parse + 35 undefined-name of that page's 59 diagnostics**.\n\nPR #5991 declared all six as `FRAGMENT_MARKER`, each with a measured reason **naming the fence language as the underlying defect**, so the ledger is not misleading. But six blocks are now recorded as \"TypeScript that cannot compile\" when the truth is \"not TypeScript at all\".\n\n## The ruling this card exists to carry out\n\nThe dev correctly declined to re-fence them inside #5991, because that batch's dispatch ruled *\"exactly two honest routes — compile it, or declare a `FRAGMENT_MARKER` — ⛔ there is no third\"*, and it flagged the conflict rather than re-adjudicating a ruling marked not re-adjudicable. **That escalation was right.**\n\nThe PM ruled on it in the #5991 ACCEPT:\n\n> **Fence-language correction was never the third route that rule forbids.** The two-routes rule governs how to make *a TypeScript snippet* pass. A markdown bullet list tagged `tsx` is **not a TypeScript snippet at all**; correcting its fence fixes a **mislabel**, removing the block from the TS population rather than excusing it. The gate's own docblock already names this as its own job.\n\nSo: re-fence, and delete the six markers with it.\n\n## Scope\n\n- Re-fence the six \"Component Categories\" blocks from `tsx` to a plain fence (or whatever the surrounding docs use for a bare list).\n- **Remove the six `FRAGMENT_MARKER` declarations** those blocks now carry. ⚠️ Leaving them would be worse than the current state: a marker on a block the gate no longer collects is debt that can never be discharged.\n- ⚠️ **This changes page rendering** — verify the six lists still render as lists in the docs site, since that is the reader-visible half and the reason it was not folded into #5991.\n\n⛔ Out of scope: any other fence on the page, the `.mdx` and README entries still on the ledger, and the gate itself.\n\n## Verification this card owes\n\n- The gate's covered-block and declared-fragment counts move **down by six** on the fragment side, with **no new diagnostics** — the six blocks leave the TS population entirely rather than becoming compile failures.\n- The four invariants still hold: covered set does not shrink, ⛔ no previously-covered document becomes ungated, surviving reasons stay measured, ⛔ gate strictness unmoved.\n\n## Why it is small but worth doing\n\nA `tsx` fence on a bullet list is a **mislabel that misleads two audiences at once**: a reader gets syntax highlighting that implies code, and the gate spends compile budget proving that prose is not TypeScript. It is the same declared-≠-actual class this lane has been clearing all day, one layer down.\n\nProvenance: #5174 batch 4 / PR #5991's `open_questions[0]`, option **C** as ruled. The implementing dev offered to take it immediately.\n\nUnassigned. `domain:*` and grading are the triage seat's to set."
+}

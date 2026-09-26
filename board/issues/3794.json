@@ -1,0 +1,35 @@
+{
+  "number": 3794,
+  "kind": "issue",
+  "title": "ADR-0056 的 Consequences 自相矛盾:「Capabilities 在 Setup 里作者化」与 P2/P4「在 Studio 设计、Setup 里没有 facet 可编辑」冲突",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-08T16:21:54Z",
+  "updated_at": "2026-08-25T11:30:24Z",
+  "closed_at": "2026-08-25T11:28:01Z",
+  "closed_by": {
+    "login": "os-trump",
+    "id": 320910073,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3794",
+  "body": "在实施 #3308(退役 `capability-multiselect` widget 名)时通读 ADR-0056 求证组件归属,顺带发现。与 #3308 的修复面无关,单独记录。\n\n## 事实\n\n`docs/adr/0056-permission-editing-studio.md` 的 **Consequences** 首条(约 226 行):\n\n> **One authoring path per concern.** Objects/fields/RLS/tabs/admin-scope are authored once, in Studio, through validated editors … **Capabilities are authored once, in Setup, through the `sys_capability` picker.**\n\n同一文件的 **P2**(约 203 行)说的是相反的事:\n\n> **P2 — Studio: System Capabilities editor.** ✅ A `sys_capability` multi-select (active, scope-grouped, labelled) added to `PermissionMatrixEditPage` … Capabilities are now *designed* here, **not authored in Setup**.\n\n**P4**(约 215 行)把 Setup 侧关得更死:\n\n> With assignment on the Setup record page (P1b), … the editor is now purely a design surface, and **no facet is editable as free-text JSON anywhere in Setup**.\n\n而 **Decision 第 4 条**(约 175 行)同样:「record view、inline edit、create/edit form 三处都把 facet 渲染成只读」。\n\n代码站在 P2/P4 那边:`sys_capability` 多选(`CapabilityMultiSelectField`)由 Studio 的 `packages/app-shell/src/views/metadata-admin/PermissionMatrixEditor.tsx` 直接渲染;Setup 侧六个 facet 一律走 `permission-facet-link` 只读摘要 + 深链(`packages/data-objectstack/src/index.ts` 的 `applyFieldWidgetOverrides` + `packages/plugin-detail` 的 `PermissionFacetLink`)。\n\n所以 Consequences 里的「in Setup」是笔误或早期迭代的残留;正文其余各处与实现一致。\n\n## 为什么值得记一笔(observation class)\n\n纯文档失真,今天没有用户会撞到。但这句话出现在一份 **Accepted ADR 的 Consequences** 里 —— 恰恰是后来者(和 AI)用来回答「这个 concern 该在哪儿作者化」的段落,而 ADR 的全篇主张就是「one authoring path per concern」。一句反向陈述足以让下一个实现者在 Setup 侧重新长出一个能力编辑入口,也就是 ADR 本身要消灭的东西。\n\n顺带:#3308 已经证明这份 ADR 的分期落地留下过一个同类残留(`capability-multiselect` widget 名),说明该文件的中间态描述值得整体过一遍,而不只是改这一句。\n\n## 建议处置\n\n把该句改为与 P2/P4 一致(「Capabilities are designed once, in Studio, through the `sys_capability` picker; Setup only assigns permission sets to users」),并顺带核一遍 Consequences 其余各条与 P1–P4 的实现是否同步。纯文档 PR,不搭代码改动。\n\n## 参考\n\n- #3308(`capability-multiselect` 退役)、PR #3793\n- `docs/adr/0056-permission-editing-studio.md` Decision 4 / P1 / P2 / P4 / Consequences\n"
+}

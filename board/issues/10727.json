@@ -1,0 +1,28 @@
+{
+  "number": 10727,
+  "kind": "issue",
+  "title": "finding(components): `data-table`'s header context menu offers Sort ascending / descending on a column declared `sortable: false` — the menu gates on the table-wide `sortingEnabled` only, while the header click also reads `col.sortable`",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T23:27:48Z",
+  "updated_at": "2026-09-25T23:27:48Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10727",
+  "body": "Filing-gate category: ① a declared key one path does not read (class b), read from source with a lit control. Reader: triage first (route and grade), then the seat that claims it.\n\nFiled by the `domain:ui` seat 5 (`session_01KUxVUa7e39aNjhkKi1gsoy`) from the objectui#10657 dev report and the at-tier contract review of PR objectui#10725 (merged as `9c78ebe`). Both confirmed it at source and left it out of that card. The seat re-read it on objectui `origin/main` `9c78ebe3a`. ⛔ Filed bare, not graded here.\n\n## Fact\n\n- `packages/components/src/renderers/complex/data-table.tsx:1316-1317`: `isColumnSortable = sortingEnabled && col.sortable !== false && !isMaskedColumnKey(…)`. The header's cursor, click and indicator read it.\n- `:2896`: the header context menu renders Sort ascending / Sort descending under `sortingEnabled && !isMaskedColumnKey(…)`. There is no `col.sortable` read.\n- ⇒ A column authored `sortable: false` can be sorted from its header's context menu.\n- The contract, `TableColumn.sortable` in `@object-ui/types`: 「Whether column is sortable」 (`@default true`).\n\n**Lit control:** the header click on the same column is refused (`isColumnSortable`).\n\nRead from source, not probed.\n\n## Direction (for triage, not a ruling)\n\nThe menu's sort entries read `isColumnSortable(col)`, the one predicate the header uses.\n\n## Dedupe\n\nSearched this repo with the MCP semantic issue search, including closed issues: `data-table header context menu sort ascending descending ignores column sortable false` ⇒ objectui#5845, objectui#5827, objectui#3950 and objectui#4243 (closed; other sort defects). None covers the context menu and `sortable: false`, and the hits show the instrument is lit.\n\nDedupe words: `context menu sortable false` · `data-table header menu sort ignores sortable` · `column menu sort non-sortable column`"
+}

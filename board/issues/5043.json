@@ -1,0 +1,37 @@
+{
+  "number": 5043,
+  "kind": "issue",
+  "title": "finding: 没有门禁核对包内 README 的自包导入名 vs 真实导出面 —— #5002 家族 7 个包的漂移全靠人工巡查发现(附已验证的检查器原型)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T20:32:40Z",
+  "updated_at": "2026-08-25T04:01:46Z",
+  "closed_at": "2026-08-25T04:01:46Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5043",
+  "body": "发现于 #5010 的实施(plugin-calendar README)。Filed unassigned, not claiming.\n\n## 现象\n\n`packages/*/README.md` 里**指向本包自己**的 `import { X } from '@object-ui/[本包名]'` —— **没有任何门禁核对 `X` 是否真的被本包导出**。现存两个 doc 门禁都看不到这一层:\n\n- `scripts/check-doc-links.mjs` —— 只解析链接,不看代码块里的标识符;\n- `scripts/check-doc-component-types.mjs` —— 只扫 `content/docs`,不进 `packages/*/README.md`。\n\n后果不是假设:#5002 家族一次巡查就在 **7 个包**命中(calendar #5010、form #5011、gantt、grid、view 的 `*Components` 手动注册虚构;dashboard #5015、report #5016 的类型导入虚构),每一处照抄都是 `TypeError` 或 TS2305/TS2724。这些 README 都在各包 `package.json` 的 `files` 里,**随 npm 包发布给用户**。\n\n## 为什么值得机制化(而不是继续逐包人工修)\n\n#5010 楼上立卡人的方法学备注已经记了三次方法迭代,每一次都因为近似而漏报:\n\n1. 「标识符在 `src/` 有没有出现」—— 被**注释里的名字**放过(#5015 的 `DashboardSchema` 只出现在注释里),也会把 `export * as X from …` 误报成虚构(plugin-chatbot 的 `AIElements` 实为真导出);\n2. 改成对**导出面取名集合**后才稳定;\n3. 但**多行 import 块**仍只按单行匹配 —— 立卡人明说「所以数字仍是下限」。\n\n也就是说 7 个包是**下限**,不是全集。人工方法每迭代一次就发现上一版漏了一类,这正是该交给脚本的形状。\n\n## 已验证的检查器原型(#5010 实施中写成并用过)\n\n思路:**不做文本近似,直接问编译器**。\n\n1. 用 TypeScript compiler API 取包公共入口的导出符号集(`checker.getExportsOfModule`),并解析 alias 后再判 value/type —— 注意 `export { ObjectCalendar }` 是 Alias 符号、不带 Value flag,**按 alias 判会把每个 re-export 误标成 type**(原型第一版就踩了这个);\n2. 用一条跨行正则抓 README 全部 import 语句(单行 + 多行块都覆盖),**先剥 `//` 与 `/* */` 注释再按逗号切**(不剥的话多行块里的行尾注释会被粘到前一个标识符上,报成虚构名 —— 原型第二版的假阳性就是这个);\n3. 每个自包导入名判三态:真 / 虚构 / **路径错**(名字是真的但属于别的包 —— #5010 的 `CalendarViewSchema` 就是这一类,修法是改路径而非删节,与虚构名不同)。\n\n在 plugin-calendar 上的实测读数(修复前):`calendarComponents` → 虚构;`CalendarViewSchema` → 路径错(真身在 `@object-ui/types`);`CalendarEvent` → 真。反向验证:往**多行块**里各塞一个假名,两个都被抓出(单行 grep 看不到的正是这一类)。\n\n原型是 #5010 的一次性 scratch,没有入库。要机制化的话建议做成 `scripts/check-readme-exports.mjs` + 一条 `check:readme-exports`,对全部 `packages/*/README.md` 跑。\n\n## 更强的一档(可选,成本更高)\n\n真正的上界是**把 README 的 TypeScript 代码块抽出来喂 tsc**(类似 docs 的 doctest)。#5010 里正是这么发现第三处漂移的:`CalendarViewSchema` 路径改对之后示例**仍然不编译** —— 同一个例子里的 `CalendarEvent` 是真导出,但是 `CalendarView` 组件的**运行时**类型(`id: string | number`、`start: Date`),不是 `CalendarViewSchema.events` 要的**授权 JSON** 类型(`id: string`、`start: string | Date`),ISO 字符串字面量对不上,`TS2322` ×3。**名集合核对看不见这一类**(名字全真),只有真编译看得见。详见 #5044。\n\n两档可以叠:名集合核对便宜、可全仓跑;抽块编译贵,但能抓住「名字全真、类型不对」的漂移。\n\n## 分级\n\n交 PM 分诊。挂 `finding`:门禁缺失本身不是用户今天直接撞到的 bug,它的用户可见后果已经分别立卡(#5010–#5016);这一单是那一族的**根因 + 复发预防**。"
+}

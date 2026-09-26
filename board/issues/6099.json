@@ -1,0 +1,33 @@
+{
+  "number": 6099,
+  "kind": "pull_request",
+  "title": "refactor(plugin-dashboard): one relation predicate, not two that agree by coincidence",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T16:56:11Z",
+  "updated_at": "2026-08-24T17:21:37Z",
+  "closed_at": "2026-08-24T17:21:36Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-24T17:21:36Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6099",
+  "body": "Fixes #5876\n\nOption **B**, triage's preference: `computeLookupExpand` now calls `isLookupType`\ninstead of carrying its own copy of it. The package holds one relation predicate.\n\n## What was there\n\n`ObjectDataTable.tsx` held a local `isLookup` inside `computeLookupExpand` that was\n**identical** to the exported `isLookupType` in `recordFields.tsx` — same retirement\ngate, same `EXPANDABLE_FIELD_TYPES.has`, verified line-for-line on the merge-base\n(`7c96c9420`). They agreed because #5692 had just pointed both at the same set, and\nnothing kept them agreeing afterwards.\n\n`computeLookupExpand` now calls `isLookupType` at both call sites, and the module no\nlonger imports `EXPANDABLE_FIELD_TYPES`, `isRetiredFieldType` or\n`reportRetiredFieldType` at all. `isLookupType` gains its first production consumer,\nso #4914's item-9 coverage in `lookupTypes.retiredFieldType.test.ts` keeps working\nuntouched — the asymmetry that makes B cheaper than A.\n\n## Behaviour-preserving, and that is measured, not assumed\n\nTriage called this \"behaviour-affecting\". With identical bodies it is not, and both\ncandidate deltas were checked:\n\n- **Boolean answers.** Identical bodies give identical answers. `tree` is still\n  expanded, `reference` is still refused, ordinary relations are still carried.\n- **Warning emission count.** `reportRetiredFieldType` dedupes per **spelling**, in\n  one module-level `Set` inside `@object-ui/core`\n  (`retired-field-types.ts`: \"the dedupe is per SPELLING, not per face\"). Both bodies\n  already shared that Set, so routing two callers through one function cannot move\n  the count. If the key had been per call site, this would have been a real delta.\n\nNothing published moves: `isLookupType` is not re-exported from `index.tsx`, so it is\nnot on `@object-ui/plugin-dashboard`'s published surface. `patch`, not `minor`.\n`renderFieldValue` was deliberately **not** moved (#6014 reads that seam).\n\n## Why the pin is identity, not behaviour\n\nA refactor with no observable delta cannot be pinned by a behavioural test. Every\nassertion in the three pre-existing describes — `tree` expands, `reference` does not,\nordinary relations do — **passes identically on a revert**. They are controls for this\nchange, not pins of it.\n\nThe new pin in `expandableFamily.identity-5692.test.ts` has two halves that fail for\ndifferent reasons:\n\n- `` `computeLookupExpand` CALLS `isLookupType` — in BOTH column modes `` — a `vi.doMock`\n  double (surgical: not hoisted, so the rest of the file stays on the real module)\n  records the call in the explicit-whitelist and auto-derive paths.\n- `` `ObjectDataTable.tsx` holds no second predicate body `` — source read with comments\n  stripped, so the convergence note that *names* those symbols cannot fake a hit.\n\n**Ablation, direction predicted before running:** restore the merge-base\n`ObjectDataTable.tsx` and both new pins go RED while everything else stays GREEN.\nObserved exactly that — `2 failed | 18 passed`, failing on\n`explicit whitelist answered the relation question without asking isLookupType` and\n`computeLookupExpand stopped calling the shared predicate`. Mutation was proven on\ndisk before the run (local body restored: 1 hit; `isLookupType(`: 0 hits; control\n`computeLookupExpand`: 5 hits), and restored under `trap … EXIT INT TERM` with\n`git diff HEAD --stat` confirmed empty afterwards.\n\nThe first ablation leg found a real flaw and it was fixed in a second commit: the\nsource pin failed on its **control** line (\"probe stripped the code away\"), the same\nmessage a broken probe would give — control and subject were indistinguishable. The\ncontrols are now text present in *both* versions of the file.\n\n## Gates — all at `42c38c2a4`, the final commit\n\n| gate | exit |\n| --- | --- |\n| `pnpm --filter @object-ui/plugin-dashboard type-check` | 0 (script name echoed; both `tsc --noEmit` and `tsc -p tsconfig.test.json`) |\n| root vitest over `packages/plugin-dashboard/src` | 0 — `Test Files 80 passed (80)`, `Tests 754 passed (754)` |\n| `pnpm --filter '...@object-ui/plugin-dashboard' type-check` (downstream) | 0 — `Scope: 7 of 47`, all 7 `Done` |\n| `pnpm lint` (repo-wide `eslint .`, no narrowing) | 0 — `47 successful, 47 total` |\n| `node scripts/check-changeset-presence.mjs` | 0 |\n| `node scripts/check-changeset-no-major.mjs` | 0 |\n| `node scripts/check-control-bytes.mjs` | 0 |\n| `pnpm check:esm-specifiers` | 0 |\n\nThe downstream sweep is the **prefix** form — the package and its **dependents**\n(`@object-ui/app-shell`, `apps/console`, `apps/site`, three examples), i.e. the\ncontract direction. It went red once on `Cannot find module\n'@object-ui/example-schema-catalog'` — the unbuilt-closure class, not this diff:\nbuilding `examples/**` flipped it green with the diff unchanged.\n\n`check:esm-specifiers` was run because an import was added to `ObjectDataTable.tsx`;\nit is a step inside the `Type Check` job, derived by enumerating that job's own step\nlist rather than top-level script names.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01CSoz9uGhaaSgiq3hshtN7L)_"
+}

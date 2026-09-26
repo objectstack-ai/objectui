@@ -1,0 +1,36 @@
+{
+  "number": 4894,
+  "kind": "issue",
+  "title": "[finding] 四处读注册键表的钉子正则只认单引号,而本仓没有任何机制强制单引号 —— 一个双引号的 register 会被静默漏读",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T02:06:30Z",
+  "updated_at": "2026-08-25T01:15:04Z",
+  "closed_at": "2026-08-25T01:15:04Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4894",
+  "body": "发现于 #4860 的实施(PR #4893),回传立单。**未认领,交 PM 三角。观察类** —— 今天 `packages/layout/src/index.ts` 的五个注册调用全是单引号,没有用户路径会踩到;本条记录的是钉子的机械盲区。\n\n## 事实\n\n四个文件用**同一条**正则从 `packages/layout/src/index.ts` 读出「本包注册了哪些组件键」:\n\n| 文件 | 用途 |\n|---|---|\n| `guide-layout-sidebar-nav-doc.test.ts:329`(#4840) | 与 guide 的键表逐项比对 |\n| `app-shell-not-a-component-key.test.tsx:80`(#4841) | 断言 `app-shell` 不在其中 |\n| `side-effects-manifest.test.ts:302`(#3899) | 逐键断言其注册在 side-effect-only 打包后存活 |\n| `readme-registration-keys.test.ts`(#4860,本次新增) | 与 README 的键表双向比对 |\n\n四份都是这一条:\n\n    ComponentRegistry\\.register\\(\\s*'([^']+)'\n\n**只认单引号。** 而本仓**没有任何机制强制单引号**:仓根无 `.prettierrc` / `prettier.config.*`,`package.json` 无 `prettier` 字段,`eslint.config.*` 里也没有 `quotes` 规则(实测 grep 三处全空)。也就是说,一个写成双引号的 `ComponentRegistry.register(\"some-key\", …)` 完全合法、lint 与 CI 全绿,而这四条正则一个都读不到它。\n\n## 各文件的后果不同,其中一个是完全静默的\n\n- `side-effects-manifest.test.ts` —— **静默漏检**。它的下限是 `toBeGreaterThanOrEqual(5)`,所以「5 个单引号 + 1 个双引号」照样过关,而那个双引号键的「打包后存活」断言从未跑过。这正是它自己头注释里警告的形状:那个数字「是地板,不是普查」。\n- `guide-layout-sidebar-nav-doc.test.ts` 与 `readme-registration-keys.test.ts` —— **红,但诊断指错方向**。文档正确地列了那个键,源码侧却读不到,于是失败信息说「文档列了一个没注册的键」,把读者支去修改本来正确的文档。\n- `app-shell-not-a-component-key.test.tsx` —— 源码侧断言会漏掉一个双引号写法的 `app-shell` 重新注册;但同文件的活注册表断言(`ComponentRegistry.getConfig` / `has`)仍会抓住,所以这一处有第二道防线。\n\n## 为什么值得记一笔\n\n这一族 issue(#3899 / #4840 / #4841 / #4860)的共同主题就是「钉子因为读到空集合而绿」。这条正则本身正是同一个形状:它的输入面比它自以为的**窄一个引号**,而窄掉的那部分没有任何东西看着。\n\n## 可能的处置(交维护者定,本单不预判)\n\n- **A.** 正则放宽到两种引号(`(['\"])` + 反向引用),四处同改。最小改动,但仍留四份副本。\n- **B.** 提取一个共用 reader,并在其中放宽。#4860 已把「提取共用」列为选项 A 的附带项,实施时刻意没做(理由:为服务一个钉子去改三个**故意自包含**的钉子文件)。若连同本条一起做,提取就有了独立的正当性 —— 不再只是去重,而是「一处放宽、四处受益」。\n- **C.** 补一条机制强制单引号(prettier 或 eslint `quotes`),让这四条正则的窄输入面变成真的。影响面远超本单。\n\n倾向 A 或 B。C 方向反了:那是把整仓的格式化约定绑到四个测试的实现细节上。\n\n## 参考\n\n- `packages/layout/src/index.ts`(五个 register 调用,当前全为单引号)\n- 上表四个测试文件\n- #4860 / PR #4893(发现于此)、#3899(「地板不是普查」下限的来源)、#4840、#4841\n"
+}

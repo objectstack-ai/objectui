@@ -1,0 +1,36 @@
+{
+  "number": 5293,
+  "kind": "issue",
+  "title": "`ObjectViewProps.views[].sort` declares `direction`, but every sort consumer reads `order` — a host-supplied `desc` view silently sorts ascending",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-19T07:10:01Z",
+  "updated_at": "2026-08-24T13:21:47Z",
+  "closed_at": "2026-08-24T13:21:47Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5293",
+  "body": "Found while implementing #5270 (the named-view `sort` arity fix). **Filed unassigned, not claiming. Deliberately NOT fixed there** — #5270's ruling is the arity of the slot the view sort is written into, and this is a different mechanism (a key *name* that no reader knows) whose correct fix is not mechanical. See \"Why this needs adjudication\" below.\n\nVerified on `origin/main` @ `12841b617`.\n\n## The declaration\n\n`packages/plugin-view/src/ObjectView.tsx:206-214` — the host-composition `views` prop:\n\n```\n  views?: Array< {\n    id: string;\n    label: string;\n    type: ViewType;\n    columns?: string[];\n    sort?: Array< { field: string; direction: 'asc' | 'desc' } >;\n    filter?: any[];\n    [key: string]: any;\n  } >;\n```\n\nNote `direction`. Every other sort surface in the repo spells the same field `order`:\n\n| surface | spelling |\n| --- | --- |\n| `SortConfig` (`packages/types/src/objectql.ts:212`) | `order` |\n| `NamedListView.sort` (`:1579`) | `order` |\n| `ObjectGridSchema.sort` / `.defaultSort` (`:578` / `:673`) | `order` |\n| `QuerySortEntry` — the shared sink (`packages/core/src/utils/sort-query.ts`) | `order` |\n| `ObjectViewProps.views[].sort` | **`direction`** |\n\n## Nothing reads `direction`\n\n`activeView` is the resolved `views` entry (`ObjectView.tsx:551`) and its `sort` reaches exactly three consumers, none of which knows the word:\n\n- `:611` non-grid fetch — `$orderby: sort`, raw. `serializeOrderBy` (`packages/data-objectstack/src/index.ts:341`) folds each entry as `shorthand(item.field, item.order)`, and `String(undefined).toLowerCase() !== 'desc'`, so **every entry is ascending**.\n- `:1078` the grid path — after #5270 this reaches `ObjectGridSchema.sort`, where `ObjectGrid` builds `` `${s.field} ${s.order}` `` (`ObjectGrid.tsx:1117-1119`) → the wire string `\"name undefined\"`, and `parseSchemaSort` (`:69`) reads a missing `order` as **ascending**, so the header draws an ascending arrow.\n- `:1244` `mergedSort`, handed to the delegated `renderListView` schema's `sort` key.\n\nCounter-probed: `grep -n direction packages/plugin-view/src/ObjectView.tsx` returns only the declaration at `:211`, an unrelated prose use at `:342`, and `<Drawer direction=\"right\">` at `:1158` — while `viewSort` in the same file returns 3 hits, so the zero is a reading and not a bad grep.\n\n## Consequence\n\nA host that composes `views={[{ id, label, type: 'grid', sort: [{ field: 'created_at', direction: 'desc' }] }]}` — the exact shape the prop declares — gets an **ascending** list, and (on the grid path) an ascending arrow above it. There is no failure signal: the declaration says the value is well-formed, and the direction is dropped at three independent readers rather than rejected at one.\n\nThe spelling is live, not theoretical: `packages/plugin-view/src/index.tsx:179` registers `sort: [{ field: 'name', direction: 'asc' }]` as a `defaultProps` example, and `packages/app-shell/src/views/view-config-adapter.test.ts` round-trips `{ field, direction }` fixtures through the studio adapter (which itself is spelling-agnostic — `sort?: unknown[]`).\n\nDistinct from `SortUI`, which legitimately owns `direction` on its **own** `SortUISchema` and converts at its boundaries (`SortUI.tsx:54` / `:71`). This issue is only about the `views` prop.\n\n## Why this needs adjudication rather than a one-line fix\n\n#4869 already ruled on this exact class, for `defaultSort`:\n\n> 若 `defaultSort` 实际存在 sink 不认的拼法,正确的动作是先裁定该拼法算不算已声明的 authoring surface(要么进 sink 的契约,要么在 producer 端拒绝),而不是在 ObjectView 里加一层容忍。\n\nSo the two candidate routes are a decision, not a refactor:\n\n1. **`direction` is a declared authoring surface** → it belongs in the sink's contract (`convertSortToQueryParams`), and `ObjectView` translates at the prop boundary. Cost: a third accepted spelling repo-wide, against the convergence #4869 is driving.\n2. **`direction` is a declaration bug** → the prop becomes `order`, matching every other sort surface, and the two in-repo `direction` producers listed above are corrected. Cost: a breaking change to a public prop's shape (objectui ships its own breaks as `minor` per AGENTS.md §版本号策略), and any external host spelling `direction` starts failing loudly instead of quietly.\n\nRoute 2 is the one that makes AI-authored composition hard to get wrong — one spelling, declared = enforced — but it is a public-surface break and should not be taken by a dev agent on its own authority.\n\n## Dedup\n\nSearched open issues (`views sort direction`, `ObjectViewProps sort`, `sort direction spelling`, plus the file path). Nothing on this. Related: **#4869** (the sort-sink convergence card, which names this class), **#5270** (the arity of the grid slot, same expression, different mechanism), **#5269** (the `table.columns` forwarding gap, same file).\n\n**Blocked-by: #4869** — the sink's contract is the thing route 1 would extend, so that card's shape should settle first.\n"
+}

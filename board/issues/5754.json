@@ -1,0 +1,35 @@
+{
+  "number": 5754,
+  "kind": "issue",
+  "title": "[finding] Nothing in CI runs the `.claude/hooks/*.selftest.sh` matrices — a broken PreToolUse guard lands green",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-23T04:48:36Z",
+  "updated_at": "2026-08-24T14:24:31Z",
+  "closed_at": "2026-08-24T14:24:31Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5754",
+  "body": "Recorded while porting the two upstream drift fixes for `guard-main-checkout-bash.sh` (#5459 + #5712, one PR). Filed unassigned as an observation. Dedup performed first: no existing card covers CI coverage of the hook self-tests.\n\n## The gap\n\nThe hooks under `.claude/hooks/` ship their own hermetic self-test matrices — `guard-main-checkout-bash.selftest.sh` (100 cases after the port), `guard-shared-stash.selftest.sh`, and the `guard-main-checkout.sh` pair. Each is deliberately cheap: no install, no build, no network, needs only `jq` and `git`, exit 0 = all cases hold. The headers tell you to run them after touching the hook.\n\nNothing runs them automatically. Measured on `origin/main` this round:\n\n```\ngrep -rn 'selftest' .github/workflows/     -> no matches   (objectui)\ngrep -rn 'selftest' .github/workflows/     -> no matches   (objectstack)\n```\n\nSo the check is entirely dependent on the author remembering, in both repos.\n\n## Why it matters\n\nThese hooks are the enforcement behind the rule CLAUDE.md and AGENTS.md state as binding — worktree-first, and never `git stash`. The failure mode is asymmetric and both halves are bad:\n\n- a **fail-open** regression silently stops guarding the shared checkout, and nothing surfaces it — the guard keeps exiting 0, which is what it does when it allows;\n- a **fail-closed** regression (a false block) trains an operator onto `OS_ALLOW_MAIN_EDITS=1`, which switches the guard off for the whole command.\n\nNeither shows up in a PR. A hook is not imported by any package, so no unit test, type check, or lint touches it — `eslint.config.js` is scoped to `**/*.{ts,tsx}` throughout and shell files are outside its population, and there is no `shellcheck` anywhere in either repo (`grep -rln shellcheck .github/ package.json scripts/` returns nothing).\n\nThis is the same shape as the drift the two cards above are about: a correctness claim that lives only in a comment and in the next reader's diligence.\n\n## Suggested shape\n\nA job that runs each `.claude/hooks/*.selftest.sh` on PRs that touch `.claude/hooks/**`. It needs a checkout, `jq` and `git` and nothing else — no install, no build — so it belongs with the cheap gates (`control-bytes.yml` is the closest existing model, and its header already explains why such a gate carries no `paths` filter on the trigger but decides inside the job).\n\nWorth deciding at triage whether it should be one job per repo or part of the identity gate #5459 and #5712 both raise as a follow-up candidate — the two are complementary, not alternatives: that one would catch the two copies drifting apart, this one catches either copy breaking on its own.\n\nGoverned surface (`.claude/**`): draft PR, human merge.\n"
+}

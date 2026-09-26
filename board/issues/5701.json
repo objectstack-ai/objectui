@@ -1,0 +1,34 @@
+{
+  "number": 5701,
+  "kind": "issue",
+  "title": "Re-anchor the eight `ADR-0057 D10` citations to the framework's `ADR-0124 D1` — D10 decides Setup-nav capability surfacing, not enforcement location, and the framework's own ADR says so",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T12:09:58Z",
+  "updated_at": "2026-08-24T02:12:20Z",
+  "closed_at": "2026-08-24T02:12:20Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5701",
+  "body": "Filed by the `domain:ui` execution seat (seat post #5560) as the follow-up **pre-registered by #5202's own triage comment** — *\"filed by whichever seat accepts that PR\"*. #5202's PR is #5699. Filed unassigned.\n\n## What #5699 fixed, and what it deliberately did not\n\n#5699 fixed the **repo-ambiguity** half: seven live sites cited a bare `ADR-0057 D10`, and in *this* repo that string resolves to `docs/adr/0057-console-ai-chat-one-conversation-docked.md` — a document about console AI chat docking that contains **no D10 at all**. Each site now says whose numbering it means.\n\nIt did **not** fix the **anchor** half, and this card is that half.\n\n## The anchor is wrong, and the framework already documented it\n\nFramework `docs/adr/0057-erp-authorization-core-business-units-and-scope-depth.md:422`:\n\n> ### D10 — Setup-nav surfacing follows the capability (ADR-0029 K2); the object stays open\n\nThat is not the rule these sites cite it for. The same file, at `:518`, carries a note aimed at exactly this citation:\n\n> ⚠️ **The general rule lives in [ADR-0124](./0124-server-enforces-client-is-courtesy.md), not here.** The server-side/client-side contrast below is nav-scoped and is the *closest ancestor* of the platform rule \"the server enforces; client-side gating is a usability courtesy\" — but D10 decides Setup-nav capability surfacing, not enforcement location in general. **If a citation of `ADR-0057 D10` brought you here looking for that rule, ADR-0124 is where it is decided (#9628).**\n\nAnd framework `docs/adr/0124-server-enforces-client-is-courtesy.md:61`:\n\n> ### D1 — The server is the enforcement point; client-side gating is a usability courtesy\n\nADR-0124 is **Accepted 2026-08-18** on the maintainer ruling on objectstack#9628, and landed on framework `main` as `9dd192d` (2026-08-21). #5202's triage originally chose option 2 *because* #9628's timing was \"maintainer-merge-bound and therefore unbounded\". **It is now bounded and landed** — as an independent ADR rather than the anticipated ADR-0057 D13 — so that rationale is discharged.\n\n## Scope — eight sites\n\nThe seven #5699 touched, plus one it was fenced out of:\n\n1. `packages/app-shell/src/views/RecordDetailView.tsx`\n2. `packages/app-shell/src/views/studio-design/PackageOwdOverviewPanel.tsx`\n3. `packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx`\n4. `packages/plugin-detail/src/useRecordEditable.ts`\n5. `packages/plugin-detail/src/useRecordEditable.test.tsx`\n6. `packages/plugin-grid/src/hooks/useRecordCrudVerdicts.ts`\n7. `packages/react/src/hooks/useCapabilityGate.ts`\n8. **`packages/core/src/evaluator/fieldRules.ts:38`** — carries the framework qualifier already, so #5699 correctly left it alone; it points at the same wrong decision and belongs in this sweep.\n\n**Also wrong the same way, and ⛔ a GOVERNED SURFACE:** `docs/adr/0036-field-conditional-rules.md:91` asserts the framework cites *\"server enforces, client is courtesy\"* as ADR-0057 D10. It is the wording all the others derive from, so leaving it re-seeds the error. A PR touching `docs/adr/**` **stops at draft for human merge** and must never be flipped ready, enqueued or auto-merged.\n\n⛔ **Out of scope, and it is a *correct* citation:** `packages/data-objectstack/src/appAccessProbe.test.ts:25`. It cites D10 for *\"an app gated by an absent optional service\"* — the capability/service-gating family D10 genuinely does decide. Leave it byte-untouched.\n\n## Sequencing — read this before starting\n\nThe framework has its own D10 citations, and **they must not be swept indiscriminately.** A meaningful share of them (`rest-server`'s `filterAppForUser`, the dashboard `requiresService` gates) are the nav/capability family D10 really does decide and are **correct as they stand**. The split is per-site and has to be read, not pattern-matched — the same distinction that makes `appAccessProbe.test.ts:25` correct here.\n\nOpen question for whoever picks this up, which I am **not** deciding: whether objectui should re-anchor ahead of the framework, or wait. The argument for waiting is that objectui citing ADR-0124 while the framework's own live sites still carry the D10 form inverts the direction the inheritance travels. The argument for going first is that objectui's citations are unambiguously in the wrong family, so they are correct to move regardless of what the framework does with its own. Worth one line from the maintainer before a dev starts.\n\n## Clause ② is not tripped\n\nThe new anchor is **derived from an authority** — the framework's ADR-0057 explicitly names ADR-0124 as the destination for precisely this citation, and names the deciding issue (#9628). Derived from an authority → repair, not a new contract decision. No ruling needed for the re-anchor itself; the sequencing question above is separate.\n\n## Prior art in this repo\n\nThe disambiguation wording now shipping at the eight sites came from `docs/adr/0036-field-conditional-rules.md:91` and `fieldRules.ts:38`. Whoever does this should keep deriving rather than inventing a third phrasing — and should update those two sources in the same sweep so the derivation stays honest."
+}

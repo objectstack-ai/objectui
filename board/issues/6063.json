@@ -1,0 +1,35 @@
+{
+  "number": 6063,
+  "kind": "issue",
+  "title": "finding(plugin-kanban): `resolveDisplay`'s `isLookup` guard is unreachable — the next line returns on the same condition unconditionally",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T15:22:12Z",
+  "updated_at": "2026-08-25T06:36:36Z",
+  "closed_at": "2026-08-25T06:36:36Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6063",
+  "body": "Measured while implementing #5874 (converging this face's private copy of the reference-bearing field family). **Out of that card's fence** — that card converges a forked table, this is a redundant guard, a different defect class — so it is filed rather than fixed in passing.\n\n## What is there\n\n`resolveDisplay` in `packages/plugin-kanban/src/ObjectKanban.tsx` (the card-description helper, inside the legacy semantic heuristic) ends:\n\n```ts\nconst isLookup = isExpandableFieldType(def);   // was an inline disjunction before #5874\nif (isLookup && isOpaqueId(raw)) return undefined;\nif (isOpaqueId(raw)) return undefined;\nreturn raw;\n```\n\nThe second line subsumes the first for every input: whenever the first `return` fires, the second would have fired too. So `isLookup` cannot change any outcome of this function — it is computed, branched on, and discarded.\n\n## Why it matters rather than being a tidy-up\n\nIt cost #5874 a real verification hole, and hid it in the shape that reads like success.\n\n- **No membership delta on this face is observable.** #5874's required counter-probe — \"a `user` field is now treated as reference-bearing here\" — cannot be written against `ObjectKanban`'s rendered output, in either direction. #5874 records that absence in its test docblock rather than writing an assertion that cannot fail.\n- **The first identity pin written for this face passed its own ablation.** `ObjectKanban.tsx` also imports `buildExpandFields`, which consults the same shared `EXPANDABLE_FIELD_TYPES` object once per schema field on every render, so a bare `vi.spyOn(EXPANDABLE_FIELD_TYPES, 'has').mock.calls` pin stayed **green** with the private copy restored. Measured, not feared. #5874's pin now filters recorded calls by the calling stack frame, and goes red as designed — but the reason a frame filter was needed at all is that this guard has no behaviour of its own to assert against.\n\nThe guard also reads as live capability: it names the reference-bearing rule and appears to suppress un-expanded foreign-key ids from card descriptions, which is a real thing the function does — just not through this line.\n\n## Deliberately NOT this issue\n\n- The family convergence itself — #5874, landed with this face converged and pinned. Converging it stays correct on its own terms: the day the guard is made live, it reads the shared family rather than a stale literal.\n\n## Fix — needs a decision, not just a deletion\n\nTwo readings, and the choice is behavioural, so it should be made deliberately rather than by whoever tidies first:\n\n- **A. The guard is redundant — delete it.** `isOpaqueId(raw)` already suppresses every opaque-looking id regardless of field type. Removes the dead branch and the `@object-ui/core` read on this path. Cost: the file stops declaring that relation columns are the reason ids get suppressed here.\n- **B. The unconditional line is the mistake — narrow it.** If the intent was that only *relation* columns suppress opaque ids (a non-relation `text` column holding an id-shaped string would then still render), the second `return` is over-broad and the guard was meant to gate it. This changes what cards show, so it wants a read of the original intent rather than an inference from the code.\n\nRelated: #5874, #5692, #3463 (two earlier dead-code sites in this same file)."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6074,
+  "kind": "issue",
+  "title": "`check.ts` promises that \"the corpus migration repays\" the 263-file recall debt — the mechanism was deleted before #5334 merged",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T15:39:42Z",
+  "updated_at": "2026-08-24T16:44:26Z",
+  "closed_at": "2026-08-24T16:44:26Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6074",
+  "body": "Filed by the `domain:devx` @ objectui execution PM seat (#5748, PM session `session_019b5UBNMtTzKbVtZZGvFuxe`) as the immediately-actionable follow-up promised when **#5329** was closed as superseded. Unassigned; grading and `domain:*` are the triage seat's.\n\n## The defect\n\n`packages/cli/src/commands/check.ts` carries a comment stating that **\"the corpus migration repays\"** the recall debt — the files the D-arm skips because they have a root `type` and no ObjectUI schema marker.\n\nThere is no such migration, and there cannot be one: the maintainer's **2026-08-20 ruling (verbatim C)** superseded the `$schema` half of the 2026-08-19 ruling, and PR **#5334 deleted `OBJECTUI_SCHEMA_URL` and `pointsAtObjectUi()` before merge**. The same file elsewhere states, correctly, that there is deliberately no `$schema` arm and no ObjectUI `$schema` URL exists to declare.\n\nSo the file **contradicts itself**: one comment promises a repayment mechanism that another part of the same file records as deliberately absent.\n\n## Why it is worth its own card\n\nThis is not cosmetic — the false comment already cost a full dispatch round. It is part of what made **#5329** look actionable: a card was written, claimed, and worked to the point of a full corpus re-measurement and a paired ablation before the dev established that the marker it was told to stamp does not exist. The measured result was that a 429-file sweep is a **no-op** on the acceptance criterion:\n\n| leg | injected into a currently-skipped real file | D-arm skipped |\n|---|---|---:|\n| A | `\"$schema\": \"https://objectui.org/schema/v1/schema.json\"` | **309** — unmoved |\n| B (positive control) | `\"className\": \"\"` | **308** — moved by 1 |\n\nThe comment is the last thing in the tree still pointing at that dead route, so the next agent to read `check.ts` can re-derive the same false card.\n\n## Scope\n\nCorrect the comment to say what is actually true: the recall debt exists, the `$schema` route was ruled against, and the arm can be added later — #5334 records that host-based matching means adding it then would **not invalidate a single file**, which is why waiting costs nothing.\n\n⛔ Do **not** add a `$schema` arm, mint a URL, or widen `OBJECTUI_STRUCTURAL_KEYS`. Those are, respectively, a closed maintainer ruling, a closed maintainer ruling, and a separate card needing per-key foreign-retention measurement (#5334 measured `label` as held out **by name** precisely because admitting `BaseSchema`-adjacent naming keys drives foreign retention from 0 files toward all 46).\n\n⛔ Do not \"fix\" the debt by changing the corpus. That is the prohibition #5329 died on.\n\n## Verification\n\nProse-only, so state the limit honestly: no gate catches a false comment and none will keep the corrected one true.\n\nWhat can be checked, and should be, is that the corrected comment matches the code **in the same file** — quote the merged code that removed `OBJECTUI_SCHEMA_URL` / `pointsAtObjectUi()` and the existing comment that already says there is no `$schema` arm, and show the new text agrees with both. Re-measure the current D-arm count and cite it rather than reusing 309 (it was 304 in #5329's stamped table and 309 five days later — the number moves).\n\nRun the repo's gates per the diff; a comment change in a `src/` file of a released package may owe a changeset — follow `check-changeset-presence.mjs`'s verdict rather than assuming.\n\n## Related\n\n- **#5329** — closed as superseded; carries the full measurement and the four-option analysis\n- **#5334** — the merged PR that deleted the URL and the predicate\n- **#5127** — the Option B this was the producer-side half of\n- **#5392** — the `@object-ui/types` generated-JSON-Schema decision, which #5334 names as the soundest trigger for adding a `$schema` arm later\n- the recall-debt tracking card filed alongside this one"
+}

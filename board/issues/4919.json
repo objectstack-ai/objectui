@@ -1,0 +1,35 @@
+{
+  "number": 4919,
+  "kind": "issue",
+  "title": "finding(types): `MobileOverrides.navigation` 发布了三值导航词表,全仓零读点 —— 与 #3985 同族的另一处「声明即全部」",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T05:22:29Z",
+  "updated_at": "2026-08-24T02:51:01Z",
+  "closed_at": "2026-08-24T02:51:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4919",
+  "body": "发现于 #3985 的实施(PR 见下),**不在该 PR 处理** —— #3985 的完成范围是 `app-schema-renderer` 的 `mobileNavMode` 这一个键(声明收窄 + 退休零读点的值);这一条是普查退休提及时在**另一个包、另一个类型、另一个键**上撞见的同族现象,修法(退休 vs 实装)同样要先有裁定,不该由实施 agent 顺手择一。未认领,交 PM 分诊。\n\n## 机制\n\n`packages/types/src/mobile.ts:73-86` 发布了 `MobileOverrides`:\n\n```\nexport interface MobileOverrides {\n  layout?: 'stack' | 'tabs' | 'accordion' | 'carousel';\n  columns?: number;\n  useBottomSheet?: boolean;\n  fullScreen?: boolean;\n  touchTarget?: 'default' | 'large' | 'xlarge';\n  navigation?: 'bottom-tabs' | 'hamburger' | 'drawer';\n}\n```\n\n它是公开面:`packages/types/src/index.ts:578` 导出,`packages/mobile/src/index.ts:60` 再导出一次,所以 `@object-ui/types` 与 `@object-ui/mobile` 两个包的消费者都能写它。\n\n全仓对这个类型的提及只有三处,**没有一处是读**:\n\n- `packages/types/src/mobile.ts:73` —— 声明本身;\n- `packages/types/src/mobile.ts:283` —— `mobileOverrides?: MobileOverrides;`,挂在另一个类型上的可选属性;\n- 两处 barrel 再导出。\n\n`grep -rn \"mobileOverrides\"`(小写首字母,即真正会被读到的属性名)在 `packages/` / `apps/` / `examples/` 下只命中 `mobile.ts:283` 声明自身 —— 没有任何渲染器、hook 或适配层取过它,更没有谁 `switch` 过 `navigation` 的三个值。也就是说整棵 `MobileOverrides` 目前是「声明即全部」,而 `navigation` 的三值词表是其中最像能力的一项:三个值读起来是三种移动端导航形态,实际三者行为完全一致(都不发生任何事)。\n\n## 与 #3985 的关系,以及为什么单独立卡\n\n同族(#3818 / #3829 / #3985 那条线:发布的语义与实际读点不符),但**不是同一个键**,也不在 #3985 的完成范围内:\n\n- #3985 修的是 `app-schema-renderer` 注册表 `inputs` 里的 `mobileNavMode`,它至少有两个真读点(`drawer` 默认值 + `=== 'bottom_nav'` 比较),问题是声明面比实现宽、且词表里混进一个零读点的值;\n- 这一条是一个**整体**零读点的类型,`navigation` 的三个值一个都没实装。两者不共享文件、包、消费路径,所以按「依赖而非落在同一完成范围内」的判据独立立卡,不作为 #3985 的子卡。\n\n顺带说明这一条为什么**不能**照抄 #3985 的结论:`mobileNavMode` 的裁定是「收窄到实现了的值」,而这里实现了的值是**空集**,收窄的终点是把键删掉;是删 `navigation`、删整个 `MobileOverrides`,还是反过来立实装卡(移动端 overrides 本来就是路线图上的东西),是产品面的取舍,不是机械动作。\n\n## 可达性诚实标注\n\n仓内实际受害者为 **0**:没有任何 JSON 元数据或 React 调用侧写过 `mobileOverrides`。今天能被误导的只有仓外照着 `@object-ui/types` / `@object-ui/mobile` 的 `.d.ts` 写移动端配置的消费者 —— 他们写了 `mobileOverrides: { navigation: 'bottom-tabs' }` 会通过类型检查、通过构建,然后什么都不发生,且没有任何诊断。属 observation-class(今天没有用户能撞到),因此打 `finding`、不挂 `pm:queue`,定级请分诊时自行判断。\n\n## 参考位置\n\n- `packages/types/src/mobile.ts:73-86` —— `MobileOverrides` 声明,`navigation` 在 `:85`\n- `packages/types/src/mobile.ts:283` —— 唯一的挂载点 `mobileOverrides?: MobileOverrides`\n- `packages/types/src/index.ts:578` / `packages/mobile/src/index.ts:60` —— 两处公开再导出\n\n关联:#3985(发现于其实施,方向相近但另一个键)、#3829(声明了却零读点)、#3818(同族、方向相反)。"
+}

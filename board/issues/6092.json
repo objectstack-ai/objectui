@@ -1,0 +1,35 @@
+{
+  "number": 6092,
+  "kind": "issue",
+  "title": "Port `check-entry-guard.mjs` and convert the 29 hand-typed entry guards to `isEntrypoint` (nine distinct spellings, 28 with no realpath leg)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T16:25:22Z",
+  "updated_at": "2026-08-24T22:24:53Z",
+  "closed_at": "2026-08-24T22:24:53Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6092",
+  "body": "Split out of #6078 by the dev seat correcting that card's header claim. #6078 fixes the **claim** only — the false \"a gate enforces this\" sentence in `scripts/invoked-as.mjs`. This card is the other half: the work the claim was describing, which never happened here.\n\n## What was measured\n\nAll figures on `origin/main` @ `7c96c9420`, in `/home/user/objectui-6078`.\n\n**`scripts/invoked-as.mjs` was ported from objectstack (#5984) without the gate or the sweep that made its header true.** Five paths that header names, checked in both trees:\n\n| path | objectui `7c96c9420` | objectstack `644ad5043` |\n| --- | --- | --- |\n| `scripts/invoked-as.mjs` | EXISTS | EXISTS |\n| `scripts/check-entry-guard.mjs` | **MISSING** | EXISTS (787 lines, wired `check:entry-guard`) |\n| `scripts/pm/check-governed-merges.mjs` | **MISSING** | EXISTS |\n| `packages/cli/src/utils/invocation.ts` | **MISSING** | EXISTS |\n| `scripts/js-comment-mask.mjs` | **MISSING** | EXISTS |\n\nSo the header is a faithful description of *objectstack's* tree, sitting in objectui.\n\n**The adoption count.** `git grep -l 'isEntrypoint' -- .` → exactly two files: `scripts/invoked-as.mjs` and **one** adopter, `scripts/pm/check-half-states.mjs:777`. #6078's body said two adopters; the second (the gate from #5793) has not landed on `main`.\n\n**The worklist.** `git grep -l 'process\\.argv\\[1\\]' -- 'scripts/'` → 30 files. Minus `invoked-as.mjs` itself → **29 hand-typed entry guards**: 28 `.mjs` plus `scripts/shadcn-sync.js`.\n\n#6078 measured 27 at `a1c41c516`; that reconciles — `scripts/check-designer-field-key-parity.mjs` has landed since, adding a 28th `.mjs` guard (`comm -13` on the two file sets, one file added, none removed). **The worklist grows while this sits open** — which is the argument for doing the gate first.\n\n**The realpath leg.** 28 of the 29 have none. The single exception is `scripts/shadcn-sync.js:1048-1057`, whose `invokedAsCli()` hand-types the correct two-leg shape.\n\n**The drift is real, not one spelling.** #6078 said all of them use one shape; they do not. Nine textually distinct expressions across the 28 `.mjs`, by `git grep -n 'process\\.argv\\[1\\]' -- 'scripts/' | cut -d: -f3- | sort | uniq -c`:\n\n- 12× `argv[1] && resolve(argv[1]) === resolve(fileURLToPath(import.meta.url))`\n- 5× `argv[1] && resolve(argv[1]) === fileURLToPath(import.meta.url)`\n- 3× `argv[1] && path.resolve(argv[1]) === fileURLToPath(import.meta.url)`\n- 2× `argv[1] && pathToFileURL(argv[1]).href === import.meta.url`\n- 2× `argv[1] && import.meta.url === pathToFileURL(argv[1]).href`\n- 1× `resolve(argv[1] ?? \"\") === resolve(fileURLToPath(import.meta.url))`\n- 1× `argv[1] && fileURLToPath(import.meta.url) === argv[1]` (`regenerate-known-schema-types.mjs:187`)\n- 1× `import.meta.url === pathToFileURL(argv[1] ?? '').href`\n- 1× ``import.meta.url === `file://${argv[1]}` `` (`check-node-esm-load.mjs:847`)\n\nThe last one is the **percent-encoding** failure `invoked-as.mjs`'s own header documents, verbatim, still in the tree. Measured with that exact expression in a directory named `a#b c`:\n\n```\nINERT  file:///…/a%23b%20c/enc.mjs   vs   /…/a#b c/enc.mjs\n```\n\nNo symlink needed. `regenerate-known-schema-types.mjs`'s missing `resolve()` is **not** a live bug — node absolutizes `argv[1]` itself (measured: invoking `node argvprobe.mjs` relatively prints an absolute path) — but it is a tenth thing a reader has to re-derive.\n\n## The hazard, measured on a real gate in THIS repo\n\n#6078 quoted the header's \"exit 0, no output\" claim. It is measured now. One guide file made deliberately wrong (untracked, removed immediately), then the same blocking gate run two ways:\n\n```\nnode scripts/check-skills-paths.mjs                 direct  : exit=1, 696 bytes naming the dead path\nnode /…/link/check-skills-paths.mjs   (symlink)     symlink : exit=0, 0 bytes\n```\n\nSame tree, same defect, same gate. Through the symlink a **red** gate reports clean, and CI wrappers that hold `result.status` cannot tell that apart from a pass. `check-skills-paths.mjs` is one of the 28 no-realpath guards; `check-published-dist-tooling.mjs` (publish path), `check-doc-component-types.mjs` and `check-action-forward-parity.mjs` (per-PR lanes) carry the same shape.\n\nNothing is failing today — no current invocation goes through a symlink. This is a latent-hazard card, not an outage.\n\n## The work, in the order it should happen\n\n1. **Port the gate.** objectstack's `scripts/check-entry-guard.mjs` is 787 lines and carries **two** rules — the spelling rule, and a second one about a file that exports but has no guard at all. It is not a copy-paste: it needs objectui's script inventory, its own baseline, and a wiring decision (objectstack runs it as `check:entry-guard` in `package.json`). Landing it first means it names its own worklist and stops a 30th spelling.\n2. **Convert the 29 call sites** to `isEntrypoint(import.meta.url)`. Mechanical per site, but it touches blocking gates on the publish path and per-PR lanes, so it wants reverse-verification per lane, not a bulk sed. `shadcn-sync.js` is the one that already behaves correctly — converting it is a simplification, not a fix.\n\nSplitting 1 and 2 into separate PRs is reasonable; doing 2 without 1 is the \"one-time sweep that rots on merge day\" the header itself argues against.\n\nRefs: #6078 (the claim, corrected there) · #5984 (the port) · #5793 (the card whose seat found it).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_\n"
+}

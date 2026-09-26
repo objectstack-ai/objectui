@@ -1,0 +1,33 @@
+{
+  "number": 5978,
+  "kind": "pull_request",
+  "title": "fix(lint): correctly place two misplaced eslint-disable-next-line directives",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "package: react"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T10:22:27Z",
+  "updated_at": "2026-08-24T10:34:59Z",
+  "closed_at": "2026-08-24T10:34:58Z",
+  "closed_by": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "merged_at": "2026-08-24T10:34:58Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5978",
+  "body": "Fixes #4850\n\n## What\n\nPR #4849 (#4833's cleanup) deleted two `eslint-disable-next-line` directives\nbecause ESLint reported them as unused — but \"unused\" meant *misplaced*, not\n*stale*: each directive's \"next line\" landed on a comment/blank line instead\nof the statement its author meant to cover, so the warning it targeted had\nnever actually been suppressed since the directive was written. Deleting them\n(the correct call for the other 47 sites in that cleanup) left the two real\nwarnings unsuppressed, and left the \"should this be suppressed at all\"\ndecision unmade — this PR makes that decision and restores correct placement.\n\n- **`apps/console/src/pages/developer/PublicFormsPage.tsx`** —\n  `react-hooks/exhaustive-deps` on `useEffect(() => { load(); }, [])`. The\n  directive used to be an inline block comment *inside* the statement, so its\n  \"next line\" was a blank line. **Decision: A2** (mount-once is deliberate,\n  not a bug) — the file's own doc comment already states refresh is via the\n  explicit Refresh button; `load()` is also called explicitly after\n  publish/save. Moved the directive above the statement with the reason\n  spelled out inline.\n- **`packages/react/src/SchemaRenderer.tsx`** —\n  `@typescript-eslint/no-explicit-any` on\n  `type ForwardedProps = Record<string, any>;`. The directive's `--` reason\n  wrapped onto a second `//` comment line, so its \"next line\" was that\n  continuation, not the type declaration. **Decision: B1** — collapsed to one\n  line; the existing doc comment directly above already documents the `any`\n  as deliberate (open pass-through forwarding surface).\n\nNo logic changes — comment-only diff.\n\n## Measured, not eyeballed\n\n`pnpm exec eslint <file> --report-unused-disable-directives -f json` on the\ntwo files, before vs. after:\n\n| Site | Before | After |\n|---|---|---|\n| `PublicFormsPage.tsx:182` `react-hooks/exhaustive-deps` | reported (directive present but inert) | suppressed |\n| `SchemaRenderer.tsx:414` `@typescript-eslint/no-explicit-any` | reported (directive present but inert) | suppressed |\n| Unused-disable-directive messages in either file | 0 | 0 (both directives are now load-bearing) |\n\nNo new warning appeared at either site (checked the Zone-3 trap: a directive\nthat suppresses *nothing* and one that suppresses *the wrong thing* look\nidentical in a diff — confirmed the intended rule, and only that rule, is now\nquiet).\n\nPackage-level `lint` (reverse-verified: reverted the two files to\n`origin/main` @ `2aff580b5`, ran lint, restored):\n\n| Package | Before | After |\n|---|---|---|\n| `@object-ui/react` | 354 warnings | 353 warnings |\n| `@object-ui/console` | 202 warnings | 201 warnings |\n\nFull root `pnpm lint` (the `Lint` workflow's gate) after the fix, at\n`e31c8116b`: **47/47 tasks successful, 0 errors, 10721 warnings total**\n(matches an independent repo-root `eslint . --report-unused-disable-directives -f json`\nscan: 3621 files, 10721 warnings, 2 errors — both from `--report-unused-disable-directives`\nitself flagging 2 *unrelated, pre-existing* stale directives, filed separately\nas objectstack-ai/objectui#5973, not touched here). Pre-fix full-repo total is\n10723 by construction (10721 + the 2 confirmed per-file suppressions above;\nnot independently re-run repo-wide to avoid a second ~4-minute full lint pass\nwhose only new information would be that same arithmetic).\n\n## Coupling with #4853 (queued, not dispatched)\n\n#4853 proposes `linterOptions.reportUnusedDisableDirectives: 'error'` on the\nstated precondition that ineffective directives are at zero via #4833/PR\n#4849. **On current `main`, that precondition already holds**: the two\nmisplaced directives this PR fixes were *deleted* by PR #4849, not left\nbroken — so `origin/main` currently has zero eslint-disable directives\nsuppressing nothing due to placement. This PR doesn't change that zero (it\nadds two new, verified-effective directives); it closes the *content* gap\n#4849 explicitly left open (restoring intended suppression, a decision #4849\ndeliberately deferred). Not enabling the gate here — that stays #4853's call.\n\n## Scope\n\nOnly these two directives (measured via ESLint, matching the count named in\n#4850). One additional pair of now-stale (not misplaced) directives was found\nwhile measuring and filed separately, out of scope for this PR:\nobjectstack-ai/objectui#5973.\n\n## Changeset\n\nComment-only, no published behavior change — `.changeset/4850-misplaced-eslint-disable.md`\nwith empty frontmatter, verified via `node scripts/check-changeset-presence.mjs`.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_"
+}

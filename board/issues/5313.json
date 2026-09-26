@@ -1,0 +1,32 @@
+{
+  "number": 5313,
+  "kind": "issue",
+  "title": "finding: `assertCanonicalVitestInvocation` does not cover the 11 packages that own a `vitest.config.ts` — measured: a package-cwd run in `plugin-grid` is NOT refused",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-19T12:20:46Z",
+  "updated_at": "2026-08-24T02:03:08Z",
+  "closed_at": "2026-08-24T02:03:08Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5313",
+  "body": "发现于 #4815 的实施(选运行方式时读了这段守卫)。**不在 #4815 范围内**,单独记录。\n\n## 事实(实测 origin/main @ de4e29a81,worktree `objectui-issue-4815`)\n\n`scripts/vitest-invocation-guard.mjs` 的文件头声称覆盖是全量的:\n\n> Called from the top of `vitest.config.mts`, so it covers EVERY entry point into this repo's Vitest ... (Every per-package `vitest.config.ts` re-exports the root config, and a package without one — e.g. `packages/app-shell` — resolves upward to it, so no package-level path skips this file.)\n\n括号里那句对 **11 个包不成立**。按「文件里是否出现 `vitest.config.mts` / `assertCanonicalVitestInvocation` / 上溯 import」分类 `packages/*/vitest.config.{ts,mts}`(17 个文件):\n\n- **re-export(6)**:components、core、fields、plugin-dashboard、react、types\n- **自带独立 `defineConfig`(11)**:plugin-calendar、plugin-charts、plugin-detail、plugin-form、plugin-gantt、**plugin-grid**、plugin-kanban、plugin-list、plugin-map、plugin-timeline、plugin-view\n\n这 11 个文件都是自足的 `defineConfig({...})`,不 import 根配置,因此**不调用守卫**。\n\n实测确认(不是读代码推断):\n\n```\ncd packages/plugin-grid && pnpm exec vitest run src/__tests__/bulkParamToField.test.ts\n RUN  v4.1.10 /home/user/objectui-issue-4815/packages/plugin-grid     <- Vitest root ≠ 仓库根\n Test Files  1 passed (1)\n      Tests  15 passed (15)\n```\n\n守卫的原则是「Any run whose Vitest root is not the repo root is refused」。这次运行的 Vitest root 就是包目录,**没有被拒**,退出码 0。\n\n## 为什么值得记\n\n守卫存在的理由是**两种静默假绿**(#3378 包内 cwd 收集了别人的文件、#3288 path filter 被 `--` 吃掉)。这 11 个包正是**唯一仍然可能踩到它们**的地方,却是守卫唯一管不到的地方 —— 而文件头那句话会让下一个人相信已经管到了。危害不是「守卫没生效」这一件事,是**一句可证伪的覆盖声明为假**:读到它的人不会再去验证。\n\n本次只测了带显式 path filter 的形态(它收集的确实是我点名的文件)。**未测**:这 11 个包下的裸 `pnpm exec vitest run` 是否会命中 #3378 那种「收集到 22 个别人的文件并报绿」—— 各包本地配置没有根配置的 `projects` 与绝对路径 `apps/console`,collect 行为可能与根配置不同,需要实测再下结论,别照抄 #3378 的数字。\n\n## 与 #3240 的关系\n\n#3240(open)问的是「哪些包真的需要本地配置」。本单**不等于**它,也不依赖它的答案:即便结论是这 11 个包都该保留本地配置,守卫要么应当覆盖它们,要么应当停止声称已覆盖。两条最小修法(任选,都不必等 #3240):\n\n1. 11 个本地配置各自 import 并调用 `assertCanonicalVitestInvocation`(与 6 个 re-export 包同构);\n2. 或先把文件头那句话改成实测为真的措辞,把洞显式记在守卫里。\n\n## 参考\n\n- `scripts/vitest-invocation-guard.mjs`(文件头覆盖声明与 \"Deliberately strict\" 一节)、`vitest.config.mts:17`\n- 相关:#3240、#5168(同族:包级配置无人把关的另一面)、#3378 / #3288(守卫要挡的两种假绿)\n"
+}

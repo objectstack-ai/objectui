@@ -1,0 +1,36 @@
+{
+  "number": 5565,
+  "kind": "issue",
+  "title": "Approvals drawer summary card can render a field the object declares `hidden: true`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-21T12:45:00Z",
+  "updated_at": "2026-08-24T14:21:10Z",
+  "closed_at": "2026-08-24T14:21:10Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5565",
+  "body": "Filed unassigned from work on #5553 (the \"Raw data (JSON)\" panel gate). Sibling defect, different render path — recording it rather than widening that PR's scope.\n\n## What was measured\n\n`payloadSummary` in `apps/console/src/pages/system/ApprovalsInboxPage.tsx` builds the drawer's summary card from the request's `payload_json` snapshot. Its filters are:\n\n- drop `PAYLOAD_SYSTEM_KEYS` (`id`, `created_at`, `updated_at`, `created_by`, `updated_by`, `organization_id`);\n- drop the lead amount key, `null`/object/empty values;\n- drop unresolved opaque ids (a 15+ char token with no `payload_display` entry);\n- take the first 6 survivors.\n\nThere is **no field-visibility filter in that list**. A field the object's metadata declares `hidden: true` is an ordinary scalar as far as this code is concerned, so if it is in the snapshot and lands in the first 6 survivors, it renders in the summary card — labelled, via `payload_labels`. This is the same invariant #5553 was reported against (\"the app author's visibility declaration is bypassed on the approver's path\"), just a narrower surface than the raw panel: a handful of named fields rather than the whole row.\n\nNot asserted as a live production leak in any specific deployment — this is read off the code path. Whether it bites depends on whether the object in question declares a `hidden` field that the plugin snapshots and that survives the 6-field cut.\n\n## Why it was not fixed in #5553\n\nThe maintainer's ruling on #5553 took the reporter's first priority (do not render the panel for a business approver) and explicitly noted that metadata-trimming *alone* would be insufficient, since it still leaks internal ids and audit columns. #5553's dispatched file fence was the panel; trimming is a different fix with a different prerequisite, below.\n\n## The prerequisite this needs\n\nObject metadata carrying `hidden: true` is **not reachable at this point today** — measured, not assumed:\n\n- `ApprovalsInboxPage` holds no field-level metadata; every `hidden` occurrence in the file is a Tailwind class, an `aria-hidden`, or prose.\n- The only object-fields hook in the tree, `useObjectFields`, lives under `packages/app-shell/src/views/metadata-admin/previews/` and is **not exported** from `packages/app-shell/src/index.ts`, so a console page cannot consume it as-is.\n\nSo a fix here is not a filter tweak; it needs a metadata read (or a server-side projection) wired into this page first. That makes the design question worth answering before anyone writes code:\n\n- **A — trim client-side.** Reach object metadata from the drawer and drop `hidden` fields before `payloadSummary`. Costs a metadata read per drawer open (or a cached one), and leaves the unfiltered snapshot on the wire.\n- **B — trim server-side.** Have `@objectstack/plugin-approvals` respect field visibility when it writes `payload_json`, or when it serves the request. Fixes the wire too, and is the same lever as the server-side residual already tracked in the objectstack repo — likely the contract-first answer, since the producer is where the declaration is authoritative.\n\nRecommendation on the evidence available: **B**, with A only if a client-side reason survives. A client-side trim is a consumer-side compensation for a producer that ships data it should not have shipped, which is the shape AGENTS.md #0.1 warns against — and it cannot fix the wire, which is where the declaration is actually being ignored.\n\n## Pointers\n\n- Render path: `payloadSummary` and its call site in the drawer, `apps/console/src/pages/system/ApprovalsInboxPage.tsx`.\n- Originating report (full repro, real EHR deployment on 17.1.0): objectstack-ai/objectstack#10734.\n- Related: #5553 — the raw-panel half, addressed separately; that card is not affected by this one either way."
+}

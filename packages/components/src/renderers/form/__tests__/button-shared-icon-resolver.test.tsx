@@ -143,7 +143,23 @@ describe('ui:button icon resolution (objectui#5993)', () => {
       // would have changed had the dedupe dropped the alias on the floor.
       const button = renderButton({ icon: 'home' });
       expect(button.querySelector('svg.lucide-house')).not.toBeNull();
-      expect(button.querySelector('svg.lucide-home')).toBeNull();
+      // ⚠️ RELAXED under the maintainer's ruling C on objectui#8941 (comment
+      // 5750512894, verbatim 「8941 C」). This row USED TO REFUSE a house glyph
+      // that did not also carry lucide's `lucide-home` ALIAS class on the same
+      // element: `querySelector('svg.lucide-home')` had to BE the house svg. It
+      // NO LONGER DOES, because this button draws through the objectui#9251
+      // seam, which emits lucide's canonical class and not lucide-react
+      // 1.43.0's per-alias classes, and the ruling accepted that rather than
+      // put every icon's aliases into the eager static name list.
+      //
+      // ⛔ Nor does it go back to the older form, `svg.lucide-home` is null:
+      // lucide 1.43.0 itself puts `lucide-home` on the house glyph, so that
+      // class no longer says which glyph was drawn, and pinning its absence
+      // would pin the seam's divergence from lucide. `lucide-home` is neither
+      // required nor forbidden here. What still discriminates is the count:
+      // `Home` is not a key of the runtime record, so had the rename been
+      // dropped this button would render NO glyph at all.
+      expect(button.querySelectorAll('svg')).toHaveLength(1);
     });
 
     it('renders NO glyph for a retired spelling — the RECORD surface, not a fallback', () => {

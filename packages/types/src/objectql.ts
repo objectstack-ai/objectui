@@ -525,7 +525,7 @@ export interface BulkActionDef {
   name: string;
   /** Human-readable label shown on the button + dialog header. */
   label?: string;
-  /** Lucide icon name (e.g. 'user-check', 'trash-2'); falls back to a generic icon. */
+  /** Lucide icon name (e.g. 'user-check', 'trash'); falls back to a generic icon. */
   icon?: string;
   /** Visual treatment of the action button. */
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'outline';

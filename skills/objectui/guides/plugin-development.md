@@ -379,7 +379,7 @@ double-displays it.
     "@object-ui/core": "workspace:*",
     "@object-ui/react": "workspace:*",
     "@object-ui/types": "workspace:*",
-    "lucide-react": "^1.31.0"
+    "lucide-react": "^1.43.0"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",

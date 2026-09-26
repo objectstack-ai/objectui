@@ -124,7 +124,7 @@
           "label": "Delete",
           "variant": "destructive",
           "size": "sm",
-          "icon": "trash-2"
+          "icon": "trash"
         }
       ]
     }

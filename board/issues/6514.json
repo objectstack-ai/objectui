@@ -1,0 +1,35 @@
+{
+  "number": 6514,
+  "kind": "issue",
+  "title": "finding(app-shell): the field-visibility filter gates on `objectDef.fields[].visible`, a key `@objectstack/spec` refuses — so the gate cannot be authored through the spec at all",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-08-26T07:57:06Z",
+  "updated_at": "2026-08-28T10:25:01Z",
+  "closed_at": "2026-08-28T10:25:01Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6514",
+  "body": "Found while implementing objectui#6493 (binding the roots on the two ad-hoc field-visibility evaluators). Filed unassigned, recording only — not graded, no type.\n\nMeasured on `origin/main` @ `d09e13fd7`, and in the framework checkout beside it.\n\n## What was measured\n\n`RecordFormPage` and `AppContent` both filter an object's fields with\n`evaluateVisibility(f.visible, expressionEvaluator)` — i.e. they gate on\n`objectDef.fields[].visible`. objectui#6493 makes that evaluator bind the roots this\ntier declares; it deliberately did not ask whether the KEY it reads exists.\n\nIt does not. `@objectstack/spec`'s `FieldSchema` is a `strictObject`, and `visible`\nappears in its `FIELD_KEY_GUIDANCE` map as prose that REFUSES the spelling rather than\nan alias that renames it (`packages/spec/src/data/field.zod.ts`):\n\n> `visible` is not a field key, and which key you want depends on the form: a static\n> boolean is `hidden` — INVERTED, so `visible: false` is `hidden: true` — while a\n> per-record CEL predicate is `visibleWhen` (shown only when TRUE). Its siblings are\n> `readonlyWhen` and `requiredWhen`.\n\nThe guidance's own comment says the prose form was chosen over a rename deliberately,\nbecause \"this surface declares BOTH forms and the two answers have opposite polarity\".\nThe per-OPTION schema, by contrast, does alias it: `SelectOptionSchema` carries\n`aliases: { ..., visible: 'visibleWhen' }`. So the field level is the one place the\nspelling is answered with a refusal.\n\nobjectui's own `packages/types` agrees: field metadata declares `visible_on` and\n`visibleWhen`; there is no `visible` on any field metadata interface (the one\n`visible?: string | { dialect, source }` in `objectql.ts` is on `BulkActionDef`).\n\nScanned all 104 `*.object.{ts,yml,json}` files in the framework, tracking the enclosing\ntop-level section of every `visible` occurrence: 29 in `actions`, 15 in `fields`, and\n**every one of the 15 is prose, a comment, or a per-option `visibleWhen`** — not one is a\nfield-level `visible` key. Nothing in the example apps authors one either.\n\n## Why it is worth recording\n\nThe gate is therefore unreachable through the authoring surface: a field `visible`\nwritten in object metadata is rejected by the schema before it can reach these two\ncall sites, and nothing that ships authors one. Two consequences worth separating:\n\n- objectui#6493's behaviour change is **latent, not live** — which is what it reports.\n- The two call sites read a key the platform's own contract tells authors not to write.\n  That is the question objectui#6262 flagged for its own gap and this card inherits:\n  the honest repair may be to read `visibleWhen` (and `hidden`) here instead, or for the\n  spec to declare `visible` at field level. Both are decisions, not cleanups.\n\n## The awkward half, stated plainly\n\nIf the answer is \"read `visibleWhen`\", note that the spec declares field-level\n`visibleWhen` **has no `current_user`** — deliberately, and it names the exact failure\nmode as the intended one:\n\n- `field.zod.ts`, on the per-option predicate: \"Env: the live `record` plus the host\n  predicate scope, which binds `current_user` — wider than field-level visibleWhen,\n  which has no `current_user`.\"\n- `view.zod.ts`, on `FormField.visibleWhen`: \"No `current_user` at field level — it is\n  unbound here and the predicate would fault open (per-option `visibleWhen` is the\n  surface that binds it).\"\n\nADR-0068 D1 pulls the other way for the key that is actually being evaluated today: one\nuser object under `current_user` / `user` / `ctx.user` / `os.user`, evaluating\nidentically \"in a formula, an RLS policy, and a client `visible` gate\". objectui#6493\nconformed the evaluator to D1 because `user` was already bound there and three spellings\nof the same object were not. Whether a field-level gate should see the user at all is the\nquestion above, and it is one for the maintainer.\n\n## Related, and NOT a duplicate\n\n- objectui#6493 — binds the roots on these two evaluators. Does not touch which key they read.\n- objectui#6262 — `/forms/:name` under-feeds the provider. Different mechanism, same family of question.\n- objectui#6505 — dev-mode `validateSchema` types `visible`/`disabled` as boolean-only. That is\n  the COMPONENT schema's gate and a type claim in a validator; this is object FIELD metadata\n  and a strict-schema refusal.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_011SfZeFWrhGLHmfq61xbz4q)_"
+}

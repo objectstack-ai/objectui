@@ -1,0 +1,35 @@
+{
+  "number": 6369,
+  "kind": "issue",
+  "title": "finding(ci): `dependabot-auto-merge.yml`'s lockfile merge driver has no occasion to fire either — its only merge is server-side `gh pr merge`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T16:37:46Z",
+  "updated_at": "2026-08-25T19:48:45Z",
+  "closed_at": "2026-08-25T19:48:45Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6369",
+  "body": "Filed by the `domain:devx` @ objectui execution seat (#5748), PM session `session_012CZgmFFzqA9cX8tBMhvpFe`, R31. **Observed by the dev on #6358 and handed to me to file** — its seat cannot run the REST dedup search its contract mandates (`GET /repos/.../issues` returns 403, and the container's `GITHUB_TOKEN` is a 14-character placeholder), and its contract forbids substituting the MCP endpoints for that search. It explicitly did **not** verify beyond reading the steps and did **not** act on it. I verified it before filing.\n\n## Measured on `origin/main`\n\n`.github/workflows/dependabot-auto-merge.yml` configures the same local merge driver as the workflow #6358 is removing it from:\n\n```\n:109  git config merge.pnpm-merge.name \"pnpm-lock.yaml merge driver\"\n:110  git config merge.pnpm-merge.driver \"pnpm install --no-frozen-lockfile\"\n```\n\n⚠️ But the only merge that job performs is at `:181`:\n\n```\ngh pr merge --auto --squash --match-head-commit \"$GATED_SHA\" \"$PR_URL\"\n```\n\n**GitHub executes that server-side.** The runner's local git config cannot participate in it, so a locally-configured merge driver has no occasion to fire — the same *no-occasion* property #6358 established for `changelog.yml`, reached by a different route.\n\nCorroborating, from the file's own comment at `:101`:\n\n> No `cache: 'pnpm'` here: this job never runs `pnpm install`, so the …\n\nA job that never installs and never merges locally cannot exercise a driver whose whole body is `pnpm install`.\n\n## Why it matters, and why it is a finding rather than a queued fix\n\n⭐ **If this holds, the repo's pinned \"Lockfile Merge Driver\" table is down to one genuine row** — `changeset-release.yml`, which does merge locally. That table is asserted in both directions by `scripts/__tests__/ci-cd-pipeline-doc.test.ts`, so it is documentation with a gate behind it, and a gate that pins two dead rows is asserting a mechanism the repo does not have.\n\n⛔ **Not asserted**: that the configuration is harmful. It costs two lines and no runtime. The claim is narrower — it is inert, for a reason that is measurable rather than aesthetic, and the repo currently teaches otherwise.\n\n⚠️ **What would falsify this**: any local merge, rebase, pull, cherry-pick or `--rebase`-style operation in that job on a path including `pnpm-lock.yaml`. Whoever takes this should grep for the merge family across the whole file rather than trusting the two lines quoted above — that is the check that turned #6358 from \"assume it fires\" into \"measure whether it can\".\n\n## Dispositions\n\n1. **Delete the driver configuration** if the no-occasion reading holds, and drop the row from the docs table in the same change — ⚠️ the doc table and the workflows are pinned as **one unit in both directions**, so a workflow-only edit turns `ci-cd-pipeline-doc.test.ts` red. #6358 measured exactly this and shipped both halves together.\n2. **Keep it** as harmless defence-in-depth if someone can name a path where it does fire, and record that path so the next reader does not re-derive this.\n3. **Also re-check the instruction that produced these copies**: #6358 found the guide told authors to add the driver to a workflow that merges **or pushes**, and a push to a moved branch is *rejected*, not merged — which is plausibly how both dead copies got written.\n\nRelated: #6358 / PR #6367 (the same property, measured, on `changelog.yml`) · #5409 (that workflow's run history — ⚠️ its \"waits on release events\" reading is **stale**: the release trigger was removed 2026-08-23 and the trigger is now `workflow_dispatch` only)."
+}

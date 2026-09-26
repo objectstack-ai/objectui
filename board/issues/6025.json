@@ -1,0 +1,35 @@
+{
+  "number": 6025,
+  "kind": "issue",
+  "title": "finding(apps/site): the catalog gallery registers `object-grid` only transitively — `registerCatalogBlocks.ts` never imports `@object-ui/plugin-grid`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T13:47:59Z",
+  "updated_at": "2026-08-25T13:06:33Z",
+  "closed_at": "2026-08-25T13:06:33Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6025",
+  "body": "Found while implementing #5856. Filed unassigned, not claiming. Observation, not a live defect — everything renders correctly today.\n\n## What was measured\n\n`apps/site/app/components/registerCatalogBlocks.ts` registers the plugin blocks the catalog gallery renders, as eleven side-effect imports:\n\n```\nplugin-dashboard  plugin-charts  plugin-calendar  plugin-chatbot  plugin-editor\nplugin-gantt      plugin-kanban  plugin-map       plugin-markdown plugin-timeline\nplugin-view\n```\n\n`@object-ui/plugin-grid` is **not** among them, and `examples/schema-catalog/test/catalog-gallery-render.test.tsx` mirrors that list exactly in `HOST_PACKAGES` — a parity case at the end of the file fails if the two drift.\n\nYet `object-grid` resolves in both. Measured under the test harness on `d2fb6efb4`:\n\n```\nComponentRegistry.get('object-grid')  ->  truthy\n```\n\nThe reason is a transitive import: `packages/plugin-view/src/ObjectView.tsx:37` does `import { ObjectGrid } from '@object-ui/plugin-grid'`, which loads that package's entry module, which runs its three `ComponentRegistry.register(...)` calls — including `object-grid` and `import-wizard`.\n\nSo the gallery's registration of `object-grid` is a **side effect of `plugin-view` needing the component**, not a declared intent of the host.\n\n## Why it is worth recording\n\nBefore #5856 nothing depended on it, because `plugin-grid`'s two catalog entries authored no `object-grid` node at all — they were hand-built card layouts. As of #5856 both entries are real `object-grid` nodes, so the gallery now genuinely depends on this transitive path. If `plugin-view` ever stopped importing `ObjectGrid` — a plausible refactor, since it is a component import rather than a plugin dependency — those tiles would paint the OBJUI-001 \"Unknown component type\" panel, and the reason would be several files away from the symptom.\n\nAlso note `registerCatalogBlocks.ts`'s own header describes its imports as \"exactly the packages that census resolves to — not a curated list\", which reads as a complete statement of what the gallery registers. It is complete for the census it was written against; it is no longer a complete statement of what the gallery *depends on*.\n\n## Partial mitigation already in place\n\n#5856's PR adds a case that asserts the type is registered before its render case runs, with a message naming the transitive path, so a break surfaces as a named failure instead of an unexplained red tile. That makes the failure legible; it does not make the registration declared.\n\n## Possible fixes, not chosen here\n\n1. Add `import '@object-ui/plugin-grid';` to `registerCatalogBlocks.ts` and to the test's `HOST_PACKAGES` (they must move together — the parity case enforces it), plus `@object-ui/plugin-grid` as a devDependency of `examples/schema-catalog`. Straightforward, and makes the dependency say what it is.\n2. Leave it transitive and rely on the new registration assertion.\n\nNot done in #5856 because `apps/site/**` was outside that card's declared file surface, and it is a separate question from whether the entries author the right type.\n\n## Triage note\n\nSeverity left to triage. Nothing is broken; this is a latent fragility plus a header that is now slightly stale.\n"
+}

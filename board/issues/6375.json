@@ -1,0 +1,35 @@
+{
+  "number": 6375,
+  "kind": "issue",
+  "title": "[finding] `normaliseClientError`'s first CONCURRENT_UPDATE guard is subsumed by the line under it — the `httpStatus === 409` half decides nothing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T17:20:53Z",
+  "updated_at": "2026-08-25T23:58:17Z",
+  "closed_at": "2026-08-25T23:58:17Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6375",
+  "body": "Observation-class finding, spotted while reading the boundary for objectui#5902. **Not touched by that PR** — its dispatch scoped `packages/data-objectstack` out (the boundary work from objectui#5901 is done and merged), so this is recorded rather than edited.\n\n## What\n\n`packages/data-objectstack/src/index.ts`, the tail of `normaliseClientError`:\n\n```ts\nif (e.code !== 'CONCURRENT_UPDATE' && e.httpStatus !== 409) return error;\nif (e.code !== 'CONCURRENT_UPDATE') return error;\nreturn new ConcurrentUpdateError({ ... });\n```\n\nThe second line's condition is strictly weaker than the first's, so the first line can never be the one that decides an outcome:\n\n| `code` | `httpStatus` | line 1 | line 2 | outcome |\n|---|---|---|---|---|\n| ≠ `CONCURRENT_UPDATE` | ≠ 409 | returns | *would also return* | passthrough |\n| ≠ `CONCURRENT_UPDATE` | 409 | falls through | returns | passthrough |\n| `CONCURRENT_UPDATE` | any | falls through | falls through | typed error |\n\nDelete line 1 and every input keeps its current answer. The `httpStatus !== 409` half in particular reads as if a bare 409 could still be re-wrapped; it cannot.\n\n## Why it is worth a card rather than a silent cleanup\n\nIt is dead code, not a behaviour bug — the effective rule is \"the wire `code` is the discriminator\", which is a reasonable rule and the one the function's own doc comment describes. What makes it worth recording is that the line **advertises a second acceptance path that does not exist**, on a function whose whole job is deciding which errors get re-wrapped. A reader adding a shape here has to re-derive the truth table to find out that half of the first guard is inert.\n\nThere is a related asymmetry worth deciding at the same time: the exported `isConcurrentUpdateError` in the same file accepts `name === 'ConcurrentUpdateError'` as well as the code, while `normaliseClientError` accepts only the code. Consumers duck-typing through the exported predicate and consumers relying on the re-wrap therefore disagree about one shape.\n\n## Severity\n\nLow, and deliberately filed flat rather than pre-graded — no user-visible symptom, no test moves either way. Triage decides whether it is worth a patch at all or whether the right move is a one-line comment naming the code as the sole discriminator.\n\n## Where\n\n- `packages/data-objectstack/src/index.ts` — `normaliseClientError`, the two guards immediately before `return new ConcurrentUpdateError(...)`\n- `packages/data-objectstack/src/index.ts` — `isConcurrentUpdateError`, for the asymmetry above\n\nFound from: objectui#5902 (drag-write surfaces reading the producer-marked `userMessage`)."
+}

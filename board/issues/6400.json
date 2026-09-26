@@ -1,0 +1,35 @@
+{
+  "number": 6400,
+  "kind": "issue",
+  "title": "finding(gate): the version-claim ledger's `ci-cd-pipeline.md :: Node 22.x` reason states 14 `node-version` declarations; the tree has 27",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T20:05:30Z",
+  "updated_at": "2026-08-26T01:26:37Z",
+  "closed_at": "2026-08-26T01:26:37Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6400",
+  "body": "Found while implementing #6307 (widening the version-claim scan's `SEP` and re-measuring the CI reality behind the two guides). Deliberately **not** fixed there: #6307's PR adds new ledger entries and repairs two guide pages, and rewriting a neighbouring entry's prose is a different claim on the same file. Filing so the number is recorded rather than carried.\n\n## The entry\n\n`scripts/__tests__/doc-version-claims.test.ts`, `KNOWN_CLAIMS`:\n\n```ts\n{\n  file: 'content/docs/guide/ci-cd-pipeline.md',\n  claim: 'Node 22.x',\n  kind: 'anchored',\n  why: 'Matches the 14 node-version: 22.x declarations across .github/workflows. Verified true; this page already has its own pin test (ci-cd-pipeline-doc.test.ts).',\n},\n```\n\n## Measured on `b362c1b47` (origin/main at 2026-08-25T19:49Z)\n\n```\n$ grep -rhoP 'node-version:\\s*\\K\\S+' .github/workflows/ | sort | uniq -c\n     1 '22'\n    26 '22.x'\n$ grep -rhoP 'node-version:\\s*\\K\\S+' .github/workflows/ | wc -l\n27\n$ grep -rn \"node-version: '22'\" .github/workflows/\n.github/workflows/half-state-patrol.yml:196:          node-version: '22'\n```\n\nSo the anchor the entry names has nearly doubled (14 → 26 declarations reading `'22.x'`, out of 27 total), and one lane now reads `'22'` rather than `'22.x'` — a spelling the sentence does not admit at all. The *claim* is still true; what drifted is the sentence a reader would re-measure it by, which is what an `anchored` entry without a `skeletonDep` rests on entirely.\n\nSecond, smaller observation in the same entry, recorded because it is the reason nothing caught the first: **`ci-cd-pipeline-doc.test.ts` does not pin this literal.** Measured — `grep -nP '\\b22\\b' scripts/__tests__/ci-cd-pipeline-doc.test.ts` returns nothing (control, same file, same sweep: `grep -c 'ci.yml' …` returns matches), so \"this page already has its own pin test\" is true of the page and false of the `Node 22.x` line. Nothing re-measures either half.\n\n## Why this class matters here rather than generally\n\n`anchored` is the strongest class this ledger has, and for entries with no `skeletonDep` the whole strength is the `why` string: a reviewer re-runs the command it describes. A `why` whose numbers no longer match the tree quietly converts that into \"someone once checked\". Same failure family as the `sample` misfiling the file's own header records for `content/docs/guide/plugins.md` — the entry keeps its shape while the fact underneath it moves.\n\nTwo dispositions, both cheap:\n\n- **A** — re-measure and rewrite the sentence (26 of 27, and name the `'22'` outlier), leaving it a reviewer-checked `anchored` entry that is accurate today and will drift again on the next workflow added.\n- **B** — give this entry a machine-checked anchor the way `skeletonDep` did for the plugin skeleton: derive the `node-version` set from `.github/workflows` and assert the doc literal against it. That also covers the `ci-cd-pipeline-doc.test.ts` gap above, and is the direction the file's header argues for whenever an anchor is unanimous enough to compute.\n\nRelated but distinct: #6308 (the same page's workflow snippet teaches `node-version: 20` and `pnpm/action-setup`, neither of which this repo uses) is about the page's fenced sample; this one is about the ledger entry describing the page's prose literal.\n"
+}

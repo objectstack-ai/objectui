@@ -1,0 +1,35 @@
+{
+  "number": 6503,
+  "kind": "issue",
+  "title": "The fault diagnostic tells `hidden` / `hiddenOn` authors the gate did NOT bite — on those two legs it did, and the node vanished",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-26T06:42:19Z",
+  "updated_at": "2026-08-26T08:25:42Z",
+  "closed_at": "2026-08-26T08:25:42Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6503",
+  "body": "Found while wiring the `disabled` / `disabledOn` gate to the same reporter (#6445). Filed unassigned, outside that card's face — it moves bytes on a **shipped visibility** surface #6487 landed on hours ago, which is a copy decision of its own.\n\n## The site\n\n`packages/react/src/utils/visibilityDiagnostic.ts`, the consequence paragraph every unresolvable-predicate report prints:\n\n```\nThe node was treated as its safe default, which on this surface means the\ngate did NOT bite - a predicate that cannot be evaluated reads on screen\nexactly like one that said yes.\n```\n\nThat is true of the four **negated** legs (`visibleWhen` / `visible` / `visibleOn` / `visibility`): `evaluateCondition` answers an unevaluable predicate with `true`, the leg negates it, the node is SHOWN.\n\nIt is false of the other two. `SchemaRenderer.tsx` returns `evaluateVisibilityPredicate(newSchema.hidden, 'hidden')` **un-negated**, so the same `true` means HIDE — `shouldHide` sets `_hidden` and `SchemaRenderer` returns `null`. The gate bit, hard: the node is not on screen at all. The author is told the opposite, in the one line that exists to tell them the truth.\n\nThe file already knows this. Its own module docblock says the fail-soft `true` reaches `hidden` / `hiddenOn` \"where the same `true` means HIDE\", and #6038's suite pins `the 'hidden' leg — the NON-negated polarity — reports too, and still hides` — it pins that the line is *emitted*, never what it *says*, which is why nothing went red.\n\n## Why it matters more here than on the negated legs\n\nThis is the polarity `SchemaRenderer.tsx`'s own #3862/#3955 comment calls the harder one: *\"a greyed-out control is still on screen, a node that never rendered is indistinguishable from metadata that meant it.\"* An author whose block vanished and who is then told the gate did not bite has been sent to look for a rendering bug — the console line is actively pointing away from their predicate.\n\n## The shape of the fix (already prepared, not applied)\n\n#6445 landed `PredicateGateKind` + the `GATE_KIND_COPY` table in this module: the opening line and the consequence paragraph are now table-driven, indexed with no `??` fallback, and every in-repo call site states its value. Fixing this leg is a **third table entry** — visibility prefix, vanishing consequence — passed by the two `hidden` / `hiddenOn` call sites in `SchemaRenderer.tsx`. No signature change, no new reporter, no verdict change.\n\nLeft undone deliberately: it changes bytes an author reads on a surface #6487 just landed, which wants its own copy decision rather than a rider on a `disabled` card.\n\nRelated: #6445 (the gate this table came from), #6487 / #6038 / #5454 (the reporter), #3955 (the `hidden` polarity ruling)."
+}

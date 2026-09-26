@@ -1,0 +1,35 @@
+{
+  "number": 6335,
+  "kind": "issue",
+  "title": "[finding] `FavoriteItem['type']` carries `nav`, which has no `home.recentApps.itemType.*` key — the Starred fallback is not dormant for it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T13:33:05Z",
+  "updated_at": "2026-08-26T13:04:18Z",
+  "closed_at": "2026-08-26T13:03:42Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6335",
+  "body": "Found while implementing #6165 (converging the Home item-type label fallback). Filed unassigned, observational — recording, not claiming it is a live user-facing bug.\n\n## The fact\n\nThe three Home label consumers share one key namespace but **two different unions**:\n\n| consumer | union |\n|---|---|\n| `HomeRail.HomeContinue`, `RecentApps` | `RecentItem['type']` = `object \\| dashboard \\| page \\| report \\| record \\| **metadata**` |\n| `StarredApps` | `FavoriteItem['type']` = `object \\| dashboard \\| page \\| report \\| record \\| **nav**` |\n\n`packages/i18n/src/locales/en.ts` defines `home.recentApps.itemType.{object,dashboard,page,report,record,metadata}` — six keys, matching `RecentItem` exactly. **There is no `home.recentApps.itemType.nav`.**\n\nSo on the favorite side the fallback is *not* fully dormant the way it now is for `RecentItem`: a `nav` item reaching `StarredApps` renders the fallback, i.e. `Nav`.\n\n## Why this is a `finding` and not a bug report\n\nReachability is caller-dependent and may be zero in practice:\n\n- `FavoritesProvider.tsx` documents `nav` items as *\"Excluded from Home/Starred and from the generic sidebar Favorites list so it doesn't render twice.\"*\n- But that exclusion is **not enforced in `StarredApps`** — it filters nothing by type; it renders whatever `items` it is handed.\n- `StarredApps` is a **public export** (`packages/app-shell/src/console/home/index.ts`), so the composing host supplies the items. No in-repo caller renders it, so the in-repo answer is \"unreachable\"; the published answer is \"depends on the host\".\n\n## Worth deciding deliberately\n\nThree shapes, and the right one is a judgement call rather than obvious:\n\n1. **Add a `nav` key** in all ten locale packs — cheapest, but declares `nav` a legitimate Starred kind, which contradicts the provider's documented exclusion.\n2. **Enforce the documented exclusion in `StarredApps`** (filter `nav` out) — makes declared behaviour and actual behaviour agree, and makes the missing key correct by construction.\n3. **Split the unions properly** so `StarredApps` cannot be handed a kind its namespace does not cover — the type-level fix, and the largest.\n\nOption 2 looks closest to the existing intent, but the choice touches a published component's contract, so it wants a maintainer call rather than a drive-by.\n\n## Not fixed in #6165\n\nThat card's ruling bounded the change to converging the rail's fallback on its siblings within `packages/app-shell/src/console/home/`, and its PR does exactly that — all three surfaces now resolve through one `recentItemTypeLabel` helper whose parameter is deliberately `string`, precisely because the two unions differ. This gap is adjacent, pre-existing, and out of that scope.\n\n## Reproduce\n\n```\nrg -n \"type: 'object'\" packages/app-shell/src/context/FavoritesProvider.tsx \\\n                       packages/app-shell/src/context/RecentItemsProvider.tsx\nrg -n 'itemType' -A 8 packages/i18n/src/locales/en.ts\n```"
+}

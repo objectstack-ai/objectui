@@ -1,0 +1,35 @@
+{
+  "number": 6660,
+  "kind": "issue",
+  "title": "docs(fields): `location.mdx` teaches the deprecated `{ latitude, longitude }` spelling as canonical — the spec's `LocationValue` is `{ lat, lng }` (docs half of the #6272 A1 ruling)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-28T10:08:06Z",
+  "updated_at": "2026-08-28T12:28:36Z",
+  "closed_at": "2026-08-28T12:28:36Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6660",
+  "body": "Filed by the `domain:ui` execution seat (PM session `session_01CRJge11jso9TpXRWFt1Z49`) at the moment of dispatching #6272, because the **2026-08-28 A1 ruling explicitly split this half out and assigned the filing to this seat**. Filed unlabelled beyond routing — `domain:*`, `type` and grading are triage's to produce. Suggested routing at the bottom.\n\n⚠️ Dedup run before filing: #6127 is a **different, closed** defect on this same file (a fence welding a JSX element and a bare object literal so it parsed as neither `ts` nor `tsx`). No card covers the spelling.\n\n## What\n\n`content/docs/fields/location.mdx` teaches the **deprecated** value spelling as though it were canonical, at `:53`, `:101`, `:116` and `:134-140` — including a `tsx` snippet whose `useState` is typed as `{ latitude, longitude }`.\n\nThe contract says otherwise, measured against the pinned `@objectstack/spec@17.2.0`:\n\n```\nLocationValue = { lat: number; lng: number; altitude?: number; accuracy?: number }   // canonical\nLocationCoordinates = { latitude, longitude, … }                                     // @deprecated\n```\n\n`valueSchemaFor({ type: 'location' })` **REJECTS** `{ latitude, longitude }` (`invalid_type` at `[lat]`, `[lng]`) and **ACCEPTS** `{ lat, lng }`.\n\n⇒ Every author — human or AI — who follows this page writes a value the platform's own contract refuses. And because `location` is in `STRUCTURED_JSON_TYPES`, which is **warn-first by default**, that value is *persisted* with a one-time warning rather than rejected. So the page is not merely wrong; it is a live source of records in a spelling the platform has stated it **will never convert** (`os migrate value-shapes`: *\"This one converts nothing\"*).\n\n## Why this is its own card\n\nThe A1 ruling made #6272's fix an **atomic** change — `LocationField` plus the three `plugin-detail` assertions that pin the old produce shape plus the two example schemas, all in one commit or CI is red. This page is **not load-bearing for that flip** and does not need to land atomically with it, so the ruling split it rather than widening a fence that was already one file too small.\n\n## Scope\n\n- `content/docs/fields/location.mdx` — stop teaching `{ latitude, longitude }`; teach the spec's `{ lat, lng }`.\n- ⚠️ The `tsx` snippet on that page is **compiled by `check:doc-snippets`**, so the change has to keep it compiling — this is a real deliverable with a gate behind it, not a prose edit.\n\n## ⛔ Out of scope\n\n- **`GeolocationField`.** Measured: `geolocation` is **not** a member of the spec's closed `FieldType` union, and `valueSchemaFor` accepts **both** spellings for it. It sits outside this contract entirely and must not be swept in.\n- `packages/app-shell/src/utils/paramValueShape.ts:164,166` (a `note:` string saying `'{ latitude, longitude } object.'`) — **held on a serial constraint** by the ruling until the app-shell claims land. It is a string in a note; nothing depends on its timing.\n- Anything in `packages/fields` — that is #6272's atomic fence.\n\n## Sequencing\n\nIndependent of #6272's PR, but it should not land *before* it: until the widget flips, the page would be describing a shape the shipped widget does not produce. Landing after is correct; landing alongside is fine.\n\n## Suggested routing (triage's call)\n\n`domain:ui` (the page documents a published widget's authoring surface), `documentation`, type Task. The direction is **already ruled** — 2026-08-28, verbatim 「6272 A1 其他同意」 — so this needs no decision, only grading into the queue.\n\nRefs: #6272 (the atomic half, dispatched) · #6154 (closed premise-void; carries the full spec measurement) · #6127 (the earlier, closed fence defect on this file)."
+}

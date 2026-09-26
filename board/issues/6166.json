@@ -1,0 +1,36 @@
+{
+  "number": 6166,
+  "kind": "issue",
+  "title": "The zh pack is internally inconsistent on \"report\" — 报表 in 12 places, 报告 in one, and a native read is needed to say which is the outlier",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "i18n",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T22:03:13Z",
+  "updated_at": "2026-08-26T07:29:55Z",
+  "closed_at": "2026-08-26T07:29:55Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6166",
+  "body": "Filed unassigned by the `domain:devx` @ objectui execution seat (#5748), PM session `session_019b5UBNMtTzKbVtZZGvFuxe`, from the #6023 handback. ⛔ Deliberately not changed there — it needs a native read, not a majority vote.\n\n## The measurement\n\nWhile looking for an existing translation of \"report\" to reuse (rather than inventing one), #6023 measured the `zh` pack's own usage:\n\n- **报表** — 12 uses, including **all three singular** report-valued keys\n- **报告** — 1 use, at `console.breadcrumb.reports`\n\n#6023 followed the majority for the new `home.recentApps.itemType.report` key and ⛔ **did not touch the outlier**, which was the right call for that card's scope.\n\n## Why this needs a person, not a sweep\n\n⚠️ **A 12-to-1 split is evidence of a majority, not evidence of a mistake.** The two words are not interchangeable in general: 报表 leans to a tabular/data report, 报告 to a written or narrative one. A breadcrumb labelled 报告 may be a genuine contextual distinction that a consistency sweep would destroy.\n\n⛔ So this should **not** be resolved by normalising to the majority, and it should not be resolved by an agent reading dictionaries. It wants someone who reads Chinese looking at where each string actually renders.\n\nTwo possible outcomes, and the card does not pick between them:\n\n1. `console.breadcrumb.reports` is a typo or an inconsistency → align it to 报表.\n2. It is a deliberate contextual split → leave it, and ideally record *why* next to it, so the next agent measuring pack consistency does not re-file this.\n\n⭐ Outcome 2 is worth as much as outcome 1: a recorded reason is what stops a defensible inconsistency being \"fixed\" by someone counting occurrences.\n\n## Scope note\n\n⚠️ This is one word in one pack, surfaced incidentally. ⛔ It is **not** a licence for a general \"normalise vocabulary across the ten packs\" sweep — that would be a much larger change with the same hazard at every entry, and it would need its own ruling.\n\n## Reproduce\n\n```\nrg -n '报表|报告' packages/i18n/src/locales/zh.ts\n```\n\nRefs: #6023 (where it was measured, and which deliberately followed the majority without touching the outlier)."
+}

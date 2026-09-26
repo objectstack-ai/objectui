@@ -1,0 +1,33 @@
+{
+  "number": 6602,
+  "kind": "pull_request",
+  "title": "feat(chatbot,app-shell): 渲染「打开这条记录 →」交接卡片（cloud#1658）",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-27T10:00:35Z",
+  "updated_at": "2026-08-27T13:11:48Z",
+  "closed_at": "2026-08-27T13:11:46Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-08-27T13:11:46Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6602",
+  "body": "实现 cloud#1658 记录交接的**客户端另一半**。\n\n## 为什么必须有这个 PR\n\n服务端半边（cloud#1659 的 `open_record` 工具 + `record_handoff` 技能）先落地，真机实测发现整条链是**半活的**：\n\n- agent 正确解析记录并发出 `{ status:'record_handoff', objectName, recordId, label, reason }`；\n- 回答说「点击上方链接打开」；\n- **而上方没有链接**——控制台有 `build_handoff` 的探测器，这个状态一处都不认识，信号被原样丢弃。\n\n## 按五步规则补齐\n\n| 步骤 | 位置 |\n|---|---|\n| detect | `mapMessages.ts` `detectRecordHandoff`——**含持久化 `{type:'text',value:'<json>'}` 包裹形状**（replay 信封那课：漏了它就\"刷新后失明\"） |\n| live 提升 | `extractToolInvocations` |\n| 水合提升 | `AiChatPage.tsx` |\n| render | `ChatbotEnhanced.tsx` 卡片（`data-testid=\"record-handoff\"`） |\n| 宿主回调 | `AiChatPage` `openRecord` |\n\n## 两个设计点\n\n**app 段点击时现场解析**。记录路由要 `/apps/:app/:object/record/:id`，交接载荷只有对象与记录 id。宿主回调点击时用一次同源 `GET /api/v1/meta/object/<name>` 取 `_packageId` 再导航——不给 agent 增加它未必知道的参数；解析失败回落 `setup` 壳，best-effort。\n\n**刻意不做「被取代」置灰**。builder 卡的旧 prompt 会过时（所以它有 superseded 逻辑），旧的**记录链接不会**——记录不因为有新交接而失效。\n\n## 真机闭环验证\n\n```\n问：把《沉默的大多数》标记成已读\n→ 卡片：Open this record | 沉默的大多数 — 把阅读状态改为已读 | [Open record →]\n→ 点击：/_console/apps/app.hdke/hdke_book/record/-GQDwdky1HlN_k52\n→ 页面：记录详情，「编辑」按钮在手边\n```\n\napp 段 `app.hdke` 正是点击时解析出来的。\n\n## 测试\n\n探测器 6 条（裸信封 / 持久化包裹 / JSON 字符串 / 可选字段缺省 / **缺任一 id 丢弃**——与服务端拒绝对称 / 其他 status 不误触发）；chatbot 全量 **328 条全绿**。\n\n## 后续（不阻塞）\n\n卡片默认标签是英文（与兄弟卡一致），宿主可传中文标签；与工具名 i18n（#6340）同一族的本地化后续统一做。\n"
+}

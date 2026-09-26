@@ -1,0 +1,36 @@
+{
+  "number": 6167,
+  "kind": "issue",
+  "title": "Both `plugin-form` catalog entries author `form` (a `@object-ui/components` type), never `object-form` — the third instance of #5113's class",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-24T22:07:17Z",
+  "updated_at": "2026-08-25T13:06:32Z",
+  "closed_at": "2026-08-25T13:06:32Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6167",
+  "body": "Filed unassigned while implementing #6024 (generalizing the catalog \"entries use their own plugin\" pin). Not claiming.\n\n## What was measured\n\n#6024 replaced the pin's hand-enumerated `category -> type` table with a map DERIVED from the `register()` calls (`deriveRegistryKeys` in `scripts/check-doc-component-types.mjs`, joined on the `packages/<dir>/...` registration site). The first run of that derivation turned `plugin-form` red.\n\n`content/docs/plugins/plugin-form.mdx` mounts both entries under `## Interactive Examples`, inside `<PluginLoader plugins={['form']}>`:\n\n```\n<SchemaExample id=\"plugin-form/basic-form\" />\n<SchemaExample id=\"plugin-form/contact-form\" />\n```\n\nBoth author a root `type: \"form\"` with `fields[]` of `input` / `select` / `checkbox` / `textarea`. Measured against the register calls, none of those belong to `@object-ui/plugin-form`:\n\n| type | registered by |\n|---|---|\n| `form` | `packages/components/src/renderers/form/form.tsx:962` |\n| `input` | `packages/components/src/renderers/form/input.tsx:66` |\n| `select` | `packages/components/src/renderers/form/select.tsx:70` |\n| `checkbox` | `packages/components/src/renderers/form/checkbox.tsx:56` |\n| `textarea` | `packages/components/src/renderers/form/textarea.tsx:58` |\n\n`packages/plugin-form` registers exactly: `object-form`, `embeddable-form`, `form-analytics`, `object-master-detail-form`, `record:line_items`, `view:form` (plus the `plugin-form:`-namespaced spellings). Neither entry authors any of them.\n\nThis is the same defect #5113 (`plugin-view`) and #5856 (`plugin-grid`) were filed on: an example sitting on a plugin's docs page, inside that plugin's `PluginLoader`, that never exercises the plugin. Both tiles draw perfectly well — the `@object-ui/components` form renderer is real — so every existing check is green on them: `check-doc-component-types` asks only that a type is registered, and the objectui#4616 sweep asks only that the tile draws.\n\n## Why the card that found it did not fix it\n\n#6024's own note is that the enumerated table it replaced was already wrong here — the filing table read `plugin-form  form`, inheriting the assumption that `form` belongs to plugin-form. So the derivation earned its keep on its first run, but rewriting two catalog entries is entry-authoring work of the #5856 shape, not gate work.\n\nBoth entries are ledgered in `OWN_PLUGIN_DEBT` in `examples/schema-catalog/test/catalog-gallery-render.test.tsx`, keyed to this issue, with a case that asserts they STILL FAIL — an entry that starts conforming turns that file red until its ledger line is deleted, so the ledger cannot rot green.\n\n## What the fix has to cover — it is wider than the two JSON files\n\n`apps/site/app/components/registerCatalogBlocks.ts` does **not** import `@object-ui/plugin-form`, so `object-form` is not in the gallery's registration set at all. An entry rewritten to author `object-form` would paint the OBJUI-001 \"Unknown component type\" panel in the docs gallery and turn the #4616 sweep red. So the change is at least:\n\n1. add `@object-ui/plugin-form` to `registerCatalogBlocks.ts` (and to `HOST_PACKAGES` in `catalog-gallery-render.test.tsx`, which mirrors it in order);\n2. rewrite the two entries as real `object-form` nodes bound to `users`, the object the gallery fixture serves — which would also earn them the DATA half of the #6024 pin (a record that exists only in the fixture reaching the screen), the same way #5856's rewrite did for `plugin-grid`;\n3. delete the two `OWN_PLUGIN_DEBT` lines.\n\nNote also that adding a plugin package to the host list is not free: #4600's separation (the per-page demo hosts opt in through `PluginLoader`, so a docs page carrying a demo does not eagerly load every plugin graph) still applies, and `check:eager-closure` measures that budget.\n\nWhether the two existing entries should be deleted or re-seated under `components-form-*` is a judgment call for whoever takes this: #5856 re-seated its two rather than deleting them, because deleting a catalog entry moves three corpus-wide counters (`NODE_CENSUS` in `layout-dom-leak-5574.test.tsx`, and two floors in `layout-props-conversion.test.tsx`), and a floor that moves because a fixture was deleted is indistinguishable later from one that moved because coverage regressed.\n\n## Severity\n\nLeft to triage. Read as a defect it is two entries teaching a reader that `@object-ui/plugin-form`'s Interactive Examples are a plain `form` — the plugin's actual value (metadata-driven forms over one record) is undemonstrated on its own page. Read as debt it is the last known open instance of #5113's class."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6186,
+  "kind": "issue",
+  "title": "finding(docs): three more prose closure claims nothing gates — and one of them is held in place by a test that pins the sentence exists, not that it is true",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T23:33:52Z",
+  "updated_at": "2026-08-25T14:40:38Z",
+  "closed_at": "2026-08-25T14:25:09Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6186",
+  "body": "Filed unassigned while doing the dispatchable half of #6172 (PR #6185), which corrected one false closure claim on `content/docs/plugins/plugin-form.mdx`. The dispatch asked for a sibling sweep and explicitly said report, do not widen that diff — this is the report, carded so the class can be sized rather than rediscovered per page.\n\n## The literal pattern is gone; the family is not\n\nThe exact wording #6172 measured false appears **once** in the whole docs tree, and PR #6185 corrects it. No other page says *\"declared once\"*, *\"redeclare\"*, *\"sole declaration\"* or *\"declared exactly\"*.\n\nBut *\"declared once\"* was only one spelling of a **closure claim**: prose asserting something about the whole tree, which no gate re-derives. Three neighbours in that family survive. None is measured false today. That is exactly why they are worth a card rather than a fix — a claim that is true today and unchecked is one refactor away from being #6172 again, and nothing will notice.\n\n### 1. `content/docs/plugins/plugin-form.mdx:99` — the interesting one\n\n> There is no `ValidationRule` type in this repository, under any spelling.\n\nMeasured on `main`: no **bare** `ValidationRule` export exists, so the load-bearing half is true. The *\"under any spelling\"* rider is the loose part — five near-spellings do exist:\n\n```\nexport interface AdvancedValidationRule    packages/types/src/data-protocol.ts:708\nexport type      ValidationRuleType        packages/types/src/data-protocol.ts:748\nexport type      ObjectValidationRule      packages/types/src/data-protocol.ts:1129\nexport interface DesignerValidationRule    packages/types/src/designer.ts:762\nexport interface FieldValidationRules      packages/types/src/form.ts:744\n```\n\n⚠️ **What makes this one structural rather than cosmetic:** the sentence is **test-pinned** at `scripts/__tests__/check-doc-component-types.test.ts:599`:\n\n```\nexpect(body).toContain('There is no `ValidationRule` type in this repository');\n```\n\nThat pin asserts the sentence is **present**. It cannot assert the sentence is **true**. If someone lands an `export interface ValidationRule` tomorrow, the page becomes false and this test stays green — it is arguably *worse* than no pin, because the green test reads as coverage of the claim. This is the same failure shape #6172 recorded, with a test standing where the reader's trust used to be.\n\nNote the pin's own comment says it exists to stop the *fiction being authored back into a snippet*, which is a different and legitimate job. The gap is that nothing does the other half.\n\n### 2. `content/docs/plugins/plugin-dashboard.mdx:322`\n\n> `options.thresholds` is **not read** — no renderer in this repository reads a `thresholds` key\n\nMeasured true today. Worth noting as the **good** shape in this set: *\"no renderer\"* is a bounded population, not the whole tree, so it is at least in principle re-derivable. It is also mirrored by a source comment at `packages/sdui-parser/src/dashboard-widget-options.ts:38` (*\"Notably NOT consumed anywhere in this repository: `thresholds` (zero read…\"*) — so the same closure claim is now written in two places that can drift apart independently.\n\n### 3. `content/docs/blocks/block-schema.mdx:25`\n\n> Nothing reads `slots`, `slotContent` or `template` at runtime. There is no block expander, no block library UI and no block editor in this repository.\n\nMeasured plausible today; a pure negative-existence claim over the whole tree, re-derived by nothing.\n\n## Why it is worth a card\n\n#6086 adopted the closure rule and #6172 measured its first casualty. The remedy applied on #6172 and on PR #6168 is *qualification* — say which copy you mean, which is a claim about the page and stays true under refactors. That remedy does not reach claims 2 and 3, which are genuinely about the whole tree and are the page's actual point.\n\nSo the open question is what a doc is allowed to assert about a population it does not own, and there are at least three answers worth weighing — leave them as prose and accept the drift; narrow them to a bounded, stated population (what #2 already does); or make the claim derivable and let a gate own it, which is where a `check:` could replace the test-pin in #1. Sizing that is triage's call, not this card's.\n\n⛔ Deliberately **not** fixed here: the dispatch on #6172 bounded that diff to `plugin-form.mdx`, and #1 sits behind a test pin whose reason needs reading before anyone touches it.\n\nRefs: #6172 (where this sweep was asked for) · #6086 (where the closure rule was adopted) · PR #6185 · PR #6168.\n\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_"
+}

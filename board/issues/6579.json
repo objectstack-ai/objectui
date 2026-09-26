@@ -1,0 +1,33 @@
+{
+  "number": 6579,
+  "kind": "pull_request",
+  "title": "fix(console): hoist the InternalFormRoute import out of hop1SessionPrincipal's timed window",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-26T14:17:46Z",
+  "updated_at": "2026-08-26T14:43:40Z",
+  "closed_at": "2026-08-26T14:43:38Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-26T14:43:38Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6579",
+  "body": "Fixes #6567\n\n`apps/console/src/components/FormPage.predicateScope.test.tsx` loaded `InternalFormRoute` with a dynamic `await import()` **inside** `hop1SessionPrincipal`'s body — an unbounded module load counted inside a bounded 15000ms window, the shape AGENTS.md §测试纪律 declares against. This hoists that import to module scope. No timeout was raised, nothing was added to `heavyDomTests`, and no assertion changed.\n\n## The root cause is neither candidate triage named\n\nThe card left open whether the unbounded import was `FormPage`'s own `React.lazy` or one reached through `@object-ui/react`'s registry. **It is neither**, and both were ruled out by evidence rather than by inspection alone:\n\n- `FormPage.tsx` contains **no** `React.lazy` and no `import()` at all.\n- `FormPage` never renders through the ComponentRegistry — it renders fields with its own `FieldInput` and plain `<input>` elements — and `@object-ui/react` is already loaded at module scope by `FormPage`'s own static import.\n\nThe load was the test file's own `await import('./InternalFormRoute')`. That module's graph is the **first value request for `@object-ui/app-shell` in the file** — `FormPage` only `import type`s it — so it is what runs the hoisted `vi.mock('@object-ui/app-shell')` factory's `importOriginal()`, against a specifier aliased to **source** (`packages/app-shell/src`, `apps/console/vite.config.ts:472`), a 385-line barrel carrying eight side-effect imports.\n\nInstrumented on an idle machine, inside the test body:\n\n```\n[probe] importOriginal_auth_ms=240\n[probe] importOriginal_appshell_ms=10204\n[probe] dynamicImport_total_ms=10223\n✓ hop1SessionPrincipal ... 10235ms\n```\n\n**10204 of the 10223ms — 99.8% — is `importOriginal('@object-ui/app-shell')`.** The render and the assertions cost ~12ms, the same as the seven cases above it. The test was not slow; it was racing the module loader for 68% of its budget before any contention was added.\n\n## Reproducing the failure\n\nA plain full-project run is a coin flip (the card measured green in 2 of 3). Mine came back green too — `vitest run apps/console/` on the **unfixed** tree, 920/920, hop1 at **7120ms**. So the failure was reproduced deterministically instead, by moving the threshold rather than the load — a CLI flag, no file or config edit:\n\n| tree | invocation | hop1SessionPrincipal |\n|---|---|---|\n| pre-hoist | `--testTimeout=9000` | **FAILS** — `Test timed out in 9000ms.` at `FormPage.predicateScope.test.tsx:336:3` |\n| post-hoist | `--testTimeout=9000` | 8 passed |\n\nThat failure is the card's signature byte for byte, down to the line number. The fixed file survives a budget **40% tighter** than the real one.\n\n## The fix, in vitest's own phase accounting\n\nSame file, same machine, isolated run:\n\n| | hop1SessionPrincipal | `tests` phase | `import` phase |\n|---|---|---|---|\n| before | **10485ms** | 10.63s | 156ms |\n| after | **9ms** | 153ms | 11.32s |\n\nThe 10.2s did not disappear — it moved out of the phase a `testTimeout` bounds and into the one nothing bounds. Total wall duration is unchanged (~28s).\n\n## Full-project runs — three green, at and above the original saturation\n\nAll at `182be8350`, `pnpm exec vitest run apps/console/`, 81 files / 920 tests:\n\n| run | duration | setup | result | hop1 |\n|---|---|---|---|---|\n| 1 | 322.69s | 721.47s | 920 passed | 9ms |\n| 2 | 252.49s | 555.82s | 920 passed | 10ms |\n| 3 | 372.93s | **839.99s** | 920 passed | 10ms |\n\nRun 3 matters most: the card's red run spent **851s** in setup over a 386s duration. Run 3 reproduces that saturation (839.99s / 372.93s) and `hop1SessionPrincipal` still finishes in 10ms. The case no longer scales with load at all.\n\n## The hoist did not change what the test exercises\n\nSame specifier, so the same module and the same binding — ESM caches by resolved specifier, and `vi.mock` calls are hoisted above every import, so the factories are still registered before the module-scope import executes. Proven rather than asserted, by ablating the hop-1 fix (removing `ExpressionProvider` from `InternalFormRoute.tsx`) and running the same file two ways:\n\n| test file | hop1SessionPrincipal under the ablation |\n|---|---|\n| hoisted (this PR) | **RED**, 19ms |\n| pre-hoist (`b1a732b22`) | **RED**, 11927ms |\n\nByte-identical failure messages (`expected document not to contain element, found <h2 class=\"mb-3 text-sm font-medium\"`). Same verdict, same assertion — the hoisted form just reaches it 600x sooner. The file's one anti-inert case is still anti-inert. The ablation was restored and the restore proven with an empty `git diff HEAD`.\n\n`beforeAll` was not used: it is bounded by `hookTimeout` (10s), narrower than the 15s it would replace.\n\n## Gates\n\nAt `182be8350`, tree clean:\n\n- `pnpm exec vitest run apps/console/` — `Test Files 81 passed (81)`, `Tests 920 passed (920)`\n- `apps/console` `tsc --noEmit` — exit 0, 0 diagnostics, after `pnpm --workspace-concurrency=2 --filter '@object-ui/console^...' build`. `--listFiles` confirms the edited test file **is** in the checked set, so this is a measurement and not a clean-by-exclusion.\n- `apps/console` `eslint .` — exit 0, full scan (182 files, 37.9s), 0 errors. The one warning on the edited file is pre-existing `@typescript-eslint/no-explicit-any` on the `PredicateScopeProvider` line, unchanged and only shifted by the new comment block.\n- `check-changeset-presence` ✅ · `check-changeset-fixed` ✅ · `check-changeset-no-major` ✅ · `check-control-bytes` ✅ · `check-vi-mock-specifiers` ✅\n\nThe changeset gate was asked rather than assumed: it said one **is** owed (`apps/console` is a released package) and pointed at the empty-frontmatter form for a change that publishes nothing. That is what this PR carries.\n\n_Generated by [Claude Code](https://claude.ai/code/session_011SfZeFWrhGLHmfq61xbz4q)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_011SfZeFWrhGLHmfq61xbz4q)_"
+}

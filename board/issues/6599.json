@@ -1,0 +1,32 @@
+{
+  "number": 6599,
+  "kind": "issue",
+  "title": "docs(console): error-tracking.md predates the #5522 two-key telemetry gate — following it as written recreates the exact shape #5522 removed",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-27T08:30:00Z",
+  "updated_at": "2026-08-27T08:55:25Z",
+  "closed_at": "2026-08-27T08:55:25Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6599",
+  "body": "Found during a maintainer Q&A read on 2026-08-27 (PM session), while verifying \"did the docs get updated\" for the #5522 fix chain.\n\n## The problem\n\n`apps/console/docs/error-tracking.md` is the pre-#5522 integration guide, and every load-bearing instruction in it now contradicts the shipped design:\n\n| the doc says | the shipped code (PR #5559 + #5982, objectstack PR #11382) |\n|:--|:--|\n| `pnpm add @sentry/react` and write your own `src/lib/sentry.ts` | Sentry integration already exists in the console; the gate is `resolveSentryGate` |\n| \"Initialize error tracking **before React renders**\" | `initSentry()` deliberately runs in `.finally()` **after** `initRuntimeConfig()` — the doc's ordering is exactly the report-before-permission race #5982 eliminated |\n| enabling = set `VITE_SENTRY_DSN` (build-time only) | the gate is **two keys**: build-time `VITE_SENTRY_DSN` **AND** the runtime permission `telemetry.allowClientErrorReporting` from `/api/v1/runtime/config` (fail-closed; server side: `OS_TELEMETRY_CLIENT_ERROR_REPORTING_ENABLED`) — the doc never mentions the runtime half |\n| no PII stance | `VITE_SENTRY_SEND_DEFAULT_PII` is strict opt-in (`=== 'true'`) |\n\nA reader following this guide today would bolt a second, ungated Sentry init onto an app that already has a gated one — rebuilding the \"decision hardcoded at build time, no operator switch\" shape that #5522 existed to remove, and the `committed-telemetry-endpoint.test.ts` ratchet would not catch it (nothing gets committed; the init is just wrong).\n\n## Task\n\nRewrite `apps/console/docs/error-tracking.md` to describe the system that exists:\n\n1. Sentry support is built in — no installation section; delete the hand-rolled `src/lib/sentry.ts` / `initErrorTracking()` recipe entirely.\n2. Enabling = the two halves, each stated with its variable name and where it lives:\n   - build-time (build environment of the console, e.g. the hosting panel): `VITE_SENTRY_DSN` (required), optional `VITE_SENTRY_SEND_DEFAULT_PII=true`, `VITE_SENTRY_ENVIRONMENT`, `VITE_SENTRY_RELEASE`, `VITE_SENTRY_TRACES_SAMPLE_RATE`, `VITE_SENTRY_REPLAY`, `VITE_SENTRY_ENABLED=false` force-off — the authoritative comment block already in `apps/console/.env.production` is the source to mirror, not to duplicate freely;\n   - runtime (each production server): `OS_TELEMETRY_CLIENT_ERROR_REPORTING_ENABLED=true` (truthy vocabulary `1/true/on/yes`; unrecognised spelling refused at mount) or `new RuntimeConfigPlugin({ allowClientErrorReporting: true })`; link the canonical row in objectstack `content/docs/deployment/environment-variables.mdx`.\n3. State the fail-closed contract in one line: either half missing ⇒ no reporting, silently, by design; ⛔ never commit a DSN (the ratchet test `committed-telemetry-endpoint.test.ts` enforces it).\n4. Verification steps: `curl <deployment>/api/v1/runtime/config` → `telemetry.allowClientErrorReporting: true`, then a thrown test error appearing in Sentry.\n5. Keep the CSP note and the source-maps CI note if still accurate; the \"Option 2: Custom Error Boundary\" section may stay only if it is made subject to the same runtime permission, otherwise remove it (it is a second ungated exfiltration path presented as an alternative).\n\n## Acceptance\n\n- One file changed: `apps/console/docs/error-tracking.md` (plus changeset only if repo convention requires one for docs — it should not).\n- Every env var named in the doc greps to a real read site in the current tree.\n- No instruction in the doc, followed literally, produces an ungated telemetry path.\n\nRefs: #5522 (the saga card) · PR #5559 · PR #5982 · objectstack#10805 / objectstack PR #11382."
+}

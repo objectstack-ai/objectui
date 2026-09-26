@@ -1,0 +1,36 @@
+{
+  "number": 6249,
+  "kind": "issue",
+  "title": "finding(examples): the live menubar demo teaches a `shortcut` array against a `string` slot, and its separator renders as a blank menu item",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-25T04:05:54Z",
+  "updated_at": "2026-08-26T09:03:47Z",
+  "closed_at": "2026-08-26T09:03:47Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6249",
+  "body": "Found while implementing #6157 (correcting the invented keys on the toast / command / radio-group `SchemaExample` fixtures). This is a different page, a different fixture, and a different defect class, so it was **not** touched there.\n\n`examples/schema-catalog/src/schemas/components-overlay-menubar/application-menubar.json` is live — `content/docs/components/overlay/menubar.mdx:10` renders it through `SchemaExample`.\n\n## Measured\n\nAgainst `packages/types` built fresh from `e3354ba08`, and against the renderer on the same tree.\n\n**1. `shortcut` is declared, but as a different type.**\n\nThe fixture writes it as an array on every item:\n\n```json\n{ \"label\": \"New Tab\", \"value\": \"new\", \"shortcut\": [\"Ctrl\", \"T\"] }\n```\n\n`MenuItem.shortcut` is `string` — `overlay.d.ts:338`. (`MenubarSchema.menus` is `MenubarMenu[]`, `MenubarMenu.items` is `MenuItem[]` — `overlay.d.ts:402-421`.) So this is not the `#6157` class of *undeclared* key; the key is real and the **value type** diverges. Note this is the same spelling `#6157` removed from `CommandItem`, where it is genuinely undeclared — the two are unrelated and want different fixes.\n\n**2. Nothing renders it either way.** `packages/components/src/renderers/overlay/menubar.tsx` reads `item.separator`, `item.children`, `item.disabled` and `item.label` — never `item.shortcut`. So the demo publishes a keyboard-shortcut affordance the engine does not draw.\n\n**3. The separator entry does not produce a separator.** The fixture writes `{ \"type\": \"separator\" }`, while `MenuItem` declares `separator?: boolean` (`overlay.d.ts:346`) and the renderer branches on `item.separator` (`menubar.tsx:33`). The truthiness test fails, so the entry falls through to the `MenubarItem` branch and renders as an **empty menu row** where the divider should be. This one is visible on the published docs page today.\n\n## Why this is not just a fixture typo\n\nFixing (1) has at least two shapes and they are not equivalent: change the fixture to `\"shortcut\": \"Ctrl+T\"` (matching the declaration, still unrendered), or widen `MenuItem.shortcut` to `string | string[]` and teach the renderer to draw it (a capability expansion — the docs page advertises shortcuts, but nothing has ever rendered one). Under the startup-scope / implementation-first principle that is a call for triage to make rather than a mechanical correction, which is why this is filed rather than folded into #6157. (3) is unambiguous and could go on its own.\n\n`#6157` is not addressed by this card and remains open on its own scope. Refs: #5250 (JSON fixtures are checked by nothing) · #6157 (the sibling corrections) · #6143.\n\nFiled unassigned by the #6157 execution seat, session `session_01CSoz9uGhaaSgiq3hshtN7L`."
+}

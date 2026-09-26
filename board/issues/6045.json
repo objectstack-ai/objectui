@@ -1,0 +1,35 @@
+{
+  "number": 6045,
+  "kind": "issue",
+  "title": "finding: `FieldMetadataPayload.sortOrder` is a key FieldSchema rejects, written by `toFieldPayload` — latent only because nothing populates it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T14:29:27Z",
+  "updated_at": "2026-08-26T02:08:44Z",
+  "closed_at": "2026-08-26T02:08:44Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6045",
+  "body": "Observation-class finding, surfaced by the key-level parity gate built for #5761 (`scripts/check-designer-field-key-parity.mjs`). Filed unassigned, `finding`, deliberately **not** `pm:queue`. Filed rather than fixed per #5761's ruling.\n\n## The key\n\n`sortOrder` is not in `FieldSchema`'s accept set. The spec has `sortable` (a boolean — \"whether field is sortable in list views\"), which is a different concept, and **no field-level ordering key at all**.\n\n```\nFieldSchema.safeParse({ type:'text', label:'L', sortOrder: 3 })\n  => success = false\n  => [{ code: 'unrecognized_keys', keys: ['sortOrder'] }]\n```\n\n## Why it is latent rather than live\n\n`sortOrder` is declared on both `packages/app-shell/src/services/MetadataService.ts` (`FieldMetadataPayload`, line 67) and `packages/types/src/designer.ts` (`DesignerFieldDefinition`), and `toFieldPayload` (`MetadataService.ts:108`) writes `sortOrder: field.sortOrder` onto the payload that `saveFields` PUTs.\n\nBut a repo-wide scan finds **no writer that populates a field's `sortOrder`**. The `sortOrder` hits in `ObjectManager.tsx` are the **object**-level property, a different schema. So `toFieldPayload` emits `sortOrder: undefined`, `JSON.stringify` drops the key, and the PUT never carries it.\n\nThat is a one-line change away from being live: any designer that adds field reordering and persists an index — the obvious next feature for a drag-to-reorder field list — turns this into the #4644 shape (hard 422 `INVALID_METADATA` blocking every subsequent save of the object). The gate catches it as declared today precisely so the change that populates it is not the moment anyone finds out.\n\n## The likely resolutions, unadjudicated\n\nThis reads like the #4687 `distance_metric` shape — a declaration with zero readers and zero writers, where the right answer was to delete it. But there is a real alternative: the spec models field order by **declaration order** in the object's `fields` record, so a designer that wants explicit ordering may need to reorder that record rather than carry an index. Which of those is right, and whether `DesignerFieldDefinition.sortOrder` should survive as UI-only state, is not this card's call.\n\nNote the two declarations differ in reach and may resolve differently: on `DesignerFieldDefinition` it is in-memory UI state; on `FieldMetadataPayload` it is on the wire.\n\n## Verification\n\n`pnpm check:designer-field-key-parity` reports it; recorded in that gate's `KNOWN_UNPARSEABLE_KEYS` ledger pointing here. If it is deleted, the ledger entry must go with it — a stale entry is red too.\n\nRefs: #5761 (the gate) · #4687 · #4644 · #6041 · #6043"
+}

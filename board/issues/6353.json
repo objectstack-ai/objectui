@@ -1,0 +1,35 @@
+{
+  "number": 6353,
+  "kind": "issue",
+  "title": "`'timeline'` is registered twice, and the bare-name fallback resolves to the later registration by module-evaluation order",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T15:04:59Z",
+  "updated_at": "2026-08-25T23:54:15Z",
+  "closed_at": "2026-08-25T23:54:15Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6353",
+  "body": "Found while working #6170 (PR #6352); out of that card's scope, filed unassigned.\n\n## The fact\n\n`packages/plugin-timeline` calls `ComponentRegistry.register` with the key `'timeline'` **twice**:\n\n| site | component | namespace |\n|---|---|---|\n| `src/renderer.tsx:498` | `TimelineRenderer` (presentational) | `plugin-timeline` |\n| `src/index.tsx:366` | `ObjectTimelineRenderer` (object-bound) | `view` |\n\nBoth are namespaced, neither passes `skipFallback`, so each also claims the **bare** `timeline` key (`Registry.ts:246-266`).\n\n`index.tsx:300` is `export * from './renderer';`, which is requested before the `import` at line 307, so `renderer.tsx` evaluates first and claims bare `timeline` → `TimelineRenderer`. The call at `index.tsx:366` then **overwrites** it. So a node authored `type: 'timeline'` resolves to `ObjectTimelineRenderer`, which delegates inward to `TimelineRenderer` (`ObjectTimeline.tsx:443`).\n\n## Why it is worth a card\n\nThe outcome is probably intended — the object-bound wrapper is the right entry point, and it does reach the presentational renderer. What is not fine is *how* it is decided: by the order two module requests happen to appear in one file. Reorder those two lines and `type: 'timeline'` silently becomes the presentational renderer, which reads none of the object-bound keys — an authored timeline would stop fetching, with no error.\n\n`Registry.register` carries a collision guard for exactly this shape, whose message names the remedy:\n\n> `Component \"timeline\" bare-name fallback is being overwritten by \"view:timeline\". If this is intentional keep going; otherwise register \"view:timeline\" with { skipFallback: true } so it doesn't claim the bare \"timeline\" key.`\n\nSo the repo already believes this needs a deliberate answer. Either declare the intent (and pin it), or give the presentational registration `skipFallback: true`.\n\nWorth checking whether other plugins have the same double-claim; the guard warns at runtime only, so nothing fails CI today.\n\n## Reproduce\n\n```\ngrep -n \"ComponentRegistry.register\" packages/plugin-timeline/src/*.tsx\nsed -n '296,310p' packages/plugin-timeline/src/index.tsx\nsed -n '242,268p' packages/core/src/registry/Registry.ts\n```\n\nRefs: #6170, PR #6352. Related: #5106 (the doc-types gate never judges the namespace half of a registration row).\n"
+}

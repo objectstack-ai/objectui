@@ -1,0 +1,35 @@
+{
+  "number": 6617,
+  "kind": "issue",
+  "title": "metadata-admin predicate `in` with a PATH on the right silently evaluates TRUE — ADR-0068's own headline spelling `'admin' in current_user.positions` is inert",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-27T14:25:03Z",
+  "updated_at": "2026-08-28T09:41:24Z",
+  "closed_at": "2026-08-28T09:41:24Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6617",
+  "body": "Filing unassigned — recording, not claiming. Found while implementing objectui#6247 (per-option `visibleWhen`); reported there rather than fixed, because the fix is a grammar change to a shared evaluator that every predicate on this surface routes through, and that is wider than the option mapping.\n\n## The observation\n\n`packages/app-shell/src/views/metadata-admin/predicate.ts` matches membership with:\n\n```js\nconst inMatch = expr.match(/^(.+?)\\s+in\\s+(\\[.*\\])$/);\n```\n\nThe right-hand side must be a **bracketed array literal**. A membership test whose right side is a **path** therefore does not match that branch at all. It falls through `==`/`!=` (no operator), reaches the bare-truthy tail, and `resolveValue` sees the leading quote and hands the whole text to `parseLiteral`, which does not recognise it as any literal and returns it **verbatim as a string**. A non-empty string is truthy, so the predicate evaluates **TRUE — always, whatever the user or the draft holds.**\n\nIt is also **silent**: the `PATH_SHAPED_LITERAL` diagnostic (objectui#4049) only matches text starting with an identifier character, and this text starts with a quote, so nothing warns.\n\n## Measured\n\nDirection predicted before running; all predictions confirmed.\n\n| predicate | scope | result |\n|---|---|---|\n| `'admin' in current_user.positions` | `current_user.positions = ['admin']` | **TRUE** |\n| `'admin' in current_user.positions` | `current_user.positions = ['viewer']` | **TRUE** — value irrelevant |\n| `'x' in data.tags` | `data.tags = ['x']` | **TRUE** |\n| `'x' in data.tags` | `data.tags = ['zzz']` | **TRUE** — value irrelevant |\n| `data.kind in ['a','b']` (control) | `data.kind = 'a'` / `'z'` | TRUE / **FALSE** — the literal-set form does discriminate |\n\nSo the gap is **root-independent**: it is a property of the operator's grammar, not of which names are bound.\n\n## Why it matters more than the row count suggests\n\n`@objectstack/spec`'s `SelectOptionSchema` docblock names this exact spelling as the canonical use of the key — \"per record or, uniquely on this surface, per `current_user` — ADR-0068\" — and ADR-0068's own example is `'admin' in current_user.positions`. So the spelling an author is most likely to copy is precisely the one that silently answers TRUE.\n\n⚠️ And the failure direction is **permissive**: an option, field or section gated to admins is shown to everyone. That is the same fail-open direction objectstack#6936 documented for unresolvable roots — but this one is **not** an unresolvable root, so it does not reach that diagnostic. objectui#6247 binds `current_user` and makes unresolved roots loud; this text resolves nothing and warns about nothing, so it is untouched by that work and needs stating separately.\n\n## Boundary — what this is NOT\n\n- **Not** objectui#4266 (closed), which is a non-literal element *inside* the brackets (`data.type in ['text', data.a]`) making `JSON.parse` throw and the set collapse to `[]`. That is a set that parses to empty; this is a branch that never matches.\n- **Not** regressed or introduced by objectui#6247 — measured identical before and after, and identical for `data.*` and `current_user.*`.\n- The file's header is honest about the subset (`path in ['a','b']`, never `path in path`); the gap is that stepping outside the subset is **silent and permissive** rather than diagnosed.\n\n## Directions (not a recommendation — this wants triage)\n\n1. **Diagnose only**, the objectui#4049 / objectui#4266 posture this file has taken twice already: verdicts untouched, but a membership expression whose right side is path-shaped gets the warn-once dev diagnostic. Cheapest, consistent with the two precedents, and does not widen the evaluator.\n2. **Resolve the right side for `in`**, making the spelling work. A real widening of the declared subset, and it needs the fail-direction thinking objectui#4049 applied when it *rejected* resolving the right side of `==`.\n3. **Producer-side**: publish-time validation of predicate expressions (objectstack#7010's family), which the file header already points at as where the semantic fix belongs.\n\nNote the header's standing constraint either way: this evaluator is an interim stand-in for `@objectstack/formula` and retires at ROADMAP M9 — \"do not grow it into a second evaluator.\""
+}

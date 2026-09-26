@@ -1,0 +1,36 @@
+{
+  "number": 6694,
+  "kind": "issue",
+  "title": "finding(plugin-dashboard): lookup cells in ObjectDataTable / RecordDetailDrawer never get reference_to/reference — refSchema-driven resolution and drill-through links never engage",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-28T16:03:52Z",
+  "updated_at": "2026-08-28T18:34:39Z",
+  "closed_at": "2026-08-28T18:34:39Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6694",
+  "body": "Provenance: found while implementing #6597 (the `FieldMeta.referenceTo` enforce-or-remove\ncard). Filed unassigned, no `pm:queue` label — this is an observation of a real gap in\nexisting behaviour, not a scoped fix; severity is for triage to set.\n\n## What's measured\n\n`plugin-dashboard`'s `FieldMeta` (`packages/plugin-dashboard/src/recordFields.tsx`) is the\nobject `buildFieldMeta` returns and `ObjectDataTable` / `RecordDetailDrawer` pass to\n`renderFieldValue` → `getCellRenderer` → `<Renderer value={value} field={fieldMeta} />`\n(`@object-ui/fields`). For a lookup/master_detail field, that renderer is\n`LookupCellRenderer` (`packages/fields/src/index.tsx`), which resolves its reference\ntarget from `(field as { reference_to?: string }).reference_to || (field as { reference?:\nstring }).reference` — **never** any other spelling.\n\n**`FieldMeta` never carries either key.** Grep confirms zero `reference_to` / `.reference`\nwrites anywhere in `recordFields.tsx` or `ObjectDataTable.tsx` — `buildFieldMeta` used to\nresolve a `referenceTo` (camelCase) member (retired by #6597, itself measured dead end to\nend), but neither before nor after that retirement did anything write the snake_case\nspelling `LookupCellRenderer` actually reads.\n\nTwo consequences, both currently silent:\n\n1. **`useRefObjectSchema(referenceTo)` inside `LookupCellRenderer` always resolves\n   `undefined`** for cells rendered through this path, so the referenced object's schema\n   (nameField / titleFormat) never loads. Display-name resolution for these cells always\n   falls back to `pickRecordDisplayName`'s generic `.name`/`.title` heuristic instead of\n   the schema-aware resolution issue #2357 built. This is silent because the generic\n   fallback usually still produces a readable name — it only diverges when the referenced\n   object's display field isn't literally `name`/`title`.\n2. **`ReferencedRecordLink`'s `objectName` prop is always `undefined`** for these cells, so\n   `navigable` is always `false` and the cell never renders a real `<a>` — no drill-through\n   click, no middle-click-new-tab, no copy-link, for ANY lookup cell in `ObjectDataTable`\n   or the `RecordDetailDrawer`. This is silent because the cell still renders fine (as\n   plain text via the embedded `{ id, name }` object's display name), so nothing looks\n   broken — it just never links.\n\nPositive control confirming the read path itself is fine elsewhere: `ObjectGrid`\n(`packages/plugin-grid/src/ObjectGrid.tsx`) DOES feed `reference_to` / `reference` onto its\nown built `fieldMeta` via `applyRelationalMeta`, copied straight off the object schema\nfield def at all three of its call sites — so grid cells in that package get both the\nschema-aware name resolution and working drill-through links. `plugin-dashboard`'s two\nwidgets never adopted the equivalent copy.\n\n## Suggested fix shape (not prescriptive — untried)\n\n`ObjectDataTable.enrich()` and `RecordDetailDrawer`'s per-field loop both already have the\nobject schema field def in scope (`fieldsByName[col.accessorKey]` / `def`). Copying\n`reference_to` (and, for parity with `ObjectGrid`, `display_field` / `id_field` /\n`description_field`) from the schema field def onto the built `fieldMeta` — the same move\n`applyRelationalMeta` makes — would close both gaps. This is a NEW read (behaviour change,\nnot a retirement), so it needs its own measurement/authoring pass, which is why it isn't\nfolded into #6597 (that card's own stop-and-report line: enforcing must not widen\nbehaviour beyond the documented column-override promise, and this isn't that promise —\nit's a different, unrelated gap the investigation surfaced).\n\n## Scope note\n\nNot filed against #6597 as a sub-issue: it doesn't depend on that card's ruling either way\n(the gap predates and survives both the enforce and withdraw branches — it was present\nwhen `referenceTo` was still a `FieldMeta` member, since that member was never the\nsnake_case spelling either). Filed as an independent card in this repo, since the fix\nlands in `plugin-dashboard`.\n"
+}

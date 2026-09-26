@@ -1,0 +1,35 @@
+{
+  "number": 6235,
+  "kind": "issue",
+  "title": "`mergedSort` hands `table.defaultSort` to the delegated list view UNWRAPPED, while the non-grid fetch path wraps the same value — the #5270 arity split, one branch short",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-25T03:14:22Z",
+  "updated_at": "2026-08-26T04:37:59Z",
+  "closed_at": "2026-08-26T04:37:58Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6235",
+  "body": "Found while retiring the `direction` spelling from `toSortItems` (#6011, PR #6234) — reading `ObjectView`'s sort chains to decide what the stale fixture at `ObjectView.filterSources.test.tsx` actually pins. **Filed unassigned, no labels — triage grades it.** Not fixed in #6234: that card is a spelling retirement on a published export, and this is an arity defect on a different surface.\n\nLine numbers re-derived on `claude/issue-6011-tosortitems-direction` @ `b0d186b79`; they sit within one line of `main`.\n\n## The split\n\n`ObjectGridSchema.defaultSort` is declared a **single object** — `{ field: string; order: 'asc' | 'desc' }` (`packages/types/src/objectql.ts`, zod mirror agreeing). Three places in `packages/plugin-view/src/ObjectView.tsx` resolve it, and two of them account for that arity:\n\n- **non-grid fetch (`:791`)** — wraps it: `|| (schema.table?.defaultSort ? [schema.table.defaultSort] : undefined)`, so the shared sink receives the `SortConfig[]` it declares.\n- **grid path (`:1375`)** — `defaultSort: schema.table?.defaultSort`, forwarded into the slot that declares the bare object. Correct by construction; `ObjectGrid` does its own `schemaSort ?? [schema.defaultSort]` resolution.\n- **delegated path (`:1522-1525`)** — does **not**:\n\n```ts\n  const mergedSort = currentNamedViewConfig?.sort\n    || activeView?.sort\n    || schema.table?.sort\n    || schema.table?.defaultSort;   // <- bare object, unwrapped\n```\n\n`mergedSort` lands at `:1575` as `sort: mergedSort` on the `list-view` node the host's `renderListView` receives — a slot declared `string | SortConfig[]`. Every branch above the last produces an array (or a string); only the `defaultSort` fallback produces a bare `{ field, order }`.\n\nThe comment immediately above that chain (`:1513-1516`) asserts the opposite:\n\n> Both land on `list-view`'s own `filter` / `sort` keys below, so a canonical value arrives in the slot that already matches its shape.\n\nThat is true of the first three branches and false of the fourth.\n\n## Why this looks familiar\n\nThis is the same shape #5270 fixed one branch over: an array/object arity mismatch with **no compile-time witness**, because `ObjectViewSchema.table` collapses to a bare index signature (#5102) and the delegated `list-view` node is assembled with `(schema as any).K` reads on the host-composition surface (#5097). #5270's own test header warns about exactly the failure this reproduces — a `parseSchemaSort`-style reader gets a shape it cannot parse, and the symptom is a **missing sort with no error**, not a crash.\n\n## Why no test catches it\n\n`packages/plugin-view/src/__tests__/ObjectView.filterSources.test.tsx` (`forwards the sort alongside it`) is the only assertion on this forward, and it is **arity-blind in both directions**: it passes an already-array `defaultSort` behind an `as any` and asserts verbatim `toEqual` on what came out. A bare-object `defaultSort` — the *declared* shape — is never exercised, and even if it were, a verbatim pass-through assertion would report it as passing. #5270's header names this trap by hand: *\"Pinning the forwarded shape alone would have re-pinned the bug.\"*\n\n(#6234 re-spelled that fixture's `direction` → `order` and left its arity alone, deliberately, recording the reason in a comment there. This card is that recorded reason.)\n\n## What to decide\n\nNot a dev's own call — it is which of two contracts the delegated `sort` slot is meant to carry:\n\n1. **Wrap at `mergedSort`**, matching `:791` verbatim: `|| (schema.table?.defaultSort ? [schema.table.defaultSort] : undefined)`. One line, and it makes all three consumers agree. Note this is the resolution `ObjectGrid` already performs for the same pair, so it introduces no fourth dialect.\n2. **Leave it and correct the comment** — if a host's `renderListView` is genuinely expected to accept the deprecated bare-object shape, then the slot's declared type is what is wrong, and the claim at `:1513-1516` needs to stop asserting canonicality.\n3. **Something upstream** — `table.defaultSort` is `@deprecated Use sort instead`; a route that stops resolving it on new surfaces may be preferable to teaching a fourth reader about it.\n\nRecommendation is **1**, on the grounds that `:791` already ruled the wrapping question for this exact pair and a maintainer ruling of 2026-08-22 (recorded in the comment at `:779-784`) explicitly rejected widening the shared sink to guess at a bare `{ field, order }` — so the wrap belongs in the caller, which is where `:791` put it. But the delegated surface is host-facing, so whether an out-of-tree `renderListView` is already coping with the bare object is not derivable from this repo.\n\nWhatever is chosen, the fixture above should gain a case that passes the **declared** object arity, since the current one cannot fail either way.\n\n## Dedup\n\nSearched open issues for `mergedSort`, `defaultSort` + `renderListView`, and the arity wording — nothing on this. Related: **#5270** (the arity ruling this extends), **#5102** / **#5097** (why there is no compile-time witness), **#6011** / PR #6234 (where it was found)."
+}

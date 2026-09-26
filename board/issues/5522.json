@@ -1,0 +1,33 @@
+{
+  "number": 5522,
+  "kind": "issue",
+  "title": "Console/app-shell Sentry: a live DSN with `sendDefaultPii: true` is committed in `apps/console/.env.production` and baked into every production build — the `VITE_SENTRY_ENABLED` switch is build-time and absent from the inlined env, so a shipped bundle cannot be silenced",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T08:22:43Z",
+  "updated_at": "2026-08-27T08:39:18Z",
+  "closed_at": "2026-08-27T08:39:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5522",
+  "body": "Upstream mechanism half of objectstack-ai/cloud#1508 (**priority:p0 / security there**: an on-prem, air-gapped EE deployment's Console was measured sending 14 Sentry envelopes per session to `sentry.io`, including IP + User-Agent PII, with no way for the customer to turn it off). Filed by the triage seat; the cloud seat owns the image-side stop-the-bleed on #1508 — this card is the objectui-owned defect that made it possible.\n\n## Mechanism (measured on the shipped bundle)\n\n- `apps/console/.env.production` commits a real `VITE_SENTRY_DSN` (plus `VITE_SENTRY_ENVIRONMENT=production`, `VITE_SENTRY_SEND_DEFAULT_PII=true`), so **every** production build of the console — including builds destined for customer-premises images — inlines a live DSN as an object literal (seen verbatim in `packages/console/dist/assets/*.js` inside the EE image).\n- The kill switch in `packages/app-shell/src/observability/sentry.ts` reads `VITE_SENTRY_ENABLED` — **also a build-time variable**. It is not defined in `.env.production`, so it is absent from the inlined literal and reads `undefined` at runtime forever; `env.VITE_SENTRY_ENABLED === 'false'` can never become true after the build. Changing environment variables or `.env` on the deployed host does nothing.\n- `sendDefaultPii: true` means IP address and User-Agent are sent, per sentry.ts's own comment.\n\n## Why this is a defect here and not just a cloud packaging issue\n\nThe build system makes the *telemetry endpoint and PII posture unconditionally part of the artifact*. Any consumer that builds the console (cloud's EE/on-prem images, self-hosters building from source, the framework's console pin refresh) inherits an un-disableable third-party phone-home unless they know to strip a committed file. That is the wrong default direction for a switch whose failure mode is customer data leaving an air-gapped deployment.\n\n## Suggested direction (from cloud#1508)\n\n- Default **off** unless explicitly opted in at build (do not commit a live DSN in `.env.production`; inject it only in the SaaS build pipeline that wants it), and/or\n- make the gate **runtime-configurable** (e.g. via `/api/v1/runtime/config`, the way `branding.stage` works) so a deployment posture — composed / air-gap in particular — can hard-disable it; and\n- `sendDefaultPii` should not be `true` for artifacts that can land on-prem.\n\nExact seam is the dev's to determine; the invariant to restore is: **a build that ships to a customer deployment must not carry an un-disableable third-party telemetry endpoint.**\n\n## Verification\n\nRepro on the cloud side: run `deploy/composed.env.example` (EE 4.1.0), log into the Console, filter the browser network panel on `sentry`. Green = zero third-party envelopes on a composed/air-gap posture, and a documented, working off-switch for other postures."
+}

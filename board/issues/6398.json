@@ -1,0 +1,33 @@
+{
+  "number": 6398,
+  "kind": "pull_request",
+  "title": "fix(ci): changeset-guard.yml now exercises its own PR",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T19:56:50Z",
+  "updated_at": "2026-08-25T20:27:55Z",
+  "closed_at": "2026-08-25T20:27:53Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": "2026-08-25T20:27:53Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6398",
+  "body": "Fixes #6321\n\n## Conclusion: oversight, not deliberate\n\n`changeset-guard.yml`'s `paths:` filter was `.changeset/**` alone, on both its `pull_request` and `push` triggers. Nothing in the file, its history, or the linked cards (#6245 / PR #6315) recorded a reason for excluding the gate's own YAML or the script its one step runs. Measured against the repo's other six path-filtered workflows, 5 of 7 self-include; `changeset-guard.yml` and `performance-budget.yml` (closed in #6315) were the two exceptions. No defensible reason was found in the file for `changeset-guard.yml` to be the third — this is the oversight branch.\n\n## Filter — before / after\n\n**Before** (`pull_request` and `push`, identical):\n```yaml\npaths:\n  - '.changeset/**'\n```\n\n**After** (both triggers):\n```yaml\npaths:\n  - '.changeset/**'\n  - '.github/workflows/changeset-guard.yml'\n  - 'scripts/check-changeset-no-major.mjs'\n```\n\n## The `~ partial` judgement\n\nTwo things were deliberately **not** added, and the reasoning is recorded in the workflow's own header comment (not just this PR body):\n\n- **`scripts/invoked-as.mjs`** (the gate script's one import) — this repo's *majority* pattern for a self-including, script-running gate is \"list what the `run:` step executes\" (own YAML + the invoked script), not the transitive import graph. `node-esm-load-gate.yml`, `published-dist-gate.yml` and `spec-range-floors.yml` all import this exact same shared helper (`isEntrypoint`, 40+ importers under `scripts/`) and none of them lists it. Only `half-state-patrol.yml` does, and its own header names that as a specific, documented one-off tied to its objectstack port (#5791/divergence 2), not a general convention. Adding it here would make `changeset-guard.yml` the outlier relative to the *other three* comparable gates, not the convention-follower.\n- **`scripts/__tests__/check-changeset-no-major.test.ts`** — this matches the **looser `~ partial` pattern** `published-dist-gate.yml` and `spec-range-floors.yml` already set for their own gate scripts' `__tests__` files, not the stricter closure pattern. Verified directly: the file lives under `scripts/**`, which `ci.yml`/`lint.yml`'s `Decide whether this change needs a full run` step does **not** exclude (only `**/*.md` and `.changeset/**` are excluded), so any PR touching the script or its test already gets a real run of the root vitest suite that executes it — the same reasoning the two `~ partial` rows rely on. Confirmed both files run under `scripts/**/*.test.ts` in `vitest.config.mts`'s root project.\n\nSo `changeset-guard.yml` now matches the **`~ partial`** pattern (own YAML + invoked script, not the full transitive closure), same tier as `published-dist-gate.yml` / `spec-range-floors.yml`.\n\n## Self-coverage confirmed on this PR — READ, not reasoned about\n\nThis PR's diff includes `.github/workflows/changeset-guard.yml` itself. Pulled the check list via `get_check_runs` after pushing:\n\n> **\"Changeset Bump Policy\"** — `status: in_progress`, run `https://github.com/objectstack-ai/objectui/actions/runs/32892473021/job/97947347455`\n\nThe gate is present and running on this PR, which is exactly the self-coverage #6321 asked for. (PR #6315 asserted this same thing and turned out wrong because a `paths:` filter excluded it — this time the check list was actually read.)\n\n## Docs updated to match\n\n`content/docs/guide/ci-cd-pipeline.md`:\n- Workflow Inventory table row for `changeset-guard.yml`.\n- The path-filter bullet under \"The path filters explain most…\".\n- The **\"Some contexts can never be required, structurally\"** bullet — this one is machine-pinned verbatim by `scripts/__tests__/ci-cd-pipeline-doc.test.ts` (`STRUCTURAL_BLOCKS['changeset-guard.yml'].quotes()` reads the live `paths:` values out of the YAML and requires the doc line to quote all of them); updated and reverified green.\n- The dedicated `### Changeset Guard` section.\n\nNo conflict with PR #6389 (`content/docs/guide/ci-cd-pipeline.md`) was hit — my worktree was created after #6389 already landed on `main` (commit `b362c1b47`), so this branches from the current file, not a stale copy.\n\n## Out of scope (per the triage ruling)\n\nThe 22 workflows with no `paths:` filter at all — they report on every PR, so this gap cannot arise for them.\n\n## Tests run\n\n- `pnpm exec vitest run scripts/__tests__/check-changeset-no-major.test.ts scripts/__tests__/check-changeset-presence.test.ts scripts/__tests__/ci-cd-pipeline-doc.test.ts scripts/__tests__/check-pre-install-import-graph.test.ts` → **112 passed**, including the pinned regex in `check-changeset-no-major.test.ts` (`.changeset/**` still the first `paths:` entry) and every `STRUCTURAL_BLOCKS['changeset-guard.yml']` assertion in `ci-cd-pipeline-doc.test.ts`.\n- `node scripts/check-changeset-no-major.mjs` → ✅ no `major` bump declared.\n- `node scripts/check-changeset-presence.mjs` → ✅ (this change touches no published package `src/`; changeset added anyway per dispatch).\n- `node scripts/check-doc-links.mjs` → ✅ links valid across 17 scan roots.\n- `node scripts/check-control-bytes.mjs` → ✅.\n- `node scripts/check-entry-guard.mjs` → ✅ (unaffected, ran as a cheap sanity check since `scripts/**` was touched).\n- Parsed the updated `changeset-guard.yml` with `yaml.parse` to confirm both `pull_request.paths` and `push.paths` are syntactically valid and contain the three expected entries.\n- `get_check_runs` on this PR (see above) — **Changeset Bump Policy present and running**.\n\n## Changeset\n\n`.changeset/6321-changeset-guard-self-coverage.md` — internal CI/docs-only change, no published package touched.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_012CZgmFFzqA9cX8tBMhvpFe)_\n"
+}

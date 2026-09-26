@@ -1,0 +1,35 @@
+{
+  "number": 6001,
+  "kind": "issue",
+  "title": "观察：`ValueDataSource.test.ts` 的 10 处 `$filter: [...] as any` 在 #3909 之后已成多余，且 `as any` 正在抹掉这些 fixture 本可提供的类型面证据",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T11:33:17Z",
+  "updated_at": "2026-08-28T06:53:18Z",
+  "closed_at": "2026-08-28T06:53:18Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6001",
+  "body": "观察类发现（`finding`，不进 `pm:queue`），发现于 #3909 / PR #5999 的实施过程。不是缺陷，运行时完全正确 —— 是一处随 #3909 落地而变得多余、且顺带遮蔽了类型面信号的测试写法。\n\n## 机制\n\n`packages/core/src/adapters/__tests__/ValueDataSource.test.ts` 有 10 处形如：\n\n```ts\n$filter: ['role', '=', 'admin'] as any,\n$filter: ['and', ['role', 'in', ['admin', 'user']], ['age', '>=', 28]] as any,\nconst result = await ds.find('users', { $filter: [] as any });\n```\n\n这些 `as any` 之所以存在，是因为 `QueryParams.$filter` 当时声明为 `Record&lt; string, any &gt;`，只描述了 MongoDB 风格的记录形式 —— 作者要写 ObjectQL AST 数组，就得把类型推开。#3909（PR #5999）把该槽位声明成它实际接受的联合（记录形式 | 绑定自 `@objectstack/spec/data` 的 `FilterArray`）之后，**这些数组字面量已经可以不带任何 cast 直接赋值**，`as any` 成了纯粹的多余物。\n\n## 有害在哪（很轻，但方向明确）\n\n不是运行时问题 —— 这些用例断言的是 `ValueDataSource` 的过滤行为，`as any` 不影响它们跑什么、断言什么，今天它们全绿且断言正确。\n\n值得记一笔的是第二层：`as any` **把这些 fixture 本可顺带提供的类型面证据抹掉了**。这个文件恰好枚举了 AST 数组的九种形态（比较三元组、`in` / `not in`、`and` / `or` 组合、`!=`、`contains`、空数组），是仓内对该形状覆盖最全的一处。若去掉 cast，它们在跑运行时断言的同时，也自动成为「这些形状对 `$filter` 合法」的编译期证据 —— 一旦有人把该槽位收窄回记录形式，这个文件会转红。带着 `as any`，同样的收窄对它完全不可见。\n\n即 #3909 已经付过一次的那类代价的小号版本：一个看起来在覆盖某形状、实际对该形状的声明变化免疫的夹具。\n\n## 落地建议\n\n删掉这 10 处 `as any`，跑 `pnpm --filter @object-ui/core type-check` 确认无需替代 cast。**不要**换成别的断言或加宽任何东西 —— 这些值本来就合法，直接裸写即可。\n\n⚠️ 前置依赖：需要 #3909 的类型改动先落地（PR #5999），否则删掉 cast 会转红。\n\nBlocked-by: #3909\n\n## 参考位置\n\n- `packages/core/src/adapters/__tests__/ValueDataSource.test.ts:168,177,185,194,202,210,219,227,234,241`\n- `packages/types/src/data.ts`（`$filter` 声明，#3909 改动处）\n\n关联：#3909 / PR #5999（发现来源）"
+}

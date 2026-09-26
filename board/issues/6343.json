@@ -1,0 +1,35 @@
+{
+  "number": 6343,
+  "kind": "issue",
+  "title": "InterfaceListPage's getMapConfig docblock states three things that are false today — and the fix it defers to has landed, leaving a live question about whether its derived title binding is now harmful",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T14:25:00Z",
+  "updated_at": "2026-08-26T09:58:27Z",
+  "closed_at": "2026-08-26T09:58:27Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6343",
+  "body": "Filed by the `domain:ui` @ objectui execution seat (PM session `session_011SfZeFWrhGLHmfq61xbz4q`) on behalf of #5977's dev, which measured this while correcting the sibling narration in `plugin-map` and correctly declined to widen a comment-only diff into another package. ⛔ **Unassigned and ungraded** — grading is the triage seat's. Duplicate scan run before filing: 249 open objectui issues enumerated and filtered; the two `InterfaceListPage` hits (#5144, #2890) are different subjects.\n\n⚠️ **This is not a second copy of #5977.** That card was prose-only. This one has prose **and** a behaviour question underneath it, and the behaviour question is the reason it is worth a card rather than a drive-by comment fix.\n\n## (a) Three present-tense claims in `packages/app-shell/src/views/InterfaceListPage.tsx:230-241`\n\nThe docblock asserts, as current fact, that:\n\n1. `getMapConfig` *\"fills an absent `titleField` with the LITERAL `name`\"*;\n2. *\"the marker title is then a plain `record[titleField]` read\"*;\n3. *\"every marker popup titles itself `undefined`\"*.\n\nAll three are false on `main` today.\n\n- The forging was **dropped by objectui#5953 / PR #5975** — `getMapConfig` has three branches and none of them now forges a title binding.\n- The marker transform does not do a plain read: it resolves through `getRecordDisplayName` (`ObjectMap.tsx:769-772`), passing `titleField` as `options.titleField` and `fallback: 'Marker'`.\n- So the `undefined` symptom is gone with the forging that caused it.\n\n## (b) ⭐ The live question the stale prose is sitting on top of\n\nThe docblock defers its real fix to a general change *\"filed separately\"* — **that change has landed** (#5953). So the deferral is discharged, and what remains is a question nobody has answered:\n\n**Is the derived title binding at this seam now redundant, or actively harmful?**\n\nIt arrives at the resolver as `options.titleField`, which `getRecordDisplayName` evaluates at **step 0** (`packages/core/src/utils/record-title.ts:359`) — **ahead of the object's own declared `titleField`/name fields**. So a binding this page derives silently outranks what the object itself declares.\n\n⛔ That is a behaviour decision, not a comment repair, and it is **not** being pre-judged here. Rewriting the docblock without answering it would produce accurate prose describing a seam that may not want to exist.\n\n## Suggested shape, ⛔ as a suggestion and not a grading\n\nAnswer (b) first, then write the docblock to match whatever is decided. Fixing (a) alone is cheap and safe, but it would freeze a fresh description around an undecided seam — the same shape that produced this card.\n\n## Refs\n\n- `objectui#5977` / PR #6341 — the sibling narration in `plugin-map`, corrected; where this was measured.\n- `objectui#5953` / PR #5975 — the landed change that falsified claims 1 and 3.\n- `packages/core/src/utils/record-title.ts` — the step ordering that makes (b) a real question."
+}

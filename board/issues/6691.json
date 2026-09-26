@@ -1,0 +1,30 @@
+{
+  "number": 6691,
+  "kind": "pull_request",
+  "title": "chore(scripts): re-sync the ported sweeper to upstream's H32 board-independent specimens",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-28T15:25:39Z",
+  "updated_at": "2026-08-28T15:52:17Z",
+  "closed_at": "2026-08-28T15:52:15Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": "2026-08-28T15:52:15Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6691",
+  "body": "Fixes objectstack-ai/objectui#6689\n\nThe gate's own documented re-sync act, owed since objectstack landed the H32 board-independent specimens (2026-08-28 15:04Z). Authored in session `session_01MnijPVVDakqK2J335JoJtq`.\n\n## The pin bump\n\n| | before | after |\n|---|---|---|\n| `upstream.ref` | `2b4178aa53ca62089f43e2cfae0b7838cf340dd1` | **`bf10debd587f6ba891be9eadc2b76c91e15bd82b`** |\n| `check-half-states.mjs` digest | `c06c8451…` | **`449a0aec0cfa36738e0fc5651ec978faf846316522daeb9ca6efa1714daf6ac9`** |\n| declared divergences on that file | 14 | **11** |\n\nMoved with `node scripts/check-upstream-port-parity.mjs --resync … --ref … --path scripts/pm/check-half-states.mjs`. The digest was never hand-edited: the value the tool wrote matches the `sha256sum` taken independently of upstream's blob before anything was touched.\n\n`scripts/invoked-as.mjs` is the other pinned file and shares the one `upstream.ref`. Its blob is **byte-identical at both refs** (`90f72bf45a2fd158b19d5774269eb96a6b8b61540251ce68c29ddce7c93bfaa7` at each), so bumping the shared ref keeps its provenance true rather than quietly re-dating it.\n\n## The three entries deleted, and why that is safe\n\nDeleted from `scripts/upstream-port-pin.json`:\n\n- `h32-lane-own-board`\n- `h32-foreign-out-of-scope`\n- `h32-foreign-no-fetch`\n\nTheir entire content was swapping the two repo names. `seatLane` judges an `@ repo` suffix against the **live resolved sweep repo**, so upstream's old hard-coded rows asserted upstream's board instead of the property and inverted here — these three existed only to invert them back.\n\nUpstream's fix derives both names instead of spelling them:\n\n```js\nconst OWN_BOARD = SWEEP_REPO.repo.split('/')[1];\nconst SIBLING_BOARD = OWN_BOARD === 'objectui' ? 'objectstack' : 'objectui';\n```\n\nso the specimens are board-independent and a verbatim copy passes here. Keeping the compensation would now be actively wrong — it would re-introduce the literals it was written to correct.\n\nThree pieces of evidence that the deletion is safe rather than assumed:\n\n1. **The sweep for other vanished anchors.** `--resync` was run **before** any deletion. It failed loudly naming exactly these three entries and no others, and wrote nothing. So the other 11 divergences on this file still apply cleanly, and no still-needed divergence lost its anchor.\n2. **The property holds on this board.** The sweeper's `--self-test` passes **1574 cases here with the three entries gone**, including the five rows they used to feed. That is the acceptance criterion the card names: a still-load-bearing entry would have red-ed.\n3. **The rows are not vacuously green.** On this board the sweep repo resolves to `objectstack-ai/objectui`, giving `OWN_BOARD = objectui` and `SIBLING_BOARD = objectstack` — distinct, so the FOREIGN and own-board rows assert genuinely opposite values.\n\n## Gate verdicts\n\nUnion re-run on the final commit `af9771c`; each exit captured before any pipe.\n\n| gate | exit | verdict line |\n|---|---|---|\n| `check-upstream-port-parity` | 0 | `✓ … 2 ported file(s) match objectstack-ai/objectstack@bf10debd5 modulo their declared divergences.` |\n| `check-upstream-port-parity --self-test` | 0 | `✓ … self-test: 37 cases pass` |\n| `check-half-states --self-test` (this board) | 0 | `✓ check-half-states self-test: 1574 cases pass.` |\n| floor end-to-end spot check | 0 | `FLOOR SPOT CHECK: PASS (4/4) — pre-floor skipped, on/post-floor reported` |\n| `vitest` adaptation + parity wiring | 0 | `Test Files 2 passed (2) · Tests 30 passed (30)` |\n| `pnpm type-check:scripts` | 0 | `tsc -p tsconfig.scripts.json`, no diagnostics |\n| `check-control-bytes` | 0 | `✅ OK (scanned 5537 tracked text file(s); skipped 85 binary).` |\n| `check-entry-guard` | 0 | `✓ 51 scripts/ file(s) — no entry guard outside the baseline` |\n| `check-lint-coverage` | 0 | `✅ lint coverage: 46/46 packages linted, 0 with outstanding errors (0 total).` |\n| `check-changeset-presence` | 0 | `✅ No source of a released package changed in this range, so no changeset is owed.` |\n\nThe floor spot check ran with the workflow's real env (`PM_SWEEP_REPO: objectstack-ai/objectui`, `PM_SWEEP_CLOSED_FLOOR: '2026-08-28'`, window pages unset so upstream's 4 applies) and asserts both directions plus a no-residue control, so a predicate that skipped everything could not pass it.\n\n**No changeset**, per the gate's own verdict: scripts-only, no published source in range. No `skip-changeset` label applied — that label is a phantom in this repo.\n\n### Declared narrowing\n\n`eslint` was run on the two changed files rather than repo-wide. Population came from eslint's own config resolution (it accepted and linted both paths); `--format json` reports **2 files, 0 errors, 0 warnings**; and no type-aware linting is configured (no `projectService`, no `parserOptions.project`), so a diff confined to these two files cannot move the verdict on any file it does not touch. CI runs the full farm regardless.\n\n`check-node-esm-load` is **not** implicated: it enumerates published packages (`discoverPackages(root)` filtered to non-private manifests), and this diff touches 0 files under `packages/` and 0 manifests.\n\n_Generated by [Claude Code](https://claude.ai/code)_\n"
+}

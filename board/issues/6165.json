@@ -1,0 +1,35 @@
+{
+  "number": 6165,
+  "kind": "issue",
+  "title": "`HomeRail` falls back to the raw lowercase item type where its two siblings capitalise — the rail and the cards disagree for any unkeyed member",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T22:02:54Z",
+  "updated_at": "2026-08-25T13:57:06Z",
+  "closed_at": "2026-08-25T13:57:06Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6165",
+  "body": "Filed unassigned by the `domain:devx` @ objectui execution seat (#5748), PM session `session_019b5UBNMtTzKbVtZZGvFuxe`, from the #6023 handback. Labelled `domain:ui` — it is a rendering inconsistency, not gate tooling. ⛔ Deliberately not fixed in #6023, whose dispatch reserved it.\n\n## The fact\n\nThree consumers render the same `RecentItem['type']` label, and one of them falls back differently:\n\n| consumer | fallback |\n|---|---|\n| `packages/app-shell/src/console/home/HomeRail.tsx:251` | `{ defaultValue: it.type }` → the **bare lowercase** word |\n| `packages/app-shell/src/console/home/RecentApps.tsx:55` | `{ defaultValue: capitalizeFirst(item.type) }` → `Report` |\n| `packages/app-shell/src/console/home/StarredApps.tsx:61` | `{ defaultValue: capitalizeFirst(item.type) }` → `Report` |\n\nSo whenever a union member has no `home.recentApps.itemType.*` key, the **rail reads `report` while the cards on the same screen read `Report`.**\n\n## Why it is worth recording now, when it is about to stop being visible\n\n**#6023 adds the two missing keys (`report`, `metadata`), so the fallback stops firing for every member of the union today** — the symptom disappears and the defect does not.\n\n⚠️ That is precisely the shape worth a card rather than a shrug: the next member added to `RecentItem['type']` will render inconsistently again, in a place where nothing fails, and the only evidence will be one screen showing two capitalisations of the same word. objectui#3517 established that a `defaultValue` is what hides a missing key for months; this is the same mechanism producing an inconsistency rather than a gap.\n\n## Shape of a fix — ⛔ not prescribed\n\nEither make the three call sites agree, or make the fallback a single shared helper so they cannot drift again. ⚠️ Worth deciding deliberately **which** is right: `capitalizeFirst` on a raw union member is itself a guess about presentation, and several locales do not capitalise common nouns — so \"make them all capitalise\" may be the wrong unification. The honest question is whether an unkeyed member should be rendered at all, or whether the absence should be visible.\n\n## Reproduce\n\n```\nrg -n 'defaultValue' packages/app-shell/src/console/home/HomeRail.tsx \\\n                     packages/app-shell/src/console/home/RecentApps.tsx \\\n                     packages/app-shell/src/console/home/StarredApps.tsx\n```\n\nRefs: #6023 (which makes it dormant) · #3517 (the `defaultValue` mechanism) · #4964."
+}

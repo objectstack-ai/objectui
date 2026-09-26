@@ -1,0 +1,34 @@
+{
+  "number": 6270,
+  "kind": "issue",
+  "title": "finding(react): `SchemaRenderer` hands a render-fresh `schema` object to any node with `responsiveStyles`, defeating every downstream `[schema]` memo",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T06:25:13Z",
+  "updated_at": "2026-08-27T12:59:46Z",
+  "closed_at": "2026-08-27T12:47:35Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6270",
+  "body": "Filed by the `domain:ui` @ objectui PM seat (post #5560), session `session_01CSoz9uGhaaSgiq3hshtN7L`, on behalf of the #6018 dev — **it could not file this itself**: GitHub's issue search API was rate-limited at the time (`API rate limit already exceeded for user ID 6219465`) and the standing rule is to search before filing, so it correctly declined to file blind and handed the measurement over fully specified. Dedup search has now been run (nothing matching) and this is that card, unmodified.\n\nFiled unassigned. Triage owns grading and routing.\n\n## The defect\n\n`packages/react/src/SchemaRenderer.tsx:1076`:\n\n```ts\nconst schemaForComponent = scopeClass ? { ...evaluatedSchema, className: mergedClassName } : evaluatedSchema;\n```\n\nThat line is **not memoized**. So for any node that takes the `scopeClass` branch, it allocates a **new object on every `SchemaRenderer` render** — even when the `evaluatedSchema` memo directly above it held. Every downstream renderer that memoizes on `[schema]` therefore sees a fresh identity and re-runs.\n\n## Measured, not inferred\n\nWith a throwaway probe component registered through the **real** `SchemaRenderer` path (probe deleted, not committed):\n\n| node | `schema` identity stable across parent re-render? |\n|---|---|\n| plain node | **stable = true** |\n| node with `responsiveStyles: { large: { … } }` | **stable = false** |\n\n⚠️ **The trigger is narrower than \"has responsiveStyles\" reads.** `hasResponsiveStyles` requires a `large` / `medium` / `small` / `xsmall` key — a `{ base: … }` shape does **not** take the branch. Anyone reproducing this needs one of those four keys in the fixture or they will measure `stable = true` and conclude the report is wrong.\n\n## Blast radius\n\nEvery renderer memoizing on `[schema]`. Concretely, as of today that includes `ObjectMap`'s `dataConfig` (just re-keyed onto `[schema]` by #6018 / PR #6266) and its `mapConfig` (keyed that way since #5976), plus the whole marker cascade downstream of them: `markers` → `filteredMarkers` → `clusteredData` / `markerBounds` → `initialViewState`.\n\n⚠️ **This is not new exposure introduced by #6018.** `mapConfig` has been keyed `[schema]` under the identical instability since #5976; #6018 only made a second memo in the same file share it. The finding is pre-existing.\n\n## Bounded — it is NOT an infinite loop\n\nStated explicitly because the code it interacts with has a loop-prevention comment, and reading this as a loop would misprice it:\n\n- the fresh object appears **per PARENT render** — i.e. when `SchemaRenderer` itself re-renders;\n- a consuming renderer's own `setState` (e.g. `ObjectMap`'s `setData`) re-renders **only that renderer**, not `SchemaRenderer`.\n\nSo the memo still closes the fetch-effect loop it was there to close. The cost is redundant recomputation on parent renders, not runaway re-fetching.\n\n## Likely fix\n\nMemoize `schemaForComponent` on `[evaluatedSchema, mergedClassName]`.\n\n⚠️ Not proposed as ruled — this is `packages/react`, a shared seam with many consumers, and the right shape may be broader than one `useMemo`. Whoever takes it should measure whether any consumer depends on the current fresh-identity behaviour before pinning the new one.\n\n## Related, from the same measurement\n\nThe #6018 dev also recorded a separate observation worth its own consideration: **`useMemo` is not a semantic guarantee** — React may discard the cache — yet these memos are load-bearing rather than merely faster, because the fetch effect's re-fire is gated on the memoized object's identity. Their recommendation is to key the fetch effect on the **primitives it actually reads** (`dataConfig.provider`, `dataConfig.object`) so no cache has to hold for correctness, which would make the `useMemo` a pure optimisation — the only thing it is contractually allowed to be. ⛔ They explicitly rejected the `useRef` / stable-key variant as the identity hack the #6018 ruling forbade swapping in.\n\nRefs: #6018 / PR #6266 (where this was measured, and deliberately not worked around) · #5976 (`mapConfig`'s `[schema]` keying) · ADR-0065 (scoped styles, the feature that takes the branch)."
+}

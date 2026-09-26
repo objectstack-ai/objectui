@@ -1,0 +1,34 @@
+{
+  "number": 6075,
+  "kind": "issue",
+  "title": "`objectui check` skips 263 real corpus files it should judge — the recall debt #5329 could not repay",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T15:40:15Z",
+  "updated_at": "2026-08-25T13:10:20Z",
+  "closed_at": "2026-08-25T13:10:14Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6075",
+  "body": "Filed by the `domain:devx` @ objectui execution PM seat (#5748, PM session `session_019b5UBNMtTzKbVtZZGvFuxe`) as the tracking follow-up promised when **#5329** was closed as superseded. Unassigned; grading and `domain:*` are the triage seat's.\n\n**Blocked-by discharged 2026-08-25** — #5392 ruled B (no shipped artifact; recorded there); released to the queue with the `safeValidateSchema` recogniser route (see the routing comment below).\n\n## The debt\n\n`objectui check` skips files that have a root `type` and no recognised ObjectUI schema marker. Measured on `origin/main` @ `a1c41c516`:\n\n```\nAnalyzing 617 files...\nSkipped 309 files with a root \"type\" and no ObjectUI schema marker.\n```\n\nBroken down by an independent harness that reproduced the CLI's own predicate exactly (617 globbed / 475 eligible / 166 judged / 309 skipped):\n\n| bucket | count | verdict |\n|---|--:|---|\n| **real corpus files, skipped** | **263** | ⚠️ **the debt** — these should be judged |\n| foreign files, skipped | 46 | ✅ correct — 45 `package.json` with `\"type\":\"module\"`, plus one draft-07 document (`packages/vscode-extension/schemas/objectui-schema.json`) |\n\nThe 263 are leaf schemas: real ObjectUI content the checker cannot currently recognise, so **nothing validates them**.\n\n## Why this is not simply \"run the migration\"\n\nThat was **#5329**, and it is closed as superseded. The route it assumed does not exist:\n\n- the maintainer's **2026-08-20 ruling (verbatim C)** superseded the `$schema` half of the 2026-08-19 ruling;\n- PR **#5334 deleted `OBJECTUI_SCHEMA_URL` and `pointsAtObjectUi()` before merge**;\n- there is deliberately **no `$schema` arm** in the merged checker and no ObjectUI `$schema` URL exists to declare.\n\nProved empirically rather than by reading, with a positive control that makes the flat reading a measurement rather than a probe that missed:\n\n| leg | injected into a currently-skipped real file | D-arm skipped |\n|---|---|--:|\n| A | a `$schema` marker | **309** — unmoved |\n| B (control) | `\"className\": \"\"` (a structural key) | **308** — moved by exactly 1 |\n\nA corpus-wide `$schema` sweep is a **measured no-op**. Stamping it anyway would make the corpus *look* migrated while recall stayed at zero.\n\n## Why it is blocked rather than queued\n\n#5334 names `@object-ui/types` shipping a generated JSON Schema as the soundest trigger for adding a `$schema` arm later — and that decision is **#5392**, already in the queue. Two things follow:\n\n1. Minting a permanent public identifier **before the document it names exists** is backwards.\n2. Because matching would be **host-based**, the arm can be added after #5392 lands **without invalidating a single file**. So waiting costs nothing and forecloses nothing — which is exactly the interim the ruling permits.\n\n⚠️ The 263-file debt stays **open and visible in the printed count** meanwhile. That visibility is the point; do not silence it.\n\n## Routes, for whoever picks this up after #5392\n\n- **Add the `$schema` arm** once a real generated schema document exists to point at. The corpus sweep becomes meaningful *at that moment* and not before.\n- **Widen `OBJECTUI_STRUCTURAL_KEYS`** to admit leaf vocabulary (`fields`, `label`, `variant`, `onClick`), recognising leaf schemas with no corpus edit at all. ⚠️ This needs **per-key foreign-retention measurement first**: #5334 measured `label` as held out **by name** precisely because admitting `BaseSchema`-adjacent naming keys drives foreign retention from 0 files toward all 46. A key that recovers leaf schemas but starts judging `package.json` is a net loss.\n- ⛔ **Not** injecting structural keys into the corpus to move the count. It fabricates presentational content to satisfy a heuristic and changes rendered output; #5329's dispatch prohibited it explicitly and its dev correctly refused.\n\n## Two claims from #5329's body that did not survive measurement\n\nRecorded so they are not inherited:\n\n1. **The corpus figure moves.** #5329's stamped table said ~424 real / 258 skipped / 304 D-arm; measured five days later it is **429 / 263 / 309**. The surface **grew**, against an unlock comment predicting it \"may be materially smaller\". Re-measure; do not adopt any number here either.\n2. **The claimed editor-validation side benefit does not exist.** 0 of 429 in-repo files declare an ObjectUI `$schema`, and the VS Code extension binds by **filename glob** (`contributes.jsonValidation.fileMatch` on `*.objectui.json` / `*.oui.json`), not by `$schema` — with **0 of 429** corpus files matching either glob, and no `$id` in the bundled schema.\n\n## Related\n\n- **#5329** — closed as superseded; carries the full measurement, ablation and four-option analysis\n- **#5334** / **#5127** — the merged checker and the Option B this descends from\n- **#6074** — the false `check.ts` comment promising this debt is repaid by a migration; actionable now, independent of this card\n- **#5392** — the blocker"
+}

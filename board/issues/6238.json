@@ -1,0 +1,35 @@
+{
+  "number": 6238,
+  "kind": "issue",
+  "title": "Object payloads declare and write `enabled`, which `ObjectSchema` refuses by name — the soft-delete path is what puts it on the wire",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-25T03:28:34Z",
+  "updated_at": "2026-08-26T04:37:59Z",
+  "closed_at": "2026-08-26T04:37:59Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6238",
+  "body": "Surfaced by the **object-level oracle** added to `scripts/check-designer-field-key-parity.mjs` in objectui#6223. Filed, not fixed — objectui#6223 is scoped to the three keys its own card names (`group`, `sortOrder`, `relationships`), and this one is neither a rename nor the same resolution, so it is ledgered there and adjudicated here.\n\n## The measurement\n\nMeasured against the installed `@objectstack/spec` 17.2.0, ESM build (`dist/data/index.mjs`), on `origin/main` @ `0409b766d`:\n\n```\nconst base = { name: 'account', label: 'Account', fields: { n: { type: 'text', label: 'N' } } };\n\nObjectSchema.safeParse(base)                          => success = true   (control)\nObjectSchema.safeParse({ ...base, isSystem: true })   => success = true   (control)\n\nObjectSchema.safeParse({ ...base, enabled: true })    => success = false\n   unrecognized_keys keys=[\"enabled\"]\n```\n\n`ObjectSchema`'s accept set is 42 keys and does not contain `enabled`.\n\n## Why the near-spelling is a trap, not the answer\n\nThe accept set **does** contain `enable` — but it is not a boolean on/off flag:\n\n```ts\n// @objectstack/spec src/data/object.zod.ts\nenable: ObjectCapabilities.optional().describe('Enabled system features modules'),\n```\n\n`enable` is a **capabilities module object**. So `enabled: false` → `enable: false` is not a rename; it fails on the value even where it passes on the name (`ObjectSchema.safeParse({ ...base, enable: true })` is also `success = false`, with a value-level issue rather than `unrecognized_keys`). What a soft delete should actually write is the open question here.\n\n## The writers\n\n`packages/app-shell/src/services/MetadataService.ts`:\n\n- `ObjectMetadataPayload` **declares** `enabled?: boolean` — this is the declaration the parity gate reads. `toObjectPayload` does **not** populate it, so the declaration alone is latent.\n- `deleteObject` (line 235) and `deleteMetadataItem` (line 206) write the tombstone body **directly**, bypassing `toObjectPayload`:\n  ```ts\n  await client.meta.saveItem('object', objectName, { name: objectName, enabled: false, _deleted: true });\n  ```\n  That is a literal object, not the declared shape, so it is outside the gate's static reach (coverage note 1) — but it is the path that is actually **live**: deleting an object through the designer PUTs `enabled` and `_deleted`, both refused by name.\n\nSo the declaration is latent and the soft-delete is live, which is the reverse of the usual shape and worth stating plainly.\n\n## Not a mechanical resolution\n\nThree things have to be settled together, and none of them is a spelling:\n\n1. Whether the metadata API has a soft-delete convention at all, and if so which keys express it (`_deleted` is refused by name too — measure it).\n2. Whether `enabled` on `ObjectMetadataPayload` should be deleted outright (the objectui#4687 shape, since `toObjectPayload` never populates it) independently of what the delete path does.\n3. Whether object deletion should go through `client.reset('object', name)` — which `MetadataObjectsPage.handleObjectsChange` already uses for deletes — rather than a tombstone PUT. Two delete mechanisms exist in the repo today and they disagree.\n\nIf the answer needs a spec-side addition, that is a fork: `@objectstack/spec` is another repository's surface and a maintainer decision.\n\n## Ledger\n\nRecorded in `KNOWN_UNPARSEABLE_KEYS` in `scripts/check-designer-field-key-parity.mjs` against this card. The ledger ratchets in both directions, so the entry must be **removed** (not edited) when this is resolved.\n\nRefs: #6223 (the object-level oracle) · #5761 (the gate) · #6043 · #6045 · #4687\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6412,
+  "kind": "issue",
+  "title": "L6-UI: packaged actions on/off on the Setup packaged-automation page (ADR-0126 §8.2, ruling 3 — surface half)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T21:46:13Z",
+  "updated_at": "2026-08-25T22:55:43Z",
+  "closed_at": "2026-08-25T22:55:43Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6412",
+  "body": "Part of objectstack-ai/objectstack#12150 (Epic: ADR-0126 implementation, v17 line — 17.x minor, maintainer-ruled).\nCompletes the **surface-row deliverable** of objectstack-ai/objectstack#12160 (closed by objectstack-ai/objectstack#12348, merged `e5ce2ed0` — engine, ledger rows and both dispatch doors only; objectui was deliberately out of that PR's scope, so the UI half is this card, not scope creep).\nDispatch: coordinated under the objectstack#12150 program — ⛔ not from the general queue; the program dispatches on unlock (maintainer anti-preemption instruction, 2026-08-25, PM session `session_01KWRU3s15AJz7PGW7a7wdCh`). Contract: **ADR-0126 §8 item 2 + amendment ruling 3**, maintainer verbatim: 「动作 可能是需要开关的，因为有的 action 我不想启用。」 (#12049 comment 5408117664) — the disable half has first-party pull; **§7.4 gives the page shape** (the merged L5 page is the home, not a new page).\n\n## Deliverable\n\nThe existing Setup **\"packaged automation\"** page (objectstack-ai/objectui#6301 · PR objectstack-ai/objectui#6382, merged `b362c1b`, component ref `automation:packaged`) gains a packaged **actions** section beside the flows section:\n\n- per packaged action: **on/off for this scope** — that is all the ledger knows; the page claims nothing more (absence-of-row = active);\n- flip invokes the L6 write door `POST /actions/_activation/:object/:action` (objectstack-ai/objectstack#12348); read state comes from the same `sys_metadata_activation` ledger (`metadata_type: 'action'`);\n- refusals surface the server's message **verbatim** — the §5 operator gate, the ambiguous-name `409 RESOURCE_CONFLICT` naming the objects, and the no-ledger `503 SERVICE_UNAVAILABLE` — no client-side softening, no retry loops (the objectui#6382 `actionErrorDetail` pattern);\n- ⛔ **NO clone for actions** — not chartered (ADR §9; ruling 3 charters the switch only); the flows section keeps its clone, actions get none;\n- ⛔ **no drift/ancestry surface** (§9) — no badges, no diff-vs-base;\n- i18n: every new key lands in `packages/i18n/src/locales/en.ts` **and all nine other packs** (the objectui#3517 lesson — inline `defaultValue` is explicitly not a fix).\n\n## Acceptance\n\n- Packaged actions listed with their activation state; disable/enable round-trip visible in the page;\n- refusals verbatim (all three shapes above reachable in tests/mocks);\n- flows section behavior unchanged; no new page, no Studio changes.\n\nRefs: ADR-0126 §7.4/§8.2/§9 · objectstack#12160 · objectstack PR #12348 · objectui PR #6382 (the shape to follow)"
+}

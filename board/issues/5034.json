@@ -1,0 +1,36 @@
+{
+  "number": 5034,
+  "kind": "issue",
+  "title": "plugin-form: narrow `navigateOnSuccess` to the ruled relative-only acceptance set and escape the interpolated id (point 3 — points 1 and 2 landed in PR #5558)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T18:28:08Z",
+  "updated_at": "2026-08-25T14:51:31Z",
+  "closed_at": "2026-08-25T14:51:31Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 15,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5034",
+  "body": "Blocked-by: objectui#4989 (its defect 4 — the mount mechanism for a published renderer — must be decided first; this key's fix is the same mechanism applied to a second call site, and picking one here before that ruling would fork it)\n\nFound while implementing objectui#4989. Filed unassigned, NOT fixed there — #4989's card draws an explicit boundary around this key (\"it is a separate contract question and is only mentioned here so the next reader does not conflate the two\"), and its PR touches it nowhere.\n\n## What\n\n`navigateOnSuccess` is a declared key on both form components, consumed through `resolveSuccessNavigate` (`packages/plugin-form/src/successBehavior.ts`):\n\n```\nexport function resolveSuccessNavigate(template, record) {\n  if (!template) return null;\n  const id = record?.id ?? record?.recordId ?? record?._id;\n  if (id == null || id === '') return null;\n  const url = template.replace(/\\{(?:id|recordId)\\}/g, String(id));\n  return isSameOriginUrl(url) ? url : null;\n}\n```\n\nCall sites: the `else if (!schema.submitHandler)` arm of `ObjectForm.tsx` and the trailing `else` of `WizardForm.tsx`, each of which does `window.location.assign(nav)` when the helper answers a url and falls through to a success toast when it answers null.\n\n## Three things worth deciding, stated separately because they are not equally severe\n\n**1. Mount-blindness — the same class as objectui#4989's defect 4 and objectui#4181.** An accepted value is a rooted relative path handed to `window.location.assign`, which resolves against the ORIGIN root. Under a host mounted at a sub-path (the framework CLI configures one for every embedded deployment) an authored `/apps/x/o/record/{id}` leaves the app. This is identical to #4989 defect 4 and is why this issue is blocked on it: whatever mechanism is chosen there is the mechanism here, and the measurement in #4989 (a published renderer cannot read React Router's context without making `react-router` a resolution requirement for consumers that do not have it) applies verbatim.\n\n**2. A refused destination is reported only as a generic success.** Being precise, because #4989's card overstated this one: it is NOT the total silence #4989 defect 2 described. When the helper answers null the call site falls through to `toast.success(successMessage || 'Created'/'Saved')`, so the submitter does learn the write succeeded and is not left facing a still-filled form. What they are never told is that the DECLARED navigation was refused — the toast is indistinguishable from the no-`navigateOnSuccess` case. So an author who mistypes the destination, or whose record has no usable id, sees a form that looks entirely healthy and silently stopped honouring a key they wrote. Lower severity than #4989 defect 2 (no duplicate-record invitation), same family.\n\n**3. The url contract for this key is undeclared.** objectstack#7496 ruled `submitBehavior.url` relative-only with `{{record.field_name}}` interpolation, URL-escaped at build time. `navigateOnSuccess` got none of that: it is same-origin-guarded (so a same-origin ABSOLUTE value is accepted — the spelling #4989 defect 3 closed on the other key), interpolates a different dialect (`{id}` / `{recordId}`, single braces, id only), and does not escape the interpolated value. The last one is the only part with a security shape, and it is narrow: the substituted value is an id read off the written record, so it is not attacker-authored the way an arbitrary field would be — but nothing in the code says \"ids only\" as a rule, and `record?.id ?? record?.recordId ?? record?._id` will happily stringify whatever the DataSource put there.\n\nThe question this raises is a contract question, not a renderer question: is `navigateOnSuccess` meant to be the pre-ruling ancestor of `submitBehavior.redirect` (i.e. converge on the ruled shape, with a deprecation path), or a separate key with its own deliberate dialect? Both readings lead to different work, so it wants a ruling before code — hence unlabeled and unassigned.\n\n## Reachability\n\nNeeds a form authoring `navigateOnSuccess` and no `submitBehavior` (the latter takes precedence — pinned by a test in #4989's PR). For point 1 a mounted host as well. Points 2 and 3 need only the authored key.\n\n## Not to be confused with\n\nobjectui#4989 (`submitBehavior.url`, ruled, four of five defects fixed) and objectui#5033 (the redirect delay timer's lifetime). Different keys, different call sites, deliberately not merged."
+}

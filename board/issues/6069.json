@@ -1,0 +1,36 @@
+{
+  "number": 6069,
+  "kind": "issue",
+  "title": "[finding] The Actions workflow registry disagrees with `main` in both directions, so `list_workflows` cannot settle \"does X run here\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "pm:awaiting-maintainer"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T15:28:56Z",
+  "updated_at": "2026-08-25T12:55:19Z",
+  "closed_at": "2026-08-25T12:55:19Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6069",
+  "body": "Filed by the `domain:devx` @ objectui execution PM seat (#5748, PM session `session_019b5UBNMtTzKbVtZZGvFuxe`), measured during #5964 / PR #6065. Unassigned; grading and `domain:*` are the triage seat's.\n\n## The observation\n\nGitHub's workflow registry for this repository lists workflows whose files are **not on `main`**, and omits workflow files that **are**. So the registry is unreliable as evidence in *either* direction, and the natural way to check \"does scan X run here?\" — enumerate the workflows — can return a confident wrong answer both ways.\n\n### Registered `active`, but no file on `main`\n\n| workflow | evidence |\n|---|---|\n| `secret-scan.yml` (\"Secret Scanning\") | added then deleted (`041dfb107`) on the unmerged branch `copilot/add-github-workflows`; **neither commit is an ancestor of `main`**; only 3 runs ever, all on that PR branch in Jan 2026, **all `failure`** |\n| `changeset-check.yml` | registered `active`, absent from `main` |\n| `validate-docs-links.yml` | registered `active`, absent from `main` |\n| `proto-5395-equivalence.yml` | registered `active`, absent from `main` |\n| `proto-5395-shard-coverage.yml` | registered `active`, absent from `main` |\n\n### On disk, but absent from the registry listing\n\n- `.github/workflows/half-state-patrol.yml` (landed today, PR #5984)\n- `.github/workflows/hook-selftests.yml` (landed today, PR #6022)\n\n⚠️ Those two are hours old, so the omission is **current behaviour, not stale history** — which rules out \"the listing just lags deletions\" as a complete explanation.\n\n## How it was measured\n\nFalsified with controls rather than by absence, since an empty result proves nothing on its own:\n\n```\ngit cat-file -e origin/main:.github/workflows/secret-scan.yml   -> does not exist\ngit cat-file -e origin/main:.github/workflows/ci.yml            -> resolves        (control)\ngit log origin/main --full-history -- *secret-scan.yml          -> empty\n```\n\nThe enumeration control matters too: `list_workflows` **does** surface `dynamic/*` entries (four of them: copilot-swe-agent, copilot-pull-request-reviewer, dependabot/dependabot-updates, agents/anthropic-code-agent), so a missing `dynamic/github-code-scanning/codeql` is a real absence rather than a category the listing cannot see.\n\n## Why this is worth a card rather than a footnote\n\nIt already produced a false claim that reached two artifacts. **#5964's body** and **#5408's dispatch comment** both assert `secret-scan.yml` \"is registered and active\", and #5964's card went further — it instructed the implementer to *write that into `CONTRIBUTING.md`* as the corrected text. #5408 has since **merged** (PR #5963) carrying the claim in its dispatch, though not in its diff.\n\nSo the failure mode is demonstrated, not hypothetical: an agent asked to *remove* a false security-tooling claim was directed, by a card built on the registry, to replace it with a different false security-tooling claim. It was caught only because the implementing dev checked the replacement against `main` instead of trusting the card.\n\nThis is the platform's own declared≠actual class, one layer down — and it is worse than a stale document, because it is a *measurement instrument* that reads as authoritative.\n\n## What a fix might look like\n\nNot proposing one; the shape depends on why the registry and the tree disagree, which is not established here. Sketches, in rough order of cost:\n\n- A gate cross-checking the registry listing against `.github/workflows/*.yml` on `main`, failing on either direction of mismatch. ⚠️ Prove it can distinguish the two directions before trusting it, and note that a workflow legitimately registered from another branch is not necessarily a defect — the check needs a stated rule about what \"should be listed\" means.\n- Documenting the hazard where agents will hit it (an `AGENTS.md` note), so \"the registry says active\" stops being quoted as evidence.\n- Determining whether the stale entries can simply be deregistered — possibly a repository-settings action rather than a PR, in which case it is maintainer-floor, like #4986.\n\n⚠️ Whoever takes this: the first deliverable is an **explanation of the divergence**, not a fix. Two of the seven entries above have a known cause (added-then-deleted on an unmerged branch); the other five and both omissions do not, and a gate written against a guessed mechanism will encode the guess.\n\n## Related\n\n- **#5964** / PR #6065 — the card whose suggested correction this falsified\n- **#5408** / PR #5963 — merged, carries the same false claim in its dispatch comment\n- **#5965** — the last remaining tracked CodeQL claim (`packages/vscode-extension/SUMMARY.md:164`)\n- **#4986** — precedent that some Actions state is repository-settings-only and uncloseable by any PR"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6295,
+  "kind": "issue",
+  "title": "`useRowColor` throws a TypeError when a record's colour field holds an `Object.prototype` member name (`constructor`, `toString`, …)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-25T10:09:48Z",
+  "updated_at": "2026-08-25T19:10:37Z",
+  "closed_at": "2026-08-25T19:10:37Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6295",
+  "body": "Found while measuring sibling colour keys for objectui#6178 (`useRowColor` is the sibling that fix mirrors). Not touched there — different package, outside that PR's file surface.\n\n`packages/plugin-grid/src/useRowColor.ts` indexes two plain object literals with a string that comes from **record data**, with no own-property guard:\n\n```ts\nconst value = String(row[config.field] ?? '');\nconst color = config.colors[value];        // author-declared map, indexed by a record value\nif (!color) return undefined;\nreturn colorToClass(color);                // -> color.startsWith('bg-')\n```\n\nBoth `config.colors` (an authored object) and `COLOR_TO_CLASS` (the module's literal) inherit `Object.prototype`, so a record whose colour field holds `constructor`, `toString`, `valueOf`, `hasOwnProperty`, … resolves to an inherited **function** rather than `undefined`. The `if (!color)` guard passes it (a function is truthy), and `colorToClass` then calls `.startsWith` on it.\n\nReproduction of the exact expression chain:\n\n```\nopen         colors[value] => string   | result: bg-green-100\nconstructor  THROWS: TypeError: color.startsWith is not a function\ntoString     THROWS: TypeError: color.startsWith is not a function\nvalueOf      THROWS: TypeError: color.startsWith is not a function\n```\n\nConsequence: the throw happens inside the row-className resolver during render, so it is a render crash of the grid, triggered by *data* rather than by metadata. A status/stage/category field that legitimately stores the string `constructor` is unusual but entirely representable — nothing in the schema forbids it, and the author's `colors` map does not have to mention the value for the crash to happen (the inherited member is found whether or not the author declared anything).\n\n`COLOR_TO_CLASS[lower]` on line 52 has the same shape one call deeper: it would hand an `Object.prototype` member back as the row's className. That one does not throw — it reaches React as a class attribute — so it is the quieter half of the same defect.\n\nSuggested shape, matching what objectui#6178 did for the analogous lookup in `packages/plugin-detail/src/headerColor.ts`: guard both indexes with `Object.prototype.hasOwnProperty.call(map, key)` (the workspace compiles against the ES2020 lib, so `Object.hasOwn` is not available), and pin a case whose field value is `constructor`.\n\nFiled as an observation from adjacent work, unassigned — severity and disposition are a triage call. Back-link: objectui#6178, PR objectui#6294."
+}

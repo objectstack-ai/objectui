@@ -1,0 +1,35 @@
+{
+  "number": 6519,
+  "kind": "issue",
+  "title": "finding(app-shell): `object-fields-io` strips only `indexed` on read, so the four other retired designer keys round-trip straight back out to a 422",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-26T08:04:21Z",
+  "updated_at": "2026-08-26T09:33:03Z",
+  "closed_at": "2026-08-26T09:33:03Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6519",
+  "body": "Found while implementing objectui#6488 (per-FIELD key carry-over in `MetadataService.saveFields`). Filed, not fixed — a different file and a different writer from that card's face, and the resolution is an adjudication rather than a mechanical edit.\n\n## What it is\n\n`packages/app-shell/src/views/metadata-admin/previews/object-fields-io.ts` is the single read door for `draft.fields` across the whole object designer. It strips retired keys on read:\n\n```ts\nexport const RETIRED_FIELD_KEYS = ['indexed'] as const;\n```\n\n`writeFields` then writes each def back verbatim (`out[e.name] = e.def`, and `{ name: e.name, ...e.def }` for the array shape), so any key that survives the read reaches `PUT /api/v1/meta/object/:name`.\n\nThat list is one key. `FieldSchema` refuses **five** designer-written keys by name. Measured against the installed `@objectstack/spec` 17.2.0, each on an otherwise-green field `{ name: 'amount', type: 'number', label: 'Amount' }`:\n\n```\nindexed      => unrecognized_keys  \"never a FieldSchema key; a field-level index flag built no index\"   (objectui#4644)\nreferenceTo  => unrecognized_keys  \"Did you mean `referenceTo` -> `reference`?\"                          (objectui#6041)\nformula      => unrecognized_keys  \"Did you mean `formula` -> `expression`?\"                             (objectui#6043)\nisSystem     => unrecognized_keys  \"Did you mean `isSystem` -> `system`?\"                                (objectui#6044)\nsortOrder    => unrecognized_keys                                                                        (objectui#6045)\n```\n\nSo a draft carrying any of the last four round-trips through `readFields` / `writeFields` untouched and produces the hard `422 INVALID_METADATA` that blocks EVERY later save of that object — which is exactly the shape objectui#4644 closed in this same file for `indexed`, left open for its four siblings.\n\n## Why the two neighbouring writers do not cover it\n\nEach retired-key list is scoped to its own writer's history, and the three have drifted apart:\n\n| site | strips |\n|---|---|\n| `previews/object-fields-io.ts` (this one) | `indexed` |\n| `plugin-designer/src/MetadataFieldsPage.tsx` `carryOver` | `indexed`, `referenceTo`, `isSystem`, `formula` |\n| `app-shell/src/services/MetadataService.ts` `carryOver` (objectui#6488) | `indexed`, `referenceTo`, `formula`, `isSystem`, `sortOrder` |\n\nThe parity gate does not see this: `scripts/check-designer-field-key-parity.mjs` compares **declared property signatures** against the schema's accept set, and these keys reach the payload through a verbatim spread of an untyped `Record<string, unknown>` — its own coverage note 3 names `object-fields-io`'s `readFields` / `writeFields` as outside its reach.\n\nNothing pins the gap either. Of the three suites beside the module (`object-fields-io.test.ts`, `object-fields-io.spec-keys.test.ts`, `object-fields-io.retiredKeys.test.ts`), none mentions `formula`, `referenceTo`, `isSystem` or `sortOrder`.\n\n## What the card has to settle\n\nTwo questions, neither of them mechanical:\n\n1. **Whether the four can actually be present in a draft this module reads.** The premise the two sibling writers already work from is yes — each key was a real designer control before its card retired it, and `MetadataFieldsPage`'s tombstone states plainly that \"objects saved from this page can still carry the key\". Confirming that for the drafts *this* door reads is the first step; if the answer is no for some of them, the honest fix is smaller.\n2. **Whether the three lists should become one.** Three independently maintained sets is the pre-gate shape `check-designer-field-key-parity`'s own header criticises (\"two independently maintained `RETIRED_FIELD_KEYS = ['indexed']` sets … Every one of them was written AFTER an instance was found in production\"). A single exported list is the obvious answer, but it spans `plugin-designer/src/MetadataFieldsPage.tsx`, which objectui#6489 currently owns, so sequencing matters. Note the lists are not simply nested — whether `sortOrder` belongs in all three is part of the same question.\n\nRefs: objectui#6488 (the carry-over that measured this) · objectui#6489 (owns `MetadataFieldsPage.tsx` on the neighbouring seam) · objectui#4644 (the `indexed` half, in this same file) · objectui#5761 (the parity gate family; this is its coverage note 3)\n"
+}

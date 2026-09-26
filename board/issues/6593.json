@@ -1,0 +1,35 @@
+{
+  "number": 6593,
+  "kind": "issue",
+  "title": "[finding] duplicatePackage reads the ENVELOPE's `success`, so a partial or empty ADR-0070 D4 duplicate is reported to the author as a complete success",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-26T22:20:29Z",
+  "updated_at": "2026-08-27T13:27:26Z",
+  "closed_at": "2026-08-27T13:26:45Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6593",
+  "body": "Found while surveying response contracts for the framework's `packages.*` routes (objectstack#12038, survey half). Filed unassigned; not fixed there — that card is read-only and this lands here.\n\n## What is measured\n\n`packages/app-shell/src/views/studio-design/packages-io.ts:64-76` — `duplicatePackage()` posts to `POST /api/v1/packages/:id/duplicate` and then classifies the outcome as:\n\n```ts\nconst payload = (await res.json().catch(() => null)) as\n  | { success?: boolean; error?: { message?: string } }\n  | null;\nif (!res.ok || payload?.success === false) {\n  throw new Error(payload?.error?.message || `HTTP ${res.status}`);\n}\n```\n\nThat reads `success` at the **top level** of the body. The top level of a 200 from this route is the dispatcher envelope, whose `success` is `true` by construction.\n\n**The route is served ONLY by the runtime dispatcher, and it wraps.** Measured on objectstack `origin/main` @ `d7b3963c2`:\n\n- `packages/runtime/src/domains/packages.ts:816-846` — the `/duplicate` branch answers `deps.success(result)`.\n- `deps.success(data)` is `{ status: 200, body: { success: true, data } }` (`packages/runtime/src/http-dispatcher.ts:367`).\n- `packages/rest/src/rest-server.ts` mounts **no** `/packages/:id/duplicate` twin, so there is no second surface that answers the operation result bare.\n\n**The operation's own verdict lives one level down, and it is a real three-state.** `MetadataProtocol.duplicatePackage` (`packages/metadata-protocol/src/protocol.ts:16971`) declares and returns:\n\n```ts\nPromise<{ success: boolean; copiedCount: number; failedCount: number;\n          targetPackageId: string;\n          copied: Array<{ type: string; name: string }>;\n          failed: Array<{ type: string; name: string; error: string }> }>\n```\n\nwith\n\n```ts\nsuccess: failed.length === 0 && copied.length > 0,\n```\n\nSo `data.success` is `false` in two reachable outcomes that both answer **HTTP 200**:\n\n1. some items failed to copy (`failed.length > 0`) — a PARTIAL duplicate;\n2. nothing was copied at all (`copied.length === 0`) — an EMPTY duplicate, e.g. a source package whose rows this caller's scope cannot see.\n\nIn both, `res.ok` is true and the envelope's `success` is true, so the `throw` never fires. The Studio author is told the base was duplicated. `copiedCount` / `failedCount` / `failed[]` — the fields that say what actually happened — are never read.\n\n## The control, in this same file's neighbourhood\n\n`packages/app-shell/src/preview/commitHistory.ts:193-208` calls the sibling commit-revert route and gets it right:\n\n```ts\nconst inner = (payload?.data as Record<string, unknown> | undefined) ?? payload ?? undefined;\nif (!res.ok || (inner as { success?: boolean })?.success === false) { ... }\n```\n\nIt unwraps `data` first, then reads the operation's flag. Same envelope, same shape of question, opposite outcome. So this is one consumer out of step with the pattern already used next door, not a missing convention.\n\n## Suggested shape of the fix\n\nUnwrap before reading, and surface the partial case rather than folding it into success — `failed[]` carries a per-item `error` string that the author needs:\n\n```ts\nconst inner = (payload?.data as Record<string, unknown> | undefined) ?? payload ?? undefined;\nif (!res.ok || (inner as { success?: boolean })?.success === false) {\n  // report failedCount / failed[].error, not just a generic HTTP message\n}\n```\n\n## Why it was invisible\n\n`POST /packages/:id/duplicate` has no published response schema — its route-ledger row reports `responseSchema=None` (`packages/runtime/src/route-ledger.ts:313`) and the client SDK method returns `unwrapResponse<any>`. With nothing declared, a consumer reading the wrong `success` typechecks perfectly. That is the hazard objectstack#12038 exists to close; this issue is the already-realised instance of it, recorded so the fix is not deferred behind that decision.\n\n## Not filed against\n\n`fetchCommits` / `revertCommit` (`commitHistory.ts`) and `fetchPendingDrafts` (`usePendingDrafts.ts`) each carry a defensive three-arm envelope chain (bare array | `{key}` | `{data:{key}}`). Those are tolerant rather than wrong — only one arm is live today — so they are recorded in the objectstack#12038 survey as contract-absence evidence, not as defects here."
+}

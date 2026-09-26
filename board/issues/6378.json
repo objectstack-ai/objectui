@@ -1,0 +1,35 @@
+{
+  "number": 6378,
+  "kind": "issue",
+  "title": "perf(console): a one-frame white flash right AFTER LoadingScreen's first paint (40-230 ms, ~1 boot in 3)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-25T18:00:42Z",
+  "updated_at": "2026-08-26T07:41:25Z",
+  "closed_at": "2026-08-26T07:41:25Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6378",
+  "body": "Found while measuring #2628. **Different window, independent of that card** — #2628 is the gap *before* `LoadingScreen` mounts; this one is a fully-white frame that appears *after* it has already painted, and it survives the #2628 fix.\n\n## What was measured\n\nProduction build of `apps/console`, served locally with the two boot endpoints mocked, driven by Playwright with CDP `Page.startScreencast` at `everyNthFrame: 1`. Every captured frame decoded and classified pixel-by-pixel (a frame counts as white when no colour channel falls below 242). Timestamps are relative to `performance.timeOrigin`.\n\nThe frame ledger of one run on `f53a8d0ae`, unthrottled localhost:\n\n```\nt=27ms     nonWhite=0%       min=255   [ the #2628 window ]\nt=165ms    nonWhite=0%       min=246\nt=1527ms   nonWhite=2.349%   min=0     [ LoadingScreen paints ]\nt=1544ms   nonWhite=2.350%   min=0\nt=1567ms   nonWhite=0%       min=246   [ fully white again, one frame ]\nt=1681ms   nonWhite=1.387%   min=0     [ content returns ]\n```\n\n## How often\n\nCounting only frames *after* the first contentful frame, over full-boot runs (the instrument waits for React's first commit, so the whole boot is sampled) — same instrument on both sides, 3 runs per cell:\n\n| profile | pre-#2628-fix build | post-fix build |\n|---|---|---|\n| localhost, no throttling | 0 / 3 | 2 / 3 |\n| 20 Mbps / 80 ms RTT | 2 / 3 | 1 / 3 |\n| Fast 4G (4 Mbps / 70 ms) | 2 / 3 | 0 / 3 |\n| **total** | **4 / 9** | **3 / 9** |\n\nGap length 40-230 ms.\n\n⚠️ **n=9 per side does not distinguish 4/9 from 3/9** — read this as \"roughly one boot in three, before and after\", not as an improvement or a regression. A separate earlier pre-fix set of 11 runs that stopped shortly after first paint (a shorter tail, so a different sampling window — deliberately not pooled with the above) hit 6/11.\n\nThat the rate is unchanged by the #2628 fix is expected: that fix covers the window *before* React's first commit and its indicator is already removed by the time this happens.\n\n## What is NOT established\n\n- **The cause.** The obvious suspects are `LoadingScreen` unmounting before the replacing view has painted, or `RouteFader` (`packages/app-shell/src/chrome/RouteFader.tsx`) — but nothing here correlates the frame with a DOM state, so both are guesses. Whoever picks this up should timestamp the DOM alongside the frames rather than start from either name.\n- **Whether a user notices.** A 40-230 ms full-viewport white flash mid-boot reads as a flicker rather than a blank page. Severity is a triage call, not a measurement.\n\n## Why it is filed rather than fixed\n\n#2628 was scoped by triage to tier 1 — the pre-`LoadingScreen` window only — and explicitly told the dev to file anything else instead of widening. This is that.\n\nThe repro harness (server + screencast classifier) is not committed anywhere; it is described in full in the #2628 pull request, and `e2e/console-boot-indicator.spec.ts` landed there carries the Playwright-side scaffolding a fix for this could extend.\n"
+}

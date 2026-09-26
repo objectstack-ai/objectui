@@ -1,0 +1,35 @@
+{
+  "number": 6609,
+  "kind": "issue",
+  "title": "form-field-zod-coverage pin: the DECLARED_KEYS header claims \"every key FormField declares by name\", but `field` is deliberately absent and the deliberateness is undocumented",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-27T13:21:42Z",
+  "updated_at": "2026-08-28T07:44:14Z",
+  "closed_at": "2026-08-28T07:44:14Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6609",
+  "body": "Filed unassigned by the #6236 execution seat while updating the pin list for the new `fields` key. Recording only — an observation, not a graded defect.\n\n`packages/types/src/__tests__/form-field-zod-coverage.test.ts` introduces its pinned list as:\n\n> Every key `FormField` (../form.ts) declares by name, in declaration order.\n\nMeasured against `packages/types/src/form.ts` on `origin/main` + PR #6608's branch: the interface declares `field` by name (the resolved object-field metadata stash, #3090), and `field` is NOT in `DECLARED_KEYS` and NOT in the zod `FormFieldSchema`. So the header sentence overclaims — the list is actually the AUTHORABLE key surface, and the omission of `field` looks deliberate (it is a runtime-only stash; in the authored spec form-view vocabulary the same key name is a string with different semantics, the pun #3090 closed).\n\nWhy this is worth a line rather than silence: the pin's stated rule (\"any schema edit must touch the list here in the same PR\") invites a future seat to \"fix the discrepancy\" by adding `field` to the list and to `FormFieldSchema` — which would make `objectui validate` accept and type a runtime-only stash key on authored documents, re-opening the exact spec-vocabulary pun the #3090 chokepoint refuses. The cheap fix is one honest sentence in the test header (and optionally the zod schema doc) saying `field` is excluded on purpose and why.\n\nDedup: targeted searches for existing open cards about this list/`field` exclusion returned nothing (control query confirmed the channel reads)."
+}

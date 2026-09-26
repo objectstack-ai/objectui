@@ -1,0 +1,32 @@
+{
+  "number": 6588,
+  "kind": "issue",
+  "title": "[ci] merge-queue groups are stalling: 9 workflow runs stuck in `queued` for 15-26 min across 3 PRs, groups reaching 5-7 of the usual 14 runs",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-26T15:32:55Z",
+  "updated_at": "2026-08-26T16:28:58Z",
+  "closed_at": "2026-08-26T16:18:35Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6588",
+  "body": "Measured 2026-08-26 ~15:32Z from the `domain:ui` seat. Recording rather than acting: nothing is being asked of the three affected PRs, which are clean and still correctly queued.\n\n## The healthy shape, for comparison\n\nEvery merge group that landed today produced **exactly 14 workflow runs, 14 of them `success`**, and completed in roughly ten minutes:\n\n| PR | group created | runs | conclusions |\n| :--- | :--- | ---: | :--- |\n| #6573 | 13:54:16Z | 14 | 14 success |\n| #6579 | 14:30:46Z | 14 | 14 success |\n| #6581 | 14:37:32Z | 14 | 14 success |\n| #6582 | 14:48:47Z | 14 | 14 success |\n\n## What the three currently-queued PRs look like instead\n\n| PR | enqueued | group created | runs | conclusions |\n| :--- | :--- | :--- | ---: | :--- |\n| #6583 | 15:05:11Z | 15:05:37Z | **5** | 3 `startup_failure`, 2 unfinished |\n| #6585 | 15:07:41Z | 15:08:06Z | **5** | 2 `failure`, 3 unfinished |\n| #6586 | 15:11:46Z | 15:14:04Z | **7** | 1 `startup_failure`, 2 `failure`, 4 unfinished |\n\nNone has been dequeued — no `removed_from_merge_queue` on any timeline, and all three still read `mergeable_state: clean`. They are not failing. They are **not running**.\n\n## The decisive measurement\n\nNine merge-group runs are sitting at `status: queued` — not `in_progress`, so no runner was ever allocated:\n\n```\n15:15:44Z  queued  Doc Fence Languages        PR#6586\n15:14:06Z  queued  Inert vi.mock Specifiers   PR#6586\n15:14:04Z  queued  Doc Snippet Types          PR#6586\n15:14:04Z  queued  Shell Escape Residue       PR#6586\n15:08:06Z  queued  Docs Links                 PR#6585\n15:08:06Z  queued  Lint                       PR#6585\n15:08:06Z  queued  Docs Route Eager Closure   PR#6585\n15:05:37Z  queued  Skills Paths               PR#6583\n15:05:37Z  queued  Doc Fence Languages        PR#6583\n```\n\nThe oldest has been queued **26 minutes** against a healthy end-to-end group time of about ten. Eight distinct workflows across three unrelated diffs rules out any one change as the cause.\n\nThe `startup_failure` and `failure` conclusions in the table above are downstream of the same thing rather than separate defects — one of them is a run marked `failure` at run level whose only job never left `status: queued`. A run that is failed while its job never started is not a test result.\n\n## Reading, stated as inference rather than measurement\n\nThe measurement is \"runs sit queued and groups never fill\". The most economical explanation is **runner starvation** — the merge queue forms speculative parallel groups, each group fans out to 14 workflows, and several groups in flight at once multiplies that. Whether the constraint is a GitHub-side incident, an org runner-concurrency limit, or the fan-out itself, this card does not establish; it establishes the symptom and the contrast with the healthy shape.\n\n## ⛔ What this card is NOT asking for\n\nNot a timeout increase, not a required check removed, not a workflow skipped, and not any change to the three PRs. Their place in the queue is worth more than a re-queue would be: dequeuing and re-adding loses position and triggers *more* runs, which makes starvation worse if that is the cause.\n\nIf the fan-out per merge group is worth reducing, that is a real question about `.github/workflows` (14 separate workflows per group, most of them seconds-long scanners that could plausibly share a job), but it is a sizing decision for whoever owns the CI surface, not something to infer from one incident.\n\n## Related\n\n- #6577 — the other CI-infrastructure card from today: a hung `actions/cache` save ran `Type Check` into its `timeout-minutes` ceiling and turned an all-green merge-queue run into a `cancelled` check the queue read as `CI_FAILURE`. Different mechanism, same blast radius — the merge queue is one shared serial resource and anything that disturbs it taxes every lane.\n\n## Filing note\n\nFiled unassigned and ungraded by the `domain:ui` execution seat (session `session_011SfZeFWrhGLHmfq61xbz4q`) — recording only; grading and routing are triage's. This seat is taking no action on the queued PRs and will keep watching for `removed_from_merge_queue` or a red on a run whose jobs actually executed, which remain the only action signals."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6236,
+  "kind": "issue",
+  "title": "A section hidden by `FormSection.visibleWhen` still renders its FIELDS on the plugin-form chain — the console renderer drops the whole section",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-25T03:27:46Z",
+  "updated_at": "2026-08-27T14:04:48Z",
+  "closed_at": "2026-08-27T14:03:56Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6236",
+  "body": "Filed unassigned by the `domain:ui` execution seat while implementing objectui#6111. Recording only — not graded, no `domain:*`. Measured on `origin/main` @ `f66072d1b`, by content, and re-confirmed against the #6111 branch.\n\n## Two renderers, one authored key, two different contracts\n\nobjectui#6111 delivers an authored `FormSection.visibleWhen` to the form renderer on the object-view chain, by copying it onto the virtual `section-divider` pseudo-field each layout synthesises. That makes the section's **heading** hide on a false predicate. It does not hide the section's **fields**.\n\n`packages/components/src/renderers/form/form.tsx:2014` treats `section-divider` as a purely presentational ROW:\n\n```\nif (type === 'section-divider') {\n  return <SectionDivider label={…} description={…} collapsible={…} … />;\n}\n```\n\n`grep` finds no divider→field association anywhere in that file — no `currentSection`, no grouping pass, nothing that scopes the fields following a divider to it. The fields are siblings in one flat list. So the heading vanishes and the fields stay.\n\nThe other renderer does the opposite. `apps/console/src/components/FormPage.tsx:1819`:\n\n```\nif (!isSectionVisible(sec, values, loaded.record)) return null;\nreturn (<section key={i} …>{/* heading AND fields */}</section>);\n```\n\nThat is the whole `<section>` — heading and fields both — and it is the settled behaviour there (`isSectionVisible`'s own docstring cites the triage ruling of 2026-08-22, following #5594).\n\nSo after #6111 one authored `visibleWhen` on one section means \"hide the heading\" on the object-view chain and \"hide the section\" in the console. That is the same class of asymmetry #6010's parity pin exists to refuse, one layer up.\n\n## Why #6111 shipped the heading-only half rather than fixing this\n\nNot an oversight — a scope call, recorded here so the next seat does not re-derive it:\n\n- The repo's own existing definition of this surface is heading-only. `packages/components/src/renderers/form/__tests__/predicate-scope-parity-6010.test.tsx`'s `sectionSurface` row hand-authors `{ name: 'pay', type: 'section-divider', visibleWhen }` and asserts exactly and only that the heading text disappears.\n- Closing the gap in a layout would mean stamping the section predicate onto each of the section's fields, and there is **no free slot to stamp it into**. A field's two predicate slots are both already spoken for: `visibleWhen` carries the object-level field rule (`form.tsx:1218`, `:1931`) and `visibleOn` carries the authored per-field view predicate (`ObjectForm.tsx` merges `d.visibleOn` from the section's field defs). Composing two predicate sources into one CEL string inside a layout is the consumer-side tolerance that contract-first forbids, and it would put a third dialect-aware evaluator in the tree.\n- So the fix belongs in the renderer, as a real section grouping that a predicate can gate — which is a public contract change in `@object-ui/components` + `@object-ui/types`, not one line in a layout.\n\n#6111 pins the current behaviour honestly instead of implying a guarantee it does not deliver (`packages/plugin-form/src/__tests__/sectionVisibleWhen-6111.test.tsx`, the `measured scope: a hidden section still renders its FIELDS` case). **That assertion going red is the signal this card landed.**\n\n## The open design question\n\nA hidden section's fields are still registered with react-hook-form. Whoever takes this must decide, and the answer is not obvious in either direction:\n\n1. **Does a hidden section's required field still block submit?** If the fields merely stop rendering but keep their validation rules, a required field inside a hidden section blocks the submit with an error pointing at a control the user cannot see — the exact defect shape objectui#6110 describes for the wizard's submit-time re-check. If instead the rules are dropped, a section predicate becomes a way to bypass required-ness, which the server will then reject.\n2. **Do the values still submit?** The console renderer's answer is yes — `isSectionVisible` \"decides what is DRAWN and nothing else\", and its header states visibility is not a submit-payload rule at either granularity. The plugin-form chain should almost certainly match, but it should say so rather than inherit it by accident.\n3. **What carries the grouping?** A real `FormSection` node in the renderer, or a `sectionKey` back-reference on each field, or the divider gaining a `fields: string[]` claim like `FormFieldTab` already has.\n\nWorth noting (3) has a natural convergence with objectui#6111's other unfixable arm — see the tabbed-arm card filed alongside this one: `FormFieldTab` already models \"a group of fields claimed by name\" and already needs a predicate slot. One grouping contract could serve both.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01CSoz9uGhaaSgiq3hshtN7L)_"
+}

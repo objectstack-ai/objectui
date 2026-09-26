@@ -1,0 +1,35 @@
+{
+  "number": 6597,
+  "kind": "issue",
+  "title": "`referenceTo` column override: promised in the README, kept by nothing — make the promise real or withdraw it (enforce-or-remove, from #6425)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-27T05:56:07Z",
+  "updated_at": "2026-08-28T16:33:44Z",
+  "closed_at": "2026-08-28T16:33:44Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6597",
+  "body": "Provenance: maintainer ruling 2026-08-27 (PM chat, decision-inbox batch 6, adjudication session `session_01DKWDdUJ2XNRESVVWUvcpnh`) on #6425's per-key disposition: `referenceTo` is ⛔ NOT declared as currently spelled — it is the \"promised but not kept\" key, split out to the enforce-or-remove channel as its own card.\n\n## The measured state (from #6425's post-merge census, re-verify on the day)\n\n- The README documents `referenceTo` as an author-facing column override.\n- No consumer reads it: the consumers read `reference_to` / `reference` (a SPELLING mismatch, not an unused concept). Removing the key from a column changes nothing in any render — measured identical.\n- Declaring it as-spelled on `TableColumn` would publish a promise that does nothing (the one option the ruling forbids).\n\n## The two honest routes (measure first, then take the cheaper honest one)\n\n1. **Enforce** — fix the spelling chain so the promise becomes real (the column override reaches the `reference_to`/`reference` readers). Take this only if measurement shows a real authoring story for a column-level reference override.\n2. **Remove** — withdraw the README line (and the key from `AuthoredColumnOverrides`' held band, marking the verdict). Under the maintainer's standing startup-stage rule (2026-08-27: deprecated/alias spellings retire immediately, no transition windows), this is the lean default when no demand is measured.\n\n⛔ Stop-and-report if enforcing would widen behaviour beyond making the documented override work as documented.\n\nNamed reader: the `domain:ui` execution seat. Refs: #6425 (the per-key ruling + census), PR #6590 (the read-side keyhole where the held verdict lives)."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6271,
+  "kind": "issue",
+  "title": "finding(plugin-kanban): ObjectKanban fetches TWICE on mount — the first query runs before the object schema resolves, so it carries no `$expand`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T06:25:30Z",
+  "updated_at": "2026-08-25T23:54:30Z",
+  "closed_at": "2026-08-25T23:54:30Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6271",
+  "body": "Filed by the `domain:ui` @ objectui PM seat (post #5560), session `session_01CSoz9uGhaaSgiq3hshtN7L`, on behalf of the #6063 dev — **it could not file this itself**: both `search_issues` and `list_issues` refused with `API rate limit already exceeded for user ID 6219465`, so the search-before-filing rule could not be honoured and it correctly declined to file blind. Dedup search has now been run and this is that finding, unmodified.\n\nFiled unassigned. Triage owns grading and routing.\n\n## Measured, not inferred\n\n`ObjectKanban`'s fetch effect runs **twice on mount**. Captured from a real render — the two query argument sets, in order:\n\n```\n[\n  ['deal', { '$top': 100 }],\n  ['deal', { '$top': 100, '$expand': ['owner'] }]\n]\n```\n\nThe first run happens **before the object schema resolves**: `objectDef` is `undefined`, so `buildExpandFields` returns `[]` and the query carries no `$expand` at all. The second runs once `objectDef` arrives, with the expansion.\n\n## Two consequences\n\n1. **One redundant round trip per board mount.**\n2. ⭐ **A first paint in which unexpanded lookup ids are what the card has to work with** — which is *exactly* the state the `isOpaqueId` suppression exists to hide. So the suppression this repair was about (#6063) is, in part, compensating for a fetch-ordering problem one layer up rather than for a genuine data shape.\n\nThat second point is why this is worth a card rather than a note: it means the display heuristic and the fetch ordering are coupled, and fixing either in isolation may change what the other has to handle.\n\n## Suggested shape, if it survives triage\n\nEither gate the first fetch on the object schema having resolved, or merge the two effects so a single query issues once `objectDef` is known.\n\n⚠️ Not proposed as ruled. Gating the first fetch trades a redundant request for a slower first paint, and whether that trade is right depends on how long the schema resolution actually takes on a cold boot — which is not measured here.\n\n## Provenance\n\nSurfaced while implementing #6063 (`resolveDisplay`'s unreachable `isLookup` guard, PR #6268). Deliberately **not** folded into that PR: #6063 concluded arm A (the guard is redundant, delete it) on four pieces of evidence, and this fetch-ordering issue is a separate defect in a different layer whose fix would change what the display path sees.\n\nRefs: #6063 / PR #6268 (where this was measured) · #5874 (the expand-field identity pin that PR re-anchors)."
+}

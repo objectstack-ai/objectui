@@ -1,0 +1,34 @@
+{
+  "number": 5306,
+  "kind": "issue",
+  "title": "根 engines 声明比工具链实际要求宽:node \">=22\" 放行 22.0–22.10 / 23.x / 25.x,pnpm \">=9\" 放行 pnpm 9 —— @changesets/cli@3 全部拒绝",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-19T08:12:56Z",
+  "updated_at": "2026-08-25T12:57:58Z",
+  "closed_at": "2026-08-25T12:55:19Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5306",
+  "body": "发现于 #5296(`@changesets/cli` v2 → v3 迁移)的第 3 项核验,不在那张卡的范围内,单独立单。\n\n## 测得\n\n根 `package.json` 声明:\n\n```\n\"engines\": { \"node\": \">=22\", \"pnpm\": \">=9\" }\n```\n\n装上 `@changesets/cli@3.0.1` 后从产物读出的声明:\n\n```\n\"engines\": { \"node\": \"^22.11 || ^24 || >=26\", \"npm\": \">=10.9.0\", \"pnpm\": \">=10.0.0\", \"yarn\": \">=4.5.2\" }\n\"type\": \"module\"\n```\n\n两个范围都不是子集:\n\n- `node: \">=22\"` 放行 22.0–22.10、23.x、25.x —— 这三段 `^22.11 || ^24 || >=26` 全部拒绝。\n- `pnpm: \">=9\"` 放行 pnpm 9,而 v3 要求 `>=10.0.0`。\n\n## 今天为什么没炸\n\n没有任何东西强制执行这份声明:\n\n- `.npmrc` 里只有 `auto-install-peers=true`,没有 `engine-strict`;\n- 仓库钉了 `packageManager: pnpm@10.31.0`;\n- 所有 workflow 用 `node-version: '22.x'`,解析到 22.11 以上的发行版。\n\n所以这是一份**失真的声明**,不是当下的故障:照着 `engines` 选 Node 22.4 或 pnpm 9 的贡献者(或消费本 workspace 的下游)会拿到一个工具链已经不支持的组合,而且没有任何守卫会说话。\n\n## 为什么不在 #5296 里顺手改\n\n收紧 `engines.node` / `engines.pnpm` 影响的是每一个消费者与每一条 CI 通道,是一个决定,不是工具升级的搭车项。需要先定:跟随 `@changesets/cli` 的 `^22.11 || ^24 || >=26`,还是取仓库自己的下限(例如 `>=22.11`),以及 pnpm 是否直接写 `>=10`。\n\n## 可能的处置\n\n- A:`node: \">=22.11\"`、`pnpm: \">=10\"` —— 最小改动,消除失真,不引入 v3 那种分段排除(23.x/25.x 仍被放行,但那两条线本来就不是本仓的目标)。\n- B:直接抄 `^22.11 || ^24 || >=26`,与工具链完全一致,代价是每次工具链动这个范围都要跟。\n- C:什么都不改,改为在 `.npmrc` 加 `engine-strict=true` 让声明变成可执行的 —— 但那会让当前声明立刻开始拒绝合法环境,必须先做 A 或 B。\n\n顺带:是否要同时检查 `content/docs/**` 里对 Node 版本的表述(#3689 修过一处 \"Node ≥ 18\" 的失真,那类文本会再次漂移)。\n"
+}

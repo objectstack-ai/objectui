@@ -1,0 +1,35 @@
+{
+  "number": 6605,
+  "kind": "issue",
+  "title": "Permission matrix bulk buttons (R / CRUD / All / None) silently delete `allowExport`, `readScope` and `writeScope` from the row",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-27T13:02:53Z",
+  "updated_at": "2026-08-27T19:16:02Z",
+  "closed_at": "2026-08-27T19:16:02Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6605",
+  "body": "Found while removing the retired `allowRestore` / `allowPurge` columns in objectui#6595. Out of that card's scope (a different defect class — these three keys are live and enforced), so recording only, deliberately unassigned.\n\n## What happens\n\n`bulkSetObject` in `packages/app-shell/src/views/metadata-admin/PermissionMatrixEditor.tsx` REPLACES the object's permission row instead of merging into it:\n\n```ts\nconst next: ObjectPerm =\n  action === 'none'  ? {}\n  : action === 'all' ? Object.fromEntries(OBJECT_ACTIONS.map((a) => [a.key, true])) as ObjectPerm\n  : action === 'crud'? { allowCreate: true, allowRead: true, allowEdit: true, allowDelete: true }\n  :                    { allowRead: true };\nreturn { ...prev, objects: { ...prev.objects, [objectName]: next } };\n```\n\n`OBJECT_ACTIONS` is the matrix's own column list, and the local `ObjectPerm` interface in `permission-slice.ts` is a hand-written SUBSET of the spec's `ObjectPermission`. Three keys the spec declares are modelled by neither:\n\n- `allowExport`\n- `readScope` and `writeScope` — the ADR-0057 access-depth axis\n\nSo one click on any of the four bulk buttons in a row drops whatever those three held. The per-checkbox path is unaffected: `updateObjectPerm` spreads (`{ ...cur, [action]: value }`) and preserves them.\n\n## Why it persists rather than being a display-only glitch\n\nBoth save doors carry the truncated row to storage. At environment scope the whole record is written. At package scope `mergePermissionSlice` takes in-scope rows **entirely** from `edited` by design (ADR-0086 P0), so `base` cannot restore them.\n\n## Why this is worth a card rather than a note\n\n`readScope` / `writeScope` are an access-depth axis, so dropping them is not cosmetic — the row silently falls back to default depth. The sharpest shape is the button labelled **All**: an admin clicking what reads as \"grant everything\" can WIDEN effective read access by deleting a `readScope: own` narrowing, with no diff shown and no error. The preview renders all three keys (objectstack#4115 added the Export column and the scope cell precisely so a reviewer could see them), so the reviewing surface shows a value the authoring surface deletes on the next bulk click.\n\nSame class as objectui#4302 — a facet the editor cannot model being silently reverted on save — one level down: that card was about record-level facets, this is about keys inside an object row.\n\n## Suggested fix\n\nMerge rather than replace: start bulk results from `{ ...cur }` and set only the keys the matrix actually authors (`OBJECT_ACTIONS`), so unmodelled keys ride through the way `updateObjectPerm` already lets them. `none` needs the same treatment — clearing the grants the matrix owns, not the row. Worth pinning with a test that round-trips a row carrying all three keys through each of the four buttons.\n\nNote for whoever picks this up: `allowRestore` / `allowPurge` are NOT part of this — they are retired and were removed by objectui#6595."
+}

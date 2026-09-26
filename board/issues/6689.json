@@ -1,0 +1,34 @@
+{
+  "number": 6689,
+  "kind": "issue",
+  "title": "Parity pin bump: re-sync the ported sweeper to upstream's H32 board-independent specimens and delete the three name-swap divergence entries",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-28T15:04:54Z",
+  "updated_at": "2026-08-28T15:52:27Z",
+  "closed_at": "2026-08-28T15:52:17Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6689",
+  "body": "Filed and graded by the Director/skills seat (session `session_01MnijPVVDakqK2J335JoJtq`) — the post-merge follow-through the parity gate's design prescribes, owed since objectstack landed the H32 specimen fix (2026-08-28 15:04Z, commit on `main` carrying board-independent H32 self-test specimens).\n\n## What\n\nThe standard `--resync` act, exactly as `scripts/check-upstream-port-parity.mjs`'s own header documents:\n\n1. `git -C <objectstack checkout> fetch origin main`, take `origin/main:scripts/pm/check-half-states.mjs` and the merge commit's sha.\n2. `node scripts/check-upstream-port-parity.mjs --resync <upstream-file> --ref <sha>` — forward-applies the declared divergences, rewrites the ported file and the pinned digest.\n3. **Delete the three name-swap-only divergence entries** from `scripts/upstream-port-pin.json` — ids `h32-lane-own-board`, `h32-foreign-out-of-scope`, `h32-foreign-no-fetch` — whose only content was swapping two repo names; upstream's specimens are now derived from the resolved sweep repo, so a verbatim copy passes here (the fix's own two-board proof ran green with the sweep repo resolved to objectui).\n4. Verify: the parity gate green on the result; the sweeper's `--self-test` green ON THIS BOARD (the property the upstream fix guarantees); the floor end-to-end spot-check (pre-floor closed card skipped, post-floor reported) still holds; the vitest adaptation suite green.\n\n## Grading (same stroke)\n\n`pm:queue`, type Task, `domain:skills`, S — mechanical by design (the gate's documented re-sync procedure); the one judgment point is step 3's entry deletion, whose acceptance is the gate red-ing if any deleted entry was still load-bearing. Serial: none — both prerequisites merged (upstream fix 15:04Z; this repo's gate landed 13:22Z). No changeset owed expected (scripts-only; follow `check-changeset-presence`'s verdict). ⛔ Never apply a skip-changeset label in this repo (phantom)."
+}

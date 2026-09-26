@@ -1,0 +1,35 @@
+{
+  "number": 6557,
+  "kind": "issue",
+  "title": "Five more consumer-side reads of the undeclared object-level `titleField` survive #6531 — in `ObjectView` view-config fallbacks and a `useRecordSearch` memo key",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-26T12:00:07Z",
+  "updated_at": "2026-08-26T14:07:59Z",
+  "closed_at": "2026-08-26T14:06:43Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6557",
+  "body": "Filed unassigned by the dev seat working objectui#6531 (session `session_011SfZeFWrhGLHmfq61xbz4q`), out of a file face that did not include either file. Duplicate scan before filing: 244 open objectui issues enumerated via the REST list endpoint (3 pages, page 3 short — full population, not a truncated read) and grepped for `titleField` / `record-title` / `nameField` / `displayNameField` / `getRecordDisplayName` / `display name`; the only hit is #6531 itself (positive control), and a path-level grep for `ObjectView.tsx` / `useRecordSearch` surfaced only #6482, #6460, #4730 and #2890, none of which is about this key.\n\n## What #6531 settled, and what it deliberately left standing\n\n#6531 removed `getRecordDisplayName`'s step-0 read of `objectDef.titleField` after a producer census found nothing that can produce the key. The measurement it turned on is stronger than \"undeclared\": `@objectstack/spec`'s object schema is a `strictObject`, so\n\n```\nObjectSchema.safeParse({ name: 'account', fields: {…}, titleField: 'name' })\n→ REJECTED  unrecognized_keys: Unrecognized key(s) on this object: `titleField`\n```\n\n— the same issue code a nonsense key gets — while `nameField`, `displayNameField` and `titleFormat` all parse and survive (measured against `@objectstack/spec@17.2.0`, the dist this repo installs).\n\nThat card's file face was `packages/core/src/utils/record-title.ts` only. **The same undeclared key is read in six more places**, and they were left untouched because each one needs a decision the record-title card did not carry.\n\n## The remaining reads\n\n`packages/app-shell/src/views/ObjectView.tsx` — five sites, all of the form *view's own declared key, else the object's undeclared one, else the literal `'name'`*:\n\n| line | expression |\n| ---: | :--- |\n| 164 | `titleField: viewDef?.timeline?.titleField \\|\\| objectDef?.titleField \\|\\| 'name'` |\n| 2211 | `titleField: viewDef.kanban?.titleField \\|\\| objectDef.titleField \\|\\| 'name'` |\n| 2228 | `titleField: viewDef.map?.titleField \\|\\| objectDef.titleField \\|\\| 'name'` |\n| 2242 | `titleField: viewDef.gallery?.titleField \\|\\| objectDef.titleField \\|\\| 'name'` |\n| 2264 | `labelField: (viewDef as any).tree?.labelField \\|\\| (viewDef as any).tree?.titleField \\|\\| objectDef.titleField \\|\\| 'name'` |\n\n`packages/react/src/hooks/useRecordSearch.ts:191` — the memo signature that decides when the search fanout re-runs:\n\n```ts\nreturn candidates.map((o) => `${o?.name}:${o?.titleField ?? ''}`).join('|');\n```\n\n`o` is an object definition from the app's metadata, so the `titleField` half of every entry is permanently `''`. Not a wrong answer, but a key in a cache signature that can never vary — and it is the last thing in the repo that reads like evidence some producer supplies the key.\n\n`packages/react/src/hooks/__tests__/useRecordSearch.test.ts:11` — the fixture `{ name: 'account', label: 'Account', titleField: 'name' }`. Same phantom shape #6531 retired inside `record-title.test.ts`: the assertion it feeds resolves identically with the key deleted, so it pins nothing while reading as a producer.\n\n## Why this is a card and not a rider on #6531\n\nThe `ObjectView` sites are not the same edit. Deleting the middle leg changes what a *view* is configured with, and the honest replacement is a judgement the record-title census does not settle:\n\n1. **Drop the leg.** `viewDef.<type>.titleField || 'name'`. Simplest, and consistent with #6531 — but it changes the literal fallback for any object that (illegally) carried the key.\n2. **Re-point it at the declared pointer.** `viewDef.<type>.titleField || objectDef?.nameField || 'name'`. Arguably what the code always meant: `nameField` is ADR-0079's canonical record-title pointer and is what `getRecordDisplayName` now reads at the top of its object ladder. But this *widens* what these five sites consult, and the `'name'` literal underneath is itself a forge of the kind objectui#5953 removed from `ObjectMap` — worth deciding deliberately rather than by analogy.\n3. **Hand the whole decision to the resolver**, as `ObjectMap` already does, and stop binding a field name at this seam at all (the shape objectui#6343 restored one seam up).\n\nOptions 1 and 2 differ observably; option 3 is a larger refactor. Someone should pick, not infer.\n\nThe `useRecordSearch` signature line and its fixture are mechanical once that choice is made, and belong in the same PR so the key leaves the repo in one move.\n\n## Verification notes for whoever takes this\n\n`packages/app-shell` and `packages/react` both resolve `@object-ui/core` through the root `vitest.config.mts` alias table (→ `packages/core/src`), so consumer tests exercise resolver source directly; no `dist` build is needed to see a precedence change.\n\nRefs: objectui#6531 (the census and the resolver-side removal) · ADR-0079 · AGENTS.md Commandment #0.1.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_011SfZeFWrhGLHmfq61xbz4q)_\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

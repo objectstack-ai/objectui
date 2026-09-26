@@ -1,0 +1,32 @@
+{
+  "number": 6621,
+  "kind": "pull_request",
+  "title": "feat(app-shell): one composer for makers — ask folds into build (cloud#1674)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-27T16:29:39Z",
+  "updated_at": "2026-08-27T17:14:28Z",
+  "closed_at": "2026-08-27T17:14:26Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-08-27T17:14:26Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6621",
+  "body": "## 背景\n\n用户裁决（objectstack-ai/cloud#1674 / cloud#1609 讨论）：**build 是更高权限的管理员 agent，ask 是业务人员的 agent；对 maker，构建/提问收敛成一个输入框**。服务端前置已在 objectstack-ai/cloud#1673 落地（build 成为 ask 的数据能力超集，含图表）。本 PR 是界面收敛（Phase B）。\n\n## 改动\n\n- **`surfaceAgent.ts`（ADR-0063 唯一裁决点）新增规则 (3b)**：可授权（`manage_metadata`）的主体在任何 default 表面上，ask 意向升级为 build（目录里有 build 才升级；含对 app 显式 ask pin 的覆盖——pin 服务该应用的业务用户，maker 永远拿超集）。新增 `makerConvergedOnBuild` / `makerVisibleAgents` 供各站点共用同一谓词。\n- **ChatPane 的 agent 启动器**：maker 看不到内置 ask 项（custom agent 保留）；在 ChatPane 内部计算，三个宿主（/ai 全页、Studio copilot、控制台 dock）行为一致。\n- **路由**：maker 的裸 `/ai/ask` 重定向 `/ai/build`；`/ai/ask/:conversationId` 照常渲染（历史可读）。\n- **会话侧栏** `includeAskConversations`：收敛表面把 ask 历史和 build 历史并列展示——这是收敛后回到旧 ask 会话的唯一入口，每行本就按自身 agent 路由打开。\n- **控制台首页**：maker 只见一个 Build 入口；不可授权会话（objectstack#8270 托管姿态）保留 Ask AI。\n- **`useCanAuthorMetadata` 提取共享**（原 HomePage 私有），CTA 与聊天表面回答同一个问题。\n\n## 不变式（新测试 11 条钉住）\n\n- 不可授权主体：所有层零变化（业务姿态原样）。\n- 目录无 build / AI Studio 关闭：零变化。\n- 计费自动随 `agent_id`：maker 流量全记 build 池（cloud#1673 已验证）。\n\n## 验证\n\n- `surfaceAgent.test.ts` 21 条全过（10 旧 + 11 新）。\n- app-shell 全套 5433 过；唯一红的 `anonSeedScope-5746.enumeration` 在纯 origin/main 上同样 7 连败（预存环境性破损，与本改动无关）。\n- `tsc` 全净。\n\n合并后需要 cloud 侧 pin bump 收货。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

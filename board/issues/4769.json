@@ -1,0 +1,32 @@
+{
+  "number": 4769,
+  "kind": "issue",
+  "title": "[finding] filter 面两条观察:token 输入与 TagsField 重复实现(CSS 减法守卫撞墙的根因);between 半填区间被 arity 判据放行持久化",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-16T04:38:31Z",
+  "updated_at": "2026-08-25T17:47:49Z",
+  "closed_at": "2026-08-25T17:47:49Z",
+  "closed_by": {
+    "login": "os-trump",
+    "id": 320910073,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4769",
+  "body": "发现于 #3958 的实施(PR #4762),两条 observation-class 合并归档,待分诊定级。\n\n## 一:token 输入重复实现\n\nPR #4762 在 `filter-builder.tsx` 内新写的 token 输入(Badge + 草稿框)与 `packages/fields` 的 TagsField 交互一致、样式几乎相同 —— 正是实施中 `min-w-[8ch]` 撞上 fields 的 build-css.mjs 减法守卫(objectui#4059)的根因:同一 utility 两处产出。长期正解是把 token 输入提升为 components 的共享原语、让 TagsField 复用 —— 属重构,超出 #3958 范围。\n\n## 二:between 半填区间\n\n`foldFilterGroupToSpecRules` 的「未填完」判据是 arity 式:`['2024-01-01','']` 长度为 2 不被判未填完,原样持久化;spec 的 `ViewFilterRuleSchema` 实测接受该形状 —— 不是拒绝类缺陷,但语义上是半成品区间,查询行为取决于服务端对空串边界的解释。待裁:fold 侧补「pair 成员非空」判据,还是 spec 侧收紧(后者归 spec 席)。\n\n## 参考\n\n- #3958 / PR #4762(发现来源,两条的实测记录在其报告)\n- objectui#4059(CSS 减法守卫)"
+}

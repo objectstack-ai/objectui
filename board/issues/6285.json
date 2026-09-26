@@ -1,0 +1,36 @@
+{
+  "number": 6285,
+  "kind": "issue",
+  "title": "CURATED_CAPABILITY_LABELS has drifted from PLATFORM_CAPABILITIES — `manage_sharing` silently loses its localized label",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-25T07:56:01Z",
+  "updated_at": "2026-08-25T13:40:14Z",
+  "closed_at": "2026-08-25T13:40:14Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6285",
+  "body": "Found while taking the measurement for #5899 (see PR #6284 for the full population). Filed unassigned as an observation, for PM triage. Not fixed there — out of that card's scope.\n\n## The defect\n\n`packages/fields/src/widgets/CapabilityMultiSelectField.tsx:82`:\n\n```ts\n/**\n * objectui#2600 B5 — the curated platform capabilities are a FIXED, known set\n * …\n * (Mirrors @objectstack/spec/security `PLATFORM_CAPABILITIES`.)\n */\nconst CURATED_CAPABILITY_LABELS = new Set([\n  'manage_users', 'manage_org_users', 'manage_metadata',\n  'manage_platform_settings', 'setup_access', 'setup_write', 'studio_access',\n]);\n```\n\nIt is used at line 157:\n\n```ts\nconst norm = name.replace(/\\./g, '_');\nif (CURATED_CAPABILITY_LABELS.has(norm)) return t(`capability.label.${norm}`);\nreturn byName.get(name)?.label || name;\n```\n\nThe `Set` has **7** members. `@objectstack/spec@17.2.0`'s `PLATFORM_CAPABILITIES` has **8**:\n\n```\nmanage_users  manage_org_users  manage_metadata  manage_platform_settings\nsetup.access  setup.write  studio.access  manage_sharing\n```\n\nNormalized (dots → underscores, which is what `labelFor` does), the difference is exactly one member: **`manage_sharing` is missing from the local `Set`.** The dotted-vs-underscore spellings are *not* drift — that transform is deliberate and performed at the call site.\n\nConsequence: `manage_sharing` falls through to `byName.get(name)?.label`, i.e. the English label the `sys_capability` registry serves, and is never localized — while the seven capabilities beside it in the same picker are. That is the exact class the `Mirrors` comment was written to guard against.\n\n## Why nothing caught it\n\n`scripts/check-spec-symbol-derivation.mjs` rule 2 exists to flag precisely this — a declaration whose doc comment claims spec alignment with no compile-time tie behind it. It could not see this one: **both of its scanners skip non-exported declarations**, and `CURATED_CAPABILITY_LABELS` is module-local. That hole is #5899's subject; with the export filter relaxed, this declaration is one of only two additional rule-2 findings in the whole tree, and the only one with measured drift.\n\n## Fix shape (not prescribing — this needs the same judgement #5899 does)\n\nDerive the set from the spec instead of restating it, e.g. build it from `PLATFORM_CAPABILITIES.map(c => c.name.replace(/\\./g, '_'))`. That both closes today's gap and makes the next spec addition arrive automatically — and it retires the unbacked claim at the same time. If a curated *subset* is genuinely wanted (i.e. some platform capability should deliberately keep its registry label), that intent needs writing down, because the comment currently says the opposite.\n\nMeasured on `a76b18cf2` against `@objectstack/spec@17.2.0`.\n\nRelated: #5899 (the instrument hole that hid it), PR #6284 (the census).\n"
+}

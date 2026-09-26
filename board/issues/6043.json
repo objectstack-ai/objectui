@@ -1,0 +1,36 @@
+{
+  "number": 6043,
+  "kind": "issue",
+  "title": "Field designer offers a `formula` control for formula fields — a key FieldSchema rejects by name (spec spells it `expression`), so saving a formula field hard-blocks the object",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-24T14:28:52Z",
+  "updated_at": "2026-08-25T12:55:19Z",
+  "closed_at": "2026-08-25T12:55:19Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6043",
+  "body": "Surfaced by the key-level parity gate built for #5761 (`scripts/check-designer-field-key-parity.mjs`). Filed rather than fixed, per #5761's ruling: the gate *surfaces* instances and each surfaced key gets its own card, because #4644 `indexed`, #4687 `distance_metric` and #4676 `placeholder` took three different correct resolutions.\n\n## The key\n\n`formula` is not in `FieldSchema`'s accept set. Measured against the installed `@objectstack/spec` 17.2.0:\n\n```\nFieldSchema.safeParse({ type:'formula', label:'Tax', formula:'price * quantity' })\n  => success = false\n  => [{ code: 'unrecognized_keys', keys: ['formula'] }]\n```\n\nThe spec carries **two** keys for this concept, and that is what makes it non-mechanical:\n\n> `expression` — Formula expression (CEL). e.g. ``F`record.amount * 0.1` ``\n> `returnType` — Inferred value type of a formula field (number/text/boolean/date)\n\n## Why this is live\n\n- `packages/plugin-designer/src/FieldDesigner.tsx:312` — live textarea control, `visibleWhen: \"record.type == 'formula'\"`, placeholder `e.g. price * quantity`.\n- `packages/plugin-designer/src/FieldDesigner.tsx:222,243` — create and update paths both write it.\n- `fromDesignerField` (`MetadataFieldsPage.tsx`) and `toFieldPayload` (`MetadataService.ts:105`) both write it onto the shape that is PUT.\n\nAn author creating a formula field and typing an expression writes a key the API refuses: `PUT /api/v1/meta/object/:name` returns a hard 422 `INVALID_METADATA` that blocks **every subsequent save** of that object until the key is cleared.\n\n## Why a rename is not obviously the answer\n\nThree things a resolver has to settle, none of which this tooling card can:\n\n1. **Expression language.** The designer's placeholder is `price * quantity`; the spec's `expression` is **CEL**, documented as ``F`record.amount * 0.1` `` — bare field names and a different root. Renaming the key alone would ship syntactically invalid expressions under a valid key name, trading a loud 422 for a silent runtime failure. That is strictly worse.\n2. **`returnType`.** The spec models it as a separate key the designer has no control for. Whether it is authored, inferred, or omitted is a design decision.\n3. The `formula` **field type** itself (`FieldDesigner.tsx:91,120`) needs to be checked against the spec's `FieldType` vocabulary in the same pass.\n\nThe read direction is broken symmetrically too: `toDesignerField` reads `raw.formula`, but a spec-parsed server sends `expression`, so an existing formula field loads with an empty box.\n\n## Verification\n\n`pnpm check:designer-field-key-parity` reports it; it is recorded in that gate's `KNOWN_UNPARSEABLE_KEYS` ledger pointing here. The ledger ratchets both ways, so a fix that leaves the entry behind is also red.\n\nRefs: #5761 (the gate) · #4644 · #4687 · #4676"
+}

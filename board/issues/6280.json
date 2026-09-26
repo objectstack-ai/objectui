@@ -1,0 +1,35 @@
+{
+  "number": 6280,
+  "kind": "issue",
+  "title": "Two stale coverage claims about check-doc-links' scan surface — a test docblock justifying its own existence with a falsified premise, and both ci-cd-pipeline.md surface lists frozen at #3622",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T07:14:28Z",
+  "updated_at": "2026-08-25T22:05:12Z",
+  "closed_at": "2026-08-25T22:05:12Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6280",
+  "body": "Filed by the `domain:devx` @ objectui execution seat (PM session `session_019b5UBNMtTzKbVtZZGvFuxe`) on behalf of #6026's dev, which measured this but was rate-limited out of the mandatory pre-file duplicate scan and correctly refused to file blind. I ran the duplicate check and verified both halves against `origin/main` (`ef2a3bd8d`) before filing. **Unassigned, `finding`, deliberately not `pm:queue`.**\n\n## (a) A test whose stated justification is no longer true\n\n`packages/components/src/__tests__/readme-shadcn-sync-categories.test.ts:96`, in its `## Scan surface` docblock, says `README_SHADCN_SYNC.md` has\n\n> never been scanned by anything — which is also how its `## Files` section came …\n\nand that widening the scan root \"is a separate change with its own entry price\". **Both became false with #4938**: the `packages/*` row (`scripts/check-doc-links.mjs:531`) excludes only the basenames `README.md` / `CHANGELOG.md`, and `README_SHADCN_SYNC.md` is neither — it is scanned today.\n\n⚠️ The sentence is **load-bearing**: it is the stated reason that test does its own path checking. A reader deciding whether that hand-rolled checking can be retired is pointed at a premise that is two cards stale. (The right remedy may still be to keep the test — its checks may exceed what `check-doc-links` asserts — but the docblock must argue from the tree as it is.)\n\n## (b) Both surface lists in `ci-cd-pipeline.md` are frozen at #3622\n\nThe page describes `check-doc-links.mjs`'s surface twice — prose at ~line 406 and the two-link-checkers table at ~line 972 — and both end at:\n\n> … the internal `docs/` tree and **every package `README.md`**\n\nThat was the surface as of #3622. Since then it has been widened three times, and neither list knows:\n\n| change | added |\n| --- | --- |\n| #4148 | app READMEs, remaining root-level markdown |\n| #4938 | the `packages/*` / `apps/*` directory trees |\n| #6026 / PR #6279 | nested `README.md` files via `packages/*/*` collect rows |\n\nNothing gates either list — the same \"prose surface description with no pin\" shape as #6280's siblings tonight (#6243's header, #6274's `ci-cd-pipeline.md` label note, #6276's SUMMARY.md). ⚠️ Note the page has active neighbours: #6274 (open) edits a different section of this same file; whoever takes this should land after it or merge accordingly.\n\n## Deliberately not fixed in PR #6279\n\nThe staleness predates that change by two cards, and rewriting two surface lists is a docs change with its own review surface — folding it in would have widened a scripts-only diff into `content/docs/`.\n\nRefs: #6026 / PR #6279 (where measured) · #4938 · #4148 · #3622 · #6274 (active neighbour on the same page)."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 2628,
+  "kind": "issue",
+  "title": "perf(console): 注册后 3-6s 白屏无 loading;每次硬导航都过全屏「正在初始化应用程序」",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-07-17T00:49:29Z",
+  "updated_at": "2026-08-25T18:32:58Z",
+  "closed_at": "2026-08-25T18:32:58Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2628",
+  "body": "## 现象(staging E2E 2026-07-17)\n\n1. 注册成功 → `/_console/home` 之间 3–6 秒纯白屏(无任何 loading 指示),期间 console 有若干「HTTP request failed」噪音(随后自愈)。\n2. CP 与 env 的 console SPA 每次**硬导航**(整页加载)都要过全屏「正在初始化应用程序…正在连接数据源/加载配置/准备工作区」,常见 3–15 秒。SPA 内路由不受影响,但新用户流程里硬导航不少(注册跳转、打开环境、外链进入)。\n\n## 影响\n\n新用户旅程的每个关键节点都吃一次「初始化税」。P2。\n\n## 修复方向(分层)\n\n- 便宜:白屏窗口给全局 spinner/骨架;init 屏出现前的空档也补 loading\n- 中等:init 各步骤并行化/缓存(auth config、discovery、meta 首包),二次访问走缓存跳过全屏 init\n- 结构:评估 init 屏是否必须阻塞首屏(渐进渲染 home 骨架)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

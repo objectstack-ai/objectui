@@ -1,0 +1,35 @@
+{
+  "number": 6108,
+  "kind": "issue",
+  "title": "The other two sort-axis consumers still re-derive sortability from field type — ListView's sort picker and RelatedList",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T17:29:27Z",
+  "updated_at": "2026-08-26T01:48:59Z",
+  "closed_at": "2026-08-26T01:48:59Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6108",
+  "body": "Found while implementing #5729 (the grid's consumer leg of objectstack-ai/objectstack#10235, maintainer ruling A). Filed unassigned; not fixed there, because both files sit outside that card's fenced surface (`plugin-detail` was explicitly fenced for the round, and `plugin-list` is a separate affordance from the grid header the card scopes).\n\n#5729 gives the repo a served signal and one spelling of its contract: `@object-ui/core`'s `isPlatformSortableField(projection, name)`, `true` iff an entry EXISTS and says `sortable: true`. The grid header now reads it. Two other places that decide the same question still read `UNMATERIALIZED_FIELD_TYPES` off the field's `type` instead:\n\n1. **`packages/plugin-list/src/ListView.tsx:2409`** — the toolbar sort picker. Measured, and the reason this is not merely cosmetic: the picker deliberately keeps a refused field listed when the CURRENT sort already names it (the in-use exception, so a user can remove it). Editing anything else in that popover re-emits the whole sort array, refused entry included, and `ObjectView`'s `onSortChange` turns that into a `persistViewPatch({ sort })` — the personalization PUT carrying a column the platform answers `400 INVALID_SORT` for. #5729 closed that leak at the grid seam (it filters both what it renders and what it emits); this picker is a second door onto the same stored state and is not behind that filter.\n\n2. **`packages/plugin-detail/src/RelatedList.tsx:1146,1391`** — both related-list sort entry points.\n\nBoth read the same `@objectstack/spec` set the platform computes its own projection from, so they are not currently WRONG about `formula`. What they cannot see is the rest of the closed category set the projection encodes as absence — an unknown name, a dotted path, an unprovisioned audit column, and any future verdict the runtime doors add — and they will not follow the platform when it moves.\n\nScope when picked up: replace the type read with `readObjectSortability` + `isPlatformSortableField`, keeping the branch for a deployment that served no projection (`undefined` means \"no signal was served\", not \"nothing is sortable\"), and keeping the relational carve-out separate — the platform answers `sortable: true` for a `lookup`, and the UI withholds it for a different reason.\n\nRefs: #5729 · objectstack-ai/objectstack#10235 · #3950 (where the local set was consolidated into core)."
+}

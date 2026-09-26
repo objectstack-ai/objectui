@@ -1,0 +1,34 @@
+{
+  "number": 5440,
+  "kind": "issue",
+  "title": "@object-ui/app-shell still cannot take the nodenext pin: `@monaco-editor/react` lazy import is TS2345 under Node16/NodeNext",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-20T18:39:23Z",
+  "updated_at": "2026-08-25T14:40:40Z",
+  "closed_at": "2026-08-25T14:35:04Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5440",
+  "body": "Blocked-by: #5439\n\nFound while implementing #5365. That card's acceptance was \"the consumer-side pin goes green\", and it does for `@object-ui/fields` (235 errors to 0, pin landed). `@object-ui/app-shell` went from 1097 to 23, so the pin was used as a measuring instrument there and deliberately NOT landed — the residue is not #5365's defect and would have made the pin a red enforcement on day one.\n\n*(Generics below are written with a space after `<` — GitHub's body sanitizer strips `<` followed by a letter as an HTML tag, and it ate them on the first revision of this issue.)*\n\n## What was measured, 2026-08-20\n\nWorktree off `main` `32ef595f4`, full closure built, `pnpm --filter @object-ui/app-shell exec tsc --noEmit`:\n\n| state of `packages/app-shell/tsconfig.json` | typings of components/layout | errors |\n|---|---|---|\n| `nodenext` pin | before #5365 | 1097 — 880 TS2305, 215 TS7006, 2 TS2345 |\n| `nodenext` pin | after #5365 | 23 — 21 TS7006, 2 TS2345 |\n| no pin (control) | after #5365 | **0** |\n\nThe control is the load-bearing row: `app-shell` type-checks clean today, so all 23 are produced by the pin.\n\n## The 21 TS7006 are #5439, not a defect here\n\nThey are implicit-`any` parameters at call sites of symbols imported from `@object-ui/plugin-chatbot`, which ships extensionless typings of its own. Because that package re-exports through NAMED re-exports rather than `export *`, the names still exist and merely lose their types — see #5439 for the two-way probe. Fixing that package should clear all 21; nothing in `app-shell` needs to change for them.\n\n## The 2 TS2345 are a real, separate decision\n\n```\nsrc/views/metadata-admin/JsonSourceEditor.tsx(30,31): error TS2345:\n  Argument of type '() => Promise< { default: typeof import(\"@monaco-editor/react\"); } >'\n  is not assignable to parameter of type '() => Promise< { default: ComponentType< any >; } >'.\n```\n\nSame shape at `src/views/metadata-admin/previews/SourcePageEditor.tsx(30,31)`. Both are `React.lazy(() => import('@monaco-editor/react'))`.\n\nUnder `bundler` resolution the module's default export reads as the component. Under `node16`/`nodenext` the CJS/ESM interop shape of `@monaco-editor/react@4.7.0` resolves differently and the namespace object — not the component — lands in `default`, so `React.lazy` rejects it. This is a genuine interop question about a third-party dependency, not an extension question, and the answer is a choice:\n\n- take the named export (`import('@monaco-editor/react').then(m => ({ default: m.Editor }))`) — smallest, and arguably more correct than relying on a default;\n- add the dependency to an interop-shim surface;\n- leave `app-shell` unpinned until the dependency itself ships dual typings.\n\nWorth a decision rather than a guess, because the same interop class will meet every other CJS-shaped dependency the moment another consumer pins.\n\n## Acceptance\n\n`packages/app-shell/tsconfig.json` carries the two `module`/`moduleResolution: nodenext` lines that `packages/react` and `packages/fields` already carry, and `pnpm --filter @object-ui/app-shell type-check` is green.\n\nRefs #5365, #5357, #4538."
+}

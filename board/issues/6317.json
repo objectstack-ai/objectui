@@ -1,0 +1,35 @@
+{
+  "number": 6317,
+  "kind": "issue",
+  "title": "finding: the docs gallery fixture declares `users.role` / `users.status` as `select` with no `options`, so any form bound to them renders \"No options available\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T12:29:27Z",
+  "updated_at": "2026-08-26T10:01:50Z",
+  "closed_at": "2026-08-26T10:01:50Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6317",
+  "body": "Filed unassigned while implementing #6167 (PR #6314). Not claiming.\n\n## What was measured\n\n`apps/site/app/components/galleryDataSource.ts` serves one object, `users`, and its `USERS_SCHEMA` declares:\n\n```\nrole:   { label: 'Role',   type: 'select' }\nstatus: { label: 'Status', type: 'select' }\n```\n\nNeither declares `options`, while every row carries a value for them (`admin` / `member` / `viewer`, `active` / `invited` / `suspended`). `examples/schema-catalog/test/catalog-gallery-render.test.tsx` mirrors the same fixture.\n\n`ObjectForm` copies the field's options through verbatim — `formField.options = field.options || []` (`packages/plugin-form/src/ObjectForm.tsx`) — so a form bound to those fields renders an empty select. Measured through the gallery's own render path, an `object-form` over `users` with no `fields` restriction:\n\n```\ntext: \"NameEmailRoleNo options availableDepartmentStatusNo options availableCancelUpdate\"\n```\n\nTwo of the five visible controls are an empty picker with the placeholder \"No options available\", on a docs page whose purpose is to show the component working.\n\n## Why it is worth recording\n\nThe `plugin-grid` and `plugin-view` entries do not expose it: a grid renders a select-typed cell as its raw value, so `admin` / `active` simply print. It surfaces the moment an entry puts those fields in a FORM, which is what #6167's new `plugin-form` entries do. Those two entries dodge it by authoring `fields: ['name', 'email', 'department']` (plus `created_at`), so nothing is broken today — but the reason they avoid `role` and `status` is this, and that is a constraint on the fixture rather than on the examples.\n\nNot fixed in PR #6314 because the fixture is shared: it is mirrored in the catalog test, and adding `options` would change what `select`-typed cells render in the `plugin-grid` / `plugin-view` tiles (label instead of raw value), which is outside that card's declared surface and wants its own before/after.\n\n## Possible fix\n\nDeclare the options on both fields in `galleryDataSource.ts` and in the mirror, with labels matching the values already in `USERS_ROWS`, then re-measure the `plugin-grid` / `plugin-view` tiles for text changes.\n\nSeverity left to triage.\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6361,
+  "kind": "issue",
+  "title": "finding(release): `check:spec-floors` is red on `main` — the publish path is blocked by a `floor-too-low` in `@object-ui/core` and `@object-ui/data-objectstack`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-25T15:51:41Z",
+  "updated_at": "2026-08-25T17:01:11Z",
+  "closed_at": "2026-08-25T17:01:11Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6361",
+  "body": "`Blocked-by:` nothing — measured incidentally while implementing objectui#5901, filed unassigned per scope discipline. Not fixed there: that card is a `data-objectstack` error-boundary fix, and this is a dependency-range claim in two packages' manifests.\n\n## What\n\n`pnpm check:spec-floors` (`scripts/check-spec-range-floors.mjs`, objectui#5793) exits **1** on a clean, fully-built tree with **6 findings across 2 published packages**:\n\n```\n❌  6 finding(s) across 2 published package(s):\n\n  @object-ui/core  [floor-too-low]  packages/core/dist/utils/column-sortability.d.ts references\n      `FIELD_SORTABLE_UNPROVISIONED_ANCHOR` from @objectstack/spec/api, which @objectstack/spec@17.0.0 does not export\n  @object-ui/core  [floor-too-low]  … `FIELD_UNSORTABLE_VIRTUAL_TYPE`\n  @object-ui/core  [floor-too-low]  … `FieldSortability`\n  @object-ui/core  [floor-too-low]  … `ObjectSortability`\n  @object-ui/data-objectstack  [floor-too-low]  packages/data-objectstack/dist/index.js references\n      `FIELD_SORTABLE_UNPROVISIONED_ANCHOR` from @objectstack/spec/api, which @objectstack/spec@17.0.0 does not export\n  @object-ui/data-objectstack  [floor-too-low]  … `FIELD_UNSORTABLE_VIRTUAL_TYPE`\n\nThe lowest published spec that carries every symbol each package references:\n      @object-ui/core  →  \"@objectstack/spec\": \"^17.2.0\"\n      @object-ui/data-objectstack  →  \"@objectstack/spec\": \"^17.2.0\"\n```\n\nBoth manifests currently declare `\"@objectstack/spec\": \"^17.0.0\"`.\n\n## Why this is worth a card rather than a comment\n\n**It is on the blocking publish path.** `spec-range-floors.yml` documents its own placement: it is deliberately *not* a `pull_request` job (`⛔ Do not add pull_request here`), so it reddens nobody's PR — but *\"the BLOCKING copy is on the publish path: `pnpm changeset:publish` runs this gate before a single tarball reaches npm, so a floor that lies cancels the release.\"*\n\nSo the current state is the quiet kind: every PR is green, the scheduled alarm is the only thing saying anything, and the failure surfaces as **a cancelled release** at the next publish. Any PR carrying a changeset — including routine ones — queues up a release that this gate will stop.\n\nThe gate's own remediation is a one-line manifest change per package (raise the declared floor to `^17.2.0`), and it explicitly forbids the tempting alternative: *\"Do not add a tolerant re-declaration on this side: the range is the claim, and the claim is what is wrong.\"*\n\n## Measurement\n\nOn `origin/main` @ `194fae184`, in a clean worktree, after the full build the gate itself prescribes (`pnpm exec turbo run build --filter='!@object-ui/site'` — 43/43 tasks successful):\n\n```\npnpm check:spec-floors   → exit 1, 6 findings\n```\n\nIndependent of any local change: the four cited symbols appear **0 times** in `packages/data-objectstack/src/index.ts` both at `194fae184` and in the working tree, and no `package.json` was modified. Running the gate before a full build instead returns `[no-artifact]` — a *different*, prerequisite-not-met failure, which is why this is easy to walk past locally.\n\n## Not in scope of objectui#5901\n\nThat card carries the marking through two error re-wraps in `packages/data-objectstack/src/index.ts`; its PR touches no manifest and adds no spec symbol. Its own new `import type { ApiError } from '@objectstack/spec/api'` is clean — `ApiError` produced **0** findings in this run, i.e. `@objectstack/spec@17.0.0` does export it."
+}

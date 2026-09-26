@@ -1,0 +1,35 @@
+{
+  "number": 6240,
+  "kind": "issue",
+  "title": "The designer's object payload sends `fields` as an ARRAY where `ObjectSchema` requires a map — a value-level rejection the key-name parity gate cannot see",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-25T03:31:18Z",
+  "updated_at": "2026-08-26T05:39:29Z",
+  "closed_at": "2026-08-26T05:39:29Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6240",
+  "body": "Found while fixing objectui#6223 (the object-level members of the #5761 parity family). Filed, not fixed: #6223 closes the **key-name** class, and this is a **value-level** rejection — the gate's own coverage note 4, explicitly outside what a key-name parity check can reach.\n\n## The measurement\n\nMeasured against the installed `@objectstack/spec` 17.2.0, ESM build (`dist/data/index.mjs`), on `origin/main` @ `0409b766d`:\n\n```\nObjectSchema.safeParse({ name: 'account', label: 'Account' })\n  => success = false   invalid_type @ fields        // `fields` is REQUIRED\n\nObjectSchema.safeParse({ name: 'account', label: 'Account',\n                         fields: [ { name: 'n', type: 'text', label: 'N' } ] })\n  => success = false   invalid_type @ fields        // an ARRAY is refused\n\nObjectSchema.safeParse({ name: 'account', label: 'Account',\n                         fields: { n: { type: 'text', label: 'N' } } })\n  => success = true                                 // a MAP is what it wants\n```\n\nSo `fields` is required and must be keyed by field name.\n\n## The writers\n\n`packages/app-shell/src/services/MetadataService.ts` — both object writers emit an array:\n\n- `saveObject(obj, existingFields)` → `toObjectPayload` sets `fields` from `FieldMetadataPayload[]`, and the declared shape is `fields?: FieldMetadataPayload[]`.\n- `saveFields(objectName, fields)` → `fields: fields.map(toFieldPayload)`, spread over the object fetched from the server. Note what that spread means: the server's own document arrives with `fields` as a **map** and this line replaces it with an **array**, so the shape is converted in the wrong direction on every field save.\n\nBy contrast `packages/plugin-designer/src/MetadataFieldsPage.tsx` writes `fields` as a **map** (`Record<string, unknown>`), which is the correct shape. The two designer write paths disagree with each other, and only one of them agrees with the spec.\n\nVerified as an executable assertion in `packages/app-shell/src/services/MetadataService.specKeyObjectPayload.test.ts` (landed by #6223), which pins the remaining failure exactly so it cannot silently change:\n\n```ts\nexpect(unrecognizedKeys(result)).toEqual([]);                       // key names: clean after #6223\nexpect(result.error?.issues.map((i) => `${i.code} @ ${i.path.join('.')}`))\n  .toEqual(['invalid_type @ fields']);                              // value level: this card\n```\n\n## Why it is not a one-liner\n\n- `saveObject`'s `existingFields` parameter is typed and documented as an array and is public API (`MetadataService` is exported from app-shell's barrel via `useMetadataService`), so changing the payload shape and changing the method signature are two separable decisions.\n- The map's KEY has to come from somewhere. `FieldMetadataPayload.name` is the obvious candidate, but it is optional on some read paths, and a field with no name would silently vanish into a `{ undefined: … }` entry rather than failing loudly — which is the AI-authored-metadata failure mode this repo keeps closing, not opening.\n- `saveFields` currently preserves unknown server keys by spreading the fetched document. A map/array conversion has to preserve that property or it becomes a data-loss bug on save.\n- Whether the route is lenient about this today is unmeasured. This issue reports the schema fact, not a reproduced HTTP response.\n\nRefs: #6223 (the key-name half + the object oracle) · #5761 (the gate, coverage note 4) · #6238\n"
+}

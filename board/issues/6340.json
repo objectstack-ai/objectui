@@ -1,0 +1,33 @@
+{
+  "number": 6340,
+  "kind": "pull_request",
+  "title": "fix(chatbot): 给工具卡片的名字打通 i18n 通道（cloud#1658）",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T14:16:27Z",
+  "updated_at": "2026-08-27T13:11:30Z",
+  "closed_at": "2026-08-27T13:11:29Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-08-27T13:11:28Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6340",
+  "body": "实现 cloud#1658 追加观察的 A 条。\n\n## 现象（实测，全中文环境）\n\n```\n统计一下每个阅读状态各有多少本书\n  Describe object    已完成   执行过程     ← 工具名英文\n  Visualize data     已完成   执行过程     ← 工具名英文\n  已统计完成，各阅读状态的书本数量如下：…    ← 其余全中文\n```\n\nDOM 取证：叶子节点文本确为 `Describe object` / `Visualize data`。\n\n## 根因\n\n`humanizeToolName` 是**纯英文构词器**（`describe_object` → `Describe object`），**没有任何 i18n 通道**。所以这不是\"某个语言包漏翻了\"，而是名字从未经过翻译——任何语言包都够不着它。\n\n卡片上其余每一处都本地化了（状态、动作、回答），偏偏「它现在在做什么」这一步——用户最需要读懂的一步——留在了外语。\n\n## 改动\n\n`humanizeToolName(name, translate?)`，`translate` 形状即 `useSafeTranslate()`，按 `chatbot.tool.<tool_name>` 查；查不到回落到**与今天完全一致**的英文标题。\n\n## 这一步只打通通道，不改变任何现有显示\n\n不传 `translate` 时行为逐字不变——测试的第一组就在钉这个（老行为：snake/kebab 转换、缩写表 `URL`/`AI`、空输入）。语言包目前也没有条目，所以**合入后界面上看不到任何变化**。\n\n这样拆是因为：**在通道存在之前，翻译工作根本无处可放**。后续两件事各自独立、可分别推进：\n1. 把两个调用点接上 `useSafeTranslate()`（`ChatbotEnhanced.tsx` 的 `summarizeTools` 是纯函数、另一处在另一作用域，接线需要小心，我没有在本 PR 里硬接）；\n2. 按需往十个语言包补 `chatbot.tool.*`。\n\n## 一个刻意的选择\n\n回落交给**英文标题**而不是原始名：语言包缺条目时显示 `Describe object`（与今天相同），而不是 `describe_object`（比今天更差）。有一条测试专门钉这个——它断言传给 translator 的 fallback 参数是 `'Describe object'`。\n\n## 测试\n\n新增 7 条；`plugin-chatbot` 全量 **322 条全过**，既有行为未受影响。\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6259,
+  "kind": "issue",
+  "title": "ObjectGantt's default navigation config is spelled with the deprecated `width` rather than the `size` bucket that replaced it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T04:48:57Z",
+  "updated_at": "2026-08-25T13:06:16Z",
+  "closed_at": "2026-08-25T13:06:16Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6259",
+  "body": "Noticed while correcting the `navigation` example in `packages/plugin-gantt/README.md` (#6050). Out of that card's scope, so filed rather than fixed there.\n\n## The fact\n\n`packages/plugin-gantt/src/ObjectGantt.tsx:1152` on `main` (`2dc4aa709`):\n\n```ts\nconst navConfig = schema.navigation ?? { mode: 'drawer', width: 'min(960px, 60vw)' };\n```\n\n`width` is deprecated in the spec that owns this shape. `@objectstack/spec@17.2.0`, `packages/spec/src/ui/view.zod.ts`, `NavigationConfigSchema`:\n\n> `@deprecated [#2578 → size]` A pixel/percent width cannot be authored blind: the author (often an AI) does not know the client viewport. Kept only as a renderer fallback for pre-#2578 metadata; new metadata sets `size` (or omits it for `auto`).\n\nThe `size` bucket that replaced it resolves through `useNavigationOverlay`'s `OVERLAY_SIZE_WIDTHS`, where `lg` is `min(92vw, 960px)` — the same 960px cap this default expresses, with a viewport clamp instead of `60vw`.\n\n## Why it may still be correct as written, and why that is the question\n\nThis is a **renderer default**, not authored metadata, so the deprecation's stated rationale (\"the author does not know the client viewport\") does not obviously apply — and `min(960px, 60vw)` is itself viewport-adaptive, which is the property the bucket exists to provide. So this may be deliberate.\n\nWhat makes it worth a card either way: `resolveOverlayWidth` gives an explicit `width` **priority over** `size`, so as long as this default is spelled with `width`, a gantt that does not declare `navigation` can never be affected by the bucket system, and the deprecated branch stays load-bearing in the one path most gantts take. If the intent is that the default should be `{ mode: 'drawer', size: 'lg' }`, that is a one-line change; if the intent is that this default deliberately outranks the bucket, that is worth a comment, since nothing here says so.\n\nNo behaviour is broken today — filing the judgement, not a defect.\n\n## Not in scope of #6050\n\n#6050 is the README's `navigation` example, which is authored metadata and now shows `{ \"mode\": \"page\" }` with no width or size at all. This line is the renderer's own default and is untouched by that fix.\n"
+}

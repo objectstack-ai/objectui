@@ -1,0 +1,35 @@
+{
+  "number": 5993,
+  "kind": "issue",
+  "title": "finding(components): `ui:button` inlines its own copy of resolveIcon instead of importing it, so any future fix to the shared resolver silently misses it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T11:20:21Z",
+  "updated_at": "2026-08-25T15:12:30Z",
+  "closed_at": "2026-08-25T15:12:30Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5993",
+  "body": "Found while implementing #5930, verifying the premise that `resolveIcon` is \"the same resolver `ui:button` uses\". It is the same *algorithm*, but not the same *function*.\n\n## What is on the tree\n\n`packages/components/src/renderers/form/button.tsx` (the `ui:button` registration, namespace `ui`) does not import `resolveIcon`. It carries a byte-equivalent reimplementation at module scope — its own `toPascalCase`, its own `iconNameMap` containing the single entry `Home -> House`, and its own index into `icons` from `lucide-react`:\n\n```ts\nlet Icon: LucideIcon | null = null;\nif (schema.icon) {\n  const iconName = toPascalCase(schema.icon);\n  const mappedIconName = iconNameMap[iconName] || iconName;\n  Icon = (icons as any)[mappedIconName] as LucideIcon;\n}\n```\n\n`packages/components/src/renderers/action/resolve-icon.ts` is the shared version, and the `action:*` family (`action-button`, `action-menu`, `action-group`, `action-icon`) plus `renderers/complex/data-table.tsx` all import it.\n\n## Why it matters\n\nBehaviour is identical **today** — same population, same casing rule, same `Home -> House` alias, same \"unknown name renders nothing\" outcome — so nothing is currently mis-rendering. The risk is divergence: an alias added to `iconNameMap` in `resolve-icon.ts` (which is exactly how lucide retirements have been absorbed — see #5586, #5622) does not reach `ui:button`. The copy would keep resolving the retired spelling to nothing while every `action:*` site started resolving it correctly, and no gate separates them because `check:icon-record-names` declares *both* modules as legitimate record readers.\n\nThat hand-copied-resolver class is what #5633 was opened about; it chose to build a gate over the population rather than dedupe. This is the dedupe half, still outstanding.\n\n## Shape of the repair\n\nImport `resolveIcon` in `form/button.tsx`, delete the local `toPascalCase` and `iconNameMap`, and drop `form/button.tsx` from `DECLARED_RECORD_READERS` in `scripts/check-lucide-icon-record-names.mjs` — the census rediscovers readers from source on every run and fails on drift in both directions, so that edit is verified rather than asserted.\n\nNot folded into #5930: different file, different renderer, and it widens that card's verification surface for no behavioural gain.\n"
+}

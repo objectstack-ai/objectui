@@ -1,0 +1,36 @@
+{
+  "number": 6020,
+  "kind": "issue",
+  "title": "Approvals inbox QUEUE rows still render (and sort on) an amount field the object declares `hidden: true`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-24T13:36:34Z",
+  "updated_at": "2026-08-25T16:28:06Z",
+  "closed_at": "2026-08-25T16:28:06Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6020",
+  "body": "Filed unassigned from work on #5565 (the drawer summary card trim). Sibling surface, same missing filter — recording it rather than widening that PR.\n\n## What was measured\n\n`decisionAmountEntry` in `apps/console/src/pages/system/ApprovalsInboxPage.tsx` picks the one decision-relevant numeric field of the request's `payload_json` snapshot by matching `AMOUNT_KEY_RE` (`amount|total|price|value|cost|sum|budget|salary|fee|revenue|balance` plus the CJK spellings) against the key. It is called from **four** places:\n\n| line | surface | trimmed by #5565's fix? |\n|---|---|---|\n| ~1845 | drawer summary card lead figure | ✅ yes |\n| ~444 | `RecordCell` — desktop queue row (`· {amount.display}`, plus `title={label: display}`) | ❌ no |\n| ~1649 | mobile queue card (`· {amount.display}`, `title={amount.label}`) | ❌ no |\n| ~1061 | the `sortKey === 'amount'` comparator | ❌ no |\n\nSo after #5565 lands, a field the app author declares `hidden: true` whose key matches `AMOUNT_KEY_RE` is trimmed out of the drawer but still renders inline in the queue list, on both the desktop row and the mobile card — and still drives the amount sort order, which leaks the *relative magnitude* of a hidden field even to a viewer who never sees the figure.\n\nSame invariant as #5565 and #5553: the app author's `hidden` declaration is bypassed on the approver's path. Same ruling applies (objectstack#10749, verbatim: `hidden: true` stays UI-only; `internal: true` is the serialization primitive) — so the fix belongs in the UI, and this is default UI too.\n\n## Why it was NOT fixed in #5565\n\nScope, and a genuinely different cost model — not an oversight:\n\n- #5565's subject is the **drawer summary card**, one open request, one object. Its metadata read is `getObjectSchema(selected.object_name)`, one cached call, one object.\n- The queue is **N rows spanning K objects**, loaded and paged. Trimming it needs a per-object hidden-field map for the whole page, on the `useRecordReadability` batching pattern rather than the single read #5565 added, plus a loading posture for rows whose object has not answered yet.\n- The **sort comparator** is not a visibility change at all — dropping a row's amount moves it to the bottom of the amount sort, so this is an ordering change with its own acceptance criteria, and it must be decided rather than assumed.\n\nWidening #5565 to cover this would have replaced a bounded, mechanical filter with an unrelated cost model and a behaviour change to sorting.\n\n## Note on the interim state\n\nBetween #5565 landing and this one, the drawer and the queue row disagree about the same field for the same request: the row shows the amount, the drawer does not. That is strictly an improvement over both showing it, but it is a visible inconsistency and worth closing.\n\n## Pointers\n\n- `apps/console/src/pages/system/ApprovalsInboxPage.tsx` — `decisionAmountEntry` and its four call sites.\n- The seam #5565 added: `apps/console/src/pages/system/hiddenFields.ts` (`hiddenFieldNames`, `readHiddenFields`, `useHiddenFields`) — the reader is already batching-ready; only the hook is single-object.\n- The batching precedent for K objects across a page: `apps/console/src/pages/system/recordReadability.ts` (`planReadabilityProbe` IS the cost model there).\n- Related: #5565 (drawer summary card, the fix this was split out of), #5553 (raw JSON panel gate) — neither is affected by this one either way."
+}

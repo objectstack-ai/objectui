@@ -1,0 +1,35 @@
+{
+  "number": 5969,
+  "kind": "issue",
+  "title": "recordActivityFeed: pin the feed-kind map's OPEN-vocabulary relationship to `sys_activity.type` (ruled direction 4 on objectstack#11507)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T09:51:15Z",
+  "updated_at": "2026-08-26T01:52:15Z",
+  "closed_at": "2026-08-24T18:13:53Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5969",
+  "body": "Filed by the triage seat executing the maintainer's 2026-08-24 ruling on objectstack#11507 (batch acceptance, verbatim: 「四维分析一致的，接手你的建议。」 — adopting the aligned four-facet recommendation, **direction 4: `sys_activity.type` is author-extensible**).\n\n## What this card does\n\nobjectstack#11507 recorded that no pin asserts the relationship between the platform declaration and this renderer's map in either direction — objectui#5840 deliberately broke the old set-equality pin (pinning to the closed declaration meant dropping stored rows), and the replacement pin could not be written until the vocabulary was ruled. It now is.\n\nPer the ruling, in `packages/plugin-detail/src/renderers/recordActivityFeed.ts`:\n\n1. **Pin the open-vocabulary contract**: the feed-kind map covers the platform's built-in set (a superset assertion against the declared options — new built-ins turn the pin red so the map keeps up), and **an unknown/author-extended `type` value renders through a defined fallback presentation** — never dropped, never crashing. Pin both halves.\n2. The pin's docblock names the ruling (objectstack#11507, direction 4, 2026-08-24) so the next sweep does not \"restore\" set-equality.\n\n## Boundary\n\n⛔ This card does not touch the platform declaration — the services-lane half (making the select declaration honest about open semantics) rides objectstack#11507 itself. No coordination needed beyond the ruling: the fallback-rendering pin is correct under the ruled semantics regardless of when the declaration lands.\n\nDedupe: #5840 (landed, removed the wrong pin — this adds the right one); no open card carries this scope."
+}

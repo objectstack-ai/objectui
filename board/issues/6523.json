@@ -1,0 +1,35 @@
+{
+  "number": 6523,
+  "kind": "issue",
+  "title": "The three menu renderers run two different separator dialects against one `MenuItem`, and the declared one cannot parse green",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-08-26T08:34:59Z",
+  "updated_at": "2026-08-28T16:19:38Z",
+  "closed_at": "2026-08-28T16:19:38Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6523",
+  "body": "Found while implementing #6249 (repairing the menubar demo's separators to the declared `separator: true` spelling). Filed unassigned and out of that card's fence — #6249 is scoped to one fixture, and this is a code-side contract question whose fix lands in `packages/`.\n\nThis is the **fourth** `MenuItem`-shaped defect in the family alongside #6326 and #6278 (the item's `icon`) and #6346 (the item's handler). Unlike those it is about the divider and the shortcut.\n\n## What was measured, at `50f987f9a`\n\n`MenuItem` is one interface, shared by `dropdown-menu`, `context-menu` and `menubar` items. The three renderers do not agree on how to read it.\n\n**1. Two separator dialects, and only one of them is declared.**\n\n```tsx\n// packages/components/src/renderers/overlay/menubar.tsx:33\nitem.separator ? (                                   // the DECLARED key\n\n// packages/components/src/renderers/overlay/dropdown-menu.tsx:46\nif (item.type === 'separator') return <DropdownMenuSeparator key={i} />;   // UNDECLARED\n\n// packages/components/src/renderers/overlay/context-menu.tsx:44\nif (item.type === 'separator') return <ContextMenuSeparator key={i} />;    // UNDECLARED\n```\n\n`MenuItem` declares `separator?: boolean` (`packages/types/src/overlay.ts:358`, `zod/overlay.zod.ts:139`) and declares no `type` at all. `MenuItemSchema` is a bare `z.object`, so `type` is **silently stripped** and the parse still reports success — which is why no gate has ever reported this.\n\nBoth sibling renderers also **teach** the undeclared spelling in their own registry metadata: `dropdown-menu.tsx:124` and `context-menu.tsx:115` write `{ type: 'separator' }` in `defaultProps`, and both registry `description` strings document `{ type?: \"separator\"|\"label\", ... }`. `menubar.tsx:69` writes the declared `{ separator: true }`. The registry itself ships both dialects.\n\n**2. `shortcut` is rendered by two of the three.**\n\n```tsx\n// dropdown-menu.tsx:70\n{item.shortcut && <span className=\"ml-auto text-xs tracking-widest opacity-60\">{item.shortcut}</span>}\n\n// context-menu.tsx:68\n{item.shortcut && <ContextMenuShortcut>{item.shortcut}</ContextMenuShortcut>}\n```\n\n`menubar.tsx` reads it nowhere.\n\n⭐ **This matters to a ruling already made.** #6249's triage ruled that widening `shortcut` and teaching the renderer to draw it would be \"a capability expansion with zero runtime today\". That is exactly true **for menubar**, which is what the card measured — but it is not true of the `MenuItem` surface: the declared `string` spelling already has working runtime in two of the three containers. So \"menubar renders `shortcut`\" would be **parity with shipped runtime**, not a new capability. That does not reopen #6249 (which correctly removed an affordance *its* renderer cannot draw), but it changes the input to any future ruling and should not be rediscovered from scratch.\n\n**3. The declared separator spelling cannot parse green.**\n\n`MenuItem.label` is **required** — `label: string` (`overlay.ts:334`), `z.string()` (`overlay.zod.ts:133`) — and a divider has no label. Measured:\n\n```js\nMenuItemSchema.safeParse({ separator: true })\n// => success: false, issues[0].path: ['label']\n```\n\n`menubar.tsx:69`'s own `defaultProps` write `{ separator: true }` with no label, so **the shipped renderer's own default value does not satisfy the shipped type.** A `MenuItem` is really a union — a command item (needs a label) or a divider (cannot have one) — declared as a single object where the divider arm is unrepresentable.\n\nThis is not theoretical: it directly shaped #6249. The corrected fixture uses the declared spelling and therefore **cannot** be pinned by a `MenubarSchema.safeParse`, so the assertion there had to be structural. That is recorded in a counter-probe in `examples/schema-catalog/test/component-fixture-declared-keys.test.ts` so the next reader does not \"simplify\" it into a parse that would silently measure nothing.\n\n## Why it matters\n\nDeclared and enforced disagree in both directions on the same object, the failure mode #6132's four-axis analysis called the most expensive (\"能通过校验、能发布、然后静默什么都不做\"):\n\n- an author following the shipped type writes `{ separator: true }` in a dropdown menu — it validates, it publishes, and it renders a **blank menu row**. That is the exact user-visible defect #6249 was filed for, still live in the other two containers for anyone who follows the declaration;\n- an author who gets a working divider wrote `{ type: 'separator' }` — which no type declares, so nothing protects it from being renamed away;\n- an author who follows the declaration for a divider writes something that **cannot pass a strict parse at all**.\n\n## The decision this needs\n\n**A — the type is right, the renderers are wrong.** Teach `dropdown-menu` and `context-menu` to branch on `item.separator`, and correct their `defaultProps` and registry descriptions. Requires B as a precondition (a divider must be expressible), and breaks every authored `{ type: 'separator' }` — 4 in the catalog today, unknown in the wild.\n\n**B — make the declared divider representable.** Either `label?: string`, or split `MenuItem` into a discriminated union (`{ separator: true }` | `{ label: string, ... }`). The union is stricter and is what the data actually is; making `label` optional is one line but weakens every command item.\n\n**C — the renderers are right, the type is wrong.** Declare `type?: 'separator' | 'label'` on `MenuItem` and retire `separator`. This moves a published type and would make `menubar.tsx` the odd one out instead.\n\nI have no recommendation strong enough to skip triage. **A+B** matches the declaration and AGENTS.md #0.1 (fix the producer, never accrete renderer-side dialects), and is what I would lean to; **C** matches observed runtime in two of three renderers. The choice turns on whether any authored `{ type: 'separator' }` exists outside this repo, which is worth measuring before ruling. Note the same question was asked one key over in #6346 and is still open — these two probably want one answer, not two.\n\nRefs: #6249 · #6346 · #6326 · #6278 · #6132 · #5250.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_011SfZeFWrhGLHmfq61xbz4q)_"
+}

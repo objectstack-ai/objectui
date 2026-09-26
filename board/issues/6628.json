@@ -1,0 +1,33 @@
+{
+  "number": 6628,
+  "kind": "pull_request",
+  "title": "docs(plugin-form): document FormFieldTab.visibleWhen and its support boundary",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-28T04:58:00Z",
+  "updated_at": "2026-08-28T05:32:39Z",
+  "closed_at": "2026-08-28T05:32:38Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": "2026-08-28T05:32:37Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6628",
+  "body": "Part of #6237 — the docs half of round 2 only. The two renderer arms (TabbedForm sections, WizardForm steps) stay open on that card pending a ruling; #6237 remains open and is deliberately not closed by this PR.\n\nSession: session_01CRJge11jso9TpXRWFt1Z49 (durable copy — footer form degrades on edit).\n\n## What this documents\n\n`FormFieldTab.visibleWhen` landed in PR #6619 (renderer evaluation + ModalForm tabbed synthesis) as a published, declared key with nothing telling an author it exists. This PR adds a \"Conditional tabs\" subsection in TWO places — `content/docs/plugins/plugin-form.mdx`, and (second commit, PM order widening the fence by exactly this one file) its twin section in `packages/plugin-form/README.md`, which ships to npm and was documenting a feature-less version of the key:\n\n- **What it gates**: both the tab trigger and its panel — a hidden tab leaves the strip entirely.\n- **Vocabulary**: the same CEL predicate slot as field rules (string or dialect/source object), canonical engine, host predicate scope, fail-open.\n- **The ruled submit semantics** (maintainer, 2026-08-27), stated loudly because they are counter-intuitive: a hidden tab's values still submit; its fields skip client-side validation; the server-side contract is the loud floor; stale errors clear on a verdict flip.\n- **Selection and engagement mechanics**: derived re-selection over visible tabs; engagement judged on DECLARED tabs.\n- **A support table naming which authoring surfaces carry the predicate today** — `fieldTabs` and ModalForm's tabbed contentLayout: Yes; TabbedForm sections and WizardForm steps: No, deliberately (objectui#6111), until each surface enforces it. Both copies carry the No rows. The content/docs wizard section also gains one sentence making explicit that its \"conditional rules are respected\" claim is about the FIELDS' rules, not a step-level predicate.\n\nThe two No rows are the guard this card family exists for: both pages now state the boundary instead of letting a reader infer that a section predicate works in every layout.\n\n## Verification (at 10c73cf9, the head of this branch — two commits, clean tree; every verdict below re-run at this head)\n\n- `check:doc-fences` — exit 0, own verdict: \"every TypeScript block in 223 document(s) is fenced ts/tsx/typescript … No unknown fence spelling hides one.\"\n- `check:doc-types` — exit 0, own verdict: \"Every documented component type is registered.\"\n- `docs:check-links` — exit 0, \"Links are valid across 17 scan roots.\" That gate strips fragments (anchors out of its scope, stated at scripts/check-doc-links.mjs:800-832), so the one intra-page anchor (content/docs only; the README mirror adds no links) was verified against the repo's own github-slugger@2.0.0: computed slug `conditional-tabs-formfieldtabvisiblewhen` is byte-identical to the link written.\n- `check:doc-snippets` — NOT run locally (needs the 21-package built dist closure); declared narrowing: its population is ts/tsx/typescript fence bodies of COVERED documents. The content/docs diff adds/removes zero fence lines (`git diff 38a123cac..HEAD -- content/docs/ | grep -c '^[+-]```'` reads 0; positive control in the same query shape reads 2 on fence-touching commits 7fdf74eb and 546ddf77). The README's one in-fence line lands in `packages/plugin-form/README.md`, which is declared UNGATED in the gate's own ledger (stale-entry rules fire only on file-missing or no-ts-blocks, neither moved). CI's doc-snippet-types.yml builds and runs the real thing.\n- `check:readme-exports` — NOT MEASURED locally: exit 1 with every finding \"type entry ./dist/index.d.ts is not on disk — run pnpm build first\" across 36 unbuilt packages (378 self-imports unjudgeable, tree-state, none a verdict about this diff). This diff cannot move it: the README edit adds ZERO import lines (`git show 10c73cf9 -- packages/plugin-form/README.md | grep -c '^+.*import'` reads 0; positive control: commit 062943f8 reads 10 in the same query shape), and all 54 pre-existing plugin-form rows are the same unbuilt-dist class. CI builds before judging.\n- `check:changeset-presence` — exit 0 at the new head, own verdict: \"No source of a released package changed in this range, so no changeset is owed.\" (2 files changed, 0 published source; README is not under src/.)\n- `check:control-bytes` — exit 0, \"OK (scanned 5485 tracked text file(s)).\"\n- Vitest, repo-root invocation (root config, invocation guard active): at eeaa6f1b the content/docs reader set ran green — `Test Files 129 passed (129)`, `Tests 4568 passed (4568)`. At 10c73cf9 the README-reader superset (all of scripts/ plus every test file outside it whose text mentions README — 30 files, grep-enumerated over every test glob) is queued behind a long-running full-suite holder on the shared verify lock; its verdict lands in the report on #6237 (the report-at-draft protocol: gate states are recorded honestly, `in_progress` included). Narrowing rationale unchanged: the diff is two documentation files no package source imports; CI shards run the whole repo on this PR.\n\n## Reported on the card\n\nThe read-only measurement of the TabbedForm and WizardForm arms (the other half of this round's scope) is posted as the structured report on #6237 — evidence for the ruling those arms wait on. Q1/Q2 from that report are with the decision box; nothing from either is implemented here.\n\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

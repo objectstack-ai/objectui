@@ -1,0 +1,36 @@
+{
+  "number": 6272,
+  "kind": "issue",
+  "title": "bug(fields): a `type: 'location'` value spelled `{ lat, lng }` reads as `0, 0` in `LocationField` while the same value renders correctly through `LocationCellRenderer`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-25T06:34:34Z",
+  "updated_at": "2026-08-28T11:45:51Z",
+  "closed_at": "2026-08-28T11:45:51Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6272",
+  "body": "Blocked-by: #6154\n\nFiled unassigned while measuring #6154. Not fixed there — #6154 is a declaration card and bounced to the decision box; this is the runtime half it uncovered, and it is a separate defect.\n\nBaseline: objectui `main` @ `ef2a3bd8d`.\n\n## The two consumers of one field type disagree\n\n`location` has two consumers inside `@object-ui/fields` alone:\n\n- **edit** — `LocationField` (`packages/fields/src/widgets/LocationField.tsx:14`), which reads `value.latitude` / `value.longitude` and nothing else, each behind `|| 0`.\n- **display** — `LocationCellRenderer` (`packages/fields/src/index.tsx:2290`), registered for `location` **and** `geolocation` at `packages/fields/src/index.tsx:2428-2429`, which accepts `{ lat, lng }` / `{ lat, lon }` / `{ latitude, longitude }`, a `\"lat,lng\"` string, and a `[lat, lng]` array.\n\nMeasured by rendering both against the same values (`vitest run` from the repo root, `happy-dom`, throwaway probe, not committed):\n\n| stored value | `LocationField` (edit, readonly branch) | `LocationCellRenderer` (display) |\n|---|---|---|\n| `{ latitude: 30.2741, longitude: 120.1551 }` | `30.2741, 120.1551` | `30.2741, 120.1551` |\n| `{ lat: 30.2741, lng: 120.1551 }` | **`0, 0`** | `30.2741, 120.1551` |\n| `{ lat: 30.2741, lon: 120.1551 }` | **`0, 0`** | `30.2741, 120.1551` |\n| `\"30.2741,120.1551\"` | **empty** | `30.2741, 120.1551` |\n| `[30.2741, 120.1551]` | **`0, 0`** | `30.2741, 120.1551` |\n| `null` | empty | empty |\n| `{ latitude: 30.2741 }` | **`30.2741, 0`** | raw JSON fallback |\n\n## Why `0, 0` is the bad failure mode\n\n`0, 0` is not an error state — it is a valid coordinate in the Gulf of Guinea. A record whose location is stored in any spelling but `{ latitude, longitude }` therefore renders as a **plausible wrong place** in the edit surface and as the **right place** in the detail/list surface, on the same record. The partial case is worse in the same direction: `{ latitude }` alone reads `30.2741, 0`, silently inventing a longitude the record does not carry.\n\n## This is not a hypothetical spelling\n\nThe repo itself stores `type: 'location'` values in both spellings:\n\n- `{ lat, lng }` — `packages/plugin-detail/src/__tests__/DetailSection.addressDisplay.test.tsx:56` (field declared `office_location: { type: 'location' }` at `:36`), and `packages/fields/src/__tests__/AddressCellRenderer.test.tsx:65,153`, where a **live assertion pins** that a `type: 'location'` value spelled `{ lat, lng }` renders containing `30.2741`.\n- `{ latitude, longitude }` — `examples/schema-catalog/src/schemas/fields-location/{san-francisco-coordinates,read-only-location}.json`, `packages/plugin-detail/src/__tests__/InlineFieldInput.composite.test.tsx`.\n\n`packages/plugin-map/src/ObjectMap.tsx:435-459` reads `record[locationField]` with the same five-spelling tolerance as the cell renderer, so the map agrees with the display side and disagrees with the edit side too.\n\n## What is *not* ambiguous\n\nThe produce side is settled and single-shaped — measured from `onChange`:\n\n```\nonChange emissions = [{\"latitude\":30.2741,\"longitude\":120.1551}, null]\n```\n\n`LocationField` emits exactly `{ latitude: number; longitude: number }` or `null`, never an alias spelling.\n\n## Repro\n\n```tsx\nimport { LocationField, getCellRenderer, resolveCellRendererType } from '@object-ui/fields';\nconst v = { lat: 30.2741, lng: 120.1551 };\n// edit surface  → \"0, 0\"\n {}} readonly />\n// display surface → \"30.2741, 120.1551\"\nconst R = getCellRenderer(resolveCellRendererType({ type: 'location' }));\n\n```\n\n## Not decided here\n\nWhich side moves is the same question #6154 is bounced on, and should be settled with it rather than separately: either the alias spellings are real (and the edit widget must read them, and the type published for #6154 must cover them), or they are not (and the display renderer's tolerance is the thing to retire, per AGENTS.md #0.1 — which would also require re-fixturing the two `{ lat, lng }` test files above). Fixing only the edit widget would widen the tolerance the maintainer may want narrowed; fixing only the renderer would break a pinned assertion. Recording, not choosing.\n\nRefs: #6154 (the declaration card this was measured under).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01CSoz9uGhaaSgiq3hshtN7L)_"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 3719,
+  "kind": "issue",
+  "title": "Setup settings UI renders valueDomain-bearing keys as curated dropdowns — the UI advertises a narrower domain than the contract now enforces",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-08T05:53:10Z",
+  "updated_at": "2026-08-26T13:13:25Z",
+  "closed_at": "2026-08-26T13:12:28Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3719",
+  "body": "Filed by the objectstack services-lane PM out of objectstack#5712's delivery (PR objectstack#6581); recorded unassigned for this repo's triage. Not claimed.\n\n## Fact\n\nSince objectstack#6581 (services half of the 2026-08-06 maintainer ruling on objectstack#5712, spec half objectstack#5933 / PR objectstack#6515), a settings specifier can declare `valueDomain` (`iana_time_zone` | `iso_4217_currency` | `iso_3166_alpha2`). When declared, the **standard's membership is the enforcement boundary** and the curated `options` table is a **UI convenience list** — `PUT /api/settings/localization` with `timezone: 'Europe/Zurich'` or `currency: 'CHF'` is now accepted, as is `OS_LOCALIZATION_TIMEZONE=Europe/Zurich`.\n\nThe Setup settings UI, however, still renders these keys as closed dropdowns fed by `options`. So an admin can only author the 17 curated timezones / 9 currencies in the UI, while the contract (and the keys' own descriptions, which always promised \"IANA zone\" / \"ISO 4217 code\") accepts the full standard domain. Legal values outside the curated lists are reachable only via API or env today.\n\n## The ask (direction, for triage to shape)\n\nA `valueDomain`-aware affordance on settings selects — e.g. a combobox (suggestions from `options`, free input allowed) instead of a closed dropdown, keyed off the specifier's `valueDomain` declaration. Keys **without** `valueDomain` must keep the closed dropdown: their `options` are still exhaustive (objectstack#5131 semantics — e.g. sms/mail provider selects, and `localization.locale`, whose domain declaration was deliberately rejected in objectstack#6515 because its options ARE the shipped catalogs).\n\nServer-side rejection shape a UI can rely on: `invalid_value` with `constraint: { valueDomain: '…' }` (400 `SETTINGS_VALIDATION`, `details.fields`).\n\n## Refs\n\n- objectstack#5712 (ruling + services half), PR objectstack#6581 (enforcement, incl. the repro values above)\n- objectstack#5933 / PR objectstack#6515 (spec vocabulary + per-domain membership definitions)\n- objectstack#5131 (exhaustive-options semantics that must survive for undeclared keys)"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6480,
+  "kind": "issue",
+  "title": "saveFields spreads the served metadata document verbatim, so the framework's own read decorations (`_diagnostics`, `_draft`) go back out on a PUT ObjectSchema refuses by name",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-26T03:20:56Z",
+  "updated_at": "2026-08-26T07:29:55Z",
+  "closed_at": "2026-08-26T07:29:55Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6480",
+  "body": "Found while resolving objectui#6238 (the object-level `enabled` member of the #5761 parity family). Filed, not fixed — it is neither that card's key nor its mechanism, and it is outside the key-name parity gate's static reach for the same reason #6238's tombstone was: the keys are not declared anywhere, they arrive from the server.\n\n## The measurement\n\n`@objectstack/spec` 17.2.0 declares the decorations the framework **adds to a served metadata document**, and `ObjectSchema` refuses both of them by name:\n\n```\nMETADATA_READ_DECORATIONS = [\"_diagnostics\", \"_draft\"]      // @objectstack/spec/kernel\n\nObjectSchema.safeParse({ name, label, fields })                     => success = true   (control)\nObjectSchema.safeParse({ name, label, fields, _diagnostics: … })    => unrecognized_keys [\"_diagnostics\"]\nObjectSchema.safeParse({ name, label, fields, _draft: … })          => unrecognized_keys [\"_draft\"]\n```\n\nThe spec exports `stripReadDecorations` for exactly this round trip. **Nothing in this repo imports it** — grepped repo-wide, 0 hits, against a positive control of several files importing other `@objectstack/spec/kernel` symbols.\n\n## The writer\n\n`packages/app-shell/src/services/MetadataService.ts` — `saveFields` reads the served object and spreads it verbatim into the PUT body:\n\n```ts\nconst raw: any = await client.meta.getItem('object', objectName);\nexistingObject = raw?.item ?? raw ?? {};\n\nconst updatedObject = {\n  ...existingObject,          // <- whatever the server served, including decorations\n  name: objectName,\n  fields: fields.map(toFieldPayload),\n};\nawait client.meta.saveItem('object', objectName, updatedObject);\n```\n\nA served document carrying either decoration therefore goes straight back out under `PUT /api/v1/meta/object/:name`, which `ObjectSchema` refuses by name — the hard `422 INVALID_METADATA` that blocks every subsequent save of that object, with nothing in the designer UI to say which key caused it.\n\nThat the decorations really do arrive on served documents in this repo's own model is not hypothetical: metadata-admin reads `_diagnostics` off served metadata in a dozen places (`ResourceEditPage`, `ResourceListPage`, `JsonSourceEditor`, `flow-problems.ts`, `preview-registry.ts`), and `packages/types/src/data.ts` documents `_draft` on served rows.\n\n## Why this is filed rather than fixed\n\n**It is the precedented shape, and the precedent is a deliberate strip on the write side.** `MetadataObjectsPage.handleObjectsChange` already carries exactly this guard for a different key, with the reasoning spelled out on the line:\n\n```ts\n// `...base` is a verbatim spread of whatever the server sent, so simply\n// not writing `group` is not enough … Strip it on the way out too — the\n// objectui#4644 strip-on-load shape, applied on the write side where the spread is.\ndelete merged.group;\n```\n\n`saveFields` has the same spread and no such strip. But **which** strip is the open question, and it is not mechanical:\n\n1. `stripReadDecorations` at the call site in `saveFields` (narrow, one writer).\n2. In the adapter's metadata read, so every consumer of a served document gets an undecorated one (broad — and it would have to not break the metadata-admin surfaces that *deliberately* read `_diagnostics`).\n3. A general \"strip everything `ObjectSchema` refuses before a write-back\", which is the lenient-consumer shape AGENTS.md #0.1 warns about and probably the wrong answer.\n\nOptions 1 and 2 have different blast radii and 2 conflicts with live readers, so this wants adjudication rather than a drive-by.\n\n**Observational, not a reproduced 422.** What is measured is: the spec refuses both keys by name, the spec declares them as read decorations, this repo reads them off served metadata, and nothing strips them before write-back. A run against a live server that actually decorated an object read is not part of this report.\n\n## Scope note\n\nSub-issue of objectui#6240 rather than a free-standing card: #6240 already owns the correctness of the body `saveFields` PUTs (its `fields` array-vs-map value-level rejection edits this very expression), so a resolver will be standing on this line — but fixing `fields` does not fix this, which is why it is recorded separately rather than folded into that description.\n\nRefs: #6240 (the same PUT body, value level) · #6238 (the delete path, key level) · #5761 (the gate) · #6223 · #4644\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

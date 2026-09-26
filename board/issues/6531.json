@@ -1,0 +1,35 @@
+{
+  "number": 6531,
+  "kind": "issue",
+  "title": "`getRecordDisplayName` step 0 reads `objectDef.titleField` — a key `@objectstack/spec`'s object schema does not declare — and ranks it ABOVE the canonical `nameField`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-26T09:30:37Z",
+  "updated_at": "2026-08-26T12:30:38Z",
+  "closed_at": "2026-08-26T12:29:27Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6531",
+  "body": "Filed unassigned by the dev seat working objectui#6343 (session `session_011SfZeFWrhGLHmfq61xbz4q`), measured while establishing what the derived `options.titleField` at the interface-page map seam actually outranks. ⛔ Not touched by that PR: `packages/core/src/utils/record-title.ts` was explicitly fenced out of its file face, and a precedence change there is a decision, not a mechanical repair. Duplicate scan run before filing: 247 open objectui issues enumerated via the REST list endpoint and grepped for `titleField` / `record-title` / `nameField` / `display name`; no hits on this subject (positive control: the grep fires on #4716 and the enumeration contains #6343 itself).\n\n## What the code does\n\n`packages/core/src/utils/record-title.ts`, step 0:\n\n```ts\nconst explicit =\n  valueAt(record, options?.titleField) ?? valueAt(record, objectDef?.titleField);\nif (explicit) return explicit;\n```\n\nSo an object-level `titleField` is consulted **before** step 1's `objectDef.nameField`, which ADR-0079 Phase 2 made *the* canonical record-title pointer, and before the deprecated `displayNameField` alias at step 2.\n\n## What the spec declares\n\n`@objectstack/spec`'s object schema (`packages/spec/src/data/object.zod.ts:2040-2050`) declares exactly three record-title keys on an object:\n\n- `nameField` — \"[ADR-0079] Canonical primary title field\";\n- `displayNameField` — \"[DEPRECATED → nameField] … Accepted as an alias\";\n- `titleFormat` — \"[DEPRECATED → nameField (ADR-0079)] Render-only title template\".\n\nThere is **no** object-level `titleField`. Measured across both repos' metadata: every `titleField` in `objectstack/examples` is view-level (gallery / calendar / timeline / gantt / map config, all of which the spec does declare — `view.zod.ts:785, 799, 1124, 1166, 1267`); zero object-level occurrences. Positive control for that zero: `nameField` fires in the same search space (`examples/app-todo/src/objects/task.object.ts:209`), and `locationField` fires in `examples/app-showcase`.\n\n## Why this is a card and not a cleanup\n\nTwo readings, and they lead to opposite edits — which is why nobody should pick one in passing:\n\n1. **The leg is dead.** Nothing spec-compliant can carry `objectDef.titleField`, so the read is a lenient consumer-side alias for a key no producer declares — the exact shape AGENTS.md Commandment #0.1 bans, and a live invitation for AI-authored metadata to spell the pointer three ways. Removing it makes the declared `nameField` the top of the ladder, as ADR-0079 says it is.\n2. **The leg is load-bearing for loosely-typed metadata.** `getRecordDisplayName` is deliberately defensive (`objectDef` is `any`; steps 4b/5 exist for partial shapes), and lookup chips / search candidates are documented as arriving with \"only `name`/`titleField`\" (see the `NAME_ISH_RECORD_KEYS` docblock in the same file). If some fetched shape really does carry `titleField`, deleting the read silently degrades those titles.\n\nReading 2 needs a census that this card does not have: which producers, if any, put `titleField` on an object-shaped payload. That census is the work here, and its answer decides between \"remove the read\" and \"declare the key in the spec\".\n\nEither way the ORDER is separately questionable: even if the read stays, an undeclared/legacy key ranking above the canonical declared pointer inverts the same governed-authority default objectui#6343 restored one seam up.\n\nRefs: objectui#6343 (where this was measured, and the seam that fed step 0 a derived name) · ADR-0079 · `packages/spec/src/data/object.zod.ts:2040-2050` (objectstack)."
+}

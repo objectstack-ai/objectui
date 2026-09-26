@@ -1,0 +1,33 @@
+{
+  "number": 6390,
+  "kind": "pull_request",
+  "title": "fix(tooling): derive QUICK_REFERENCE's Node/pnpm floor as full version",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T19:20:30Z",
+  "updated_at": "2026-08-25T19:56:39Z",
+  "closed_at": "2026-08-25T19:56:38Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": "2026-08-25T19:56:38Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6390",
+  "body": "Fixes #6313\n\n## What\n\n`scripts/__tests__/quick-reference-current-release-4143.test.ts` and the sync\ngenerator `scripts/sync-quick-reference-release.mjs` both derived the Node/pnpm\nversion floors with `match(/(\\d+)/)?.[1]` — keeping only the **leading integer\ngroup**. Against root `engines.node: \">=22.11\"` (objectui#5306 / PR #6311) that\nproduced a floor of `22`, silently discarding the `.11`, so `QUICK_REFERENCE.md`'s\nNode.js row read exactly `≥ 22` and passed a pin whose entire premise is\ndisagreeing with its own cited anchor.\n\nPer the triage ruling (disposition 1, closed — dispositions 2/3 not re-argued):\n\n1. **`scripts/__tests__/quick-reference-current-release-4143.test.ts`** — added a\n   `versionFloor()` helper (strip the comparator, keep the rest of the string\n   whole) and switched the Node forward assertion, the pnpm forward assertion, and\n   both `add(...)` calls in the reverse \"no un-derived literal\" sweep to use it.\n2. **`scripts/sync-quick-reference-release.mjs`** — same `versionFloor()` helper\n   and the same switch for `nodeFloor`/`pnpmFloor` in `readAnchors()`, so the\n   script that actually writes the row derives the same value the gate checks.\n3. **`QUICK_REFERENCE.md`** — regenerated via `pnpm quick-reference:sync` (not\n   typed by hand); the Node.js row now reads `≥ 22.11`.\n4. **Docblock** — corrected the sentence claiming root `engines.node` \"has been\n   `>=22`\" (false since PR #6311 landed `>=22.11` today) and added a paragraph\n   recording the objectui#6313 drift for future readers.\n\nAlso added two regression tests, both deriving from the real manifest rather than\na hard-coded literal:\n\n- a `≥ 22`-shaped row is now rejected against the derived Node floor (the entire\n  point of the card — this passed both the derivation's old AND a naive\n  reimplementation's output would have to be checked against it, not assumed)\n- a `≥ 220`-shaped row is rejected too (objectui#4913's coarseness, now checked\n  against the new derivation rather than just the old one)\n\nNo published package source changed; the changeset declares no release\n(tooling/test/doc only).\n\n## Evidence\n\n**Before (old derivation, on the real manifest strings):**\n```\nengines.node \">=22.11\" -> match(/(\\d+)/)?.[1]           -> \"22\"\nengines.pnpm \">=10\"    -> match(/(\\d+)/)?.[1]           -> \"10\"\n```\n\n**After (new `versionFloor`, same real strings):**\n```\nengines.node \">=22.11\" -> versionFloor()                -> \"22.11\"\nengines.pnpm \">=10\"    -> versionFloor()                -> \"10\"   (unharmed today, fixed for when it isn't)\n```\n\n**The card's core property — a `≥ 22` row now fails where it used to pass** (code\nfix committed, doc not yet regenerated — the doc still said `≥ 22` at this point):\n```\n FAIL  … > states the Node floor from root `engines.node`\n AssertionError: QUICK_REFERENCE.md must state the Node floor as exactly \"≥ 22.11\"\n to match engines.node \">=22.11\": expected [ '≥22' ] to deeply equal [ '≥22.11' ]\n FAIL  … > contains only version literals this test derives from a manifest\n Test Files  1 failed (1) / Tests 2 failed | 8 passed (10)\n```\nRan `pnpm quick-reference:sync` (rewrote the row to `≥ 22.11`) → re-ran → `Test\nFiles 2 passed (2) / Tests 22 passed (22)` across both the gate and the\ngenerator's own test file.\n\n**The `≥ 220` negative case, against the real committed file** (plant → RED →\n`git checkout HEAD -- QUICK_REFERENCE.md` under a `trap … EXIT INT TERM` →\nrestore verified by blob hash + empty `git diff HEAD` → GREEN):\n```\nsed -i 's/**Node.js:** ≥ 22.11/**Node.js:** ≥ 220/' QUICK_REFERENCE.md\n FAIL  … Tests 2 failed | 8 passed (10)\n(trap restores)\ngit hash-object QUICK_REFERENCE.md   == HEAD:QUICK_REFERENCE.md   (4097a911b…)\ngit diff HEAD -- QUICK_REFERENCE.md  == (empty)\n Test Files 2 passed (2) / Tests 22 passed (22)\n```\n\n## Checks run locally\n\n- `pnpm exec vitest run scripts/__tests__/quick-reference-current-release-4143.test.ts scripts/__tests__/sync-quick-reference-release.test.ts` → 2 passed, 22 tests\n- `pnpm exec vitest run scripts/` (full `scripts/` suite) → 79 files / 2281 tests passed\n- `pnpm quick-reference:check` → in sync\n- `node scripts/check-changeset-presence.mjs` → no source of a released package changed; changeset added\n- `node scripts/check-changeset-no-major.mjs` → clean\n- `pnpm run type-check:scripts` (covers `scripts/__tests__/*.ts`) → clean\n- `node scripts/check-type-check-coverage.mjs` → 45/46 + 41/41, unaffected\n- `pnpm run lint:root` (covers `scripts/**`) → 0 errors, 28 pre-existing warnings elsewhere, none in touched files\n- `node scripts/check-control-bytes.mjs` → clean\n\nCI (`ci.yml`) will run the full suite; leaving this in draft for the PM seat to\narm per dispatch order.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_012CZgmFFzqA9cX8tBMhvpFe)_"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 6304,
+  "kind": "pull_request",
+  "title": "fix(components): forward the declared `onSuccess` block on all four action surfaces",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T12:08:00Z",
+  "updated_at": "2026-08-25T12:55:20Z",
+  "closed_at": "2026-08-25T12:55:18Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-25T12:55:18Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6304",
+  "body": "Fixes #5493\n\n`ActionSchema.onSuccess` — spec's closed strict `{ navigate, openIn }` block — is authorable as of `@objectstack/spec` 17.1.0 and is read off the **forwarded** def at execute time by `ActionRunner.handlePostExecution` → `readOnSuccessNavigation` → `navigateOnSuccess`, which hops through the app's own `navigationHandler`. The four declared action renderers never carried the key in their forward whitelists, so the action succeeded, the toast said so, and the declared post-success navigation silently did not happen.\n\n## What changed\n\n| file | change |\n| --- | --- |\n| `packages/components/src/renderers/action/action-button.tsx` | forward `onSuccess`, house whitelist pattern (explicit key + comment stating why), cast as the sibling spec-owned keys are |\n| `…/action-icon.tsx`, `…/action-group.tsx`, `…/action-menu.tsx` | same, one line each + a back-reference comment |\n| `scripts/check-action-forward-parity.mjs` | delete the four `KNOWN_GAPS` `:onSuccess` entries — **only** those entries, nothing else in that shared file |\n| `…/__tests__/action-onSuccess-forward.test.tsx` | new: one row per surface, hop pinned end to end |\n| `…/__tests__/action-forward-precedence.test.tsx` | `'onSuccess'` appended to the two pinned key orders |\n| `.changeset/action-onsuccess-forward-5493.md` | `@object-ui/components: patch` |\n\n`element:button` is untouched and stays correct: `onSuccess` is not on spec's `InlineActionSchema` pick list, so that surface never owed it. The gate derives that split rather than registering it, so no exemption was added.\n\n## Verification\n\nEverything below was run on `42fcf136a`, the head of this branch.\n\n**The assertion distinguishes the two worlds.** Each row drives the real renderer through the real `ActionRunner` and asserts (a) the `api` handler is handed a def whose `onSuccess` is the authored block, and (b) `onNavigate` receives `/app/crm/contacts/rec_42` — the `${result.id}`-interpolated url, a value only the declared string plus the handler's own payload can produce — with `openIn` exercised on both branches (`'self'` on three surfaces, `'newTab'` on `action:menu`). Every row asserts the action executed **first**, so a zero-navigation reading cannot be a harness that did nothing.\n\n**Red before, green after.** Before the fix: `Tests 4 failed (4)`, each failing at the `onSuccess` deep-equal with `Received: undefined` — i.e. past the positive control. After: `Test Files 13 passed`, `Tests 303 passed` over the whole `renderers/action/__tests__` directory plus the gate's own suite.\n\n**Per-point ablation, four legs.** Each leg deletes one surface's forward line, proves the mutation on disk in both directions (the removed text grep goes 1 → 0 **and** the file's hash leaves its HEAD blob), runs the pin, then restores with `git checkout HEAD -- <absolute path>` under `trap … EXIT INT TERM` and proves the restore the same way (hash back on the HEAD blob, `git diff HEAD --stat` empty):\n\n| ablated | result |\n| --- | --- |\n| `action-button` | `1 failed \\| 3 passed` — the failing row is `action:button` |\n| `action-icon` | `1 failed \\| 3 passed` — `action:icon` |\n| `action-group` | `1 failed \\| 3 passed` — `action:group` |\n| `action-menu` | `1 failed \\| 3 passed` — `action:menu` |\n\nNo rebuild is on the path and none is owed: the pin imports the renderers by **relative** path and `@object-ui/core` / `@object-ui/react` resolve through vitest's `resolve.alias` to `packages/*/src`, so no `dist/` sits between the mutation and the measurement. The legs going red is itself the evidence — a stale-`dist` ablation stays green.\n\n**The gate ratchets both ways** (measured, both restored):\n\n- forward removed, ledger entry absent → `exit 1`, \"`action:button` … does not forward 1 key the runtime reads: `onSuccess`\".\n- forward present, a `KNOWN_GAPS` entry re-added → `exit 1`, \"`KNOWN_GAPS` entry `action:button:onSuccess` is no longer a gap — delete it\".\n\n## Gates run locally\n\nDerived from each CI job's own step list, scoped to this diff:\n\n| gate | verdict line |\n| --- | --- |\n| `check:action-forward-parity` | `✅ action forward parity: 5 surfaces checked … 19 justified omissions, 7 known gaps` (was 11) |\n| `@object-ui/components` `type-check` | `tsc --noEmit && tsc -p tsconfig.test.json` → exit 0; `--listFiles` shows both edited test files **and** all four renderers in the checked program (1858 files) |\n| affected vitest set (39 files) | `Test Files 39 passed (39)`, `Tests 823 passed (823)` |\n| `check:control-bytes` | `✅ OK (scanned 5196 tracked text file(s))` |\n| `check:changeset-presence` / `no-major` / `fixed` | `✅` / `✅ No changeset declares a major bump` / `✅` |\n| `check:spec-symbols`, `check:vi-mock-specifiers`, `check:entry-guard`, `lint:coverage`, `type-check:coverage`, `type-check:scripts` | all exit 0 |\n| eslint on the changed files | 0 errors; the 4 added lines each carry the same pre-existing `no-explicit-any` **warning** as the `resultDialog` line beside them |\n\n**Declared narrowing:** the vitest run is the 39 test files that can observe this change — every test in the repo naming `action:button|icon|group|menu|bar` or importing `renderers/action` — not the full `packages/components` suite. The full-package run was started and killed at ~10 minutes under CPU contention while holding the shared verify lock; it is reported as **unrun**, not as green. The narrowing is sound because a test can only see this diff by rendering one of the four renderers, and the enumeration above is the measured population; CI runs the full sharded suite regardless.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_011SfZeFWrhGLHmfq61xbz4q)_"
+}

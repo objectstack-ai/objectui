@@ -1,0 +1,36 @@
+{
+  "number": 6306,
+  "kind": "issue",
+  "title": "`action:icon` as an `action:bar` member forwards the COMPONENT id as the action type, so the action never reaches a handler (clicks do nothing)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-25T12:13:03Z",
+  "updated_at": "2026-08-25T16:24:03Z",
+  "closed_at": "2026-08-25T16:24:03Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6306",
+  "body": "Filed unassigned by the dev seat implementing #5493 (branch `claude/issue-5493-forward-onsuccess-action-surfaces`, PR #6304). **Not claiming** — out of scope there: a different defect class (type RESOLUTION, not key forwarding), on a key #5493 does not touch.\n\n## What was measured\n\n`action:bar` composes each inline member's schema as (`packages/components/src/renderers/action/action-bar.tsx` @ `42fcf136a`):\n\n```\n308:                type: componentType,      // 'action:button' | 'action:icon' | …\n309:                actionType: action.type,  // the real action type ('api', 'script', …)\n```\n\n`action:button` resolves that pair when it forwards (`action-button.tsx:148`):\n\n```\n          type: schema.actionType || schema.type,\n```\n\n`action:icon` does not (`action-icon.tsx:99`), and never forwards `actionType` either:\n\n```\n          type: schema.type,\n```\n\nSo an icon member hands the runner `type: 'action:icon'`. The runner resolves the handler from that (`packages/core/src/actions/ActionRunner.ts:954`):\n\n```\n      const actionType = action.type || action.actionType || action.name || '';\n```\n\n`'action:icon'` binds no handler.\n\n**Measured**, one `action:bar` holding two members of the SAME declaration (`type: 'api'`), one `component: 'action:icon'`, one `component: 'action:button'`, with an `api` handler registered through `ActionProvider`:\n\n| clicked | handler calls | `def.type` seen by the runner |\n| --- | --- | --- |\n| the `action:icon` member | **0** | — |\n| the `action:button` member | 1 | `'api'` |\n\nThe button member in the same render is the positive control: the harness executes, the click lands, and the zero on the icon member is a reading rather than a dead probe.\n\n## Why it stayed invisible\n\n- `check:action-forward-parity` cannot see it: `type` **is** in the forward whitelist. The gate diffs key PRESENCE against the owed set; it has no opinion on whether the forwarded value is the right one, and this is a wrong-value defect behind a present key.\n- The existing icon coverage stops short of execution — `action-bar-member-visible-gate.test.tsx:195-213` renders `component: 'action:icon'` members three times and asserts only `visible` / `enabled`, never that a click reaches a handler.\n- Rendered standalone (`<C schema={{ type: 'api', … }} />`, as `action:icon`'s own registry `inputs` declare), the renderer is fine. Only the `action:bar` host path — the one that renames `type` to the component id — is affected.\n\nThis is the objectstack#2169 \"Mark Done does nothing\" shape: no error, no toast, a button that silently does nothing.\n\n## Scope of a fix (not made here)\n\n`action-icon.tsx:99` gets the same resolution `action:button` already has (`schema.actionType || schema.type`), with coverage that a bar-hosted icon member reaches the handler. Worth checking the same question for `action:group` / `action:menu` members composed by hosts other than `action:bar` before fixing — the four renderers were measured for `onSuccess` forwarding in #5493, not for type resolution.\n"
+}

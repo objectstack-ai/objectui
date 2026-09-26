@@ -1,0 +1,36 @@
+{
+  "number": 4420,
+  "kind": "issue",
+  "title": "Selection-bar Delete ignores `userActions.delete.visibleWhen` — and what a per-record predicate means over a SET needs deciding first",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "enhancement",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-12T05:20:27Z",
+  "updated_at": "2026-08-25T18:32:58Z",
+  "closed_at": "2026-08-25T18:32:58Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4420",
+  "body": "## Summary\n\nThe selection bar's built-in **Delete** ignores `userActions.delete.visibleWhen`. Tick only a row the predicate excludes and the bar still offers Delete.\n\nUnlike the detail-header half (filed separately as a straight defect), this one needs a **semantics decision** before it can be implemented — a bulk action spans a set of records, and a per-record predicate has more than one defensible meaning over a set.\n\n## Repro (framework `examples/app-showcase`, console pinned `6314e87`, ADMIN — permissions not a variable)\n\n`showcase_invoice` declares (`src/data/objects/invoice.object.ts:58`):\n\n```ts\ndelete: { visibleWhen: P`record.status != 'paid'` }\n```\n\nTick **only** the paid invoice `INV-1011` (predicate false) → the selection bar renders the red **Delete**. The row kebab for the same record correctly hides it.\n\nBoolean control — temporarily `delete: false`, artifact rebuilt: the bar's Delete disappears (`bulkDelete: 0`). So the bar honours the key's boolean form and only drops the predicate.\n\n## Where\n\n`plugin-list/src/ListView.tsx:887` (`permittedBulkActions`) intersects the declared bulk actions with\n\n```ts\nresolveEffectiveCrudAffordances(objectDef, effectiveApiOps).delete && canDo(objectName, 'delete')\n```\n\n— bucket ∧ `userActions.delete` **as a boolean** ∧ apiOperations ∧ the principal's `allowDelete`. No per-record layer exists here, and the grid path (`ObjectGrid`'s own bar) is the same. The bar does have the selected rows in hand, so the input is available.\n\n## The decision needed\n\nThree defensible behaviours when the selection contains predicate-excluded rows:\n\n1. **Filter the operation** — run Delete over the allowed subset only, and report the skipped ones (`BulkActionDialog` already has a `bulk-skipped-notice` slot for exactly this shape).\n2. **Gate the button** — hide/disable Delete while any excluded row is selected. Simplest to reason about, but one stray tick disables the whole bar.\n3. **Leave it** — accept that `visibleWhen` is a per-row affordance and out of scope for set operations, and say so in the spec text so authors stop expecting it.\n\nOption 1 matches what the dialog is already built for and keeps the predicate meaningful without punishing a mixed selection; option 3 is legitimate but should then be **documented**, because today the same key behaves differently on two surfaces with no note anywhere.\n\nWhichever is chosen, the pairing worth avoiding is the current one: honoured on the row, silently ignored on the bar.\n\n## Related\n\n* Detail-header half (a plain defect, no semantics question): objectstack-ai/objectui#4419\n* objectstack-ai/objectui#4296 — the row kebab ANDs only the OBJECT-level permission, ignoring the record-level verdict.\n\n"
+}

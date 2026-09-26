@@ -1,0 +1,35 @@
+{
+  "number": 6493,
+  "kind": "issue",
+  "title": "finding(app-shell): two ad-hoc field-visibility evaluators bypass `ExpressionProvider`, so `current_user`, `features` and the ADR-0068 aliases are unbound on an object field's `visible`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-26T05:44:55Z",
+  "updated_at": "2026-08-26T08:25:42Z",
+  "closed_at": "2026-08-26T08:25:42Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6493",
+  "body": "Found while implementing objectui#6487 (the per-tier advice paragraph on `reportUnresolvableVisibilityPredicate`). Filed unassigned, recording only — not graded, no `domain:*`, no type.\n\nMeasured on `origin/main` @ `830ed5803`.\n\n## What was measured\n\n`evaluateVisibility` (`packages/app-shell/src/providers/ExpressionProvider.tsx`) is reached with **three different evaluators**, not one. Only the first is the provider's:\n\n| Call site | Evaluator | Bag it binds |\n|---|---|---|\n| nav / area items (`AppSidebar`, `UnifiedSidebar`, `CommandPalette`) | `useExpressionContext().evaluator` | `current_user`, `user`, `ctx.user`, `os.user`, `app`, `data`, `features` |\n| `views/RecordFormPage.tsx:183` → used at `:204` / `:209` | a local `new ExpressionEvaluator(...)` | `user`, `app`, `data` |\n| `console/AppContent.tsx:671` → used at `:1090` / `:1094` | a local `new ExpressionEvaluator(...)` | `user`, `app`, `data` (here `data` is `editingRecord`) |\n\n```ts\n// packages/app-shell/src/views/RecordFormPage.tsx:183\nconst expressionEvaluator = useMemo(\n  () => new ExpressionEvaluator({ user: expressionUser, app: { name: appName }, data: {} }),\n  [expressionUser, appName],\n);\n```\n\nBoth ad-hoc bags are missing `current_user` and the ADR-0068 `ctx.user` / `os.user` aliases, and both are missing `features`. The gate they feed is an **object field's `visible`** — `objectDef.fields[].visible` — so a field gate authored as `'sales_manager' in current_user.positions` names an unbound root there, faults, and `visible` fails **OPEN**: the field is shown to everyone, which is the same defect shape objectui#6010 and objectui#6110 each fixed one surface at a time.\n\n`RecordFormPage`'s own comment says the evaluator mirrors \"the global ModalForm setup in AppContent\" — the two ad-hoc bags are consistent with each other and inconsistent with the provider they sit beneath. `RecordFormPage` in fact **mounts** `ExpressionProvider` at `:270` with the full bag; the evaluator at `:183` is built beside it and does not read it.\n\n## Why it is worth recording now\n\nobjectui#6487 made the reporter's advice paragraph per tier, and the app-shell tier's paragraph names the roots `ExpressionProvider` binds — `current_user` with its three alias spellings, `app`, `features`. That copy is correct for the provider's evaluator and **over-promises at these two sites**: an author whose object-field `visible` faulted there is told about roots their evaluator does not carry. The right repair is at the producer (bind what the tier declares), not at the copy — ADR-0068 D1 already says a predicate authored against any one form must evaluate identically, and objectui#6110's changeset says every console surface should publish the same shape via `buildExpressionUser`.\n\n## Why it was not fixed in objectui#6487\n\nThat card is diagnostics copy. Binding `current_user` here is a **behaviour change**, not a wiring tidy-up: objectui#6110's changeset documents exactly what happens when an inert `current_user` gate becomes live — fields that have always been visible start disappearing for the users the rule excludes — and it asks for a pre-upgrade metadata audit. That needs its own card and its own changeset warning.\n\n## Related, and NOT a duplicate\n\n- objectui#6262 — `/forms/:name` mounts `ExpressionProvider` with `user` only, so `features` is `{}` there. Same *symptom class*, different mechanism: that route under-feeds the provider; these two sites never consult it.\n- objectui#6110 — bound the host scope for `apps/console`'s form renderer and `WizardForm`'s submit gate. Neither of these two evaluators was in its file face.\n- objectui#6010 — the `packages/components` form-renderer half.\n\n## Not yet measured\n\nWhether any shipped object metadata authors a `current_user` or `features` gate on a field's `visible` (as opposed to a form view's `visibleWhen`). If nothing does, this is latent rather than live — and, as objectui#6262 notes for its own gap, the honest fix might instead be to decide these evaluators may not see those roots at all, which is a contract question.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

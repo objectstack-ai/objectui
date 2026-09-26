@@ -1,0 +1,35 @@
+{
+  "number": 6269,
+  "kind": "issue",
+  "title": "finding(types): ObjectViewSchema's `table` and `form` slots declare ZERO properties — the same Omit-under-index-signature collapse as #6151, in property position",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-25T06:09:48Z",
+  "updated_at": "2026-08-25T20:24:16Z",
+  "closed_at": "2026-08-25T20:24:16Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6269",
+  "body": "⚠️ Generic parameters are written **spaced** (`Omit< T, K >`) throughout — GitHub's body\nsanitizer eats a fragment that opens with an identifier in angle brackets, which is what\nmangled #6151's first revision.\n\nMeasured while fixing #6151 (PR #6267). Filed unassigned, deliberately **not** fixed there:\nthe mechanism is identical but the correct replacement shape is a design question, not the\nmechanical move #6151 took.\n\n## The fact\n\n`packages/types/src/objectql.ts` declares two slots by deriving from a schema type:\n\n- line 1480 — `table?: Partial< Omit< ObjectGridSchema, 'type' | 'objectName' > >`\n- line 1486 — `form?: Partial< Omit< ObjectFormSchema, 'type' | 'objectName' | 'mode' > >`\n\nBoth derived types declare **zero** properties. Measured against the built `dist` through\nthe TypeScript checker:\n\n```\nGridOmit  = Omit< ObjectGridSchema, 'type' | 'objectName' >           -> 0 declared properties\nFormOmit  = Omit< ObjectFormSchema, 'type' | 'objectName' | 'mode' >  -> 0 declared properties\n\nObjectGridSchema (the source type)                                    -> 61 declared properties\n```\n\n61 to 0.\n\n## Why — the same mechanism as #6151\n\n`Omit< T, K >` is `Pick< T, Exclude< keyof T, K > >`, and `keyof T` on a type carrying a\nstring index signature is `string | number` — the literal member names are absorbed. Both\n`ObjectGridSchema` and `ObjectFormSchema` inherit `BaseSchema`'s `[key: string]: any`\n(#5155), so the `Pick` rebuilds a type holding the index signature and none of the named\nmembers.\n\n#6151 was this collapse in a **heritage clause** (`interface StackSchema extends Omit< … >`).\nThis is the same collapse in **property position**, which is why #6151's fix does not reach\nit and why its new guard does not cover it: that guard walks the `LayoutSchema` union, and\nthese are properties on `ObjectViewSchema`, not union members.\n\n## What it costs\n\n`Partial< Omit< … > >` of a collapsed type is a bare index signature, so the slot accepts\n**anything**: `table: { colunms: 3 }` (typo), `table: { pageSize: 'ten' }`, `table: 42`'s\nobject cousins — all type-check. And editor completion inside `table: { … }` offers nothing\nat all, so an author writing a view has no discoverable surface for a slot documented as\n\"Inherits from ObjectGridSchema\". The declaration promises inheritance and delivers `any`.\n\nSame shape of harm as #6151, and the same reason it survived: nothing errors, because the\nindex signature answers every key.\n\n## Why this is not a mechanical fix\n\n#6151 could lift the shared members into an index-signature-free interface because\n`FlexSchema` and `StackSchema` are peers with an identical member set. These two are not\nthat shape:\n\n- The slots deliberately **exclude** identity keys (`type`, `objectName`, `mode`) — the\n  intent is \"the grid's configuration, minus what the view already fixes\". Restoring that\n  intent needs a decision about *which* keys are configuration, and `ObjectGridSchema` has\n  61 of them.\n- `Partial< … >` on top means the fix must preserve \"all optional\" while restoring the\n  member names.\n- Fixing it is a **tightening** on a published type: metadata that currently type-checks\n  because everything is `any` may start erroring. That needs the same downstream sweep\n  #6267 did, and possibly a ledger.\n\nOptions, none ruled here:\n\n1. **A shared configuration interface** free of `BaseSchema`, the #6151 route — correct, but\n   needs someone to partition `ObjectGridSchema`'s 61 members into \"identity\" and\n   \"configuration\".\n2. **`Pick` with an explicit key list** instead of `Omit` — `Pick` with literal keys never\n   computes `keyof T`, so it does not collapse. Immediate and safe, but the key list is a\n   duplicate to keep in sync.\n3. **Sequence behind #5155** (the phased zod `.strict()` ruling), which removes the index\n   signature at the root and closes this class everywhere at once.\n\n## Scope\n\nThese two are the ones measured. The rest of the `Omit` population in `packages/types/src`\nwas swept in #6267 and is healthy: the three other heritage clauses (`DashboardWidgetSchema`,\n`ActionParam`, `NavigationArea`) `Omit` over `@objectstack/spec` types that carry no index\nsignature, and `data-protocol.ts:933`'s `BaseValidation` is fine for the same reason.\n⚠️ `index.ts:900` has a generic `& Partial< Omit< T, 'type' > >` whose behaviour depends on\nwhat `T` is instantiated with — not measured, and worth checking as part of any fix here.\n\nRefs: #6151 (same mechanism, heritage clause, fixed in #6267) · #5155 (the index signature)\n· #6143 (where the class first surfaced)."
+}

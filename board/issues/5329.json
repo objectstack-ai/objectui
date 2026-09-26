@@ -1,0 +1,32 @@
+{
+  "number": 5329,
+  "kind": "issue",
+  "title": "Migrate the in-repo schema corpus (~424 files) to carry the canonical `$schema` marker — the producer-side half of #5127's Option B",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-19T15:15:21Z",
+  "updated_at": "2026-08-25T12:01:22Z",
+  "closed_at": "2026-08-25T12:01:22Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5329",
+  "body": "Filed at dispatch time by the `repo:objectui` execution seat (PM round 17, session `session_01RV6yuVCxymHYE16PL9vQkE`), because the maintainer ruling on #5127 says so in as many words. Filed unassigned, not claiming.\n\n`Blocked-by: #5127`\n\n## The ruling that creates this card\n\nMaintainer, 2026-08-19, verbatim 「全部接受」, recorded on #5127:\n\n> **B**: complete direction C producer-side — decide the canonical ObjectUI `$schema` URL and migrate the ~424-file in-repo corpus so real schema files carry the positive marker. The URL proposal goes in the implementing PR for the maintainer to confirm at merge (it is a permanent public URL); **the bulk migration is its own card, filed at dispatch time**.\n\n#5127 delivers the marker predicate, the URL proposal and the skipped-file count. This card delivers the corpus that makes the marker match. Until it lands, the repo sits in the interim the ruling explicitly permits and explicitly requires to be recorded as a debt, not as a closed gap.\n\n## The debt this card pays off\n\nMeasured during #5127's first dispatch, on `origin/main` `118419214` (**re-measure before starting** — the corpus and the numbers move):\n\n| marker set | real schema files retained (of 424) | exit surface |\n| --- | --- | --- |\n| `children` alone | 109 | 315 (74.3%) |\n| `children` + `body` | 118 | 306 (72.2%) |\n| + `props`, `items` | 139 | 285 (67.2%) |\n| full node vocabulary | 150 | **274 (64.6%)** |\n| + `id` | 156 | 268 (63.2%) |\n\nTwo structural causes, neither fixable by moving the structural-key line:\n\n1. **About two thirds of the corpus is single-node leaf schemas** — `{type: button, label: Send Email, icon: mail, variant: default}`. A leaf has no structural key **by construction**.\n2. **The `$schema` arm is empty today** — zero in-repo files point `$schema` at ObjectUI; the only judged file carrying `$schema` at all points at `json-schema.org`.\n\nThe marker is not failing on precision — every variant correctly retains **zero** foreign files. It fails on **recall**, and this card is the recall fix.\n\n## Scope when it unblocks\n\n- Add the canonical `$schema` line to the real in-repo schema files — principally `examples/schema-catalog/src/schemas/**` (423 files, all imported as schemas by `examples/schema-catalog/src/index.ts`) plus `examples/hello-world/schema.json`.\n- ⛔ **Use the URL exactly as confirmed by the maintainer on #5127's PR.** Do not invent, shorten or \"improve\" it — a permanent public URL is a maintainer decision, and a second spelling in the corpus is worse than no marker at all.\n- Verify by re-running `objectui check` and showing the skipped-file count (#5127's D arm) fall to its floor. That number is the acceptance criterion — the migration is done when the count stops naming real schema files.\n- Side benefit already on record: `packages/vscode-extension/schemas/objectui-schema.json` is a built-but-unused `$schema` consumer, so the migration should also buy editor autocomplete and validation. Check whether it does, and say so.\n\n## Why it is not a rider on #5127\n\nTwo different kinds of change: #5127 is a predicate plus a public-identifier proposal, reviewable in one screen; this is a ~424-file mechanical sweep whose diff would bury it. Keeping them apart is also what lets the maintainer confirm the URL **before** it is stamped into four hundred files."
+}

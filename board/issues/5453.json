@@ -1,0 +1,35 @@
+{
+  "number": 5453,
+  "kind": "issue",
+  "title": "[finding] ObjectGrid forwards a per-column `wrap` into the DataTable column object, but nothing in `data-table.tsx` ever reads it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-20T22:41:30Z",
+  "updated_at": "2026-08-28T09:23:39Z",
+  "closed_at": "2026-08-28T09:23:39Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5453",
+  "body": "Observation found while tracing objectui#5415's cell-clamping path. Not fixed there — different class, and it is dead code rather than a user-visible defect.\n\n## What\n\n`packages/plugin-grid/src/ObjectGrid.tsx:1733`, in the ListColumn-object branch of the column builder:\n\n```ts\n...(col.wrap !== undefined && { wrap: col.wrap }),\n```\n\nThe key is copied onto the column object handed to `DataTable`. `packages/components/src/renderers/complex/data-table.tsx` never reads a column-level `wrap`.\n\n## Evidence, with the counter-probe\n\nRead-counts in `data-table.tsx` for the sibling keys `ObjectGrid` forwards on the same lines:\n\n| forwarded key | occurrences in `data-table.tsx` |\n|---|---|\n| `fitContent` | 7 |\n| `align` | 5 |\n| `pinned` | 7 |\n| **`wrap` (column-level)** | **0** |\n\nThe raw count for the string `wrap` in that file is 12, but every one is `flex-wrap`, `whitespace-nowrap`, or a variable named `wrapper` — none is a read of `col.wrap`. The sibling counts are the counter-probe: the same search style does find the keys that are genuinely consumed, so the zero is a real zero and not a mis-aimed grep.\n\n`wrap` is also absent from `packages/types/src/views.ts`, so it is read off an untyped `col` — `tsc` cannot see the dangling end.\n\n## Why it is worth a card\n\nThis is the \"renderer forwards it, nothing consumes it\" shape the repo already tracks. Its cost is concrete: `wrap` is the obvious key to reach for when someone wants a grid cell to show more than one line, and it silently does nothing — so the next person to need that behaviour either re-derives it somewhere else or concludes the grid cannot do it.\n\nTwo honest resolutions, both cheap:\n\n- **implement it** — `wrap: true` drops the `truncate` on that column's cell wrapper (the wrapper is `data-table.tsx:2275`), which also gives the grid a declared escape hatch for long-text columns; or\n- **remove the forward** — delete the line in `ObjectGrid.tsx` so no author is invited to declare a key with no effect.\n\nWhich one is right depends on whether a per-column wrap is wanted at all; that overlaps objectui#5415's open question about how grid cells should treat long text, so they may want deciding together.\n"
+}

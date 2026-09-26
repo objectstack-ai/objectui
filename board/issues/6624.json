@@ -1,0 +1,32 @@
+{
+  "number": 6624,
+  "kind": "pull_request",
+  "title": "fix(app-shell): name the field and the Formula (CEL) editor in the retired `formula` 422 diagnostic",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-27T19:34:00Z",
+  "updated_at": "2026-08-27T19:58:34Z",
+  "closed_at": "2026-08-27T19:58:32Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": "2026-08-27T19:58:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6624",
+  "body": "Fixes #6526\n\n## What this does (adjudicated option B — not re-litigable)\n\nMaintainer ruling via the director seat (2026-08-27, batch #1): keep the objectui#6043 migration path — do NOT strip `formula` at the read door — and make the client-side 422 on a draft carrying the retired `formula` key actionable. The object staying unsaveable until the author migrates is the ruled, accepted cost; this PR gives that cost a signposted way out.\n\n`validateMetadataDraft('object', ...)` now appends a pointer to the spec's own `unrecognized_keys` rejection at `fields.FIELD` when the offending key is `formula` on a formula-type field:\n\n> Field `amount` carries the retired `formula` key. To migrate: select the field in the object designer and make one edit in its Formula (CEL) editor — that commits the value to `expression`, clears the retired key, and the object saves again.\n\n- **Names the field** in the message itself, not only in the issue path.\n- **Names the destination**: the field inspector's \"Formula (CEL)\" editor (`designer.field.formula`), the platform's sanctioned migration surface — the legacy value seeds it via `def.expression ?? def.formula` and the first edit commits `expression` and clears the alias.\n- **Presentation only**: same verdict, same issue set, same paths — pinned by a parity test against the raw `ObjectSchema.safeParse`. Nothing about what the gate accepts or rejects changes; no published type is touched.\n- **Appended, never substituted**: the spec message is the contract's voice and carries the disclosure for any other retired key riding the same `keys` array (a pre-objectui#6041 body can list `referenceTo` alongside `formula`); its own rename prescription survives.\n- **Fires only for formula-type fields**: the inspector renders that editor only for `type: 'formula'` (objectui#4306 ruling) — any other field type keeps the bare spec message rather than a pointer to a destination that does not render.\n\nFence respected: only `clientValidation.ts`, its new test file, and a changeset. `RETIRED_FIELD_KEYS`, `ObjectFieldInspector` and its migration pin, `object-fields-io.ts`'s strip set, and the tombstone registry are untouched — #6527 remains open and out of scope here; objectui#6043 and objectui#6519 are context, not addressed here.\n\n## Mechanism measurements (PM assumptions, verified)\n\n1. The offending field IS derivable from the existing parse result — no new scan: `ObjectSchema.safeParse` reports `code: 'unrecognized_keys'` at path `['fields', FIELD]` with `keys: ['formula']` (measured on the installed `@objectstack/spec` 17.2.0). The array-shape `fields` draft rejects wholesale (`invalid_type` at `fields`) before any per-field issue exists, so the record-shape path is the only population.\n2. The spec's error names the key and suggests the rename, but names neither the field in its text nor the migration surface — so the work was plumbing plus one appended sentence, not a new diagnostic channel.\n\n## Verification (all at 76c49408, tree clean)\n\n- New pins: `clientValidation.retiredFormulaKey.test.ts` — 8 passed. Every load-bearing pin was shown RED by committed-first ablation (mutation proven on disk via anchored grep counts + blob-hash difference vs HEAD; restores proven by `git diff HEAD` empty + blob-hash match, each leg trap-guarded with absolute paths):\n  - Leg A (annotation wiring removed → today's behaviour): predicted and observed 4 failed | 4 passed — the four pointer pins red, boundary/parity/green pins green.\n  - Leg B (formula-type guard removed): predicted and observed 1 failed | 7 passed — the non-formula boundary pin red.\n  - Leg C (keys-membership check removed): predicted and observed 1 failed | 7 passed — the non-formula-key boundary pin red.\n  - Leg D (issue relocated to `fields.FIELD.formula`): predicted parity + path-addressed pins red; observed 5 failed | 3 passed.\n  - The remaining pin (\"stays green once migrated\") is the green-side canary: the annotation runs only on the failure path, so no mutation of the added code can move it; it pins the migration endpoint staying saveable. No build is involved in these legs — the test imports `./clientValidation` relatively (root vitest aliases workspace packages to src), so no dist can go stale.\n- Consumer sweep: all 7 sibling `clientValidation.*` test files + `createConformance` + 3 `ResourceEditPage` gate tests — 11 files, 152 passed.\n- Fixture radius: the other `retiredFormula` suites (`MetadataService`, `MetadataFieldsPage`) pin the spec/write side directly and never call `validateMetadataDraft`; the append cannot reach them.\n- `pnpm run type-check` (app-shell, both tsconfigs) green after building the dependency closure; `--listFiles` confirms both the edited file and the new test file are in the closure (1 hit each).\n- Targeted eslint on both TS files in the diff: 2 files, 0 errors, 0 warnings (`--format json` counts). Sound narrowing: the root flat config enables no type-aware linting (no `projectService`/`parserOptions.project`), so this diff cannot move any untouched file's verdict; the third diff file is the changeset `.md`, outside the lint population.\n- Gates, each by its own verdict line: check-control-bytes OK (5482 files), check-changeset-presence OK (1 changeset declared), changeset fixed-group + no-major OK.\n\n_Generated by [Claude Code](https://claude.ai/code/session_01CRJge11jso9TpXRWFt1Z49)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01CRJge11jso9TpXRWFt1Z49)_"
+}

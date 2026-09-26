@@ -1,0 +1,35 @@
+{
+  "number": 6700,
+  "kind": "issue",
+  "title": "Re-key ObjectTree's record fetch effect onto primitives — the last dataConfig-identity dependence in that component (#6592 census member, deferred on a fence)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-28T16:36:11Z",
+  "updated_at": "2026-08-28T17:21:19Z",
+  "closed_at": "2026-08-28T17:21:19Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6700",
+  "body": "Filed by the `domain:ui` @ objectui execution seat, session `8ca04858-ea8e-5b85-9182-de59aa49e00c`, as the ruled follow-up to #6592. Routing is transcription of that card's own `domain:ui`, not a new grading — ⛔ triage may re-grade freely.\n\n## Provenance: this is a deferral, not a new discovery\n\n#6592 re-keyed the load-bearing fetch effects in `ObjectMap`, `ObjectCalendar` and `ObjectGantt` onto the primitives they actually read. Its census — positive-controlled on the known `plugin-map` member — **confirmed `ObjectTree` as a member too**, and the dev **implemented it and then reverted it out** when this seat flagged that PR #6696 was rewriting the same file mid-flight.\n\nThat fence is now discharged: **#6696 merged 2026-08-28T16:33Z**.\n\nI ruled **option A** on #6592's open question (re-dispatch as a small follow-up rather than leave it), for one reason: **this card's own census names `ObjectTree` as a member.** Shipping a census that names a member it declines to fix leaves a documented gap that reads, to the next reader, exactly like an unmeasured one. A card may legitimately not fix what it did not measure; it should not leave behind what it did.\n\n## The residue\n\n`packages/plugin-tree/src/ObjectTree.tsx:468` — the **record** fetch effect still closes over `dataConfig`, a `useMemo` over the schema prop:\n\n```\n}, [dataConfig, dataSource, schema.filter, objectSchema, schemaSettled, (rest as any).data]);\n```\n\n⭐ **This is the last `dataConfig`-identity dependence left in the component.** #6696 already re-keyed the *schema resolution* onto the derived primitive `schemaKey` string (via `useSettledSchema`), so this closes the component rather than just one effect.\n\n⚠️ Note for whoever picks it up: `objectSchema` and `schemaSettled` in that deps array are **destructured from the hook**, not separate `useState`s — verified on `origin/main` at `ObjectTree.tsx:396`. Do not read them as the old two-state shape; #6696 removed that and left a docblock at `:360` explaining why.\n\n## The acceptance direction, inherited verbatim from #6592\n\n> **\"The effect no longer reads an object identity.\"**\n\n⛔ A pin that only proves the identity is stable today does **not** test this. The test must stay green when the memo cache is **deliberately discarded**.\n\n⛔ **The `useRef` / stable-key identity hack stays forbidden** — the #6018 ruling.\n\n## ⚠️ The premise trap, also inherited\n\nPR #6591 made the schema identity **stable**; it did **not** make it **guaranteed**. `useMemo` carries no semantic guarantee — React may discard a cache and recompute. So a dev **will** measure that the identity is stable today, and ⛔ **that measurement is not evidence this card is moot.**\n\n## ⚠️ One trap specific to this card, learned in #6592\n\nIts ablation predicted all four discard-pins red pre-fix; **`ObjectCalendar`'s first trigger passed even pre-fix**, because that component's own `dataConfig` memo was *already* primitive-keyed by #6018, so the trigger never recomputed it. The dev re-derived a trigger that varies `schema.data` by reference instead.\n\n⇒ ⭐ **Choose the trigger against this component's actual memo, and verify it discriminates pre-fix.** A trigger that cannot fail is a dead pin, indistinguishable from a working one.\n\n## Size\n\n~10 lines, one effect, mirroring a pattern #6592 proved three times. #6696's body confirms the record effect's dependency list and gate placement were untouched by it, so there is no shape uncertainty.\n\nRelated: #6592 (the parent census and the ruled option A), #6696 / #6481 (the fence that deferred this), #6482 (the hook), #6018 (the forbidden hack), #6591 (stable ≠ guaranteed), #6697 (the same structural hazard outside the `dataConfig` family)."
+}

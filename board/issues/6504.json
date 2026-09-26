@@ -1,0 +1,35 @@
+{
+  "number": 6504,
+  "kind": "issue",
+  "title": "The adapter-only `data.*` diagnostic (#5687) covers the visibility gate only — the same constant predicate on `disabled` greys a control out in silence",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-26T06:42:36Z",
+  "updated_at": "2026-08-28T17:25:10Z",
+  "closed_at": "2026-08-28T17:25:10Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6504",
+  "body": "Found while wiring the `disabled` / `disabledOn` fault diagnostic (#6445). Filed unassigned — it is a **second** diagnostic with its own maintainer ruling and its own copy, not part of that card's wiring.\n\n## The gap\n\n`reportAdapterOnlyDataPredicate` (`packages/react/src/utils/visibilityDiagnostic.ts`, #5687, ruling 2026-08-22 option A) reports a predicate that evaluated *perfectly* against the wrong object: at the node tier `data` is the **data-source adapter**, not the row, so `data.status == 'draft'` is a CONSTANT for every row. It is called from `evaluateVisibilityPredicate`'s dev leg only.\n\nThe `disabled` / `disabledOn` gate — now wired for **faults** by #6445 — is not covered by it. A node written\n\n```json\n{ \"type\": \"button\", \"disabled\": \"data.status == 'locked'\" }\n```\n\nevaluates cleanly (no fault, so #6445's reporter correctly stays silent), resolves `undefined == 'locked'` to `false`… and on the *other* value of that constant (`data.locked == null`, `!data.assignee`, or an adapter that answers nothing) hands the gate a constant `true` that greys the control out on every row, in every build, with nothing on the console.\n\n## Why it was not folded into #6445\n\nTwo reasons, both about the message rather than the wiring:\n\n1. **Its ruling is scoped to visibility.** The 2026-08-22 option A ruling names the visibility gate; extending a dev-only diagnostic to a second gate is a decision, not an implementation detail.\n2. **Its copy is visibility copy.** `formatAdapterOnlyDataMessage` says *\"on this surface a constant `false` hides the node on every row while looking exactly like a gate that said no\"* — the wrong sentence for a gate whose constant **disables** rather than hides, and the same asymmetry #6445 had to write new copy for.\n\nSo it needs a copy decision of the same kind #6445 made (its `GATE_KIND_COPY` table is the obvious place, and the module now has the machinery), plus a ruling on whether the extension stays dev-only as #5687 is.\n\n## Note on the deprecation clock\n\n#5687's own docblock says this diagnostic \"dissolves when #5330's deprecation window closes\" (`data.*` as a spelling for the row). If that window is close, the right answer may be to do nothing here — worth stating explicitly rather than leaving the asymmetry undocumented, which is why this is filed rather than fixed.\n\nRelated: #5687 (the leg), #5330 (the deprecation), #6445 (the `disabled` fault diagnostic that exposed the gap)."
+}

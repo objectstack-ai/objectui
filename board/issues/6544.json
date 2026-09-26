@@ -1,0 +1,32 @@
+{
+  "number": 6544,
+  "kind": "pull_request",
+  "title": "test(app-shell): spell the `__proto__` instrument fixture as a computed key",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-26T10:05:54Z",
+  "updated_at": "2026-08-26T10:30:58Z",
+  "closed_at": "2026-08-26T10:30:56Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-26T10:30:56Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6544",
+  "body": "Fixes #6524\n\nVerified at `70181d50b` (the final commit; every result below was produced on that tree).\n\n## The one line\n\n`packages/app-shell/src/services/MetadataService.objectPayloadFieldsMap.test.ts:155` spelled its fixture as a **plain object literal**:\n\n```ts\nfields: { __proto__: { type: 'text', label: 'P' } }\n```\n\nPer Annex B.3.1 that is the prototype setter: it sets `[[Prototype]]` and creates **no own key**, so the schema received `fields: {}` and the assertion pinned \"an empty field map is legal\" — not \"`__proto__` is a legal field name\". It is now spelled `['__proto__']`, so the fixture carries the key the test claims to be about, plus the control triage asked for and the mirrored computed control from `MetadataFieldsPage.fieldsMapKeying.test.tsx:257`–`:267`.\n\n`:361` (genuine own-key assertion) and `:362`'s assertion are untouched. `:362` gained a three-line comment recording *why* it is honest — `fieldsOf` reads `JSON.parse` of captured bytes, where `__proto__` is an own property, so a refactor that built that object from a literal would silently turn it into a prototype read.\n\n## Reverse verification — which assertions CAN fail, and how that was established\n\nThis is a card about an assertion that passed for the wrong reason, so \"it is green\" proves nothing. Every leg below is a **real mutation of the committed file** (proven on disk by anchor grep counts before the run) followed by `git checkout HEAD -- <path>` and a blob-hash comparison proving the restore (`05beca166f…` before and after, `git diff HEAD` empty). One run, four legs, attribution by test name:\n\n| leg | mutation | expected | observed |\n|---|---|---|---|\n| **B** — the corrected fixture is wired to the real schema's key rule | `['__proto__']` → `['firstName']` (a name `ObjectSchema` refuses) in the committed line | RED | RED — `AssertionError: expected false to be true` at `:165` |\n| **A1** — it would fail if the spec refused `__proto__` **by name** | same fixture routed through a shim that refuses an own `__proto__` key, real `ObjectSchema` otherwise | RED | RED — `expected false to be true` |\n| **A2** — the OLD line could not | the **plain-literal** fixture through the **same** shim | GREEN (that is the blindness) | GREEN — the shim never sees a key, falls through to the real schema, `success: true` |\n| **C** | plain control `Object.keys({ __proto__: … })).toEqual([])` rewritten the **computed** way | RED | RED — `expected [ '__proto__' ] to deeply equal []` |\n| **D** | computed control `…toEqual(['__proto__'])` rewritten the **plain** way | RED | RED — `expected [] to deeply equal [ '__proto__' ]` |\n\n`Test Files 1 failed (1) · Tests 4 failed | 21 passed (25)` — the arithmetic pins A2 as the one temp test that passed. A1 vs A2 is the whole card: **same assertion text, only the spelling differs, and only the computed one is sensitive to the rule the test names.** C vs D shows the two controls measure different things rather than both being trivially true. In leg B the two control lines (`:163`, `:164`) passed while `:165` failed, so the controls are independent of the fixture.\n\n## Gates (their own verdict lines, exit codes captured before any pipe)\n\n- `pnpm exec vitest run packages/app-shell/src/services/MetadataService.objectPayloadFieldsMap.test.ts` — `Test Files 1 passed (1) · Tests 21 passed (21)`\n- `pnpm exec vitest run packages/app-shell/src/services/` (final union at `70181d50b`) — `Test Files 10 passed (10) · Tests 101 passed (101)`\n- `pnpm --filter @object-ui/app-shell run type-check` — clean, after building the dependency closure (`--filter '@object-ui/app-shell^...' build`); the first attempt without it was `TS2307 Cannot find module '@object-ui/*'`, i.e. NOT MEASURED, not a red. Coverage proven rather than assumed: `tsc -p packages/app-shell/tsconfig.test.json --listFiles` contains the edited file (1 hit), so \"type-check green\" really does cover it.\n- `node scripts/check-changeset-presence.mjs` — first run `❌ 1 source file(s) of 1 released package(s) changed, and this change adds no changeset`; the gate's own verdict is what put a changeset in this PR. With `.changeset/proto-instrument-fixture.md` (empty frontmatter — declared as releasing nothing): `✅ … declares 1 changeset(s) … Every one of them has an EMPTY frontmatter`. No `skip-changeset` label was created or applied; that mechanism does not exist in this repo.\n- `pnpm changeset:check` — `✅` fixed group, `✅` no `major`\n- `node scripts/check-control-bytes.mjs` — `✅ OK (scanned 5398 tracked text file(s))`, plus a direct `grep -naP '[\\x00-\\x08…]'` over both changed files: no hits\n- `node scripts/check-designer-field-key-parity.mjs` — `designer-field-key-parity: OK`\n- `eslint` on the changed file — 1 file, 0 errors, 0 warnings\n\n**Declared narrowing:** repo-wide `pnpm lint` / the full `packages/app-shell` suite (281 files) were not run locally; the neighbouring `services/` directory was. The narrowing is measured, not assumed: the diff is one test file plus one changeset markdown (`git diff --name-only` vs merge-base `c18acb09e`), **no non-test source changed**, so no other test's subject moved; and `eslint.config.js` declares no `parserOptions.project` / `projectService`, so no type-aware rule can change a verdict on a file this diff does not touch. CI runs the full farm regardless.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_011SfZeFWrhGLHmfq61xbz4q)_"
+}

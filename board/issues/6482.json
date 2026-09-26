@@ -1,0 +1,35 @@
+{
+  "number": 6482,
+  "kind": "issue",
+  "title": "finding(ui): the schema-settled `$expand` gate is now four hand copies, and four more views resolve the schema without gating on it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-26T03:26:51Z",
+  "updated_at": "2026-08-28T15:44:50Z",
+  "closed_at": "2026-08-28T15:44:50Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6482",
+  "body": "Recorded while implementing objectui#6453, which is where the **third** hand copy of the schema-settled gate was written. This card exists so the convergence question is asked deliberately rather than answered by accretion, and so the second half — five sibling views that resolve the schema but do not gate on it — is not lost.\n\nFiled as an observation. Nothing here is a correctness defect; objectui#6481 (`ObjectTree`'s unkeyed latch) is filed separately as one.\n\n## Where the family stands today\n\n| component | shape | keyed by object? |\n|---|---|---|\n| `plugin-kanban/src/ObjectKanban.tsx` | `{ key, def } \\| null`, gates the whole fetch effect (objectui#6271) | yes |\n| `plugin-view/src/ObjectView.tsx` | `{ key, def } \\| null`, gates the non-grid fetch effect (objectui#6419) | yes |\n| `plugin-calendar/src/ObjectCalendar.tsx` | `{ key, def } \\| null`, gates the `object`-provider branch (objectui#6453) | yes |\n| `plugin-tree/src/ObjectTree.tsx` | `objectSchema` + a bare `schemaSettled` boolean (objectui#6014) | **no** — objectui#6481 |\n\nFour copies. objectui#6453's triage note asked the implementer to prefer adopting a shared helper *if objectui#6419's landed shape extracted one*; it did not (`e929c562a` touched only `ObjectView.tsx`, one test and a changeset), so objectui#6453 wrote the third copy deliberately and declared it. The reasons it did not extract, which are the inputs to this card rather than a pre-ruling of it:\n\n- The **resolution** half is genuinely common: `useState<{key, def} \\| null>(null)`, a key, `ready = res !== null && res.key === key`, `def = ready ? res.def : null`, and an effect whose every exit settles.\n- The **gate** half is not. `ObjectCalendar` keys on `dataConfig.object ?? schema.objectName` rather than `schema.objectName`, and gates one provider branch rather than the whole effect, because an inline `value` data set issues no metadata read at all — a whole-effect gate would hold its query open on a resolution nothing was going to produce. A helper would hold roughly the resolution half and leave each component its own gate placement.\n- A helper would have to live in `@object-ui/react` (AGENTS.md §3 bars React from `@object-ui/core`), which makes it a **new export on a published package** — a permanent public-surface commitment. All four plugins already depend on `@object-ui/react`, so it is feasible; the question is whether it is wanted.\n- Doing it would refactor two already-landed fixes (objectui#6271, objectui#6419) plus a fourth divergent copy.\n\n## The second half: five views resolve the schema but do not gate on it\n\nEvery other `buildExpandFields` consumer already lists the schema in its fetch effect's dependency list, so none of them carries the never-expands defect. They carry the *other* regime — two queries, the first unexpanded:\n\n```\nplugin-gantt/src/ObjectGantt.tsx:536      deps [... , objectSchema]\nplugin-map/src/ObjectMap.tsx:708          deps [... , objectSchema]\nplugin-timeline/src/ObjectTimeline.tsx:208 deps [... , objectDef]\nplugin-list/src/ObjectGallery.tsx:354     deps [... , objectDef]\nplugin-tree/src/ObjectTree.tsx:468        gated, but see objectui#6481\n```\n\nWhat that costs is **not** uniform, and objectui#6453 measured why. On `ObjectCalendar`, instrumented with three latency profiles: when the schema read is the slower of the two, the dependency version painted raw ids, reverted to the loading placeholder, then swapped — a three-step paint; when it was the faster one, the first response was discarded on arrival — a round trip bought and thrown away. `ObjectKanban` measured the discard case, `ObjectView` measured the visible-swap case. So whether gating is worth it in each of the five above is a **per-component measurement**, not an inference from this table.\n\n## What this card is asking for\n\nA decision, then whatever work follows from it:\n\n1. Extract a shared settled-schema resolution hook, or keep hand copies? If extracted, the new export must be declared as a public-surface widening, not slipped in.\n2. Independently: measure each of the four ungated views and gate the ones where an extra re-run costs a visible wrong paint.\n\nRelated: objectui#6271, objectui#6419, objectui#6453, objectui#6481, objectui#6014.\n\n_Generated by [Claude Code](https://claude.ai/code)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 4929,
+  "kind": "issue",
+  "title": "发布态消费者渲染插件组件没有样式路径:插件包不发 style.css,两张已发布表也不含插件的 21 个主题化 utility",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T05:57:10Z",
+  "updated_at": "2026-08-25T21:12:18Z",
+  "closed_at": "2026-08-25T21:12:18Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4929",
+  "body": "## 发现来源\n\nobjectui#4865 的实施(分支 `claude/issue-4865-skill-entry-residue`)。该卡要求「改写 eval 3 前先从树上回答 plugin-package `style.css` 的实际问题」。查证结论足够改 eval,但同时量出一个 eval 不该替仓库现场发明答案的缺口,按「相邻缺陷立新单不扩围」单独记录,未在 #4865 的 PR 里修。\n\n## 事实(实测,worktree 基线 `40d3a3318`)\n\n### 1. 只有两个包发布样式表\n\n遍历全部 40 个 `packages/*/package.json` 的 `exports`,声明 `\"./style.css\": \"./dist/index.css\"` 的只有 `@object-ui/components` 与 `@object-ui/fields`。没有任何 `@object-ui/plugin-*` 有这个导出。\n\n### 2. 插件包根本不产出 CSS\n\n| 包 | `scripts.build` |\n| --- | --- |\n| `@object-ui/components` | `vite build && node scripts/build-css.mjs` |\n| `@object-ui/fields` | `tsc && vite build && node scripts/build-css.mjs` |\n| `@object-ui/plugin-grid` | `vite build` |\n| `@object-ui/plugin-kanban` | `vite build` |\n\n`scripts/build-css.mjs` 正是把 `src/index.css` 编成 `dist/index.css` 的那一步,插件包没有。`packages/plugin-grid/src` 与 `packages/plugin-kanban/src` 下一个 `.css` 文件都没有(`find ... -name '*.css'` 零命中)。\n\n### 3. 两张已发布表按构造就不含插件的类\n\n- `packages/components/src/index.css:14` —— `@source '../src/**/*.{ts,tsx}';`,只扫自己 `src`。\n- `packages/fields/src/index.css:43` —— `@source './**/*.{ts,tsx}';`,同样只扫自己。\n\n所以插件独有的候选类不可能出现在任一张表里。逐字面 grep 量了一遍:**21 个主题化 utility 被 `packages/plugin-grid/src` / `packages/plugin-kanban/src` 使用,而在 `packages/components/src` 与 `packages/fields/src` 里零出现**——\n\n```\ntext-muted-foreground/80  focus:border-input  focus:ring-destructive/30  border-foreground\ndivide-border/50  bg-card/60  hover:border-primary/40  text-primary/90  bg-card/20\ntext-foreground/85  bg-muted/10  bg-muted/15  ring-primary/60  ring-destructive/30\nbg-muted/70  border-primary/60  text-muted-foreground/60  bg-foreground/70\nbg-muted-foreground/30  shadow-primary/25  ring-primary/40\n```\n\n(另有约 140 个非主题化的插件独有类,同样不在两张表内 —— 那些理论上消费者自己扫 `dist` 能生成,主题化这 21 个不能,因为 `@theme` 块在未发布的源码里。)\n\n### 4. 今天的路只覆盖工作区\n\n- **工作区**:`apps/console/src/index.css:19-30` 为每个插件包各写一行 `@source '../../../packages/plugin-*/src/**/*.{ts,tsx}'`,并自己声明 `@theme` —— 成立。\n- **发布态**:`packages/cli/src/commands/init.ts:537` 生成的 scaffold 只有 `@import 'tailwindcss'` + `@import '@object-ui/components/style.css'`,模板不含任何插件类型,所以没暴露问题。仓内唯一覆盖发布态插件的实现是 `packages/cli/src/utils/app-generator.ts:335` 的临时 app —— 它逐条重述自己的 `@theme`(注释原话「Token-for-token the set `packages/components/src/index.css` declares」)再 `@source '../node_modules/@object-ui/*/dist/**/*.js'`。那是 `objectui run` 的临时 app,不是任何指南教给手写消费者的形状。\n\n## 影响\n\n装了 `@object-ui/plugin-grid` / `plugin-kanban` 的发布态 Vite 应用,照 quick-start 导两张 `style.css` 之后渲染 grid / kanban,上列 21 个主题化 utility 没有任何来源:`bg-muted/10`、`bg-card/60`、`text-muted-foreground/60` 都是常规外观类,不是边角分支。#4858 修正后的三份指南在「不要扫 node_modules」这一句上是对的(对 components / fields 成立,#3884 实测过 dist 是超集),但那条论据的前半句对插件不成立 —— 两张表**没有**这些类,于是发布态插件消费者被留在没有答案的位置上。\n\n## 可能的方向(未定,交维护者)\n\n1. 给每个 `@object-ui/plugin-*` 加 `scripts/build-css.mjs` + `\"./style.css\"` 导出,按 `fields` 的减法形状(`@reference` components 的 theme,再减掉 components 已发的规则),消费者多导一张表。\n2. 把插件类合并进 `@object-ui/components/style.css`(components 的 `@source` 扩到插件 src)—— 但那会让不装插件的消费者也背上体积,且方向上是包依赖倒挂。\n3. 只补文档:告诉发布态插件消费者走 app-generator 那条「自己声明 `@theme` + 扫 `node_modules/@object-ui/*/dist`」的路。\n\n三者是公开契约层面的取舍(是否新增包导出、体积归属、是否把「自己声明 theme」重新变成推荐做法),不适合由实施方替维护者定。\n\n关联:#4865(本单来源)、#4858 / PR #4866(三份指南的修正)、#4059(`style.css` 为何必须存在)、#3884(dist 是 node_modules glob 的超集,该结论只对 components 量过)。未认领。"
+}

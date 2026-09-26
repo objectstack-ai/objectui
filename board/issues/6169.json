@@ -1,0 +1,36 @@
+{
+  "number": 6169,
+  "kind": "issue",
+  "title": "finding(plugin-chatbot): the `chatbot` authoring surface is an unnamed inline intersection, and its docs table names a key the node does not carry",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T22:09:47Z",
+  "updated_at": "2026-08-28T15:28:44Z",
+  "closed_at": "2026-08-28T15:28:44Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6169",
+  "body": "Filed unassigned out of #6086 round 3, which was naming the shape on property tables that named none. This table could not be named, and the reason is a source-shape problem rather than a docs one.\n\n## The fact\n\n`content/docs/plugins/plugin-chatbot.mdx`'s `## Properties` table has 25 rows. **No single declared shape carries them.** Measured against the three candidates:\n\n| candidate | claimed keys it does NOT declare |\n| --- | --- |\n| `ChatbotSchema` (`packages/types/src/complex.ts:534`) | 11 — `showTimestamp`, `userAvatarUrl`, `userAvatarFallback`, `assistantAvatarUrl`, `assistantAvatarFallback`, `maxHeight`, `autoResponse`, `autoResponseText`, `autoResponseDelay`, `onSend`, `surface` |\n| `ChatbotProps` (`packages/plugin-chatbot/src/index.tsx:17`) | 16 |\n| `ChatbotEnhancedProps` (`packages/plugin-chatbot/src/ChatbotEnhanced.tsx:434`) | 14 |\n\nThe reason there is no single shape: the registration types its node **inline and anonymously**. `packages/plugin-chatbot/src/renderer.tsx:62`:\n\n```\nComponentRegistry.register('chatbot',\n  ({ schema, className, disabled: hostDisabled, ...props }: { schema: ChatbotSchema & {\n    showTimestamp?: boolean;\n    disabled?: boolean;\n    userAvatarUrl?: string;\n    userAvatarFallback?: string;\n    assistantAvatarUrl?: string;\n    assistantAvatarFallback?: string;\n    maxHeight?: string;\n    autoResponse?: boolean;\n    autoResponseText?: string;\n    autoResponseDelay?: number;\n    onSend?: (content: string, messages: ObjectChatMessage[]) => void;\n  }; ... })\n```\n\nSo eleven authorable keys of the `chatbot` node are declared **only** at the registration site, in a type with no name. Nothing outside this file can reference them, nothing can validate against them, and the docs page has no type to point a reader at.\n\n## A second, smaller defect on the same table\n\nThe table's `body` row reads *\"Additional body params for API requests\"*. `ChatbotSchema` declares no `body` with that meaning — the node key is **`requestBody`**, and the renderer passes it as `body: schema.requestBody` (`renderer.tsx:87`). The `body` a reader would find on the node is `BaseSchema.body`, the children container. An author following the table writes a key that reaches nothing.\n\n## Why it is worth a card\n\n`autoResponse` / `autoResponseText` / `autoResponseDelay` are read by a live consumer (`packages/app-shell/src/console/ai/AiChatPage.tsx:1599-1601`), so this is not dead surface to delete — it is real authorable surface with no declaration anyone can import. Whether the fix is to lift the inline extension into `ChatbotSchema`, or to name it and export it, is a contract decision rather than a docs one, which is why #6086 stopped rather than naming something.\n\n## Reproduce\n\n```\nsed -n '60,75p' packages/plugin-chatbot/src/renderer.tsx\nsed -n '130,160p' content/docs/plugins/plugin-chatbot.mdx\ngrep -n 'body: schema.requestBody' packages/plugin-chatbot/src/renderer.tsx\n```\n\nRefs: #6086 (the card this came out of) · #6155 (the sibling name-resolution finding)."
+}

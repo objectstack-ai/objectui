@@ -1,0 +1,34 @@
+{
+  "number": 5972,
+  "kind": "issue",
+  "title": "[finding] After #3878 merged the two ellipsis groups, `Loading…` is one 10-key group and de renders it four ways (ko two, ar two) — #3880's \"two-key typo\" no longer describes it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T10:09:35Z",
+  "updated_at": "2026-08-27T13:54:21Z",
+  "closed_at": "2026-08-27T13:53:30Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5972",
+  "body": "Filed from the #3880 dispatch (PR #5971). Unassigned, and deliberately **not** a re-file of #3880's de half — the shape it described no longer exists, and what replaced it is a different decision.\n\n## What changed under the card\n\n#3880 recorded a two-key de typo: `common.loading` `Wird geladen...` against `detail.loading` `Laden...`, both with an **ASCII** ellipsis, and its 2026-08-09 triage queued exactly those two values while fencing off \"every U+2026 variant\" as #3878's territory.\n\n#3878 then landed (PR #4378) and converged all ten packs on U+2026. Both of those keys are named in that pass's own census — `CONVERGED_KEYS` in `packages/i18n/src/__tests__/ellipsis-glyph-3878.test.ts` — and there is now **no ASCII `...` in any value of any pack** (that test gates it repo-wide).\n\nThe side effect nobody re-measured: the ASCII group and the U+2026 group **merged**. The en value `Loading…` was 8 keys; it is now **10**, and the two keys #3880 named are inside it. So the card's fence (\"fix the ASCII pair, leave the U+2026 variants alone\") no longer partitions anything — the pair *is* U+2026 variants now.\n\n## Measured on `main` @ `2aff580b5`\n\nEvery key whose `en` value is byte-identically `Loading…`, grouped by flattening all ten packs and comparing exact values:\n\n| key | de | ko | ar |\n|---|---|---|---|\n| `lookup.loading` | Wird geladen… | 로딩 중… | جارٍ التحميل… |\n| `common.loading` | Wird geladen… | 로딩 중… | جاري التحميل… |\n| `fields.recipient.loading` | Wird geladen… | 불러오는 중… | جارٍ التحميل… |\n| `grid.import.historyLoading` | Wird geladen… | 불러오는 중… | جارٍ التحميل… |\n| `grid.bulk.loading` | Wird geladen… | 불러오는 중… | جارٍ التحميل… |\n| `detail.loading` | **Laden…** | 로딩 중… | جاري التحميل… |\n| `report.loading` | **Laden…** | 로딩 중… | جارٍ التحميل… |\n| `dashboard.loading` | Wird geladen… | 로딩 중… | جارٍ التحميل… |\n| `auth.device.loading` | **Lade…** | 로딩 중… | جارٍ التحميل… |\n| `approvalsInbox.loadingMore` | **Lädt…** | 불러오는 중… | جارٍ التحميل… |\n\nTallies:\n\n- **de — four spellings**: `Wird geladen…` ×6 · `Laden…` ×2 · `Lade…` ×1 · `Lädt…` ×1\n- **ko — two**: `로딩 중…` ×6 · `불러오는 중…` ×4\n- **ar — two**: `جارٍ التحميل…` ×8 · `جاري التحميل…` ×2 (a diacritic difference — جارٍ vs جاري — on `common.loading` and `detail.loading`, which may be a third, separate class)\n- es, fr, pt, ru, ja, zh: unanimous ×10\n\n## Why this was not fixed under #3880\n\nFixing only `detail.loading`, the key the card named, would leave `report.loading` — the **identical** German spelling at an equally same-context site — untouched. That is an arbitrary half-pass over a group the 2026-08-09 adjudication never saw.\n\nAnd the argument that settles #3880's `Done` group cleanly does **not** transfer here. There, all four call sites were the same dialog-footer button and all nine other packs were unanimous, so a 3:1 majority vote was safe. Here six packs are unanimous but three split three different ways, which is much weaker evidence of a typo, and at least one member has a plausible genuine context:\n\n- **`approvalsInbox.loadingMore`** — the key name says \"loading more\" (a continuation load, not an initial one) even though its `en` value is plain `Loading…`. de `Lädt…` and ko `불러오는 중…` may be deliberate for that. Whether the **`en` value** is the real defect here — an initial-load string reused for a continuation — is worth deciding before touching any translation.\n- **`auth.device.loading`** — de `Lade…` (first person) is a distinct register from `Wird geladen…` (passive) and may be intentional on a device-pairing screen.\n\nThat is exactly the trap #3880 exists to record: 58% of shared `en` strings in this repo are translated differently per key **on purpose**, so a sweep is the wrong default. This one needs a decision per member, not a majority vote.\n\n## Suggested disposition\n\nTriage as one decision covering the whole 10-key group, in this order:\n\n1. Decide whether `approvalsInbox.loadingMore`'s **`en`** value should stay `Loading…` or become its own string (`Loading more…`). If it changes, it leaves this group and `check-i18n-en-drift.mjs` will ask the nine packs to follow.\n2. Decide whether `auth.device.loading`'s register is intentional.\n3. Only then converge the remainder — de, ko and ar — on their majority.\n\nDoing 3 before 1 and 2 bakes in whatever the answer turns out to be.\n\n## Related\n\n- #3880 — where this was first noticed, as an ASCII two-key pair; its 281/164 shared-string census stays there as documentation and is explicitly **not** a gate (164 of those groups diverge legitimately).\n- #3878 / PR #4378 — the glyph convergence that merged the two groups. Glyph only; it never touched wording, so this is not a regression from it.\n- PR #5971 — the #3880 dispatch, which delivered the es `Done` half and reported this half's premise as falsified."
+}

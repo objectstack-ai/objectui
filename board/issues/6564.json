@@ -1,0 +1,33 @@
+{
+  "number": 6564,
+  "kind": "pull_request",
+  "title": "docs(plugin-map): correct the marker-title fallback the README documents",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-26T12:21:20Z",
+  "updated_at": "2026-08-26T12:42:42Z",
+  "closed_at": "2026-08-26T12:42:41Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-26T12:42:40Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6564",
+  "body": "Fixes #6530\n\n## What was wrong\n\n`packages/plugin-map/README.md:95` described the `map` block's `titleField` as:\n\n> Field shown as the marker title. Omitted, markers are titled `Marker`.\n\nThat described the pre-objectui#5953 read site, which bound the marker title to a field\nname directly. objectui#5953 moved the marker title onto `@object-ui/core`'s\n`getRecordDisplayName`, and `'Marker'` is now passed only as that resolver's `fallback`\noption — a position reached **only by a record carrying no id at all**\n(`ObjectMap.tsx:769-772`). So \"omitted ⇒ `Marker`\" was true in one narrow corner and false\nin the common case, and an author reading the row would either under-specify `titleField`\nfor a reason that stopped being true, or over-specify it to dodge a `Marker` that would\nnever have appeared.\n\n## What the row says now\n\nThe row names the precedence an omitted `titleField` defers to: the declared `nameField`,\nits deprecated `displayNameField` alias, the legacy `titleFormat` template, a type-aware\npick from the object's fields, then name-ish keys read straight off the record — with\n`Record #<id>` as the floor and `Marker` reached only by an id-less record.\n\n## Two things the prose does deliberately\n\n**It does not describe an object-level `objectDef.titleField` rung.** The resolver\nconsults one today as step 0's second `??` leg, but #6531 / PR #6560 removes it — the\nspec's object schema is a `strictObject` that rejects the key with `unrecognized_keys`.\nI read that PR's diff rather than trusting the summary: it changes step 0 **only**, and\nevery other rung survives byte-for-byte. What survives is `options.titleField`, which is\nexactly what `mapConfig.titleField` becomes at `ObjectMap`'s call site, so \"a declared\n`titleField` wins\" holds both before and after #6560 lands and this row does not go stale\nwhen it does.\n\n**It names the record-key probe (the resolver's step 4b) as its own rung.** This is the\none place my reading of the source disagreed with the dispatch summary, which listed the\nladder as `nameField` → `displayNameField` → `titleFormat` → type-aware derivation →\n`Record #<id>` and omitted 4b. For this component 4b is not a footnote — it is often the\n*only* live rung. `ObjectMap` fetches an object schema only when `!hasInlineData &&\ndataSource` (`ObjectMap.tsx:729`), and both `staticData` and an inline `data` array\nnormalize to `provider: 'value'` (`ObjectMap.tsx:125-158`), so for inline data no object\ndefinition ever reaches the resolver and steps 1–4 are all no-ops. `ObjectMap` also does\nnot pass `deriveFromRecordKeys: false`, so the probe is on. `ObjectMap.markerTitle.test.tsx`\npins exactly this case (\"inline `value` data with no object definition: the record-key\nprobe resolves it\"), and `ObjectMap.tsx`'s own comment above the call site names it too.\nOmitting it would have shipped a second summary-shaped inaccuracy into the row I was\nsent to correct.\n\n## A second row, fixed in place\n\nTwo lines below the table, the field-name defaults paragraph listed what an unconfigured\nmap falls back to as `latitude` / `longitude` / `location` / `name` / `description`.\n`name` is stale there for the *same* reason and by the *same* commit: objectui#5953\nremoved the title default when it moved the marker title onto `getRecordDisplayName`.\n`getMapConfig`'s default branch (`ObjectMap.tsx:402-415`) returns the three coordinate\nkeys and `descriptionField` only, under a comment that says so outright — \"Deliberately\nNO `titleField` (objectui#5953) … `getRecordDisplayName` resolves it from the object\ndefinition, and it does so better than any literal here could\". The paragraph now lists\nthe four defaults that exist and says where an unconfigured marker's title comes from.\n\nFixed in place rather than filed: same defect class as the card, mechanically pinned by\nthe source comment above, same file already in this PR's face, and no new verification\nsurface. The rest of that sentence — `map: { titleField: 'name' }` naming no coordinate\nfield and rendering an empty map — was checked and is accurate, so it is untouched.\n\n## Scope\n\n`packages/plugin-map/README.md` (two rows, both falsified by objectui#5953) plus the\nchangeset. `ObjectMap.tsx` is evidence,\nnot a target — the code is correct. `content/docs/plugins/plugin-map.mdx:125` was verified\naccurate and left alone. `packages/core/src/utils/record-title.ts` belongs to #6531 and was\nread only.\n\n## Verification\n\nGate union re-run on the final commit `062dd7935`:\n\n| Gate | Verdict line |\n| --- | --- |\n| `check:control-bytes` | `✅  check-control-bytes: OK (scanned 5421 tracked text file(s); skipped 85 binary).` |\n| `check-changeset-presence` | `✅  No source of a released package changed in this range, so no changeset is owed.` |\n| `check-changeset-no-major` | ✅  No changeset declares a `major` bump. |\n| `check:doc-fences` | `✅  check:doc-fences — every TypeScript block in 223 document(s) is fenced ts/tsx/typescript…` |\n| `check-doc-links` | `Links are valid across 17 scan roots.` |\n\n`check:readme-exports` is **NOT MEASURED**, not green and not red. It exits 1 in a fresh\nworktree with 378 of its 380 findings reading `type entry ./dist/index.d.ts is not on disk\n-- run pnpm build first`, spanning every package (`app-shell`, `auth`, …) — a prerequisite\nrefusal, not a verdict. It also provably cannot see this diff: the gate judges `import`\nbindings inside README code fences, line 95 is not inside a fence, and the diff adds zero\n`import` lines. The only `plugin-map` entry in its output is the pre-existing fence at\n`README.md:160`. CI builds first and runs it for real.\n\nNo test run is claimed: this changes prose only, compiles nothing, and the behaviour was\nalready pinned by `ObjectMap.markerTitle.test.tsx`, which I read but did not modify.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6397,
+  "kind": "issue",
+  "title": "finding(types): `PartialSchema< T >` declares ONE property for every instantiation — the #6269 collapse in a mapped-type alias, and it has zero consumers",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T19:55:43Z",
+  "updated_at": "2026-08-26T00:25:57Z",
+  "closed_at": "2026-08-26T00:25:57Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6397",
+  "body": "⚠️ Generic parameters are written **spaced** (`Omit< T, K >`) throughout — GitHub's body\nsanitizer eats a fragment that opens with an identifier in angle brackets, which is what\nmangled #6151's and #6269's first revisions.\n\nMeasured while fixing #6269, in the same pass that card explicitly asked for (\"⚠️\n`index.ts:900` has a generic `& Partial< Omit< T, 'type' > >` whose behaviour depends on what\n`T` is instantiated with — not measured, and worth checking as part of any fix here\").\nFiled unassigned and **deliberately not fixed in #6269's PR**: the dispatch order for that\ncard ruled \"measure it and report the number — do not widen this PR to fix it without\nreporting first.\"\n\n## The fact\n\n`packages/types/src/index.ts:905`:\n\n```ts\nexport type PartialSchema< T extends BaseSchema > = {\n  type: T['type'];\n} & Partial< Omit< T, 'type' > >;\n```\n\nEvery instantiation declares exactly **one** property. Measured through the TypeScript\nchecker against the emitted `index.d.ts` (the same instrument as #6269's 61 → 0 reading):\n\n```\nPartialSchema< ObjectGridSchema >  -> 1 declared property: type   (source: 61)\nPartialSchema< ObjectFormSchema >  -> 1 declared property: type   (source: 67)\nPartialSchema< ObjectViewSchema >  -> 1 declared property: type   (source: 27+)\nPartialSchema< ButtonSchema >      -> 1 declared property: type   (source: 27)\n```\n\nAll four also carry a live `[key: string]: any`, so the type accepts anything.\n\n## Why — the #6269 / #6151 mechanism, third position\n\n`Omit< T, K >` is `Pick< T, Exclude< keyof T, K > >`, and `keyof T` on a type carrying a\nstring index signature is `string | number` — the literal member names are absorbed. Every\n`T extends BaseSchema` inherits `BaseSchema`'s `[key: string]: any` (#5155), so the\n`Partial< Omit< T, 'type' > >` half of the intersection rebuilds a type holding the index\nsignature and none of the named members. The explicit `{ type: T['type'] }` half is the only\nreason the count is 1 rather than 0.\n\nThis is the same collapse #6151 fixed in a **heritage clause** and #6269 fixed in **property\nposition**. Here it is in a **generic mapped-type alias**, which is why neither card's guard\nsees it: #6151's walks the `LayoutSchema` union, #6269's reads `ObjectViewSchema`'s two slot\nproperties.\n\n## What it costs today: nothing measurable — the type has no consumers\n\nGrepped across `packages/`, `apps/`, `examples/`, `content/` and `docs/` (excluding\n`node_modules`): **two** occurrences of the identifier, and both are the declaration itself —\n`packages/types/src/index.ts:905` (source) and `packages/types/dist/index.d.ts:130` (its own\nemitted copy). No call site, no re-export under another name, no documentation page, no test.\nIts doc comment says \"Useful for partial schema definitions in editors\"; nothing in this\nrepo's editors uses it.\n\nSo the harm is not a live miscompile — it is a **published, exported type that promises\n`{ type } & everything-else-optional` and delivers `{ type } & any`**, available for the next\nconsumer to adopt and be silently unprotected by.\n\n## Options, none ruled here\n\n1. **Retire it.** Zero in-repo consumers, and it is a convenience alias rather than a\n   capability — the startup-scope reading is that a declared-and-unconsumed surface does not\n   earn a repair. Cost: it is exported from `@object-ui/types`, so an out-of-tree consumer\n   could exist; needs the usual removal route (a `minor` under this repo's no-`major`\n   convention, or a deprecation window).\n2. **Repair it the #6269 way.** Not directly portable: #6269 could spell out an explicit key\n   list because `ObjectGridSchema` and `ObjectFormSchema` are concrete. `T` here is generic,\n   so there is no literal key list to write. A repair would need something like\n   `{ type: T['type'] } & { [K in keyof T as K extends 'type' ? never : K]?: T[K] }`, which\n   collapses for the same `keyof T` reason, or a `BaseSchema`-free member source — i.e. it\n   effectively waits on option 3.\n3. **Sequence behind #5155** (the phased zod `.strict()` ruling), which removes the index\n   signature at the root and closes this class everywhere at once — at which point this alias\n   starts working as written with no edit at all.\n\nMy reading is that **1 and 3 are the live pair**, and they are compatible: retiring an\nunconsumed alias is cheap now, and if it is kept instead, #5155 fixes it for free later. What\nis not defensible is leaving it declared, published, collapsed, and unpinned.\n\nRefs: #6269 (same mechanism, property position — this was measured in its PR) · #6151 (same\nmechanism, heritage clause) · #5155 (the root index signature) · #6143 (where the class first\nsurfaced).\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

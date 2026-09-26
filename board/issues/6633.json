@@ -1,0 +1,32 @@
+{
+  "number": 6633,
+  "kind": "pull_request",
+  "title": "docs(app-shell): describe the record-title ladder InterfaceListPage's map prose actually has",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-28T06:52:42Z",
+  "updated_at": "2026-08-28T07:18:12Z",
+  "closed_at": "2026-08-28T07:18:11Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": "2026-08-28T07:18:11Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6633",
+  "body": "Fixes #6572\n\nProse only. The two marker-title docblocks in `packages/app-shell` taught the\n`getRecordDisplayName` precedence ladder as containing an object-level\n`titleField` rung between step 0 and the declared pointer. No such rung exists,\nand the key it named is one `@objectstack/spec`'s object schema rejects\noutright — a `strictObject`, so it comes back `unrecognized_keys`, the same\nissue code a nonsense key gets.\n\n## Why the passages were wrong\n\nThe rung was never a step of its own: it was a second `??` leg inside step 0 of\n`getRecordDisplayName`, deleted in objectui#6531. `packages/core/src/utils/record-title.ts`\nsays so at the read site — \"An object-level ... used to be consulted here too,\nas a second `??` leg. Removed in objectui#6531\".\n\nLeft standing, the prose invites precisely the two moves the finding named: a\nconsumer-side read-back of an undeclared key (the Commandment #0.1 shape), or a\nfixture carrying a key the spec refuses.\n\n## The ladder as it actually is\n\nRead off the `getRecordDisplayName` docblock and its branches on the merged ref,\nnot off this card's prediction:\n\n| step | rung |\n| --- | --- |\n| 0 | `options.titleField` — the caller's declared view-level pointer |\n| 1 | `objectDef.nameField` — canonical (ADR-0079) |\n| 2 | `objectDef.displayNameField` / `NAME_FIELD_KEY` — deprecated alias |\n| 3 | `objectDef.titleFormat` — legacy render-only template |\n| 4 | type-aware derivation from `objectDef.fields` |\n| 5 | `Record #id` floor |\n\n## The corrected passages\n\n`InterfaceListPage.tsx` — the enumeration now names the rungs step 0 outranks,\nand a note records what the middle term was:\n\n> precedence **step 0** — ahead of every OBJECT-level rung beneath it: the\n> declared `nameField` pointer and its `displayNameField` alias (step 1/2), the\n> legacy `titleFormat` template (step 3), and the type-aware derivation from\n> `objectDef.fields` (step 4).\n>\n> That ladder has NO object-level `titleField` rung — the middle term this\n> passage used to name. It was never a step of its own: it was a second `??`\n> leg inside step 0, deleted in objectui#6531 ...\n\n`InterfaceListPage.mapConfig.test.tsx` carries the same correction in its own\nvoice. Its \"reproduces, at step 0, the string the resolver already computes at\nstep 1/2/4\" is deliberately left skipping step 3: a rendered template is not a\nplain field read, so it is not a string step 0 can reproduce.\n\nEach passage's actual argument is untouched — a derived marker title arriving as\n`options.titleField` is an INVERSION because step 0 outranks everything the\nobject declared. Only the ladder it measures against is corrected.\n\n## Verification\n\n**Anchored grep, with a positive control so the zero is a measurement.** Same\ngrep shape (`grep -cF`), same two files:\n\n| term | before | after |\n| --- | --- | --- |\n| `objectDef` + `.titleField` (target) | 1 + 1 | **0 + 0** |\n| `options.titleField` (control, still present) | 1 + 3 | 2 + 3 |\n| `objectDef.fields` (control, same dotted shape) | 1 + 0 | 2 + 1 |\n\nThe controls match on the post-change files, so the pattern shape is live and\nthe zero is an absence rather than a broken pattern.\n\n**The touched test file, logic untouched** — from the repo root, per AGENTS.md:\n\n```\npnpm exec vitest run packages/app-shell/src/views/InterfaceListPage.mapConfig.test.tsx\n   Test Files  1 passed (1)\n        Tests  9 passed (9)\n```\n\n9 passing matches the file's 9 `it(` blocks, and the file imports\n`InterfaceListPage` directly — so both edited files were parsed and transformed\nin that green run.\n\n**Comment-only, proven mechanically rather than asserted.** Both files parsed\nwith the TypeScript compiler and their leaf token streams compared against the\nmerge-base with every JSDoc subtree dropped:\n\n```\nInterfaceListPage.tsx             code leaves BASE=3380 HEAD=3380, divergent 0\nInterfaceListPage.mapConfig.test  code leaves BASE=1300 HEAD=1300, divergent 0\nsyntactic diagnostics: 0 in both\nCONTROL (one identifier changed in memory): divergent 1 -> detector WORKS\n```\n\nThe executable code is identical to the merge-base, so the type graph is too.\n\n**Lint.** `eslint` on both files: **0 errors**, 39 + 9 warnings — byte-identical\ncounts to the same two files at the merge-base (measured by restoring the base\ncontent, re-linting, then restoring `HEAD`). CI's lint workflow deliberately\nsets no `--max-warnings`, so errors are the gating number.\n\nScope narrowed deliberately and declared: the full `@object-ui/app-shell`\n`type-check` needs a 26-package dependency-closure build, which the token-stream\nresult above makes redundant for a change that alters no code token. CI runs the\nfarm regardless.\n\n**Changeset** — not pre-empted in either direction. `check-changeset-presence.mjs`\nwas run first and demanded one, naming the empty-frontmatter declaration as the\nexplicit pass for a change that releases nothing; it now reports\n`Every one of them has an EMPTY frontmatter — declared as releasing nothing`.\n`check-changeset-no-major.mjs` green.\n\nAll measurements above were taken on `558ac4bd`, the branch head.\n\n_Generated by [Claude Code](https://claude.ai/code/session_8ca04858-ea8e-5b85-9182-de59aa49e00c)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01CRJge11jso9TpXRWFt1Z49)_"
+}

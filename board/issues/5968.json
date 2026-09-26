@@ -1,0 +1,32 @@
+{
+  "number": 5968,
+  "kind": "issue",
+  "title": "[finding] #5168's shrink-only pin is checkout-state dependent: following packages/runner/README.md's Development Workflow step 1 turns it red on the developer's own machine",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-24T09:41:20Z",
+  "updated_at": "2026-08-25T12:01:19Z",
+  "closed_at": "2026-08-25T12:01:19Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5968",
+  "body": "Found while implementing #4820/#5380 as a folded pair (PR #5966, round R6, `domain:devx` @ objectui seat #5748). Out of that PR's file surface, and it holds independently of how #5380 is resolved, so filed rather than folded in.\n\n## Measured\n\n`scripts/__tests__/vitest-config-alias-targets-3944.test.ts` carries #5168's shrink-only carve-out:\n\n```ts\nconst KNOWN_MISSING_PACKAGE_ALIAS_TARGETS: readonly { config: string; specifier: string }[] = [\n  { config: 'packages/runner/vite.config.ts', specifier: '@app' },\n];\n```\n\nIts pin asserts each carved-out entry is **still declared AND still missing**, the second half via `fs.existsSync`. The intent is sound — it forces the carve-out to be emptied when the card resolves, so the list cannot outlive its reason.\n\nThe problem is what the \"still missing\" half is measuring. `packages/runner/src/app-data` is **not** missing by defect; it is a deliberately git-ignored, **user-supplied** directory:\n\n- `packages/runner/.gitignore:1` — `src/app-data`\n- `packages/runner/README.md:85` — *\"git-ignored and absent from a fresh checkout, so every load returns `null` until you copy or symlink your own metadata directory into it\"*; its **Development Workflow step 1** instructs the reader to create it\n- `content/docs/utilities/runner.mdx:156` — same instruction, also using the word *symlink*\n- `packages/runner/src/lib/MetadataLoader.ts:19-28` — `LocalBundleLoader` reads it\n\nSo **a developer who follows the documented first step of the runner's own workflow makes the target exist, and the pin then fails on their machine**, reporting \"A carved-out target now exists, so the carve-out is obsolete for it\" — a message describing a resolved card, when in fact the developer simply set their environment up correctly.\n\n## Why it is green today\n\nCI never creates `src/app-data/`, so the fresh-checkout state is the only state the gate has ever been evaluated in. The failure is invisible to CI **by construction** and can only appear locally — the inverse of the usual \"green in CI, red locally\" nuisance, and harder to attribute: the developer's first thought will be that they broke something.\n\n## Severity\n\nFacts flat, not self-graded, per the repo convention. Two things worth weighing: nobody is blocked today (the suite is green in CI and on any checkout that has not done step 1), and the cost lands on exactly the developer who followed the documentation — a bad population to charge, since a false red on a correct setup teaches people to distrust the gate.\n\n## Relationship to #5380 — ⛔ not a duplicate\n\n#5380 is `pm:retriage` as of this round: its A/B ruling was measured false (both directions were argued from facts that do not hold), so it is awaiting triage re-judgement and may sit.\n\nThis finding is **independent of which direction #5380 takes**:\n\n- If #5380 resolves either way, the carve-out empties and this failure mode disappears with it — so this card closes as resolved-by-#5380.\n- But while #5380 sits, the trap is live, and the \"still missing\" assertion would be worth fixing on its own if it sits long. A fix would exclude expected-absent, user-supplied targets from the still-missing half, so a correctly-configured machine does not go red.\n\nThe implementing dev deliberately did **not** file this, reasoning it would be closed by #5380 either way; the PM is filing it because #5380 is now in re-triage rather than resolving promptly, which is precisely the condition the dev named for filing it.\n\n## Suggested disposition\n\nLikely **hold behind #5380** rather than fix now — but recorded so it is a decision rather than an oversight, and so that if #5380 sits for a while this does not have to be rediscovered by whoever hits the red locally.\n\nEvidence: #5168, #5380, PR #5966. Unassigned, observation-class."
+}

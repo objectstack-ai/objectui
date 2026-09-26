@@ -1,0 +1,35 @@
+{
+  "number": 6258,
+  "kind": "issue",
+  "title": "ObjectGantt.tsx: the navConfig comment is duplicated verbatim, two lines for two lines",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T04:48:43Z",
+  "updated_at": "2026-08-25T13:06:16Z",
+  "closed_at": "2026-08-25T13:06:16Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6258",
+  "body": "Noticed while correcting the `navigation` example in `packages/plugin-gantt/README.md` (#6050). Out of that card's scope, so filed rather than fixed there.\n\n## The fact\n\n`packages/plugin-gantt/src/ObjectGantt.tsx:1148-1152` on `main` (`2dc4aa709`):\n\n```ts\n  // Default to a right-side drawer so clicking a task opens an editable\n  // detail panel inline (no full-page navigation). Schema can override by\n  // providing its own `navigation` config (e.g., page mode).\n  // detail panel inline (no full-page navigation). Schema can override by\n  // providing its own `navigation` config (e.g., page mode).\n  const navConfig = schema.navigation ?? { mode: 'drawer', width: 'min(960px, 60vw)' };\n```\n\nThe second and third comment lines are repeated verbatim as the fourth and fifth. The first line of the sentence (`// Default to a right-side drawer so clicking a task opens an editable`) is not repeated, so the duplicate reads as a mid-sentence fragment: the block now says \"…providing its own `navigation` config (e.g., page mode). detail panel inline (no full-page navigation). Schema can override by providing its own `navigation` config (e.g., page mode).\"\n\n## Severity\n\nCosmetic — comments only, no behaviour. Filed because the triage call on how much this class matters is not the implementer's to make at file time, and because the shape (a partial re-paste that leaves a sentence fragment behind) is the kind of thing that survives indefinitely once nobody re-reads the block.\n\n## Not in scope of #6050\n\n#6050 is the README's `navigation` example. This block was read as the *consumer* evidence for that card — it is where `schema.navigation` lands — and the duplication was visible while reading it. The README fix touches no source file.\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6301,
+  "kind": "issue",
+  "title": "L5: Setup page \"packaged automation\" — on/off + clone actions for packaged flows (ADR-0126 §7.4)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T11:27:42Z",
+  "updated_at": "2026-08-25T19:44:59Z",
+  "closed_at": "2026-08-25T19:44:59Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6301",
+  "body": "Part of objectstack-ai/objectstack#12150 (Epic: ADR-0126 implementation, v17 line — 17.x minor, maintainer-ruled).\nBlocked-by: objectstack-ai/objectstack#12155\nBlocked-by: objectstack-ai/objectstack#12157\nBlocked-by: objectstack-ai/objectstack#12156\nDispatch: coordinated under the objectstack#12150 program — ⛔ not from the general queue; the program dispatches on unlock (maintainer anti-preemption instruction, 2026-08-25, PM session `session_01KWRU3s15AJz7PGW7a7wdCh`). Contract: **ADR-0126 §7.4 + §9** (objectstack, merged `28b47a93`; Fork D → D2 settled by the merge).\n\n## Deliverable\n\nA **new Setup page for packaged automation** — automation UI is Studio-only today (`studio.app.ts:234-239`), so this page is new work; the **Setup permission-set page is the precedent shape** (contributed the way `nav_permission_sets` is, `security-plugin.ts:974`). Studio keeps the editing; Setup gets the operational state.\n\nPer packaged flow, the page shows and does exactly:\n- **on/off for this scope** (reads the `sys_metadata_activation` state; flip invokes the L2 action) — that is all the ledger knows; the page claims nothing more;\n- **clone** (invokes the L4 action; new-name prompt; carried-over definition blobs are ⛔ not editable form fields — the #11753 discipline);\n- ⛔ **no drift or ancestry surface**: no diff-vs-base, no \"customized\" badge, no base-moved notice (ADR §9) — cloned-without-disabled and disabled-without-clone are ordinary states shown plainly.\n\n## Acceptance\n\n- Page reachable in Setup with the nav-contribution mechanism (not a Studio tab);\n- disable/enable round-trip visible; refusals (operator gate, subflow guard) surface the server's message verbatim — no client-side softening;\n- clone flow completes with the new name; no ancestry shown anywhere.\n\nRefs: ADR-0126 §7.4, §9 · #11753 · Setup permission-set page precedent"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6505,
+  "kind": "issue",
+  "title": "Dev-mode `validateSchema` declares `disabled` / `visible` \"must be a boolean\", so every expression-valued gate is reported invalid — the console line sits right beside the real diagnostic",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-26T06:54:44Z",
+  "updated_at": "2026-08-26T08:28:43Z",
+  "closed_at": "2026-08-26T08:28:43Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6505",
+  "body": "Measured while wiring the `disabled` fault diagnostic (#6445). Filed unassigned, outside that card's face — it is a `packages/core` validation-rule question, not the react wiring.\n\n## The rule\n\n`packages/core/src/validation/schema-validator.ts`, `BASE_SCHEMA_RULES`:\n\n```ts\n  visible: {\n    required: false,\n    validate: (value: any) => typeof value === 'boolean',\n    message: 'visible must be a boolean'\n  },\n  disabled: {\n    required: false,\n    validate: (value: any) => typeof value === 'boolean',\n    message: 'disabled must be a boolean'\n  }\n```\n\nBoth keys are **expressions** everywhere else in the system. `AGENTS.md` §4 declares the protocol as `hidden?: string; // expression: \"${data.role != 'admin'}\"` / `disabled?: string; // expression`; `SchemaRenderer` evaluates them through `hasDeclaredPredicate` + `evaluateCondition` (the #3862 / #3955 rulings are entirely about which *expression* spellings count as declared); `packages/spec` normalizes them into `{ dialect: 'cel', source }` envelopes. A boolean is one of the shapes the renderer accepts, not the only one.\n\n## What it costs\n\n`SchemaRenderer` runs `validateSchemaOnce` in development for every schema object, so a perfectly valid node\n\n```json\n{ \"type\": \"button\", \"disabled\": \"${record.stage == 'closed'}\" }\n```\n\nprints\n\n```\n[ObjectUI] Invalid schema detected:\nschema.disabled: disabled must be a boolean\n```\n\nand gets `data-obj-schema-invalid` on its host element — the visual cue apps are told to hang a red outline off. A false positive on the authoring form the docs teach.\n\nMeasured (dev build, `packages/react`, one node): the line above is emitted alongside the genuine #6445 fault line, so an author who has just been told exactly which predicate failed is told in the next breath that predicates are not allowed. The false line is the load-bearing one for anyone who trusts the validator: it points at the shape, not the fault.\n\nThe same rule fires for `visible`, which the visibility chain has evaluated as an expression since long before #5454.\n\n## Why this is filed rather than fixed\n\nThe rule that replaces it is a real decision, not a typo fix: `disabled` legitimately admits `boolean | string | { dialect, source }`, and the repo already owns the one definition of \"is this a declared predicate?\" (`hasDeclaredPredicate`, core's `evaluator/declaredPredicate.ts`, #3850's ruling). Whether this validator should reuse that definition, accept the three shapes structurally, or drop the two keys from `BASE_SCHEMA_RULES` entirely — and whether anything currently depends on the false positive — wants a decision and its own pins. It also touches `packages/core`, which #6445 was explicitly scoped out of.\n\nAdjacent, not the same: #6318 is about the zod `safeValidateSchema` surface; this is the hand-rolled `BASE_SCHEMA_RULES` table behind `validateSchema` / `validateSchemaOnce`."
+}

@@ -1,0 +1,34 @@
+{
+  "number": 6194,
+  "kind": "issue",
+  "title": "`record:line_items` also issues `find(undefined, …)` for a panel whose `childObject` is unset — the sibling of #6188 in the same component",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-25T00:00:13Z",
+  "updated_at": "2026-08-25T16:22:00Z",
+  "closed_at": "2026-08-25T15:50:44Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6194",
+  "body": "Found while implementing #6188 and deliberately left unfixed there: that card's dispatch order scoped the fix to the `getObjectSchema` call in `LineItemsPanel` and said to **file** any further unguarded sub-key site rather than fix it.\n\n## Fact (objectui `origin/main` @ `b04646b`, measured)\n\n`LineItemsPanel` reads `schema.childObject` at **two** sites. #6188 guards the first (the child-schema cache). The second — the row load — is still unguarded:\n\n`packages/plugin-form/src/LineItemsPanel.tsx:133-137`\n\n```\nconst load = useCallback(async () => {\n  if (!dataSource || !parentId) {\n    setLoading(false);\n    return;\n  }\n  …\n  const res = await dataSource.find(schema.childObject, { … });\n```\n\nThe guard covers the *data source* and the *parent id* — the two things `RelatedList` calls \"can I scope this query\" — but not the *object being queried*. A panel authored without `childObject` therefore asks the backend to `find` an object literally named `undefined`, scoped by `{ [relationshipField]: parentId }`.\n\n**Measured**, mounting `record:line_items` through the registry with `childObject` unset and `parentId: 'inv-1'` authored. The recorded call list, by first argument:\n\n```\nbefore #6188:  ['getObjectSchema(undefined)', 'find(undefined)']\nafter  #6188:  ['find(undefined)']\n```\n\nThat second line is pinned as current behaviour in `packages/plugin-form/src/LineItemsPanel.childObjectDecline.test.tsx` with a comment pointing here — when this card lands, the expectation becomes `toEqual([])` and the annotation goes.\n\n## Why it was not folded into #6188\n\nTwo reasons, and the second is why this deserves its own reading rather than a one-line rider:\n\n1. #6188's dispatch order scoped it to the `getObjectSchema` call and named further sites file-not-fix.\n2. **The decline is not purely mechanical here, unlike #6188's.** Declining a *schema* fetch has no visible consequence: the panel already holds `null` before any fetch resolves and the `.catch` already produced `null`. Declining the *row* fetch has one — `load` owns `loading`, and the panel's render branches `loading ? \"Loading…\" : !parentId ? \"Save the record first…\" : <grid>`. An unresolvable panel with a parent id bound would land on the third branch and show an empty editable grid with an Add button, over an object that does not exist. Whether that is right, or whether this case wants its own config-hint branch (the way `MasterDetailForm`'s grid card shows one, #5940), is a question this card has to answer rather than assume.\n\n## Not verified here\n\n- Whether the same shape exists on the save path (`buildMasterDetailEditBatch` is handed `childObject: schema.childObject` unconditionally at `LineItemsPanel.tsx:205`). The Save button is disabled until the grid is dirty, so reaching it requires editing rows of the nonexistent object first — plausible but not measured.\n\n## Class\n\nSame family as #6188 (whose reachability measurement is recorded there), #5940 / #6191 (`object-master-detail-form`, landed), #3838 and #3840 — an unresolved optional sub-key reaching a read unguarded. This is the fourth instance.\n"
+}

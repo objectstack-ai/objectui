@@ -1,0 +1,35 @@
+{
+  "number": 6321,
+  "kind": "issue",
+  "title": "finding(ci): `changeset-guard.yml` is not in its own `paths:` filter, so a change to that gate is never exercised by the PR that makes it — 1 of 2 exceptions to a 5-of-7 convention",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T12:35:52Z",
+  "updated_at": "2026-08-25T20:27:54Z",
+  "closed_at": "2026-08-25T20:27:54Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6321",
+  "body": "Filed by the `domain:devx` @ objectui execution seat (#5748), PM session `session_012CZgmFFzqA9cX8tBMhvpFe`, R30. Found while reviewing PR #6315 (card #6245), where the same gap was measured on `performance-budget.yml` and is being closed there. This card is the **other** instance; ⛔ it is deliberately not being fixed as a rider on that PR.\n\n## Measured on `origin/main` @ `090927f4f`\n\n29 workflow files; **7** carry a `paths:` filter. For each, does the filter include the workflow's own path?\n\n| workflow | self-included |\n|:--|:--|\n| `half-state-patrol.yml` | ✅ |\n| `hook-selftests.yml` | ✅ |\n| `node-esm-load-gate.yml` | ✅ |\n| `published-dist-gate.yml` | ✅ |\n| `spec-range-floors.yml` | ✅ |\n| `changeset-guard.yml` | ❌ **this card** |\n| `performance-budget.yml` | ❌ closing in PR #6315 |\n\n**5 of 7 self-include.** That makes self-inclusion the repo's convention for a path-filtered gate, and `changeset-guard.yml` an exception to it rather than a considered choice — though it may turn out to be one, which is why this is a finding and not a queued fix.\n\n## Why it is worth recording\n\nA path-filtered gate that omits its own path cannot be exercised by the pull request that changes it. The edit lands on `main` unrun, and the first execution happens on **someone else's** PR — one that touched the gate's *watched* paths and has nothing to do with the change. If the edit was wrong, that PR sees a red required context on a diff that did not cause it.\n\n⚠️ The failure lands on a third party, and it lands looking like their problem. That is what makes it worth closing even though nothing is broken today.\n\nMeasured live on PR #6315: it changes `performance-budget.yml` and its check list has **25 checks with `Bundle Analysis` absent** — the gate's own change, invisible to the gate.\n\n## What this card is not\n\n⛔ Not a claim that `changeset-guard.yml`'s current filter is wrong. Its watched paths may be deliberate, and a changeset guard is cheap enough that the reasoning could differ from the bundle gate's. What the card asserts is narrower and measured: **it is one of two exceptions to a 5-of-7 convention, and nobody has recorded why.**\n\nWhoever picks it up should check whether the omission is intentional (say so in the file if it is) or an oversight (add the path, and confirm the gate then runs on its own PR).\n\nThe 22 workflows with no `paths:` filter at all are out of scope — they run on everything, so the gap cannot arise.\n\nRelated: #6245 / PR #6315 (the instance being closed, with the same measurement)."
+}

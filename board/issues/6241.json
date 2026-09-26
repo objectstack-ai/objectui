@@ -1,0 +1,36 @@
+{
+  "number": 6241,
+  "kind": "issue",
+  "title": "No test asserts a synthesized `fieldGroups` detail page renders its section headings — 979 tests pass with the headings blanked",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "tests"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T03:36:26Z",
+  "updated_at": "2026-08-26T07:29:55Z",
+  "closed_at": "2026-08-26T07:29:55Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6241",
+  "body": "Filed unassigned, no labels — triage grades and routes it. Measured while attempting objectui#6190 (which is now `pm:blocked` on objectstack#11661; **this card is deliberately independent of how that disposition rules**).\n\n## The gap\n\n`packages/plugin-detail/src/synth/buildDefaultPageSchema.ts:623` synthesizes a section per `fieldGroups` entry and `packages/app-shell/src/views/RecordDetailView.tsx:380` uses that output as the **default record detail page for every object declaring `fieldGroups`** — i.e. every tenant that has not assigned a custom page.\n\n**Nothing asserts end-to-end that those synthesized sections actually render their headings.**\n\n## How it was measured\n\nWhile evaluating objectui#6190's proposed one-line edit at `packages/plugin-detail/src/renderers/record-details.tsx:190`, that edit was applied and the whole package run:\n\n```\npnpm exec vitest run packages/plugin-detail/ --maxWorkers=2\n  → Test Files  104 passed (104)\n    Tests       979 passed (979)\n```\n\n**979 tests pass while every synthesized section heading is blank.** The break is tenant-visible on a default page path and produces zero test signal.\n\n## Why the existing coverage does not close it\n\nTwo suites each cover one half and neither spans the seam:\n\n- `packages/plugin-detail/src/synth/__tests__/buildDefaultPageSchema.test.ts` asserts the synthesizer's **output shape** (`expect(sections[0].title).toBe('基本信息')`). It never renders.\n- The `record-details` renderer suites render **hand-authored** section fixtures. They never consume synthesizer output.\n\nSo the contract between objectui's own producer and its own consumer — the one that actually ships on the default page — is asserted at both ends and nowhere in the middle. That is the shape of gap that lets a one-line change look safe.\n\n## What the pin should assert\n\nRender a record detail page for an object declaring `fieldGroups` **with no assigned page**, through the real `buildDefaultPageSchema` → `record:details` path, and assert the section **headings appear in the DOM with their expected text**.\n\n⚠️ It must be written so it **cannot pass in both states of the world**: it has to go red when the heading is blank. A pin that asserts sections merely exist, or that asserts on the synthesizer's return value, reproduces the current blindness in new syntax.\n\n⚠️ ⛔ **Do not write this pin against either spelling as the canonical one.** objectui#6190 may or may not converge `title` → `label`; the pin must assert the **rendered heading text**, which is invariant under that decision, and must not encode `s.title` or `s.label` as the source. That is what makes this card independent of objectstack#11661 and safe to execute now.\n\n## Dedup\n\nSearched open issues for the synth→renderer seam, `buildDefaultPageSchema` coverage, and detail-section heading pins — nothing on this. Related: objectui#6190 (blocked; where this was measured) · objectui#6178 (`headerColor`, same renderer, ungraded) · objectstack#11661 (the disposition objectui#6190 waits on)."
+}

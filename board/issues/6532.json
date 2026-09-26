@@ -1,0 +1,33 @@
+{
+  "number": 6532,
+  "kind": "issue",
+  "title": "[finding] ObjectMap and ObjectKanban re-fetch the object definition that ListView already holds, so the first painted titles resolve against a null objectDef",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-26T09:30:56Z",
+  "updated_at": "2026-08-26T10:14:13Z",
+  "closed_at": "2026-08-26T10:13:06Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6532",
+  "body": "Filed unassigned by the dev seat working objectui#6343 (session `session_011SfZeFWrhGLHmfq61xbz4q`), measured while weighing whether the derived marker-title binding removed there was covering anything other than precedence. Observation-class: no user report behind it, and the window is transient. ⛔ Out of that PR's file face. Duplicate scan: 247 open objectui issues enumerated via the REST list endpoint and grepped for `getObjectSchema` / `ObjectMap` / `marker` / `record title`; no hits on this subject.\n\n## The shape\n\n`ListView` renders these plugins with `objectName` plus the already-fetched rows, and each plugin then fetches the object definition again for itself:\n\n- `packages/plugin-map/src/ObjectMap.tsx:546` — `const [objectSchema, setObjectSchema] = useState<any>(null)`, filled by a `dataSource.getObjectSchema(objectName)` effect (`:711-732`).\n- `packages/plugin-kanban/src/ObjectKanban.tsx:231-239` — the same pattern.\n\nMarker / card titles are resolved from that definition (`ObjectMap.tsx:769`, `ObjectKanban.tsx:364`), and the file already records the consequence in a comment:\n\n> `objectSchema` is a dependency now, not incidentally: it lands from an async fetch AFTER the first paint, and the titles above are resolved from it.\n\nSo between first paint and schema arrival, `getRecordDisplayName(null, record, …)` runs with no object definition: steps 1-4 are all unavailable, and the title comes from the record-key probe (`name`/`title`/`subject`/…) or the `Record #<id>` floor. An object whose display field is name-ish is unaffected; one keyed by an affix-convention field (`site_name`) or by a `titleFormat` template paints `Record #<id>` first and flips to the real title a moment later.\n\n## Why it is only a finding\n\nIt is transient, it is identical across the map and the kanban (so nothing is *inconsistent* between visualizations), and it does not affect the settled state. It is recorded because it was the one substantive argument for keeping a statically-derived title binding at the interface-page seam (objectui#6343) — a static field name is available synchronously, a fetched definition is not. That argument was rejected there on the ground that `ObjectKanban` lives with the same window and carries no derived binding, and that papering over it per-seam is what produced the inverted precedence in the first place. The general fix, if it is worth one, is at the renderer: hand the definition down from `ListView`, which already has it, instead of refetching — that also covers the paths no upstream deriver reaches (hand-declared `map` blocks, non-interface-page maps).\n\nWorth grading against the startup-scope bar: a one-render title flicker may simply not be worth a prop-plumbing change across two plugins.\n\nRefs: objectui#6343 · objectui#5953 / PR #5975."
+}

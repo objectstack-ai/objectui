@@ -1,0 +1,35 @@
+{
+  "number": 6507,
+  "kind": "issue",
+  "title": "finding(app-shell): six more boot gates still hand off from LoadingFallback to a null-rendering &lt;Navigate&gt;",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-26T06:58:18Z",
+  "updated_at": "2026-08-26T13:23:47Z",
+  "closed_at": "2026-08-26T13:23:11Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6507",
+  "body": "Found while fixing objectui#6378 (PR #6506). Recording only — **not measured**, and deliberately not fixed there: these are on paths that card's instrument never exercised, and they live outside its file face.\n\n## The shape\n\nobjectui#6378 established, by correlating a CDP frame ledger against a DOM-state ledger on the same clock, that this pattern blanks the viewport:\n\n```tsx\nif (loading) return <LoadingFallback />;   // splash on screen\nreturn <Navigate to={…} replace />;        // renders NOTHING\n```\n\n`<Navigate>` renders `null` and navigates from an effect; react-router runs that navigation as a transition, so the destination renders at transition priority while the commit that already dropped the splash is what the compositor shows. Measured window on the three gates that card fixed: 41–147 ms of empty `#root`, present on 102/102 pre-fix boots, producing a full-viewport white frame on 67/87 of them.\n\n#6506 introduced `RedirectWithSplash` (`packages/app-shell/src/chrome/`) — the same `<Navigate>` paired with the same `LoadingScreen`, so the handoff changes no pixels — and applied it at the three redirects it had ledger evidence for: `LoginRedirect`, `RootLandingRedirect`, and `App.tsx`'s catch-all.\n\n## What still carries the shape\n\nAll in `packages/app-shell/src/console/`, read off `1639bbe18`:\n\n| site | file:line | gate above it |\n|---|---|---|\n| `RequireOrganization` (org exists, none active) | `ConsoleShell.tsx:348` → `:351` | `if (isOrganizationsLoading) return <LoadingFallback />` |\n| `RequireOrganization` (no org, multi-org on) | `ConsoleShell.tsx:355` → `:356` | `if (multiOrgEnabled === null) return <LoadingFallback />` |\n| `RequireAiSurface` | `ConsoleShell.tsx:381` → `:382` | `if (isLoading) return <LoadingFallback />` |\n| `RootRedirect` | `ConsoleShell.tsx:415` → `:416` | `if (loading) return <LoadingFallback />` |\n| `SetupRedirect` | `ConsoleShell.tsx:513` → `:515` | `if (loading) return <LoadingFallback />` |\n| `AppContent` no-accessible-app bounce | `console/AppContent.tsx:821` | the readiness gates above it render `LoadingScreen` |\n\n`SystemRedirect` (`ConsoleShell.tsx:433`) is the same null render without a loading gate — a pure redirect route element, reachable as a first navigation from a legacy `/system/*` deep link.\n\n`RootRedirect` is worth calling out: it is byte-for-byte the shape of `RootLandingRedirect`, which is where #6378 measured its **widest** window (147 ms). The console does not mount `RootRedirect` — it uses its own `RootLandingRedirect` — but `@object-ui/app-shell` publishes it, so any consumer assembling a console from these primitives gets the unfixed one.\n\n## What is NOT established\n\n- **Whether any of these is on a boot path in practice**, and therefore whether the splash is even up when they fire. That distinction decides the fix: a redirect firing under an already-painted layout should keep that layout, not cover it with a splash — #6506 deliberately left `App.tsx`'s nested organization `index` redirect alone for exactly that reason. Whoever picks this up should timestamp the DOM per site rather than convert all seven on sight.\n- **Any rate.** No boot through these sites was measured; the 41–147 ms figure is from the three sites that *were*.\n\n## Reproducing\n\nThe harness is described in full in #6506: production `apps/console` bundle, boot endpoints mocked, CDP `Page.startScreencast` at `everyNthFrame: 1` with the card's white rule (no colour channel below 242), correlated against a DOM ledger on `performance.timeOrigin`. `e2e/console-boot-indicator.spec.ts` on `main` after #6506 carries the deterministic reading — after React's first commit, the viewport centre must never stop being covered — which is the assertion these sites would need to be brought under.\n"
+}

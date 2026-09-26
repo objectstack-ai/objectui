@@ -1,0 +1,34 @@
+{
+  "number": 6245,
+  "kind": "issue",
+  "title": "Bundle Analysis can gate a merge on a verdict computed against a superseded ceiling",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T03:53:25Z",
+  "updated_at": "2026-08-25T13:55:58Z",
+  "closed_at": "2026-08-25T13:54:17Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6245",
+  "body": "## Summary\n\nA `packages/**` PR can satisfy the required `Bundle Analysis` context with a run whose checkout predates a change to the ceiling constants — so the merge is gated on a verdict about a ceiling that no longer exists. Observed live tonight, harmlessly, and recorded before it bites.\n\nFiled by the `domain:devx` @ objectui execution seat, PM session `session_019b5UBNMtTzKbVtZZGvFuxe`. **Finding only — unassigned, not queued.** No fix proposed here beyond options; the right one is a judgement call.\n\n## What happened\n\n#6229 (`0409b766d`, committed **03:06:37Z**) re-baselined the aggregate eager-closure ceiling:\n\n```\nMAX_EAGER_CLOSURE_GZIP_BYTES = 3_345_000      # 3266.6 KB\nBASELINE.gzipBytes           = 3_299_898      # 3222.6 KB\nheadroom                     =    45_102      #   44.0 KB\n```\n\n#6234's `Bundle Analysis` ran at **03:13:29Z** — *after* that commit was on `main` — and printed:\n\n```\n✅ Console eager closure is 3222.6 KB gzipped across 52 of 508 chunks (budget: 3990.2 KB, headroom: 767.6 KB).\n```\n\n**3990.2 KB is `4,085,964` B — the pre-#6229 ceiling**, the very \"~4,086,000 over a live 3.3 MB payload\" the checker's own header calls out as the decorative ceiling that motivated the re-baseline. The PR's merge ref had not picked up the new constant, and nothing re-ran it. #6234 merged at **03:34:06Z** on that verdict.\n\n## Why it did not bite this time\n\nThe `push` run on `main` at the merge commit `c5fbe0b99` (**03:45:46Z**) did use the new constants, and passed:\n\n```\n✅ Console eager closure is 3222.6 KB gzipped across 52 of 508 chunks (budget: 3266.6 KB, headroom: 44.0 KB).\n✅ Ceiling sensitivity (4 ceilings, each weighed against the report just read):\n  ✅ aggregate closure         3222.6 KB / 3266.6 KB  (headroom 44.0 KB = 0.49x the 89.0 KB regression)\n  ✅ chunk `vendor-objectstack` 926.2 KB /  944.3 KB  (headroom 18.1 KB = 0.20x)\n  ✅ chunk `framework`          481.9 KB /  490.2 KB  (headroom  8.3 KB = 0.09x)\n  ✅ chunk `ui-components`      382.0 KB /  389.6 KB  (headroom  7.7 KB = 0.09x)\n```\n\n⭐ Worth recording on its own: CI's measured aggregate is **3222.6 KB**, matching `BASELINE.gzipBytes` 3,299,898 B to the rounding interval, and all three per-chunk figures match the pinned ceilings' basis exactly. The re-baseline is correct on real CI hardware, not only on the authoring seat's local build.\n\nSo `main` is green under the tightened ceiling. The exposure is structural, not an outstanding regression.\n\n## The exposure\n\n⚠️ The gate that guards a constant can be satisfied by a run that predates the constant. Concretely, with only 44.0 KB of aggregate headroom (0.49x the regression the gate exists to catch), a PR opened before a future re-baseline and merged after it would be weighed against a ceiling that had already been retired — and the tighter the headroom, the more a stale-verdict merge can slip past.\n\nThe `push`-on-`main` run catches it *after* the fact, which is a detection, not a gate: by then the change is on `main` and the next PR inherits a red.\n\n## Options, not a recommendation\n\n1. **Require the branch to be up to date before merging** (repo setting) — closes it for every required context at once, at the cost of more re-runs on a repo doing ~18 merges/day.\n2. **Make the ceiling constants a cache key / freshness assertion** — have the checker fail when the constants it read differ from those on the merge base.\n3. **Accept it and rely on the `push`-on-`main` detection**, given the aggregate is re-measured on every `packages/**` push anyway.\n\n⛔ I am not proposing (1) from this seat — it is a repo-wide policy change that affects every other seat's queue, which is exactly the class of decision #4853 is being held for.\n\n## Reproduction\n\n- stale verdict: https://github.com/objectstack-ai/objectui/actions/runs/32804357171 (job 97671407209), budget 3990.2 KB\n- fresh verdict: https://github.com/objectstack-ai/objectui/actions/runs/32806384986 (job 97677196773), budget 3266.6 KB\n- constants: `scripts/check-eager-closure-budget.mjs:179` and `:188` on `main`"
+}

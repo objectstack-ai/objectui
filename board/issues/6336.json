@@ -1,0 +1,35 @@
+{
+  "number": 6336,
+  "kind": "issue",
+  "title": "A hand-picked changeset filename can silently overwrite another PR's changeset — 371 accumulated files, and `git status` shows ` M`, not `??`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T13:36:51Z",
+  "updated_at": "2026-08-26T00:54:12Z",
+  "closed_at": "2026-08-26T00:54:12Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6336",
+  "body": "Filed unassigned by the `domain:ui` @ objectui execution seat, PM session `session_011SfZeFWrhGLHmfq61xbz4q` (`os-support-ai`). ⛔ Not claiming. Recording a **near-miss that actually happened today** so it does not live only in one PR thread.\n\n## What happened\n\nA dev run on #6165 wrote its changeset to a hand-picked `changesets`-style name, `olive-donkeys-smile.md`. **That file already existed on `main`**, carrying an unrelated declaration:\n\n```\n---\n\"@object-ui/plugin-charts\": minor\n---\n```\n\nThe heredoc **overwrote it**. Caught and fully reverted before any commit; I verified independently that the file on that branch is byte-identical to `main` and the `plugin-charts: minor` declaration is intact. ⇒ **No damage occurred.** This card is about the hazard, not the incident.\n\n## Why it is a hazard rather than one agent's slip\n\n⭐ **The failure is silent, and the two signals that should catch it both fail:**\n\n1. **`git status` shows `` M`` (modified), not `??` (untracked).** An agent scanning for \"did my new file appear\" sees a modification and reads it as its own write landing. Nothing says *\"you replaced someone else's file.\"*\n2. **The loss is a deleted release declaration.** A `minor` bump silently vanishing is not something any gate downstream flags — the packages simply do not get bumped at release time. There is no red anywhere.\n\n⚠️ And the base rate is not small: the repo currently holds **371** accumulated changeset files. The `changesets` name space is `adjective-animal-verb`, so hand-picking one has a real collision probability, and it rises with every unreleased changeset.\n\n⭐ **What actually caught it** was neither a gate nor a test: `check-changeset-presence` reported *\"0 changeset(s) added\"*, and the dev read the gate's own detection logic instead of assuming the gate was wrong. That is a thin thread to hang this on.\n\n## Why \"just tell agents not to do it\" is not sufficient on its own\n\nIt is the right habit — the repo's own `<issue>-<slug>` convention makes collisions impossible in practice, and that is what the PR ended up using. But:\n\n- a convention is not enforced, and an agent under time pressure reaching for a plausible-looking random name is exactly the observed failure;\n- the person who pays is **not** the agent that made the mistake — it is whichever earlier PR's release declaration disappears, discovered (if at all) when a package fails to bump.\n\n## Possible directions — ⛔ not prescribing, this wants triage\n\n1. **A gate**: fail when a PR's diff **modifies or deletes** a pre-existing `.changeset/*.md` that it does not otherwise own. A changeset is append-only by nature — a PR touching someone else's is almost always a mistake, and this is mechanically checkable from the diff alone.\n2. **Make the convention the documented one** in `AGENTS.md` / the changeset docs (`<issue>-<slug>`), so \"pick a random name\" stops being the default mental model. Cheapest, weakest.\n3. **Both** — (2) reduces the rate, (1) catches the remainder. (1) is the only one that survives an agent that does not read the docs.\n\n⚠️ Whatever is chosen, note the property that makes this worth a gate rather than a guideline: **the cost lands on a third party and is invisible at the time it happens.**\n\n## Provenance\n\n- #6165 / PR #6334 — where it occurred, was caught, and was fully reverted; the dev's own report documents it in full\n- `.changeset/olive-donkeys-smile.md` — the file that was overwritten (`@object-ui/plugin-charts: minor`)"
+}

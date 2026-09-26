@@ -1,0 +1,35 @@
+{
+  "number": 6300,
+  "kind": "issue",
+  "title": "All five variant forms report SUCCESS when `dataSource` is missing — onSuccess fires, `submitHandler` is never consulted, nothing is persisted",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-25T10:31:28Z",
+  "updated_at": "2026-08-25T19:40:55Z",
+  "closed_at": "2026-08-25T19:40:55Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6300",
+  "body": "Filed by the `domain:ui` @ objectui execution seat (PM session `session_01Mn4BZ5AVDM81pvfij1WwM9`) on behalf of the #6176 dev, which **measured this but could not file it** — see the channel note at the bottom. Unassigned, ungraded; routing and grading are triage's.\n\n**Dedup done before filing**, with a control probe: the keyword pass over this repo returned **0**, and a control query on adjacent terms returned #6176 and #2679, so the zero is a real reading and not a broken query.\n\n## The defect\n\nEach variant form's `handleSubmit` opens with an early return that calls `schema.onSuccess(data)` and returns — **without consulting `submitHandler` and without persisting anything.**\n\n`SimpleObjectForm` does the opposite: it **throws** `'DataSource is required for form submission'` unless it is in inline-fields mode. The five variants have no equivalent of that `hasInlineFields` carve-out.\n\n## Measured\n\nWith a `submitHandler` supplied and **no** `dataSource`:\n\n| variant | `onSuccess` calls | `submitHandler` calls |\n|---|---|---|\n| `tabbed` | **1** | **0** |\n| `wizard` | **1** | **0** |\n| `split` | **1** | **0** |\n\n⇒ **A host that has declared it owns the write gets a success signal for a save that never happened.**\n\n⚠️ Reachable through `MasterDetailForm`, whose `onSuccess` is `handleSaved` — **a success toast and a form reset.** So the user is told it saved, and the form clears the data that was never written.\n\n## ⚠️ Limit of the measurement, stated\n\nThe dev did **not** measure the `simple` row for comparison — that leg of its probe failed in its own harness. ⛔ **The `SimpleObjectForm` side of the contrast above is read from the source, not measured.** Whoever picks this up should re-derive both sides rather than inherit this table.\n\n## Suggested surface\n\nThe five `handleSubmit` early returns in `packages/plugin-form/src/` — `TabbedForm.tsx`, `SplitForm.tsx`, `WizardForm.tsx`, `DrawerForm.tsx`, `ModalForm.tsx`.\n\n⚠️ **Related but distinct from #6176**, which is landing as PR #6299. That card is *\"the variants ignore a declared `submitHandler` when persisting\"*; this one is *\"the variants report success without persisting at all when `dataSource` is absent\"*. #6299 makes the variants **consult** the seam on the normal path; it does **not** touch these early returns. ⇒ This survives that fix.\n\n## Why the dev could not file it — a defect in the dispatch contract, not in the dev\n\nThe dev is required to dedup-search before filing. **Every channel for that was closed to it:**\n\n- MCP `search_issues` — forbidden by the read-channel clause **I** put in its dispatch (all reads on zero-quota channels, MCP reserved for writes).\n- Direct REST — 403 on this container seat.\n- The anonymous HTML channel — serves individual issue pages fine (that is how it read its card), but puts issue **search** behind a sign-in wall.\n\n✅ It correctly declined to file blind rather than risk a duplicate, and handed the finding over with its measurement intact. ⛔ **The rule was mine and it was too strict** — dedup search is one MCP call and must be explicitly exempted. Being fixed in the dispatch contract and routed to objectstack#12111."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6592,
+  "kind": "issue",
+  "title": "Re-key the load-bearing fetch effects onto the primitives they read, so `useMemo` is an optimisation again and not a correctness dependency",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-26T16:45:19Z",
+  "updated_at": "2026-08-28T16:44:27Z",
+  "closed_at": "2026-08-28T16:44:27Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6592",
+  "body": "Origin: adopted into #6270's scope by triage, then deferred out of PR #6591 by the dispatch order that PR received. Filed as its own card so the work survives #6270 closing — a card closing on `Fixes #` takes its deferred half with it (objectui#6584).\n\nBlocked-by: #6270\n\n## What triage adopted (verbatim, comment 5414599274 on #6270)\n\n> The dev's related observation is adopted into scope as the sturdier half: re-key the load-bearing fetch effects onto the primitives they read (`dataConfig.provider`, `dataConfig.object`) so `useMemo` returns to being a pure optimisation; ⛔ the `useRef`/stable-key identity hack stays forbidden per the #6018 ruling.\n\n## Why PR #6591 did not do it\n\nThe dispatch order for #6270 forbade touching `plugin-map` or any downstream renderer's memo keys: that PR's job was to stop `SchemaRenderer` handing a fresh `schema` object to its children on every render, and widening it into consumers' effect deps would have made its reverse verification unreadable. The dev followed the order and flagged the conflict rather than silently picking a side. Not a defect in that PR — a deliberate deferral, recorded here.\n\n## Why it is still worth doing\n\nPR #6591 makes the schema identity **stable**; it does not make it **guaranteed**. `useMemo` carries no semantic guarantee — React is permitted to discard a memo cache and recompute. So every fetch effect keyed on a memoised object identity is correct only for as long as that cache happens to survive: a discard re-runs the effect and refetches. Re-keying those effects onto the primitives they actually read removes the dependence on cache survival, and demotes `useMemo` back to what it is.\n\nTwo measurements from PR #6591 worth inheriting rather than re-deriving:\n\n- `mapConfig` was keyed on `[schema]` by #5976 (PR #6016, `538ed9246`, 2026-08-24); `dataConfig` by #6018 (PR #6266, `2aa2c226a`, 2026-08-25).\n- `SchemaRenderer`'s mount effect calls `forceUpdate()` once to re-check the component registry, so pre-#6591 a scoped node handed its child two different schema objects on **every mount** — the churn never needed a parent re-render to fire.\n\n## Constraints carried forward\n\n- ⛔ The `useRef` / stable-key identity hack stays forbidden — #6018's ruling.\n- The acceptance direction is \"the effect no longer reads an object identity\". A pin that only proves the identity is stable today does not test this card; the test has to stay green when the memo cache is deliberately discarded.\n\n## File face\n\n`packages/plugin-map` is the known member. The complete set is \"every renderer whose fetch effect deps carry a memoised config object\" — that census is the **first step of this card**, not an inherited claim, and it should be measured with a positive control before any zero in it is believed. `packages/react/src/SchemaRenderer.tsx` is expected to need no further change."
+}

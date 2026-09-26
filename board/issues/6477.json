@@ -1,0 +1,35 @@
+{
+  "number": 6477,
+  "kind": "issue",
+  "title": "finding(plugin-detail): InlineEditSaveBar's `buildConflict` takes `err: any`, so `isConcurrentUpdateError`'s narrowing reaches no typed consumer",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-26T02:45:20Z",
+  "updated_at": "2026-08-26T16:40:34Z",
+  "closed_at": "2026-08-26T16:39:00Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6477",
+  "body": "Observation-class finding, surfaced by objectui#6421 / PR #6474 (which made `isConcurrentUpdateError`'s narrowed type honest). Recorded, not edited — the fix there was scoped to the predicate's type, and this is about the consumer on the other side of it.\n\n## What\n\n`packages/plugin-detail/src/InlineEditSaveBar.tsx:124-125` declares the only thing that consumes a narrowed `isConcurrentUpdateError` result, and types the error as `any`:\n\n```ts\nconst buildConflict = React.useCallback(\n  (draft: Record<string, any>, err: any): ConcurrentUpdateConflict => {\n    const keys = Object.keys(draft);\n    const current = (err?.currentRecord ?? null) as Record<string, unknown> | null;\n```\n\nIt reads exactly two things off `err`, both through the `any`:\n\n- `err?.currentRecord` — line 127, optional-chained and then **`as`-cast** to `Record<string, unknown> | null`. The cast is the only type `currentRecord` ever gets here; nothing checks it.\n- `err?.currentVersion` — lines 135 and 147, optional-chained, flowing straight into the `ConcurrentUpdateConflict` payload.\n\nThe call site one hop up, `InlineEditSaveBar.tsx:183`, does narrow correctly:\n\n```ts\nif (isConcurrentUpdateError(err) && canAtomic) {\n  setConflict(buildConflict(draft, err));\n}\n```\n\n...and then hands the narrowed value to a parameter typed `any`, which discards it. So the predicate's return type is inert at its only use.\n\n## Why it is worth a card\n\nPR #6474 changed the narrowed type from `code: 'CONCURRENT_UPDATE'` (required, and untrue for the `name`-limb) to `code?: 'CONCURRENT_UPDATE'`. **The predicate now tells the truth, and nothing is listening.** That pin's real-world bite today is smaller than its shape suggests, and the reason is one hop downstream, not in the predicate.\n\nThis is the downstream-`any` species: a type boundary defeated one line after it is drawn. Two siblings already on the backlog, different subjects, same shape — objectui#6459 (`ObjectGrid`'s `const dataTableSchema: any` means the imported `DataTableSchema` is never applied) and objectui#5155 (`BaseSchema`'s `[key: string]: any`).\n\nThe decision this needs: should `buildConflict` take the predicate's narrowed type — which is the point of having a narrowed type at all — or is the `any` load-bearing for a reason that should be written down? Note that if it does take the narrowed type, the `as` cast on `currentRecord` becomes redundant, since the narrowed type already declares `currentRecord?: Record<string, unknown> | null`.\n\n## The \"no other consumer\" claim, as a measurement\n\nThe one-call-site claim is a measurement, not a grep that happened to return one hit. Target, on `origin/main`:\n\n```\n$ git grep -n \"isConcurrentUpdateError\" origin/main -- 'packages/plugin-detail' 'apps' 'examples' | grep -v CHANGELOG\npackages/plugin-detail/src/ConcurrentUpdateDialog.tsx:223:export function isConcurrentUpdateError(err: unknown): err is {\npackages/plugin-detail/src/InlineEditSaveBar.tsx:37:  isConcurrentUpdateError,\npackages/plugin-detail/src/index.tsx:75:  isConcurrentUpdateError,\npackages/plugin-detail/src/InlineEditSaveBar.tsx:183:      if (isConcurrentUpdateError(err) && canAtomic) {\n```\n\nFour lines: one definition, one re-export, one import, **one call site**.\n\nPositive control 1 — the identical grep shape over the identical paths, for a symbol known to have many consumers, returns **54** lines:\n\n```\n$ git grep -n \"useDetailTranslation\" origin/main -- 'packages/plugin-detail' 'apps' 'examples' | grep -v CHANGELOG | wc -l\n54\n```\n\nPositive control 2 — the grep is not blind outside those paths either; it finds the two deliberate sibling copies, which is what a path-scoped zero would otherwise be indistinguishable from:\n\n```\npackages/data-objectstack/src/index.ts        (narrows to the class)\npackages/plugin-form/src/occSave.tsx          (returns bare boolean)\n```\n\nScope note: this measures **in-repo** consumers. `@object-ui/plugin-detail` publishes `isConcurrentUpdateError`, so an external consumer could be reading the narrowed type; the claim above is about this repository only.\n\n## Where\n\n- `packages/plugin-detail/src/InlineEditSaveBar.tsx:124-125` — the `(draft: Record<string, any>, err: any)` signature\n- `packages/plugin-detail/src/InlineEditSaveBar.tsx:127` — the `as Record<string, unknown> | null` cast on `err?.currentRecord`\n- `packages/plugin-detail/src/InlineEditSaveBar.tsx:135`, `:147` — `err?.currentVersion`\n- `packages/plugin-detail/src/InlineEditSaveBar.tsx:183` — the narrowing that is then discarded\n- `packages/plugin-detail/src/ConcurrentUpdateDialog.tsx:223` — the predicate whose narrowed type PR #6474 corrected\n\nFiled flat, ungraded — no user-visible symptom and no test moves either way.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_011SfZeFWrhGLHmfq61xbz4q)_\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

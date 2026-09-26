@@ -1,0 +1,35 @@
+{
+  "number": 6310,
+  "kind": "issue",
+  "title": "finding(i18n): `appDesigner.fieldDesigner.formula` is now a dead key — 10 locale packs plus the designer defaults map, zero call sites",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T12:18:10Z",
+  "updated_at": "2026-08-25T22:32:29Z",
+  "closed_at": "2026-08-25T22:32:29Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6310",
+  "body": "Observational finding, created by #6043 and deliberately left behind there rather than smuggled into that PR. Filing it so the leftover is tracked instead of relying on a report-only script nobody reads.\n\n## What is dead\n\n#6043 retired the Field Designer's formula-expression textarea, which was the **only** call site of `appDesigner.fieldDesigner.formula`:\n\n```\npackages/plugin-designer/src/FieldDesigner.tsx:312   ← removed by #6043\n  { name: 'formula', label: t('appDesigner.fieldDesigner.formula'), … }\n```\n\nThe value survives in 11 places with nothing asking for it:\n\n- `packages/plugin-designer/src/hooks/useDesignerTranslation.ts` — `DESIGNER_DEFAULT_TRANSLATIONS`\n- `packages/i18n/src/locales/{en,de,es,fr,pt,ru,ja,ko,zh,ar}.ts` — nested under `appDesigner.fieldDesigner.formula` (en: `'Formula'`, zh: `'公式'`, ru: `'Формула'`, …)\n\n⚠️ Do **not** confuse it with `designer.field.formula` (`'Formula (CEL)'`), which is a **different, live** key belonging to metadata-admin's `ObjectFieldInspector` — the surface that still authors formula expressions. Only the `appDesigner.fieldDesigner.*` spelling is dead.\n\n## Why #6043 left it\n\nStated plainly rather than implied:\n\n1. **No gate fails.** `check:i18n-dead-keys` is the reverse sweep that would name it, and its own header declares it **report-only by default (exit 0 whatever it finds) and wired into no CI workflow** — deliberately, because a reverse sweep over dynamic key construction can produce false positives. `check:i18n-keys` runs the call-site→pack direction only, so deleting a call site can never red it.\n2. **Removing it is an 11-file diff** across all ten packs plus the defaults map, and `DESIGNER_DEFAULT_TRANSLATIONS` is asserted to mirror the `en` pack by `packages/app-shell/src/__tests__/defaults-maps-mirror-en-pack.test.tsx` — so map and packs have to move together or that gate reds. That is a translation-hygiene change with its own blast radius, not part of a card about a save-blocking 422.\n\n## Suggested resolution\n\nDrop the row from the defaults map and from all ten packs in one commit, keeping them in step so the mirror test stays green. Worth confirming first, by running `node scripts/check-i18n-dead-keys.mjs --strict`, whether this key is the only one or one of a batch — if there is a backlog, sweeping them together is cheaper than eleven files for one string.\n\nRefs: #6043 (what removed the call site) · #4658 (the reverse sweep and why it is report-only) · #4401 (the defaults-map mirror gate)"
+}

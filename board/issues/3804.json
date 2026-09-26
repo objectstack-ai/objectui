@@ -1,0 +1,35 @@
+{
+  "number": 3804,
+  "kind": "issue",
+  "title": "[finding] 三个 AI 配额 code 在 ADR-0112 的封闭值域之外 —— 合规的嵌套信封今天装不下它们,词汇对齐待 cloud#1168 定",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-08T16:59:23Z",
+  "updated_at": "2026-08-25T19:24:24Z",
+  "closed_at": "2026-08-25T19:24:24Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 15,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3804",
+  "body": "在实施 #3491(`parseAiQuotaError` 消费端先行,PR #3802)时实读 spec 发现的:**形态**对齐了,**词汇**没有,而后者今天是硬冲突。\n\n## 实测证据(`objectstack@origin/main`)\n\n- `packages/spec/src/api/contract.zod.ts:12` —— `ApiErrorSchema.code` 的类型是 `ErrorCode`,不是 `z.string()`。\n- `packages/spec/src/api/error-code-ledger.zod.ts:355` —— `export const ErrorCode = z.enum(...)`,即 `StandardErrorCode` ∪ `ERROR_CODE_LEDGER` 的**封闭**并集;ledger 文档明写「An unregistered code fails schema parse」,且 casing 由 `error-code-ledger.test.ts:18` 的 `/^[A-Z][A-Z0-9_]*$/` 机械强制。\n- `git grep -n \"ai_allowance_exhausted\\|ai_design_quota_exhausted\\|ai_data_chat_trial_exhausted\" origin/main -- packages/spec/src` → **零命中**;ledger 里 `AI_` / `QUOTA` / `ALLOWANCE` / `TRIAL` 行同样零命中。邻近词反查:429 段已有标准 `RATE_LIMIT_EXCEEDED` 与 `QUOTA_EXCEEDED`(`packages/spec/src/api/errors.zod.ts` 的 Rate Limiting 段)。\n\n**推论**:一个**真正合规**的嵌套信封今天装不下 `ai_allowance_exhausted` —— `ApiErrorSchema.parse({ code: 'ai_allowance_exhausted', ... })` 会被 `z.enum` 拒。因此 PR #3802 新增的嵌套分支只对「已改嵌套形态、但仍发旧小写词汇」的过渡期生产者生效;若生产者一步到位改成合规词汇,消费端会**再次静默失配** —— 正是 #3491 要防的那件事,换了一层。\n\n## 为什么现在不动手\n\n选哪个词汇是**契约决策**,不该由消费端猜(猜错就把一个没人同意过的词汇固化进渲染器,AGENTS.md #0.1)。至少两条路,代价不同:\n\n- **A. 在 ledger 登记三个 `AI_*` 码**(如 `AI_DESIGN_QUOTA_EXHAUSTED` / `AI_DATA_CHAT_TRIAL_EXHAUSTED` / `AI_ALLOWANCE_EXHAUSTED`):三态语义与 CTA 分支一一对应,消费端改动最小(只加三个字面量)。代价:ledger 自己的准入建议说「条件是通用的(rate limit 一类)就用标准目录,别注册同义词」,配额耗尽很难说不是 `QUOTA_EXCEEDED` 的同义词。\n- **B. 用标准 `QUOTA_EXCEEDED`,把三态与 `upgrade`/`topUp` 挪进 `error.details`**:符合 ledger 准入原则、不扩词汇表。代价:消费端要读 `details` 的**结构**,而 `ApiErrorSchema.details` 是 `z.unknown()` —— 没有声明就等于把三态判定交给一个不受 schema 约束的自由字段,AI 写的元数据/生产者最容易在这里跑偏;要走 B 就该同时为这块 details 声明一个 Zod 形状。\n\n`upgrade` / `topUp` / `messageEn` 三个伴随字段的最终位置是同一个决策的一部分(PR #3802 刻意**没有**预设它们的嵌套位置,保持顶层读取)。\n\n## 与 cloud#1168 的关系\n\nBlocked-by: objectstack-ai/cloud#1168(生产者收敛;该单已 Blocked-by #3491)。词汇一旦定下,objectui 侧需要一次很小的后续 PR:在 `packages/plugin-chatbot/src/tool-display.ts` 的 `AI_QUOTA_CODES` / `AiQuotaCode` 里加上新词汇(A),或改成读声明后的 `details` 形状(B),并把 PR #3802 的三方言矩阵扩成四方言。\n\n打上 `finding` 而非 `pm:queue`:今天没有用户会碰到(生产者还没收敛,旧平铺方言依然可读),它是收敛时刻的定时器,不是活缺陷。严重度请 PM triage 时判。\n"
+}

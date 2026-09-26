@@ -1,0 +1,36 @@
+{
+  "number": 5898,
+  "kind": "issue",
+  "title": "finding(react): the form-view bridge's #2545 \"never silently drop spec configuration\" promise is false — 18 spec keys are neither mapped nor explained",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "package: react",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-23T18:18:11Z",
+  "updated_at": "2026-08-25T16:32:09Z",
+  "closed_at": "2026-08-25T16:32:09Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5898",
+  "body": "Found while implementing #5652 (the three drifted key TYPES). Filed unassigned as an\nobservation, for PM triage — #5652's fence was the drifted arms, and this is deliberately not\nfolded into it.\n\n## The promise\n\n`packages/react/src/spec-bridge/bridges/form-view.ts` carries this docstring, and\n`FormViewSpecConformance.test.ts` exists to enforce it:\n\n> Every serializable spec key is either mapped onto the `object-form` node or listed here with\n> an explicit reason for being ignored — the bridge must never silently drop spec configuration\n> (#2545).\n\nDeriving the drifted keys in #5652 made the contract's full key set visible next to the\ndeclaration, and the promise does not hold: **18 spec keys are neither mapped nor explained.**\nThe conformance test does not catch them because its fixture is a hand-written list of keys\nsomeone remembered, not the contract's key set — a key absent from the fixture is a key the\ncompleteness loop never asks about.\n\n## Measured against the installed `@objectstack/spec`\n\nKey sets read through the TypeScript checker off the spec's own `.d.ts` (`keyof FormView`,\n`keyof FormSection`, `keyof FormFieldInput`), then diffed against what the bridge declares.\n\n**`FormView` — 2 dropped:** `buttons`, `defaults`.\n(`defaultSort` and `aria` are correctly absent AND explained — they are retired-key tombstones,\npinned by `FormViewRetiredKeys.test.ts`. They are the shape the other 18 should have.)\n\n**`FormSection` — 2 dropped:** `visibleOn`, `pane`.\n\n**`FormFieldInput` — 14 dropped:** `publicPicker`, `maxLength`, `minLength`, `min`, `max`,\n`precision`, `scale`, `multiple`, `immutable`, `span`, `language`, `keyField`, `disclosure`,\n`fields`.\n\n## Most of them are dropped configuration, not harmless omissions\n\nThis is what makes it worth filing rather than noting. The receiving layer already reads them:\n\n- **`FormSection.pane`** is read at `plugin-form/src/ObjectForm.tsx:302` (`pane: s.pane`) and is\n  the whole subject of `SplitForm.tsx`'s per-section placement. A spec-authored split form loses\n  its explicit pane placement at this bridge and silently falls back to the legacy positional\n  rule (first section primary, the rest secondary) — so reordering sections moves them across\n  the divider, which is the exact failure `pane` was added to prevent.\n- **13 of the 14 field keys** are copied onto the runtime field by `normalizeSectionField`\n  (`plugin-form/src/sectionFields.ts`): `maxLength`, `minLength`, `min`, `max`, `precision`,\n  `scale`, `multiple`, `immutable`, `span`, `language`, `keyField`, `disclosure`, `fields`. The\n  bridge is the only thing between the authored document and that reader, so an authored\n  `maxLength` / `precision` / composite `fields` never arrives. `publicPicker` is the one with\n  no reader found here.\n- **`FormSection.visibleOn`** — the field path already reads `visibleWhen ?? visibleOn`; the\n  section path reads only `visibleWhen`, so the deprecated section spelling is dropped on a\n  document that has not been through the spec's normaliser (the same never-parsed input class\n  the bridge keeps reading `groups` and field `visibleOn` for).\n\n`buttons` and `defaults` need a triage answer rather than a mechanical copy — there may be no\nnode slot for either, in which case the honest fix is an entry in the ignore list with the\nreason, not a passthrough.\n\n## Why this is a finding and not a queued card\n\nTwo decisions sit above the mechanical part, and both belong to triage:\n\n1. **Where the completeness check should get its key set.** Pinning the fixture against the\n   contract's `keyof` (so a new spec key fails the suite until it is mapped or explained) is a\n   different instrument from the current hand-listed fixture, and it will fail immediately on\n   all 18 — the ordering of \"build the guard\" and \"close the gap\" is a call.\n2. **`declared = enforced` vs. passthrough.** Some of these are simply un-copied; `buttons` /\n   `defaults` / `publicPicker` may have no consumer at all, in which case ADR-0049's\n   enforce-or-remove applies to the ignore-list entry rather than to a copy.\n\n## Boundary\n\n- Searched the open issues before filing (form-view / spec-bridge / bridge / FormView /\n  FormSection / FormField / drop / silent / pane / shorthand phrasings, over all 231 open\n  issues — this session cannot reach the search API, so the list was fetched and filtered\n  locally). Nothing open covers it. #5627 is the nearest neighbour and is **closed**, and it was\n  the *console* `FormPage` renderer's own section-rule drops, not this bridge's declaration.\n- Related landed work: #2545 (the promise), #5542 / #5596 (the leaf and containers), #5652 (the\n  three drifted arms — the card this was found under).\n- The field-list *shorthand* mangle found in the same sweep (a bare `fields: ['name']` becoming\n  `{ name: undefined }`) was in-fence and is fixed in #5652's PR; it is not part of this.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

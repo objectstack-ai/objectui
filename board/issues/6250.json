@@ -1,0 +1,36 @@
+{
+  "number": 6250,
+  "kind": "issue",
+  "title": "finding(types,examples): every toast demo hangs an action object off `onClick`, which is declared as a function and read by no dispatcher",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-25T04:06:57Z",
+  "updated_at": "2026-08-26T06:17:39Z",
+  "closed_at": "2026-08-26T06:17:39Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6250",
+  "body": "Found while implementing #6157 (correcting the invented keys the live `SchemaExample` fixtures teach). #6157 corrects a value *inside* this payload; this card is about the payload's envelope, which is a larger question and was deliberately left alone there.\n\n⚠️ **Dedup caveat, stated up front:** the GitHub search API was rate-limited for this session at filing time, so the usual \"search open issues before filing\" step could not be completed. If this duplicates an existing card, close it as such — the measurement below is the part worth keeping.\n\n## Measured on `e3354ba08`, with `packages/types` built fresh\n\nAll seven `components-feedback-toast/*` fixtures are `{ \"type\": \"button\", … }` with an action object hung off `onClick`:\n\n```json\n{\n  \"type\": \"button\",\n  \"label\": \"Destructive Toast\",\n  \"variant\": \"destructive\",\n  \"onClick\": { \"action\": \"toast\", \"variant\": \"error\", \"title\": \"Error\", \"description\": \"Something went wrong.\" }\n}\n```\n\n**1. The shipped type says `onClick` is a function.** `ButtonSchema.onClick` is `() =&gt; void | Promise&lt;void&gt;` (`form.d.ts:56`), and the zod mirror is `z.function()`. So `ButtonSchema.safeParse()` on either fixture is RED — not on any variant, on the envelope:\n\n```\n{\"code\":\"invalid_type\",\"expected\":\"function\",\"path\":[\"onClick\"],\n \"message\":\"Invalid input: expected function, received object\"}\n```\n\nControl: the same object with `onClick` removed parses green, so this is a key-by-key result and not a schema that refuses everything.\n\n**2. No dispatcher reads it.** Grepped `packages/**` for `case 'toast'`, `action === 'toast'`, `=== 'toast'`, `schema.onClick` and `.onClick as`: the only hits are `ActionRunner`'s `action.onClick()` (which calls a **function**, the legacy callback slot) and `schema-builder`'s setter. `packages/components/src/renderers/form/button.tsx` never forwards `schema.onClick` to the rendered `Button` at all. So on this tree, clicking the demo button fires nothing.\n\n## Why it matters more than one demo\n\nThis is the SDUI idiom the docs teach for \"button that raises a toast\" — seven fixtures on the toast page alone, plus the same shape elsewhere in the catalog — and it is **declared nowhere and executed nowhere**. That combination is the objectui#5250 hole at its widest: `BaseSchema.passthrough()` means `objectui validate` accepts the fixture, the docs render it, an AI few-shot retriever is invited to copy it, and nothing ever runs it.\n\nThe interesting question for triage is which way the divergence should close:\n\n- **the fixtures are wrong** — the demos should use `{ \"type\": \"toast\", … }` (a registered component with a real renderer, `renderers/feedback/toast.tsx`) and stop teaching a button/action-payload shape the engine has no dispatcher for; or\n- **the surface is wrong** — the action-object form is the intended SDUI authoring shape, in which case `ButtonSchema.onClick` needs to declare the action union (it currently declares only the function) and something needs to execute it.\n\nThat is a contract question, not a fixture typo, which is why it was not folded into #6157. Note that #6157 already corrects the *toast variant value* inside these payloads against `ToastSchema` — the nearest governing declaration — and that correction stands under either resolution here.\n\n#6157 remains open on its own scope and is not addressed by this card.\n\nRefs: #5250 · #6157 · #6143.\n\nFiled unassigned by the #6157 execution seat, session `session_01CSoz9uGhaaSgiq3hshtN7L`."
+}

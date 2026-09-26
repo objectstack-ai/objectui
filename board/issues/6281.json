@@ -1,0 +1,32 @@
+{
+  "number": 6281,
+  "kind": "pull_request",
+  "title": "fix(app-shell): the Studio grid selects only fields the server has (cloud#1652)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T07:23:20Z",
+  "updated_at": "2026-08-25T12:43:34Z",
+  "closed_at": "2026-08-25T12:43:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-25T12:43:32Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6281",
+  "body": "## 现象\n\nData 支柱点一下**「添加字段」**，整个记录网格立刻变成：\n\n> 该视图的查询被拒绝\n> 服务器无法处理该视图的筛选条件或查询参数。清除筛选条件通常即可恢复…\n\n现场没有任何筛选条件，所以那条建议把人带向死路。staging 上 100% 复现。\n\n## 根因\n\n`gridColumns` 取的是**草稿**对象的字段名，而这个数组是下游取数的输入（ListView 按身份依赖它）；`addField` 只往本地草稿推一个 `field_<N>`。于是：\n\n```\nGET /api/v1/data/<obj>?…&select=id,…,reading_status,field_11 → 400 INVALID_FIELD\n```\n\n紧邻的、完全相同但不含 `field_11` 的请求是 200。\n\n服务端行为是**对的**——它的错误信息专门解释了为什么不能静默丢弃未知列：那会把窄投影悄悄答成宽投影。要修的是前端的投影来源。\n\n代码里那句注释正是错误假设：「真正的字段增删会产生新数组、因而触发它应有的重取」——新增字段的那次重取必然失败。\n\n## 边界是实测的，不是猜的\n\n在本地 rig 上问了服务端：\n\n| 动作 | 结果 |\n|---|---|\n| 把新字段存成草稿 | `200`，`state=draft` |\n| 紧接着 `select` 指名它 | **仍然 400 `INVALID_FIELD`** |\n\n物化发生在**发布**时。所以「有没有保存」是错的问题，「服务端有没有」才是——答案在 `layered().effective` 基线里。\n\n## 改动\n\n- 新增 `publishedFieldNames`（加载时取自基线）；\n- `gridColumns` 只保留其中存在的列。\n\n新字段照常在右侧检查器里被选中、配置（那本来就是配置它的地方）；发布之后它可查询了，才作为列出现在网格里。过滤放在列数组这一处而非取数那一侧，是为了让「网格要什么」只有一个真相源。\n\n## 测试\n\n`DataPillar.gridProjection.test.tsx` 断言在**交给对象视图的列数组**上——那个数组就是投影本身。若只监视取数调用，日后在下游改一手也能通过，缺陷会悄悄搬回来。\n\n反向对照（只删那一行过滤、保留逗号）：**第二条精确转红、第一条仍绿**。\n\n⚠️ 说明一处噪音：整目录并发跑时 `packages/app-shell/src/views/studio-design/` 有约 6 条不稳定失败，**main 上同样如此**（单独跑均绿），与本 PR 无关。"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 6587,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): read the declared `prefix` column key without a cast",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-26T15:30:53Z",
+  "updated_at": "2026-08-27T13:13:58Z",
+  "closed_at": "2026-08-27T13:13:57Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": "2026-08-27T13:13:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6587",
+  "body": "Part of #6458 — this lands only the free, unconditional half. The card stays open:\nthe four-key adjudication below is not answered here and must not be closed by this merge.\n\n## Why this is `Part of`, not `Fixes`\n\nThe card's triage recorded two unlock notes: **(1) the `prefix` cast drop is free and\nunconditional**, and **(2) the per-key adjudication has a cross-repo leg**. This PR is\nnote (1) and nothing else. Note (2) needs a maintainer verdict per key and a\n`domain:spec` card in `objectstack` for any \"declare the key\" outcome — AGENTS.md #0.1\nforbids answering it renderer-side either way.\n\n## The card's premise is LIVE — correcting the unlock note\n\nThe unlock comment said *\"the `(col as any)` mechanism this card is named for is gone\nfrom that path.\"* **Re-measured on `main` @ `6a7893d57`, that is not so.** #6461 typed\nthe function's **return**; the **reads inside its body** are untouched:\n\n| line | read | `ListColumn` declares it? | `ListColumnSchema.safeParse` |\n|---|---|---|---|\n| `:1815` | `(col as any).format` | no | REFUSED — `unrecognized_keys` |\n| `:1840`,`:1841` | `(col as any).options` | no | REFUSED — `unrecognized_keys` |\n| `:1846` | `(col as any).appearance` | no | REFUSED — `unrecognized_keys` |\n| `:1925` | `(col as any).prefix` | **yes** | ACCEPTED — the cast was noise |\n| `:1951` | `(col as any).essential` | no | REFUSED — `unrecognized_keys` |\n\nMeasured at runtime from `ListColumnSchema.shape`, not read off a `.d.ts`. `ListColumn`\ndeclares exactly 14 keys: `field, label, width, align, hidden, sortable, resizable, wrap,\ntype, pinned, summary, prefix, link, action`.\n\n(A sixth cast at `:3418` — `(col as any).fitContent` — is a **different** `col`: it\niterates emitted `orderedColumns`, not the authored input. It is deliberately outside\nthis PR's guard region.)\n\n## Fixed or relocated? For this card's keys, **neither**\n\n`RetiredListColumnKey = Exclude<keyof ListColumn, keyof TableColumn | 'wrap' | 'pinned'>`\ncomputes to the 7-key band `field, label, hidden, summary, prefix, link, action`.\n\n**That band provably cannot reach this card's four keys** — it is derived from\n`keyof ListColumn`, and `format` / `options` / `appearance` / `essential` are not\n`ListColumn` members at all. Nor is any of them in `ObjectGridColumnHolds`, which holds\nexactly `headerIcon`, `pinned`, `wrap`. So #6461's fence is structurally incapable of\ncovering the read side: it is an excellent fence on the **emit**, and the **read** defect\nis untouched, not relocated.\n\n## What this PR changes\n\nOne line: `(col as any).prefix` -> `col.prefix`. The cast cost twice — it made a\nschema-admitted key look exactly like the four that are not, and it discarded\n`ColumnPrefix`'s typing, leaving `prefixConfig.field` as `any` at every use in the prefix\ncell renderer. No runtime behaviour moves; the cast erased at runtime.\n\n`columnReadBoundary-6458.test.ts` is the read-side counterpart to\n`columnEmitBoundary-6004.test.ts`. It refuses any cast read of a key the schema declares,\nand bounds the undeclared set to the four escalated ones so a fifth cannot arrive\nanonymously while the adjudication is open. It is a source scan because nothing\nobservable at runtime distinguishes `(col as any).prefix` from `col.prefix`; every anchor\nis asserted present, by count, before any \"no such key\" claim is made.\n\n## Verification — all at `a789bc49f`\n\n**Ablation (the test would have failed before).** Mutation proven on disk before reading\nany result: injected-text count 1, removed-text count 0, blob `7d775f1f0` != HEAD blob\n`1488f7b1e`. Result: `1 failed | 6 passed` — `expected [ 'prefix' ] to deeply equal []`\non the ⭐ assertion. Restore leg proven byte-identical to HEAD (`git diff HEAD` = 0 bytes,\nhash back to `1488f7b1e`).\n\n| gate | verdict (exit captured before any pipe) |\n|---|---|\n| `plugin-grid type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`) | exit 0 |\n| plugin-grid suite, **from repo root** | `Test Files 94 passed (94)` · `Tests 873 passed (873)` |\n| `check:control-bytes` | exit 0 — `OK (scanned 5445 tracked text file(s))` |\n| `check:phantom-deps` | exit 0 — `Every in-scope import is declared` |\n| `check:spec-symbols` | exit 0 |\n| `check:self-import` | exit 0 — `No package names itself inside its own src/` |\n| `check-changeset-presence.mjs` | exit 0 — empty frontmatter accepted as \"releases nothing\" |\n\n`tsc -p tsconfig.test.json --listFiles` confirms the new test **is** in the typecheck\nprogram (1 hit, positive control: the sibling `columnEmitBoundary-6004` also 1 hit), so\nits compile-time `IsAny` assertion is genuinely measured rather than silently excluded.\n\n**Lint — declared narrowing.** Repo-wide `eslint .` is CI's run. Narrowed here to the two\nchanged TS files, and the narrowing is measured, not assumed: type-aware linting is **not\nenabled** (`tseslint.configs.recommended`, no `parserOptions.project` / `projectService`),\nso this diff cannot move any untouched file's verdict. `--format json` reports 2 files\nlinted, **0 errors**. Ratchet moves the right way: `ObjectGrid.tsx` 219 -> 218 warnings,\n`no-explicit-any` 186 -> 185 — exactly the one cast removed, nothing else.\n\n## Out of scope\n\n`packages/types/src/data-display.ts` is untouched. #6424, #6425, #6457 and #6459 remain\nopen and are not addressed here — all four name this same file. Note that #6424's body is\nstale in the same way this card's was.\n\n_Generated by [Claude Code](https://claude.ai/code/session_011SfZeFWrhGLHmfq61xbz4q)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_011SfZeFWrhGLHmfq61xbz4q)_"
+}

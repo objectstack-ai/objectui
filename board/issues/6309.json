@@ -1,0 +1,35 @@
+{
+  "number": 6309,
+  "kind": "issue",
+  "title": "finding: `metadata-admin/previews/object-fields-bridge.ts` has zero importers, and its `serializeDesignerField` would destroy every key the designer does not model",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T12:17:52Z",
+  "updated_at": "2026-08-25T22:32:29Z",
+  "closed_at": "2026-08-25T22:32:29Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6309",
+  "body": "Observational finding, surfaced while resolving #6043. Not fixed there — #6043 only removed the `formula` read/write this file carried, because removing `DesignerFieldDefinition.formula` forced that edit. Same class as #6224 (`metadataConverters.ts`, zero importers).\n\n## 1. The module is unreferenced\n\n`packages/app-shell/src/views/metadata-admin/previews/object-fields-bridge.ts` exports `bridgeFromDraft`, `commitToDraft` and `FieldsBridgeResult`. Measured on `origin/main` @ `7ccb53a`, repo-wide over `packages/ apps/ examples/ scripts/`, excluding the file itself and `dist/`:\n\n```\ngrep -rn \"bridgeFromDraft\\|commitToDraft\\|FieldsBridgeResult\\|object-fields-bridge\" \\\n     --include=*.ts --include=*.tsx --include=*.mjs --include=*.json\n  => 4 hits, ALL of them prose in comments\n     (types/src/designer.ts, types designer-field-types.test.ts x2, fields richtext-cell-renderer-5452.test.tsx)\n  => 0 hits that import or call anything it exports\n```\n\n⭐ **Zero-hit control**, so the reading is not just a bad grep: the same command shape against its live sibling in the same directory, `object-fields-io`, returns 10+ real consumers (`useObjectFields.ts`, `StudioDesignSurface.tsx`, `ObjectFormDesigner.tsx`, …). The instrument finds consumers when they exist.\n\nNote the comments still describe the bridge as though it were wired — that is what makes it worth a card rather than a silent delete: a future reader has three in-repo pointers telling them this bridge mediates between the framework field record and `FieldDesigner`, and nothing telling them it is unreachable.\n\n## 2. If it is ever revived, its round-trip is lossy — and its own header says the opposite\n\n`serializeDesignerField` builds a **fresh** object and copies only the keys `DesignerFieldDefinition` models:\n\n```ts\nconst out: FrameworkFieldDef = { type: f.type, label: f.label };\nif (f.required) out.required = true;\n// … ~10 more known keys, then:\nreturn out;\n```\n\n`prev` is never spread. So for any field type the designer CAN edit, every other key is dropped on commit — including real `FieldSchema` keys such as `expression`, `returnType` and `inlineHelpText`. A formula field authored in metadata-admin's `ObjectFieldInspector` (which writes `expression` and stamps `returnType` from inferred CEL type) would come back through this bridge with its expression gone.\n\nThe file header currently claims the opposite:\n\n> - reassembles the full record on commit, putting preserved entries back in their original order/shape so **nothing the user can't see is destroyed**.\n\nThat guarantee holds only for the **quarantined** branch (types the designer cannot edit, preserved verbatim). For the designer-editable branch it is false. The two branches are adjacent in the same function, which is how the claim reads as covering both.\n\n## Suggested resolutions (not adjudicated here)\n\n- **Delete the module** and the three prose references, per #6224's precedent; or\n- **keep and fix**: spread `prev` in `serializeDesignerField` so unmodelled keys survive, and correct the header to say which branch the guarantee covers — but only if a consumer is actually planned, since a lossy bridge nothing calls is dead weight either way.\n\nNot urgent: with zero importers there is no live data loss today. The severity is entirely about what happens when someone wires it up trusting its header.\n\nRefs: #6043 (where it surfaced) · #6224 (same class) · #5761 (the parity gate — note `FrameworkFieldDef` is **not** one of its `PAYLOAD_SHAPES`, so the gate is green over this file by construction)"
+}

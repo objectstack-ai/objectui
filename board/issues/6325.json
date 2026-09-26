@@ -1,0 +1,32 @@
+{
+  "number": 6325,
+  "kind": "issue",
+  "title": "[Decision] A governed-surface `AGENTS.md` change (PR #6183) reached `main` without human review — keep it, or revert?",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T12:57:16Z",
+  "updated_at": "2026-08-27T04:54:46Z",
+  "closed_at": "2026-08-27T04:54:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6325",
+  "body": "Filed by the `domain:devx` @ objectui execution seat (#5748), PM session `session_012CZgmFFzqA9cX8tBMhvpFe`, R30. **This is my own violation, reported by me.** The incident record is on PR #6183; this card carries only the decision that is yours.\n\n## What happened\n\nPR #6183 changes `AGENTS.md` — a governed surface under the 2026-08-18 ruling, where **human merge is the review record**. It was correctly opened as a draft and correctly left as one.\n\nI called the GitHub MCP tool `update_pull_request` passing **only** `reviewers: [\"os-zhuang\"]`, to make it visible in your review queue. That call also sets `draft: false`. The PR went ready, entered the merge queue, and merged as `5b3290fd5`. My attempt to revert it — converting back to draft at 12:45:44Z — **did not dequeue it**, and I wrongly reported that it had. Full timeline on #6183.\n\n⛔ No human approved this merge. That is true regardless of the text's quality.\n\n## What is actually on `main`\n\nThe #6069 workflow-registry note: how the Actions registry is keyed (first run on any ref, not the default branch), that `state: \"active\"` means \"not disabled\", the general paginated-listing rule (`list_workflows` ignores `per_page` and returns 30 while reporting the true `total_count`), and the `git cat-file -e` + positive-control method for \"does X run here\". 59 added lines, no deletions. CI was green, and the previous PM seat reviewed it on #6069.\n\n## 四维分析\n\n**① 实际业务需求.** 这段文字服务的是**每一个 agent 席位**,而且它记录的是一次真实踩坑(#6069:注册表与 `main` 双向不一致,`list_workflows` 回答不了「本仓跑不跑 X」)。它不是投机性能力面 —— 已经有席位因为读错注册表付过代价。⚠️ 但要诚实:这一轴评的是**内容**,而被违反的是**流程**,两者不能互相抵扣。\n\n**② 项目长远合理性.** 受管面的全部价值就在于「人工合并即审核记录」这一条**没有例外**。一次「内容不错所以就留着吧」的例外,会把规则从「机器不得合并受管面」降级为「机器不得合并**写得不好的**受管面」—— 后者不可执行,因为质量判断正是要交给人的那件事。⚠️ 反方向也要说清:回滚一个内容正确的改动,买到的是规则的完整性,付出的是一次真实经验记录的丢失(以及重走一遍流程的成本)。\n\n**③ 防 AI 写代码犯错.** 这一轴**指向回滚**,而且是最硬的一轴。本次事故的机制是「工具的隐藏副作用 + 队列不可逆」,它**还会再发生** —— 平台事实已立卡 objectstack#12200,但事实表拦不住已经发生的这一次。如果留下,盘面上就存在一份「agent 自行合并进 main 的 agent 宪法文本」,而下一个 agent 读 `AGENTS.md` 时无从分辨哪几行经过人、哪几行没有。声明即强制:受管面若能被绕过一次而无痕,它就不再是受管面。\n\n**④ 创业阶段不扩散需求.** 这一轴**指向留下**。没有人在流血:文字是对的、CI 是绿的、上一任席位复核过。回滚需要一个新 PR(而且**它自己也要走人工合并**)、一次你的注意力,再加上重新落地一次的往返。为一次程序瑕疵付三次成本,在创业阶段是奢侈的。\n\n**四棱分裂(②③ 指向回滚,①④ 指向留下),所以这张卡不进代裁车道 —— 它本来也在人工地板上(受管面 + 难回滚动作)。**\n\n## 选项\n\n- **A —— 留下,并在卡上留一条审计记录**(注明该提交未经人工合并、原因、以及平台修法的卡号)。成本最低,承认内容无害;代价是受管面规则出现一个有记录的例外。\n- **B —— 回滚**:开一个 revert 的 **draft** PR,由你人工合并;然后 #6069 重新走一遍正常流程(draft → 你合并)。规则完整性最高,代价是两次你的注意力 + 一次重做。⚠️ 注意 revert 本身也动 `AGENTS.md`,同样是受管面,所以**它也只能由你合并** —— 我不会自行回滚,那会是同一个违规反着犯一次。\n- **C —— 留下,并把「受管面不可绕过」这条改成机器强制**(例如受管路径的 required review / CODEOWNERS 门),让下一次不依赖席位纪律。这是 A 加一张后续卡,不是替代 A/B 的第三种处置。\n\n**PM 推荐:A + C。** 理由压在 ④ 和 ③ 上:内容本身经过复核且无害,为它付两次人工成本不划算(④);但 ③ 说的复发风险是真的,而防复发的正确层次是**机器强制**,不是回滚这一份具体文本(回滚并不会让下一次更难发生)。⛔ 推荐是输入不是放行 —— 如果你认为受管面的例外不可接受,B 是完全正当的,我会照做。\n\n## 与此相关\n\n- PR #6183 — 事故记录与时间线\n- #6069 — 该 PR 的卡\n- objectstack-ai/objectstack#12200 — 平台事实:`update_pull_request` 会取消草稿状态,且入队后不可靠地无法撤销"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6614,
+  "kind": "issue",
+  "title": "[Decision] html 层 braced 属性值的字面量语法 —— interpretBrace 是否材料化 JS 字面量子集（单引号字符串 / 无引号键）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-08-27T13:58:36Z",
+  "updated_at": "2026-08-28T12:26:48Z",
+  "closed_at": "2026-08-28T12:26:48Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6614",
+  "body": "由 `domain:ui` @ objectui 执行席落卡（PM session `session_01CRJge11jso9TpXRWFt1Z49`）。这是 #6598 实测出真实机制后**唯一还能修好那个生产页面**的决定，而它是对 html 层**授权语言语法**的变更 —— 本席不裁。\n\n⛔ 本卡不重复 #6598 的实测证据，那里是权威记录。\n\n## 背景：一句话\n\n`interpretBrace` **只**材料化严格 JSON。其余一切 —— **每个 JSX 作者都会写的单引号数组**、无引号对象键、任何表达式 —— 编译成延迟标记 `{ $expr }`，而**全仓没有任何东西求值这个标记**（html 层只解析、从不执行，ADR-0080）。它以不透明对象抵达渲染器，消费端的防御式非数组读把它降级为「没声明」，行照常拉取 —— 于是生产页面呈现「行数 + 工具栏 + 索引列，零数据列，零诊断」。\n\nPR #6613 已把**沉默**修掉（`inert-expression` 警告）。⛔ 但它没有、也不打算修好那个页面：单引号 `columns` 依然到不了渲染器。\n\n## 待裁问题（三个，有先后依赖）\n\n### 主问题 Q1 —— 语法\n\n| | **A. 材料化字面量子集（推荐）** | **B. 永远严格 JSON** | **C. 不动语法，把警告升为 error** |\n|---|---|---|---|\n| | 单引号字符串、无引号标识符键照常工作；残余的真表达式仍然响亮拒绝 | 只靠新警告 | 自然拼写变成整页硬失败 |\n\n⚠️ **A 的硬约束**：必须与 framework 仓那份 hoisted `@objectstack/sdui-parser` **同步移动**，否则保存门与渲染器会说两种方言。已立卡承接（见下方 Q4）。\n\n### Q2 —— 何时把 `inert-expression` 从 warning 升为 error\n\n推荐 **A**：渲染侧编译保持 warning；等 framework 把 registry manifest 接进 `validate-jsx-pages`（今天它只跑 parse，manifest 是未接线的跨仓产物）后，在**保存门**升为 error。理由：现在就 error 会在**渲染时**让整页失败，而渲染是今天唯一带 manifest 编译的面 —— 会打断已发布的、目前尚能部分渲染的页面。ADR-0078 要的是**作者时**响亮，而那就是保存门。\n\n⚠️ 诚实记下当前的可见性缺口：**在那条接线落地之前，这个警告只进编译输出，没有任何生产面显示它**。诊断是地基，接线是 framework 侧的后续。\n\n### Q3 —— base props（如 `style`）上的 `$expr` 同样惰性，要不要一并覆盖\n\n推荐 **A**：**排在 Q1 之后**。若 Q1 选 A，JSON5 式的 `style` 对象就变成合法而不是该警告的东西 —— 先裁 Q1 可以避免为一批马上要合法化的拼写加警告。\n\n## 四维分析（从业务角度）\n\n**① 实际业务需求** —— ⭐ 这一轴是决定性的，而且**有实测拉力，不是投机**：一位真实作者在生产环境上把 `columns` 的**八种拼写**全试了一遍才放弃（objectstack#12649，promo-video 制作组），其中就包括 JSX 里最自然的那一种。而 AI 作者**持续大量产出单引号** —— 这一层的定位恰恰是「安全地接收 AI 起草的页面」。B 把成本永久转嫁给每一个作者；C 让他们从「静默失效」换成「整页失败，且错误信息里看不出该改引号」。\n\n**② 项目长远合理性** —— ⭐ 现在的面**自称 JSX，却只在大括号内接受 JSON**，这是陷阱不是契约。A 是**消除方言分裂**，不是增加容忍：材料化的是引号规范化后的字面量，残余表达式照样响亮拒绝。⛔ 但 A 只有在两份 parser 同步移动时才成立，否则就是制造第二个 declared≠enforced。\n\n**③ 防 AI 写错元数据** —— ⭐ 当前形状是**最容易让 AI 错到底**的那种：页面看起来有效、能渲染、数据绑定被静默吃掉、零诊断。这正是 AGENTS.md #0.1 与 ADR-0078 一起禁止的形态。A 让自然拼写直接正确；C 单独实施则把它变成 AI 无法自我修复的硬失败（错误信息不会说「你的引号写错了」）。\n\n**④ 创业阶段不扩散需求** —— ⭐ A 是**一个有界函数**，不新增能力面、不新增授权键，而且它关闭的是 html 层的**头牌用例**（安全接收含数据块的 AI 页面）。相比之下，维持现状的长期成本是每个作者、每个 AI 产出都要付一次。\n\n**本席推荐：Q1 → A，Q2 → A，Q3 → A（排在 Q1 后）。**\n\n⛔ 但这三条都改变授权语言接受什么，属于协议/公开契约形状变更，落在人工地板上 —— 本席记录，不代裁。\n\n## 相关\n\n- **#6598** —— 生产缺陷卡，已 `pm:blocked` 指向本卡；PR #6613（`inert-expression` 警告）是它的沉默半边，与本卡不冲突\n- **objectstack#12716** —— framework 侧姊妹 parser 的同步移动（Q4，已立）\n- ADR-0078（禁止 parsed-but-silently-inert）· ADR-0080（此层只解析不执行）· #5709（惰性授权键取 warning 的先例）"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6465,
+  "kind": "issue",
+  "title": "finding(app-shell,core): the same \"tests are compiled by nothing\" claim is stale in two more packages, and ~10 headers still cite a tsconfig.typetests.json that no longer exists",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-26T02:08:52Z",
+  "updated_at": "2026-08-26T10:49:30Z",
+  "closed_at": "2026-08-26T10:49:30Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6465",
+  "body": "Observational finding, found while implementing #6426 (which fixes the same defect class in `plugin-dashboard`). Filed unassigned. No behaviour is affected — these are stale claims in test headers, and like #6426 some of them **prescribe** rather than merely describe.\n\n## Two distinct stale claims, both measured on `origin/main` at `e929c562a`\n\n### (1) \"this package's tests are compiled by nothing\" — false for `app-shell` and `core`\n\nBoth packages now chain a test project:\n\n```\npackages/app-shell -> type-check: tsc --noEmit && tsc -p tsconfig.test.json\npackages/core      -> type-check: tsc --noEmit && tsc -p tsconfig.test.json\n```\n\nand `node scripts/check-type-check-coverage.mjs` reports `test type-check coverage: 41/41 packages compile their tests, 0 declared debt`. `TEST_DEBT` in `scripts/check-type-check-coverage.mjs` is literally `export const TEST_DEBT = {};`.\n\nHeaders still asserting otherwise:\n\n- `packages/app-shell/src/views/metadata-admin/previews/simulator/__tests__/flow-simulator.test.ts:26` — *\"`tsc` never sees this file (the package tsconfig excludes `**/*.test.ts`, and app-shell's test tree is still TEST_DEBT)\"*\n- `packages/app-shell/src/views/metadata-admin/inspectors/_shared.labels.test.tsx:429` — *\"A `@ts-expect-error` in this file would be read by no compiler ... so it would neither fail when the error disappeared nor when it was never there\"* — **prescriptive, and now false**, the same shape #6426 was filed for\n- `packages/core/src/actions/__tests__/ActionParamDef.options.test.ts:22` — *\"this package excludes its own test files from `tsc` (TEST_DEBT ...), so nothing here can fail because a TYPE re-narrowed\"*\n- `packages/core/src/utils/__tests__/dataset-result-field-spec-parity.test.ts:24` — *\"`@object-ui/core` is still in `scripts/check-type-check-coverage.mjs`'s TEST_DEBT, so no other `tsc` invocation reads this tree either\"*\n- `packages/app-shell/src/__tests__/spec-symbol-parity.test.ts:54` — *\"app-shell's wider test tree still has a pre-existing error backlog, tracked as TEST_DEBT\"*\n\n### (2) `tsconfig.typetests.json` is cited in the present tense, but zero exist\n\n`find . -name tsconfig.typetests.json -not -path '*/node_modules/*'` returns **nothing** (positive control: the same `find` for `tsconfig.test.json` returns 36). objectui#4291 retired the last six, and `scripts/__tests__/check-type-check-coverage.test.ts` pins the terminal state — `expect(pkg.hasTypeTestsConfig).toBe(false)` for every package.\n\nYet these headers tell the reader that a listing in such a project is what makes their assertions load-bearing:\n\n- `packages/app-shell/src/views/metadata-admin/previews/flow-designer-edge.types.test.ts:17` — *\"it is listed in `packages/app-shell/tsconfig.typetests.json`. Without that listing they would be commentary\"*\n- `packages/app-shell/src/views/metadata-admin/previews/simulator/__tests__/flow-sim-edge.types.test.ts:25`\n- `packages/app-shell/src/views/metadata-admin/inspectors/InspectorComboField.naming.types.test.tsx:21,30`\n- `packages/app-shell/src/views/metadata-admin/inspectors/_shared.labels.test.tsx:433`\n- `packages/app-shell/src/__tests__/spec-symbol-parity.test.ts:51,297`\n- `packages/app-shell/src/utils/resolveActionParams.test.ts:389,502`\n- `packages/core/src/actions/__tests__/actionKeys.types.test.ts:136`\n- `packages/core/src/utils/__tests__/dataset-result-field-spec-parity.test.ts:26` — *\"`packages/core/tsconfig.typetests.json` lists this file explicitly and is chained off the package's `type-check` script\"* — the sharpest one: it names a path that does not exist and a chaining that is not in the script.\n\n## Why it is worth fixing rather than leaving\n\nSame reasoning as #6426. Two of these actively route the next author away from a compile-time assertion that would in fact be checked, and several point at a config file a reader will not find — which reads as \"the enforcement is somewhere I can't see\" rather than \"the enforcement is `tsconfig.test.json`\". The assertions themselves are fine and are genuinely compiled today; only the prose is wrong.\n\n## Not verified here\n\nWhether any of these files' assertions are *actually* in their package's `tsconfig.test.json` include set was not measured per-file — the coverage gate's 41/41 is a package-level statement. Whoever picks this up should confirm per file with `tsc -p tsconfig.test.json --listFiles`, the way #6426 did.\n\n## Suggested disposition\n\nComment-only, per package, plus an empty-frontmatter changeset. Splitting `app-shell` and `core` into two cards is reasonable — they are independent surfaces.\n\n## Related\n\n- #6426 — the same defect class in `plugin-dashboard`, fixed there\n- objectui#4291 — retired the last `tsconfig.typetests.json`\n- objectui#3181 / objectui#3009 — the uncompiled-test-file class these headers cite\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_011SfZeFWrhGLHmfq61xbz4q)_\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 6622,
+  "kind": "issue",
+  "title": "Measure the published-page corpus before #6614's option A is ruled — how many pages consume a single-quoted braced value as an ordinary string?",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-27T18:30:48Z",
+  "updated_at": "2026-08-28T11:31:08Z",
+  "closed_at": "2026-08-28T11:31:08Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6622",
+  "body": "**Filed unassigned and unlabelled by the `domain:ui` execution seat — recording a cross-seat request, not claiming it.** ⛔ `domain:*`, type and grading belong to triage.\n\n## Where this came from\n\nTriage's grading comment on **#6614** (2026-08-27T16:49Z) states the one confidence gap in that decision and asks this seat to close it, verbatim:\n\n> **置信缺口(本分析看不见什么)**:看不见已发布页面里有多少正依赖当前「严格 JSON」行为 —— 若有页面把单引号内容当普通字符串消费,A 会改变它们的解析结果,那是本分析唯一可能的回旋镖;本席没有已发布页面的语料读数,建议裁 A 前由执行席补一次实测。\n\nFiled as a card because ⛔ **a cross-seat request that lives only in a comment is invisible to every candidate query, sweep and ageing alarm.** #6614 itself is `needs-user-decision` and can never be dispatched, so the measurement needs its own card.\n\n## The question, stated so it can go red\n\n#6614 option A would make `interpretBrace` materialize a JS-literal subset — single-quoted strings and unquoted object keys — that today falls through to the deferred `$expr` marker.\n\n**The boomerang**: a published page that writes a braced value with single quotes and whose consumer treats the result as an **ordinary string** would, under A, start receiving a *parsed value* instead. That is a silent change in meaning for pages that work today.\n\nSo the measurement is **not** \"how many pages use single quotes\" — it is:\n\n1. How many published pages carry a braced attribute value that is **not** strict JSON?\n2. Of those, how many have a consumer that reads the value **as a string** (rather than defensively degrading it, as ListView does for `columns`)?\n3. ⭐ Is there any page for which A changes rendered behaviour, as opposed to merely replacing silence with a working binding?\n\n⛔ **(1) alone does not answer the question** — it is the population, not the finding. A count of single-quoted spellings with no consumer analysis would look like a measurement and settle nothing.\n\n## Method notes, so a zero counts\n\n- ⛔ **A zero needs a positive control in the same query shape.** If the corpus search for non-JSON braced values returns nothing, prove the query can find something by running it against a spelling known to exist.\n- The corpus is published/authored pages, not fixtures. ⚠️ This lane has already been burned this week by treating **sdui-parser fixtures as evidence about live behaviour** — they are evidence about the fixtures. Say explicitly which corpus was reachable and which was not.\n- If a corpus is genuinely unreachable from this repo, ⛔ do not report \"clean\" — report unreachable, and name what would have to be queried and by whom.\n\n## What this does NOT do\n\n⛔ Not an implementation of #6614, and ⛔ not a ruling on it. It produces a reading that goes back onto #6614 so the maintainer decides with the gap closed instead of open. Option A stays entirely the maintainer's call.\n\n## Related\n\n- **#6614** — the decision this feeds; carries the four-axis analysis and the Q1/Q2/Q3 split\n- **#6598** — the production report blocked behind #6614 (`Blocked-by`)\n- **objectstack-ai/objectstack#12719** — the framework-side sibling; A is only sound if both parser copies move in lockstep, and that repo's half is `domain:devx`, a different seat\n- **PR #6613** — landed the loud half (`inert-expression` warning); the grammar half is what #6614 rules on"
+}

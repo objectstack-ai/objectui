@@ -1,0 +1,35 @@
+{
+  "number": 6038,
+  "kind": "issue",
+  "title": "[Decision] What diagnostic budget should production carry for a faulting `visibleWhen`? Today a node-gate fault is entirely silent in a production bundle",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T14:10:19Z",
+  "updated_at": "2026-08-26T01:12:19Z",
+  "closed_at": "2026-08-26T01:12:19Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6038",
+  "body": "Escalated by the `domain:ui` PM seat (session `session_01CSoz9uGhaaSgiq3hshtN7L`, R38, 2026-08-24). This is **gap 3 of #5926**, carved out because that card grades it itself and the grade is *not* a bug:\n\n> ⚠️ It is also a **deliberate performance short-circuit**, so the fix is a design question — what diagnostic budget production should carry — not a bug report. **Grading it as a bug would misread it.**\n\n#5926 was dispatched this round for **gap 1 only** (the `emptyAction` authored-node bypass). Gap 2 stays an observation on that card. Gap 3 is this card. ⛔ The PM seat does not rule it, and ⚠️ triage may re-grade the label — it is applied here to make the card visible in the inbox, not as a triage product.\n\n## 一句话问题\n\n`evaluateVisibilityPredicate` 里有一句 `if (!__DEV__)` 短路。所以在生产包里，一个作者写的 `visibleWhen` 谓词**求值失败时，控制台一个字都不会打**——门禁停止把关，页面照常渲染，没有任何信号。是要给生产留一条诊断通道，还是接受这份沉默换取性能？\n\n## 为什么现在必须裁，而不是继续观察\n\n**这不是推测，是实测过的。** objectstack#11254 的普查里，一次 bare-string 断裂**在真实页面上让门禁停止把关，且完全没有产生任何 console 行**。（第一轮里那些 `\"has\" is not a function` 的日志来自**另一个面**——`record-alert.tsx` 的 `useCondition` 路径，那条无论如何都会打日志。）\n\n⭐ 而且这条正是**读懂另外两条的前提**。#5926 的原文说得直接：gap 3 是 gap 1 危险的**原因**。门禁本身结构上是健全的——`visibleWhen` 在 `packages/react/src/SchemaRenderer.tsx` 里被**统一强制一次**，`shouldHide` 先测 `visibleWhen`（自 #5454 起排在被提升的 `visible` 之前），置 `_hidden`，然后 `if (evaluatedSchema._hidden) return null` 在注册表分发**之前**触发，所以块渲染器根本没机会忽略它。**正因为门禁是健全的，一次静默失效才特别难被发现**：没有人会去查一个\"设计上不可能被绕过\"的机制。\n\n## 选项 × 真实代价\n\n| 选项 | 客户端效果 | 我们付的代价 |\n|---|---|---|\n| **A 维持现状（生产静默）** | 门禁失效时，作者与运维都拿不到任何信号；一个 class-1 缺陷可以长期在线上不被发现 | 零。这是今天的行为，也是当初刻意选的 |\n| **B 生产打一条限流的 warn** | 失效可被发现；线上排障从\"复现不出来\"变成\"看日志\" | 每个失败谓词一次 `console.warn`（需去重/限流，否则一个列表里几百行会淹没控制台）；极小的包体与运行时成本 |\n| **C 走遥测通道而非 console** | 失效可被聚合观测，不打扰终端用户的控制台 | 需要接一条上报通道；与 #5522 的客户端错误上报许可门禁耦合，而那条本身还在等运维动作 |\n| **D 让宿主自己决定**（一个 opt-in 开关） | 需要的宿主打开它，其余不付代价 | 新增一处公开配置面——本仓当前阶段倾向删特例而非加特例 |\n\n## 四棱\n\n**① 平台长远合理性** — 一个\"声明即强制\"的门禁，其失效必须可被观测，否则\"强制\"只是在正常路径上成立的说法。B/C 修复这一点，A 把它永久留在信任而非证据上。\n\n**② 实测到的业务拉动** — 拉动是实测的而非假设的：#11254 已经踩到过一次，且**只在专门做普查时才被发现**。没有客户报障，因为门禁静默失效时**没人知道本该被挡住的东西没被挡住**——这类缺陷的报障率天然接近零，不能据此读作\"没需求\"。\n\n**③ 防 AI 写错元数据** — 这条最重。AI 生成的元数据最容易写出**语法或绑定上站不住**的谓词（本轮 #6010 就实测到一例：bare-string 里的 CEL `in` 操作符会被 legacy JS 求值器拒绝并 fail open）。生产静默意味着 AI 批量产出的坏谓词**在线上全部 fail open 且无人知晓**。A 是这条上最差的选项。\n\n**④ 创业阶段不扩散** — A 与 B 都不扩散（B 只是一行日志）；D 明确是加特例；C 引入一条新通道且与一个尚未完成的运维依赖耦合。\n\n**推荐 B**，四棱同向：成本落在一处，不新增公开面，把一个今天靠信任的性质变成靠证据的性质。**回退 A**（明确接受这份沉默，并把这个接受记录下来，这样下次普查发现同类问题时不必重新讨论）。⚠️ **C 不建议现在选**——它依赖 #5522 的客户端错误上报许可，而那条正等着维护者做两件运维动作（轮换已提交的 Sentry DSN、给托管 console 授权）。\n\n## 本分析看不见什么\n\n① 没有读数说明**生产里到底有多少谓词在 fail open** —— 正因为它是静默的，这个数在选 B 之前不可测，这本身就是 B 的论据之一。② 没测限流后的实际日志量级：一个 200 行的列表里若每行都有一个坏谓词，去重键怎么取会决定 B 是可用还是刷屏。③ `__DEV__` 短路当初的性能读数没有留档，所以\"省了多少\"只能重测，不能引用。\n\n**裁决格式**：回「A」/「B」/「C」/「D」即可。裁后本席按结果路由回 `domain:ui` 队列执行。\n\n## Pointers\n\n- `evaluateVisibilityPredicate` — the `if (!__DEV__)` short-circuit.\n- `packages/react/src/SchemaRenderer.tsx` — `shouldHide`, the single generic enforcement point (objectui#5454).\n- **#5926** — the parent census; gap 1 dispatched this round, gap 2 held as an observation.\n- objectstack#11254 / #9167 — where the silent breakage was measured.\n- **#6010** (landed this round) — the bare-string CEL `in` case that faults open, a live example of the predicate class most likely to break silently.\n- **#5522** — the client-error-reporting permission gate that option C would depend on; currently awaiting two maintainer operator actions."
+}

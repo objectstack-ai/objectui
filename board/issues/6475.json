@@ -1,0 +1,35 @@
+{
+  "number": 6475,
+  "kind": "issue",
+  "title": "`ObjectGanttSchema` still does not declare the `gantt` block face — declaring it enforces the spec's required trio and changes the CLI's refusal behaviour (severed from #6051)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-08-26T02:37:42Z",
+  "updated_at": "2026-08-28T17:44:04Z",
+  "closed_at": "2026-08-28T17:44:04Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6475",
+  "body": "Severed from objectui#6051 / PR #6472 by PM ruling (2026-08-26) so the decision is\nrecorded on its own card rather than bundled into a 27-key declaration PR. Filed\nunassigned; triage grades it. The measurement below is complete — nothing needs\nre-deriving to act on this.\n\n## What is proposed\n\nDeclare the `gantt` BLOCK face on `ObjectGanttSchema`, on both declaration faces:\n\n```ts\n// packages/types/src/objectql.ts\ngantt?: GanttConfig;\n\n// packages/types/src/zod/objectql.zod.ts\ngantt: SpecGanttConfigSchema.extend(GanttConfigExtensionFields).optional(),\n```\n\n`GanttConfigExtensionFields` already exists in the mirror (PR #6472 added it as\nthe single field map the flat face is built from), so this is a two-line change\nplus the pin entries.\n\n## Why it is a real undeclared read\n\n`getGanttConfig` (`packages/plugin-gantt/src/ObjectGantt.tsx`) reads it:\n\n```ts\n// 2. Check schema.gantt (the block face, ObjectGridSchema style)\nif (schema.gantt) { config = schema.gantt as GanttConfigEx; }\n```\n\nAn AST enumeration of every top-level key read off the `schema` prop in\n`packages/plugin-gantt/src/**` (non-test) on `854222c5e` found **47** keys, of\nwhich **28** were undeclared. PR #6472 declared 27. `gantt` is the 28th, and it is\nthe only one left undeclared — so the published type still does not teach the\nblock spelling, and an author writing `{ type: 'object-gantt', gantt: { … } }` in\nTypeScript gets no completion, no checking, and no error on a misspelt member.\n\n## Why it was severed rather than shipped — the accept-set change\n\nThis is the ONE key of the 28 whose VALUES get stricter, and the reason is not the\nkey itself:\n\n* `gantt` had **no mirror entry at all**, so a block rode through `.passthrough()`\n  entirely unvalidated;\n* declaring it as `GanttConfig` means it is parsed, and `GanttConfig` derives from\n  the spec's `GanttConfigSchema`, which **requires** `startDateField`,\n  `endDateField` and `titleField`;\n* `ObjectGanttSchema` is a member of `AnyComponentSchema`, so this reaches\n  `safeValidateSchema` and therefore the CLI's `validate` and `check` commands\n  (`packages/cli/src/commands/{validate,check}.ts`).\n\n**Net effect: a gantt block missing one of those three moves from \"accepted, then\nwarned about at runtime\" to \"refused at authoring/validate time.\"**\n\n## The case FOR enforcing it (recorded so the next reader does not re-derive it)\n\n1. **It is not a new contract.** `getGanttConfig`'s block branch **already** feeds\n   the block to `GanttConfigSchema.safeParse` and logs\n   `[ObjectGantt] Invalid gantt configuration` on failure. The flat branch returns\n   before reaching that check. Declaring `gantt` as `GanttConfig` makes the\n   declared face equal the face the renderer was already checking — `declared =\n   enforced` restoration, not a widening of the rules.\n2. **The spec already says so.** `GanttConfigSchema` (rc.6, 19 keys) declares\n   `startDateField`, `endDateField` and `titleField` required. Nothing here\n   invents requiredness.\n3. **Zero measured casualties in this repo.** A scan of all **5095** tracked files\n   for authored `gantt: { … }` blocks found **no metadata block** missing the\n   trio. The apparent hits are i18n translation namespaces that happen to be named\n   `gantt` (`packages/i18n/src/locales/*.ts`), prose, and `as any` test fixtures\n   that never reach the zod mirror. The README's block example\n   (`packages/plugin-gantt/README.md:250`) is a commented, elided one-liner, not a\n   compilable example.\n4. **It closes the last hole in the \"one vocabulary, two faces\" property** PR\n   #6472 established. That PR's derived pin\n   (`Exclude<DeclaredKeys<GanttConfig>, DeclaredKeys<ObjectGanttSchema>>` must be\n   `never`) proves every block-face key is declared at the top level; it does not\n   and cannot prove the block key itself is declared.\n\n## The case AGAINST shipping it inside #6051 (the PM's ruling, recorded verbatim in substance)\n\n1. **It changes a published CLI's refusal behaviour.** Warning at runtime becoming\n   refusal at build time is a real behaviour change for authors, whatever the spec\n   says.\n2. **The zero-casualty scan is in-repo only.** 5095 tracked files measures *this\n   tree*. Authored metadata living outside it is exactly the population an in-repo\n   census cannot see — a blind spot that has produced false negatives on this seat\n   before. Not a reason to doubt the number; a reason not to let it carry a\n   published-surface decision by itself.\n3. **Bundled, it would have been invisible.** Nobody reading \"declare the\n   flattened GanttConfig face\" would know they were also approving a CLI refusal\n   change.\n\n## What a decision needs to cover\n\n* Ship as-is (block declared, spec requiredness enforced), **or**\n* ship with the requiredness relaxed on the objectui face — which forks the\n  vocabulary from the spec and is not recommended, **or**\n* ship behind a deprecation period: declare `gantt`, keep the CLI's refusal\n  behind a flag or a warning for one release, then enforce.\n\nWhoever rules should also settle the out-of-tree question directly: is there\nauthored `gantt` block metadata outside this repository (examples, customer apps,\n`objectstack` fixtures) that omits `titleField`?\n\nRelated: objectui#6051 / PR #6472 (declared the other 27), objectui#6469 (the flat\nvs block PRECEDENCE question, separate), objectui#5903 / PR #6053 (the cast-read\nsibling).\n\n_Generated by [Claude Code](https://claude.ai/code/session_011SfZeFWrhGLHmfq61xbz4q)_\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

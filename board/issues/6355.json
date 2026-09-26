@@ -1,0 +1,35 @@
+{
+  "number": 6355,
+  "kind": "issue",
+  "title": "Retire the `timeScale` alias on the timeline node, now that `scale` is canonical on all three surfaces",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T15:05:51Z",
+  "updated_at": "2026-08-28T13:29:52Z",
+  "closed_at": "2026-08-28T13:29:52Z",
+  "closed_by": {
+    "login": "os-elon",
+    "id": 318303764,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6355",
+  "body": "The other routed half of #6170. Filed unassigned.\n\n## Where this comes from\n\n#6170's maintainer ruling (2026-08-25): *\"**`scale` is canonical** (it is spec `ui/TimelineConfig.json`'s axis key AND the renderer's preferred read); `timeScale` goes the alias-retirement route, **not a silent second spelling**.\"*\n\nPR #6352 made `scale` canonical on the two surfaces that were missing it — the exported `TimelineSchema` (which declared neither key) and the designer `inputs` (which offered only `timeScale`, and only 3 of its 6 legal values). `timeScale` is now declared, `@deprecated`, marked `advanced`, and still read. That is the alias made honest, not retired.\n\n## What is left\n\n`resolveTimelineScale` (`packages/plugin-timeline/src/renderer.tsx`) still resolves `schema.scale ?? schema.timeScale`. Retiring the alias means deciding:\n\n1. **How long the fallback read stays.** It exists for stored JSON authored before #2942, when `timeScale` was the *only* spelling read. Dropping the read without a migration silently reverts those documents to the `month` default — the same class of silent axis breakage #2942 closed, in the other direction.\n2. **Whether a migration runs**, and over what (`examples/schema-catalog/src/schemas/plugin-timeline/gantt-style-timeline.json` authors `timeScale` today; so does the registration's own `examples.gantt` block in `renderer.tsx`).\n3. **Then**: `timeScale` → `?: never` tombstone plus mirror twin, per the `StaticTableColumn` convention (#5474); drop the designer input; drop the fallback read; drop the docs row.\n\nNote this key is *not* dead — unlike `events`/`orientation`/`position` in #6354, `timeScale` has a live read point and live authors. It cannot go the same route on the same evidence.\n\nRefs: #6170, PR #6352, #2942 (why the fallback read exists), #6354 (the sibling ADR-0049 removal), #5474 (tombstone convention).\n"
+}

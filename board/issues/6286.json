@@ -1,0 +1,35 @@
+{
+  "number": 6286,
+  "kind": "issue",
+  "title": "plugin-grid's local EXPLAIN_BATCH_MAX_RECORD_IDS has reached its own stated expiry — the spec pin now exports the constant",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T07:56:19Z",
+  "updated_at": "2026-08-25T13:41:28Z",
+  "closed_at": "2026-08-25T13:41:27Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6286",
+  "body": "Found while taking the measurement for #5899 (see PR #6284 for the full population). Filed unassigned as an observation, for PM triage. Not fixed there — out of that card's scope.\n\n## The situation\n\n`packages/plugin-grid/src/hooks/useRecordCrudVerdicts.ts:74` declares the server's batch cap locally, and its own doc comment states the condition under which it should stop existing:\n\n> Declared locally because the pinned `@objectstack/spec@17.0.0-rc.6` predates the batch form and exports neither the constant nor the request/response types; **the pin bump (objectui#4636) supersedes this declaration.**\n\n```ts\nconst EXPLAIN_BATCH_MAX_RECORD_IDS = 200;\n```\n\nThat condition has been met. The tree's pin is now **`@objectstack/spec@17.2.0`**, and `@objectstack/spec/security` exports:\n\n```\ndeclare const EXPLAIN_BATCH_MAX_RECORD_IDS = 200\n```\n\nVerified by resolving the installed package and reading the export, not by reading the changelog.\n\n## Why it matters, and why it is not urgent\n\nThe values agree today, so nothing is broken right now. What is broken is the guarantee: this is a hand copy of a **server contract constant** whose whole point is that over-cap requests are refused with `400 VALIDATION_FAILED` rather than truncated. If the server relaxes or tightens the cap and the spec follows, the local `200` keeps the client paginating at the old boundary with no signal anywhere — a faithful copy passes every value comparison, which is the reference-identity argument `scripts/check-spec-symbol-derivation.mjs`'s own header makes.\n\nThe declaration is also self-documenting about this: it does not claim to be canonical, it claims to be temporary. It has simply outlived the reason.\n\n## Why nothing caught it\n\n`check-spec-symbol-derivation.mjs` rule 1 flags a local symbol declared under a name the spec exports — which is exactly what this is, now that the spec exports the name. It could not see it: **both scanners skip non-exported declarations**, and this const is module-local. That hole is #5899's subject.\n\n## Fix shape\n\nImport the constant from `@objectstack/spec/security` and delete the local declaration (keeping the useful half of the comment — *why* the cap exists and what the server does with an over-cap request). Worth checking whether the request/response types the same comment mentions are now exported too, and whether `WireRecordVerdict` just below it can go the same way.\n\nMeasured on `a76b18cf2` against `@objectstack/spec@17.2.0`.\n\nRelated: #5899 (the instrument hole that hid it), PR #6284 (the census), #4636 (the pin bump this declaration named as its own successor).\n"
+}

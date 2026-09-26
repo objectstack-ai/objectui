@@ -1,0 +1,33 @@
+{
+  "number": 6549,
+  "kind": "pull_request",
+  "title": "docs(app-shell,core): correct eleven test headers that describe a retired type-check arrangement",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-26T10:24:45Z",
+  "updated_at": "2026-08-26T10:49:30Z",
+  "closed_at": "2026-08-26T10:49:29Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-26T10:49:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6549",
+  "body": "Fixes #6465\n\nComment-only. Two stale claims in test headers across `@object-ui/app-shell` and `@object-ui/core`, plus an empty-frontmatter changeset. The merged plugin-dashboard change in #6426 is the template this follows.\n\n## The population I measured, against the card's list\n\nThe card's file list was flagged as incomplete at dispatch and asked me to derive the population myself. My count differs from the card's in **both** directions.\n\n| | files |\n|---|---|\n| Card's enumerated sites | 10 |\n| PM's dispatch added | 1 (`color-variant-field.labelling.test.tsx`) |\n| **Measured and edited** | **11** |\n\n- **Added — the card missed it entirely:** `packages/core/src/actions/__tests__/actionDef-closed-surface.test.ts`. Three citations, the densest single file in the whole in-scope population. Two are in the block comment and are corrected here; the third is a test *name* and is out of scope (below).\n- **Rejected — a false positive of the raw grep:** `packages/app-shell/src/views/metadata-admin/color-variant-field.labelling.test.tsx`, the site the dispatch order added. Its citation is already **past-tense and correct**: *\"objectui#4040 retired the narrow `tsconfig.typetests.json` after the package graduated\"*. It is a model of the corrected form, not an instance of the defect. Left untouched.\n\nThe lesson is that a grep count is not the population: this defect is *present-tense citation*, and the same string appears legitimately in deliberate historical notes. I classified every hit by tense and claim rather than by count.\n\n**Swept repo-wide for completeness:** every other citation outside these two packages — in `data-objectstack`, `react`, `components`, `plugin-list`, `plugin-dashboard`, the seven `tsconfig.test.json` headers, and `scripts/check-type-check-coverage.mjs` — is past-tense, a correct negative (\"no separate `tsconfig.typetests.json` is needed\"), or the gate's own support for a shape it still validates. **No stale claim exists outside this PR's 11 files.** Notably `plugin-dashboard/src/domPassthroughPins.ts`, edited by #6426, left nothing behind.\n\n## The per-file confirmation, which was the actual work\n\nThe `41/41` coverage reading is package-level and licenses nothing. Every header rewritten to a positive \"this file is compiled\" claim was confirmed **for that file**:\n\n```\ntsc -p tsconfig.test.json --listFiles\n  app-shell: all 8 edited files present, of 4455 in the program — exit 0\n  core:      all 4 edited files present, of  634 in the program — exit 0\n```\n\nA wrong \"this is compiled\" is worse than the wrong \"this is not compiled\" it replaces, so no header asserts more than was measured. Where a file's type reach is limited for a reason unrelated to compilation, the header now says so instead of claiming a clean pin — `ActionParamDef.options.test.ts` names its deliberate `as OptionLike[]` seam.\n\n## Surviving mentions are deliberate\n\n`TEST_DEBT` and `tsconfig.typetests.json` still appear in these files, now exclusively in past tense, recording *why* the header used to say otherwise. Removing that history would strip the reason the corrected claim is worth stating.\n\n## Out of scope, filed separately\n\n`actionDef-closed-surface.test.ts:124` — `it('states its contract as types, compiled by tsconfig.typetests.json', ...)` — is a test **name**, not a comment. Rewording it changes the test's reported name, which this comment-only card does not cover, so it is recorded in #6548 instead of edited here. That is the one remaining citation in either package.\n\n## Verification, at `c8132667a` (working tree clean)\n\n- **Comment-only, proved mechanically:** every added/removed line in the diff begins with `*`, `//`, or `/*`. Zero non-comment lines changed. No assertion, directive, or test body touched.\n- `pnpm --filter @object-ui/app-shell --filter @object-ui/core type-check` — exit 0; the log echoes both halves (`tsc --noEmit && tsc -p tsconfig.test.json`) for each package, so neither half silently no-op'd.\n- `pnpm exec vitest run` over the 11 edited files — `Test Files 11 passed (11)`, `Tests 184 passed (184)`. Run from the repo root: the per-package form is rejected by this repo's guard (objectui#3378), which is a NOT-MEASURED, not a pass.\n- Gates green at this sha: `check:control-bytes` (5400 files), `check:doc-fences`, `check:spec-symbols`, `check:vi-mock-specifiers`, `check:shell-escape-residue`, `check-type-check-coverage.mjs`, `check-changeset-presence.mjs` (accepts the empty frontmatter as the explicit no-release declaration), `check-changeset-no-major.mjs`.\n- **Lint was narrowed, and the narrowing is measured, not assumed.** `npx eslint --format json` over the changed files reports **11 files opened** — cross-checked against the changed-file list, so nothing was silently ignored — with 0 errors and 0 warnings. `eslint.config.js` declares no `project`, `projectService`, or `parserOptions`, so type-aware linting is off and a file's verdict depends only on its own text plus shared config; a comment-text edit inside 11 files cannot move the verdict of any file it does not touch. CI runs the full farm regardless.\n\n## Release impact\n\nNone. Empty-frontmatter changeset, the explicit \"releases nothing\" declaration for internal-only changes. No behaviour change, no public surface change.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_011SfZeFWrhGLHmfq61xbz4q)_"
+}

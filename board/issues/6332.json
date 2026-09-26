@@ -1,0 +1,35 @@
+{
+  "number": 6332,
+  "kind": "issue",
+  "title": "useRecordCrudVerdicts still hand-shapes the explain request/response; the spec exports the request type but not the batch record entry",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T13:16:11Z",
+  "updated_at": "2026-08-26T11:11:27Z",
+  "closed_at": "2026-08-26T11:11:27Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6332",
+  "body": "Observation filed unassigned for PM triage, out of scope for #6286 (which imports the CAP constant only). Recorded so the thread survives that card being closed — #6286's body raises it in one line and its triage comment asks for \"adopt-or-report-why-not\"; this is the why-not, with the measurements behind it.\n\nMeasured against the resolved `@objectstack/spec@17.2.0` on disk (`node_modules/.pnpm/@objectstack+spec@17.2.0_.../dist/security/index.d.mts` and the shared chunk it re-exports from), not against a changelog.\n\n## What the spec does export\n\n- **`ExplainRequest`** — `{ object: string; operation: <8-verb enum>; recordId?: string; recordIds?: string[]; userId?: string }`, plus `ExplainRequestSchema`. This is the shape `useRecordCrudVerdicts` builds inline today.\n- **`ExplainDecision`** / `ExplainDecisionSchema` — carries `records?: Array<{ recordId: string; visible: boolean; decidedBy?: <10-value enum> }>`.\n\n## What it does NOT export\n\nThere is **no standalone named type for a batch `records[]` entry**. `ExplainRecordAttribution` is a different thing — the layer-level row attribution hanging off `ExplainLayer` (`outcome` / `rowFilter` / `matchesRecord` / `rules`), not the batch response entry. The only route to the entry type is the indexed access `NonNullable<ExplainDecision['records']>[number]`.\n\nSo the local `WireRecordVerdict` has no direct counterpart to swap in.\n\n## Why neither was adopted in #6286's PR\n\n**The response side is a posture conflict, not a mechanical swap.** The hook's stated rule is that wire payloads are `unknown` until proven otherwise — a malformed entry must land on \"no verdict for this row\" (fail open), never on a coerced boolean. `WireRecordVerdict` is deliberately `{ recordId?: unknown; visible?: unknown }` because that is what an unvalidated payload is. Asserting the spec's entry shape onto `await res.json()` would type `visible` as `boolean`, which makes the hook's own runtime guards (`typeof entry.visible !== 'boolean'`) type-level dead code a future reader or lint rule can delete — weakening a fail-open safety path while looking like a tightening.\n\nThe contract-first adoption is not the type at all, it is `ExplainDecisionSchema.safeParse(...)`. That is a **behaviour change** and needs its own card: the schema requires `allowed`, `object`, `operation` and `principal`, so a reduced-but-usable response the hook answers today could start failing open. Worth doing, worth measuring, not a rider.\n\n**The request side is genuinely adoptable** — `const body: ExplainRequest = { object, operation, recordIds: chunk }` is type-only, erased at runtime, and would catch a renamed key at compile time. It was left out because it carries a real review question rather than none: `RecordCrudOperation` is deliberately `'update' | 'delete'` while `ExplainRequest['operation']` is the spec's eight verbs, so adopting it puts a wider type in a file whose narrowing is load-bearing. Someone should decide whether the narrowing stays local or becomes a declared subset of the spec enum.\n\n## Suggested shape if picked up\n\nThree separable pieces, in increasing risk: (1) `ExplainRequest` on the request body, with the operation-narrowing question answered explicitly; (2) the `records[]` entry via indexed access **only if** the fail-open guards are kept and pinned by a test that feeds a malformed entry; (3) `ExplainDecisionSchema.safeParse` as a deliberate behaviour change with its own fail-open regression coverage. (3) is the one that actually buys contract enforcement; (1) is nearly free; (2) alone is the one that looks like progress and is not.\n\nRelated: #6286 (the constant, done), #5899 (why neither scanner sees module-local declarations of spec-owned names).\n"
+}

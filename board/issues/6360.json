@@ -1,0 +1,35 @@
+{
+  "number": 6360,
+  "kind": "issue",
+  "title": "`object-master-detail-form` shows \"Loading columns…\" forever for a detail whose `childObject` never resolved — the promised config hint does not exist",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-25T15:13:30Z",
+  "updated_at": "2026-08-25T18:32:40Z",
+  "closed_at": "2026-08-25T18:32:40Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6360",
+  "body": "Found while implementing #6194 (PR #6359), whose dispatch order named #5940's \"config-hint precedent\" as the default to follow. Reading that precedent to copy it is what turned this up. Not fixed there — out of scope for that card, which is confined to `LineItemsPanel`.\n\n## Fact (objectui `origin/main` @ `ed859aa35`, measured)\n\n`MasterDetailForm` declines to fetch the schema of a detail collection whose `childObject` never resolved (#5940), and returns the detail entry as-is. Two comments state what the user is then supposed to see:\n\n`packages/plugin-form/src/MasterDetailForm.tsx:351-352`\n```\n// Left as-is rather than dropped, exactly like the `catch` below — the\n// grid card shows a config hint, and `details` stays length-matched to\n```\n\n`packages/plugin-form/src/MasterDetailForm.tsx:382`\n```\nreturn d; // leave as-is; the grid card will show a config hint\n```\n\n**There is no config hint.** The branch those comments point at is `:242-243`:\n\n```tsx\n{!d.columns?.length ? (\n  <p className=\"py-4 text-sm text-muted-foreground\">Loading columns…</p>\n) : (\n```\n\nFor a declined detail the columns can never arrive — that is precisely what the decline guarantees — so \"Loading columns…\" is a spinner-shaped message that is permanently, unfixably wrong, and it never names the key the author has to set.\n\n**Measured**, mounting `object-master-detail-form` through the registry with `objectName: 'invoice'` and `details: [{ title: 'Probe Detail' }]` (no `childObject`, no columns, so the derive path is entered and then declines):\n\n```\nrendered text  = \"Probe DetailLoading columns…Create\"\ncontains \"childObject\" = false\ndata calls     = ['getObjectSchema(\"invoice\")']   // the parent's own; the detail's was declined\n```\n\nThe single call confirms the decline fired and no second attempt is pending.\n\n## Why this is worth its own card\n\nIt is the same defect the #6194 dispatch order ruled out by name for `record:line_items`: *\"do not let `loading` stay true forever as a way of hiding the state.\"* `LineItemsPanel` now takes the other branch — a hint naming `childObject` and what to set it to, checked ahead of `loading` because nothing is pending (PR #6359). The two components now disagree about what an author sees for the identical authoring mistake, and the one that reads as the precedent is the weaker of the two.\n\nIt also makes the two comments above **false documentation**: the next reader who follows them, as I did, is told a config hint exists and has to run the component to find out it does not.\n\n## Class\n\nSame family as #5940 / #6188 / #6194 / #3838 / #3840 — an unresolved optional sub-key reaching a read unguarded. This is not another unguarded read (that half is fixed); it is the *render* half of #5940 left undone, and it is the fifth instance of the family by a different route.\n\n## Suggested shape (not a decision)\n\nThe branch already exists and is length-matched; it needs to distinguish \"columns have not arrived yet\" from \"columns can never arrive\". The discriminator is available at the call site — an entry with no `childObject` is the declined case. `LineItemsPanel.tsx` (after #6359) and `AdvancedChartImpl`'s refusal placeholders are both prior art for the copy.\n\nFiled unassigned for triage.\n"
+}

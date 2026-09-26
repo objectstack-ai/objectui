@@ -1,0 +1,34 @@
+{
+  "number": 2762,
+  "kind": "issue",
+  "title": "审批界面(Approval Center)优化评估:徽章竖排 / 决策确认 / 进度可视化 / 动作标签 i18n",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-07-20T15:14:07Z",
+  "updated_at": "2026-08-25T19:35:16Z",
+  "closed_at": "2026-08-25T19:34:48Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2762",
+  "body": "Consolidated UX/design evaluation of the **Approval Center** (审批中心 inbox + decision drawer), found while dogfooding the v16.0 approval features. The surface is now demonstrable out of the box via objectstack-ai/framework#3364 (seeds two real pending requests — one M-of-N quorum, one finance∧legal 会签 — routed to the dev admin), which is what made this review possible. Part of the objectstack-ai/framework#3358 verification sweep.\n\n**What's already good (don't regress):** metadata-driven `DeclaredActionsBar` (new decision capabilities need zero UI code), mobile card layout with a correct button hierarchy, keyboard flow (j/k/Enter/a/r), `?request=` deep-link opens the drawer, localized chrome + toasts, server-computed progress + viewer gating.\n\nScreens reviewed: inbox list (desktop + mobile), decision drawer, one live Approve. Components: `packages/app-shell/src/views/DeclaredActionsBar.tsx` + the approval-center/inbox + decision-drawer components in `packages/app-shell`.\n\n---\n\n### P0 — defects / risk\n- [ ] **Status badge stacks vertically** — `待审批` renders as 待/审/批 on **both** desktop and mobile (where there's ample room), so it's a badge-component width/clip constraint, not just a narrow column. Give the status pill `white-space: nowrap` + a sensible min-width; widen the 状态 column.\n- [ ] **One-click Approve/Reject with no confirmation** — the row's right-edge ✓/✕ icons (and the mobile card buttons) execute an **irreversible** decision instantly, with no confirm and no comment/attachment. The right-edge icons are small and easy to misclick. Add a confirm step (at least for Reject) or route through the composer.\n- [ ] **Declared action labels not localized** — the drawer action bar shows English **Approve / Reject / Reassign / Send back / Request info** in a zh-CN workspace, while the same page's inbox buttons are **通过 / 拒绝**. Mixed + inconsistent. `DeclaredActionsBar` renders the action's `label` verbatim; the `sys_approval_request` decision actions need a translation bundle (framework-side dependency — see below).\n\n### P1 — high-impact UX\n- [ ] **Progress is text-only and self-contradictory** — \"Approvals — 0 of 1\" under a title that says \"2 of 3\", no progress bar, no per-group tick badges (the release notes promised per-group ticks for 会签). Render a segmented progress indicator; for `per_group` show per-group state (Finance ✓ / Legal ○); reconcile the 0/1-vs-2/3 wording (e.g. \"0/2 approvals · 1 eligible approver\").\n- [ ] **Approver chips lack group/role context** — the drawer shows duplicate identical \"Dev Admin\" chips with no indication of which group (finance/legal/manager) each represents. Dedupe and label each chip with its group — essential for 会签 comprehension.\n- [ ] **No decision-relevant data in the list** — the queue shows no amount / urgency, so a reviewer must open each request to triage. Surface a key field (e.g. amount) inline; add sort by amount / age; consider a priority indicator.\n- [ ] **Empty 申请人 (Applicant) column** — system/flow-submitted requests show a bare person icon + \"—\" and the header wraps to 申请/人. Show the flow origin (\"流程发起\" / System) or hide the column when there's no submitter; give the header room.\n- [ ] **Flat action hierarchy in the drawer** — five equal-weight outlined buttons; the primary Approve doesn't stand out. Make Approve primary/filled, Reject destructive, the rest tertiary/overflow. (The mobile card already does this — align desktop to it.)\n\n### P2 — polish\n- [ ] **Density / whitespace** — a full-width table with 2 rows leaves large empty space; 审批事项 is over-wide while 状态 is cramped (the P0 badge trigger). Rebalance columns; cap content width; better empty/low-count state.\n- [ ] **Record-card labels & emphasis** — \"Owner Id\" reads awkwardly (should be \"Owner\"); the decision-critical amount is buried bottom-right. Lead with the amount.\n- [ ] **Light mode** — forcing `prefers-color-scheme: light` did not change the theme; appears dark-only. Support light mode or document dark-only.\n- [ ] **Batch actions** — there's a select-all + per-row select but no bulk-action toolbar. Surface bulk Approve/Reject when rows are selected.\n\n---\n\n**Framework-side dependency:** P0-3 (localized action labels) needs `@objectstack/plugin-approvals` to ship a translation bundle for the `approval_approve` / `approval_reject` / `approval_reassign` / `/revise` / request-info / remind / recall / resubmit action labels — tracked in objectstack-ai/framework.\n\nRefs: objectstack-ai/framework#3358 (sweep), objectstack-ai/framework#3364 (demo seeds).\n"
+}

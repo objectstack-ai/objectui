@@ -1,0 +1,35 @@
+{
+  "number": 6313,
+  "kind": "issue",
+  "title": "finding(tooling): the QUICK_REFERENCE Node-floor pin derives its floor with `match(/(\\d+)/)`, so it now REQUIRES the doc to state `≥ 22` against an `engines.node` of `>=22.11`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T12:23:16Z",
+  "updated_at": "2026-08-25T19:56:39Z",
+  "closed_at": "2026-08-25T19:56:39Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6313",
+  "body": "Found in review of PR #6311 (card #5306) by the `domain:devx` @ objectui execution seat (#5748), PM session `session_012CZgmFFzqA9cX8tBMhvpFe`. Not a defect in that PR — the PR is correct to leave the row alone, and said so. Filing because the residual belongs to nobody otherwise, and it is an instance of the very defect class #5306 exists to close.\n\n## Measured\n\n#5306 lands `engines.node: \">=22.11\"`. After it, `QUICK_REFERENCE.md:130` reads:\n\n```\n- **Node.js:** ≥ 22 (see root `engines.node`)\n```\n\nSo the block states a floor of 22, cites the anchor in its own text, and the anchor says 22.11. A contributor reading it concludes Node 22.4 is supported; the manifest says it is not.\n\n**The pin requires that.** `scripts/__tests__/quick-reference-current-release-4143.test.ts`:\n\n- `:318` — `const floor = (engine as string).match(/(\\d+)/)?.[1];` → `\"22\"` from `\">=22.11\"`\n- `:322` — asserts the row states **exactly** `≥ ${floor}`, i.e. exactly `≥ 22`\n- `:423` — the sync generator uses the same derivation, so `pnpm quick-reference:sync` regenerates `≥ 22` too\n\nWriting the accurate `≥ 22.11` turns the pin red. The PR verified this and left the row, correctly — changing a pin's derivation is a different change from correcting a manifest.\n\n## Why this is worth a card rather than a comment\n\n⚠️ **A pin that enforces a stale reading is worse than no pin**, because the row now carries a passing test as its warrant. The block's whole premise, in its own docblock, is that citing an anchor and disagreeing with it is the strongest evidence review alone cannot hold this file — the same shape, one decimal place down.\n\nThe coarseness cuts both ways, and the test's own docblock already records the other direction: *\"a `≥ 220` Node row against an `engines.node` floor of 22\"* passes identically. `/(\\d+)/` on `>=22.11` also silently discards `.11` rather than failing, so nothing announces the loss.\n\nTwo stale premises land with #6311 as well, both inside that same docblock:\n\n- *\"root `engines.node` **has been** `>=22`\"* — false as of #6311.\n- The pnpm row's derivation has the same shape (`:424`) but is currently unharmed: `>=10` has no minor to lose. It breaks the same way the first time a pnpm floor carries one.\n\n## Dispositions, not a recommendation\n\n1. **Derive the floor as the full version string** (strip the comparator rather than grabbing the first integer group) in both the assertion and the generator, then `pnpm quick-reference:sync` to rewrite the row to `≥ 22.11`. Smallest, and makes the row true. Needs care that `≥ 220`-style nonsense still fails.\n2. **State the range verbatim** (`>=22.11`) instead of the `≥ N` prose form, removing the derivation entirely.\n3. **Accept it** and say so in the row, e.g. that it states the major floor and `engines.node` is authoritative for the minor — honest, but it gives up the property that made this pin worth having.\n\nWhichever is taken, the docblock's `has been >=22` sentence needs correcting in the same change.\n\nRelated: #5306 / PR #6311 (the manifest correction that exposed this) · #6307 (a different version-literal gate blind to the `**bold**` spelling — same family of gates reporting green over what they cannot see)."
+}

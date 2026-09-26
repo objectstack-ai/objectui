@@ -1,0 +1,35 @@
+{
+  "number": 6316,
+  "kind": "issue",
+  "title": "finding: nothing measures the docs-site eager closure that #4600's budget is about — `check:eager-closure` weighs `apps/console` only",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T12:29:15Z",
+  "updated_at": "2026-08-25T21:04:11Z",
+  "closed_at": "2026-08-25T21:04:11Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6316",
+  "body": "Filed unassigned while implementing #6167 / #6025 (PR #6314). Not claiming. Observation about gate coverage, not a live defect.\n\n## What was measured\n\nBoth #6167 and #6025 add a side-effect import to `apps/site/app/components/registerCatalogBlocks.ts`, and both cards say the cost of that is governed by `check:eager-closure`. Measured on `7ccb53a92`, it is not:\n\n- `scripts/check-eager-closure-budget.mjs:292` — `const DEFAULT_REPORT_PATH = 'apps/console/dist/eager-closure.json'`. The report is written by `emitEagerClosureReport` in `apps/console/vite.config.ts`, from rolldown's own `chunk.imports` for **the console**.\n- `.github/workflows/performance-budget.yml` triggers on `packages/**`, `apps/console/**` and `pnpm-lock.yaml`, and its steps build `./packages/*` and then `@object-ui/console`.\n\nSo the gate governs the console bundle. `apps/site` — the Next docs site, whose `/docs/[[...slug]]` route is the thing #4600's separation and #4616's `+1803.9 kB (+23.3%)` measurement are about — is weighed by nothing. A change that adds a package to `registerCatalogBlocks.ts` reads GREEN on `check:eager-closure` in both worlds, because the gate cannot see the file.\n\n## Why it matters, and why it did not bite here\n\nThe header of `registerCatalogBlocks.ts` carries a hand-reconstructed measurement of the docs route (`before 7738.7 kB across 29 chunks / after 9542.6 kB across 40 chunks`), taken by reading the `script src` set of the prerendered route off the build on disk, because \"Next 16.3 + Turbopack prints no Size / First Load JS columns\". That is the only measurement of this budget that has ever existed, it was taken once by hand, and #4616's stop condition (+50%) has no instrument behind it today.\n\nPR #6314 did not need one: both packages it declares (`@object-ui/plugin-form`, `@object-ui/plugin-grid`) were already in that route's eager closure through `@object-ui/plugin-view`'s module-scope `import { ObjectGrid }` / `import { ObjectForm }`, so the imports add a declaration and no payload. The next card that adds a package the route does **not** already pull will have no gate and no cheap way to measure.\n\n## Possible shapes, not chosen here\n\n1. Teach `check-eager-closure-budget.mjs` a second site: emit an equivalent report for the docs route from the Next build, and give it its own ceiling. Cost: a docs-site build in CI (556 static pages).\n2. A cheaper structural gate instead of a byte budget: assert that every package named in `registerCatalogBlocks.ts` is already reachable from the route's existing graph, so a genuinely new graph has to be argued for in review rather than measured.\n3. Record in the two cards' own text that the budget is unmeasured, and leave it.\n\nSeverity left to triage. Nothing is broken; a stop condition simply has no gauge.\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 5493,
+  "kind": "issue",
+  "title": "`onSuccess` is authorable as of @objectstack/spec 17.1.0 and honoured by ActionRunner, but all four declared action surfaces drop it one hop before the runner",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-21T06:59:30Z",
+  "updated_at": "2026-08-25T12:55:19Z",
+  "closed_at": "2026-08-25T12:55:19Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5493",
+  "body": "Filed unassigned by the dev seat implementing the `@objectstack/spec` 17.1.0 pin bump (#5328, branch `claude/issue-5328-spec-pin-17-1-0`). Not claiming — this is the wiring half, which the pin-bump card explicitly does not take as a rider.\n\n## What was measured\n\n`@objectstack/spec@17.1.0` declares `onSuccess` on the `ActionSchema` contract. It is **entirely new** in this release:\n\n| reading | 17.0.0 | 17.1.0 |\n| --- | --- | --- |\n| occurrences of `onSuccess` in `dist/**/*.d.ts` | **0** | **53** |\n\nobjectui's runtime has honoured the key for some time — `packages/core/src/actions/ActionRunner.ts`:\n\n```\n323:  onSuccess?: ActionDef | ActionDef[];\n1196:    // Execute onSuccess/onFailure callbacks\n1197:    if (result.success && action.onSuccess) {\n1198:      const callbacks = Array.isArray(action.onSuccess) ? action.onSuccess : [action.onSuccess];\n```\n\nSo both halves of `check:action-forward-parity`'s owed-set now hold — **authorable on the contract AND read off the forwarded def at execute time** — and the gate fails on the pin bump, naming four surfaces:\n\n- `action:button` — `packages/components/src/renderers/action/action-button.tsx`\n- `action:icon` — `packages/components/src/renderers/action/action-icon.tsx`\n- `action:group` — `packages/components/src/renderers/action/action-group.tsx`\n- `action:menu` — `packages/components/src/renderers/action/action-menu.tsx`\n\n`element:button` (the `inline` contract) does **not** fail: `onSuccess` is not on spec's `InlineActionSchema` pick list, so it is not owed there.\n\nCounter-probe that this is the bump and not a pre-existing red: `check:action-forward-parity` exits **0** on `origin/main` (`2524e7450`) with the 17.0.0 lockfile, and **1** on the same tree with only `pnpm-lock.yaml` moved to 17.1.0.\n\n## Why it matters\n\nThis is the \"shipped green while silently dropped\" class the gate was built for, in its most reachable form: as of the bump an author can write `onSuccess` in metadata, the publish/save gate **accepts** it because the spec declares it, and `ActionRunner` is ready to execute the chained actions — but on all four declared surfaces the key never reaches the runner. The action succeeds and the declared follow-up silently does not run.\n\n## Scope\n\nAdd `onSuccess` to the forwarded literal in the four renderers, following the established house pattern in those files (an explicit whitelist key with a comment stating why it is forwarded, e.g. `bodyShape` / `resultDialog`), and delete the four `KNOWN_GAPS` entries added alongside the pin bump — the gate ratchets, so a stale entry fails once the key is forwarded.\n\nRecorded meanwhile as `KNOWN_GAPS` in `scripts/check-action-forward-parity.mjs` (\"really dropped, filed, not fixed here\"), referencing this card.\n\nRefs: #5328 (the pin bump that made it owed) · #4202 (the sibling `objectName` / `onClick` gaps in the same ledger) · objectstack#6837 / #6938 (the motivating class)."
+}

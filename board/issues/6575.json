@@ -1,0 +1,35 @@
+{
+  "number": 6575,
+  "kind": "issue",
+  "title": "`data-table` accepts a `bind` and silently renders its header over an empty body",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-08-26T13:37:53Z",
+  "updated_at": "2026-08-28T11:31:10Z",
+  "closed_at": "2026-08-28T11:31:10Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6575",
+  "body": "Found while censusing `bind` producers and consumers for #6357 (PR #6574). Not that card's defect — filed separately per its dispatch.\n\n## The fact\n\n`bind` is the data-scope binding vocabulary: a path string resolved by `useDataScope()`. Ten production sites read it. `data-table` is **not** one of them — it reads its rows from an inline `data` array on the node and never calls the hook.\n\nSo a `bind` on a `data-table` node is accepted by every gate and does nothing:\n\n- the TS side accepts it (`BaseSchema`'s `[key: string]: any`);\n- the zod side accepts it (`BaseSchema` is `.passthrough()`, and `DataTableSchema` is `BaseSchema.extend(…)`, which inherits that);\n- nothing reads it at render.\n\nThe result is a table that draws its header over an empty body — **no error, no warning, no diagnostic**.\n\n## This is already documented and already pinned — it just has no card\n\n- `skills/objectui/rules/protocol.md:162` states it verbatim: *\"`data-table` does NOT: it reads its rows from an inline `data` array on the node, so a `bind` on it is ignored and the table renders its header over an empty body — no error, no warning.\"*\n- `packages/components/src/__tests__/skill-guide-data-table-binding.test.tsx` pins the behaviour, including the measured detail that *\"the bound array never reaches the renderer at all\"* — the body is one row, the empty state spanning the table.\n\nSo the behaviour is known and asserted. What is missing is a decision about whether it should stay.\n\n## Why declaring `bind` centrally did not change this\n\nPR #6574 declares `bind` on `BaseSchema` (the #6357 census concluded it belongs there). That does **not** touch this: the key was accepted on every node before the declaration existed, via the index signature and `.passthrough()`. The declaration narrows the key's *value* to a string; it cannot refuse the key on a node that ignores it. Recording that explicitly so this is not read as a regression from that PR.\n\n## What needs deciding\n\nThree shapes, not obviously one answer:\n\n1. **Make `data-table` a reader** — call `useDataScope(schema.bind)` like the other nine. Consistent with the vocabulary the protocol teaches, but it is a behaviour change on a published component: a node carrying both `data` and `bind` would need a stated precedence.\n2. **Reject it loudly** — refuse `bind` on `data-table` at parse time. Blocked on the same ceiling as everything else in this class: `.passthrough()` means a per-node strict shape is needed first (#5155 / #6269).\n3. **Diagnose it at render** — the repo already has a diagnostic channel for exactly this shape of silent failure (`packages/plugin-grid`'s column-spelling diagnostic, `visibilityDiagnostic.ts`).\n\nLeaning 3 then 1, but this is a published-surface behaviour question rather than a mechanical fix, which is why this is a finding and not a patch.\n\n## Reproduce\n\n```\ngrep -rn \"useDataScope\" packages --include='*.tsx' --include='*.ts' | grep -v __tests__\ngrep -rn \"useDataScope\" packages/components/src/renderers/data-display/data-table.tsx   # no hits\nsed -n '160,166p' skills/objectui/rules/protocol.md\n```\n\nRefs: #6357, PR #6574. Adjacent ceiling: #5155 / #6269."
+}

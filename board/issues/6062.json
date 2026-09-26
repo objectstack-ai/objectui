@@ -1,0 +1,32 @@
+{
+  "number": 6062,
+  "kind": "issue",
+  "title": "[finding] `lockBannerTitle`'s doc comment quotes a cast that no longer exists and asserts \"no parse, no allowlist, no default\" about a boundary that now parses",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T14:59:33Z",
+  "updated_at": "2026-08-25T14:59:14Z",
+  "closed_at": "2026-08-25T14:59:08Z",
+  "closed_by": {
+    "login": "os-trump",
+    "id": 320910073,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6062",
+  "body": "Filed unassigned by the dev seat implementing #5676 (PR #6061), whose serial constraint made `ResourceEditPage.tsx` read-only. Recording rather than fixing.\n\n## Measured\n\n`packages/app-shell/src/views/metadata-admin/ResourceEditPage.tsx`, the doc block above `lockBannerTitle` (around line 150), explains why the compile-time half of #5024 could not be the whole fix by quoting the client's cast **verbatim**:\n\n```\n * because `MetadataClient.layered()` casts the wire value in unchecked:\n *\n *   ...(body.lock !== undefined ? { lock: body.lock as MetadataLayered['lock'] } : {}),\n *\n * over a raw `res.json()` body — no parse, no allowlist, no default.\n```\n\nPR #6061 replaces that boundary with `GetMetaItemLayeredResponseSchema.safeParse`. After it lands, three claims in this comment are false: the quoted line is gone from the conforming path, there **is** now a parse and an allowlist, and off-spec values are named in `MetadataLayered._unrecognized`.\n\n## Why it is worth a card rather than a shrug\n\nThe comment's conclusion stays correct and load-bearing — a server can still send a value outside the four states, the value is still forwarded, and this banner is still the thing that names it. Only the stated *reason* goes stale. That is the failure mode this repo has recorded twice: objectui#4982's `overlayScope` bug existed because a wrong comment was the only description of a vocabulary the compiler had no opinion about, and #5676 itself was filed against a comment-documented cast. A comment that quotes deleted code and asserts the absence of a check that now exists is a planted premise for the next reader or agent working on this banner.\n\n## Suggested treatment\n\nNot a behaviour change — a comment edit in one file. The quoted cast should be replaced with a reference to the boundary's actual shape, keeping the still-true part: the banner must handle a value outside the four states because `layered()` **forwards** unrecognised tokens by design, and can now say so by naming `_unrecognized`.\n\nBlocked-by: #5676 — the wording depends on what lands in PR #6061."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6530,
+  "kind": "issue",
+  "title": "plugin-map README documents a marker-title fallback that objectui#5953 replaced — \"Omitted, markers are titled `Marker`\" is false today",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-26T09:30:13Z",
+  "updated_at": "2026-08-26T12:43:16Z",
+  "closed_at": "2026-08-26T12:42:42Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6530",
+  "body": "Filed unassigned by the dev seat working objectui#6343 (session `session_011SfZeFWrhGLHmfq61xbz4q`), measured while tracing what reads `map.titleField`. ⛔ Not fixed in that PR — out of its file face (`packages/app-shell/src/views/InterfaceListPage.tsx` + its suites). Duplicate scan run before filing: 247 open objectui issues enumerated via the REST list endpoint and grepped for `marker` / `titleField` / `record-title` / `getObjectSchema` / `nameField`; the single `marker` hit (#4716, ForgotPasswordForm) and the single `ObjectMap` hit (#5157, `.strict()` on the config schema) are different subjects.\n\n## The stale claim\n\n`packages/plugin-map/README.md:95`\n\n| `titleField` | Field shown as the marker title. Omitted, markers are titled `Marker`. |\n\nThat second sentence describes the pre-#5953 read site. objectui#5953 moved the marker title onto `@object-ui/core#getRecordDisplayName`, and `'Marker'` is now passed only as the resolver's `fallback` option — which the resolver reaches **only for a record that carries no id at all**. A record with an id and no resolvable name reads `Record #<id>`; a record whose object declares a `nameField` / `titleFormat`, or simply has a name-ish field, reads that. So \"omitted ⇒ `Marker`\" is now true in exactly one narrow corner and false in the common case.\n\nEvidence, `packages/plugin-map/src/ObjectMap.tsx:769-772`:\n\n```ts\nconst title = getRecordDisplayName(objectSchema, record, {\n  titleField: mapConfig.titleField,\n  fallback: 'Marker',\n});\n```\n\nand the resolver's own step 5 (`packages/core/src/utils/record-title.ts`): `Record #<id>` using `record.id ?? record._id`, with `options.fallback` reached only for a truly id-less record. `ObjectMap.markerTitle.test.tsx` already pins both placeholders in that order.\n\n## Why it is worth a card rather than a drive-by edit\n\nThis is the same shape as objectui#6343: prose left describing a seam after the seam moved. The row is in a **published package README** — the authoring-facing description of a documented config key — so an author reading it will under-specify `titleField` for a reason that has not been true since #5953, or over-specify it to avoid a `Marker` that would not appear.\n\nSuggested repair is one row: say that an omitted `titleField` hands the decision to the object's own record-title precedence (declared `nameField`, `titleFormat`, type-aware derivation), with `Record #<id>` as the floor and `Marker` only for an id-less record. Worth a glance at `content/docs/plugins/plugin-map.mdx:125` in the same pass — that line (\"Field to use as marker title\") is still accurate, so this is a one-file fix unless the docs page grows the same sentence.\n\nRefs: objectui#6343 (where this was measured) · objectui#5953 / PR #5975 (the change that falsified the row)."
+}

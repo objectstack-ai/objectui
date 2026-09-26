@@ -1,0 +1,34 @@
+{
+  "number": 6358,
+  "kind": "issue",
+  "title": "finding(ci): `changelog.yml` configures the pnpm-lock merge driver but never sets up node or corepack — both sibling workflows that configure the same driver do",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T15:06:40Z",
+  "updated_at": "2026-08-25T17:07:10Z",
+  "closed_at": "2026-08-25T17:03:45Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6358",
+  "body": "Filed by the `domain:devx` @ objectui execution seat (#5748), PM session `session_012CZgmFFzqA9cX8tBMhvpFe`, R30. **Measured by the dev on #6264 and handed to me to file** — its seat could not run the dedup search its contract requires (direct `api.github.com` returns 403 for it, and the container's `GITHUB_TOKEN` is a 14-character placeholder), and its contract forbids substituting the MCP list/search endpoints for that search. Filing from a seat with the working channel and this round's dedup readings. ⭐ Handing a finding over with the reason it could not be filed is the right call — a blind file risks duplicating a card a parallel dev opened this hour.\n\nRe-verified by me on `origin/main` before filing.\n\n## Measured\n\n`.github/workflows/changelog.yml:35-40` configures a custom git merge driver for the lockfile:\n\n```yaml\n- name: Configure Git merge driver for pnpm-lock.yaml\n  run: |\n    git config merge.pnpm-merge.name \"pnpm-lock.yaml merge driver\"\n    git config merge.pnpm-merge.driver \"pnpm install --no-frozen-lockfile\"\n```\n\n⚠️ **That workflow has no `corepack enable` and no `actions/setup-node` step at all** — its only `uses:` entries are `actions/checkout@v7` and `orhun/git-cliff-action@v4`. So if the driver ever fires, it runs whatever `pnpm` the runner image happens to carry, against whatever `node` the image happens to carry.\n\n**The control is what makes this a finding rather than a preference** — both sibling workflows that configure the *identical* driver set node up first:\n\n| workflow | `corepack enable` | `actions/setup-node` | configures the driver |\n|:--|:--|:--|:--|\n| `changeset-release.yml` | `:509` | `:515` | `:526` |\n| `dependabot-auto-merge.yml` | `:92` | `:98` | `:110` |\n| **`changelog.yml`** | ⛔ **absent** | ⛔ **absent** | `:40` |\n\nTwo of three do it; the third is the outlier. That is the same shape as #6321 (`changeset-guard.yml` being one of two exceptions to a 5-of-7 convention) — an odd-one-out in a family where the rest agree.\n\n## Why it is worth recording now\n\nIt is an **install path inside the population #6264 enumerates**. That card is turning `engines` from a warning into install-time enforcement, and its gate asks for every workflow that runs `pnpm install` to be verified against the corrected floor. This one runs `pnpm install` from a merge driver, in a workflow that pins no toolchain — so it is exactly the shape that would be missed by an audit that only reads explicit `run: pnpm install` steps.\n\n⛔ Not asserted: that the driver has ever fired, or that it is currently broken. `changelog.yml` is separately recorded as having **0 runs** (#5409 — it waits on release events this repo's releases cannot emit), so this may be latent rather than live. Whoever takes it should establish that first: a driver that never fires is a different priority from one that fires and silently uses the wrong toolchain.\n\n## Dispositions\n\n1. **Add `corepack enable` + `actions/setup-node` to match the siblings.** Smallest, and converges on the convention two-thirds of the family already follows.\n2. **Remove the driver configuration** if the workflow can never merge a lockfile — a merge driver in a workflow that does not merge is dead configuration, and #5409's zero-runs reading suggests checking this before assuming (1).\n3. **Establish whether it fires at all first**, then pick 1 or 2 on the evidence.\n\nRelated: #6264 (the card whose gate surfaced it) · #5409 (`changelog.yml` has 0 runs) · #6321 (the same odd-one-out shape in workflow configuration)."
+}

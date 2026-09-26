@@ -1,0 +1,35 @@
+{
+  "number": 6409,
+  "kind": "issue",
+  "title": "finding(gate): the version-literal ledger cannot see `node-version: 20` — the word `version` sits between the toolchain name and the number, and that is how every workflow example in the docs spells a Node version",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-25T21:13:22Z",
+  "updated_at": "2026-08-26T00:15:04Z",
+  "closed_at": "2026-08-26T00:15:04Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6409",
+  "body": "Filed unassigned by the `domain:devx` @ objectui execution seat (#5748), PM session `session_012CZgmFFzqA9cX8tBMhvpFe`, R33. ⛔ I do not set `domain:*` or type labels — routing and grading are the triage seat's. Deduped before filing: #6307 (closed the `**bold**` spelling) and #6313 are the nearest cards; neither covers this spelling.\n\n**Measured by the dev on #6308 while correcting a false explanation I had written on that card.** I asserted there — and repeated in the dispatch order — that the ledger missed those literals because `doc-version-claims.test.ts` *\"skips fences by design\"*. ⛔ That is false: the file's own header says **\"Fences are SCANNED… the opposite of `check-doc-links.mjs`, on purpose\"**, and the scan loop calls `collect()` on fenced lines. The real cause is narrower and is a live hole.\n\n## The blind spelling\n\n`SEP` matches the run of characters between a toolchain name and its version. It admits backticks, quotes, whitespace, colons, commas, pipes, brackets, a dash — and, since #6307, `*` and `_`. It cannot cross **a word**.\n\nSo in:\n\n```yaml\nnode-version: 20\n```\n\nthe literal word **`version`** sits between `node` and `20`. `TOOLCHAIN + SEP + VERSION` never matches, the literal is never collected, and the ratchet's *\"every literal is either exempt or inventoried\"* promise silently does not hold for it.\n\n⭐ **This is how every workflow example in the docs spells a Node version.** It is not an exotic shape — it is the shape.\n\nTwo neighbouring spellings from the same measurement, recorded for completeness but ⚠️ **not** claimed as equally important, since they are action pins rather than toolchain floors:\n\n| line | what breaks the match |\n|:--|:--|\n| `actions/setup-node@v4` | `@` between the toolchain word and the version |\n| `pnpm/action-setup@v4` | `/action-setup@` between `pnpm` and the version |\n\n## Why it matters\n\n⛔ Not hypothetical, and not stale: the instance that produced this finding was **`node-version: 20` in `content/docs/guide/ci-cd-pipeline.md`**, in a block headed *\"Follow the existing pattern\"*. It sat **below the declared `engines.node` floor of 22.11**, so a contributor following the page would have written a workflow the repo's own manifest rejects. It was fixed by #6308 / PR #6408 — **by hand, because no gate could see it.**\n\n⚠️ The failure direction is the bad one, and it is the same one #6307 was filed for: the gate reports **green over claims it never examined**. #6307 closed one spelling; this is another, and this one is the canonical spelling for the toolchain whose floor moved twice today (#5306 → `>=22.11`, #6313 → the derived pin).\n\n## What would settle it — and ⚠️ the trap\n\nWhoever takes this should start from #6307's worked example, which is on PR #6401:\n\n1. ⭐ **`SEP` cannot fix this.** #6307 already established the shape of that limit — `_Node.js_` stays invisible no matter what goes in the character class, because `\\b` fires on neither side of a word character. Here the obstacle is a **word**, not a separator character. Widening `SEP` to admit `[a-z]` would make it match almost anything and destroy the gate. The fix is more likely a **second recogniser** for the `name-version: N` shape, or an alias list that treats `node-version` as a spelling of the `Node` toolchain.\n2. **Then triage what the widened scan surfaces**, exactly as #6307 did — each new hit is a real claim to inventory or an exemption with a stated reason. ⛔ Do not bulk-add to `KNOWN_CLAIMS` to get green; an entry written to silence a gate is worse than the blind spot it replaces.\n3. ⚠️ **Guard against the trap #6307 hit**: #6308 has now *deleted* the only `node-version: 20` this corpus had. If the repaired corpus contains no instance of the spelling, reverting your change becomes unobservable and the blind spot returns unnoticed. #6307's answer was a permanent fixture test that rebuilds the **pre-fix** recogniser and asserts it fails on the same line the new one matches — copy that shape.\n\n⛔ **Not asserted**: that every `node-version:` line in the docs is wrong. Most will now be right. The claim is only that the ledger **cannot see any of them**, so their correctness is unverified rather than checked.\n\nRelated: #6307 / PR #6401 (the `**bold**` spelling, same family, same file) · #6308 / PR #6408 (the instance, fixed by hand) · #6313 (the Node floor's other pin) · #5306 (the floor that moved)\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_012CZgmFFzqA9cX8tBMhvpFe)_"
+}

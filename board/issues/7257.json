@@ -1,0 +1,35 @@
+{
+  "number": 7257,
+  "kind": "issue",
+  "title": "生产姿态下 console 持续轮询 GET /api/v1/dev/metadata-events → 404，浏览器控制台被刷红",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T01:52:23Z",
+  "updated_at": "2026-09-02T09:43:56Z",
+  "closed_at": "2026-09-02T09:43:56Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7257",
+  "body": "## 现象\n\n2026-09-02 最新主干 rig（`--prod-like`，NODE_ENV=production），环境宿主任意记录页/列表页打开后，console 持续轮询：\n\n```\nGET /api/v1/dev/metadata-events → 404 Not Found   （每几秒一次，一页停留一分钟约 30 次）\n```\n\n生产姿态没有挂这个 dev 路由，浏览器控制台被红色 404 刷满，也是白白的请求；同屏正常的 `sys_inbox_message` / `sys_notification_receipt` 轮询节奏被它淹没。\n\n## 修复要求\n\n1. 只在 dev 模式（或服务端能力探测命中）时订阅 metadata-events；生产姿态首个 404 之后停止重试。\n2. 若这个订阅承担了「元数据变更后刷新」的职责（与 Studio 左栏不刷新那张卡有关），请说明生产姿态下的替代通道。\n"
+}

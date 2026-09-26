@@ -1,0 +1,36 @@
+{
+  "number": 7178,
+  "kind": "issue",
+  "title": "A dataset measure over a date field renders its raw ISO string — `formatMeasure` short-circuits before `format` is read",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T09:29:24Z",
+  "updated_at": "2026-09-03T11:24:57Z",
+  "closed_at": "2026-09-03T11:24:57Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7178",
+  "body": "Found by opening a dashboard in a real ObjectStack application (`objectstack-ai/duly`) against published `@objectstack/*` 17.2.0. Source-confirmed afterwards in this repo.\n\n## The claim\n\n**A `min` / `max` measure over a date or datetime field cannot be rendered as a date on any dataset-bound widget, and the `format` escape hatch the spec offers for exactly this is unreachable for those values.**\n\nThe KPI tile renders `2026-07-04T07:00:00.000Z` where a date belongs — a 24-character ISO string in `text-2xl font-semibold`, which wraps to two lines inside the card.\n\n## Where it comes from\n\n`packages/plugin-dashboard/src/DatasetWidget.tsx:768` renders the dataset-bound metric value:\n\n```tsx\n<span className={cn('text-2xl font-semibold tabular-nums', accentClass)}>\n  {formatMeasure(value, f?.format, f?.currency, f?.percentScale, displayLocale)}\n</span>\n```\n\nand `formatMeasure` in `packages/core/src/utils/dataset-format.ts` opens with:\n\n```ts\nif (v == null) return '—';\nif (typeof v !== 'number') return String(v);\n```\n\nThat second line is before `format` is touched. So for any non-numeric measure value the function is `String(v)` and nothing else — the `format` argument the call site carefully threads through is dead on this path. `tabular-nums` on the span is the same assumption stated in CSS.\n\nEverything downstream of that guard is a numeral-pattern formatter (decimals from `format.split('.')[1]`, `%`, `$`, `currency`), which no date pattern can enter.\n\n## Why the escape hatch does not close it\n\n`DatasetMeasureSchema` in `@objectstack/spec` carries `format: z.ZodOptional<z.ZodString>` — an open string, so authoring `format: 'YYYY-MM-DD'` (or anything else) passes `validate` and `build` cleanly. It then has no effect, because the value never reaches the branch that reads it. An author gets a green toolchain and an unchanged raw timestamp, with nothing anywhere saying why.\n\n## Reproduce\n\nDeclare a measure aggregating a date field and bind it to a `type: 'metric'` widget:\n\n```ts\n// dataset\n{ name: 'oldest_touch', label: 'Oldest touch', aggregate: 'min', field: 'last_update_at' }\n\n// dashboard widget\n{ id: 'oldest', title: 'Oldest untouched task', type: 'metric',\n  dataset: '<ds>', values: ['oldest_touch'] }\n```\n\nOpen the dashboard. The tile shows the raw ISO string. Adding `format: 'YYYY-MM-DD'` to the measure changes nothing.\n\n## Scope beyond the metric tile\n\nThe same `formatMeasure` call is on three other surfaces, all with the same guard in front of them, so a date measure is raw in each: `DatasetWidget.tsx:876` (chart value formatting), `DatasetWidget.tsx:1083` (dataset table cells), and `views/metadata-admin/previews/DatasetPreview.tsx:235`. `PivotTable.tsx:46` takes `value: number` outright.\n\n## Suggested direction\n\nThe narrow fix is to let `formatMeasure` recognise a date-shaped string (or a measure whose `format` names a date pattern) before the numeric short-circuit, and route it through the same date display path list cells already use — the argument for reusing that path rather than adding a second one is the same one the file's own header makes about percent, where two conventions drifted between a list cell and a dashboard measure (objectui#4576).\n\nWhatever the resolution, the silence is the worse half: a `format` that the schema accepts and the renderer can never read is `declared ≠ enforced`. If dates are out of scope for measure formatting, the spec's `format` should say so and a date-typed aggregate should be refused at author time rather than rendered raw.\n\n## Application impact\n\nLow severity — the number is correct and legible, just ugly. Reported because the *silence* is the reusable finding, not the wrapped timestamp."
+}

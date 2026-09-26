@@ -1,0 +1,32 @@
+{
+  "number": 4905,
+  "kind": "issue",
+  "title": "[finding] The #3512 placeholder-spelling gate covers copy TABLES only — 65 of 971 inline `t(key, { defaultValue })` strings, which fallbackT also reads, carry no transitive pin",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T03:49:34Z",
+  "updated_at": "2026-09-02T05:32:05Z",
+  "closed_at": "2026-09-02T05:32:05Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4905",
+  "body": "Measured while building objectui#3512's placeholder-spelling gate — **not in that PR's scope**, and observation-class: 0 violations today, nothing a user hits.\n\n## The chain, and where the new gate stops\n\n`createSafeTranslation`'s `fallbackT` resolves a string through three steps (objectui#3865):\n\n```\ndefaults[key]  ||  options.defaultValue  ||  key\n```\n\n…and then interpolates the winner with an exact literal needle — so whichever step won, it must be spelled `{{name}}` or the braces reach the user verbatim on a provider-less host.\n\nobjectui#3512's gate covers **step 1** in full (the ten locale packs, the 31 `createSafeTranslation` defaults tables, the three hand-rolled sibling tables) — those are copy TABLES, which is what that card was scoped to. **Step 2, the call site's own inline `defaultValue`, is a call-site option rather than a table, and the gate does not read it.**\n\n## Why that is mostly, but not entirely, harmless\n\n`scripts/check-i18n-call-site-keys.mjs`'s `default-value-drift` class pins an inline default byte-identical to its `en` row, and `en` is gated by #3512. So most inline defaults are covered transitively — they cannot differ from a string that is already held to the canonical spelling.\n\nThe gate's own census on `main` (97da1b0d6) says how much \"most\" is:\n\n```\nInline defaults: 909 literal (906 match their en value, 3 not comparable), 62 computed (report-only).\n```\n\nSo **65 of 971** inline defaults carry no transitive pin: the 3 literal ones reported \"not comparable\", plus the 62 computed ones the drift class only reports on. For those, nothing anywhere checks that the placeholder spelling is one `fallbackT` can resolve.\n\n## Why it is dormant\n\nA sweep of every `defaultValue:` string literal under `packages/` / `apps/` / `examples/` finds **0** with a non-canonical double-brace spelling and **0** containing the nesting marker — the same three divergences #3512 measured, at zero on this surface too. The failure needs someone to write an inline default spelling a hole as `{{ name }}` on a key that is either absent from `en` or reached through a computed expression, and then render it without an `I18nProvider`.\n\n## Options (no recommendation attached — the interesting question is which gate owns it, and that is a partition decision, not this finding's to make)\n\n- **A. Extend #3512's gate to inline defaults.** It would have to discover `defaultValue` property assignments at `t()`/`tt()` call sites, which is exactly the walk `check-i18n-call-site-keys.mjs` already performs — so doing it in `packages/i18n` means a second, independently-rotting copy of that call-site classifier (the one that knows `t` is not one function: 1091 of 3690 call sites go to a module-local table, 36 are not translators at all).\n- **B. Put it in `check-i18n-call-site-keys.mjs` instead**, beside `holesOf()` — which already reads through all four i18next dialects to extract a hole's name, and whose own comment records \"all 84 distinct holes in `en` are bare names\". That script has the call-site classification; adding a spelling verdict there is a few lines and no new walk. Cost: the rule for one contract then lives in two places (a vitest gate for tables, a node script for call sites).\n- **C. Close the gap at the source instead** — make the 3 \"not comparable\" and 62 computed inline defaults comparable, so the existing transitive pin covers 971 of 971 and no new rule is needed anywhere.\n\nRelated: objectui#3512 (the gate this was measured against, PR #4904), objectui#3865 (the chain step that made inline defaults reachable from `fallbackT` at all), objectui#4135 (the double-brace vs single-brace convention the spelling rule enforces)."
+}

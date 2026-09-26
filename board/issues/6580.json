@@ -1,0 +1,34 @@
+{
+  "number": 6580,
+  "kind": "issue",
+  "title": "finding(test-infra): `importOriginal()` on the source-aliased `@object-ui/app-shell` barrel costs ~10s per console test file — measured once, and up to 12 files are in the same shape",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-26T14:22:37Z",
+  "updated_at": "2026-09-02T06:30:16Z",
+  "closed_at": "2026-09-02T06:30:06Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6580",
+  "body": "Surfaced while implementing #6567 (PR #6579). That card fixed one file; this is the property of the tree that produced it, which the fix deliberately did not touch.\n\n## The mechanism, measured\n\nIn `apps/console`, the `@object-ui/app-shell` specifier is aliased to **source**, not to built output:\n\n```\napps/console/vite.config.ts:472\n  '@object-ui/app-shell': path.resolve(import.meta.dirname, '../../packages/app-shell/src'),\n```\n\n`packages/app-shell/src/index.ts` is **385 lines** and carries **8 bare side-effect imports** (`:277`, `:279`, `:280`, `:281`, `:283`, `:286`, `:289`, `:292` — `builtinComponents`, `CloudConnectionPanel`, `InstalledListWidget`, `ConnectAgentWidget`, `CloudOnboardingNext`, `CloudAiModelStatus`, `record-attachments-renderer`, `record-approvals-renderer`). All three of those numbers were re-measured on `main` independently of the PR that reports them.\n\nSo a test file that mocks the package with a factory taking `importOriginal` —\n\n```ts\nvi.mock('@object-ui/app-shell', async (importOriginal) => {\n  const actual = await importOriginal<Record<string, unknown>>();\n  …\n});\n```\n\n— makes its first **value** request for that package transform that whole graph on demand. Instrumented on an idle machine in #6567: **`importOriginal(app-shell)` = 10204 ms of a 10223 ms total import, i.e. 99.8%**. For comparison, `auth` in the same file was 240 ms and the render plus assertions were ~12 ms.\n\n## Why it is worth a card beyond the file that was fixed\n\nIn #6567 that 10.2 s happened to land **inside** a test case's `testTimeout` window, because the module was reached by an `await import()` in the case body. The case then failed whenever the transform pipeline was saturated by a full-project run — a flake whose cause was neither of the two suspects the card named. #6579 fixed it by moving the load to module scope, i.e. out of the bounded window into the import phase that nothing bounds.\n\nThat fix is correct and it is **not** what this card asks to revisit. The point is that the 10.2 s is still spent, on every file in this shape, and any file that reaches the package from inside a bounded window is a latent repeat of the same flake.\n\nThe suite-level numbers are consistent with this not being rare. Three green full-project `apps/console` runs on the fixed tree reported setup times of 555 s, 721 s and 840 s against durations of 252 s, 323 s and 373 s.\n\n## Population — an upper bound, stated as one\n\nGitHub code search over this repo:\n\n- files containing `vi.mock('@object-ui/app-shell'` — **21**\n- files under `apps/console` containing `importOriginal` — **16**\n- **intersection — 12**\n\n```\napps/console/src/components/FormPage.predicateScope.test.tsx      <- the one already fixed\napps/console/src/components/SetupRoute.test.tsx\napps/console/src/components/StudioRoute.test.tsx\napps/console/src/pages/system/ApprovalsInboxPage.cellIdentity.test.tsx\napps/console/src/pages/system/ApprovalsInboxPage.hiddenFieldTrim.test.tsx\napps/console/src/pages/system/ApprovalsInboxPage.queueHiddenAmount.test.tsx\napps/console/src/pages/system/ApprovalsInboxPage.rawPayloadGate.test.tsx\napps/console/src/pages/system/ApprovalsInboxPage.recordLink.test.tsx\napps/console/src/pages/system/ApprovalsInboxPage.stepProgressVertical.test.tsx\napps/console/src/pages/system/__tests__/AppManagementPage.i18n.test.tsx\napps/console/src/pages/system/__tests__/AppManagementPage.mutations.test.tsx\napps/console/src/pages/system/__tests__/AppManagementPage.search.test.tsx\n```\n\n⚠️ **12 is an upper bound, not a count**, and the reason is worth stating so nobody quotes it as measured: the intersection is computed from *file paths*, so a file lands in it if it mocks app-shell **and** uses `importOriginal` somewhere — but that `importOriginal` may belong to a different mocked module (`react-router-dom` and similar are mocked the same way). Confirming the real number needs a per-file read of which factory the `importOriginal` sits in. A further 9 files mock the package with no `importOriginal` anywhere in them and are therefore **not** affected by this mechanism.\n\nSecond caveat: GitHub code search is an index and can lag or be incomplete, so these are lower bounds on the populations themselves.\n\n## Not a request to weaken anything\n\nExplicitly not asking to raise a timeout, to add files to `heavyDomTests`, or to skip or quarantine anything — those were all available in #6567 and all correctly declined. The levers that would actually change this are upstream of any gate: whether the test alias should resolve to built output rather than source, whether the barrel's 8 side-effect imports need to be in the module graph an `importOriginal()` pulls, or whether the mock factories should avoid `importOriginal` for this package. Choosing among those is a sizing question, not this card's to answer.\n\n## Filing note\n\nFiled unassigned and ungraded by the `domain:ui` execution seat (session `session_011SfZeFWrhGLHmfq61xbz4q`). It lands in console test configuration rather than in a shipped package, so the routing label and the grade are triage's to produce. Duplicate check before filing found no open card of this shape."
+}

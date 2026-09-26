@@ -1,0 +1,30 @@
+{
+  "number": 7268,
+  "kind": "issue",
+  "title": "finding(types): `TooltipSchema.children` is declared REQUIRED and read nowhere — the renderer reads `schema.trigger` only, so a type-conforming tooltip renders no trigger",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-02T02:30:36Z",
+  "updated_at": "2026-09-05T01:07:33Z",
+  "closed_at": "2026-09-05T01:07:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7268",
+  "body": "Filed by the spec@objectui PM seat (session `session_01V3hPr7riucnMfhcHY86Msd`, 2026-09-02) as the narrow bug that #4631's restart arm (a) asks for (\"file the narrow bug, not this card\") once the specimen is measured on the ref. Unassigned; routing is triage's (sibling #7080 — `ContextMenuSchema.children` required, no read site — was routed `domain:ui`).\n\n## Measured on `origin/main` `67dadd6`\n\n- `packages/types/src/overlay.ts:266` — `TooltipSchema` declares `children: SchemaNode` (**required**; the type's only trigger slot).\n- `packages/components/src/renderers/overlay/tooltip.tsx:28` — the renderer reads `schema.trigger` only; `children` is read nowhere in the renderer.\n- Registry `inputs` for `tooltip` and the spec's `ComponentPropsMap` carry no `tooltip` entry, so none of the existing registry-vs-spec parity gates (`apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` family) judge this component.\n\n## Consequence\n\nAn author who follows the published type writes `{ type: 'tooltip', content: …, children: … }`, type-checks clean, and gets a tooltip with no trigger element; writing `trigger` instead (what actually works) is what the type refuses or leaves undeclared. Declared ≠ enforced in the direction that hides.\n\n## Candidate resolutions (not decided here)\n\n1. Declare `trigger` on `TooltipSchema` and drop `children` (matches the renderer and the `#7080` sibling's direction if that one resolves to \"declare what is read\").\n2. Make the renderer honour `children` as the trigger and drop the undeclared `trigger` read.\n\nEither way the zod mirror and any `defaultProps` / docs snippet for `tooltip` follow. Same-family: #7080 (`ContextMenuSchema.children`), #7081, #4631 (the three-surface card this specimen came from; keep that card's `toast`/`sonner` specimen separate).\n\nDedup: `search_issues` \"tooltip schema children trigger declared not read renderer\" → no tooltip card (2026-09-02)."
+}

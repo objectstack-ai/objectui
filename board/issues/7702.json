@@ -1,0 +1,38 @@
+{
+  "number": 7702,
+  "kind": "issue",
+  "title": "finding(cli): union-arm-diagnostics states 108 AnyComponentSchema arm names and 14 union members as measured facts; the tree reads 105 and 13",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "finding",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T07:18:29Z",
+  "updated_at": "2026-09-05T20:01:40Z",
+  "closed_at": "2026-09-05T20:01:02Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7702",
+  "body": "⚠️ **Corrected 2026-09-05, after the objectui#7352 / objectui#7363 contract review.** The first version of this card reported 116 arms at HEAD and 114 at merge-base, and said the prose UNDERCOUNTS. Both figures were wrong and so was the direction. They came from an error-tree walk that collected `values` / `options` from every issue at any path, so it also swept the eleven literals reported under other keys (`chartType`: area, bar, column, donut, horizontal-bar, line, pie, scatter; plus create, edit, view). Restricted to issues reported AT `['type']`, which is what \"arm names at the document root\" means, the reading is 105 / 103. The corrected figures below are what stands.\n\nFiled by the `domain:spec` os-dev seat while working objectui#7363 / objectui#7352 (session `session_0114Ytxr5sM1vdW19Y9WAx6E`, PR #7701). Out of that dispatch's scope and a different defect class, so it is recorded rather than repaired there. Dedupe: one targeted semantic search over open issues returned objectui#7004 (the union-arm PRINTER card, closed) and objectui#7363 itself — the control hit — and nothing about the count.\n\n## The fact\n\n`packages/cli/src/utils/union-arm-diagnostics.ts` states two measured properties of `AnyComponentSchema` as prose, and both are stale in the OVERCOUNTING direction:\n\n- **Arm names.** Line 51: \"`AnyComponentSchema` resolves to 108 leaf arms and 108 DISTINCT `type` literals\", repeated at lines 71, 120, 128, 145, 148 and 154 (\"the 108-arm noise argument\", \"an alphabetical slice of 108 arm names\", \"108 at the document root\", \"108 of them at the document root\", \"Ranking those 108 by edit distance\", \"stops well short of the 108\"), and again in two comments in `packages/cli/src/__tests__/validate-union-arm-selection.test.ts` at lines 179 and 192. Measured: **105** at PR #7701's head, **103** at its merge-base `6e8863093`. So the prose is over by 5 before that PR and over by 3 after it.\n- **Union members.** Lines 34-35: \"`errors` is positionally aligned with the union's options: 14 entries for `AnyComponentSchema`'s 14 members\". Measured: the root union has **13** options, at both revisions. The alignment claim itself is unaffected — the module never relies on it, as line 36 says — but the number is wrong.\n\n## How it was measured (three methods, so the next reader can reproduce it)\n\nAll three run against the vitest alias, which resolves `@object-ui/types/zod` to `packages/types/src/zod/index.zod.ts` — source, not `dist` — so they read the tree, not a stale build.\n\n1. **Structural walk of the union tree.** Recurse `_zod.def.options` from `AnyComponentSchema`, and for each object arm read the `type` entry's literal values. Reads **104** at HEAD, **102** at merge-base.\n2. **Error-tree derivation.** `safeValidateSchema({ type: '__no_such_component_type__' })`, then walk the nested `errors` arrays collecting `values` (an `invalid_value` from a literal arm) and `options` (an `invalid_union` from a discriminated arm) **only from issues whose path is exactly `['type']`**. Reads **105** at HEAD, **103** at merge-base.\n3. **The module's own reader.** `explainUnionIssue(rootIssue, document).totalArmNames`, which is the number the printed cap message quotes. Reads **105** at HEAD, **103** at merge-base.\n\nMethods 2 and 3 agree exactly. Method 1 is one lower at both revisions, and the difference reconciles to a single name — `action`, whose arm is not a plain object literal the structural walk descends into. That is a limitation of method 1, not a disagreement about the tree; the authoritative figure is the one methods 2 and 3 share, because it is also the one the module prints.\n\nThe two-literal gap between the revisions is PR #7701's own contribution (`object-gallery`, `object-data-table`), confirmed by the census reporting both absent at merge-base and present at head.\n\n## Why it is a finding and not a bug\n\nNothing mechanically reads either number: the module derives its arm list from the error tree at runtime and never introspects the schema, and the capped-list assertions in the test file are derived, so all 44 CLI test files stay green either way. The cost is that the count is quoted as a MEASURED fact inside the argument for the display cap (\"a cap of 1 would ... stops well short of the 108\"), in a module whose header is explicit that its facts are measured on the tree. A reader re-deriving the cap decision from 108 is re-deriving it from a number that has drifted.\n\n## What the repair looks like\n\nEither re-measure and restate both numbers with the date and the derivation, or state the properties without the counts. The load-bearing claim under the cap argument is \"no literal is claimed by two arms\" — that is what makes \"exactly one arm accepts that literal\" total, it is still true, and it cannot go stale. The same applies to the alignment sentence: \"`errors` is positionally aligned with the union's options\" needs no count at all.\n\nRefs: objectui#7363, objectui#7352, objectui#7004, PR #7701.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

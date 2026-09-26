@@ -1,0 +1,33 @@
+{
+  "number": 6182,
+  "kind": "issue",
+  "title": "[Decision] Is an authored handler EXPRESSION a supported dialect? 56 mirrors say function, 11 say string, and both appear in files that mirror the other",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:blocked"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T22:59:21Z",
+  "updated_at": "2026-09-04T03:21:04Z",
+  "closed_at": "2026-09-04T03:21:04Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6182",
+  "body": "Blocked-by: #7344\n\nEscalated by the `domain:devx` @ objectui execution seat (#5748), PM session `session_019b5UBNMtTzKbVtZZGvFuxe`, from #6152's measurement. ⛔ **This cannot be read off the code** — it is a product question about the authoring contract, and the seat is not guessing it.\n\n> **RULED 2026-08-25** (maintainer, batch adjudication, verbatim 「同意」): **Option A — the handler-expression string dialect is NOT a supported authoring form.** The authorable form for actions is the declarative `ActionDef` object; runtime callbacks are the programmatic face. The question below is therefore **answered**; what remains is the sweep, which is #6124's (the residual left after PR #7339 is #7344's — see the 2026-09-02 comment). This card closes when that sweep lands and a re-verification shows the 11 mirrors no longer carry the bare `z.string()` expression dialect — re-run the `rg` at the bottom of this card **on the merged ref**.\n\n## The measurement\n\nA census of every `on*` key mirrored in `packages/types/src/zod/` found **73 mirrored handler keys in two incompatible dialects**:\n\n| dialect | count |\n| --- | --- |\n| `z.function()` | **56** |\n| `z.string()` — a handler **expression** | **11** (`onClick`, `onInstall`, `onPreview`, `onSave`, `onCancel`, `onBack`, `onViewChange`, `onChange`) |\n| `z.any()` | 3 |\n| named schema | 3 |\n\n⚠️ **Both dialects appear in files that also mirror the other**, so this is not a clean per-file or per-surface split that could be inferred. Two answers coexist in one codebase with nothing declaring which is intended.\n\n## Why it needed a person\n\nThe two dialects make **incompatible promises to an author**:\n\n- `z.function()` **cannot be satisfied by any serialized authored document.** A JSON or YAML schema can never produce a function, so the key is declared-but-unauthorable — it exists for a runtime caller, not for a metadata author.\n- `z.string()` says the opposite: an author **may** write a handler as an expression, and something resolves it.\n\n⭐ **objectui#4453 already narrowed one such key to `typeof === 'function'`, so an authored string handler is silently DROPPED** (`packages/plugin-calendar/src/calendar-view-renderer.tsx:322-331`). The ruling confirms that direction: the **11 `z.string()` mirrors are advertising a capability the runtime discards** — the \"declared but not enforced\" shape this whole family exists to close, pointing the other way.\n\n## What it decided\n\n⭐ **It changes the remedy for a lane already in flight.** #6152 ruled that 23 callback-shaped declared-but-unmirrored keys are **runtime-only and non-authorable** (reclassified, not mirrored). Under the ruling as issued:\n\n- `z.function()` is the contract ⇒ the 11 `z.string()` mirrors are legacy to retire, and **#6152's 23 keys stay runtime-only, its ruling unchanged.**\n- The alternative — offering an authored expression key beside each runtime callback, a materially larger piece of work — is **refused**.\n- The rule is now stated where tools can read it (this ruling plus the #6124 ruling comment), so no future card re-derives the dialect from a 56-to-11 vote.\n\n⚠️ #5155's standing ruling places rejection at the **zod/publish boundary**. That makes these mirrors the authoritative statement of what an author may write — which is exactly why two contradictory statements in that layer mattered more than they would in prose.\n\n## What is NOT being asked\n\n⛔ Not asking anyone to pick a favourite. Not proposing a sweep here — the sweep is #6124's (residual: #7344), where the 11 mirrors get the same per-key treatment (renderer consumes a declarative object form ⇒ union with that form; otherwise runtime-only retirement). ⛔ **#6152's option A is not blocked by this** and should land on its own.\n\n## Reproduce (also the close condition — run it on the merged ref)\n\n```\nrg -n 'on[A-Z][A-Za-z]*:\\s*z\\.(function|string|any)' packages/types/src/zod/\n```\n\nRefs: #6124 / PR #7339 (the function-site sweep, landed 2026-09-02) · #7344 (the residual sweep this card is blocked on) · #6152 (where it was measured, and the lane it changes) · #6058 / PR #6149 (the ledger that surfaced it) · #4453 (an authored string handler is dropped) · #5155 (rejection lives at the zod/publish boundary) · #6122 / PR #6142 (no renderer reads 16 schema-level event slots)."
+}

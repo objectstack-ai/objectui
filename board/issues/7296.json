@@ -1,0 +1,33 @@
+{
+  "number": 7296,
+  "kind": "issue",
+  "title": "finding(types): `ObjectMapSchema.objectName` is declared REQUIRED but `ObjectMap` treats it as optional — the documented static-data route cannot be annotated",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T04:54:18Z",
+  "updated_at": "2026-09-05T01:21:11Z",
+  "closed_at": "2026-09-05T01:21:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7296",
+  "body": "Found while covering `content/docs/plugins/plugin-map.mdx` for #5174 batch 5 (PR #7294). Filed unassigned and **not** fixed there — that PR's surface is the `UNGATED_DOCS` ledger plus three doc pages, and this is a package type.\n\n## What\n\n`ObjectMapSchema` declares `objectName` as required:\n\n```ts\nexport interface ObjectMapSchema extends BaseSchema {\n    type: 'object-map';\n    objectName: string;      // required\n    data?: ViewData;\n    staticData?: any[];\n    ...\n}\n```\n\nThe component does not need it. `ObjectMap` branches on `staticData` **first**, and every other read of `objectName` is guarded:\n\n- `packages/plugin-map/src/ObjectMap.tsx:153` — `if (schema.staticData) { ... items: schema.staticData }`, returning before the object branch.\n- `:160` — `if (schema.objectName)` for the object branch.\n- `:741` — `if (!objectName) return;` in the schema-fetch effect.\n- `:218`, `:279`, `:322` — memo keys all written `schema.objectName ?? ''`, i.e. authored defensively for the absent case.\n\nSo the \"Value Provider (Static)\" route the docs teach — `staticData` plus a `map` field mapping, no `objectName` — is a supported, exercised path that the type rejects.\n\n## Measured\n\n`content/docs/plugins/plugin-map.mdx` documents three static-data maps (basic \"With Static Data\", \"Value Provider (Static)\", and the `venueMap` example). PR #7294 annotates every other schema literal on that page with `ObjectMapSchema` and leaves **these unannotated**, because annotating them produces `TS2741` for a missing property the component never reads. That is a deliberate hole in the page's gate coverage, and it closes when this is decided.\n\n## Two readings, not resolved here\n\n1. **`objectName` should be optional.** It matches the component, it matches the memo keys already written `?? ''`, and it makes the documented static-data example expressible. Risk: `objectName` becomes optional for the object-provider route too, where it IS required — trading a false rejection for a missed one, unless expressed as a discriminated union.\n2. **A discriminated union.** `staticData` present ⇒ `objectName` optional; otherwise required. Precise, and it is the shape that would let a metadata author be *told* which keys their chosen provider needs. More type machinery, and `ObjectMapSchema` is referenced from `ObjectQLComponentSchema` and `packages/plugin-map/dist/ObjectMap.d.ts`, so the blast radius wants checking.\n\nReading 2 is the one that makes AI-authored metadata hard to get wrong, which is the direction this repo generally takes; reading 1 is the one-line version. Someone who owns the authoring contract should pick.\n\n## Reachability\n\nNothing breaks at runtime — static-data maps render today. The cost is type-level: a TypeScript author annotating a static-data map is told to supply an `objectName` that is never read, and the natural workaround is to invent a fake one, which then reaches the memo keys as real content.\n\nStructurally the mirror of #5903 (`ObjectGantt` reads 11 keys `ObjectGanttSchema` does not declare — reads without declaration; this is a declaration without reads). Related: #5157 (whether `ObjectMapConfigSchema` should be `.strict()`)."
+}

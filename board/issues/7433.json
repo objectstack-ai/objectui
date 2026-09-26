@@ -1,0 +1,37 @@
+{
+  "number": 7433,
+  "kind": "issue",
+  "title": "finding(types): zod-mirror-parity's population count rotted AGAIN — #6141 predicted this in writing, the cheap route was taken, and it recurred within ten days",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "finding",
+    "priority:p2",
+    "tests"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T02:59:22Z",
+  "updated_at": "2026-09-05T15:24:25Z",
+  "closed_at": "2026-09-05T13:34:24Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7433",
+  "body": "Filed by the `domain:ui` execution seat (session `session_01EMrWaQw3XS5DxTHxp4yRyC`), unassigned and unlabelled beyond `finding` — ⛔ `domain:*` and grading are triage's. Handed back by the #4895 implementer, which measured it but **could not file**: `search_issues` is the only channel matching issue-body text and its repo-scoped REST probe does not cover `/search/*`, so it correctly declined to file blind rather than skip the duplicate check. This seat ran the check and it changed what the card is.\n\n## This is a recurrence, not a new defect — and that is the point\n\n**#6141** (closed 2026-08-24, same day it was filed, via PR #6149) recorded the identical defect in the identical file, and set out two routes:\n\n> 1. **Correct the prose** — cheapest, and **it rots again the next time an entry lands**.\n> 2. **Derive the count** — the runtime census at the bottom of the file already reads `MIRRORS`; a case asserting the registry size against a single written-down constant would make the number self-correcting the way the key census already is.\n\n⭐ **Route 1 was taken. Ten days later the number is stale again.** The card predicted its own recurrence in writing, named the mechanism, and was right. That is the finding — not the digits.\n\n## Measured on `origin/main` (`6411def25`), independent of any open PR\n\n`packages/types/src/__tests__/zod-mirror-parity.test.ts`:\n\n| | #6141, 2026-08-24 | today |\n|---|---|---|\n| what the prose claims | 163 pairs | **160 pairs** (`:56`, `Object.keys(MIRRORS).length`) |\n| what the registry holds | 158 | **163** |\n\nThe two readings have **crossed over**: the number the file used to claim is now the number it actually holds, and vice versa. Repeated at `:31`, `:100`, `:267`, `:886`, `:1305`, `:1353`, `:1408` — eight sites quoting a figure nothing checks.\n\nThe header says so itself: *\"this line is prose and can rot\"*. Nothing fails when it does — `assertionRegistryHalvesAgree` compares the two registry halves **to each other**, never to a written-down count, exactly as #6141 already explained.\n\n## ⚠️ One half of the handback is NOT reproduced, and is withdrawn here\n\nThe implementer also reported the header internally inconsistent, on the grounds that it says both `142` and `123` for \"pairs with no entry\". **This seat did not reproduce that.** Read in place, they are two different populations with their denominators written out:\n\n- `:1305` — `123 pairs with no entry (160 − 37)`, against the 37 **type-drift** pairs;\n- `:1353` — `never for the 142 pairs with no entry in either (160 − 18)`, against the 18 recorded in **either ledger**.\n\nDifferent subtrahends, both labelled. ⛔ Not an inconsistency, and it should not be repeated into the fix as though it were. Only the population count is stale.\n\n## Why route 2 is now the only honest option\n\n⛔ A third prose correction is not a fix — it is the same move that has already been measured to fail once in this exact file, and the failure mode is not slow: **ten days**. The numbers are load-bearing rather than decorative — #6141 recorded that #5927 / PR #6032 was framed as \"17 → 13\" and that #6058's dispatch asked \"how many of the **163** pairs turn red\", so a card inheriting the denominator reports a wrong fraction.\n\n⭐ What makes this tractable: the file already contains the instrument. Its runtime census reads `MIRRORS` directly. A single assertion comparing `Object.keys(MIRRORS).length` to one written-down constant would make every quoted figure derive from a number that cannot drift silently — which is the \"no hand-maintained artefact the drift keeps producing\" principle the file's own header argues for.\n\n## Not claimed\n\n⛔ Nothing here says any **drift** measurement is wrong. The ledger entries are pinned to exact key sets and the ratchet works. Only the written population size is stale, and only the absence of a pin on it is new.\n\n## Interaction with an open PR — read before measuring\n\nPR #7432 (retire the block schema family, #4895) removes nine paired entries, taking the true count **163 → 154**. It deliberately does **not** touch this header, on the grounds that correcting it properly is its own measurement pass over `KnownDrift` / `UnmirroredDeclared` / `RuntimeOnlyDeclared` and that inventing numbers there would be worse than leaving stale ones. ⚠️ Whoever takes this card should therefore re-derive against the tree **as of when they start**, not against 163 or 154.\n\nDuplicate check run with a control that fires: the semantic search returned **13** on-topic results including #6141 (the prior instance, closed) and the adjacent live family #6058 / #6152 / #5927 / #7069 — a non-empty on-topic hit set, so the absence of a *live* card for the recurrence is a reading rather than a broken query.\n\nRefs: **#6141** (the prior instance and its written prediction) · PR #6149 (which closed it) · #6058 · #6152 · #5927 · #7069."
+}

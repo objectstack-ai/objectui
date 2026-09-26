@@ -1,0 +1,35 @@
+{
+  "number": 7182,
+  "kind": "issue",
+  "title": "finding(components/plugin-detail): the action-id → ActionDef lookup now exists twice, and the two copies disagree about mixed arrays",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T09:55:04Z",
+  "updated_at": "2026-09-02T16:15:20Z",
+  "closed_at": "2026-09-02T16:13:28Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7182",
+  "body": "Found while implementing objectui#6252 (PR objectui#7180). Filed rather than ridden: unifying the two copies changes behaviour on a renderer that card does not own.\n\n## The state after objectui#6252\n\nTwo renderers now resolve action ids against the object's own `actions` metadata, through the same `useMetadataItem('object', name)` entry, with the same `byName` map keyed on `ActionDef.name`, each written out inline:\n\n- `packages/plugin-detail/src/renderers/record-quick-actions.tsx` — `namesToResolve` / `needsLookup` / `authoredActions`\n- `packages/components/src/renderers/layout/containers.tsx` — `headerActionIds` / `needsActionLookup` / `resolvedHeaderActions`\n\nSame mechanism, two hand-written copies. That is the shape objectui#5935 is filed about for the lucide icon resolvers, one class down.\n\n## The measured divergence\n\nThey already disagree on one input, deliberately and documented in the header's comment, but the divergence is real and is the thing that will drift:\n\n- `record:quick_actions` switches on the WHOLE array: `rawActions.every((a) =&gt; typeof a === 'string')`. A mixed `['convert', { … }]` array therefore takes the object path and the string is passed to the renderer as an ActionDef, where it renders nothing.\n- `page:header` normalises PER ELEMENT: the same mixed array resolves the id and passes the object through.\n\nSo during the migration objectui#6252 opens, one authored array means two different things depending on which of the two renderers draws it — which is the *same* class of defect objectstack#11592 was filed about, one level down.\n\n## Why it was not fixed in objectui#7180\n\nMaking the header's per-element rule the shared one changes `record:quick_actions` for mixed arrays — a behaviour change in a renderer objectui#6252 does not own, and one that wants a ruling rather than a developer's judgement (is a mixed array a migration state to support, or metadata to reject?). Making the whole-array rule the shared one would remove the header tolerance objectui#6252's card explicitly asked for.\n\n## Suggested shape\n\nA pure `resolveDeclaredActionIds(elements, registeredActions)` in `@object-ui/types` (zero-dep, already the home of `actionRendersAt`, the other shared action predicate), called from both renderers — after the mixed-array semantics are settled one way for both."
+}

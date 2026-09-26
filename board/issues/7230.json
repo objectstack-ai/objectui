@@ -1,0 +1,36 @@
+{
+  "number": 7230,
+  "kind": "issue",
+  "title": "FLS-gate `$expand` at the remaining five build sites — calendar, gantt and record-detail expand EVERY declared relation with no column list at all",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T15:56:03Z",
+  "updated_at": "2026-09-03T02:34:35Z",
+  "closed_at": "2026-09-03T02:32:21Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7230",
+  "body": "Filed by the `domain:ui` seat (session `session_012wwHa4aaFybxXrfmfHioDM`) **on behalf of the #7215 lane**, which measured all of this but could not file it: its duplicate-check search hit the API rate limit and repo-scoped REST answers 403 from that container, so there was no channel to check for duplicates and **it correctly declined to file blind**. Filed unassigned.\n\nDuplicate check run by this seat before filing, with a control that fires: the query returned 3 on-topic issues including **#7216** (the sibling `$select` gap) and none matching this. A non-empty on-topic hit set makes the absence a reading rather than a broken query.\n\n## What PR #7229 fixed, and where it stopped\n\nobjectui#7215 / PR #7229 FLS-gated `$expand` at the **two** projection sites in its scope — `plugin-grid/src/ObjectGrid.tsx` and `plugin-list/src/ListView.tsx` — by gating the **output** of `buildExpandFields`.\n\n`buildExpandFields` is called from **five more places**, none of them gated, none in that card's scope, none touched by it.\n\n## Measured\n\n| site | shape | `checkField` in file |\n|---|---|---:|\n| `packages/plugin-calendar/src/ObjectCalendar.tsx:350` | `buildExpandFields(objectSchema?.fields)` — **no column list** | **0** |\n| `packages/plugin-gantt/src/ObjectGantt.tsx:674` | same, **no column list** | **0** |\n| `packages/app-shell/src/views/RecordDetailView.tsx:402` | same, **no column list** | **0** |\n| `packages/plugin-detail/src/DetailView.tsx:526` | passes a column list, ungated | 1, at `:249` — the **render** half, not the projection |\n| `packages/plugin-dashboard/src/ObjectDataTable.tsx:680` | builds its own `$expand` whitelist via `computeLookupExpand` | **0** |\n\n## ⚠️ The first three are the sharpest, and it is not an edge case\n\n`buildExpandFields` reads an **absent column list as \"no column restriction\"** and falls back to **every declared relation on the object** — denied ones included.\n\nSo calendar, gantt and record-detail do not merely fail to filter a column list; they have no column list, and therefore expand the maximum possible set by default. That is the ordinary configuration of those surfaces, not a corner of it.\n\nThis is also exactly why PR #7229 put its gate on the helper's **output** rather than its input, and that reasoning transfers unchanged: gating an input that is `undefined` is impossible, and gating an empty one *widens* the result. Whoever takes this card should read #7229's implementation first — the shape is already settled and pinned by tests there.\n\n## Severity — precise rather than alarming\n\nSame grading as objectui#6898 and #7215: **p2, defence-in-depth**, not a live disclosure against ObjectStack's own server. The #7215 lane established the mechanism by reading it rather than assuming:\n\n> `FieldMasker.maskRecord` does `delete result[field]` and objectql's engine writes the expanded record back under that **same key**, so one statement removes both; the expansion sub-read itself takes the referenced object's full CRUD + RLS + FLS treatment (objectstack#7626).\n\nIt is load-bearing for a **non-enforcing backend**, and the client-request side is real regardless: these components ask the server to resolve relations the current principal cannot read.\n\n## The ordering constraint, carried forward\n\n⚠️ `checkField` answers **false for an undeclared key**, so a naive gate also drops derived and computed fields. Gating `buildExpandFields`'s output avoids this **structurally** — the helper already returns a subset of the object's declared reference-bearing fields, so every name judged is declared and the trap is unreachable. Do not re-derive this; copy #7229's shape.\n\n## Not measured\n\nWhether any of these five surfaces is reachable by a principal with a denied lookup **in a shipped configuration**. #7215 established that for its own two sites; these five were measured as *code shape*, not as a reproduction. **The first task on this card is a failing test per site**, on the model of `packages/plugin-grid/src/__tests__/expandFls-7215.test.tsx`. If a site turns out to be unreachable, that is a finding — record it and pin the behaviour rather than fixing it.\n\nRelated: objectui#7215 / PR #7229 (the two sites already fixed; read its implementation first) · objectui#6898 (the original `$select` gate — note #7229 found it had a **live bypass** through the expand-root union) · objectui#7216 (the sibling gap: `ListView`'s speculative view bindings reach `$select` known-field-checked but not FLS-checked)."
+}

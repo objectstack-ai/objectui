@@ -1,0 +1,36 @@
+{
+  "number": 6982,
+  "kind": "issue",
+  "title": "clientValidation spec-skew cures rest on stale premises: the flow node-type shim is unreachable and `sharing_rule`’s edit-door opt-out was measured on 17.0.0-rc.5",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T06:20:03Z",
+  "updated_at": "2026-09-04T06:37:04Z",
+  "closed_at": "2026-09-04T06:35:44Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6982",
+  "body": "Found while measuring the Save-gate asymmetry for #6980 (see PR for that card). Filed unassigned as an observation, for PM triage — out of that card's scope, which was comment-and-pin only.\n\n`clientValidation.ts` carries three named cures for \"the bundled `@objectstack/spec` is stricter than the running server\". **All three were re-measured against the version this repo currently resolves (`@objectstack/spec` 17.2.0, pin `^17.0.0`), and two of them now rest on premises that no longer hold.** Neither is a user-visible bug today; both are drift that will read as load-bearing to the next person.\n\n## 1. `FORWARD_COMPAT_FLOW_NODE_TYPES` is unreachable\n\nThe comment states the published `FlowNodeSchema.type` is a closed enum that spuriously rejects `approval` / `connector_action`, and the filter suppresses exactly that `nodes.N.type` enum mismatch.\n\nMeasured on 17.2.0, `type` is an open non-empty string:\n\n```\nFlowSchema.safeParse({name,label,type:'autolaunched',nodes:[{id:'n1',type:T,label:'N1'}],edges:[]})\n  T = 'approval'              ACCEPT\n  T = 'connector_action'      ACCEPT\n  T = 'zzz_made_up_node_type' ACCEPT\n  T = ''                      REJECT  nodes.0.type / too_small\n```\n\nSo the enum mismatch the filter exists to drop can no longer be produced. The one issue that path still yields is `too_small` on the empty string, and `nodeTypeAt` returns `''` for it, which is falsy, so the filter keeps it. The shim is dead code — ADR-0019 P2 has landed on npm.\n\n## 2. `AUTHOR_SHAPE_ONLY_TYPES` holds `sharing_rule` on a stale measurement\n\nThe block states, measured on 17.0.0-rc.5: *\"`SharingRuleSchema` declares NONE of them and is `.strict()`, so it is the one shape that must not judge a stored body.\"* That is what keeps the client validator switched OFF on the `sharing_rule` **edit** door.\n\nMeasured on 17.2.0, the envelope is fully declared:\n\n```\ndeclared keys: name, label, description, object, active, accessLevel, sharedWith,\n               _lock, _lockReason, _lockSource, _provenance, _packageId,\n               _packageVersion, _lockDocsUrl, type, condition\nenvelope keys declared: all 7   envelope keys MISSING: none\n```\n\nThe block itself names the fix it was waiting for — *\"the contract-first repair is spec-side (the envelope belongs on `SharingRuleSchema`, which framework #6931 notes went undeclared...)\"*. That repair appears to have landed. If so, the opt-out is now suppressing a client gate that would be correct, on the door where, in the block's own words, *\"a permissive match-all sharing condition gets written\"*.\n\n## Why file rather than fix\n\nRemoving `sharing_rule` from `AUTHOR_SHAPE_ONLY_TYPES` turns a client gate ON for an edit door — author-facing behaviour on a security-metadata surface, and it needs a stored-body probe against a live server (this measurement is schema-shape only, no server was booted). Deleting the dead flow shim is mechanical but is a different defect class from #6980's card and belongs with the re-measurement above, not riding a docs PR.\n\n## Scope of the reading, stated\n\n- objectui `origin/main` at `fd8dacecc`; `@objectstack/spec` resolved 17.2.0 from `node_modules` in a fresh worktree install.\n- Schema-shape probing only, via `safeParse` from the `packages/app-shell` cwd. No server booted, so \"the running server accepts it\" is inferred from the spec the framework's `packages/spec` also reports as 17.2.0, not observed on the wire.\n- The third cure, the `serverSchema.required` root-cure, was also re-measured: its named instance (`report`, `objectName`/`columns`) is likewise closed — `ReportSchema` now requires only `name, label`, matching the `required: ['name','label']` that `clientValidation.skew.test.tsx` uses as the server side. That one is still correct code with a live test; it just is not firing today. Recorded for completeness, not as a defect.\n- Duplicate check: all 272 open issues in this repo scanned (REST listing, 3 pages, local grep). `AUTHOR_SHAPE_ONLY` / `sharing_rule` / `SharingRuleSchema` / `ADR-0010 envelope` returned 0; hot controls in the same pass returned `clientValidation` 2, `ResourceEditPage` 6, `Save` 28.\n\nRelated: #6980 (the Save-gate asymmetry this was found under), objectstack#5316, objectui#3561.\n\n_Generated by [Claude Code](https://claude.ai/code)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

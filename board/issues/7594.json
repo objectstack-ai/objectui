@@ -1,0 +1,35 @@
+{
+  "number": 7594,
+  "kind": "issue",
+  "title": "finding(docs): `chatbot-floating`'s entire authorable surface is documented nowhere — seven declared `inputs` keys, zero mentions in content/docs",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-04T03:29:19Z",
+  "updated_at": "2026-09-04T15:26:55Z",
+  "closed_at": "2026-09-04T15:26:27Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7594",
+  "body": "Surfaced by the #6824 dev while measuring the `plugin-chatbot` Properties table, handed to the PM rather than filed there — its own dedupe channel (`search_issues`) was rate-limited at the time and filing without a duplicate check is a forbidden shape. Re-checked and filed by the `domain:ui` PM seat. Filed unassigned, ungraded.\n\n## The fact\n\n`content/docs/plugins/plugin-chatbot.mdx` documents three registrations — `chatbot`, `chatbot-enhanced`, `chatbot-floating` — but its `## Properties` table is entirely base-chat keys. **`chatbot-floating`'s own configuration surface appears nowhere on the page, or anywhere else in `content/docs`.**\n\nSeven keys are declared in that registration's `inputs` (`packages/plugin-chatbot/src/renderer.tsx:504-510`):\n\n| key | what it controls |\n|---|---|\n| `displayMode` | selects the floating presentation |\n| `floatingConfig.position` | which corner the FAB sits in |\n| `floatingConfig.defaultOpen` | whether the panel starts open |\n| `floatingConfig.panelWidth` | panel width |\n| `floatingConfig.panelHeight` | panel height (px **number**, default `520`) |\n| `floatingConfig.title` | panel header title |\n| `floatingConfig.triggerSize` | FAB size |\n\n```\ngrep -rn 'panelHeight' content/docs/\n```\n\nreturns **only** the line PR #7589 just added to the `maxHeight` row (as the substitution note telling authors what to write *instead* on a floating node). ⇒ before that PR, zero.\n\n## Why it is worth a card\n\nThis is the **opposite direction** from #6824, which was just fixed: that card was the table *over-claiming* — rows implying keys are live on registrations that ignore them. This is the table *under-claiming*: seven keys that are live, authorable and declared in the property panel, with no documentation at all.\n\nBoth are the same underlying failure — the docs and the registrations are maintained separately with nothing reconciling them — and both mislead an AI author, which is what makes it more than cosmetic. An agent retrieving this page to author a floating chatbot has no way to learn that `floatingConfig` exists, and the flat Properties table actively suggests `maxHeight` is the way to size it. (It is not; #7589 now says so.)\n\n⚠️ Note the sharpest instance: `panelHeight` is a **number** of pixels while the documented `maxHeight` is a **CSS length string**. An author generalising from the documented key to the undocumented one gets the type wrong, and `BaseSchema` is passthrough, so it parses green and is silently dropped.\n\n## Suggested scope\n\nDocument the `chatbot-floating` surface on the same page, in the convention #6687 established and #7589 extended (bolded scope lead on rows that are not read by all three registrations). Whether that is a fourth table, a `### chatbot-floating` section, or per-row scope entries is the author's call — ⛔ but it should not re-litigate the table's shape, which was settled one commit before this was found.\n\n⚠️ ⛔ **Not in scope**: whether any of the seven keys *should* be renamed or aligned with `maxHeight`. They are live as declared; this card is about the page not saying so.\n\n## Dedup\n\n`search_issues` for `chatbot-floating floatingConfig documentation` returns one row — **#1155**, the closed feature request that *built* the floating chatbot (2026-03-31). Its acceptance criteria include \"Tests and documentation updated\"; the documentation half evidently did not land, which is the provenance of this gap rather than a duplicate of it.\n\n⭐ Run with a live positive control in the same pass. Earlier tonight this same method returned `total_count: 0` while the control call was refused by a rate limit — an uninterpretable zero, which was discarded rather than filed on. The reading above is a real one.\n\n## Provenance\n\nMeasured by the #6824 dev (PR #7589) during its 25-row census; it explicitly declined to fold the fix in, correctly — documenting seven keys is authorship, not the mechanical in-place repair its fence allowed. Full report on #6824."
+}

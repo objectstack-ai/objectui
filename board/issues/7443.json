@@ -1,0 +1,36 @@
+{
+  "number": 7443,
+  "kind": "issue",
+  "title": "`datetime` has two display conventions: `DateTimeCellRenderer` inlines its own and never calls `formatDateTime`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T05:01:48Z",
+  "updated_at": "2026-09-05T14:31:25Z",
+  "closed_at": "2026-09-05T14:31:25Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7443",
+  "body": "Found while implementing #7178 (routing a date-valued dataset measure through the list-cell date path). Source-confirmed on `main` at `6411def25`. Filing unassigned — recording, not claiming.\n\n## The claim\n\n**For the `date` field type there is one display convention. For `datetime` there are two, and the cell renderer uses the one that is not the module's own function.**\n\n- `date` cells → `DateCellRenderer` → `formatDate(value, field.format || 'relative', { dueLike, locale, t })`. One path, shared, and `field.format` is read as a display style.\n- `datetime` cells → `DateTimeCellRenderer` → **does not call `formatDateTime`**. It inlines its own pair:\n\n```\ndate.toLocaleDateString(locale, { month: 'numeric', day: 'numeric', year: 'numeric' })\ndate.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase()\n```\n\nMeanwhile `formatDateTime` — exported from the same barrel, right beside `formatDate` — renders:\n\n```\ndate.toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })\n```\n\nMeasured for `2024-07-04T07:00:00.000Z` in `en-US`:\n\n| path | renders |\n| --- | --- |\n| `DateTimeCellRenderer` (the `datetime` cell) | `7/4/2024 7:00 am` |\n| `formatDateTime` (the module's datetime function) | `Jul 4, 2024, 07:00 AM` |\n\nBoth are locale-correct. They are simply two conventions for one field type. `DateTimeCellRenderer` also never reads `field.format`, so the style vocabulary a `date` field gets is unavailable to a `datetime` field.\n\n## Why this is worth a card\n\nIt is the same shape as objectui#4576, which is the precedent this repo already paid for once: sharing the *scaling* of percent was not enough while the *convention* lived in two places, and a German session read `1.234,5 %` in a list cell beside `1.234,5%` in a dashboard measure. Here the split is between two cells of adjacent field types rather than between a cell and a measure, but the mechanism is identical — two `Intl` option bags for one concept, kept in step by nothing.\n\nThere is a third spelling in the same family: `formatCellValue` in `packages/components/src/renderers/complex/data-table.tsx` sniffs ISO strings and builds its own `Intl.DateTimeFormat` with `{ year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }` — close to `formatDateTime` but independently authored.\n\n## Consequence already visible\n\n#7442 (the #7178 fix) routes a datetime-shaped **measure** through `formatDateTime`, following `ObjectGantt.tsx`'s sniffed-ISO dispatch, which is the repo's existing answer for an ISO string arriving with no field type attached. That is the best available target, but it means a datetime measure on a dashboard tile and a datetime cell in a list render the same instant in two different conventions. The ruling for #7178 asked for \"the same path a list cell uses for that field\"; for `date` that is exact, and for `datetime` it cannot currently be exact, because the `datetime` cell does not use the shared function.\n\n## Suggested direction\n\nNot obvious, and deliberately not chosen here — the compact `7/4/2024 7:00 am` face may well be the intended design for a dense grid cell rather than an accident (the code says as much about `hour12`). Two candidate shapes:\n\n1. `DateTimeCellRenderer` calls `formatDateTime` and the compact face becomes a named style on it, the way `'short'` is a named style on `formatDate`. One convention, one home, and `field.format` becomes readable for `datetime` too.\n2. The compact face is declared to be the datetime *cell* convention and `formatDateTime` is documented as the non-cell one, so the divergence is intentional and written down rather than silent.\n\nEither closes it; leaving it undocumented is the part that reads as a latent #4576.\n\n## Grading\n\nObservation-class. Nothing is wrong on screen today — both faces are locale-correct and legible — and no data is lost or misread. The reusable half is the undocumented second convention, not a user-facing defect.\n\nNote that `packages/plugin-list/src/ListView.tsx` and `packages/components/src/renderers/complex/data-table.tsx` were held by other in-flight PRs when this was filed."
+}

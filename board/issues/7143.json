@@ -1,0 +1,35 @@
+{
+  "number": 7143,
+  "kind": "issue",
+  "title": "[finding] `ListView` renders its load FAILURE through `DataEmptyState` while `DataErrorState` sits unused next to it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T05:47:01Z",
+  "updated_at": "2026-09-03T05:04:26Z",
+  "closed_at": "2026-09-03T05:03:08Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7143",
+  "body": "Found while measuring the empty-state surfaces for #7132, which fixed the *symptom* and deliberately left the structure alone.\n\n`packages/plugin-list/src/ListView.tsx` renders its load-error panel with `DataEmptyState` — the component named for the *empty* case — passing it a destructive icon, error copy and a retry action:\n\n```tsx\n{loadError && data.length === 0 ? (\n  <DataEmptyState\n    data-testid=\"list-error-state\"\n    data-error-kind={loadErrorKind}\n    icon={loadErrorKind === 'network' ? <AlertTriangle .../> : <ShieldAlert .../>}\n```\n\nMeanwhile `DataErrorState` — same file as `DataEmptyState`, already `role=\"alert\"`, already carrying a title/message/retry-button shape — has no consumer on this surface.\n\n## What #7132 did and did not do\n\n#7132 measured that both branches carried **no `role` at all**, so a 403 saying \"You don't have access\" and a young object saying \"Nothing here yet\" were the same node shape. It gave `DataEmptyState` a `role=\"status\"` default and made this call site declare `role=\"alert\"` so the new default could not announce an outage as a routine status.\n\nThat closes the accessibility collision. It does **not** close the structural one: the error panel is still an \"empty state\" by component identity, and the next person to reason about either component has to know that one of them is doing the other's job.\n\n## Why it was not folded into #7132\n\n`DataErrorState` is not a drop-in replacement — it hardcodes its own icon and has no `icon` / `iconWrapperClassName` / `showIcon` props, so a swap is a visual change plus a props-surface question, not a rename. Existing pins select on `data-testid=\"list-error-state\"` and on the panel's classes (`ListView.loadErrorKind.test.tsx`, `ListView.elementDataSource.test.tsx`). That is a real refactor with its own blast radius and its own visual review, which is exactly what #7132's dispatch ruled out as scope creep.\n\n## Suggested shape, not a decision\n\nEither extend `DataErrorState` to accept the icon props this call site needs and migrate, or record in `view-states.tsx` that the layout is deliberately shared and the two components differ only by declared role. Both are defensible; the current state is defensible only because nobody has written down which one it is.\n\nRefs: #7132 · #7063 · #7064."
+}

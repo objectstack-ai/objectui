@@ -1,0 +1,36 @@
+{
+  "number": 7016,
+  "kind": "issue",
+  "title": "ADR-0049 enforce-or-remove: `TextSchema.value` is a second spelling for the `text` node's one content slot — its own docblock calls it \"a dialect, not a design\", and the 2026-08-31 ruling made `content` the sole evaluation channel",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T12:47:46Z",
+  "updated_at": "2026-09-05T16:50:05Z",
+  "closed_at": "2026-09-05T16:49:11Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7016",
+  "body": "Provenance: filed under the 2026-08-31 maintainer ruling on objectstack#13670 (option 2 — `content` is `text`'s sole evaluation channel; the `value` spelling's retirement was explicitly split out as its own enforce-or-remove question, ⛔ not pre-judged there). Filed by the director seat, session `session_01KGtaLpkW1mycWgkbSb3H6t`.\n\n## The question this card carries\n\n`packages/types/src/layout.ts` `TextSchema` declares both `content?: string` (the spelling the renderer reads FIRST) and `value?: string` (fallback, read only when `content` is absent/falsy — `{schema.content || schema.value}` in `renderers/basic/text.tsx`). The `value` declaration's own docblock records, verbatim: *\"Two spellings for one slot is a dialect, not a design. Retiring one of them is an ADR-0049 enforce-or-remove question and is deliberately NOT decided here.\"*\n\nSince the objectstack#13670 ruling, the case for the dialect has narrowed further: `value` is now declared out of the expression-binding carriage map by ruling, and the guides' 23 `text.value` teachings are being rewritten to `content` (objectui#7015). What remains reading `value` is the renderer's `||` fallback and whatever stored documents author it plainly (no census of stored non-expression `text.value` usage exists yet — that census is this card's first deliverable).\n\n## Shape of the eventual decision (for the grader — ⛔ not decided here)\n\n- **Retire `value`**: census stored usage → deprecation/normalization or loud refusal per ADR-0049 route selection; one slot, one spelling.\n- **Keep as tolerated fallback**: then the tolerance must be declared where it lives (the docblock already does half of this) and pinned, so it stops being a dialect and becomes a recorded compatibility arm.\n\nRefs: objectstack#13670 (the ruling) · objectui#7015 (docs fix) · objectui#6150 (the census that declared `value` in the first place) · objectui#4795 (the binding framework)."
+}

@@ -1,0 +1,32 @@
+{
+  "number": 7640,
+  "kind": "pull_request",
+  "title": "docs(agents): state the changeset gate's full population, not `src/` alone",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-04T13:48:45Z",
+  "updated_at": "2026-09-05T06:22:28Z",
+  "closed_at": "2026-09-05T06:22:27Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-09-05T06:22:27Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/7640",
+  "body": "Fixes #6997\n\nRoot `AGENTS.md`, one sentence under `### Housekeeping`. Its two child bullets are unchanged: the first (do not judge by \"feature yes, bug-fix no\") and the second (the local self-check command) both still hold word for word against the widened rule.\n\n## 改前 → 改后\n\n| | the sentence |\n|---|---|\n| 改前 | 改完代码提交时:**只要改了发版包的 `src/`(`.changeset/config.json` 的 `fixed` 组,含 `apps/console`),就必须新增一个 `.changeset/*.md`** —— 这一条由 … |\n| 改后 | 改完代码提交时:**只要改了发版包(`.changeset/config.json` 的 `fixed` 组,含 `apps/console`)的已发布可执行源码 —— `src/` 下的任何文件、包根的 `index.html` 构建入口、或该包 `package.json` 的 `files` 列表逐字发布的文件(后两类减去 `*.md` 与 `LICENSE*`,`src/` 下不减) —— 或者挪动了该包 `package.json` 里八个发布契约字段(`sideEffects`、`exports`、`main`、`module`、`types`、`files`、`peerDependencies`、`engines`)之一的值(哪怕一个源码文件都没动),就必须新增一个 `.changeset/*.md`**;判据的权威表述是 `scripts/check-changeset-presence.mjs` 的文件头,这段话与它不一致时以它为准 —— 这一条由 … |\n\nThe tail after 这一条由 … is byte-identical in both rows: the enforcing workflow, `pnpm changeset`, the empty-frontmatter form, 要的是\"声明一次\",不是强制发版.\n\n## What the gate tests, clause by clause, and where each clause now appears\n\nRead from the code on `origin/main`, not from the card. Reviewing this change is checking that every row's right-hand column is a faithful plain-words statement of its left-hand column.\n\n| gate, in code | where it is now stated |\n|---|---|\n| `isPublishedSource` clause (a): the path is under the package's `src/` — answers first and unconditionally | `src/` 下的任何文件 |\n| clause (b): the path is exactly the package-root `index.html`, the bundler's HTML entry compiled into the published `dist/` | 包根的 `index.html` 构建入口 |\n| clause (c): the package's own `package.json` `files` list publishes the path verbatim (exact entry, or a directory prefix of one) | 该包 `package.json` 的 `files` 列表逐字发布的文件 |\n| `isDocumentation` (`*.md`, `LICENSE*`) is subtracted from (b) and (c) only; clause (a) keeps its all-of-it reading | 后两类减去 `*.md` 与 `LICENSE*`,`src/` 下不减 |\n| `CONTRACT_FIELDS`: a value diff of eight named manifest fields, asked of `package.json` itself and independent of any changed file | 挪动了该包 `package.json` 里八个发布契约字段(…)之一的值(哪怕一个源码文件都没动) |\n| the guarded set is derived from the `fixed` group of `.changeset/config.json` | unchanged parenthetical, kept as it stood |\n| the script's header is the accurate statement of both halves | 判据的权威表述是 `scripts/check-changeset-presence.mjs` 的文件头,这段话与它不一致时以它为准 |\n\nThe pointer and the plain statement are both there on purpose. The plain statement is what an agent applies before running anything; the pointer is what keeps this prose honest the next time the population moves.\n\nThe gate's header and its code agree on every clause and on all eight field names. One cosmetic difference, reported and not acted on: the header's shorthand for the licence exception is `LICENSE*`, while `isDocumentation` matches `/^LICEN[SC]E/i`, i.e. the British spelling too. The prose above follows the header's spelling. No change was made to the script.\n\n## Gates run on `c20e2a8` (this PR's head)\n\n| gate | exit | its own verdict line |\n|---|---|---|\n| `pnpm check:control-bytes` | 0 | `check-control-bytes: OK (scanned 6242 tracked text file(s); skipped 85 binary).` |\n| `node scripts/check-changeset-presence.mjs` | 0 | `No source or published contract of a released package changed in this range, so no changeset is owed.` |\n| `pnpm check:shell-escape-residue` | 0 | `check-shell-escape-residue: OK (5/5 root(s) resolved -- AGENTS.md: 1 file(s), 15 fence(s); …)` |\n| `pnpm check:governed-queue-guard` | 0 | `OK check-governed-queue-guard self-test: 132 cases pass` |\n| `pnpm check:doc-fences` | 0 | `check:doc-fences — every TypeScript block in 227 document(s) is fenced ts/tsx/typescript …` |\n| `node scripts/check-doc-links.mjs` | 0 | `Links are valid across 17 scan roots.` |\n\nNo changeset is added, and that is the gate's own answer quoted above rather than a judgement: this repository has no `skip-changeset` mechanism, so `check-changeset-presence.mjs` alone decides, and for a root `AGENTS.md`-only diff it decides nothing is owed.\n\nNot run, with the reason: `check-links.yml` drives lychee over external URLs and this change adds none; `ci.yml` and `lint.yml` start on a markdown-only PR but their in-job \"needs a full run\" switch excludes `**/*.md`, so their expensive steps skip; the live leg of `governed-surface-guard.yml` needs the PR and the API and is CI's to run.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_019RfFHiRCSs3JXLK4cwcfox\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019RfFHiRCSs3JXLK4cwcfox)_"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 6576,
+  "kind": "issue",
+  "title": "finding(types): two widget prop types declare their `schema` as a hand-rolled inline object with no `BaseSchema` in its ancestry",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-26T13:38:12Z",
+  "updated_at": "2026-09-02T13:40:20Z",
+  "closed_at": "2026-09-02T13:38:31Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6576",
+  "body": "Found while censusing `bind` declarations for #6357 (PR #6574). Filed separately — it is a different defect from that card's, and fixing it there would have been out of scope.\n\n## The fact\n\nTwo widget prop types declare the node they render as an **inline object literal type**, written by hand, that never references `BaseSchema` or any exported schema type:\n\n- `packages/plugin-list/src/ObjectGalleryProps.schema` — `packages/plugin-list/src/ObjectGallery.tsx:18`\n- `packages/plugin-dashboard/src/ObjectDataTableProps.schema` — `packages/plugin-dashboard/src/ObjectDataTable.tsx:34`\n\nCompare the normal shape, where the widened type is anchored to a real schema — `ObjectPivotTable` uses `PivotTableSchema & {…}`, `ObjectTimeline` uses `TimelineSchema & {…}`, `ObjectKanban` is annotated `KanbanSchema`.\n\n## Why it matters\n\nBecause there is no `BaseSchema` in the ancestry, **none** of its 21 declared members exists on these two types. Every base key an author may legitimately write — `id`, `className`, `visible`, `visibleWhen`, `hidden`, `disabled`, `testId`, `ariaLabel`, `label`, `style`, … — is undeclared there, so each must be hand-copied into the literal when the component happens to need it.\n\nThat is measurable, not theoretical: it is exactly why both of these types carry **their own** `bind` member. The #6357 census found four local `bind` declarations across the repo; two of them are these, and they are the two that could not simply be deleted once `BaseSchema` declared the key — deleting the member would delete the declaration rather than inherit it. PR #6574 therefore ratchets them (with reasons) instead of removing them.\n\nThe two types also disagree with each other on strictness: `ObjectDataTableProps.schema` carries `[key: string]: any`, `ObjectGalleryProps.schema` does not. So the same class of author error is silently absorbed by one widget and a compile error on the other.\n\n## Why this is not #5155 / #6269\n\nAdjacent, but distinct, and worth keeping separate:\n\n- **#5155** is about `BaseSchema`'s index signature leaving every schema that *extends* it open to misspellings.\n- **This** is about two types that never reach `BaseSchema` at all, so they do not even inherit the members — a different failure with a different remedy.\n\nFixing #5155 would not touch these two; fixing these two would not touch #5155.\n\n## What needs measuring before anything is done\n\n- Whether the right repair is `GallerySchema` / an existing `DataTableSchema` anchor plus an intersection (the house shape), or a new exported schema type for each. `plugin-list` may have no gallery schema to anchor to — that is the first thing to check.\n- Whether either type's inline members have already drifted from what its component actually reads — the #6170 / #6357 defect class, which is what this file pattern structurally invites.\n- The strictness disagreement above: whichever anchor is chosen, one of the two changes behaviour.\n\nDeliberately no proposed patch — the anchor choice is the whole question.\n\n## Reproduce\n\n```\nsed -n '18,34p' packages/plugin-list/src/ObjectGallery.tsx\nsed -n '34,50p' packages/plugin-dashboard/src/ObjectDataTable.tsx\ngit grep -n -F -- 'bind?:' packages\ngrep -rn \"extends BaseSchema\" packages/types/src/objectql.ts | head\n```\n\nRefs: #6357, PR #6574. Adjacent: #5155, #6269."
+}

@@ -1,0 +1,37 @@
+{
+  "number": 7507,
+  "kind": "issue",
+  "title": "Post-merge correctives to #7391: two row-ceiling pins don't grade the cap, two docblocks name the wrong discriminator, changeset level+copy, calendar stale ceiling",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T15:24:19Z",
+  "updated_at": "2026-09-03T16:44:17Z",
+  "closed_at": "2026-09-03T16:44:17Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7507",
+  "body": "Filed from the post-hoc contract audit of merged PR #7391 (verbatim at objectui#7391 comment 5527977938; auditor tier-verified `claude-fable-5-1`, 75/75 turns, no fallback). That PR landed **without** its Clause-② review — three consecutive `HTTP 529` deaths killed the commissioned review and another actor flipped it ready and merged it — so the review ran afterwards as an audit and its findings are already in `main`.\n\nThis card carries the **unforked** correctives. The one genuine design fork the audit raised — the five symbols published on `@object-ui/react`'s sole entry, against ruling a′'s \"the constant is internal\" — is a separate card and is ⛔ **not** part of this one.\n\n---\n\n## ⏳ Time-critical: (1) closes at the next release\n\n**Both `.changeset/` files are still pending on `origin/main`.** Once released, the semver level is frozen into the per-package CHANGELOG and cannot be corrected without a lie or a note. Do (1) first.\n\n### (1) Changeset level and copy — `.changeset/7210-non-grid-row-ceiling.md`\n\n- `plugin-gantt` / `plugin-calendar` / `plugin-map` / `plugin-tree` declare **`patch`**, but they carry the user-visible break: result sets above 2000 rows are no longer fully drawn. Policy is minor-with-the-break-spelled-out. The fixed group makes the released version identical either way — the defect is that the CHANGELOG will file a behaviour break under \"Patch Changes\". ⇒ flip the four to `minor`.\n- The example reads `Showing the first 2,000 of 41,234 records` — **separators the note never renders.** The i18next config carries no `format`, and the provider-less fallback uses `String(v)`; the unit test's `toContain('41234')` passing is the proof. ⇒ change the example to the rendered copy: `Showing the first 2000 of 41234 records.`\n- The export list omits the type `NonGridCeilingResult`. ⇒ add it.\n\n### (2) Two row-ceiling pins do not grade the cap they are named for\n\n`packages/plugin-map/src/ObjectMap.rowCeiling-7210.test.tsx` and `packages/plugin-calendar/src/ObjectCalendar.rowCeiling-7210.test.tsx`.\n\nMeasured: mutating `setData(capped.rows)` → `setData((result as any).data ?? capped.rows)` in both — so 2001 rows are drawn while `$top` and the note stay intact — leaves **both pins green, 4/4**. They pin the `$top` and the footnote, not \"draws at most N\". Ruling a′'s pin is explicit: *\"the DOM row count equals the ceiling\"*.\n\n⇒ Assert the count handed to the child equals `NON_GRID_ROW_CEILING` in the above-ceiling case — marker/cluster input for the map, events for the calendar — the way the gantt pin already does via its stubbed child. The mutation above is the ablation: state the prediction first, then show both pins going red under it and green after restore.\n\n### (3) Two pin docblocks state a reverse-verification mechanism that is false\n\n- `packages/plugin-gantt/src/…/ObjectGantt.rowCeiling-7210.test.tsx:29-33` predicts that deleting `$top` fails \"at the FOOTNOTE assertion\". Measured: it fails at the `$top` assertion (`:128`). The adapter returns everything, the helper slices, and the note still renders.\n- `ObjectTree.rowCeiling-7210.test.tsx:24-28` predicts failure \"at BOTH the row count and the footnote\". Measured: `:98` (`$top`) only — the row count stays 2000.\n- The calendar and map docblocks make the same \"red at the footnote\" claim.\n\nThe pins are **not** vacuous; the stated mechanism is simply wrong, which is worse than silence because the next reader trusts it. ⇒ rewrite to what actually happens: *red at the `$top` assertion; the note still renders because the helper slices whatever arrives.*\n\n### (4) Calendar external-`data` sync leaves `rowCeiling` stale\n\n`packages/plugin-calendar/src/ObjectCalendar.tsx:344-347` is the one `setData` path that does not also `setRowCeiling({ truncated: false })`. Latent today (`ObjectView` passes `data` from mount, so the stale state is never reached), one-line corrective. Pin it: a component that first draws a truncated fetch and then receives a short external `data` must drop the note.\n\n### (5) The false dependency comment — `packages/react/src/index.ts:100-104`\n\nIt reads that `@object-ui/react` is \"the only package all four already depend on\". **Measured false**: `packages/plugin-{gantt,calendar,map,tree}/package.json` each also list `@object-ui/core`, `@object-ui/components` and `@object-ui/types`.\n\nThe real reason was the dispatching seat's same-round barrel fence (#7210 comment 5511301369 — `core` owned by #7349, `types`+`components` by #7182). ⇒ rewrite the comment to state the true reason, and cross-link the decision card below so the next reader finds the open question rather than a settled-sounding rationale.\n\n⚠️ **Comment only.** ⛔ Do not move, rename or unpublish any of the five symbols in this PR — that is the decision card's scope.\n\n### (6) Stale headroom comment\n\n`packages/i18n/src/locales/*.ts` still says \"~1 KB of headroom\"; #7399 moved the `framework` chunk to ~8.3 KB of headroom against its ceiling. One-line refresh.\n\n---\n\n## Fences\n\n- ⛔ Nothing in this card touches the published surface of `@object-ui/react`. Findings ①(b), ② and ③ of the audit — relocating the non-React half to `@object-ui/core`, retiring `NON_GRID_ROW_CEILING_TOP` behind a query helper, reshaping `NonGridRowCeilingNote` to take `NonGridCeilingResult` — are all on the decision card and are ⛔ out of scope here.\n- ⛔ No test may be skipped, disabled or quarantined to get green.\n- The audit's finding ⑥ (the merge-reshaped `expandFls-7230` assertion) is **a resolution, not a weakening** — verified in both directions, no FLS regression can pass it silently. ⛔ No action; do not \"fix\" it.\n- Boundary notes recorded by the audit, not defects and not in scope: `ObjectMap` still runs two queries per load (schema in deps); under `ObjectView`/`ListView` the calendar and map draw the host's `$top: 100` page and never engage the ceiling; `applyNonGridRowCeiling`'s `total` is not provenance-safe against a server that omits `total` (`data-objectstack` fabricates `total = records.length`, so such a server would render \"first 2000 of 2001\")."
+}

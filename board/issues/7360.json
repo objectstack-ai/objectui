@@ -1,0 +1,35 @@
+{
+  "number": 7360,
+  "kind": "issue",
+  "title": "Six more `skills/objectui/evals` assertions grade tokens their own guide never teaches, and one passes only by accidental substring match",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T13:14:28Z",
+  "updated_at": "2026-09-03T00:19:27Z",
+  "closed_at": "2026-09-02T23:02:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7360",
+  "body": "Filed out-of-scope from the #7251 skills-optimization flight, which corrected three evals of this class (OUI-H-01, H-03, H-04) and left these. Unassigned.\n\nEvery `must_contain` entry is a claim that a correct answer will contain that literal substring. When the token appears nowhere in the guide the eval is scoring, the eval grades a decision the package never taught: a correct answer fails, and an answer that invents the token passes. That is the failure mode #7251 fixed in `evals/mobile.json`, where the eval demanded `useSwipe` / `useLongPress` — zero occurrences repo-wide.\n\n## Remaining rows\n\n**Untaught tokens (OUI-H-05).** Four assertions require tokens absent from the guide they score:\n\n| Eval | Token | Occurrences in its guide |\n|---|---|---|\n| `evals/mobile.json` eval 1 | `sidebar` | 0 in `guides/mobile.md` |\n| `evals/project-setup.json` eval 3 | `ComponentRegistry` | 0 in `guides/project-setup.md` |\n| `evals/testing.json` eval 2 | `edit` | 0 in `guides/testing.md` |\n| `evals/page-builder.json` eval 3 | `refresh` | 0 in `guides/page-builder.md` |\n\n(`evals/page-builder.json` eval 2 also requires `section`, which is likewise absent; #7251 removed the `props` token from that same assertion but left `section` alone, being out of its funded list.)\n\n**Untaught API, plus a substring accident (OUI-H-02).** Three assertions across `evals/plugin-development.json` and `evals/page-builder.json` require `registerComponent`. The API is real — `PluginScope.registerComponent(type, component, meta?)`, documented in its own docblock at `packages/types/src/plugin-scope.ts` — but every guide teaches registration only as `ComponentRegistry.register(...)`, so the package's own eval contradicts its own guide. Two of those evals also require `FieldWidgetProps`, whereas the guide and the implementation both use `FieldWidgetComponentProps`; the assertion passes only because `FieldWidgetPropsSchema` happens to contain the shorter string.\n\n**A second substring accident, found while working #7251 and not in the audit.** `evals/mobile.json` eval 2 requires `useOffline`. `packages/mobile/src/index.ts` exports `useOfflineSync`, not `useOffline` — the assertion passes on the substring, and would go on passing if the real hook were renamed to something else entirely that happened to start the same way.\n\n## Two ways to close it, and they are not equivalent\n\n1. **Fix the assertion** where the eval is testing a real decision with the wrong token — the `FieldWidgetProps` → `FieldWidgetComponentProps` and `useOffline` → `useOfflineSync` rows are this, and are mechanical.\n2. **Teach the thing** where the token names a real surface the package should cover. `registerComponent` is this: it is the API a plugin author actually gets, and `guides/plugin-development.md` never mentions it. Adding a short row there makes three evals honest at once.\n\nDeciding which per row is the work; a blanket delete of the tokens would lose case 2.\n\n## The structural half\n\nNone of this is catchable today: nothing validates an eval fixture against the guide it names, and `evals/*.json` is checked by no gate at all. A ~30-line check that every `must_contain` token occurs somewhere in `skills/objectui/**` would have caught every row above, including the two substring accidents if it compared whole tokens. Worth considering alongside #7359."
+}

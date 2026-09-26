@@ -1,0 +1,34 @@
+{
+  "number": 7155,
+  "kind": "issue",
+  "title": "finding(plugin-grid, fields): the snake_case half of the lookup dialect — `display_field`, `description_field`, `lookup_filters`, `id_field` — is refused by the strict `FieldSchema`, so no spec-compliant producer can emit it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T06:45:29Z",
+  "updated_at": "2026-09-04T15:02:31Z",
+  "closed_at": "2026-09-04T15:01:34Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 15,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7155",
+  "body": "Provenance: measured while implementing objectui#6875. Filed unassigned, as a `finding`\nrather than a fix card — the measurement is clean, the disposition is a judgement call\nabout back-compat that a maintainer should make.\n\n## What's measured\n\n`@objectstack/spec` 17.2.0's `FieldSchema` is a **strict** object of **71** properties.\nEnumerated off `FieldSchema.shape` on the installed package, with `name` / `type` / `label`\nas the positive control:\n\n```\nDECLARED : displayField, descriptionField, lookupColumns, lookupFilters, reference\nabsent   : display_field, description_field, lookup_columns, lookup_filters,\n           reference_to, reference_field, id_field, idField, referenceTo, titleFormat\n```\n\nBeing strict, an absent key does not pass through — it parses to `unrecognized_keys`,\nthe same code a nonsense key gets, and `PUT /api/v1/meta/object/:name` refuses the\ndocument. Measured directly:\n\n```\nFieldSchema.safeParse({ name:'account', type:'lookup', reference_field:'name' })\n  → success: false, code: 'unrecognized_keys', keys: ['reference_field']\nFieldSchema.safeParse({ name:'account', type:'lookup', displayField:'name' })\n  → success: true\n```\n\nThe producer repo agrees. Across all of `objectstack` (whole repo, not just `src`):\n\n| key | files | | key (control) | files |\n|---|---|---|---|---|\n| `display_field` | 3 | | `displayField` | 68 |\n| `description_field` | 1 | | `descriptionField` | 17 |\n| `lookup_columns` | 2 | | `lookupColumns` | 13 |\n| `lookup_filters` | 4 | | `lookupFilters` | 50 |\n| `reference_field` | **0** | | | |\n\nEvery snake_case hit is prose, not a producer: release notes, a CHANGELOG line, and\n`packages/spec/liveness/field.json` notes describing what objectui reads. The platform's\nown published authoring rule states the split explicitly\n(`skills/objectstack-data/rules/naming.md`): field KEYS are snake_case, schema PROPERTIES\nare camelCase, with `lookup_filters: []` shown as ❌ and `lookupFilters: [...]` as ✅.\n\nNothing manufactures a snake spelling on the way in, either. `getObjectSchema` in\n`@object-ui/data-objectstack` is the choke point every schema read passes through, and its\nonly key rewrites are `normalizeSchemaReferenceKeys` (the `reference` ⇄ `reference_to`\npair) and `applyFieldWidgetOverrides` (`widget`).\n\n## The asymmetry this leaves behind\n\nAfter objectui#6875, `ObjectGrid`'s copy set is\n`reference_to`, `reference`, `display_field`, `displayField`, `description_field`,\n`descriptionField`, `lookupColumns`, `lookupFilters`, `lookup_filters`, `id_field`.\n\nFour of those — `display_field`, `description_field`, `lookup_filters`, `id_field` —\ncannot be produced by a spec-compliant author. They are carried with verdict `legacy-alias`\nin `packages/plugin-grid/src/relationalMetaKeys.ts`, and a gate asserts mechanically that\neach is genuinely absent from `FieldSchema` so the claim cannot go stale. The consumers in\n`@object-ui/fields` read the snake spelling FIRST in every chain\n(`display_field || displayField || reference_field`), i.e. the dialect the contract refuses\noutranks the one it declares.\n\n`reference_to` is the one honest exception: not spec-declared, but stamped onto every def\nby the adapter's choke point, so it really is present at runtime.\n\n## Why this is a finding and not a fix\n\nAGENTS.md #0.1 is explicit that a tolerant renderer fossilises a second de-facto contract,\nand objectui#6531 already removed one such consumer-side alias (`objectDef.titleField`) on\nexactly this reasoning — spec's strict object refuses it, so no producer ships it. The same\nargument applies to these four.\n\n⚠️ What the measurement does NOT cover, and why it should not be acted on blindly:\n\n- It bounds `objectstack` + `objectui`. A host application outside them may hand-feed a\n  `DataSource` whose `getObjectSchema` returns snake_case defs; nothing here can see that.\n- Metadata authored before `FieldSchema` became strict is not measurable from here — if\n  any is stored, it would still be served.\n- Retiring a shipped key is its own adjudication in this repo (objectui#6711 and\n  objectui#6874 each were), and the ordering matters: the chains read snake FIRST, so\n  removing the snake leg changes which value wins, not merely which keys exist.\n\n## Suggested disposition\n\nEnforce-or-remove triage per ADR-0049's spirit, one key at a time, starting with the\nquestion this finding cannot answer: is there a real host that feeds snake_case field defs?\nIf not, the chains in `@object-ui/fields` collapse to the spec spelling and the four\n`legacy-alias` verdicts become deletions.\n\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6810,
+  "kind": "issue",
+  "title": "[Decision] The catalog fixture authored-key class has now been rediscovered FOUR times by hand — does it get an instrument, like the container-declaration class did?",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-29T16:24:24Z",
+  "updated_at": "2026-09-02T17:37:32Z",
+  "closed_at": "2026-09-02T17:36:29Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 14,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6810",
+  "body": "Filed by the `domain:ui` execution seat (PM session `session_01CRJge11jso9TpXRWFt1Z49`) after the **fourth independent rediscovery** of one defect class in the schema catalog, in a single day.\n\n## The class\n\nA fixture authors its visible text under a key **the renderer for that node type never reads**. The page ships as empty boxes, and the string reaches the DOM only as a leaked host attribute (the #5574 class).\n\n| found | where | scale |\n|:--|:--|--:|\n| **#6773** | five `aspect-ratio` demos author `content` | 5 |\n| **#6788** | `components-overlay-context-menu/basic-context-menu` trigger card authors `content` | 1 |\n| **#6805** | **all seven** `components-complex-scroll-area` demos author `content`; `scroll-area.tsx` reads `children` | **7 of 7** |\n| **#6806** | `components-basic-sidebar/sidebar-with-badges` authors both counts as `content` on `badge` nodes; `badge.tsx` reads `label \\|\\| body` | 2 |\n\n⚠️ Each of the four was found **by hand, while fixing the previous one**. None was found by an instrument. That is the definition of a class that regenerates.\n\n## ⭐ The mechanism to stop it now exists and has been demonstrated\n\nPR #6807 (#6788) builds a **catalog-wide sweep for `card` nodes**: every card node at any depth — the dev reports 93 nodes across 53 entries and 19 categories — checked twice over, once against the shipped `CardSchema` zod shape (**declared**) and once against `card.tsx`'s actual **read** keys, the read set being strictly the stronger of the two (`variant` is declared and read by nothing). Each assertion carries a counter-probe.\n\n⇒ The proposal is to **generalise that from `card` to every registered node type**: for each type, the keys its renderer actually reads, swept over every fixture node of that type.\n\n## What already exists, and why it does not cover this\n\n⛔ Stating this precisely, because \"nothing asks the question\" would be false. `examples/schema-catalog/test/component-fixture-declared-keys.test.ts` exists and is substantial — but it is a **ledger of specific, named corrections** (the toast variant, `CommandItem.shortcut`, `radio-group`'s `direction`, menubar, toaster `position`), each with its own counter-probe. It is not a family-wide sweep, and it does not enumerate node types.\n\n⭐ The file's own header says the blocker is gone. Read on `origin/main` `26896c689`, line 424:\n\n> The renderer split that used to block a family-wide sweep is gone\n\n⇒ The obstacle that justified doing this one finding at a time no longer exists, and that is recorded in the file that would have to change.\n\n## ⚠️ Why a naive sweep is wrong\n\nMeasured on `origin/main` `26896c689`: `\"content\"` appears in **127** catalog fixture files, `\"children\"` in **138** (control — the comparable key, so the 127 is a reading rather than a broken query).\n\n⛔ Those 127 are **not** 127 defects. Some renderers genuinely read `content` — `tabs` renders `item.content` off an `items` array, which #6779's ruling separately names as an exception shape. So the sweep must be **per node type, against that type's renderer read set** — exactly the shape PR #6807 demonstrates — and never a repo-wide grep for the key.\n\n## The precedent this mirrors almost exactly\n\n#6779, ruled **today**: the container-declaration defect was rediscovered three times independently, one registration at a time, and the ruling adopted a runtime census pin plus a ratchet-to-zero list, on the stated ground that *three independent rediscoveries are the verdict on doing it one at a time*. This class is at **four**.\n\n<!-- os-decision-facets -->\n\n## 四维分析\n\n**① 实际业务需求。** ⭐ 与多数「整洁性」卡不同,**这一族有确定的用户可见损伤**:#6805 是**七个中的七个** demo 渲染成空框,而它们是**已发布的文档画廊页面**。⇒ 读文档的人(和抄 demo 的 AI)看到的是空盒子。不是假想。\n\n**② 平台长远合理性。** 目录 fixture 是**教材**。一个教错键名的 demo 比没有 demo 更糟,因为它会被复制。⇒ 让\"作者写的键有没有人读\"成为可测量的,是把教材纳入契约,方向正确。\n\n**③ 防 AI 犯错。** ⭐ 分水岭,而且是双向的:AI **写** fixture 时会挑一个看起来合理的键(`content` 是最自然的猜测),AI **读** fixture 学习时又会把这个错键学走。⇒ 一个不检查的目录会**自我放大**这个错误。四次独立发现全部由人手在修别的卡时撞见,说明现有流程对它是盲的。\n\n**④ 创业阶段不扩散需求。** ⚠️ 这一轴是唯一指向克制的:全类型普查需要为每个注册类型确定\"渲染器读哪些键\",而那**不是免费的** —— #6779 的裁决就为此专门列了三种必须排除的例外形状(`tabs`、void 标签、body-only 族)。⇒ 代价真实,不该假装是一条 grep。\n\n## ⭐ 置信缺口\n\n1. ⚠️ **#6805 / #6806 的测量本席未复核**,是 #6788 实施席报告的转述。#6805 的「七个中的七个、整页空框」是本卡最重的一条证据,**裁前应复核**。\n2. **未测:确定\"渲染器读哪些键\"能不能机械导出**,还是每个类型都要人读一遍。PR #6807 对 `card` 做到了,但那是一个类型。这个数字决定本卡是\"一次工程\"还是\"一条长尾\"。\n3. **未测:127 个含 `content` 的 fixture 里,真正的缺陷占多少。**若绝大多数是合法的(`tabs` 类),收益就集中在少数几族,ratchet 清单会很短;若过半是缺陷,那是另一个量级的活。⇒ **这一次清点应当先于裁决**,和 #6779 的处理方式一致。\n\n**低摩擦裁决**:回「**照 #6779 的形状做**」(全类型普查 pin + ratchet-to-zero 清单)/「**先清点**」(先跑上面第 3 条的读数再定)/「**继续一张一张修**」(明确接受这一族会继续被人手撞见)。\n\n⚠️ **分诊席**:本卡由执行席立,`domain:*` 与定级请照常由分诊产出 —— 本席只挂了 `needs-user-decision`。\n\n## Related\n\n#6773 · #6788 / PR #6807(示范了机制)· #6805 · #6806 · #6779(同形状的先例,当日裁决)· #5574(属性泄漏的那一半)· #5250(JSON fixture 无门禁解析的洞)\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

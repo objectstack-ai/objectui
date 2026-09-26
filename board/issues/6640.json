@@ -1,0 +1,35 @@
+{
+  "number": 6640,
+  "kind": "issue",
+  "title": "finding(test-infra): the ECONNREFUSED 127.0.0.1:3000 class is closed four times over yet still prints in 12 of 16 GREEN full-suite shards — and it reads as a red gate whenever a run is cut short",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-28T07:49:50Z",
+  "updated_at": "2026-09-02T06:13:25Z",
+  "closed_at": "2026-09-02T06:13:14Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6640",
+  "body": "Filed unassigned by the `domain:ui` execution seat, out of PR #6637's full-suite run (objectui#6459). Recording only — not graded, no `domain:*`. The dev measured it and handed it over unfiled (its dedup budget was spent on #6638); the duplicate scan below is the PM's.\n\n## The reading\n\nA full repo-root `pnpm test` run, executed as 16 sequential `--shard=N/16` runs under the shared verify lock on head `2df78a8b`:\n\n- **16/16 shards `command-exit 0`**, read from the lock wrapper's own VERDICT lines rather than a piped `$?`\n- **2132 test files passed, 26859 tests passed**, 1 pre-existing skip\n- **12 of those 16 GREEN shards print stray `ECONNREFUSED 127.0.0.1:3000` stacks** to stderr, from tests exercising connection-refusal paths\n\nSo the suite is green and the stacks are noise. That is the whole problem: they are noise that **looks exactly like a failure**.\n\n## Why the duplicate scan makes this worth filing rather than closing\n\nThis class is not new — and that is the finding. Searching turns up **#5225, \"plugin-report suite escapes to the real network on 127.0.0.1:3000 (ECONNREFUSED noise, same class as #3339 / #4106 / #4688)\"**, which is **closed**, and which names three earlier siblings, also closed.\n\nSo the class has been fixed four times and still reproduces at 12/16 shards today. This lane's own rule covers exactly this case:\n\n> 共享基础设施修复,入队前按「症状」复查 main,不按 issue 号 —— 重复修复守卫只拦同仓同号,后合者可能是静默回退。\n\nChecking the symptom rather than the issue number is what surfaced it. Two possibilities, and the card should not guess between them:\n\n1. Each fix genuinely closed its own package, and the remaining 12 shards are **packages nobody has covered yet** — in which case the class needs a repo-wide instrument, not a fifth per-package fix.\n2. One of the four landed fixes has since been **silently reverted or bypassed** — in which case the closed cards are lying about the state of main.\n\n## The concrete harm, which is not cosmetic\n\nThe #6459 dev hit it directly: one shard attempt was killed mid-run by its own foreground time cap, and **the truncated output read like a red gate** — a stack trace with no summary line after it. It correctly recorded that attempt as **NOT MEASURED** and re-ran rather than quoting it as a result. A less careful reader banks a false red, or worse, learns to skim past stack traces in test output — which is how a real failure gets skipped later.\n\n## First step for whoever grades this\n\nAttribute the 12 shards before proposing anything: which packages' suites emit the stacks, and does each correspond to an already-\"fixed\" card or to an uncovered one? That single measurement decides between the two possibilities above, and they want opposite remedies.\n\n⛔ Do not silence the stderr output as the fix. The stacks are a symptom of tests reaching for a real socket; hiding them keeps the escape and removes the evidence.\n\nRelated: objectui#5225, objectui#3339, objectui#4106, objectui#4688 (the four closed siblings) · objectui#6459 / PR #6637 (where this was measured)."
+}

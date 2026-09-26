@@ -1,0 +1,36 @@
+{
+  "number": 7164,
+  "kind": "issue",
+  "title": "finding(plugin-timeline): a gantt row that is `null`, or whose `items` is a truthy non-array, crashes the render — `findUnusableGanttDate` reads the walk defensively and `calculateDateRange` reads it bare",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T08:03:51Z",
+  "updated_at": "2026-09-02T13:55:25Z",
+  "closed_at": "2026-09-02T13:54:26Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7164",
+  "body": "Found while implementing #7153. Not repaired there: #7153's ruled scope is the NON-TOTAL READS on the gantt date path, all of which that card and #7036 measured as the same p3 reachability class (\"JSON spells neither a throwing getter nor a revoked proxy\"). The three crashes below are a DIFFERENT class — they are spelled in ordinary JSON, they pass the declared zod mirror, and a full repair has to touch the render loop, which #7153 does not own.\n\n## What is wrong\n\n`findUnusableGanttDate` reads the row walk DEFENSIVELY and `calculateDateRange` reads the same walk BARE. The two disagree, and every input in the gap crashes:\n\n```\nfindUnusableGanttDate   const rowItems = (items[rowIndex]?.items || []) as any[];   // optional chaining\n                        for (... itemIndex < rowItems.length ...)                   // a non-array is SKIPPED\n\ncalculateDateRange      items.flatMap((row: any) =>                                 // assumes an array\n                          (row.items || []).flatMap(...)                            // NO optional chaining\n```\n\nSo `findUnusableGanttDate` finds nothing to complain about, returns `undefined`, and hands three input shapes straight to a `TypeError`:\n\n| authored `items` | `findUnusableGanttDate` | then |\n|---|---|---|\n| `[null]` | no diagnostic | THREW `TypeError: Cannot read properties of null (reading 'items')` |\n| `[{ label: 'R', items: 5 }]` | no diagnostic | THREW `TypeError: (row.items \\|\\| []).flatMap is not a function` |\n| `{}` (a non-array) | no diagnostic | THREW `TypeError: items.flatMap is not a function` |\n\nThe second row generalises: any TRUTHY non-array `row.items` does it — `5`, `true`, `{}`, and an array-LIKE `{ length: 1, 0: {...} }`. The array-like is the sharpest reading, because `findUnusableGanttDate` walks it happily, JUDGES both its dates USABLE, and the very next line dies on `.flatMap`.\n\n`items: [{ items: 'x' }]` is the one that does NOT crash — a string has `.length` and is indexable, so the walk reaches `'x'[0]?.startDate`, gets `undefined`, and refuses through the ordinary diagnostic. That asymmetry is not designed; it is a side effect of which shapes happen to be index-readable.\n\n## Measurement\n\nIn-render on `51449a043`, through the real `TimelineRenderer` (not a replica), site attributed by the stack frame:\n\n```\nitems: [null]                             THREW  renderer.tsx:244:10   (row.items)\nitems: [{ items: 5 }]                     THREW  renderer.tsx:244:23   ((row.items || []).flatMap)\nitems: [{ items: {} }]                    THREW  renderer.tsx:244:23\nitems: [{ items: true }]                  THREW  renderer.tsx:244:23\nitems: [{ items: {length:1, 0:{dates}} }] THREW  renderer.tsx:244:23\nitems: {}                                 THREW  renderer.tsx:243:26   (items.flatMap)\nitems: 'x'                                THREW  renderer.tsx:243:26\nitems: 5                                  THREW  renderer.tsx:243:26\nitems: [{ items: 'x' }]                   NAMED  items[0].items[0].startDate is undefined\nCONTROL an ordinary row                   DREW   bars=1 axisCells=3\nCONTROL items: []                         DREW   bars=0 axisCells=1\nCONTROL items: [{ label: 'R' }]           DREW   bars=0 axisCells=1\nCONTROL items: [{ items: null }]          DREW   bars=0 axisCells=1\nCONTROL items: [0]  /  [[]]               DREW   bars=0 axisCells=1\n```\n\nFive live CONTROL rows on the same instrument, so the THREW rows are readings and not a broken harness.\n\n## Why this is NOT #7153's class\n\n- **JSON spells all three.** `items: [null]` and `items: [{ items: 5 }]` also PASS the declared zod mirror — `items: z.array(z.any())` in `packages/types/src/zod/data-display.zod.ts` accepts a `null` element and any element value. The `items: {}` row is the only one the mirror would reject, and no runtime parse gate for `TimelineSchema` was found on the render path.\n- **The one real composing producer passes them through.** `ObjectTimeline` returns authored rows on a truthiness check alone (`if (schema.items) return schema.items;`, `ObjectTimeline.tsx:260`) — no shape filter, no array check.\n\n## Why a repair confined to `calculateDateRange` is NOT the fix\n\nMeasured by ablation on `51449a043` (mutation proved on disk by marker counts 1 to 0 twice and by a moved blob hash; restore proved by blob equality with HEAD and an empty `git diff HEAD`). Making `calculateDateRange` tolerant — `Array.isArray(items) ? items : []` and `row?.items` — MOVES all three crashes instead of closing any:\n\n```\nitems: [null]           244:10  ->  1237:52   (row.label, in the row-label map)\nitems: [{ items: 5 }]   244:23  ->  1246:40   ((row.items || []).map, in the bar map)\nitems: {}               243:26  ->  1235:24   (items.map)\nPASSING CONTROL         an ordinary row still DREW bars=1 axisCells=3, before and after\n```\n\nThat is the failure this code path has repeated four times: the guard did not remove the crash class, it relocated it. A real repair spans `findUnusableGanttDate`, `calculateDateRange` AND the render loop at `renderer.tsx:1234-1269`.\n\n## The open adjudication\n\nA ROW that is not a row is not a DATE that does not parse, so #6781's ruled accept set does not answer it and the existing `timeline.gantt.unusableRange.malformedDate` hole does not read correctly for it (\"items[0] is null, which is not a valid date\" names the wrong fault). Two branches, and this card does not choose:\n\n- **Refuse the chart**, naming the malformed row through a NEW diagnostic key — which opens the ten locale packs, the file surface #7036 explicitly deferred as \"a separate decision\".\n- **Skip the malformed row**, drawing the rest — cheap and needs no key, but it is consumer-side tolerance, which #6750 and #6759 both refused, and it would silently drop authored content.\n\nRefs: #7153 (the non-total reads, where these were measured) · #7036 / PR #7157 (the speller's exclusion) · #6750 (the EMPTY list, the closest existing card) · #6781 (the ruled type rule)"
+}

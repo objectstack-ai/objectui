@@ -1,0 +1,37 @@
+{
+  "number": 7344,
+  "kind": "issue",
+  "title": "types: 8 `on*` handler mirrors still declare the `z.string()` expression dialect and 3 declare `z.any()` — the per-key treatment the #6182 ruling assigned to #6124's sweep, not covered by PR #7339",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "package: types",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T11:51:54Z",
+  "updated_at": "2026-09-03T08:50:52Z",
+  "closed_at": "2026-09-03T08:50:52Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7344",
+  "body": "Filed by the `domain:ui` execution seat (session `session_01NRRumy89BYdW9ogbcdHTho`) while reconciling #6124's close. Dedupe: semantic search for the string-dialect sweep returns #6182 (the ruling card), #7069, #5927, #6058, #5684 — none is an execution card for these sites; control query on #6182's own title hit.\n\n## Why this card exists\n\nThe maintainer ruling on #6182 (2026-08-25, batch 4, verbatim 「同意」, Option A) says the handler-expression string dialect is NOT a supported authoring form, and rules the consequence: \"The 11 `z.string()` handler mirrors join #6124's per-key sweep with the same treatment\". #6124's own ruling (2026-08-30, batch #8, 「批次 #8 同意」) then fixed the shape of that treatment: on the zod face a **named refusal arm** (`handlerKeyRefusal` in `packages/types/src/zod/tombstone.zod.ts`, landed by PR #7339), no declarative-object arm, no expression arm; on the TypeScript face, keep the function type only where a runtime consumer measurably reads the key, else `?: never`.\n\nPR #7339 executed that shape over the 58 `on*` sites declared `z.function()` and closed #6124. Its census was anchored on `z\\.function\\(`, so the string-dialect and `z.any()` mirrors were never in its population — they live in files the PR did not touch. #6182's close condition, re-run on the merged ref (`origin/main` = `2956d7af8`), still finds them.\n\n## Measured on `2956d7af8`\n\nAnchored `on[A-Z][A-Za-z]*:\\s*z\\.(function|string|any)` over `packages/types/src/zod/`, function sites excluded (0 remain after PR #7339):\n\n| file:line | key | mirror | `.describe()` | TS twin |\n|---|---|---|---|---|\n| `app.zod.ts:205` | `onClick` | `z.string()` | \"Click handler expression\" | `app.ts:716` `onClick?: string` |\n| `blocks.zod.ts:108` | `onInstall` | `z.string()` | \"Install callback\" | `blocks.ts:303` `string` |\n| `blocks.zod.ts:109` | `onPreview` | `z.string()` | \"Preview callback\" | `blocks.ts:308` `string` |\n| `blocks.zod.ts:122` | `onSave` | `z.string()` | \"Save callback\" | `blocks.ts:345` `string` |\n| `blocks.zod.ts:123` | `onCancel` | `z.string()` | \"Cancel callback\" | `blocks.ts:350` `string` |\n| `reports.zod.ts:170` | `onSave` | `z.string()` | \"Save callback\" | `reports.ts:514` `string` |\n| `reports.zod.ts:171` | `onCancel` | `z.string()` | \"Cancel callback\" | `reports.ts:519` `string` |\n| `views.zod.ts:117` | `onBack` | `z.string()` | \"Custom back action\" | `views.ts:578` `string` |\n| `crud.zod.ts:105` | `onClick` | `z.any()` | \"Custom click handler\" | `crud.ts:210` `() => void \\| Promise<void>` |\n| `crud.zod.ts:145` | `onBack` | `z.any()` | \"Custom back action\" | `crud.ts:303` `() => void` |\n| `crud.zod.ts:160` | `onClose` | `z.any()` | \"Close handler\" | `crud.ts:345` `() => void` |\n\nExcluded by ruling, listed so nobody re-sweeps them: `views.zod.ts:152` `onViewChange`, `:177` `onChange`, `:197` `onChange` are `z.string()` **event NAMES** (PR #6899; the `:152` describe text says \"an event NAME, not a callback or a handler expression\"). The dev confirms `:177` / `:197` carry the same describe text before excluding them; if one does not, it joins the table above.\n\nThe `z.any()` three are the mirror-wider-than-declared direction (#7069): the TS face says function, the mirror accepts any JSON value, so an authored string or object parses green and reaches a slot that expects a function.\n\n## Ask (one executable criterion)\n\nPer key, the #6124 treatment, measured not assumed:\n\n1. Find the runtime consumer (`schema.onX` / `props.onX` / spread onto a component that declares the prop). None reads it ⇒ `?: never` on the TS face + `handlerKeyRefusal(key, 'retired', …)` on the mirror. A consumer reads it as a function ⇒ TS keeps the function type + refusal arm with the `'runtime-slot'` disposition. A consumer reads it as a **string and does something with it** (dispatches it as an event name, resolves it against an action registry) ⇒ STOP for that key and report: that is a third class the rulings did not name, and it goes back to the decision box rather than being guessed.\n2. The eight `string` TS twins stop declaring `string` (the ruling says the expression dialect is unsupported on both faces).\n3. Extend `handler-keys-json-refusal-6124.test.ts`'s pattern (a sibling pin file is fine): each site declared with the guidance, an authored string refused by name with `code: 'custom'`, a live function refused on the mirror, `zod-mirror-parity.test.ts` `KnownDrift` rows added for runtime-slot keys.\n4. Close condition = #6182's `rg` on the merged ref returns only the three event-name keys (or zero if the dev finds those were mis-described).\n\nClause-② **yes** (the accept set of published validators moves): build at `fable`, contract review in-seat at tier before release; the PR carries `needs:contract-review` and stays draft until PASS. Changeset `@object-ui/types: minor` (objectui refuses `major`).\n\n## Not in this card\n\n- `EventHandlersSchema` (#6910). The three event-name keys (PR #6899). Docs pages that teach these keys (file a docs card the way #7340 was filed for #6124, from the PR's \"Not in this PR\" list).\n\nRefs: #6182 (the ruling; its `Blocked-by:` now points here) · #6124 / PR #7339 (the shape) · #7069 · #4453 (an authored string handler is silently dropped) · #5155 (rejection lives at the zod/publish boundary)."
+}

@@ -1,0 +1,37 @@
+{
+  "number": 7271,
+  "kind": "issue",
+  "title": "finding(test-env): the 7 anonSeedScope-5746 enumeration assertions all go RED on Node 26 — the localStorage probe sees zero writes",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T02:39:26Z",
+  "updated_at": "2026-09-05T19:48:26Z",
+  "closed_at": "2026-09-05T19:46:23Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7271",
+  "body": "Spotted while running the app-shell suite for objectui#7253. Not caused by that change: measured with every file that PR touches checked out at `origin/main`, the same 7 tests fail identically.\n\n## Measurement\n\n`packages/app-shell/src/console/__tests__/anonSeedScope-5746.enumeration.test.tsx`, run alone from the repo root:\n\n| node | result |\n|---|---|\n| v22.22.3 (what `.github/workflows/ci.yml` pins, `node-version: '22.x'`) | `Test Files 1 passed` / `Tests 7 passed` |\n| v26.7.0 | `Test Files 1 failed` / `Tests 7 failed` |\n\nEvery failure is the same shape — the instrument sees nothing:\n\n```\nS0 counter-probe — the instrument can see a write that is known to happen\nAssertionError: expected 0 to be greater than 0\n  anonSeedScope-5746.enumeration.test.tsx:319  expect(writes().length).toBeGreaterThan(0)\n```\n\nS0 is the file's own counter-probe, so this is not \"the measured behaviour changed\" — it is \"no `objectui:metadata:*` write is observed at all\", which takes S1..S6 down with it. The run also prints, once per worker:\n\n```\nExperimentalWarning: localStorage is not available because --localstorage-file was not provided.\n```\n\nNode 22 does not print that line; Node 22+ ships an experimental global `localStorage`, and the suspicion worth checking first is that on the newer runtime it reaches the code under test ahead of the happy-dom one the probe instruments.\n\n## Why it is worth a card even though CI is green\n\nThe failure mode is the one this file was written against: S1..S6 read as PASSING VACUOUSLY the moment the probe stops seeing writes, and only S0 stands between that and a silently vacuous security suite. Today S0 does its job loudly. The risk is the day someone bumps the CI node version — the seven assertions that pin \"no `@anon` seed is written / user B never renders user A's permission-filtered list\" go red together, and the cheapest reading of seven simultaneous failures is \"the probe is stale, relax it\".\n\nRelated, not duplicate: objectui#5828 is the observation this file pins; this is about the instrument, not the behaviour.\n\n## Not investigated\n\nWhether other localStorage-instrumented suites in this repo share the sensitivity — only this file was measured."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 7115,
+  "kind": "issue",
+  "title": "finding(docs/gate): the root README's flagship dashboard example teaches `stat-card`, which nothing registers — and the root README is outside every doc gate's scan surface",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T02:08:17Z",
+  "updated_at": "2026-09-03T01:22:22Z",
+  "closed_at": "2026-09-03T01:21:36Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7115",
+  "body": "Found while re-censusing the authored corpus for objectui#7015 (text expression channel). Not that card's defect class, so it is filed rather than fixed there.\n\n## The defect\n\n`README.md` lines 290-293 — the repository's flagship \"dashboard in JSON\" example — author four widgets as:\n\n```\n{ \"type\": \"stat-card\", \"title\": \"Revenue\", \"value\": \"${stats.revenue}\", \"trend\": \"+12%\", \"w\": 3, \"h\": 1 }\n```\n\n`stat-card` is registered **nowhere**. Measured on `3476c2c25`: a repo-wide search for the string returns exactly four hits, all of them these four README lines, and zero registrations.\n\nControl for that zero, from the same sweep: `statistic` — the type these widgets presumably mean — resolves to a real registration at `packages/components/src/renderers/data-display/statistic.tsx:64`, `ComponentRegistry.register('statistic', StatisticRenderer, ...)`.\n\nA reader who copies the README's headline example gets four `OBJUI-001` \"Unknown component type\" panels. This is exactly the failure class `check-doc-component-types` was built for (objectui#4823, and the three prior recurrences its header records).\n\n## Why no gate caught it\n\n`check-doc-component-types`'s scan surface is stated in its own header as:\n\n> every `.mdx` and `.md` page under `content/docs`, plus every `packages/NAME/README.md`\n\nThe **root** `README.md` is in neither set. So the single most-read authored file in the repository is the one teaching surface no doc gate reads. `check-doc-snippet-types` uses the same two-part surface and likewise does not reach it.\n\nThis is adjacent to objectui#5106 (that gate's scan surface stopping at code fences) but distinct: that one was about what is scanned *within* a covered file; this is about a file that is not covered at all.\n\n## Two things worth deciding together\n\n1. **The content fix** — retarget the four widgets onto a registered type. Note `statistic` genuinely declares a `value` carriage row, so `\"value\": \"${...}\"` there evaluates correctly and would need no further change.\n2. **The gate fix** — add the root `README.md` to the scan surface of the doc gates. Worth doing as one change with (1), since fixing the content without widening the surface leaves the blind spot for the next author.\n\nSecond-order note from the same sweep, same blind-spot family: `packages/plugin-dashboard/README.md` authors `metric-card` with `\"value\": \"${data.metrics.totalUsers}\"`, and `packages/react/README.md` authors an `input` with `value: '${user.name}'`. Both are *inside* the gate's surface for the type question, but neither `metric-card` nor `input` carries a `value` row in the expression carriage map, so both likely render the literal `${...}`. Filed here as an observation, not measured in a browser."
+}

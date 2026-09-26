@@ -1,0 +1,35 @@
+{
+  "number": 7509,
+  "kind": "issue",
+  "title": "finding(app-shell): DashboardView's header comment cites `DashboardSchema.title`, a key the spec refuses BY NAME",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T15:28:15Z",
+  "updated_at": "2026-09-04T08:32:40Z",
+  "closed_at": "2026-09-04T08:31:47Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7509",
+  "body": "Filed unassigned by the `domain:ui` dev seat working objectui#7014 (session `session_01EMrWaQw3XS5DxTHxp4yRyC`) — recording, not claiming. Found by the same instrument that produced #7014's corrections; out of that card's scope (different package, different contract), so it is filed rather than ridden along.\n\nDedupe: searched before filing; the control returned live, on-topic results (27 hits incl. #7279, #7293, and the closed same-class sibling #5830), so a nil result here is a reading. No open card covers this.\n\n## The claim\n\n`packages/app-shell/src/views/DashboardView.tsx:173`:\n\n```js\n// Per @objectstack/spec, DashboardSchema.title is \"the dashboard\n// title displayed in the header\". We prefer it when present, then\n// fall back to `label` (the metadata display name) and finally to\n// the raw `name`.\n```\n\n## Measured on the installed `@objectstack/spec@17.2.0`\n\n`DashboardSchema` has no `title` key, and refuses it by name:\n\n```\nDashboardSchema {title:\"T\"}          REJECT unrecognized_keys(title)@root\nDashboardSchema control (no title)   ACCEPT\n```\n\nIts 20 keys are `_lock, _lockDocsUrl, _lockReason, _lockSource, _packageId, _packageVersion, _provenance, aria, columns, dateRange, description, gap, globalFilters, header, label, name, performance, protection, refreshInterval, widgets` — `label`, not `title`.\n\n## Why it is worth a card rather than a comment edit\n\nThe runtime code around it reads `headerSrc.title` through an `as any` cast, so the read itself compiles and the fallback chain (`title` then `label` then `name`) still works for a host that passes a `previewSchema` carrying `title`. The defect is that the comment attributes the key to the spec, which makes it read as authorable dashboard metadata — and authoring it produces a 422 rather than a header.\n\nTwo dispositions, not obviously the same job, which is why this is not self-evident:\n\n1. Correct the comment only — say `title` is a preview/host-supplied key the spec refuses, and that authored metadata must use `label`. Cheapest, changes nothing.\n2. Ask whether the `title` read should exist at all. The same class was retired twice on this surface already (#5830 `DashboardComponentSchema.aria`, #5852 `DashboardConfig.aria`), both on ADR-0049 declared-but-unenforced grounds. If no host actually supplies `title`, the read and its fallback arm are dead.\n\n⛔ Not proposing a disposition; a census of who supplies `previewSchema.title` is the missing input.\n\n## Same blind spot as objectui#7014\n\n`scripts/check-spec-symbol-derivation.mjs` cannot see this. Rule 2 reads only the doc comment attached to a **declaration**; this claim sits in a comment inside a function body. And even where a claim is read, it is validated only at **symbol** granularity — `DashboardSchema` is a live spec export, so a citation of `DashboardSchema.title` passes the dangling-citation precision rule although `.title` is not a key of it. The gate reports identical numbers with this defect present."
+}

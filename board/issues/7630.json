@@ -1,0 +1,32 @@
+{
+  "number": 7630,
+  "kind": "pull_request",
+  "title": "docs(agents): record the never-approve seat rule beside the governed never-list",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-04T11:40:38Z",
+  "updated_at": "2026-09-04T13:22:07Z",
+  "closed_at": "2026-09-04T13:22:05Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-09-04T13:22:05Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/7630",
+  "body": "Fixes #7618\n\n`scripts/check-governed-queue-guard.mjs` states a normative seat rule in its **file header (L93-96 at `11edab8`, this branch's base)** and prints the same rule from the `cleared` branch of its verdict text (**L624**). `AGENTS.md` § 受管面 did not carry it. The never-list there (the line beginning 「⛔ 绝不 `gh pr ready`(不退出 draft)」, L488 at `11edab8`) teaches a seat not to *merge* and not to *wait* for an approval that does not exist — it never told one not to *leave* one.\n\nThis adds it as a **fifth** prohibition beside those four. The four are untouched; the diff is +6 lines in one file and nothing else.\n\n## What was copied, and from where\n\nThe English sentence is copied **byte-for-byte** from the guard header — `scripts/check-governed-queue-guard.mjs` L93-96, comment prefix stripped and the four wrapped lines joined:\n\n> ⛔ An agent seat never submits an approving review on a governed-surface pull request, under any account. Every seat in this repository writes under a shared GitHub identity, so `GOVERNED_APPROVERS` is a technical control that is only as good as that normative rule — the same class as the seat-side no-merge rule, and the reason the DRAFT remedy is listed first.\n\nProof it is a copy and not a paraphrase: md5 of that header span and md5 of the quoted line as it now stands in `AGENTS.md` (`> ` stripped) are the same value, `ba830bd6b431b3bfc97f4bde99d80d49`. If either side is reworded later, the two md5s stop matching — that is the anti-drift property the card asked for.\n\n**One deliberate deviation from the card's own quote, recorded rather than left to be discovered.** The card (and the dispatch) quoted a shorter span, ending `…only as good as that normative rule.` with a terminal period. At `origin/main` the sentence does not end there: it continues `— the same class as the seat-side no-merge rule, and the reason the DRAFT remedy is listed first.` Copying the shorter span would have meant inventing a sentence boundary the source does not have, i.e. exactly the paraphrase the card was filed to prevent. The `origin/main` text is what landed. The trailing clause also earns its keep in this position: the DRAFT remedy it points at is precisely what the never-list beside it prescribes.\n\nA short Chinese lead-in and one closing Chinese clause frame the quote in the section's voice. The closing clause carries the reason the retired sha pin made the rule weightier — maintainer ruling 2026-09-04, executed as #7606, written into the paragraph below this one by #7616: one authorized APPROVED review now clears **every later push** on the same pull request, so the normative prohibition is the only thing standing between an agent-operated approver account and a governed landing it cleared for itself.\n\n## Governed surface — this stays a draft\n\n`node scripts/check-governed-queue-guard.mjs --test AGENTS.md` answers `⛔ GOVERNED — 1 of 1 path(s)`, **exit 3**. Not flipped ready, not enqueued, no auto-merge armed, no reviewers requested, and no approving review submitted by this seat. The seat requests the two authorized approvers separately; a human merges.\n\n## Gates\n\nAll run in the task worktree on a clean tree, so every verdict below measured exactly `646ce08`. Exit codes captured by redirect before any pipe.\n\n| Gate | Exit | Verdict line |\n| --- | --- | --- |\n| `pnpm lint` (whole repo, heap-capped, `--concurrency=2`) | 0 | `Tasks: 47 successful, 47 total` — `0 errors` (the 2883 warnings are pre-existing `no-explicit-any` in TS sources this diff does not touch) |\n| `pnpm check:control-bytes` | 0 | `✅ check-control-bytes: OK (scanned 6239 tracked text file(s); skipped 85 binary).` |\n| `pnpm check:governed-queue-guard` (self-test of the file whose header is copied) | 0 | `OK check-governed-queue-guard self-test: 132 cases pass` |\n| `pnpm check:doc-fences` | 0 | `✅ check:doc-fences — every TypeScript block in 227 document(s) is fenced ts/tsx/typescript…` |\n| `pnpm check:shell-escape-residue` | 0 | `✅ check-shell-escape-residue: OK (5/5 root(s) resolved -- AGENTS.md: 1 file(s), 15 fence(s)…)` |\n| `node scripts/check-doc-links.mjs` | 0 | `Links are valid across 17 scan roots.` |\n| `node scripts/check-changeset-presence.mjs` | 0 | `✅ No source or published contract of a released package changed in this range, so no changeset is owed.` |\n| `node scripts/check-governed-queue-guard.mjs --test AGENTS.md` | **3** | `⛔ GOVERNED — 1 of 1 path(s) are on a governed surface` — expected; the reason this PR stays a draft |\n| `pnpm exec vitest run` over the 12 suites that read `AGENTS.md` | 0 | `Test Files 12 passed (12)` / `Tests 345 passed (345)`, `RUN v4.1.10 /home/user/objectui-issue-7618` (root is the repo root, so neither of AGENTS.md §「怎么跑测试」's two false-green traps applies) |\n\n**No changeset**, per the gate's own verdict: a docs-only diff publishes nothing.\n\nAlso checked, since the card asked: no gate in this repo pins `AGENTS.md`'s *shape*. `grep` over `scripts/*.mjs` and `.github/workflows/` finds no line count, byte ceiling or row-width constraint on it — the only matches are prose comments using \"one line added to AGENTS.md\" as a historical example of check-count drift, and `check-governed-queue-guard`'s path classification (`agents-md`), which asserts membership, not shape. This confirms the #7605 dev's search on a fresh base.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n_Generated by [Claude Code](https://claude.ai/code/session_019RfFHiRCSs3JXLK4cwcfox)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019RfFHiRCSs3JXLK4cwcfox)_"
+}

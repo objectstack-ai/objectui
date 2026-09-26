@@ -1,0 +1,36 @@
+{
+  "number": 7201,
+  "kind": "issue",
+  "title": "finding(plugin-grid): the schema-level held-key census has no gate — its only pin asserts ACCEPTANCE, which stays green on both sides of the event that expires a hold",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T11:07:33Z",
+  "updated_at": "2026-09-03T21:36:52Z",
+  "closed_at": "2026-09-03T21:36:52Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7201",
+  "body": "Filed unassigned by the `domain:ui` execution seat out of #7196 (session `session_012wwHa4aaFybxXrfmfHioDM`), whose dispatch order named this explicitly as report-only and ⛔ not a rider. Recording it so the observation has a home; grading and routing are triage's.\n\n## What was measured\n\n`packages/plugin-grid/src/ObjectGrid.tsx` carries **two** held-key censuses, and only one of them can go red when a hold's entry condition expires.\n\nAn \"undeclared-but-live HELD key\" is a claim about **another package**. Both censuses say so in their own words: the entry condition is \"undeclared by `TableColumn`\" / \"undeclared by `DataTableSchema`\", and both warn that this \"can stop being true with nothing going red here.\"\n\n- **Column level.** `columnHoldsExpiry-6424.test.ts` pins the entry condition directly — it asserts `TableColumn` does NOT declare `pinned`, with a positive control on a key it does declare. If `@object-ui/types` declares `pinned` tomorrow, that suite goes red the same day, and the hold gets re-adjudicated instead of quietly rotting. That pin exists because #6615 → #6424 walked this exact path for `headerIcon`.\n- **Schema level.** `dataTableSchemaSlot-6459.test.ts` has no such pin. Its one census assertion pins that the seam **ACCEPTS** `renderCellEditor` and `cellClassName` — an assertion that is true while the keys are held locally and **equally true** once they arrive through `DeclaredDataTableSchema`. An acceptance pin cannot express an entry condition, so it is green on both sides of the event it would need to detect.\n\n⇒ #6882 declared both keys on 2026-08-30. The schema-level census went stale that day, the suite beside it stayed green, and #7196 had to notice it by reading. That is the gap.\n\n## Why it is worth a gate rather than a note\n\nThe census is a document later readers trust **instead of** re-measuring — that is its purpose. #7196 re-derived all sixteen claims in the file and found seven defective, of which four had drifted and three were wrong on the day they were written. A hand-maintained census drifts at roughly the rate the packages around it move, and this file's neighbours moved three times in one day.\n\n⚠️ The gate would also have caught the drift **at the moment of loss**, which is the only cheap moment: on the PR that declared the key, where the person holding the context is still in the room.\n\n## Shape it would take\n\nThe narrow version is the column-level twin, transplanted — a compile-time assertion per schema-level hold that the key is NOT a declared member of `DataTableSchema`, with a live positive control in the same suite:\n\n- red when the key becomes declared (the event that expires the hold),\n- green while it is genuinely held,\n- and its failure message points at the census prose that then needs re-deriving.\n\nThe wider version is a derivation gate over the whole census — `relationalMetaCopySet.derivation.test.ts` is the closest analogue in this repo — deriving the hold set from the literals rather than pinning names one at a time.\n\n## ⛔ Deliberately not decided here\n\nWhich of the two shapes to build, and whether this repo wants a fourth derivation gate at all, is a design decision with its own review. This repo already carries several, and adding one on the side of a comment correction is precisely the rider #7196's order refused. Recorded as an observation, not a proposal that has been argued.\n\n## Refs\n\n- #7196 — the re-derivation that surfaced this. Its PR corrects the prose and states in the docblock that nothing guards it.\n- #6919 — the sibling finding on the same type, open: retire the now-redundant seam hold or record why it survives.\n- #6882 — the 2026-08-30 ruling that declared both keys.\n- #6424 / #6615 — the column-level precedent, where the pin now exists."
+}

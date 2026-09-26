@@ -1,0 +1,37 @@
+{
+  "number": 7336,
+  "kind": "issue",
+  "title": "finding(fields): standard-widgets.test.tsx covers 7 of the 10 standard widgets it imports — DateField, PhoneField and TextAreaField have no case in the file named for that set",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T07:53:49Z",
+  "updated_at": "2026-09-04T00:10:02Z",
+  "closed_at": "2026-09-04T00:10:02Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7336",
+  "body": "Found while sweeping unused imports for #6467 (PR #7332). Filed rather than fixed there: that PR is removal-only and mechanical by charter, and writing three widget test cases is neither.\n\n**Filed because the sweep destroyed the evidence.** `packages/fields/src/standard-widgets.test.tsx` imported ten widgets and exercised seven. The three unused imports were the only visible trace of the gap, and they were exactly the kind of finding that sweep is chartered to delete:\n\n```\npackages/fields/src/standard-widgets.test.tsx:18  DateField      [named, sole from ./widgets/DateField]\npackages/fields/src/standard-widgets.test.tsx:21  PhoneField     [named, sole from ./widgets/PhoneField]\npackages/fields/src/standard-widgets.test.tsx:22  TextAreaField  [named, sole from ./widgets/TextAreaField]\n```\n\nRemoving them is correct — an unused import asserts nothing, so nothing was lost in coverage terms. But it does mean the file now reads as a complete, tidy suite over the standard widget set, with no signal at all that three members of that set are missing. That is a strictly worse state to leave undocumented than the one before, which is why this card exists.\n\n## What is and is not claimed\n\n- The file is `describe('Standard Field Widgets')` and holds cases for CurrencyField, NumberField, TextField, SelectField, BooleanField, EmailField and UrlField.\n- DateField, PhoneField and TextAreaField were imported alongside them and never rendered.\n- **Not claimed:** that these three widgets are untested anywhere in the repo. This card is about the file that presents itself as the standard-widget suite; whoever picks it up should first check whether coverage lives elsewhere, and if it does, the answer may simply be a pointer comment rather than three new cases.\n\n## Why it is worth a look rather than a shrug\n\nThe three are not arbitrary. `DateField` is the widget whose value handling has already produced at least two defects in this repo's history, and the two other date-shaped widgets in the same directory (`toDateInputValue`, `openNativePicker`) are helpers it alone routes through. A readonly/edit-mode round trip on it is the same shape as the cases the file already writes for `CurrencyField`.\n\nNo assignee — recording, not claiming."
+}

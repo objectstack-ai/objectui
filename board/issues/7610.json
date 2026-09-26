@@ -1,0 +1,36 @@
+{
+  "number": 7610,
+  "kind": "issue",
+  "title": "[finding] `parseJsonFence`'s docblock still says \"there are zero `jsonc` fences in the corpus today\" — there are 29",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-04T06:06:43Z",
+  "updated_at": "2026-09-04T12:45:27Z",
+  "closed_at": "2026-09-04T12:15:32Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7610",
+  "body": "Observation filed out of scope by the dev seat working #7474 (PR #7608), whose dispatch pinned `scripts/check-skill-examples.mjs` to its `MARKED_FLOOR` json row only, so this line was left untouched rather than fixed as a rider.\n\n## The drift\n\n`scripts/check-skill-examples.mjs`, in `parseJsonFence`'s docblock:\n\n> `jsonc` gets comments and trailing commas removed first, and nothing else: that is the whole of what the `jsonc` dialect adds over `json` for the shapes a guide writes. There are zero `jsonc` fences in the corpus today; the language is recognised so that adding one is not a silent no-op.\n\nThat last sentence was true when the gate landed (#7359) and stopped being true at PR #7473, which retagged 16 comment-carrying fences `jsonc`. Measured on `origin/main` at `24e027e` with the gate's own scanner: 40 `json` and 16 `jsonc` fences under `skills/objectui/`. PR #7608 moves it further — 41 `json` and 29 `jsonc`.\n\n## Why it is worth a line of work\n\nIt is prose drift, not a defect in the machinery: the parser behaves correctly and every phase reports honestly. The cost is that the sentence is load-bearing for a reader deciding whether the `jsonc` branch is exercised — it currently reads as \"this branch has never run in anger\", which is the opposite of the truth, and a reader trusting it could delete or weaken the branch as dead code.\n\n## Suggested shape\n\nReplace the stale clause with the population re-derived at the time of the edit, or with a pointer to `--measure` so the number is not restated in prose at all — the same treatment the file's own header gives its other counts (\"Re-derive it with `--measure`\").\n\nSurface note: `scripts/**` is not a governed surface here, but this file is the enforcement point for one that is, so the fix is a small deliberate PR rather than a drive-by.\n\nRefs: #7474 · PR #7473 · PR #7608 · #7359 (the gate and its marker convention).\n\nFiled by Claude Code on behalf of the skills-lane dev seat, session `https://claude.ai/code/session_019RfFHiRCSs3JXLK4cwcfox`."
+}

@@ -1,0 +1,36 @@
+{
+  "number": 7352,
+  "kind": "issue",
+  "title": "finding(types): `DrillDownConfig` has no zod mirror — `drillDown` is declared on `ChartSchema` and `ObjectDataTableSchema` and validated on neither",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T12:43:52Z",
+  "updated_at": "2026-09-05T08:32:02Z",
+  "closed_at": "2026-09-05T08:30:44Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7352",
+  "body": "Found while implementing objectui#6576 (which mints `ObjectDataTableSchema` and declares `drillDown` on it per objectui#6914). Filed unassigned for triage; nothing here is repaired by that PR.\n\n## The fact\n\n`packages/types/src/data-display.ts` declares `interface DrillDownConfig` (enabled / mode / target / filter / title / report / columns / maxRows and more), and two TS schema types carry `drillDown?: DrillDownConfig`:\n\n- `ChartSchema.drillDown` (data-display.ts) — ledgered in `zod-mirror-parity.test.ts` as `UnmirroredDeclared`, LOCAL, since objectui#6058 seeded the ledger.\n- `ObjectDataTableSchema.drillDown` (objectql.ts, minted by #6576) — ledgered the same way, as a seed for the new pair, with the same reason.\n- `PivotTableSchema.drillDown` (data-display.ts) has no zod mirror at all, so it is in no ledger.\n\nThere is no `DrillDownConfigSchema` in `packages/types/src/zod/` (measured: `grep -n drillDown packages/types/src/zod/*.zod.ts` is empty on `origin/main`). So the published validator under `@object-ui/types/zod` has never heard of the key on any node: under `BaseSchema.passthrough()` a `drillDown: { enabled: 'yes' }` parses green and rides through to the widget, which reads `enabled` as truthy.\n\n## Why it was not repaired in #6576\n\nThe 2026-08-31 ruling on #6576 named exactly two new exported types. A paired `DrillDownConfigSchema` mirror is a THIRD new export on the `/zod` surface, and wiring it into `ChartSchema`'s mirror would change that published validator's accept set (a wrong-shaped `drillDown` on a chart starts being refused). Both are rulings, not a dev's call — so #6576 declared the key on the TS face, ledgered it, and left the mirror to this card.\n\n## What the repair looks like\n\nMint `DrillDownConfigSchema` in `data-display.zod.ts`, register it in `MIRRORS` / `Declared` paired with the TS `DrillDownConfig` (the `ObjectMapConfigSchema` precedent), then use it for `drillDown` on the `ChartSchema` and `ObjectDataTableSchema` mirrors. The two `UnmirroredDeclared` entries shrink (the ratchet fires stale, by design), and `PivotTableSchema` gets a home for the key whenever it is mirrored. The `report` member's structural union (an inline report shape OR a named reference) needs a deliberate zod spelling.\n\nRefs: objectui#6576, objectui#6914, objectui#6058 (the ledger), objectui#3354 (closed — the DrillDownConfig keys nothing reads).\n\nFiled by the os-dev seat working objectui#6576; session https://claude.ai/code/session_01NRRumy89BYdW9ogbcdHTho"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 7709,
+  "kind": "issue",
+  "title": "finding(i18n): the maker's EDIT-mode chip still offers 「加一个自动化 —— 审批、状态流转或通知」, which ADR-0112 v1 cannot build",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "i18n",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T08:33:43Z",
+  "updated_at": "2026-09-05T16:43:26Z",
+  "closed_at": "2026-09-05T16:43:26Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7709",
+  "body": "Found while doing cloud#1984 (PR reworded the five from-scratch start chips so they promise only what ADR-0112 v1 delivers). Filed rather than folded in: the five chips that card names are the `console.ai.suggestions.metadataAssistant.*` family, and this is a different family with a different answer.\n\n## Observation\n\n`packages/app-shell/src/console/ai/AiChatPage.tsx` `editAppSuggestions()` renders the empty-state starters for the maker bound to an EXISTING app (`?package=`). Its fourth chip is, in all ten packs:\n\n- en: `Add an automation — an approval, a status flow, or a notification.`\n- zh: `加一个自动化 —— 审批、状态流转或通知。`\n\nEvery noun in it — approval, status flow, notification — names a capability ADR-0112 v1 (cloud#1956 / PR #1970) does not author. It is the same defect class cloud#1984 was filed for, on the same surface, one chip family over: the product recommends something the first version will not build, and the measured behaviour on the sibling chips was a silent degrade into a view rather than a refusal.\n\nThe other three edit-mode chips (`addField`, `addObject`, `addDashboard`) are all inside v1's whitelist.\n\n## Why this is not just \"reword it like the other five\"\n\nThe from-scratch chips each had a v1-honest business scenario to fall back to. This one does not: rewording it to ask for a field, a view or a dashboard duplicates one of the three chips beside it, so the honest options are\n\n1. drop the fourth chip in v1 and restore it in v2 (three starters instead of four), or\n2. replace it with a fourth v1 capability that is not already offered — a page, a calendar/gallery view, or sample data.\n\nWhich of those is right is a product call on the maker's edit-mode surface, not a translation fix, which is why this is a separate card.\n\n## Where\n\n- `packages/app-shell/src/console/ai/AiChatPage.tsx` — `editAppSuggestions()`, key `console.ai.suggestions.editApp.addAutomation` and its `defaultValue`\n- `packages/i18n/src/locales/*.ts` — the same key in all ten packs\n\nRe-check: open the maker bound to an existing app (`?package=`) on an empty thread and read the fourth starter.\n\nRelated: cloud#1984 (the from-scratch chips, fixed), ADR-0112 D2 (the v2 line where the automation wording comes back).\n"
+}

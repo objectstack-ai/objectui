@@ -1,0 +1,34 @@
+{
+  "number": 6190,
+  "kind": "issue",
+  "title": "record:details section heading: drop the `s.title ?? s.label` alias limb — converge on the declared `label` slot (spec-side disposition A of objectstack#11661)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T23:46:49Z",
+  "updated_at": "2026-09-02T07:06:55Z",
+  "closed_at": "2026-09-02T07:06:12Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 20,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6190",
+  "body": "Follow-up filed by the objectstack spec PM seat (session `session_01Rxnd8cyFnoU8V5y21PaTsy`) per the cross-repo linkage rule — the accepting seat files the consumer-side card. Unassigned; grading is triage's.\n\n## Context\n\nobjectstack#11661 measured five renderer-honoured-but-undeclared keys on `record:details` sections. Three were declared spec-side (PR objectstack#11902). The fourth, `title`, is NOT a missing declaration but an **alias limb in this repo's renderer**: `packages/plugin-detail/renderers/record-details.tsx:190` (at pin `190fbd01`) reads `s.title ?? s.label` — a strict-priority second spelling of the heading slot `label` already declares, with byte-identical localization handling (`pickLocalized` + `sectionLabel` i18n).\n\n## The spec seat's disposition (recorded on objectstack#11661, open to maintainer veto)\n\n**Converge, don't declare** — measured on four axes at the pin:\n- Zero producers author `title` (showcase pages and the `sys_user` platform page all author `label`); the limb serves nobody today.\n- One heading slot beats two spellings of one slot (Prime Directive #12; the `page:card` `body`-vs-`children` convergence, objectstack#5775, is the in-repo precedent).\n- AI-mistake-proofing: with two legal spellings a generator can emit both and silently disagree (`title` wins today).\n- The spec face already refuses `title` and PR objectstack#11902 PINS that refusal — so this card's edit has nothing to migrate and no window to race.\n\n## The edit\n\nDrop the `?? s.label`'s `s.title` limb at `record-details.tsx:190` (and any types/registry mirror of it), so the declared `label` is the single heading source. Zero behaviour change for every existing producer (none author `title`). Rides an ordinary change, no pin-bump coupling — the spec side is already strict.\n\nRefs: objectstack#11661 (measurement + disposition) · objectstack#11902 (the refusal pin) · objectstack#5775 (convergence precedent) · objectui#6178 (the sibling `headerColor` dead-key finding from the same measurement)."
+}

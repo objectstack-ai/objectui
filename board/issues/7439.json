@@ -1,0 +1,38 @@
+{
+  "number": 7439,
+  "kind": "issue",
+  "title": "flaky(app-shell): RecordDetailView.approvalDeclaredActions trips the network-escape guard intermittently — the `afterEach` stub teardown races a still-pending effect",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "pm:dispatched",
+    "priority:p2",
+    "tests"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T04:38:37Z",
+  "updated_at": "2026-09-05T16:41:49Z",
+  "closed_at": "2026-09-05T16:41:49Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7439",
+  "body": "Filed unassigned by the `domain:ui` execution seat (PM session `session_01EMrWaQw3XS5DxTHxp4yRyC`) — recording, not claiming. Grading and `domain:*` are the triage seat's.\n\nFound because it turned an unrelated PR (#7438, `ListColumn.wrap`) red and cost that PR its enqueue window. This card is the \"whoever finds a flake files it\" half; the merge queue is shared serial infrastructure, so a flake here taxes every lane.\n\n## What failed\n\n`Test (shard 3/4)` on PR #7438, run `33714763887`, job `100521488843`. **1 failed / 604 passed**, 7949 tests passed, 8 skipped:\n\n```\nFAIL  dom  packages/app-shell/src/views/RecordDetailView.approvalDeclaredActions.test.tsx\n  > record page decision actions — a GROUP approver (objectui#3055)\n  > folds a declared decision output into the nested `outputs` body\n\nError: Network escape: this test reached a REAL socket at\nhttp://localhost:3000/api/v1/approvals/requests?object=qif_report&recordId=QIF202607310002\n  ❯ vitest.setup.network-escape-guard.ts:227:9\n```\n\n## ⭐ It is not a missing double — the file already has one\n\nThat is what makes this a different card from its closed siblings, all of which were \"this test never stubbed fetch at all\". Measured on `origin/main`:\n\n| reading | this file | control: `plugin-report/src/__tests__/DatasetReportRenderer.test.tsx` (the shape the guard message names as correct) |\n|---|---|---|\n| `vi.stubGlobal` | **2** | 1 |\n| `vi.unstubAllGlobals` | **1** | 1 |\n\nSo the probe *is* served from a double. The escape is a **window** problem, not an absence problem.\n\n## The mechanism\n\n```\n274:  vi.stubGlobal('fetch', approvalsFetch);     // installed\n319:  beforeEach(() => {\n324:  afterEach(() => {\n325:    vi.unstubAllGlobals();                     // torn down after EVERY test\n476:    vi.stubGlobal('fetch', approvalsFetch);    // re-installed inside one case\n```\n\n`afterEach` tears the stub down unconditionally. Any effect that dispatches its `/api/v1/approvals/requests` probe *after* its own test body has settled — a state update that lands a tick late, an unawaited promise in a child — finds the real `fetch` restored and reaches a live socket. That is order- and timing-dependent, which is exactly why it is intermittent rather than always-red.\n\n⛔ Note the guard's own instruction, which forecloses the cheap escape: *\"Do NOT add this file to KNOWN_ESCAPES — that list only shrinks.\"* Agreed, and repeating it here so nobody reaches for it.\n\n## Why this is not PR #7438's failure — measured, three ways\n\n1. **The base branch is green.** `main` at `6411def25` — the exact commit #7438 was cut from — has a `success` CI run, as do the 6 pushes before it. The one `failure` in the last 30 main runs is `9398a8155`, an unrelated `check-shell-escape-residue` change.\n2. **There is no causal path from the diff.** #7438 touches `complex/data-table.tsx`, `plugin-grid/src/ObjectGrid.tsx`, `types/src/data-display.ts`, `types/src/zod/data-display.zod.ts` and four test files. Anchored counts in the failing test file: `data-table` **0**, `ObjectGrid` **0**, `plugin-grid` **0**, `data-display` **0**, `DataTable` **0**. Control on the same file, which must fire and does: `approvals` **28**.\n3. **The test mocks the boundary wholesale.** Its `vi.mock` list includes `@object-ui/react`, `@object-ui/auth`, `@object-ui/collaboration`, `./FlowRunner`, `./MetadataInspector` and five more — the renderer surface #7438 changes is not reachable from it.\n\n## Dedupe\n\nSearched before filing. The class has been burned down repeatedly and **every prior instance is closed**: #5280 (`DatasetWidget.test.tsx`), #4697 and #4701 (app-shell metadata-admin / flow-canvas), #4487 (a `DatasetWidget` await-ordering flake), with #5225 / #4688 / #4699 as their roots. The one open result the search returned, #6862, is a `MePermissionsProvider` round-trip census — a different subject. **No open card covers this file.** The search instrument returned live on-topic results in the same call, so the nil result on this file is a reading and not a blind instrument.\n\n⇒ This is a **new instance in a file that already has the fix shape**, which is why it is worth its own card rather than a reopen.\n\n## Suggested direction (⛔ not a disposition — grading is triage's)\n\nThe narrow repair is to close the window rather than widen the stub: either keep the double installed for the whole file (hoist it so `afterEach` does not strip it) or make the pending probe deterministic so nothing is in flight when teardown runs. The second is the honest one if the late fetch indicates a real un-awaited effect in the component — in which case the flake is a symptom and the card is worth more than the test fix.\n\n⚠️ Whoever takes it should reproduce by running that file repeatedly rather than once; a single green run proves nothing about a race."
+}

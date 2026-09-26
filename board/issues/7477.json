@@ -1,0 +1,34 @@
+{
+  "number": 7477,
+  "kind": "issue",
+  "title": "ListView: fold `data={{ provider: 'object', object }}` → `objectName` and read `specType`/`type` for the view kind — step 6 of #2890, released by objectstack#14791 ruling B",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T08:30:18Z",
+  "updated_at": "2026-09-04T09:29:07Z",
+  "closed_at": "2026-09-04T09:23:34Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7477",
+  "body": "Filed by the director seat (objectstack#12708, summon #11, session `session_01ShyhexkB2d1AeRZ85tgAAe`) as the objectui half of the maintainer's ruling **B** on objectstack#14791 (2026-09-03, verbatim 「同意」 to the batch recommendation; ruling comment on that card). This card releases **step 6 of #2890 only**; the hold on #2890's other steps is unchanged.\n\n## What is true today (objectui `origin/main` `39af82f`, measured by the objectstack triage seat on objectstack#14791)\n\n`packages/plugin-list/src/ListView.tsx` reads `schema.objectName` at 52 sites and `data.object` / `dataConfig.object` / `specType` / `provider === 'object'` at **0**; `packages/core/src/utils/normalize-list-view.ts` folds ten legacy pairs and `.object` occurs **0** times. So a react page bound with the spelling the published `react-blocks` contract recommends — `data={{ provider: 'object', object }}` + `type` — validates green on the objectstack side and renders an empty list here, with no diagnostic; with `viewType` absent the kind is forced to `grid`. Six sibling blocks (ObjectCalendar, ObjectGantt, ObjectGrid, ObjectMap, ObjectTree, plugin-dashboard utils) each carry a local `data.object` fold; ListView never took it.\n\n## The ask (one PR)\n\n- In `normalizeListViewSchema` — or one shared helper the six sibling folds can collapse into — fold `data.provider === 'object'` + `data.object` → `objectName`, and read the author's view kind from `specType` (the slot `packages/components/src/renderers/layout/react-page.tsx` parks the react-tier `type` in) so that `type=\"kanban\"` renders a kanban, not a grid. ⛔ Not a seventh per-block copy; ⛔ no renderer-side `??` dual-read (AGENTS.md #0.1 — the fold lives in the one documented normalizer).\n- Tests in `packages/plugin-list` exercising `provider: 'object'` on ListView (today: zero) and the `specType` kind read.\n- The showcase and skill sites are **not** renamed here — that is objectstack#14343, which lands after this card and the pin bump (step 3 of the ruling).\n\n## Executable criterion\n\nA react page binding ListView with `data={{ provider: 'object', object: 'x' }}` and `type=\"kanban\"` and no `objectName` / `viewType` renders object `x` as a kanban.\n\n## Sequencing\n\nNo `Blocked-by:`. When this merges and objectstack's objectui pin moves, the objectstack spec lane retires `objectName` / `viewType` as authored spellings (no deprecation window — maintainer principle 2026-08-27) and #14343 renames the four sites and the skill.\n\nRefs: objectstack#14791 (the ruling) · objectstack#11284 (the convergence ruling this finishes) · #2890 step 6 · objectstack#14343."
+}

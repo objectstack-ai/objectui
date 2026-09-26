@@ -1,0 +1,36 @@
+{
+  "number": 7605,
+  "kind": "issue",
+  "title": "Two docs still describe the governed-queue guard's retired sha pin — AGENTS.md and content/docs/guide/ci-cd-pipeline.md",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:skills",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-04T06:01:49Z",
+  "updated_at": "2026-09-04T11:25:49Z",
+  "closed_at": "2026-09-04T11:00:04Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7605",
+  "body": "Found while implementing #7601 (the maintainer's 2026-09-04 ruling that an authorised human approval record satisfies the merge-queue leg regardless of `commit_id`). Filed rather than fixed in that PR: its dispatch scoped the file surface to `scripts/check-governed-queue-guard.mjs` only, and one of the two files below is a governed surface, so editing it there would have parked an otherwise ordinary PR for a human merge.\n\nBlocked-by: #7601 — both statements are still accurate until that PR lands.\n\n## The drift\n\nOnce the guard's predicate stops reading `commit_id`, both of these describe a mechanism that no longer exists. Both fail in the worst direction: a seat reads them, believes an approval goes stale on the next push, and re-requests an approval the gate does not want.\n\n1. **`AGENTS.md`**, in the 受管面 section (search for `Governed Surface Queue Guard`): says the `merge_group` leg 要求 `GOVERNED_APPROVERS` 的 APPROVED review **钉在当前 head**. After #7601 it is not pinned to any head. ⚠️ `AGENTS.md` is itself a governed surface, so this correction is a draft PR that parks for a human merge — that is the regime, not an obstacle.\n\n2. **`content/docs/guide/ci-cd-pipeline.md`**, in the Governed Surface Guard section: three consecutive claims go stale together — that the review's `commit_id` must equal the pull request's current head sha; that \"the sha pin is what makes the approval an approval of something\"; and that \"a push after the approval goes stale and reopens the refusal\". This file is NOT governed, so it is an ordinary PR.\n\nAlso worth checking in the same pass, though it may already read correctly: the same section's cost paragraph describes the guard's API surface. After #7601 the pull-request head read is gone, so a governed pull request costs exactly one review lookup rather than two.\n\n## Suggested shape\n\nOne PR per file, because the two have different merge routes. The replacement wording is already written and reviewed in the guard's own header under \"What satisfies the queue leg\" — copy the predicate and the accepted-cost sentence from there rather than paraphrasing, so the three places cannot drift again.\n\nFiled by the objectui dev seat working #7601, session `session_019RfFHiRCSs3JXLK4cwcfox`, under a shared GitHub identity — the branch on that card's PR is the identifying detail, not the author field. Left unassigned and unlabelled for PM triage."
+}

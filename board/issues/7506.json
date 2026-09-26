@@ -1,0 +1,36 @@
+{
+  "number": 7506,
+  "kind": "issue",
+  "title": "objectui `CLAUDE.md` is the twin of the shape objectstack#14685 item 3 collapsed — two hand-copied AGENTS.md excerpts (51 lines), and a charter line that says \"the one rule\" while two are inlined",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:skills",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T13:44:47Z",
+  "updated_at": "2026-09-04T06:14:44Z",
+  "closed_at": "2026-09-04T05:45:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7506",
+  "body": "Recorded by the skills lane seat (session `session_01LraLgQVGq8egUwfYZpbYt1`) from the objectstack#14685 flights — a ledger item held since 2026-09-03T06:2xZ, measured here at `origin/main` `2d3fe73` (2026-09-03T13:42Z). Graded by the seat (`domain:skills` · p3) under the objectui precedent that the seat grades its own programme's follow-up cards while the triage seat is vacant (objectui#7359). Landing surface **governed**: `CLAUDE.md` is one of the five governed items in AGENTS.md § ⛔ 受管面 — draft PR, human merge, never ready or queued.\n\n## What\n\nobjectstack's `CLAUDE.md` carried four hand-copied excerpts of AGENTS.md rules (86 lines). Decision objectstack#14685 item 3 was ruled **B** by the maintainer (director seat record, comment 5520452691: 「同意，然后执行契约复审」), and PR objectstack#14855 (`5290fcbe91`, on `main` 2026-09-03T08:56Z) executed it: each excerpt became one rule sentence, the enforcing hook with its override switch, and a pointer to the AGENTS.md heading that carries the full rule — incident narratives, command blocks and statistics stay in AGENTS.md, where they are maintained; 86 → 36 lines; the headings byte-identical so greps that name them keep working.\n\nThis repo's `CLAUDE.md` has the same shape and was outside that flight:\n\n| measured at `2d3fe73` | today |\n|:--|:--|\n| `CLAUDE.md` | 51 lines: two `## ⛔` sections (Worktree-first; Never `git stash`) that reproduce `AGENTS.md:234` and `:235-243` in full — the failure narrative, the objectui#3430 incident, the worktree recipe fence and the three-line alternatives fence |\n| `CLAUDE.md:4-5` | \"the **one** rule that must never be missed is inlined here\" — two rules are inlined; the sentence was not updated when the stash rule joined (objectui#4340 lineage) |\n| `CLAUDE.md:50-51` | \"both rules above are stated in full there, in §9 多 agent 协作纪律\" — resolves (`AGENTS.md:154` `## 9. Operational Rules`, `:229` `### 多 agent 协作纪律`), unlike the objectstack pointer item 3 also repaired |\n| hooks | `.claude/settings.json` wires four PreToolUse hooks; `CLAUDE.md` names `guard-main-checkout.sh` and `guard-shared-stash.sh` only — `guard-main-checkout-bash.sh` (the same writes as Bash commands) is wired at `settings.json:36` and named by neither `CLAUDE.md` nor `AGENTS.md:234` |\n\n## Recommended shape (the ruled objectstack form, applied here)\n\nEach of the two sections → one rule sentence, the enforcing hook(s) with the override switch, and \"Full rule: AGENTS.md → **9. Operational Rules**, its paragraph **多 agent 协作纪律**\". The charter sentence → \"each of the two rules … is inlined below as one sentence\". Headings stay byte-identical. The worktree rule names both hooks, since both are wired. Expected size: 51 → about 25 lines. No command block, no incident narrative, no statistics left in `CLAUDE.md`.\n\n## Decision floor\n\nRuling B on objectstack#14685 item 3 names objectstack's `CLAUDE.md`; this file is outside that ruling's surface, and the seat does not extend a ruling on its own (the same posture objectstack#14913 takes on `AGENTS.md`). This card waits on the maintainer either extending ruling B to objectui's `CLAUDE.md` — a decision batch 6 candidate — or ruling that objectui keeps the long form. Recommendation: extend B (agents that work both repos read both files; one shape, one place to maintain the narratives).\n\n## Scope once ruled\n\n- One PR on `CLAUDE.md` only, governed: draft, human merge. Shrink-only.\n- ⛔ Not in scope: `AGENTS.md:234`'s own omission of `guard-main-checkout-bash.sh` (an `AGENTS.md` sentence — a separate finding, recorded on the skills seat's ledger, not yet deduped); the hooks themselves; `.claude/**`.\n\n## Verified\n\n- Dedup 2026-09-03T13:42Z (`search_issues` in objectui, 8 of 29 results read): #7413, #6997, #5465, #7441 (open — other surfaces), #6208, #5149, #5150, #4340 (closed) — none carries this collapse.\n- Governance: AGENTS.md § ⛔ 受管面 lists `CLAUDE.md` among the five governed items (\"仓根一个\").\n\nRefs: objectstack#14685 (item 3, ruled B) · PR objectstack#14855 · objectstack#14292 (programme anchor) · objectui#4340 (how the stash excerpt came to `CLAUDE.md`)."
+}

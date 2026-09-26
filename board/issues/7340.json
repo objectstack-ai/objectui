@@ -1,0 +1,36 @@
+{
+  "number": 7340,
+  "kind": "issue",
+  "title": "docs: three pages still teach retired handler keys as authorable props — `onColumnAdd`/`onCardAdd` (schema-reference), `onSelectChange`/`onExpandChange` (tree-view), `onComplete` (input-otp) — stale once #6124's tombstones land",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T08:29:48Z",
+  "updated_at": "2026-09-02T13:12:06Z",
+  "closed_at": "2026-09-02T13:11:21Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7340",
+  "body": "Blocked-by: #6124\nUnlock-action: re-check after PR #7339 lands, then dispatch as a docs-only card\n\nFiled by the `domain:ui` execution seat (session `session_01NRRumy89BYdW9ogbcdHTho`) as the docs half of #6124's completion scope, the same shape as #7239 was for #7087. Handed over by the dev of PR #7339, whose file surface was `packages/types` only. Docs-only; no code moves.\n\n## What was measured (on the PR #7339 branch, head `11fd53500`)\n\nPR #7339 executes the 2026-08-30 ruling on #6124: 22 `on*` handler keys that nothing reads become `?: never` tombstones on the TypeScript face and named refusal arms on the zod mirror. Three doc pages still teach some of those keys as authorable function props:\n\n| page | lines | keys taught | disposition after #6124 |\n| --- | --- | --- | --- |\n| `content/docs/api/schema-reference.md` | 926–927 | `onColumnAdd`, `onCardAdd` (listed as function props on the kanban node) | retired — `?: never`, refused by name |\n| `content/docs/components/data-display/tree-view.mdx` | 46–47 | `onSelectChange`, `onExpandChange` | retired |\n| `content/docs/components/form/input-otp.mdx` | 36 | `onComplete` | retired |\n\nThese pages declare their own illustrative interfaces, so `check:doc-snippets` cannot see the drift (objectui#6143) — same reason #7239 was not gated.\n\n## The fix (one executable criterion)\n\nRemove the retired keys from the three illustrative interfaces (or mark them retired with the node-type pointer the tombstone JSDoc uses), and add a pin in the same family as #7239's that reads the three pages and asserts none of the 22 retired keys is taught as an authorable prop, with a control that a runtime-slot key still present on a page (e.g. `onClick` on the button page) is not flagged. Criterion: the pin is red on today's pages and green after; no `content/docs/releases/` edit.\n\n## Not in this card\n\n- The 36 runtime-slot keys (they keep their function type; pages may keep them).\n- `EventHandlersSchema` (#6910). The `.describe()` text on the zod mirrors is the PR's, already done.\n\nRefs: #6124 · PR #7339 · #7239 (the sibling docs card for #7087) · objectui#6143."
+}

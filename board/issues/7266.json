@@ -1,0 +1,33 @@
+{
+  "number": 7266,
+  "kind": "pull_request",
+  "title": "fix(console): stop retrying /api/v1/dev/metadata-events after the first 404",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T02:16:38Z",
+  "updated_at": "2026-09-02T09:43:57Z",
+  "closed_at": "2026-09-02T09:43:55Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-09-02T09:43:55Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/7266",
+  "body": "Fixes #7257\n\n## File-surface note\n\nThe PM's claim comment scoped this to `packages/app-shell/src/**`. Verified against `origin/main`: nothing under `packages/app-shell` references `metadata-events` at all. The actual subscription is `MetadataHmrReloader` at `apps/console/src/components/MetadataHmrReloader.tsx`, mounted once from `apps/console/src/App.tsx`. This PR's diff is confined to that one component + its new test + a changeset — it does not touch `packages/app-shell`, nor `#7253`'s marketplace files or `#7254`'s studio/i18n files.\n\n## Root cause\n\n`MetadataHmrReloader` is dev-only HMR tooling: an `EventSource` subscribed to `/api/v1/dev/metadata-events`, gated on `enabled = import.meta.env.DEV`. Its own `error` handler unconditionally scheduled a reconnect on a fixed `reconnectDelayMs` (2s) whenever `readyState === CLOSED` — with no distinction between \"the stream dropped after being open\" (worth retrying) and \"the very first connection attempt failed\" (a route that isn't mounted, i.e. production posture — retrying just recreates the same 404 forever, ~30/min while a record/list page stays open, drowning out the legitimate `sys_inbox_message` / `sys_notification_receipt` polling).\n\nSeparately, and worth recording even though it isn't fixed in this PR: `enabled`'s `import.meta.env.DEV` gate is not airtight against every rig. Traced through Vite 8's `resolveConfig` (`node_modules/vite/dist/node/chunks/node.js`): for `vite build`, `mode` defaults to `'production'` regardless of `NODE_ENV`, but `import.meta.env.DEV`/`PROD` are derived from a *separate* `isProduction = process.env.NODE_ENV === 'production'` check. `scripts/dev-local/run-stack.sh --with-ui` in the `cloud` repo builds the console with `NODE_ENV=development` forced (\"vite/tsc misbehave under NODE_ENV=production\" per its own comment) while the server itself runs `--prod-like` (`NODE_ENV=production`). That combination bakes `import.meta.env.DEV === true` into the shipped console bundle even though the server is in production posture — which is one concrete way `enabled` ends up `true` where it shouldn't. That's a `cloud`-repo rig concern, out of scope here; this PR's fix is deliberately layered underneath the `enabled` gate so the component is safe regardless of *why* it ended up enabled.\n\n## Fix\n\nThe first `connect()` attempt now doubles as the real capability probe (`apps/console/src/components/MetadataHmrReloader.tsx`): a `hasOpenedOnce` flag is set on the stream's `open` event. If the connection closes (or throws) before ever reaching `open`, the component gives up permanently — no retry, and specifically **not** a longer backoff interval either, per the fix requirement. A stream that opened at least once and later drops (dev server restart, network blip) keeps reconnecting exactly as before, since that proves the route genuinely exists.\n\n## Alternative channel for production metadata refresh — none needed\n\nPer the ruling, no replacement channel is implemented in this card. Explaining why none is needed: `MetadataHmrReloader`'s only job is dev-time \"a metadata file changed on disk\" → full reload. Production deployments never have metadata files changing on the server's disk after a publish — there is no equivalent event for a production channel to watch. The referenced \"Studio left nav doesn't refresh\" issue is a separate, unrelated caching bug (Studio has its own `useMetadataHmr` + `subscribe(...)` invalidation layer per this file's docstring) and does not go through this SSE stream either way — it needs its own fix, tracked separately.\n\n## Tests\n\n`apps/console/src/components/MetadataHmrReloader.test.tsx` (new), against a hand-rolled `FakeEventSource` (this repo's `happy-dom` test env has no real `EventSource`):\n- **THE FIX**: a connection that closes before `open` (404-shaped) produces exactly one `EventSource` instance even after advancing fake timers 15x past `reconnectDelayMs`.\n- A second case pins \"not a longer interval either\" — 100x the interval, still zero further attempts.\n- **CONTROL**: a stream that opens once and then drops keeps reconnecting (2 more instances across 2 drops) — proves the fix doesn't regress genuine dev-time reconnect.\n- **CONTROL**: `enabled={false}` subscribes to nothing (unaffected by this change).\n\nReverse-verified: reverted `MetadataHmrReloader.tsx` to `origin/main` (`git diff` confirmed byte-identical), re-ran the new test file — the two \"give up\" tests went red (2 `EventSource` instances instead of 1) while both controls stayed green; restored the fix (`git checkout HEAD --`, `git diff HEAD` empty) and confirmed green again.\n\n```\npnpm exec vitest run apps/console/src/components/MetadataHmrReloader.test.tsx\n Test Files  1 passed (1)\n      Tests  4 passed (4)\n\npnpm exec vitest run apps/console/                 # full package, unaffected suites\n Test Files  86 passed (86)\n      Tests  952 passed (952)\n\npnpm --filter @object-ui/console type-check        # clean, no errors\npnpm --filter @object-ui/console build              # exit 0\nnode scripts/check-changeset-presence.mjs           # ✅ 1 changeset declared\nnode scripts/check-changeset-no-major.mjs           # ✅\nnode scripts/check-control-bytes.mjs                # ✅\n```\n\nAll at `a32a727bd`.\n\n## Changeset\n\n`.changeset/7257-metadata-hmr-give-up-after-404.md` — `@object-ui/console` patch.\n\n_Generated by [Claude Code](https://claude.ai/code/session_c5c0ce54-bb9c-478c-9e5b-cf44b80d4569)_"
+}

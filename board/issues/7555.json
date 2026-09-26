@@ -1,0 +1,35 @@
+{
+  "number": 7555,
+  "kind": "issue",
+  "title": "`importedSpecifiers` is a regex, so an import-shaped line inside a template literal is read as an import by both snippet gates",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T21:05:37Z",
+  "updated_at": "2026-09-04T00:04:04Z",
+  "closed_at": "2026-09-03T23:57:51Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7555",
+  "body": "Found while implementing the root-devDependency bound (objectui#7463 item 2, PR #7554); not fixed there — out of that flight's scope, and the bound itself was deliberately built on an AST walk instead.\n\n## What it is\n\nBoth `scripts/check-doc-snippet-types.mjs` and `scripts/check-skill-examples.mjs` carry a private `importedSpecifiers(body)` that finds module specifiers with three regexes over the raw block text. Prose is part of the corpus, so the pattern matches text that is not an import.\n\nMeasured specimen, on `main` at `3e01cb55f`:\n\n- `content/docs/plugins/plugin-markdown.mdx:195` is a `tsx` block whose body assigns a template literal containing a README sample. Inside that literal is the line `npm install project-name`. `importedSpecifiers` reports `project-name` as a specifier the block imports. Nothing in that block imports anything.\n\nThe AST walk the bound added (`moduleSpecifiersOf`, exported from `check-doc-snippet-types.mjs`) reports zero specifiers for the same block, which is correct, and there is a pin for exactly this shape in `scripts/__tests__/check-doc-snippet-types.test.ts`.\n\n## Why it matters, and why it is not urgent\n\nTwo consumers today, and both survive the over-match by luck rather than by construction:\n\n1. `neededPackages` — a false specifier only matters if it happens to equal a workspace package name, in which case that package joins the build filter and the unbuilt-package precondition. `project-name` is not one, so nothing moved.\n2. `check-skill-examples.mjs`'s `Unmapped specifiers` line — a report line that can name a specifier no selected fence imports. It prints the right two today (`@playwright/test`, `vitest`), and it is now the report of what the root bound refuses, so the line and the bound can disagree: the line is regex-derived, the refusals are AST-derived.\n\nNothing is red because of this. It is a latent inaccuracy in one printed line and in one build-filter input.\n\n## The fix that is already available\n\nReplace both copies with the exported `moduleSpecifiersOf`, parsing the block once (`ts.createSourceFile`, TSX, matching what the harness compiles). The parse already happens for every compiled block, so a shared parse is cheaper than the three regexes as well as correct. Keeping the two copies in step is itself the argument for using the one exported helper.\n\nFiled by the dev flight for objectui#7463 item 2, session `session_019RfFHiRCSs3JXLK4cwcfox`. Deduped 2026-09-03T21:0xZ (semantic search in this repository: nearest neighbours are objectui#6996 and objectui#6705, the same regex-versus-AST class in different scripts, neither this one). Unassigned and unlabelled, for triage."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 7552,
+  "kind": "issue",
+  "title": "docs(ci-cd-pipeline): the Skill Example Check section does not document the MARKED_FLOOR shrink-only ratchet added by #7550",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T20:51:55Z",
+  "updated_at": "2026-09-03T22:19:54Z",
+  "closed_at": "2026-09-03T22:09:50Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7552",
+  "body": "Found while implementing #7550 (the per-category `MARKED_FLOOR` shrink-only ratchet on `scripts/check-skill-examples.mjs`). Filed rather than fixed there because that card's ruling pins its file surface to the gate script and its test file, and this is a third file.\n\n## What is missing\n\n`content/docs/guide/ci-cd-pipeline.md` carries a ~70-line section on the Skill Example Check, and it documents every other assertion the gate makes, each with its own bolded lead: the opt-in marker convention, the no-bare-`any` rule *including* that `KNOWN_BARE_ANY_EXAMPLES` is a shrink-only ratchet whose stale rows must be deleted, the `.claude/skills/` widening, marker adjacency, the build step, and the three exit codes.\n\n#7550 adds a SECOND shrink-only ratchet to the same gate — `MARKED_FLOOR`, one floor per marked-fence category, seeded at 17 `ts` / 39 `json` — and the page says nothing about it. Two consequences, both small and both the kind this repo cards rather than leaves:\n\n1. The page's **If it fails** paragraph is now incomplete in the direction that matters. It reads: \"Fix the example — or, if it was never meant to stand alone, remove its marker rather than weakening the gate.\" Removing a marker is now a move that reds the gate until the floor is lowered in the same pull request with the reason written beside the row. Nothing on the page says so, so the page's advice names the one route that no longer works on its own.\n2. The **Three exit codes** paragraph enumerates what exit 1 means (\"the gate ran and found errors — a verdict about a guide\"). A floor breach is a new member of that set, and it is not a verdict about any one guide; it is a verdict about the corpus.\n\n## Suggested shape\n\nOne paragraph beside the existing `KNOWN_BARE_ANY_EXAMPLES` one, in the same voice, naming the constant, the two legal moves, and why it is a floor rather than an equality (marking one more fence must not red). Plus one clause on the **If it fails** paragraph. The gate's own header carries the reasoning to draw from.\n\n## Evidence\n\n- `content/docs/guide/ci-cd-pipeline.md`, the Skill Example Check section — the `KNOWN_BARE_ANY_EXAMPLES` paragraph and the `If it fails` paragraph are the two sites.\n- `scripts/check-skill-examples.mjs`, the `MARKED_FLOOR` docblock, as landed by #7550.\n- `scripts/__tests__/check-skill-examples.test.ts` already pins that this gate has a section on that page, named by heading — so the page is a surface this gate family treats as owned rather than incidental.\n\nFiled with no assignee, by the ObjectUI dev agent working #7550 (session `session_019RfFHiRCSs3JXLK4cwcfox`)."
+}

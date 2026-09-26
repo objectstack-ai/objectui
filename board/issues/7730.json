@@ -1,0 +1,33 @@
+{
+  "number": 7730,
+  "kind": "pull_request",
+  "title": "fix(types): describe `ClassNameStylePropsSchema` by its two keys",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T12:41:40Z",
+  "updated_at": "2026-09-05T13:16:18Z",
+  "closed_at": "2026-09-05T13:16:16Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": "2026-09-05T13:16:16Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/7730",
+  "body": "Fixes #7578\n\n## What\n\n`ClassNameStylePropsSchema` (`packages/types/src/zod/base.zod.ts`) now describes itself by the two keys it actually holds.\n\n- before: `.describe('Style properties')`\n- after: `.describe('className and inline style')`\n\nNothing else moved: same two optional keys (`className`, `style`), same accept set, same types, same export name, no other `.describe()` in the file touched. The card's four triage boundaries are honoured verbatim.\n\n## Why this is a surface change and not copy polish\n\nOn this package `.describe()` is published runtime metadata — it lands in the generated JSON-Schema `description` and in the derived docs — so it is the only label the reader who never sees the const name gets. objectui#5928 renamed the const off `StyleProps` because the like-named TypeScript `StyleProps` is the Tailwind-scale vocabulary (`padding`, `margin`, `gap`, `backgroundColor`, and the rest) and shares ZERO keys with these two. That rename reached source readers only; the description went on saying what the retired name said, leaving a reader who meets the schema through generated JSON-Schema hunting `padding` or `gap` under a label that promised them. Hence a changeset (`@object-ui/types: patch`), which states what a consumer of the emitted JSON-Schema will see change.\n\n## Label choice — one declared deviation\n\nThe card and triage proposed `Class name and inline style` and required a label that NAMES the two keys, banning another generic word. Landed text is `className and inline style`: identical in meaning, but with the VERBATIM key spellings, so the label answers \"what is in here\" with names the reader can act on and the pin below asserts key containment literally rather than through a normalized match. Both are within the card's candidate; the substitution is declared here rather than taken silently.\n\n## Measurement (triage boundary 2)\n\n`git grep 'Style properties'` over the whole tree at `b74a859`: exactly ONE occurrence, the const itself. No snapshot, fixture or test pinned it; the repo checks in no generated JSON-Schema artefact for this package (no file matching a schema-dot-json name pattern exists anywhere in the tree), so nothing else had to move in this PR.\n\n## Pin\n\n`packages/types/src/__tests__/classname-style-describe-7578.test.ts`, reading the description off the LIVE schema exported by the published `@object-ui/types/zod` barrel rather than off the source text — a `.describe()` that stops reaching the schema leaves the source line looking right while the emitted JSON-Schema carries nothing.\n\nThree legs on the description (equals the literal · names both keys verbatim · no longer carries the retired wording) plus two controls: the key set is unchanged, and a neighbouring schema in the same file (`HTMLAttributesSchema`) still carries its own description, so an edit that swept every `.describe()` in `base.zod.ts` reddens here instead of passing as \"the string changed\".\n\n## Ablation (fix committed first, trap-guarded, absolute paths)\n\nReverting only `base.zod.ts` to `b74a859` and re-running the pin:\n\n```\nHEAD_BLOB=f92510e4fb5b0a1736c1b0bbe58ed9f05cfc19e2\nBASE_BLOB=df31ace4ab3d06d707b599b40283397dc6dd33f4\nMUTATED_DISK_BLOB=df31ace4ab3d06d707b599b40283397dc6dd33f4   (mutation proven on disk, not by an editor exit code)\nmutated-file old-label-count=1 · new-label-count=0\n\nTests  2 failed | 2 passed (4)     ABLATION_VITEST_EXIT=1\n  x is the label that names the two keys\n      expected 'Style properties' to be 'className and inline style'\n  x names both keys verbatim, and no longer carries the retired wording\n      the description should name the `className` key\n  both controls stayed GREEN\n\nRESTORED_DISK_BLOB=f92510e4fb5b0a1736c1b0bbe58ed9f05cfc19e2  (equals HEAD blob)\nGIT_DIFF_HEAD_EXIT=0\nCONTROL_VITEST_EXIT=0   Tests 4 passed (4)\n```\n\nThe mutation reaches the test directly because the pin imports the barrel by a source-relative path, so no rebuild step sits between the edit and the run.\n\n## Gates — exit codes captured before any pipe, at `0d6bfefd`\n\n| command | exit |\n|---|---|\n| `pnpm --filter @object-ui/types build` | 0 (dist completeness: 120 emitted files) |\n| `pnpm --filter @object-ui/types type-check` | 0 |\n| `pnpm exec vitest run --maxWorkers=2 packages/types/` | 0 — 115 files, 1964 tests passed |\n| `node scripts/check-changeset-presence.mjs` | 0 |\n| `node scripts/check-changeset-fixed.mjs` | 0 |\n| `node scripts/check-changeset-no-major.mjs` | 0 |\n| `node scripts/check-control-bytes.mjs` | 0 (re-run after staging: 6300 files) |\n| `node scripts/check-spec-symbol-derivation.mjs` | 0 |\n| `pnpm exec eslint` on the two changed source files | 0 (one pre-existing `no-explicit-any` warning at `base.zod.ts:52`, untouched region) |\n\nBuild, type-check and the package test run went through the container's shared verify lock (`VERDICT command-exit 0`).\n\nGoverned-surface predicate on the final file list: 0 of 3 paths hit the register — not governed.\n\nMerged `origin/main` before opening (`b74a859`, unchanged; PR #7726 for objectui#7530 edits a different region of the same file and has not landed yet).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01BAZFhALsQsGqxui8sNqM8s)_"
+}

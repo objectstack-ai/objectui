@@ -1,0 +1,35 @@
+{
+  "number": 7101,
+  "kind": "issue",
+  "title": "finding(examples): a catalog menu item authors `variant: \"destructive\"`, a key no arm of `MenuItem` declares and no menu renderer reads — but the repair has a real fork",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T00:01:25Z",
+  "updated_at": "2026-09-05T11:31:08Z",
+  "closed_at": "2026-09-05T11:22:58Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7101",
+  "body": "Filed unassigned by the `os-dev` seat while implementing #7072 (session `session_012wwHa4aaFybxXrfmfHioDM`). Grading and `domain:*` are the triage seat's. ⛔ Deliberately NOT folded into #7072's PR — different key, and unlike `value` this one is **not** a mechanical delete.\n\n## The defect\n\nMeasured on `origin/main` `2c3cd1b`:\n\n`examples/schema-catalog/src/schemas/components-overlay-dropdown-menu/with-icons.json` authors one menu item as\n\n```json\n{ \"label\": \"Delete\", \"value\": \"delete\", \"icon\": \"trash\", \"variant\": \"destructive\" }\n```\n\n`value` is #7072's population and is being deleted there. **`variant` is a separate, still-live instance of the same class:** 1 occurrence, and no card covers it.\n\n## The authority\n\n- `MenuCommandItem` (`packages/types/src/overlay.ts:363-401`) declares `label`, `icon`, `disabled`, `onClick`, `shortcut`, `children`, `separator?: false`, `type?: never`. **No `variant`.**\n- `MenuDividerItem` (`:409-419`) declares `separator: true`, `type?: never`. **No `variant`.**\n- The zod mirror `MenuItemSchema` (`packages/types/src/zod/overlay.zod.ts:147-168`) declares no `variant` on either arm, and builds both from bare non-strict `z.object`s, so it **strips** the key and reports success — the #5250 blindness.\n- `packages/components/src/renderers/overlay/dropdown-menu.tsx:47-80` maps items reading exactly `item.separator`, `item.icon`, `item.children`, `item.label`, `item.disabled`, `item.onClick`, `item.shortcut`. **There is no spread** (no `{...item}`), so an undeclared key cannot reach the DOM by accident.\n\nThe only `variant` token in the three menu renderers is `dropdown-menu.tsx:130`, inside a **trigger button** default (`{ type: 'button', label: 'Menu', variant: 'outline' }`) — a button's variant, not a menu item's.\n\n## ⚠️ Why this is NOT a copy of #7072's ruling\n\n#7072 was ruled \"delete, do not declare\" because **nothing wanted** `value`. That reasoning does not transfer:\n\n- **shadcn/ui's `DropdownMenuItem` genuinely ships a `variant=\"destructive\"`**, which renders the row in the destructive colour. So the fixture is not spelling a nonsense key — it is asking for a real, upstream-supported affordance that this wrapper has not surfaced.\n- The demo is named `with-icons` and its third row is **Delete**. A red Delete row is very plausibly the intended teaching, and the catalog is a declared AI few-shot retrieval source.\n\n⇒ Two defensible, opposite repairs:\n\n- **A — delete the key.** Consistent with #7072 and with #6523's narrowing; costs the affordance.\n- **B — declare `variant?: 'default' | 'destructive'` on `MenuCommandItem` (+ zod mirror) and pass it through in the three renderers.** Restores an upstream capability the fixture already asks for; is a capability expansion, which #6249's triage explicitly declined for `shortcut` (⛔ widening `MenuItem.shortcut` was ruled OUT).\n\nThis is the #6829 shape — the class rediscovering itself on a key whose fix is **not** uniquely determined — so it needs a decision, not a hand edit. I did not guess.\n\n## Class context\n\n#6810's second ruling (2026-08-30, maintainer, verbatim「同意」) adopted the middle state: ⛔ no general extractor; for keys not seen before, accept option C — `人手撞见、逐例修 + 补钉`. This is exactly such a hand rediscovery, and it is the **seventh** instance of the class on a **fifth** distinct key (`content` → `children` → `type` → `value` → `variant`).\n\nRefs: #7072 (the `value` half, same fixture) · #6810 (class decision + ruling) · #6523 (narrowed this union) · #6249 (declined a comparable capability expansion) · #6829 (the two-defensible-fixes precedent) · #5250 · #6902."
+}

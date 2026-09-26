@@ -1,0 +1,35 @@
+{
+  "number": 7403,
+  "kind": "issue",
+  "title": "check-shell-escape-residue lost the same two guides #7251 moved — its `skills` root does not reach `.claude/skills`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T18:11:00Z",
+  "updated_at": "2026-09-02T21:51:27Z",
+  "closed_at": "2026-09-02T21:29:00Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7403",
+  "body": "Filed out-of-scope from #7358 (widening `check-skills-paths`'s scan root). Unassigned.\n\n## What\n\n`scripts/check-shell-escape-residue.mjs` declares:\n\n```js\nexport const SCAN_ROOTS = Object.freeze([\n  { spec: 'AGENTS.md', kind: 'file', minFiles: 1 },\n  { spec: 'CLAUDE.md', kind: 'file', minFiles: 1 },\n  { spec: 'skills', kind: 'dir', minFiles: 5 },\n  { spec: 'content/docs', kind: 'dir', minFiles: 100 },\n]);\n```\n\n`skills` is a directory root, so before #7251 it covered `skills/objectui/guides/console-development.md` and `skills/objectui/rules/no-touch-zones.md`. #7251 moved both to `.claude/skills/objectui-contributor/`, which no row reaches. Same move, same class as #7358, a different gate.\n\n## Measured on `main@0614b6df1`\n\nIts own verdict line today:\n\n```\ncheck-shell-escape-residue: OK (4/4 root(s) resolved -- AGENTS.md: 1 file(s), 15 fence(s);\nCLAUDE.md: 1 file(s), 2 fence(s); skills: 16 file(s), 196 fence(s);\ncontent/docs: 185 file(s), 1071 fence(s); ...)\n```\n\nFenced blocks now outside every root:\n\n| file | fenced blocks | was under `skills` before #7251 |\n|---|---|---|\n| `.claude/skills/objectui-contributor/guides/console-development.md` | 9 | yes |\n| `.claude/skills/objectui-contributor/rules/no-touch-zones.md` | 9 | yes |\n| `.claude/skills/verify/SKILL.md` | 2 | no — never covered |\n| `.claude/skills/objectui-contributor/SKILL.md` | 0 | no — never covered |\n\nSo 18 fenced blocks left the surface in the move, and 2 more have never been on it.\n\n## Why the floor did not catch it\n\nThe `skills` row carries `minFiles: 5` and the tree still holds 16 files, so the floor stayed satisfied while two files walked off. That is the same whole-surface-floor blindness #7358 found in `check-skills-paths`, where a `checked` floor of 20 was cleared by the 27 assertions still under `skills` while 55 sat unscanned. #7358's fix judges emptiness per root for exactly this reason; a `minFiles` row here is already per-root, but a per-root floor only measures the roots that are declared, never the tree that left.\n\n## Not a duplicate of\n\n- #7358 — the same move, but `check-skills-paths`; that one is being fixed and does not touch this gate.\n- #7359 — no gate reads *inside* fences under `skills/objectui/`; this one is about *which files* have fences read at all.\n- #5174 — `check-doc-snippet-types` collecting only `.mdx`; same class, different gate and different cause.\n\n## Suggested shape, not prescribed\n\nAdd a `.claude/skills` dir row with its own `minFiles`, then clear whatever the widened surface reports — the discipline this repo's other scan-surface widenings follow (#3479 / #3490 / #3545, and #7358's own measurement table). Whether `.claude/**` belongs on this gate at all is the decision to make first: these files are contributor-facing rather than published, and the residue class this gate exists to catch is machine-produced shell escaping, which is just as likely in a guide an agent writes."
+}

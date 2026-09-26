@@ -1,0 +1,35 @@
+{
+  "number": 7462,
+  "kind": "issue",
+  "title": "[finding] 17 of the 56 JSON fences in `skills/objectui/` are tagged `json` while carrying `//` comments or `...` elisions — `jsonc` is the honest tag, and no gate reaches fence language tags in `skills/`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T06:56:50Z",
+  "updated_at": "2026-09-04T05:35:43Z",
+  "closed_at": "2026-09-04T05:00:59Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7462",
+  "body": "Filed by the skills lane seat (session `session_01LraLgQVGq8egUwfYZpbYt1`) from the #7359 flight's report (PR #7427, comment 5519160893, \"REPORT ONLY\" item 2). Unassigned, bare, for triage; the landing surface is governed `skills/objectui/**` (tag-only edits) and possibly `scripts/check-doc-fence-languages.mjs`.\n\n## Measured (flight, at branch point `75e7436`)\n\n17 of the 56 `json` / `jsonc` fences under `skills/objectui/**/*.md` are tagged `json` but contain `//` comments or `...` elisions, so they do not parse as JSON: 12 in `guides/schema-expressions.md`, 4 in `rules/protocol.md`, 1 in `rules/styling.md`. They are legitimately unmarked for `check-skill-examples.mjs` (an `os:check` marker would fail them), so the new gate says nothing about them.\n\n`scripts/check-doc-fence-languages.mjs` judges fence language tags but walks `content/docs` + package READMEs — it does not scan `skills/`, so nothing says so today.\n\n## Why it matters\n\nA reader (or a future gate) that trusts the `json` tag parses the block and fails; a `jsonc` tag tells the truth and keeps the block eligible for a JSONC parse under the fence gate later. Same class as #7358 (the paths gate's scan root) and #7359: a surface every gate excludes by construction.\n\n## Scope\n\n- Retag the 17 fences `json` → `jsonc` (tag-only; no content change; token ratchet neutral — same byte count +1 per fence, so state the arithmetic).\n- Decide whether `check-doc-fence-languages.mjs` gains a `skills/` root (the way `check-skills-paths.mjs` was widened by #7358) so the tag stays honest — the implementer decides and says why; if widened, its declared-file baseline is shrink-only and must not grow.\n- Governed `skills/objectui/**` ⇒ draft PR, human merge (ui#6866 批 #7).\n\n## Verified\n\n- Dedup 2026-09-03T06:57Z (`search_issues` in objectui): only #7360 / #7359 returned; neither carries the tag question.\n- Not re-measured at `3804c22`; the implementer re-counts at claim (`grep -n '^```json' skills/objectui -r` and a parse pass).\n\nRefs: #7359 · PR #7427 (comment 5519160893) · #7358 · `scripts/check-doc-fence-languages.mjs`."
+}

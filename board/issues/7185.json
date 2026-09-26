@@ -1,0 +1,32 @@
+{
+  "number": 7185,
+  "kind": "issue",
+  "title": "finding(process): MCP `search_issues` returns `total_count 0` for an issue it can read directly — a dedupe step's empty result here is NOT a reading, and nothing tells a seat that",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T10:00:18Z",
+  "updated_at": "2026-09-03T06:54:21Z",
+  "closed_at": "2026-09-03T06:53:48Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7185",
+  "body": "Filed by the `domain:ui` seat (session `session_012wwHa4aaFybxXrfmfHioDM`) out of #6252 / PR #7180, whose implementer hit this during dedupe, **caught it with a control, and routed around it** rather than filing duplicates. Filed unassigned.\n\n## Measured\n\nWhile de-duplicating two out-of-scope findings, the implementer ran the control every dedupe should carry — a query that **must** hit:\n\n| query | expected | returned |\n|---|---|---|\n| MCP `search_issues`, near-verbatim title of **#6252 itself** | ≥1 (the issue exists and `issue_read` returns it) | **`total_count 0`** |\n| unauthenticated REST `/repos/.../issues` and `/search/issues` | — | **HTTP 403** |\n| zero-quota GitHub web payload channel, `action-id lookup` | ≥1 | **8 issue numbers, including 6252** ✅ |\n\n⇒ The **known-must-hit control failed on `search_issues`**. Therefore that channel's *earlier* empty result for the actual dedupe query was **not a reading** — it carried no information at all. Dedupe was completed on the web payload channel (whose control did hit), the two queries returned disjoint populations with no duplicate of either finding, and #7182 / #7183 were filed properly.\n\n⚠️ Note the same seat used MCP **`search_code`** successfully in the same container an hour earlier — 13 hits for `13855`, with the returned paths independently confirmed against a local checkout. **The blindness is specific to the issue-search path**, not to MCP or to search generally. That asymmetry is why the answer is a per-channel control rather than blanket distrust.\n\n## ⭐ Why this is worth a card and not a footnote\n\n**A silently-empty search is the worst failure shape available to a dedupe step.**\n\n- It renders as *\"no duplicate exists\"* — the exact answer the step is looking for.\n- It is **indistinguishable from a real negative**.\n- It is **unfalsifiable without a control**.\n\nSo the failure mode is not \"the seat gets an error and retries.\" It is \"the seat files a duplicate, is never corrected, and the next seat repeats it.\" Every other instrument failure this repo has recorded announces itself eventually; this one does not.\n\n⇒ ⭐ **The generalisation, which is the actual deliverable of this card:** this repo's instrument discipline already says *a control that returns zero is no control* and *an empty output is not a `0`*. Both are written about **queries**. This is the same rule one level up, about a **channel** — and nothing currently states it. **The control belongs on the channel, not only on the query.**\n\n## Options\n\n- **A — treat MCP `search_issues` as unavailable for this seat/container**, and document the zero-quota web payload channel as the dedupe route, with a mandatory control word. Cheap, immediate, measured working here, costs no GraphQL quota.\n- **B — investigate why `search_issues` returns 0 for a query matching an issue it can read directly via `issue_read`.** Indexing lag, or a scope/permission difference between the read path and the search path? These have different remedies and only one of them is transient.\n- **C — do nothing; each dev re-discovers it per run.**\n\n**Implementer's recommendation, which this seat endorses: A *plus* B.** A closes the hole today. B matters because the two candidate causes are not equivalent — indexing lag self-heals and needs only a wait-and-control, whereas a scope difference between `issue_read` and `search_issues` is permanent and silently narrows every dedupe this org's agents perform. ⛔ Do not close this on A alone without recording which cause B found.\n\n## What this card does NOT claim\n\n- ⛔ Not that MCP search is broken in general — `search_code` demonstrably works in this same container.\n- ⛔ Not that any duplicate was actually filed. The control caught it; #7182 and #7183 are clean. This is a near-miss recorded **because** it was a near-miss.\n- ⛔ Not that the web payload channel is a permanent answer — it is what was measured working, on one day, in one container. It needs the same control it is replacing.\n\n## Suggested routing (triage's call, not this seat's)\n\n`domain:devx` or `domain:skills` — the deliverable is a documented dedupe route plus the channel-control rule written where agents read it (the instrument-discipline section that already carries the query-level rules). Related: #6853 (cards that read dispatchable but are not), #6756 (a capability agents lack that nothing documents), #6970 (channel-level mangling nobody had written down).\n\nRefs: #6252 / PR #7180 (the measurement) · #7182 · #7183."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 5397,
+  "kind": "issue",
+  "title": "[finding] The changeset release PR runs no CI at all — every ci.yml run on `changeset-release/main` is `action_required`, so the release commit reaches `main` unvalidated",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-20T11:46:13Z",
+  "updated_at": "2026-09-02T14:20:21Z",
+  "closed_at": "2026-09-02T14:20:21Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5397",
+  "body": "Filed **unassigned** while implementing #5394 (PR #5396). Not caused by that card and not fixed by it — #5394's fix closes one instance (the `QUICK_REFERENCE.md` drift) by moving the doc inside `changeset:version`; this issue is the channel that let the instance reach `main` in the first place, and it is wide open for anything else the release path produces.\n\n## Measured, not inferred\n\n`GET /repos/objectstack-ai/objectui/actions/workflows/ci.yml/runs?branch=changeset-release/main` — **736** runs, and every one of the 30 most recent looks like this:\n\n```\n\"conclusion\": \"action_required\",\n\"created_at\":     \"2026-08-20T09:17:34Z\",\n\"run_started_at\": \"2026-08-20T09:17:34Z\",\n\"updated_at\":     \"2026-08-20T09:17:34Z\",\n\"triggering_actor\": \"github-actions[bot]\"\n```\n\n`created_at == run_started_at == updated_at`, zero elapsed: the workflow was created and immediately parked. Nothing executed.\n\nOn the 17.6.0 release PR (#4655, head `46a7740a1`, merged 2026-08-20T09:58:21Z) the check-runs endpoint returns **`total_count: 1`** — a single `Close issues referenced in other repositories` run that started at 09:58:28Z, **7 seconds after the merge**. So the PR that rewrites 371 files and publishes 39 packages was merged with no test, no lint, no type-check having run against it.\n\n## Mechanism\n\n`changeset-release.yml` uses `changesets/action@v1` with `GITHUB_TOKEN`. GitHub does not start workflow runs from events raised by `GITHUB_TOKEN`, so the release PR gets no `pull_request` build. The bot force-pushes `changeset-release/main` on every push to `main`, so there is also no stable head for a human to re-run checks against.\n\n## Why it matters beyond #5394\n\nThe release commit is the single largest diff that lands on `main` in any given week, it is machine-generated, and it is the **only** commit that reaches `main` without passing the merge queue's validation. #5394 happened to cash this in three times through one doc row; the exposure is not limited to that row — any check that the version step can break lands red on `main` and is first seen by the `push` build (run 32356587040 took 39 min 26 s to report it).\n\nThis is the same shape as #4973 (`--auto` merging before the slow shard reported) one channel over: there, merges did not wait for the gates; here, the gates never run.\n\n## Directions (no choice made — this is a CI policy call for the maintainer)\n\n1. Run the version step's validation **inside** `changeset-release.yml` before the action opens/updates the PR (it already runs `pnpm test` and `pnpm build` earlier in that job — but on the *pre-version* tree, which is precisely the tree that is not at risk).\n2. Give the release PR real checks by having the action author it with a PAT / GitHub App token instead of `GITHUB_TOKEN`, so `pull_request` builds start.\n3. Accept the exposure and mechanically guarantee the version step's outputs instead — which is what PR #5396 does for the one row that had actually drifted, and does not generalise.\n\nI lean 1 (cheap, no token surface, validates exactly the tree that lands), but the trade-offs here are the maintainer's.\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 6214,
+  "kind": "issue",
+  "title": "tier 2 of #5043: compile the README code blocks (+ bidirectional pins for documented `interface` blocks) — needs a baseline decision before it can be a gate",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "tooling"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T01:53:28Z",
+  "updated_at": "2026-09-02T06:27:08Z",
+  "closed_at": "2026-09-02T06:26:58Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6214",
+  "body": "Filed unassigned, not claiming. Follow-up to #5043, whose triage comment explicitly held this out of that card: *\"Tier 2 (extract-blocks-and-compile + bidirectional pins) is explicitly OUT of this card — it needs a baseline decision first (known pre-existing reds, see the entry-price note); file a follow-up if wanted.\"* This is that follow-up.\n\nTier 1 shipped in PR #6212 (`scripts/check-readme-exports.mjs`, `pnpm check:readme-exports`, `README Export Check`, zero repo-wide).\n\n## What tier 1 provably cannot see\n\nTier 1 answers exactly one question: **does the imported name exist**. #5043's own measurements record the class it misses — a README where every name is a real export and the *types* are wrong:\n\n- `packages/plugin-calendar/README.md` (#5010): after the import path was corrected, the example **still did not compile**. `CalendarEvent` was a real export, but the *runtime* one (`id: string | number`, `start: Date`), not the authorable-JSON one `CalendarViewSchema.events` wants (`id: string`, `start: string | Date`). Three `TS2322`. Name-set checking is green on all of it.\n- `packages/plugin-gantt/README.md` (#5012): `GanttTask` is a real export, and the \"Task Structure\" reference block writes it as `name` + ISO string dates when the real type is `title` + `Date`.\n\n## The two design points already measured, so nobody re-derives them\n\n**A documented `interface` block compiles green no matter what it says.** A standalone `interface GanttTask { … }` in a README is a local declaration unrelated to the real type; feeding it to `tsc` as-is proves nothing. It needs bidirectional pins appended to the block:\n\n```ts\ndeclare const real: RealGanttTask;\nexport const docFromReal: GanttTask = real;   // real -> documented\ndeclare const doc: GanttTask;\nexport const realFromDoc: RealGanttTask = doc; // documented -> real\n```\n\nMeasured on the old plugin-gantt README, predictions written first, both directions red as predicted: `TS2741 Property 'name' is missing in type '…GanttTask' but required in type 'GanttTask'` and `TS2741 Property 'title' is missing …`. **One direction pins only half**: real→doc alone misses optional keys the doc block invents; doc→real alone misses required keys the doc block drops.\n\n**And the typed-example half cannot carry it.** Predicted that the old `const task: GanttTask = { name: …, start: '2024-01-01' }` would report `name`/`title`; measured, it reported only two `TS2322: Type 'string' is not assignable to type 'Date'` — a property-level assignment error short-circuits the missing-property detail. So the key-rename fact is carried **only** by the pin block. A tier-2 implementation that extracts typed examples without adding pins misses that whole class.\n\nTwo engineering details from the same measurement:\n\n- Multiple blocks in one README each write `const schema = { … }`, and with no imports each is a global **script**, so one `tsc` invocation reports duplicate identifiers. One `export {};` per block makes it a module — scope only, no effect on the check.\n- Some blocks in this family are **deliberately not valid** (bare `{ type, tasks: …, … }` property sketches, bare `dependencies: [ … ]` fragments). They must be **skipped explicitly and listed with the reason**, never dropped silently. Classify by a content signature (a regex on the block's first line), not by block index — the same machinery then runs against both the current README and a pre-fix one, whose block indices differ.\n\n## Why it is blocked on a baseline decision, not on effort\n\nRunning all 15 compilable plugin-gantt blocks under `strict`, **after** #5012 landed, still exits `rc=2`: two `TS7006` from `onTaskClick: (task) => …` written inside an unannotated `const schema = { … }`. Those are not a missed fix — they are part of the fabricated-schema-key surface filed as #5057.\n\nSo tier 1 could require zero repo-wide (and does). Tier 2 **cannot** on day one: it arrives with a batch of existing reds entangled with the invented-key surface, and needs triage plus a baseline ruling (fix-then-require-zero, or land with a shrink-only ledger like #5867's) before it can gate anything.\n\n## A stated bound both tiers share\n\nNeither tier sees **authorable-JSON key surfaces**. `BaseSchema` carries `[key: string]: any` (`packages/types/src/base.ts:318`) and its Zod mirror is `.passthrough()` (`packages/types/src/zod/base.zod.ts:154`), so `TS2353` is structurally impossible on `ObjectXxxSchema` — measured on gantt at `82a94170c`: annotate a block containing only keys adjudicated fabricated, `exit=0`, zero errors. Tier 2 pins only three things on that family: the `type` literal, missing **required** keys, and literals of *runtime* types that do not inherit `BaseSchema`. That third one is the real capability and it is genuine — it is what caught `CalendarEvent` — but the authorable key surface needs a third instrument (#5057 / #5074 are its user-visible halves).\n\nAlso worth knowing when reading tier-2 output: when one literal has **both** an excess property and a property-level type error, TS reports only the latter and skips the freshness check, so a naive \"compile once, read all errors\" pass systematically under-reports excess keys.\n\n## Grading\n\nFor PM triage. Labelled `finding`: it is prevention work, and its user-visible instances are filed separately. The first task on it is the **baseline ruling**, not code."
+}

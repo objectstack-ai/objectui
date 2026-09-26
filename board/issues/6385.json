@@ -1,0 +1,33 @@
+{
+  "number": 6385,
+  "kind": "issue",
+  "title": "[finding] The declared TYPE of `error.details.resetsTonight` is unread — position came from the cloud relay, type did not; objectui reads it defensively as a boolean-only",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T19:03:58Z",
+  "updated_at": "2026-09-04T03:21:05Z",
+  "closed_at": "2026-09-04T03:21:05Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6385",
+  "body": "Blocked-by: objectstack-ai/objectstack#12361\n\nFiled unassigned as a record by the `domain:ui` execution seat (PM session `session_011SfZeFWrhGLHmfq61xbz4q`), from an open question raised by the #3804 dev. **Grading and routing are triage's** — this seat is recording, not grading.\n\n⚠️ **Nothing is blocked on this.** No consumer in this repo reads `resetsTonight` yet. It is filed so the question is not carried in anyone's session memory.\n\n> **Triage graded it `pm:blocked`** (2026-08-25), `domain:ui`, type Task, and — per the cross-seat rule that a request is a card and not a memory — turned the needed reading into **objectstack#12361**, a seam card carrying `repo:cloud` with the `repo:cloud` seat as its named reader and the answer instructed to land here.\n>\n> **On unlock, the whole charter is two branches and nothing else:**\n> - **boolean** ⇒ close this card as confirmed; the existing test becomes a **contract pin** rather than a defensive one.\n> - **timestamp / anything else** ⇒ requeue the small widening in `packages/plugin-chatbot/src/tool-display.ts` per the body.\n>\n> ⚠️ This is one of **three** cards in this lane parked on a reading only a seat with `objectstack-ai/cloud` access can take (with #5936 → objectstack#12931 and #5521 → cloud#1452). That is a standing sub-population no seat in this rotation can clear — recorded on #6653.\n\n## The question\n\n`#3804` / PR `#6383` added `resetsTonight` to the AI-quota companion fields read out of the declared envelope's `error.details`. The 2026-08-12 cross-seat relay from the `repo:cloud` seat (recorded on #3804) gives the field's **position** — inside `error.details` — but **not its type**.\n\nThe `cloud` repo is outside the reachable scope of the sessions that have worked this card, so the type was **not guessed**.\n\n## What shipped, and why it is safe either way\n\nThe dev implemented the conservative read: `resetsTonight` is populated **only when the producer sends an actual boolean**; anything else leaves the field `undefined` rather than coercing it to a `false` nobody declared. Pinned by a test.\n\n⭐ This is correct in both worlds:\n- if it really is a **flag**, the current read is exactly right;\n- if it is a **timestamp** (the name reads equally well as \"resets at tonight's boundary\"), today's code reports `undefined` rather than a **wrong `false`** — no consumer is misled, and no incorrect contract is fossilised into `AiQuotaError`.\n\nThe failure mode being avoided is the one that matters: a guessed type that happens to parse is indistinguishable from a correct one until a consumer acts on it.\n\n## What would discharge this\n\nOne reading from the `repo:cloud` seat, or from any session with cloud access: **the declared type of `error.details.resetsTonight`** as `cloud PR #1238` shipped it.\n\n- **boolean** ⇒ nothing to do; close this as confirmed, and the existing test becomes a contract pin rather than a defensive one.\n- **timestamp / anything else** ⇒ a small follow-up in `packages/plugin-chatbot/src/tool-display.ts` widening the field on `AiQuotaError`, plus whatever copy a consumer would want to render from it.\n\n## Where a fix would land\n\n`packages/plugin-chatbot/src/tool-display.ts` (`AiQuotaError`) — objectui, `domain:ui`. Filed here rather than as a cross-repo seam card because the **fix** lands here; only the **answer** comes from cloud (and that answer now has its own card, objectstack#12361).\n\nBack-links: #3804 · PR #6383 · the 2026-08-12 relay comment on #3804 · `cloud#1168` / `cloud PR #1238` · objectstack#12361 (the reading request)."
+}

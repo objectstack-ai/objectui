@@ -1,0 +1,30 @@
+{
+  "number": 6978,
+  "kind": "issue",
+  "title": "The two worktree guard hooks still emit the unhardened `-b` recipe as their remediation text — the copy an agent reads at the moment it is about to run it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "zhuangjianguo",
+    "id": 19182527,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T05:42:30Z",
+  "updated_at": "2026-09-05T00:46:33Z",
+  "closed_at": "2026-09-05T00:46:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6978",
+  "body": "Found while landing #6880 (PR #6976). Filing rather than widening that PR: its triage comment pinned scope to the FLAG INSERT ONLY in the two instruction files, so the hook copies were deliberately left alone.\n\n## What drifted\n\n#6880 hardens the prescribed worktree recipe to `git worktree add --no-track ...` in `CLAUDE.md:16` and `AGENTS.md:234`. But the recipe is prescribed in **four** places in this repo, not two. The other two are the PreToolUse guards' own remediation messages:\n\n- `.claude/hooks/guard-main-checkout.sh:57`\n- `.claude/hooks/guard-main-checkout-bash.sh:544`\n\nboth spelling it (placeholders written as words here; the files use angle-bracket placeholders):\n\n```\ngit fetch origin main && git worktree add ../NAME-TASK -b BRANCH origin/main\n```\n\n## Why this copy matters more than the other two\n\nThe instruction-file copies are read at orientation. **These two are printed at the exact moment an agent has just been blocked and is looking for the command to run instead.** That is the highest-conversion copy in the repo — it is read under time pressure, by an agent that has already been told it did something wrong, and it is copy-pasteable as-is. Hardening the docs while the block message still hands out the unhardened form leaves the hazard sitting at the point of use.\n\nThe hazard is #6880's, unchanged: plain `-b` writes `branch.NAME.remote` and `branch.NAME.merge` into the one `.git/config` every linked worktree of a repo shares. That write can fail **after** the branch is created, leaving a branch with no worktree — a half state the error text does not name, whose \"the worktree exists\" misreading sends the agent to edit the shared primary checkout, i.e. exactly what these two hooks exist to prevent.\n\n## Measured\n\nComplete repo-wide sweep on `origin/main` at `fd8dace` (excluding `node_modules`, `.git`) for `worktree add` with a `-b`:\n\n| location | kind | in #6880's scope? |\n| --- | --- | --- |\n| `CLAUDE.md:16` | prescribed recipe | yes — hardened by PR #6976 |\n| `AGENTS.md:234` | prescribed recipe | yes — hardened by PR #6976 |\n| `.claude/hooks/guard-main-checkout.sh:57` | **hook remediation text** | **no — this card** |\n| `.claude/hooks/guard-main-checkout-bash.sh:544` | **hook remediation text** | **no — this card** |\n| `.changeset/6208-worktree-recipe-fetch-base.md:15` | historical changeset | no — a record of a past change, must not be rewritten |\n| `guard-main-checkout-bash.selftest.sh:40` | creates a real scratch worktree in a temp repo | no — not a prescription, no shared `.git` |\n| `guard-tree-enum.selftest.sh:99` | fixture asserting the hook ALLOWS that command | no — an allow-list input, not a prescription |\n\n## No test pins the spelling\n\nChecked before filing, because a pin would have made this the same change's test face and therefore in scope for #6880. The three self-tests that mention `AGENTS.md` / `CLAUDE.md` use them only as **filenames inside test command strings** (`expect allow 'grep -n \"git stash\" AGENTS.md'` and similar); none reads or asserts instruction-file content. So the two hook messages are free text that nothing verifies against the documented recipe — which is also why they could drift apart in the first place.\n\n⇒ Worth considering alongside the fix: a check that the recipe has ONE spelling across all four sites, so the next hardening cannot land in two of them. Without it this drift class recurs on every change to the recipe.\n\n## Duplicate check\n\nSearched before filing; instrument alive with a non-empty control (the query returned **#6880**, this finding's own parent subject, as a positive control — not a false zero). Two open neighbours, neither covering this:\n\n- **#6880** — hardens the two instruction-file copies only; its triage comment 5473464940 pins scope to the flag insert and explicitly excludes everything else.\n- **#6451** (`pm:blocked`) — `guard-main-checkout.sh` has no self-test. **Adjacent and related** (a self-test is one way this drift would have been caught) but a different defect: that card is about the absence of a test, this one is about the content of the remediation string. Whoever takes either should read the other.\n\n## Refs\n\n- #6880 / PR #6976 — where this was found; the two-file hardening\n- #6451 — the missing self-test on one of the same two hooks\n- #6208 — the previous drift in the same recipe (branching off an unfetched local `main`)\n- objectstack#13052 — the objectstack-side `--no-track` hardening this family came from\n"
+}

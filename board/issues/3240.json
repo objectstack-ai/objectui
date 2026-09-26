@@ -1,0 +1,34 @@
+{
+  "number": 3240,
+  "kind": "issue",
+  "title": "17 个包各自带 vitest.config.ts 与根 vitest.config.mts 行为分叉:先回答「哪些包真的需要本地配置」",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-03T07:09:42Z",
+  "updated_at": "2026-09-04T02:52:46Z",
+  "closed_at": "2026-09-04T02:51:48Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 13,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3240",
+  "body": "越界发现,自 objectui#3219 拆出(Prime Directive #10)。**未认领**,需先由维护者定方向再动手。\n\n#3219 只修了一个文件的 mock 写法(`plugin-calendar/src/registration.test.tsx`),并钉了一条断言防止该文件再次分叉。但**产生分叉的机制是仓库级的,仍然存在**,只是暂时没有别的文件踩中。\n\n## 分叉机制(在 #3219 里已实测坐实,不是推测)\n\n本仓有两套 vitest 配置,对**同一个测试文件**可以给出不同结论:\n\n| 路径 | 实际执行 | `@object-ui/*` 解析到 |\n|:--|:--|:--|\n| CI(`.github/workflows/ci.yml`) | 根 `package.json` 的 `\"test\": \"vitest run\"` + `--shard=N/4`,走根 `vitest.config.mts` 的 projects/alias | **源码**(`resolve.alias` 把 ~40 个包名指向 `packages/*/src`) |\n| `pnpm --filter < pkg > test` / `turbo run test` | 该包自己的 `vitest.config.ts` | **`dist`**(无 alias,走 workspace 包的 `exports`,因此 `test` 任务 `dependsOn: [\"^build\"]`) |\n\n`plugin-calendar` 的实测形态:同一份 `registration.test.tsx`,根配置 **2 passed**,包配置 **suite 根本加载不了**(`No \"subscribeDataChanges\" export is defined on the \"@object-ui/react\" mock`)。\n\n更值得注意的是,**根配置那一侧的\"绿\"是偶然的**:该文件在根配置的 `heavyDomTests` 名单里,`vitest.setup.dom.tsx` 会**预先** `import '@object-ui/components'`,于是 `components/src/hooks/related-count-store.ts`(它 import 了 `subscribeDataChanges`)在 `vi.mock` 生效**之前**就已按真实模块求值完毕;包配置没有这个 setup,`@object-ui/components` 首次求值发生在被 mock 的图里,于是炸。也就是说两侧的差异不止 alias,还叠加了 **setupFiles 是否预热了消费者模块**——两个独立变量。\n\n## 后果\n\n1. AGENTS.md 建议本地只跑受影响的包,但那条路径与 CI 结论不等价:今天方向是**假警报**(#3219 就是这么产生的,浪费一轮诊断),反方向就是**真失败对 CI 不可见**;\n2. `turbo test` 全量在本地长期红,于是\"全量绿\"在本仓对不同人意味着不同的东西;\n3. 与 #3207(`turbo type-check --filter` 恒失败、全仓跑时不可见)同族——门禁在特定调用方式下给出的答案不作数。\n\n## 涉及的 17 个包(实测清单)\n\n`components`, `core`, `fields`, `plugin-calendar`, `plugin-charts`, `plugin-dashboard`, `plugin-detail`, `plugin-form`, `plugin-gantt`, `plugin-grid`, `plugin-kanban`, `plugin-list`, `plugin-map`, `plugin-timeline`, `plugin-view`, `react`, `types`\n\n即 `ls packages/*/vitest.config.*` 的全部结果。\n\n## 动手前必须先回答的问题\n\n> **哪些包\"真的需要\"本地 vitest 配置?**\n\n在这个问题有答案之前不要动手改配置面。可选方向,各自代价不同:\n\n- **A. 全删,统一由根配置跑。** 最彻底,一套配置一个结论,`dist` 与源码的解析差异随之消失。代价:`pnpm --filter < pkg > test` 这个用法要重新定义(改成对根配置传路径过滤),`turbo` 的 `test` 任务与 `^build` 依赖也要重估;需要逐包确认没有哪个包依赖本地配置里的特殊 environment/setup。\n- **B. 保留但强制继承根配置**(本地 config `extends` 根 alias/setup),只允许覆盖确有必要的字段。代价:仍是两个入口,只是把分叉面收窄;要有机械检查防止漂移。\n- **C. 保留现状,逐个文件像 #3219 那样加断言。** 成本随文件数线性增长,且只在有人踩中之后才发现——不推荐,记在这里只为完整。\n\n倾向 A 或 B,但**需要维护者先定**:这是一次跨 17 个包的配置面重构,会与在飞单大面积撞文件,应单独排一轮、不与其他改动同批。\n\n## 不要混进来的一件事\n\n#3219 里附带提到 `@object-ui/plugin-gantt` 的 `ELIFECYCLE`(单独跑 35 文件/340 断言全绿)是并发内存压力形态,与本条的配置分叉不是一回事。\n\n---\n\nRestart-when: no `pm:dispatched` card exists in the `domain:devx` @ objectui lane — i.e. no dev in flight, the 2026-08-10 ruling's \"single dev, no other work in flight\", evaluated at the moment of dispatch. The ruling's other clause, \"board drained **or near-drained**\", is satisfied while the only remaining `pm:queue` work is the rolling #5174 ledger batches: that card cycles indefinitely by design, so treating it as blocking would make this condition unreachable. Executable check: list open issues labelled `domain:devx` in this repo and confirm none carries `pm:dispatched`.\n\n_Line added 2026-09-03 by the `domain:devx` execution seat (R42) to make an already-ruled restart condition machine-readable; it restates the 2026-08-10 ruling and ⛔ does not change it. Corrected the same day — the first version also required zero other `pm:queue` cards, which dropped the ruling's \"or near-drained\" and made the condition unreachable while #5174 cycles. See the comments below._"
+}

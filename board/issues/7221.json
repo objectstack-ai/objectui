@@ -1,0 +1,33 @@
+{
+  "number": 7221,
+  "kind": "issue",
+  "title": "finding(plugin-gantt/plugin-list): one authored view filter reaches the wire in two dialects — ListView forwards it, the gantt path recompiles it through `mergeFilterNodes`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T14:07:22Z",
+  "updated_at": "2026-09-02T16:16:31Z",
+  "closed_at": "2026-09-02T16:16:31Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7221",
+  "body": "Blocked-by: #7349\n\nRecorded while implementing half 1 of objectui#7210. Filed separately because objectui#7210's ruling scoped the dialect disagreement OUT of that card: \"if half 3's condition fails and both requests survive, the dialect mismatch is a finding to report, not to repair here.\" Half 3's condition did fail (the paged request has consumers other than the footer), so both requests survive and this needs its own home. Not a duplicate of objectui#7210 — that card is about the footer and the ceiling; this one is about the two shapes.\n\nFiled unassigned, as an observation. I have not established that the two dialects ever select different rows; that is the first thing to measure and it is why this is worth a card rather than a note.\n\n> **Measured 2026-09-02 (PR #7348, test-only pins): DIVERGENT.** On the wire the two dialects are equivalent (the server lowers both to the same `$and`); through `ValueDataSource` they are not, because the in-memory matcher reads neither the flat implicit-AND array nor the null-ness operators. The correctness half is #7349; this card closes when the two `it.fails` cases named \"diverges — objectui#7221\" in `packages/core/src/utils/__tests__/filter-dialect-equivalence-7221.test.ts` flip to plain `it` there.\n\n## What the reporter saw\n\nobjectui#7210 measured one page load of a `type: 'gantt'` list view against published `@objectstack/*` 17.2.0 and got two requests whose filters do not agree:\n\n```\npaged      filter=[[\"visible_from\",\"is_not_null\"],[\"due_date\",\"is_not_null\"]]\nunbounded  filter=[\"and\",[\"visible_from\",\"isnotnull\",null],[\"due_date\",\"isnotnull\",null]]\n```\n\nSame authored view, same load, two wire shapes.\n\n## The two paths, read rather than assumed\n\n- **`ListView`'s own query forwards the authored value.** `buildEffectiveFilter(schema.filter, currentFilters, userFilterConditions)` returns the authored array unchanged when it is the only surviving source. Measured in a harness (18 rows, `pagination.pageSize: 6`, authored filter `[[\"visible_from\",\"is_not_null\"],[\"due_date\",\"is_not_null\"]]`): the paged request went out carrying that array verbatim.\n\n- **The gantt's own query goes through a compiler that `ListView`'s does not.** `plugin-gantt/src/index.tsx` declares `OBJECT_GANTT_DATA_SOURCE = { filter: true, sort: true }`, so `ElementDataSourceGate` (`packages/react/src/element-data-source/ElementDataSourceGate.tsx`) runs `mergeFilterNodes(base.filter, composed.filter)` before `ObjectGantt` ever reads `schema.filter`. `mergeFilterNodes` (`packages/core/src/utils/filter-converter.ts`) returns a lone surviving source as-is and wraps two or more as `[\"and\", ...nodes]` — with `toFilterNode` lowering any `ViewFilterRule` element to an AST node on the way through.\n\nSo the divergence is not random: it is one path composing and lowering where the other forwards. With a single filter source the two agree (my harness reproduced exactly that — both requests carried the flat authored array); with two or more surviving sources on the gantt side only, they part.\n\n## Why it is worth a card\n\n1. **The compilation is where a wrong answer could hide.** Wrapping and operator lowering both change what the server matches if either side is imperfect. Nobody has checked that `[\"and\", A, B]` and `[A, B]` select the same rows through every adapter — `@object-ui/data-objectstack` maps `is_not_null` to `isnotnull` on the way out, and the two shapes reach that mapping through different amounts of normalization.\n2. **It makes the two requests hard to reason about as \"the same rows twice.\"** objectui#7210's half 3 is explicitly NOT \"dedupe the requests\", precisely because deduping means picking one of these dialects and picking wrong changes the result set silently. That decision cannot be taken until somebody has established the two are equivalent.\n3. **It is a divergence between siblings, not a property of one.** Whatever the answer is, one authored filter should have one lowered form.\n\n## Suggested first step\n\nNot a fix, a measurement: take an authored two-rule filter with two surviving sources, run both lowered shapes through `ValueDataSource` and through `ObjectStackAdapter`'s serializer, and compare the row sets and the wire strings. If they agree, this is a tidiness card; if they do not, it is a correctness one and the severity moves.\n\nRefs: objectui#7210 (parent observation, halves 2 and 3 still open there) · PR #7348 (the measurement pins) · #7349 (the correctness fix this card is blocked on)."
+}

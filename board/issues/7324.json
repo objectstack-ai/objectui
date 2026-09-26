@@ -1,0 +1,37 @@
+{
+  "number": 7324,
+  "kind": "issue",
+  "title": "finding(plugin-form): `ObjectSchemaLike` is the parameter type of three exported functions but is not itself exported, so a consumer cannot name what it must pass",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T06:54:09Z",
+  "updated_at": "2026-09-03T13:10:45Z",
+  "closed_at": "2026-09-03T13:10:45Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7324",
+  "body": "Found while bringing `packages/plugin-form/README.md` under `check:doc-snippet-types` (#5174 batch 8). Filed rather than fixed: `packages/*/src` is outside that PR's surface.\n\n## The gap\n\n`packages/plugin-form/dist/schemaDefaults.d.ts` declares:\n\n```\ninterface ObjectSchemaLike {\n    fields?: Record<string, { defaultValue?: unknown; type?: unknown; reference?: unknown; reference_to?: unknown } | undefined>;\n}\n```\n\nwith no `export` keyword, and then uses it as the second parameter of three functions that **are** exported from the package root (`packages/plugin-form/dist/index.d.ts:66` and the `schemaDefaults.js` re-exports):\n\n- `omitServerResolvedDefaults(data: Record<string, unknown>, objectSchema: ObjectSchemaLike | null | undefined)`\n- `schemaDefaultValues(objectSchema: ObjectSchemaLike | null | undefined, ctx?: SeedContext)`\n- `seedCreateValues(objectSchema: ObjectSchemaLike | null | undefined, initial?, ctx?)`\n\n`SeedContext`, the other parameter type on the same two signatures, **is** exported. `ObjectSchemaLike` is the one that is not.\n\n## Why it matters\n\n#6059 published `omitServerResolvedDefaults` and `isRequiredInForm` precisely so a host with its own form renderer applies the same rule instead of re-deriving it. Such a host has to hold the schema it will pass in a variable or a prop, and it cannot name that variable's type: the name is not importable. Structural typing means it still *compiles* if the host writes the shape out by hand — so the cost is not a hard failure but a duplicated, drift-prone restatement of a producer-owned shape in every consumer, which is the failure mode `declared = enforced` exists to prevent.\n\nThe README block documenting the pair now declares its input as a hand-written `{ fields?: Record<string, { defaultValue?: unknown }> }` for exactly this reason. That literal is the duplication this card is about.\n\n## Options\n\n- **A. Export the interface** from `schemaDefaults.ts` and re-export it from the package root, beside `SeedContext`. One line each; makes the published signature nameable and nothing else changes.\n- **B. Replace the local interface with the shipped object-schema type** (`@object-ui/types`' object-schema shape) if one is assignable. Better if it holds, because it removes a parallel declaration rather than publishing a second one — but it widens what the functions accept and needs checking against the `fields` members they actually read.\n- **C. Leave it.** Every consumer keeps restating the shape; the restatement is invisible to every gate until the producer's shape moves.\n\nRecommendation: **A** unless B is verified assignable in both directions, since A is the smaller and strictly reversible step.\n"
+}

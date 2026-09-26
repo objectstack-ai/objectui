@@ -1,0 +1,34 @@
+{
+  "number": 7222,
+  "kind": "issue",
+  "title": "finding(plugin-gantt): `ObjectGanttRenderer` forwards no host prop but `schema` — the one view wrapper that does not, so `ListView`'s `data`/`onRowClick` never arrive and a live comment says the opposite",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:blocked",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T14:07:47Z",
+  "updated_at": "2026-09-04T03:20:51Z",
+  "closed_at": "2026-09-04T03:20:51Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7222",
+  "body": "Measured while implementing half 1 of objectui#7210. Filed separately: objectui#7210 is about the paging footer and the missing ceiling; this is about a wrapper that silently drops every host prop, and it is the mechanism underneath that card rather than the card itself.\n\nFiled unassigned. One half is a stale comment (certain), one half is dead code (certain), one half is a suspected user-visible consequence I did **not** measure and have marked as such.\n\n## Measured\n\n`packages/plugin-gantt/src/index.tsx`:\n\n```\nexport const ObjectGanttRenderer = elementDataSourceBlock(({ schema }) => {\n  const { dataSource } = useSchemaContext() || {};\n  return (\n    ElementDataSourceGate ...\n      {(bound) => ObjectGantt with schema={bound} dataSource={dataSource} }\n  );\n});\n```\n\nIt destructures `{ schema }` only and hands the child exactly two props. Every sibling view wrapper destructures `({ schema, ...props })` and spreads `{...props}` onto its child:\n\n| wrapper | forwards host props? |\n|---|---|\n| `plugin-grid` `ObjectGridRenderer` | yes |\n| `plugin-kanban` `ObjectKanbanRenderer` | yes |\n| `plugin-calendar` `ObjectCalendarRenderer` | yes (through a declared, filtered hatch) |\n| `plugin-map` `ObjectMapRenderer` | yes |\n| `plugin-tree` `ObjectTreeRenderer` | yes |\n| `plugin-gantt` `ObjectGanttRenderer` | **no** |\n\nPinned behaviourally in `packages/plugin-gantt/src/ObjectGantt.hostDataProp-7210.test.tsx` (landing with objectui#7210's half 1): a host renders the block with `data` = 2 rows while the adapter answers 5, and the chart draws the adapter's 5.\n\n## Consequence 1 — a dead conditional (certain)\n\n`plugin-list/src/ListView.tsx` hands its child `{...(ganttOwnsData ? {} : { data })}`. For a gantt that expression cannot matter: the prop is dropped either way. The `ganttOwnsData` flag still earns its keep through its other two effects (skipping `ListView`'s own fetch for an api-provider gantt, and not flashing the skeleton), so this is one inert clause, not a dead flag.\n\n## Consequence 2 — a comment that is false (certain)\n\nDirectly above it:\n\n```\n// ListView must neither fetch schema.objectName rows for it nor pass its\n// `data` prop down — the prop short-circuits the renderer's own fetch, so\n// stale object rows would replace the endpoint's tree.\n```\n\nThe prop does not short-circuit the renderer's own fetch, because the prop never reaches the renderer. `ObjectGantt.reload`'s `rest.data` branch is real code, but nothing on the registry path can reach it. This is not a nit: believing that comment is exactly what makes objectui#7210's double fetch invisible on a read-through — it says the host feeds the chart, and the host does not.\n\n## Consequence 3 — SUSPECTED, not measured\n\n`ListView`'s `baseProps` also carries `onRowClick: navigation.handleClick`, plus `rowHeight`, `hideRowHeightToggle` and `onRowSelect`, and none of them can arrive either. If a gantt view's authored `navigation` config (drawer / modal / page) is meant to be honoured through that callback, it is not being honoured — but `ObjectGantt` owns a record drawer of its own, so it may simply not need it. **Unverified.** Someone should drive a gantt row click in a browser before this is treated as a defect.\n\n## ⛔ What this card is NOT proposing\n\nDo **not** read this as \"spread `{...props}` and be done.\" Forwarding `data` would feed the chart the host's PAGE, capping a gantt at `pagination.pageSize` — a complete schedule becomes a quietly truncated one that still looks like a schedule. Whether a non-grid view may fetch unbounded at all is an open maintainer decision recorded on objectui#7210 (half 2) and escalated on objectui#5560; it is not settled by this card and must not be settled as a side effect of a prop-forwarding tidy-up. The two safe pieces here are the comment and the inert clause.\n\nRefs: objectui#7210 (parent observation; halves 2 and 3 open there), objectui#7221 (the filter-dialect half).\n"
+}

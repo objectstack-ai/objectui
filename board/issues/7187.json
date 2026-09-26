@@ -1,0 +1,37 @@
+{
+  "number": 7187,
+  "kind": "issue",
+  "title": "finding(plugin-grid): the relational copy-set derivation cannot judge a COPY — its read set is a union over three consumers, two of which are never fed that bag",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T10:06:35Z",
+  "updated_at": "2026-09-04T02:45:44Z",
+  "closed_at": "2026-09-04T02:45:44Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7187",
+  "body": "Provenance: measured while implementing objectui#7166 (PR objectui#7186), by the ablation that card asked for. Filed unassigned. Named as out-of-scope by objectui#7166's own \"What is NOT measured\" and by its dispatch, so it is filed rather than ridden.\n\n## What is measured\n\n`relationalMetaCopySet.derivation.test.ts` re-extracts a read set from three consumer sources and requires `RELATIONAL_META_READ_SET` to match it exactly, in both directions. The three consumers are:\n\n1. `index.tsx#LookupCellRenderer` — the read-only cell, and the ONLY one fed the copied bag.\n2. `widgets/LookupField.tsx` — an inline EDITOR widget.\n3. `widgets/UserField.tsx` — an inline EDITOR widget.\n\nThe extracted set is the **union** of all three. But `applyRelationalMeta` writes onto the `fieldMeta` that goes to `CellRenderer` and nowhere else, while `ObjectGrid.renderCellEditor` feeds the two editor widgets from the object schema directly, spreading the whole def (`{ name: ctx.column.accessorKey, ...fieldDef }`).\n\n⇒ Membership in that read set means *\"some consumer reads this key\"*. It never means *\"this bag is how that consumer gets it\"*. A copy-set entry asserts the second. The gate is a correct instrument for the first claim and is being read as evidence for the second.\n\n## Why this is not theoretical — it has already shipped a wrong verdict twice\n\nobjectui#6875 classified `descriptionField` and `lookupColumns` as \"read, never copied\" from this derivation alone and added them to the copy set. Both were inert on that bag: their only reader is `LookupField`, which was already receiving them off the schema spread. Its third key, `displayField`, is genuinely delivered — and it is the one that arrived with a rendering test. objectui#7166 measured that and PR objectui#7186 retires the three modern spellings.\n\n## The ablation that pins the gap\n\nFrom PR objectui#7186, mutation proven on disk by marker count and blob hash, restore proven by state:\n\nRe-adding `lookupFilters` to the copy set (verdict `deferred` back to `spec`) produces `Tests 8 failed | 19 passed` across the four relational suites — and **the only failure inside the derivation gate is a hand-written pin**. Every DERIVED assertion in that file stayed green: no unclassified key, no orphan, spec proofs intact, copy-set-equals-copied-verdicts intact.\n\n⇒ The gate would not go red if all three retired keys were put back tomorrow. What guards the retirement today is a hand-written non-membership assertion plus the rendering test `relationalMetaCopySet-7166.test.tsx` — not the derivation.\n\n## What a fix would have to decide\n\nRe-scoping the derivation around the cell alone, with the editor widgets classified separately, is a **design change to objectui#6875's mechanism**, which is why objectui#7166 explicitly declined to make it. The open questions:\n\n- Should the extractor produce **two** sets — a cell read set (which alone licenses a copy) and an editor read set (which licenses nothing, and exists to keep a key classified and watched)?\n- Does the `deferred` verdict survive that split, or does it become the editor set's natural home? Seven keys currently carry it, all spec-declared: `multiple`, `allowCreate`, `lookupPageSize`, `dependsOn` (objectui#7154) and `descriptionField`, `lookupColumns`, `lookupFilters` (objectui#7166).\n- `UserField` is swept although it forwards its whole meta into `LookupField`; under a split that subset relationship needs restating rather than dropping, since a key it read and did not forward is exactly the false zero the sweep exists to catch.\n\n⚠️ Not measured here: whether any host `DataSource` outside these two repos feeds `fieldMeta` to something else. Every sweep behind this bounds `packages/` and `apps/` in this repo."
+}

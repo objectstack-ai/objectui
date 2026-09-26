@@ -1,0 +1,36 @@
+{
+  "number": 6997,
+  "kind": "issue",
+  "title": "finding(docs): AGENTS.md states the changeset rule as `src/` only — already narrower than the gate since #5733, and narrower again after #6736",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "zhuangjianguo",
+    "id": 19182527,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:skills",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T08:08:13Z",
+  "updated_at": "2026-09-05T06:27:10Z",
+  "closed_at": "2026-09-05T06:22:28Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6997",
+  "body": "Found while implementing #6736 (widening `scripts/check-changeset-presence.mjs` to read published-contract fields of a package manifest). Filed, not fixed there: AGENTS.md was outside that card's declared file surface, and the correct fix covers two separate widenings at once, so it is better taken deliberately than ridden in.\n\n## What is stated\n\nAGENTS.md line 161 states the rule the gate enforces:\n\n> 改完代码提交时:**只要改了发版包的 `src/`(`.changeset/config.json` 的 `fixed` 组,含 `apps/console`),就必须新增一个 `.changeset/*.md`**\n\n`src/` is the whole population that sentence names.\n\n## What the gate actually guards\n\nThe gate's population has been wider than that for two landings now, and this sentence tracked neither:\n\n1. **objectui#5733** added the published-executable clauses. A changed file counts when it is under `src/`, OR it is the package-root `index.html` build entry, OR the package's own `files` list publishes it verbatim (minus documentation and licences). On this tree that is three real files outside `src/` — `apps/console/index.html`, `apps/console/plugin.ts`, `packages/runner/index.html`.\n2. **objectui#6736** added a second question asked of the manifest itself: eight named fields (`sideEffects`; `exports`, `main`, `module`, `types`; `files`; `peerDependencies`, `engines`) are compared by value across the diff, and a move in any of them owes a declaration even when no file under `src/` changed.\n\nSo an author who reads AGENTS.md and reasons \"I did not touch `src/`, nothing is owed\" gets the opposite answer from CI in two distinct ways.\n\n## Why it is worth a card and not a silent patch\n\nThis is agent-facing text. AGENTS.md is an input to every seat, every session, so a rule stated too narrowly is not paid once — it is paid by every reader, and it is paid in the direction that produces a red CI run the author believes is a false positive. That is the same amplifier `scripts/check-shell-escape-residue.mjs`'s header records for its own class of bad agent-facing example.\n\nThe gate's own docblock is the accurate statement of the rule in both respects; the fix is to make line 161 agree with it (and to keep pointing at `node scripts/check-changeset-presence.mjs` as the local self-check, which line 163 already does correctly).\n\n## Not asserted here\n\nWhether AGENTS.md should restate the population in full or compress to \"run the gate; its header is the rule\" is a judgement about how much of a moving surface belongs in agent-facing text. Both were considered and neither is recommended from here — it is the kind of choice worth taking once rather than inheriting from a rider on an unrelated PR."
+}

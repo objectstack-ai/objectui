@@ -1,0 +1,35 @@
+{
+  "number": 6650,
+  "kind": "issue",
+  "title": "finding(react): the spec-bridge still forwards a per-column `wrap` after #5453 retired the only forward downstream of it — `ListColumn.wrap` is now authorable end-to-end with no renderer anywhere",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-28T08:50:58Z",
+  "updated_at": "2026-09-03T05:08:49Z",
+  "closed_at": "2026-09-03T05:05:49Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6650",
+  "body": "Found while implementing objectui#5453 (retire the dead per-column `wrap` forward in `ObjectGrid`). Out of that card's fence — it named `packages/plugin-grid` and `packages/components`' `data-table.tsx` — so it is filed rather than fixed there.\n\n## What\n\n`packages/react/src/spec-bridge/bridges/list-view.ts`, in `mapColumn()`:\n\n```ts\nif (col.wrap != null) mapped.wrap = col.wrap;\n```\n\n`@objectstack/spec` (17.2.0) declares `wrap` on `ListColumn` — `wrap: z.ZodOptional(z.ZodBoolean)` — so an author may legitimately write it on a spec list view. The bridge forwards it into the `object-grid` schema. Until #5453, `ObjectGrid.generateColumns()` then forwarded it once more into the `TableColumn[]` slot, where `data-table.tsx` never read it.\n\n#5453 removed that second hop, on the measurement that `data-table.tsx` has zero reads of a column-level `wrap` and offers no clamp / expand / wrap affordance for long cell text at all. So the chain is now one hop shorter and still terminates in nothing:\n\n    author writes ListColumn.wrap  (spec-declared, valid)\n      -> spec-bridge mapColumn()   forwards it        <- this line\n        -> object-grid schema column\n          -> [#5453 deleted the hop that used to be here]\n            -> nothing reads it, anywhere\n\n## Evidence\n\nRepo-wide, on `f241a4df` plus #5453's branch, every `.wrap` read outside `wrapper` / `nowrap` / `flex-wrap`:\n\n| site | what it is |\n|---|---|\n| `react/spec-bridge/bridges/list-view.ts:71` | the forward above |\n| `react/spec-bridge/__tests__/SpecBridge.test.ts:180` | pins the forward (`expect(col.wrap).toBe(true)`) |\n| `components/renderers/layout/flex.tsx`, `stack.tsx` | `schema.wrap` on flex/stack layout — unrelated key |\n| `core/actions/ActionRunner.ts`, `app-shell` action runtime | `bodyShape.wrap` — unrelated key |\n\nNo renderer resolves a column-level `wrap`. The pin test asserts only that the bridge passes the key through; it would stay green if every consumer vanished, which is what has now happened.\n\n## Why it is worth a card rather than a silent deletion\n\nThe bridge's own docblock states its contract deliberately: \"A spec `ListColumn` in, the same column out — in the spelling the spec declares\", and \"Nothing is invented on the way through\". Under that contract, forwarding `wrap` is the bridge doing its job faithfully, not a bug in the bridge. That is exactly why #5453 stopped at the plugin-grid hop and did not reach in here: deleting this line would make the bridge deliberately lossy for a spec-declared key, which is a different judgement from \"a producer must not write keys its consumer never reads\".\n\nSo the real question is one level up and it is a spec question: **should `@objectstack/spec` keep declaring `ListColumn.wrap` when no renderer in the ecosystem implements it?** That is ADR-0049 enforce-or-remove on a spec property, and the resolution likely lands in `objectstack/packages/spec` rather than here, with this repo's bridge line and pin test following it. Routing that is triage's call, not this seat's — hence a `finding`, unassigned, with no `pm:queue`.\n\nTwo honest resolutions, in the order the enforce-or-remove default suggests:\n\n- **Retire it in the spec** — remove `wrap` from `ListColumn`, then drop this forward and re-point the pin test. Consistent with #5453's verdict and with the zero measured pull on this side.\n- **Implement it** — give `data-table.tsx` a real long-text affordance and read the key. This is a behaviour addition and wants its own card and a product decision; #5453 was explicitly graded for removal and stopped short of it for that reason.\n\nRelated: #5453 (the forward that was retired), #6458 (`ObjectGrid` honours four undeclared authored column keys), #6004 (the untyped emit that hid both)."
+}

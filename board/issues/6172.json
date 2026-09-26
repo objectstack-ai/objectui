@@ -1,0 +1,34 @@
+{
+  "number": 6172,
+  "kind": "issue",
+  "title": "finding(types): three more type names are declared twice with disagreeing shapes — `FormField`, `MarkdownSchema`, `KanbanSchema` — and one doc asserts `FormField` is declared once",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T22:10:36Z",
+  "updated_at": "2026-09-04T15:02:29Z",
+  "closed_at": "2026-09-04T15:01:34Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 18,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6172",
+  "body": "Filed unassigned out of #6086 round 3. #6155 records `KanbanCard` / `KanbanColumn` as declared four times with disagreeing published copies and is left for triage. That card has a population it never measured; this is what the #6086 sweep turned up alongside it, so triage can size the class rather than the instance.\n\n## Three further collisions, each measured\n\n### 1. `FormField` — 23 keys vs 29, and the doc claims it is declared once\n\n| declaration | keys |\n| --- | --- |\n| `@object-ui/types` (`packages/types/src/form.ts:906`) | 23 — `id`, `name`, `label`, `description`, `type`, `inputType`, `required`, `disabled`, `placeholder`, `options`, `validation`, `condition`, `widget`, `dependsOn`, `visibleOn`, `hidden`, `readonly`, `visibleWhen`, `readonlyWhen`, `requiredWhen`, `field`, `colSpan`, `span` |\n| `@objectstack/spec` (`json-schema/ui/FormField.json`) | 29 — `field`, `type`, `options`, `reference`, `publicPicker`, `maxLength`, `minLength`, `min`, `max`, `precision`, `scale`, `multiple`, `label`, `placeholder`, `helpText`, `readonly`, `immutable`, `required`, `hidden`, `colSpan`, `span`, `widget`, `language`, `keyField`, `dependsOn`, `visibleWhen`, `visibleOn`, `disclosure`, `fields` |\n\nOnly 14 keys are common. `id`, `name`, `description`, `inputType`, `validation`, `condition`, `readonlyWhen`, `requiredWhen`, `disabled` exist only in the types copy; `reference`, `publicPicker`, `maxLength`, `helpText`, `immutable`, `disclosure`, `fields` and six more only in the spec copy.\n\n⚠️ **`content/docs/plugins/plugin-form.mdx:51` asserts the opposite**: *\"`FormField` is declared once, in `@object-ui/types` (`packages/types/src/form.ts`) — this page does not redeclare it…\"*. Under the closure rule adopted on #6086, *\"declared once\"* is a closure claim, and it is false. (The page's own 21-row table restates the **types** copy exactly, 0 unmatched — so the table is right and only the sentence about uniqueness is wrong.)\n\n### 2. `MarkdownSchema` — required vs optional, and two keys apart\n\n| declaration | shape |\n| --- | --- |\n| `@object-ui/types` (`packages/types/src/data-display.ts:797`) | `content` **required**, plus `sanitize`, `components` |\n| `@object-ui/plugin-markdown` (`packages/plugin-markdown/src/types.ts:15`) | `content` **optional**, plus `className`, and no `sanitize` / `components` |\n\nPR #6168 had to qualify the docs naming to the plugin's copy because of exactly this.\n\n### 3. `KanbanSchema` — two shapes with almost nothing in common\n\n| declaration | own keys |\n| --- | --- |\n| `@object-ui/types` (`packages/types/src/complex.ts:100`) | `columns`, `draggable`, `onCardMove`, `onCardClick`, `onColumnAdd`, `onCardAdd` |\n| `@object-ui/plugin-kanban` (`packages/plugin-kanban/src/types.ts:61`) | `objectName`, `groupBy`, `swimlaneField`, `cardTitle`, `cardFields`, `data`, … |\n\nAlso relevant to #6155: three of the four `KanbanCard` declarations are **inside `@object-ui/plugin-kanban` itself** (`KanbanImpl.tsx:51`, `KanbanEnhanced.tsx:36`, `types.ts:15`), so a package qualifier does not disambiguate the name either — which was why #6086 could not name that page's tables.\n\n## Why it is worth a card\n\n#6086 measured the consequence: a tool keyed on a type **name** returns a confident wrong answer instead of abstaining, and so does a reader. The docs cannot route around it — `plugin-markdown.mdx` now carries a sentence whose only job is to say which of two same-named types it means, which is a workaround for the collision rather than a fix.\n\nWhether the answer is renaming, re-exporting one copy from the other, or a `check:` that forbids a second declaration of an exported schema name, is a contract decision. Recording the population so it is made once rather than per page.\n\n## Reproduce\n\n```\ngrep -rn 'interface FormField' packages/types/src/form.ts\npython3 -c \"import json;print(sorted(json.load(open('node_modules/@objectstack/spec/json-schema/ui/FormField.json'))['properties']))\"\ngrep -rn 'interface MarkdownSchema\\|interface KanbanSchema\\|interface KanbanCard\\|interface KanbanColumn' packages/*/src --include=*.ts --include=*.tsx\nsed -n '49,54p' content/docs/plugins/plugin-form.mdx\n```\n\nRefs: #6155 (the instance already carded) · #6086 (where these were measured) · PR #6168."
+}

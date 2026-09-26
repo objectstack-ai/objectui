@@ -1,0 +1,37 @@
+{
+  "number": 7454,
+  "kind": "issue",
+  "title": "finding(plugin-calendar/i18n): `calendar.allDay` renders \"all-day\" without a provider and \"All Day\" with one — the factory `defaults` table is the one inline default `check:i18n-keys` never value-compares",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "i18n",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T06:35:06Z",
+  "updated_at": "2026-09-04T00:27:37Z",
+  "closed_at": "2026-09-04T00:27:37Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7454",
+  "body": "Spotted while implementing #7071 (PR #7453) — **not fixed there**, that PR's fence is the unscheduled area. Filed unassigned.\n\n## Measured on `origin/main` at `5ad0641e0`\n\nTwo spellings of the same label disagree, and which one a user sees depends on whether an `I18nProvider` is mounted:\n\n- `packages/i18n/src/locales/en.ts` (and the nine sibling packs) — `calendar.allDay: 'All Day'`\n- `packages/plugin-calendar/src/CalendarView.tsx:84` — `'calendar.allDay': 'all-day'` in `DEFAULT_TRANSLATIONS`\n\n`createSafeTranslation`'s provider-less arm returns `defaults[key] || defaultValue || key`, so a standalone embed renders **all-day**; with a provider mounted the pack wins and the same lane header renders **All Day**. Six of the seven other entries in that table match their `en` value exactly — only this one drifted, which is what makes it look like an oversight rather than a deliberate choice.\n\n## The dead ternary this leaves behind\n\n`CalendarView.tsx:1271`:\n\n```\n{t('calendar.allDay') === 'calendar.allDay' ? 'all-day' : t('calendar.allDay')}\n```\n\nThe condition can never be true. `t` here is the `createSafeTranslation` factory's function, whose provider-less arm falls back to `defaults[key]` **before** it would ever return the bare key, and `defaults` carries `calendar.allDay`. So the guard is structurally unreachable — a third spelling of the same string, kept alive by nothing.\n\n## Why no gate sees it\n\nThis is the objectui#3810 class (an inline default contradicting the value the pack serves), but through the one channel `scripts/check-i18n-call-site-keys.mjs` classifies out of the value comparison. Its own summary on this tree says so:\n\n```\n2768 pack-backed ... 1114 module-local table ...\nInline defaults: 996 literal (993 match their en value, 3 not comparable)\n```\n\nThe 996 compared inline defaults are `t(key, { defaultValue })` call sites. A `createSafeTranslation(DEFAULT_TRANSLATIONS, …)` **table** entry is the same promise — \"this is what the pack says\" — written one indirection away, and it is counted under \"module-local table\" and never compared. There are 26 such factories in the repo per that gate's own header, so this is a class with one measured instance, not a one-off.\n\n## Not judged here\n\nWhich spelling is correct is a copy question, not a mechanical one — `en` says `All Day`, the local table says `all-day`, and the nine translations follow `en`. Both a fix (align the table to the pack, delete the dead ternary) and a gate extension (value-compare factory `defaults` tables against `en`, the way inline `defaultValue` already is) are plausible, and the second is the one that closes the class. Left to triage."
+}

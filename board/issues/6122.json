@@ -1,0 +1,33 @@
+{
+  "number": 6122,
+  "kind": "issue",
+  "title": "finding(docs): 15 component reference pages annotate props with `ActionConfig`, a type `@object-ui/types` has never exported — the name needs a ruling before #5867 can cover them",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T18:23:44Z",
+  "updated_at": "2026-09-02T05:35:21Z",
+  "closed_at": "2026-09-02T05:35:21Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6122",
+  "body": "Measured by #5867 batch 2 (session `session_019b5UBNMtTzKbVtZZGvFuxe`) on `origin/main` `b9c367717`, while probing the `content/docs/components/**` remainder by measurement rather than by eye: all 94 remaining `components` + `plugins` + `blocks` blocks were re-fenced in a throwaway mutation, the gate was run, and the tree restored under a trap.\n\n## The measurement\n\n**16 references across 15 `content/docs/components/**` pages** name `ActionConfig`, always in the same position — the type of an event-ish prop inside a documented `interface`:\n\n```ts\nonSelect?: string | ActionConfig;     // context-menu, menubar, dropdown-menu\nonAction?: string | ActionConfig;     // toast\nonClick: string | ActionConfig;       // sonner\n```\n\nThe probe measured `TS2304: Cannot find name 'ActionConfig'` **16 times**, and an export-surface probe over the built `packages/types/dist/index.d.ts` reports the name **ABSENT**. Nothing in `packages/*/src` declares it either; the closest names are `ActionSchema` (declared **twice** — `crud.d.ts:64`, `@deprecated`, and `ui-action.d.ts:331`) and `UIActionSchema`.\n\nFiles: `components/{overlay/context-menu, overlay/menubar, overlay/dropdown-menu, feedback/sonner, feedback/toast, form/command, form/radio-group, form/form, form/input-otp, form/button, …}` — `grep -rl ActionConfig content/docs` returns 15.\n\n## The deciding question, ⛔ not decided here\n\nWhich real type did these props mean?\n\n1. **`UIActionSchema`** — the non-deprecated action surface `@object-ui/types` points new code at;\n2. **`ActionSchema`** — what the prose elsewhere uses, but it is `@deprecated` in `crud.d.ts` **and** exists under a second declaration in `ui-action.d.ts`, so \"ActionSchema\" is itself ambiguous;\n3. the props take something narrower (an action *reference* string plus a small config) and the honest answer is a new declared type.\n\n⚠️ Whichever it is, this is one edit repeated 16 times, and the answer decides whether ~5 of the 39 reddening `components` files can be taken in one batch. Getting it wrong fossilizes a name in 15 reader-facing pages.\n\n## Context for #5867's next batch\n\nOf the 94 blocks probed (80 files), **43 blocks in 40 files compile untouched** and are the cheap batch; the 51 that red do so almost entirely on three ambient names — `SchemaNode` (34, exported), `ComponentSchema` (10, exported) and `ActionConfig` (16, **not** exported). The first two are fixed in-batch with the import a reader copying the block needs. This one cannot be.\n\nTwo unrelated defects the same probe surfaced, recorded here so they are not lost (each is a one-file fix for whoever takes that file, not a blocker):\n\n- `content/docs/components/feedback/sonner.mdx` declares `action` twice in one interface — `TS2300` duplicate identifier / `TS2717` conflicting types.\n- `content/docs/plugins/plugin-dashboard.mdx:337` does not parse — `TS1109: Expression expected` — the only syntax-phase failure in the whole probe.\n\nRefs: #5867 (parent lane) · #6107 / #6120 / #6121 (the sibling blockers).\n"
+}

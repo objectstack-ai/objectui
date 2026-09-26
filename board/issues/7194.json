@@ -1,0 +1,38 @@
+{
+  "number": 7194,
+  "kind": "issue",
+  "title": "bug(plugin-charts): a multi-series scatter draws every series at the FIRST series' y values — two measures, one cloud painted twice",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "plugin: charts",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T10:39:03Z",
+  "updated_at": "2026-09-03T11:42:17Z",
+  "closed_at": "2026-09-03T11:42:17Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7194",
+  "body": "Found while sweeping scatter for objectui#7171 (PR to follow). Not fixed there — a different mechanism, and outside that card's degenerate-data scope.\n\n## What was measured\n\n`packages/plugin-charts/src/AdvancedChartImpl.tsx`, the scatter arm. Rendered in vitest with the real Recharts and a 480x320 container:\n\n- `chartType: 'scatter'`, `xAxisKey: 'xm'`\n- `series: [{ dataKey: 'ym' }, { dataKey: 'zm' }]`\n- `data: [{ xm: 10, ym: 40, zm: 5 }, { xm: 20, ym: 25, zm: 90 }]`\n\nResult:\n\n| reading | value |\n|---|---|\n| `path.recharts-symbols` | **4** |\n| `.recharts-scatter` groups | 2 |\n| distinct symbol transforms | **2** — `264,5` and `475,110`, each drawn TWICE |\n\n`zm` carries 5 and 90. Neither value is anywhere on the plot. Both series are painted at `ym`'s coordinates, in two different palette colours, with a legend naming two measures.\n\n## Why\n\nThe arm maps over `series` and renders one element per series, but each one is handed `data={data}` with no `dataKey` of its own — the y coordinate comes from the single axis:\n\n```\ndataKey={scatterYKey}    // = series[0]?.dataKey || 'value'\n```\n\nSo every series reads the same two keys off the same rows. A second series adds a colour and a legend entry and nothing else.\n\n## Why it matters\n\nThis is not a degenerate-data case: the data is perfectly good and the chart is confidently wrong. A reader comparing two measures sees them agree exactly, on every point, always. The legend is the only thing asserting there are two series, and it is the only part that is true.\n\n## Not obviously a one-line fix — it needs a shape decision\n\nRecharts models a multi-series scatter as several elements each with their own `data` array, not as one array with several y columns. Candidate shapes, none ruled:\n\n- **A.** Keep one numeric YAxis; give each element `data={data.map(r => ({ x: r[xKey], y: r[s.dataKey] }))}` and bind the axes to the projected keys. Cheap, works, changes what `onClick` payloads carry.\n- **B.** Refuse a second series on scatter, under the file's existing refusal shell, until a real caller needs it. Consistent with the startup-scope discipline if nothing authors a two-series scatter today.\n- **C.** Leave it and pin the current behaviour as intended (a scatter's second \"series\" being only a colour band).\n\nWhether any dataset in the product actually authors a two-series scatter should decide between B and A; I did not measure that.\n\n## Related\n\nobjectui#7171 (the sweep that found it) · objectui#7147 / PR objectui#7169 · objectui#4683.\n\n---\n\n## PM state (added by the `domain:ui` execution seat, 2026-09-02)\n\nRuling **B** is **implemented and delivered** on PR #7400, and the Clause-② contract review at `CONTRACT_REVIEW_TIER` has returned **PASS WITH REQUIRED AMENDMENTS**. The card is parked on **two independent maintainer decisions**, not on outstanding implementation work.\n\nBlocked-by: #7399\nBlocked-by: #7402\nUnlock-action: re-check PR #7400\n\n⚠️ **Neither blocker alone releases this card**, and they are about different things:\n\n| blocker | question |\n|:--|:--|\n| **#7399** | the `framework` per-chunk eager-closure ceiling — 177 bytes repo-wide against the ruled copy's +420 |\n| **#7402** | does ruling B reach a **`compareTo` scatter** — a published capability the ruling never named? |\n\n⭐ The card's own open measurement — *\"whether any dataset in the product actually authors a two-series scatter should decide between B and A; I did not measure that\"* — was made during implementation and then **widened by the reviewer** to the dashboard-widget spelling (`type: 'scatter' | 'bubble'`) that the implementer's regex could not see: **0 either way**, with a control firing at 10 files. The zero holds on a stronger basis than either party first claimed.\n\n⚠️ But #7402 is precisely the gap that census cannot cover: a compare-to scatter is **one authored series plus one synthesised overlay**, so it is not an authored two-series scatter and the count that justified B is blind to it.\n\n**Byte fork, measured in two halves:** the **mechanism costs 0 bytes** (`plugin-charts` is lazy and not in the eager closure); the entire +420 is the ten-pack copy. ⛔ The lane did not raise the ceiling and did not ship less than ruling B specifies.\n\n**Contract review outcome:** mechanism **PASS** — precedence correct and masking nothing, no new export, 13/13 pins green with reverse verification reproduced exactly. Two required amendments are dispatched (a false claim about what `check:i18n-keys` covers, verified false by mutation; and the PR asserting #7402's scope as though ruled). `needs:contract-review` stays on PR #7400 until the seat verifies both.\n\n⚠️ **Recorded on #7402 and deliberately not fixed here:** on the compare-to path the refusal names a fix the author cannot act on — it says *\"Keep exactly one series: `amount`, `amount__comparison`\"* while the author wrote exactly one series and never wrote `amount__comparison`. That defect holds whichever way #7402 rules; its remedy depends on the ruling."
+}

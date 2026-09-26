@@ -1,0 +1,35 @@
+{
+  "number": 7113,
+  "kind": "issue",
+  "title": "[Decision] `ChartSchema`'s real data model — chart-level `data` and `xAxisKey` — is undeclared, and #6896's retirement now points authors at it by name",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T01:18:27Z",
+  "updated_at": "2026-09-03T22:20:53Z",
+  "closed_at": "2026-09-03T22:20:53Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7113",
+  "body": "Filed by the `domain:ui` execution seat (session `session_012wwHa4aaFybxXrfmfHioDM`) out of #6896's delivery. ⛔ Not adjudicating: declaring these keys is a **widening of a published surface**, which is the human floor. Recorded with the measurement so the ruling is one read rather than a re-derivation.\n\n## The gap, stated plainly\n\n#6896 retires `ChartDataSeries.data` and its tombstone tells authors what to use instead: the **chart-level `data`** plus **`xAxisKey`**. That remedy is accurate — it is what `normalizeChartSchema` actually reads.\n\n⚠️ **Neither key is declared on `ChartSchema`.** Both survive only through `BaseSchema`'s `[key: string]: any` index signature.\n\n⇒ So the published migration note now names **two undeclared keys as the supported replacement**. An author following the tombstone writes a document the type system cannot check, into a shape nothing enforces.\n\n## Why this is the same defect one level out\n\n#6896's whole subject is declared-but-unread. This is its mirror: **read-but-undeclared**. The de-facto contract — chart-level `data` + per-series `dataKey`, which the ruling itself called *\"the de-facto contract\"* — rides an index signature, so:\n\n- `ChartSchema` literals are **not excess-property-checked**, so a misspelled `xAxiskey` or `datas` type-checks green and renders an empty chart;\n- the zod mirror does not model it either, so `safeValidateSchema` cannot refuse it;\n- ⇒ the one shape the platform actually supports is the one shape an AI author gets no feedback on.\n\n## What was measured, and by whom\n\nMeasured by the #6896 dev while implementing the ruling (report on that card): `normalizeSeries` reads nine keys and `data` is not among them; rows come from the chart-level `data`; the category axis comes from `xAxisKey` / `xAxis`. Independently, **#7112** records five documentation and example sites that author the *documented* model and therefore render an empty chart today.\n\n⛔ **Not measured here:** the exact shape chart-level `data` should be declared as, and whether `xAxis` (the sibling spelling `normalizeChartSchema` also accepts) is intended, an alias, or drift. That is part of what a ruling has to settle.\n\n## The decision\n\n**Should `ChartSchema` declare the data model it actually reads?**\n\n| | option | note |\n|---|---|---|\n| **A** | Leave undeclared | The remedy text stays accurate about behaviour; the gap persists and the retirement's migration target remains uncheckable |\n| **B** | Declare chart-level `data` and `xAxisKey` (and settle `xAxis`) on `ChartSchema` and its zod mirror | Makes the model the retirement migrates authors **to** enforceable rather than merely documented. ⚠️ A published-surface **widening** ⇒ human floor + `needs:contract-review` |\n| **C** | Declare them inside #6896's PR | ⛔ Explicitly rejected by that card's dev and by this seat: it would put a widening and a narrowing into one review, and the ruling authorised the narrowing only |\n\n## 四维分析\n\n**① 实际业务需求** —— 拉动是**实测的**,不是推测:这两个键就是渲染器今天读的东西,#7112 记录的五处 doc/example 站点全都在教**另一个**(已退役的)模型,今天渲染出空图。⇒ 需求不在「要不要支持」——已经支持了;在于「支持的东西要不要可检查」。\n\n**② 项目长远合理性** —— B 是 contract-first 的读法。#6896 关掉了「声明了却没人读」的一半,留下「读了却没声明」的另一半;两半是同一个 ADR-0049 形状。⚠️ 只关一半,等于把作者从一个不可检查的模型迁移到**另一个**不可检查的模型。\n\n**③ 防 AI 写错** —— 这一轴最硬,而且决定问题。`ChartSchema` 字面量**不做多余属性检查**(靠 `BaseSchema` 的索引签名),所以 `xAxiskey` 拼错、`data` 给错类型,**tsc 绿、zod 绿、渲染出空图**。这正是「AI 声明一个运行时不兑现的能力」的反向:AI 写对了意图、拼错了键,而平台**一声不吭**。B 让它在作者期响亮。\n\n**④ 创业阶段不扩散** —— ⚠️ 这一轴指向克制,必须诚实呈现:B 是**加宽已发布面**,而本轮的裁决刚刚以「zero users 不建新机制」为由退役了另一半。⇒ 但 B 不新增能力,它把**已经在跑的**能力写成声明;这与「扩散需求」不同,更接近 declared = enforced 的恢复。判断权在维护者。\n\n**推荐:B**,弱持。①②③ 同向,④ 是真实的反对但性质是「写下既有事实」而非「新增能力」。⛔ 四棱非同向 ⇒ 不代裁。\n\n⚠️ **不占工期**:#6896 的 PR 不等这张卡,它已按裁决完成并停在契约复审前(另因 fable 额度受阻)。\n\n## Related\n\n#6896(退役,已交付)· #7112(五处 doc/example 站点教已退役模型)· ADR-0049 enforce-or-remove"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 7125,
+  "kind": "issue",
+  "title": "finding(i18n): `dashboard.noRows` and `dashboard.noDataAvailable` become dead keys once #7063 lands — 10 packs, zero call sites",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "i18n",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T03:17:34Z",
+  "updated_at": "2026-09-04T00:25:42Z",
+  "closed_at": "2026-09-04T00:25:42Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7125",
+  "body": "Residue created by PR #7124 (issue #7063) and deliberately not fixed there. Filed unassigned.\n\n## What\n\n#7063 routes the three dashboard empty-state renders through one new shared component, which resolves its own copy from a new `dashboard.empty.*` family. That leaves the two keys the old per-widget placeholders used with **no remaining call site**:\n\n| key | former call site (removed by #7124) | en | zh |\n|---|---|---|---|\n| `dashboard.noRows` | `packages/plugin-dashboard/src/DatasetWidget.tsx` | `No rows` | `暂无数据行` |\n| `dashboard.noDataAvailable` | `packages/plugin-dashboard/src/ObjectDataTable.tsx` and `packages/plugin-dashboard/src/PivotTable.tsx` | `No data available` | `暂无数据` |\n\nBoth live in all ten locale packs, so that is 20 dead entries.\n\n## Measurement\n\n`node scripts/check-i18n-dead-keys.mjs` on the #7124 branch lists both under `needs-review`. Their only remaining textual footprint is the doc comments #7124 itself wrote — `WidgetEmptyState.tsx`, `DatasetWidget.tsx` and the new pin file each name the old key when explaining what replaced it — which is exactly the \"the literal key string appears somewhere else in the repo\" condition that keeps a key out of `CONFIRMED`. No AST call site remains.\n\nCross-check against #6666's caveat (the sweep can call a live key dead when a consumer reads the pack by property access): neither key is reached that way. There is no dynamic `dashboard.` head that could resolve to them; the one template-built family in this package is `dashboard.trend.` (`DatasetWidget`), whose prefix does not cover either key.\n\n## Why #7124 did not delete them\n\nIts dispatch asked locale edits to stay strictly additive so the parallel work in `packages/i18n` merges trivially — three sibling agents were live in this repo at the time. Deleting 20 entries touches existing lines in all ten packs, which is the opposite of that. `check:i18n-dead-keys` is also report-only (exit 0 whatever it finds) and is wired into no CI workflow, so nothing turns red in the meantime.\n\n## Suggested handling\n\nFold into the next dead-key deletion pass rather than treating as its own card — this repo already has the shape for that (#4742, #4746 deleted whole namespaces; #5783 and #6310 handled single keys). Deleting a key is a ten-pack edit, so `all-locales-key-parity` is the gate that must stay green.\n\n⚠️ Not urgent and not user-visible: dead pack entries render nothing. The cost is only that the next reader of `dashboard.noRows` has to work out that nothing reads it."
+}

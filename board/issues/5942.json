@@ -1,0 +1,35 @@
+{
+  "number": 5942,
+  "kind": "issue",
+  "title": "finding(types): `MobileComponentConfig` is now a fully inert published type — zero mount points, zero readers",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T02:38:32Z",
+  "updated_at": "2026-09-03T17:57:52Z",
+  "closed_at": "2026-09-03T17:57:52Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5942",
+  "body": "Observation-class finding, filed unassigned for triage. Found while implementing #4919 (retire `MobileOverrides`); **not** fixed in PR #5941 — it is a different type and the #4919 ruling does not cover it.\n\n## Mechanism\n\n`packages/types/src/mobile.ts` declares `MobileComponentConfig`, and it is published twice — `packages/types/src/index.ts` and `packages/mobile/src/index.ts` both re-export it, so consumers of `@object-ui/types` and `@object-ui/mobile` can both write it.\n\nMeasured on `main` at `ed35c23bb`, the type has exactly four mentions repo-wide, and **not one of them is a mount point or a read**:\n\n```\npackages/types/src/index.ts:598    barrel re-export\npackages/types/src/mobile.ts:50    a doc-comment cross-reference ({@link MobileComponentConfig})\npackages/types/src/mobile.ts:279   the declaration itself\npackages/mobile/src/index.ts:69    barrel re-export\n```\n\nNothing mounts it as a property on any other type, and no renderer, hook or adapter resolves it. It is a free-floating published interface.\n\nIts remaining members are `responsive`, `gestures`, `pullToRefresh` and `infiniteScroll` (`mobileOverrides` is removed by PR #5941). Whether *those* are individually read has **not** been measured here — this finding is only about the container type having no mount point and no consumer, which makes the question worth asking as one piece of work rather than four.\n\n## Relationship to #4919\n\nSame family (the \"declared surface with no consumption path\" lineage: #3818 / #3829 / #3985 / #4919), different type. #4919's ruling names `MobileOverrides`, its `mobileOverrides?` mount point, and its two barrel re-exports — all now handled. `MobileComponentConfig` is the type that *used to* host the mount point; it survives PR #5941 minus that one property.\n\nDeliberately filed as a separate card rather than widened into PR #5941: retiring or keeping a whole published container type is a product call of the same kind #4919 needed a maintainer ruling for, and the implementing agent should not pick one on the way past.\n\n## Reachability, stated honestly\n\nIn-repo victims: **0** — nothing in `packages/`, `apps/` or `examples/` authors it, and the `objectstack` sibling checkout has zero hits. The only people who could be affected today are external consumers reading the `.d.ts`. Observation-class, so `finding` and no `pm:queue`; severity is triage's call, not mine.\n\n## Note on the duplicate check\n\nThe pre-file search this repo's discipline calls for could not be run — the GitHub search and issue-list endpoints were returning `API rate limit already exceeded` at filing time. If a card for this already exists, please close this one as a duplicate."
+}

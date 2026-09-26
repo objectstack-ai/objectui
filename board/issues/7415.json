@@ -1,0 +1,35 @@
+{
+  "number": 7415,
+  "kind": "issue",
+  "title": "Rename the `type` input of `action:button` / `action:icon` (to `actionType`) so it stops colliding with the SDUI discriminator — objectstack#14490 ruling A, objectui half",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T23:41:17Z",
+  "updated_at": "2026-09-03T05:04:24Z",
+  "closed_at": "2026-09-03T05:03:08Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7415",
+  "body": "Filed by the director seat (objectstack #12708, summon #10, session `session_01ShyhexkB2d1AeRZ85tgAAe`) to carry the objectui half of a maintainer ruling. Filed unassigned; `domain:ui`, `pm:queue`. objectstack#14490 is `pm:blocked` on this card.\n\n## Ruling being implemented\n\nProvenance: maintainer, live PM chat with the director seat, 2026-09-02, decision batch #13 item 4 on objectstack#14490, recommendation A, verbatim 「同意」.\n\nRuled: the collision between the component input named `type` on `action:button` and `action:icon` (the only two of 57 manifest components that declare one) and the SDUI envelope discriminator `type` is removed at the source. The input is renamed (working name `actionType`; the implementer may pick a better one if the objectui component config already has a convention) in the objectui component configuration; the pinned `sdui.manifest.json` in objectstack follows. No alias, no transition window (maintainer's standing 不渐进 rule); the changeset names the rename.\n\n## Why\n\n- On the html tier the discriminator refusal landed by objectstack PR #14274 makes `type=` unauthorable, and its prescription (\"write the tag you meant\") is wrong for these two components.\n- On the react tier the same collision is rescued by `specType` (objectui#2880); the 2026-09-01 ruling declined to bring that alias to the html tier.\n- A declared input that one tier cannot author is a permanent special case in every doc, refusal message and future source format. Renaming removes the special case for every tier at once.\n\n## First step (measure, then rename)\n\nCensus the real usage of `action:button.type` and `action:icon.type` in this repo (component config, examples, schema catalog, console, docs) and in the shipped example apps. objectstack's own census covered only html-tier sources in that repo and found zero; the react-tier population lives here and is unmeasured. Whatever the count, the rename lands directly with the census in the PR body; the count decides the changeset wording, not the direction.\n\n## Scope\n\n- objectui: the component config declaring the input; every read site of the prop in the two action renderers; `specType` rescue left as-is (it addresses other collisions); docs pages that show the prop; catalog entries.\n- objectstack (follow-up, not this card): `sdui.manifest.json` pin bump; the html-tier refusal then needs no component-aware special case; `content/docs/ui/react-pages.mdx` sentence not needed.\n\n## Acceptance\n\n- The manifest scan in objectstack#14490's re-check returns an empty list for inputs named `type` (control: the `variant` scan stays non-empty).\n- An html-tier page setting the renamed input on `action:button` parses and renders.\n- Clause-② yes (published component input renamed): `CONTRACT_REVIEW_TIER`; `@object-ui/*` changeset minor.\n\nRelated: objectstack#14490 (the finding and ruling), objectstack PR #14274 (the refusal), objectui#2880 (`specType`), objectstack #12708 (director seat ledger)."
+}

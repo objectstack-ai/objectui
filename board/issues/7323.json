@@ -1,0 +1,37 @@
+{
+  "number": 7323,
+  "kind": "issue",
+  "title": "finding(data-objectstack): `createObjectStackAdapter` declares `DataSource` as its return, so the whole adapter API its own README documents is unreachable in TypeScript",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T06:53:52Z",
+  "updated_at": "2026-09-03T13:53:08Z",
+  "closed_at": "2026-09-03T13:53:08Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7323",
+  "body": "Found while bringing `packages/data-objectstack/README.md` under `check:doc-snippet-types` (#5174 batch 8). Filed rather than fixed: `packages/*/src` is outside that PR's surface.\n\n## What the shipped declaration says\n\n`packages/data-objectstack/dist/index.d.ts`:\n\n```\ndeclare function createObjectStackAdapter<T = unknown>(config: { ... }): DataSource<T>;\n```\n\n`DataSource` is `@object-ui/types`' interface (`packages/types/dist/data.d.ts:292`). It declares `find`, `findOne`, `create`, `update`, `delete`, `bulk`, `batchTransaction`, `getObjectSchema`, `aggregate` and the import/export job surface — and **none** of the adapter-only members.\n\n## The measured consequence\n\nCompiled against the built `dist` with the doc-snippet gate's own compiler options and module resolution:\n\n```\nimport { createObjectStackAdapter } from '@object-ui/data-objectstack';\ndeclare const dataSource: ReturnType<typeof createObjectStackAdapter>;\ndataSource.getClient();\ndataSource.getCacheStats();\ndataSource.invalidateCache('users');\ndataSource.clearCache();\n```\n\n```\nTS2339 Property 'getClient' does not exist on type 'DataSource<unknown>'.\nTS2339 Property 'getCacheStats' does not exist on type 'DataSource<unknown>'.\nTS2339 Property 'invalidateCache' does not exist on type 'DataSource<unknown>'.\nTS2339 Property 'clearCache' does not exist on type 'DataSource<unknown>'.\n```\n\nThe same four, plus `getConnectionState`, `isConnected`, `onConnectionStateChange` and `onBatchProgress`, are exactly the members `packages/data-objectstack/README.md`'s own **API Reference — ObjectStackAdapter — Methods** list documents, and that four whole README sections (Metadata Caching, Connection State Monitoring, Batch Operation Progress, Troubleshooting/Cache Issues) are built around. The declaration typing the exported `ObjectStackAdapter` class carries all of them; only the factory's declared return narrows them away.\n\nSo a reader who follows the README's own Basic Setup — `const dataSource = createObjectStackAdapter({ baseUrl })` — and then follows any of those four sections does not compile. The runtime object has the methods; the declared type does not admit them.\n\n## Why this is a producer-side gap, not a doc bug\n\nThe methods are real, exported and documented; there is nothing to correct on the page. The cast-free escape a consumer has today is to construct the class instead (`new ObjectStackAdapter(config)`), which the README's own API Reference documents as public — so the two supported ways of obtaining the same object give different type surfaces.\n\n## Options\n\n- **A. Widen the factory's declared return** to the adapter's own type: `createObjectStackAdapter(config): ObjectStackAdapter` (or `DataSource<T> and ObjectStackAdapter`). One line, and it makes declared match shipped for every documented member at once.\n- **B. Leave the narrow return and add the missing members to `DataSource`.** Wrong shape: caching, connection state and batch progress are this adapter's concerns, not every data source's, and every other `DataSource` implementation would then be declaring members it does not have.\n- **C. Document the cast.** Cheapest, and the worst of the three under the \"declared = enforced\" rule — it teaches a cast around a declaration that is simply narrower than the value.\n\nRecommendation: **A**.\n\n## Where this shows up now\n\nBatch 8 ships those README blocks compiling, by declaring the adapter as the exported `ObjectStackAdapter` class — truthful about the object, and about the one supported way to obtain that type today — and adds a short note to the README's setup section naming this card, so the page does not silently teach a shape the factory's return will reject. The note comes out when this is fixed.\n"
+}

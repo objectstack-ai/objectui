@@ -1,0 +1,35 @@
+{
+  "number": 7513,
+  "kind": "issue",
+  "title": "决策：`check-spec-symbol-derivation` 要不要从符号粒度收紧到成员粒度？（实测全树 3 条悬空引用，零 allowlist）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T15:36:55Z",
+  "updated_at": "2026-09-04T08:21:09Z",
+  "closed_at": "2026-09-04T08:11:36Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7513",
+  "body": "从 #7014 的执行中生出。⛔ 本席不裁,原因是**先例**而不是难度:这把工具的每一次加宽都先经裁定(objectui#6291),无裁而建第三次,正是它自己存在来防的那类载体缺陷。两个相关问题合并成一张卡上呈——分开呈会让维护者对同一件事裁两次。\n\n## 背景:gate 看不见它本该看见的那一类\n\n#7014 落地时(PR #7510)修掉了三条**实测为假**的规范断言:注释声称 `@objectstack/spec` **声明**某个键,而 spec 实际**按名拒收**它。逐条测过,每条都配了会点亮的对照:\n\n```\nSelectOptionSchema 声明键         : label, value, color, default, visibleWhen   ← 无 description\noption + description             : REJECT unrecognized_keys keys=[\"description\"]\nCONTROL 干净 option               : ACCEPT\n整个 select field + option.description : REJECT unrecognized_keys at [options.0]\nCONTROL 整字段干净 option          : ACCEPT\nFieldSchema.rows(四种多行类型)   : 四者全 REJECT unrecognized_keys / 四条 no-rows 对照全 ACCEPT\n```\n\n`FieldSchema` 把 select 字段的 `options` 路由进那个 `.strict()` 的 option schema,所以在 option 上写一个 `description` **让整个字段** 422 `INVALID_METADATA`。那三条注释当时正在邀请这个写法。\n\n⚠️ **`check:spec-symbols` 在这次修复前后打印逐字相同的输出**(diff 验证)。三条真缺陷被移除,gate 一无所知。这是发现,不是通过。\n\n## 它为什么看不见——三个各自独立、今天都还活着的原因\n\n1. **规则 2 只读挂在「声明」上的注释块**(`attachedDoc(stmt, text)`)。三条断言全挂在**成员**上;`SelectOptionMetadata` 自己的 docblock 只有 `/** Select option */`。\n2. **claim 短语表要求 `aligns with`。** 真实注释写的是裸 `Aligns`——实测 `findClaim()` 对真实文本返回 `null`,对同一文本插入 `with` 后返回一条 claim。(同一文件 `field-types.ts:336` 写的是 `Aligns with`,gate 看得见——同文件里的对照。)\n3. **引用只在「符号」粒度校验,从不在「成员」粒度。** `SelectOptionSchema` 是活的 spec 导出,所以悬空引用精度规则(objectui#4607)不发火,尽管 `.description` 根本不是它的键。\n\n## ⭐ 还有第四个,更糟:卡片的假机制是从工具自己的 docblock 抄来的\n\n#7014 说 gate 之所以瞎,是因为「both rules skip any declaration without an `export` modifier (`hasExportModifier`, applied once per scanner)」。**今天这已经不成立**——两半过滤器都在 #6291 被删了。独立复现:\n\n```\nscripts/check-spec-symbol-derivation.mjs:980  ← 声明\nscripts/check-spec-symbol-derivation.mjs:143  ← docblock 散文\nscripts/check-spec-symbol-derivation.mjs:164  ← docblock 散文\n真调用点: 0     CONTROL(同文件同查询) attachedDoc: 2(声明 + 调用)\n:1216 / :1322  // No export filter (objectui#6291).\n```\n\n`:143` 逐字描述被删掉的过滤器,`:164` 描述两个 scanner 会「re-run with `hasExportModifier` forced true」。**卡片作者不是凭空编的,是读了工具自己的头注释。** 这不是文档陈旧,是一份还在教下一个读者假规则的说明书。\n\n⇒ **订正这两处 docblock 不需要裁定**(是订正,不是加宽),已并入执行。下面的选项只关于**要不要加宽 gate 本身**。\n\n## 尺寸——重新量过,卡片的旧数字是错的\n\n#7014 用 #5899 的「47 对 18」给这件事定尺寸。⚠️ 那个数字属于**已经落地的**导出面加宽(#6291),不是这个洞。重测:\n\n| 读数 | 值 |\n|:--|:--|\n| 成员粒度悬空引用,全树 | **3** —— #7510 修的两条 + `DashboardSchema.title`(已另立 #7509) |\n| 原始命中 | 27 |\n| 其中 Zod 自身方法面(`.safeParse` / `.parse` / `.shape`) | 22 —— 排除 |\n| 需要的 allowlist 条目 | **0** |\n| 规则 2 的基线漂移 | 卡片写 18 条 unbacked claim,今天跑出 **19** |\n\n三条,不是三十条。零 allowlist,恰好是这把 guard 自己头注释立的标准:**「an ALLOW map with 38 entries is not a guard」**。\n\n## 选项\n\n**A —— 只加成员粒度引用检查。** 注释引用 `SpecSymbol.key` 而 `key` 不在该符号的 shape 里时报错。这是把**已有的**精度规则 4 从符号粒度收紧到成员粒度,不是第二把工具。\n\n**B —— 同时把规则 2 加宽到读成员挂载的注释**,而不只是声明挂载的。⚠️ 这是**另一个总体**:57 份成员 doc 带 claim 短语。dev 与本席同判——该单独测量后再裁,不应搭在 A 上。\n\n**C —— 都不做**,继续一卡一卡地订正站点。\n\n**A′ —— 先 A,B 欠一次测量再议。** (dev 的推荐,也是本席的倾向。)\n\n## 附问:裸 `aligns` 要不要进短语表?\n\n规则 2 的短语表要求 `aligns with`,真实注释常写裸 `Aligns`——这正是 `SelectOptionMetadata` 那条连规则 2 本可触及的部分都没看见的原因。\n\n- **a**:把裸 `aligns`/`aligned` 加进 `CLAIM_PATTERNS`。\n- **b**:不动,短语表是刻意廉价的。\n\ndev 推荐 **b 暂不动,但欠一次测量**,本席同意并把理由记下:在一个**已经**产出 19 条 unbacked claim 的启发式上加一个高频裸动词,假阳性面没量过就不该裁——dev 明确说了它没量,而不是量了很小。这条测量便宜,谁先动这张卡谁顺手跑。\n\n## 本席倾向:A′ + b(欠测量)\n\n理由:(a) 真实需求——3 条实测悬空引用,其中两条正在邀请 422;(b) 长期健全——A 是收紧既有规则的粒度,不新增工具面;(c) AI 不易做错——把「引用一个不存在的成员」变成红,正是本轮三条假断言的成因;(d) 创业期尺度——零 allowlist、三个站点,而 B 的 57 份成员 doc 是没量过的总体。\n\n⛔ 但先例说了算:#6291 是先裁后建的。请裁。\n\n## 派工状态\n\n⛔ `needs-user-decision`,**不带** `pm:queue`——本卡在裁定前不进队列(#6853 点名的缺陷:卡片自己说不可派工而标签仍在招手)。\n\n不受本卡阻塞:PR #7510(已落确定的一半,Clause-② no);#7509(`DashboardSchema.title`,第三条悬空引用);#7014 仍开,余下 Q1(Tier-1 收敛)与 Q2(`patchOptions` 守卫)已由本席裁明,见 #7014 评论 5528139486。"
+}

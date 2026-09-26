@@ -1,0 +1,35 @@
+{
+  "number": 7254,
+  "kind": "issue",
+  "title": "Studio 工作台把内部 ID（app.b2r4 / customer_dashboard）与整块英文（属性面板、AI 工具卡）摆给中文客户；工具卡头部状态与卡体徽章不一致",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "i18n",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T01:52:21Z",
+  "updated_at": "2026-09-02T13:54:26Z",
+  "closed_at": "2026-09-02T13:54:26Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7254",
+  "body": "## 现象\n\n2026-09-02 最新主干 rig，中文界面用户点「开始搭建」后进入 Studio 工作台（`/_console/studio/<pkg>/...` 内嵌 AI 副驾），客户视角 rubric 过不了两条（内部术语、非人话）：\n\n1. **顶栏应用切换器显示内部 ID `app.b2r4`** 而不是应用名「客户管理」；面包屑 `dashboard · customer_dashboard`、左栏项 `object · b2r4_customer` 也是内部名（左栏标题却写着「客户管理 · 导航」，同一屏两套口径）。\n2. **仪表盘属性面板整块英文**：Layout / Grid sizing and refresh cadence. / Columns / Gap / Refresh Interval / Grid columns (default 12) / Grid gap (Tailwind units) / Auto-refresh (seconds) / Header / Show Title / Show dashboard title in header / Show Description / Actions / Header action buttons / Dashboard header config (title, subtitle, actions) / Filters / Default and global filters applied across widgets. —— 其中还有面向开发者的措辞（Tailwind units）。\n3. **AI 副驾工具卡**：Propose blueprint / Apply edit / Create metadata / Awaiting Approval / Confirm this change before it is applied. / List metadata / Describe object / Verify build / `1 object · 1 view · 1 dashboard` 混在中文对话里；且卡片体已显示「已搭建」「已生效」徽章时，头部状态仍是 \"Awaiting Approval\"（状态不一致，与 cloud#787 记录的反向形态同一根源）。\n\nobjectui#2458 第 4 条（2026-07-13）已记过聊天卡英文集中的问题，至今未收口；本卡把工作台面（1、2）与状态一致性（3 后半）一并立案。\n\n## 修复要求\n\n1. 工作台顶栏/面包屑/左栏用元数据 label（应用名、对象/仪表盘显示名），内部名只在开发者视图或 tooltip 里出现。\n2. 属性面板与工具卡走 i18n 字典（`@object-ui/i18n`），中文覆盖到本次列出的全部字符串；跑一次 i18n 覆盖率报告贴在 PR 里。\n3. 工具卡状态单源：一旦工具结果为 applied/published，头部状态随之更新。\n"
+}

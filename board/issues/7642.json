@@ -1,0 +1,35 @@
+{
+  "number": 7642,
+  "kind": "issue",
+  "title": "finding(plugin-charts, plugin-form, plugin-list, app-shell): six sites read the retired snake lookup keys off an OBJECT-schema def, where FieldSchema refuses them",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "finding"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-04T14:02:28Z",
+  "updated_at": "2026-09-05T07:14:54Z",
+  "closed_at": "2026-09-05T07:14:54Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7642",
+  "body": "Provenance: measured while implementing objectui#7155 (maintainer ruling A′). Filed unassigned as a `finding` — the measurement is clean; the disposition is a judgement call.\n\nobjectui#7155 converged the **widget-metadata** dialect (`@object-ui/types`' `LookupFieldMetadata` / `UserFieldMetadata`) on the spec's camelCase. While measuring its blast radius I found a **second, separate population** that the ruling does not name and that PR deliberately left untouched.\n\n## What's measured\n\nSix sites read `display_field` / `description_field` / `lookup_filters` / `id_field` off an **object-schema field def** — the `FieldSchema` bag served by `DataSource.getObjectSchema` — not off the widget bag. On that contract those spellings are **refused**, so these legs can never fire.\n\n`FieldSchema` is strict (`strictObject(options, shape)` is `z.object(shape).strict()`, `packages/spec/src/shared/strict-object.ts:327`). Declared key set read from objectstack's generated `packages/spec/authorable-surface.base.json`:\n\n```\ndata/Field declared property count: 66\nLIT CONTROL name/type/label : all DECLARED\ncamelCase controls          : displayField, descriptionField, lookupColumns, lookupFilters, reference — all DECLARED\nthe four snake spellings    : display_field, description_field, lookup_filters, id_field — all ABSENT\n```\n\nAn absent key on a strict object parses to `unrecognized_keys`, so `PUT /api/v1/meta/object/:name` refuses the document and no spec-compliant producer can emit one. Nothing manufactures one inbound either: `getObjectSchema`'s only key rewrites are `normalizeSchemaReferenceKeys` (the `reference` / `reference_to` pair) and `applyFieldWidgetOverrides` (`widget`) — zero occurrences of all four across `packages/data-objectstack/src`, against a lit control (`reference_to`: 1 in `index.ts`, 7 in `getObjectSchema.test.ts`).\n\n## The sites\n\n| file | line(s) | shape |\n|---|---|---|\n| `packages/plugin-charts/src/ObjectChart.tsx` | 197, 208 | `fieldDef.id_field \\|\\| 'id'` · `fieldDef.reference_field \\|\\| fieldDef.display_field \\|\\| 'name'` |\n| `packages/plugin-form/src/deriveMasterDetail.ts` | 249, 303 | `col.displayField = d?.display_field \\|\\| d?.reference_field` |\n| `packages/plugin-list/src/ListView.tsx` | 2714, 2736 | `displayField: f.display_field \\|\\| f.reference_field` · `idField: f.id_field` |\n| `packages/plugin-list/src/UserFilters.tsx` | 300, 301 | `fieldDef.display_field ?? fieldDef.reference_field` · `fieldDef.id_field` |\n| `packages/app-shell/src/utils/resolveActionParams.ts` | 304-310, 539-544 | a local interface declaring all four, then mapped to `ActionParamDef`'s camelCase |\n| `packages/app-shell/src/views/metadata-admin/inspectors/ObjectFieldInspector.tsx` | 1145 | `def.lookupFilters ?? def.lookup_filters` |\n\n`resolveActionParams.ts:536` states its own provenance in-file, which is what makes this population identifiable rather than inferred:\n\n> Source here is `owner.fields[param.field]` — an object schema field def, i.e. the protocol.\n\nNote `reference_field` rides along in four of these chains and is also absent from `FieldSchema` (it already carries verdict `no-producer` in `packages/plugin-grid/src/relationalMetaKeys.ts`).\n\n## Why this is a finding and not a fix\n\nSame reasoning as objectui#6531 / #6711 / #6597 / #6625, all of which retired consumer-side aliases on exactly this evidence, and AGENTS.md #0.1 on tolerant renderers fossilising a second de-facto contract.\n\n⚠️ But the caution objectui#7155 earned the hard way applies here too, and it is why this is not a drive-by sweep: on that card the \"no producer can emit this\" argument was **true of the object contract and false of a second published one**, and the host feeding the refused dialect turned out to be this repo's own `@object-ui/types` and docs. Before retiring any of these legs, someone should check each site's bag the same way — these six are typed loosely (`any` / `Record<string, unknown>`), so the compiler will not answer it.\n\n⚠️ Also unmeasurable from here, as on objectui#7155: a host application outside `objectstack` + `objectui` whose `DataSource.getObjectSchema` returns snake_case defs, and stored metadata predating the strict schema. Both would still be served. These chains read snake **first** in four of the six sites, so retiring a leg changes which value wins, not merely which keys exist.\n\n## Suggested disposition\n\nEnforce-or-remove triage per ADR-0049's spirit, one site at a time, starting with the question objectui#7155 shows this measurement cannot answer on its own: for each site, which contract types the bag it reads?\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

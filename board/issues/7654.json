@@ -1,0 +1,36 @@
+{
+  "number": 7654,
+  "kind": "issue",
+  "title": "finding(types/plugin-chatbot): `chatbot-floating` declares two keys nothing reads - `displayMode` (designer control included) and `FloatingChatbotConfig.triggerIcon`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-04T15:04:05Z",
+  "updated_at": "2026-09-05T15:45:46Z",
+  "closed_at": "2026-09-05T15:45:46Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7654",
+  "body": "Measured by the `domain:ui` dev seat while documenting objectui#7594 (branch `claude/issue-7594-chatbot-floating-properties`). Filed unassigned, ungraded - triage owns routing. **Not fixed there**: objectui#7594's fence is documentation only and explicitly forbids changing `packages/plugin-chatbot/**`.\n\n## The fact\n\nTwo keys on the `chatbot-floating` surface are declared, offered to authors, and read by nothing.\n\n**1. `displayMode`** - declared three times, consumed zero times:\n\n| site | what it declares |\n|---|---|\n| `packages/types/src/complex.ts:865` | `displayMode?: 'inline' \\| 'floating'` on `ChatbotSchema`, documented as selecting the presentation |\n| `packages/plugin-chatbot/src/renderer.tsx:504` | `chatbot-floating`'s `inputs` entry, `defaultValue: 'floating'`, label `Display Mode` - so the designer paints a control for it |\n| `packages/plugin-chatbot/src/renderer.tsx:526` | `defaultProps.displayMode: 'floating'` - so designer-created nodes carry the value |\n\nRead-site census, whole repo, tracked files, `dist/` excluded:\n\n```\ngit grep -n 'displayMode' -- ':!**/dist/**'\n```\n\nreturns only those three declarations, the `@object-ui/types` doc comment beside them, one CHANGELOG line, the `zod-mirror-parity` ledger entry, and two unrelated `displayMode` props on `GridField` / `MasterDetailForm`. **No renderer branches on it.** `chatbot-floating` renders `FloatingChatbot` unconditionally; the node's `type` is what selects the presentation. Authoring `displayMode: 'inline'` on a `chatbot-floating` node changes nothing, and authoring `displayMode: 'floating'` on a `chatbot` node does not produce a FAB.\n\n**2. `FloatingChatbotConfig.triggerIcon`** - `packages/types/src/complex.ts:907`, declared `triggerIcon?: string` with `@default 'MessageCircle'`. `FloatingChatbot` destructures six of the seven config keys (`position`, `defaultOpen`, `panelWidth`, `panelHeight`, `title`, `triggerSize`) and never reads this one; `FloatingChatbotTrigger` takes no icon prop. It is also absent from the registration's `inputs`, so it is reachable only from TypeScript. `git grep -n 'triggerIcon' -- ':!**/dist/**'` returns the declaration and one CHANGELOG line - nothing else.\n\n## Why it is worth a card\n\n`displayMode` is the sharper of the two: the property panel shows a **Display Mode** control that cannot change anything, and the published type's own comment tells an author it selects between inline and floating. An AI author reading either surface learns a switch that does not exist. `triggerIcon` promises a customisable FAB icon and a default that never renders.\n\nNote that objectui#7594's own body describes `displayMode` as the key that \"selects the floating presentation\". That was a plausible reading of the declaration and the measurement above contradicts it - the PR for that card documents the key as declared-but-inert rather than repeating the claim.\n\n## Not a duplicate\n\nDedup ran against the repo-scoped open-issue list (381 open issues, PRs excluded) with a lit positive control - `chatbot-floating` returns objectui#7594, so the zeros below are real readings and not a dark instrument. `triggerIcon`: 0 hits. `FloatingChatbotConfig`: 0 hits. `displayMode`: objectui#7594 and objectui#6152 only.\n\nobjectui#6152 is **adjacent, not the same axis**. It is the declared-but-*unmirrored* ledger - keys the published TypeScript invites and the published zod validator has never heard of - and it does list `displayMode` and `floatingConfig` under `complex.zod.ts#ChatbotSchema`. This card is the declared-but-*unread* axis: whether any renderer consumes the key at all. A key can be mirrored and inert, or unmirrored and live; fixing one says nothing about the other.\n\n## Suggested route\n\nADR-0049 enforce-or-remove, one decision per key. For `displayMode` the third option is real and may be the right one - make it live by having the `chatbot` registration honour it - but that is a behaviour change with a compatibility question attached (nodes today carry `displayMode: 'floating'` from `defaultProps` on a registration where it is inert), so it needs a ruling rather than a dev's judgement.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

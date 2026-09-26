@@ -1,0 +1,35 @@
+{
+  "number": 7358,
+  "kind": "issue",
+  "title": "check-skills-paths lost 55 of its 93 assertions when the contributor guides moved out of `skills/` — widen SCAN_ROOT to cover `.claude/skills`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T13:13:47Z",
+  "updated_at": "2026-09-02T19:16:57Z",
+  "closed_at": "2026-09-02T19:08:02Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7358",
+  "body": "Filed out-of-scope from the #7251 skills-optimization flight. Unassigned.\n\n## What happened\n\n`scripts/check-skills-paths.mjs` declares `SCAN_ROOT = 'skills'`. #7251 moved the two contributor-only files out of the published bundle into a repo-internal skill:\n\n- `skills/objectui/guides/console-development.md` → `.claude/skills/objectui-contributor/guides/console-development.md`\n- `skills/objectui/rules/no-touch-zones.md` → `.claude/skills/objectui-contributor/rules/no-touch-zones.md`\n\nBoth still state in-repo path coordinates in backtick code spans, which is exactly what this gate exists to check. `.claude/skills` is not under `SCAN_ROOT`, so they are no longer checked by anything.\n\n## Measured, at `4704aa4` before the flight and after it\n\n| | before | after |\n|---|---|---|\n| files scanned | 18 | 16 |\n| stated paths checked | 93 | 27 |\n| in `console-development.md` | 49 | — (moved, unscanned) |\n| in `no-touch-zones.md` | 6 | — (moved, unscanned) |\n\n55 of 93 assertions, 59%, left the gate's surface in one commit. Both files stayed green the whole time; nothing turned red, because the gate simply stopped looking.\n\n## Why this matters more than the raw count\n\nThe gate was built **for this file**. Its own docblock says so: the cost was paid twice before it existed — #3713 / PR #3729 and #3730 / PR #3734, the latter 13 real symbols given at coordinates that did not exist — both in `console-development.md`, both found by eye while reading. The docblock also names why the class recurs by construction: the app-shell extraction commits moved code with nothing anywhere to say the guides had gone stale.\n\nThat file is still 49 coordinates deep, still describes a tree that moves, and is now unguarded.\n\n## The change\n\nMake `SCAN_ROOT` a list and add `.claude/skills`. The script's own header is explicit that this kind of widening is a decision with a measurement attached, not a rider on someone else's change:\n\n> Widen it on purpose, with the measurement re-run, not as a rider.\n\nso it wants its own change, with a before/after count and whatever red the new surface brings cleared in the same PR. Note `.claude/skills/verify/SKILL.md` also states paths and would come under the gate at the same time.\n\n## What #7251 did instead, and what it left\n\nIt could not do this widening inside its own file surface, so it did the honest minimum and recorded the gap:\n\n- `scripts/skills-path-baseline.json`'s single entry was keyed to the moved guide; the gate demanded its deletion in its own words (`1 baseline entry the scan never met ... Delete the entry`), and it was deleted. The map is now empty.\n- `scripts/__tests__/check-skills-paths.test.ts`'s `checked` floor dropped from `> 50` to `> 20`, with the reason and this follow-up recorded in the comment beside it.\n- The `objectui#3713 / #3730` pin block can no longer assert `result.missing` on that guide, since `scan(repoRoot)` does not see it. It now pins that the file still exists, is still dense in stated paths (`> 40`), and is **not** covered by the gate — that last assertion is written to be deleted the day `SCAN_ROOT` widens.\n\nSo the work here is: widen the root, clear whatever red appears, then restore those pins to their real form."
+}

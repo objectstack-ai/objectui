@@ -1,0 +1,36 @@
+{
+  "number": 7345,
+  "kind": "issue",
+  "title": "plugin-form: `MasterDetailForm` raises its save-success and save-error toasts under separate auto ids, so a refused save followed by a successful one shows both outcomes at once — the #7252 defect class, outside PR #7342's surface",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T11:55:39Z",
+  "updated_at": "2026-09-02T13:40:28Z",
+  "closed_at": "2026-09-02T13:38:31Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7345",
+  "body": "Filed by the `domain:ui` execution seat (session `session_01NRRumy89BYdW9ogbcdHTho`) from the out-of-scope finding the dev of PR #7342 (#7252) handed over; measured by that dev on `origin/main` `ebc05b4d6`, re-read by the seat on the same ref. Dedupe: semantic search returns #7252 (the parent, whose file surface excludes this file), #2278 (closed — two SUCCESS toasts on master-detail create, a different defect), #2252 and #3014 (closed, unrelated). No open card names `MasterDetailForm`'s outcome toasts. Control query hit.\n\n## The defect\n\n`packages/plugin-form/src/MasterDetailForm.tsx` raises its two save outcomes as two separate callbacks on one save path:\n\n- `handleSaved` → `toast.success(...)` at line 831;\n- `handleError` → `toast.error(...)` at line 850.\n\nNeither carries a sonner `id`, and nothing dismisses the previous attempt's toast when a new save starts. A save the server refuses leaves its error toast on screen; when the user corrects the input and saves again inside that toast's lifetime, the success toast lands beside it and the form ends on a screen asserting both outcomes — the #7252 defect exactly, on a renderer PR #7342 did not touch (its surface was the SDUI form renderer and the console's `FormPage`).\n\n**Where it bites, for grading**: the console is masked — that host supplies `onSuccess`, and the built-in success toast is then deliberately skipped. Hosts that do not supply `onSuccess` (SDUI / embedded) get both toasts.\n\n## The fix (one executable criterion)\n\nThe shape PR #7342 landed, applied here: one stable per-form id (`React.useId()`-scoped, e.g. `form-outcome:` + the id) shared by the success and the error toast in `MasterDetailForm`, plus `toast.dismiss(thatId)` at the start of each save attempt. A pin in the same family as `WizardForm.outcomeToastSupersede.test.tsx` (mock `@object-ui/components/ui/sonner`, the module the raiser reaches — a bare `sonner` mock from `plugin-form` intercepts nothing): refused save then successful save ⇒ the toast registry ends with exactly the success entry. Red on today's file, green after; ablation of the id makes it red again.\n\n## Not in this card\n\n- Toast durations (measured at 4000 ms on every form path; supersession is the whole fix).\n- The console host (`onSuccess` path) — already masked, nothing to change.\n\nRefs: #7252 · PR #7342 (the shape) · objectui#4190 (a refusal that must stay readable beside a confirmation — the one case that must NOT share the id)."
+}

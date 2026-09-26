@@ -1,0 +1,32 @@
+{
+  "number": 6121,
+  "kind": "issue",
+  "title": "finding(docs/types): every `content/docs/core/report-schema` authoring example contradicts the types it annotates — `dataSource` is typed as the runtime `DataSource` adapter, and `exports` demands all five formats",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T18:23:22Z",
+  "updated_at": "2026-09-04T01:35:49Z",
+  "closed_at": "2026-09-04T01:35:49Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 19,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6121",
+  "body": "Measured by #5867 batch 2 (session `session_019b5UBNMtTzKbVtZZGvFuxe`) on `origin/main` `b9c367717`. The page's eleven `plaintext` fences were re-fenced as `ts` in a throwaway probe, the ambient names were given the imports they need, the gate was run, and the tree restored. What is left is four distinct contradictions that are **not** fixable inside a fence-language batch, so `report-schema.mdx` is excluded from batch 2 and blocked for batch 3.\n\n## Measured diagnostics (after the ambient-name imports, so these are the residue)\n\n```\nreport-schema.mdx:233:5   TS2353: Object literal may only specify known properties, and 'provider' does not exist in type 'DataSource<any>'.\nreport-schema.mdx:410:7   TS2353: (same)\nreport-schema.mdx:411:7   TS2353: (same)\nreport-schema.mdx:324:13  TS2353: Object literal may only specify known properties, and 'type' does not exist in type 'ChartDataSeries'.\nreport-schema.mdx:367:3   TS2739: Type '{ pdf: ...; excel: ...; csv: ... }' is missing the following properties from type\n                                  'Record<ReportExportFormat, ReportExportConfig>': html, json\nreport-schema.mdx:405:3   TS2741: Property 'type' is missing in type '{}' but required in type 'ReportComponentSchema'.\n```\n\n## The substantive one: `dataSource`\n\n`ReportComponentSchema.dataSource` is declared `DataSource` and `ReportBuilderSchema.dataSources` is `DataSource[]` (`packages/types/dist/reports.d.ts:306` and `:390`). `DataSource<T>` (`data.d.ts:292`) is the **runtime adapter interface** — `find(resource, params)`, `searchAll?()`, and friends. It is not authorable JSON at all.\n\nEvery example on the page authors a **config** object instead:\n\n```ts\ndataSource: {\n  provider: 'api',\n  read: { url: '/api/sales', method: 'GET' }\n}\n```\n\nSo either the docs are teaching a shape that cannot exist, or an authoring schema is annotated with a runtime interface and the type is wrong. That is a contract question, not a documentation typo — and #5044's whole point is that guessing here is what produces docs the gate reports as covered while they teach code that does not compile.\n\n## The other three\n\n- `exports?: Record<ReportExportFormat, ReportExportConfig>` — a total `Record` forces an author to declare **all five** formats (`pdf`, `excel`, `csv`, `html`, `json`) to configure one. `Partial<Record<...>>` is almost certainly what was meant.\n- `ChartDataSeries` has no `type` key, but the page's chart section authors one per series.\n- `ReportBuilderSchema.report` is `ReportComponentSchema` (required `type`), so the page's `report: { /* Initial report configuration */ }` placeholder cannot be empty — arguably the example should show a real minimal report.\n\n## Why this is filed rather than fixed\n\n#5867's remedy is per-block fence correction plus fixing what compiling then reddens. Three of the four above would be fixed by changing `@object-ui/types`, i.e. the producer, which is where contract-first says the defect is — but which type is correct needs a ruling, and it is not a docs batch's call.\n\n⚠️ For whoever takes it: the eleven blocks on that page are otherwise ready to re-fence; five of them (`interface ReportField`, `ReportFilter`, `ReportGroupBy`, `ReportExportConfig`, and the `import type` intro) compile untouched today.\n\nRefs: #5867 (parent lane) · #5044 (the class: a snippet teaching a type error under a green gate) · #6107 / #6120 (the sibling blockers).\n"
+}

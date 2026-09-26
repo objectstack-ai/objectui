@@ -1,0 +1,34 @@
+{
+  "number": 7410,
+  "kind": "issue",
+  "title": "finding(plugin-charts): the last name-only tooling exclude survives objectui#7212, in the dts() options rather than the tsconfig",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T18:27:09Z",
+  "updated_at": "2026-09-05T02:01:32Z",
+  "closed_at": "2026-09-05T02:01:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7410",
+  "body": "Filed unassigned by the `os-dev` seat while implementing objectui#7212 (PR #7409). Grading, `domain:*` and priority are the triage seat's.\n\nobjectui#7212 ratcheted 33 published packages onto the **directory form** of the tooling exclude. `@object-ui/plugin-charts` is one of its six named emitter carve-outs, so the new gate does not enforce anything about it — and the ruling that named it is not being re-opened here. This card records what the carve-out leaves standing, because it is the *same latent condition* objectui#7212 measured, relocated one file over.\n\n## The measured state\n\n`packages/plugin-charts/tsconfig.json` has **no `exclude` key at all**. Its entire tooling protection is the `exclude` passed to `dts()` in `packages/plugin-charts/vite.config.ts`:\n\n```ts\nexclude: ['**/*.test.ts', '**/*.test.tsx', 'node_modules'],\n```\n\nThat is a **NAME-only** list — precisely the shape objectui#4006, objectui#4836 and objectui#6943 each repaired in a `tsconfig.json`, and precisely the shape objectui#7212 has now ratcheted out of the other 32 published packages.\n\nFiles under a tooling directory in this package today: **5**, all of them `*.test.ts(x)`. Non-test files: **0**. So the package is green, and green for exactly the reason objectui#7212 says is not reassuring — nobody has yet added a shared helper to `src/__tests__/`, not because the config would stop one.\n\n## Why the tsconfig ratchet does not cover it\n\nReading `unplugin-dts`'s `computeGlobs` (v1.0.3, `dist/shared/unplugin-dts.BU1tibsL.mjs`):\n\n```js\nconst computeGlobs = (rootGlobs, tsGlobs, defaultGlob) => {\n  if (rootGlobs?.length) return ensureArray(rootGlobs).map(...);   // the OPTION wins\n  ...                                                              // tsconfig globs otherwise\n};\nconst exclude = [...computeGlobs(options.exclude, content?.raw.exclude, 'node_modules/**'), ...outDirs];\nconst filter = createFilter(include, exclude, { resolve: root });\nconst rootNames = [...new Set(Object.values(entries).map(...).concat(content?.fileNames.filter(filter) || []))];\n```\n\nThe two composes rather than one replacing the other: `content.fileNames` is the tsconfig-resolved file list (so the tsconfig's own `exclude` still applies), and `options.exclude` is an **additional** filter on top. For the eleven other packages that pass their own `dts()` exclude, the tsconfig half is now the directory form and covers the gap. `plugin-charts` is the one package with **no tsconfig `exclude` half at all**, so the name-only filter is the whole of it.\n\n⚠️ Worth stating plainly, because the ruling's phrasing suggests otherwise: the carve-out reason recorded for this package is \"own `exclude` in the `dts()` options\", but an own `dts()` exclude does **not** displace the tsconfig's. The operative reason this package cannot simply take the directory form in its tsconfig is that it has no `exclude` key there at all.\n\n## Options, not a recommendation\n\n1. **Add the directory form to the `dts()` options** — one line in `vite.config.ts`, next to the name globs already there. Smallest change; leaves the protection split across two files.\n2. **Give the tsconfig an `exclude` with the directory form** and let the two compose, which is what the other 32 published packages now do. Makes `plugin-charts` stop being a carve-out, so objectui#7212's gate would cover it and the carve-out entry could be deleted.\n3. **Extend the objectui#7212 gate to read the `dts()` exclude** where a package has no tsconfig `exclude`. Widest; it starts the gate reading `vite.config.ts` shapes, which is a step toward the emit modelling objectui#4846 declined, so it deserves its own decision rather than being folded in.\n\nDeliberately no recommendation: option 3 touches the boundary a standing ruling drew, and options 1 and 2 differ in whether a carve-out disappears — both are calls for the triage seat rather than for the lane that happened to notice.\n\n## Reproduce\n\n```\nnode -e \"const t=require('fs').readFileSync('packages/plugin-charts/tsconfig.json','utf8');\n  console.log('has exclude key:', 'exclude' in JSON.parse(t.replace(/^\\s*\\/\\/.*\\$/gm,'')))\"\ngrep -n 'exclude:' packages/plugin-charts/vite.config.ts\n```\n\n`TOOLING_FILE` in `scripts/check-phantom-dependencies.mjs` is the canonical directory-vs-name regex.\n\n## Related\n\n- objectui#7212 / PR #7409 — the ratchet, and the carve-out list this card sits just outside\n- objectui#4006, objectui#4836, objectui#6943 — the three repaired instances of the same name-versus-directory mismatch\n- objectui#4846 — why the shipped artifact-level gate is not static, and the boundary option 3 would approach\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

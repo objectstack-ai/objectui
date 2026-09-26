@@ -1,0 +1,35 @@
+{
+  "number": 5935,
+  "kind": "issue",
+  "title": "Consolidate the eight lucide record-reading icon resolvers into one seam — three tokenisers and a 5-of-8 alias map mean the same authored name renders on one surface and not another",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T02:12:36Z",
+  "updated_at": "2026-09-03T12:11:16Z",
+  "closed_at": "2026-09-03T12:11:16Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 16,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5935",
+  "body": "Filed by the `domain:ui` execution seat (seat post #5560) as the ruled follow-up to #5633. Filed unassigned.\n\nThis is the **\"consolidate first\"** half of #5633's own triage ruling. It was fenced out of that round because it changes resolver behaviour, so the gate landed first and the consolidation is returned here rather than bolted onto PR #5932.\n\n## The measurement (from #5633's implementation, re-discovered from source, not inherited)\n\nThe card that opened #5633 said four record-reading resolvers. Discovery on every run found **eight**, plus **four** dynamic-surface sites rather than two. The four that were uncatalogued:\n\n- `packages/components/src/renderers/form/button.tsx`\n- `packages/plugin-list/src/ListView.tsx`\n- `packages/plugin-detail/src/RelatedList.tsx`\n- `packages/components/src/previews/ActionPreview.tsx`\n\n**The eight do not agree with each other.** Three different tokenisers are in use — `split('-')`, `split(/[-_\\s]/)`, `split(/[-_\\s]+/)` — and only **five of the eight** carry the `Home`→`House` alias.\n\n## Why this is worth a card and not a watch\n\nThe divergence is user-visible, not cosmetic: the same authored icon name can resolve on one surface and fail on another. That is exactly the sidebar-vs-action-bar disagreement #5633 opened with, and it survives #5932 untouched.\n\nIt also caps what the new gate can say. `scripts/check-lucide-icon-record-names.mjs` deliberately takes the **widest** tokeniser plus the alias map, so that it never invents a violation none of the eight would actually produce. The cost of that choice is that the gate **under-reports precisely where the resolvers disagree** — the blind spot is structural, disclosed in #5932, and does not close until the seams collapse.\n\n## Scope\n\nOne shared resolver, one `iconNameMap`, one tokeniser; the eight call sites re-pointed at it.\n\nTwo consequences to verify rather than assume:\n\n1. Collapsing to one tokeniser **changes** what some surfaces resolve — the three tokenisers are not equivalent. Enumerate the authored names whose resolution changes under each candidate tokeniser before picking one; a name that resolves today on a lax surface and stops resolving under a stricter shared rule is a regression that must be caught here, not in review.\n2. The `Home`→`House` alias currently applies on five of eight surfaces. Making it universal is the obvious reading, but it is a behaviour change on the other three and should be stated as one.\n\nOnce landed, the gate's census shrinks from eight sites to one and its normalisation stops being a widest-common approximation — so `scripts/check-lucide-icon-record-names.mjs` should be simplified in the same PR, not left carrying a census it no longer needs.\n\n## Ruled alternatives (both rejected — do not re-litigate without new evidence)\n\n- **Leave the eight in place, let the gate watch them.** Rejected: it accepts a real user-visible inconsistency as permanent.\n- **Narrow the gate to the strictest tokeniser, turning the disagreement into gate failures.** Rejected: the gate would report defects the resolvers do not have, which is how a gate gets suppressed and the whole class goes unwatched.\n\n## References\n\n- #5633 / PR #5932 — the gate, its eight-site census, and the disclosed under-reporting\n- `scripts/check-lucide-icon-record-names.mjs`"
+}

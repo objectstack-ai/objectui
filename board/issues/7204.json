@@ -1,0 +1,36 @@
+{
+  "number": 7204,
+  "kind": "issue",
+  "title": "plugin-gantt: the task list is capped at 320px and its Start/End columns take 160px of that, so task names get 53px and truncate to ~7 characters while 864px of chart sits empty",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T11:15:59Z",
+  "updated_at": "2026-09-03T00:57:11Z",
+  "closed_at": "2026-09-03T00:56:06Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7204",
+  "body": "Found in a browser pass over a real application's gantt view (objectstack-ai/duly#62). Filed unassigned, not claiming.\n\nMeasured on `@objectstack/console` 17.2.0 (objectui `190fbd01d061`) in Chromium 1194. Re-checked against current `main` `84ffdbcbb33762b5488742fb902faf45a3742e93`: both functions below are unchanged there.\n\n## Symptom\n\nEvery task name truncates to about seven characters. Two rows reading `Emis…` and `Emis…` with different dates are not distinguishable, which defeats the view.\n\n![task names truncated to about seven characters](https://raw.githubusercontent.com/objectstack-ai/duly/b6c452d638777d47a003af42ca53333bdb72d7a6/62-tasklist-truncation.png)\n\n## Measurement\n\nSame page, two viewport widths, read from the DOM (all values px):\n\n| viewport | task-list panel | name cell | Start col | End col | open btn | chart area | title span client / needed |\n| --: | --: | --: | --: | --: | --: | --: | --: |\n| 1440 | 320 | 99 | 80 | 80 | 24 | 864 | **53 / 260** |\n| 1920 | 320 | 99 | 80 | 80 | 24 | 1344 | **53 / 260** |\n\n`Site environmental audit — Northgate` needs 260px and is given 53px. The panel does not grow with the viewport: at 1920 the chart gains 480px and the name column gains nothing.\n\n## Two contributors, both on current main\n\n**1. The default caps at 320px regardless of how much room exists.**\n\n```ts\nfunction taskListWidthForContainer(width: number) {\n  if (width < 640) return 140;\n  if (width < 1024) return 220;\n  return 320;\n}\n```\n\n**2. At that default, the Start/End sub-columns switch on and take 160 of the 320.**\n\n```ts\n// Show the Start/End sub-columns only when the task list is wide enough that\n// the title still has room. Below this threshold the title would collapse to\n// a few pixels (issue: bars rendered but names invisible).\nfunction showStartEndColumns(taskListWidth: number) {\n  return taskListWidth >= 280;\n}\n```\n\nThis is the sharper half, and its own comment states the intent it inverts. The threshold protects the narrow cases (140 and 220) and then produces the very outcome it names at the default wide case: 320 clears the threshold by 40px, and the columns it admits cost 160px. The title is left with 53px — \"a few pixels\", by the comment's own standard.\n\nWorth noting the 160px buys a second copy of information already on the row: each row renders `8/26 → 9/2` as a sublabel directly under the title.\n\n## Proof that width is the whole story\n\nDragging the splitter to 580px gives the title exactly the 260px it asked for, and every name becomes readable — same data, same page, same build:\n\n![the same rows with the splitter dragged to 580px](https://raw.githubusercontent.com/objectstack-ai/duly/b6c452d638777d47a003af42ca53333bdb72d7a6/62-tasklist-dragged-580px.png)\n\nMeasured across that drag: panel 320 to 580, title client width 53 to 260, needed 260 throughout.\n\n## Why an application author cannot ship the fix\n\n`taskListWidth` is only ever seeded from the persisted layout — that is, from a previous user drag in that browser's localStorage. There is no authorable path to it: the spec's `GanttConfigSchema` declares 19 keys (`startDateField`, `endDateField`, `titleField`, `progressField`, `dependenciesField`, `colorField`, `parentField`, `typeField`, `baselineStartField`, `baselineEndField`, `groupByField`, `resourceView`, `assigneeField`, `effortField`, `capacity`, `tooltipFields`, `quickFilters`, `autoZoomToFilter`, `viewMode`) and none of them is a width. So today the remedy exists per user, per browser, and cannot be shipped with the app.\n\nThe `gantt` block is a passthrough object, so an invented `gantt.taskListWidth` would pass author-time validation and be silently ignored. That is precisely why this is filed rather than authored around.\n\n## Reproduction\n\n1. Any gantt view whose `titleField` holds real-world names (25 to 40 characters).\n2. Load it at 1280px or wider.\n3. Every name truncates in the first two words while the chart area holds 850px or more of empty grid.\n\n## Suggested directions — maintainer's call, none proposed as decided\n\n- **A.** Size the default from the container rather than capping it — a share of the width, clamped, so a 1920px screen spends some of its extra 480px on names.\n- **B.** Raise the Start/End threshold so the two date columns appear only when the title genuinely has room after paying for them (their combined 160px plus a legible title, so roughly 440px, not 280px) — and consider whether they should default off at all, given the row already prints the same dates as a sublabel.\n- **C.** Declare a width key on the gantt block so an author can ship a sensible default for their own data. Weakest on its own: it makes every author configure their way out of a bad default, but it is the one that also serves apps whose names are unusually long.\n\nA and B are independent and both cheap; either alone lifts the title above the \"few pixels\" the comment already identifies as the failure.\n\nRelated: #7070 (gantt/timeline date-axis findings).\n"
+}

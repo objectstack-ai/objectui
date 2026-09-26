@@ -1,0 +1,35 @@
+{
+  "number": 7397,
+  "kind": "issue",
+  "title": "finding(components): packages/components/src/ui/chart.tsx is an unreferenced duplicate of the plugin-charts chart primitives, carrying the legend bug fixed in objectui#7248",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T17:25:43Z",
+  "updated_at": "2026-09-04T09:29:08Z",
+  "closed_at": "2026-09-04T09:23:51Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7397",
+  "body": "> ### ⚠️ Corrected 2026-09-04 by the claimant of this card, per the maintainer ruling in [5536046538](https://github.com/objectstack-ai/objectui/issues/7397#issuecomment-5536046538)\n>\n> **The \"But nothing uses it\" section below was wrong on this card's load-bearing claim**, and the section is struck through and replaced in place. The primitives **were** on the public surface of `@object-ui/components`, so the defect was **reachable by any external consumer**, and removing them is a breaking change — not the tidy-up this card originally described. The seat correction [5528290030](https://github.com/objectstack-ai/objectui/issues/7397#issuecomment-5528290030) got there first and is what the ruling adopted. Landed in PR #7626.\n>\n> ⭐ **How the original probe went wrong, because it is the failure mode to avoid:** it was `^export (const|function|type|interface) ChartLegend...`, which returned **0** — with **no control that fires**. shadcn exports through a trailing `export { ... }` block, so the query shape was wrong and that zero was never a reading. ⛔ A zero without a lit control is not a measurement.\n\nFound while fixing objectui#7248.\n\n## What\n\n`packages/components/src/ui/chart.tsx` defines its own `ChartLegendContent` (and the surrounding chart primitives) that duplicate the ones in `packages/plugin-charts/src/ChartContainerImpl.tsx`. The copy carries the same label-resolution hole that objectui#7248 fixed in the plugin-charts one:\n\n    const key = `${nameKey || item.dataKey || \"value\"}`\n    const itemConfig = getPayloadConfigFromPayload(config, item, key)\n    ...\n    {itemConfig?.label}\n\nThe swatch renders unconditionally while the label comes only from a config hit, so a legend entry whose config lookup misses paints an anonymous coloured dot. On a scatter that reads as a data point drawn outside the plot area, which is what objectui#7248 was reported as.\n\n## ~~But nothing uses it~~ It is published, and the defect is reachable today\n\n~~Measured on the objectui worktree at d6fe1e1f2:~~\n\n- ~~no file outside `packages/components/src/ui/chart.tsx` itself imports `ChartLegend` or `ChartLegendContent` from `@object-ui/components`~~\n- ~~the symbol is not re-exported from the `packages/components` barrel~~\n- ~~`plugin-charts` imports its own local copy via a relative path, never this one~~\n\n~~So the defect is currently unreachable, and~~ objectui#7248 deliberately did not touch this file: fixing an unreferenced duplicate would have widened that PR across a second published package and its whole gate surface for no reader-visible change.\n\n**What is actually true** (re-verified on `origin/main` `0d8fd7ce` while implementing this card):\n\n- **The symbol IS re-exported from the barrel**, through two `export *` hops:\n\n      packages/components/src/index.ts:90       export * from './ui';\n      packages/components/src/ui/index.ts:20    export * from './chart';\n      packages/components/src/ui/chart.tsx:377  export { ChartContainer, ChartTooltip, ChartTooltipContent,\n                                                          ChartLegend, ChartLegendContent, ChartStyle }\n\n  plus the `ChartConfig` type alias at line 19. All seven names were on the published surface of `@object-ui/components`.\n- **The defect was therefore reachable**, not unreachable: any external consumer importing `ChartLegendContent` from `@object-ui/components` got the copy carrying the unfixed legend hole.\n- **Only the third bullet survives**, and only in part: it is true that **no in-repo file** imports these names from `@object-ui/components` — re-measured across `apps/**`, `examples/**` and `packages/**` with a lit control, still zero — and true that `plugin-charts` reaches its own copy by relative path. But **\"no in-repo reader\" is not \"not published\"**, and conflating the two is what this card did. (Contrast objectui#7319 / PR #7514, which looks like the same shape and is the opposite one: that copy really was unreachable from both directions.)\n\n## Why this is worth a card anyway\n\nTwo copies of the same primitive, one already known-buggy, is how a fixed bug comes back: a future import of the `@object-ui/components` chart primitives silently picks up the unfixed legend. ~~The question to settle is which one is canonical — most likely delete the unreferenced copy, otherwise export it and carry the same fix plus pins.~~\n\n**Settled** by the maintainer on 2026-09-04 (decision batch #28, option **(a)**): the primitives are removed from `@object-ui/components` and `plugin-charts` is the single implementation. Breaking change, `Clause-②: yes`, shipped as `minor` per this repo's release model.\n\n~~Observational, so labelled `finding` rather than queued.~~ Re-labelled `priority:p2` by the `domain:ui` seat: a known-buggy component was on the public surface.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

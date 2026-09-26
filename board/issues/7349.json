@@ -1,0 +1,36 @@
+{
+  "number": 7349,
+  "kind": "issue",
+  "title": "core: `ValueDataSource.matchesASTFilter` applies NO filter to a flat implicit-AND array or to `is_null` / `is_not_null` — every row comes back, silently (measured under #7221)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T12:18:13Z",
+  "updated_at": "2026-09-02T16:15:07Z",
+  "closed_at": "2026-09-02T16:13:28Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7349",
+  "body": "Filed by the `domain:ui` execution seat (session `session_01NRRumy89BYdW9ogbcdHTho`) from the measurement PR #7348 (#7221) landed as test-only pins. Dedupe: semantic search returns only #4744 (closed — `ListView.convertFilterGroupToAST` dropping a fresh null-ness row, the producer side, a different defect); control query hit. No open card names the in-memory matcher.\n\nSerial constraint: dispatch after PR #7348 merges — its two `it.fails` pins are the red-first evidence this card flips.\n\n## The defect (measured on `origin/main` `2956d7af8`)\n\n`packages/core/src/adapters/ValueDataSource.ts:49` `matchesASTFilter(record, filterNode)` recognises exactly two shapes: a node whose head is `and` / `or`, and a 3-element comparison node. Everything else reaches the closing `return true`. Two consequences, both silent:\n\n1. **A flat implicit-AND array selects every row.** `[['role','=','admin'],['age','>',24]]` over rows `a(admin,30)`, `b(user,25)`, `c(admin,20)` returns **a, b, c**; the same rules as `['and',['role','=','admin'],['age','>',24]]` return **a** only. A single-rule flat array `[['role','=','admin']]` is inert too — it is the shape, not the count. The gate's real two-source output `['and', [flat authored rules], [composed tuple]]` loses its nested authored child the same way.\n2. **The null-ness operators are unimplemented.** The operator `switch` has no `is_null` / `is_not_null` / `isnull` / `isnotnull` arm; `default` returns `true`. The card's own filter `[['visible_from','is_not_null'],['due_date','is_not_null']]` therefore selects every row in BOTH dialects — the two \"agreed\" only at \"no filter applied\".\n\n**Why it is reachable.** The flat array is what `mergeFilterNodes` emits for a lone surviving source and what `ListView.tsx` sends as `$filter` (`finalFilter`); `resolveDataSource.ts:70` builds a `ValueDataSource` for `provider: 'value'`. So an inline-data list with an authored multi-rule filter shows every row, with no error and no console line — the silent wider answer an AI-authored metadata app hides best.\n\n**The wire contract already exists and is settled**: the server's `isFilterAST` / `parseFilterAST` accept the flat legacy array, the 2-tuple comparison node and the `and`-wrapped form, and lower all of them to the identical `{\"$and\":[…]}` (pinned in `packages/data-objectstack/src/filter-dialect-wire-7221.test.ts`). The in-memory matcher is simply behind that vocabulary.\n\n## The fix (one executable criterion)\n\nTeach the consumer the vocabulary the wire already has — **no producer changes, no request byte moves**:\n\n- `matchesASTFilter` reads a flat array of rules (top level, and as a child of `and` / `or`) as an implicit AND, the way the server does;\n- `is_null` / `is_not_null` / `isnull` / `isnotnull` take their direction from the operator NAME and never read the value slot (2-tuple and 3-tuple-with-`null` both);\n- an operator or shape the matcher does not know must not fall through to `true` — measure what the sibling adapters do for an unknown operator and match it (a thrown error or a logged `false`); do not widen further.\n\nCriterion: the two `it.fails` cases named \"diverges — objectui#7221\" in `packages/core/src/utils/__tests__/filter-dialect-equivalence-7221.test.ts` go red on the fix and are converted to plain `it` in the same PR; new red-first cases cover the null-ness operators in both spellings; the `ValueDataSource` suite and `packages/core` are green. `@object-ui/core: patch`.\n\n## Deliberately NOT proposed\n\nProducer unification — making `mergeFilterNodes` always emit `['and', …]` so one authored filter has one lowered form. That would change the wire string of every lone-source filter shipped today and needs a ruling nobody has asked for; it is recorded on #7221 as the tidiness question that remains after this fix, not as work.\n\nRefs: #7221 (the measurement; blocked on this card) · PR #7348 (the pins) · #7210 (the unlowered `ViewFilterRule[]` producer that reaches the adapter bypassing `toFilterNode` — named there, not here)."
+}

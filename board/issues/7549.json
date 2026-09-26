@@ -1,0 +1,33 @@
+{
+  "number": 7549,
+  "kind": "issue",
+  "title": "`ChartSchema` declares neither chart-level `data` nor `xAxisKey` — yet its own JSDoc teaches both, so the corrected chart model documents keys only `BaseSchema`'s index signature admits",
+  "state": "closed",
+  "state_reason": "duplicate",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T20:01:29Z",
+  "updated_at": "2026-09-04T03:50:06Z",
+  "closed_at": "2026-09-04T03:50:06Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7549",
+  "body": "Split out of **#7112** by the triage seat (R+126). That card fixes five documentation and example sites that teach the retired inline `series[].data` model; it names this as *\"a separate contract question [that] should not be settled inside a docs pass\"* and is right. Filing it so the question is a card rather than a paragraph — a pending question written only in a comment is invisible to candidate queries, sweeps and aging alerts.\n\nos-decision-facets\n\n## Measured — tree `origin/main` **`045d20b`**, read **2026-09-03T20:00:23Z**\n\n**`ChartSchema` (`packages/types/src/data-display.ts:1401`) declares exactly:**\n\n`type` · `chartType` · `title` · `description` · `categories` · `series` · `height` · `width` · `showLegend` · `showGrid` · `animate` · `config`\n\n⇒ **No chart-level `data`. No `xAxisKey`.**\n\n**But both exist elsewhere in the same file.** `xAxisKey?: string` is declared at `:1923`, on the narrower renderer-level schema whose docblock (`:1896`) reads *\"(`ChartBarRenderer`) forwards exactly `data`, `dataKey`, `xAxisKey`…\"*, and mirrored in zod at `data-display.zod.ts:552`.\n\n⚠️ ⛔ Precision, because the loose version of this claim is false: `xAxisKey` is **not** undeclared in `packages/types`. It is undeclared **on `ChartSchema`**. I checked, having first run a control that returned 6 hits in `data-display.ts` — which would have read as \"declared\" had I stopped there.\n\n## ⭐ The contradiction is already inside the declaration, not only in the docs\n\n#7112 frames this as five external pages teaching a model the type does not declare. It is closer to home than that — **`ChartSchema`'s own JSDoc teaches it**:\n\n- `:1335` — *\"…and the category axis comes from `xAxisKey` / `xAxis`. That is the model…\"*\n- `:1424` — *\"The category axis comes from `xAxisKey` / `xAxis`. This docblock read…\"*\n- `:1364` — the `categories` tombstone, pointing the author at the same replacement\n\n⇒ The type's docblock directs authors to keys the type does not declare, which survive only through `BaseSchema`'s index signature. Fixing the five external pages without answering this reproduces the same defect in the corrected text — which is exactly why #7112 fenced it out.\n\n## 四棱\n\n**① 长期正确性(主导)** —— 渲染器读的是 chart-level `data` + `xAxisKey`,声明面却只在一个更窄的 renderer schema 上有它们,`ChartSchema` 一个都没有。**声明与实现不一致时,正解是让声明追上实现**,而不是让文档去描述一个靠 index signature 兜住的形状 —— 后者把 `BaseSchema` 的 `[key: string]: any` 当成契约用,而它恰恰是 objectui 反复付学费的那个洞(#5155、#6150 两轮 census 都是它)。⇒ 本轴明确要求**把两个键声明到 `ChartSchema` 上**。\n\n**② 真实业务拉力** —— 已兑现且可测:#7112 的五处站点今天**每一处都渲染空图**,而它们是作者实际阅读的通道。补声明是让「正确写法」第一次变得可类型检查。\n\n**③ 防 AI 编码错误** —— 分量最重。现状是最坏组合:JSDoc 教 A,声明面没有 A,校验器靠 index signature 静默接受 A,渲染器读 A。AI 作者四个信号全对不上,且**没有一个会红**。补声明后,写错键名当场是类型错误。\n\n**④ 创业期不扩张** —— 这不是新增能力:两个键渲染器**已经在读**,只是没被声明。补声明让已发货的行为变得可声明,面不变大 —— 属于 ADR-0049 「declared = enforced」的方向。\n\n**建议(一句)**:把 chart-level `data` 与 `xAxisKey` 声明到 `ChartSchema`(TS 与 zod 双面),形状照 `:1923` / `data-display.zod.ts:552` 已有的那份,⛔ 不要新造。\n\n**回退**:若维护者认为 `ChartSchema` 应保持「容器」语义、把行数据留给更窄的 renderer schema,则 ⛔ 不补声明 —— 但那样必须同批把 `:1335`/`:1424` 的 JSDoc 与 #7112 的五处文档一起改成**指向那个更窄的 schema**,⛔ 不能继续在 `ChartSchema` 的 docblock 里教它不接受的键。两条路都行,**继续两不靠是唯一不能选的**。\n\n**置信缺口(必填)**:我**没有**测 `:1923` 那个 renderer-level schema 与 `ChartSchema` 的关系 —— 它是 `ChartSchema` 的成员、是并列的联合分支,还是渲染期才组装的独立形状。若它其实是 `ChartSchema` 的**嵌套成员**,那么「chart-level `data`」这个说法本身就要重新表述,建议的形状也要跟着改。**这一条足以改变建议的形状(虽然大概率不改变方向)。** ⇒ 取用前先量这条关系。\n\n## Sequencing\n\n⭐ **This card first, #7112 second.** #7112's own \"what a fix would do\" section writes the corrected examples in terms of chart-level `data` / `xAxisKey`; until this is answered, that text documents index-signature keys. ⛔ Landing the docs pass first would need re-editing the same five sites after the ruling.\n\n⚠️ #7112 is nonetheless graded `pm:queue`·`p2` and **not** blocked: the five pages are wrong *today* in a worse way (they render empty charts), so correcting them toward the implemented model is an improvement under either ruling. What must not happen is the docs pass silently **settling** this question by writing the keys as if declared.\n\n**Related:** #7112 (the docs half) · #6896 / PR #7111 (the retirement this came out of) · #5155, #6150 (the `BaseSchema` index-signature census family)."
+}

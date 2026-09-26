@@ -1,0 +1,35 @@
+{
+  "number": 7258,
+  "kind": "issue",
+  "title": "仪表盘聚合图表轴标题 \"Count\" 未本地化（类别标签已本地化）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "i18n",
+    "pm:done"
+  ],
+  "assignees": [
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T01:52:24Z",
+  "updated_at": "2026-09-03T19:40:05Z",
+  "closed_at": "2026-09-03T18:24:12Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7258",
+  "body": "## 现象\n\nAI 搭建的客户仪表盘「按状态统计客户数量」柱状图：三根柱子的类别标签已本地化（合作中 / 已流失 / 潜在），但 X 轴标题显示英文 \"Count\"。中文界面下终端用户可见。\n\n## 修复要求\n\n聚合度量的轴标题/图例走 i18n（count → 数量，或按 measure label），并核对 sum/avg 等其它聚合名的同类字符串。\n"
+}

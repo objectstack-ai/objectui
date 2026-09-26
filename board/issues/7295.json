@@ -1,0 +1,36 @@
+{
+  "number": 7295,
+  "kind": "issue",
+  "title": "finding(plugin-chatbot): per-message `avatar` / `avatarFallback` work end to end but no authoring-facing type declares them — #4424's `RuntimeOnlyMessageKeys` picked only three keys",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T04:53:59Z",
+  "updated_at": "2026-09-05T15:24:30Z",
+  "closed_at": "2026-09-05T13:35:52Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7295",
+  "body": "Found while covering `content/docs/plugins/plugin-chatbot.mdx` for #5174 batch 5 (PR #7294). Filed unassigned and **not** fixed there — that PR's surface is the `UNGATED_DOCS` ledger plus three doc pages, and this is a package type.\n\n## What\n\nAuthoring a `chatbot` node with a per-message avatar override works, all the way through:\n\n- `Chatbot` resolves it: `message.avatarFallback || userAvatarFallback` and `message.avatar || userAvatarUrl` — `packages/plugin-chatbot/src/index.tsx:177-178`.\n- The authoring-to-runtime seam carries it: `authoredToRuntimeMessage` destructures only `role` / `timestamp` / `toolInvocations` and spreads the rest (`...passthrough`) — `packages/plugin-chatbot/src/chatMessageAdapter.ts:256-262`.\n- The SDUI renderer feeds it: `toRuntimeMessages(messages)` into `Chatbot` — `packages/plugin-chatbot/src/renderer.tsx`.\n\n**But no type an author can name declares those two keys.**\n\n| type | declares `avatar` / `avatarFallback`? |\n|:--|:--|\n| `ChatMessage` from `@object-ui/types` (what `ChatbotSchema.messages` is typed as) | **no** |\n| `SeamChatMessage` from `@object-ui/plugin-chatbot` | **no** — `RuntimeOnlyMessageKeys` is `Pick(RuntimeChatMessage, 'buildProgress' or 'blueprintProgress' or 'charts')` |\n| `ChatMessage` from `@object-ui/plugin-chatbot` (the runtime shape) | yes |\n\nSo `ChatbotSchema.messages` is `ChatMessage[]` from `@object-ui/types`, and that interface has no index signature — an author who annotates their schema gets `TS2353: 'avatarFallback' does not exist in type 'ChatMessage'` on a value that renders correctly.\n\n## Measured\n\nWith the four example schemas on `content/docs/plugins/plugin-chatbot.mdx` annotated `ChatbotSchema`, the doc-snippet gate reports exactly five of these, one per documented per-message avatar:\n\n```\nplugin-chatbot.mdx:326:7  TS2353: Object literal may only specify known properties, and 'avatarFallback' does not exist in type 'ChatMessage'.\nplugin-chatbot.mdx:350:7  TS2353: ... 'avatarFallback' ...\nplugin-chatbot.mdx:376:7  TS2353: ... 'avatarFallback' ...\nplugin-chatbot.mdx:382:7  TS2353: ... 'avatarFallback' ...\nplugin-chatbot.mdx:393:7  TS2353: ... 'avatarFallback' ...\n```\n\nPR #7294 therefore leaves those three example blocks **unannotated** rather than deleting working, documented behaviour to satisfy a checker. That is a deliberate hole in that page's gate coverage, and it closes when this is decided.\n\n## Why it is worth a card rather than a shrug\n\nThis is the residue of #4424, which is the card that introduced `SeamChatMessage` and named the render-only keys. It picked `buildProgress`, `blueprintProgress` and `charts` — the keys API mode lifts out of the stream — and did not consider the two keys a **human author** writes by hand. The seam is otherwise exactly the mechanism that is supposed to make this expressible.\n\nRelated: #4383 (the barrel used to export two different `ChatMessage` types), #4399 (the `as any` this seam replaced), #6169 (the `chatbot` authoring surface becoming one named type).\n\n## Two readings, not resolved here\n\n1. **The authoring contract should carry them.** Add `avatar?: string` and `avatarFallback?: string` to `@object-ui/types`' `ChatMessage`, since a metadata author demonstrably writes them and the runtime honours them. Cheapest, and makes `declared = enforced` true again for this key pair.\n2. **They are render-only and the seam should carry them.** Widen `RuntimeOnlyMessageKeys` to include them, leaving the pure authoring contract narrow. This keeps `@object-ui/types` minimal but does **not** help the `ChatbotSchema.messages` author, who never names `SeamChatMessage` — so on its own it does not close the hole above.\n\nReading 1 is what the measured usage argues for; reading 2 is what the existing seam vocabulary argues for. Someone who owns the authoring contract should pick.\n\n## Reachability\n\nNothing breaks at runtime — the keys work today. The cost is type-level: a TypeScript author annotating their chatbot metadata is told a correct value is wrong, and a documentation page cannot be fully gate-covered."
+}

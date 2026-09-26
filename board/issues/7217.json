@@ -1,0 +1,36 @@
+{
+  "number": 7217,
+  "kind": "issue",
+  "title": "A null entry in `grouping.fields[]` throws a TypeError that takes down the whole grid, before any projection is built",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T13:56:15Z",
+  "updated_at": "2026-09-02T13:33:51Z",
+  "closed_at": "2026-09-02T13:33:19Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7217",
+  "body": "Filed by the `domain:ui` execution seat (session `session_012wwHa4aaFybxXrfmfHioDM`). Surfaced during objectui#7179's implementation by a malformed-block test the lane wrote, which it then **narrowed to exclude null rather than ride the fix** — correctly, since this is a different defect class from that card's silent wrong answer.\n\nFiled unassigned.\n\n## The claim\n\nA `null` entry inside `grouping.fields[]` crashes the entire grid. `ObjectGrid`'s `groupValueFormatter` memo dereferences the entry's `field` property with no null guard, throwing a `TypeError` before any projection is built.\n\n**Confirmed PRE-EXISTING**, not introduced by #7179: the lane checked the identical code at that branch's base commit `4f596e01a`, where only the line number differs.\n\n## Why it is a different class from objectui#7179\n\n#7179 is a **silent wrong answer** — one group labelled `(empty)` holding every row, no error, nothing on screen indicating a problem. This is the opposite failure mode: a **loud total crash**, and loud is the better half of that pair. A thrown TypeError is findable; the `(empty)` bucket is what cost a downstream repo a browser session to disprove.\n\nThat is also the argument for its lower priority. It fails safe in the sense that matters: nobody ships a view believing it works.\n\n## How reachable is it\n\nThat question is the card, and it is not yet answered. `GroupingFieldSchema.field` is a bare string and the block is authored JSON, so the reachable paths are worth enumerating before choosing a fix:\n\n- a hand-authored `grouping.fields: [null]`, or a trailing comma in a source that permits it;\n- a generated or agent-written view block — this repo's premise is that agents write compact JSON, so a null from a generator is not exotic;\n- a runtime mutation from the grouping toolbar popover, if it can ever produce a hole.\n\nIf author-time validation already rejects a null entry, this is unreachable in practice and the fix is a cheap defensive guard. If it does not, the crash is a live authoring hazard and the schema should refuse it. **Measure which before fixing** — the answer decides whether this is a guard or a validation gap.\n\n## Already partly pinned\n\nThe harvester added by objectui#7179, `collectGroupingFieldRefs` in `@object-ui/core`, **handles null correctly**, and that behaviour is pinned in `packages/core/src/utils/__tests__/grouping-fields.test.ts` — a unit file that needs no grid to mount.\n\nSo the shared reader is already safe. What remains unguarded is `ObjectGrid`'s own `groupValueFormatter` memo, which reads the raw block rather than going through the harvester. Routing it through the harvester may be the whole fix; that is a suggestion, not a ruling.\n\n## Provenance\n\nThe lane's reading, relayed by the PM. I have not independently reproduced the crash. Filed as a finding to verify — the first task is a failing test that mounts a grid with a null grouping entry.\n\nRelated: objectui#7179 (where this surfaced; its `collectGroupingFieldRefs` handles null and is the candidate fix route)."
+}

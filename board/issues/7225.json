@@ -1,0 +1,35 @@
+{
+  "number": 7225,
+  "kind": "issue",
+  "title": "`useSettledSchema` was extracted and published with ONE adopter — the convergence #6482 asked for is 1 of 4, and the gantt's ungated double fetch is still live",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T14:17:08Z",
+  "updated_at": "2026-09-03T15:20:58Z",
+  "closed_at": "2026-09-03T14:42:11Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7225",
+  "body": "Filed by the `domain:ui` execution seat (session `session_012wwHa4aaFybxXrfmfHioDM`). Surfaced by the objectui#7210 lane, which measured the gantt half; the convergence half is this seat's measurement. Filed unassigned.\n\n## Why this is a new card and not a reopen of #6482\n\nThe #7210 lane recommended **reopening objectui#6482** rather than filing again, to avoid a fourth card on the same regime. I checked before acting on that, and the situation turned out different from what the recommendation assumed, so I am filing instead. Reasoning, so it can be overruled:\n\n- **#6482 is closed as `completed`**, by PR #6690 (`feat(react): extract the settled-schema resolution hook`), assigned to and closed by another seat.\n- Its **ask 1 was a decision** — \"extract a shared hook, or keep hand copies?\" That decision was made and the hook shipped. Reopening implies it was not.\n- Its body is a **five-week-old snapshot of a tree that has since moved** — its four-row table no longer describes the code. objectui#7089 §1 warns about exactly this: *read the type and the code, not the card.* Reopening would put a stale table back into circulation as if current.\n\nWhat is actually outstanding is narrower and different from what #6482 says, so it deserves its own scope.\n\n## Measured today, on `origin/main`\n\n**`useSettledSchema` exists and is published** — `packages/react/src/hooks/useSettledSchema.ts`, exported through `packages/react/src/hooks/index.ts`.\n\n**It has exactly ONE non-test adopter.** Counted as a file count (`grep -rl … | wc -l`, files not lines), excluding `packages/react/` itself and all test paths:\n\n| | |\n|---|---:|\n| non-test adopter files | **1** — `packages/plugin-tree/src/ObjectTree.tsx` |\n\nControl that the probe discriminates: the same pattern finds `packages/react/src/hooks/useSettledSchema.ts`, its `index.ts` export, and its own test file. So the 1 is a reading, not a broken query.\n\n⚠️ I got this wrong on the first attempt: my initial probe searched for `useSettledObjectSchema`, which is not the symbol's name, and returned **zero adopters** — a silent zero that read exactly like the alarming answer I was half expecting. It was caught only by running a control that also should have matched and did not. Same class as the rest of this repo's silent-zero catalogue.\n\n**So the convergence is 1 of 4.** `ObjectKanban`, `plugin-view/ObjectView` and `ObjectCalendar` do not import the hook and still carry their own settled-schema shapes. The one migration that happened, `ObjectTree`, was the one that had an actual correctness defect (objectui#6481, the unkeyed latch) — so the hook was extracted to fix a bug and the deduplication it was named for did not follow.\n\n**And #6482's ask 2 is untouched for the gantt.** `packages/plugin-gantt/src/ObjectGantt.tsx` still holds a local `useState` for the schema and still lists `objectSchema` in its fetch-effect dependency list, which is the ungated *\"two queries, the first unexpanded\"* regime #6482 tabulated. The #7210 lane re-confirmed it by measurement: **two unbounded queries per gantt load**, before and after the object-schema read settles, the first carrying no `$expand` and therefore a wasted round trip.\n\n## Why a published export with one adopter is its own problem\n\nThis is ADR-0049 territory from an unusual direction. `@object-ui/react` is a published package, so the hook is a **permanent public-surface commitment** — which #6482's own body flagged in advance:\n\n> A helper would have to live in `@object-ui/react` … which makes it a **new export on a published package** — a permanent public-surface commitment. All four plugins already depend on `@object-ui/react`, so it is feasible; the question is whether it is wanted.\n\nThe question was answered \"yes\", the surface was widened, and three of the four intended callers were left as they were. That is the worst of both: the duplication remains **and** the API is now owed compatibility forever.\n\n## What this card asks for\n\n1. **Migrate the remaining three** (`ObjectKanban`, `plugin-view/ObjectView`, `ObjectCalendar`), or decide deliberately that they should not migrate and record why — #6482 already documented a real obstacle, that `ObjectCalendar` keys on `dataConfig.object ?? schema.objectName` and gates one provider branch rather than the whole effect. If that obstacle is what stopped the migration, saying so closes the question honestly.\n2. **Separately, gate the gantt.** ⚠️ Per #6482's own finding, whether gating is worth it is a **per-component measurement, not an inference** — it measured three latency profiles and found the cost differs by component (a discarded round trip in one case, a visible three-step paint in another). Do not gate the gantt because the table says so; measure it.\n\n⛔ Note that gating the gantt is **not** the same as capping it. objectui#7210 half 2 — whether a non-grid view may fetch unbounded — is an open maintainer decision, and nothing here should pre-empt it. This card is about the *duplicate* query, not the *unbounded* one.\n\nRelated: objectui#6482 (closed; the origin) · PR #6690 (the extraction) · objectui#6481 (the defect that drove it) · objectui#7210 (where the gantt half was re-measured) · objectui#7222 (the gantt renderer's prop-forwarding asymmetry, same component).\n\n---\n\n## PM state (added by the `domain:ui` execution seat, 2026-09-02)\n\nImplementation is **complete and delivered** on PR #7391 — ruling B is implemented: `ObjectKanban`, `plugin-view/ObjectView` and `ObjectCalendar` are migrated onto `useSettledSchema`, and the gantt's duplicate ungated query is gated (one expanded query per load instead of two). The card is parked on a governance decision, not on outstanding work.\n\nBlocked-by: #7399\nUnlock-action: re-check PR #7391\n\n#7399 asks the maintainer to choose how ruled user-facing copy lands against the `framework` per-chunk eager-closure ceiling. ⚠️ This card carries **no** user-facing copy of its own — it is blocked only because it shares PR #7391 with #7210, which does. If the decision on #7399 goes a way that keeps #7210 parked for long, splitting this half onto its own PR is the obvious unblock and should be reconsidered then."
+}

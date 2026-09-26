@@ -1,0 +1,36 @@
+{
+  "number": 7134,
+  "kind": "issue",
+  "title": "finding(test-config): the `unit` project's `isolate: false` is justified by a comment that is false — registry-writing AND registry-absence tests both live there",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T04:00:25Z",
+  "updated_at": "2026-09-02T05:58:43Z",
+  "closed_at": "2026-09-02T05:58:03Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7134",
+  "body": "Found while widening the import set in #7117 (PR #7133). Filed, not fixed — nothing is red today, and which way to close it is a test-config decision outside that card.\n\n## The claim\n\n`vitest.config.mts` turns off per-file isolation for the `unit` project, and states the premise that makes it safe:\n\n> The unit project is node-env pure logic with **no ComponentRegistry or DOM state to leak across files**, so it can share a module graph per worker instead of re-executing it per file. Measured 3.2x faster (38s -> 12s for the project) with zero failures, holding green across repeated and shuffled runs.\n\n`ComponentRegistry` is a module-level singleton, so under a shared module graph one file's side-effect registrations are visible to every later file in the same worker.\n\n## The premise is false in both directions\n\nBoth halves of the hazard the comment says does not exist are present in the `unit` project today (`*.test.ts`, not in `domTsTests`, therefore node env with `isolate: false`):\n\n- **A writer.** `packages/app-shell/src/views/metadata-admin/previews/__tests__/exclusion-reason-truthfulness.test.ts` performs side-effect registrations into the shared singleton — three package imports before #7117, ten package/leaf imports after it (`@object-ui/components`, `plugin-chatbot`, `plugin-form`, `plugin-detail`, and this package's six `views/*-renderer.tsx` leaves).\n- **A reader that asserts ABSENCE.** `packages/fields/src/__tests__/capability-multiselect-retired.test.ts:81-82` asserts `ComponentRegistry.get(...)` is `toBeUndefined()` for a retired key. A negative registry assertion is exactly the shape a shared registry can flip, and it is the one shape that cannot fail safe: if some other file registers that key first, this one goes green while proving nothing.\n\nSo the config's stated reason for the optimisation does not hold, and the reason is the only thing a future author consults when deciding whether a registry-touching suite may live in this project.\n\n## Latent, not live — measured\n\n`pnpm exec vitest run --project unit` on PR #7133's branch, with the widened import set: `Test Files 801 passed (801)` / `Tests 12489 passed | 9 skipped (12498)`, exit 0. No key registered by any writer collides with any key asserted absent, so nothing is wrong today. The cost is future-tense: the next `field:*` or `element:*` registration added to a unit-project file can silently satisfy an absence assertion somewhere else in the same worker, and the failure mode is a green.\n\nThis is the same shape as #7117 one level down: there, a guard could not see what it certified; here, a config comment certifies a property the tree no longer has.\n\n## Directions (not prescribed)\n\n- Correct the comment to state the real invariant — something like \"registry writes and registry-absence assertions must not collide\" — so the constraint is at least written down where it is relied on.\n- Or make it mechanical: a gate that fails when a key asserted absent in one `unit` file is registered by another, which is the only version that survives the next author.\n- Or move registry-touching `*.test.ts` files out of the shared-graph project, which costs the 3.2x on those files only.\n\nRefs: #7117 · PR #7133 · #2648 (the change that introduced `isolate: false` for the DOM projects)."
+}

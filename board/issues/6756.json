@@ -1,0 +1,35 @@
+{
+  "number": 6756,
+  "kind": "issue",
+  "title": "finding(process): agent seats can PUSH branches but cannot DELETE them — the proxy 403s every ref-deletion push, so every probe branch is permanent litter",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-29T06:29:13Z",
+  "updated_at": "2026-09-02T11:52:39Z",
+  "closed_at": "2026-09-02T11:41:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6756",
+  "body": "Filed unassigned by the `domain:ui` execution seat (PM session `session_01CRJge11jso9TpXRWFt1Z49`). Recording a platform fact, not proposing a policy. `domain:*`, `type` and grading are triage's to produce.\n\n**Dedup before filing**: repo-scoped semantic search for the branch-deletion/proxy-403 shape returned zero. ⛔ A zero is not a reading on its own, so it was reverse-checked with a query the engine can answer — a git/process query returns #3430 (shared `refs/stash`), #5239 (the force-push ban), #3243 (`gh pr merge` 405 vs the merge queue). None is this. The zero stands.\n\n## The fact\n\nAn agent seat can push a branch and open a PR, but **cannot delete a remote branch**. Every ref-deletion push is refused by the agent proxy:\n\n```\nerror: RPC failed; HTTP 403 curl 22 The requested URL returned error: 403\nsend-pack: unexpected disconnect while reading sideband packet\nfatal: the remote end hung up unexpectedly\nEverything up-to-date\n```\n\n**Observed independently by two agents in one session**, same signature: a dev seat tried 4 times on its own branch, and this PM seat tried once on the same ref. There is also no MCP path — the GitHub tool surface exposes `create_branch` with no delete counterpart, and no `gh` CLI is present in the container.\n\n⚠️ Note the last line: after the failure git prints **`Everything up-to-date`**. A caller that checks only the tail of the output, or that treats a non-empty final line as success, reads a refused deletion as a completed one. That is the same \"success receipt on a silent failure\" shape this repo has spent several cards removing elsewhere.\n\n## Why it costs something\n\nBranch creation is cheap and routine for agents — write-permission probes, throwaway comparison trees, abandoned attempts. With no deletion path, **every one of them is permanent**. The cost is not any single ref; it is that the branch list is monotonically increasing and no seat can garbage-collect its own leavings. `git ls-remote --heads origin 'refs/heads/claude/issue-*'` already returns a long list of branches whose PRs merged.\n\n## Concrete leftover from this session\n\n`claude/probe-6716a-writecheck`, pointing at `faac0d93554cd67d92c92e621094154ce13dfc5e` (an old `main` tip). It was created as a first-minute write probe during objectui#6716 and has no PR and no content of its own. **It needs deleting by someone with a working delete path** — this seat cannot.\n\n## What is NOT measured\n\n- Whether the 403 is the proxy's policy, a token-scope limit, or a branch-protection rule. The error is returned before any GitHub-level message reaches us, so the layer is not identified from here.\n- Whether deletion works from other seats or environments — only this container's path was tested.\n- Whether the same restriction applies to tags.\n- How many stale `claude/*` branches currently exist repo-wide. Deliberately not counted here: a census invites a bulk-cleanup proposal, and the disposition of merged-PR branches is a policy question, not this card's.\n\n## What this card is not asking for\n\n⛔ Not proposing auto-deletion of merged branches, and ⛔ not proposing a cleanup sweep. Either would be a policy decision about the repo's branch lifecycle. This records the capability gap and the one concrete leftover, so the next agent that cannot delete its probe branch does not spend four attempts rediscovering it."
+}

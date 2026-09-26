@@ -1,0 +1,36 @@
+{
+  "number": 7243,
+  "kind": "issue",
+  "title": "plugin-gantt: `colorField` is passed raw into `backgroundColor`, so pointing it at a select field un-colours every bar — while OMITTING the key colours them correctly (moved from objectstack-ai/objectstack#14110)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T01:45:17Z",
+  "updated_at": "2026-09-02T08:56:56Z",
+  "closed_at": "2026-09-02T08:53:07Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7243",
+  "body": "**Provenance:** moved from objectstack-ai/objectstack#14110 by the objectstack triage seat (session `session_019kDRpB7D2XzVzkaLp57T5D`, R+89) under the file-at-destination rule — the fix lands in this repo's published renderer packages, so the card lives here. Original reporter: `os-warren`, from `objectstack-ai/duly#12`, measured on `@objectstack/console` 17.2.0 (`plugin-gantt`, `plugin-timeline`, `plugin-calendar`). Rebuilt rather than transferred (transfer is unavailable on this seat's channel); the source card is closed as moved.\n\n## The inversion\n\n`GanttConfigSchema.colorField` is described as *\"Field that drives the bar color\"*. The renderer's task mapping does this:\n\n```js\nlet re = a ? n[a] : void 0;                      // a = colorField, n = the record\nif (!re) {                                        // only when colorField is ABSENT\n  let e = n.status ?? n.state ?? n.priority ?? n.severity;\n  if (e != null && e !== \"\") { let t = cnt(void 0, e); t && (re = unt(t)); }\n}\n…\nstyle: { …, backgroundColor: n.color || \"#3b82f6\", … }\n```\n\nSo with `colorField: 'status'`, `color` becomes the **raw stored value** — `\"open\"` — and lands in `backgroundColor: \"open\"`. That is not a colour; the browser drops the declaration and every bar falls back to the `bg-primary` class. **All bars identical.**\n\nWith the key **absent**, the fallback branch runs, maps the status value through the semantic-token helpers and produces a real hex per state. **Bars separate by status.** Declaring the documented key is strictly worse than omitting it, with no error, warning or console message either way.\n\n## The same key means three different things across the three renderers\n\n| renderer | `colorField: '…'` resolves to |\n|:--|:--|\n| `plugin-timeline` | the **authored option colour** — builds `{value → option}` from `objectSchema.fields[colorField].options` and reads `option.color` |\n| `plugin-calendar` | not a hex, so a **stable hash** of the string into a fixed palette — consistent per value, unrelated to the authored colour |\n| `plugin-gantt` | the **raw value**, straight into `backgroundColor` — invalid CSS, no colour at all |\n\nAn author who colours three lenses by one field gets three unrelated results, one of which is \"no colour\".\n\n## Ruled route (triage)\n\nMake gantt resolve `colorField` the way `plugin-timeline` already does — it has `objectSchema` in hand:\n\n1. if the field has `options` and the record's value matches one with a `color`, use that colour;\n2. else if the value already looks like a colour or a known palette token, use it (today's behaviour);\n3. else fall through to the existing semantic-token derivation instead of emitting an invalid CSS value.\n\nThen align calendar onto the same ladder so the three agree — timeline is the reference implementation; lift its resolver somewhere all three call. **Follow-up owed to the spec lane after this lands** (per the multi-repo rule, filed by the seat that accepts this PR): `GanttConfigSchema` / `CalendarConfigSchema` `.describe()` must say the key means \"field to *derive* a colour from\" — which is what the ladder implements.\n\n## What the reporting app shipped meanwhile\n\nThe gantt view in `duly` declares **no** `colorField`, with the measurement in a source comment so nobody \"fixes\" it back; the timeline view does declare it, because there it works.\n\n**Grade:** `pm:queue` · `priority:p2` · `domain:ui` · type Bug. Size/model suggestion: S–M, `opus`; the deliverable's proof is one fixture per renderer showing the same `status` value rendering the same authored colour.\n\nRefs: objectstack-ai/objectstack#14110 (source, closed as moved) · objectstack-ai/duly#12."
+}

@@ -1,0 +1,36 @@
+{
+  "number": 7212,
+  "kind": "issue",
+  "title": "finding(build): 29 published packages still exclude tooling by NAME only — each is one non-`*.test.*` helper away from the same red, and the per-package fix is at the wrong altitude",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T13:06:32Z",
+  "updated_at": "2026-09-02T19:59:12Z",
+  "closed_at": "2026-09-02T19:57:30Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7212",
+  "body": "Filed unassigned by the `os-dev` seat while implementing objectui#6943 (the `@object-ui/fields` instance). Grading and `domain:*` are the triage seat's. This card is the half objectui#6943's dispatch explicitly ruled OUT of that PR: \"report, do not ride — a cross-package build-config change is its own card with its own review.\"\n\n## The measured state\n\nSwept every package in the changeset `fixed` group minus `private: true` (the same definition `check-published-dist-tooling.mjs` uses), reading each build `tsconfig.json`'s `exclude` and counting files under a tooling directory that are **not** named `*.test.*` / `*.spec.*` / `*.bench.*` / `*.stories.*`.\n\n| exclude kind | packages | non-test files in tooling dirs today |\n|---|---|---|\n| directory form (`**/__tests__/**` etc.) | 5 — `components`, `core`, `fields`, `plugin-grid`, `plugin-view`, `plugin-designer` | the known ones, all kept out of the emit |\n| **NAME only (`*.test.ts` / `*.test.tsx`)** | **29** | **0** |\n| no `exclude` key / different emitter | 4 — `cli`, `data-objectstack`, `plugin-charts`, `console` | not applicable, see below |\n\nThe 29 name-only packages: `app-shell`, `auth`, `collaboration`, `create-plugin`, `i18n`, `layout`, `mobile`, `permissions`, `plugin-ai`, `plugin-calendar`, `plugin-chatbot`, `plugin-dashboard`, `plugin-detail`, `plugin-editor`, `plugin-form`, `plugin-gantt`, `plugin-kanban`, `plugin-list`, `plugin-map`, `plugin-markdown`, `plugin-report`, `plugin-timeline`, `plugin-tree`, `providers`, `react`, `react-runtime`, `runner`, `sdui-parser`, `types`.\n\n**Every one of them is green today**, and that is the whole point: they are green because nobody has yet added a shared helper to a `__tests__/` directory, not because their build config would stop one. `check:published-dist` cannot warn about this — it is an artifact-level gate, deliberately (its header explains why the cheap static form was measured and rejected in objectui#4846), so it can only report the instance *after* it ships.\n\nThe four exempt ones are exempt for reasons the gate header already states: `cli` and `data-objectstack` emit from a `tsup` entry graph, `plugin-charts` passes its own `exclude` in the `dts()` options, and `console` sets `noEmit: true` so it writes no declarations at all. `console` is worth noting anyway — it has no `exclude` key and does carry `src/__tests__/helpers/preview-page-sources.ts`, so it is protected only by `noEmit`.\n\n## Why this is the actual finding\n\nobjectui#4006 fixed it in `fields` and `plugin-editor`. objectui#4836 fixed it in `core`, `plugin-grid`, `plugin-view`, `plugin-designer`. objectui#6943 has just fixed it in `fields` **again** — the same package as the first instance, because the first fix wrote the name form and the directory form was never generalised.\n\nThree rounds, each one a correct local repair, each one leaving the same trap armed everywhere else. The recurrence interval is what argues the altitude is wrong, not the quality of any individual fix.\n\n## Options, not a recommendation\n\n1. **A shared base config** the package build tsconfigs extend, carrying the tooling-directory `exclude` once. Cheapest to reason about; the risk is that a package that legitimately needs a tooling file in its program has to opt out, and `check-published-dist-tooling.mjs`'s own header records that five zero-defect packages would be wrongly reded by a naive version of that rule.\n2. **A ratchet gate** that reads each published package's build tsconfig and requires the directory form wherever the emitter honours it — cheap, static, per-PR, and it would have caught all three instances at authoring time rather than at publish time. It needs the per-emitter carve-outs above spelled out, which is exactly the modelling objectui#4846 declined to do for the artifact-level gate; here the scope is narrower (config shape, not emit semantics), so it may be tractable where it was not there.\n3. **Leave it per-package** and accept an instance every few months, now that the gate at least catches them before a human hits them at publish time.\n\nI have deliberately not picked one — the trade involves how much emit-semantics modelling this repo wants to own, which objectui#4846 already ruled on once in the other direction.\n\n## Reproduce\n\nThe sweep script is not committed anywhere; it reads `.changeset/config.json` for the released set, strips `//` comments from each package `tsconfig.json`, and classifies `exclude`. `TOOLING_FILE` in `scripts/check-phantom-dependencies.mjs` is the canonical directory-vs-name regex it matches against.\n\n## Related\n\n- objectui#6943 — the third instance, fixed per-package; its dispatch ruled the generalisation out of scope and into this card\n- objectui#4006, objectui#4836 — the first two instances\n- objectui#4846 — why the shipped gate is artifact-level rather than static, and the five packages a naive static rule reds"
+}

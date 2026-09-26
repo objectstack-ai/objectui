@@ -1,0 +1,36 @@
+{
+  "number": 7224,
+  "kind": "issue",
+  "title": "plugin-gantt: between 640px and 1023px the task-list rows carry NO dates at all — the Start/End columns are gated off and the date sublabel is display:none from 640px up",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T14:12:03Z",
+  "updated_at": "2026-09-03T00:56:49Z",
+  "closed_at": "2026-09-03T00:56:06Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7224",
+  "body": "Found while verifying a premise on #7204. Filed unassigned, not claiming. This is a **different** defect from #7204: that card is about names being squeezed at 1024px and wider; this one is about dates being absent entirely in a band #7204 never visits.\n\nMeasured on `origin/main` `3561bd2ca93b2cd3f7e63616f0c986328c6408ce`, `packages/plugin-gantt/src/GanttView.tsx`.\n\n## Symptom\n\nAt any viewport from 640px up to 1023px, a gantt task-list row shows **neither** the Start/End date columns **nor** the `8/26 → 9/2` sublabel under the title. The row's dates exist in the DOM twice and are painted zero times. No drag and no configuration is needed — it is the default at those widths.\n\n## Mechanism — two gates on two different width sources, and they overlap wrong\n\nBoth gates are in `GanttView.tsx`.\n\n**Gate 1 — the Start/End columns.** Container-driven, in JS:\n\n```\ntaskListWidthForContainer(width)  ->  width under 640: 140 | under 1024: 220 | else 320\nshowStartEndColumns(taskListWidth) ->  taskListWidth >= 280\n```\n\nso at a container width of 640..1023 the default task-list width is 220, and `showStartEndColumns(220)` is `false`. The two cells are rendered with `hidden` plus an inline `display: none`.\n\n**Gate 2 — the date sublabel.** Viewport-driven, in the component's own injected style element:\n\n```\n@media (min-width: 640px) {\n  .gantt-sm-hidden { display: none; }\n}\n```\n\nand the sublabel span carries `gantt-sm-hidden`. Above 640px it is `display: none`.\n\nGate 1 reads the **container** (a ResizeObserver on the gantt root: `effectiveWidth = containerWidth || window.innerWidth`). Gate 2 reads the **viewport** (a CSS media query). The two are the same number only when the gantt fills the window. The uncovered band is where gate 1 has already withdrawn the columns and gate 2 has already withdrawn the sublabel.\n\n## Measurements\n\n**A. Real Chromium 1194** (`/opt/pw-browsers/chromium-1194`), loading the component's own rendered markup and its own injected style element, reading `getComputedStyle(sublabel).display`:\n\n| viewport | sublabel display | sublabel client width |\n| --: | --- | --: |\n| 500 | `inline` | 72.9 |\n| 639 | `inline` | 72.9 |\n| 640 | **`none`** | 0 |\n| 800 | **`none`** | 0 |\n| 1024 | **`none`** | 0 |\n| 1440 | **`none`** | 0 |\n| 1920 | **`none`** | 0 |\n\n**B. jsdom render of `GanttView` at container width 800**, reading the two Start/End cells of a data row:\n\n```\nw-16 gantt-sm-w20 text-right ... | hidden attr = true | inline display = none   (start, \"8/26\")\nw-16 gantt-sm-w20 text-right ... | hidden attr = true | inline display = none   (end,  \"9/2\")\n```\n\nand the list header at that width renders only `Task Name` plus the open-details spacer — the `Start` and `End` header captions are gone too.\n\nA and B are the same width, so at 800px both gates are shut simultaneously: no columns, no sublabel.\n\n## The band is wider than the default case\n\nGate 1 keys off the **task-list width**, not the viewport, and the user can drag the splitter down to `TASK_LIST_MIN_W` = 160. So the hole also opens at 1024px and above whenever the persisted layout holds a dragged width under 280 — and a dragged width is the only way `taskListWidth` is ever anything but the three defaults, since there is no prop and no `GanttConfigSchema` key for it.\n\nThere is a mirror-image hole at the other end: a viewport under 640px with the task list dragged wider than 280 satisfies `showStartEndColumns`, but the columns also carry Tailwind's `hidden sm:block`, so the viewport keeps them hidden while `gantt-sm-hidden` is inactive — that one lands the right way up (the sublabel shows).\n\n## What is left when both gates shut\n\nOnly the bar hover tooltip, which is itself conditional: the tooltip prints `Aug 26 → Sep 2` **only when `task.fields` is empty**. Configure the documented `tooltipFields` key and the tooltip renders those fields instead, at which point a row's start and end dates are not readable anywhere in the view without opening the detail drawer.\n\nInline edit is caught by the same gate: the Start/End cells are also where the two `type=\"date\"` inputs live, so at a task-list width under 280 an inline-editing user can edit the title but cannot see or change the dates.\n\n## Suggested directions — maintainer's call, none proposed as decided\n\n- **A.** Make the sublabel the complement of the columns rather than a separate viewport rule: render it exactly when the Start/End columns are not rendered. Needs care, because \"the columns are rendered\" is currently the conjunction of a container test and a viewport test.\n- **B.** Move gate 2 off the viewport onto the same container width gate 1 uses, so the two decisions cannot disagree about how wide the gantt is.\n- **C.** Leave both gates and accept the hover tooltip as the fallback — cheapest, but it is hover-only and `tooltipFields` defeats it.\n\nRelated: #7204 (the same two functions, at 1024px and wider). Fixing this one likely settles the shape question #7204 is currently blocked on, so they probably want to be decided together.\n\n_Generated by [Claude Code](https://claude.ai/code)_\n"
+}

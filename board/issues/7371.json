@@ -1,0 +1,35 @@
+{
+  "number": 7371,
+  "kind": "issue",
+  "title": "AiUsageIndicator：识别免费版新的 resetKind 'weekly' 与 resetsAt（cloud#1843 周额度的消费侧跟进）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T13:40:53Z",
+  "updated_at": "2026-09-02T14:51:24Z",
+  "closed_at": "2026-09-02T14:51:24Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7371",
+  "body": "## 背景（cloud#1843 / PR cloud#1852 的消费侧跟进）\n\n免费版 AI 额度改为 7 天滚动窗口后，objectos 运行时的用量端点与 429 信封有两处形状增量：\n\n- `/api/v1/ai/usage`：`resetKind` 新增值 `'weekly'`（原只有 `'daily' | 'monthly'`），并带 `resetsAt`（ISO，= 窗口内最早一笔计入用量的时间 + 7 天，即用量开始滚出的时刻）。\n- 429 `AI_DESIGN_QUOTA_EXHAUSTED` 的 `error.details`：新增 `resetsAt`（ISO）；免费用户 `resetsTonight=false`。\n\ncloud 侧 dev 核对：`chatbotQuota.*` 四个键与窗口无关（「明天会重置」那句一直是服务端下发的 `message`/`messageEn`，已在服务端改成带日期的文案）；**需要改的是 `AiUsageIndicator`**（`packages/app-shell/src/layout/AiUsageIndicator.tsx`），它按 `resetKind` 渲染「今晚重置 / 下个周期」，收到 `'weekly'` 会落到未知分支。\n\n## 要求\n\n1. `AiUsageIndicator` 识别 `resetKind: 'weekly'`：显示「N 天后重置」（由 `resetsAt` 算，≤1 天时显示小时），中英文都走 `@object-ui/i18n`；D5：不显示 token 数。\n2. 类型：usage 响应类型里 `resetKind` 联合加 `'weekly'`，`resetsAt?: string`；未知 kind 回落到不显示重置时间（而不是崩或显示错的话）。\n3. 测试：weekly + resetsAt 渲染；未知 kind 回落。\n\n## 前提 re-check\n\n`gh pr diff 1852 --repo objectstack-ai/cloud | grep -n \"weekly\\|resetsAt\"`；objectui `grep -rn \"resetKind\" packages/app-shell/src/layout/AiUsageIndicator.tsx`。\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 7359,
+  "kind": "issue",
+  "title": "No gate reads inside a code fence in `skills/objectui/` — 123 TypeScript fences and 63 JSON fences are checked by nothing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T13:14:06Z",
+  "updated_at": "2026-09-03T06:55:58Z",
+  "closed_at": "2026-09-03T06:42:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7359",
+  "body": "Filed out-of-scope from the #7251 skills-optimization flight (its DEFER row OUI-E-01). Unassigned.\n\n## Measured\n\nAt the flight's audit ref, `skills/objectui/` carried **123 TypeScript fences and 63 JSON/JSONC fences**. `grep -rc \"os:check\" skills/objectui/` returns **zero**.\n\nEvery objectui gate that could read them excludes the surface, by construction rather than by accident:\n\n| Gate | Why it does not reach a fence in `skills/` |\n|---|---|\n| `check-skills-paths.mjs` | Deliberately excludes fences — \"A fence is a worked example\", and a tutorial fence may name a file the reader is about to create. It reads inline code spans in prose only. |\n| `check-doc-links.mjs` | `SCAN_ROOTS` has no `skills` row. |\n| `check-doc-component-types.mjs` | `DOCS_ROOT = 'content/docs'`; its header says so verbatim — \"This gate walks `content/docs` and nothing else: not `skills/**`\". |\n| `check-doc-snippet-types.mjs` | `content/docs` + package READMEs. |\n| `check-doc-fence-languages.mjs` | `content/docs` + package READMEs. It judges the fence *language tag*, never the contents. |\n\nNet: this repo enforces path existence in skill prose, and nothing else. A fence can import a symbol that does not exist, spell a key the renderer never reads, or restate a shape the spec changed, and stay green forever.\n\n## What already exists to copy\n\nobjectstack has `packages/spec/scripts/check-skill-examples.ts`, with the convention that an HTML comment containing `os:check`, placed on the line above a fence, opts that fence into a real type-check. A port would give objectui the same opt-in marker plus a runner over `skills/**`.\n\n## Why this is the highest-leverage structural addition here\n\nIt is the mechanism that stops the drift class from recurring. Two rounds of it have already been cleaned by hand — #3658 / #7094's truth sweep, and #7251's own correctness items, which included an eval asserting a mobile hook API (`useSwipe` / `useLongPress`) that has zero occurrences repo-wide. Every one of those was found by a human reading, which is precisely the economics `check-skills-paths.mjs` was created to end for paths.\n\n## Shape of the work\n\n1. Port the marker convention and the runner; opt-in, so it starts at zero red.\n2. Measure how many of the 123 fences compile as-is, and land the marker on the ones that already pass — that number is the honest starting ratchet.\n3. Decide separately whether the ratchet should be shrink-only, the way `check-doc-fence-languages.mjs` treats its declared-file population.\n\nRelated: #7358 (the same package's other unguarded surface — the paths gate's scan root)."
+}

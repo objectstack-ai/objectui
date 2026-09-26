@@ -1,0 +1,36 @@
+{
+  "number": 7238,
+  "kind": "issue",
+  "title": "finding(components): seven widgets re-read the raw `schema.disabled` beside SchemaRenderer's evaluated verdict — 9 TS2322 once the #7087 narrowings drop, and `ui:button` / `form` grey out on any predicate string",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T01:30:32Z",
+  "updated_at": "2026-09-02T07:01:03Z",
+  "closed_at": "2026-09-02T07:00:11Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7238",
+  "body": "Filed unassigned while building objectui#7087 (branch `claude/issue-7087-disabled-narrowing`, maintainer ruling 2026-09-01 option 1: the 18 concrete schemas' `disabled?: boolean` narrowings drop and `disabled` inherits `BaseSchema`'s `boolean | string`). The dispatch's Zone-2 item 3 asked for the readers to be verified rather than assumed, and to STOP rather than widen any reader that consumes `disabled` as a strict boolean. This is that report. The #7087 PR touches `packages/types` only; nothing here is fixed there.\n\n## What holds\n\nThe ruling's premise is true at the renderer. `packages/react/src/SchemaRenderer.tsx` (lines 1289-1299 on `origin/main` @ `67dadd602`) gates `disabled` / `disabledOn` through `hasDeclaredPredicate` + `evaluateEnablementPredicate`, sets `_disabled`, strips the raw key from the outgoing spread (line 1463) and forwards the VERDICT as a real `disabled` prop (`disabled: __disabled || undefined`, line 1584). `ActionSchema.disabled`'s three readers are predicate-aware already: `packages/core/src/actions/ActionRunner.ts:1004-1015`, `packages/app-shell/src/views/DeclaredActionsBar.tsx:179` / `:394`, `packages/components/src/renderers/complex/data-table.tsx:401`.\n\n## What does not\n\nThe `schema` the renderer hands the component is `evaluatedSchema` itself (`schemaForComponent`, lines 1343-1366) — the RAW authored `disabled` stays on it. Seven in-scope widgets read that raw value beside the host verdict. Measured with the #7087 change applied and the closure built, `pnpm --filter @object-ui/components type-check` on `06103d1` reports **9 × TS2322** `Type 'string | boolean | undefined' is not assignable to type 'boolean | undefined'`:\n\n**(a) DOM passthrough, compile-only** — `disabled={schema.disabled}`:\n- `packages/components/src/renderers/form/input.tsx:48`\n- `packages/components/src/renderers/form/textarea.tsx:45`\n- `packages/components/src/renderers/form/checkbox.tsx:44`\n- `packages/components/src/renderers/form/select.tsx:52`\n- `packages/components/src/renderers/form/combobox.tsx:28`\n- `packages/components/src/renderers/disclosure/collapsible.tsx:20`\n\nRuntime is correct through `SchemaRenderer` for these six: the host's forwarded `disabled` prop is spread AFTER the raw one (`toFormControlDomProps` keeps `disabled` by name — `packages/components/src/lib/form-control-dom-props.ts`; `pickDomProps` iterates `Object.keys`, so an `undefined` verdict overrides too; `collapsible` spreads `props` bare). The narrowing was load-bearing for their COMPILE, not their behaviour.\n\n**(b) raw read that drops the verdict, runtime defect** — `packages/components/src/renderers/form/form.tsx:1008` destructures `disabled` from `schema` (`FormSchema`) and strips the host prop unused (`disabled: _disabledProp`, line 2804). The raw value feeds `:2653` (every field's `disabled`), `:2994` (cancel button), `:3006` (submit button) — the three `form.tsx` errors. A predicate string is truthy however it evaluates: `disabled: \"${data.status === 'locked'}\"` on a form greys the whole form out even when the predicate is false.\n\n**(c) truthy OR, runtime defect, compiles** — `packages/components/src/renderers/form/button.tsx:42`: `const isDisabled = schema.disabled || props.disabled || isLoading;` — `props` is `any`, so no TS error, but a predicate string on `ButtonSchema.disabled` disables the button regardless of verdict.\n\nNot affected (no raw read; they take the host prop through their spread): `radio-group`, `switch`, `toggle`, `slider`, `date-picker`, `calendar`, `input-otp`, `file-upload`, `toggle-group` (group-level).\n\n(b) and (c) are reachable TODAY through JSON metadata and through any `BaseSchema`-typed node, independently of #7087 — the base type has advertised the predicate since #4581. #7087 makes them reachable from the concrete TS types too, and turns (a) from silent into a type error.\n\n## The fix shape already in the tree\n\n`packages/plugin-chatbot/src/renderer.tsx` (objectui#6169) consumes the host-evaluated prop instead of re-reading the raw key — its comment: *the raw value may be an expression STRING, which is truthy however it evaluates* — one carrier for one question (AGENTS.md #0.1). The same move at the nine sites (read the forwarded `disabled` prop; in `form.tsx` stop discarding `_disabledProp`) removes the 9 TS2322 and the two runtime defects without a cast. Widening a reader is Clause-② content beyond the #7087 ruling, so it is filed here for routing rather than folded into that PR: either it rides in the #7087 PR under the same contract review, or it lands first and the #7087 PR turns green on rebase-by-queue. Until one of those, the #7087 PR's Type Check job is expected red on exactly these nine lines.\n\nRefs #7087 · #6169 · #4581.\n\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

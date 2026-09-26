@@ -1,0 +1,36 @@
+{
+  "number": 7752,
+  "kind": "issue",
+  "title": "`ObjectStackAdapter.aggregate()` posts an un-lowered `FilterArray` as the analytics `where` — every array-form `element:number` / `object-metric` filter answers 400 on the runtime route; lower through `parseFilterAST` before the wire (moved from objectstack#15828, ruled 2026-09-05)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-05T14:54:51Z",
+  "updated_at": "2026-09-05T16:14:07Z",
+  "closed_at": "2026-09-05T15:58:48Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7752",
+  "body": "> **Provenance.** Rebuilt here from objectstack-ai/objectstack#15828 (transfer is unavailable to the filing seat) after the maintainer's ruling of 2026-09-05, verbatim 「15828 按前端缺陷处理」 — recorded on that card by the director seat (objectstack-ai/objectstack#12708, summon #15). The objectstack card stays open, narrowed to the spec-side documentation half (D3 entry wording + one `.describe()` sentence). Measurements below are the source card's and triage's, re-read against objectui `origin/main` `81a2eb1f` and the spec docblock on objectstack `origin/main` `6c439f2`.\n\n## Symptom (user-visible today)\n\nAn `element:number` (array-only filter since objectstack#12039) or an `object-metric` authored with an array `filter` plus `aggregate` calls `ObjectStackAdapter.aggregate()` → analytics branch → `POST /analytics/query` with `where` = the array. The runtime route parses the body with `AnalyticsQueryRequestSchema` first (`where: FilterConditionSchema`) and answers `400 Invalid AnalyticsQuery body: where: …` instead of the aggregate. Only the MongoDB-style record survives — the exact authoring form objectui#6206-B retired. Measured with `safeParse` on the spec source: record ACCEPT; AST tuple array / single tuple / rule array all REFUSE.\n\n## Why this is the adapter's defect and not the protocol's\n\n`@objectstack/spec` `data/filter.zod.ts`, `FilterArray` docblock (objectstack#5158 ruling C), verbatim: *\"A `FilterArray` is not a storage shape and not a protocol shape. It is lowered to a `FilterCondition` at the single sink `parseFilterAST` (`@objectstack/spec/data`) the moment it arrives, and only the lowered `FilterCondition` travels any further. `where` on a query is a `FilterCondition` and stays one … no driver, no transport, no stored row — ever has to understand two filter dialects.\"* Widening the wire was that ruling's **rejected option A**. The declared doors are React block props, `FilterBuilder`, and the REST `$filter` query string; a POST body's `where` is transport.\n\n`packages/data-objectstack/src/index.ts` `aggregate()` (analytics branch, ~line 4990): `payload.where = Array.isArray(params.filter) ? translateFilterArray(params.filter) : params.filter`. `translateFilterArray` only normalises rule objects into AST tuples — the result is still a `FilterArray`. The protocol's lowering step is missing. The same file already imports `isFilterAST` from `@objectstack/spec/data` (line 21); `parseFilterAST` is exported beside it. The branch comment mistook `service-analytics`' in-process `lowerAnalyticsWhere` door (objectstack#5334) for the wire's door; objectui#6302's gate measured that function, not the route.\n\n## The fix\n\n```ts\npayload.where = Array.isArray(params.filter)\n  ? parseFilterAST(translateFilterArray(params.filter))   // the protocol's single lowering sink\n  : params.filter;                                        // record path unchanged\n```\n\n- `parseFilterAST` returns `undefined` for an empty array — decide and pin: an empty authored filter posts no `where` (matches `lowerAnalyticsWhere`'s \"`[]` is no filter\").\n- The `find()` path is untouched: it sends `$filter` on the query string, which is a declared door.\n- The spec-shape branch's `UnloweredAggregateWhereError` (objectui#6825, ruling 2026-08-30 option A) is a different branch and a different ruling; do not touch it.\n\n## Tests this must carry\n\n- `packages/data-objectstack/src/aggregate-filter-lowering.test.ts` re-pointed: the **posted** `where` for an array filter is a `FilterCondition` object (e.g. `['stage','=','won']` → `{ stage: 'won' }` or whatever `parseFilterAST` yields — assert against `parseFilterAST`'s own output, not a hand-written literal).\n- The route-hop pin both triage comments asked for: the built payload passes `AnalyticsQueryRequestSchema.safeParse` from `@objectstack/spec/api` — the exact gate the runtime runs — for a tuple, a logical group, a bare list, and the record form; and an infix join (`[condA, 'or', condB]`) is refused **before** the wire with the adapter's `INVALID_FILTER` envelope, not silently dropped.\n- Existing record-path tests stay green unchanged.\n\n## Out of scope\n\nWidening `AnalyticsQuerySchema.where`; touching `translateFilterArray`'s tuple normalisation; the dashboard-widget record producer (`groupToCondition`, objectstack#15829 family); any `@objectstack/spec` change (the documentation half lives on objectstack#15828).\n\nRefs: objectstack#15828 (source, now the spec-docs half) · objectstack#5158 (FilterArray ruling C) · objectstack#5334 (analytics in-process door) · objectstack#12039 · #6302 / PR #6828 (the change that introduced the un-lowered post) · #6206 (ruling B) · #6825 · objectstack#15829 · #7711 · #7712 (same family per triage)."
+}

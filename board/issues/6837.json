@@ -1,0 +1,33 @@
+{
+  "number": 6837,
+  "kind": "issue",
+  "title": "finding(objectui): ~20 more relationship-target readers still run a legacy-first `reference_to` chain the ingestion normalizer already made redundant",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-29T22:47:57Z",
+  "updated_at": "2026-09-04T05:36:10Z",
+  "closed_at": "2026-09-04T05:36:10Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 24,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6837",
+  "body": "Surfaced while implementing objectui#6719 (PR #6836), and deliberately left out of that PR's fence: that card names one file.\n\n## What was measured\n\nobjectui#6528 narrowed two relationship-target resolvers to the spec spelling `reference`; objectui#6648 narrowed the same two to the string carrier; objectui#6719 did both for a third reader, `app-shell`'s `auditHistoryDisplay.ts`. A grep of the whole tree for the legacy-first chain shape (`reference_to ?? reference`, `reference_to || reference`, `referenceTo ||`), excluding tests, turns up roughly twenty MORE readers of the same value, spread over nine packages:\n\n- `packages/plugin-detail/src/RecordDetailDrawer.tsx:267` — the widest of them, a **four**-spelling chain: `def.reference_to ?? def.reference ?? def.referenceTo ?? def.target`. `referenceTo` is in `RETIRED_FIELD_KEYS` (objectui#6519), so the read door already strips it; `target` is not one of the three spellings #6528 measured at all. **CORRECTION (2026-09-03, objectui#6837 half 2): the clause that used to follow here — \"and is not in the spec's alias table either\" — is measured FALSE, and four readers forwarded it unchecked.** `target: \"reference\"` sits in `FieldSchema`'s own `aliases` map in `@objectstack/spec` 17.2.0, beside `referenceTo`, `relatedTo`, `targetObject` and `lookupObject`. Measured on the installed package: `FieldSchema.safeParse` refuses `{ name, type: 'lookup', target: 'account' }` with `unrecognized_keys` carrying \"Did you mean `target` -> `reference`?\", while a nonsense key gets the same refusal WITHOUT any rename hint — so the hint is alias-table membership, not boilerplate (positive control: `reference` parses clean). ⭐ The operative conclusion survives and is STRONGER than the false version: the spec names `target` explicitly **in order to refuse it**, so a producer emitting it fails visibly at the authoring door rather than being unknown to the contract.\n- `packages/plugin-detail/src/RelatedList.tsx:666,939`, `RecordMetaFooter.tsx:88`, `fieldEnrichment.ts:238`, `synth/buildDefaultPageSchema.ts:598`\n- `packages/plugin-gantt/src/ObjectGantt.tsx:1128` (three spellings)\n- `packages/plugin-tree/src/ObjectTree.tsx:132` (three spellings, canonical-first)\n- `packages/plugin-charts/src/ObjectChart.tsx:177`\n- `packages/plugin-list/src/ListView.tsx:2454,2465`, `UserFilters.tsx:291`, `ObjectGallery.tsx:272`\n- `packages/fields/src/widgets/LookupField.tsx:256`, `UserField.tsx:48` (canonical-first), `FilterConditionField.tsx:111`, `packages/fields/src/index.tsx:1937`\n- `packages/app-shell/src/views/RecordDetailView.tsx:1841`, `utils/deriveRelatedLists.ts:194`, `utils/resolveActionParams.ts:532`\n\nMost read the LEGACY spelling first, ahead of the one `ObjectSchema.safeParse` actually accepts.\n\n## Why this is observation-class, not a live defect\n\nNone of these produces a wrong answer today, and the reason is the same one measured on objectui#6719: `normalizeSchemaReferenceKeys` (`packages/core/src/utils/reference-keys.ts`) runs at the two ingestion choke points — `MetadataProvider`'s type cache for metadata type `object`, and `ObjectStackAdapter.getObjectSchema` — and stamps BOTH snake_case keys from whichever spelling arrived. So by the time any of these readers sees a def, the two keys are present and equal, and the chain is redundant rather than load-bearing.\n\nThat is exactly the tension worth recording. `reference-keys.ts` states its own purpose as running at the choke point \"so per-consumer dual-key fallbacks can't drift\" — and then twenty per-consumer dual-key fallbacks were written anyway. Each one is a place where a producer emitting only the refused spelling would be silently absorbed rather than failing visibly (AGENTS.md #0.1), and each one has to be reasoned about again the next time someone audits this value.\n\n## What a fix would be\n\nNot one PR. The useful next step is a measurement, not a sweep: for each reader, establish which contract its caller feeds it — an object metadata document (canonicalized upstream, so the chain is dead weight) or ObjectUI's own view/field contract (`DetailViewFieldSchema` in `@object-ui/types` `views.zod.ts`, where `reference_to` is the live key and `plugin-detail` translates INTO it from `reference`). objectui#6719's PR shows the shape that answer takes, and the refusal-pin shape both axes are pinned with.\n\n`RecordDetailDrawer.tsx:267` is the one worth doing first regardless of the wider sweep: two of its four arms (`referenceTo`, `target`) are refused by name and have no producer on any of the contracts involved.\n\nFiled unassigned, for triage.\n\nBlocked-by: objectstack-ai/objectstack#13700\n\n_Generated by [Claude Code](https://claude.ai/code)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

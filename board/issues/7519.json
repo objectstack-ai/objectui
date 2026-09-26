@@ -1,0 +1,36 @@
+{
+  "number": 7519,
+  "kind": "issue",
+  "title": "finding(types): retiring `MobileComponentConfig` leaves `MobileResponsiveConfig` and `GestureConfig` as zero-consumer published types",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "package: types"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T16:10:07Z",
+  "updated_at": "2026-09-05T06:46:07Z",
+  "closed_at": "2026-09-05T03:08:47Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7519",
+  "body": "Observation-class finding, filed unassigned for triage. Found while implementing #5942 (retire `MobileComponentConfig`); **not** fixed in that PR — these are different types and #5942's route covers only the container.\n\n## Mechanism\n\n`MobileComponentConfig` was the sole consumer of two other **published** types declared in the same file, `packages/types/src/mobile.ts`:\n\n```\npackages/types/src/mobile.ts:285   responsive?: MobileResponsiveConfig;    <- only consumer\npackages/types/src/mobile.ts:287   gestures?: GestureConfig[];             <- only consumer\n```\n\nBoth are published twice, exactly like the container was — `packages/types/src/index.ts` and `packages/mobile/src/index.ts` both re-export them — so consumers of `@object-ui/types` and `@object-ui/mobile` can write either name.\n\nOnce #5942 removes the container, each of these two types has **zero** consumers left in the repo: declaration plus two barrel re-exports and nothing else. That is the same declared-surface-with-no-consumption-path shape as #4919 and #5942 themselves, one level down.\n\nEven before #5942 lands the practical reachability was already nil: their one consumer was a type nothing mounted, annotated, extended or imported, so no value written against either could reach a renderer.\n\n## Measured, per type\n\nRead-shape probes over the whole tree, each zero paired with a control lit in the same run (`ComponentSchema` / `Record` / `BaseSchema`).\n\n`MobileResponsiveConfig` — mentions outside CHANGELOG prose:\n\n```\npackages/types/src/mobile.ts:55    the declaration\npackages/types/src/mobile.ts:285   responsive?: MobileResponsiveConfig    (the only consumer; removed by #5942)\npackages/types/src/index.ts:613    barrel re-export\npackages/mobile/src/index.ts:59    barrel re-export\n__tests__/page-nav-misc-spec-parity.test.ts:749   pins that the SPEC does not own the name\n```\n\n`GestureConfig` — mentions outside CHANGELOG prose and doc comments:\n\n```\npackages/types/src/mobile.ts:245   the declaration\npackages/types/src/mobile.ts:287   gestures?: GestureConfig[]             (the only consumer; removed by #5942)\npackages/types/src/index.ts:624    barrel re-export\npackages/mobile/src/index.ts:66    barrel re-export\n```\n\n`packages/mobile/src/useSpecGesture.ts:66` names `GestureConfig` in a **doc comment** only; the code there imports `SpecGestureConfig`, a different type. Counting bare words would score that as a read — it is not one.\n\n## Not the same as their neighbours\n\nThe sibling names on the same file are genuinely live and are **not** part of this finding:\n\n- `GestureType` — read by `useGesture.ts` and `useSpecGesture.ts` (`Record` maps, annotations).\n- `GestureContext` — read by `useGesture.ts` (annotation, construction, indexed access).\n- `ResponsiveValue` — read by `breakpoints.ts` and `useResponsive.ts`.\n\nSo this is not \"retire the mobile types\"; it is two specific names whose only mount point is going away.\n\n## Two things triage should weigh before choosing a route\n\n1. `MobileResponsiveConfig` carries a **tripwire test** — `packages/types/src/__tests__/page-nav-misc-spec-parity.test.ts` pins that `@objectstack/spec` does not own the name. That pin exists because the name was deliberately renamed off the spec's `ResponsiveConfig` (objectstack#4115). A retirement has to decide what happens to the pin; the name-ownership question outlives the type.\n2. The **capabilities** these types name are real and live in `@object-ui/mobile` as React hooks — `useResponsive` / `ResponsiveContainer`, `useGesture`, `usePullToRefresh`. Retiring the declarative types does not retire any behaviour. Equally, a decision to build a declarative mobile-config surface would want these shapes back, so \"retire\" and \"implement\" are both coherent answers and the choice is a product call, not a mechanical one.\n\n## Reachability, stated honestly\n\nIn-repo victims: **0** — nothing in `packages/`, `apps/` or `examples/` authors either type, and the `objectstack` sibling checkout has zero hits (control: `ComponentSchema` lit at 255 hits there in the same run). The only people affected are external consumers reading the `.d.ts`. Observation-class, so `finding` and no `pm:queue`; severity is triage's call.\n\nRelated: #5942 (the container this falls out of), #4919 (`MobileOverrides`, same lineage), #3818 / #3829 / #3985.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

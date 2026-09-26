@@ -1,0 +1,35 @@
+{
+  "number": 7404,
+  "kind": "issue",
+  "title": "finding(ci): `skills-paths.yml`'s header states the gate's scan surface as `skills/**` over 18 files — both halves are stale",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T18:12:12Z",
+  "updated_at": "2026-09-02T21:51:28Z",
+  "closed_at": "2026-09-02T21:29:00Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7404",
+  "body": "Filed out-of-scope from #7358. Unassigned. No functional effect — prose only.\n\n## What\n\n`.github/workflows/skills-paths.yml`'s header comment says:\n\n> this gate's ENTIRE scan surface is markdown (`skills/**`, guide prose)\n\nand, further down:\n\n> It needs no install and no build — a checkout plus one `node` call over 18 markdown files, a couple of seconds — so keep it that way if you add checks to it.\n\nBoth readings are stale, and they went stale in two separate steps:\n\n- **18 files** was true at `main@6422aa891`. #7251 moved two guides out of `skills/` and the reading became 16.\n- **`skills/**` as the entire surface** was true until #7358 widened `SCAN_ROOTS` to `['skills', '.claude/skills']`. The reading is now 20 files across two roots.\n\n## Why it is worth a line rather than nothing\n\nThe reasoning the comment exists to record is still completely correct — the surface is still entirely markdown, `ci.yml` and `lint.yml` still list `'**/*.md'` under `paths-ignore`, and this workflow still carries no `paths` or `paths-ignore` of its own, so it still starts on a guide-only push. Only the enumeration and the count drifted. A reader who takes the parenthetical literally concludes `.claude/skills` is ungated, which is the exact failure mode #7358 exists to remove.\n\n## Deliberately not fixed in #7358's PR\n\n#7358's dispatch fixed its file surface to `scripts/check-skills-paths.mjs`, its test, `scripts/skills-path-baseline.json` and any genuinely stale coordinate under `.claude/skills/**`. Its bounded in-place exemption needs \"no other claim holds this file\", and whether an open PR touches `.github/workflows/skills-paths.yml` was not verifiable from that seat (repo-scoped REST reads answer 403 there, and a wide PR listing is not worth a GraphQL call for a comment). So it was left alone and filed here instead.\n\nThe fix is two lines of comment: name both roots, and either restate the count as 20 or drop the number, since it is the sort of figure that goes stale on every guide added. `scripts/__tests__/check-skills-paths.test.ts` strips whole-line comments before asserting on this workflow, so a comment edit cannot move any pin in it."
+}

@@ -1,0 +1,39 @@
+{
+  "number": 7579,
+  "kind": "issue",
+  "title": "finding(plugin-detail): a FIFTH RelatedList test rides an unsettled chain — `serverpagination` gates on the page label, then reads `h.schema.data`; measured RED in CI",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "pm:dispatched",
+    "priority:p1",
+    "tests"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-04T00:17:32Z",
+  "updated_at": "2026-09-05T15:56:00Z",
+  "closed_at": "2026-09-05T15:56:00Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7579",
+  "body": "Filed by the `domain:ui` execution-seat PM (session `session_01EMrWaQw3XS5DxTHxp4yRyC`) from a **live CI red**, not from a census.\n\n## The observation\n\n`Test (shard 2/4)` failed on PR #7577, head `681053908`:\n\n```\nFAIL packages/plugin-detail/src/__tests__/RelatedList.serverpagination.test.tsx\n  > RelatedList — server-windowed pagination (#2711) > pages forward and back by refetching with a new $skip\nAssertionError: expected [ { id: 'c5', name: 'Row 5' }, …(4) ] to have a length of 2 but got 5\n  at RelatedList.serverpagination.test.tsx:118:27\n\nTests  1 failed | 8124 passed (8125)\n```\n\n## ⭐ This is #7075's family, in a file #7076 did not reach\n\n**#7075** measured exactly this shape — *\"a test that settles only the FETCH chain … and then reads a SCHEMA-derived value is reading one promise resolution too early\"* — and **PR #7076** repaired the four files it named:\n\n`RelatedList.sortabilitySignal` · `RelatedList.lookupCellLink` · `RelatedList.headerSort` · `RelatedList.relationalSort`\n\n**`RelatedList.serverpagination.test.tsx` is not among them**, and the reason is structural rather than an oversight: #7075's census used one specific mutation — deferring `getObjectSchema` by 50ms — which probes the *schema* chain. This site rides the **pagination refetch** chain instead, so that probe could not have flagged it. The census was sound for the question it asked; its bound just did not cover this one.\n\n## The defect, read from the source\n\n`RelatedList.serverpagination.test.tsx:114-119`:\n\n```js\nfireEvent.click(nextButton());\nawait screen.findByText('Page 3 of 3');   // gates on the LABEL only\nexpect(h.schema.data).toHaveLength(2);    // reads the REFETCHED data\n```\n\n⭐ **The same test settles the chain one step earlier and then stops doing it.** Its page-2 step is gated:\n\n```js\nfireEvent.click(nextButton());\nawait waitFor(() => {\n  expect(ds.find).toHaveBeenCalledWith('contact', { $filter: …, $top: 5, $skip: 5 });\n});\nawait screen.findByText('Page 2 of 3');\n```\n\nThe page-3 step drops that `waitFor`. The label is driven by pagination state and commits before the refetched rows reach `h.schema.data`, so the assertion samples the **previous** page — which is why the received value is **5**, the page size, and not some arbitrary number.\n\n## ⛔ The obvious patch is the trap this repo already recorded\n\nThe reflex fix is to copy the page-2 gate — `waitFor(() => expect(ds.find).toHaveBeenCalledWith(…, { $skip: 10 }))`. **Do not.** #7075 names it:\n\n> ⛔ Not `expect(getObjectSchema).toHaveBeenCalled()`: a mock call is issued one resolution before its value reaches state, which is the trap #6959 recorded.\n\nA `toHaveBeenCalledWith` gate settles the *call*, not the *value*. It would make this site flake less often and fail identically, which is worse than the current honest red. ⚠️ Note this also means the page-2 gate above is not the model to copy — it is the same shape, one step luckier.\n\n## Suggested repair, in #7075's own words\n\nKeep the existing gate (it proves the view committed with rows at all, and keeps any `queryBy…toBeNull()` read non-vacuous) and **add a gate that settles the chain the assertion actually reads** — here, the value itself:\n\n```js\nawait screen.findByText('Page 3 of 3');\nawait waitFor(() => expect(h.schema.data).toHaveLength(2));\nexpect(nextButton().disabled).toBe(true);\n```\n\nThat does not weaken the assertion: if the data never reaches length 2, `waitFor` times out and the test still fails. ⛔ Do not skip, quarantine or widen a timeout. ⛔ Do not \"fix\" it by relaxing the expected length.\n\n⚠️ **Whoever takes this should re-run #7075's census with a mutation that probes the pagination refetch chain**, not just the schema chain — this file was invisible to the original probe, and there is no reason to believe it is the only one. The four repaired files are the measured set of *that* probe, not of the class.\n\n## Operational cost, measured elsewhere\n\n#7075 records why this matters beyond one red: *\"A flaky RED in the merge queue ejects unrelated PRs (#6959 measured two ejections in fifteen minutes, one PR failing and passing on byte-identical content).\"* Three PRs are in the queue as this is filed.\n\n## Not fixed on the PR that surfaced it\n\n#7577's diff is five files, all in `packages/types` — a zod const rename plus a deprecated alias. Measured: `StylePropsSchema` has **zero** occurrences in `packages/plugin-detail`, `packages/react` or `packages/components`, with `BaseSchema` as the lit control in the same query shape returning **30** files across those roots. The diff cannot reach this test. Fixing it there would widen a contract-review PR with an unrelated test repair.\n\nFiled unassigned."
+}

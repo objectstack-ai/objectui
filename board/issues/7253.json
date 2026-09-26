@@ -1,0 +1,36 @@
+{
+  "number": 7253,
+  "kind": "issue",
+  "title": "console-ai 付费墙时刻三处断裂：「升级方案」跳到裸 JSON 404、确认卡无失败态、输入框回填旧提示词",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "priority:p0"
+  ],
+  "assignees": [
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T01:52:20Z",
+  "updated_at": "2026-09-02T09:43:56Z",
+  "closed_at": "2026-09-02T09:43:56Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7253",
+  "body": "## 现象（付费墙时刻的三处断裂）\n\n2026-09-02 最新主干（objectui pin `7a5da141` / cloud `3856fbf7`）本地 rig，免费用户在 AI 构建第 2 次迭代点「确认修改」时撞上日额度（cloud 侧 `AI_DESIGN_QUOTA_EXHAUSTED` 429）。console-ai 的反应：\n\n1. **「升级方案」按钮是死链**：点击跳到 `http://<cloud-host>/apps/cloud-control/sys_environment`，返回裸 JSON `{\"success\":false,\"error\":{\"code\":\"ENDPOINT_NOT_FOUND\",\"message\":\"Not found\"}}`。缺 `/_console/` 前缀，应用 id 也不是控制面里真实存在的（cloud 侧定价页在 `/_console/apps/com.objectstack.cloud/page/pricing`，套餐入口在 cloud 控制台左栏「计费」）。来源：`packages/app-shell/src/console/marketplace/marketplaceApi.ts:433`（420 行同款拼法指向 `sys_package`，请一并核对）。\n2. **确认卡没有失败态**：被 429 拦下后，「Create metadata — Awaiting Approval」卡仍停在「确认修改 / 调整方案」，看不出刚才那一下失败了。\n3. **输入框被回填上一条提示词**：拦截后 composer 里又出现了用户上一条完整消息，像是要让用户重发。\n\n聊天区那张「需要升级 — 今天的 AI 设计额度已用完，明天会重置；升级后可继续设计」卡片本身文案是好的，问题是它的出口和它周围的状态。\n\n## 修复要求\n\n1. 升级按钮指向控制面真实的定价/套餐页；从环境宿主跳控制面时用 cloud 下发的 URL（不要在客户端拼 `/apps/cloud-control/...`）。\n2. 被额度/权限拦下时，确认卡进入显式失败态并给出下一步（升级 / 明天再来），⛔ 不回填提示词。\n3. 补一条测试：模拟 429 `AI_DESIGN_QUOTA_EXHAUSTED` 时的卡片状态与按钮 href。\n\n关联：objectui#2458 第 8 条「免费额度撞墙无预告」。\n"
+}

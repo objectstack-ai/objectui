@@ -1,0 +1,35 @@
+{
+  "number": 7474,
+  "kind": "issue",
+  "title": "[finding] After the `jsonc` retag (PR #7473), 11 JSON fences in `skills/objectui/` still parse under no dialect (8 multi-document listings, 2 `...` elisions, 1 kept `json`) and 7 now-parseable `jsonc` fences carry no `os:check` marker",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T08:05:51Z",
+  "updated_at": "2026-09-04T11:25:47Z",
+  "closed_at": "2026-09-04T10:58:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7474",
+  "body": "Filed by the skills lane seat (session `session_01LraLgQVGq8egUwfYZpbYt1`) from the #7462 flight's report (PR #7473, comment 5522566624, out-of-scope items 1–3). One coherent content-edit follow-up on the same three files; the tag flight was tag-only by design. Unassigned, bare, for triage; landing surface governed `skills/objectui/**` (draft PR, human merge).\n\n## Measured by the flight at `ec67429` with the repository's own `parseJsonFence` (`scripts/check-skill-examples.mjs`)\n\nAfter the retag, 39 of the 40 remaining `json` fences parse strictly and 7 of the 16 `jsonc` fences parse under the JSONC dialect — 46 of 56. The residue:\n\n| shape | sites (fence opener line) | count |\n|:--|:--|--:|\n| several top-level JSON documents listed in one fence | `guides/schema-expressions.md` 32, 170, 206, 447, 463, 479, 492; `rules/protocol.md` 177 | 8 |\n| `...` elision inside the JSON | `rules/protocol.md` 157, 166 | 2 |\n| **total parsing under no dialect** | | **10** (+ line 206 counted above stays `json`: a listing, not a dialect — 11 blocks by the card's parse-failure count) |\n\nAnd the coverage win left on the table: **7 retagged `jsonc` fences now parse and could carry the `check-skill-examples` opt-in marker** (`guides/schema-expressions.md` 328, 355, 365, 374, 391; `rules/protocol.md` 187; `rules/styling.md` 170) — moving the enforced JSON population from 39 to 46. The flight proved the tag is load-bearing both ways (marker + `jsonc` → exit 0; marker + `json` → exit 1 naming `rules/styling.md:171`).\n\n## Scope\n\n1. Split each multi-document listing into one fence per document (or one array where the prose reads as a set), keeping the prose between them minimal; retag the split fences by their content (`json` if strict, `jsonc` if a comment stays).\n2. Replace the two `...` elisions with a real value or a comment (`// …` is legal under `jsonc`; `...` is not under any dialect).\n3. Add the `os:check` marker line above the 7 parseable `jsonc` fences (and above any fence made parseable by steps 1–2), then run `node scripts/check-skill-examples.mjs` — the JSON phase must report the new count with 0 failed.\n4. Report the fence census before/after (`json` / `jsonc` counts, parse-pass counts, marked counts) and the per-file byte/line arithmetic; there is no token ratchet over `skills/**` in objectui (measured by the flight), so the numbers are reported, not gated.\n\n⛔ Not in scope: widening `check-doc-fence-languages.mjs` onto `skills/` — measured and declined in PR #7473 (it reds on `guides/project-setup.md:115`, a genuine `javascript` postcss config, in the one UNKNOWN mode it never baselines, and its scan surface is pinned to `check-doc-snippet-types`'s); pointing any doc gate at `skills/` is the surface owner's decision per the `UNGATED_DOCS` note in `check-doc-snippet-types.mjs`.\n\n## Verified\n\n- Dedup 2026-09-03T08:05Z (`search_issues` in objectui, 4 results): #7462 (the tag flight, this card's parent), #7461 (the eval-token gate), #7426 (apps/console docs `tsx` fences — different surface), #7359 (closed) — none carries these sites.\n- Site list and counts are the flight's own measurements at `ec67429` (PR #7473 head); re-measure at claim.\n\nRefs: #7462 · PR #7473 (comment 5522566624) · #7359 / PR #7427 (the fence gate and its marker convention)."
+}

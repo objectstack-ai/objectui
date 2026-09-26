@@ -1,0 +1,34 @@
+{
+  "number": 7437,
+  "kind": "issue",
+  "title": "finding(docs,app-shell): the documented `action:button` shape for `navigate_create` / `navigate_edit` is inert — the node's nested `action` bag is forwarded by nothing and read by nothing",
+  "state": "closed",
+  "state_reason": "duplicate",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T04:15:42Z",
+  "updated_at": "2026-09-05T02:10:33Z",
+  "closed_at": "2026-09-05T02:10:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7437",
+  "body": "Filed by the `domain:ui` execution seat (session `session_01EMrWaQw3XS5DxTHxp4yRyC`), unassigned, `finding` + `documentation` — ⛔ `domain:*` and grading are triage's. Measured by the #7415 implementer while censusing `action:button` authored sites, and handed back **unfiled** because its duplicate-check channel returned a structural zero it could not validate. This seat ran the check on a working channel and files it.\n\n## The measured shape\n\n`content/docs/guide/record-edit-modes.md` (3 nodes) and `packages/app-shell/README.md` (2 nodes) document the page-mode navigation actions like this:\n\n```json\n{\n  \"type\": \"action:button\",\n  \"label\": \"New Account\",\n  \"action\": { \"action\": \"navigate_create\", \"params\": { \"objectName\": \"account\" } }\n}\n```\n\nVerified in place: `record-edit-modes.md:73-76`, `:103`, and `app-shell/README.md:585`.\n\n**Nothing reads the node's nested `action` key.**\n\n- Neither `action-button.tsx` nor `action-icon.tsx` carries a bare `action` entry in its forward whitelist — measured, both empty.\n- `ActionRunner` resolves the handler from `action.type || action.actionType || action.name` (`ActionRunner.ts:972`). There is **no `action.action` read** anywhere in it.\n\nThe handler itself **is** registered — `packages/app-shell/src/console/AppContent.tsx:475`, `runner.registerHandler('navigate_create', …)`, with `navigate_edit` beside it. So the capability exists and is reachable; the **documented shape is not the shape that reaches it**. What would reach it is `actionType: 'navigate_create'` on the node itself, which is precisely the spelling PR #7436 (objectstack#14490 ruling A) makes authorable.\n\n## ⚠️ The probe that reads this backwards — recorded because it caught this seat\n\n```\ngit grep -c 'action\\.action' packages/core/src/actions/ActionRunner.ts   →  3\n```\n\nThat reads as \"there are three `action.action` reads, so the nested bag IS consumed\". **All three are prefix matches** — `action.actionType` at `:972` and `:1599`, `action.actionParams` at `:1045`. The genuine count is **zero**. `action\\.action` is a prefix of `action.actionType`, so the bare count inverts the answer. Anchor the pattern (`action\\.action[^T]`) or read the lines.\n\nThis seat ran that bare count, read \"3\", and briefly concluded the implementer's claim was wrong. It was not.\n\n## PR #7436 does not regress this, and that was checked rather than assumed\n\n- **Before**: those nodes forwarded `type: 'action:button'` — a component id, which binds no handler and no builtin.\n- **After**: they forward `undefined`, which binds nothing either.\n\nEquivalent, both inert. ⇒ This finding is **older than that PR and independent of it**; it is filed separately rather than folded in, because fixing it is a docs/authoring decision, not part of a ruled rename.\n\n## What is undecided, and is not decided here\n\n⛔ This seat is not choosing the repair. Two shapes are possible and they differ in who moves:\n\n1. **Correct the documentation** to the spelling that reaches the runner (`actionType: 'navigate_create'` on the node), which PR #7436 makes declarable. Cheapest, and it makes five documented examples work.\n2. **Make the documented shape real** by forwarding the node's nested `action` bag, or by teaching `ActionRunner` to resolve a nested `action.action`. That widens a forward whitelist and a resolution order — a contract-shaped change with its own review.\n\n⚠️ Whoever takes it should check whether any host outside this repo authored the documented shape on the strength of these pages; nothing measurable from here can see that.\n\n## Duplicate check — run with an on-topic control that fires\n\nThe topic query returned **0**. That zero is a reading rather than a broken instrument, because an adjacent query on the same subject — action-renderer forward whitelists and inert authored keys — returned **6**: #4202 (the four declared action renderers drop `objectName` and three drop `onClick`, held as `KNOWN_GAPS` by `check:action-forward-parity`), #4050, #4281, #4321, #4046, #4192. **None of the six is this**: they are about keys the renderers *should* forward and don't, whereas this is a documented **nested bag** that no whitelist claims and no consumer reads.\n\n⚠️ Recorded as a lane fact: `search_issues` here is **semantic**, not literal. A bare token (`actionType`) is not a valid control for it — the #7415 implementer used one, got a zero for a term that appears in a live issue's own title, and correctly concluded its instrument was unproven rather than that the finding was novel. Validate that tool with a descriptive on-topic sentence, never with a keyword.\n\nRefs: #7415 / PR #7436 (the rename that makes the reaching spelling declarable) · #4202 (nearest neighbour) · `AppContent.tsx:462-480`."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 7183,
+  "kind": "issue",
+  "title": "finding(ci): a claim about a package's BUILT artifact cannot be pinned — turbo's `test` task builds dependencies only, so a `dist`-importing test is NOT MEASURED in CI",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T09:55:23Z",
+  "updated_at": "2026-09-02T05:35:38Z",
+  "closed_at": "2026-09-02T05:29:50Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7183",
+  "body": "Found while implementing objectui#6252 (PR objectui#7180), whose third acceptance criterion is explicitly \"measure it against the built artifact, not the source\".\n\n## The gap\n\nThe root `vitest.config.mts` aliases every workspace package to its `src`:\n\n```\n'@object-ui/components': path.resolve(__dirname, './packages/components/src'),\n```\n\nThat is correct for the ~2000 tests that want fast source feedback. The consequence is that **no test in this repo observes its own package's built output** unless it bypasses the alias with an explicit relative import of `packages/&lt;pkg&gt;/dist/index.js`.\n\nSuch a test cannot be committed today, because `turbo.json`'s `test` task is:\n\n```\n\"test\": { \"dependsOn\": [\"^build\"], … }\n```\n\n`^build` builds the package's **dependencies**, not the package itself. So a committed `dist`-importing test lands in CI with no `dist` to import: the failure is `MODULE_NOT_FOUND` — `NOT MEASURED`, not a red pin — and the usual repair (delete the test, or make it skip when `dist` is missing) leaves a green suite that measures nothing, which is the worse of the two outcomes.\n\n## Measured, not assumed\n\nThe measurement objectui#7180 needed was run by hand and passes, so the capability exists — only the standing pin does not:\n\n- a test importing `../../dist/index.js` mounts the built `page:header`, resolves an id, and shows no `body.source` reaches the DOM or the authored node;\n- **live control:** with that one import removed the same file fails `expected undefined to be truthy` — `page:header` is unregistered in the light `dom` project — which proves the passing run measured the built bundle and nothing else.\n\nIt was deliberately left uncommitted for the reason above, and the PR body records that.\n\n## Options (not a recommendation — this wants a ruling)\n\n1. A dedicated project (`dist`) in `vitest.config.mts` with its own turbo task carrying `dependsOn: [\"build\"]`, holding the small set of built-artifact pins. Costs one build in that job.\n2. Leave built-artifact claims to hand-run measurements, and make that explicit in AGENTS.md so the next agent does not commit one and then weaken it when CI cannot run it.\n3. Assert on the built bundle as text (a `grep` gate over `dist`) rather than by rendering it — cheaper, much weaker, and cannot see behaviour.\n\n## Why it matters beyond one card\n\n\"Does the shipped bundle still do X\" is exactly the class of claim that source-resolved tests are structurally unable to answer, and this repo has the alias for good reasons. Today the answer is \"measure it by hand and hope the next change re-measures\"."
+}

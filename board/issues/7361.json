@@ -1,0 +1,37 @@
+{
+  "number": 7361,
+  "kind": "issue",
+  "title": "finding(types): two layout schemas' `@default` JSDoc disagrees with the value the renderer actually applies",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:spec",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T13:14:48Z",
+  "updated_at": "2026-09-05T15:44:16Z",
+  "closed_at": "2026-09-05T15:39:54Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7361",
+  "body": "Filed out-of-scope from the #7251 skills-optimization flight, noticed while writing a layout-primitive table from the renderers rather than from the types. Unassigned. A concrete instance of #4631 (a component type's declared surfaces disagreeing with what the renderer reads), narrowed to defaults.\n\nMeasured at `4704aa4`.\n\n## Row 1 — `container.maxWidth`\n\n`packages/types/src/layout.ts`, `ContainerSchema`:\n\n```\n  /**\n   * Max width constraint\n   * @default 'lg'\n   */\n  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | ... | false;\n```\n\n`packages/components/src/renderers/layout/container.tsx`:\n\n```\n    const maxWidth = schema.maxWidth ?? 'xl';\n```\n\nSo a `container` with no `maxWidth` renders `max-w-xl` (36rem), while the type says it renders `max-w-lg` (32rem). An author reading the declaration to decide whether to set the key gets the wrong answer, in the direction that makes them skip setting it.\n\n## Row 2 — `flex.align`\n\n`packages/types/src/layout.ts`, `FlexLayoutProps` (shared by `FlexSchema` and `StackSchema`):\n\n```\n  /**\n   * Align items\n   * @default 'center'\n   */\n  align?: 'start' | 'end' | 'center' | 'baseline' | 'stretch';\n```\n\nThe two renderers that read it:\n\n```\n  flex.tsx:18    const align = schema.align || 'start';\n  stack.tsx:24   const align = schema.align || 'stretch'; // Stack items usually stretch\n```\n\nNeither is `'center'`. And because one JSDoc block serves both types by design (`FlexLayoutProps` exists so the members are declared once — see its docblock and #6151), a single `@default` cannot be right for both: `flex` and `stack` deliberately diverge here, which is most of what distinguishes them.\n\n## Why it is worth a card rather than a silent fix\n\nThe `@default` tag is not decoration on this surface. `sdui-parser` serializes registry metadata into `sdui.manifest.json` and `sdui-intrinsics.d.ts`, and #4889 is the precedent for what happens when the declaration and the read disagree on this exact file: `maxWidth: false` was a declared value the renderer folded into `max-w-xl`, so an author asking for no constraint got the opposite of what they asked for. This is the same file, the same key, one layer up — the declaration is now right about the *domain* and wrong about the *default*.\n\nBoth rows are one-line documentation fixes if the renderers are taken as authoritative, which they should be: they are what runs. Row 2 additionally needs the shared `@default` to say that the two types differ, or the tag to move onto each type.\n\nNot a duplicate of #4889 (closed — that was the `||`-vs-`??` read of `false`) or #7088 (`BaseSchema.hidden`'s JSDoc promising `visibility: hidden`), but the same family as both."
+}

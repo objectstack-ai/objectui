@@ -1,0 +1,37 @@
+{
+  "number": 7521,
+  "kind": "issue",
+  "title": "bug(plugin-timeline): colorFieldLadder-7243 的 rung 2/3 在同一个 `it` 里 render 两次而不 unmount，共享模块级 `lastItems` —— 负载高时第二个断言收到第一个的值，已踢掉合并队列",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T16:27:10Z",
+  "updated_at": "2026-09-03T17:57:52Z",
+  "closed_at": "2026-09-03T17:57:52Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7521",
+  "body": "从 PR #7514 被合并队列以 `CI_FAILURE` 踢出而查出。⚠️ **这不是那个 PR 的失败** —— 它删的是 `packages/components/src/SchemaRenderer.tsx`,与 `plugin-timeline` 无关。这是一条**真实的竞态**,不是 flake,而且它现在正在阻塞合并队列。\n\n定 **p1**:失败模式是**随机踢掉任意 PR 的队列条目**,与该 PR 的内容无关。承重性,不是严重性。\n\n## 实测的失败\n\n合并队列分支 `gh-readonly-queue/main/pr-7514-fe4e7a9e8…`,workflow run `33776772672`,job `Test (shard 3/4)`。**615 个测试文件里只有 1 个红**,8048 通过:\n\n```\nFAIL  dom  packages/plugin-timeline/src/ObjectTimeline.colorFieldLadder-7243.test.tsx\n  > objectui#7243 — timeline colorField ladder (control: green before and after)\n  > rung 2: 3- and 6-digit hex literals pass through\n\nAssertionError: expected [ '#abc' ] to deeply equal [ '#123456' ]\n  - Expected   \"#123456\"\n  + Received   \"#abc\"\n  ❯ ObjectTimeline.colorFieldLadder-7243.test.tsx:109:72\n```\n\n⭐ **第二个断言收到了第一个断言的值。** 这不是「颜色算错了」,是**上一次 render 的结果泄漏了过来**。\n\n## 根因,按内容读出\n\n```ts\n:34  import { render, waitFor } from '@testing-library/react';   // ⛔ 没有 cleanup,没有 afterEach\n:38  let lastItems: any[] = [];                                   // 模块级共享\n:40  vi.mock('./renderer', () => ({ ... lastItems = schema.items ?? []; ... }))\n\nasync function colorsFor(colorField: string, rows: any[] = [ROW]) {\n  lastItems = [];                                                // 重置共享状态\n  ...\n  render(<ObjectTimeline schema={schema} dataSource={makeDataSource(rows)} />);   // ⛔ 从不 unmount\n  await waitFor(() => expect(lastItems.length).toBe(rows.length));\n  return lastItems.map((i) => i.color);\n}\n```\n\n而 rung 2 与 rung 3 **各自在同一个 `it` 里调用它两次**:\n\n```ts\nit('rung 2: 3- and 6-digit hex literals pass through', async () => {\n  expect(await colorsFor('accent', [{ ...ROW, accent: '#abc' }])).toEqual(['#abc']);\n  expect(await colorsFor('accent', [{ ...ROW, accent: '#123456' }])).toEqual(['#123456']);\n});\n\nit('rung 2: rgb() and hsl() literals pass through', async () => {   // 同一形状\n  expect(await colorsFor('accent', [{ ...ROW, accent: 'rgb(1, 2, 3)' }])).toEqual(['rgb(1, 2, 3)']);\n  expect(await colorsFor('accent', [{ ...ROW, accent: 'hsl(1 2% 3%)' }])).toEqual(['hsl(1 2% 3%)']);\n});\n```\n\ntesting-library 的自动 cleanup 只在 **`afterEach`** 跑,**不在同一个 `it` 内的两次 `render` 之间**。⇒ 第二次调用时,**第一个组件仍然挂载着**,而它的 `find()` promise 还在飞。\n\n时序:\n\n1. 第一次 `colorsFor` render 组件 A(`#abc`),A 的 `find()` 已 resolve,`lastItems = ['#abc']`,断言 1 通过 ✓\n2. 第二次 `colorsFor` 执行 `lastItems = []`,render 组件 B(`#123456`)\n3. ⚠️ **组件 A 因某次重渲染再次写入 `lastItems = ['#abc']`**(它还活着,mock 的 renderer 每次渲染都写)\n4. `waitFor` 只检查 `lastItems.length === 1` —— 达标,立刻返回\n5. 返回 `['#abc']`,断言 2 失败\n\n⇒ 这个 `waitFor` 的谓词**只看长度、不看内容**,所以它无法区分「B 画好了」和「A 又写了一次」。在 CPU 空闲时 B 通常先到,测试就绿;队列 CI 跑 615 文件 / 772 秒,负载高,A 的重渲染插了进来。\n\n**⛔ 因此这不是 flake。** 「flake」意味着没有确定的成因;这里成因是确定的:两个组件同时活着,共享一个模块级数组,而等待谓词分辨不出是谁写的。\n\n## 建议补丁(未验证,实现者须自行测量)\n\n最小且直击成因 —— 在每次 render 前卸载上一次:\n\n```diff\n-import { render, waitFor } from '@testing-library/react';\n+import { render, waitFor, cleanup } from '@testing-library/react';\n\n async function colorsFor(colorField: string, rows: any[] = [ROW]) {\n+  cleanup();          // 卸载上一次 render,杜绝并存组件写同一个 lastItems\n   lastItems = [];\n```\n\n⚠️ 但**只做这一步不够**,因为它没有修掉那个分辨不出作者的等待谓词。真正的加固还应当让 `waitFor` 断言**内容**而不只是长度 —— 否则下一个在同一个 `it` 里 render 两次的人会再次踩到。请两条都做,并说明理由。\n\n⛔ **不得**把两个断言拆成两个 `it` 就算完 —— 那只是把竞态挪到 `afterEach` 的 cleanup 上碰运气,成因未除,而且这个文件里还有别的多 render 的 `it`。请普查全文件,每一处多次 `render` 的 `it` 都要处理。\n\n## 可逆验证的要求\n\n这条缺陷是**负载依赖**的,所以「跑一遍绿了」不构成证据。要求:\n\n- **先复现红**:在**未修改**的树上构造出确定性的失败 —— 例如让第一个组件的 `find()` 延迟 resolve,或直接断言两次 render 之后 DOM 里有**两个** `data-testid=\"timeline-renderer\"`(这一条是成因的直接证据,且与时序无关)。⭐ **那个 DOM 计数就是最好的 pin**:它把「两个组件同时活着」从时序问题变成了结构事实。\n- 修完之后同一个探针必须变绿,并留一个会点亮的对照。\n- ⛔ **不得**跳过、禁用或隔离这个测试。\n\n## 影响面\n\n⚠️ 这一条踢掉的是 **PR #7514**,但它与 #7514 无关 —— 它会踢掉**任何**恰好在负载下入队的 PR。在它修好之前,合并队列的失败都要先排除这一条,否则会被误判成入队 PR 自己的问题。\n\nRefs: #7243(该 ladder 的原始卡)· PR #7514(被它踢出队列的第一个已知受害者)"
+}

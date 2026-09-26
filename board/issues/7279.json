@@ -1,0 +1,36 @@
+{
+  "number": 7279,
+  "kind": "issue",
+  "title": "finding: #6058's SPEC-DERIVED remedy split routes `ObjectViewSchema`'s unmirrored keys on a scanner false positive — it references no spec schema",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T02:52:18Z",
+  "updated_at": "2026-09-05T17:40:47Z",
+  "closed_at": "2026-09-05T17:40:16Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7279",
+  "body": "Filed unlabelled and unassigned — grading and `domain:*` belong to triage. Found while implementing #6705 (PR #7277); **not fixed there**, deliberately: the remedy is a decision on the `UnmirroredDeclared` ledger, which that card was fenced out of.\n\n## The claim that turns out to be unbacked\n\n`packages/types/src/__tests__/zod-mirror-parity.test.ts`'s header records objectui#6058's split of the 121 declared-but-unmirrored keys (#6152's worklist) into two remedy routes. Verbatim:\n\n  **SPEC-DERIVED (3 entries, 13 keys)** — `DashboardComponentSchema`, `DashboardWidgetSchema`, `ObjectViewSchema` are in `SPEC_DERIVED_PAIRS` below, so their mirror takes its shape BY REFERENCE from `@objectstack/spec`. An unmirrored declared key there means the LOCAL declaration carries members the spec schema does not model, which is objectui#2231's unification question and NOT a local mirror edit.\n\nThat routing is load-bearing: it says those keys must **not** be fixed by editing the mirror.\n\n## `ObjectViewSchema` does not take its shape from the spec\n\nIt is a plain `BaseSchema.extend({...})` in which every member is a local literal — `z.literal('object-view')`, `z.string()`, `z.enum(['drawer','modal','page'])`, two `z.lazy` references to sibling objectui mirrors, and a `z.object` of four booleans. There is no `Spec…` reference in it, directly or through any local declaration.\n\nIts membership in `SPEC_DERIVED_PAIRS` came entirely from the defect #6705 fixes. The pre-#6705 re-check attributed raw text between `export const` boundaries, and `ObjectViewSchema`'s declaration ends at `objectql.zod.ts` line 212 while the next `export const` is roughly fifty lines later. The window therefore swallowed a run of PRIVATE consts that belong to no export — including `const KanbanConfig = SpecKanbanConfigSchema.partial().extend(...)`, `CalendarConfig`, `GalleryConfig`, `TimelineConfig` and `const ViewKindEnum = SpecListViewSchema.shape.type.removeDefault()`. Those feed `ListViewSchema`, not `ObjectViewSchema`.\n\nMeasured: with the #6705 scanner, `ObjectViewSchema` is not in the derived set, and it is not recoverable through any file-local reference chain.\n\n(For completeness, the same fix also drops `base.zod.ts#BaseSchema`, whose only `Spec…` token in the whole file is inside a comment. That one is not named in the split above, so it carries no routing consequence — this card is about `ObjectViewSchema`.)\n\n## Why this is worth a card rather than a line in the PR\n\nThe split is a **remedy instruction** for a 121-key worklist that #6152 is blocked on. If `ObjectViewSchema`'s side is not spec-derived, then its unmirrored declared keys are not #2231's unification question and are candidates for the ordinary LOCAL route — a plain mirror widening — which is the cheaper remedy and a different lane. Both counts in the split (\"3 entries, 13 keys\" spec-derived, \"13 entries, 84 keys\" local) move with it.\n\nPR #7277 leaves the split **standing exactly as written**, counts included, and adds a warning at the site telling whoever works it off to re-derive `ObjectViewSchema`'s side first. Nothing about the ledgers was touched there.\n\n## What this needs\n\n1. Re-derive `ObjectViewSchema`'s unmirrored declared key set and decide its route (LOCAL mirror widening vs. something else) on the evidence rather than on the old classification.\n2. Correct the two counts in the split, and the `UnmirroredDeclared` reading that depends on them.\n3. Confirm the other two entries — `DashboardComponentSchema` and `DashboardWidgetSchema` — are genuinely spec-derived under the fixed scanner. They are: both remain in `SPEC_DERIVED_PAIRS` after #6705 by code reference alone. Recorded here so the next reader does not have to re-measure all three.\n\nRefs: #6705 / PR #7277 (the scanner fix that exposed this) · #6058 (where the split was written) · #6152 (the blocked worklist it routes) · #2231 (the unification question the spec-derived route defers to)."
+}

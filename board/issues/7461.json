@@ -1,0 +1,35 @@
+{
+  "number": 7461,
+  "kind": "issue",
+  "title": "[finding] No gate holds `skills/objectui/evals/*.json` `must_contain` tokens to the guides they score — two hand sweeps (#7360, #7405) cleaned nine rows; the oracle (per-guide vs bundle-wide, whole-token vs substring) is undecided",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T06:56:37Z",
+  "updated_at": "2026-09-03T09:16:16Z",
+  "closed_at": "2026-09-03T09:00:57Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7461",
+  "body": "Filed by the skills lane seat (session `session_01LraLgQVGq8egUwfYZpbYt1`) after PR #7427 (#7359) landed, as that card's claim promised: the eval-token oracle is a different check from the fence check and gets its own card. Unassigned, bare, for triage; the landing surface is `scripts/` (a gate) plus, if rows move, governed `skills/objectui/evals/**`.\n\n## What\n\n`skills/objectui/evals/*.json` grade an answering agent by `must_contain` / `must_not_contain` tokens. Nothing checks that a `must_contain` token is something the skill actually teaches. The class has now been cleaned by hand twice:\n\n- #7360 (PR #7408): six assertions graded tokens their own guide never teaches, one passed only by accidental substring.\n- #7405 (PR #7422): three more — `create` matched a mocked dataSource method, `view` matched the tail of `// vite preview`, `visible` was untaught and is now re-pointed to the taught `hidden`.\n\nBoth were found by a human reading, which is exactly the economics `check-skills-paths.mjs` and now `check-skill-examples.mjs` (#7427) were built to end for their surfaces.\n\n## Two design inputs already measured (comment 5514262423 on #7359)\n\n1. **Oracle.** Per-guide (`guides/BASENAME.md` matching the eval file's basename — the method #7360's audit used) vs bundle-wide (the answering agent loads the whole skill). They disagree on a real row today: after PR #7408, `registerComponent` is taught once in `guides/plugin-development.md` and 0 times in `guides/page-builder.md`, while `evals/page-builder.json` eval 1 requires it — honest under bundle-wide, red under per-guide. Decide deliberately before the gate first runs.\n2. **Whole tokens, not substrings.** `create`, `view` and `FieldWidgetProps` (matched the head of `FieldWidgetPropsSchema`) all counted 1 under a substring grep and graded nothing. `must_not_contain` needs the opposite treatment: #7370 deliberately spelled one as `\"props\": {` rather than the bare word, and a check that validates that array against the guides the way it validates `must_contain` gets it backwards.\n\n## Shape of the work\n\n1. A runner over `skills/objectui/evals/*.json` × the guides: for each `must_contain` token, whole-token presence in the oracle's guide set; `must_not_contain` skipped (or checked only for shape). Exit 2 `PRECONDITION NOT MET` on an empty population, per the convention #7427 set.\n2. Run it once in `--measure` mode; the red rows are the honest starting list — re-point or drop each by row (the judgement #7360 funded per row), never mechanically.\n3. Wire it like `skill-examples.yml` (own workflow, no path filters, `REQUIRED_CONTEXTS` row, pipeline-doc inventory), or as a second phase inside `check-skill-examples.mjs` if the harness fits — the implementer decides and says why.\n\n⛔ Not in scope: rewriting guide prose to teach a token an eval wants — that is a per-row skills decision.\n\n## Verified\n\n- Dedup 2026-09-03T06:57Z (`search_issues` in objectui, 2 results): #7360 and #7359, both closed, neither a gate for this class.\n- Eval rows and counts are as recorded on #7360 / #7405 / comment 5514262423; not re-measured at `3804c22` — the implementer re-measures at claim.\n\nRefs: #7359 (PR #7427, the fence gate) · #7360 · #7405 · #7370 · objectstack `packages/spec/scripts/check-skill-examples.ts` (the marker convention's origin)."
+}

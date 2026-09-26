@@ -1,0 +1,32 @@
+{
+  "number": 7452,
+  "kind": "pull_request",
+  "title": "docs(agents): record the search qualifier-token hazard beside the channel-control rule",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T06:26:04Z",
+  "updated_at": "2026-09-03T06:53:48Z",
+  "closed_at": "2026-09-03T06:53:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-09-03T06:53:47Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/7452",
+  "body": "Fixes #7185\n\nOption B of that card diagnosed **why** MCP `search_issues` returns a silent `total_count 0` for an issue `issue_read` returns. This lands the documentation half the seat decided on: **one clause**, beside the channel-control rule that PR #7317 put in section 9's instrument-discipline area. The two rules are the same subject one level apart, so they belong together.\n\nThe card's own standing instruction — do not close it on the mitigation alone without recording which cause the diagnosis found — is satisfied: the cause is recorded on the card, so the closing line above is the one the seat ruled for.\n\n## What changed\n\n`AGENTS.md` only. Net **+1 line** (2 insertions, 1 deletion) — one now-stale bullet is replaced by two.\n\n- **New clause, the diagnosed cause.** `search_issues` pastes the caller's query text verbatim into GitHub search `q=`, so GitHub's qualifier parser is live inside what the seat believes is free text. A bare word-colon-word token in pasted issue text is parsed as a **search qualifier**, ANDed with the rest of the query, matches nothing, and returns a silent zero.\n- **Replaced bullet.** The old final bullet declared the cause undiagnosed and warned against treating it as an answered question. That is now false, and it sat two lines from its own answer — leaving it would have made the file assert both \"the cause is unknown\" and \"the cause is this\" in adjacent bullets. It is replaced by a line recording the two candidates that were measured and ruled out.\n\n## The evidence the clause carries\n\n| query | `total_count` |\n|:--|--:|\n| `resolve record:quick_actions does` | **0** |\n| the same words with the middle token backticked | **17** |\n\nIdentical words, identical order. The only difference is a pair of backticks.\n\nQualifiers are genuinely *applied*, not merely mishandled: `state:open action-id lookup` returns 0 while `state:closed action-id lookup` returns 2, and both target issues are closed — so that zero is a **correct filter**, which is what proves the parse is real.\n\n**Why this repository is unusually exposed:** its component keys *are* word-colon-word, and **33 of 345 sampled titles (9.6%)** carry one. So roughly one in ten near-verbatim title dedupe queries here is silently zeroed — a standing failure rate on the dedupe step every seat runs before filing.\n\nThe clause also records the two boundaries that keep it from over-reading: deliberate qualifiers (`in:title`, `state:closed`) are honoured and remain useful, so the hazard is only the accidental ones; and this does **not** retire the control requirement — an empty result still always needs a known-must-hit control.\n\nThe replaced bullet's ruled-out line keeps one correction worth not re-deriving: the unauthenticated REST search 403 seen in these containers is **not from GitHub**. It is the container's own egress proxy enforcing a repository-scoped path allowlist, and it says nothing about GitHub's search scope. It was briefly cited as scope evidence precisely because a status code was read without its body.\n\n## Scope\n\n- ⛔ **No tooling.** Option C — a helper that backticks or strips colon tokens before a query is sent — was explicitly not taken. The clause is the load-bearing half and is correct without it; tooling should be pulled by evidence that the clause alone is not landing.\n- ⛔ **Nothing outside `AGENTS.md`.** No `.claude/`, no `skills/`, no `docs/adr/`, no `CLAUDE.md`, no scripts, and nothing under `content/docs/releases/`.\n- The diagnosis itself is not re-litigated here; it is done and accepted, and this only writes it where agents read it.\n\n## ⛔ Governed surface\n\n`AGENTS.md` is a governed surface. This PR is a **DRAFT and stays draft** — it has not been flipped ready, not enqueued, and auto-merge has not been armed. A human merge **is** the review record.\n\n`node scripts/check-governed-queue-guard.mjs --test AGENTS.md` exits **3**, which is the correct verdict for a governed-path PR, not a failure to fix. It names the authorized approvers itself, and both are requested on this PR.\n\n## Gates\n\nAll run on the final commit `920c9ba87`, working tree clean, every exit code captured by redirect before any pipe.\n\n| gate | exit | note |\n|:--|:--|:--|\n| `pnpm docs:check-links` | 0 | reads `AGENTS.md` from disk |\n| `pnpm check:control-bytes` | 0 | 6135 tracked text files scanned |\n| `pnpm check:shell-escape-residue` | 0 | resolved `AGENTS.md`: 1 file, 15 fences |\n| `pnpm check:governed-queue-guard` (self-test) | 0 | |\n| `check-governed-queue-guard.mjs --test AGENTS.md` | **3** | **expected** governed verdict |\n| `check-changeset-presence.mjs` | 0 | **no changeset owed** — answered at the gate |\n| vitest, 4 suites reading `AGENTS.md` from disk | 0 | 4 files, **159 tests** passed |\n\nThe gate set was re-derived on current `main` rather than taken from the dispatch list: every script under `scripts/` where `AGENTS.md` appears as a data path rather than an error string, plus the suites that resolve the repo-root file.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_019aCUUSwWefnbCJ4Xk1vqQW\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019aCUUSwWefnbCJ4Xk1vqQW)_"
+}

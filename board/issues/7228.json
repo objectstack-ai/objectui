@@ -1,0 +1,33 @@
+{
+  "number": 7228,
+  "kind": "issue",
+  "title": "finding(plugin-gantt): `columnWidthForContainer` branches on container width and returns 110 from all three arms — the breakpoints it documents do nothing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T15:12:29Z",
+  "updated_at": "2026-09-04T03:54:53Z",
+  "closed_at": "2026-09-04T03:54:26Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7228",
+  "body": "Filed unassigned while working objectui#7203 (toolbar period label). Not in that PR's scope — different defect class, and it is an observation rather than a user-visible failure. Recording it so it is not lost.\n\n## What is there\n\n`packages/plugin-gantt/src/GanttView.tsx`, measured on `origin/main` `f626808d4`:\n\n```ts\nfunction columnWidthForContainer(width: number) {\n  // Day/week/month columns stay readable at a 110px floor — even in narrow\n  // embeds (user-specified minimum). A short project still fills a roomy\n  // timeline via the fit-stretch below; manual zoom can override either way.\n  if (width < 640) return 110;\n  if (width < 1024) return 110;\n  return 110;\n}\n```\n\nAll three arms return the same value, so the function is `() =&gt; 110` with two\nbranches that can never change the result. Its parameter is read only to be\ncompared against thresholds nothing acts on.\n\n## Why it is worth a card rather than a silent tidy\n\nThe comment above it explains a design (a readability floor that a fit-stretch\nand manual zoom can move) and is accurate about the *current* behaviour, so\nnothing here is broken today. What is misleading is the shape: a reader — human\nor agent — sees a container-width breakpoint table and reasonably concludes the\ngantt narrows its columns in small embeds. It does not. The sibling\n`taskListWidthForContainer` and `rowHeightForContainer` directly beneath it use\nthe same breakpoints and DO vary, which makes this one read as an oversight in\na table of live values rather than as a deliberate flattening.\n\nTwo dispositions look reasonable and it is not my call which:\n\n1. **Collapse it** to a constant (or inline the 110) and keep the comment's\n   explanation, so the code says what it does.\n2. **Restore a real curve** if the readability floor was meant to be\n   width-dependent and got flattened by a later change — in which case the\n   history is the evidence, not the current text.\n\nRoute 1 is mechanical. Route 2 needs someone who knows whether the flattening\nwas intentional, which is why this is a `finding` and not a queued fix.\n\n## Not in scope of, and not blocking, anything\n\nIndependent of the task-list width and date-sublabel decisions on the two open\ncards for this file, and independent of the toolbar work — the toolbar period\nlabel reads `colOffsets`, which is downstream of whatever this returns, and is\nunaffected by which disposition wins."
+}

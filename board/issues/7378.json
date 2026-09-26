@@ -1,0 +1,38 @@
+{
+  "number": 7378,
+  "kind": "issue",
+  "title": "core: `DataScopeManager.evaluateFilter` returns `true` for an unknown operator — an unrecognised ROW-LEVEL scope rule widens what a user can see, silently",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1",
+    "security"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T15:12:29Z",
+  "updated_at": "2026-09-05T15:02:55Z",
+  "closed_at": "2026-09-05T15:02:55Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7378",
+  "body": "Found while repairing #7349 (PR #7377) on `origin/main` `d53e472`. Not fixed there: different file, different consumer, out of that card's scope. Dedupe: listed all 334 open issues via the repo-scoped REST endpoint and grepped titles for `datascope` / `data scope` / `row.level` / `rowLevel` — no hit; control term `7349` fired on the same listing.\n\n## The defect\n\n`packages/core/src/data-scope/DataScopeManager.ts:242`\n\n```ts\nfunction evaluateFilter(fieldValue: any, operator: RowLevelFilter['operator'], filterValue: any): boolean {\n  switch (operator) {\n    case 'eq':  return fieldValue === filterValue;\n    // … eq / ne / gt / lt / gte / lte / in / nin / contains …\n    default:\n      return true;\n  }\n}\n```\n\nAn operator this switch does not implement makes the rule evaluate to **`true`** — the record passes the scope filter. This is the same fall-through-to-`true` defect class as #7349, but in a **row-level access** path rather than a display filter, so the failure direction is \"the user sees rows the scope rule existed to hide\", with no error and no console line.\n\nNote the asymmetry that makes it hard to spot: an unknown operator in a scope rule does not fail closed *or* loudly. It fails **open**, quietly, and the only visible symptom is a result set that is too large — which looks exactly like a correctly-configured permissive scope.\n\n## Why an unknown operator is reachable\n\nThe switch implements the abbreviated spellings `eq` / `ne` / `gt` / `lt` / `gte` / `lte` / `nin`. It has no arm for the canonical spellings the platform's own vocabularies use — `equals`, `not_equals`, `greater_than`, `is_null`, `is_not_null`, `starts_with` and the rest of `VIEW_FILTER_OPERATORS` (`@objectstack/spec/ui`) — nor for the null-ness family at all. Whether a stored `RowLevelFilter` can currently carry one of those spellings is the first thing to measure; the sibling defect in #7349 was live precisely because a producer lowered rules into the canonical view spelling while the consumer switch was keyed on the short one.\n\n## Suggested direction (not a ruling)\n\nThe repair that landed for #7349 in PR #7377 is available as a worked precedent: canonicalise the operator through the spec's exported `canonicalAstOperator` (`@objectstack/spec/data`) so the accepted vocabulary is the published one rather than a second hand-written list, then make the `default` arm refuse rather than pass. For a row-level scope filter, \"refuse\" should almost certainly mean **deny** (fail closed), which is what the sibling `evaluateCondition` in `@object-ui/permissions` (`packages/permissions/src/evaluator.ts`) already does — its `default` arm returns `false`.\n\nWhether the fix is a straight `default: return false` or the fuller canonicalisation depends on that reachability measurement, so this is filed as a defect for triage rather than a prescription.\n\n## Suggested acceptance criteria\n\n- A red-first test: a `RowLevelFilter` carrying an operator the switch does not implement currently admits a record it should exclude.\n- The unknown-operator arm no longer admits the record.\n- Any operator spelling a stored `RowLevelFilter` can legitimately carry is either implemented or refused — measured against the spec's published operator sets, not guessed."
+}

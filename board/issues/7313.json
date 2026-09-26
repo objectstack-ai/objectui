@@ -1,0 +1,36 @@
+{
+  "number": 7313,
+  "kind": "issue",
+  "title": "finding(types): `objectName` is declared REQUIRED on `ObjectGanttSchema` and `ObjectCalendarSchema` while both renderers resolve `data` and `staticData` FIRST — the documented static-data route cannot be annotated",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T05:45:26Z",
+  "updated_at": "2026-09-05T18:00:28Z",
+  "closed_at": "2026-09-05T17:59:54Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7313",
+  "body": "Found while bringing `content/docs/plugins/plugin-gantt.mdx` and `content/docs/plugins/plugin-calendar.mdx` under `check:doc-snippet-types` (objectui#5174 batch 6, PR to follow). Filed unassigned and **not** fixed there — `packages/*` source is out of that PR's surface by its dispatch.\n\nThis is objectui#7296's shape on two more schemas. That card is scoped to `ObjectMapSchema` by title and body, so closing it would leave gantt and calendar exactly as they are; hence a separate card rather than a comment. The class is now measured on **three** of the ObjectQL view schemas.\n\n## What\n\n`packages/types/src/objectql.ts`:\n\n- `ObjectGanttSchema.objectName: string` — required\n- `ObjectCalendarSchema.objectName: string` — required\n\nBoth renderers resolve their data configuration by trying `objectName` **last**:\n\n`packages/plugin-gantt/src/ObjectGantt.tsx`, `getDataConfig`:\n\n```\nif (schema.data)       return schema.data;\nif (schema.staticData) return { provider: 'value', items: schema.staticData };\nif (schema.objectName) return { provider: 'object', object: schema.objectName };\nreturn null;\n```\n\n`packages/plugin-calendar/src/ObjectCalendar.tsx` carries the same three branches in the same order (lines 109-127).\n\nSo a node with `staticData` and no `objectName` — or with an authored `data` block and no `objectName` — is a **supported, first-class path** that the declaration rejects. Every other read of `objectName` in both components is guarded (`if (schema.objectName)`, `schema.objectName ?? ''`, `schema.objectName || …`), which is what a genuinely optional key looks like.\n\n## Measured\n\nBoth pages document the value provider by name and with worked examples:\n\n- `plugin-gantt.mdx` — \"With Static Data\" and \"Value Provider (Static)\": `type: 'object-gantt'` + `staticData` + `gantt`, no `objectName`.\n- `plugin-gantt.mdx` — \"API Provider\": `type: 'object-gantt'` + `data: { provider: 'api', read: { … } }`, no `objectName`.\n- `plugin-calendar.mdx` — \"With Static Data\" and \"Value Provider (Static)\": same shape with `calendar`.\n\nAnnotating any of them with its own schema type produces `TS2741: Property 'objectName' is missing`. In the batch-6 PR those blocks therefore ship as plain `const` declarations with **no** annotation — they compile and are counted, but their keys are unchecked — rather than deleting documented working behaviour or inventing an `objectName` the route does not use. They become checked blocks the day the declaration matches the read sites.\n\n## Why the type is the half that should move\n\nBoth components' data resolution states the precedence in code, and the ledger of authoring routes each page publishes matches it. `ObjectGanttSchema` already declares `staticData?: any[]` with the comment *\"Inline records, wrapped into a `{ provider: 'value' }` config by `getDataConfig`\"* — that is the same function whose earlier branch this required key contradicts. The declaration asserts a key the renderer's own documented flow does not need.\n\nThe conservative repair is the one objectui#7296 proposes for the map: make `objectName` optional and let the read sites' existing guards stand. The alternative — a discriminated union per provider — is a bigger authoring-surface decision and is named here only so the ruling is a choice rather than a default.\n\nRelated: objectui#7296 (`ObjectMapSchema`, same shape), objectui#7311 (`ObjectCalendarComponentProps.schema`, the other calendar declaration gap found in the same pass)."
+}

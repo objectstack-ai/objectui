@@ -1,0 +1,36 @@
+{
+  "number": 7104,
+  "kind": "issue",
+  "title": "finding(types,components,docs): `ui:alert-dialog`'s three surfaces name three DISJOINT key sets — every declared authoring key is inert, and every key the renderer reads is a type error",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T00:05:23Z",
+  "updated_at": "2026-09-05T07:41:47Z",
+  "closed_at": "2026-09-05T07:40:45Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7104",
+  "body": "Found while implementing #7082, which corrects the *type name* on `alert-dialog.mdx:30`. Filed rather than folded in: #7082 is fenced to docs rows, and this is a declaration/renderer divergence.\n\nMeasured on `origin/main` `2c3cd1b7572a8aca2958da3551c990164186c9c1`.\n\n## The three surfaces\n\n`AlertDialogSchema` (`packages/types/src/overlay.ts:78-127`, mirrored at `packages/types/src/zod/overlay.zod.ts:42-55`) declares, past `type`/`title`/`description`/`trigger`/`defaultOpen`/`open`:\n\n| declared key | read by the renderer? |\n| --- | --- |\n| `cancelLabel?: string` | **no** |\n| `confirmLabel?: string` | **no** |\n| `confirmVariant?: 'default' \\| 'destructive'` | **no** |\n| `onConfirm?: () =&gt; void \\| Promise&lt;void&gt;` | **no** |\n| `onCancel?: () =&gt; void` | **no** |\n\n`packages/components/src/renderers/overlay/alert-dialog.tsx` reads, past the ones both agree on:\n\n| key the renderer reads | declared? |\n| --- | --- |\n| `schema.content` (rendered as the dialog body) | **no** |\n| `schema.cancelText` (drives `AlertDialogCancel`) | **no** |\n| `schema.actionText` (drives `AlertDialogAction`) | **no** |\n| `schema.onAction` (the action's `onClick`) | **no** |\n\nAnd `content/docs/components/overlay/alert-dialog.mdx:33` publishes a third spelling again:\n\n| documented key | declared? | read? |\n| --- | --- | --- |\n| `actions?: ComponentSchema[]` | **no** — absent from both the TS interface and the mirror | **no** — `schema.actions` appears nowhere in the renderer |\n\nSo the confirm/cancel affordance has three names on three surfaces and no two of them agree.\n\n## Why it matters, in the direction that bites an author\n\nThe published TS type is what an author's editor reads. Today:\n\n- authoring `cancelLabel` / `confirmLabel` / `onConfirm` — the keys the type declares and the ones an editor completes — produces **no cancel button, no confirm button and no handler**. The renderer only draws `AlertDialogCancel` when `schema.cancelText` is truthy, and `AlertDialogAction` when `schema.actionText` is. So a document written strictly against the shipped type renders a dialog with an **empty footer**.\n- authoring the keys that actually work (`cancelText`, `actionText`, `onAction`, `content`) is only accepted because `BaseSchema` carries `[key: string]: any` — no editor suggests them, and no page names them.\n- the renderer's own `defaultProps` (same file) ships `cancelText` / `actionText`, so the component's registered default is written in the undeclared dialect.\n\nThis is the same shape as #6773 and #6788 (documents authoring a key the renderer never reads), with the extra wrinkle that here the *declaration* is on the losing side too.\n\n## Why nothing red covers it\n\n- `zod-mirror-parity.test.ts` compares the TS declaration to its Zod mirror. These two **agree** — both carry `cancelLabel`/`confirmLabel`/`onConfirm`. The renderer is not a party to that test.\n- `check:doc-snippets` compiles `ts`/`tsx`/`typescript` fences; the `actions` row is in a `plaintext` fence, so no gate parses it (#5250 / #5867).\n- `check:doc-types` reads only the `type` string literals out of docs code blocks.\n- #6150's sweep declared 13 renderer-read keys that no type carried, but `alert-dialog` is not among the components its ledger (`packages/types/src/__tests__/undeclared-but-consumed-keys-6150.test.ts`) pins.\n\n## Options\n\n- **(a)** Make the renderer read the declared keys (`cancelLabel`, `confirmLabel`, `confirmVariant`, `onConfirm`, `onCancel`) and retire the undeclared dialect, updating `defaultProps` and any fixture. Contract-first: the published type wins, and the docs row for `actions` is deleted as a phantom.\n- **(b)** Declare what the renderer reads (`content`, `cancelText`, `actionText`, `onAction`) and retire the inert declared keys under ADR-0049 enforce-or-remove.\n- **(c)** Split: keep `content` (a real body slot the sibling overlay types all declare) and resolve the button pair one way.\n\n(a) looks right on contract-first grounds — the declared names are also the better ones, and `confirmVariant` is a capability the `actionText` dialect cannot express. But it changes shipped runtime behaviour for any document written in the working dialect, so it wants a triage decision rather than a drive-by. Either way `alert-dialog.mdx` is owed a rewrite of its whole Schema block, not just the two rows #7082 touched.\n\nThis is a concrete instance of the general class #4631 names.\n\nRefs: #7082 · #4631 · #6150 · #6773 · #6788."
+}

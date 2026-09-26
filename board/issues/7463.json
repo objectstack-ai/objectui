@@ -1,0 +1,35 @@
+{
+  "number": 7463,
+  "kind": "issue",
+  "title": "`check-skill-examples.mjs` hardening after #7427: the bare-`any` assertion, a bound on root-devDependency resolution, and widening SCAN_ROOTS to `.claude/skills/**`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T06:57:05Z",
+  "updated_at": "2026-09-03T22:42:07Z",
+  "closed_at": "2026-09-03T22:42:07Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7463",
+  "body": "Filed by the skills lane seat (session `session_01LraLgQVGq8egUwfYZpbYt1`) from the #7359 flight's `follow_ups_recorded_not_taken` (PR #7427, comment 5519160893). Three hardening items on one gate, none of which the landing flight was funded for. Unassigned, bare, for triage; landing surface `scripts/check-skill-examples.mjs` + its spec and self-test (not governed) and, for item 3, the `.claude/skills/**` markers (governed).\n\n## The three items\n\n1. **Bare `any` inside a marked block.** objectstack's `check-skill-examples.ts` carries a third assertion — a marked example may not use a bare `any` — that the port deliberately left out as \"a new assertion rather than the convention\". Add it, with a self-test leg and a `--measure` reading of how many of the 17 marked ts fences would red today (re-point or unmark by row, never mechanically). **Landed in PR #7490 (`ac8d523`, 10:21Z).**\n2. **Bound root-devDependency resolution.** The imported harness (`check-doc-snippet-types.mjs`'s `derivePackageTypePaths` / `deriveDeclaredDependencyPaths`) lets a bare specifier the repository ROOT declares resolve through pnpm's root `node_modules` symlinks (in the marked population: `vitest`, `@playwright/test`); the inherited UNDECLARED control bounds transitives, which is a different leak. The gate prints an `Unmapped specifiers:` line on every run rather than hiding it. Bound it the way that control bounds transitives — and since the harness is SHARED, `check-doc-snippet-types.mjs` carries the same edge (its control proves resolution did not widen to transitives and says nothing about root-declared specifiers); decide whether the bound lives in the harness or per gate. **Measured and escalated by the #7490 flight: a bound in the shared harness reds exactly one docs snippet (`content/docs/guide/objectos-integration.mdx:638`); the home of the bound is objectstack#14909 item 1 (recommendation A). Re-dispatched at that ruling.**\n3. **Widen `SCAN_ROOTS` to `.claude/skills/**`** the way `check-skills-paths.mjs` was widened by #7358, so the internal skills' fences can opt in with the same marker. **Landed in PR #7490: 18 → 20 guides, 112 → 121 ts candidates, 0 new marked fences.**\n\n## Item 4 (cosmetic; added 11:2xZ from the #7494 flight, PR #7496 report 5524854506, finding 4)\n\n`--measure`'s would-be-population list prints the FINDING's line (fence line plus offset — `plugin-development.md:103` for the surviving row) while a baseline row is keyed on the FENCE's line (`:92`). The per-finding `[bare-any]` diagnostic prints the verbatim row, so the correct spelling exists; only the summary can mislead someone declaring a row from it, and rows have been declared from that output. Print the row key beside each summary line. Lands with item 2's flight or on its own if item 2 waits long.\n\n## Constraints\n\n- Opt-in stays opt-in: zero new red on day one; every new assertion reports its would-be population under `--measure` first.\n- Exit 2 `PRECONDITION NOT MET` semantics unchanged (unbuilt tree, failed harness control, empty marked population).\n- The shrink-only ratchet on the marked population is a separate decision (#7359 step 3 — objectstack#14909 item 2) and is not taken here.\n\n## Verified\n\n- Dedup 2026-09-03T06:57Z (`search_issues` in objectui): only #7360 / #7359 returned.\n- Facts are the flight's own measurements at `75e7436` (`--measure`: ts 17/112, json 39/56; unmapped root specifiers `vitest`, `@playwright/test`); re-measured at `2df07b7` by the #7490 flight.\n\nRefs: #7359 · PR #7427 · #7358 · PR #7490 · objectstack#14909 · objectstack `packages/spec/scripts/check-skill-examples.ts`."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 4895,
+  "kind": "issue",
+  "title": "finding(docs/types): `content/docs/blocks/block-schema.mdx` 教的整族 block 词汇表(含节点位置的 `slot`)没有任何 renderer",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T02:10:35Z",
+  "updated_at": "2026-09-03T06:48:30Z",
+  "closed_at": "2026-09-03T06:42:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 14,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4895",
+  "body": "观察类 finding —— 记录一个**已声明但无渲染面**的词汇表,不是今天有用户正在踩的具体缺陷(这一族目前没有已知的运行时使用者)。发现于 #4823 的实施(PR 见其分支),是那道门第一次全扫时被豁免表挡下的一处,豁免理由里指向本单。\n\n## 事实\n\n`packages/types/src/blocks.ts` + `packages/types/src/zod/blocks.zod.ts` 声明了一整族带 `type` 判别式的 schema,并有 Zod 校验:\n\n| 判别式 | 声明处 |\n|---|---|\n| `block` | `blocks.ts`(`BlockSchema`) |\n| `block-library` | `blocks.ts:263` / `blocks.zod.ts:100` |\n| `block-editor` | `blocks.ts:315` / `blocks.zod.ts:116` |\n| `block-instance` | `blocks.ts:357` / `blocks.zod.ts:130` |\n\n`content/docs/blocks/block-schema.mdx` 把这四个都当作可写的 schema 文档来教。**但仓内没有任何 `ComponentRegistry.register()` 认领其中任何一个键** —— 按 #4823 那道门的派生口径(661 个注册键)全部落空。\n\n这本身未必是缺陷:`BlockSchema` 是一份**定义**(像 `FormSection` 那样),不是一个被渲染的节点,不需要注册。但 `BlockLibrarySchema` / `BlockEditorSchema` 读起来是**组件 schema**(它们各自带 `type` 判别式,形状与被渲染的节点一致),这两者到底该不该有 renderer,是需要维护者定的方向,不是我这边能替它选的。\n\n## 更硬的一处:`slot` 在真节点位置上\n\n`BlockSchema.template` 声明为 `SchemaNode | SchemaNode[]`(`blocks.ts:190` 附近),也就是**真的会走 SchemaRenderer**。而 `block-schema.mdx:254` 在 `template.children` 里教:\n\n```plaintext\n{\n  type: 'slot',\n  name: 'content'\n}\n```\n\n`slot` 在仓内**任何地方都不存在** —— 不是注册键,`blocks.ts` 里也没有 `type: 'slot'` 的声明(只有 `BlockSlot` 接口和 `slots?: BlockSlot[]` / `slotContent` 两个键)。所以这一处比上面四个更接近 #4823 的原形:一个处在渲染路径上的节点,类型名不存在,照抄得 OBJUI-001。\n\n之所以没在 #4823 的 PR 里顺手改掉:正确写法不唯一。要么给 block 系统的插槽占位符定一个真的节点类型并注册它,要么这一段该改成 `slotContent` 那条已声明的路子 —— 两种读法通向不同的架构,#4823 明确是「最小静态门 + 同形改名」,不预决这个。因此该处目前带**理由指向本单**留在 `scripts/check-doc-component-types.mjs` 的 `DOC_TYPE_EXEMPTIONS` 里,本单一旦有结论,那条豁免应当随之删掉(门会把失效的豁免报成 `stale-exemption`,所以它不会被忘掉)。\n\n## 为什么标 `finding` 而不是 `pm:queue`\n\n这是一个**方向问题**(这族 schema 到底要不要渲染面),不是一个待修的 bug;而且它今天不会打到任何人 —— 没有已知的运行时使用者,那页文档教的是类型层的形状。要不要做、做成哪一种,交给分诊轮定级。\n\n## 参考\n\n- #4823 / `scripts/check-doc-component-types.mjs`(发现来源,豁免表里 `content/docs/blocks/block-schema.mdx` 一节)\n- `packages/types/src/blocks.ts`、`packages/types/src/zod/blocks.zod.ts`\n- `content/docs/blocks/block-schema.mdx`\n"
+}

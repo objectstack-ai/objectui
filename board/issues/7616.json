@@ -1,0 +1,32 @@
+{
+  "number": 7616,
+  "kind": "pull_request",
+  "title": "docs(governed-guard): replace the retired sha pin with the ruled approval-record predicate",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-04T07:38:47Z",
+  "updated_at": "2026-09-04T11:00:05Z",
+  "closed_at": "2026-09-04T11:00:03Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-09-04T11:00:03Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/7616",
+  "body": "Fixes #7605\n\nTwo documents still described the governed-queue guard's **sha pin**, which PR #7606 retired when it executed the maintainer's 2026-09-04 ruling — quoted verbatim and untranslated, because rewriting a ruling is rewriting the ruling:\n\n> 「你的门禁有问题，只需要有人工批准记录就行，不需要卡最新的提交。」\n\nBoth stale passages failed in the worst direction: a seat reads them, believes an approval goes stale on the next push, and re-requests an approval the gate does not want.\n\n## What changed\n\nBoth passages now **copy the guard's own header sentences** rather than paraphrasing them, so the three places cannot drift apart again. The source is `scripts/check-governed-queue-guard.mjs` at `0d8fd7c`:\n\n- § \"What satisfies the queue leg\" — L52-59 (the predicate: a latest-decisive `APPROVED` review by an account in `GOVERNED_APPROVERS`, on whichever commit it was left; dismissed, superseded, unauthorised and unreadable all still refuse).\n- L66 — the ruling, copied byte-for-byte out of that line so both files and the header carry identical bytes.\n- L83-87 — the accepted cost, stated once in each file: a push after an approval is no longer re-reviewed by this gate.\n\n**`AGENTS.md`** (受管面 section). The clause that read 「它要求 `GOVERNED_APPROVERS`(`os-zhuang` / `hotlong`)的 APPROVED review **钉在当前 head**」 now states the ruled predicate, the refusals that survive, the ruling, and the accepted cost. Passage language and voice unchanged; no other sentence touched.\n\n**`content/docs/guide/ci-cd-pipeline.md`** (§ Governed Surface Guard). The three consecutive claims went stale together — that the review's `commit_id` must equal the current head sha, that \"the sha pin is what makes the approval an approval *of something*\", and that \"a push after the approval goes stale and reopens the refusal\". Replaced with the header's predicate plus the accepted-cost sentence. The workflow-inventory table row near L43 stated the same pin and is corrected to match.\n\n**Left alone, deliberately:** the section's cost paragraph. It claims only that a diff touching no governed path costs **zero** GitHub API calls, which is still true — it never stated the governed-PR count that PR #7606 changed. Verified in the source rather than assumed: `runGuard` early-returns with `apiCalls: 0` when nothing is governed, takes one `fetchReviews` per governed pull request, and has no head-read parameter at all (L677: \"There is no `fetchPullHead` parameter any more\"). The guard's own self-test prints the same reading — \"the retired head read measured ABSENT at one lookup per governed PR\".\n\n## Why this stays a DRAFT\n\n`AGENTS.md` is a governed surface. `node scripts/check-governed-queue-guard.mjs --test AGENTS.md content/docs/guide/ci-cd-pipeline.md` answers **GOVERNED, exit 3**: one governed path governs the whole pull request. This pull request is parked as a draft for a human merge — not flipped ready, not enqueued, no auto-merge, no reviewer requested from the seat. One pull request for both files because they carry one fact; the guide is not governed but rides with the governed file.\n\n## Verification (all at `8d78dbd`, working tree clean)\n\n| Check | Verdict |\n| --- | --- |\n| `pnpm lint` (whole repo, 47 tasks) | `0 errors, 2878 warnings` — warnings pre-existing, unrelated to this diff |\n| `pnpm check:control-bytes` | `OK (scanned 6228 tracked text file(s); skipped 85 binary)` |\n| `pnpm check:governed-queue-guard` | `OK ... 132 cases pass` |\n| `pnpm check:doc-fences` | every TypeScript block in 227 documents fenced correctly |\n| `pnpm check:doc-snippets` | `452 of 452 block(s) judged, 0 failed` (after building its `--build-filter` closure, 34 tasks) |\n| `pnpm check:doc-types` | `Every documented component type is registered.` |\n| `pnpm check:docs-route-closure` | all three verdicts green |\n| `pnpm check:skills-paths` | `88/89 stated path(s) resolve` |\n| `pnpm check:shell-escape-residue` | `OK (5/5 root(s) resolved ... 0 occurrence(s) outside a fence)` |\n| `node scripts/check-doc-links.mjs` | `Links are valid across 17 scan roots.` |\n| `node scripts/check-changeset-presence.mjs` | `No source or published contract of a released package changed in this range, so no changeset is owed.` — verdict followed, no changeset added |\n| pin tests: `ci-cd-pipeline-doc`, `check-governed-queue-guard`, `merge-queue-reporting` | `3 passed (3)`, `69 passed (69)` |\n\nThe three pin tests are the suites that read the two edited files, run in addition to the gate families the paths reach.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_019RfFHiRCSs3JXLK4cwcfox\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019RfFHiRCSs3JXLK4cwcfox)_"
+}

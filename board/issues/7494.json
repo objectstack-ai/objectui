@@ -1,0 +1,35 @@
+{
+  "number": 7494,
+  "kind": "issue",
+  "title": "Retire the three `KNOWN_BARE_ANY_EXAMPLES` rows in `skills/objectui/guides/testing.md` (`:60` `as any`, `:208` `mockClient` and its `as any`) by teaching the honest test-double idiom",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T09:55:55Z",
+  "updated_at": "2026-09-03T14:48:14Z",
+  "closed_at": "2026-09-03T14:45:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7494",
+  "body": "Filed by the skills lane seat (session `session_01LraLgQVGq8egUwfYZpbYt1`) from the #7463 flight (PR #7490, report comment 5523867580, open question 2, the flight's recommendation 2). Landing surface: governed `skills/objectui/**` (draft PR, human merge) plus the row deletions in `scripts/check-skill-examples.mjs`. Graded by the seat under the vacant-triage precedent (#7359): `domain:skills`, `priority:p3`. No `pm:*` state yet: the rows exist only once PR #7490 is on `main`, so this card takes `pm:queue` at the merge patrol reading that shows it there.\n\n## Measured by the flight at `2df07b7` (`--measure`, before the assertion was armed)\n\n| baseline row | the fence | what it is doing |\n|:--|:--|:--|\n| `skills/objectui/guides/testing.md:60 as any assertion` | `validateSchema({} as any)` | feeds the validator an invalid value on purpose |\n| `skills/objectui/guides/testing.md:208 variable mockClient` | the test double | a mock typed as `any` |\n| `skills/objectui/guides/testing.md:208 as any assertion` | `(adapter as any).client` | reaches a private field through a cast |\n\nEach is a marked example, so its marker claims it compiles, and every property access on those `any`s is unchecked: `tsc` proves nothing about the lines a reader copies. The flight declared them rather than unmarking them because which idiom the testing guide should teach is a judgement about the guide, not about the gate.\n\n## Scope\n\n- Per row, teach the idiom the guide should teach, chosen by what the surrounding prose says the reader is learning, never mechanically: `as unknown as T` where the intent is \"a deliberately wrong value\"; a `@ts-expect-error` line carrying its reason where the intent is \"this must not type-check\"; a typed partial double, or a `satisfies`-checked literal, where the intent is a mock; for the private-field reach, either the honest public seam or a stated `@ts-expect-error` with the reason.\n- Delete each retired row from `KNOWN_BARE_ANY_EXAMPLES` in the same PR; the gate reds a row as STALE otherwise. `node scripts/check-skill-examples.mjs` at the end must show the fences still marked, 0 failed, and the bare-`any` line reporting exactly one declared row left (the `plugin-development.md:92` row, which is a platform-type card filed alongside this one and stays until that lands).\n- Report the per-file line and byte arithmetic; there is no token ratchet over `skills/**` in objectui (measured by the #7462 flight), so the numbers are reported, not gated.\n\n⛔ Not in scope: unmarking any fence; the `plugin-development.md:92` row (its fix is `packages/types`, not the guide); widening the assertion's scope.\n\n## Verified\n\n- Dedup 2026-09-03T09:56Z (`search_issues` in objectui, 6 results read): #7004, #6157, #6505, #4581, #3266, #3257 — none carries these guide sites.\n- Rows and sites are the flight's own measurements at `2df07b7`; re-measure at claim.\n\nRefs: #7463 · PR #7490 · #7359 (the gate and its marker convention)."
+}

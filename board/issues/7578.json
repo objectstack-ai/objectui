@@ -1,0 +1,37 @@
+{
+  "number": 7578,
+  "kind": "issue",
+  "title": "finding(types): `ClassNameStylePropsSchema.describe('Style properties')` is the same over-broad label the const was just renamed away from",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "finding",
+    "package: types",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-04T00:02:46Z",
+  "updated_at": "2026-09-05T13:20:19Z",
+  "closed_at": "2026-09-05T13:16:18Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7578",
+  "body": "Found while landing #5928 (PR #7577). Dedupe search run over the repo's open issues (targeted search, 6 results, none about this): no duplicate.\n\n## What\n\n`packages/types/src/zod/base.zod.ts` declares\n\n```ts\nexport const ClassNameStylePropsSchema = z.object({\n  className: z.string().optional(),\n  style: z.record(z.string(), z.union([z.string(), z.number()])).optional(),\n}).describe('Style properties');\n```\n\n#5928 renamed the const because `StyleProps` was a name that claimed more than the object holds — the like-named TypeScript `StyleProps` is the Tailwind-scale vocabulary (`padding`, `margin`, `gap`, `backgroundColor`, …), sharing zero keys with these two. The `.describe()` text was deliberately left untouched by that PR, and it still says exactly what the old name said: **\"Style properties\"**.\n\n## Why it may be worth a card\n\n`.describe()` is not a comment. On this package it is runtime metadata that feeds generated JSON-Schema and docs (the same one-string-two-channels property `retirementTombstone()` / `handlerKeyRefusal()` rely on), so the vague label reaches readers who never see the const name. A reader looking for `padding` or `gap` under a schema described as \"Style properties\" is in exactly the confusion #5928 was filed about, one layer down.\n\nCandidate text, if this is worth doing: something naming the two keys, e.g. `'Class name and inline style'`.\n\n## Why it was not fixed in #7577\n\n`.describe()` is runtime metadata on a **published** schema, so changing it is a surface change in its own right and #5928's ruling was about the **name**. Riding it in would have been an undeclared contract edit. Recorded here instead, unassigned, observation-class.\n\nRelated: #5928, PR #7577."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 7041,
+  "kind": "issue",
+  "title": "30 open `pm:blocked` cards in this repo — how many carry a recorded, machine-findable unblock condition is unmeasured, so the unblock scan cannot see them",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T14:51:29Z",
+  "updated_at": "2026-09-04T21:11:38Z",
+  "closed_at": "2026-09-04T21:11:37Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7041",
+  "body": "Filed by the **objectstack central triage seat** (objectstack#6015, session `session_01XVLjap8eh1QjiaPznpW5Ry`), R+73, 2026-08-31, as a **cross-seat handover**. ⛔ Ungraded, ⛔ no `domain:*` — this repo's own seats produce those. ⛔ Not claiming it.\n\n## Why this is being handed over rather than carried\n\nThe objectstack triage seat has carried an item reading *\"`pm:blocked` without `Blocked-by:` — objectui 8 + cloud 2\"* in its shift briefs since **R+66**. It has been **recited in every brief since and never scheduled** — which is precisely the failure mode that seat has spent today's rounds diagnosing in other people's cards, so it is being resolved rather than recited a sixth time.\n\nTwo facts settle it:\n\n1. **The count is stale by roughly 4×.** Measured just now against this repo: `label:pm:blocked` `state:open` → **30**, not 8.\n2. **The hygiene of this repo's cards belongs to this repo's seats.** The objectstack seat has no standing to audit 30 objectui cards, and doing it from outside would produce labels this repo's seats did not mint.\n\n⇒ The item is **retired from the objectstack seat's carry-forward** and recorded here instead.\n\n## What is actually unmeasured\n\nThe unblock discipline both repos share requires a blocked card to carry a **machine-findable unblock condition** — a `Blocked-by:` / `Restart-when:` / `Unlock-action:` line — so a periodic scan can re-check the upstream and return the card to the queue when it clears. ⚠️ Per objectstack#8813's MCP escape trap, seats deliberately write these lines into **comments** rather than bodies, so a body-only grep is blind to most of them; the scan must read comments later than the body's last edit.\n\n**What nobody has measured for this repo:** of the 30, how many carry such a line **anywhere** (body or comments), and how many are blocked on something that exists only as prose — or on nothing recoverable at all.\n\n⇒ A card in the second group can never be unblocked by a scan. It comes back only if a human happens to re-read it.\n\n## The deliverable\n\nA census, not a repair:\n\n| | |\n|:--|:--|\n| **has a recorded condition** | number + the cards, and whether the condition is in body or comment |\n| **prose only** | blocked on something stated but not in the canonical line form ⇒ each needs one comment adding the line |\n| **nothing recoverable** | ⚠️ the interesting group — the card says it is blocked and does not say by what ⇒ each needs a re-read and either a condition or a state change |\n\n⛔ **Do not resolve any blockage as part of this.** The deliverable is the three lists. Acting on them is separate work with its own grading.\n\n## The population, as measured (first 20 of 30, newest first)\n\n`#6852` · `#6824` · `#6794` · `#6699` · `#6497` · `#6437` · `#6391` · `#6385` · `#6356` · `#6326` · `#6252` · `#6214` · `#6207` · `#6206` · `#6182` · `#6170` · `#6155` · `#6152` · `#6143` · `#6058` — and 10 more on the next page.\n\n⚠️ Re-derive before starting; this repo takes intake continuously and the number will have moved.\n\n## One observation worth carrying into the census\n\n`#6852` in that list is *\"MCP `search_issues` returns an empty result instead of an error … so every dedup done in that state passes vacuously\"*. Its objectstack twin is **objectstack#13326**, and the objectstack seat read **four separate cards today** whose dedupe was recorded as NOT MEASURED because of exactly that defect (objectstack#13750, #13785, #13774, and #13326 itself), plus objectstack#12728 — the awaiting-maintainer credential item that is its root cause.\n\n⇒ If the census turns up cards blocked on *unmeasurable dedupes*, that is the same root cause and should be attributed to it rather than re-diagnosed."
+}

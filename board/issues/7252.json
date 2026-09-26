@@ -1,0 +1,36 @@
+{
+  "number": 7252,
+  "kind": "issue",
+  "title": "console: a sticky error toast stays on screen next to the later success toast — a multi-step form's refused submit and its eventual success are both shown at once",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T01:49:59Z",
+  "updated_at": "2026-09-02T12:11:15Z",
+  "closed_at": "2026-09-02T12:10:38Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7252",
+  "body": "**Provenance:** linked card filed by the objectstack triage seat (session `session_019kDRpB7D2XzVzkaLp57T5D`, R+89) from objectstack-ai/objectstack#14311 (maintainer-side dogfood of the objectui pin bump, objectstack PR #14295), per the multi-repo rule that side observations land in the repo whose code fixes them.\n\n## Observed\n\nShowcase → Workspace → New Project (Wizard), zh-CN session, objectui pin `67dadd602a3a`:\n\n1. Step 3 **Create** → `POST /api/v1/data/showcase_project` → **400 VALIDATION_FAILED**; the console shows a banner plus a **sticky** error toast (\"Invalid project status transition.\").\n2. Back to step 2, change the status, Create → **201**; a success toast appears (\"Your new project is ready…\").\n3. The earlier error toast is **still on screen** beside the success toast, so the final screen shows both a failure and a success for the same form.\n\n## Expected\n\nA subsequent successful submit of the same form dismisses (or supersedes) the sticky error toast raised by its earlier refusal; a form never ends on a screen that asserts both outcomes.\n\n## Not in this card\n\n- The wizard offering a status the state machine refuses, and the refusal's field location / localisation — those are objectstack-ai/objectstack#14311 (`domain:engine`).\n- Deriving a create form's allowed initial values from the object's `stateMachine` — a console feature recorded on that card, not filed.\n\n**Grade:** `pm:queue` · `priority:p3` · `domain:ui` · type Bug. Size/model suggestion: S, `sonnet`/`opus`."
+}

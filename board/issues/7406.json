@@ -1,0 +1,35 @@
+{
+  "number": 7406,
+  "kind": "issue",
+  "title": "`guides/page-builder.md` says \"five registered types do all the structural work\" and omits `section`, which is registered and authored in the catalogue",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T18:13:37Z",
+  "updated_at": "2026-09-03T00:27:34Z",
+  "closed_at": "2026-09-03T00:21:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7406",
+  "body": "Found while implementing #7360, measured at `origin/main@0614b6d`. Unassigned.\n\n## The claim and the measurement\n\n`skills/objectui/guides/page-builder.md`, section \"3b. Pick the right layout primitive\":\n\n> Five registered types do all the structural work.\n\nThe table then names `flex`, `stack`, `grid`, `container` and `box`. `section` is not among them, and the token occurs **0 times in the whole guide**.\n\nIt is nonetheless a real registered structural type:\n\n- `packages/components/src/renderers/layout/containers.tsx:988` — `ComponentRegistry.register('section', PageSectionRenderer, { ... })`\n- authored in the schema catalogue: `examples/schema-catalog/src/schemas/components-layout-semantic/section.json`, and used inside `blog-article.json` and `complete-layout.json` in the same directory\n\nSo the sentence is a closed-set claim (\"five ... do all the structural work\") that is measurably not closed. That is the shape this repo's own doc gates exist to stop — an agent reading the guide has no way to reach `section`, and the guide actively tells it the set is complete.\n\n## Why it is filed rather than fixed\n\n#7360 funds exactly one addition to the published skill (a `PluginScope.registerComponent` row in `guides/plugin-development.md`) and, for every other row, only re-pointing or dropping an eval token — never adding a token the guide does not contain. Teaching `section` is an addition to a second guide, outside that card.\n\nIt surfaced there because `evals/page-builder.json` eval 2 required the literal `section` while scoring this guide. That eval row was re-pointed at `card`, the composition the guide does teach; the type itself was left untouched and is recorded here.\n\n## Two dispositions, both defensible\n\n1. **Teach it** — one row in the layout-primitive table and a corrected count, if `section` is a type authors should reach for. Its renderer name (`PageSectionRenderer`) and its catalogue usage suggest a real semantic-landmark role that `box` does not fill.\n2. **Say the set is not closed** — if `section` is deliberately not part of the recommended vocabulary, the sentence should stop claiming it is, so the next reader does not have to re-derive this.\n\nEither way the fix is paid for in the same file per the skills programme's shrink-or-neutral rule (#7251 measured that this repo has no skills token ratchet)."
+}

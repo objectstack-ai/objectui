@@ -1,0 +1,35 @@
+{
+  "number": 7173,
+  "kind": "issue",
+  "title": "`AiPendingActionsInbox.formatRelative` is a fifth untranslated copy of the same relative-time helper — the keys it needs are already in all ten packs",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T09:10:56Z",
+  "updated_at": "2026-09-02T08:56:33Z",
+  "closed_at": "2026-09-02T08:51:50Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7173",
+  "body": "Found while implementing #7163 (PR #7172), which converted the `plugin-detail` copies. Filed rather than swept in: `packages/plugin-chatbot/` is outside that card's declared lane.\n\n## Measured on `origin/main` head `d8ec8d6d4`\n\n`packages/plugin-chatbot/src/AiPendingActionsInbox.tsx:117-131` holds its own relative-time helper, returning hardcoded English:\n\n```\nif (sec < 45) return 'just now';\nconst min = Math.round(sec / 60);\nif (min < 60) return `${min}m ago`;\nconst hr = Math.round(min / 60);\nif (hr < 24) return `${hr}h ago`;\nconst day = Math.round(hr / 24);\nif (day < 30) return `${day}d ago`;\n```\n\nSo a zh/ja/ar session reading the AI pending-actions inbox gets English relative times on every row.\n\n## Why this is filed separately rather than as \"one more of the same\"\n\nIt is the **fifth** spelling of this helper in the repo, and the variants are not interchangeable — worth knowing before anyone tries to unify them:\n\n- `ActivityTimeline` / `RecordComments` (both `plugin-detail`, both translated as of PR #7172): `Math.floor`, breaks at 1/60/24/7, tail `toLocaleDateString()`.\n- `PointInTimeRestore` (`plugin-detail`, translated as of PR #7172): `Math.floor`, no days branch, tail `toLocaleString()`.\n- `RecordMetaFooter` (`plugin-detail`, already translated): `Math.floor` over seconds, clamps future timestamps to `just now`, unbounded days.\n- **This one**: `Math.round` (not floor), thresholds `45s` / `30d` (not 60s / 7d), tail `toLocaleDateString()`.\n\nThe rounding and threshold differences are real behaviour differences, not drift to be normalised away without a decision.\n\n## The keys already exist — no new pack rows needed for the four branches\n\n`detail.justNow`, `detail.minutesAgo` (`{{count}}m ago`), `detail.hoursAgo`, `detail.daysAgo` are present and translated in **all ten packs**. Verified by reading the pack OBJECTS, not a dotted-key grep — the packs are nested, so a grep for `detail.justNow` returns a false zero against the `en` pack that defines it. Positive controls `detail.back` / `detail.noActivity` = 10/10; negative control `detail.zzzAbsentControl7163` = 0/10.\n\nWhether this component should reach for `detail.*` keys from `plugin-chatbot`, or get its own namespaced rows, is the one open question here — it is a namespace decision, not a mechanical one.\n\n## Scope note for whoever takes it\n\n`AiPendingActionsInbox.tsx` has essentially no translation wiring of its own (2 incidental matches, neither a `t()` call), though the package does use the hooks elsewhere (`ChatbotEnhanced.tsx` imports `useObjectTranslation` and `useSafeTranslate`; `FloatingChatbotTrigger.tsx` uses `useObjectTranslation`).\n\nThat makes it the **unwired-component** shape, not the lookup-swap shape. #7142 wired a single string into an otherwise untranslated component and shipped something visibly half-done; #7149 is what finishing that afterwards cost. Sweep the file whole or leave it — the same ruling #7163 was given.\n\n## Evidence bar\n\nAn `en`-only test is green *before* the fix too — each key's `en` value is byte-identical to the literal it would replace — so English cannot discriminate a pack lookup from a hardcoded string. Assert in zh/ar, and assert the provider-less path separately (it must yield English from the defaults map, never a raw key, and must interpolate `{{count}}`).\n\nNever an inline `defaultValue` (#3517)."
+}

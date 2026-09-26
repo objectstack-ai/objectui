@@ -1,0 +1,35 @@
+{
+  "number": 7540,
+  "kind": "issue",
+  "title": "The object-field options editor silently DROPS `default` and `visibleWhen` on every save — and the loss starts in `readOptions`, not in the writer",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T18:12:27Z",
+  "updated_at": "2026-09-04T09:29:15Z",
+  "closed_at": "2026-09-04T09:28:42Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7540",
+  "body": "Filed unassigned as a sub-issue of objectui#7014, whose Tier-1 row 3 already records the TYPE-level half of this (the module-local `interface Option` in `ObjectFieldInspector.tsx` declares `value` / `label` / `color` and neither `default` nor `visibleWhen`). What this card adds is the RUNTIME consequence, and one measurement that changes where the repair has to start.\n\nRaised by the `domain:ui` execution seat while implementing objectui#7014 Q1, and deliberately NOT folded into that PR — the reasoning is in the Q1 report on objectui#7014 and repeated at the bottom here.\n\n## The defect\n\n`packages/app-shell/src/views/metadata-admin/inspectors/ObjectFieldInspector.tsx`. An author opens any picklist field in the metadata-admin designer, edits any option, and saves. Both `default` and `visibleWhen` are gone from the written document. It is not a 422 — the payload is perfectly valid — it is **silent data loss** of two keys the platform honours.\n\n## Where the loss actually happens — the reader, before the writer ever sees it\n\nThe writer (`patchOptions`, around line 383) projects to three keys:\n\n```ts\nconst clean = next.map((o) => {\n  const out: Option = { value: o.value };\n  if (o.label) out.label = o.label;\n  if (o.color) out.color = o.color;\n  return out;\n});\n```\n\nbut the values are already gone by then. `readOptions` (around line 76) is the projection that loses them:\n\n```ts\nreturn raw.map((o: any) => ({\n  value: String(o?.value ?? ''),\n  label: typeof o?.label === 'string' ? o.label : undefined,\n  color: typeof o?.color === 'string' ? o.color : undefined,\n}));\n```\n\nThat matters for how the card is sized, and it is the reason a writer-only patch cannot close it: whatever `patchOptions` is taught to carry, it can only carry what `readOptions` handed it, and `readOptions` hands it three keys. **The repair spans reader plus local type plus writer**, not the writer alone.\n\nIt also means this is untouched by, and does not conflict with, the `patchOptions` label-guard change in PR #7536 — different keys, different mechanism, and that fix stays correct as it stands.\n\n## The measurement\n\nRe-measured by me on the installed `@objectstack/spec` 17.2.0, with both controls lit before any row was trusted:\n\n```\nCONTROL clean  { value:'alpha', label:'A' }                ACCEPT  parsed={\"label\":\"A\",\"value\":\"alpha\"}\nNEG-CONTROL    { value:'a',     label:'A' }                REJECT  too_small@[value]\ndefault: true                                              ACCEPT  parsed={…,\"default\":true}\nvisibleWhen: \"x > 1\"      (string)                         ACCEPT  parsed={…,\"visibleWhen\":{\"dialect\":\"cel\",\"source\":\"x > 1\"}}\nvisibleWhen: {dialect:'cel', source:'x > 1'}               ACCEPT  parsed={…,\"visibleWhen\":{\"dialect\":\"cel\",\"source\":\"x > 1\"}}\nvisibleWhen: true         (boolean)                        REJECT  invalid_union@[visibleWhen]\nCONTROL unknown key { …, zzz:1 }                           REJECT  unrecognized_keys@[](zzz)\n```\n\nTwo usage notes worth carrying, because both cost a reading when they were missed:\n\n- **A select option's `value` must be at least 2 characters.** A one-character value poisons every row with `too_small@[value]`, and the rows that are actually about `visibleWhen` then say nothing at all. Use something like `alpha`, and make the clean control ACCEPT before trusting any other line.\n- **The boolean form of `visibleWhen` is REFUSED**, not accepted. It is the STRING form that is accepted and canonicalized into the expression envelope. An earlier writeup attributed that canonicalization to the boolean row; if you quote this behaviour, quote the table above.\n\nSo both dropped keys are keys the spec ACCEPTS, and `default` is ruled `enforce` on the object-field face (objectstack#7246, implemented by PR #7388) — the engine seeds the insert path from the option marked `default: true`. An author who sets a picklist default in the designer, or who authored one in a `*.form.ts`, loses it the next time anyone edits that field in the UI.\n\n## What has to be decided before this is implementable\n\nThe mechanical part is small. The part that is not mechanical, and the reason this is a card rather than a drive-by:\n\n**The inspector has no per-option UI for either key.** The `CelPredicateField` uses in that file are FIELD-level — they write through `patchDef({ visibleWhen: … })` — so there is no per-option control to wire up. That leaves at least two shapes, and they are different products:\n\n1. **Preserve what the editor does not display.** `readOptions` keeps the whole authored option and `patchOptions` writes back the untouched keys, so the editor stops being lossy for anything it has no opinion about. Cheapest, and it also protects any key added later.\n2. **Author them.** Give the option row real per-option controls for `default` (a radio across the option list, since at most one can hold it) and `visibleWhen` (a `CelPredicateField` per option). Much larger, and it is a genuine design question about that panel.\n\nRelated history worth reading before choosing: objectui#6247 covered per-option `visibleWhen` in metadata-admin from the renderer side.\n\nWhichever way it goes, note the shape to avoid: widening the local `Option` type WITHOUT moving the reader and the writer would declare two keys the editor still cannot carry — a declared-but-not-carried divergence, which is the exact shape objectui#7014 exists to remove.\n\n## Why this is not in the Q1 PR (objectui#7538)\n\nQ1's ruled scope is the Tier-1 named types, and its diff lives entirely in `@object-ui/types`. Taking this on would have: put a second in-flight claim on a file another seat is already changing (PR #7536, not yet merged); moved the diff into `@object-ui/app-shell`, a different package with its own type-check, its own large suite and its own gate face that the Q1 diff does not otherwise carry; and required the design call above, which is not a mechanical repair. Recorded here instead of done quietly.\n\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

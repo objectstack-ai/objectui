@@ -1,0 +1,35 @@
+{
+  "number": 6124,
+  "kind": "issue",
+  "title": "finding(types): 28 zod-mirror keys are declared `z.function()`, which NO JSON document can satisfy — 14 in-repo corpus files author them and are silently invalid",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T18:43:51Z",
+  "updated_at": "2026-09-02T11:48:41Z",
+  "closed_at": "2026-09-02T09:04:34Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 21,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6124",
+  "body": "Filed unassigned by the `domain:ui` execution seat while measuring objectui#5392 (session `session_01CSoz9uGhaaSgiq3hshtN7L`). Out of scope for that card, which is a measurement of zod→JSON Schema fidelity; this is a separate defect its instrument surfaced.\n\nDedupe search run before filing: #5250 (`BaseSchema.passthrough()` accepts undeclared keys) is the *opposite* direction and does not cover this; #5927 / #5853 / #6058 are the mirror-vs-TypeScript-declaration drift family, which is a different axis — this is mirror-vs-**JSON-authorability**. No existing card names `z.function()`.\n\n## What was measured\n\n`@object-ui/types` is the protocol layer for a **JSON-authored** UI vocabulary. Its zod mirrors declare 28 distinct keys as `z.function()`:\n\n```\ncell custom onCancel onCardAdd onCardClick onCardMove onChange onClick\nonCollapsedChange onColumnAdd onColumnsReorder onComplete onConfirm onDismiss\nonError onExpandChange onOpenChange onPageChange onRowDelete onRowEdit\nonSelectChange onSelectionChange onSendMessage onSlideChange onSubmit\nonValueChange onViewChange validate\n```\n\nCommand (run in `packages/types/src/zod/`):\n\n```\ngrep -hoE \"^\\s*[A-Za-z]+: z\\.function\\(\" *.ts | sed 's/[[:space:]]*//;s/: z.function($//' | sort -u\n```\n\n60 call sites across 9 files (`grep -oF 'z.function(' *.ts | wc -l` → 60; `grep -lF` → base, complex, data-display, disclosure, feedback, form, layout, navigation, overlay).\n\n**No JSON value satisfies `z.function()`** — measured, with a positive control in the same run:\n\n```\nnull   -> REJECT      {}     -> REJECT\n1      -> REJECT      []     -> REJECT\n\"x\"    -> REJECT      true   -> REJECT\na real function -> accept          <- control: the instrument can say \"accept\"\n```\n\n## Why it matters: 14 in-repo corpus files author these keys and fail\n\nValidating every root-`type` JSON file in the repo against `AnyComponentSchema.safeParse` finds 14 files that are **rejected today**, all for this reason. Example, `examples/schema-catalog/src/schemas/components-feedback-toast/destructive.json`:\n\n```json\n{\"type\":\"button\",\"label\":\"Destructive Toast\",\"variant\":\"destructive\",\n \"onClick\":{\"action\":\"toast\",\"variant\":\"destructive\",\"title\":\"Error\",\"description\":\"Something went wrong.\"}}\n```\n\n```\nButtonSchema.safeParse -> false\nissue: { code: \"invalid_type\", expected: \"function\", path: [\"onClick\"],\n         message: \"Invalid input: expected function, received object\" }\n```\n\nThe file is authoring `onClick` as a **declarative action object**, which is the only thing JSON can express. The mirror asks for a JS function. The affected files are the `components-feedback-toast/` and `components-feedback-sonner/` catalogs.\n\n## And they are invisible\n\nAll 14 sit in objectui#5127's structure-key-less set — they carry no `body`/`children`/`className`/… at the root, so `objectui check` never judges them. They are invalid **and** unreported, which is why this has stood.\n\n## The question this needs ruled\n\nTwo directions, and this is a contract question rather than a mechanical fix:\n\n- **Narrow the declaration** — if a JSON author can never supply a function, `z.function()` is `declared != enforceable` on a JSON surface and the keys should be removed or demoted to a runtime-only (non-authorable) face under ADR-0049 enforce-or-remove.\n- **Widen the mirror to the declarative form** — if `onClick: {action: …}` is the intended authored spelling (which the corpus and the renderer's own action plumbing suggest), the mirror should declare that shape, and the 14 corpus files become valid.\n\n⛔ Not fixed here — picking one changes a published contract. Filed for triage.\n\nRelated: #5250, #5927, #5853, #6058, #5127, #5392."
+}

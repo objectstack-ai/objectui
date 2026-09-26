@@ -1,0 +1,35 @@
+{
+  "number": 7405,
+  "kind": "issue",
+  "title": "Three more `skills/objectui/evals` assertions grade nothing — two by accidental substring, which a `grep -c == 0` audit cannot see",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T18:13:21Z",
+  "updated_at": "2026-09-03T06:55:53Z",
+  "closed_at": "2026-09-03T06:38:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7405",
+  "body": "Found while implementing #7360, measured at `origin/main@0614b6d`. Unassigned. Not folded into that card's PR: choosing between re-pointing a token and dropping it is the per-row judgement #7360 funds **by row**, and none of these three rows was funded.\n\n## Why the existing audit missed them\n\n#7360's audit method is `grep -c TOKEN guides/BASENAME.md` and treats `0` as the defect signal. That finds untaught tokens. It cannot find the other half of the same failure — a token whose count is `1` because it matches something unrelated. Both classes have identical consequences: the assertion decides nothing, a correct answer can fail, and a wrong answer can pass.\n\n## The three rows\n\n| Eval | Token | Count in the guide it scores | What the count actually is |\n|---|---|---|---|\n| `evals/testing.json` eval 2 | `create` | 1 in `guides/testing.md` | `create: vi.fn().mockResolvedValue({ id: '1', name: 'New' })` — a mocked dataSource method, not the form mode the prompt asks about |\n| `evals/testing.json` eval 2 | `view` | 1 in `guides/testing.md` | the comment `// vite preview` — the tail of `preview` |\n| `evals/page-builder.json` eval 2 | `visible` | 0 in `guides/page-builder.md` | untaught outright |\n\nThe two `testing.json` rows sit in the same `must_contain` array as the `edit` token #7360 removed, and for the same reason: eval 2 asks for tests covering a form plugin's create / edit / view modes, and `guides/testing.md` teaches nothing about form modes at all (`mode` also counts 0 there). With `edit` gone, that assertion's mode coverage now rests entirely on two accidental matches.\n\n`page-builder.json` eval 2 is the admin-only-visibility prompt. The guide teaches that decision under a different spelling and says so twice: its node-shape example writes `\"hidden\": \"${data.userRole !== 'admin'}\"`, and the prose reads \"Prefer expression-based behavior (`hidden`, `disabled`) over imperative branching in component code\". So this row looks re-pointable to `hidden` rather than droppable — but that is the judgement to make deliberately, not a mechanical rename, which is why it is here rather than in the PR.\n\n## Relationship to the other two cards\n\n#7359's structural check would catch the `visible` row mechanically. It would catch the other two **only if it compares whole tokens** rather than substrings — the distinction #7360's body already flags in its closing paragraph. Worth deciding there; recorded here so the rows are not lost either way.\n\nReference: PR for #7360, and #7251 for the flight that opened this class."
+}

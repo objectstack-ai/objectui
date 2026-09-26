@@ -1,0 +1,34 @@
+{
+  "number": 4773,
+  "kind": "issue",
+  "title": "[finding] 响应式词汇的两个零消费表面:useResponsiveConfig 生产零调用者(page.components[].responsive 因此实际未生效)、MobileComponentConfig 零消费者",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-16T04:45:17Z",
+  "updated_at": "2026-09-04T05:52:22Z",
+  "closed_at": "2026-09-04T05:52:02Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 13,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4773",
+  "body": "发现于 #3173 的测量(2026-08-16),observation-class 合并归档,待分诊。**两条都指向 ADR-0049 enforce-or-remove 的提问,但闭合都需要跨仓复核**。\n\n## A:`useResponsiveConfig` 生产零调用者\n\n`packages/mobile/src/useResponsiveConfig.ts:77` 消费 spec 的 `ResponsiveConfig`(挂在 `page.components[].responsive`),但生产代码中零调用者 —— 仅 `mobile/src/index.ts:24` 再导出与自身 parity 测试引用。spec 的 widget-responsive 墓碑称它为「the one real per-breakpoint consumer」,而它今天并未接进任何渲染器 ⇒ `page.components[].responsive` 的断点行为实际未被应用,该键面临与 widget 版相同的提问。**闭合前置:cloud 仓复核**(本次测量容器无 cloud,读点结论只覆盖两仓);`packages/spec` 契约归 spec 席,复核后应转办。\n\n## B:`MobileComponentConfig` / `MobileResponsiveConfig` 零消费者\n\n`packages/types/src/mobile.ts:55-95、:279-281` —— 仓内唯一真实的按断点 record 词汇,挂在零消费的载体上(仅两处再导出)。它很可能正是 #3173 前提误载的来源。\n\n## C(记录,不单列)\n\n已证伪的理由注释(complex.ts:712-716)随 #3173 选项 4 修复删除;失效模式记档:写明理由的 `any` 一旦理由过期,注释会把后续每个读者引向错误结论。\n\n## 参考\n\n- #3173(测量报告与裁定)、objectstack#4876 / PR #4995(widget 键退休)、ADR-0049"
+}

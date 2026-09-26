@@ -1,0 +1,35 @@
+{
+  "number": 7255,
+  "kind": "issue",
+  "title": "Studio 左栏导航在 AI 副驾 apply 之后不刷新：新对象已 active 且已入 app.navigation，整页刷新才出现",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T01:52:22Z",
+  "updated_at": "2026-09-02T14:53:07Z",
+  "closed_at": "2026-09-02T14:53:07Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7255",
+  "body": "## 现象\n\n2026-09-02 最新主干 rig：在 Studio 工作台内让 AI 副驾「再加一张跟进记录表」并「确认修改」，租户库 `sys_metadata` 里 app.navigation 已含 `{\"id\":\"nav_b2r4_follow_up_record\",\"label\":\"跟进记录\",\"type\":\"object\",...}`（无 icon），对象与默认列表视图也已 active，但工作台左栏「客户管理 · 导航」仍只有「首页仪表盘 / 客户」；整页刷新后才出现「跟进记录」。\n\n## 修复要求\n\n1. AI apply / publish 完成后，工作台的导航与元数据树订阅变更并刷新（AI 副驾与工作台在同一页，工具结果里带 packageId/对象名，足够触发精确失效）。\n2. 顺带：AI 生成的导航项没有 icon，与前两项（layout_dashboard / building_2）不一致——确认由生产者（cloud 蓝图/apply 链路）补默认 icon 还是渲染端给缺省图标，按生产者侧修并在本卡说明。\n"
+}

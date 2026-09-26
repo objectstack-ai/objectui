@@ -1,0 +1,36 @@
+{
+  "number": 7515,
+  "kind": "issue",
+  "title": "finding(components): no gate detects an unreferenced source file — two were found by hand this week, and `ui/toast.tsx` is the one still standing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "package: components"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T15:44:30Z",
+  "updated_at": "2026-09-04T17:25:22Z",
+  "closed_at": "2026-09-04T17:24:19Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7515",
+  "body": "Filed from objectui#7319 (PR #7514), whose triage comment asked whoever took it to say whether a sweep for the rest is warranted rather than fixing dead duplicates one at a time. Measured rather than guessed. Filed, not fixed: it is outside that card's file surface.\n\n## The gap\n\n**None of the repo's 42 `check:*` scripts detects an unreferenced source file.** The closest neighbours all answer different questions: `check-dist-completeness` asks whether `dist/` holds every file `tsc` says it emits, `check-readme-exports` compares documented exports against shipped ones, `check-i18n-dead-keys` covers message keys only. So a `.tsx` that nothing imports and nothing exports is invisible to CI, in a published package, indefinitely — which is why objectui#7319 and objectui#7397 were both found by a human reading unrelated code.\n\n## The sweep, measured on `746f6f818`\n\nA transitive import walk from `packages/components/src/index.ts` over the package's 210 non-test source files reaches 207. Of the 3 it does not reach:\n\n- **2 are false positives, and they are the interesting half.** `lib/use-sync-external-store-shim.ts` and `lib/use-sync-external-store-with-selector-shim.ts` are reached through `vite.config.ts` alias entries (`find: /^use-sync-external-store\\/shim(\\.js)?$/`), which an import-graph walk cannot see. Any gate written for this class has to read build-config aliases or it will report exactly these two as dead.\n- **1 is a genuine orphan: `packages/components/src/ui/toast.tsx`.** Zero occurrences in `ui/index.ts`, so it is not carried by the barrel's `export * from './ui'`; zero importers anywhere under `packages/components/src`. Control, same grep shape in the same run: the live `sonner` implementation has 16 referencing files. It appears superseded by `ui/sonner.tsx`.\n\n⚠️ `ui/toast.tsx` sits in the `packages/components/src/ui/**` No-Touch zone (AGENTS.md commandment #7 — upstream Shadcn files overwritten by sync scripts), so its removal is **not** the mechanical deletion objectui#7319's was. Whether it should be deleted or is deliberately retained for upstream-sync parity is a question for whoever owns that sync, and is the reason this is filed as an observation rather than swept in with the other card.\n\n## What objectui#7397 is not\n\nFor whoever picks this up: `packages/components/src/ui/chart.tsx`, the subject of objectui#7397, is **not** an instance of this class. It *is* reachable from the barrel — `index.ts:90 export * from './ui'` reaches `ui/index.ts:20 export * from './chart'` — so it is an exported duplicate, not an orphan. That card stands on its own mechanism (a duplicated primitive carrying a fixed legend bug) and is unaffected by anything here.\n\n## Suggested shape, if this is taken\n\nA gate that walks the import graph from each package's declared entry, unions in specifiers resolved through that package's build-config aliases, and reports source files reached by neither. The two shims above are the ready-made fixture for the alias leg, and `ui/toast.tsx` is the ready-made fixture for a true positive — so the gate can be pinned in both directions on day one.\n\nWorth noting the shape of the hazard, which is what makes it more than tidiness: the file objectui#7319 removed carried the same export name as a live engine one package over and evaluated no predicate, so name-completion alone could have wired a silently wrong renderer into a published package. An orphan file is cheap; an orphan file wearing a live name is a trap."
+}

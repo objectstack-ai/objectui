@@ -501,7 +501,16 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
             Save the record first to add line items.
           </p>
         ) : (
-          <LineItemsField value={rows} onChange={onChange} field={gridField} readonly={schema.readonly} />
+          <LineItemsField
+            value={rows}
+            onChange={onChange}
+            field={gridField}
+            readonly={schema.readonly}
+            // No input while the save is in flight (objectui#10631): `save`
+            // reloads the rows once the batch lands, so a line edited in the
+            // meantime was overwritten by that reload and the panel read clean.
+            disabled={saving}
+          />
         )}
       </CardContent>
     </Card>

@@ -167,7 +167,7 @@ overriding the token values: [`rules/styling.md`](../rules/styling.md).
 | `objectui start` | Serve a previously-built production bundle |
 | `objectui studio` | Visual UI editor |
 | `objectui validate` | Validate a schema file (CI-friendly, exits non-zero on failure) |
-| `objectui check` | Validate every schema file in the project |
+| `objectui check` | Sweep the project's JSON files — not a validation verdict: a file whose root carries a structural key (`children`, `className`, `body`, …) is recognised by that key and never parsed against the schema; only a file with none of those keys is parsed, and it is listed as an advisory when its root `type` names a registered component but the document fails; exits non-zero on unreadable JSON only. Use `objectui validate` for the verdict |
 | `objectui lint` | Lint generated app code (ESLint) |
 | `objectui test` | Run app tests (Vitest) |
 | `objectui generate` | Code/schema generation (`object`, `page`, `plugin`) |

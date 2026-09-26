@@ -185,6 +185,22 @@ function recordValue(record: Record<string, unknown>, idField: string): unknown 
   return record[idField] ?? record.id ?? record._id ?? record.externalId;
 }
 
+/**
+ * `rows` merged into `prev` by the value each stands for (`recordValue`): a
+ * later row for a value replaces the earlier one. Both row caches — the
+ * hydrated rows and the picked rows — merge this way, so each holds one row
+ * per value.
+ */
+function mergeRowsByValue(
+  prev: Record<string, unknown>[],
+  rows: Record<string, unknown>[],
+  idField: string,
+): Record<string, unknown>[] {
+  const map = new Map(prev.map((r) => [recordValue(r, idField), r]));
+  for (const r of rows) map.set(recordValue(r, idField), r);
+  return Array.from(map.values());
+}
+
 /** "May the user read this field?" on one object, once a policy has loaded. */
 type FieldReadGate = (field: string) => boolean;
 
@@ -285,10 +301,14 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   // total/options) is sourced from the shared useRecordQuery kernel below.
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Records selected via RecordPickerDialog (Level 2).
-  // Stored as LookupOption so that findOption can resolve display labels
-  // even when the record wasn't part of the Level 1 popover fetch.
-  const [pickerResolvedRecords, setPickerResolvedRecords] = useState<LookupOption[]>([]);
+  // Records a pick committed — from the dropdown, the Level-2 pickers or
+  // quick-create — so that findOption can resolve display labels even when the
+  // record is not part of the Level 1 popover fetch. Kept as ROWS, not as
+  // options, exactly as `hydratedRecords` below: the option is derived from
+  // them on every render (`pickedOptions`), so its label follows the
+  // referenced object's schema when that arrives after the pick
+  // (objectui#10559).
+  const [pickedRecords, setPickedRecords] = useState<Record<string, unknown>[]>([]);
 
   // Records fetched to label a value the field already holds (the hydration
   // effect below). Kept as the ROWS the DataSource served, not as options: the
@@ -486,16 +506,6 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       .catch(() => { /* fall back to displayField chain */ });
     return () => { alive = false; };
   }, [dataSource, referenceTo]);
-
-  // Feeds the browse-all picker (`RecordPickerDialog`) only. The option label
-  // does not read it: `recordToOption` hands the whole schema to the unified
-  // resolver, which renders `titleFormat` at its own ADR-0079 rung.
-  const refTitleFormat: string | null = useMemo(() => {
-    const raw = refObjectSchema?.titleFormat;
-    if (typeof raw === 'string') return raw;
-    if (raw && typeof raw === 'object' && typeof raw.source === 'string') return raw.source;
-    return null;
-  }, [refObjectSchema]);
 
   /**
    * Picker columns. Honour explicit `lookup_columns` when authored; otherwise
@@ -837,11 +847,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
           }
         }
         if (!cancelled && fetched.length) {
-          setHydratedRecords((prev) => {
-            const map = new Map(prev.map((r) => [recordValue(r, idField), r]));
-            for (const r of fetched) map.set(recordValue(r, idField), r);
-            return Array.from(map.values());
-          });
+          setHydratedRecords((prev) => mergeRowsByValue(prev, fetched, idField));
         }
       } catch {
         // Ignore — chip will fall back to showing the raw id.
@@ -864,22 +870,19 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, hasDataSource, referenceTo, idField, multiple]);
 
-  // The hydrated rows as options, derived exactly as the dropdown derives its
-  // own (`fetchedOptions`): the same `recordToOption`, the same inputs, read on
-  // every render. The label therefore follows the referenced object's schema
-  // when it arrives after the record, and the field-read gate of the policy
-  // loaded now — the row as the user may read it (objectui#10373) — rather than
-  // whatever either was in the render the fetch returned to (objectui#10487).
-  const hydratedOptions = useMemo(
-    () =>
-      hydratedRecords.map((r) =>
-        recordToOption(
-          r, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema,
-          fieldReadGate(perms, referenceTo, idField),
-        ),
-      ),
-    [hydratedRecords, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, perms, referenceTo],
-  );
+  // The picked and the hydrated rows as options, derived exactly as the
+  // dropdown derives its own (`fetchedOptions`): the same `recordToOption`, the
+  // same inputs, read on every render. The label therefore follows the
+  // referenced object's schema when it arrives after the record, and the
+  // field-read gate of the policy loaded now — the row as the user may read it
+  // (objectui#10373) — rather than whatever either was in the render the fetch
+  // returned to (objectui#10487) or the pick was made in (objectui#10559).
+  const [pickedOptions, hydratedOptions] = useMemo<[LookupOption[], LookupOption[]]>(() => {
+    const readable = fieldReadGate(perms, referenceTo, idField);
+    const toOption = (r: Record<string, unknown>) =>
+      recordToOption(r, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, readable);
+    return [pickedRecords.map(toOption), hydratedRecords.map(toOption)];
+  }, [pickedRecords, hydratedRecords, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, perms, referenceTo]);
 
   // Get selected option(s) — check static, fetched, picked, then hydrated
   // options. A pick outranks the hydrated row for the same value, as it did
@@ -889,11 +892,11 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       return (
         staticOptions.find(opt => opt.value === v) ??
         fetchedOptions.find(opt => opt.value === v) ??
-        pickerResolvedRecords.find(opt => opt.value === v) ??
+        pickedOptions.find(opt => opt.value === v) ??
         hydratedOptions.find(opt => opt.value === v)
       );
     },
-    [staticOptions, fetchedOptions, pickerResolvedRecords, hydratedOptions],
+    [staticOptions, fetchedOptions, pickedOptions, hydratedOptions],
   );
 
   // String-coerced fallback for `findOption` — matches the read cell's tolerant
@@ -906,11 +909,11 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       return (
         staticOptions.find(opt => String(opt.value) === key) ??
         fetchedOptions.find(opt => String(opt.value) === key) ??
-        pickerResolvedRecords.find(opt => String(opt.value) === key) ??
+        pickedOptions.find(opt => String(opt.value) === key) ??
         hydratedOptions.find(opt => String(opt.value) === key)
       );
     },
-    [staticOptions, fetchedOptions, pickerResolvedRecords, hydratedOptions],
+    [staticOptions, fetchedOptions, pickedOptions, hydratedOptions],
   );
 
   // Collapse an expanded-reference value (the related record object returned by
@@ -990,19 +993,26 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   // select), it drives the update and the host owns the resulting value change.
   const onSelectRecord = props.onSelectRecord;
 
+  /**
+   * Commit a pick. `row` is the record `option` was built from.
+   *
+   * The row is kept so the pick's label resolves synchronously and durably,
+   * independent of the popover's `fetchedOptions` (which the editor may have
+   * remounted away, or which a slow/contended re-render hasn't surfaced yet —
+   * the intermittent CI failure where a just-picked lookup showed no label,
+   * #2150). `selectedOptions` consults `pickedOptions` in `findOption`. The
+   * row is kept, not `option`: an option built before the referenced object's
+   * schema loaded carries a label frozen on the no-schema path, and it cannot
+   * be rebuilt from itself, because `recordToOption` spreads the row over the
+   * label it builds (objectui#10559).
+   *
+   * An authored static option has no row and keeps nothing: `findOption` reads
+   * the authored list first, on every render.
+   */
   const handleSelect = useCallback(
-    (option: LookupOption) => {
-      // Cache the picked option so its label resolves synchronously and durably,
-      // independent of the popover's `fetchedOptions` (which the editor may have
-      // remounted away, or which a slow/contended re-render hasn't surfaced yet —
-      // the intermittent CI failure where a just-picked lookup showed no label,
-      // #2150). `selectedOptions` consults `pickerResolvedRecords` in `findOption`.
-      if (option && option.value != null) {
-        setPickerResolvedRecords((prev) => {
-          const map = new Map(prev.map((o) => [o.value, o]));
-          map.set(option.value, option);
-          return Array.from(map.values());
-        });
+    (option: LookupOption, row?: Record<string, unknown>) => {
+      if (row && option && option.value != null) {
+        setPickedRecords((prev) => mergeRowsByValue(prev, [row], idField));
       }
       if (multiple) {
         // Normalise any expanded-reference objects to bare ids so toggling
@@ -1023,7 +1033,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
         setIsOpen(false);
       }
     },
-    [multiple, value, onChange, onSelectRecord, referenceTo, normalizeId],
+    [multiple, value, onChange, onSelectRecord, referenceTo, normalizeId, idField],
   );
 
   const handleRemove = (optionValue: any) => {
@@ -1035,16 +1045,18 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     }
   };
 
-  // Callback from RecordPickerDialog — caches selected records so that
-  // findOption can resolve display labels after the dialog closes.
+  // Callback from the Level-2 pickers (RecordPickerDialog / PeoplePicker) —
+  // keeps the selected rows so that findOption can resolve display labels
+  // after the picker closes. The selection replaces the kept picks, as it
+  // always has.
   const handlePickerSelectRecords = useCallback(
-    (records: any[]) => {
-      const readable = fieldReadGate(perms, referenceTo, idField);
-      const mapped = records.map(r => recordToOption(r, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, readable));
-      if (referenceTo) mapped.forEach((o) => pushRecentLookupId(referenceTo, o.value));
-      setPickerResolvedRecords(mapped);
+    (records: Record<string, unknown>[]) => {
+      if (referenceTo) {
+        records.forEach((r) => pushRecentLookupId(referenceTo, recordValue(r, idField) as string | number | undefined));
+      }
+      setPickedRecords(records);
     },
-    [declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, referenceTo, perms],
+    [idField, referenceTo],
   );
 
   // ── Recently-used, quick-create, combined option list ────────────────────
@@ -1135,7 +1147,9 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
    * it, with any `$expand`-ed relation still expanded, so the lookup cell
    * renderer names it without a fetch. Keyed by the option's value (a
    * primitive, never an option object's identity). An option with no served
-   * row — a static option, a just-created record — previews from itself.
+   * row — a static option, a just-created record — previews from itself. A
+   * dropdown pick takes the row it keeps from here too
+   * (`handleSelectCandidate`).
    */
   const previewRows = useMemo(() => {
     const byValue = new Map<string, Record<string, unknown>>();
@@ -1146,6 +1160,18 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     }
     return byValue;
   }, [recentRows, popoverQuery.records, refObjectSchema, idField]);
+
+  // Pick a dropdown option, keeping the row it was built from: its candidate
+  // as served, with relations collapsed to ids, as `fetchedOptions` and
+  // `recentOptions` collapse it (objectui#10559). A static option has no
+  // served row, so it keeps none (see `handleSelect`).
+  const handleSelectCandidate = useCallback(
+    (option: LookupOption) => {
+      const served = previewRows.get(String(option.value));
+      handleSelect(option, served ? toPredicateRecord(served, refObjectSchema?.fields) : undefined);
+    },
+    [previewRows, refObjectSchema, handleSelect],
+  );
 
   // Recently-used first (only before the user types), then live results — one
   // de-duped list that drives BOTH rendering and arrow-key navigation.
@@ -1198,8 +1224,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
         } as any);
         if (result?.success && result.data) {
           const opt = recordToOption(result.data, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, fieldReadGate(perms, referenceTo, idField));
-          setPickerResolvedRecords((prev) => [opt, ...prev.filter((o) => o.value !== opt.value)]);
-          handleSelect(opt);
+          handleSelect(opt, result.data);
           return;
         }
         // `success` + an echoed `modal` schema means no modal handler was wired
@@ -1215,8 +1240,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       try {
         const created = await (dataSource as any).create(referenceTo, { [displayField]: label });
         const opt = recordToOption(created, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, fieldReadGate(perms, referenceTo, idField));
-        setPickerResolvedRecords((prev) => [opt, ...prev.filter((o) => o.value !== opt.value)]);
-        handleSelect(opt);
+        handleSelect(opt, created);
       } catch (err) {
         setCreateError(err instanceof Error ? err.message : String(err));
       } finally {
@@ -1284,11 +1308,11 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       } else if (e.key === 'Enter') {
         e.preventDefault();
         if (activeIndex >= 0 && activeIndex < visibleOptions.length) {
-          handleSelect(visibleOptions[activeIndex]);
+          handleSelectCandidate(visibleOptions[activeIndex]);
         }
       }
     },
-    [visibleOptions, activeIndex, handleSelect],
+    [visibleOptions, activeIndex, handleSelectCandidate],
   );
 
   // Scroll active item into view
@@ -1627,7 +1651,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
                           // instead of concatenated raw into this attribute
                           // (objectui#5492).
                           title={String(option.label ?? '')}
-                          onClick={() => handleSelect(option)}
+                          onClick={() => handleSelectCandidate(option)}
                           className={`w-full text-left px-3 py-2 rounded-md text-sm hover:bg-accent flex items-center justify-between ${
                             isActive
                               ? 'bg-accent text-accent-foreground'
@@ -1733,8 +1757,11 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
           dataSource={dataSource}
           objectName={referenceTo}
           columns={pickerColumns}
-          displayField={displayField}
-          titleFormat={refTitleFormat}
+          // The declared display field, never the `name` default, and the whole
+          // schema, never a template cut out of it: the picker's display column
+          // then makes `recordToOption`'s exact resolver call (objectui#10486).
+          displayField={declaredDisplayField}
+          objectSchema={refObjectSchema}
           idField={idField}
           pageSize={lookupPageSize}
           value={pickerValue}

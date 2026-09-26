@@ -139,6 +139,10 @@ import type {
   ChartDrillDown,
   I18nLabel,
   DashboardWidget as SpecDashboardWidget,
+  // objectui#10518 — the spec's axis config object: the type of
+  // `ObjectChartSchema.xAxis` and the element type of `ObjectChartSchema.yAxis`.
+  // Aliased for the reason `SpecGanttConfig` above is.
+  ChartAxis as SpecChartAxis,
 } from '@objectstack/spec/ui';
 
 /**
@@ -1644,15 +1648,15 @@ export interface ObjectFormSchema extends BaseSchema {
    * the parent + child line items into one atomic server transaction). The
    * returned record is passed on to `onSuccess`.
    *
-   * In `edit` mode, for a record the form read itself, the simple, `modal` and
-   * `drawer` layouts hand over what the form would have written
-   * (objectui#10156): the fields that differ from the record it read, or the
+   * In `edit` mode, for a record the form read itself, every layout — the
+   * simple form, `tabbed`, `wizard`, `split`, `modal` and `drawer`, and a
+   * simple form that the mobile `stepper` option routes through the wizard —
+   * hands over what the form would have written (objectui#10156,
+   * objectui#10563): the fields that differ from the record it read, or the
    * full sanitized payload when nothing changed — every value except the ones
    * the form never writes (server-owned, computed, read-only, refused by
    * field-level security, or unknown to the object). A field whose sameness
-   * cannot be settled counts as changed, so it is handed over. The `tabbed`,
-   * `wizard` and `split` layouts, and a simple form that the mobile `stepper`
-   * option routes through the wizard, still hand over every collected value.
+   * cannot be settled counts as changed, so it is handed over.
    */
   submitHandler?: (values: Record<string, any>) => any | Promise<any>;
 
@@ -3232,7 +3236,7 @@ export interface ObjectGanttSchema extends BaseSchema {
   // PARSED, and `GanttConfig` derives from the spec's `GanttConfigSchema`, which
   // REQUIRES `startDateField`, `endDateField` and `titleField`. Because
   // `ObjectGanttSchema` is a member of `AnyComponentSchema`, that reaches
-  // `safeValidateSchema` and therefore the CLI's `validate` / `check` commands: a
+  // `safeValidateSchema` and therefore the CLI's `validate` command: a
   // block missing one of the three moves from "accepted, then warned about at
   // runtime" to "refused at authoring time".
   //
@@ -3463,7 +3467,7 @@ export interface ObjectCalendarSchema extends BaseSchema {
   allDayField?: string;
   /**
    * Default view mode — the renderer's rendered set. `'agenda'` was retired
-   * (objectui#5784, following #5740): `CalendarView` renders no agenda view,
+   * (`ed8df3e50`, following `b55a34647`): `CalendarView` renders no agenda view,
    * and the enforcement points read only these three values.
    */
   defaultView?: 'month' | 'week' | 'day';
@@ -4247,6 +4251,16 @@ export type KanbanConditionalFormattingRule =
  * did not matter: each ledgers the OTHER card's keys by name and asserts only
  * that each is STILL READ, never that it is still undeclared. So declaring a
  * ledgered key does not redden its ledger — dropping the READ does.
+ *
+ * ## A third card, and a channel neither census sees (objectui#10518)
+ *
+ * `xAxis` and `yAxis` (see the members) are read by NO `schema.KEY`
+ * expression in `ObjectChart.tsx`: the component spreads the node into the
+ * schema it hands `ChartRenderer`, and `normalizeChartSchema` reads them there.
+ * Both census pins above read `schema.KEY` off that one file, so neither lists
+ * them — as reads or as exceptions — and neither was moved. Their pin is
+ * `__tests__/object-chart-axis-config-10518.test.ts`; the render path was
+ * measured once with a real registry probe, recorded on the card's PR.
  */
 export interface ObjectChartSchema extends BaseSchema {
   type: 'object-chart';
@@ -4362,8 +4376,8 @@ export interface ObjectChartSchema extends BaseSchema {
   aggregate?: ChartAggregate;
   /**
    * INTERNAL (relay-composed) — the category column the renderer binds the x
-   * axis to. Authors write `xAxisField` above (or, one layer down, the spec's
-   * `xAxis: { field }`, which `normalizeChartSchema` resolves); the five
+   * axis to. Authors write `xAxisField` above (or the spec's {@link xAxis}
+   * object below, whose `field` `normalizeChartSchema` resolves); the five
    * producers of an `object-chart` node compute this key.
    *
    * Typed `string` from `ChartRendererProps.schema.xAxisKey`, the read this
@@ -4491,6 +4505,57 @@ export interface ObjectChartSchema extends BaseSchema {
    * value check that `.passthrough()` was skipping.
    */
   compareTo?: SpecDashboardWidget['compareTo'];
+  /**
+   * AUTHORABLE — the category (x) axis: ONE `@objectstack/spec` axis CONFIG
+   * object, the type of `ChartConfigSchema.xAxis`. Its `field` names the
+   * category column when neither `aggregate.groupBy` nor {@link xAxisKey} does
+   * (`resolveChartCategoryField`'s order); its other keys are presentation.
+   *
+   * Declared by objectui#10518 beside {@link yAxis}, for the same three reasons
+   * (see that member): the spec's `ObjectChart` react block lists `xAxis` in its
+   * `dataProps` with `ChartConfigSchema` as its schema; `normalizeChartSchema`
+   * reads every spec axis key off the object; and a real producer writes it —
+   * the objectstack showcase `renewals-pipeline` page's `xAxis: { field }`.
+   *
+   * ⛔ The object ONLY. There is no `string` arm and no fold onto
+   * {@link xAxisKey} (seat decision on objectui#10518, option A): the bare
+   * string is objectui#7113's alias on `ChartSchema` alone, the spec's
+   * `ChartConfigSchema.xAxis` has no string arm, and no producer on this node
+   * writes one. The renderer still TOLERATES a bare string — that is
+   * `normalizeChartSchema`'s, untouched — but it does not compile here and the
+   * mirror refuses it, as it refuses a list, with the `{ field }` remedy.
+   */
+  xAxis?: SpecChartAxis;
+  /**
+   * AUTHORABLE — the value (y) axes: an ARRAY of `@objectstack/spec`'s axis
+   * CONFIG objects, the type of `ChartConfigSchema.yAxis`. The first entry is
+   * the primary axis; a second entry declares the right-hand axis a series
+   * binds to.
+   *
+   * Declared by objectui#10518, the `object-chart` sibling of objectui#7690
+   * (ruling 5809510046, branch 2 — declare), for three measured reasons:
+   *
+   *   - the spec declares the key ON THIS NODE: its `REACT_BLOCKS` entry for
+   *     `<ObjectChart>` carries `schemaType: 'object-chart'` and
+   *     `schema: ChartConfigSchema`, and lists `yAxis` among its `dataProps`;
+   *   - the node renders it: `ObjectChart` spreads the node into the schema it
+   *     hands `ChartRenderer`, and `normalizeChartSchema` reads every spec axis
+   *     key off each entry — so the type IS the spec's `ChartAxis`, not a
+   *     restatement of it;
+   *   - a real producer writes it: the objectstack showcase command-center
+   *     page's dataset-bound `object-chart` authors
+   *     `yAxis: [{ field, stepSize: 1 }]` to pin integer ticks on a count axis.
+   *
+   * Until then the list survived only on `BaseSchema`'s index signature: read
+   * by the renderer, checked by nothing. Only the spec's list is a member — a
+   * single axis object or a bare column name, which the normalizer tolerates,
+   * is refused by the mirror and does not compile here.
+   *
+   * ⚠️ Declared beside {@link yAxisFields} above, a separate legacy
+   * vocabulary. Whether that key is live on this node is reported on
+   * objectui#10518 for its own ruling; this member settles nothing about it.
+   */
+  yAxis?: SpecChartAxis[];
 }
 
 /**

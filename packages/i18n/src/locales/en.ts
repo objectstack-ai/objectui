@@ -199,6 +199,12 @@ const en = {
     noPermissionToSave: "You don't have permission to save this record.",
     submitFailed: 'Could not save. Please try again.',
     uploadInFlight: 'Wait for the upload to finish before saving.',
+    // The notice the record form raises when a field's own `visibleWhen` turns
+    // it invisible and the form clears the value it held (objectui#8070 names
+    // the objectui#6958 clear). `{{fields}}` is the cleared fields' labels joined
+    // with `validation.formInvalidJoiner`. A list after a colon, so no word has
+    // to agree with how many fields were cleared.
+    clearedOnHide: 'Cleared — no longer applicable given the current values: {{fields}}',
     removeItem: 'Remove item',
     fieldRequired: 'This field is required',
     invalidFormat: 'Invalid format',
@@ -373,6 +379,16 @@ const en = {
     // (`FIELD_DEFAULTS` in `packages/fields/src/widgets/useFieldTranslation.ts`
     // carries the same one), so English and provider-less rendering are
     // unchanged.
+    // objectui#10567 — the editable date-only face's notice for a stored value
+    // written on a day that does not exist, the date-only sibling of
+    // `dateTime.impossibleDay` below: an `<input type="date">` can only paint
+    // such a value blank, so the widget names the stored string beside it.
+    // `FIELD_DEFAULTS` in `packages/fields/src/widgets/useFieldTranslation.ts`
+    // carries the same English value for provider-less rendering.
+    date: {
+      impossibleDay:
+        'The stored value "{{value}}" is not a real date. Pick a date to replace it.',
+    },
     // objectui#10474 — the editable date-time face's notice for a stored value
     // written on a day that does not exist. The `datetime-local` control can
     // only paint such a value blank, so the widget names the stored string
@@ -1321,6 +1337,7 @@ const en = {
   },
   chart: {
     loading: 'Loading chart…',
+    refreshing: 'Refreshing…',
     nullCategory: '(None)',
     // The refusal a scatter renders when handed more than one series
     // (objectui#7194): it binds ONE measure, so a second series was painted at
@@ -1405,6 +1422,7 @@ const en = {
       sourceLabel: 'Source:',
     },
     loading: 'Loading…',
+    refreshing: 'Refreshing…',
     pickMeasures: 'Pick measures (values) for this dataset widget.',
     datasetUnsupported: 'This data source does not support dataset queries.',
     details: 'Details',
@@ -2264,6 +2282,7 @@ const en = {
       title: 'Title',
       viewType: 'View type',
       recordCount: '{{count}} records',
+      recordCountOne: '{{count}} record',
       save: 'Save',
       discard: 'Discard',
       createView: 'Create View',

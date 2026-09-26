@@ -21,6 +21,7 @@ interface TableColumn {
   accessorKey: string;                   // Data property key
   width?: string;                        // Column width (e.g., '100px', '20%')
   sortable?: boolean;                    // Enable sorting for this column
+  masked?: boolean;                      // Withhold the raw value (see Masked columns)
 }
 
 interface DataTableSchema {
@@ -131,6 +132,61 @@ The context carries the row twice, on purpose: `row` is the persisted record, an
 a sibling field — a `dependsOn` lookup — should read `pendingRow`, so a parent
 edited in the same row re-scopes the child before anything is saved; `row` stays
 the place to read what the data source last returned.
+
+## Masked columns
+
+A column with `masked: true` holds a credential. The table withholds its raw value on
+every path of its own that reads it:
+
+- Ctrl+C / Cmd+C on one of its cells writes nothing to the clipboard.
+- The cell carries no `title` tooltip.
+- The table's CSV export leaves the column out.
+- The column never enters inline edit, on any trigger, because every editor would
+  start from the raw value.
+- The client-side search leaves the column out, so a term only its raw value contains
+  matches no row.
+- Its sort is disabled: the header does not sort and the header menu offers no sort,
+  with client and manual sorting alike, and a client sort already set on the column
+  stops ordering the rows. An order by the raw value would show how it compares with
+  every other row's.
+- Its automatic width is sized from its header, never from its values, so it does not
+  grow with the credential.
+
+Every other column copies, shows, exports, edits, searches, sorts and sizes exactly as
+before. With `manualSearch` the table searches nothing itself: what the host's search
+matches is up to the host.
+
+What the flag does **not** cover: the CSV export of a lookup column whose value is an
+expanded record writes that record whole, so a credential field of the related object
+is not pruned.
+
+The flag withholds; it does not draw. What a reader sees in the cell comes from the
+producer's `cell` renderer, and the table draws a column with no `cell` as its value.
+You rarely set the flag by hand. Three producers set it for every column whose field
+type is drawn as a mask (`password`, `secret`, or a type registered with the mask),
+from `isMaskedFieldType()` in `@object-ui/fields`: `object-grid`, the related list and
+`object-data-table`. Each reads both the column's `type` and the object's field type,
+so a column that shows a `secret` field as `text` keeps the flag once the object's
+types are known.
+
+The related list and `object-data-table` fail closed: while the object definition is
+still loading, or after its read failed, they set the flag on every column. What they
+do not cover: in that same window, their cells draw a field the object declares as
+`password` / `secret` as text, because the mask comes from that declaration
+(objectui#10657).
+
+Once the object schema has loaded, `object-grid` also leaves every masked field of the
+grid's object out of its own client export (CSV and JSON), draws those fields through
+their `cell` on its mobile card, and refuses them as grouping keys (the entry is
+ignored with a console warning). What `object-grid` does not cover: on the
+host-fetched path (rows handed down as `data`, as `ListView` and `ObjectView` do), the
+grid's guards and the cell's own mask depend on the object schema, which the grid
+fetches after first paint, so until it arrives, and for good if that read fails, an
+untyped view column over a `password` / `secret` field draws and hands out the raw
+value (objectui#10657, which folded objectui#10706). The server-streamed export
+(`exportDownload`) sends the masked columns as before and relies on the server's
+masking, and the client JSON export writes an expanded lookup record whole, so a
+credential field of the related object is not pruned.
 
 ## Examples
 

@@ -287,7 +287,7 @@ export interface ColumnWidthConfig {
 /**
  * Calendar view mode — the registered `calendar-view` renderer's rendered set.
  *
- * `'agenda'` was retired from this union (objectui#5740): no view ever
+ * `'agenda'` was retired from this union (`b55a34647`): no view ever
  * rendered it — the renderer resolved it to the `'month'` default — and no
  * measured app authors it (ADR-0049 enforce-or-remove, the value-level
  * residue of objectui#5667's key-level convergence).
@@ -389,7 +389,7 @@ export interface CalendarViewSchema extends BaseSchema {
    * Calendar view mode.
    *
    * {@link CalendarViewMode} equals the renderer's rendered set since
-   * objectui#5740 retired `'agenda'`; at runtime the renderer still resolves
+   * `b55a34647` retired `'agenda'`; at runtime the renderer still resolves
    * any off-union value in raw metadata to the `'month'` default.
    * @default 'month'
    */
@@ -1583,10 +1583,13 @@ export interface ChatbotSchema extends BaseSchema {
    * through `@object-ui/core`'s hand-written `validateSchema`, which walks base
    * keys and recurses into content — it never consults these mirrors, so it has
    * no per-component key to refuse. ⇒ an authored `body` that meets neither
-   * `tsc` nor a root parse (`objectui validate` / `objectui check`, which call
+   * `tsc` nor a root parse (`objectui validate`, which calls
    * `safeValidateSchema`) is dropped exactly as silently after this change as
    * before it. The refusal is delivered where documents are AUTHORED and
    * CHECKED, not where they are rendered.
+   * `objectui check` does not deliver it: `body` is one of the structural root
+   * keys that command recognises a file by, and a file recognised that way is
+   * never parsed against the schema. The CLI's verdict is `objectui validate`.
    *
    * @deprecated Not a channel `chatbot` reads — author the chat API's body
    * params as `requestBody`.

@@ -167,6 +167,7 @@ const de = {
     noPermissionToSave: "Sie haben keine Berechtigung, diesen Datensatz zu speichern.",
     submitFailed: "Speichern fehlgeschlagen. Bitte versuchen Sie es erneut.",
     uploadInFlight: "Warten Sie, bis der Upload abgeschlossen ist, bevor Sie speichern.",
+    clearedOnHide: "Geleert, was für die aktuellen Werte nicht mehr gilt: {{fields}}",
     discardTitle: "Änderungen verwerfen?",
     discardMessage: "Sie haben ungespeicherte Änderungen. Wenn Sie dieses Formular jetzt schließen, gehen Ihre Bearbeitungen verloren.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
@@ -288,6 +289,10 @@ const de = {
         "Nicht gespeichert: {{name}} „{{text}}“ ist keine Zahl. Geben Sie einfache Dezimalzahlen ein (Beispiel: 30.2741, 120.1551).",
       refusedResidue:
         "Nicht gespeichert: {{name}} „{{text}}“ und {{otherName}} „{{otherText}}“ sind keine Zahlen. Geben Sie einfache Dezimalzahlen ein (Beispiel: 30.2741, 120.1551).",
+    },
+    date: {
+      impossibleDay:
+        "Der gespeicherte Wert „{{value}}“ ist kein gültiges Datum. Wählen Sie ein Datum, um ihn zu ersetzen.",
     },
     dateTime: {
       impossibleDay:
@@ -1124,6 +1129,7 @@ const de = {
   },
   chart: {
     loading: "Diagramm wird geladen…",
+    refreshing: "Wird aktualisiert…",
     nullCategory: "(Ohne Angabe)",
     scatterOneMeasure: "Ein Streudiagramm zeichnet genau eine Kennzahl. Behalten Sie nur eine Datenreihe:",
     unconfigured: {
@@ -1145,6 +1151,7 @@ const de = {
       sourceLabel: "Datenquelle:",
     },
     loading: "Wird geladen…",
+    refreshing: "Wird aktualisiert…",
     pickMeasures: "Wählen Sie Kennzahlen (Werte) für dieses Dataset-Widget.",
     datasetUnsupported: "Diese Datenquelle unterstützt keine Dataset-Abfragen.",
     details: "Details",
@@ -1916,6 +1923,7 @@ const de = {
       title: "Titel",
       viewType: "Ansichtstyp",
       recordCount: "{{count}} Datensätze",
+      recordCountOne: "{{count}} Datensatz",
       save: "Speichern",
       discard: "Verwerfen",
       createView: "Ansicht erstellen",

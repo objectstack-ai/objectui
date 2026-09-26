@@ -171,6 +171,7 @@ const es = {
     noPermissionToSave: "No tienes permiso para guardar este registro.",
     submitFailed: "No se pudo guardar. Inténtalo de nuevo.",
     uploadInFlight: "Espere a que finalice la carga antes de guardar.",
+    clearedOnHide: "Se borró lo que ya no corresponde a los valores actuales: {{fields}}",
     discardTitle: "¿Descartar los cambios?",
     discardMessage: "Tiene cambios sin guardar. Si cierra este formulario ahora, sus ediciones se perderán.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
@@ -292,6 +293,10 @@ const es = {
         "No guardado: {{name}} «{{text}}» no es un número. Introduce decimales simples (ejemplo: 30.2741, 120.1551).",
       refusedResidue:
         "No guardado: {{name}} «{{text}}» y {{otherName}} «{{otherText}}» no son números. Introduce decimales simples (ejemplo: 30.2741, 120.1551).",
+    },
+    date: {
+      impossibleDay:
+        "El valor guardado «{{value}}» no es una fecha real. Elige una fecha para reemplazarlo.",
     },
     dateTime: {
       impossibleDay:
@@ -1128,6 +1133,7 @@ const es = {
   },
   chart: {
     loading: "Cargando gráfico…",
+    refreshing: "Actualizando…",
     nullCategory: "(Sin especificar)",
     scatterOneMeasure: "Un gráfico de dispersión traza una sola medida. Conserve una sola serie:",
     unconfigured: {
@@ -1149,6 +1155,7 @@ const es = {
       sourceLabel: "Origen de datos:",
     },
     loading: "Cargando…",
+    refreshing: "Actualizando…",
     pickMeasures: "Elija medidas (valores) para este widget de dataset.",
     datasetUnsupported: "Esta fuente de datos no admite consultas de dataset.",
     details: "Detalles",
@@ -1920,6 +1927,7 @@ const es = {
       title: "Título",
       viewType: "Tipo de vista",
       recordCount: "{{count}} registros",
+      recordCountOne: "{{count}} registro",
       save: "Guardar",
       discard: "Descartar",
       createView: "Crear vista",

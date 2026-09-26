@@ -20,7 +20,8 @@
  * `object` is spec `string | string[]` (or `'*'` for every object). The picker
  * normalises to/from that: `'*'` ⇒ all, one selection ⇒ a string, many ⇒ an
  * array. Any already-selected object not in the live catalog is preserved as a
- * synthesized option so a value is never silently dropped.
+ * synthesized option so a value is never silently dropped; it is flagged as not
+ * published only once the catalog has answered (objectui#10585).
  */
 
 import * as React from 'react';
@@ -35,6 +36,7 @@ import {
   InspectorNumberField,
   InspectorCheckboxField,
   flagUnknownValue,
+  rosterFrom,
 } from './_shared.js';
 import { useObjectOptions } from '../previews/useObjectOptions.js';
 import { ConditionBuilder, RECORD_CONDITION_SUBJECTS } from './ConditionBuilder.js';
@@ -42,9 +44,11 @@ import { expressionSource, writeExpressionSource } from './expression-envelope.j
 
 /* ─────────────── constants ─────────────── */
 
+/** Body languages: the stored value, and the catalogue key its label reads in
+ *  the designer locale (objectui#10586). */
 const BODY_LANG_OPTS = [
-  { value: 'expression', label: 'Expression (L1)' },
-  { value: 'js', label: 'Sandboxed JS (L2)' },
+  { value: 'expression', labelKey: 'engine.inspector.hook.bodyLang.expression' },
+  { value: 'js', labelKey: 'engine.inspector.hook.bodyLang.js' },
 ];
 
 /** Lifecycle events, grouped by the operation they hang off. */
@@ -125,18 +129,32 @@ export function HookDefaultInspector({
   const events: string[] = Array.isArray(draft.events) ? (draft.events as string[]) : [];
   const { all: allObjects, names: objectNames } = readObjects(draft.object);
 
-  const { options: objectOptions } = useObjectOptions();
+  const {
+    options: objectOptions,
+    loading: objectsLoading,
+    error: objectsError,
+  } = useObjectOptions();
+  // objectui#10585 — the roster's ONE state, read the way the objectui#8862 /
+  // objectui#9651 family reads it: only an ANSWERED roster may say an object is
+  // missing. While the fetch is in flight, or after it failed, `objectOptions`
+  // is `[]` exactly as it is for a catalog with no objects, so a claim made
+  // from the list alone told the author that every selected object was
+  // unpublished and that they should publish one.
+  const roster = rosterFrom({ loading: objectsLoading, error: objectsError });
+  const rosterAnswered = roster.status === 'loaded';
   // Preserve any selected object missing from the live catalog (draft-only /
   // cross-package) so it is never dropped from the picker. Its flag reads in
-  // the designer's locale (objectui#10448).
+  // the designer's locale (objectui#10448), and it is drawn only once the
+  // roster answered — until then the name is shown bare, which asserts nothing.
   const pickerOptions = React.useMemo(() => {
     const known = new Set(objectOptions.map((o) => o.value));
     const notPublished = t('engine.form.notPublished', locale);
     const extra = objectNames
       .filter((n) => !known.has(n))
-      .map((n) => ({ value: n, label: flagUnknownValue(n, notPublished, locale) }));
+      .map((n) => ({ value: n, label: rosterAnswered ? flagUnknownValue(n, notPublished, locale) : n }));
     return [...extra, ...objectOptions];
-  }, [objectOptions, objectNames, locale]);
+  }, [objectOptions, objectNames, locale, rosterAnswered]);
+  const rosterFailure = roster.status === 'error' ? roster.message : undefined;
 
   const patchBody = (p: Record<string, unknown>) => onPatch({ body: { ...body, ...p } });
 
@@ -194,22 +212,30 @@ export function HookDefaultInspector({
       hideClose
     >
       {/* 1 ─ Basics */}
-      <SectionHeader title="Basics" />
-      <InspectorTextField label="Label" value={localize(draft.label)} onCommit={(v) => onPatch({ label: v || undefined })} placeholder="Human-readable name" disabled={readOnly} />
-      <InspectorTextField label="Name" value={str('name')} onCommit={(v) => onPatch({ name: v })} placeholder="snake_case identifier" disabled={readOnly} mono testId="hook-name" />
+      <SectionHeader title={tr('engine.inspector.hook.basics')} />
+      <InspectorTextField label={tr('engine.inspector.hook.label')} value={localize(draft.label)} onCommit={(v) => onPatch({ label: v || undefined })} placeholder={tr('engine.inspector.hook.labelPlaceholder')} disabled={readOnly} />
+      <InspectorTextField label={tr('engine.inspector.hook.name')} value={str('name')} onCommit={(v) => onPatch({ name: v })} placeholder={tr('engine.inspector.hook.namePlaceholder')} disabled={readOnly} mono testId="hook-name" />
 
       <div className="space-y-1.5" data-testid="hook-object-picker">
-        <Label className="text-xs text-muted-foreground">Object(s) this hook fires on</Label>
+        <Label className="text-xs text-muted-foreground">{tr('engine.inspector.hook.objects')}</Label>
         <InspectorCheckboxField
-          label="All objects (*)"
+          label={tr('engine.inspector.hook.allObjects')}
           value={allObjects}
           onCommit={(on) => onPatch({ object: on ? ALL_OBJECTS : writeObjects(false, objectNames) })}
           disabled={readOnly}
         />
-        {!allObjects && (
+        {/* The empty-list copy is a MEASUREMENT ("no objects found"), so only
+            an answered roster may print it; in flight it says it is loading.
+            A failed roster with nothing selected draws no list at all — the
+            notice below is the whole answer there. */}
+        {!allObjects && (pickerOptions.length > 0 || rosterFailure === undefined) && (
           <div className="max-h-40 space-y-1 overflow-auto rounded-md border p-2">
             {pickerOptions.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground">No objects found — publish an object, then pick it here.</p>
+              <p className="text-[11px] text-muted-foreground">
+                {rosterAnswered
+                  ? tr('engine.inspector.hook.noObjects')
+                  : tr('engine.form.loadingOptions')}
+              </p>
             ) : (
               pickerOptions.map((o) => (
                 <InspectorCheckboxField
@@ -223,43 +249,64 @@ export function HookDefaultInspector({
             )}
           </div>
         )}
+        {/* objectui#10585 — a failed roster says so, with its cause. This is
+            the notice `InspectorSelectField` renders for the same fact
+            (objectui#9651): the same role, tone, localized title and cause
+            span. That notice lives inside the primitive and is not exported,
+            and this picker is a checkbox list rather than a select, so the
+            markup is repeated here; the wording is the shared catalogue key. */}
+        {!allObjects && rosterFailure !== undefined && (
+          <p
+            role="status"
+            data-testid="hook-object-roster-failure"
+            className="text-[11px] leading-snug text-amber-600 dark:text-amber-300"
+          >
+            {tr('engine.form.optionsLoadFailedTitle')}
+            {rosterFailure ? (
+              <>
+                {' '}
+                <span className="break-words font-mono text-[10px] opacity-80">{rosterFailure}</span>
+              </>
+            ) : null}
+          </p>
+        )}
         {!allObjects && objectNames.length === 0 && (
-          <p className="text-[11px] text-amber-600 dark:text-amber-400">Pick at least one object (or All objects).</p>
+          <p className="text-[11px] text-amber-600 dark:text-amber-400">{tr('engine.inspector.hook.pickObject')}</p>
         )}
       </div>
 
       {/* 2 ─ Events */}
       <div className="border-t pt-3 space-y-2">
-        <SectionHeader title="Events" hint="Which lifecycle events invoke this hook." />
-        <div className="text-[11px] font-medium text-muted-foreground/80">Write</div>
+        <SectionHeader title={tr('engine.inspector.hook.events')} hint={tr('engine.inspector.hook.eventsHint')} />
+        <div className="text-[11px] font-medium text-muted-foreground/80">{tr('engine.inspector.hook.eventsWrite')}</div>
         <div className="grid grid-cols-2 gap-x-3 gap-y-1">
           {WRITE_EVENTS.map((ev) => (
             <InspectorCheckboxField key={ev} label={ev} value={events.includes(ev)} onCommit={(on) => toggleEvent(ev, on)} disabled={readOnly} />
           ))}
         </div>
-        <div className="pt-1 text-[11px] font-medium text-muted-foreground/80">Query</div>
+        <div className="pt-1 text-[11px] font-medium text-muted-foreground/80">{tr('engine.inspector.hook.eventsQuery')}</div>
         <div className="grid grid-cols-2 gap-x-3 gap-y-1">
           {QUERY_EVENTS.map((ev) => (
             <InspectorCheckboxField key={ev} label={ev} value={events.includes(ev)} onCommit={(on) => toggleEvent(ev, on)} disabled={readOnly} />
           ))}
         </div>
         {events.length === 0 && (
-          <p className="text-[11px] text-amber-600 dark:text-amber-400">Select at least one event.</p>
+          <p className="text-[11px] text-amber-600 dark:text-amber-400">{tr('engine.inspector.hook.pickEvent')}</p>
         )}
       </div>
 
       {/* 3 ─ Function */}
       <div className="border-t pt-3 space-y-3">
-        <SectionHeader title="Function" hint="The handler that runs when the hook fires." />
+        <SectionHeader title={tr('engine.inspector.hook.function')} hint={tr('engine.inspector.hook.functionHint')} />
         <InspectorSelectField
-          label="Language"
+          label={tr('engine.inspector.hook.language')}
           value={language}
-          options={BODY_LANG_OPTS}
+          options={BODY_LANG_OPTS.map((o) => ({ value: o.value, label: tr(o.labelKey) }))}
           onCommit={(v) => patchBody({ language: v })}
           disabled={readOnly}
         />
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Handler body</Label>
+          <Label className="text-xs text-muted-foreground">{tr('engine.inspector.hook.handlerBody')}</Label>
           <Textarea
             data-testid="hook-body-source"
             value={typeof body.source === 'string' ? (body.source as string) : ''}
@@ -272,19 +319,19 @@ export function HookDefaultInspector({
           />
           <div className="text-[11px] text-muted-foreground/70">
             {language === 'expression'
-              ? 'A single L1 expression evaluated against the record / ctx.'
-              : 'Runs in the sandbox as (ctx) => Promise<void>.'}
+              ? tr('engine.inspector.hook.bodyHint.expression')
+              : tr('engine.inspector.hook.bodyHint.js')}
           </div>
         </div>
       </div>
 
       {/* 4 ─ Options */}
       <div className="border-t pt-3 space-y-3">
-        <SectionHeader title="Options" />
+        <SectionHeader title={tr('engine.inspector.hook.options')} />
         <div className="grid grid-cols-2 gap-3">
-          <InspectorNumberField label="Priority" value={typeof draft.priority === 'number' ? (draft.priority as number) : undefined} onCommit={(v) => onPatch({ priority: v })} placeholder="100" disabled={readOnly} />
+          <InspectorNumberField label={tr('engine.inspector.hook.priority')} value={typeof draft.priority === 'number' ? (draft.priority as number) : undefined} onCommit={(v) => onPatch({ priority: v })} placeholder="100" disabled={readOnly} />
           <div className="flex items-end pb-1.5">
-            <InspectorCheckboxField label="Run asynchronously (after commit)" value={draft.async === true} onCommit={(v) => onPatch({ async: v })} disabled={readOnly} />
+            <InspectorCheckboxField label={tr('engine.inspector.hook.async')} value={draft.async === true} onCommit={(v) => onPatch({ async: v })} disabled={readOnly} />
           </div>
         </div>
         {/* `HookSchema.condition` is `ExpressionInputSchema`: a persisted hook
@@ -318,7 +365,7 @@ export function HookDefaultInspector({
             `record`", so a later narrowing of the root list cannot take it away
             in silence. */}
         <ConditionBuilder
-          label="Run only when (optional CEL)"
+          label={tr('engine.inspector.hook.condition')}
           value={expressionSource(draft.condition)}
           onCommit={(v) => onPatch({ condition: writeExpressionSource(draft.condition, v) })}
           objectName={conditionObject}
@@ -340,7 +387,7 @@ export function HookDefaultInspector({
       {/* Advanced — everything not curated above, from the live schema */}
       {fallbackSchema && (
         <div className="border-t pt-3 space-y-1.5">
-          <SectionHeader title={tr('engine.inspector.moreFields')} hint="Advanced / rarely-used properties." />
+          <SectionHeader title={tr('engine.inspector.moreFields')} hint={tr('engine.inspector.hook.moreFieldsHint')} />
           <SchemaForm
             schema={fallbackSchema}
             value={draft}

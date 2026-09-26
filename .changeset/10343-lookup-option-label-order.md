@@ -34,6 +34,6 @@ objectui#9436, tracked as objectui#10343.
 **Upgrade effect.** An option label moves when the referenced object declares
 a `nameField` and a `titleFormat` that renders something else, or when a
 lookup field without a `displayField` points at an object whose `nameField`
-is not `name` and whose records also carry a `name` value. The browse-all
-record picker's display column is a separate renderer and still shows the
-template, so on such an object it can read differently from the dropdown.
+is not `name` and whose records also carry a `name` value. objectui#10486
+moved the browse-all record picker's display column onto the same resolver,
+so on such an object the picker and the dropdown read the same label.

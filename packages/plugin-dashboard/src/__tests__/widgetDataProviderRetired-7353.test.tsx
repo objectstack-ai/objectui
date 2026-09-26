@@ -82,6 +82,7 @@ import type { DashboardComponentSchema } from '@object-ui/types';
 // the package barrel registers `object-data-table` / `pivot`.
 import '@object-ui/components';
 import { DashboardRenderer, DashboardGridLayout } from '../index';
+import { LEGACY_RETIRED_WIDGET_SCHEMA } from '../legacyRetiredWidget';
 import type { ObjectPivotTableProps } from '../ObjectPivotTable';
 import type { ObjectDataTableProps } from '../ObjectDataTable';
 
@@ -147,9 +148,13 @@ describe('objectui#7353 — DashboardRenderer: the object-data-table node carrie
 });
 
 describe('objectui#7353 — DashboardGridLayout: the table and pivot nodes carry no dataProvider', () => {
+  // The pivot row used to sit in this table as `['pivot', 'pivot', …]`,
+  // pinning a `pivot` node with `objectName`. objectui#10528 (amended claim
+  // 5831757648, option B) retired that branch: the grid's provider-object
+  // pivot now answers with the shared retired-widget placeholder, as
+  // `DashboardRenderer` does, so its row is the separate case below.
   it.each([
     ['table', 'data-table', {}],
-    ['pivot', 'pivot', { rowField: 'region', valueField: 'amount' }],
   ])('a provider-object %s widget becomes a %s node with objectName and no dataProvider', async (widgetType, nodeType, extra) => {
     const adapter = makeAdapter();
     render(
@@ -166,6 +171,24 @@ describe('objectui#7353 — DashboardGridLayout: the table and pivot nodes carry
       expect(node.objectName).toBe('account');
       expect(Object.keys(node)).not.toContain('dataProvider');
     }
+  });
+
+  it('a provider-object pivot widget becomes the retired-widget placeholder, which carries no dataProvider (objectui#10528)', async () => {
+    const adapter = makeAdapter();
+    render(
+      <SchemaRendererProvider dataSource={adapter as never}>
+        <DashboardGridLayout
+          schema={dash([{ id: 'w1', type: 'pivot', options: { rowField: 'region', valueField: 'amount', data: OBJECT_PROVIDER } }])}
+        />
+      </SchemaRendererProvider>,
+    );
+
+    await waitFor(() => expect(received).toContain(LEGACY_RETIRED_WIDGET_SCHEMA));
+    // The shared object itself, not a copy — and it has no `dataProvider`.
+    expect(Object.keys(LEGACY_RETIRED_WIDGET_SCHEMA)).not.toContain('dataProvider');
+    // The retired branch's node is gone: no `pivot` node, and no query.
+    expect(nodesOfType('pivot')).toHaveLength(0);
+    expect(adapter.find).not.toHaveBeenCalled();
   });
 });
 

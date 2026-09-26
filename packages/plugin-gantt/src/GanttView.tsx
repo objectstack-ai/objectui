@@ -36,6 +36,7 @@ import {
   useResizeObserver,
 } from "@object-ui/components"
 import { toast } from "sonner"
+import { useDisplayLocale } from "@object-ui/i18n"
 import { computeCriticalPath, computeProjectRescheduleDetailed, wouldCreateDependencyCycle, type WorkingCalendar, type RescheduleChange, type RescheduleOptions } from "./scheduling"
 import { shiftDayStart, type NormShiftSegments } from "./shifts"
 import { useGanttTranslation } from "./useGanttTranslation"
@@ -874,11 +875,12 @@ export function GanttView({
     return markersProp.map((m) => ({ ...m, date: tzShift.to(new Date(m.date)) }));
   }, [markersProp, tzShift]);
 
-  const { t, language } = useGanttTranslation();
-  // Locale for every user-facing date label. Falls back to the runtime default
-  // (browser locale) when no I18nProvider supplies a language, so standalone
-  // embeds and tests behave exactly as before.
-  const dateLocale = language || undefined;
+  const { t } = useGanttTranslation();
+  // Locale for every user-facing date label: the DISPLAY locale, never the UI
+  // language, and never the machine's locale (objectui#10668). The hook owns
+  // the last resort, so no fallback belongs here. `ObjectGantt`'s tooltips and
+  // `ResourceWorkload` read the same hook, so one gantt shows one locale.
+  const dateLocale = useDisplayLocale();
   const containerRef = React.useRef<HTMLDivElement>(null);
   // Observed container width — the source every auto-sized dimension below
   // derives from: row height, base column width, and the task-list pane width.

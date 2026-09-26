@@ -167,6 +167,7 @@ const ja = {
     noPermissionToSave: "このレコードを保存する権限がありません。",
     submitFailed: "保存できませんでした。もう一度お試しください。",
     uploadInFlight: "アップロードが完了してから保存してください。",
+    clearedOnHide: "現在の値に該当しなくなった項目をクリアしました: {{fields}}",
     discardTitle: "変更を破棄しますか？",
     discardMessage: "保存されていない変更があります。このままフォームを閉じると編集内容は失われます。",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
@@ -288,6 +289,10 @@ const ja = {
         "保存されていません: {{name}}「{{text}}」は数値ではありません。通常の小数で入力してください（例: 30.2741, 120.1551）。",
       refusedResidue:
         "保存されていません: {{name}}「{{text}}」と{{otherName}}「{{otherText}}」は数値ではありません。通常の小数で入力してください（例: 30.2741, 120.1551）。",
+    },
+    date: {
+      impossibleDay:
+        "保存されている値「{{value}}」は実在しない日付です。置き換えるには日付を選択してください。",
     },
     dateTime: {
       impossibleDay:
@@ -1124,6 +1129,7 @@ const ja = {
   },
   chart: {
     loading: "チャート読み込み中…",
+    refreshing: "更新中…",
     nullCategory: "（未設定）",
     scatterOneMeasure: "散布図は1つの指標だけを描画します。系列は1つだけ残してください：",
     unconfigured: {
@@ -1145,6 +1151,7 @@ const ja = {
       sourceLabel: "データソース:",
     },
     loading: "読み込み中…",
+    refreshing: "更新中…",
     pickMeasures: "このデータセットウィジェットの指標（値）を選択してください。",
     datasetUnsupported: "このデータソースはデータセットクエリに対応していません。",
     details: "詳細",
@@ -1918,6 +1925,7 @@ const ja = {
       title: "タイトル",
       viewType: "ビュータイプ",
       recordCount: "{{count}} 件のレコード",
+      recordCountOne: "{{count}} 件のレコード",
       save: "保存",
       discard: "破棄",
       createView: "ビューを作成",

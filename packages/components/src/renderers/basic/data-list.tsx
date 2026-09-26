@@ -19,7 +19,7 @@
 
 import * as React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
-import { useAdapter } from '@object-ui/react';
+import { useAdapter, useDataInvalidation } from '@object-ui/react';
 import { cn } from '../../lib/utils';
 import { readProps } from './readProps';
 
@@ -111,10 +111,23 @@ function RepeaterRenderer({ schema }: { schema: any }) {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const filterKey = React.useMemo(() => (props.filter ? JSON.stringify(props.filter) : ''), [props.filter]);
+  // objectui#10664 — the sort reaches `$orderby` below, so the fetch effect
+  // keys on it, by CONTENT the way `filterKey` keys the filter: a fresh array
+  // with the same entries is not a change (AGENTS.md #10).
+  const sortKey = React.useMemo(() => (props.sort ? JSON.stringify(props.sort) : ''), [props.sort]);
 
   const cols: RepeaterColumn[] = React.useMemo(
     () => (props.fields ?? []).map((f) => (typeof f === 'string' ? { field: f } : f)),
     [props.fields],
+  );
+
+  // objectui#10623 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+  // write to the object this list REPEATS over is declared, and the effect
+  // below names it, so the rows are re-read. Subscribed only when the effect
+  // can query: without an adapter `find` there is no read to repeat.
+  const invalidationNonce = useDataInvalidation(
+    adapter && typeof adapter.find === 'function' ? props.object : undefined,
   );
 
   React.useEffect(() => {
@@ -152,7 +165,7 @@ function RepeaterRenderer({ schema }: { schema: any }) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adapter, props.object, filterKey, props.limit]);
+  }, [adapter, props.object, filterKey, sortKey, props.limit, invalidationNonce]);
 
   if (loading) return <p className="py-2 text-sm text-muted-foreground">Loading…</p>;
   if (error) return <p className="py-2 text-sm text-destructive">{error}</p>;

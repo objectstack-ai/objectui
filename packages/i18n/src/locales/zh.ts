@@ -174,6 +174,7 @@ const zh = {
     noPermissionToSave: '您没有权限保存这条记录。',
     submitFailed: '保存失败，请重试。',
     uploadInFlight: '请等待上传完成后再保存。',
+    clearedOnHide: '已清空不再适用于当前取值的字段：{{fields}}',
     removeItem: '移除项目',
     fieldRequired: '此字段为必填项',
     invalidFormat: '格式不正确',
@@ -295,6 +296,10 @@ const zh = {
         '未保存：{{name}}“{{text}}”不是数字。请输入普通小数（例如 30.2741, 120.1551）。',
       refusedResidue:
         '未保存：{{name}}“{{text}}”和{{otherName}}“{{otherText}}”不是数字。请输入普通小数（例如 30.2741, 120.1551）。',
+    },
+    date: {
+      impossibleDay:
+        '存储的值“{{value}}”不是真实存在的日期。请选择日期以替换它。',
     },
     dateTime: {
       impossibleDay:
@@ -1163,6 +1168,7 @@ const zh = {
   },
   chart: {
     loading: '图表加载中…',
+    refreshing: '刷新中…',
     nullCategory: '(未指定)',
     scatterOneMeasure: '散点图只绘制一个度量。请只保留一个系列：',
     unconfigured: {
@@ -1216,6 +1222,7 @@ const zh = {
       sourceLabel: '数据源：',
     },
     loading: '加载中…',
+    refreshing: '刷新中…',
     pickMeasures: '请为该数据集组件选择度量（值）。',
     datasetUnsupported: '当前数据源不支持数据集查询。',
     details: '明细',
@@ -2012,6 +2019,7 @@ const zh = {
       title: '标题',
       viewType: '视图类型',
       recordCount: '{{count}} 条记录',
+      recordCountOne: '{{count}} 条记录',
       save: '保存',
       discard: '丢弃',
       createView: '创建视图',

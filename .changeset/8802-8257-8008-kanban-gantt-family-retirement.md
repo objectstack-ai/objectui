@@ -52,6 +52,12 @@ hole returns the moment another registered renderer declares an `objectFields`
 prop. objectui#8818's option (a) — stripping at the `SchemaRenderer` boundary —
 is what would close the class.
 
+Superseded in this release by objectui#8818: option (a) landed, so the class
+is closed as well. `objectFields` is now on `SchemaRenderer`'s stripped-metadata
+list, and the legacy `props` alias bag drops it too, so an authored
+`objectFields` reaches no component prop on any type key. The paragraph above
+describes the tree this entry was written against.
+
 **⚠️ What the `kanban` arm took with it, stated because it is the cost of this
 change.** That arm was the only schema face that ever declared `columns`,
 `cardTitle`, `swimlaneField`, `grouping` and `navigation`, the only one that

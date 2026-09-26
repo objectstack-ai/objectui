@@ -15,13 +15,14 @@ import { VALUELESS_FILTER_BUILDER_OPERATORS, isFilterValueComplete } from '@obje
 import { ViewSwitcherDropdown, ViewType } from './ViewSwitcher';
 import { ViewSettingsPopover } from './components/ViewSettingsPopover';
 import { UserFilters } from './UserFilters';
-import { SchemaRenderer, useNavigationOverlay, classifyLoadError, usePredicateScope } from '@object-ui/react';
+import { SchemaRenderer, useNavigationOverlay, classifyLoadError, usePredicateScope, useDataInvalidation, useFilterScope } from '@object-ui/react';
 import type { LoadErrorKind } from '@object-ui/react';
 import { useDensityMode } from '@object-ui/react';
 import type { ListViewSchema, ObjectMapConfig } from '@object-ui/types';
 import { detectStatusField } from '@object-ui/types';
 import { usePullToRefresh } from '@object-ui/mobile';
 import { resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveEffectiveCrudAffordances, isObjectInlineEditable, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort } from '@object-ui/core';
+import { useResolvedAuthoredFilter } from './useResolvedAuthoredFilter';
 import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLocale, pickLocalized } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
 // NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
@@ -683,6 +684,14 @@ export function buildEffectiveFilter(
   );
 }
 
+/**
+ * What `ListView` applies in place of a held user filter it withholds
+ * (`appliedFilters` / `appliedUserFilterConditions`, objectui#10512). Module
+ * constants, so every render hands the fetch effect the same identity.
+ */
+const WITHHELD_FILTER_GROUP: FilterGroup = { id: 'root', logic: 'and', conditions: [] };
+const WITHHELD_USER_FILTER_CONDITIONS: unknown[] = [];
+
 export function convertFilterGroupToAST(group: FilterGroup): any[] {
   if (!group || !group.conditions || group.conditions.length === 0) return [];
 
@@ -1096,6 +1105,14 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // already-canonical path (the common case).
   const schema = React.useMemo(() => normalizeListViewSchema(propSchema), [propSchema]);
 
+  // objectui#10607 — the node's own `filter`, with every placeholder resolved
+  // once against the host's session scope and held (see
+  // `useResolvedAuthoredFilter`). The fetch, the page-reset signature, the
+  // self-querying views, the child view's node, the export and the empty-state
+  // copy below all read THIS, never the raw `schema.filter`.
+  const filterScope = useFilterScope();
+  const authoredFilter = useResolvedAuthoredFilter(schema.filter, filterScope);
+
   // Convenience: resolve field label with schema.objectName pre-bound
   const tFieldLabel = React.useCallback(
     (fieldName: string, fallback: string) =>
@@ -1144,6 +1161,15 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * So neither is offered on this view. The authored half — a view `filter` on
    * a dataset chart — is refused at authoring by `@object-ui/types`'
    * `ListViewSchema`.
+   *
+   * Two readers, one answer: the toolbar flags below, and the APPLIED user
+   * filter (`appliedFilters` / `appliedUserFilterConditions`, objectui#10512).
+   * A group the host restores at mount, or one set on a grid before a switch,
+   * therefore does not go on narrowing this component's fetch — and with it the
+   * record-count bar — with no control on screen to show or clear it. ⛔ The
+   * held state itself is kept: switching back to a view that offers the
+   * controls applies it again. The view's own `schema.filter` is not the
+   * user's filter and stays applied.
    *
    * Asked of `resolveListChartBinding`, the SAME resolver `case 'chart'` routes
    * on, so the toolbar and the render branch cannot disagree about the shape.
@@ -1487,6 +1513,22 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
 
   // User Filters State (Airtable Interfaces-style)
   const [userFilterConditions, setUserFilterConditions] = React.useState<any[]>([]);
+
+  // The user filter this component APPLIES — its fetch, the export, the node of
+  // a view that queries for itself, the empty-state copy. Empty while a
+  // dataset-bound chart is on screen (`datasetChartOnScreen`, objectui#10512).
+  // The held `currentFilters` / `userFilterConditions` stay as they are, for
+  // the controls and for the host's storage. Each is swapped only when it holds
+  // something, so a switch with nothing held hands the fetch effect the
+  // identities it already had and re-issues no query (objectui#7394).
+  const appliedFilters =
+    datasetChartOnScreen && currentFilters.conditions && currentFilters.conditions.length > 0
+      ? WITHHELD_FILTER_GROUP
+      : currentFilters;
+  const appliedUserFilterConditions =
+    datasetChartOnScreen && userFilterConditions.length > 0
+      ? WITHHELD_USER_FILTER_CONDITIONS
+      : userFilterConditions;
 
   // User filters render ONLY when explicitly configured (ADR-0047 §data
   // mode): saved list views already act as the preset switcher, so an
@@ -2084,6 +2126,18 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    */
   const surfaceDrawsFetchedRows = currentView !== 'gantt';
 
+  // objectui#10572 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+  // write to the object this list QUERIES is declared, and the fetch effect
+  // below names it, so the rows are re-read in place (`RefreshIndicator` over
+  // the current rows, no remount). A page action over raw HTTP fires no
+  // `onMutation`, so the subscription above cannot see it; the bus can.
+  // Subscribed only when the list fetches for itself — inline rows and a
+  // gantt that owns its endpoint are not this effect's query.
+  const listFetchesForItself =
+    !Array.isArray(schema.data) && (schema.data as any)?.provider !== 'value' && !ganttOwnsData;
+  const invalidationNonce = useDataInvalidation(listFetchesForItself ? schema.objectName || undefined : undefined);
+
   // Fetch data effect — supports schema.data (ViewDataSchema) provider modes
   React.useEffect(() => {
     let isMounted = true;
@@ -2154,7 +2208,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       try {
         // Construct filter — shared with the export path so the file a user
         // downloads is built from the same three sources as the rows on screen.
-        const finalFilter = buildEffectiveFilter(schema.filter, currentFilters, userFilterConditions);
+        const finalFilter = buildEffectiveFilter(authoredFilter, appliedFilters, appliedUserFilterConditions);
 
         // Convert sort to query format
         // Use array format to ensure order is preserved (Object keys are not guaranteed ordered)
@@ -2663,7 +2717,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // silently un-suppresses nothing, because the finding it was suppressing
     // simply moves elsewhere. Add prose ABOVE this point, never below it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema.objectName, schema.data, dataSource, schema.filter, effectivePageSize, currentSort, currentFilters, userFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, ganttOwnsData]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
+  }, [schema.objectName, schema.data, dataSource, authoredFilter, effectivePageSize, currentSort, appliedFilters, appliedUserFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, ganttOwnsData, invalidationNonce]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
 
   // Any change to the result-defining inputs (object, filters, sort, search,
   // grouping, page size) invalidates the current page number — snap back to
@@ -2673,8 +2727,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // from under a user who just turned it. serverPage is deliberately NOT part of
   // the signature, so turning the page never triggers a reset.
   const pageResetSignature = JSON.stringify([
-    schema.objectName, schema.filter, effectivePageSize, currentSort,
-    currentFilters, userFilterConditions, searchTerm, currentView, groupingConfig,
+    schema.objectName, authoredFilter, effectivePageSize, currentSort,
+    appliedFilters, appliedUserFilterConditions, searchTerm, currentView, groupingConfig,
   ]);
   const prevPageResetSignature = React.useRef(pageResetSignature);
   React.useEffect(() => {
@@ -3039,10 +3093,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * load-error panel that replaces the view.
    */
   const selfQueryFilterRef = React.useRef<{ key: string; value: unknown } | null>(null);
-  let selfQueryFilter: unknown = schema.filter;
+  let selfQueryFilter: unknown = authoredFilter;
   if (currentView === 'gantt' || currentView === 'tree' || currentView === 'chart') {
     try {
-      const value = buildEffectiveFilter(schema.filter, currentFilters, userFilterConditions);
+      const value = buildEffectiveFilter(authoredFilter, appliedFilters, appliedUserFilterConditions);
       const key = JSON.stringify(value ?? null);
       const cached = selfQueryFilterRef.current;
       if (cached && cached.key === key) {
@@ -3053,7 +3107,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       }
     } catch (error) {
       if (!(error instanceof FilterOperatorError)) throw error;
-      selfQueryFilter = selfQueryFilterRef.current ? selfQueryFilterRef.current.value : schema.filter;
+      selfQueryFilter = selfQueryFilterRef.current ? selfQueryFilterRef.current.value : authoredFilter;
     }
   }
 
@@ -3092,7 +3146,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       // surface speaking `filters`, so a child that fetches its own rows (the
       // chart branch below, and any of these rendered standalone) never saw the
       // view's base filter at all.
-      filter: schema.filter,
+      filter: authoredFilter,
       sort: currentSort,
       className: "h-full w-full",
       // Disable internal controls that clash with ListView toolbar
@@ -3616,7 +3670,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // asynchronously (`/me/permissions`) and `objectDef` loads into state, so a
   // grid schema built before either resolved must be rebuilt when they do —
   // otherwise `editable` keeps the pre-verdict answer for the session.
-  }, [currentView, schema, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef, selfQueryFilter, ganttSearchTerm]);
+  }, [currentView, schema, authoredFilter, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef, selfQueryFilter, ganttSearchTerm]);
 
   const hasFilters = currentFilters.conditions && currentFilters.conditions.length > 0;
 
@@ -3629,7 +3683,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * The two narrowings now sit downstream of it, one per builder.
    */
   const candidateFields = React.useMemo(() => {
-    let fields: Array<{ value: string; label: string; type: string; options?: any; referenceTo?: string; displayField?: string; idField?: string }>;
+    let fields: Array<{ value: string; label: string; type: string; options?: any; referenceTo?: string; displayField?: string }>;
 
     // Translate select-field option labels through the i18n resolver.
     // fieldDef.options may be an array of { value, label } or a keyed object;
@@ -3667,8 +3721,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               // reading it here would resurrect the second spelling.
               label: tFieldLabel(fieldName, f.label || fieldName),
               type: f.type || 'text',
-              options: buildOptions(fieldName, f.options),
               // objectui#7531 (ruled): a list column declares no relational target; it comes from the object definition once loaded.
+              // objectui#10547 (same ruling): nor select options — `ListColumnSchema` refuses `options` with `unrecognized_keys`; they come from the object definition once loaded.
            }];
         });
     } else {
@@ -3689,13 +3743,24 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             // with no rename hint. That is a different question and is filed, not
             // answered here.
             referenceTo: field.reference,
-            // objectui#7642 CENSUS — verdict KEEP. Bag traced: `objectDef` is
-            // `dataSource.getObjectSchema(schema.objectName)`, so this IS the
-            // object-schema def. But the serve path runs no parse, so a stored
-            // pre-strict def still arrives; and there is no camel leg here, so
-            // retiring these reads deletes the only read of the value.
-            displayField: field.display_field || field.reference_field,
-            idField: field.id_field,
+            // objectui#10545 — the display field is read in the DECLARED spelling
+            // and only in it. `objectDef` is
+            // `dataSource.getObjectSchema(schema.objectName)`, the object-schema
+            // def, and `FieldSchema` declares `displayField`; it refuses
+            // `display_field` (renaming it to `displayField`) and
+            // `reference_field` (pointing at `referenceVia`, a different key)
+            // with `unrecognized_keys`. This is the single spelling `plugin-grid`'s
+            // copy set reads (`RELATIONAL_META_READ_SET`, objectui#7155), and it
+            // supersedes the objectui#7642 census KEEP, which held only while
+            // this chain had no `displayField` leg. A stored pre-strict
+            // `display_field` is folded onto `displayField` once, at ingestion
+            // (`normalizeSchemaReferenceKeys`, objectui#7650), never here.
+            //
+            // No id column is read: `FieldSchema` declares none for a lookup (it
+            // refuses `idField` and `id_field` alike), so the filter's value
+            // picker keys the lookup by its own `id` default, and `plugin-grid`'s
+            // copy set copies no id column either.
+            displayField: field.displayField,
         }));
     }
 
@@ -3964,7 +4029,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         .filter(Boolean) as string[];
 
       // The same three filter sources as the data fetch, from the same function.
-      const finalFilter = buildEffectiveFilter(schema.filter, currentFilters, userFilterConditions);
+      const finalFilter = buildEffectiveFilter(authoredFilter, appliedFilters, appliedUserFilterConditions);
 
       const sort = currentSort.length > 0
         ? currentSort
@@ -4066,7 +4131,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     setShowExport(false);
     // `searchTerm` / `searchableFields` belong here: the export now narrows by
     // the active search, so a stale closure would export the wrong row set.
-  }, [data, effectiveFields, resolvedExportOptions, schema.objectName, schema.filter, schema.searchableFields, exportPermitted, dataSource, currentFilters, userFilterConditions, currentSort, searchTerm, objectDef, resolveObjectLabel]);
+  }, [data, effectiveFields, resolvedExportOptions, schema.objectName, authoredFilter, schema.searchableFields, exportPermitted, dataSource, appliedFilters, appliedUserFilterConditions, currentSort, searchTerm, objectDef, resolveObjectLabel]);
 
   // All available fields for hide/show (with i18n)
   const allFields = React.useMemo(() => {
@@ -4815,7 +4880,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         {/* Re-fetch indicator: thin top progress bar shown when refreshing
             existing data (filter/sort/search change). Skipped during the
             initial load — the full skeleton below handles that case. */}
-        <RefreshIndicator active={loading && data.length > 0} />
+        <RefreshIndicator active={loading && data.length > 0} ariaLabel={t('list.refreshing')} />
         {/* Empty state is rendered here ONLY for tabular/list-like views.
             Structural views (kanban/calendar/gallery/gantt/timeline/map) own
             their own empty rendering so their column/lane/grid structure
@@ -4925,16 +4990,16 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             // and sends triage away from the view layer, which is exactly what
             // this issue reported.
             const hasBaseFilter =
-              Array.isArray(schema.filter)
-                ? schema.filter.length > 0
-                : !!schema.filter && typeof schema.filter === 'object'
-                  ? Object.keys(schema.filter).length > 0
+              Array.isArray(authoredFilter)
+                ? authoredFilter.length > 0
+                : !!authoredFilter && typeof authoredFilter === 'object'
+                  ? Object.keys(authoredFilter).length > 0
                   : false;
             const hasActiveQuery =
               !!(searchTerm && searchTerm.trim()) ||
               hasBaseFilter ||
-              (Array.isArray(userFilterConditions) && userFilterConditions.length > 0) ||
-              (Array.isArray(currentFilters?.conditions) && currentFilters.conditions.length > 0);
+              (Array.isArray(appliedUserFilterConditions) && appliedUserFilterConditions.length > 0) ||
+              (Array.isArray(appliedFilters?.conditions) && appliedFilters.conditions.length > 0);
             const title = (typeof schema.emptyState?.title === 'string' ? schema.emptyState.title : undefined)
               ?? (hasActiveQuery ? t('list.noMatches') : t('list.firstRunTitle'));
             const description = (typeof schema.emptyState?.message === 'string' ? schema.emptyState.message : undefined)

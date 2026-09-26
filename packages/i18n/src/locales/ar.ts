@@ -178,6 +178,7 @@ const ar = {
     noPermissionToSave: "ليس لديك إذن لحفظ هذا السجل.",
     submitFailed: "تعذّر الحفظ. يرجى المحاولة مرة أخرى.",
     uploadInFlight: "انتظر حتى ينتهي الرفع قبل الحفظ.",
+    clearedOnHide: "تم مسح ما لم يعد ينطبق على القيم الحالية: {{fields}}",
     discardTitle: "تجاهل التغييرات؟",
     discardMessage: "لديك تغييرات غير محفوظة. إذا أغلقت هذا النموذج الآن، ستفقد تعديلاتك.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
@@ -299,6 +300,10 @@ const ar = {
         "لم يتم الحفظ: {{name}} «{{text}}» ليس رقمًا. أدخل أرقامًا عشرية عادية (مثال: 30.2741, 120.1551).",
       refusedResidue:
         "لم يتم الحفظ: {{name}} «{{text}}» و{{otherName}} «{{otherText}}» ليسا رقمين. أدخل أرقامًا عشرية عادية (مثال: 30.2741, 120.1551).",
+    },
+    date: {
+      impossibleDay:
+        "القيمة المحفوظة «{{value}}» ليست تاريخًا حقيقيًا. اختر تاريخًا لاستبدالها.",
     },
     dateTime: {
       impossibleDay:
@@ -1144,6 +1149,7 @@ const ar = {
   },
   chart: {
     loading: "جارٍ تحميل الرسم البياني…",
+    refreshing: "جارٍ التحديث…",
     nullCategory: "(غير محدد)",
     scatterOneMeasure: "المخطط المبعثر يرسم مقياسًا واحدًا فقط. أبقِ سلسلة واحدة:",
     unconfigured: {
@@ -1165,6 +1171,7 @@ const ar = {
       sourceLabel: "مصدر البيانات:",
     },
     loading: "جارٍ التحميل…",
+    refreshing: "جارٍ التحديث…",
     pickMeasures: "اختر المقاييس (القيم) لأداة مجموعة البيانات هذه.",
     datasetUnsupported: "مصدر البيانات هذا لا يدعم استعلامات مجموعات البيانات.",
     details: "التفاصيل",
@@ -1935,7 +1942,11 @@ const ar = {
       searchFields: "البحث في الحقول…",
       title: "العنوان",
       viewType: "نوع العرض",
-      recordCount: "{{count}} سجل",
+      // objectui#10636 — the footer picks this half at every count but 1, which spans
+      // zero, two (2), few (3-10), many (11-99) and other (100+); a count label reads
+      // right at all of them, the same form as `list.recordCount`.
+      recordCount: "عدد السجلات: {{count}}",
+      recordCountOne: "{{count}} سجل",
       save: "حفظ",
       discard: "تجاهل",
       createView: "إنشاء عرض",

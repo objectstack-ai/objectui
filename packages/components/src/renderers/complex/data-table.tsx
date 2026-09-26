@@ -12,8 +12,8 @@ import { cn } from '../../lib/utils';
 import { resolveIcon } from '../action/resolve-icon';
 import { useGridFieldAuthoring } from '../../context/gridFieldAuthoring';
 import { describeIgnoredBind, describeNonArrayData } from './dataTableBindDiagnostic';
-import { ComponentRegistry, compareSortValues, evalRowPredicate, formatDate, formatDateTime, getSortValue } from '@object-ui/core';
-import type { DataTableSchema, TableSortItem, TableColumnType } from '@object-ui/types';
+import { ComponentRegistry, compareSortValues, evalRowPredicate, formatDate, formatDateTime, fromDateTimeInputValue, getSortValue, isImpossibleStoredDay, toDateInputValue, toDateTimeInputValue } from '@object-ui/core';
+import type { DataTableSchema, TableColumn, TableSortItem, TableColumnType } from '@object-ui/types';
 import type { SortDirection } from '@objectstack/spec/shared';
 import { SchemaRenderer, toRenderableSchema, useCapabilityGate, useRowPredicate, usePredicateScope } from '@object-ui/react';
 import { createSafeTranslation, useDisplayLocale } from '@object-ui/i18n';
@@ -64,41 +64,15 @@ import {
 } from '../../ui/dropdown-menu';
 
 /**
- * Inline-edit helpers: convert a stored cell value to the string a native
- * `<input type="date">` / `<input type="datetime-local">` expects, and back.
- *
- * Native date inputs require `yyyy-MM-dd`; datetime-local requires
- * `yyyy-MM-ddTHH:mm`. We pad to the LOCAL wall-clock so the picker shows the
- * same day the user sees, then convert back on change. A `date` field stays a
- * plain `yyyy-MM-dd` string; a `datetime` field round-trips through an ISO
- * string (matching how display/format code already treats ISO datetimes).
+ * The inline date editors read and write through `@object-ui/core`'s native
+ * date adapters (`toDateInputValue` / `toDateTimeInputValue` /
+ * `fromDateTimeInputValue`), the one set `@object-ui/fields`' date widgets
+ * use. The table used to keep private copies of them, with no check for a
+ * stored day that does not exist: a `datetime` value written on 30 February
+ * showed as March 2nd and a minutes-only edit wrote that day back, and a
+ * `date` value on it blanked silently (objectui#10625). A `date` field stays a
+ * plain `yyyy-MM-dd` string; a `datetime` field round-trips through ISO.
  */
-function pad2(n: number): string {
-  return String(n).padStart(2, '0');
-}
-
-function toDateInputValue(value: unknown): string {
-  if (value == null || value === '') return '';
-  // A bare yyyy-MM-dd (or its leading slice of an ISO string) is already in the
-  // exact shape the native control wants. Pass it through verbatim — parsing it
-  // through `new Date()` would interpret it as UTC midnight and can shift the
-  // displayed day by one in negative-offset timezones.
-  if (typeof value === 'string') {
-    const m = value.match(/^(\d{4}-\d{2}-\d{2})/);
-    if (m) return m[1];
-  }
-  const d = value instanceof Date ? value : new Date(String(value));
-  if (Number.isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
-
-function toDateTimeInputValue(value: unknown): string {
-  if (value == null || value === '') return '';
-  const d = value instanceof Date ? value : new Date(String(value));
-  if (Number.isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-}
-
 // Column types that should edit as a numeric `<Input type="number">`.
 //
 // `int` / `integer` / `float` / `double` USED to be members (objectui#5853).
@@ -158,6 +132,14 @@ const TABLE_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'table.edit': 'Edit',
   'table.delete': 'Delete',
   'common.actions': 'Actions',
+  // objectui#10625 — the inline date editors' notice for a stored value
+  // written on a day that does not exist. The SAME keys `DateField` /
+  // `DateTimeField` use, with the `en` pack's values, for provider-less
+  // rendering.
+  'fields.date.impossibleDay':
+    'The stored value "{{value}}" is not a real date. Pick a date to replace it.',
+  'fields.dateTime.impossibleDay':
+    'The stored value "{{value}}" is not a real date. Pick a date and time to replace it.',
 };
 
 /**
@@ -679,6 +661,24 @@ function columnsAreEquivalent(a: readonly unknown[], b: readonly unknown[]): boo
 }
 
 /**
+ * Is the column under `accessorKey` MASKED (objectui#10657)? The one reading
+ * of `TableColumn.masked` for the table's client search, its client sort and
+ * its sort controls. The producer decides the flag; this only reads it.
+ *
+ * It reads the columns the producer handed the table on THIS render, not the
+ * `columns` state. That state is re-seeded from them one commit later, and it
+ * drops a column the reader hid. So a flag the producer has just stamped
+ * counts at once, and a hidden column keeps its answer.
+ *
+ * Fail closed: a key that names none of those columns cannot be told apart
+ * from a masked one, so it answers `true`.
+ */
+function isMaskedColumnKey(columns: readonly TableColumn[], accessorKey: string): boolean {
+  const column = columns.find((col) => col?.accessorKey === accessorKey);
+  return !column || column.masked === true;
+}
+
+/**
  * Enterprise-level data table component with Airtable-like features.
  *
  * Provides comprehensive table functionality including:
@@ -778,6 +778,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
 
   // i18n support for pagination labels
   const { t } = useTableTranslation();
+  // The id of the inline date editor's impossible-day notice (objectui#10625).
+  // One per table: at most one cell is in edit mode at a time.
+  const impossibleDayNoticeId = React.useId();
   // The DISPLAY locale, not the UI language: an English UI with a `de-CH`
   // display locale reads `4.3.2020`, never `3/4/2020` (objectui#10442). The
   // hook's own fallback chain answers when no tenant locale is configured, so
@@ -939,6 +942,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       accessorKey: col.accessorKey,
       width: col.width,
       fitContent: col.fitContent,
+      masked: col.masked === true,
     }));
     for (const col of cols) {
       if (col.width) continue; // Skip columns with explicit widths
@@ -949,8 +953,12 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       if (col.fitContent) continue;
       const headerLen = (col.header || '').length;
       let maxLen = headerLen;
+      // A MASKED column never reads its values here (objectui#10657). Sized
+      // from them, its width grew with the credential's length. Its cells draw
+      // the producer's mask, which does not depend on the value, so the header
+      // alone sizes it, with the same floor as every other column.
       // Sample up to 50 rows for content width estimation
-      const sampleRows = data.slice(0, 50);
+      const sampleRows = col.masked ? [] : data.slice(0, 50);
       for (const row of sampleRows) {
         const val = row[col.accessorKey];
         const len = val != null ? String(val).length : 0;
@@ -1180,13 +1188,17 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     if (manualSearch) return data;
     if (!searchQuery) return data;
 
+    // A MASKED column is left out of the predicate (objectui#10657). A
+    // substring match on it answers "does the credential contain this?", which
+    // recovers the value one character at a time while its cell draws a mask.
+    const searchedColumns = columns.filter((col) => !isMaskedColumnKey(rawColumns, col.accessorKey));
     return data.filter((row) =>
-      columns.some((col) => {
+      searchedColumns.some((col) => {
         const value = row[col.accessorKey];
         return value?.toString().toLowerCase().includes(searchQuery.toLowerCase());
       })
     );
-  }, [data, searchQuery, columns, manualSearch]);
+  }, [data, searchQuery, columns, rawColumns, manualSearch]);
 
   // Sorting — client-side, over the rows this table was handed.
   //
@@ -1207,6 +1219,10 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const sortedData = useMemo(() => {
     if (manualSorting) return filteredData;
     if (!sortColumn || !sortDirection) return filteredData;
+    // A MASKED column orders nothing (objectui#10657), including a sort set
+    // before its producer stamped the flag. Rows ordered by a credential tell
+    // the reader how it compares with every other row's.
+    if (isMaskedColumnKey(rawColumns, sortColumn)) return filteredData;
 
     const keyed = filteredData.map((row) => ({ row, key: getSortValue(row[sortColumn]) }));
     // Array#sort is stable, so rows with equal keys keep their incoming order.
@@ -1215,7 +1231,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       return sortDirection === 'asc' ? comparison : -comparison;
     });
     return keyed.map((entry) => entry.row);
-  }, [filteredData, sortColumn, sortDirection, manualSorting]);
+  }, [filteredData, sortColumn, sortDirection, manualSorting, rawColumns]);
 
   // Pagination. Under manual (server-side) pagination the parent controls the
   // page and supplies the grand total via `rowCount`; `data` already IS the
@@ -1290,6 +1306,16 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // class of lie as a sort that only covers the current page.
   const sortingEnabled = sortable && (!manualSorting || !!onSortChange);
 
+  // Does this column's header sort? One answer for its cursor, its click and
+  // its indicator. A MASKED column's header is inert in both modes
+  // (objectui#10657): a client sort orders the rows by the credential, and a
+  // manual one asks the host to, so the order says how it compares with every
+  // other row's. Disabled rather than refused on click, for the reason
+  // `sortingEnabled` gives: a header that looks sortable and does nothing is a
+  // dead affordance.
+  const isColumnSortable = (col: TableColumn) =>
+    sortingEnabled && col.sortable !== false && !isMaskedColumnKey(rawColumns, col.accessorKey);
+
   // The term the search box displays.
   //
   // Under `manualSearch` this is the caller's prop and nothing else — the
@@ -1332,6 +1358,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
    * reads: a menu item that highlights, closes, and changes nothing.
    */
   const applySort = (columnKey: string, order: SortDirection) => {
+    // A MASKED column is never sorted by, whichever control asked
+    // (objectui#10657; see `isColumnSortable`).
+    if (isMaskedColumnKey(rawColumns, columnKey)) return;
     if (manualSorting) {
       onSortChange?.([{ field: columnKey, order }]);
       return;
@@ -1342,7 +1371,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
 
   // Handlers
   const handleSort = (columnKey: string) => {
-    if (!sortingEnabled) return;
+    if (!sortingEnabled || isMaskedColumnKey(rawColumns, columnKey)) return;
 
     if (manualSorting) {
       // Two states, not three. A header click REPLACES the order — the column
@@ -1431,10 +1460,15 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   };
 
   const handleExport = () => {
+    // A MASKED column is OMITTED from the export (objectui#10583), header and
+    // all: its cells draw a mask, so the file must not carry the raw value.
+    // Omitted rather than blanked — a column of empty strings would assert
+    // the records hold nothing, and a re-import of it would write that.
+    const exportColumns = columns.filter((col) => !col.masked);
     const csvContent = [
-      columns.map(col => col.header).join(','),
+      exportColumns.map(col => col.header).join(','),
       ...sortedData.map(row =>
-        columns.map(col => JSON.stringify(row[col.accessorKey] || '')).join(',')
+        exportColumns.map(col => JSON.stringify(row[col.accessorKey] || '')).join(',')
       )
     ].join('\n');
 
@@ -1586,6 +1620,12 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
 
     const column = columns.find(col => col.accessorKey === columnKey);
     if (column?.editable === false) return;
+    // A MASKED column never enters edit mode, on any trigger (objectui#10583):
+    // the editor is seeded with the RAW row value below, so every editor —
+    // the built-in inputs and a host's `renderCellEditor` alike — would draw
+    // the credential the cell's mask hides. This is the one door Enter, click
+    // and double-click all pass through.
+    if (column?.masked) return;
 
     editingCellRef.current = { rowIndex, columnKey };
     setEditingCell({ rowIndex, columnKey });
@@ -1814,6 +1854,14 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     // Copy cell value with Ctrl+C / Cmd+C
     if ((e.ctrlKey || e.metaKey) && e.key === 'c' && !editingCell) {
       e.preventDefault();
+      // A MASKED column copies NOTHING (objectui#10583) — the producer drew a
+      // mask, so the keyboard must not hand out what the cell hides. The
+      // detail page's house shape (objectui#8440, option A): no copy at all,
+      // ⛔ not the bullets — which is also why `preventDefault()` above stays:
+      // measured in Chromium, letting the default run copies a selected mask
+      // as `••••••`, the payload that ruling refused. Unmasked cells are
+      // untouched below.
+      if (columns.find((col) => col.accessorKey === columnKey)?.masked) return;
       const globalIdx = (effectivePage - 1) * pageSize + rowIndex;
       const row = sortedData[manualPagination ? rowIndex : globalIdx];
       if (row) {
@@ -2078,7 +2126,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                     key={col.accessorKey}
                     className={cn(
                       col.className,
-                      sortingEnabled && col.sortable !== false && 'cursor-pointer select-none',
+                      isColumnSortable(col) && 'cursor-pointer select-none',
                       isDragging && 'opacity-50',
                       isDragOver && 'border-l-2 border-primary',
                       col.align === 'right' && 'text-right',
@@ -2105,7 +2153,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                     onDragOver={(e) => handleColumnDragOver(e, index)}
                     onDrop={(e) => handleColumnDrop(e, index)}
                     onDragEnd={handleColumnDragEnd}
-                    onClick={() => sortingEnabled && col.sortable !== false && handleSort(col.accessorKey)}
+                    onClick={() => isColumnSortable(col) && handleSort(col.accessorKey)}
                     onContextMenu={(e) => handleColumnContextMenu(e, col.accessorKey)}
                   >
                     <div className={cn(
@@ -2120,7 +2168,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                           <span className="text-muted-foreground shrink-0">{col.headerIcon}</span>
                         )}
                         <span className="text-xs font-medium text-muted-foreground whitespace-nowrap truncate">{col.header}</span>
-                        {sortingEnabled && col.sortable !== false && getSortIcon(col.accessorKey)}
+                        {isColumnSortable(col) && getSortIcon(col.accessorKey)}
                         {editColumnEnabled && (
                           <button
                             type="button"
@@ -2427,7 +2475,11 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                         const hasPendingChange = rowChanges[col.accessorKey] !== undefined;
                         const cellValue = hasPendingChange ? rowChanges[col.accessorKey] : originalValue;
                         const isEditing = editingCell?.rowIndex === rowIndex && editingCell?.columnKey === col.accessorKey;
-                        const isEditable = editable && col.editable !== false;
+                        // A masked column reads as NOT editable here too
+                        // (objectui#10583), so its cell neither shows the
+                        // edit cursor nor swallows the row's click —
+                        // `startEdit` would refuse it anyway.
+                        const isEditable = editable && col.editable !== false && !col.masked;
                         const isFrozen = frozenColumns > 0 && colIndex < frozenColumns;
                         const frozenOffset = isFrozen
                           ? measuredStickyLefts?.[(selectable ? 1 : 0) + (showRowNumbers ? 1 : 0) + colIndex]
@@ -2576,40 +2628,57 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                   }
                                 }
 
-                                if (editType === 'date') {
-                                  return (
+                                if (editType === 'date' || editType === 'datetime') {
+                                  const isDateTime = editType === 'datetime';
+                                  // A stored value written on a day that does not
+                                  // exist (objectui#10625): the control can paint it
+                                  // only blank, so it gets `""`, is marked invalid,
+                                  // and the stored string is NAMED beside it —
+                                  // `DateField` / `DateTimeField`'s face. Nothing
+                                  // changes until the user picks a new value: an
+                                  // Enter with no edit stages the stored string as
+                                  // it was, never a rolled day.
+                                  const impossible = isImpossibleStoredDay(editValue);
+                                  const control = (
                                     <Input
                                       ref={editInputRef}
-                                      type="date"
-                                      value={toDateInputValue(editValue)}
-                                      // Store a plain yyyy-MM-dd string — matches how
-                                      // date fields are displayed/persisted elsewhere.
-                                      onChange={(e) => setEditValue(e.target.value)}
+                                      type={isDateTime ? 'datetime-local' : 'date'}
+                                      value={
+                                        impossible
+                                          ? ''
+                                          : isDateTime
+                                            ? toDateTimeInputValue(editValue)
+                                            : toDateInputValue(editValue)
+                                      }
+                                      // `date` stores the control's plain yyyy-MM-dd;
+                                      // `datetime` stores ISO, read back on the same
+                                      // basis the control was written on.
+                                      onChange={(e) =>
+                                        setEditValue(
+                                          isDateTime ? fromDateTimeInputValue(e.target.value) : e.target.value,
+                                        )
+                                      }
                                       onKeyDown={handleEditKeyDown}
                                       onBlur={handleEditBlur}
+                                      aria-invalid={impossible || undefined}
+                                      aria-describedby={impossible ? impossibleDayNoticeId : undefined}
                                       className="h-8 px-2 py-1"
                                     />
                                   );
-                                }
-
-                                if (editType === 'datetime') {
+                                  if (!impossible) return control;
                                   return (
-                                    <Input
-                                      ref={editInputRef}
-                                      type="datetime-local"
-                                      value={toDateTimeInputValue(editValue)}
-                                      // The native control yields a local `yyyy-MM-ddTHH:mm`;
-                                      // store back as an ISO string so display/format code
-                                      // (formatCellValue) renders it consistently.
-                                      onChange={(e) => {
-                                        const v = e.target.value;
-                                        const d = v ? new Date(v) : null;
-                                        setEditValue(d && !Number.isNaN(d.getTime()) ? d.toISOString() : v);
-                                      }}
-                                      onKeyDown={handleEditKeyDown}
-                                      onBlur={handleEditBlur}
-                                      className="h-8 px-2 py-1"
-                                    />
+                                    <div className="space-y-1">
+                                      {control}
+                                      <p
+                                        id={impossibleDayNoticeId}
+                                        className="text-xs text-destructive"
+                                        data-testid={isDateTime ? 'datetime-impossible-day' : 'date-impossible-day'}
+                                      >
+                                        {isDateTime
+                                          ? t('fields.dateTime.impossibleDay', { value: String(editValue) })
+                                          : t('fields.date.impossibleDay', { value: String(editValue) })}
+                                      </p>
+                                    </div>
                                   );
                                 }
 
@@ -2675,7 +2744,10 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                       ? 'w-full whitespace-normal break-words'
                                       : 'truncate w-full'
                                 }
-                                title={!isFit && cellValue != null && typeof cellValue !== 'object' ? String(cellValue) : undefined}
+                                // No tooltip on a MASKED column (objectui#10583):
+                                // the title carried the raw value, so a hover
+                                // showed what the cell's mask hides.
+                                title={!isFit && !col.masked && cellValue != null && typeof cellValue !== 'object' ? String(cellValue) : undefined}
                               >
                                 {typeof col.cell === 'function'
                                   ? col.cell(cellValue, row)
@@ -2819,7 +2891,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
           data-testid="column-context-menu"
           onClick={(e) => e.stopPropagation()}
         >
-          {sortingEnabled && (
+          {/* No sort entries for a MASKED column (objectui#10657), the menu's
+              half of `isColumnSortable`. */}
+          {sortingEnabled && !isMaskedColumnKey(rawColumns, contextMenu.columnKey) && (
             <>
               <button
                 type="button"

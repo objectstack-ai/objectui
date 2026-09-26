@@ -154,7 +154,13 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **48 entries** in `KnownDrift`, **88 keys** across them — 50 / 92 until
+ *   - **46 entries** in `KnownDrift`, **86 keys** across them — 48 / 88 until
+ *     objectui#6033 settled the last two keys of its own ruling (C7 / C8): two
+ *     WHOLE entries left (`form.zod.ts#ComboboxSchema`, whose one key was `options`,
+ *     and `form.zod.ts#CommandSchema`, whose one key was `groups`). Both were
+ *     OPTIONALITY drift — the declaration said optional, the mirror required — and
+ *     both left because the mirror went `.optional()`, so the entry count and the key
+ *     total fell by two together. It was 50 / 92 until
  *     objectui#10286 settled four keys of objectui#7759's groups C and D: two WHOLE
  *     entries left (`complex.zod.ts#FilterFieldSchema`, whose one key was `operators`,
  *     and `navigation.zod.ts#HeaderBarSchema`, whose one key was `variant`) and two
@@ -636,11 +642,12 @@
  *
  * ## KNOWN_DRIFT is a ratchet, not a waiver
  *
- * 48 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
+ * 46 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
  * pinned to its EXACT drifted key set, so the entry fails when new drift appears on
  * that mirror AND when the recorded drift is fixed — a stale entry cannot rot
  * quietly. Correcting them is not one change: the pairs below split into DISJOINT
- * vocabularies where one side is dead, required-vs-optional mismatches, structural
+ * vocabularies where one side is dead, required-vs-optional mismatches (an EMPTY
+ * class since objectui#6033 made its last two keys optional on the mirror), structural
  * pairs that ride @objectstack/spec unification (objectui#2231), and one DELIBERATE
  * divergence that must stay expressible (`PageNodeSchema.pageType`). Each carries
  * its measurement and its reason inline.
@@ -2085,10 +2092,16 @@ interface KnownDrift {
   'form.zod.ts#CheckboxSchema': 'onChange';
   /** RUNTIME SLOT (objectui#6124): `plugin-editor` reads `onChange ?? schema.onChange`. */
   'form.zod.ts#CodeEditorSchema': 'onChange';
-  /** OPTIONALITY: TS declares `options?`, the mirror REQUIRES it. Whether authoring a combobox without options is legal is a ruling. */
-  'form.zod.ts#ComboboxSchema': 'options';
-  /** OPTIONALITY: TS declares `groups?`, the mirror REQUIRES it. (`onChange` is NOT here: the `command` renderer spreads it onto cmdk's root `div`, where React fires it with a SyntheticEvent — a different contract from the declared `(value: string) => void`, so both faces retire it.) */
-  'form.zod.ts#CommandSchema': 'groups';
+  // `form.zod.ts#ComboboxSchema` and `form.zod.ts#CommandSchema` LEFT this ledger under
+  // objectui#6033 (ruling C7 / C8). Each entry held one OPTIONALITY key — TS declared
+  // `options?` / `groups?`, the mirror REQUIRED it. The ruling's ground was re-measured
+  // first: both registered renderers draw a node with the key absent and do not throw
+  // (`combobox` reads `schema.options || []`, `command` reads `schema.groups?.map`), and
+  // the spec declares neither node. So the mirror went `.optional()` and the two faces now
+  // agree; `combobox-command-optional-6033.test.ts` pins the accept set. (`onChange` on
+  // `CommandSchema` stays OUT of this ledger for the reason it always did: the `command`
+  // renderer spreads it onto cmdk's root `div`, where React fires it with a SyntheticEvent,
+  // so both faces retire it.)
   /** RUNTIME SLOT (objectui#6124): the `date-picker` renderer calls `props.onChange(date)` after `SchemaRenderer`'s spread. */
   'form.zod.ts#DatePickerSchema': 'onChange';
   /** RUNTIME SLOT (objectui#7759 group E, the objectui#6124 shape): the form renderer spreads `validation` into react-hook-form's `rules` and keeps a supplied `validate` running. */
@@ -4148,9 +4161,9 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   'data-display.zod.ts#ChartSchema',
   'form.zod.ts#SelectOptionSchema',
   'layout.zod.ts#PageNodeSchema',
-  // ⭐ ONE entry, FOUR spec crossings — two cards put them there and both grounds
-  // are recorded, because either one alone is enough to keep this membership and
-  // deleting the entry needs both to be gone.
+  // ⭐ ONE entry, SIX spec crossings over FIVE spec symbols — three cards put
+  // them there and every ground is recorded, because any one alone is enough to
+  // keep this membership and deleting the entry needs all of them to be gone.
   //   - objectui#7946 (rework round): `aggregate` is `SpecChartAggregateSchema` by
   //     reference rather than the local near-copy the first cut declared, so a
   //     spec bump that widens or narrows the object-bound aggregation vocabulary
@@ -4162,6 +4175,11 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   //     own declaration: `DashboardRenderer` forwards `widget.compareTo`
   //     verbatim). So a spec bump that moves the chart drill vocabulary, the
   //     i18n label union, or the widget's comparison directive moves ONE side too.
+  //   - objectui#10518: `xAxis` / `yAxis` are the spec's `ChartAxisSchema` by
+  //     reference — one object and a LIST, as `ChartConfigSchema` declares them
+  //     and the spec's `ObjectChart` react block (`schemaType: 'object-chart'`)
+  //     publishes them — so a spec bump that moves the axis vocabulary moves ONE
+  //     side of this pair, as it does for `data-display.zod.ts#ChartSchema` above.
   // Either way it is exactly what this list exists to make legible rather than
   // mysterious.
   // objectui#8651: the `calendar` CONTAINER is the spec's own

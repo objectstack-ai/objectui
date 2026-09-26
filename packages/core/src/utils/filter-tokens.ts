@@ -209,7 +209,13 @@ export function resolveContextTokens<T = any>(filter: T, scope: FilterTokenScope
     }
 
     if (Array.isArray(value)) return value.map(walk);
+    // Only a PLAIN object (prototype `Object.prototype` or `null`) is a bag to
+    // walk. Anything else is a leaf, returned as the same instance: rebuilding
+    // a `Date` from its own keys — it has none — turned a comparand the spec
+    // admits (`ACCEPTED_FILTER_COMPARAND_TYPES`) into `{}` (objectui#10506).
     if (typeof value === 'object') {
+      const proto = Object.getPrototypeOf(value);
+      if (proto !== Object.prototype && proto !== null) return value;
       const out: Record<string, any> = {};
       for (const k of Object.keys(value)) out[k] = walk((value as any)[k]);
       return out;

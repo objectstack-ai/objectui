@@ -1509,8 +1509,26 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
     // mounted — every hook below can therefore run unconditionally.
     const objectDef = objects.find((o: any) => o.name === objectName);
 
-    // Refresh trigger — bumped after view CRUD or external data mutations.
-    const [refreshKey, setRefreshKey] = useState(0);
+    // Refresh trigger — bumped after view CRUD or this page's own data writes.
+    const [ownRefreshKey, setRefreshKey] = useState(0);
+    /**
+     * objectui#10572 — the page's refresh signal: its own counter plus the
+     * console's `externalRefreshKey` (record-form save, undo, redo), summed IN
+     * THE RENDER that receives the prop. Both only grow, so the sum moves
+     * whenever either does, and every reader below sees an external bump in the
+     * same commit as the prop.
+     *
+     * It used to be MIRRORED instead: a passive effect copied each external
+     * bump into this counter one commit later. The console declares the same
+     * undo / redo on the data-invalidation bus in the same tick as the bump,
+     * and `ListView` reads that bus, so the mirror split one write into two
+     * list reads — the bus nonce in one commit, `refreshTrigger` in the next.
+     * PR objectui#10494's contract is that a writer's two notices land in one
+     * render; summing here keeps this host inside it. ⛔ Do not reintroduce the
+     * mirror, and do not add `externalRefreshKey` on top of a value that still
+     * mirrors it — either one reaches the list twice.
+     */
+    const refreshKey = ownRefreshKey + (typeof externalRefreshKey === 'number' ? externalRefreshKey : 0);
 
     /**
      * objectui#10035 — this page learned that the object's DATA changed by a
@@ -1617,12 +1635,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
       [objectDef, getObjectApiOperations],
     );
 
-    // Propagate externally-triggered refreshes (e.g. global ModalForm submit)
-    // into our internal refreshKey so list/data effects re-run.
-    useEffect(() => {
-        if (externalRefreshKey === undefined || externalRefreshKey === 0) return;
-        setRefreshKey(k => k + 1);
-    }, [externalRefreshKey]);
+    // Externally-triggered refreshes (e.g. global ModalForm submit, undo, redo)
+    // reach every `refreshKey` reader through the sum declared with the counter
+    // above (objectui#10572), not through a mirroring effect.
 
     /**
      * [#5153] The object-list toolbar's CREATE predicates — the `create` half
@@ -1839,7 +1854,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
     }, [dataSource, objectName, objectDef.listViews, objectDef.list_views, (objectDef as any).list, refreshKey]);
 
     // Resolve Views from objectDef.listViews (camelCase per @objectstack/spec)
-    const views = useMemo(() => {
+    const { list: views, derivedColumnViewIds } = useMemo(() => {
         // Default columns for the auto-generated "所有记录" view (and any saved
         // grid view with no explicit columns). `highlightFields` (ADR-0085) wins;
         // otherwise the first business fields — framework-injected system / audit
@@ -1855,11 +1870,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
             primaryId: defaultListViewId(objectDef.name, (objectDef as any).list),
             savedViews,
             viewOverrides,
+            // No `columns` here: the fill below derives them, and records
+            // the tab as one whose columns the author never declared.
             fallbackTab: () => ({
                 id: 'all',
                 label: t('console.objectView.allRecords'),
                 type: 'grid',
-                columns: resolveDefaultColumns(),
             }),
         });
 
@@ -1867,11 +1883,22 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
         // columns (e.g. saved views created via "Add View" before the user
         // configured fields). Without this, the grid renders an empty header
         // row and the data fetch omits a `select` clause.
+        //
+        // objectui#10694 — the fill DRAWS defaults; it does not DECLARE a
+        // projection. `ListViewSchema.columns` (spec source at objectstack
+        // `origin/main`, objectstack#19598): "An empty list declares no
+        // projection, so neither of them applies" — `hiddenFields` and
+        // `fieldOrder`. So every tab filled here is recorded, and the relay
+        // applies neither key to it (see `activeViewDeclaresColumns`). An
+        // ABSENT `columns` reads the same as an empty one: the spec requires
+        // the key, so absence declares no projection either.
         const GRID_LIKE = new Set(['grid', 'list', 'table']);
+        const derived = new Set<string>();
         for (const v of viewList) {
             if (!GRID_LIKE.has(v.type)) continue;
             if (!Array.isArray(v.columns) || v.columns.length === 0) {
                 v.columns = resolveDefaultColumns();
+                derived.add(v.id);
             }
         }
 
@@ -1913,7 +1940,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
             return (indexOf.get(a.id) ?? 0) - (indexOf.get(b.id) ?? 0);
         });
 
-        return viewList;
+        return { list: viewList, derivedColumnViewIds: derived };
     }, [objectDef, savedViews, viewOverrides, t, orgAttribution]);
 
     // Active View State — merge saved draft if available for this view.
@@ -1945,6 +1972,24 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
     const activeView = viewDraft && viewDraft.id === baseView?.id
         ? { ...baseView, ...viewDraft }
         : baseView;
+    // objectui#10694 — does the active view, as AUTHORED, declare a non-empty
+    // `columns`? Booleans, so the relay keys on values and not on the memo's
+    // Set (AGENTS.md #10).
+    //
+    // The TAB answers from its stored body: its own non-empty `columns`, never
+    // the defaults the views memo drew into it.
+    const activeTabDeclaresColumns = !!baseView && !derivedColumnViewIds.has(baseView.id)
+        && Array.isArray(baseView.columns) && baseView.columns.length > 0;
+    // A config-panel DRAFT answers only with `columns` the admin changed. The
+    // panel seeds its draft from `activeView` and relays every field on every
+    // edit (and again on Discard), so an untouched draft carries the tab's
+    // columns verbatim — on an unprojected tab, the memo's drawn defaults.
+    // Compared by content, never by identity (AGENTS.md #10).
+    const draftColumnsEdited = !!viewDraft && viewDraft.id === baseView?.id && 'columns' in viewDraft
+        && !isSameOptionsValue(viewDraft.columns, baseView?.columns);
+    const activeViewDeclaresColumns = draftColumnsEdited
+        ? Array.isArray(viewDraft!.columns) && viewDraft!.columns.length > 0
+        : activeTabDeclaresColumns;
 
     /** Real-time draft field update — propagates each toggle/input change immediately */
     const handleViewUpdate = useCallback((field: string, value: any) => {
@@ -2599,6 +2644,22 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
         // objectui#7029: present only when the view actually declared one.
         const calendarOptions = calendarViewOptions(viewDef);
 
+        /**
+         * objectui#10694, ruling 5839344270 (B) — where the hide-column
+         * toggle's choice is stored. On a view that declares no projection
+         * the relay applies no `hiddenFields` (see `activeViewDeclaresColumns`),
+         * so an overlay write of one would be read by nothing. A SYSTEM view's
+         * overlay cannot carry `columns` either (`VIEW_OVERLAY_OWNED_KEYS`), so
+         * there the toggle is session-only: `ListView` still hides the column
+         * in its own state, and nothing is written. A SAVED view's write is
+         * the whole view, drawn `columns` included, so it keeps persisting.
+         * The author's remedy on a system view is to declare `columns`.
+         */
+        const persistHiddenFields = (hidden: string[]) => {
+            if (!activeViewDeclaresColumns && !isSavedViewId(savedViewsRef.current, viewDef.id)) return;
+            persistViewPatch(viewDef.id, viewDef, { hiddenFields: hidden });
+        };
+
 
         /**
          * ⚠️ THE RELAY. Every key below is a rung carrying the ACTIVE VIEW's
@@ -2608,7 +2669,8 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
          * lint and to the tests — `viewDef` is `Record<string, any>`, so
          * nothing REQUIRES a key to be written. That silence shipped the same
          * defect three times (objectui#7199 `description`, objectui#7218
-         * `rowColor`, objectui#7516 `fieldOrder`), and objectui#7559 ended it:
+         * `rowColor`, objectui#7516 `fieldOrder` — all three carry their rung
+         * below now), and objectui#7559 ended it:
          * `ObjectView.relayRungCensus-7559.test.ts` re-derives the member set
          * from the zod mirror at test time and requires every member to have
          * either a rung here or a DECLARED absence with a reason.
@@ -2683,7 +2745,39 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 heldListFilter.current = resolved;
                 return resolved;
             })(),
-            hiddenFields: (viewDef as any).hiddenFields ?? listSchema.hiddenFields,
+            /**
+             * objectui#10694 — both composition keys apply only when the view
+             * declares a non-empty `columns`. The views memo draws defaults
+             * into an unprojected view, and `ListViewSchema.columns` (spec
+             * source at objectstack `origin/main`, objectstack#19598) says an
+             * empty list "declares no projection, so neither of them applies".
+             * The same gate `InterfaceListPage` puts on a source view
+             * (objectui#10638), so the two routes compose a view one way. The
+             * value is set to `undefined`, not omitted: `...listSchema` above
+             * already carries the host's echo of the view's keys.
+             */
+            hiddenFields: activeViewDeclaresColumns
+                ? ((viewDef as any).hiddenFields ?? listSchema.hiddenFields)
+                : undefined,
+            /**
+             * The per-view ORDERING of the field composition
+             * `columns` x `hiddenFields` x `fieldOrder` (objectui#7516) —
+             * objectstack#15184 ruling B kept the key and wrote the
+             * composition into the contract: `columns` projects,
+             * `hiddenFields` (the rung above) subtracts, `fieldOrder` sorts
+             * what survives, an unlisted survivor sorting last. `ListView`'s
+             * `effectiveFields` memo runs those steps on `schema.fieldOrder`;
+             * this rung only delivers the view's value into that slot, the
+             * one the list-node spelling fills, so the two compose alike.
+             *
+             * View over list node — the precedence of the `hiddenFields` rung
+             * above; a view that authors no order keeps the list node's. It
+             * was the one per-view half of the composition with no rung:
+             * authored, served, then dropped here.
+             */
+            fieldOrder: activeViewDeclaresColumns
+                ? (viewDef.fieldOrder ?? listSchema.fieldOrder)
+                : undefined,
             columnState: (viewDef as any).columnState ?? (listSchema as any).columnState,
             onDensityChange: (mode) => {
                 // Persist the spec-canonical `rowHeight` (#2890). Writing the
@@ -2699,9 +2793,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
             // NO `onFilterChange` (objectui#4155): the filter panel is session
             // state. ListView keeps it in `currentFilters` and applies it to the
             // live query; nothing about it reaches the stored view.
-            onHiddenFieldsChange: (hidden: string[]) => {
-                persistViewPatch(viewDef.id, viewDef, { hiddenFields: hidden });
-            },
+            onHiddenFieldsChange: persistHiddenFields,
             onColumnStateChange: (state: { order?: string[]; widths?: Record<string, number> }) => {
                 persistViewPatch(viewDef.id, viewDef, { columnState: state });
             },
@@ -3007,9 +3099,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 onSearchChange={(search: string) => {
                     writeListFilterState(listFilterKey, { search });
                 }}
-                onHiddenFieldsChange={(hidden: string[]) => {
-                    persistViewPatch(viewDef.id, viewDef, { hiddenFields: hidden });
-                }}
+                onHiddenFieldsChange={persistHiddenFields}
                 onInlineEditChange={(next: boolean) => {
                     persistViewPatch(viewDef.id, viewDef, { inlineEdit: next });
                 }}
@@ -3023,7 +3113,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 dataSource={ds}
             />
         );
-    }, [activeView, objectDef, objectName, refreshKey, navOverlay, actions, persistViewPatch, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, user?.id]);
+    }, [activeView, activeViewDeclaresColumns, objectDef, objectName, refreshKey, navOverlay, actions, persistViewPatch, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, user?.id]);
 
     // Memoize the merged views array so PluginObjectView doesn't get a new
     // reference on every render (which would trigger unnecessary data refetches).
@@ -3386,7 +3476,13 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                                 </div>
                                 {typeof recordCount === 'number' && (
                                     <div data-testid="record-count-footer" className="border-t px-3 sm:px-4 py-1.5 text-xs text-muted-foreground bg-muted/5 shrink-0">
-                                        {t('console.objectView.recordCount', { count: recordCount })}
+                                        {/* The two-key switch of `ListView`'s record-count bar
+                                            (objectui#10636). Packs whose plurals have more forms
+                                            than two write the count-not-one half as a count label
+                                            (objectui#10425). */}
+                                        {recordCount === 1
+                                            ? t('console.objectView.recordCountOne', { count: recordCount })
+                                            : t('console.objectView.recordCount', { count: recordCount })}
                                     </div>
                                 )}
                             </div>

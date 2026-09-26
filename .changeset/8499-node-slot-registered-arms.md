@@ -12,8 +12,15 @@ Eight were registered renderers with fixtures proving they draw; the ninth
 in `scripts/check-doc-component-types.mjs`. A reader following
 `content/docs/utilities/runner.mdx`'s own instruction — "copy one, wrap it in a page
 document … and save it as `src/app-data/pages/index.json`" — got a document that
-**renders correctly in the browser and is refused by `objectui check`**. That is the
+**renders correctly in the browser and is refused by `objectui validate`**. That is the
 expensive direction: the likely reaction is to stop trusting the validator.
+
+⚠️ **Dated note, 2026-09-25 — the refusal was `objectui validate`'s, not
+`objectui check`'s — objectui#10524.** This entry first named `objectui check` here.
+`check` is an advisory sweep: it never parses against the schema a file whose root carries a structural
+key (`children`, `className`, `body`, …), so the page document above passes it, and it
+exits non-zero on unreadable JSON only. The "Downstream" paragraph below is about
+`check`'s advisory list of files with none of those keys, and stands.
 
 It was invisible because `check:doc-types` judges a `type` literal against the
 RENDERER REGISTRY — the key set whose size that gate prints in its own summary

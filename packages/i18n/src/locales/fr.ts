@@ -167,6 +167,7 @@ const fr = {
     noPermissionToSave: "Vous n'avez pas l'autorisation d'enregistrer cet enregistrement.",
     submitFailed: "Échec de l'enregistrement. Veuillez réessayer.",
     uploadInFlight: "Attendez la fin du téléversement avant de sauvegarder.",
+    clearedOnHide: "Ce qui ne s'applique plus aux valeurs actuelles a été effacé : {{fields}}",
     discardTitle: "Abandonner les modifications ?",
     discardMessage: "Vous avez des modifications non enregistrées. Si vous fermez ce formulaire maintenant, vos modifications seront perdues.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
@@ -288,6 +289,10 @@ const fr = {
         "Non enregistré : {{name}} « {{text}} » n'est pas un nombre. Saisissez des décimales simples (exemple : 30.2741, 120.1551).",
       refusedResidue:
         "Non enregistré : {{name}} « {{text}} » et {{otherName}} « {{otherText}} » ne sont pas des nombres. Saisissez des décimales simples (exemple : 30.2741, 120.1551).",
+    },
+    date: {
+      impossibleDay:
+        "La valeur enregistrée « {{value}} » n’est pas une date réelle. Choisissez une date pour la remplacer.",
     },
     dateTime: {
       impossibleDay:
@@ -1126,6 +1131,7 @@ const fr = {
   },
   chart: {
     loading: "Chargement du graphique…",
+    refreshing: "Actualisation…",
     nullCategory: "(Non défini)",
     scatterOneMeasure: "Un nuage de points trace une seule mesure. Ne conservez qu’une série :",
     unconfigured: {
@@ -1147,6 +1153,7 @@ const fr = {
       sourceLabel: "Source de données :",
     },
     loading: "Chargement…",
+    refreshing: "Actualisation…",
     pickMeasures: "Choisissez des mesures (valeurs) pour ce widget de dataset.",
     datasetUnsupported: "Cette source de données ne prend pas en charge les requêtes de dataset.",
     details: "Détails",
@@ -1918,6 +1925,7 @@ const fr = {
       title: "Titre",
       viewType: "Type de vue",
       recordCount: "{{count}} enregistrements",
+      recordCountOne: "{{count}} enregistrement",
       save: "Enregistrer",
       discard: "Annuler",
       createView: "Créer une vue",

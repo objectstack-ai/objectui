@@ -274,6 +274,10 @@ function SelectFilter({ def, value, onChange, dataSource }: { def: DashboardFilt
   // total failure (same tolerance style as DatasetWidget's option-color
   // fetch).
   const from = def.optionsFrom;
+  // objectui#10664 — both reads below send `from.filter`, so the effect keys on
+  // it, by CONTENT: an equal filter in a fresh object is not a change
+  // (AGENTS.md #10).
+  const optionsFilterKey = JSON.stringify(from?.filter ?? null);
   useEffect(() => {
     if (!from || !dataSource) return;
     let cancelled = false;
@@ -350,7 +354,7 @@ function SelectFilter({ def, value, onChange, dataSource }: { def: DashboardFilt
     }
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from?.object, from?.valueField, from?.labelField, dataSource]);
+  }, [from?.object, from?.valueField, from?.labelField, optionsFilterKey, dataSource]);
 
   const localizedOptions = useMemo(() => {
     // `def.options` is already normalized to `{ value, label }` PAIRS by

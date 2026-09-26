@@ -315,8 +315,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   // Home navigation items. For workspace admins we surface the full system
   // ("Administration") nav right here on /home — previously the home context
   // showed ONLY a "Home" link, so a fresh env (no apps yet) rendered a bare
-  // centered page with the real menu nowhere in sight. Mirrors AppSidebar's
-  // `systemFallbackNavigation` (sans the deprecated manual "Create App").
+  // centered page with the real menu nowhere in sight.
   // Non-admins get just Home — system administration is owner/admin-gated.
   const homeNavigation: NavigationItem[] = React.useMemo(() => {
     const items: NavigationItem[] = [
@@ -346,18 +345,16 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
         { id: 'sys-apps', label: t('layout.systemNav.applications', { defaultValue: 'Applications' }), type: 'url' as const, url: '/apps/setup/system/apps', icon: 'layout-grid' },
         { id: 'sys-marketplace', label: t('layout.systemNav.appMarketplace', { defaultValue: 'App Marketplace' }), type: 'url' as const, url: '/apps/setup/system/marketplace', icon: 'store' },
         // #3739 — canonical `…/metadata/object`, not the legacy
-        // `…/system/metadata/object` alias. See the twin entry in
-        // `AppSidebar.systemFallbackNavigation` for the full note: the alias is
-        // served by `apps/console`'s `MetadataRedirect`, a bare `<Navigate>`
-        // onto this very URL, so pointing here removes a hop without moving the
-        // landing page. The alias routes themselves are untouched.
+        // `…/system/metadata/object` alias. The alias is served by
+        // `apps/console`'s `MetadataRedirect`, a bare `<Navigate>` onto this
+        // very URL, so pointing here removes a hop without moving the landing
+        // page. The alias routes themselves are untouched.
         { id: 'sys-objects', label: t('layout.systemNav.objectManager', { defaultValue: 'Object Manager' }), type: 'url' as const, url: '/apps/setup/metadata/object', icon: 'database' },
         // #3660 — canonical `…/metadata/datasource`, not the legacy
-        // `…/component/metadata/resource?type=datasource` alias. See the twin
-        // entry in `AppSidebar.systemFallbackNavigation` for the full note: the
-        // alias renders `LegacyMetadataRedirect`, a bare `<Navigate>` onto this
-        // very URL, so pointing here removes a hop without moving the landing
-        // page. The alias route itself is untouched.
+        // `…/component/metadata/resource?type=datasource` alias. The alias
+        // renders `LegacyMetadataRedirect`, a bare `<Navigate>` onto this very
+        // URL, so pointing here removes a hop without moving the landing page.
+        // The alias route itself is untouched.
         { id: 'sys-datasources', label: t('layout.systemNav.datasources', { defaultValue: 'Datasources' }), type: 'url' as const, url: '/apps/setup/metadata/datasource', icon: 'database' },
         { id: 'sys-users', label: t('layout.systemNav.users', { defaultValue: 'Users' }), type: 'url' as const, url: '/apps/setup/system/users', icon: 'users' },
         { id: 'sys-orgs', label: t('layout.systemNav.organizations', { defaultValue: 'Organizations' }), type: 'url' as const, url: '/apps/setup/system/organizations', icon: 'building-2' },
@@ -515,8 +512,8 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
                    {visibleAreas.map((area) => {
                      const AreaIcon = getIcon(area.icon);
                      const isActiveArea = area.id === activeArea?.id;
-                     // Same as AppSidebar: `NavigationArea.label` is the spec's
-                     // `I18nLabel`, widened in @objectstack/spec 17.0.0-rc.6 to
+                     // `NavigationArea.label` is the spec's `I18nLabel`,
+                     // widened in @objectstack/spec 17.0.0-rc.6 to
                      // `string | Record<string, string>`, so the inline
                      // per-locale form has to be resolved before it reaches a
                      // text slot or it renders as `[object Object]`.

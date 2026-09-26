@@ -93,6 +93,16 @@ plumbed into `RecordActivityTimeline` / `RecordChatterPanel`.
   authoring mistake. Both directions are pinned. Whether to retire it on the
   two as well reverses objectui#4663's pinned decision and is left open on
   objectui#9556 rather than settled in passing.
+
+  ⚠️ **Dated note, 2026-09-25: the alias has since been retired on those two
+  blocks as well, by objectui#9945.** Later in this same release the
+  maintainer ruled the question this bullet leaves open (ruling `5749677059`,
+  letter A). The shared read point now reads `aria.ariaLabel` only, so
+  `record:path` and `record:quick_actions` no longer read `aria.label` either:
+  they announce their default names, and a served `aria.label` on them is
+  reported with a `console.warn`. The bullet above is kept as the reading of
+  this change. The objectui#9945 entry states what ships, and the migration
+  (`aria.label` becomes `aria.ariaLabel`).
 - **No `aria` declaration is added for `record:quick_actions`.** The protocol
   declares none on `RecordQuickActionsProps` and refuses the bag there with a
   message naming objectui's renderer as the thing that moves first; mirroring it

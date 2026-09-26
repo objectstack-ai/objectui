@@ -22,8 +22,17 @@ render in the section's order, and every entry override applies: `required`
 refuses an empty submit, and `visibleWhen` hides the member until the record
 satisfies it. Two things stay as they were. First, a section member that the
 top-level `fields` does not list is still dropped, with its console warning,
-because the two keys intersect. Second, the form's own field definition
-remains the starting point for an override, so an override does not lift a
-managed object's field lock, and field-level security still hides or locks
-each member. The same fix reaches `object-master-detail-form`, whose parent
-form renders through this layout.
+because the two keys intersect. Second, at this change the form's own field
+definition remains the starting point for an override, so an override does not
+lift a managed object's field lock, and field-level security still hides or
+locks each member. The same fix reaches `object-master-detail-form`, whose
+parent form renders through this layout.
+
+⚠️ **Dated note, 2026-09-25 — the managed-object field lock no longer rides the form's own field definition — objectui#10612.**
+Later in this same release the lock moved out of this layout's field generator
+into the one field-gate step every layout draws its fields through, after the
+section builder and together with field-level security. An override still does
+not lift the lock, but the reason is now that the lock is applied after the
+override, on every layout, rather than that it rides the definition the
+override starts from. The rest of this entry is kept as the reading of this
+change.

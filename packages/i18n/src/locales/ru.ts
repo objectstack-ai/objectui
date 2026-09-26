@@ -177,6 +177,7 @@ const ru = {
     noPermissionToSave: "У вас нет прав на сохранение этой записи.",
     submitFailed: "Не удалось сохранить. Попробуйте ещё раз.",
     uploadInFlight: "Дождитесь завершения загрузки, прежде чем сохранять.",
+    clearedOnHide: "Очищено то, что больше не применимо к текущим значениям: {{fields}}",
     discardTitle: "Отменить изменения?",
     discardMessage: "Есть несохранённые изменения. Если закрыть форму сейчас, правки будут потеряны.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
@@ -298,6 +299,10 @@ const ru = {
         "Не сохранено: {{name}} «{{text}}» — не число. Введите обычные десятичные дроби (например: 30.2741, 120.1551).",
       refusedResidue:
         "Не сохранено: {{name}} «{{text}}» и {{otherName}} «{{otherText}}» — не числа. Введите обычные десятичные дроби (например: 30.2741, 120.1551).",
+    },
+    date: {
+      impossibleDay:
+        "Сохранённое значение «{{value}}» — несуществующая дата. Выберите дату, чтобы заменить его.",
     },
     dateTime: {
       impossibleDay:
@@ -1144,6 +1149,7 @@ const ru = {
   },
   chart: {
     loading: "Загрузка графика…",
+    refreshing: "Обновление…",
     nullCategory: "(Не указано)",
     scatterOneMeasure: "Точечная диаграмма строит только одну меру. Оставьте один ряд:",
     unconfigured: {
@@ -1165,6 +1171,7 @@ const ru = {
       sourceLabel: "Источник данных:",
     },
     loading: "Загрузка…",
+    refreshing: "Обновление…",
     pickMeasures: "Выберите меры (значения) для этого виджета набора данных.",
     datasetUnsupported: "Этот источник данных не поддерживает запросы к наборам данных.",
     details: "Подробности",
@@ -1937,7 +1944,11 @@ const ru = {
       searchFields: "Поиск полей…",
       title: "Заголовок",
       viewType: "Тип представления",
-      recordCount: "{{count}} записей",
+      // objectui#10636 — the footer picks this half at every count but 1, which spans
+      // one (21), few (2-4) and many (5-20); a count label reads right at all three,
+      // the same form as `list.recordCount`.
+      recordCount: "Записей: {{count}}",
+      recordCountOne: "{{count}} запись",
       save: "Сохранить",
       discard: "Отменить",
       createView: "Создать представление",

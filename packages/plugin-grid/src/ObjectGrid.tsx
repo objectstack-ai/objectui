@@ -25,7 +25,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type { ObjectGridSchema, DataSource, ListColumn, TableColumn, ViewData, TableSortItem, DataTableSchema, ListViewExportFormat } from '@object-ui/types';
 import { isSystemManagedField, normalizeTableColumnType } from '@object-ui/types';
 import type { I18nLabel } from '@objectstack/spec/ui';
-import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions, useDataInvalidation } from '@object-ui/react';
+import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions, useDataInvalidation, useFilterScope } from '@object-ui/react';
 import { createSafeTranslation } from '@object-ui/i18n';
 // objectui#8920 — the grid reaches a cell renderer through THIS module and
 // nowhere else. `getCellRenderer` / `resolveCellRendererType` are deliberately
@@ -33,6 +33,7 @@ import { createSafeTranslation } from '@object-ui/i18n';
 // what dropped a `format`-hinted column's renderer, and one shared owner is
 // what stops a seventh site picking a convention of its own.
 import { resolveGridCellRendering, gridCellRendererForFixedKey, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
+import { isMaskedGridColumn } from './maskedColumn';
 import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue } from '@object-ui/fields';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
@@ -54,7 +55,7 @@ import {
   RefreshIndicator,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName } from '@object-ui/core';
+import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, type FilterTokenScope } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -77,6 +78,116 @@ import { BulkActionBar } from './components/BulkActionBar';
 import { BulkActionDialog } from './components/BulkActionDialog';
 import type { BulkResult } from './hooks/useBulkExecutor';
 import type { BulkActionDef } from '@object-ui/types';
+
+/**
+ * The node's own authored filter: the canonical `filter`, and its deprecated
+ * alias `defaultFilters`, which the load effect reads only when `filter` is
+ * absent.
+ */
+interface AuthoredGridFilters {
+  filter: ObjectGridSchema['filter'];
+  defaultFilters: ObjectGridSchema['defaultFilters'];
+}
+
+/** One resolution, remembered with the inputs it was computed from. */
+interface HeldGridFilters {
+  authored: AuthoredGridFilters;
+  currentUserId: FilterTokenScope['currentUserId'];
+  currentOrgId: FilterTokenScope['currentOrgId'];
+  onUnresolved: FilterTokenScope['onUnresolved'];
+  resolved: AuthoredGridFilters;
+}
+
+function resolveGridFilters(authored: AuthoredGridFilters, scope: FilterTokenScope): HeldGridFilters {
+  return {
+    authored,
+    currentUserId: scope.currentUserId,
+    currentOrgId: scope.currentOrgId,
+    onUnresolved: scope.onUnresolved,
+    resolved: resolveFilterPlaceholders(authored, scope),
+  };
+}
+
+/** Depth past which {@link isSameAuthoredFilter} gives up and answers "changed". */
+const AUTHORED_FILTER_MAX_DEPTH = 12;
+
+function isPlainFilterObject(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== 'object') return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+/**
+ * Compare two authored filters by structure, never by serialising them.
+ *
+ * The same rules as `plugin-view`'s `isStructurallyEqual` (objectui#6460),
+ * which this package cannot import: `plugin-view` depends on `plugin-grid`.
+ * Primitives by `Object.is`, a `Date` by its instant, arrays element by element
+ * and in order, plain objects by key set and value. Anything else is equal
+ * only as the same reference, and a structure deeper than the bound is
+ * "changed". Every uncertainty answers "changed", which re-resolves and
+ * re-queries; the comparison can drop a redundant query, never a needed one.
+ */
+function isSameAuthoredFilter(a: unknown, b: unknown, depth = 0): boolean {
+  if (Object.is(a, b)) return true;
+  if (depth >= AUTHORED_FILTER_MAX_DEPTH) return false;
+  if (a instanceof Date || b instanceof Date) {
+    return a instanceof Date && b instanceof Date && a.getTime() === b.getTime();
+  }
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    return a.every((item, i) => isSameAuthoredFilter(item, b[i], depth + 1));
+  }
+  if (isPlainFilterObject(a) && isPlainFilterObject(b)) {
+    const keys = Object.keys(a);
+    if (keys.length !== Object.keys(b).length) return false;
+    return keys.every((key) => (
+      Object.prototype.hasOwnProperty.call(b, key) && isSameAuthoredFilter(a[key], b[key], depth + 1)
+    ));
+  }
+  return false;
+}
+
+/**
+ * objectui#10607 — resolve the node's own filter ONCE, through
+ * `@object-ui/core`'s shared `resolveFilterPlaceholders`, against the session
+ * scope the host provides (`useFilterScope`). Before this, a directly authored
+ * `object-grid` with `filter: [['owner', '=', '{current_user_id}']]` sent the
+ * literal token on `$filter`. `object-view` already resolves the filters it
+ * hands this grid (objectui#10506); resolving that value again changes
+ * nothing, because a resolved id no longer matches the whole-token pattern.
+ *
+ * ⛔ Not a second resolver, and no fallback: a token the scope cannot resolve
+ * is whatever `resolveFilterPlaceholders` makes of it (left intact, with one
+ * warning naming it).
+ *
+ * The result is HELD against its inputs, the shape `plugin-view`'s
+ * `useResolvedFilterSegments` uses. The load effect keys on the filter this
+ * grid lowers, so a resolved copy minted on every render would refetch on
+ * every render; and a date macro such as `{now}` resolves to a new value at
+ * every call, so comparing OUTPUTS cannot stop that. The key is the authored
+ * filters, compared by structure (a host that rebuilds an equal filter inline
+ * must not re-query), plus the scope's three members read one by one, never
+ * the scope object's identity (AGENTS.md #10). The held pair lives in state,
+ * so the value handed out is always the one React committed.
+ */
+function useResolvedGridFilters(authored: AuthoredGridFilters, scope: FilterTokenScope): AuthoredGridFilters {
+  const [held, setHeld] = useState(() => resolveGridFilters(authored, scope));
+  if (
+    held.currentUserId !== scope.currentUserId
+    || held.currentOrgId !== scope.currentOrgId
+    || held.onUnresolved !== scope.onUnresolved
+    || !isSameAuthoredFilter(held.authored, authored)
+  ) {
+    // React's documented "information from previous renders" shape: a set
+    // during render re-renders this component at once, before any child sees
+    // the discarded pass, and the re-render finds the inputs equal.
+    const next = resolveGridFilters(authored, scope);
+    setHeld(next);
+    return next.resolved;
+  }
+  return held.resolved;
+}
 
 /**
  * A declared `sort` → the `"field order"` join string THIS block sends as
@@ -1758,7 +1869,17 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // it. The refusal is kept as a VALUE and rendered by the malformed-filter
   // branch below; collapsing it to `undefined` would mean "no filter" and run
   // the grid unconstrained, the silent widening objectui#9001 closed.
-  const schemaFilterSource = schema.filter;
+  //
+  // objectui#10607: both authored entries are read RESOLVED and held (see
+  // `useResolvedGridFilters`), so `{current_user_id}` goes out as the real id
+  // and an equal filter keeps its reference across renders.
+  const filterScope = useFilterScope();
+  const authoredFilters = useResolvedGridFilters(
+    { filter: schema.filter, defaultFilters: schema.defaultFilters },
+    filterScope,
+  );
+  const schemaFilterSource = authoredFilters.filter;
+  const schemaDefaultFilters = authoredFilters.defaultFilters;
   const schemaFilterResult = useMemo(() => toFilterNodeSafely(schemaFilterSource), [schemaFilterSource]);
   const schemaFilterRefusal = schemaFilterResult.ok ? undefined : schemaFilterResult.refusal;
   const schemaFilter = schemaFilterResult.ok ? schemaFilterResult.node : undefined;
@@ -2164,7 +2285,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // for a `FilterOperatorError` arriving on this path too, which is
             // the whole of step 2 for this fourth call site. Converting it to
             // `toFilterNodeSafely` here would only rethrow into the same catch.
-            const legacyFilter = toFilterNode(schema.defaultFilters);
+            const legacyFilter = toFilterNode(schemaDefaultFilters);
             if (legacyFilter !== undefined) {
               params.$filter = legacyFilter;
             }
@@ -2357,7 +2478,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // reachable a second way.
   // `invalidationNonce` (objectui#10035): a write to this object, reported on
   // the data-invalidation bus — see its declaration above.
-  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaSort, headerSort, searchTerm, schemaPagination, schemaPageSize, serverPage, serverPageSize, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, invalidationNonce]);
+  // `schemaDefaultFilters` (objectui#10607): the deprecated alias, resolved and
+  // held with `filter`. It changes only when the authored alias changes by
+  // structure or the scope changes (a new signed-in user), and either one
+  // changes the `$filter` this effect sends when `filter` is absent.
+  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaDefaultFilters, schemaSort, headerSort, searchTerm, schemaPagination, schemaPageSize, serverPage, serverPageSize, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, invalidationNonce]);
 
   // The same reset, for the path the loader above never runs on (objectui#4501
   // clause 2). "All N matching are selected" is a claim about ONE query, so it
@@ -2534,8 +2659,48 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     };
   }, [schema.grouping, schema.columns, schema.objectName, objectSchema, translateOptions, t]);
 
+  // objectui#10583 — a MASKED field is REFUSED as a grouping key, loudly, once
+  // `objectSchema` has loaded (until then an untyped column's object-declared
+  // type is unknown: the host-fetched window, objectui#10657, which folded objectui#10706).
+  // Grouping by it printed the raw value as each group's label. Masking the
+  // label would not be enough: the buckets would still show which records
+  // share a credential, ordered by its raw value. So the entry is dropped (the
+  // other entries still group, as `usableGroupingFields` does for an unusable
+  // one) and the drop is reported through the grid's warning channel. The rule
+  // is the column flag's: `isMaskedGridColumn` over the view column's type and
+  // the object-declared type.
+  const groupingFieldsRaw = schema.grouping?.fields;
+  const maskedGroupingSignature = React.useMemo(() => {
+    const cols: ReadonlyArray<string | ListColumn> = normalizeColumns(schema.columns) ?? [];
+    const columnTypeOf = (field: string) =>
+      cols.find((c): c is ListColumn => typeof c === 'object' && c !== null && c.field === field)?.type;
+    return JSON.stringify(
+      usableGroupingFields(groupingFieldsRaw)
+        .map((gf) => gf.field)
+        .filter((field) => isMaskedGridColumn(columnTypeOf(field), objectSchema?.fields?.[field]?.type)),
+    );
+  }, [groupingFieldsRaw, schema.columns, objectSchema]);
+  // Keyed on the authored array and the signature STRING, never on a memo's
+  // identity (AGENTS.md #10). Read only when something was refused: the
+  // unmasked path below hands `useGroupedData` the authored config itself.
+  const unmaskedGroupingFields = React.useMemo(() => {
+    const masked: string[] = JSON.parse(maskedGroupingSignature);
+    return usableGroupingFields(groupingFieldsRaw).filter((gf) => !masked.includes(gf.field));
+  }, [groupingFieldsRaw, maskedGroupingSignature]);
+  useEffect(() => {
+    const masked: string[] = JSON.parse(maskedGroupingSignature);
+    if (masked.length === 0) return;
+    console.warn(
+      `[ObjectUI] ObjectGrid grouping: ${schema.objectName ?? 'object-grid'} groups by the masked `
+      + `field(s) ${masked.join(', ')}. A masked field cannot be a grouping key: its group labels would `
+      + 'show the raw value, and its groups would show which records share it. The entry was ignored.',
+    );
+  }, [maskedGroupingSignature, schema.objectName]);
+
   const { groups, isGrouped, toggleGroup } = useGroupedData(
-    schema.grouping,
+    maskedGroupingSignature === '[]' || !schema.grouping
+      ? schema.grouping
+      : { ...schema.grouping, fields: unmaskedGroupingFields },
     data,
     schema.aggregations,
     groupValueFormatter,
@@ -3540,8 +3705,17 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         : str;
     };
 
+    // objectui#10583 — a MASKED field leaves neither file. The same rule that
+    // stamps `TableColumn.masked` (`isMaskedGridColumn`, the narrow-only union
+    // of the column's type and the object-declared type), asked per KEY
+    // because the JSON branch writes whole records, including fields that are
+    // not columns.
+    const columnTypeByKey = new Map(generateColumns().map((c) => [c.accessorKey, c.type]));
+    const isMaskedKey = (key: string) =>
+      isMaskedGridColumn(columnTypeByKey.get(key), objectSchema?.fields?.[key]?.type);
+
     if (format === 'csv') {
-      const cols = generateColumns().filter((c) => c.accessorKey !== '_actions');
+      const cols = generateColumns().filter((c) => c.accessorKey !== '_actions' && !isMaskedKey(c.accessorKey));
       const fields = cols.map((c) => c.accessorKey);
       const headers = cols.map((c) => c.header);
       const rows: string[] = [];
@@ -3553,7 +3727,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       });
       downloadFile(new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' }), fileNameFor('csv'));
     } else if (format === 'json') {
-      downloadFile(new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' }), fileNameFor('json'));
+      const unmasked = exportData.map((record) =>
+        Object.fromEntries(Object.entries(record).filter(([key]) => !isMaskedKey(key))),
+      );
+      downloadFile(new Blob([JSON.stringify(unmasked, null, 2)], { type: 'application/json' }), fileNameFor('json'));
     }
     setShowExport(false);
   }, [data, schema.exportOptions, schema.operations?.export, effectiveApiOps, schema.objectName, objectName, objectSchema, generateColumns, dataSource, hasInlineData, schemaFilter, schemaSort]);
@@ -3699,7 +3876,26 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       // producer's types have not held in practice. Destructuring a null below
       // would throw where the pre-#6004 code passed it through.
       if (!col) return col;
-      const { type: producerType, ...rest } = col;
+      const { type: producerType, ...draft } = col;
+      // ⭐ THE MASKED FLAG (objectui#10583) — stamped HERE, before the fold,
+      // because the fold is exactly what erases the answer: `password` and
+      // `secret` are not `TableColumnType` members, so `normalizeTableColumnType`
+      // drops them and `data-table` could never tell a masked column from a
+      // text one. It also must not ask the question itself — it cannot import
+      // `@object-ui/fields` — so this producer asks `isMaskedFieldType()` (via
+      // `isMaskedGridColumn`) and the table obeys the flag: no Ctrl+C / Cmd+C
+      // copy, no `title` tooltip, no column in its CSV export, no inline edit.
+      //
+      // Every path that writes `type` is covered for the same reason the fold
+      // is: all four `generateColumns()` literals and the enrichment map above
+      // pass through this pass. The object-declared type is read beside the
+      // producer's for the narrow-only union — path A forwards a VIEW-authored
+      // type ahead of the object's, and `type: 'text'` over a `secret` column
+      // must keep the flag. Written only when true, so every unmasked column
+      // reaches the table byte-identical to before.
+      const rest = isMaskedGridColumn(producerType, objectSchema?.fields?.[col.accessorKey]?.type)
+        ? { ...draft, masked: true }
+        : draft;
       if (producerType == null) return rest;
       const normalized = normalizeTableColumnType(producerType);
       if (normalized === undefined) return rest;
@@ -5157,7 +5353,16 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       return 'border-l-gray-300';
     };
 
+    // objectui#10583 — a MASKED column (the rule that stamps `TableColumn.masked`)
+    // is drawn only through its own `cell`, which draws the mask. The branches
+    // below pick amount / stage / date / percent by the field's NAME and print
+    // the raw value, so a masked column is never classified; it lands in the
+    // `col.cell` branch, and the title row routes it through `cell` as well.
+    const isMaskedCardColumn = (key: string) =>
+      isMaskedGridColumn(colMap.get(key)?.type, objectSchema?.fields?.[key]?.type);
+
     const classify = (key: string): 'amount' | 'stage' | 'date' | 'percent' | 'other' => {
+      if (isMaskedCardColumn(key)) return 'other';
       const k = key.toLowerCase();
       if (amountKeys.some(p => k.includes(p))) return 'amount';
       if (stageKeys.some(p => k.includes(p))) return 'stage';
@@ -5217,7 +5422,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                 {/* Title row - Name as bold prominent title */}
                 {titleCol && (
                   <div className="font-semibold text-sm truncate mb-1">
-                    {coerceToSafeValue(row[titleCol.accessorKey]) ?? '—'}
+                    {isMaskedCardColumn(titleCol.accessorKey)
+                      ? titleCol.cell?.(row[titleCol.accessorKey], row)
+                      : (coerceToSafeValue(row[titleCol.accessorKey]) ?? '—')}
                   </div>
                 )}
 
@@ -5681,7 +5888,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     <div ref={pullRef} className="relative h-full flex flex-col" {...anchorCaptureProps}>
       {/* Re-fetch indicator while existing rows remain visible (filter/sort
           change). The initial-load skeleton above handles the empty case. */}
-      <RefreshIndicator active={loading && data.length > 0} />
+      <RefreshIndicator active={loading && data.length > 0} ariaLabel={t('grid.refreshing')} />
       {pullDistance > 0 && (
         <div
           className="flex items-center justify-center text-xs text-muted-foreground"

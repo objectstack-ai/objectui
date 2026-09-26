@@ -166,6 +166,7 @@ const pt = {
     noPermissionToSave: "Você não tem permissão para salvar este registro.",
     submitFailed: "Não foi possível salvar. Tente novamente.",
     uploadInFlight: "Aguarde a conclusão do upload antes de salvar.",
+    clearedOnHide: "O que não se aplica mais aos valores atuais foi limpo: {{fields}}",
     discardTitle: "Descartar as alterações?",
     discardMessage: "Você tem alterações não salvas. Se fechar este formulário agora, suas edições serão perdidas.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
@@ -287,6 +288,10 @@ const pt = {
         "Não salvo: {{name}} “{{text}}” não é um número. Informe decimais simples (exemplo: 30.2741, 120.1551).",
       refusedResidue:
         "Não salvo: {{name}} “{{text}}” e {{otherName}} “{{otherText}}” não são números. Informe decimais simples (exemplo: 30.2741, 120.1551).",
+    },
+    date: {
+      impossibleDay:
+        "O valor salvo “{{value}}” não é uma data real. Escolha uma data para substituí-lo.",
     },
     dateTime: {
       impossibleDay:
@@ -1123,6 +1128,7 @@ const pt = {
   },
   chart: {
     loading: "Carregando gráfico…",
+    refreshing: "Atualizando…",
     nullCategory: "(Não especificado)",
     scatterOneMeasure: "Um gráfico de dispersão traça uma única medida. Mantenha apenas uma série:",
     unconfigured: {
@@ -1144,6 +1150,7 @@ const pt = {
       sourceLabel: "Fonte de dados:",
     },
     loading: "Carregando…",
+    refreshing: "Atualizando…",
     pickMeasures: "Escolha medidas (valores) para este widget de dataset.",
     datasetUnsupported: "Esta fonte de dados não oferece suporte a consultas de dataset.",
     details: "Detalhes",
@@ -1915,6 +1922,7 @@ const pt = {
       title: "Título",
       viewType: "Tipo de visualização",
       recordCount: "{{count}} registros",
+      recordCountOne: "{{count}} registro",
       save: "Salvar",
       discard: "Descartar",
       createView: "Criar visualização",

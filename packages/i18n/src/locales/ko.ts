@@ -167,6 +167,7 @@ const ko = {
     noPermissionToSave: "이 레코드를 저장할 권한이 없습니다.",
     submitFailed: "저장하지 못했습니다. 다시 시도해 주세요.",
     uploadInFlight: "업로드가 완료된 후에 저장하세요.",
+    clearedOnHide: "현재 값에 더 이상 해당하지 않는 항목을 비웠습니다: {{fields}}",
     discardTitle: "변경 내용을 버릴까요?",
     discardMessage: "저장하지 않은 변경 내용이 있습니다. 지금 이 양식을 닫으면 편집 내용이 사라집니다.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
@@ -288,6 +289,10 @@ const ko = {
         "저장되지 않았습니다: {{name}} “{{text}}”은(는) 숫자가 아닙니다. 일반 소수로 입력하세요(예: 30.2741, 120.1551).",
       refusedResidue:
         "저장되지 않았습니다: {{name}} “{{text}}”과(와) {{otherName}} “{{otherText}}”은(는) 숫자가 아닙니다. 일반 소수로 입력하세요(예: 30.2741, 120.1551).",
+    },
+    date: {
+      impossibleDay:
+        "저장된 값 “{{value}}”은(는) 실제 날짜가 아닙니다. 바꾸려면 날짜를 선택하세요.",
     },
     dateTime: {
       impossibleDay:
@@ -1124,6 +1129,7 @@ const ko = {
   },
   chart: {
     loading: "차트 로딩 중…",
+    refreshing: "새로고침 중…",
     nullCategory: "(미지정)",
     scatterOneMeasure: "산점도는 측정값 하나만 그립니다. 계열을 하나만 남기세요:",
     unconfigured: {
@@ -1145,6 +1151,7 @@ const ko = {
       sourceLabel: "데이터 소스:",
     },
     loading: "로딩 중…",
+    refreshing: "새로고침 중…",
     pickMeasures: "이 데이터셋 위젯의 측정값(값)을 선택하세요.",
     datasetUnsupported: "이 데이터 소스는 데이터셋 쿼리를 지원하지 않습니다.",
     details: "세부 정보",
@@ -1916,6 +1923,7 @@ const ko = {
       title: "제목",
       viewType: "뷰 유형",
       recordCount: "{{count}}개 레코드",
+      recordCountOne: "{{count}}개 레코드",
       save: "저장",
       discard: "취소",
       createView: "뷰 생성",

@@ -26,6 +26,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type { ObjectCalendarSchema, DataSource, CalendarConfig } from '@object-ui/types';
 import { CalendarView, type CalendarViewEvent } from './CalendarView';
 import { usePullToRefresh } from '@object-ui/mobile';
+import { useDisplayLocale } from '@object-ui/i18n';
 import {
   useNavigationOverlay,
   useSafeTranslate,
@@ -35,6 +36,7 @@ import {
   declaredUserMessage,
   useSettledSchema,
   NonGridRowCeilingNote,
+  useDataInvalidation,
 } from '@object-ui/react';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -344,6 +346,13 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // the provider-less fallback the same way (objectui#6219), so the label is
   // correct whether or not an `I18nProvider` is mounted.
   const { t } = useObjectTranslation();
+  // The locale the quick-create dialog formats its date and time with: the
+  // month grid's own rule (`CalendarView`'s `effectiveLocale`), so the dialog
+  // never disagrees with the cell it opened from. A set `locale` prop is the
+  // host's choice and still wins; unset (or the grid's `"default"` spelling),
+  // it is the DISPLAY locale, never the machine's (objectui#10668).
+  const displayLocale = useDisplayLocale();
+  const dialogLocale = locale !== undefined && locale !== 'default' ? locale : displayLocale;
   // When the parent (e.g. ObjectView) pre-fetches data and passes it via the `data` prop,
   // we must not trigger a second fetch. Detect external data by checking for an array.
   const hasExternalData = Array.isArray(externalData);
@@ -567,6 +576,9 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
       // set that is not being drawn. Every other `setData` path here already
       // resets it — this was the one that did not.
       setRowCeiling(null);
+      // ...and an error from that fetch, for the same reason (objectui#10663):
+      // the rows now on screen are not the query that failed.
+      setError(null);
     }
   }, [externalData, hasExternalData]);
 
@@ -575,6 +587,18 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
       setLoading(externalLoading);
     }
   }, [externalLoading, hasExternalData]);
+
+  // objectui#10572 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+  // write to the object this calendar QUERIES is declared, and the fetch
+  // effect below names it, so the events are re-read. The `onMutation`
+  // subscription above cannot see a write that bypasses the data source (a
+  // page action over raw HTTP); the bus can. Subscribed only on the `object`
+  // provider without external data — inline and external events are not this
+  // effect's query.
+  const invalidationNonce = useDataInvalidation(
+    !hasExternalData && dataProvider === 'object' ? schemaObjectName || undefined : undefined,
+  );
 
   // Fetch data based on provider
   useEffect(() => {
@@ -662,6 +686,9 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
           if (isMounted) {
             setData(capped.rows);
             setRowCeiling(capped);
+            // Committed rows clear an earlier failure (objectui#10663); the
+            // reasoning sits on the `object` arm's commit below.
+            setError(null);
             setLoading(false);
           }
           return;
@@ -739,10 +766,24 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
           if (isMounted) {
             setData(capped.rows);
             setRowCeiling(capped);
+            // objectui#10663 — `error` is an early return in the render, so a
+            // report nothing clears kept the calendar off screen until a
+            // remount, and since objectui#10572 one failed data-invalidation
+            // re-read was enough to get there. It is cleared HERE, when the
+            // current run commits rows: those rows answer the current query,
+            // so no earlier failure describes the screen any more
+            // (objectui#10578's rule on `ObjectGantt`). `isMounted` is this
+            // run's own flag, false once a newer run has started, so a
+            // superseded run's clear is discarded with its answer. ⛔ Not when
+            // a run starts: until rows land, the report stays.
+            setError(null);
           }
         } else if (dataProvider === 'api') {
           console.warn('API provider not yet implemented for ObjectCalendar');
-          if (isMounted) setData([]);
+          if (isMounted) {
+            setData([]);
+            setError(null);
+          }
         }
         
         if (isMounted) setLoading(false);
@@ -758,7 +799,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     fetchData();
     return () => { isMounted = false; };
   }, [hasExternalData, dataProvider, schemaObjectName, dataItems, dataSource, hasInlineData,
-      schema.filter, schema.sort, refreshKey, objectSchemaReady, objectSchema, perms]);
+      schema.filter, schema.sort, refreshKey, objectSchemaReady, objectSchema, perms, invalidationNonce]);
 
   // Transform data to calendar events, and separate out the records that have
   // no date to be placed on at all (objectui#7071 — see the early return in the
@@ -1410,9 +1451,9 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
             <DialogDescription>
               {quickCreate && (() => {
                 const hasRange = quickCreate.end && quickCreate.end.getTime() !== quickCreate.start.getTime();
-                const datePart = quickCreate.start.toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' });
+                const datePart = quickCreate.start.toLocaleDateString(dialogLocale, { year: 'numeric', month: 'long', day: 'numeric' });
                 if (hasRange) {
-                  const fmt = (d: Date) => d.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
+                  const fmt = (d: Date) => d.toLocaleTimeString(dialogLocale, { hour: 'numeric', minute: '2-digit' });
                   return <>{datePart} · {fmt(quickCreate.start)} – {fmt(quickCreate.end!)}</>;
                 }
                 return <>{t('calendar.onDate', { date: datePart, defaultValue: 'On {{date}}' })}</>;

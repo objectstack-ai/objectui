@@ -47,8 +47,6 @@ interface ResolvedField {
   referenceTo?: string;
   /** Lookup-like fields: display field on referenced object */
   displayField?: string;
-  /** Lookup-like fields: id field on referenced object */
-  idField?: string;
 }
 
 /**
@@ -272,7 +270,6 @@ function resolveFields(
     let resolvedType: string | undefined = f.type;
     let referenceTo: string | undefined;
     let displayField: string | undefined;
-    let idField: string | undefined;
     // Object-level field label from objectDef, used as a fallback when the
     // view author didn't supply `f.label` (or it was stripped during compile).
     // Without this the chip degrades to the raw snake_case field key.
@@ -297,12 +294,21 @@ function resolveFields(
         // legacy-only def is canonicalised ONCE at the ingestion choke point
         // (`normalizeSchemaReferenceKeys`, which warns in dev) — never here.
         referenceTo = fieldDef.reference;
-        // objectui#7642 CENSUS — verdict KEEP. `objectDef` is a PUBLIC prop typed
-        // `any` on a publicly exported component, so the bag cannot be traced past
-        // this package: the in-repo caller (`ListView`) passes `getObjectSchema`
-        // output, but an external host's is unknown. No camel leg here either.
-        displayField = fieldDef.display_field ?? fieldDef.reference_field;
-        idField = fieldDef.id_field;
+        // objectui#10545 — the display field is read in the spelling
+        // `FieldSchema` DECLARES, `displayField`, and only in it; `FieldSchema`
+        // refuses `display_field` (renaming it to `displayField`) and
+        // `reference_field` (pointing at `referenceVia`) with
+        // `unrecognized_keys`. The in-repo caller (`ListView`) passes
+        // `getObjectSchema` output, and a host's `objectDef` is held to the same
+        // contract (AGENTS.md #0.1): this matches `ListView`'s own candidate and
+        // `plugin-grid`'s copy set (`RELATIONAL_META_READ_SET`, objectui#7155),
+        // and supersedes the objectui#7642 census KEEP, which held only while
+        // this chain had no `displayField` leg.
+        //
+        // No id column is read: `FieldSchema` declares none for a lookup (it
+        // refuses `idField` and `id_field` alike), so `LookupValuePicker` keys
+        // the lookup by its own `id` default.
+        displayField = fieldDef.displayField;
 
         if (options.length === 0 && fieldDef.options) {
           if (Array.isArray(fieldDef.options)) {
@@ -364,7 +370,6 @@ function resolveFields(
       options,
       referenceTo,
       displayField,
-      idField,
     };
   });
 }
@@ -599,7 +604,6 @@ function DropdownFilters({ fields, objectDef, data, onFilterChange, maxVisible, 
                   type: f.type,
                   referenceTo: f.referenceTo,
                   displayField: f.displayField,
-                  idField: f.idField,
                 }}
                 value={selected}
                 multiple={true}

@@ -6,9 +6,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import type { DataSource, TimelineSchema, ListViewTimelineConfig } from '@object-ui/types';
-import { useDataScope, useNavigationOverlay, useSafeFieldLabel, useSettledSchema } from '@object-ui/react';
+import { useDataScope, useNavigationOverlay, useSafeFieldLabel, useSettledSchema, useDataInvalidation } from '@object-ui/react';
 import { NavigationOverlay } from '@object-ui/components';
 import { extractRecords, buildExpandFields, convertSortToQueryParams, createFieldColorResolver, recordDisplayValueAt } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
@@ -256,6 +256,17 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
     return !hasInlineItems && !hasInlineData && !!schema.objectName;
   });
   const [error, setError] = useState<Error | null>(null);
+  /**
+   * objectui#10663 — which run of the fetch effect below is the CURRENT one.
+   * Every run takes the next number, so a run a newer one has superseded can
+   * tell, and it may then neither clear the current run's `error` nor raise its
+   * own. objectui#10684 — nor commit its rows or release `loading`: an earlier
+   * answer that lands after the current one answers a query nobody is asking
+   * any more, and a superseded run that settles first would otherwise drop the
+   * skeleton while the current read is still in flight. Read by those four
+   * writes only; nothing renders from it.
+   */
+  const fetchSeqRef = useRef(0);
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Resolve nested TimelineConfig (spec-compliant)
@@ -341,7 +352,20 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
   const filterKey = JSON.stringify(schema.filter ?? null);
   const sortKey = JSON.stringify(schema.sort ?? null);
 
+  // objectui#10623 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+  // write to the object this timeline QUERIES is declared, and the fetch
+  // effect below names it, so the rows are re-read in place. The canvas stays
+  // mounted through the re-read (the skeleton below is drawn only while there
+  // are no items yet), so its scroll position survives. Subscribed only when
+  // the timeline fetches for itself: authored `items`, host `data` and bound
+  // rows are not this effect's query.
+  const fetchesForItself = !!schema.objectName && !boundData && !schema.items && !(props as any).data;
+  const invalidationNonce = useDataInvalidation(fetchesForItself ? schema.objectName : undefined);
+
   useEffect(() => {
+    const seq = ++fetchSeqRef.current;
+    const isCurrent = () => fetchSeqRef.current === seq;
     const fetchData = async () => {
         if (!dataSource || typeof dataSource.find !== 'function' || !schema.objectName) {
             // Can't fetch — clear loading so we don't sit in skeleton forever.
@@ -408,16 +432,40 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
                 ...(expand.length > 0 ? { $expand: expand } : {}),
             });
             const data = extractRecords(results);
-            setFetchedData(data);
+            // objectui#10684 — only the CURRENT run commits rows. A superseded
+            // answer (the filter, sort or object changed, or a bus re-read
+            // started, while this read was in flight) is dropped on arrival,
+            // so it can no longer land after the current answer and replace it.
+            //
+            // objectui#10663 — `error` is an early return in the render, so a
+            // report nothing clears kept the canvas off screen until a remount,
+            // and since objectui#10623 one failed data-invalidation re-read was
+            // enough to get there. It is cleared HERE, when the current run
+            // commits rows: those rows answer the current query, so no earlier
+            // failure describes the screen any more (objectui#10578's rule on
+            // `ObjectGantt`). ⛔ Not when a run starts: until rows land, the
+            // report stays.
+            if (isCurrent()) {
+                setFetchedData(data);
+                setError(null);
+            }
         } catch (e) {
             console.error(e);
-            setError(e as Error);
+            // A superseded run's failure no longer describes the screen, so it
+            // may not raise the error screen over the current run's rows. A
+            // failed background re-read is reported like any other: this
+            // block has no silent mode.
+            if (isCurrent()) setError(e as Error);
         } finally {
-            setLoading(false);
+            // objectui#10684 — only the current run owns the flag. A superseded
+            // run that settles first leaves the skeleton up for the read still
+            // in flight; the current run clears it on every exit, a throw
+            // included, so it is never left on.
+            if (isCurrent()) setLoading(false);
         }
     };
 
-    if (schema.objectName && !boundData && !schema.items && !(props as any).data) {
+    if (fetchesForItself) {
         // ⭐ objectui#7895 — the object definition GATES this query; it does not
         // refine it afterwards. `objectDef` stays in the dependency list below
         // and the two are ONE mechanism, not two: the dependency is what makes
@@ -439,7 +487,7 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
         setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `schema.filter`/`schema.sort` are tracked by CONTENT (filterKey/sortKey) on purpose; see above
-  }, [schema.objectName, dataSource, boundData, schema.items, (props as any).data, refreshKey, objectDefReady, objectDef, filterKey, sortKey, schema.limit, perms]);
+  }, [schema.objectName, dataSource, boundData, schema.items, (props as any).data, refreshKey, objectDefReady, objectDef, filterKey, sortKey, schema.limit, perms, invalidationNonce]);
 
   const rawData = (props as any).data || boundData || fetchedData;
   const { t } = useTimelineTranslation();

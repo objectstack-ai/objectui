@@ -36,7 +36,7 @@
  */
 
 import React from 'react';
-import { formatDate } from '@object-ui/core';
+import { formatDate, getRecordDisplayName } from '@object-ui/core';
 import type { LookupColumnDef } from '@object-ui/types';
 
 /**
@@ -146,29 +146,38 @@ export interface LookupColumnRenderContext {
   descriptors: Record<string, any>;
   /** Type-aware renderer resolver; when absent every cell degrades to text. */
   cellRenderer?: LookupCellRendererResolver;
-  /** The referenced object's `titleFormat`, applied to the display column. */
-  titleFormat?: string | null;
-  /** The lookup's display field — the column the title template stands in for. */
+  /**
+   * The referenced object's schema. When given, the display column renders the
+   * record's title through `@object-ui/core`'s `getRecordDisplayName`, the same
+   * call the lookup dropdown's option label and the read cell make
+   * (objectui#10486).
+   */
+  objectSchema?: Record<string, unknown> | null;
+  /**
+   * The lookup field's DECLARED display field, handed to the resolver as its
+   * `titleField`. `undefined` when the field declares none: the `name` default
+   * the display column is keyed on is a guess, and a guess never outranks the
+   * referenced object's own declarations.
+   */
+  titleField?: string;
+  /** The column the record title stands in for (the display column's key). */
   displayField?: string;
   /** Locale for the plain-text `$date` fallback. */
   displayLocale?: string;
 }
 
 /**
- * Sentinel marking a template slot that resolved to nothing, so the separator
- * around it can be stripped. Built with `fromCharCode` rather than written as
- * a literal so no control byte — raw or escaped — ever lands in this source
- * file (`scripts/check-control-bytes.mjs`).
- */
-const EMPTY_SLOT = String.fromCharCode(0);
-
-/**
  * Render one column of one candidate record.
  *
  * Order:
- *   1. `titleFormat` template, for the display column only — so users see a
- *      human-readable name instead of a raw id when the display field
- *      (commonly defaulted to `name`) does not exist on the record.
+ *   1. the record title, for the display column only and only when the
+ *      referenced object's schema is given: `getRecordDisplayName` with the
+ *      lookup's declared display field as its `titleField`, i.e. the field's
+ *      own `displayField`, then the object's `nameField`, then its deprecated
+ *      `titleFormat` template, then type-aware derivation (ADR-0079; the lookup
+ *      branch of objectui#9436's ruling C1). The resolver's own floor
+ *      (`Untitled` / `Record #<id>`) is not a title here, so a record with
+ *      nothing nameable falls through to step 2 and keeps its column's value.
  *   2. the type-aware cell renderer for the column's field descriptor.
  *   3. a plain-text fallback for columns with no descriptor / no resolver.
  *
@@ -182,31 +191,19 @@ export function renderLookupColumnValue(
   col: LookupColumnDef,
   ctx: LookupColumnRenderContext,
 ): React.ReactNode {
-  const { descriptors, cellRenderer, titleFormat, displayField, displayLocale } = ctx;
+  const { descriptors, cellRenderer, objectSchema, titleField, displayField, displayLocale } = ctx;
 
-  // When the column is the auto-inferred displayField column and the
-  // referenced object declares a `titleFormat`, render via the template so
-  // users see a human-readable name instead of a raw id.
-  if (titleFormat && col.field === displayField) {
-    const SEP = '[-\\u2013\\u2014|/·,:]';
-    let any = false;
-    const raw = titleFormat.replace(/\{([^{}]+)\}/g, (_m, key) => {
-      const v = (record as any)?.[key.trim()];
-      if (v !== null && v !== undefined && v !== '') {
-        any = true;
-        return String(v);
-      }
-      return EMPTY_SLOT;
-    });
-    if (any) {
-      const out = raw
-        .replace(new RegExp(`\\s*${SEP}\\s*${EMPTY_SLOT}`, 'g'), '')
-        .replace(new RegExp(`${EMPTY_SLOT}\\s*${SEP}\\s*`, 'g'), '')
-        .replace(new RegExp(EMPTY_SLOT, 'g'), '')
-        .replace(/\s+/g, ' ')
-        .trim();
-      if (out) return out;
-    }
+  // The display column reads the record's title exactly as the dropdown's
+  // option label does (`recordToOption` in LookupField): same resolver, same
+  // `titleField`, same floor exclusion. The ladder itself lives in
+  // `getRecordDisplayName` alone, so the picker, the dropdown and the read cell
+  // cannot rank the object's declarations differently again (objectui#10486).
+  if (objectSchema && col.field === displayField) {
+    const title = getRecordDisplayName(objectSchema, record, { titleField });
+    const id = record?.id ?? record?._id;
+    const isFloor =
+      title === 'Untitled' || (id !== null && id !== undefined && title === `Record #${id}`);
+    if (!isFloor) return title;
   }
 
   const val = record?.[col.field];

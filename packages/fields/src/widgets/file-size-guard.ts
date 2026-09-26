@@ -30,11 +30,14 @@
  * post-mortem that restates it lights that census up forever.
  */
 
+import type { TranslateFn } from '@object-ui/i18n';
+
 /**
- * Minimal shape of the i18next `t` this module needs, matching the established
- * `TranslateFn` pattern in `app-shell/src/providers/writeWarningToast`.
+ * Minimal shape of the i18next `t` this module needs — RE-EXPORTED from its one
+ * authority in `@object-ui/i18n`, never re-declared (objectui#8261). The
+ * sibling widgets that import it from here keep doing so; no import path moves.
  */
-export type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
+export type { TranslateFn } from '@object-ui/i18n';
 
 /** Divisor for rendering a byte limit as MB, matching the widgets' size display. */
 const BYTES_PER_MB = 1024 * 1024;

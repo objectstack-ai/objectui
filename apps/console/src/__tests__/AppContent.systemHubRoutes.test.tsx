@@ -349,10 +349,13 @@ describe('system-hub entries reach the framework system objects (objectui#3655)'
 
 describe('zero-app branch — measured, not asserted away (objectui#3655)', () => {
   /**
-   * The sidebars' `sys-*` cluster renders ONLY when there is no active app, so
-   * this is the branch its Users / Organizations / Roles entries are clicked
-   * in. `AppContent`'s no-active-app route table declares no `:objectName`
-   * route, so the redirect target leaves the pseudo-route family
+   * On a zero-app deployment this is the branch the sidebar's Users /
+   * Organizations / Roles entries are clicked into: `UnifiedSidebar`'s `/home`
+   * Administration cluster carries all three, and `/apps/setup` has no active
+   * app there. (The since-removed `AppSidebar` rendered its own `sys-*` cluster
+   * ONLY in that state; objectui#5817.) `AppContent`'s no-active-app route
+   * table declares no `:objectName` route, so the redirect target leaves the
+   * pseudo-route family
    * (`isSystemRoute` keys on a `system` path segment) and falls into the "No
    * Apps Configured" guard.
    *

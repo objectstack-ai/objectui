@@ -28,7 +28,7 @@ import {
 } from '@object-ui/components';
 import { LineItemsField, type GridColumn } from '@object-ui/fields';
 import { createSafeTranslation } from '@object-ui/i18n';
-import { useSchemaContext, useRecordContext } from '@object-ui/react';
+import { useSchemaContext, useRecordContext, useFilterScope, useResolvedFilter } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import { buildMasterDetailEditBatch, sumRows } from './masterDetailTx';
 import { applyColumnPermissions } from './fieldWriteGate';
@@ -257,10 +257,21 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
   // refusal is kept as a VALUE and rendered below; collapsing it to
   // `undefined` would mean "no filter" and load this panel's rows
   // unconstrained, the silent widening objectui#9001 closed.
-  const filterKey = JSON.stringify(schema.filter ?? null);
+  //
+  // objectui#10666 — the panel's own `filter` is lowered AFTER every context
+  // token in it (`{current_user_id}`, `{current_org_id}`, the date macros) is
+  // resolved ONCE through `@object-ui/core`'s shared
+  // `resolveFilterPlaceholders`, against the session scope the host provides,
+  // and HELD by structure (`useResolvedFilter` in `@object-ui/react`). The
+  // panel merged the literal token into the parent scope before. The content
+  // key is taken over the held value, so a new signed-in user moves it and
+  // reloads, and a date macro such as `{now}` does not move it every render.
+  const filterScope = useFilterScope();
+  const scopeFilter = useResolvedFilter(schema.filter, filterScope);
+  const filterKey = JSON.stringify(scopeFilter ?? null);
   const sortKey = JSON.stringify(schema.sort ?? null);
   const listFilterResult = useMemo(
-    () => toFilterNodeSafely(schema.filter),
+    () => toFilterNodeSafely(scopeFilter),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on CONTENT, see above
     [filterKey],
   );

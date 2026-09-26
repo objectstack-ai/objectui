@@ -28,7 +28,7 @@ import {
   resolveIcon,
   useIsMobile,
 } from '@object-ui/components';
-import { SchemaRenderer, useCapabilityGate, useCondition, toPredicateInput, useSettledSchema, type RelatedRowActionDef } from '@object-ui/react';
+import { SchemaRenderer, useCapabilityGate, useCondition, toPredicateInput, useSettledSchema, useFilterScope, useResolvedFilter, type RelatedRowActionDef } from '@object-ui/react';
 import {
   Plus,
   ExternalLink,
@@ -651,9 +651,20 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   // rendered below; it is deliberately NOT collapsed to `undefined`, which
   // would mean "no filter" and run this list unconstrained — the silent
   // widening objectui#9001 closed.
-  const filterKey = JSON.stringify(filter ?? null);
+  //
+  // objectui#10666 — the list's own `filter` is lowered AFTER every context
+  // token in it (`{current_user_id}`, `{current_org_id}`, the date macros) is
+  // resolved ONCE through `@object-ui/core`'s shared
+  // `resolveFilterPlaceholders`, against the session scope the host provides,
+  // and HELD by structure (`useResolvedFilter` in `@object-ui/react`). The list
+  // merged the literal token into the parent scope before. The content key
+  // below is taken over the held value, so a new signed-in user moves it and
+  // re-queries, and a date macro such as `{now}` does not move it every render.
+  const filterScope = useFilterScope();
+  const scopeFilter = useResolvedFilter(filter, filterScope);
+  const filterKey = JSON.stringify(scopeFilter ?? null);
   const listFilterResult = React.useMemo(
-    () => toFilterNodeSafely(filter),
+    () => toFilterNodeSafely(scopeFilter),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [filterKey],
   );

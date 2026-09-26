@@ -7,14 +7,13 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
-import { useDataScope, SchemaRendererContext, useNavigationOverlay, useSafeFieldLabel, useSettledSchema, useDataInvalidation, useFilterScope } from '@object-ui/react';
+import { useDataScope, SchemaRendererContext, useNavigationOverlay, useSafeFieldLabel, useSettledSchema, useDataInvalidation, useFilterScope, useResolvedFilter } from '@object-ui/react';
 import { ComponentRegistry, buildExpandFields, getRecordDisplayName, isEmptyValue } from '@object-ui/core';
 import { cn, Card, CardContent, NavigationOverlay } from '@object-ui/components';
 import { usePermissions } from '@object-ui/permissions';
 import type { DataSource, GalleryConfig, ObjectGallerySchema, QueryParams } from '@object-ui/types';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import { getCellRenderer, resolveCellRendererType, readFileValues } from '@object-ui/fields';
-import { useResolvedAuthoredFilter } from './useResolvedAuthoredFilter';
 
 export interface ObjectGalleryProps {
     /**
@@ -417,14 +416,14 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
     // (`{current_user_id}`, `{current_org_id}`, the date macros) resolved ONCE
     // through `@object-ui/core`'s shared `resolveFilterPlaceholders`, against
     // the session scope the host provides, and HELD by structure (see
-    // `useResolvedAuthoredFilter`, the hold `ListView` has used since
-    // objectui#10607). A directly authored gallery sent the literal token
+    // `useResolvedFilter` in `@object-ui/react`, the hold `ListView` has used
+    // since objectui#10607). A directly authored gallery sent the literal token
     // before; a gallery rendered as a `list-view` child was already handed a
     // resolved filter, and resolving it again changes nothing. The query and
     // the fetch effect's dependency list below read THIS, never the raw
     // `schema.filter`, so the effect does not re-run on every render.
     const filterScope = useFilterScope();
-    const authoredFilter = useResolvedAuthoredFilter(schema.filter, filterScope);
+    const authoredFilter = useResolvedFilter(schema.filter, filterScope);
 
     useEffect(() => {
         let isMounted = true;

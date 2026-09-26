@@ -15,14 +15,13 @@ import { VALUELESS_FILTER_BUILDER_OPERATORS, isFilterValueComplete } from '@obje
 import { ViewSwitcherDropdown, ViewType } from './ViewSwitcher';
 import { ViewSettingsPopover } from './components/ViewSettingsPopover';
 import { UserFilters } from './UserFilters';
-import { SchemaRenderer, useNavigationOverlay, classifyLoadError, usePredicateScope, useDataInvalidation, useFilterScope } from '@object-ui/react';
+import { SchemaRenderer, useNavigationOverlay, classifyLoadError, usePredicateScope, useDataInvalidation, useFilterScope, useResolvedFilter } from '@object-ui/react';
 import type { LoadErrorKind } from '@object-ui/react';
 import { useDensityMode } from '@object-ui/react';
 import type { ListViewSchema, ObjectMapConfig } from '@object-ui/types';
 import { detectStatusField } from '@object-ui/types';
 import { usePullToRefresh } from '@object-ui/mobile';
 import { resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveEffectiveCrudAffordances, isObjectInlineEditable, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort } from '@object-ui/core';
-import { useResolvedAuthoredFilter } from './useResolvedAuthoredFilter';
 import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLocale, pickLocalized } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
 // NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
@@ -1107,11 +1106,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
 
   // objectui#10607 — the node's own `filter`, with every placeholder resolved
   // once against the host's session scope and held (see
-  // `useResolvedAuthoredFilter`). The fetch, the page-reset signature, the
+  // `useResolvedFilter` in `@object-ui/react`). The fetch, the page-reset signature, the
   // self-querying views, the child view's node, the export and the empty-state
   // copy below all read THIS, never the raw `schema.filter`.
   const filterScope = useFilterScope();
-  const authoredFilter = useResolvedAuthoredFilter(schema.filter, filterScope);
+  const authoredFilter = useResolvedFilter(schema.filter, filterScope);
 
   // Convenience: resolve field label with schema.objectName pre-bound
   const tFieldLabel = React.useCallback(

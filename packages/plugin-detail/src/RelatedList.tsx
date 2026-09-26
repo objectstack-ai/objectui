@@ -69,6 +69,7 @@ import {
 import { useSafeFieldLabel } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import { useDetailTranslation } from './useDetailTranslation';
+import { isMaskedDetailFieldType } from './fieldEnrichment';
 
 export interface RelatedListProps {
   title: string;
@@ -1947,6 +1948,51 @@ export const RelatedList: React.FC<RelatedListProps> = ({
     });
   }, [effectiveColumns, windowed, objectSchema, withheldFromServerSort]);
 
+  /**
+   * Are this list's OBJECT field types still unknown (objectui#10657)? True
+   * while an object definition is expected (there is an object to ask about,
+   * and a data source that can answer) but none is in hand: the read is in
+   * flight, or it settled with nothing, which is how a failed read settles.
+   * With no `getObjectSchema` there is nothing to wait for, and the authored
+   * column types are all this list will ever know.
+   */
+  const objectTypesPending =
+    !!api && typeof dataSource?.getObjectSchema === 'function' && !objectSchema?.fields;
+
+  /**
+   * The columns handed to the table, each stamped `masked` when its cell is
+   * drawn as a mask (objectui#10657). This list draws a `password` / `secret`
+   * cell as the mask through `getCellRenderer`, but the table it feeds cannot
+   * import `@object-ui/fields`, so without the flag its Ctrl+C / Cmd+C copy,
+   * the cell tooltip, the header sort (the embedded table's headers drive this
+   * list's own sort) and the auto width all read the raw value.
+   *
+   * The rule is not restated here: {@link isMaskedDetailFieldType} asks
+   * `isMaskedFieldType()`, the one authority, over the authored column `type`
+   * and the object-declared type as a narrow-only UNION — the same shape
+   * `ObjectGrid` stamps with. Stamped at this one seam rather than in each of
+   * the three builders above (authored object columns, bare-string columns,
+   * the auto-derived walk), so no path to the table can miss it.
+   *
+   * Fail closed: while the object's types are unknown
+   * ({@link objectTypesPending}), no column can be told apart from a masked
+   * one, so every column is stamped. A column the loaded definition does not
+   * declare is judged on its authored `type` alone.
+   *
+   * With nothing to stamp, the list is handed on BY REFERENCE, as
+   * `sortableColumns` hands it on (the data-table re-seed, objectui#4618).
+   */
+  const tableColumns = React.useMemo(() => {
+    const stamped = sortableColumns.map((col) => {
+      if (!col || typeof col !== 'object') return col;
+      const field = col.accessorKey || columnIdentity(col);
+      const fieldDef = field ? objectSchema?.fields?.[field] : undefined;
+      const masked = objectTypesPending || isMaskedDetailFieldType(col.type, fieldDef?.type);
+      return masked && col.masked !== true ? { ...col, masked: true } : col;
+    });
+    return stamped.every((col, i) => col === sortableColumns[i]) ? sortableColumns : stamped;
+  }, [sortableColumns, objectSchema, objectTypesPending]);
+
   // A `grid`/`table` list renders a real table, whose column headers carry the
   // sort. `list` renders `data-list`, which has none — so it keeps the button
   // row as its only sort control. A caller-supplied `schema` renders whatever
@@ -2003,7 +2049,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         return {
           type: 'data-table',
           data: paginatedData,
-          columns: sortableColumns,
+          columns: tableColumns,
           pagination: false, // We handle pagination ourselves
           pageSize: effectivePageSize || 10,
           searchable: false,
@@ -2040,7 +2086,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
       default:
         return { type: 'div', children: 'No view configured' };
     }
-  }, [type, paginatedData, sortableColumns, effectiveColumns, schema, effectivePageSize, hasRowActions, hasCustomRowActions, rowActions, onRowAction, onRowEdit, onRowDelete, handleDeleteRow, onRowClick, isMobile, api, objectSchema, activeSort, handleTableSort]);
+  }, [type, paginatedData, tableColumns, effectiveColumns, schema, effectivePageSize, hasRowActions, hasCustomRowActions, rowActions, onRowAction, onRowEdit, onRowDelete, handleDeleteRow, onRowClick, isMobile, api, objectSchema, activeSort, handleTableSort]);
 
   const headerClassName = collapsible ? 'cursor-pointer select-none' : undefined;
   const handleHeaderClick = collapsible ? () => setCollapsed((c) => !c) : undefined;

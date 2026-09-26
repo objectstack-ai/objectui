@@ -702,6 +702,65 @@ export interface TableColumn {
    * this slot and `data-table` reads it here — declared, forwarded, rendered.
    */
   wrap?: boolean;
+  /**
+   * The column holds a MASKED value — a credential whose cell is drawn as a
+   * mask. `data-table` withholds the raw value on every path of its own that
+   * reads it:
+   * - Ctrl+C / Cmd+C on one of its cells writes nothing to the clipboard;
+   * - the cell carries no `title` tooltip;
+   * - the table's CSV export leaves the column out;
+   * - the column never enters inline edit (on any trigger), because every
+   *   editor is seeded with the raw value;
+   * - the client search leaves the column out of its predicate;
+   * - its sort is disabled: the header is inert and the header menu offers no
+   *   sort, under client and manual sorting alike, and a client sort already
+   *   set on it stops ordering the rows;
+   * - its auto width is sized from its header, never from its values.
+   *
+   * Absent or `false` leaves every one of those paths exactly as it was. The
+   * last three are objectui#10657, which folded objectui#10658. Under
+   * `manualSearch` the table searches nothing itself: what the host's search
+   * matches is the host's.
+   *
+   * ⚠️ The flag withholds; it does not DRAW. The mask a reader sees comes from
+   * the PRODUCER's {@link TableColumn.cell} renderer. The table draws a column
+   * with no `cell` as its value, flag or not.
+   *
+   * ⭐ The producer decides, and the rule is not restated here. `ObjectGrid`,
+   * `RelatedList` (`@object-ui/plugin-detail`) and `ObjectDataTable`
+   * (`@object-ui/plugin-dashboard`) stamp this flag from `isMaskedFieldType()`
+   * in `@object-ui/fields` (objectui#8686), the one authority for "is this
+   * field type's cell drawn as a mask", reading the column's authored type and
+   * the object-declared type as a narrow-only UNION — a column authoring
+   * `type: 'text'` over a `secret` field keeps the flag once the object's
+   * types are known. `@object-ui/components` cannot import `@object-ui/fields`,
+   * so the table obeys the flag instead of asking the question itself.
+   *
+   * `RelatedList` and `ObjectDataTable` fail closed: while their object
+   * definition is in flight, or after its read failed, they stamp EVERY column.
+   * Not covered there: in that same window their cells draw a field the object
+   * declares `password` / `secret` as text, because the mask comes from that
+   * declaration (objectui#10657).
+   *
+   * Once the grid's object schema has loaded, `ObjectGrid` also leaves every
+   * masked field of its object out of its own client export, draws those
+   * fields through `cell` on its mobile card, and refuses them as grouping
+   * keys. Not covered there: on the host-fetched path (rows handed down as
+   * `data`, as `ListView` and `ObjectView` do), the grid's guards and the
+   * cell's own mask depend on the object schema, which the grid fetches after
+   * first paint, so until it arrives, and for good if that read fails, an
+   * untyped view column over a `password` / `secret` field draws and hands out
+   * the raw value (objectui#10657, which folded objectui#10706); the
+   * server-streamed export (`exportDownload`) sends the masked columns as
+   * before and relies on the server's masking; and the client JSON export, and
+   * this table's CSV export of a lookup column, write an expanded lookup
+   * record whole, so a credential field of the related object is not pruned.
+   *
+   * Declared by objectui#10583: the grid drew the mask while the table's
+   * keyboard copy wrote `String(row[accessorKey])` for every cell — the grid
+   * face of the disclosure objectui#8440 closed on the detail page.
+   */
+  masked?: boolean;
 }
 
 /**
@@ -761,6 +820,14 @@ export interface StaticTableColumn {
    * @deprecated Not part of the static `table` renderer's contract.
    */
   wrap?: never;
+  /**
+   * NOT on the static `table` surface (objectui#10583) — declared on the rich
+   * {@link TableColumn} only, where `data-table` reads it. The static renderer
+   * has no keyboard copy, tooltip, export or inline edit for it to withhold.
+   * Use `data-table` for the interactive set.
+   * @deprecated Not part of the static `table` renderer's contract.
+   */
+  masked?: never;
   /**
    * RETIRED from the static `table` surface (objectui#5474, ADR-0049) — the
    * static renderer never read it; a right-aligned column authored here was

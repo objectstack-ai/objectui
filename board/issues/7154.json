@@ -1,0 +1,35 @@
+{
+  "number": 7154,
+  "kind": "issue",
+  "title": "bug(plugin-grid): ObjectGrid's inline lookup picker ignores four more spec-declared field props — `multiple`, `allowCreate`, `lookupPageSize`, `dependsOn` are read on its own path and never copied",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T06:45:01Z",
+  "updated_at": "2026-09-01T09:24:50Z",
+  "closed_at": "2026-09-01T09:20:12Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7154",
+  "body": "Provenance: measured while implementing objectui#6875, by the derivation that card\nasked for. Filed unassigned. Not folded into #6875 — that card names five display/target\nspellings and its fix closes those; these four are a different slice of the same seam and\neach changes picker BEHAVIOUR, not just which display string renders.\n\n## What's measured\n\nobjectui#6875 replaced `ObjectGrid`'s hand-kept `RELATIONAL_META_KEYS` with a table in\n`packages/plugin-grid/src/relationalMetaKeys.ts` that classifies every key the grid's own\nconsumers read off the `fieldMeta` bag, plus a gate\n(`__tests__/relationalMetaCopySet.derivation.test.ts`) that re-extracts that read set from\nthe consumer sources. Running the extractor over the three consumers on the grid's render\npath — `LookupCellRenderer` (`packages/fields/src/index.tsx`), `LookupField.tsx` and\n`UserField.tsx` — surfaced four keys that are:\n\n1. **read on this path**, off `fieldMeta`, and\n2. **declared by `@objectstack/spec` 17.2.0's `FieldSchema`**, so a spec-compliant\n   producer can and does emit them, and\n3. **never copied** onto the column meta.\n\nVerbatim from `packages/fields/src/widgets/LookupField.tsx` on `dd35800af`:\n\n- `:259` — `const multiple = fieldMeta?.multiple || false;`\n- `:270` — `const explicitAllowCreate = fieldMeta?.allow_create ?? fieldMeta?.allowCreate;`\n- `:277` — `const lookupPageSize: number | undefined = fieldMeta?.lookup_page_size ?? fieldMeta?.lookupPageSize;`\n- `dependsOn` — read the same way, and the driver of the cascading picker filter.\n\nAll four are on `FieldSchema`'s 71-property strict shape (measured on the installed\npackage, `name`/`type`/`label` as the positive control). None is on `RELATIONAL_META_KEYS`\neven after #6875.\n\nThey are carried in the new table with verdict `deferred` and a note, so the gate keeps\nthem visible rather than letting them lapse back into \"nobody noticed\" — but `deferred`\nmeans the value still does not arrive.\n\n## Why each is a user-visible defect, not a tidiness item\n\n- `multiple` — an author declaring a multi-value lookup gets a SINGLE-select inline picker\n  in the grid. The form surface honours it; the grid does not.\n- `allowCreate` — an author setting `allowCreate: false` to opt a relation out of inline\n  quick-create still gets the create affordance in the grid's picker, because the explicit\n  value never arrives and `isUserFacingReference()` decides instead.\n- `lookupPageSize` — the author's page size is ignored; the picker uses its default.\n- `dependsOn` — the cascading filter the author declared does not scope the grid's picker.\n  ⚠️ objectui#2215 is a closed card in this area (\"Cascading lookup (dependsOn) broken in\n  forms; table picker bypasses the dependent filter\") — worth reading before acting, in\n  case this is the grid-side residue of it rather than a fresh defect.\n\n## What is NOT measured here\n\n- No user report is attached. This is the same static producer-vs-consumer measurement\n  objectui#6875 was, run one seam wider — the reachability half is measured (spec declares\n  all four), the rendering half is not: nobody has yet rendered a grid over a `multiple`\n  lookup and watched the picker.\n- Whether `plugin-dashboard` needs any of them: it does NOT on today's reading — its two\n  widgets are read-only and reach no field EDITOR, so the picker keys have no reader on\n  that path. That verdict is already recorded on `CELL_RELATIONAL_META_KEYS` and does not\n  move with this card.\n\n## Shape of a fix\n\nMechanically small — flip four `deferred` verdicts to `spec` in\n`relationalMetaKeys.ts` and the derived copy set picks them up, with no list to edit. The\nwork is the behaviour: each of the four wants a rendering test on the grid's own path, of\nthe kind objectui#6875 added for `displayField`\n(`__tests__/lookupDisplayFieldSpelling-6875.test.tsx`), and `dependsOn` wants objectui#2215\nread first.\n\n⛔ Do not also copy the snake_case twins the same chains read (`allow_create`,\n`lookup_page_size`, `depends_on`). `FieldSchema` declares none of them — they parse to\n`unrecognized_keys` — so no producer can fill them, which is exactly why objectui#6875 left\n`reference_field` and `lookup_columns` out. The gate proves that absence against the\ninstalled spec.\n\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

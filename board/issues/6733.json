@@ -1,0 +1,34 @@
+{
+  "number": 6733,
+  "kind": "pull_request",
+  "title": "Report an inert section `visibleWhen` on the tabbed and wizard arms (the ruled interim diagnostic)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-29T04:05:29Z",
+  "updated_at": "2026-08-29T05:04:11Z",
+  "closed_at": "2026-08-29T05:04:09Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": "2026-08-29T05:04:09Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6733",
+  "body": "**Part of #6237** — deliberately not `Fixes`. This ships the ruled *interim* half only; the card stays open for the design task the same ruling created.\n\n## The order's premise was dead, and that is the first finding\n\nThe dispatch order asked me to give the tabbed arm a `visibleWhen` slot and make the renderer honour it. **That already exists on `origin/main`.** It landed in #6619 (commit `46f0bb4f5`, 2026-08-27) and both halves are live:\n\n`packages/types/src/form.ts` — `FormFieldTab` (the arm the card's title names):\n\n```ts\n  visibleWhen?: string | { dialect?: string; source: string };\n```\n\n`packages/plugin-form/src/ModalForm.tsx` — the sibling declaration it mirrors, on `ModalFormSectionConfig`:\n\n```ts\n  visibleWhen?: string | { dialect?: string; source: string };\n```\n\nThe renderer evaluates it (`hiddenFieldTabKeys` in `renderers/form/form.tsx`) and `ModalForm`'s tabbed synthesis copies the section predicate onto the tab (`visibleWhen: g.visibleWhen`). Measured green on `origin/main` before touching anything: the existing pin suite `fieldtab-visiblewhen-6237.test.tsx` runs **12 passed (12)**, and `sectionVisibleWhen-6111.test.tsx` + `zod-mirror-parity.test.ts` run **27 passed (27)**.\n\nAdding a second slot would have been a redundant declaration, so I did not.\n\n**On the zod mirror**, which the order flagged: `FormFieldTab` has **no zod counterpart at all** — `fieldTabs` is not modelled in `form.zod.ts` (0 occurrences), and that absence is already ledgered as a pre-existing LOCAL divergence in `zod-mirror-parity.test.ts` (`'form.zod.ts#FormSchema': … | 'fieldTabs' | …`). So there is no mirror asymmetry to close here, and adding a validated surface no ruling covers would have been unauthorised widening.\n\n## What is actually broken, and what this PR does\n\n`ObjectForm` rebuilds each section key by key when it delegates to a layout, so a key the map does not copy never reaches a renderer. Measured across all five routes:\n\n| Route | Copies `visibleWhen`? |\n| --- | --- |\n| `formType: 'tabbed'` → `TabbedForm` | **No** — the predicate is dropped |\n| `formType: 'wizard'` → `WizardForm` | **No** — the predicate is dropped |\n| `formType: 'split'` → `SplitForm` | Yes (#6111) |\n| `formType: 'drawer'` → `DrawerForm` | Yes (#6111) |\n| `formType: 'modal'` → `ModalForm` | Yes (#6111), incl. `contentLayout: 'tabbed'` via #6619 |\n\nThe `modal` map even carries a comment naming the hazard — *\"this mapping rebuilds each section key by key, so a key it doesn't copy is silently dropped\"* — which is why the two omissions read as omissions rather than as design.\n\nPer the maintainer ruling of **2026-08-29** (option A), making those two arms honour the predicate is a **design task**: one renderer-side section/group contract with a predicate slot, designed once for every layout arm, answering the three binding semantics (hidden-tab required fields, active-tab re-selection, collapse below two tabs). Ruled as part of that option, a loud diagnostic lands first. That is this PR:\n\n- One shared message builder, `sectionPredicateUnsupportedWarning`, so the two arms cannot drift apart. It is **not** added to the package barrel — no published surface widens.\n- A `useEffect` in `ObjectForm` reporting the gap, keyed on primitives so it fires once per mount rather than once per keystroke.\n- `routesToMasterDetail` hoisted out of the existing branch condition and reused, so the diagnostic and the actual routing cannot disagree.\n\n**No rendering behaviour changes. No authorable key is added anywhere** — declaring `visibleWhen` on a type whose renderer ignores it is the exact defect this card family exists to close, and the `FormSectionConfig` that `WizardForm` shares for its steps makes that trap concrete.\n\n### Declared scope call — please trim if unwanted\n\nThe ruling names *\"the tabbed arm\"*; I cover **both** silently-inert arms (`tabbed` and `wizard`). Rationale: both drop the key through the identical mechanism, the docs support table already lists both as **No**, and covering the second costs one array entry and no new surface — whereas leaving it out keeps an author writing a wizard step predicate in exactly the silence the ruling set out to end. Trimming to tabbed-only is a one-line change if the maintainer prefers the literal reading.\n\n## The pins, and their red-against-unfixed-source verification\n\nNew: `packages/plugin-form/src/__tests__/sectionPredicateLayoutDiagnostic-6237.test.tsx` — **14 passed (14)**.\n\nIt pins **reporting, never behaviour** — it must not grow an assertion that a tabbed or wizard section actually hides, since that is the design task's deliverable. The negative rows are the load-bearing half: a diagnostic that fires everywhere is as useless as one that fires nowhere.\n\n**Ablation** (fix committed first, so the restore leg has a real reference). Mutation neutralised only the `console.warn` call, leaving the builder and the routing guard intact.\n\n- Re-run on the final tree (`c6e97a309`). Mutation proven on disk: anchor count `1 → 0`, injected count `1`, blob `de30e381 → 191ed7f5`.\n- **Predicted 6 red / 8 green; observed exactly that, row for row.** Red: the four reporting rows, once-per-mount, and master-detail-tabbed-once. Green: the five honouring-arm rows, the no-predicate row, master-detail-wizard-silent, and the builder row.\n- Restore proven both ways: blob hash matches the HEAD blob **and** `git diff HEAD` is empty.\n\n## Docs\n\nBoth surfaces already carried a correct support table with `TabbedForm` sections and `WizardForm` steps as explicit **No** rows, so no prose was wrong. Each now also states that those two rows report themselves, with the message and the reason it is interim: `content/docs/plugins/plugin-form.mdx` and `packages/plugin-form/README.md`.\n\n## What stays open on #6237\n\nThe design task itself — the one grouping contract across all layout arms, and its three binding semantics. This PR does not touch them, which is why it is `Part of` and not `Fixes`.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01CRJge11jso9TpXRWFt1Z49)_"
+}

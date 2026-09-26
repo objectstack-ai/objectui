@@ -1,0 +1,35 @@
+{
+  "number": 7166,
+  "kind": "issue",
+  "title": "finding(plugin-grid): 6 of the 10 keys ObjectGrid copies onto a column's `fieldMeta` have no reader on that bag — the picker keys reach the editor by a different seam",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T08:14:00Z",
+  "updated_at": "2026-09-01T10:46:41Z",
+  "closed_at": "2026-09-01T10:40:25Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7166",
+  "body": "Provenance: measured while implementing objectui#7154, by the same rendering measurement that card asked for. Filed unassigned. Not folded into objectui#7154 — that card is about four keys NOT on the copy set; this is about keys that ARE on it.\n\n## What is measured\n\nOn `51449a043`, `RELATIONAL_META_KEYS` derives to 10 keys:\n\n`reference`, `reference_to`, `displayField`, `display_field`, `descriptionField`, `description_field`, `lookupColumns`, `lookupFilters`, `lookup_filters`, `id_field`\n\n`applyRelationalMeta` writes them onto `fieldMeta`, and `fieldMeta` in `ObjectGrid.tsx` is handed to `CellRenderer` as the `field` prop and to nothing else — grepped, all six occurrences are that one JSX prop across the three column-building paths. `getCellRenderer` sends a relational column to `LookupCellRenderer` (`packages/fields/src/index.tsx`) and a `user` column to `UserCellRenderer`.\n\n- `LookupCellRenderer` reads exactly `reference_to`, `reference`, `display_field`, `displayField`, `reference_field` off that prop (plus `options`).\n- `UserCellRenderer` destructures `{ value }` only — it reads no field meta at all.\n\nIntersecting: **6 of the 10 copied keys have no reader on the bag they are copied onto** — `descriptionField`, `description_field`, `lookupColumns`, `lookupFilters`, `lookup_filters`, `id_field`.\n\nThat is the shape objectui#6711 (`reference_to_field`) and objectui#6874 (`titleFormat`) each retired: a member written from the schema def on every column build that nothing on the receiving path reads.\n\n## Why the docblocks say otherwise\n\nBoth `relationalMetaKeys.ts` and `relationalMetaCopySet.derivation.test.ts` stated that the grid's inline editor \"dispatches the same bag\" into `LookupField` and `UserField`. It does not. `ObjectGrid.renderCellEditor` looks the field up in the object schema and spreads the WHOLE def into the widget:\n\n```\nconst fieldDef = (objectSchema)?.fields?.[ctx.column?.accessorKey];\nlet field: any = { name: ctx.column.accessorKey, ...fieldDef };\n```\n\nSo every key a def carries reaches `LookupField` whether or not it is copied. objectui#7154's PR corrected those two docblocks and pinned the consequence by rendering: four spec-declared picker keys that are NOT on the copy set (`multiple`, `allowCreate`, `lookupPageSize`, `dependsOn`) all take effect in the inline picker with the table unchanged, and an ablation that strips them from the editor's spread turns 4 of those 5 assertions red while the copy-set assertion stays green.\n\n## Why this matters beyond tidiness\n\nThe keys are not equally inert.\n\n- `id_field`, `lookup_filters`, `description_field` were copied for the inline picker, on the docblock's stated reasoning (\"the extra keys drive the inline picker's query\"). The picker gets them from the def instead, so the copies are dead writes — the objectui#6711 class, and retirable on the same reasoning.\n- `descriptionField` and `lookupColumns` were ADDED by objectui#6875 as its fix, on the reading that they were \"read, never copied\" spellings the picker needed. Under this measurement that half of objectui#6875 delivered nothing: their only reader is `LookupField`, which was already receiving them off the def. objectui#6875's third key, `displayField`, is genuinely delivered — `LookupCellRenderer` reads it, and `lookupDisplayFieldSpelling-6875.test.tsx` renders the difference. So objectui#6875 is 1-for-3, not wrong.\n\n## What is NOT measured\n\n- Whether the DERIVATION should be re-scoped. The gate sweeps three consumers, but only one of them is fed this bag; a read set that mixes the cell's bag with the editor's def is why a \"read, never copied\" verdict can be reached for a key that needed no copying. Rebuilding it around the cell alone (with the editor widgets classified separately) is a design change to objectui#6875's mechanism, not a call to make from here.\n- Whether any host `DataSource` outside these two repos feeds `fieldMeta` to something else. The sweep bounds `packages/` and `apps/` in this repo, as objectui#6875's own docblock notes for its verdicts.\n- Whether retiring the four legacy spellings is safe on back-compat grounds. `id_field`, `lookup_filters`, `description_field` are recorded as `legacy-alias` precisely because a host outside these repos may hand-feed them; that argument is about producers, and is untouched by this reader-side measurement.\n\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

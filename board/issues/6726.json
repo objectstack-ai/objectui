@@ -1,0 +1,35 @@
+{
+  "number": 6726,
+  "kind": "issue",
+  "title": "The same `records`-before-`data` tolerant reader survives in ~7 more `find()` consumers that #5945 did not name",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-29T03:35:09Z",
+  "updated_at": "2026-08-30T04:02:36Z",
+  "closed_at": "2026-08-30T04:01:37Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6726",
+  "body": "Found while implementing #5945 (out of that card's scope — it names exactly two call sites).\n\n## The shape\n\n#5945 reduced the `asArray` helpers in `packages/app-shell/src/hooks/useApproverDirectory.ts` and `packages/app-shell/src/views/metadata-admin/AssignedUsersSection.tsx` to the one rows member `QueryResult` declares (`data`), after measuring that nothing produces `records` or `items` at the `DataSource.find()` seam.\n\nThe producer sweep that established that also turned up the **same tolerant read, on the same seam, in modules the card did not name**. Each of these consumes an `adapter.find()` / `dataSource.find()` answer and reads `records` — a key `QueryResult` does not declare:\n\n- `packages/components/src/hooks/related-count-store.ts:110` — `Array.isArray(res?.records) ? res.records.length : Array.isArray(res?.data) ? res.data.length : ...`. **`records` is tried before `data`**, the same precedence inversion #5945 fixed.\n- `packages/components/src/renderers/basic/data-list.tsx:140` — `res?.data ?? res?.records ?? (Array.isArray(res) ? res : [])`\n- `packages/components/src/renderers/basic/elements.tsx:427` — same chain\n- `packages/components/src/renderers/basic/record-picker.tsx:146` — same chain\n- `packages/plugin-detail/src/renderers/record-activity.tsx:186` — `res?.data ?? res?.records ?? []`\n- `packages/plugin-detail/src/renderers/record-history.tsx:90` — `res?.data ?? res?.records ?? []`\n- `packages/plugin-view/src/ObjectView.tsx:930` — `else if (Array.isArray((results as any).records)) { items = (results as any).records; }`\n\nMost of these read `data` first, so the `records` arm is dead rather than actively wrong. `related-count-store.ts` is the exception and the one worth looking at first: it reads `records` **ahead of** `data`, which is exactly the ordering #5945 was filed about.\n\n## Why it is worth recording\n\n`QueryResult` (`packages/types/src/data.ts`) declares `data`, `total`, `page`, `pageSize`, `hasMore`, `cursor`, `metadata`. `records` is not a member. It is the spelling the **server envelope and the client SDK** use, which `ObjectStackAdapter.normalizeQueryResult` maps to `data` before returning — so it is a below-the-adapter spelling that has leaked into above-the-adapter consumers.\n\nThis is AGENTS.md #0.1: every extra arm is a place a non-conforming producer would keep working unrejected. #5945's own history is the argument — the same `records`/`items` confusion was live in three places #5458 had to fix, each reading a key no adapter returns, and the tolerant helpers are why nobody found out.\n\n## Not included, deliberately\n\nTwo other `records` readers are on **different seams** and are likely correct as they stand — worth confirming rather than assuming:\n\n- `packages/app-shell/src/console/marketplace/marketplaceApi.ts:354,403` and `packages/app-shell/src/views/setup/packagedActions.ts:108` read a **raw HTTP payload**, not a `QueryResult`.\n- `packages/core/src/data-scope/ViewDataProvider.ts` returns its own `ResolvedData` interface, which declares `records` legitimately.\n\n## Suggested shape\n\nPer module, the same two-step #5945 used: measure whether any producer emits the key at that seam, then delete the arm if none does and pin the contract read. ⛔ Do not widen `QueryResult` to bless `records` — that is a published-type change and a maintainer decision."
+}

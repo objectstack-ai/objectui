@@ -1,0 +1,32 @@
+{
+  "number": 7285,
+  "kind": "pull_request",
+  "title": "test(scripts): pin the published stylesheet banner per subject (#7044)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T03:18:21Z",
+  "updated_at": "2026-09-02T04:45:33Z",
+  "closed_at": "2026-09-02T04:45:31Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-09-02T04:45:31Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/7285",
+  "body": "Fixes #7044\n\n## What\n\nThree packages ship a supplement stylesheet whose emitted bytes open with a\nbanner comment that is part of the published artifact (`@object-ui/fields`,\n`@object-ui/plugin-grid`, `@object-ui/plugin-kanban`). Nothing in the suite\nread that banner, so a change to the shared `defaultHeader`, or an accidental\ndrop of fields' own per-package `header` override, would ship silently — the\nsecond case being a diff in a published file that #6405's acceptance gate\n(byte-identity of the emitted sheet) was explicitly meant to prevent.\n\nThis PR:\n\n- Exports `defaultHeader` from `scripts/build-plugin-stylesheet.mjs` (was\n  module-private; one-line change, function body untouched, plus a doc-comment\n  note on why it's exported now).\n- Adds a per-subject assertion in\n  `scripts/__tests__/plugin-published-stylesheet.test.ts` that the emitted\n  sheet opens with the header the subject is actually configured to use —\n  its own declared `buildOptions.header` for `fields`, else the shared\n  `defaultHeader(PACKAGE_NAME)` this module now exports for `plugin-grid` /\n  `plugin-kanban` — never a second, hand-spelled copy of either wording (the\n  route ruled out on the issue as the \"assertion that inspects nothing\"\n  shape).\n\n## Why two checks, not one\n\nThe obvious single assertion — recompute \"expected\" by calling the very\nfunction (`defaultHeader`, or `buildOptions.header`) that also produced\n\"actual\" — is vacuous: since both sides call the same pure function on the\nsame input, no mutation to that function's own wording can ever make it\ndisagree with itself. Ablating confirmed this (see Testing below), so the\nassertion adds two independent checks that don't have that shape:\n\n1. **Assembly check** (all 3 subjects): the emitted sheet must start with\n   `expectedHeader`, where `expectedHeader` is read from the subject's own\n   build script export. Catches the header not being prepended at all, or\n   some unrelated value being used.\n2. **Name-presence check** (all 3 subjects): the banner region contains the\n   subject's own `PACKAGE_NAME` — a plain string constant each build script\n   declares independently, never derived from `defaultHeader`. This is what\n   gives check 1 teeth against a broken interpolation inside `defaultHeader`\n   itself, for the two packages that inherit it.\n3. **fields-only control**: fields' emitted sheet must NOT start with the\n   shared default banner. This is the check that actually catches \"an\n   accidental drop of fields' `header` override\" — the scenario named in the\n   issue — because dropping it moves fields' \"expected\" (check 1's fallback)\n   and \"actual\" to the shared default in lockstep, so check 1 alone can't see\n   it.\n\n## Testing\n\n```\npnpm exec vitest run scripts/__tests__/plugin-published-stylesheet.test.ts --maxWorkers=2\n# Test Files  1 passed (1) / Tests  24 passed (24)\n\npnpm type-check:scripts   # clean\npnpm check:control-bytes  # OK, 6004 tracked text files scanned\npnpm check:entry-guard    # 52 export bindings, 52 inert on import (0 known-unsafe)\npnpm check:esm-specifiers # unaffected (no ESM specifier surface touched)\nnode scripts/check-changeset-presence.mjs  # no changeset owed (scripts/-only diff)\n```\n\n**Ablation 1** — mutated `defaultHeader()` in\n`scripts/build-plugin-stylesheet.mjs` to hardcode a wrong package name\n(breaking its package-name interpolation), confirmed the mutation landed on\ndisk (`git diff`, byte count), reran the suite:\n\n```\nFAIL plugin-grid   > opens the emitted sheet with the banner it declares\nFAIL plugin-kanban > opens the emitted sheet with the banner it declares\nPASS fields        > opens the emitted sheet with the banner it declares\nPASS fields        > does not fall back to the shared default banner\nTests  2 failed | 22 passed (24)\n```\n\nRestored the mutated file from `HEAD` (`git checkout HEAD` on that one path);\n`git hash-object` on the restored file matched the pre-mutation blob exactly.\n\n**Ablation 2** — mutated `packages/fields/scripts/build-css.mjs` to drop its\n`header: HEADER,` line from `buildOptions` (simulating the exact \"accidental\ndrop\" defect named in the issue), confirmed on disk, reran the suite:\n\n```\nPASS plugin-grid   > opens the emitted sheet with the banner it declares\nPASS plugin-kanban > opens the emitted sheet with the banner it declares\nPASS fields        > opens the emitted sheet with the banner it declares   (self-consistent — expected)\nFAIL fields        > does not fall back to the shared default banner\nTests  1 failed | 23 passed (24)\n```\n\nRestored the mutated file from `HEAD` the same way; `git hash-object` matched\nthe pre-mutation blob exactly.\n\n**Byte-identity of the published artifact** (objectui#6405's acceptance\ngate): built all three subjects' emitted sheets against this branch's\n`scripts/build-plugin-stylesheet.mjs` and, separately, against the pre-PR\nversion at `64d624ded` (temporarily checked out, restored by blob hash\nafterward). SHA-256 of all three emitted sheets is identical before/after —\nthe `export` keyword and doc-comment addition change zero published bytes.\n\n## Scope\n\nTouches only `scripts/build-plugin-stylesheet.mjs` (the one-line `export` +\na doc-comment) and `scripts/__tests__/plugin-published-stylesheet.test.ts`.\nThe three `build-css.mjs` consumers are untouched in the committed diff (they\nwere only mutated transiently, on disk, during the two ablations above, and\nrestored by verified blob hash — never part of any commit).\n\nNo changeset: scripts-only diff, nothing published moves.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01BGMDbrVa8JjZcCQ7DWYH1b"
+}

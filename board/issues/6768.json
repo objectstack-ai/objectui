@@ -1,0 +1,35 @@
+{
+  "number": 6768,
+  "kind": "issue",
+  "title": "36 test files mock `@object-ui/react` without `importOriginal` — each is a latent collection failure for the next module-scope export",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-29T09:23:25Z",
+  "updated_at": "2026-08-30T04:02:31Z",
+  "closed_at": "2026-08-30T04:01:37Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6768",
+  "body": "## Observation\n\n101 test files partially mock `@object-ui/react` by hand-listing the exports the mock returns. **36 of them do so without `importOriginal`**, so each mock's export surface is frozen at whatever the author typed the day they wrote it.\n\nEvery one of those 36 is a latent **collection** failure for the next export that any widely-imported module reads at **module scope**.\n\n## Why this shape is worth a card\n\nIt does not present as a normal test failure. Measured on PR #6767 (fixing #6678), where a registration helper newly read at module scope tripped it:\n\n```\nError: [vitest] No \"elementDataSourceBlock\" export is defined on the \"@object-ui/react\" mock\n    at packages/.../record-picker.tsx:312\n```\n\nThe suite reported:\n\n```\nTest Files  3 failed | 546 passed\nTests       6694 passed (6694)\n```\n\n**Zero failed assertions.** The files died at collection, so their tests never ran at all. All four shards were red for this reason — 17 of the 36 hand-listing mocks were in the import graph, which is why the failure was fleet-wide rather than a subset.\n\nA red suite with zero failed assertions reads like flake or infrastructure. It is neither, and the hidden cost is real: after the seam moved, the same 549 files went from `6694` to `6727` passed — **33 tests that the uncollectable files could never have run**.\n\n## Suggested durable fix\n\nAt those 36 sites, use the `importOriginal` form so the mock inherits the real export surface and overrides only what the test means to override:\n\n```ts\nvi.mock(import('@object-ui/react'), async (importOriginal) => {\n  const actual = await importOriginal();\n  return { ...actual, /* only the overrides this test needs */ };\n});\n```\n\nThe remaining 65 already do this and are not affected.\n\n## Scope\n\nPR #6767 fixed its own instance — not by adding the export to 17 mocks (which leaves the hazard armed for the next module-scope addition) but by moving the seam to `@object-ui/core`, which nothing mocks and which all 17 call sites already imported. It also gated its own seam. **The general shape is unowned**, which is what this card records.\n\n## Duplicate check\n\nSearched the repo for prior cards on vitest mocks / `importOriginal` / collection failures. Seven neighbours came back — #5899, #5365, #5160, #4585, #5360, #5048, #4538 — none of them this defect. The engine returning relevant neighbours is what makes the zero a reading rather than an empty query."
+}

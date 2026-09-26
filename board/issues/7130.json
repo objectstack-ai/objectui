@@ -1,0 +1,35 @@
+{
+  "number": 7130,
+  "kind": "issue",
+  "title": "finding(plugin-charts): `ObjectChart` has NO empty branch at all — an empty result draws a bare chart frame, the fourth distinct answer on this surface to \"is it broken or is it young\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T03:25:37Z",
+  "updated_at": "2026-09-01T06:17:18Z",
+  "closed_at": "2026-09-01T06:04:43Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7130",
+  "body": "Filed by the `domain:ui` seat (session `session_012wwHa4aaFybxXrfmfHioDM`) out of #7063 / PR #7124.\n\n⚠️ **Provenance, stated plainly:** the implementer measured this while sweeping for #7063's placeholder sites and **deliberately did not file it**, on the grounds that a chart frame with axes may be self-describing and they would rather the seat decide than pre-file on their own reading. That restraint was correct as a default. **The seat is overriding it and filing** — for the three reasons below, not because the reading was wrong.\n\n## The measurement\n\n`packages/plugin-charts` `ObjectChart` has **no empty branch**. Over an empty result it draws an empty chart frame with no message — not a placeholder, not an explanation, nothing.\n\nThis sits alongside three *other* answers to the same question on the same surface, which #7063 has just been consolidating:\n\n| surface | what an empty result rendered, before #7063 |\n|---|---|\n| `DatasetWidget` | `dashboard.noRows` — a terse fragment (the string hotcrm#1212 measured as indistinguishable from a load failure) |\n| `ObjectDataTable` | `dashboard.noDataAvailable` — a *different* terse key |\n| `PivotTable` | `dashboard.noDataAvailable` **with its title suppressed**, so only the description rendered |\n| **`ObjectChart`** | ⛔ **nothing at all** |\n\n⇒ Four surfaces, four answers. PR #7124 converges the first three onto one seam (`WidgetEmptyState`) and leaves this one untouched, correctly — the ruling's measured scenario is a table tile, and this is a different package.\n\n## ⛔ This card does NOT assert the current behaviour is wrong\n\nCarrying the implementer's reading forward verbatim, because it is the honest one and a future claimant should not inherit a conclusion the measurement does not support:\n\n> *it is an observation about a state that may well be intentional (a chart frame with axes is arguably self-describing)*\n\n⚠️ **A chart is genuinely not a table.** An empty table is a blank rectangle and says nothing; an empty chart still renders labelled axes, which may already tell the reader *what would have been plotted*. Whether that clears the bar the maintainer set in hotcrm#1212 — *distinguishable from a load failure at a glance* — is **unmeasured**, and it is the question this card exists to route, not to answer.\n\n⇒ **First deliverable for whoever takes it: look at it.** Render `ObjectChart` over an empty result and judge whether the frame alone reads as a state or as a failure. If it reads as a state, close this card as measured-and-declined — that is a legitimate and valuable outcome, not a failed dispatch.\n\n## Why it is filed anyway\n\n1. It is a **measured absence** (no empty branch exists), not an aesthetic judgement — the kind of fact that should be in the tracker rather than in a transcript.\n2. PR #7124 **builds the seam**, so if a fix is wanted it is now small. The cost of the card is low precisely because the hard part just landed.\n3. ⭐ An observation that lives only in a subagent report is **lost**. This lane has already paid that cost: #7070 exists only because an earlier implementer's dedupe channel was rate-limited and they handed the finding back rather than dropping it.\n\n## ⛔ Sequencing\n\n⚠️ **Do not start before PR #7124 lands.** It creates the `WidgetEmptyState` seam this would route through; starting earlier means designing the same thing twice — the failure mode the #7063/#7064 dispatch pair was explicitly fenced against.\n\n⚠️ Note the package boundary: the seam is in `@object-ui/plugin-dashboard` and `ObjectChart` is in `@object-ui/plugin-charts`. Whether the seam should move, be imported across, or be duplicated is a real design question the claimant must **measure and report**, ⛔ not assume — and if the answer is \"promote it to a shared package\", that is a cross-surface abstraction and belongs to the convergence card below, not to this one.\n\n## Related\n\n- **#7063** / PR #7124 — the ruling this came out of; converges the three dashboard surfaces.\n- **#7064** / PR #7123 — the sibling ruling, same principle, record-detail sections.\n- ⭐ **Convergence, not yet filed:** `DataEmptyState` (`packages/components/src/custom/view-states.tsx`) is already consumed by `plugin-list`, `plugin-kanban`, `plugin-dashboard` **and** `plugin-detail`. PR #7124's implementer identified changing its defaults as a smaller fix spanning both rulings' surfaces, and **declined it on purpose** because two agents designing one cross-surface abstraction in parallel is worse than two local fixes. The seat will sequence that as its own card once #7123 and #7124 have both landed.\n- **#7125** — the dead-key residue from #7124."
+}

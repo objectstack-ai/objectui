@@ -1,0 +1,35 @@
+{
+  "number": 6208,
+  "kind": "issue",
+  "title": "The worktree recipe in CLAUDE.md / AGENTS.md branches off local `main`, a ref nothing in the recipe fetches — the objectui half of objectstack#11540",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T01:37:17Z",
+  "updated_at": "2026-08-29T13:40:56Z",
+  "closed_at": "2026-08-29T13:40:56Z",
+  "closed_by": {
+    "login": "os-elon",
+    "id": 318303764,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6208",
+  "body": "Filed by the `domain:devx` PM seat of `objectstack-ai/objectstack` (session `session_015ahemw8RcTgqtxrj15PEZx`) at accept time of **objectstack#11540**, per that card's triage instruction: *\"the objectui `CLAUDE.md:16` copy lands in objectui — per the linkage rule the accepting seat files the objectui follow-on card (with `Blocked-by:` on this one) when this PR is accepted.\"*\n\n```\nBlocked-by: objectstack#11540\nRestart-when: objectstack PR #11934 merges\nUnlock-action: port the same repair here, re-measuring the drift on THIS repo's checkout\n```\n\n⚠️ `Blocked-by:` can only name an issue, but the real condition is *\"a PR merges\"* — the gap measured in objectstack#11220. Check **PR #11934**'s merge state, not #11540's.\n\n## The defect\n\nThe documented worktree recipe branches off the **local** `main` ref, which nothing in the recipe or its surrounding prose fetches. A worktree created by following it literally starts as far back as whoever last happened to update that ref — and on a long-lived shared checkout, nobody has a reason to. Measured on the objectstack side: local `main` was **1158 commits / 202 hours** behind `origin/main`.\n\n## ⚠️ TWO sites here, not one — the second is not the one triage named\n\nRead on `origin/main` of this repo:\n\n| site | text | verdict |\n|---|---|---|\n| `CLAUDE.md:16` | `git worktree add ../<repo>-<task> -b <branch> main && cd … && pnpm install` | **in** — the site triage named |\n| **`AGENTS.md:234`** | `git worktree add ../objectui-<task> -b <branch> main` | **in** — ⭐ **not named by triage**; same defect, inside the Chinese prose of the multi-agent discipline section |\n| `CLAUDE.md:40` | `git worktree add ../objectui-<task>-cmp <ref>` | **out** — takes an explicit ref from the caller, correct as written |\n| `AGENTS.md:240` | `git worktree add ../objectui-<task>-cmp <ref>` | **out** — same |\n\nControl for those readings: `CLAUDE.md` is 51 lines, non-empty.\n\n⚠️ **`origin/main` alone would have the same defect one layer down** — it is a local ref only a fetch moves. The objectstack repair therefore begins each fixed site with an explicit `git fetch origin main &&`, and this one should too.\n\n## The landed shape to port\n\nobjectstack PR #11934 (governed, awaiting hand-merge) rewrites its three in-scope sites to:\n\n```\ngit fetch origin main && git worktree add ../<repo>-<task> -b <branch> origin/main && cd ../<repo>-<task> && pnpm install\n```\n\n⚠️ **Check this repo's line-budget situation before assuming the edit is free.** On the objectstack side both governed files sat at their shrink-only ceilings with **zero headroom**, and the repair had to be paid in place — one paragraph was reflowed, dropping only filler words, to buy the added text. Whether objectui has an equivalent ratchet on `AGENTS.md` / `CLAUDE.md` is for the implementer to measure here; ⛔ if it does and there is no headroom, the same rule applies — a ceiling is raised only by a maintainer ruling quoted in the raising PR, never as a side effect.\n\nBoth files are governed surface in this repo too, so the PR is **draft-only, human merge**.\n\n## Dedupe — stated honestly, because it is partial\n\nChecked the 50 most recently-updated open issues in this repo (233 open in total) for this shape; nothing matches. The nearest neighbour is **#6042** (`guard-shared-stash.sh` backslash fail-open, porting objectstack#11131) — a different defect in the same multi-agent-discipline family, which is evidence the porting lane exists rather than that this is a duplicate.\n\n⛔ I did **not** page the remaining ~183. `search_issues` has been returning `total_count 0` even against a positive control that must match (objectstack#11835 tracks that channel being down), so the semantic route was unavailable and only the paged listing worked. If someone finds a duplicate in the unread pages, close this in favour of it."
+}

@@ -1,0 +1,36 @@
+{
+  "number": 7153,
+  "kind": "issue",
+  "title": "finding(plugin-timeline): the gantt date path has FIVE non-total operations UPSTREAM of the speller — the property reads that fetch the date crash before `spellGanttDateValue` is ever entered",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T06:33:40Z",
+  "updated_at": "2026-09-01T09:25:43Z",
+  "closed_at": "2026-09-01T09:22:38Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7153",
+  "body": "Found while implementing #7036. Not repaired there: #7036's ruled scope is `spellGanttDateValue`'s trailing three branches, and every site below is in a different function (`findUnusableGanttDate`), reached *before* that helper is entered.\n\n## What is wrong\n\n#7036's headline is that `spellGanttDateValue`'s `Array.isArray` is \"the last non-total operation on the gantt date path\". **Measured, that is false.** It is the last non-total operation *inside that function*; the path itself has five more, and all five run **earlier** — in the property reads that fetch the date out of the authored document.\n\n`findUnusableGanttDate` walks the rows with plain member access:\n\n```\nconst rowItems = (items[rowIndex]?.items || []) as any[];\nconst value = rowItems[itemIndex]?.[key];\n```\n\n`?.` guards `null` / `undefined`. It does not guard a **getter that throws** or a **revoked `Proxy`** — both crash inside the read itself, before any value exists to judge. `calculateDateRange` repeats the same two reads in its `flatMap`.\n\n## Measurement\n\nIn-render on `dd35800af`, through the real `TimelineRenderer` (not a replica), same run that produced #7036's readings:\n\n| input | outcome |\n|---|---|\n| `items[0].items[0]` with a throwing `endDate` getter | THREW `Error: endDate getter throws` |\n| `items[0].items[0]` is a revoked `Proxy` | THREW `TypeError: Cannot perform 'get' on a proxy that has been revoked` |\n| `items[0]` is a revoked `Proxy` | THREW same |\n| `items[0].items` is a revoked `Proxy` | THREW same |\n| `items[0]` with a throwing `items` getter | THREW `Error: items getter throws` |\n| CONTROL — an ordinary row/item | drew 1 bar |\n\nThe control is live and non-zero on the same instrument, so the five THREW rows are readings rather than a broken harness.\n\n## Severity, honestly\n\n**p3, the same class and the same argument as #7036.** Not reachable from an authored document: ObjectUI metadata is JSON, and JSON can spell neither a getter nor a proxy. Re-swept on `dd35800af` — zero `Proxy.revocable` in the repo and zero `Object.setPrototypeOf` calls in `packages/*/src`, each beside a live control on the same instrument (52 `Proxy` mentions, 19 `Object.assign` calls). The three non-comment `__proto__` hits are denylists that block it.\n\nSo this is filed for the **claim** it corrects, not for the crash it describes. It is recorded because #7036's docblock now states the path is not total, and that statement should point at an enumeration rather than at prose.\n\n## Suggested scope if picked up\n\n⚠️ Read this with #7036's warning first. This path has now carried **six** totality claims (#6759 → #6905 → #6907 → #7027 → #7036 → this), five of them falsified by the next card's measurement. A repair here that ends with a new confident sentence continues the sequence rather than closing it.\n\nTwo defensible branches, the same either/or #7027 and #7036 were filed under:\n\n- **Make the reads total** — a bounded `try` around the row/item walk in `findUnusableGanttDate` (and the matching `flatMap` in `calculateDateRange`), refusing the row through the existing `timeline.gantt.unusableRange.malformedDate` diagnostic rather than dying. Note this is a *wider* change than it looks: it touches the accept set's plumbing, which is #6781's ruling.\n- **State the exclusion and leave it** — which is what #7036 chose for its own site, on the argument that a `catch` around a read whose failure carries no information is substitution rather than a read, and that substitution is the consumer-side tolerance #6750 and #6759 both refused.\n\nThe second is the cheaper and probably the better one, but it is an adjudication and this card does not make it. If a row is added it belongs in the existing pinned adversarial set (`packages/plugin-timeline/src/__tests__/timeline-gantt-date-brand-7027.test.tsx`), not in a new file.\n\nRefs: #7036 (the speller's own exclusion, where these five were measured) · #7027 (the brand gate) · #6907 / PR #7026 (the spelling rule) · #6781 / PR #6905 (the type rule)"
+}

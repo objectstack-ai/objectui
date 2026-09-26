@@ -1,0 +1,32 @@
+{
+  "number": 3834,
+  "kind": "issue",
+  "title": "[finding] `targetVariable` 是 spec 的 declarative hint,全仓零读点(`grep` 实测 0 命中)—— 发布还是不发布是个未定的判断题,不是漏声明",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T18:29:47Z",
+  "updated_at": "2026-09-02T01:44:32Z",
+  "closed_at": "2026-09-02T01:44:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3834",
+  "body": "发现于 #3808 的实施过程。#3808 把它列为 C 类「已知的、不该动的」,但 C 类的正当性只在正文里说了一句,而 #3808 落的反方向 parity 门要求**每条豁免引用一个 tracking issue** —— 本单就是这两条豁免的落点,顺带把「零读点」这个前提用实测钉住。\n\n按 observation-class 只贴 `finding`、不排队:今天不成立任何用户可见的失效(见下),请 triage 决定级别。\n\n## 事实\n\npin 版 `@objectstack/spec@17.0.0-rc.5` 在两个 element 上声明 `targetVariable`,describe 原文(`ElementTextInputProps`):\n\n> Page variable this input writes to. Declarative hint; the live binding resolves via the variable whose `source` equals this component id (see PageVariableSchema).\n\nobjectui `origin/main` @ `c85268256` 实测:\n\n```\ngrep -rn \"targetVariable\" packages/ apps/ --include=*.ts --include=*.tsx   # 0 命中\n```\n\n**全仓零读点** —— 不是「读了但没用上」,是这个标识符在本仓一次都没出现过。真正的绑定走的是反向:`usePageVariableBinding(schema?.id)`(`packages/components/src/renderers/basic/text-input.tsx:60`)按组件 id 反查 `PageVariableSchema.source`,和 spec 自己的说明一致。\n\n所以这**不是** A 类缺口(渲染器实读却不可发现),也**不是** `showSubscriptionToggle` 那种 declared-but-inert 缺陷 —— spec 自己就把它定义成 hint,行为由另一条边提供,而那条边是通的。\n\n## 判断题在哪\n\n要不要把它放进 `inputs` 发布出去,两个方向都有道理:\n\n- **发布**:双向 parity 成立;作者(尤其 AI 作者)在写 `element:text_input` 时能在同一个面板里看到「这个输入打算写哪个变量」,是有价值的**意图**记录,而 `PageVariableSchema.source` 在页面的另一处、方向相反,不容易同时想到。\n- **不发布**:它不影响任何运行时行为。发布一个「写了也不生效」的键,正是 #3797 修的那个方向 —— 哪怕它的无效是 spec 设计如此。更糟的是它**看起来**像绑定的正路,一个只读 manifest 的作者很可能只写 `targetVariable`、不写变量的 `source`,然后得到一个什么都不写入的输入,零诊断。\n\n第二条的风险是具体的,也是我倾向不发布的理由;但若发布,description 必须写明「仅为意图声明,真正的绑定靠变量的 `source` 反查」——即 `showSubscriptionToggle` 的处理方式。这是发布面语义决定,交维护者。\n\n第三条路:上游把它退役(ADR-0049 enforce-or-remove / ADR-0087 D2 墓碑),让「意图」只有一种表达处。若 objectstack 侧本就打算收敛,本仓什么都不用做。\n\n## 涉及的键\n\n- `element:text_input.targetVariable`\n- `element:record_picker.targetVariable`\n\n两条形状完全相同,应一起处置。\n\n## 参考位置\n\n- `packages/components/src/renderers/basic/text-input.tsx:60`(`usePageVariableBinding(schema?.id)` —— 真正的绑定边)\n- `packages/components/src/renderers/basic/record-picker.tsx`(同形)\n- `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` —— 反方向门的豁免名单,两条都引用本单\n\n关联:#3808、#3797 / PR #3806、#3165(`showSubscriptionToggle` 先例)、ADR-0049\n"
+}

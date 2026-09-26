@@ -1,0 +1,30 @@
+{
+  "number": 6737,
+  "kind": "pull_request",
+  "title": "docs(skills): align the data-integration guide with the real QueryParams, SortConfig and QueryResult contracts",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-29T04:38:49Z",
+  "updated_at": "2026-08-29T08:15:44Z",
+  "closed_at": "2026-08-29T08:15:43Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": "2026-08-29T08:15:43Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6737",
+  "body": "Fixes #6006\nFixes #5947\n\nOne published-skill correction, folded because both cards land on the same file: `skills/objectui/guides/data-integration.md`. Every corrected snippet was checked verbatim against the real declarations, not against the cards' quoted line numbers (which had drifted — `SortConfig` is at `packages/types/src/objectql.ts:311`, not `:212`).\n\nAuthored in session https://claude.ai/code/session_01MnijPVVDakqK2J335JoJtq\n\n## Size — the 2026-08-21 published-skills ruling\n\n| | lines |\n| --- | --- |\n| before | 437 |\n| after | 440 |\n| net | +3 |\n\nWhole published package, all 18 markdown files under `skills/`: 5673 before, 5676 after. This is a correction, not an expansion: three of the four defect blocks are same-line-count rewrites, and the +3 is one line per corrected interface (the real declarations carry one field more than the sketches did) plus one bullet in the existing mistakes list.\n\n## Defect 1 — query options were spelled without the `$` prefix (#6006)\n\nThe real `QueryParams` (`packages/types/src/data.ts:43`) ends in an index signature, so an unprefixed key type-checks, is never read, and is dropped in silence. A dropped page size is an unbounded read.\n\n| guide taught (silently dropped) | real key |\n| --- | --- |\n| `filter` | `$filter` |\n| `sort` | `$orderby` |\n| `limit` | `$top` |\n| `offset` | `$skip` |\n| `fields` | `$select` |\n| `expand` | `$expand` |\n\nCorrected in three places: the interface sketch, the worked `dataSource.find` example (which passed `filter` / `sort` / `limit` — all three dropped), and the `RestApiAdapter` sample, which read `params?.filter` / `params?.limit` / `params?.offset` / `params?.sort` off a real `QueryParams` and therefore read nothing. The adapter's *outgoing* query-string names are unchanged — those are its own REST wire format, and translating is the adapter's job.\n\n## Defect 2 — the sort direction key (#6006)\n\n`SortConfig` (`packages/types/src/objectql.ts:311`) spells the key `order`, and `convertSortToQueryParams` (`packages/core/src/utils/sort-query.ts`) folds it as `entry.order === 'desc' ? 'desc' : 'asc'` — so an entry spelled `direction` yields ascending, always, with nothing thrown.\n\n- before: `sort: [{ field: 'name', direction: 'asc' }]`\n- after: `$orderby: [{ field: 'name', order: 'asc' }]`\n\n## Defect 3 — the `QueryResult` sketch declared a shape that does not exist (#5947)\n\nRoot cause of the bad usage, so it is fixed first. The real `QueryResult` (`packages/types/src/data.ts:139`) has a **required** `data`; the guide declared `records?` and `pageNumber?` and omitted `data` entirely.\n\n| guide declared | real |\n| --- | --- |\n| `records?` | `data` (required) |\n| `pageNumber?` | `page?` |\n| absent | `metadata?` |\n\nThe example's `return result.records;` is now `return result.data;`, and the `RestApiAdapter` return is `data:` rather than `records:` (its local `const data` is renamed `body` so the returned key is unambiguous).\n\n## Sweep\n\nSwept the whole file for all three defect classes; the counts above are the complete population. The one surviving `records` token is `dataset.records` in the MSW seeding loop, which is app-manifest data and unrelated, and the one surviving `records` mention in the corrected sketch is the deliberate \"NOT named `records`\" callout. No prose outside the four blocks was rewritten, and no sibling guide was touched.\n\n## Gates, at 29e9685\n\n| gate | exit | verdict line it printed |\n| --- | --- | --- |\n| `check:skills-paths` | 0 | `check-skills-paths: OK (93/94 stated path(s) resolve across 18 guide file(s); 1 baselined).` |\n| `check:control-bytes` | 0 | `check-control-bytes: OK (scanned 5593 tracked text file(s); skipped 85 binary).` |\n| `check:doc-fences` | 0 | `check:doc-fences — every TypeScript block in 223 document(s) is fenced ts/tsx/typescript ...` |\n| changeset presence | 0 | `No source of a released package changed in this range, so no changeset is owed.` |\n\nExit codes were captured by redirecting first, never through a pipe. The union was re-run after the final commit and reports that tree.\n\n**No changeset is owed** and none is added — the gate's own verdict, not a judgement call: `skills/` is outside the `packages` / `apps` roots the release covers. No `skip-changeset` label is applied; in this repo that label is a phantom that gates nothing.\n\n## The coverage gap this pair is an instance of — already on file as #5465\n\n`check-doc-snippet-types.mjs` is the gate that compiles TypeScript in docs, but its scan surface is `content/docs` plus the package READMEs. Measured by calling its own `listDocuments()`: 223 documents in surface, **0** under `skills/`, and this file absent. So no gate compiles the snippets in these published skills, which is how both defects shipped and why this PR's snippets were checked by hand against the declarations instead. That gap is already filed and dispatched as #5465, so no duplicate was opened, and it is not widened here.\n\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 6391,
+  "kind": "issue",
+  "title": "finding(ci): if `changeset-release.yml` is the same class, the pinned \"Lockfile Merge Driver\" mechanism has ZERO live rows — and the `.gitattributes` line goes with it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T19:23:52Z",
+  "updated_at": "2026-09-02T03:08:05Z",
+  "closed_at": "2026-09-02T03:08:05Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6391",
+  "body": "Filed unassigned by the `domain:devx` @ objectui execution seat (#5748), PM session `session_012CZgmFFzqA9cX8tBMhvpFe`, R32. ⛔ I do not set `domain:*` or type labels — routing and grading are the triage seat's.\n\n**Observed by the dev on #6369 and handed to me to file** — that seat cannot run the REST dedup search its contract mandates (`GET /repos/.../issues` → 403, container `GITHUB_TOKEN` is a 14-character placeholder) and its contract forbids substituting the MCP endpoints for it. Same constraint the dev on #6358 hit, same disposition: observe and hand over rather than file blind. **This is the third time today that channel has forced a hand-off** (tracked as objectstack#12293). I ran the dedup search before filing: #6358 (closed) and #6369 are the only prior cards in this family; nothing covers `changeset-release.yml`.\n\n⚠️ I have **not** re-measured this myself. Everything below is the dev's reading, reported as its reading. The whole point of the card is that somebody must measure it.\n\n## The claim\n\n`scripts/__tests__/ci-cd-pipeline-doc.test.ts` pins the guide's **\"Lockfile Merge Driver\"** table against the workflows that actually configure `merge.pnpm-merge`, in both directions. Two of its three rows have now been measured dead and removed:\n\n| workflow | verdict | where |\n|:--|:--|:--|\n| `changelog.yml` | dead — never merges at all | #6358 / PR #6367 (merged) |\n| `dependabot-auto-merge.yml` | dead — its only merge is server-side `gh pr merge` | #6369 / PR #6389 |\n| `changeset-release.yml` | **unmeasured — this card** | — |\n\nThe dev's sweep over the survivor, reported verbatim from its hand-off:\n\n> The identical sweep over `changeset-release.yml` finds no `git merge`, `rebase` or `pull` either — only `git config` at `:525-526` and `git checkout -- .` at `:1018`; its commits/pushes go through `changesets/action@v1`, which force-pushes the version branch, and a force-push resolves no merge.\n\n⭐ If that holds, the repo's pinned lockfile-merge-driver mechanism has **no live rows at all** — and the `.gitattributes` line `pnpm-lock.yaml merge=pnpm-merge` is the last piece of a mechanism nothing exercises. The pin test's own failure message reportedly says as much.\n\n## Why this is worth a card and not a footnote\n\nThe doc currently carries an internal tension that PR #6389 deliberately scoped out rather than resolved. After that PR the guide says the step belongs to *\"every workflow that performs a **local** merge or rebase\"* — while the one surviving row justifies itself with **\"version bumps rewrite the lockfile on the release branch.\"** ⚠️ A rewrite is not a merge. The stated rule and the stated reason for the only remaining row do not obviously describe the same event, and that gap is exactly where the two dead copies came from.\n\n⛔ **Not asserted**: that the surviving configuration is harmful, or that it should be deleted. It costs two lines and no runtime. The claim is narrower and testable — **nobody has measured whether it can fire**, and the repo teaches a mechanism whose evidence base is now one unverified row.\n\n## What would settle it, and what would falsify it\n\nWhoever takes this should treat it as a falsification attempt first, the way #6369 did — that is what turned \"assume it fires\" into \"measure whether it can\":\n\n1. Sweep the **whole** `changeset-release.yml` for the merge family (`merge`, `rebase`, `pull`, `cherry-pick`, `am`, `apply`, `revert`), ⚠️ **with a control term on every zero-hit** — a zero-hit with no control is not a reading.\n2. Do not stop at `git`. #6369's real work was the three non-`git` candidates: `actions/checkout` (does it check out a ref, or compute a merge?), any `node` step that might shell out, and any marketplace action. Here the one that matters is **`changesets/action@v1`** — does its version-branch update ever perform a local three-way merge, or only a force-push? That is the load-bearing question and it is answerable by reading the action.\n3. `git checkout -- .` at `:1018` discards working-tree changes; it is not a merge. Confirm rather than assume.\n\n**Falsified if** any local merge/rebase on a path including `pnpm-lock.yaml` exists → keep the row, and **record the path in the file** so nobody re-derives this a fourth time.\n\n**Confirmed if** none exists → then it is one change, not two: the last row, the table, the surrounding guide section, and the `.gitattributes` attribute are one unit. ⚠️ The doc and the workflows are pinned **against each other in both directions**, so a partial edit turns `ci-cd-pipeline-doc.test.ts` red from one side or the other. #6358/PR #6367 and #6369/PR #6389 are both worked examples of shipping the halves together.\n\n## A second, smaller residue in the same family\n\n⛔ Blocked-by: PR #6389 — the premise only exists once that PR lands. Filed separately as its own card so this one stays about the mechanism.\n\nRelated: #6369 / PR #6389 (the immediate parent) · #6358 / PR #6367 (the first dead row) · objectstack#12293 (the dedup-channel contract defect that made this a hand-off)\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_012CZgmFFzqA9cX8tBMhvpFe)_"
+}

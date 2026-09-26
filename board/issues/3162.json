@@ -1,0 +1,34 @@
+{
+  "number": 3162,
+  "kind": "issue",
+  "title": "台账燃尽批次 8/8 · any 擦除簇 4 符号 —— 上游阻塞已解除,实测四条全部不可燃尽(objectstack#4115)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-01T13:15:39Z",
+  "updated_at": "2026-08-30T11:00:35Z",
+  "closed_at": "2026-08-30T11:00:03Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3162",
+  "body": "> **⚠️ CORRECTED 2026-08-30 by the `domain:ui` seat (#5560). The original body is kept\n> verbatim below the line — it is the evidence, not a draft.**\n>\n> **This card was NOT blocked when you read it.** The body opened with\n> 「当前被上游阻塞,勿提前动工」 and the title said 「上游解除后处理」. Both became false on\n> **2026-07-30**, when objectstack#4171 closed completed. Triage flagged the staleness on\n> 2026-08-18, noting it had already repelled claimants for 19 days; by the time the card was\n> actually dispatched that was **40 days**. A \"do not start\" line that outlives its own\n> premise is not a neutral leftover — it is an active instruction to the next reader, and it\n> was obeyed.\n>\n> **The card's stated start signal did not fire, and could not have.** The body says to watch\n> the `_spec*IsStillAny` tripwires in `spec-derived-unions.test.ts` and treat their going red\n> as the go-ahead. Those tripwires **no longer exist under that name** — objectui#3177\n> replaced them after establishing that `any` was never the only blocker — and their\n> replacements are green. Anyone following the documented rhythm would have waited forever.\n>\n> **Outcome: zero re-exports.** All four symbols were re-measured in the BUILT dist at\n> `@objectstack/spec` 17.2.0 (source state and upstream issue state are both insufficient —\n> dist erasure is invisible from either, which is the reason this ledger exists at all). None\n> is burnable, and three of them for reasons that have nothing to do with the blocker this\n> card recorded:\n>\n> | Symbol | Verdict | Why |\n> |---|---|---|\n> | `JoinNode` | not burnable | The spec no longer exports it **at all** — `TS2305` from both `/ui` and `/data` against a resolving control. Spec 17.0.0 retired the `query.joins` cluster. Nothing upstream to bind to. |\n> | `NavigationItem` | not burnable | Upstream **is** precise now, so objectstack#4171 genuinely landed. The three semantic blockers objectui#3177 pinned are untouched by it. |\n> | `NavigationItemSchema` | not burnable | Upstream is precise now too — **which is what makes this the dangerous one.** The live blocker is RUNTIME shape, invisible to every type-level probe: binding the spec's schema would make the published `objectui validate` reject navigation metadata this renderer accepts today. |\n> | `JoinedReportBlock` | not burnable | **Still** erased, to `unknown`, by a cause objectstack#4171 never covered — a bare `z.ZodTypeAny`, not recursion. |\n>\n> **The standing lesson, for the next ledger card.** A closed upstream issue is not a licence\n> to re-export. This batch's ledger entry named one blocker; measurement found three\n> different live ones and zero instances of the recorded one. The reason a symbol is not\n> derivable has to be re-measured at burn-down time, in the dist, per symbol — the ledger\n> records *that there is* a reason, never *what* it still is.\n>\n> **Remaining debt is no longer carried as a card pointing at an upstream issue.** It is\n> carried as pins that each name their own release condition, and the guard's\n> machine-readable ledger goes from `3 untriaged collisions in 1 packages` to `0 untriaged\n> collisions in 0 packages`, with the three symbols recorded in `ALLOW` as declared dialects\n> carrying their measured reasons. Delivered by PR #6883.\n\n---\n\nobjectstack#4115 债务台账的最后一批,**当前被上游阻塞,勿提前动工**。\n\n## 本批符号(`@object-ui/types`,4 条)\n\n`JoinNode`, `NavigationItem`, `NavigationItemSchema`, `JoinedReportBlock`\n\n## 阻塞原因\n\nspec 侧这些导出的类型在 dist 里被擦除,本地精确类型一旦 re-export 就会被替换掉——是穿着燃尽外衣的类型安全回退。两种擦除形态:\n\n- **擦除为 `any`**(`JoinNode` / `NavigationItem` / `NavigationItemSchema`):递归 zod schema 标注 `z.ZodType` 所致(objectstack#4171)。`NavigationItemSchema` 本地也是递归 `z.ZodType`,同一机制。\n- **擦除为 `unknown`**(`JoinedReportBlock`,批次 1 分诊时发现并移入):spec 把 `JoinedReportBlockSchema` 声明为 `z.ZodTypeAny`,其导出类型是 `unknown`。**这是守卫文件头原本没写的第四种分诊谎言**——头部的 `0 extends (1 & T)` 探针对 `unknown` 返回 `false`,只按头部行事的分诊会得出\"可安全派生\"的结论,然后删掉一整个 interface 的类型信息。批次 1(objectui#3167)已在守卫文件头补了 case 2b 并加了反向 pin。\n\n## 解除条件与动工步骤\n\n1. `spec-derived-unions.test.ts` 里的反向 pin:spec 把这些类型修好的那天它会**报红**——那就是本批的开工信号(或 objectstack#4171 关闭)。\n2. 动工时:`NavigationItem` 优先整体 re-export;若伞形类型仍不可用但变体类型完整(`ObjectNavItem`/`ActionNavItem`/`GroupNavItem`…),按 objectui#3088 的做法从变体派生,不整份手抄。\n3. `NavigationItemSchema` 若 spec 侧提供了可引用的 shape,参照 `ListViewSchema` 范式按引用流入。\n4. 完成定义同批次 1。**台账清空后,在 objectstack#4115 评论总结并关闭它。**\n\n## 检查节奏\n\n处理其他批次的 session 路过时顺手跑一下 `spec-derived-unions.test.ts` 即可,无需专门盯守。"
+}

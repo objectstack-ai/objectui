@@ -1,0 +1,36 @@
+{
+  "number": 7203,
+  "kind": "issue",
+  "title": "plugin-gantt: the toolbar period label names the timeline RANGE START, not the visible window — it reads \"January 2026\" over columns showing late August, and the band header one row lower says \"Aug 2026\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T11:15:28Z",
+  "updated_at": "2026-09-01T15:55:29Z",
+  "closed_at": "2026-09-01T15:40:28Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7203",
+  "body": "Found in a browser pass over a real application's gantt view (objectstack-ai/duly#62). Filed unassigned, not claiming.\n\nMeasured on `@objectstack/console` 17.2.0 (objectui `190fbd01d061`) in Chromium 1194 at 1440x900. Re-checked against current `main` `84ffdbcbb33762b5488742fb902faf45a3742e93`: the expression below is unchanged there, so this is not a version-lag report.\n\n## Symptom\n\nThe toolbar reads **January 2026** while the timeline underneath it shows 26 Aug through 6 Sep 2026, Today marker on 1 September.\n\n![toolbar says January 2026 while the columns show late August](https://raw.githubusercontent.com/objectstack-ai/duly/b6c452d638777d47a003af42ca53333bdb72d7a6/62-header-contradiction.png)\n\n## Cause\n\n`packages/plugin-gantt/src/GanttView.tsx` — the toolbar span formats the **range start**:\n\n```tsx\n<span className=\"font-semibold text-xs sm:text-sm\">\n  {timelineRange.start.toLocaleDateString(dateLocale, { month: 'long', year: 'numeric' })}\n</span>\n```\n\n`timelineRange` is the memo that spans the whole dataset. With no `startDate` prop it resolves to `min(task.start)` minus 7 days, snapped to the period; the end is `max(task.end)` plus 14 days. So the label names the first month of the entire dataset, and it cannot change while the chart is scrolled because it is not derived from scroll position at all.\n\nThe app in the screenshot holds tasks from 31 Jan to 31 Dec 2026, so this label sits on \"January 2026\" for every scroll position of an eleven-month timeline. On a first read it looks like the chart is showing January and the columns are mislabelled — the truth is the other way round.\n\n## The renderer already computes the right answer one row lower\n\nRead from the DOM in the same frame as the screenshot:\n\n| element | value |\n| :-- | :-- |\n| toolbar period label | `January 2026` |\n| band header, `data-testid=\"gantt-header-groups\"` | `Aug 2026`, `Sep 2026` |\n| unit columns, `data-testid=\"gantt-header-units\"` | `26W` `27T` `28F` `29S` `30S` `31M` `1T` `2W` `3T` `4F` `5S` `6S` |\n\nThe band header is already a viewport-derived month label and it contradicts the toolbar directly above it. Whatever the toolbar is meant to say, two month labels four pixels apart disagreeing is the part a user sees.\n\n## Related, same toolbar: the two buttons beside the label are inert\n\nThe `prevPeriod` / `nextPeriod` buttons render an `aria-label` and an icon and carry **no `onClick`**:\n\n```tsx\n<Button variant=\"ghost\" size=\"icon\" className=\"h-8 w-8\" aria-label={t('gantt.toolbar.prevPeriod')}>\n  <ChevronLeft className=\"h-4 w-4\" />\n</Button>\n```\n\nSo the obvious recovery — \"this says January, let me page forward to the month I am looking at\" — does nothing, with no diagnostic. This is arguably the same defect: a period label and a pair of period-stepper buttons that are not wired to a period.\n\n## Reproduction\n\nAny gantt whose dataset spans more than one month, scrolled anywhere other than its first month. The chart auto-scrolls to Today on load, so a dataset with history reproduces it on first paint with no interaction:\n\n1. A gantt view over rows whose start dates run from January to December of the current year.\n2. Load it. The chart lands on Today.\n3. Toolbar reads the January label; the columns and the band header read the current month.\n\n## Suggested direction — maintainer's call, not proposed as decided\n\nDeriving the label from the visible window is the fix that makes the toolbar agree with the band header: the scroll offset already maps to a date (the pixel-to-date binary search used by the drag handlers), so the leftmost visible column's month is available without new state. The two stepper buttons then have something to drive — scroll by one unit of the current granularity.\n\nThe alternative reading is that the label is meant to describe the whole range, in which case it should say so (a start-to-end range, not a single month) and the stepper buttons should go. Either way the current pairing cannot be right.\n\nRelated: #7070 (gantt/timeline date-axis findings), #5132 (`GanttViewMode` doc line).\n"
+}

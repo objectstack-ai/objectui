@@ -1,0 +1,35 @@
+{
+  "number": 7163,
+  "kind": "issue",
+  "title": "`RecordComments` and `PointInTimeRestore` carry the same untranslated `formatTimestamp` `ActivityTimeline` just had — keys already exist in all ten packs",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T07:57:44Z",
+  "updated_at": "2026-09-01T09:55:57Z",
+  "closed_at": "2026-09-01T09:40:16Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7163",
+  "body": "Found while implementing #7149 (PR #7162), which fixed this exact defect in `packages/plugin-detail/src/ActivityTimeline.tsx`. Filed rather than swept in: those files are outside that card's declared lane.\n\n## Measured on `origin/main` head `85b5077d7`\n\nTwo more files in `packages/plugin-detail` hold a byte-identical copy of the same `formatTimestamp` helper, still returning hardcoded English:\n\n`packages/plugin-detail/src/RecordComments.tsx:28-45`\n\n```\nif (diffMins < 1) return 'just now';\nif (diffMins < 60) return `${diffMins}m ago`;\nif (diffHours < 24) return `${diffHours}h ago`;\nif (diffDays < 7) return `${diffDays}d ago`;\n```\n\n`packages/plugin-detail/src/PointInTimeRestore.tsx:38-48` — the same, minus the days branch (it falls through to `toLocaleString()` after hours).\n\n## Why they are not equivalent to each other\n\n- **`RecordComments.tsx` already uses the translation hook** — 11 `useDetailTranslation` / `t('detail.…')` references in the file. So it is precisely the `ActivityTimeline` shape #7149 described: a component that *is* wired to the packs, with one helper that never got converted. A zh session reads translated comment chrome next to an English `5m ago`.\n- **`PointInTimeRestore.tsx` uses no translation hook at all** (0 references) — the wholly-unwired shape, so its scope is larger than a lookup swap.\n\n## The keys already exist\n\nNo new keys are needed for the four relative-time strings — `detail.justNow`, `detail.minutesAgo` (`'{{count}}m ago'`), `detail.hoursAgo`, `detail.daysAgo` are present in **all ten packs** and already translated. Verified by reading the pack objects directly, not by a dotted-key grep (the packs are nested, so a grep for `detail.justNow` returns a false zero against the `en` pack that defines it); positive control `detail.back` / `detail.noActivity` / `detail.edit` = 10/10, negative control `detail.zzzAbsentControl7149` = 0/10.\n\nThree call sites in this same package already consume them exactly this way — `RecordActivityTimeline.tsx:152-157`, `RecordMetaFooter.tsx:51-57`, `ThreadedReplies.tsx:37-42` — so the target shape is established and needs no design:\n\n```\nif (diffMins < 1) return t('detail.justNow');\nif (diffMins < 60) return t('detail.minutesAgo', { count: diffMins });\n```\n\n`RecordComments` is therefore a pure lookup swap. `PointInTimeRestore` additionally needs the hook wired, and whoever takes it should sweep that file for its other literals rather than converting only the timestamps.\n\n## Not in scope here, but worth a look together\n\n`apps/console/src/pages/system/ApprovalsInboxPage.tsx:647-649` reaches the same copy through `tr('justNow', 'just now')` — an inline fallback rather than a bare key. Different pattern, possibly deliberate; noted only so a sweep does not miss it.\n\n## Evidence bar for whoever takes this\n\nAn `en`-only test is green *before* the fix too — each key's `en` value is byte-identical to the literal it replaces — so English cannot discriminate a pack lookup from a hardcoded string. Assert in zh/ja/ar, and assert the provider-less path separately (it must yield the English default from `DETAIL_DEFAULT_TRANSLATIONS`, never a raw key, and it must interpolate `{{count}}`).\n\nNever an inline `defaultValue` (#3517)."
+}

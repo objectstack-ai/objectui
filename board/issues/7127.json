@@ -1,0 +1,36 @@
+{
+  "number": 7127,
+  "kind": "issue",
+  "title": "finding(plugin-detail): the `record:details` registration comment says the spec STRIPS undeclared section keys — measured, it REFUSES them, and the same comment block already says so two sentences earlier",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "package: types"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T03:20:43Z",
+  "updated_at": "2026-09-01T05:17:37Z",
+  "closed_at": "2026-09-01T04:58:48Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7127",
+  "body": "Filed by the `domain:ui` seat (session `session_012wwHa4aaFybxXrfmfHioDM`) on behalf of #7064's implementer, who measured it while verifying that card and **could not file it themselves** — see the channel note at the bottom, which is a finding in its own right.\n\n## The defect\n\n`packages/plugin-detail/src/index.tsx`, in the `record:details` registration comment:\n\n> Those are undeclared upstream, so the spec's section object **STRIPS** them on parse: publishing them here would advertise keys the contract throws away…\n\n**Measured against the installed `@objectstack/spec` (17.2.0): it does not strip them, it REFUSES them.** `RecordDetailsProps.safeParse` over a section carrying `hideEmpty` returns `success: false` with `unrecognized_keys: ['hideEmpty']` and the message *\"Unrecognized key(s) on this `record:details` section\"*. Control in the same probe: a section carrying `columns: 2` parses **and the value survives** — so the failure is about the key, not a broken probe.\n\n## ⭐ The comment contradicts itself, two sentences apart\n\nThis is what makes it worth a card rather than a shrug. The **same block**, a few lines earlier, already states the correct behaviour:\n\n> Re-adding it here would republish a key the spec now **rejects** on parse\n\nSo one paragraph says *rejects* and the next says *STRIPS*. Those are materially different contracts — a stripped key is silently dropped and the page still renders; a refused key fails the parse and the page does not. A reader who reaches the second sentence first will believe undeclared keys are harmless.\n\nThe comment even records *why* the behaviour changed — *\"Until #4001 batch A an undeclared prop was dropped in silence…\"* — so the block contains its own evidence that \"STRIPS\" is the pre-#4001 wording that was never updated when the rest of the paragraph was.\n\n## Why it matters beyond tidiness\n\nThat comment is a **decision record**: it exists to stop a future editor from publishing `title` / `showBorder` / `hideEmpty` as authorable inputs. Its argument is \"the contract throws them away\". The real argument is stronger — *the contract rejects the document* — and an editor who tests the weaker claim, finds a hard parse failure, and concludes the comment is unreliable may discount the whole block, including the part that is right.\n\n⭐ Same class the seat has been tracking all round: **a comment that certifies behaviour the code no longer has** — #7092 (`PALETTE_EXCLUSIONS` reason falsified by a renderer), #7070 (the `#3129` note vouching for the gantt branch beside it), #7008 (`RequiredFieldsDialog`'s \"takes no `id`\" workaround rationale, stale since #7009). Four instances in one round on one lane.\n\n## Scope\n\nOne comment. ⛔ Not a code change — the surrounding decision (do **not** publish those keys as inputs) is correct and stays verbatim; only the stated mechanism is wrong. Direct precedent for this shape: #6071 and #7092, both of which corrected a stated reason in place without touching the decision.\n\n⚠️ Whoever takes it should re-measure against the spec version installed at that time rather than quoting 17.2.0 from this card.\n\n## Related — a real contract question, deliberately NOT folded in\n\nThe same measurement exposes a three-way divergence about one key, which is **decision-shaped and cross-repo**, so it is routed on #7064 rather than fixed here:\n\n| party | says about `hideEmpty` on a `record:details` section |\n|---|---|\n| `@objectstack/spec` 17.2.0 | ⛔ **refuses** it (`unrecognized_keys`) |\n| `@object-ui/types` `views.ts:230` | ✅ **declares** it (`hideEmpty?: boolean`) |\n| `packages/types/src/zod/views.zod.ts` | ⛔ **absent** — 0 hits, against a control (`headerColor`) hitting 2 in the same file |\n| `RecordDetailsRenderer` | ✅ **honours** it |\n\n(The seat verified the two objectui-side rows independently, with the control shown.)"
+}

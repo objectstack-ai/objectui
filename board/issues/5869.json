@@ -1,0 +1,32 @@
+{
+  "number": 5869,
+  "kind": "issue",
+  "title": "finding: cloud 的 runtime-config 生产端会下发 `features.scim`,而 app-shell 的 `RuntimeFeatures` 没有这个键(objectui 全仓零消费)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-23T16:45:40Z",
+  "updated_at": "2026-08-31T05:25:25Z",
+  "closed_at": "2026-08-31T05:24:07Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5869",
+  "body": "观察类发现,顺路撞见,**未在任何 PR 中修改** —— 记录而非认领。\n\n## 观察\n\n`packages/app-shell/src/runtime-config.ts` 的 `RuntimeFeatures` 声明了两个「可选商用位」——\n`customDomain?` 与 `sso?`,注释写明它们由服务端按 plan entitlements 推导、自建/vanilla 运行时上缺席。\n\ncloud 仓 `main` 上,推导这两个位的那段代码在同一个对象字面量里还推导了第三个位 `scim`:\n`packages/objectos-runtime/src/cloud-runtime-config-plugin.ts` 的 `resolveFeatures` 在拿到 plan 时返回\n`{ aiStudio, autoPublishAiBuilds, customDomain, sso, scim }`。framework 侧的 `@objectstack/cloud-connection`\n按 ADR-0012 只搬运一张不透明的 feature map,所以这个键会原样到达 SPA。\n\n本仓实测,**带对照**:\n\n| probe | result |\n|---|---|\n| `grep -rn '\\bscim\\b' --include='*.ts' --include='*.tsx' packages/ apps/` | 零命中(退出码 1) |\n| **对照** —— 同一形状的 `sso` 在 `runtime-config.ts` 内 | 3 处(接口声明 + 默认值 + 注释) |\n\n对照是让这个「零」成为读数而不是 grep 写错的原因:同一条命令对姊妹键 `sso` 有命中。\n\n## 为什么记一笔\n\n这是**声明面与消费面对不齐**的一处:生产端按 plan 推了一个能力位,消费端既没在 `RuntimeFeatures` 里声明它,\n也没有任何地方读它。两种收敛方向都成立,选哪个是产品判断,不是实现判断:\n\n- SPA 本就该按 `features.scim` 门控某个 SCIM 相关入口(那么本仓欠一个声明 + 一个读取点);\n- 或者 SCIM 根本不需要 SPA 侧的 affordance(那么 cloud 侧下发的是一个零消费的键,按「已发布零消费的能力\n  不因沉没成本获得豁免」应在生产端处置)。\n\n严重度留给分诊定级;⛔ 未打 `pm:queue`。\n\n## 发现语境\n\n在实现 objectui#5206(`runtime-config.ts` 的 *\"Server-side: see\"* 指针重锚)时读生产端代码撞见 ——\n那张卡的修复正是把这条注释指向 `@objectstack/objectos-runtime` 的 `RuntimeConfigPlugin`,而这个键就在那里。"
+}

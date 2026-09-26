@@ -1,0 +1,34 @@
+{
+  "number": 6140,
+  "kind": "issue",
+  "title": "finding(fields): `RichTextField` reads a `rows` key off field metadata that neither `MarkdownFieldMetadata` nor `HtmlFieldMetadata` declares — undeclared-but-consumed, reached through an `as any`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-08-24T20:48:18Z",
+  "updated_at": "2026-08-31T20:36:36Z",
+  "closed_at": "2026-08-31T20:25:51Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 13,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6140",
+  "body": "Filed unassigned from objectui#6138 round 2, which ruled that `rich-text.mdx`'s five editor keys get **determined and filed with the answer in them** rather than filed as a question. The answer is measured below. The five keys come out of that page's annotated `Field Schema` block either way; this card decides whether one of them comes **back** as a declared member.\n\n## The measurement — one of five is consumed, four are inert\n\nRead: `packages/fields/src/widgets/RichTextField.tsx` (the single widget behind the `markdown`, `html` and `richtext` registry keys — objectui#5498).\n\n| key documented on `rich-text.mdx` | read by `RichTextField`? | evidence |\n|---|---|---|\n| `rows` | **YES** | `const rows = richField?.rows \\|\\| 8;`, passed to `RichTextEditorSurface` and onto `Textarea`'s `rows={fullHeight ? undefined : rows}` |\n| `toolbar` | no | the only occurrence in `packages/fields/src` is a JSDoc sentence about what the editor might *grow into* — \"whatever the editor grows into (a toolbar, a TipTap/Lexical instance, a preview toggle)\" |\n| `preview` | no | no read on this widget; the other `preview` hits in `packages/fields/src` belong to `VectorField`, `RecordPickerDialog` and `ImageLightbox` |\n| `minHeight` | no | **zero** occurrences anywhere in `packages/fields/src` |\n| `maxHeight` | no | **zero** occurrences anywhere in `packages/fields/src` |\n\nCommand:\n\n```\ngrep -rn \"\\btoolbar\\b\\|\\bpreview\\b\\|\\bminHeight\\b\\|\\bmaxHeight\\b\\|\\brows\\b\" \\\n  packages/fields/src --include=*.ts --include=*.tsx | grep -v __tests__\n```\n\nSo four of the five are inert prose and are simply deleted by objectui#6138. **`rows` is the finding.**\n\n## Why `rows` is a defect rather than a working feature\n\nThe read is real and reaches the DOM, but it is **undeclared** on both metadata types the widget can be handed:\n\n- `MarkdownFieldMetadata` — 18 members, `rows` not among them\n- `HtmlFieldMetadata` — 18 members, `rows` not among them\n\n(Key sets read from the **built** `packages/types/dist/index.d.ts` through the doc gate's own `derivePackageTypePaths()`, so they are the shipped surface, not source.)\n\nThe read only compiles because the widget launders the carrier first:\n\n```\nconst richField = field as any;\nconst rows = richField?.rows || 8;\n```\n\n`field` is typed `FieldMetadata`, so without that `as any` the read would not compile. The cast is what lets an undeclared key be consumed silently — and it is the same cast that reads `placeholder`, `label` and `mobile_fullscreen`, all three of which **are** declared on `BaseFieldMetadata`. `rows` is the one member of that group with no declaration behind it.\n\nConsequences, both live today:\n\n1. **An author cannot legally write it.** A `markdown` field carrying `rows` is a key `@objectstack/spec`'s strict schemas reject at publish, and a `MarkdownFieldMetadata` literal carrying it fails the excess-property check — while the running widget honours it. Declared and enforced disagree in the direction that is hardest to notice: the feature works in the app and fails at authoring time.\n2. **The sibling proves the shape.** `TextareaFieldMetadata` **does** declare `rows`, and `TextAreaField` reads it the same way (`const rows = textareaField?.rows || 4;`). Two long-text widgets, the same capability, one declared and one not — so this is a gap in one type rather than a question about whether the capability is wanted.\n\n## The two candidate resolutions\n\n- **A — declare it.** Add `rows?: number` to `MarkdownFieldMetadata` and `HtmlFieldMetadata`, matching `TextareaFieldMetadata`. Makes the consumed key authorable, and `rich-text.mdx`'s `Field Schema` block can then carry it. Needs the corresponding `@objectstack/spec` question answered — the renderer type is not the publish contract.\n- **B — remove the read.** Drop `richField?.rows` and let the inline editor keep its fixed height. Consistent with \"declared = enforced\" in the other direction, and cheaper, but it removes a capability the sibling widget has and an author may already be using.\n\n⚠️ Not decided here, deliberately: the choice turns on whether `@objectstack/spec` should carry `rows` for `markdown`/`html`, which is a spec question and not this repo's to answer alone. What this card fixes is that the question was previously invisible.\n\n## Refs\n\nobjectui#6138 (which ruled this be filed with its answer) · objectui#5498 (the one widget, three registry keys) · objectui#3233 (`field` as the single metadata carrier) · objectui#3221 (why the closed contract matters).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_"
+}

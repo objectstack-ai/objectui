@@ -1,0 +1,35 @@
+{
+  "number": 6264,
+  "kind": "issue",
+  "title": "Follow-up to #5306: turn on `engine-strict=true` once the corrected engines range is validated against CI images and contributor environments",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T05:50:47Z",
+  "updated_at": "2026-08-29T14:24:35Z",
+  "closed_at": "2026-08-29T14:24:35Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6264",
+  "body": "Blocked-by: #5306\n\nSpun out of the #5306 maintainer ruling (2026-08-25, batch adjudication; Option A accepted now, Option C approved as this gated follow-up — verbatim acceptance: 「就全部接受，然后继续下一批」).\n\n## What\n\nAdd `engine-strict=true` to `.npmrc`, turning the (now truthful, post-#5306) `engines` declaration from documentation into enforcement — a contributor or agent on node 22.4 / pnpm 9 gets refused at install time instead of a silently unsupported toolchain.\n\n## Gate (why blocked, and what to verify before flipping)\n\n1. #5306 must land first (enforcing the old lying range would block valid environments — the card's own Option C warning).\n2. Before enabling, verify against the environments that would be refused: CI workflow images (every workflow that runs `pnpm install`), the documented contributor setup, and the remote-agent session images. Record the readings in this card; if any live environment fails the corrected range, fixing THAT is a prerequisite, not a reason to widen the range back.\n\nRefs: #5306 (the ruling and the corrected range)."
+}

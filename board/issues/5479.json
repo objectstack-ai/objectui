@@ -1,0 +1,33 @@
+{
+  "number": 5479,
+  "kind": "issue",
+  "title": "finding(components): skill-guide-data-table-binding's docblock disclaims a column-spelling dependency its assertions actually have",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:on-hold"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-21T02:02:26Z",
+  "updated_at": "2026-08-31T07:58:52Z",
+  "closed_at": "2026-08-31T07:58:52Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5479",
+  "body": "Found while implementing #5351 (PR5478). Not claiming; observation class. Baseline objectui `main` @ 490f48240.\n\n## The fact\n\n`packages/components/src/__tests__/skill-guide-data-table-binding.test.tsx` is a doc-sameness gate: it lifts the fenced ```json blocks out of `skills/objectui/guides/{data-integration,schema-expressions}.md` **at run time** and feeds them to the real `SchemaRenderer`, asserting the rows reach the screen.\n\nIts docblock ends with an explicit scope disclaimer:\n\n```\n * The `columns` entries in these examples are deliberately untouched: their\n * `{ name, label }` spelling is the separate open question on objectui#5120\n * (the undeclared `col.name` / `col.label` alias at `data-table.tsx:776-777`),\n * parked with the maintainer. This file pins the BINDING only, and stays true\n * whichever way that one lands — nothing below asserts a column key spelling.\n```\n\nThe last clause is not true of the code. The behaviour assertions are on **cell text**:\n\n```\nexpect(bodyCells()).toEqual(['Ada Lovelace', 'ada@example.com', 'Grace Hopper', 'grace@example.com'])\n```\n\nCell text can only render if the accessor resolves, and in these blocks the accessor resolves **only through the `col.name` alias**. So the file transitively pins that alias, and does not in fact stay true whichever way #5120 lands.\n\n## How it was measured\n\nRetiring `accessorKey: col.accessorKey || col.name` at `data-table.tsx` turns this file **red on 2 tests**, one per guide, both with all four cell strings becoming `\"\"`. Retiring the sibling `header: col.header || col.label` on the same lines leaves it **15/15 green** — the header alias is genuinely invisible to it, exactly as the docblock claims for both.\n\nSo the disclaimer is half right: accurate for `label`, wrong for `name`.\n\n## Why it is worth a card rather than a silent fix\n\nThis is the coupling that made #5120's remaining step invisible when the family was ruled on. The ruling (2026-08-20) retires the `col.name` alias; the recorded discussion weighed the two skill guides as an *instruction-corpus* concern and no participant named the fact that a repo gate already pins those guides' bytes to renderer behaviour. Whoever takes #5120's remaining step will hit this test red and needs the docblock to describe what the assertions really depend on.\n\nNot fixed in PR5478 on purpose: that PR holds the `name` alias precisely so this gate stays green, and rewriting the disclaimer while the dependency is still live would be editing the comment to match a state that has not happened yet. The right moment is the same commit that migrates the guides.\n\n## Recheck\n\n```\nsed -n '43,48p' packages/components/src/__tests__/skill-guide-data-table-binding.test.tsx\nsed -n '170,185p' packages/components/src/__tests__/skill-guide-data-table-binding.test.tsx\ngrep -n -A8 '\"type\": \"data-table\"' skills/objectui/guides/data-integration.md\n```\n\n## Grading\n\n`finding`, not `pm:queue`. Related: #5120, #5351, #5126, #5337."
+}

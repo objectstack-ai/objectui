@@ -1,0 +1,34 @@
+{
+  "number": 4830,
+  "kind": "issue",
+  "title": "finding: app-shell.mdx 的 Features/Styling 散文完全不提 branding 与 rightRail —— 键表已补齐(#4808/PR4829),散文半截待 #4818 裁定 logo 后写",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-16T10:48:16Z",
+  "updated_at": "2026-08-30T09:03:42Z",
+  "closed_at": "2026-08-30T09:00:37Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4830",
+  "body": "Blocked-by: #4818\n\n## 背景\n\n#4808/PR #4829 把 `content/docs/layout/app-shell.mdx` 的 AppShellProps 声明块按 interface 补齐(7 键,机器现读比对的钉子在案),但按 PM 派发硬边**有意搁置**了正文散文:页面的 Features / Styling 段仍完全不提 `branding` 与 `rightRail`,`branding` 在键表里只有类型指向注释。\n\n## 为什么散文不能现在写\n\n`AppShellBranding.logo` 全无读取方(#4818:useAppShellBranding 只消费 primaryColor/accentColor/favicon/title,console 侧还在喂值)。#4818 未裁定 logo 是「补实现」还是「按 ADR-0049 摘除」之前,写 branding 散文等于把待定事实固化进教学面 —— 正是本页 #3914/#3946/#3999/#4793 四次付账的模式。\n\n## 完成范围(#4818 裁定后)\n\n- branding 一小段:按裁定后的真实消费面写(五字段哪些生效、与 Shadcn 主题 token 的关系);\n- rightRail 一行散文(ADR-0057 P3a,毗邻不覆盖);\n- 键表内 branding 的注释若因裁定需更新一并改。\n\n## 参考\n\n- #4808 / PR #4829(键表半)、#4818(logo 零读取方)、PR #4828(README 侧同日已按 #4818 现状如实写表)\n\nobservation-class,未认领。PM 立卡落实 PR #4829 open question 的裁定 A(session_01GTRjn8xBqp75dk7kFupVRt)。"
+}

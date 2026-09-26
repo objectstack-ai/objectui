@@ -1,0 +1,36 @@
+{
+  "number": 6598,
+  "kind": "issue",
+  "title": "html-kind page: object-table renders rows but no data columns — `columns` never reaches the renderer because the registration's declared inputs omit it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-27T06:24:12Z",
+  "updated_at": "2026-08-29T14:38:36Z",
+  "closed_at": "2026-08-29T14:12:33Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 16,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6598",
+  "body": "Blocked-by: #6614\n\n**Moved from objectstack-ai/objectstack#12649 by central triage (file-at-destination: the fix lands in objectui). Original filed by yinlianghui from promo-video production recon (internal ref: steedos-labs/video-studio#61).**\n\n> ## ⛔ THE TITLE AND THE \"Triage anchoring evidence\" SECTION BELOW ARE DISPROVEN — do not implement from them\n>\n> Measured on `origin/main` and carried by merged PR #6613:\n>\n> 1. **The block is `list-view`, not `object-table`.** objectstack#12649 names it literally; `object-table` has **no live registration anywhere in this repo** — fixtures only. The `object-table` spelling entered at triage.\n> 2. **The live `list-view` registration DOES declare `columns`** (`packages/plugin-list/src/index.tsx`), and declared it at the reporter's 17.1.0 too. No registration is short — the maintainer's `aggregate` follow-up was measured the same way and also comes back negative (it already draws `unknown-prop`, and no renderer reads it; the grid vocabulary is `aggregations`).\n> 3. **The declared-inputs hypothesis could never have produced this symptom.** `parse.ts` keeps every attribute and `validateTree` only *warns* on undeclared ones — compile never strips a prop.\n>\n> **The real mechanism:** `interpretBrace` materialises **strict-JSON** braced values only. Every other spelling — including the single-quoted array every JSX author writes — compiles to a `{ $expr }` marker that **nothing downstream evaluates** (this tier parses, never executes, per ADR-0080). It reaches the renderer opaque, `ListView`'s defensive non-array read degrades it to no-columns, rows still fetch → row count + toolbar + index column, zero diagnostics. The react tier works because its scope wrappers fold real evaluated JS props into the node, so the braced value never has to survive materialisation.\n>\n> **Status:** PR #6613 (merged, `Part of`) landed the loud half only — a warning-severity `inert-expression` diagnostic. ⛔ It does **not** fix the reported page, and no production surface displays warnings yet. The page fix is the grammar decision on **#6614**, which is what this card is blocked on.\n>\n> The title is a triage-authored artifact, so re-titling is triage's write, not this seat's — flagged rather than edited.\n\n## Environment (as originally reported)\n\n- `@objectstack/*` **17.1.0** (hotcrm reference app, hotcrm @ `a76b69ff003605e0d1512c4bbf304031bb5c5fec`, dev server)\n- Page written via metadata API into a fresh writable package (PUT /api/v1/meta/page/ with mode=draft and package, then publish-drafts)\n\n## Actual\n\nIn a `kind: 'html'` page, the object-table block renders the row count (e.g. \"23 records\") and the filter/group/sort toolbar, **but no data columns at all — only the index column**. Eight binding forms all tried, none renders columns:\n\n1. JSX array literal for `columns`\n2. JSON-string `columns`\n3. object-array `columns` (`{field, label}`)\n4. `viewName` reference to a saved view\n5. `view` reference to a saved view\n6. child column elements\n7. no `columns` at all (default-columns expectation)\n8. kebab/camel attribute-name variants of the above\n\n## Expected / contrast\n\nThe **same block in a `kind: 'react'` page** works fully: all four columns render (Opportunity Name / Stage / Amount / Close Date). So the data path and the block itself are fine — the html-tier attribute-to-prop binding for `columns` is dropped.\n\n## Triage anchoring evidence (⛔ SUPERSEDED — see the correction at the top; retained only as the record of how the card was mis-anchored)\n\n- The parse/compile half supports the attribute: objectstack `packages/sdui-parser/src/__tests__/compile.test.ts` compiles `columns={[\"name\",\"amount\"]}` green **against a test fixture whose manifest declares `columns: array`**.\n- The LIVE manifest is generated from this repo's component registrations: `manifestFromConfigs` in objectui `packages/sdui-parser` builds the html-tier manifest from each registration's declared `inputs`, and the object-table fixture in `packages/sdui-parser/src/__tests__/tier.test.ts` declares only `object` + `pageSize` — no `columns` entry. An input the registration does not declare never survives compile, which matches the symptom exactly (rows arrive via the `object` binding; `columns` silently vanishes in every spelling).\n- First dev action: confirm on the live registration (the grid component's registered `inputs`) whether `columns` is declared; if it is, the drop is in the manifest serialization or compile path instead — report the fork rather than assuming. Adjacent cards worth reading before writing anything: #5905 (manifest serializer forwards six keys; several `ComponentInput` fields have no reader), #6150 (top-level schema keys renderers read but no shipped type declares).\n\n⚠️ That third bullet is the one part of this section that held up — the authorised fork fired, and the fork is what produced the real mechanism above. The two bullets before it reasoned from **fixtures**, and a fixture is evidence about the fixture.\n\n## Impact\n\nAny html-tier page (the \"parse, never execute\" tier meant for AI-drafted/unreviewed pages) cannot show a usable data table — rows without columns. Not a P0 for the reporting team (they re-scoped the demo page), but it undercuts the html tier's headline use case of safely accepting AI-authored pages that include data blocks."
+}

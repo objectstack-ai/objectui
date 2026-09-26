@@ -1,0 +1,41 @@
+{
+  "number": 6992,
+  "kind": "pull_request",
+  "title": "chore(deps): Bump @vitejs/plugin-react from 6.0.5 to 6.1.1",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "automated",
+    "dependencies",
+    "examples",
+    "package: components",
+    "plugin",
+    "plugin: charts",
+    "plugin: editor",
+    "plugin: kanban",
+    "plugin: markdown"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T08:00:38Z",
+  "updated_at": "2026-08-31T14:55:13Z",
+  "closed_at": "2026-08-31T14:46:13Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6992",
+  "body": "Bumps [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/tree/HEAD/packages/plugin-react) from 6.0.5 to 6.1.1.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/vitejs/vite-plugin-react/releases\">@​vitejs/plugin-react's releases</a>.</em></p>\n<blockquote>\n<h2>plugin-react@6.1.1</h2>\n<h3>Add <code>compiler.logDiagnostics</code> option</h3>\n<p>Recoverable React Compiler diagnostics are no longer logged by default. Set <code>compiler.logDiagnostics</code> to <code>true</code> to log them through Vite. Fatal diagnostics are always logged and fail the transform.</p>\n<h3>Respect environment sourcemap option for React Compiler transform when <code>builder.sharedPlugins</code> is enabled (<a href=\"https://redirect.github.com/vitejs/vite-plugin-react/pull/1439\">#1439</a>)</h3>\n<p>The React Compiler transform was using the top-level sourcemap option instead of the environment sourcemap option. This caused a problem when the experimental <code>builder.sharedPlugins</code> was enabled.</p>\n<h2>plugin-react@6.1.0</h2>\n<h3>Add experimental native React Compiler support (<a href=\"https://redirect.github.com/vitejs/vite-plugin-react/pull/1419\">#1419</a>)</h3>\n<p>Add experimental native React Compiler support.</p>\n<p>You can use it by installing <code>oxc-transform-react</code> and enabling it via the <code>compiler</code> option:</p>\n<pre lang=\"sh\"><code>npm install -D oxc-transform-react\n</code></pre>\n<pre lang=\"js\"><code>import { defineConfig } from 'vite'\nimport react from '@vitejs/plugin-react'\n<p>export default defineConfig({<br />\nplugins: [<br />\nreact({ compiler: true })<br />\n]<br />\n})<br />\n</code></pre></p>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/CHANGELOG.md\">@​vitejs/plugin-react's changelog</a>.</em></p>\n<blockquote>\n<h2>6.1.1 (2026-08-28)</h2>\n<h3>Add <code>compiler.logDiagnostics</code> option</h3>\n<p>Recoverable React Compiler diagnostics are no longer logged by default. Set <code>compiler.logDiagnostics</code> to <code>true</code> to log them through Vite. Fatal diagnostics are always logged and fail the transform.</p>\n<h3>Respect environment sourcemap option for React Compiler transform when <code>builder.sharedPlugins</code> is enabled (<a href=\"https://redirect.github.com/vitejs/vite-plugin-react/pull/1439\">#1439</a>)</h3>\n<p>The React Compiler transform was using the top-level sourcemap option instead of the environment sourcemap option. This caused a problem when the experimental <code>builder.sharedPlugins</code> was enabled.</p>\n<h2>6.1.0 (2026-08-19)</h2>\n<h3>Add experimental native React Compiler support (<a href=\"https://redirect.github.com/vitejs/vite-plugin-react/pull/1419\">#1419</a>)</h3>\n<p>Add experimental native React Compiler support.</p>\n<p>You can use it by installing <code>oxc-transform-react</code> and enabling it via the <code>compiler</code> option:</p>\n<pre lang=\"sh\"><code>npm install -D oxc-transform-react\n</code></pre>\n<pre lang=\"js\"><code>import { defineConfig } from 'vite'\nimport react from '@vitejs/plugin-react'\n<p>export default defineConfig({<br />\nplugins: [<br />\nreact({ compiler: true })<br />\n]<br />\n})<br />\n</code></pre></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/vitejs/vite-plugin-react/commit/04cac5020e349f452d76c5a4f6d788ad4b38930a\"><code>04cac50</code></a> release: plugin-react@6.1.1 (<a href=\"https://github.com/vitejs/vite-plugin-react/tree/HEAD/packages/plugin-react/issues/1440\">#1440</a>)</li>\n<li><a href=\"https://github.com/vitejs/vite-plugin-react/commit/82d35abe4946eddd4e6456802bf2b53444e264f2\"><code>82d35ab</code></a> fix(react): respect environment sourcemap option when <code>builder.sharedPlugins</code>...</li>\n<li><a href=\"https://github.com/vitejs/vite-plugin-react/commit/397e8471a559f18a16dd21bd797ac01a369dabdc\"><code>397e847</code></a> fix(react): make logging diagnostics an opt-in for React Compiler (<a href=\"https://github.com/vitejs/vite-plugin-react/tree/HEAD/packages/plugin-react/issues/1431\">#1431</a>)</li>\n<li><a href=\"https://github.com/vitejs/vite-plugin-react/commit/61006e6f52124821c24121a78712f7162ae36f5b\"><code>61006e6</code></a> fix(deps): update all non-major dependencies (<a href=\"https://github.com/vitejs/vite-plugin-react/tree/HEAD/packages/plugin-react/issues/1433\">#1433</a>)</li>\n<li><a href=\"https://github.com/vitejs/vite-plugin-react/commit/e2a649cbaa7334d6991f843563683975667e1be1\"><code>e2a649c</code></a> chore: use <code>deps.neverBundle</code> instead of <code>external</code> in tsdown config (<a href=\"https://github.com/vitejs/vite-plugin-react/tree/HEAD/packages/plugin-react/issues/1430\">#1430</a>)</li>\n<li><a href=\"https://github.com/vitejs/vite-plugin-react/commit/fb2d6f3635acbb0f3acbd0e9a914f6c620460957\"><code>fb2d6f3</code></a> fix(deps): update all non-major dependencies (<a href=\"https://github.com/vitejs/vite-plugin-react/tree/HEAD/packages/plugin-react/issues/1427\">#1427</a>)</li>\n<li><a href=\"https://github.com/vitejs/vite-plugin-react/commit/39b31735bf79c2dd380eedaba7ed849256f92a29\"><code>39b3173</code></a> release: plugin-react@6.1.0 (<a href=\"https://github.com/vitejs/vite-plugin-react/tree/HEAD/packages/plugin-react/issues/1428\">#1428</a>)</li>\n<li><a href=\"https://github.com/vitejs/vite-plugin-react/commit/f1340b0c760b1c16e1b780eeba46fd933ddd52eb\"><code>f1340b0</code></a> feat(react): add native React Compiler support (<a href=\"https://github.com/vitejs/vite-plugin-react/tree/HEAD/packages/plugin-react/issues/1419\">#1419</a>)</li>\n<li><a href=\"https://github.com/vitejs/vite-plugin-react/commit/9ab698eafc38ffa14861db450291ed2f6f557557\"><code>9ab698e</code></a> fix(deps): update all non-major dependencies (<a href=\"https://github.com/vitejs/vite-plugin-react/tree/HEAD/packages/plugin-react/issues/1375\">#1375</a>)</li>\n<li>See full diff in <a href=\"https://github.com/vitejs/vite-plugin-react/commits/plugin-react@6.1.1/packages/plugin-react\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

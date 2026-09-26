@@ -1,0 +1,36 @@
+{
+  "number": 6705,
+  "kind": "issue",
+  "title": "finding(gate): `zod-mirror-parity`'s SPEC_DERIVED_PAIRS scans raw text between `export const` boundaries, so a Spec-token mentioned in PROSE is attributed to the neighbouring export",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-28T17:23:00Z",
+  "updated_at": "2026-09-02T03:31:14Z",
+  "closed_at": "2026-09-02T03:24:56Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6705",
+  "body": "Filed unlabelled with suggested routing — `domain:*` and grading belong to triage. **Suggested routing: `domain:ui`** by the packages table (`packages/types`), though the subject is a gate, so `domain:devx` is defensible; triage decides.\n\nProvenance: hit live by the dev implementing #6475 (PR #6704) while writing a docstring. Worked around in that PR by rewording; **the gate itself is unchanged**, so the next person to write a comment in that file meets it again with no warning.\n\n## The mechanism\n\n`packages/types/src/__tests__/zod-mirror-parity.test.ts`'s `SPEC_DERIVED_PAIRS` re-check determines which zod mirrors reference a spec schema by scanning **raw text** between `export const` boundaries in `packages/types/src/zod/*.zod.ts`, looking for a `\\bSpec[A-Z]\\w*` token.\n\nIt is a text scanner, not an AST reader. So it cannot distinguish:\n\n- a real reference — `SpecGanttConfigSchema.extend(...)` in code; from\n- **the same token appearing in a comment.**\n\n## What actually happened\n\nThe dev added a docstring above the *private* `GanttConfigExtensionFields` const. That const sits textually **between** the `ObjectTreeSchema` and `ObjectGanttSchema` export boundaries. The docstring mentioned `SpecGanttConfigSchema` in prose.\n\nThe scanner attributed that mention to **`ObjectTreeSchema`** — a schema that references no spec schema at all — and `SPEC_DERIVED_PAIRS matches what the mirror sources actually do` went red.\n\nTwo properties make this expensive out of proportion to its size:\n\n1. **A comment changed a gate's verdict.** Nothing about the emitted types, the runtime, or the mirror's actual spec dependency moved. Prose did.\n2. **The false attribution lands on the *neighbouring* export, not the one being edited.** The red names `ObjectTreeSchema`; the edit was near `ObjectGanttSchema`. Someone who did not write the docstring themselves has no reason to connect the failure to a comment several lines away, in a different declaration's window.\n\nThat combination — a green-to-red flip caused by prose, blamed on an innocent neighbour — is the signature of a gate people learn to route around individually rather than fix.\n\n## Why the workaround is not the fix\n\nPR #6704 reworded the docstring to avoid the literal token and left a comment recording the trap. That was the correct call **inside that PR's fence** — it was a gantt card, not a gate card, and widening it would have been wrong.\n\nBut the resulting state is a gate whose correct usage is \"do not mention certain identifiers in comments in this file\", enforced by a comment that asks the next editor to remember. That is a convention held by discipline, which is precisely what a gate is supposed to replace.\n\n## Suggested directions (untried, not prescriptive)\n\n- **Strip comments before scanning.** Cheapest fix, keeps the text-scanner shape; needs care with strings that contain comment-like sequences.\n- **Parse instead of scan.** Most correct, most work; the file is TypeScript and the question (\"does this export's initializer reference a `Spec*` symbol?\") is an AST query.\n- **Attribute by declaration, not by text window.** Even keeping the scan, a private `const` between two exports currently has its text charged to whichever export precedes it. Whatever the token-matching rule, the *windowing* is independently wrong.\n\n⚠️ Whoever takes this: the bug's own shape makes a naive test dangerous — a fixture that mentions a `Spec*` token in a comment must be asserted to produce **no** finding, and one that references it in code must still produce one. A fix that stops seeing comments *and* stops seeing real references would go green on the existing suite while destroying the gate. Show the positive direction still fires.\n\nRefs: #6475 / PR #6704 (where it was hit, with the reworded docstring and trap marker) · #6472 (`GanttConfigExtensionFields`, the const whose docstring triggered it)."
+}

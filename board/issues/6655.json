@@ -1,0 +1,36 @@
+{
+  "number": 6655,
+  "kind": "issue",
+  "title": "finding(plugin-timeline): an object-bound timeline with `variant: \"gantt\"` throws — `calculateDateRange` reads a row shape `ObjectTimeline` never composes",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-28T09:28:18Z",
+  "updated_at": "2026-08-29T06:25:42Z",
+  "closed_at": "2026-08-29T06:25:42Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6655",
+  "body": "Filed unassigned, from work on #6355 (retiring the `timeScale` alias). **Not caused by that change** — see \"Provenance\" below.\n\n## What happens\n\nRendering `ObjectTimeline` with `variant: 'gantt'` and object-bound data throws:\n\n```\nRangeError: Invalid time value\n  at calculateDateRange   packages/plugin-timeline/src/renderer.tsx:151\n  at TimelineRenderer     packages/plugin-timeline/src/renderer.tsx:410\n```\n\n(line numbers at merge-base `f241a4df4`)\n\n## Why\n\nThe two timeline item shapes are not interchangeable, and this path crosses them.\n\n`ObjectTimeline` maps each record to a **feed item** — flat, one item per record:\n\n```js\n{ title, time, startDate, endDate, description, variant, color, group, meta, _data }\n```\n\n`calculateDateRange`, on the gantt branch, reads the **gantt row** shape instead — a row that owns a nested `items` array:\n\n```js\nconst allDates = items.flatMap((row) => (row.items || []).flatMap((item) => [item.startDate, item.endDate]));\n```\n\nFor `ObjectTimeline`'s output every `row.items` is `undefined`, so `allDates` is empty. `Math.min()` over an empty list is `Infinity`, and `new Date(Infinity).toISOString()` throws. There is no guard and no diagnostic — the component simply throws during render.\n\n## Why it matters\n\n`ObjectTimeline` deliberately resolves an axis scale (`timelineConfig?.scale ?? schema.scale`) and composes it into the schema it hands the renderer. That axis is a **gantt-only** concern — the vertical and horizontal variants are sequential feeds with no time axis. So the object-bound path carries configuration for exactly the variant it cannot render: an author who sets `variant: gantt` on an object-bound timeline gets a crash rather than a chart, and the scale option that path plumbs through is unreachable in practice.\n\n## Provenance — this predates #6355\n\nObserved while writing #6355's pins. Both halves of the crash are byte-identical to the merge base, verified with `git diff`:\n\n- `calculateDateRange` in `renderer.tsx` — untouched (0 changed lines matching the function or its body);\n- `ObjectTimeline`'s record-to-item mapping — untouched.\n\n#6355 changes only which KEY the resolved axis is composed under (`timeScale` to `scale`). #6355's own pin therefore renders `variant: 'vertical'` deliberately, so it does not couple to this defect.\n\n## Related, but not the same card\n\n#6356 records that `TimelineSchema.items` has no declared element type **and that there are two of them**. That is the declaration half of the same two-shapes fact. This is the runtime half: declaring the element type would not stop `ObjectTimeline` from composing the wrong one of the two for gantt, so this is not fixed by closing #6356.\n\n## For triage — two directions, both plausible\n\n1. **Make it work**: `ObjectTimeline` composes gantt ROWS for `variant: gantt`, grouping records into rows (`groupByField` is already resolved on that path and is the obvious grouping key).\n2. **Make it refuse loudly**: the object-bound path rejects `variant: gantt` with a real diagnostic until (1) exists — no crash, and no silently-inert `scale` option either.\n\nWhich one is right depends on whether object-bound gantt is a capability the product wants now; that is a maintainer call, not a mechanical fix, which is why this is filed rather than fixed.\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 6750,
+  "kind": "issue",
+  "title": "finding(plugin-timeline): a gantt timeline with an EMPTY literal `items` array throws — `calculateDateRange` reduces an empty list",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-29T06:04:13Z",
+  "updated_at": "2026-08-29T08:13:33Z",
+  "closed_at": "2026-08-29T08:13:33Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6750",
+  "body": "Filed unassigned, found while implementing #6655 (the object-bound gantt refusal). **Not the same defect and not fixed by that card** — see \"Why #6655 does not cover this\" below.\n\n## What happens\n\n`calculateDateRange` has no empty-list guard. With `variant: 'gantt'` and a literal but EMPTY `items` array, it reduces nothing:\n\n```js\nconst allDates = items.flatMap((row) => (row.items || []).flatMap((item) => [item.startDate, item.endDate]));\nconst minTimestamp = Math.min(...allDates.map((d) => new Date(d).getTime()));\n```\n\n`allDates` is `[]`, `Math.min()` over an empty list is `Infinity`, and `new Date(Infinity).toISOString()` throws.\n\nMeasured on `371dd804a` (the #6655 branch head, which does not change this path), with a throwaway probe since no pin covers it:\n\n```\nAssertionError: PROBE renderer: expected RangeError: Invalid time value to be null\nAssertionError: PROBE ObjectTimeline: expected RangeError: Invalid time value to be null\nTests  2 failed (2)\n```\n\nBoth entry points crash identically:\n\n- `TimelineRenderer` given `{ type: 'timeline', variant: 'gantt', items: [] }` directly;\n- `ObjectTimeline` given the same schema — an authored empty array is truthy, so `effectiveItems` returns it as authored items and hands it straight through.\n\n## Why this is reachable in practice\n\nAn empty gantt is a perfectly ordinary state, not a malformed document. Any author or generator that builds `items` from a collection produces `items: []` the moment the collection is empty — a filtered project list with no matches, a fresh workspace, a plan whose rows are yet to be added. The current behaviour is a hard render crash for the empty case of an otherwise valid schema, where an empty grid or an empty-state panel is what every other surface in this repo does.\n\n## Why #6655 does not cover this\n\n#6655 is the OBJECT-BOUND path composing the wrong item shape: it maps records to flat feed items, which have no nested `items`, so the gantt branch reads `undefined` on every row. Its ruling put an authoring refusal in `ObjectTimeline`, deliberately keyed on whether the items were AUTHORED so that legitimate literal gantt documents keep rendering.\n\nThis one is the opposite case — the items ARE authored, the shape IS the gantt row shape, and the document is legitimate. It is the crash site's own missing guard, on the path #6655 was explicitly told to leave untouched. Neither the refusal nor its pins fire here, and the empirical result above was taken with #6655's fix in the tree.\n\n## Where a fix would go\n\n`packages/plugin-timeline/src/renderer.tsx` — `calculateDateRange` (the function starts at `:165` and throws at `:174` on `371dd804a`), or its caller on the gantt branch at `:424`.\n\nTwo directions, both plausible, which is why this is filed rather than fixed:\n\n1. **Guard in `calculateDateRange`** — return a sentinel range for an empty list and let the gantt render an empty grid with a valid axis. Cheapest, and keeps `schema.minDate` / `schema.maxDate` meaningful (an author who pinned an explicit range arguably should get exactly that range with no rows in it, which this direction gives for free).\n2. **Empty state on the gantt branch** — render the repo's standard empty state instead of a zero-row chart, matching what the grid and kanban surfaces do. Better product behaviour, but it is a UI decision about what an empty gantt should look like, not a mechanical fix.\n\nThe same empty-list question also applies to the axis header row (`generateTimeScaleHeaders`) and to `calculateBarDimensions`, whose `totalDuration` is `0` for a degenerate range — worth deciding once for the whole branch rather than patching the one throw.\n"
+}

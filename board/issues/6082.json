@@ -1,0 +1,32 @@
+{
+  "number": 6082,
+  "kind": "pull_request",
+  "title": "docs(guide): correct layout guide's PageHeaderProps key list and registration inputs",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T16:12:46Z",
+  "updated_at": "2026-08-30T15:41:02Z",
+  "closed_at": "2026-08-30T15:41:00Z",
+  "closed_by": {
+    "login": "zhuangjianguo",
+    "id": 19182527,
+    "type": "User"
+  },
+  "merged_at": "2026-08-30T15:41:00Z",
+  "comments": 15,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6082",
+  "body": "Fixes #5923\n\nOne blockquote in `content/docs/guide/layout.md` carried two claims the sources contradict. Both are corrected in place; the lists are kept (deleting them is a docs-structure decision the card declined to take, so this PR does not take it either).\n\n## Claim 1 — the `PageHeaderProps` key list\n\nWas: `title / subtitle / icon / breadcrumb / actions / aria`.\n\nMeasured against the installed `@objectstack/spec` **17.2.0** (the version this branch's `pnpm-lock.yaml` resolves) by walking the zod shape's **declared keys**, not one parse result:\n\n```\nDECLARED KEY COUNT: 11\n[\"title\",\"subtitle\",\"icon\",\"breadcrumb\",\"actions\",\"recordChrome\",\n \"showStar\",\"showCopyId\",\"maxVisible\",\"mobileMaxVisible\",\"aria\"]\n\n  title            optional -> union\n  subtitle         optional -> union\n  icon             optional -> never      <-- ADR-0087 D2 tombstone\n  breadcrumb       default  -> boolean\n  actions          optional -> array\n  recordChrome     default  -> boolean\n  showStar         default  -> boolean\n  showCopyId       default  -> boolean\n  maxVisible       optional -> number\n  mobileMaxVisible optional -> number\n  aria             optional -> object\n```\n\nSo: 10 live keys plus the `icon` tombstone. The guide now names the 10.\n\n**Why the derivation method is load-bearing.** The card measured this with `safeParse` **output** keys, which for `{title, subtitle}` are only `[\"title\",\"subtitle\",\"breadcrumb\",\"recordChrome\",\"showStar\",\"showCopyId\"]` — an optional key with no default never appears in a parse result. Writing the guide from that list would have silently deleted `actions` and `aria` and never surfaced `maxVisible` / `mobileMaxVisible`. Feeding all ten live keys in at once returns all ten in the output, confirming the short list was an artifact of the input, not of the contract.\n\n## Claim 2 — the registration-inputs claim\n\nWas: \"`page-header`'s registration declares **only** `title` and `subtitle` as authorable inputs\". Re-derived from current source — `packages/layout/src/index.ts:126-136` declares **four**: `title`, `subtitle`, `icon`, `actions`.\n\n## The `icon` split is real, and is now documented rather than smoothed over\n\n`icon` is simultaneously a retired key on the spec shape and a live declared registration input. That is genuinely the state of the tree, not a contract defect: they are **different renderers**. The registration's own comment says so — the canonical `page:header` renderer never read `icon` (hence the upstream ADR-0087 D2 retirement in objectstack#6946), while `@object-ui/layout`'s `<PageHeader>` does draw it beside the title, which objectui#3829 ruled it keeps.\n\nThe blockquote now states that split and **quotes the tombstone's own message** (rather than inventing a rationale), so a reader holding `icon` in an existing schema finds out why the canonical node rejects it:\n\n> `page:header` property `icon` was removed in @objectstack/spec 17.0.0 (#6946, ADR-0087 D2) — no renderer ever read it … Delete the key.\n\n## Verification\n\nEdit proven on disk by grepping removed and injected text separately, each with a known-present control; anchor uniqueness asserted before writing (both anchors: exactly 1 occurrence). `git diff HEAD --stat` shows only this one file.\n\nGate union re-run **after** the final commit, at `675d333a9`:\n\n| gate | exit |\n|---|---|\n| `node scripts/check-changeset-presence.mjs` | 0 — \"No source of a released package changed in this range, so no changeset is owed.\" |\n| `node scripts/check-doc-links.mjs` | 0 — \"Links are valid across 15 scan roots.\" |\n| `node scripts/check-doc-component-types.mjs` | 0 — \"Every documented component type is registered.\" |\n| `node scripts/check-control-bytes.mjs` | 0 — 5026 tracked text files scanned |\n| `node scripts/check-doc-snippet-types.mjs` | 0 — 157/157 blocks judged, 0 failed |\n\nNo changeset is owed, per the gate's own verdict line above.\n\n### What green does not mean here\n\n`check-doc-component-types` reads `type` literals in code blocks and `check-doc-snippet-types` compiles `ts`/`tsx` fences (`TS_FENCE_LANGUAGES = [\"ts\",\"tsx\",\"typescript\"]`). **Neither claim edited here lives in a code fence**, so both gates are structurally blind to this change. Their green means this PR broke nothing — it is *not* evidence the new prose is true. The derivation above is the verification.\n\nOne correction to the card's account of that blindness: `content/docs/guide/layout.md` is **no longer** in `check-doc-snippet-types`' `UNGATED_DOCS` list. Read at runtime, the list holds 44 entries and this file is not among them — the run reports \"178 covered, 44 ungated\", and this file is inside the covered set. It is covered at document level and still fence-blind to prose, so the conclusion stands for a different reason than the card gave.\n\neslint does not lint this path. Per `eslint.config.js`, the only config block with rules is scoped `files: ['**/*.{ts,tsx}']`, so a `.md` file matches no configuration; eslint's own output on this file is \"File ignored because no matching configuration was supplied.\"\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01CSoz9uGhaaSgiq3hshtN7L)_"
+}

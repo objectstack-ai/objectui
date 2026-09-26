@@ -1,0 +1,36 @@
+{
+  "number": 6880,
+  "kind": "issue",
+  "title": "The worktree recipe in CLAUDE.md / AGENTS.md still writes upstream config, which can fail after creating the branch — the objectui half of the objectstack --no-track hardening",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "zhuangjianguo",
+    "id": 19182527,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:skills",
+    "priority:p2"
+  ],
+  "assignees": [
+    "zhuangjianguo"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-30T09:48:09Z",
+  "updated_at": "2026-08-31T07:31:16Z",
+  "closed_at": "2026-08-31T07:30:57Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6880",
+  "body": "Cross-repo drift created by a change landing next door. Filing rather than widening that PR.\n\n## What is drifting\n\nobjectstack has hardened its prescribed worktree recipe to `git worktree add --no-track ...` (root `AGENTS.md` Prime Directive #11 and root `CLAUDE.md`), because the default `-b` form writes the new branch's upstream keys — `branch.NAME.remote` and `branch.NAME.merge` — into the one `.git/config` that every linked worktree of a repo shares. That write can fail **after** the branch has been created, leaving a branch with no worktree: a half state in the very first step of the recipe, and one the error text does not mention.\n\nobjectui still prescribes the unhardened form, in two places:\n\n- `CLAUDE.md:16` — `git fetch origin main && git worktree add ../REPO-TASK -b BRANCH origin/main && cd ../REPO-TASK && pnpm install`\n- `AGENTS.md:234` — the same recipe inline, spelled `git worktree add ../objectui-TASK -b BRANCH origin/main`\n\n(Placeholders written as words here; the files use angle-bracket placeholders.)\n\n## Why it matters here specifically\n\nThe hazard is not about which repo the text lives in — it is about what an agent does with the error. Read as \"the whole command failed\", the retry hits a different error (`branch already exists`) that reads as a second, unrelated problem. Read as \"the worktree exists\", the agent starts editing the **shared primary checkout** — which is the single thing the worktree-first rule exists to prevent, and objectui's own hook and AGENTS.md §9 discipline are built on that rule holding.\n\nobjectui is also the repo where the shared-namespace family has bitten before: #3430 (shared `refs/stash`), #5700 (shared `refs/remotes/*`), #6208 (the recipe branching off an unfetched local `main`). This is the same family, one namespace further out: config, not refs.\n\n## Measured, on git 2.43.0\n\nReproduced in an isolated scratch repo (bare origin plus a clone, nothing shared):\n\n| recipe | `branch.NAME.remote` after | `branch.NAME.merge` after | worktree HEAD |\n| --- | --- | --- | --- |\n| `worktree add PATH -b BRANCH origin/main` | `origin` | `refs/heads/main` | = origin/main |\n| `worktree add --no-track PATH -b BRANCH origin/main` | ABSENT | ABSENT | = origin/main |\n\n`--no-track` removes the config write and still bases the worktree on `origin/main`. Explicit `git pull origin main` is unaffected (it uses the given refspec, never `branch.NAME.merge`), and `git push -u origin BRANCH` — already the prescribed first push — sets an upstream one command later.\n\n## What is inference, not measurement\n\nThat the failing config write lost a **lock race** against a sibling worktree writing config in the same instant is strongly indicated but was not reproduced deliberately, in either repo. The half state itself is directly measured. The remedy does not depend on the cause being right: `.git/config` is one shared file that `-b` writes, whatever made a particular write fail.\n\n## Suggested shape\n\nInsert `--no-track` into both recipe spellings above, and — if objectui's own line budget allows it, which objectstack's did not — name `.git/config` alongside `refs/stash` and `refs/remotes/*` in the shared-namespace text.\n\nWorth checking whether `cloud` carries the same recipe; not verified from here.\n\nNot fixed in the objectstack PR — out of scope for that card. Companion to objectstack#13052."
+}

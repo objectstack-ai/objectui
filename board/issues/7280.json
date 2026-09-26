@@ -1,0 +1,30 @@
+{
+  "number": 7280,
+  "kind": "pull_request",
+  "title": "docs(changeset): write the naming convention into .changeset/README.md",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T02:55:30Z",
+  "updated_at": "2026-09-02T03:14:49Z",
+  "closed_at": "2026-09-02T03:14:47Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-09-02T03:14:47Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/7280",
+  "body": "Fixes #6439\n\n## What\n\n`.changeset/README.md` was the stock `changesets` boilerplate and said nothing about how the generated file should be named. Adds a section right after the existing \"Example\" walkthrough: rename the `pnpm changeset`-generated `adjective-animal-verb.md` to the numbered form `NNNN-slug.md` (issue number, short slug, `.md` — e.g. `6439-changeset-naming-readme.md`) before committing, and why — the generated name is allocated against files already present so it cannot collide, while a hand-picked name can, and the collision overwrites a third party's pending release declaration silently (`git status` shows ` M`, not `??`; nothing downstream flags the lost declaration).\n\nThis is triage's ruled option 2 from #6439 (verbatim, 2026-08-26):\n\n> land option **2 now** — write the naming convention into `.changeset/README.md`, the file sitting in the directory where the mistake is made, replacing/extending the stock boilerplate with the collision-proof rationale this card already states.\n\n## Wording agreement with the gate\n\nThe new section's core sentence mirrors what `scripts/check-changeset-overwrite.mjs` already prints in its report-only output, so the README and the gate agree instead of drifting apart (quoting the gate's own output, angle brackets spelled out to survive GitHub's body sanitizer):\n\n> Name a changeset after the issue it settles — `.changeset/` + issue number + `-` + slug + `.md` — and case 1 (the overwrite) cannot happen.\n\n## Scope\n\n- File surface: `.changeset/README.md` only.\n- Not touching `AGENTS.md` (option 1 — governed surface, triage explicitly ruled it must be its own draft PR for human merge, never a rider here).\n- Not touching `scripts/check-changeset-overwrite.mjs` or its report-only posture (out of scope per the #6336 ruling; this card is docs-only).\n\n## Re-measured adherence (on `main` @ `64d624ded`, this PR's merge base)\n\nCounting `.changeset/*.md` excluding `README.md` (matching `NOT_A_CHANGESET` in `scripts/check-changeset-presence.mjs`):\n\n- **419 of 758** (55.3%) already use the numbered form.\n- (The issue's original filing measured 133/424 = 31%. PM's dispatch-time control read measured 425/765. This PR's own re-measurement, run fresh against the same merge-base commit with the exact `NOT_A_CHANGESET` exclusion, is 419/758.)\n\nNo existing changesets were renamed — this PR only documents the convention going forward.\n\n## Gates run (docs-only surface; no `dispatch-gates.mjs` in this repo)\n\n- `node scripts/check-control-bytes.mjs` → `OK (scanned 6004 tracked text file(s); skipped 85 binary)`.\n- `node scripts/check-shell-escape-residue.mjs` → `OK (4/4 root(s) resolved ...)`.\n- `node scripts/check-doc-fence-languages.mjs` (`check:doc-fences`) → `every TypeScript block ... is fenced ...` — confirmed its roots are `content/docs/**` + `packages/*/README.md`; `.changeset/README.md` is out of its scope, unaffected either way.\n- `node scripts/check-changeset-presence.mjs` → `No source or published contract of a released package changed in this range, so no changeset is owed.` — docs-only, no changeset added for this PR (correct per its own verdict), and no `skip-changeset` label used (not a mechanism in this repo).\n- `node scripts/check-changeset-overwrite.mjs` (informational only — script untouched) → `No pre-existing changeset was modified or deleted.`\n- `scripts/__tests__/` search for tests naming the real README content: none found — `check-changeset-overwrite.test.ts` / `check-changeset-presence.test.ts` only write a synthetic `.changeset/README.md` inside disposable fixture repos, not the real file, so this edit doesn't need a pin update.\n\nSession: https://claude.ai/code/session_01BGMDbrVa8JjZcCQ7DWYH1b\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

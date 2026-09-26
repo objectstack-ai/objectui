@@ -1,0 +1,37 @@
+{
+  "number": 7188,
+  "kind": "issue",
+  "title": "The grid's inline cell editor scopes a `dependsOn` lookup by the SAVED row, not the staged one — carry the pending record across the `renderCellEditor` seam (option B of #7165)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: types",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T10:07:59Z",
+  "updated_at": "2026-09-02T02:03:41Z",
+  "closed_at": "2026-09-02T02:02:18Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7188",
+  "body": "Filed unassigned by the #7165 execution lane, as ruled in [#7165 comment 5491922231](https://github.com/objectstack-ai/objectui/issues/7165#issuecomment-5491922231). #7165 shipped **option A** as an explicitly-labelled interim; this card is **option B**, the finished shape. #7165 stays open for it.\n\n## What A left undone\n\n#7165's PR passes `dependentValues={ctx.row}` in `ObjectGrid`'s `renderCellEditor`, which unblocks a `dependsOn` lookup column that was previously **permanently uneditable**. `ctx.row` is the **saved** record.\n\n⇒ Edit the parent field in a row and, **without saving**, open the dependent child picker: the child is still scoped by the parent's *persisted* value. If the parent was previously empty, the child is still gated; if the parent was changed, the child lists candidates for the old parent.\n\nThat is strictly better than \"can never be filled\" and strictly not finished. PR #2216 answered the same question for the FORM renderer with the **live watched record**, so picking a parent re-scopes the child immediately. The grid should match.\n\n## The seam change — measured, not estimated\n\nThe data B needs is **already in scope at the call site**. `packages/components/src/renderers/complex/data-table.tsx` computes, in the row loop that renders the editor:\n\n```\nconst rowChanges = pendingChanges.get(rowIndex) || {};\n```\n\nand a few lines later calls the injected editor with the saved row only:\n\n```\nconst node = injectEditor({ column: col, row, value: editValue, stage: stageEdit, commit: …, cancel: cancelEdit });\n```\n\nSo B is not a plumbing problem — `pendingChanges` does not need to be threaded anywhere. It is a **contract** problem: the context object has no member to carry the staged record, and that context's shape is **published surface**.\n\n### Why this is a contract-review-tier change (measured for #7165's \"measurement 1\")\n\n`renderCellEditor`'s context is declared on `DataTableSchema` in `@object-ui/types` — declared deliberately, by maintainer ruling 2026-08-30 (#6882), replacing a `(schema as any)` cast:\n\n- `packages/types/src/data-display.ts` — `renderCellEditor?: (ctx: { column; row; value; stage; commit; cancel }) => React.ReactNode`\n- `packages/types/src/zod/data-display.zod.ts` — the Zod mirror\n- `packages/types/src/__tests__/data-table-declared-keys-6882.test.ts` — pins the ctx shape by **exact type equality**, not `extends`:\n\n  ```\n  type _RenderCellEditorShape = Expect<Equal<\n    Declared<DataTableSchema>['renderCellEditor'],\n    ((ctx: CellEditorContext) => React.ReactNode) | undefined>>;\n  ```\n\n  with the stated reason: *\"Declaring the key with any other shape is a different (and false) statement about the renderer, so the shape is pinned, not just the membership.\"*\n\nAdding a seventh member turns that pin **red** and edits a maintainer-ruled declaration. `packages/plugin-grid/src/ObjectGrid.tsx` states the same fence in its own words: *\"⛔ Do not 'fix' either hold by declaring the key on `DataTableSchema` as a rider — that package is published surface with its own review floor.\"*\n\n## Suggested shape (the decision is the maintainer's)\n\nAdd one declared member rather than changing what `row` means — silently redefining `row` to be the merged record is a semantic change to a published member and would be the worse of the two:\n\n- **`@object-ui/types`** — add `pendingRow: any` (or `stagedRow`) to the ctx: the saved row shallow-merged with that row's `pendingChanges` entry. Document that `row` stays the persisted record, so both are addressable.\n- **`@object-ui/components`** (`data-table.tsx`) — pass `pendingRow: rowHasChanges ? { ...row, ...rowChanges } : row`.\n- **`@object-ui/plugin-grid`** (`ObjectGrid.tsx`) — switch `dependentValues={ctx.row}` to `ctx.pendingRow ?? ctx.row`, and **delete the interim comment** #7165's PR left there naming this card.\n- Update the `#6882` exact-shape pin and the Zod mirror in the same change.\n\n## The assertion B must add\n\n#7165's PR ships a rendering test with a live control (a `dependsOn` column gates/ungates against a no-`dependsOn` column in the same render). B must add the case that control **cannot** cover, and it is the assertion that fails if someone later \"simplifies\" B back to A:\n\n> edit the parent cell in a row, do **not** save, then open the child picker — the candidate list must be scoped by the newly staged parent value.\n\n## Also live, per the PM's fence\n\n⚠️ From the same ruling: while A ships, *\"should the user be told the scope is from the saved row\"* is an **open question, not a settled one** — the interim staleness is the same silent-wrongness class as the three refusals this seat landed against in #7146 / #7147 / #7148. B removes the staleness and therefore removes the question; if B is declined, the question comes back."
+}

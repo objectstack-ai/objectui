@@ -1,0 +1,33 @@
+{
+  "number": 6631,
+  "kind": "issue",
+  "title": "finding: the eager-closure headroom ruling A was decided on (2.02% / ~78 KB) is now 0.905% / 29.3 KB — and I could not establish which side moved",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-28T06:28:00Z",
+  "updated_at": "2026-09-02T01:48:41Z",
+  "closed_at": "2026-09-02T01:48:41Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6631",
+  "body": "Filed unassigned by the `domain:ui` execution seat as an incidental observation while reviewing PR #6630. Recording only — not graded, no `domain:*`, and deliberately **not** asserting the trend it looks like, because I could not establish it.\n\n## The reading\n\nThe Bundle Analysis bot on PR #6630 (2026-08-28) reports the console eager closure as **PASS**:\n\n| | |\n|---|---|\n| Eager closure (gzip, 52 chunks) | **3237.3 KB** |\n| Budget | 3266.6 KB |\n| Headroom | **29.3 KB = 0.905%** |\n\nPR #6630 is a test-only change (ten `as any` deletions in one test file) and cannot have moved this. The reading is a pre-existing condition, not that PR's.\n\n## Why it seemed worth a second look\n\nThe absolute ceiling is not an accident of configuration — it is a **ruled** design. #5468 was decided 2026-08-21: **A (keep the absolute ceiling) now, C (per-chunk budgets) next, B (true ratchet) rejected**, on the grounds that a ratchet's merge-queue double-ejection tax lands on authors who did nothing wrong.\n\nThe four-axis block that ruling was made on recorded the then-current state as *\"现状(今日负载 +2.02% 余量)\"* and flagged, as a reason **against** B, that *\"现余量 78KB 已窄于目标回退\"* — i.e. 78 KB was already narrower than the regression class the gate exists to catch (#5266 was an 89 KiB gzipped regression).\n\nToday's headroom is 29.3 KB. In both relative and absolute terms it is materially smaller than the state ruling A was chosen against, and it is now roughly **one third** of the size of the #5266-class regression the gate is meant to stop.\n\n## What I could NOT establish, and why this is a finding rather than a claim\n\nThe totals moved on both sides, so the obvious story (\"payload grew into a fixed ceiling\") is **not supported by what I measured**:\n\n- Then: total ~3.79 MB gzip, headroom +2.02%.\n- Now: total 3237.3 KB (~3.24 MB), headroom 0.905%.\n\nThe payload is roughly **550 KB smaller** than when A was ruled. So the ceiling must have come down too, and by more. That is plausibly the *intended* direction of travel — closure-splitting work (#5325 / #5359) landing and the ceiling being re-baselined beneath it, which is exactly what A-plus-C was supposed to enable. If so, a thin headroom is a symptom of the plan working, not of drift.\n\nI did not read the budget constant's history, so I do not know which it is. Stating it either way from one bot comment would be inventing a trend from a single matched pair.\n\n## The one read that settles it\n\nWalk the history of the eager-closure budget constant and the recorded payload together (the checker and its constant live under `scripts/`, and #5924 established that the gate's headroom invariant is asserted against **frozen constants** rather than the live measurement — so the constant's git history is the authoritative record of every re-baseline). Two questions:\n\n1. Has the ceiling been lowered deliberately since 2026-08-21, and to what?\n2. Is the residual headroom the intended post-re-baseline margin, or has payload growth since eaten a margin that was meant to be larger?\n\nIf (1) explains it, this closes as not planned — the design is working and nothing is owed. If (2), then ruling A's premise has changed materially since it was decided, and that is worth putting back to the maintainer rather than letting the gate discover it by blocking the shared merge queue.\n\n## Note on scope\n\nOnly the *aggregate* is in question here. #5490 (per-chunk budgets, `vendor-objectstack` first) was the C half of the ruling and is closed; whether per-chunk budgets now cover the growth that the aggregate margin no longer can is part of question (2), not a separate card."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6707,
+  "kind": "issue",
+  "title": "Should `provisionProductionEnvironment`'s envelope check reject a wrong-shaped `data` instead of resolving best-effort? (severed from #6629, blast radius measured)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-28T18:04:56Z",
+  "updated_at": "2026-08-30T04:03:04Z",
+  "closed_at": "2026-08-30T03:09:41Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6707",
+  "body": "Filed unlabelled with suggested routing — `domain:*`, `type` and grading belong to triage. **Suggested routing: `domain:ui`** (`packages/app-shell`). ⚠️ **Decision-shaped**, not a scoped fix: it changes behaviour on an error path a caller relies on swallowing. Triage should judge whether it belongs in the maintainer's decision box rather than the queue.\n\nSevered from **#6629** / PR #6706 by the dispatch order, which required the proposal be reported rather than folded in. Recording it as a card because a proposal that lives only in a PR report comment is invisible to candidate queries, sweeps and ageing alerts.\n\n## The situation #6629 leaves behind\n\n#6629 fixed the consumer to read the row from the nested `environment` key. What it deliberately did **not** change is the envelope check:\n\n```ts\nif (!data || typeof data !== 'object') throw …\n```\n\nThat check catches a **missing** `data`. It says nothing about `data`'s shape. So after #6629, a producer that regressed to a flat payload (or to any shape without `environment`) would once again resolve successfully with `id` and `hostname` `undefined` — the same silent outcome #6629 just fixed, reachable again by a producer change alone.\n\nThat is the question: should a wrong-shaped `data` be a refusal, or keep resolving best-effort?\n\n## Why it is genuinely a decision and not an obvious yes\n\nThe whole call is best-effort **by contract**: a 403/409 resolves to `alreadyProvisioned: true`, and the caller swallows genuine failures. Tightening turns a silent no-op into a thrown error on a path whose current design is to absorb errors. That the absorption is deliberate is what makes this a review-worthy change rather than a defect fix.\n\n## The options, with the blast radius as measured in this repo\n\n**A — leave as-is (what PR #6706 ships).** A wrong-shaped `data` resolves with `id`/`hostname` undefined; the strict envelope check keeps catching only a missing `data`.\n\n**B — throw when `data.environment` is absent.** Measured blast radius: the **sole** caller, `CreateWorkspaceDialog.tsx`, already wraps the call in try/catch, logs a warning, and falls through to the lazy onboarding gate. So a producer regression would become *a logged failure plus a lazy re-provision on first navigation* instead of a silent no-op. One in-repo test needs updating — the anti-alias pin, which currently asserts it resolves.\n\n**C — tighten AND surface it**, e.g. a console-side diagnostic so a producer regression is loud rather than only logged.\n\n## The dev's recommendation, and this seat's read\n\nThe #6629 dev recommended **B, as a separate card** — which is what this is. Its reasoning, which this seat finds sound:\n\n- B is the contract-first shape: a flat payload is a **producer violation**, not a second dialect to be tolerated. Tolerating it is how the original defect stayed invisible.\n- The measured blast radius is genuinely small: one caller, already try/catch-wrapped, with a documented fallback path.\n- But it **is** a behaviour change on an error path the caller relies on swallowing — exactly the kind of change that deserves its own review rather than riding along on a defect fix.\n- **C is over-reach today**: the console has no consumer of the return value yet, so there is nothing to surface a diagnostic *to*. C becomes worth revisiting when one exists.\n\n## ⚠️ Note for whoever picks this up\n\nThe producer half of this contract lives in `objectstack-ai/cloud`, which the `domain:ui` seat cannot read. #6629's evidence about the wire shape is **inherited, not measured** — its dev documented the search for a second in-repo source and found none (no fixture, no recorded response, no typed client; `hostnameAssignment` appears nowhere under `node_modules/@objectstack`).\n\n⇒ If B is taken, the throw condition is being written against a payload shape **no in-repo artifact pins**. That is not a blocker, but it should be stated in the PR rather than discovered later — and it is an argument for having someone with cloud access confirm the shape first.\n\n⭐ One more reason to be careful here: in #6629 the only in-repo artifact that pinned this payload shape was a hand-written test mock, and **it pinned the flat shape — the bug**. A tightening written against the wrong belief about the wire would be worse than the leniency it replaces.\n\nRefs: #6629 / PR #6706 (the defect fix this was severed from) · objectstack-ai/objectstack#12865 (ADR-0006 D2 — adjacent, and `POST /cloud/environments` is explicitly *not* part of it)."
+}

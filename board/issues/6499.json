@@ -1,0 +1,34 @@
+{
+  "number": 6499,
+  "kind": "issue",
+  "title": "metadata-admin inspectors: showWhen-hidden fields keep their stored values on save — the UI manufactures declared-off-but-live config shapes",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-26T05:55:51Z",
+  "updated_at": "2026-08-30T04:03:16Z",
+  "closed_at": "2026-08-30T02:55:45Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6499",
+  "body": "Blocked-by: objectstack-ai/objectstack#12278\n\nFiled by the objectstack skills seat (session `session_01JANH3y7qe3MD8aLaLXci8N`) executing a maintainer ruling of 2026-08-26 on objectstack-ai/objectstack#12278: the escalation fail-open was ruled Route 1 (runtime enforcement, lands in objectstack), and its embedded UI sub-defect was ruled out into its own objectui card — this one. Dedupe: searched open objectui issues for the showWhen/prune shape (control query validated); no existing card.\n\n> ## RULED 2026-08-27 — Option C: keep the values, surface them explicitly. ⛔ No pruning.\n>\n> Maintainer, PM chat decision-inbox batch 3, verbatim 「同意」 — accepting the retriage recommendation C.\n>\n> - **Hidden-but-stored dependent values are KEPT.** The inspectors render an explicit \"inactive values retained\" affordance so the author can see and clear them deliberately.\n> - **Render-layer change only** — ⛔ no save-path change, no data deletion, and the dispatch order must forbid touching `isFieldVisible`'s stored-value re-show rule.\n> - ⛔ **Option A (prune on save) is REJECTED**: it silently discards config an author entered and inverts `isFieldVisible`'s deliberate \"stored config is never hidden\" guard. Fallback B (prune-at-toggle-with-confirm) is not needed.\n> - Coverage is all `showWhen` groups in the metadata-admin inspectors, per the card.\n>\n> **Sequencing, and it is the reason this card is blocked rather than queued:** dispatch **after** the objectstack runtime half lands (objectstack#12278, Route 1). Once the runtime honours `enabled: false`, the retained residue is **inert data rather than live behaviour** — and that is the premise that makes C's \"keep\" safe. ⛔ Do not dispatch before it.\n>\n> ⭐ Worth keeping about how this got ruled: the card arrived in `pm:queue`, and an execution seat filed `pm:retriage` rather than dispatching it, on the ground that *\"the leading option deletes user data, and the other two do not\"* — three options that are not three spellings of one fix. The objection was sustained and the card was re-graded to the decision inbox. The reasoning that decided it is worth restating: **the option that is easiest to write and most looks like \"fixed\" is the one that deletes data**, and it deletes precisely what `isFieldVisible` was written to protect. Dispatching a dev to pick from three bullets biases systematically toward that one.\n\n## The defect (generic; measured on the escalation instance)\n\nThe flow-node inspector uses `showWhen` progressive disclosure: a controller field gates dependent fields. But visibility filtering happens at **render only** — there is **no prune on save**. Measured chain (objectui at `7975f2d85`, full census on objectstack-ai/objectstack#12278):\n\n- `packages/app-shell/src/views/metadata-admin/inspectors/flow-node-config.ts:732-745` — `escalation.enabled` (defaultValue `'false'`) is the controller; `timeoutHours`, `action`, `escalateTo`, `notifySubmitter` carry `showWhen: { field: 'escalation.enabled', equals: ['true'] }`.\n- `isFieldVisible` (same file, :1050-1070) additionally shows any field that already holds a stored value (\"so existing config is never hidden\").\n- `FlowNodeInspector.tsx:229` — `fields.filter((f) => isFieldVisible(...))` filters **rendering**. Nothing deletes a hidden field's stored value on save.\n\nConsequence: an author enables a controller, fills the dependent fields, toggles the controller back **off**, saves — and the dependent values persist in the stored config. On the escalation instance that one click commits `{ enabled: false, timeoutHours: 24 }`: a config whose declared switch says OFF while the payload keys stay live. The runtime half of that instance is being fixed in objectstack (the sweep will honor `enabled: false` per the Route 1 ruling), but the UI still silently persists \"off plus live payload\" for **every** `showWhen` group in the inspectors — each one a latent declared-vs-stored disagreement for whatever reads that config.\n\n## What a fix decides (⛔ SETTLED — see the ruling box; retained as the record of what was asked)\n\n- Prune dependent fields on save when their controller hides them; or prune at toggle-off with a confirm; or keep values but render an explicit \"inactive values retained\" affordance. Note `isFieldVisible`'s stored-value re-show rule exists precisely so existing config is never invisibly lost — a prune design has to keep that property honest rather than delete data the author can no longer see.\n- Coverage is all `showWhen` groups in the metadata-admin inspectors, not just escalation; `packages/app-shell/src/views/metadata-admin/inspectors/json-schema-to-fields.test.ts` pins the current derivation/wiring and moves with the fix.\n\n⇒ The third option was ruled. The first is rejected outright.\n\nRelated: objectstack-ai/objectstack#12278 (the ruled escalation instance, census with file:line evidence and the enforcement half's scope — and this card's blocker)."
+}

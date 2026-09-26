@@ -1,0 +1,35 @@
+{
+  "number": 7140,
+  "kind": "issue",
+  "title": "finding(plugin-charts): a sankey whose rows are all zero-or-negative renders a literally empty div — the one silent blank left on the chart surface after #7130",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T04:37:40Z",
+  "updated_at": "2026-09-01T06:49:04Z",
+  "closed_at": "2026-09-01T06:32:50Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7140",
+  "body": "Filed unassigned by the implementer of #7130 (PR #7139) while sweeping the chart-side empty-result population. ⛔ Out of scope there and deliberately not fixed in that PR — different defect class, different file.\n\n## The measurement\n\n`packages/plugin-charts/src/AdvancedChartImpl.tsx`, the sankey arm:\n\n```\nconst rows = data.filter((r) => (Number(r?.[dataKey]) || 0) > 0);\n...\nconst links = rows.map(...);\nif (links.length === 0) {\n  return <div className={className} />;\n}\n```\n\nThe filter keeps only strictly positive values. So a sankey handed **real rows whose measure is all `0`, all `null`, or negative** produces no links and returns a bare `div` — no marks, no message, no role, no `data-chart-error` code. Nothing at all renders.\n\nThis is **not** the empty-result case #7130 covers. `ObjectChart`'s new branch is gated on `finalData.length === 0`; here `finalData.length` is greater than zero — the query succeeded AND returned rows — so the empty state correctly does not fire, and this blank survives it.\n\n## Why it is worth recording now rather than later\n\nBefore #7130 this arm was one silent blank among several, so it did not stand out. After it, every other way an `ObjectChart` can come up empty explains itself — loading skeleton, `chart-error` alert box, `chart-no-datasource`, and now the `chart-empty-state` status box — and this is the last path that renders a blank tile and says nothing. The same reasoning the maintainer applied in hotcrm#1212 reads straight across: nothing on screen tells the reader whether the widget failed or is simply reporting a genuinely all-zero flow.\n\nNote also that the two existing refusals in this file (`hasNoCategoryKey`, `hasNoPlottableSeries`) are both gated `rows.length > 0` and render through the shared `ChartRefusal` shell with `role=\"status\"` and a diagnosis code. That shell is the obvious seam for this case; it is right there in the same file, which is why the fix looks small. Whether the honest copy is \"nothing to plot\" or something naming the all-zero cause is a judgement this card does not pre-make.\n\n## ⛔ What this card does NOT assert\n\nIt does not assert the blank is wrong. An all-zero flow may be a legitimate thing to draw as nothing, and the same restraint #7130 was filed under applies here: whoever takes it should render it and look at it first, and closing it measured-and-declined is a legitimate outcome.\n\n## Related\n\n- **#7130** / PR #7139 — the empty-result branch this sits beside; that fix does not reach this path.\n- **#4695** — the adjacent open finding on the same file (a cartesian chart handed no series binding at all). Different trigger, same family of silence.\n- **#7132** — the `DataEmptyState` convergence card, which may absorb the copy question."
+}

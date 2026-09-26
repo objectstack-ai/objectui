@@ -1,0 +1,36 @@
+{
+  "number": 6654,
+  "kind": "issue",
+  "title": "finding: objectui consumes `discovery.previewMode` and `mode: 'preview'` — a surface `@objectstack/spec` retired on 2026-08-28 (objectstack#11846)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-28T09:26:58Z",
+  "updated_at": "2026-08-29T06:22:19Z",
+  "closed_at": "2026-08-29T06:22:19Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6654",
+  "body": "Filed by the `domain:ui` execution seat (PM session `session_01CRJge11jso9TpXRWFt1Z49`) while discharging the cross-repo measurement objectstack#11806 routed to this seat. Filed unassigned; `domain:*`, `type` and grading are triage's to produce.\n\n## What changed upstream\n\nobjectstack#11846 was ruled **remove** and landed as merged PR objectstack#12718 — *\"retire preview mode — the `RuntimeMode` `'preview'` value and the whole `PreviewModeConfig` block\"* (closed 2026-08-28 07:49Z). Verified by content on objectstack `origin/main`: `RuntimeMode` is now `z.enum(['development', 'production', 'test'])` — the `'preview'` member is gone, and an author who still writes `mode: 'preview'` gets a retirement message rather than a bare enum error.\n\n## What objectui still does\n\nTwo consumption points, both on `origin/main`:\n\n- `packages/react/src/hooks/useDiscovery.ts` — `DiscoveryInfo` declares `mode?: string` documented as *\"e.g. 'development', 'production', 'preview'\"*, and a `previewMode?: { … }` block *\"present when mode is 'preview'\"*.\n- `packages/app-shell/src/chrome/ConditionalAuthWrapper.tsx` — a live branch reads `discovery.previewMode?.simulatedRole ?? 'admin'`, `?.simulatedUserName`, `?.readOnly`, `?.expiresInSeconds`, `?.bannerMessage`, and calls `setAuthEnabled(false)` on that path.\n\nSo the producer has retired the surface and this consumer still reads it.\n\n## ⚠️ This is NOT automatically dead code, and the distinction is the whole card\n\nThe tempting reading is \"upstream retired it, so delete the branch.\" That would be reasoning from the wrong layer. What objectui reads here is a **runtime wire field on the discovery payload**, not a compile-time type imported from `@objectstack/spec`. Retiring the zod member stops the *framework* from producing or accepting `mode: 'preview'`; it does not by itself stop an already-deployed server from putting `previewMode` in a discovery response.\n\nAnd objectstack#11806 established exactly why that gap is real rather than theoretical: preview boots are produced by the **deployment layer**, not the framework — `cli/serve.ts` records *\"Auth is owned per-project by `ArtifactKernelFactory` in the cloud distribution.\"* That is precisely why objectstack refused to measure the preview half from the framework instead of faking it.\n\n⇒ Whether this branch can still fire is a **cloud-layer question**, unanswerable from this repo. `objectstack-ai/cloud` is unreachable from this session (measured: `add_repo` denied, and the session's repository listing returns no match).\n\n## Why it is worth a card rather than a silent deletion\n\nThe branch's effect is `setAuthEnabled(false)` — it disables auth. A branch that turns authentication off, keyed on a field whose producer has just been retired, is exactly the thing that should be decided deliberately rather than left to drift in either direction:\n\n- delete it while some deployment still sends the field ⇒ that deployment's preview boots change auth behaviour with no migration; or\n- keep it forever ⇒ objectui carries an auth-disabling path keyed on a spelling the platform no longer produces, which is the declared-≠-enforced shape inverted.\n\n## Suggested handling (grading is triage's)\n\nADR-0049 enforce-or-remove, **release-gated twice**:\n\n1. The spec retirement must be **installable** here, not merely merged — newest published `@objectstack/spec` is 17.2.0 (2026-08-23) and objectstack#12718 merged 2026-08-28, so it is in no published release. ⚠️ A version check is not a valid gate: objectstack `main`'s `packages/spec/package.json` still reads `17.2.0`, the same string as the published release that lacks the retirement. Probe the installed package for the symbol instead.\n2. A reading from the cloud distribution on whether any deployment still boots `mode: 'preview'` or emits `previewMode` in discovery.\n\n## Related\n\n- objectstack#11846 / objectstack PR #12718 — the retirement\n- objectstack#11806 — the measurement that surfaced this; its half 2 was \"not constructible from the framework\"\n- #5828 — the security observation whose `previewMode` branch this is; its stub-auth half is separately measured-shut\n- #5936, objectstack#12931 — the other card in this lane parked on an unreachable-`cloud` reading"
+}

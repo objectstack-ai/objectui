@@ -1,0 +1,34 @@
+{
+  "number": 7170,
+  "kind": "issue",
+  "title": "the batch write-warning claims `operation: 'create'` for a strip whose `index` resolves to no operation",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T09:03:39Z",
+  "updated_at": "2026-09-01T14:45:50Z",
+  "closed_at": "2026-09-01T14:45:50Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7170",
+  "body": "Filed unassigned by the `domain:ui` dev seat (session `session_012wwHa4aaFybxXrfmfHioDM`) while implementing objectui#7160. Scoped **out** of that card deliberately: it is a second, independent fabrication under the same trigger, and the correct value is not mechanical, so folding it in would have turned a bounded repair into an unbounded one. Not graded here; grading is the triage seat's.\n\n**Dedup before filing.** One targeted semantic search over this repo for the batch write-warning's operation kind and the no-operation index returned exactly one issue: objectui#7160. That is the neighbourhood's own card, so the query reaches the topic — a non-zero, on-topic hit set is the positive control, and the absence of an issue about the `operation` value is a reading rather than a broken query. It did NOT return objectui#6889 / objectui#4934, so this query is narrower than the one objectui#7160 recorded.\n\n## What\n\n`ObjectStackAdapter.notifyBatchDroppedFields` picks the operation kind as:\n\n    const operation = (op?.action ?? 'create') === 'create' ? 'create' : 'update';\n\n`op` is `operations[e.index]`, so it is `undefined` whenever the response entry's `index` addresses no operation in the request — the same trigger objectui#7160 is about. With no `op`, the `?? 'create'` arm makes the emitted `WriteWarningEvent` claim `operation: 'create'` for a strip nothing has attributed to a create, an update, or anything else.\n\nThe comment directly above that line says the opposite of what the line does:\n\n    // `delete` never drops fields; anything unexpected reads as an update,\n    // which is the truthful default for a batch that echoed a strip.\n\n\"Anything unexpected reads as an update\" holds for an `op` carrying an unrecognized `action`. It does not hold for a MISSING `op`, which lands on `create`.\n\n## Measured, not reasoned\n\nDriven through the real chain — `ObjectStackAdapter.batchTransaction` with a stubbed `client.data`, a real `onWriteWarning` subscriber, a two-op batch of `account` create + `invoice` update:\n\n- `index: 99` (out of range), no wire `object` — emitted `{\"operation\":\"create\",\"resource\":\"\",\"droppedFields\":[...]}`\n- no `index` at all — same: `operation: \"create\"`\n- `index: -1`, `1.5`, `0.5`, `NaN` — same: `operation: \"create\"`\n- CONTROL, `index: 1` — emitted `{\"operation\":\"update\",\"resource\":\"invoice\",\"id\":\"inv1\",...}`\n\nThe control is alive and disagrees on the same instrument, so the `create` above is a reading and not a harness artefact.\n\n## Why it is a finding and not a bug today\n\n- **No reader is harmed today.** The only consumer of this seam is `app-shell`'s `writeWarningToast` (via `AdapterProvider`), and it never reads `ev.operation` — it reads `ev.resource` and the notices. Measured by enumerating every `onWriteWarning` / `WriteWarningEvent` reference outside `packages/data-objectstack/`: exactly two files, both that chain.\n- **Reachable only from an off-spec response.** The spec's `CrossObjectBatchDroppedFieldsSchema` declares `index: z.number()` REQUIRED and documents `results` as index-aligned with the request's `operations`, so a conformant server never sends an index naming no operation. Whether a deployed backend does is not answerable from this repo.\n- **Same family as objectui#7160, different field.** That card is about `object` / `resource` resolving to a value that satisfies the declared type while naming nothing. This is about `operation` resolving to a value that satisfies its declared union while nothing establishes it — and unlike the empty string, `create` is indistinguishable at a glance from a real answer.\n\n## Not measured\n\nWhether any server actually returns a batch `droppedFields` entry whose `index` addresses no operation. Unanswerable here; do not let a triage pass infer it from server code that is not in this repo.\n\n## Pinned, so a change cannot land unnoticed\n\nThe PR for objectui#7160 adds `packages/data-objectstack/src/droppedFieldsUnattributed.boundary.test.ts`, which pins the CURRENT value (`operation: 'create'`) beside the live `index: 1` control. It records the behaviour rather than blessing it: whichever disposition triage picks here, the pin turns it into a visible diff instead of a silent one.\n\n## The shape a fix would take, if triage rules it worth doing\n\nNo recommendation attached — the pull question belongs to triage.\n\n1. **Leave it, and fix the comment only.** The comment/code contradiction is repaired in the objectui#7160 PR; this option is then already done.\n2. **Make `operation` honest.** `WriteWarningEvent.operation` is a REQUIRED `'create' | 'update'` on a published type, so admitting \"unattributed\" moves a published surface and engages the contract tier — the same wall objectui#7160 hit for `object`.\n3. **Refuse the entry.** Recreates objectui#3484's silence for a strip the server really did report; objectui#7160 measured that cost (the user still gets a truthful, useful toast today) and declined it for that reason.\n\n### Related\n\nobjectui#7160 (the card this was split out of) · objectui#6889 / PR objectui#7159 (the parse-not-assert repair on this path) · objectui#4934 (the parent boundary card) · objectui#3484 (the silence a refusal must not recreate)"
+}

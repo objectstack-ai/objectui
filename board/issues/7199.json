@@ -1,0 +1,36 @@
+{
+  "number": 7199,
+  "kind": "issue",
+  "title": "A list view's `description` is served but never rendered — ObjectView's relay drops it on the way to ListView",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T10:46:29Z",
+  "updated_at": "2026-09-01T15:17:14Z",
+  "closed_at": "2026-09-01T15:05:09Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7199",
+  "body": "Authored, validated, built, served — and silently invisible. `ListViewSchema.description` on a **per-list-view** entry (`listViews.<name>.description`) never reaches the renderer that has code to display it.\n\n## Measured\n\nOn a real app (`ai.objectstack.duly`, booted `objectstack dev`, console at `/_console/apps/duly_app/duly_task/view/by_unit`), with this authored on the `by_unit` list view:\n\n```ts\nby_unit: {\n  label: 'By business unit',\n  type: 'grid',\n  description: 'Open and in-progress work only. Group counts are computed over the loaded page — …',\n  …\n}\n```\n\nThe value survives every layer up to the browser:\n\n| layer | carries `description`? |\n|:------|:-----------------------|\n| `dist/objectstack.json` (built artifact, `/views/0/listViews/by_unit`) | ✅ |\n| `GET /api/v1/meta/view/duly_task` | ✅ |\n| rendered DOM (`[data-testid=\"view-description\"]`) | ❌ absent |\n| anywhere in `document.documentElement.outerHTML`, incl. `title` attributes | ❌ absent |\n\nSo the server is right and the renderer is willing — `packages/plugin-list/src/ListView.tsx` already has the branch:\n\n```tsx\n{schema.description && (schema.appearance?.showDescription !== false) && (\n  <div … data-testid=\"view-description\">\n    {typeof schema.description === 'string' ? schema.description : ''}\n  </div>\n)}\n```\n\n## Where it is lost\n\n`packages/app-shell/src/views/ObjectView.tsx`, in `renderListView`. `fullSchema` is built by spreading the **object's** `listSchema` and then relaying selected keys off the active `viewDef`:\n\n```ts\nconst fullSchema: ListViewSchema = {\n    ...listSchema,\n    label: viewDef.label ?? listSchema.label,\n    rowHeight: viewDef.rowHeight ?? listSchema.rowHeight,\n    sort: (viewDef as any).sort ?? listSchema.sort,\n    filter: (() => { … })(),\n    …\n```\n\n`label`, `sort`, `filter`, `hiddenFields`, `inlineEdit`, `color`, `allowExport` and others are each relayed. **`description` is not**, so `schema.description` can only ever be the object-level list view's description — a per-view one is unreachable.\n\n## Why it is worth a card\n\nThis is the \"declared and inert\" shape: nothing errors, the authoring gates (`validate`, `typecheck`, `test`, `build`) all pass, the API serves the value, and the only symptom is that the sentence the author wrote for the user is not on the screen. An author has no way to notice short of diffing the DOM.\n\nIt bites hardest where it is most wanted: a view description is the natural place to disclose a caveat about the view itself (scope, staleness, \"this lens is for browsing, the dashboard is authoritative\"). That is precisely the text that silently goes missing.\n\n## Two notes for whoever picks this up\n\n1. **A second bug sits one line below the relay.** `ListView.tsx` renders `typeof schema.description === 'string' ? schema.description : ''` — but `ListViewSchema.description` is `I18nLabelSchema`, i.e. `string | { en, 'zh-CN' }`. An **inline locale map renders as empty string**, which is the same silent-blank failure by a different route. Worth fixing in the same pass, or the fix only works for plain strings.\n2. `appearance.showDescription` defaults to `true`, so no author opt-in is missing here — the value simply never arrives.\n\nFound while scoping a grouped grid in `objectstack-ai/duly#86` (the view description was the place the card asked for a residual caveat to be stated for users). Not filing a fix from that side — the app metadata is correct as authored.\n\nRelated, same family (authored view metadata not reaching the renderer): #7179 (grid `grouping` fields absent from the query projection), #7189 (grid grouping and per-group counts computed over the fetched page)."
+}

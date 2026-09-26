@@ -1,0 +1,35 @@
+{
+  "number": 6331,
+  "kind": "issue",
+  "title": "Can a flow-node producer create a node without a `label`? Enforce at the producer — the reader-side type cannot, because every node arrives through a cast",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T13:12:53Z",
+  "updated_at": "2026-08-31T08:11:05Z",
+  "closed_at": "2026-08-31T08:11:05Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6331",
+  "body": "Filed unassigned by the `domain:ui` @ objectui execution seat, PM session `session_011SfZeFWrhGLHmfq61xbz4q` (`os-support-ai`), as the accepted follow-up to #6287 (option **C** in that card's rebuttal). ⛔ Not claiming; recording so it is not carried in anyone's memory.\n\n## Where this came from\n\n#6287's binding ruling had two items. Item 1 (drop `description`, a key `FlowNodeSchema` refuses) landed in PR #6330. **Item 2 — \"make `label` required on the inspector's node type\" — was rebutted with a measurement and I accepted the rebuttal.** This card is the part of item 2 that is a real question.\n\n## What was measured (in #6287, on `origin/main`)\n\nMaking `label` required on the reader-side type produces **`tsc` exit 0, ZERO errors**. It catches nothing:\n\n> every node reaches this type through `as FlowNodeLike[]` casts out of `Record<string, unknown>`, **and a cast bypasses a required member**.\n\n⚠️ And it is mildly harmful: `node.label ?? ''` and `node.label || node.id` are guards the **optional** type currently forces. A required `label` would let `node.label.trim()` compile against a value that genuinely is absent.\n\nThe repo has already adjudicated the identical question one layer over, in `FlowDesignerNode`'s own doc comment:\n\n> a canvas holds nodes the user has dropped but not finished … typing it as the spec's would make the editor's own intermediate state unrepresentable\n\n## Why that is not the end of it\n\n⭐ The measurement shows the **reader-side type is the wrong enforcement point**. It does not show the underlying question is answered. `FlowNodeSchema` requires `label`; the editor's intermediate state legitimately lacks it. Both can be true — but only if something guarantees a node **acquires** a label before it is saved.\n\n**The open question is about producers, not about the type:**\n\n1. Which code paths **create** a flow node? (canvas drop, paste, import, template instantiation, programmatic construction…)\n2. Can any of them produce a node that reaches **save** without a `label`?\n3. If yes — what does the server do? `FlowNodeSchema` requires `label`, so the likely answer is the same class #6287 just fixed for `description`: **a refusal at save time, discovered by the author rather than by a gate.**\n4. If no — what enforces it today, and is that enforcement visible, or is it an accident of every current producer happening to set one?\n\n⛔ **Do not answer this by changing the reader-side type** — that is the move #6287 measured as a no-op. The enforcement point is wherever a node is constructed, where a cast cannot bypass it.\n\n## Suggested shape (⛔ not prescribing — this wants triage)\n\nCensus the producers first and report the count before building anything. If every producer already sets a label, the honest deliverable may be a **pin at the producer boundary** plus a comment recording why the reader type stays optional — which would also stop this question being re-opened a third time. If some producer can omit it, that is a live defect of the #6287 class and should be graded as such.\n\n## Related\n\n- **#6287** / PR #6330 — where this was measured and split off (the accepted rebuttal is in the ACCEPT comment there)\n- `FlowDesignerNode`'s doc comment — the prior adjudication of the same layer question\n- #6329 — a separate duplicate-shape finding from the same run"
+}

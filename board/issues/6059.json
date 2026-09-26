@@ -1,0 +1,35 @@
+{
+  "number": 6059,
+  "kind": "issue",
+  "title": "`omitServerResolvedDefaults` is unreachable outside `@object-ui/plugin-form`, so a second renderer has to compose its two predicates by hand",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T14:54:23Z",
+  "updated_at": "2026-08-29T05:48:41Z",
+  "closed_at": "2026-08-29T05:48:41Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6059",
+  "body": "Observation recorded while implementing #5883. Not a defect in behaviour — nothing is currently wrong on either chain — but it is the structural reason the fix for #5883 could not simply call the sibling function, and it will be the same reason for the next renderer.\n\nMeasured on `origin/main` `5a06beda4`.\n\n## What is not reachable\n\n`packages/plugin-form/src/schemaDefaults.ts` owns `omitServerResolvedDefaults` — the \"drop the keys a CREATE payload must leave to the producer\" rule, whose docblock states the pairing with `isRequiredInForm` outright. Five call sites inside that package use it (`ObjectForm`, `ModalForm`, `DrawerForm`, `TabbedForm`, `SplitForm`, `WizardForm`).\n\nNothing outside the package can:\n\n- `packages/plugin-form/package.json` publishes `exports` for `.` alone;\n- the root module `packages/plugin-form/src/index.tsx` re-exports `ObjectForm`, `FormSection`, the six containers, `autoLayout` and `deriveMasterDetail` — and not `schemaDefaults`. `seedCreateValues`, `isCreateFormMode`, `isRequiredInForm`, `schemaDefaultValues`, `isSeedableDefault`, `SeedContext` and `omitServerResolvedDefaults` are all module-private in that sense.\n\nSo the helper has no spelling an importing package can write.\n\n## Why it matters\n\nThe console's `apps/console/src/components/FormPage.tsx` is the second form renderer in this repo, and it has now needed the same rule twice: #5727 for the seeding half and #5883 for the submit half. Both times the answer was to import the CLASSIFIERS from `@object-ui/core` (`isRuntimeDefault`, `isMissingForRequired`) and apply them locally, because the composed helper is out of reach.\n\nThat is safe — the classifiers are genuinely shared, `@object-ui/core` is where they live for exactly this reason (`validation/server-owned-value.ts` says so), and `plugin-kanban` plus `@object-ui/components`' form renderer read them the same way. It is also how `omitServerResolvedDefaults` itself is built. But it means the COMPOSITION — \"runtime default AND missing, on create only\" — now exists in two places even though neither predicate does, and the #4047 / #4068 / #4069 / #4085 / #5683 / #5727 / #5883 chain is seven cards of one renderer being behind the other.\n\n## Options, not a recommendation\n\n1. Publish `omitServerResolvedDefaults` (and possibly `isRequiredInForm` / `seedCreateValues`) from `@object-ui/plugin-form`'s root, and have the console call it. Cost: it widens a plugin package's published surface, and makes the console's form page import a heavy React widget package for a pure function.\n2. Move the composed helper down to `@object-ui/core` beside the two predicates it is made of, and have plugin-form re-export it — the same move #4085 already made for `isRuntimeDefault` when a third consumer appeared.\n3. Leave it. Two call sites composing two shared predicates is not drift as long as the predicates stay shared; the thing that must not fork has not forked.\n\nFiled for triage rather than acted on: option 2 changes a published package's surface and option 1 changes a dependency edge, neither of which belongs in a console bug fix.\n\nRelated: #5883, #5727, #4085, #4069, #4068, #4047, #5683.\n"
+}

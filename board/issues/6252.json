@@ -1,0 +1,34 @@
+{
+  "number": 6252,
+  "kind": "issue",
+  "title": "page:header implements the declared action-id lookup — resolve `actions: string[]` like `record:quick_actions` does (objectstack#11592 ruling)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T04:18:23Z",
+  "updated_at": "2026-09-01T10:24:18Z",
+  "closed_at": "2026-09-01T10:19:47Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6252",
+  "body": "Blocked-by: objectstack-ai/objectstack#12580\n\nImplementation of the objectstack#11592 ruling (maintainer, 2026-08-25, verbatim 「全部同意」 on recommendation B; full record = objectstack#11592 comment 5405065025). Filed by PM session `session_01KWRU3s15AJz7PGW7a7wdCh` per the confirmed checklist. Parent: objectstack#11592 (tracking).\n\n**Step 1 — the equivalence measurement, and it gates the rest**: compare the exemplar's 16 inline ActionDef objects (hotcrm, 4 record pages, all `locations: ['record_header', …]`) against their object-level registered actions. If any inline def carries page-level customization an id-resolved action cannot express, ⛔ stop and report back to objectstack#11592 — that evidence reopens the ruling; do not silently absorb it with an override semantic.\n\n**Content**: the canonical `page:header` renderer resolves `PageHeaderProps.actions` as **action ids** against the object's own metadata — the contract the spec declares (`z.array(z.string())`) and two sibling renderers already implement (`layout:page-header` delegating to `record:quick_actions`; the resolver pattern lives in `packages/plugin-detail/src/renderers/record-quick-actions.tsx`). Reuse that pattern, do not invent a second resolver. Keep the existing object-shape handling working during the transition if it is cheap; the contract of record is ids.\n\n**Acceptance criterion**: a `page:header` authored with action ids renders the same buttons the object-shape authoring renders today (filtered by `actionRendersAt(a, 'record_header')`, honouring `requiredPermissions` / `visible` / `order`); the renderer's tests gain the id-shaped cases; the id path carries no `body.source` into the built artifact.\n\n**Downstream**: hotcrm migrates its 16 inline objects to id references once this lands (its lane's follow-up; the conformance-sweep exemption naming objectstack#11592 comes off then); hotcrm#1279 unlocks via the parent."
+}

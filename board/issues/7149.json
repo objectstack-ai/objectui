@@ -1,0 +1,35 @@
+{
+  "number": 7149,
+  "kind": "issue",
+  "title": "`ActivityTimeline` has 18 more hardcoded English literals — the empty state was one of a set, and 12 of them already have pack keys sitting unused",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T06:12:18Z",
+  "updated_at": "2026-09-01T08:45:28Z",
+  "closed_at": "2026-09-01T08:37:18Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7149",
+  "body": "Split out of #7142, which fixed **one** literal in `packages/plugin-detail/src/ActivityTimeline.tsx` (the empty-state title). Sweeping the file while implementing that fix found the empty state was not a lone oversight: **the component uses no translation hook at all** on `origin/main` — it imported nothing from `@object-ui/i18n` and made no `t()` call anywhere. Filed rather than fixed, because widening #7142's scope was the PM's call, not the implementing agent's.\n\n## Measured\n\nRendered `ActivityTimeline` with `activities={[]}` under a zh `I18nProvider`, and its sibling `RecordActivityTimeline` the same way, reading `textContent` off both containers:\n\n```\n[zh] ActivityTimeline       => \"Activity(0)No activity recorded\"\n[zh] RecordActivityTimeline => \"活动(0)全部动态暂无活动记录\"\n[no-provider, filterable] ActivityTimeline => \"Activity(0)AllField ChangesCreatesDeletesCommentsStatus ChangesNo activity recorded\"\n```\n\nThe sibling renders the same surface entirely in Chinese. After #7142 the zh card reads `\"Activity(0)暂无活动记录\"` — correct for the empty state, still English for the card title beside it.\n\n## Inventory\n\nLine numbers are on the post-#7142 file. \"pack key\" means a key whose value in the `en` pack is already the exact literal, read out of the pack objects directly (not grepped — the packs are nested, so a dotted-key grep returns zero for keys that exist).\n\nRelative timestamps, `formatTimestamp`:\n\n| line | literal | existing key |\n|---|---|---|\n| 49 | `'just now'` | `detail.justNow` |\n| 50 | `` `${diffMins}m ago` `` | `detail.minutesAgo` = `'{{count}}m ago'` |\n| 52 | `` `${diffHours}h ago` `` | `detail.hoursAgo` |\n| 54 | `` `${diffDays}d ago` `` | `detail.daysAgo` |\n\nFilter chips, `FILTER_LABELS`:\n\n| line | literal | existing key |\n|---|---|---|\n| 82 | `'All'` | none |\n| 83 | `'Field Changes'` | `detail.fieldChangesFilter` |\n| 84 | `'Creates'` | none |\n| 85 | `'Deletes'` | none |\n| 86 | `'Comments'` | `detail.comments` |\n| 87 | `'Status Changes'` | none |\n\nCard chrome:\n\n| line | literal | existing key |\n|---|---|---|\n| 109 | `Activity` (the CardTitle text node) | `detail.activity` |\n| 118 | `aria-label=\"Activity type filter\"` | none (`detail.filterActivity` = `'Filter activity'` is close but not identical) |\n\nActivity descriptions, `formatFieldChange` — sentences assembled in code, so these need new keys with interpolation holes rather than a lookup:\n\n| line | literal | existing key |\n|---|---|---|\n| 66, 67, 74 | `'(empty)'` | none |\n| 68 | `` `Changed ${fieldLabel} from \"${oldVal}\" to \"${newVal}\"` `` | none |\n| 71 | `'Created this record'` | none |\n| 72 | `'Deleted this record'` | none |\n| 75 | `` `Changed status to \"${newVal}\"` `` | none |\n| 78 | `'Updated record'` | none |\n\nSo 12 of the 18 are a lookup swap against keys that already exist and are already translated in all ten packs; the remaining 6 (plus the two chip labels and the aria label) need new keys across `en.ts` and its nine siblings, with `all-locales-key-parity` green. Never an inline `defaultValue` (#3517).\n\n## Reachability caveat, worth checking before sizing this\n\n`DetailView` gates the timeline on `hasActivity = !!schema.activities && schema.activities.length > 0` (`DetailView.tsx:1408`) and never passes `filterable`, so from that host the filter chips never render and the empty state is unreachable. The chips and the filtered-empty path are reachable through the **published export** (`packages/plugin-detail/src/index.tsx:118`) by a consumer passing `filterable`. That may change how this is prioritized, but it does not change the timestamps or the card title, which render on every activity tab.\n\n## Unrelated observation in the same file\n\n`Filter` is imported from `lucide-react` at line 11 and never used — eslint reports it as a warning today (`@typescript-eslint/no-unused-vars`, warning not error, so nothing is red)."
+}

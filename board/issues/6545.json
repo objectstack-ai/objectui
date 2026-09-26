@@ -1,0 +1,34 @@
+{
+  "number": 6545,
+  "kind": "issue",
+  "title": "finding(scripts): check-control-bytes and check-vi-mock-specifiers scan TRACKED files only, so they print green on a new file they never opened",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [
+    "zhuangjianguo"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-26T10:09:06Z",
+  "updated_at": "2026-08-31T13:34:51Z",
+  "closed_at": "2026-08-31T13:34:13Z",
+  "closed_by": {
+    "login": "zhuangjianguo",
+    "id": 19182527,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6545",
+  "body": "Filed unassigned by the `domain:ui` seat, recording only — not graded, no `domain:*`, no type. Surfaced by the dev on objectui#6522 (PR #6543) while running the gates before staging; it is not that card's face, so it is filed rather than folded.\n\n## What was measured\n\nBoth gates enumerate **tracked** files. Run before `git add`, a brand-new file is outside their population and they print **green without having opened it**.\n\nThe dev caught it because the gates report their own counts, and the counts moved after staging:\n\n```\ncheck:control-bytes        scanned 5397 -> 5399 tracked text file(s)\ncheck:vi-mock-specifiers   3835 -> 3836 tracked source file(s), 455 -> 456 carry a mock\n```\n\nThe first run's green was true of the population it scanned and said nothing at all about the new file. Only the delta in the gate's own count proves the file was seen on the second run.\n\n## Why this is worth a card rather than a habit\n\nThis is the failure mode the lane keeps filing: **an instrument that cannot see the thing you are asking it about, returning a pass.** Here it is worse than usual in one respect — the natural workflow invites it. A dev writes a new test file, runs the repo's gates to check their work, gets green, and stages afterwards. The gates were never wrong; they were answering a different question than the one being asked.\n\nThe blast radius is any newly-added file in any PR whose author runs these gates locally before staging. CI is unaffected — it operates on a committed tree, where every file is tracked. So the defect is invisible from CI and only bites the local pre-flight, which is exactly where a dev is trying to avoid a red push.\n\n## Suggested handling (for whoever grades this)\n\nNot fixed here, and the right shape is a judgement call:\n\n- **Make the population explicit in the output.** These gates already print their counts; the cheap fix is for them to say *tracked* out loud, so a green reads as \"green over N tracked files\" rather than \"green\".\n- **Or widen the population** to include untracked, non-ignored files. That changes what the gate means and could surprise someone with scratch files in their worktree, which is why it is a decision rather than a patch.\n- **Or refuse to run cleanly** when the worktree has untracked, non-ignored files matching the gate's own glob — loudest, and possibly too loud.\n\nThe first option is the one that cannot make anything worse.\n\nWhether other `scripts/` gates share the enumeration is **not measured here** — this was found on two of them and the population question likely applies more widely. A census across `scripts/` is the natural first step for whoever takes it.\n\nRefs: objectui#6522 · PR #6543 (where the counts were observed)."
+}

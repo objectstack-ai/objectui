@@ -1,0 +1,35 @@
+{
+  "number": 6086,
+  "kind": "issue",
+  "title": "No gate judges prose that restates a declared surface — three docs pages measured wrong about `PageHeaderProps` in one day",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "tooling"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T16:19:30Z",
+  "updated_at": "2026-08-30T15:02:18Z",
+  "closed_at": "2026-08-30T15:01:01Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6086",
+  "body": "Filed unassigned by the PM seat (`session_01CSoz9uGhaaSgiq3hshtN7L`), out of #5923's granted file surface. Recording the **class**, not the instances — both instances already have cards.\n\n## The fact\n\n`PageHeaderProps` is restated in prose on at least two docs pages, and on **2026-08-24 both copies were measurably wrong at the same time**:\n\n| page | defect | card |\n|---|---|---|\n| `content/docs/guide/layout.md:288` | named the ADR-0087 D2 **tombstoned** key `icon` as declared, and omitted **five** live keys | #5923 (fixed) |\n| `content/docs/layout/page-header.mdx:66-68` | omits two live keys, `maxVisible` and `mobileMaxVisible` | #6083 (filed) |\n\nThat second one is the load-bearing observation. #5923's fix was written on the assumption that the reference page was the correct copy to defer to — ⛔ **it was not.** \"Consolidate onto one copy\" would have consolidated onto a copy that was itself two keys behind. There was no correct copy anywhere in the tree.\n\n## Why nothing caught either\n\nNeither claim lives in a code fence, and every doc gate this repo has is fence-shaped:\n\n- `check-doc-component-types` judges **type literals in code blocks**;\n- `check-doc-snippet-types` compiles **`ts`/`tsx` blocks** (157 blocks judged on the #5923 branch, all green, while the prose two lines above a fence was false).\n\nSo a sentence of the form *\"`X` declares `a / b / c`\"* has **no mechanical judge at all** in this repository, however precisely it names a shape the tree actually declares. A green run on a file whose prose is wrong is not a false green in the usual sense — the gates are answering a different question correctly. The gap is that nobody is asking this one.\n\n⚠️ Note one premise from #5923's card **has since gone stale and should not be carried**: `content/docs/guide/layout.md` is **no longer** in `check-doc-snippet-types`' `UNGATED_DOCS` list (44 entries at runtime; this file is among the covered 178). It is fence-blind regardless — being *inside* the scan surface bought nothing here, which is itself the point.\n\n## Why it is worth a card rather than vigilance\n\nThe two pages drifted **independently, in different directions, from the same source of truth** — one by carrying a retirement that had happened, the other by missing additions. That is not a lapse someone can be more careful about next time; it is what happens when N prose copies track a moving declaration with no ratchet. The same shape recurs anywhere prose restates a declared surface, and this repo does that a lot.\n\n## Shape of a fix — sketch, not a design\n\nSomething that extracts `Name — declares a / b / c`-shaped claims from prose and checks the key list against the named shape's **declared keys**. ⚠️ Two traps a naive implementation walks straight into, both measured on #5923:\n\n1. ⛔ **Declared keys ≠ `safeParse` output keys.** The output-key reading gives 6 for `PageHeaderProps`; walking the zod shape gives 11 (10 live + the `icon` tombstone). An optional key with no default never appears in a parse result, so a gate built on `safeParse` would have *demanded* the deletion of `actions` and `aria` — it would have enforced the very defect it exists to catch.\n2. ⛔ **A retired key must be distinguishable from an absent one.** `icon` is a `retiredKey` tombstone carrying its own ADR-0087 D2 message; the correct prose neither lists it as declared nor pretends it never existed.\n\nCost is real (a prose parser is not free) and the trade against \"just don't duplicate the lists\" is a judgement for triage — recording it so the choice is made deliberately rather than by nobody.\n\n## Reproduce\n\n```\nrg -n 'declares' content/docs/guide/layout.md content/docs/layout/page-header.mdx\nnode scripts/check-doc-snippet-types.mjs      # green on the false prose\nnode scripts/check-doc-component-types.mjs    # green on the false prose\n```"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 5947,
+  "kind": "issue",
+  "title": "[finding] `skills/objectui/guides/data-integration.md` teaches a `QueryResult` shape that does not exist — the declared sketch omits `data`, so the wrong example is consistent with it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-24T02:59:40Z",
+  "updated_at": "2026-08-29T08:15:55Z",
+  "closed_at": "2026-08-29T08:15:45Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5947",
+  "body": "Filed by the `domain:devx` @ objectui seat (#5748), round R3, on behalf of the #5458 dev, which measured this and correctly **did not** touch it: `skills/**` is a published skill package, evaluated as a whole package against its own line budget, so it is not a rider on a lint-rule PR. Filed unassigned and with no `domain:*` — the triage seat is the single producer of routing labels and this one is a genuine judgement call (see below).\n\n## What was measured\n\nWhile fixing #5458 (query options spelled without their `$`), the dev checked the published guide the card had flagged in passing. It is worse than #5458 recorded, and the interesting part is *why* it stayed wrong.\n\n| line | claim | reality |\n|:--|:--|:--|\n| `:275` | `return result.records;` | `QueryResult` has **no** `records` member. Real shape: `{ data, total, page, pageSize, hasMore, cursor, metadata }` |\n| same snippet | passes `filter:`, `sort:`, `limit: 20` | all three are dropped — `convertQueryParams` copies only `$`-prefixed keys. This is exactly the #5458 class, **published to skill consumers** |\n| **`:78`** | the guide's own `QueryResult` sketch declares `records?: T[]` and `pageNumber?`, **omitting `data` entirely** | this is the root cause |\n\n⚠️ **The root cause is `:78`, not `:275`.** The example is not a typo against a correct declaration — it is *consistent with a type declaration on the same page that is itself wrong*. Fixing the `return` line alone would leave the snippet contradicting the sketch above it, and the next reader would \"fix\" it back. Whoever takes this must fix the declaration first and the usage second.\n\nNote the card that prompted #5458 said the offending line was at `:268`; it is now `:275`. Re-derive rather than trusting either number.\n\n## Why it matters more than an ordinary docs defect\n\nThis is a **published skills surface** — the guide an agent loads to learn how to read data from this platform. A wrong `QueryResult` shape here does not mislead one reader once; it teaches every consuming agent to write `result.records`, which resolves to `undefined` against every real adapter and degrades to an empty list rather than an error.\n\nThat is not hypothetical. #5458 found the identical misread live in three places in this repo's own source (`sdui-workbench-preview` `.records`, `DashboardFilterBar` `.items`, and the `asArray` helpers in #5945), and in `DashboardFilterBar` it meant a dashboard filter offered **no options at all** against a real data source. The guide is the plausible common ancestor of that family.\n\n## Routing is a real question, so it is left to triage\n\nUnder objectui's three-stream split this does not sit cleanly:\n\n- the **subject** is the data contract (`QueryResult`), which argues `domain:spec`;\n- the **file** is a published skill package, which is neither the engineering surface nor an app;\n- ⛔ it is **not** `domain:devx` just because #5458 surfaced it.\n\n## Constraints for whoever takes it\n\n- **Published skills packages are evaluated whole-package** (maintainer, 2026-08-21: 「对外发布的 skills 是整个平台的最大价值,尤其要整体考虑和评估。」). Any dispatch for this needs a PM-set net-line budget, and ⛔ the dev may not raise it — that is a maintainer ruling.\n- Fix `:78` (the declaration) before `:275` (the usage), or the two will disagree again.\n- The three dropped query options in the same snippet are the #5458 class; `object-ui/no-unprefixed-query-params` now rejects that shape in **source**, but ⛔ no gate reaches a fenced snippet inside `skills/**` — related: #5465 (the doc-snippet gate's scan surface excludes `skills/`).\n\nEvidence: #5458 (and PR #5946), #5945, #5944, #5465."
+}

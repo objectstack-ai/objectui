@@ -1,0 +1,32 @@
+{
+  "number": 7002,
+  "kind": "pull_request",
+  "title": "fix(fields): NumberField reads the published error slot",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T08:26:13Z",
+  "updated_at": "2026-08-31T12:01:25Z",
+  "closed_at": "2026-08-31T12:01:23Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": "2026-08-31T12:01:23Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/7002",
+  "body": "Fixes #6803\n\n`NumberField` destructured `{ value, onChange, field, readonly, ...props }` with\nno `error`, so the published validation slot landed in the open tail and\n`toDomProps` — a whitelist — dropped it. The widget wrote `aria-invalid` only\nwhile its own bad-input refusal was active.\n\nThis wires `error` and collapses that conditional spread into the ordinary\n`aria-invalid={!!error || !!refusal}` that `CurrencyField`, `PercentField`,\n`LocationField` and `GeolocationField` already use, and adds `number` to the\n`WIDGETS` table (and the `it.each` row) of `widget-aria-invalid-e2e.test.tsx`.\n\n## Premise correction — please read before reviewing the pins\n\nThe card says an invalid number field \"is not announced to assistive tech\". That\nis true of **the widget itself**, but it is NOT what a user experiences on any\nhost in this repo today, and the difference decides which test can go red.\n\nMeasured on `1b1d772a5`: inside the real form the `aria-invalid` that\n`FormControl`'s Radix Slot hands down arrives as a widget prop, and `toDomProps`\nforwards the whole `aria-*` family **by prefix**. So the Slot's correct value\nreached the input on its own. Adding `number` to the #3222 e2e table and running\nit against unmodified `NumberField` gives **14 passed** — green before the fix as\nwell as after. A host was covering for the omission.\n\nThat also explains why the registry-wide sweep in\n`widget-aria-invalid-registry-e2e.test.tsx` never caught this with an empty\n`NOT_YET_DELIVERED` ledger: it measures the rendered row, and the row was correct.\n\nSo the e2e row alone would have been a pin that passes for the wrong reason. The\nload-bearing pin is the **consumer half** in `validation-feedback.test.tsx` — the\nwidget alone, no host, no Slot — which is the widget's own contract and which\ndoes go red. I searched for a host that delivers `error` without a Slot-provided\n`aria-invalid`; there is none in-repo today (`GridField` renders a raw `Input`\nfor numeric cells, and `FieldEditWidget`'s two callers pass no `error`), so the\ndefect is a genuine contract gap that is currently latent rather than a live\nscreen-reader regression. Triage may want to re-grade the p1.\n\n## Red, green, ablation\n\n1. `number` added to the e2e table, `NumberField` untouched: **14 passed** — the\n   gap is invisible there (above).\n2. The two `validation-feedback.test.tsx` cases, `NumberField` untouched:\n   **2 failed** — `Received:` empty, i.e. no `aria-invalid` attribute at all.\n3. With the fix: `validation-feedback` + the #3222 e2e + `badInputAnnounce` +\n   the registry sweep + `environmentDivergence` = **5 files, 184 tests passed**.\n4. Ablation — revert only the `error` wiring\n   (`aria-invalid={!!error || !!refusal}` becomes `aria-invalid={!!refusal}`,\n   the exact regression the card warns about): **2 failed**, one of them the new\n   e2e `number` row. Mutation confirmed on disk by anchored counts in both\n   directions plus `git hash-object`\n   (`006c352a…` HEAD blob vs `fc1e6f35…` mutated); restored under\n   `trap ... EXIT INT TERM` with absolute paths and verified by hash equality\n   back to the HEAD blob plus an empty `git diff HEAD`.\n\nStep 4 is the answer to \"is the overwrite hazard closed\": the e2e row is not\nload-bearing against today's code, but it **is** load-bearing against the\nun-conditionalised-without-`error` shape, which is the way this can regress.\n\n## Verification\n\nAll at `8699b5634`:\n\n- `pnpm exec vitest run packages/fields/` — **125 files, 2105 tests passed**\n- `pnpm exec vitest run packages/plugin-detail/ packages/plugin-kanban/` (the\n  two downstream `FieldEditWidget` hosts) — **136 files, 1191 tests passed**\n- `pnpm --filter @object-ui/fields type-check` — exit 0 (covers the new test\n  files: the script runs `tsc -p tsconfig.test.json` too)\n- `pnpm --filter @object-ui/fields lint` — `917 problems (0 errors, 917\n  warnings)`, all pre-existing; no narrowing for this package. Type-aware\n  linting is not configured, so this diff cannot move the verdict on any file it\n  does not touch.\n- `check-changeset-presence` — \"3 source file(s) of 1 released package(s)\n  changed, and this change declares 1 changeset(s)\"\n- `check-control-bytes` \"OK (scanned 5808 tracked text file(s))\",\n  `check-changeset-fixed`, `check-changeset-no-major`,\n  `check-changeset-overwrite` — all exit 0\n\n`check:readme-exports` is **not measured** here, not red: its 306 findings are\nall \"type entry is not on disk -- run `pnpm build` first\" for packages this\nworktree has not built, plus a `packagesRead: found 11, floor is 25` refusal.\nNone names `@object-ui/fields`, which IS built. It needs a full workspace build,\nwhich CI does.\n\n## Scope\n\nOnly the three files the card names, plus the changeset. No other widget is\ntouched and the e2e harness is not refactored. #6780 and #6801 are already\nmerged and are not affected by this branch.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_013hfmP9hoMd3dJwTh85J4yB)_"
+}

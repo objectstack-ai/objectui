@@ -1,0 +1,34 @@
+{
+  "number": 5213,
+  "kind": "issue",
+  "title": "objectui 配套:#5055 退役 spec 的 `WidgetManifest` / `WidgetSource` 后,parity tripwire 按设计打红,`packages/types/src/widget.ts` 的锚点注释指向不存在的名字",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T14:42:19Z",
+  "updated_at": "2026-09-02T02:34:27Z",
+  "closed_at": "2026-09-02T02:29:30Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5213",
+  "body": "> **Moved from `objectstack-ai/objectstack#6275`** by the `repo:objectui` PM seat (session `session_01RV6yuVCxymHYE16PL9vQkE`) under the maintainer's direct-dispatch authorisation, 2026-08-18, verbatim: 「转」.\n>\n> **Reason:** file-at-destination. Both halves land in this repo — `packages/types/src/__tests__/page-nav-misc-spec-parity.test.ts` and `packages/types/src/widget.ts`. The original body says it plainly: 「framework 仓无法落 objectui 的改动,故立此单」 — it was filed in the platform repo *because* the fix could not be made there.\n>\n> **`pm:on-hold` carried over, and its precondition with it:** 「framework 侧 PR 合并后才动」. ⚠️ Its restart condition is an **upstream merge**, so the holder must watch `objectstack-ai/objectstack#5055`, not a local file.\n>\n> ⚠️ **A label did not survive:** the original carried `target:v17`, which does not exist in this repo. ⛔ Not minted. Recorded here in prose — **this is a v17 release-board item**, and a label-based release-blocker query will no longer find it. Flagging explicitly because that is exactly the kind of silent drop that loses a release blocker.\n>\n> Original thread has 5 comments; read them there. Bare references rewritten to full cross-repo form.\n\n`objectstack-ai/objectstack#5055`(ADR-0049 enforce-or-remove)在 framework 侧退役了 `@objectstack/spec/ui` 的 widget 注册词汇 —— `WidgetManifest` / `WidgetLifecycle` / `WidgetEvent` / `WidgetProperty` / `WidgetSource`(含 `npm`/`remote`/`inline` 三分支)。objectui 侧有**两处**会因此需要跟进,**两处都是设计好的 tripwire 在按规格开火,不是附带损伤**。\n\n前置:framework 侧 PR 合并后才动;在此之前 objectui 主干是绿的。\n\n## 1. `page-nav-misc-spec-parity.test.ts` 会打红(设计如此)\n\n`packages/types/src/__tests__/page-nav-misc-spec-parity.test.ts:558-568` 断言 spec **仍然拥有**这两个名字:\n\n```ts\nit.each([\n  …\n  ['WidgetManifest', 'RuntimeWidgetManifest'],\n  ['WidgetSource', 'RuntimeWidgetSource'],\n])('the spec still owns `%s`, which is why the rename to `%s` happened', (owned) => {\n  // The other direction of the tripwire: if the spec RETIRES one of these,\n  // the local dialect can take the natural name back. A workaround should not\n  // outlive its reason (objectui#3169).\n  expect(names, `spec no longer owns '${owned}' — re-run the triage`).toContain(owned);\n});\n```\n\n注释本身写明了触发后该做什么:**「a workaround should not outlive its reason」—— 重跑三轴分诊**。所以这不是「把断言删掉让它绿」,而是要回答改名的理由是否已消失。\n\n两个方向,建议按 objectui#3169 的先例裁:\n\n- **A. 收回自然名**:`RuntimeWidgetManifest` → `WidgetManifest`、`RuntimeWidgetSource` → `WidgetSource`,因为造成改名的碰撞已经不存在了。代价:objectui 侧 breaking(`@object-ui/types` 的公开导出名),且 `RuntimeXxx` 前缀在 `WidgetRegistry` / app-shell / components 的 CHANGELOG 里已经流传开。\n- **B. 保留 `RuntimeXxx` 名,只把这两行从 `it.each` 移走**,并在下面那张 `the spec does not own` 表里补上说明:名字现在**无人拥有**,不是「spec 拥有」。这是 `objectstack-ai/objectstack#4988` 处置 `ConflictResolution` 裸名时用的形状(「freeing a word is not a reason to spend a second breaking change renaming back」)。\n\n**倾向 B**,理由与 `objectstack-ai/objectstack#4988` 一致:释放出来的名字不构成再花一次 breaking 改回去的理由;但两个名字从此**无人拥有**这一事实必须被断言,否则将来别的域会悄悄捡走它。\n\n⚠️ 无论 A 还是 B,`specExportNames()` 的反向断言(`the spec does not own RuntimeWidgetManifest / RuntimeWidgetSource`)都应保留。\n\n## 2. `packages/types/src/widget.ts` 的锚点注释指向已删除的名字\n\n两处 JSDoc 把 objectui 自己的运行时类型**锚定在** spec 的名字上:\n\n- `:28` —「Renamed off the spec's `WidgetManifest` name (objectstack#4115): the spec's is the **field-widget plugin** manifest that sits beside its `FieldWidgetProps` — `{ fieldTypes, category, lifecycle: { onMount, onValidate, … }, events, properties, implementation, screenshots, license, aria, performance }`」\n- `:107` —「Renamed off the spec's `WidgetSource` name (objectstack#4115)」\n\n那段逐键对照现在描述的是一个**不存在的 schema**,而它恰恰是 ADR-0033 意义上「AI 作者会当成事实读」的文本。需要改写成历史陈述(「曾经存在,#5055 退役」),并指明今天 objectui 的运行时 manifest 是**唯一**的 widget 注册契约。\n\n## ⚠️ 不受影响的一处 —— 不要顺手一起动\n\n`packages/fields/src/__tests__/spec-symbol-batch7.test.ts` 的 `import type { FieldWidgetProps } from '@objectstack/spec/ui'` **完好**。`FieldWidgetPropsSchema` 在 `objectstack-ai/objectstack#5055` 里被**刻意保留**,正是因为 objectui PR #3289(2026-08-03)给了它一个跨仓编译期消费者:那三条 `error` 槽位的 pin 是这次保留决定的直接依据。framework 侧新增的 `packages/spec/src/ui/widget-i18n-retirement.test.ts` 反向钉住了同一个槽位(`error` 存在、`errorMessage` 不存在、可选字符串),所以任何会悄悄弄坏 objectui 的改动会先在 framework 打红。\n\n关联:`objectstack-ai/objectstack#5055` · `objectstack-ai/objectstack#4115` · `objectstack-ai/objectstack#4988` · objectui#3161 · objectui#3169 · objectui#3222 · objectui PR #3289"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6647,
+  "kind": "issue",
+  "title": "finding(console): the `object` preview sample spells a lookup target `reference_to`, a second off-spec key its KNOWN_STALE reason does not record",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-28T08:36:50Z",
+  "updated_at": "2026-08-30T04:02:52Z",
+  "closed_at": "2026-08-30T03:34:20Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6647",
+  "body": "Found while censusing relationship-target spellings for objectui#6528. Filed rather than folded in — different file, different defect.\n\n`apps/console/src/preview-samples.ts`, the `object` sample:\n\n```ts\n{ name: 'account', label: 'Account', type: 'lookup', reference_to: 'account' },\n```\n\n`reference_to` is refused by name. Measured against the installed `@objectstack/spec` 17.2.0, on an otherwise-green field:\n\n```\nObjectSchema.safeParse({ name:'census_obj', label:'Census',\n  fields: { acct: { type:'lookup', label:'Account', reference_to:'crm_account' } } })\n  => success:false, code = unrecognized_keys, path = fields.acct\n     \"Unrecognized key(s) on this field: `reference_to`.\n      Did you mean `reference_to` -> `reference`?\"\n```\n\nPositive control, same query shape: the same document spelling the key `reference` parses green and the value survives the parse.\n\n## Why this is worth a card rather than a shrug\n\nThe sample is already quarantined in `apps/console/src/__tests__/preview-samples-spec-valid.test.ts`, but for a DIFFERENT recorded reason:\n\n```\nobject: '`fields` is an array; ObjectSchema wants a record keyed by field name',\n```\n\nThat ledger is explicitly a \"first thing a reader of that sample would copy and get rejected for\" list, and its reverse assertion exists so entries can only shrink. Here the recorded reason is incomplete: fixing only the array shape would NOT make this sample parse, because `reference_to` is independently refused. So whoever picks up the array-shape half will find the sample still red and no note explaining why.\n\nThe stakes are the ones that file already argues: these samples are the worked example an author — increasingly a model generating metadata — copies. A lookup target spelled `reference_to` is wrong semantics propagating from the file that exists to demonstrate right ones.\n\n## Not fixed here on purpose\n\nobjectui#6528 is scoped to the two consumer-side canonicalizations (`resolveReferenceTo`, `resolveRelationshipTarget`). This sample is unreachable from both — the gallery renders `SAMPLES` as an unparsed draft, and neither consumer is fed by the gallery — so it neither blocks nor is blocked by that cut. Touching it there would also mean re-adjudicating the `KNOWN_STALE` reason, which is new verification surface for an unrelated file.\n\n## Suggested shape\n\nEither re-spell the key to `reference` and extend the `KNOWN_STALE` reason to name only the remaining array-shape defect, or record both defects in the reason now so the ledger stays honest. Note the array `fields` shape is deliberate per its recorded note (it is what covers `readFields`' array branch in the gallery), so the two halves want separate decisions.\n\nRelated: objectui#6041 (retired `referenceTo` at the designer writers), objectui#6519 (read door strips retired keys)."
+}

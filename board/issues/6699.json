@@ -1,0 +1,35 @@
+{
+  "number": 6699,
+  "kind": "issue",
+  "title": "Pin the retired-field-key tombstone registry as check-designer-field-key-parity.mjs's single source — otherwise the registry is a convention, and conventions drift",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-28T16:33:06Z",
+  "updated_at": "2026-09-02T04:47:08Z",
+  "closed_at": "2026-09-02T04:45:49Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6699",
+  "body": "Filed **unlabelled** by the `domain:ui` @ objectui execution seat, session `8ca04858-ea8e-5b85-9182-de59aa49e00c`, as the cross-lane half of #6527. ⛔ `domain:*`, `type` and grading are triage's to produce — the routing below is a suggestion with its reasoning, not a label.\n\n**Suggested routing: `domain:devx`.** The work lands in `scripts/check-designer-field-key-parity.mjs`, and gate-class `scripts/` is devx's surface — the same routing #6606 got for the same script. The `domain:ui` seat is fenced out of it, which is why this is a separate card rather than a rider on #6527.\n\n**Blocked-by: #6527**\n\n## Why this exists\n\nThe maintainer ruled option **B** on #6527 (2026-08-28): the three drifted retired-field-key lists on the designer seam converge into one tombstone registry, reached through a dedicated internal subpath of `@object-ui/types`. That registry is landing in PR #6627.\n\n⭐ **But a registry with no gate pinning it is a convention, and conventions drift.** That is not a hypothetical here — it is the literal history this card's parent documents. From `check-designer-field-key-parity.mjs`'s own header:\n\n> two independently maintained `RETIRED_FIELD_KEYS = [indexed]` sets … **Every one of them was written AFTER an instance was found in production.**\n\nThree lists existed because nothing mechanically required them to agree. #6527 makes them agree *today*. This card is what keeps them agreeing.\n\n## What is being asked\n\nMake the registry the gate's **single source**: `check-designer-field-key-parity.mjs` should derive what it checks from the tombstone registry rather than carrying its own copy of the key set, so that adding or retiring a key in one place cannot leave the gate asserting the old shape.\n\n⚠️ **The per-site asymmetry is the load-bearing part and must survive.** The registry is deliberately **not** a flat list — it encodes per-site applicability, because the lists were never nested:\n\n- **`formula`** is stripped by the two WRITE-side lists and ⛔ **must NOT be stripped by the READ door** — ruled on #6526 (option B, closed via PR #6624). `ObjectFieldInspector` seeds its CEL editor from `def.expression ?? def.formula` and the first edit migrates it; stripping it at the read door destroys authored expression text.\n- **`sortOrder`** is present only at `MetadataService`, recorded as **explicitly defensive rather than measured** — objectui#6045 measured that no writer on this tree ever populated a field-level one.\n\n⇒ A gate that flattens the registry into one key set would assert something the registry deliberately does not say. ⛔ Whatever shape this takes, it must be able to express \"retired at these sites, not at those.\"\n\n## Prior art to read before starting\n\nPR #6627 already pins the asymmetry at three layers on the product side, including a test that goes red if `formula` is ever added to the read door's applicable set. ⭐ That pin is #6526's ruling made mechanical — this card is the same idea one level out, at the gate.\n\n## Provenance\n\n- Ruling: maintainer, 2026-08-28, live director session, adopting option B on #6527.\n- The ruling names this follow-up explicitly as becoming live with it, and assigns the filing to the `domain:ui` seat under the linkage-chore rule — which is this card."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 4934,
+  "kind": "issue",
+  "title": "finding(data-objectstack): notifyDroppedFields asserts the wire entry into DroppedFieldsEvent without ever parsing `reason` against the spec enum",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "auto-adjudicated",
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T06:35:34Z",
+  "updated_at": "2026-08-30T12:15:26Z",
+  "closed_at": "2026-08-30T12:15:26Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4934",
+  "body": "Found while implementing objectui#3935 (replacing `writeWarningToast`'s two-way conditional with an exhaustive reason table). Filed unassigned — recording only, not claiming.\n\n## Fact\n\n`packages/data-objectstack/src/index.ts` — `notifyDroppedFields` filters the response's `droppedFields` entries on SHAPE only:\n\n```ts\nconst valid = dropped.filter(\n  (e): e is DroppedFieldsEvent =>\n    !!e && typeof e === 'object' && Array.isArray((e as DroppedFieldsEvent).fields) && (e as DroppedFieldsEvent).fields.length > 0,\n);\n```\n\n`reason` is never read, never compared against `DroppedFieldsEventSchema.shape.reason`, and the predicate is a hand-written type guard that asserts the entry into the spec type regardless. `notifyBatchDroppedFields`, a few lines down, does the same thing (`const e = entry as DroppedFieldsEvent & { index?: number }`).\n\nSo a value outside `'readonly' | 'readonly_when' | 'primary_key'` — a server running ahead of this bundle's `@objectstack/spec` pin, which is the normal skew direction for a deployed client — reaches consumers typed as if it were inside the union. Declared is not enforced at the one boundary that reads the wire.\n\n## Why this is observation-class today\n\nobjectui has exactly one consumer of the dropped `reason`: a grep for `.reason` across `packages/` and `apps/` finds only `writeWarningToast`'s two `byReason` lines. After objectui#3935 that consumer handles the off-union value explicitly — an exhaustive `Record< DroppedFieldsEvent['reason'], … >` for the declared arms, plus a documented cause-free line for anything else, pinned by a test. Nothing a user hits today.\n\nWhat makes it worth recording is the direction of the gap: the interior is now typed to trust a union the boundary never checked. The next consumer to branch on `reason` gets an exhaustive-looking table and a type that lies to it, and no gate in the repo would say so.\n\n## Options, deliberately without a recommendation\n\n- Parse at the boundary with `DroppedFieldsEventSchema.safeParse` and keep only entries that pass. But a dropped entry means the user is told nothing about those fields, which is precisely the silence objectui#3484 exists to remove — so this is a behaviour ruling, not a mechanical hardening.\n- Keep the entry and widen the type at the boundary so the interior sees the unparsed reality (`reason: string`), pushing narrowing to consumers. That is the opposite of objectui#3160's ruling, which deliberately re-exported THE spec type rather than a hand-widened `string`; it needs that ruling revisited, not reversed quietly.\n- Leave it as is and require each consumer to document the skew case, as objectui#3935 did.\n\nRelated: objectui#3935, objectui#3160, objectui#3484, objectstack#6437."
+}

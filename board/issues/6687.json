@@ -1,0 +1,36 @@
+{
+  "number": 6687,
+  "kind": "issue",
+  "title": "finding(plugin-chatbot): the docs `surface` row names a key no `chatbot*` registration reads — zero read points across all three",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-28T14:55:15Z",
+  "updated_at": "2026-08-30T04:02:54Z",
+  "closed_at": "2026-08-30T03:34:04Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6687",
+  "body": "Filed unassigned out of the objectui#6169 census (the `chatbot` node's authoring-face-type lift). While read-site-censusing that node's keys I checked every `ComponentRegistry.register('chatbot*', ...)` site in `packages/plugin-chatbot/src/renderer.tsx` for `surface`, since the docs table also lists it, and found it nowhere.\n\n## The fact\n\n`content/docs/plugins/plugin-chatbot.mdx`'s `## Properties` table has a row:\n\n| Property | Type | Default | Description |\n|---|---|---|---|\n| `surface` | `'card' \\| 'plain'` | `'card'` | Controls whether the chat renders as a bordered panel or a frameless full-page workspace |\n\n`surface` is a real prop — but of the **React component**, not of any authorable node:\n\n```\ngrep -n \"surface\" packages/plugin-chatbot/src/ChatbotEnhanced.tsx\n# 805:  surface?: ChatbotSurface;\n# 1328:      surface = 'card',\n# 1334:    const isPlainSurface = surface === 'plain';\n```\n\nNone of the three registrations in `renderer.tsx` (`chatbot`, `chatbot-enhanced`, `chatbot-floating`) forward it:\n\n```\ngrep -n \"surface\" packages/plugin-chatbot/src/renderer.tsx\n# (zero matches)\n```\n\n`chatbot-enhanced` is the one that renders `<ChatbotEnhanced>`, and its registration's own inline schema-extension type doesn't declare `surface` either, so an author writing `surface: 'plain'` on ANY `chatbot*` node has the key silently dropped — `<ChatbotEnhanced>` always falls back to its own default (`'card'`).\n\n## Why it's worth a card rather than a quick delete\n\nThis reads like the sibling of the already-fixed `body`/`requestBody` row (PR #6193, same page): a table row naming a key that reaches nothing, with no error and no signal to the author. But it's a **different shape** — `body` collided with a real, differently-meaning key (`BaseSchema.body`); `surface` has **zero** read points anywhere in this package, on any of the three registrations. Whether the fix is wiring `schema.surface` through on `chatbot-enhanced` (the node that actually has a `<ChatbotEnhanced surface>` to forward it to) or retiring the row is a real call — same \"declared-but-unbacked\" pattern objectui#6169's ADR-0049 clause exists for, just on the docs side rather than the type side.\n\n## Reproduce\n\n```\ngrep -n \"surface\" packages/plugin-chatbot/src/renderer.tsx    # zero matches, all 3 registrations\ngrep -n \"surface\" packages/plugin-chatbot/src/ChatbotEnhanced.tsx  # real prop, never fed by a registration\nsed -n '150,160p' content/docs/plugins/plugin-chatbot.mdx     # the row\n```\n\nOut of scope for objectui#6169 itself: that card's fence is `renderer.tsx:62`'s `chatbot`-node intersection specifically, and its docs-table instruction was \"adding a type name is in scope; deleting rows is not\" — this row isn't one of the census's 11 keys and touching it would be a different defect class.\n"
+}

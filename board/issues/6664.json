@@ -1,0 +1,36 @@
+{
+  "number": 6664,
+  "kind": "issue",
+  "title": "finding(fields): `LocationField` drops the spec's optional `altitude` / `accuracy` when a user edits the coordinate pair",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-28T11:07:09Z",
+  "updated_at": "2026-08-28T18:52:11Z",
+  "closed_at": "2026-08-28T18:52:11Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6664",
+  "body": "Filed unassigned by the dev seat working #6272 (branch `claude/issue-6272-locationfield-spec-flip`), as an out-of-scope finding. **Not fixed there** — #6272 implements the maintainer's 2026-08-28 A1 ruling, which is a bare rename at both ends of the widget and nothing else. Recording, not choosing.\n\nDedup run before filing: an open-issue scan for `altitude` / `accuracy` / `LocationField` found only #6660 (the docs half of #6272, which merely quotes the value shape) and #6272 itself. No card covers this.\n\n## What\n\n`@objectstack/spec@17.2.0` declares the canonical stored shape as\n\n```\nLocationValue = { lat: number; lng: number; altitude?: number; accuracy?: number }\n```\n\n`LocationField` (`packages/fields/src/widgets/LocationField.tsx`) edits the pair as one comma-separated text box, and its `onChange` builds a **fresh object from the parsed text**:\n\n```ts\nonChange({ lat, lng });\n```\n\nSo a stored `{ lat, lng, altitude, accuracy }` — every key of which the spec's `valueSchemaFor({ type: 'location' })` accepts — loses `altitude` and `accuracy` the moment a user retypes the coordinates. Nothing warns; the two keys simply are not in the emitted object.\n\n## Why it is filed now rather than fixed in #6272\n\nThe drop is **pre-existing**, not introduced by #6272: before that card the widget emitted `{ latitude, longitude }` and discarded everything else just the same. What #6272 changes is only that the widget's declared value type is now the spec's, so the type says the widget handles four keys while the write path handles two. That is a mismatch worth a decision, but it is a different decision from the one the A1 ruling made, and widening #6272's atomic fence to take it would have been scope creep on a card that was explicitly fenced to the rename.\n\n## What is NOT yet measured\n\nDeliberately left for triage, because the answer changes whether this is worth fixing at all:\n\n- **Is there a producer?** Nothing in objectui writes `altitude` or `accuracy` for a `type: 'location'` value that this seat found. If no producer exists in the platform either, the population is empty today and this is an implementation-first key rather than a live defect.\n- **Is there a consumer?** `LocationCellRenderer` and `ObjectMap` read `lat`/`lng` only, so neither surface would show the loss.\n\nIf both answers are \"no\", the honest disposition may well be to close this rather than to write code for it — that judgement is triage's, not this seat's.\n\n## If it is taken\n\nThe fix is small and does **not** reintroduce any dialect: carry only the two spec-declared optional keys forward from an already-valid value, e.g. keep `altitude` / `accuracy` from the incoming value when it is a valid `LocationValue`. ⛔ It must not be written as a wholesale spread of the incoming value — that would carry a deprecated `latitude` / `longitude` key straight back into the emitted object and undo #6272."
+}

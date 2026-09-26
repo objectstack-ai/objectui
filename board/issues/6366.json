@@ -1,0 +1,33 @@
+{
+  "number": 6366,
+  "kind": "issue",
+  "title": "finding(react): a spec-bridge form field skips the normalizer's object-schema merge — it arrives with the raw spec  (`text`), never the resolved widget id (`field:text`)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "package: react"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T16:09:48Z",
+  "updated_at": "2026-08-30T11:02:16Z",
+  "closed_at": "2026-08-30T11:02:16Z",
+  "closed_by": {
+    "login": "zhuangjianguo",
+    "id": 19182527,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 13,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6366",
+  "body": "Found while implementing #5898 (the form-view bridge's dropped spec keys). Filed unassigned as\nan observation, for PM triage — #5898's fence was the DROPPED keys, and this is about a key that\narrives, so it is deliberately not folded into it.\n\n## The two routes to a runtime `FormField` disagree on `type`\n\n`normalizeSectionField` (`packages/plugin-form/src/sectionFields.ts`) is the documented chokepoint\nbetween the spec's authored form-field vocabulary and the runtime one. It branches on the identity\nkey:\n\n```ts\n// (3) already a runtime FormField (inline customFields): it carries its own `name`.\n// NOTE: in the spec shape `field` is a *string* (the field name); in a runtime\n// FormField `field` is the *metadata object*. So a string `field` is the\n// disambiguator for the spec shape below.\nif (typeof fd.field !== 'string') {\n  return attachVisibility(fd as FormField, fd.visibleOn);\n}\n```\n\nThe spec-bridge's `mapField` (`packages/react/src/spec-bridge/bridges/form-view.ts`) maps the spec's\n`field` onto the runtime `name` and emits **no `field` key at all**. So a bridged section field takes\nbranch (3) — \"already a runtime FormField\" — and is returned **unchanged**.\n\nBranch (2), which an authored spec field takes when it reaches the normalizer directly, does five\nthings branch (3) does not:\n\n- resolves the widget id — `base.type = mapFieldTypeToFormType(rawType, { multiple })`\n- merges the object-schema base (`fromObjectSchema`): label i18n, `validation` (`buildValidationRules`),\n  `disabled`, the `field` metadata stash widgets read `precision` / `reference_to` off\n- re-runs the create-mode `required` test against the object field's `defaultValue` (#4069)\n- stamps both lookup spellings (`reference` / `reference_to`)\n- folds the object-level `visibleWhen` / `readonlyWhen` / `requiredWhen` rules onto the runtime field\n\n## The measurable half\n\n`mapFieldTypeToFormType('text')` returns `'field:text'` (`packages/fields/src/field-type-alias.ts:110`).\nThe bridge forwards the spec `type` verbatim, so a bridged field reaches the renderer carrying\n`type: 'text'` while the same authored field normalised directly carries `type: 'field:text'`. The\nsame asymmetry holds for every entry in that map (`number` → `field:number`, `datetime` →\n`field:datetime`, …), and for the `(type, multiple)` pair rule objectui#3986 added — a bridged\n`select` + `multiple: true` cannot land on the multi-value picker, because nothing re-decides the\nwidget on that route.\n\nPinned incidentally by the conformance suite in #5898's PR: its `carries spec 'type' to its\ndestination` row asserts `field.type === 'text'` on the bridged node, i.e. the raw spec spelling.\nThat row is correct about the BRIDGE; this card is about whether the value is correct for the\nRENDERER one layer on.\n\n## Why it is a finding and not a queued card\n\nTwo things need a decision above the mechanical part, and neither is mine to make:\n\n1. **Which layer owns the translation.** Either the bridge emits fully runtime-shaped fields (and\n   must therefore do the `mapFieldTypeToFormType` fold and the object-schema merge itself — but it\n   has no object schema in hand, only `BridgeContext`), or it emits spec-shaped fields and lets the\n   normalizer's branch (2) do the work (which would mean keeping the spec `field` key rather than\n   renaming it to `name`, and that is the #3090 mixed-vocabulary hazard the normalizer warns about\n   by name). Both are coherent; they are different architectures.\n2. **Whether the bridged route is reached in production at all.** `SpecBridge` is exported for\n   hosts; I did not find an in-repo caller that feeds its `object-form` node into `ObjectForm` with a\n   live object schema, so the blast radius is unmeasured. If the answer is \"no host does this\", the\n   honest outcome may be ADR-0049 enforce-or-remove on the route rather than a fix.\n\n## Boundary\n\n- Searched the open issues before filing (REST list endpoint, all 244 open, filtered locally):\n  `mapFieldTypeToFormType` / `field-type` / `field:` / `normalizeSectionField` / `spec-bridge` /\n  `bridge` / `runtime FormField` / `form-view`, plus a broad `form|type|widget` title sweep. Nothing\n  open covers it. #6309 is the nearest neighbour by shape (a *different* bridge whose serializer\n  would destroy keys) and is unrelated in mechanism. #5939 and #6172 touch the form-field/formType\n  vocabulary but from the types side, not this translation.\n- Not covered by #5898's repair, and deliberately so: every key #5898 restored is copied\n  same-name, so it lands wherever branch (3) leaves it — the same place `colSpan`, `widget` and\n  `required` already landed. This card is about the ROUTE, not about any one key.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

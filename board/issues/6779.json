@@ -1,0 +1,35 @@
+{
+  "number": 6779,
+  "kind": "issue",
+  "title": "[Decision] What instrument stops the container-declaration class regenerating — and do the remaining 45 get fixed before it lands?",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-29T11:10:34Z",
+  "updated_at": "2026-08-30T04:03:10Z",
+  "closed_at": "2026-08-30T02:56:50Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6779",
+  "body": "Filed by the `domain:ui` execution seat (PM session `session_01CRJge11jso9TpXRWFt1Z49`) from the census in #6764 / PR #6774. ⛔ This card does not repeat that measurement — #6764 is the authoritative record.\n\nThe same defect has now been found **three times independently, one registration at a time**: #3900 (`page-header`, closed), #6740 (`flex`, PR #6762), #6764 (8 more). Nothing in the repo asks the question, so the class regenerates.\n\n## The denominator, which is what this ruling was waiting for\n\nOf **131** bare authoring tags (292 registry keys counting the namespaced twins):\n\n| | count |\n|---|---|\n| render `schema.children` | **58** |\n| …of those, declare `isContainer` | **5** |\n| …of those, do NOT | **53** |\n\nThe 5 that declare are exactly `flex` / `grid` / `card` / `container` / `stack` — the control set — so the zero elsewhere is a reading, not a broken scan. PR #6774 fixes the 8 the card named and leaves **45**.\n\n⭐ **Only 1 of the 53 is public.** `react-page.tsx` iterates `getPublicConfigs()`, not the whole registry, so for 52 of them declaring `isContainer` provably removes no injected identifier. The one exception is **`button`**, left alone deliberately: declaring it would delete `Button` from every `kind:'react'` page scope, and it reads children as a *label fallback*, not layout containment.\n\n⭐ Three exception shapes a naive predicate sweeps in wrongly: `tabs` (renders `item.content` off an `items` array); the void tags `img` / `hr` / `br` (same 37-tag loop factory as 34 that do render children); and `badge` / `alert` plus 8 `sidebar-` keys that read `schema.body` only — a key `validateTree`'s containment branch never inspects.\n\n## Why a source-side gate was NOT added — four measured reasons\n\n1. The tree's own reader, `scripts/component-registrations.mjs`, refuses computed keys by design, and **41 of the 53 register from a loop variable** — it cannot even name them.\n2. File granularity mis-reads `layout/page.tsx` as compliant: it holds two `isContainer` tokens, both in a manifest-builder helper, while all five of its registrations lack the flag.\n3. Which registration is **live** is a whole-program import-order fact, with two recorded casualties in this tree (`ui:kbd`, `ui:table`, #5125).\n4. \"children or body\" is not a distinction a source predicate keeps — that spelling over-reports by 10.\n\n⭐ What **is** decidable is the RUNTIME form that produced these numbers — the same mechanism #6740's pin already uses. The difference: **its covered set is a literal 4-element array**, which is precisely why the class regenerated past it.\n\n## Options\n\n| | |\n|---|---|\n| **A** | Land the runtime census as a UNIVERSAL pin now and fix all 53 in one PR. |\n| **B** | Land the runtime pin with an explicit **LEDGER** of currently-undeclared tags: a new violation is red; the existing 45 are listed, dated and visible. |\n| **C** | No gate; keep enumerative per-incident pins — the status quo that produced three rediscoveries. |\n| **D** | A registration-time assertion inside `Registry.register`. ⛔ **NOT BUILDABLE, and that is a measurement**: the registry receives a renderer *function*, and whether it reads `schema.children` is only knowable by executing it; a source-side reader attached there inherits reasons 1-4 unchanged. |\n\n## 四维分析\n\n**① 实际业务需求 —— 实测，非投机。** 53 个 registration 在**专门用来接收 AI 起草页面**的那一层上发出**假的 `not-a-container`**。#6740 自己的测量：三个已发布的 app-showcase 页面共 232 条诊断，其中 **32 条**只是 `flex` 一个标签的这条假警告。#6764 的普查再补一刀：`components-layout-semantic` 全部 **9 个已发布 fixture 都 author children** —— 仓库自己的演示页就是这条警告的受害者。\n\n**② 平台长远合理性。** C 已被卡本身否决（三次重复发现就是它的判决书）。B 是本仓**对同类情形已有的形状**（`i18n-call-site-key-baseline.json`、`skills-path-baseline.json`）。A 是最健全的**终态**，但今天做不诚实 —— `button` 需要先有它自己的 public-tier 裁决。\n\n**③ 防 AI 写错元数据 —— 这一轴最强，且指向同一处。** ⭐ **一条会说谎的警告比缺一条警告更糟**，因为它教会 AI 作者去忽略**真的** `not-a-container` 报告 —— 这正是 #3900 自己的推理。所以既要现在关掉这个类，也要最终**修掉**而不是永久豁免。\n\n**④ 创业阶段不扩散需求。** B 的成本是一个测试文件加一张清单，今天就能止住再生；A 是 53 个 registration 的大扫除。\n\n**本席意见与实施席一致：B**，并带两个从普查里直接长出来的条件 —— **`button` 排除在清单之外、单独裁**；**清单声明为「ratchet-to-zero」而不是豁免名单**。\n\n⛔ 但这三条都改变仓库用哪种仪器去约束一个公开面，属于工具/契约形状决定，落在人工地板上 —— 本席记录，不代裁。\n\n## Related\n\n#6764 (the census) · PR #6774 · #6740 / PR #6762 (`flex`, instance two) · #3900 (`page-header`, instance one, closed) · #5125 (the import-order casualties) · #6771 (the `body` key the tier rejects) · #6773 (the `aspect-ratio` demos)"
+}

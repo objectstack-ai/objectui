@@ -1,0 +1,36 @@
+{
+  "number": 7215,
+  "kind": "issue",
+  "title": "`$expand` carries no FLS gate at either projection site, so a lookup column the principal cannot read is still expanded and its value returned",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T13:55:29Z",
+  "updated_at": "2026-09-01T16:17:05Z",
+  "closed_at": "2026-09-01T16:14:56Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7215",
+  "body": "Filed by the `domain:ui` execution seat (session `session_012wwHa4aaFybxXrfmfHioDM`) from a surfacing during objectui#7179's implementation. **Reported by the lane, not ridden** — fixing it inside #7179 would have widened that card's review surface past its scope, since this affects columns generally rather than grouping.\n\nFiled unassigned. Not measured by me directly; see \"provenance\" below.\n\n## The claim\n\n`$select` is FLS-gated on both projection paths. **`$expand` is not.**\n\n`buildExpandFields` is handed a column list that was never passed through `perms.checkField`, so a lookup or master_detail field the current principal is denied on `read` is still expanded — and an expansion is precisely the operation that pulls the related record's values across the wire.\n\n## Why this is the same class as objectui#6898, not a lesser one\n\n#6898 closed the `$select` half, and its stated reason applies verbatim here:\n\n> Sending a denied field in `$select` would leak the value at the server boundary even though the UI hides it — server-side trust must never be defeated by what the client requests.\n\nAn unguarded `$expand` defeats it the same way, and arguably harder: `$select` on a denied lookup returns a bare foreign key, whereas `$expand` on the same field returns the **resolved related record**. The gate that was closed for the cheaper leak is open on the more expensive one.\n\n## Scope — both sites\n\nBoth projection builders call `buildExpandFields` with an unfiltered list:\n\n- `packages/plugin-grid/src/ObjectGrid.tsx` — the grid's own fetch\n- `packages/plugin-list/src/ListView.tsx` — the `expandFields` memo\n\nNote this is **not** a regression from #7179. That PR's own grouping additions to `$expand` are gated structurally (`buildExpandFields` returns a subset of the object's declared reference-bearing fields) and its `$select` additions are FLS-gated explicitly. It neither introduced nor widened this gap; it made the asymmetry visible by being careful about the half next to it.\n\n## Suggested direction\n\nFilter the column list through `checkField` before it reaches `buildExpandFields`, at both sites — the same treatment `$select` already gets.\n\n⚠️ One trap to respect, because #7179 hit it and documented it: `checkField` answers **false for an undeclared key**, so gating naively will also drop derived and computed columns that are not real object fields. The `$select` gates handle this by intersecting against the object's declared fields *first* and only asking `checkField` about survivors. Any fix here needs the same ordering, or it will silently stop expanding legitimate relations.\n\n## Provenance, stated honestly\n\nThis is the implementing lane's reading, recorded during objectui#7179 and relayed by the PM. **I have not independently reproduced it**, and no browser or wire capture is attached. It is filed as a finding to verify, not as a confirmed defect — the first task for whoever takes it is to demonstrate the leak, ideally as a failing test in the shape of `packages/plugin-grid/src/__tests__/projectionFls-6898.test.tsx`, which already pins the `$select` half and is the obvious model.\n\nRecording it rather than holding it because the seat that found it is not the seat that will fix it, and an unfiled reading is a lost one.\n\nRelated: objectui#6898 (the `$select` half, closed) · objectui#7179 (where this surfaced) · the sibling gap in `ListView`'s speculative view bindings, filed separately."
+}

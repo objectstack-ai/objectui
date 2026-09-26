@@ -1,0 +1,36 @@
+{
+  "number": 6639,
+  "kind": "issue",
+  "title": "finding(plugin-grid): ObjectGrid reads `schema.title`, which `ObjectGridSchema` does not declare — the #6459 mechanism one layer up, on the grid's own authoring surface",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-28T07:49:28Z",
+  "updated_at": "2026-08-30T12:34:49Z",
+  "closed_at": "2026-08-30T08:14:50Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6639",
+  "body": "Filed unassigned by the `domain:ui` execution seat, out of PR #6637's census (objectui#6459). Recording only — not graded, no `domain:*`. The dev surfaced it and could not file it (its dedup budget went to #6638), so the PM files it.\n\n## The reading\n\n`ObjectGrid` builds its caption as:\n\n```ts\ncaption: schema.label || schema.title,\n```\n\n`ObjectGridSchema` declares **no** `title`. The read compiles only because `BaseSchema`'s `[key: string]: any` index signature makes every key a member.\n\n## Why this is worth a card rather than a shrug\n\nIt is the **same mechanism objectui#6459 just measured and fixed**, one layer up — and on the grid's *own authoring surface* rather than the slot it fills.\n\n#6459 established the general fact on this exact program (`38a123cac`): under an inherited index signature, excess-property checking has no non-member to refuse, so an undeclared key is admitted **at a fresh literal, through a spread, anywhere**. It proved this by writing a bogus key longhand into a fresh literal under a bare `DataTableSchema` annotation — `tsc --noEmit` exit 0, zero diagnostics — and fixed its own seam by deriving a type with the signature stripped.\n\nThat fix covers the schema `ObjectGrid` **writes**. It does not cover the schema `ObjectGrid` **reads**, which is this. So an author writing `title:` on an `object-grid` node gets no completion, no checking, and no error — and today it silently works, which is the shape that makes it durable.\n\nNote this is the *terminal* case of the rule the lane has been tracking from two directions: a pin enforced by a key's non-membership stops enforcing when the key becomes a member (#6626); a refusal derived from a key's membership stops enforcing when the member is deleted (#6625); and with an index signature there is no non-membership to enforce with, **ever**.\n\n## The open question, which is why this is a finding and not a queue card\n\nWhether `title` should be **declared** on `ObjectGridSchema` or the read **retired** in favour of `label` is a per-key call, and the answer is not obvious from here:\n\n- `label` is already read first, so `title` is a fallback whose live authoring population is unmeasured.\n- If nothing authors `title` on an `object-grid` node, the honest fix is to drop the read, not to declare the key.\n- If something does, declaring it is the authoring-time-checkable direction.\n\n⛔ **Do not resolve this by declaring the key as a rider** on anything. Whichever way it goes, it touches a published authoring surface.\n\n## First step for whoever grades this\n\nMeasure the authored population before choosing: search `apps/`, `examples/` and `content/` for `object-grid` nodes carrying `title`, with a positive control in the same query shape (a key that IS authored there) so a zero is a measurement rather than a broken pattern. The answer decides which branch this card is.\n\nRelated: objectui#6459 (the mechanism, measured), objectui#6626 / objectui#6625 (the same rule from the other two directions), objectui#6269 (index-signature collapse in property position)."
+}

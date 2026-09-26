@@ -1,0 +1,36 @@
+{
+  "number": 5106,
+  "kind": "issue",
+  "title": "finding(docs/gate): check-doc-component-types 的扫描面止于代码围栏 —— 八个 PR 新加的「真实 register 键表」全部在门外,且门从不判 namespace 半边",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "tooling"
+  ],
+  "assignees": [
+    "yinlianghui-tw"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-18T00:30:11Z",
+  "updated_at": "2026-08-30T15:03:07Z",
+  "closed_at": "2026-08-30T15:01:11Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5106",
+  "body": "发现于 #5094 的实施(PR #5104)反向验证。Filed unassigned, not claiming。观察类:**今天没有读者会撞到** —— 现存的每张键表实测都是对的;这条记的是「守它的东西不存在」。\n\n## 两条实测事实\n\n`scripts/check-doc-component-types.mjs` 的 `scanDocs` 只在 fenced code block 内取 `type: 'VALUE'` 形的字面量(函数自己的注释写明:\"Fences are tracked so prose that merely mentions a type in backticks is not read as a snippet\")。由此:\n\n**1. markdown 表格 / 散文里的组件键,门看不见。**\n\n在 `content/docs/plugins/plugin-dashboard.mdx` 的键表里插一行假键:\n\n```\n| plugin-dashboard:phantom-widget | phantom-widget | PhantomWidget — nothing registers this |\n```\n\n`node scripts/check-doc-component-types.mjs` → rc=0,`Every documented component type is registered.`\n\n同一个假键放进本页某个 fenced code block(`\"type\": \"phantom-widget\"`)则立刻红:\n\n```\ncontent/docs/plugins/plugin-dashboard.mdx:179  [unregistered-doc-type]  type 'phantom-widget' (json)\n```\n\n门本身有牙,牙只长在围栏里。\n\n**2. 门从不判 namespace 半边。**\n\n把 `packages/plugin-dashboard/src/index.tsx` 里 `dashboard` 那次注册的 `namespace: 'view'` 改成 `'dash'`,`deriveRegistryKeys` 立刻翻成 `dash:dashboard`(推导是活读),但 `check-doc-component-types` 仍然全绿 —— 它判的是 bare 键存在与否。所以任何文档把 `view:dashboard` 写成 `plugin-dashboard:dashboard`,静态面零信号。\n\n## 为什么现在值得记一笔\n\n#5002 家族这一轮(PR #5071 / #5078 / #5079 / #5085 / #5089 / #5093 / #5100 / #5104)把「虚构的 `*Components` 手动注册循环」一律换成了**同一种同族形**:一张 `| Namespaced key | Bare-name fallback | Renderer |` 的 markdown 表。这个形是对的 —— 但它恰好整体落在门的扫描面之外,而它替换掉的那些代码块**曾经**在扫描面之内(尽管那批缺陷门也抓不到,原因另有其一:旧循环里 `type` 是解构出的标识符,不是 `type: '字面量'`)。\n\n净效果:这一族修复把「教什么键」的事实从代码块搬进了表格,守它的只剩人工比对。#4823(门的立卡)在正文里把扫描面定义成代码块,是有意的作用域,不是 bug —— 所以这条不是「门坏了」,是「同族形与门的作用域错开了」。\n\n## 可能的方向(不预断,交分诊)\n\n- A. 把 `| \\`ns:key\\` | \\`key\\` |` 这种**结构化表格行**也纳入扫描(只认这一种形,避免把散文里的反引号全部拖进来),namespaced 半边对 `deriveRegistryKeys` 的 namespace 一起核;\n- B. 不动门,改让这族键表**生成**而不是手抄(键表由 `deriveRegistryKeys` 产出,文档只留一处 include);\n- C. 判定为可接受的作用域,只在门的头注释里写明「表格不在扫描面」,让下一个照抄同族形的 agent 知道自己没有网。\n\n代价与长期取向差别很大(A 扩门面、可能引入误红;B 是契约先行但要新增生成步骤;C 零成本但把可防错性留给人),故不自裁。\n\n## 复核方式\n\n```\nsed -n '685,730p' scripts/check-doc-component-types.mjs      # scanDocs 的围栏跟踪\nnode scripts/check-doc-component-types.mjs                    # 基线绿\n# 在 content/docs/plugins/plugin-dashboard.mdx 键表插一行假键 → 仍绿\n# 把同一假键放进任一 json 代码块的 \"type\" → 红 unregistered-doc-type\n```"
+}

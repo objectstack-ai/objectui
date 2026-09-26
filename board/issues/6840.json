@@ -1,0 +1,35 @@
+{
+  "number": 6840,
+  "kind": "issue",
+  "title": "finding(components,plugin-view): two more non-`QueryResult` arms survive on the seams #6726 repaired — `res?.count` and `results.value`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-29T22:50:35Z",
+  "updated_at": "2026-08-30T16:35:10Z",
+  "closed_at": "2026-08-30T16:34:32Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6840",
+  "body": "Found while implementing #6726 (out of that card's scope — it names the `records` arm and only that arm).\n\n## The shape\n\n#6726 removed the `records` arm from seven `DataSource.find()` consumers, after measuring that nothing produces it at that seam. Two arms reading *other* keys `QueryResult` does not declare were left standing in the same expressions, deliberately, because the card measured `records` and not them:\n\n- **`packages/components/src/hooks/related-count-store.ts`** — `typeof res?.count === 'number' ? res.count : …`, tried second, ahead of the contract's rows member. `count` is not a `QueryResult` member; the store already asks for the server count via `$count: true` and reads it back as `total`, which *is* one.\n- **`packages/plugin-view/src/ObjectView.tsx`** (~`:935`) — `else if (Array.isArray((results as any).value)) { items = (results as any).value; }`, the last branch of the unwrap ladder, after `data`. `value` is not a `QueryResult` member either — it is the **OData** spelling that `ObjectStackAdapter.normalizeQueryResult` and `ApiDataSource.normalizeQueryResult` both read on the *raw* payload, i.e. strictly below the adapter, exactly like `records`.\n\nBoth are dead rather than actively wrong on today's tree (each sits behind the contract's own member), which is the same standing six of #6726's seven had.\n\n## What is NOT measured here\n\n⛔ No producer sweep was run for `count` or `value` — #6726's sweep asked about `records`. Recording the shape is not the same as measuring the arm, and this card should not be actioned on #6726's numbers. What a fix owes, per module:\n\n1. does any producer emit `count` / `value` at *that* seam (repo-wide, with a control term that must hit and does);\n2. only if none does — delete the arm and pin the contract read, one pin per module.\n\nNote `value` also appears in `extractRecords` (`packages/core/src/utils/extract-records.ts`), which #6839 is about; whoever takes that card and this one should check they agree rather than landing two different answers for the same key.\n\n## Why it is worth recording\n\nAGENTS.md #0.1: a tolerant arm is where a non-conforming producer keeps working unrejected. #6726's own history is the argument for not leaving the residue unnamed — the `records`/`items` confusion outlived two cards (#5458, #5945) precisely because each pass fixed the spellings it had been asked about and said nothing about the ones it had not.\n\n⛔ Do not widen `QueryResult` to bless `count` or `value` — that is a published-type change and a maintainer decision, same hard floor as #6726.\n\nNo PR here; recording only.\n"
+}

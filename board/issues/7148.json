@@ -1,0 +1,36 @@
+{
+  "number": 7148,
+  "kind": "issue",
+  "title": "finding(plugin-charts): a sankey with mixed positive and negative rows silently DROPS the negative ones and draws a partial flow as if it were complete",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T06:02:07Z",
+  "updated_at": "2026-09-01T09:05:37Z",
+  "closed_at": "2026-09-01T08:03:28Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7148",
+  "body": "Filed unassigned by the implementer of #7140 (PR #7146). ⛔ Out of scope there: that card's trigger is `links.length === 0` — *no* row survives the filter — and PR #7146 answers exactly that branch. This is the branch next door, where **some** rows survive, and it is arguably the worse of the two.\n\n## The measurement\n\n`packages/plugin-charts/src/AdvancedChartImpl.tsx`, the sankey arm, at `origin/main` **e8e4c4df5**:\n\n```\nconst rows = data.filter((r) => (Number(r?.[dataKey]) || 0) > 0);\nconst nodes = [{ name: rootName }, ...rows.map(...)];\nconst links = rows.map(...);\n```\n\nThe filter is unconditional. A sankey handed\n\n```\n[{ stage: 'New business', amount: 40 },\n { stage: 'Refunds',      amount: -25 },\n { stage: 'Chargebacks',  amount: -12 }]\n```\n\ndraws **one** flow — \"New business\" — and nothing anywhere says the other two rows existed. Measured in Chromium in the same sweep: the one-positive-among-zeros tile rendered `svg: 1`, `path: 3`, 18 descendants, and no diagnostic of any kind. It is a normal, healthy-looking, confident sankey of a dataset it is showing a third of.\n\n## Why it is worth recording separately\n\n#7140's blank is at least *visibly* wrong — nothing is on screen, and after PR #7146 it says so. This one is invisibly wrong: the chart looks correct, so nobody re-reads the dataset. A pipeline chart that quietly omits every refund/credit/chargeback row is a business-wrong picture presented as a complete one, and the same reasoning behind the empty-state work applies with more force, not less: the reader cannot tell a partial flow from a whole one.\n\nNote the filter is also what folds `null` and unparseable measures to `0` (`Number(...) || 0`), so those rows disappear the same way in a mixed dataset.\n\n## What this card does NOT assert\n\nIt does not assert the drop is wrong. A flow has no negative width, so a sankey genuinely cannot draw those rows; discarding them may be the only thing it *can* do. What is undecided is whether it must **say** it did — and if so, whether that is a footnote beside a drawn chart, a count of omitted rows, or a refusal. That is a judgement this card does not pre-make, and it needs a look at a real dataset before anyone writes code. Note also that PR #7146 pins the \"one positive among zeros still draws\" boundary, so any answer here must keep a drawable sankey drawable.\n\n## Related\n\n- **#7140** / PR #7146 — the all-zero-or-negative case, where the same filter keeps *nothing*. Fixed there; this branch is untouched by it.\n- **#7147** — funnel and pie render a blank tile for all-zero rows, found in the same sweep."
+}

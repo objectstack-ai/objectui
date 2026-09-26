@@ -1,0 +1,36 @@
+{
+  "number": 6697,
+  "kind": "issue",
+  "title": "census(finding): three more renderer fetch effects key on a memoised object identity, outside objectui#6592's dataConfig family",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-28T16:13:25Z",
+  "updated_at": "2026-08-29T04:17:28Z",
+  "closed_at": "2026-08-29T04:17:28Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6697",
+  "body": "Origin: objectui#6592's census (systematic sweep of every `useEffect` whose dependency array names a `useMemo`-bound identifier, cross-checked against a fetch-call-site heuristic, positive-controlled against the known `packages/plugin-map` member). That card's fix is scoped to the `getDataConfig(schema)`-into-`useMemo` family (`plugin-map`, `plugin-calendar`, `plugin-gantt`, and `plugin-tree`/`plugin-grid` — the latter two deferred/fenced separately). The sweep also surfaced three renderer effects **outside** that family with the same structural hazard, reported here rather than folded into #6592's diff to keep that PR scoped to its named family.\n\n## The shared hazard (background, not new)\n\n`useMemo` carries no semantic guarantee — React may discard a memo's cache and recompute it even when the dependency array compares equal to the previous render. A fetch effect (or a count-probing effect that calls `dataSource.find`) whose OWN dependency array names the memoised object itself, rather than the primitive fields it reads off that object, therefore refetches on a discard even though nothing an author or caller controls changed. objectui#6018/#5976/#6591/#6592 is the multi-round campaign fixing this for the `dataConfig`/`mapConfig`/`schema` family specifically; these three are the same shape, different origin.\n\n## 1. `packages/plugin-detail/src/RelatedList.tsx` — `defaultSortSpec` / `listFilterNode`\n\n```ts\nconst defaultSortSpec = React.useMemo(() => normalizeSortSpec(defaultSort), [defaultSortKey]);\nconst listFilterNode = React.useMemo(() => toFilterNode(filter), [filterKey]);\n```\n\nBoth are already keyed on a `JSON.stringify`-derived string (`defaultSortKey`/`filterKey`) rather than on `defaultSort`/`filter` directly — which protects against a render-fresh `defaultSort`/`filter` prop, but NOT against `useMemo` discarding its cache and calling `normalizeSortSpec`/`toFilterNode` again, which is free to return a new object even when the key matched. The fetch effect further down lists `defaultSortSpec`/`listFilterNode` themselves (not the string keys) in its own dependency array.\n\n## 2. `packages/components/src/renderers/layout/containers.tsx` — `probeTargets`\n\n```ts\nconst probeTargets = React.useMemo(() => { /* builds a Map(...) */ }, [items, recordObject]);\n```\n\n`probeTargets` is a `Map`, consumed by identity in the related-count-probing `useEffect` right below it (`if (probeTargets.size === 0) return; for (const probes of probeTargets.values()) { ... ds.find(...) }`). A discard reconstructs an equal-content `Map` with a new identity and re-probes every tab's count.\n\n## 3. `packages/plugin-list/src/ListView.tsx` — `expandFields`\n\n```ts\nconst expandFields = React.useMemo(() => { /* string[] derived from schema.columns */ }, [...]);\n```\n\nConsumed by identity in the `$expand`-building fetch effect. Not fully triaged against a positive/negative discard-proxy test the way #6592's four fixed files are — flagging for someone to do that triage before treating it as confirmed, since `ListView` is large, central plumbing and a false positive here would be costly to chase.\n\n## Severity\n\nLow — the observable is an extra `dataSource.find`/count-probe round trip on a memo-cache discard, not incorrect data (unlike #5953/#6014-class bugs, nothing here is a value-equality trap). Worth fixing on the same \"useMemo is a pure optimisation, not a correctness dependency\" principle #6592 is closing out, not urgent.\n\nUnassigned — filed as a census finding for triage to route, not claimed.\n"
+}

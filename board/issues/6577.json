@@ -1,0 +1,35 @@
+{
+  "number": 6577,
+  "kind": "issue",
+  "title": "[ci] a hung `Post Turbo Cache` save runs the `Type Check` job into its 20-minute ceiling, turning an all-green merge-queue run into a CANCELLED check that ejects the PR",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "zhuangjianguo"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-26T13:52:00Z",
+  "updated_at": "2026-08-31T15:55:24Z",
+  "closed_at": "2026-08-31T15:55:24Z",
+  "closed_by": {
+    "login": "zhuangjianguo",
+    "id": 19182527,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6577",
+  "body": "Measured once, on #6571, 2026-08-26. A pull request whose every check was green was ejected from the merge queue with `CI_FAILURE` — not because anything in its diff failed, but because the `actions/cache@v6` **save** step of the `type-check` job hung until the job hit its `timeout-minutes: 20` ceiling.\n\n## What happened\n\nMerge group `gh-readonly-queue/main/pr-6571-b1a732b22a13eae35bd71711f809d38e22dbf514` contained only #6571 — a single-PR group, so there is no batch-mate to attribute this to. CI run `32974029712` (`event: merge_group`) ended `cancelled`, the queue read that as `CI_FAILURE`, and the PR was dequeued at 13:45:26Z.\n\nNine of the run's ten jobs are `success` or `skipped`. Every substantive check passed:\n\n| job | conclusion |\n| :--- | :--- |\n| Build &amp; E2E | success (done 13:25:38Z) |\n| Changeset Fixed Group Check | success |\n| Build Docs | success |\n| Test (shard 1/4 … 4/4) | success, all four |\n| Type Check | **cancelled** |\n\nThe `Type Check` job (`98194272759`) is the whole story, and its own step list is the evidence — **all 21 real steps succeeded**, the gate itself included:\n\n```\nstep 20  Run type-check                            13:25:59 -> 13:31:31   success\nstep 21  Type-check repo-root vitest setup files   13:31:31 -> 13:31:35   success\nstep 40  Post Turbo Cache                          13:31:35 -> 13:44:44   CANCELLED   (13m09s)\n```\n\nThe job started 13:24:42Z and was cancelled 13:44:44Z — **20m02s**, an exact match for the `timeout-minutes: 20` declared on the `type-check` job in `ci.yml`. It spent 13 minutes 9 seconds inside the post (save) phase of the `Turbo Cache` step (`actions/cache@v6`, caching `.turbo/cache`) and was still there when the ceiling fired.\n\n## It is transient, not a property of the workflow\n\nTwo independent controls, both against this same code:\n\n1. **The same job passed on the PR head thirteen minutes earlier.** On `cdf02d2e538b57f88248894610f3d07819067267`, `Type Check` (check run `98190108000`) ran 13:11:40Z → 13:17:33Z = **5m53s**, `success`, its own cache post-step included. All 29 check runs on that head are green or skipped; zero failures.\n2. **Eight of the nine merge-group CI runs in the surrounding 101 minutes went green.** Window 11:56:42Z–13:37:37Z, 30 CI runs: `merge_group` 8 success / 1 cancelled (this one), `pull_request` 13 success, `push` 7 success. The only other non-success in the window is `action_required` on `changeset-release/main`, which is the release bot awaiting approval.\n\n#6571's diff is `apps/console/src/utils.ts` plus a changeset — no workflow, no turbo config, no build-graph change. Nothing in it can reach the cache save.\n\n## Why this shape deserves a fix rather than a shrug\n\nThis repo has already written the general form of the defect down, in `ci.yml` itself, in the objectui#5304 comment block about `apt-get` hanging the E2E job:\n\n> apt has no timeout covering a mirror that connects and then trickles, so the only backstop was `timeout-minutes: 30` — which converts a transient network fault into a CANCELLED check: a gate that reports nothing at all.\n\nThat is exactly this, with the `actions/cache` upload standing in for apt — plus one twist that makes it worse: **the gate had already returned its verdict.** `Run type-check` reported `success` at 13:31:31Z. Everything after that point was cache bookkeeping. A transient upload stall then discarded a verdict that was already recorded, and the merge queue — which cannot tell `cancelled` from `failure` — ejected a pull request that had passed.\n\nThe bill is paid by every lane rather than by whichever PR happens to be in the group when it fires: the merge queue is one shared serial resource, so a 20-minute stall is 20 minutes of head-of-line blocking for everyone, then an ejection, then a full re-run.\n\n## Not a request to weaken anything\n\nRaising `timeout-minutes` is explicitly **not** what is being asked for — a larger ceiling buys a longer hang and still ends in `cancelled`. The direction this repo's own precedent points is bounding the unbounded call so the job survives it: the cache save is bookkeeping, and bookkeeping that cannot finish should not be able to void a gate that already passed. Whoever grades this decides the mechanism; this card is the measurement and the precedent, not the prescription.\n\n## Evidence\n\n- the ejected run: https://github.com/objectstack-ai/objectui/actions/runs/32974029712\n- the cancelled job: https://github.com/objectstack-ai/objectui/actions/runs/32974029712/job/98194272759\n- the same job, green, on the PR head: https://github.com/objectstack-ai/objectui/actions/runs/32972753694/job/98190108000\n\n## Filing note\n\nFiled unassigned, as a recording only, by the `domain:ui` execution seat (session `session_011SfZeFWrhGLHmfq61xbz4q`). The fix lands in `ci.yml`, which is not this seat's lane, so grading and the routing label are triage's to produce. Duplicate check run before filing found no open card of this shape; the two nearest neighbours are both closed and are different defects — #3425 (a workflow-level `live-e2e.yml` start failure) and #5422 (`ci.yml`'s `concurrency` cancelling the push-lane coverage job).\n\n#6571 was re-queued once on the evidence above. A second cancellation of the same shape would be a real signal rather than this one."
+}

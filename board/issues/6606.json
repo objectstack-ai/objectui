@@ -1,0 +1,34 @@
+{
+  "number": 6606,
+  "kind": "issue",
+  "title": "finding(gates): the permission authoring shapes are not in `PAYLOAD_SHAPES`, so the retired-key class the gate exists to catch is invisible on the permission surface",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-27T13:03:13Z",
+  "updated_at": "2026-09-02T03:13:48Z",
+  "closed_at": "2026-09-02T03:12:36Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6606",
+  "body": "Found while removing the retired `allowRestore` / `allowPurge` columns in objectui#6595. Recording only, deliberately unassigned — a coverage observation about the gate, not a defect on today's tree.\n\n## The observation\n\n`scripts/check-designer-field-key-parity.mjs` exists for exactly one failure class, in its own words: *\"a designer offers a control that writes a key the spec refuses BY NAME.\"* It reads each statically declared payload shape in `PAYLOAD_SHAPES` and compares its key set against the strict zod schema that judges it.\n\n`PAYLOAD_SHAPES` currently names six shapes, and all six are the object/field designer path:\n\n| shape | oracle |\n|---|---|\n| `FieldMetadataPayload` | `FieldSchema` |\n| `ServerFieldSchema` | `FieldSchema` |\n| `DesignerFieldDefinition` | `FieldSchema` |\n| `ObjectMetadataPayload` | `ObjectSchema` |\n| `ServerObjectSchema` | `ObjectSchema` |\n| `ObjectDefinition` | `ObjectSchema` |\n\nThe permission authoring path has the same two ingredients the gate needs and is in none of them: `ObjectPerm` / `PermissionSetDraft` in `packages/app-shell/src/views/metadata-admin/permission-slice.ts` are statically declared payload shapes, and `ObjectPermissionSchema` / `PermissionSetSchema` are exported strict zod objects that refuse unknown keys by name (measured 2026-08-27 against `@objectstack/spec` 17.2.0: an unknown key comes back as `unrecognized_keys`).\n\n## Why it is worth recording\n\nobjectui#6595 is an instance of precisely the class this gate was built for — an authoring control writing keys the spec is retiring — and it reached this repo as a hand-written card from the upstream retirement (objectstack#12497), not from CI. Nothing here would have flagged it, because the surface it lives on is outside the gate's reach.\n\nThe same holds for the return direction: once the `@objectstack/spec` bump carrying the retirement lands, a permission set still carrying the removed keys is a body the schema refuses, and no gate in this repo would say so.\n\n## Not a claim that the gate is broken\n\nThe gate's header is explicit that it covers a SUBSET, and states four ways a key can escape it. This is a seventh shape it does not yet name, not a hole it hides — filing so the extension is a decision someone makes rather than an omission nobody sees.\n\n## Consideration for whoever picks it up\n\n`ObjectPerm` is a hand-written subset of the spec's `ObjectPermission` (it omits `allowExport`, `readScope`, `writeScope` — see objectui#6605). So a key-set comparison here would be one-sided in a useful way: the gate asks whether every key the shape can EMIT is accepted, and the omissions are a separate problem from the one this gate judges. Worth deciding deliberately whether the entry should also surface under-coverage, or stay strictly the emit-side check it is everywhere else."
+}

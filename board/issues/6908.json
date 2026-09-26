@@ -1,0 +1,34 @@
+{
+  "number": 6908,
+  "kind": "pull_request",
+  "title": "feat(hooks): guard the origin/main ENUMERATION half, and record the incident in AGENTS.md",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration",
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-30T14:19:56Z",
+  "updated_at": "2026-08-31T03:42:17Z",
+  "closed_at": "2026-08-31T03:42:16Z",
+  "closed_by": {
+    "login": "zhuangjianguo",
+    "id": 19182527,
+    "type": "User"
+  },
+  "merged_at": "2026-08-31T03:42:15Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6908",
+  "body": "Part of objectstack-ai/objectstack#13305 — the objectui half. The objectstack PR carries the closing keyword; one card, one closer. **Draft on purpose: governed surface (`.claude/**`, `AGENTS.md`), human merge.**\n\n## What was wrong\n\nThe `origin/main` reading rule covers file **contents**. It does not cover file **enumeration**. A sweep that obeys the first half and not the second produces a zero that looks like a full-tree scan — every file it opens is read correctly, and files present on `origin/main` but absent at the working tree's HEAD are never iterated, so the loop cannot report them and cannot know it missed them.\n\nMeasured in **this** repository on 2026-08-29:\n\n- working tree, `ls .github/workflows/*.yml` piped to `wc -l` — **30**\n- `git ls-tree --name-only origin/main .github/workflows/` filtered to `.yml` — **31**\n- the missing one: `.github/workflows/governed-surface-guard.yml`, whose line 36 declares `types: [opened, synchronize, reopened, ready_for_review]`\n\nThe question being asked was *\"would flipping these drafts to ready trigger any CI?\"*. The answer to it was the file left out of the enumeration. 10 PRs were flipped to ready on that reading, each going from `mergeable_state: clean` to `unstable`, during a runner-capacity outage.\n\n**The zero-hit control that was run did not catch it, and passed.** `pull_request` matched 5 workflow files, so the method demonstrably worked — but those 5 came from the same faulty list, so the control validated the **matcher**, not the **enumeration**.\n\n## What this PR does — mechanical first, prose subordinate\n\n**1. `.claude/hooks/guard-tree-enum.sh` (+ self-test).** A PreToolUse guard blocking ONE command that carries **both** a working-tree enumeration (`for NAME in GLOB`, `ls GLOB`, `find PATH`) **and** an `origin/...` content read (`git show`, `git grep`, `git cat-file`). Either half alone is ordinary and is allowed. A command enumerating with `git ls-tree ... origin/...` is never blocked, however it then reads — the population/read cross-check must not be harder to write than the bug. Conservative: anything it cannot parse fails **open**, and `OS_ALLOW_TREE_ENUM=1` is the deliberate exception, following the `OS_ALLOW_MAIN_EDITS` / `OS_ALLOW_STASH` family. Registered in `.claude/settings.json` alongside the other two Bash-matcher guards.\n\nMirrored from objectstack with the discipline `guard-shared-stash.sh` already documents — verdict logic case-for-case identical so the two repos' guards cannot drift. Proven, not asserted: stripping comments and blanks leaves **193 executable lines on both sides**, and the only differing line is message text inside the block heredoc.\n\n**2. `AGENTS.md`.** A new subsection placed directly under the existing 阳性对照 rule, because that is the rule that failed. It carries the incident's numbers, the canonical idiom, and the transferable sentence verbatim:\n\n> 一个对照必须有能力因为你担心的那个原因而失败;同源对照结构上做不到。\n\nNo line ratchet applies in this repo (checked, not assumed — this repo has no `check-skill-line-ratchet` equivalent); `AGENTS.md` goes 448 to 489 lines.\n\n**3. `.github/workflows/hook-selftests.yml` — a declared surface expansion.** Not in the dispatched file surface, and done anyway because skipping it would ship a self-test that nothing runs. This workflow's steps are a hand-kept enumeration of `.claude/hooks/*.selftest.sh`, so the new matrix would have been silently uncalled. objectstack's twin discovers with `find` and needed no edit. The underlying shape is **not** redesigned here — filed as #6906 instead.\n\n**4. `scripts/dependabot-merge-gate.mjs` — one word.** Its description of that workflow said \"the two ... matrices\", which step 3 makes stale. De-counted rather than re-counted, matching that file's own documented stance on hand-copied enumerations.\n\n## Verification, at `0a30e47`\n\nReverse verification on the mirrored hook — neutering `is_glob_word` predicted **exactly 8 of 9** block cases flipping to `allow`, with the `find` case staying blocked because it does not consult that helper. Observed: `28 passed, 8 failed`, the `find` case absent from the failures. Mutation confirmed on disk by marker count and by a changed blob hash; restore proven byte-identical (same hash) and self-test back to `36 passed, 0 failed`.\n\nGates, each exit code captured by redirect-then-capture, never through a pipe:\n\n- `check:control-bytes`, `check:doc-fences`, `check:governed-queue-guard`, `check:skills-paths`, `check:shell-escape-residue`, `check-changeset-presence.mjs`, `check-doc-links.mjs` — all exit 0\n- all three hook self-tests green, including the new `guard-tree-enum selftest: 36 passed, 0 failed`\n- `scripts/__tests__` suites for the edited gate script and the touched workflows — `Test Files 6 passed (6)`, `Tests 143 passed (143)` (`dependabot-merge-gate`, `merge-queue-reporting`, `check-governed-queue-guard`, `ci-cd-pipeline-doc`, `lint-workflow`, `check-shell-escape-residue`)\n\n**No changeset**: `check-changeset-presence.mjs` exits 0 — no package source is touched. The `skip-changeset` label is deliberately **not** applied: in this repository it is a phantom that no workflow or gate reads, and `scripts/__tests__/ci-cd-pipeline-doc.test.ts` pins it that way.\n\nDev session: https://claude.ai/code/session_01EXxTW8mvPBhoHxmyPZ63de\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01EXxTW8mvPBhoHxmyPZ63de)_"
+}

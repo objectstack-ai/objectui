@@ -1,0 +1,33 @@
+{
+  "number": 7116,
+  "kind": "issue",
+  "title": "finding: the SIBLING advisory sink wiring in `AdapterProvider.tsx` is pinned by nothing — the same gap as #6969, on the adapter channel",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T02:23:04Z",
+  "updated_at": "2026-09-01T04:38:24Z",
+  "closed_at": "2026-09-01T04:29:45Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7116",
+  "body": "Found while implementing #6969 (the `useMetadata.ts` seam). Recording, not claiming — no assignee, `priority:*` is triage's.\n\n## The gap\n\nThere are **two** parallel advisory wirings in app-shell, not one. #6969 covers the first; this is the second.\n\n| channel | middle link | pinned? |\n|---|---|---|\n| `MetadataClient` (console metadata-admin clients) | `useMetadata.ts` hands the toast sink to `createConsoleMetadataClient` | ✅ now pinned by #6969 |\n| `ObjectStackAdapter` (the adapter every data surface uses) | `AdapterProvider.tsx` subscribes `a.onSaveAdvisory(...)` and calls `emitSaveAdvisories` | ⛔ **nothing** |\n\nThe second one is the wiring #4237 built. Both ends of ITS chain are pinned too — the adapter's emitter in `packages/data-objectstack/src/onSaveAdvisory.test.ts`, the renderer in `saveAdvisoryToast.test.ts` — and, exactly as in #6969, nothing asserts the two are connected.\n\n## Measurement (grep, with a control — not an ablation)\n\nStated plainly so the next reader knows what was and was not measured. This is a grep result, not the green-through-ablation that #6969 carried:\n\n- suites naming `AdapterProvider`: **40**\n- of those, naming `dvisor` (matches advisory/advisories/Advisory): **1**\n- CONTROL, of those, naming `expect`: **40/40** — so the query is live, and the 1 above is a reading rather than a dead zero\n\nThe single hit is `packages/app-shell/src/services/MetadataService.saveAdvisories.test.ts`, and its own docstring says it does not close this gap:\n\n> `AdapterProvider` is what wires the last two links in the real app; the sink is handed over here instead of mounting a toaster, exactly as `saveAdvisoryToast.test.ts` does, so nothing depends on module mocking.\n\n⇒ the subscription in `AdapterProvider.tsx` (the `a.onSaveAdvisory` call and the `emitSaveAdvisories` inside it, plus its unsubscribe) is traversed by no test.\n\n## What a fix looks like\n\nThe same shape #6969 landed, one channel over: mount the real provider, have the real adapter emit, assert the sink receives it. ⛔ Not a bigger renderer test and ⛔ not a bigger adapter test — both ends are already covered.\n\n⚠️ Worth re-measuring before claiming, same as #6969: this was measured by grep, so an ablation on `AdapterProvider.tsx` is the leg that actually settles it.\n\n## Related\n\n- **#6969** — the same gap on the `MetadataClient` channel; its pin is the template\n- **#4237** — the card that built this adapter wiring\n- **#4133** / **#4236** — the save door the shape is inherited from"
+}

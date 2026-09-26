@@ -1,0 +1,35 @@
+{
+  "number": 6744,
+  "kind": "issue",
+  "title": "finding(fields): `buildValidationRules` has no `location` branch, so a STORED out-of-range coordinate is never validated — and adding one falsifies the premise #6714 chose refusal on",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-29T05:45:35Z",
+  "updated_at": "2026-08-30T04:03:08Z",
+  "closed_at": "2026-08-30T03:09:19Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6744",
+  "body": "Filed unassigned by the `domain:ui` execution seat (PM session `session_01CRJge11jso9TpXRWFt1Z49`), mirroring a measurement made by the #6716 implementer during its feasibility probe. Recording, not choosing. `domain:*`, `type` and grading are triage's to produce.\n\n**Dedup before filing**: repo-scoped semantic search for the stored-value/no-`location`-branch shape returned zero. ⛔ A zero is not a reading on its own, so it was reverse-checked with a term known to exist — a `LocationField` query returns the whole family (#6715, #6716, #6714, #6664, #3343), none of which is this. The zero stands.\n\n## The fact\n\n`buildValidationRules` (`packages/fields/src/index.tsx:2551` on `faac0d935`) has **no branch for `location`**. It is the producer of the host-side `error` prop that every field widget's published objectui#3222 slot reads. So a location value that is **already stored** and violates the spec's coordinate range is never validated on an edit form: the control renders it, nothing marks it invalid, and submitting re-writes it unchanged.\n\nThis is a different defect from #6716. #6716 is about a refusal at INPUT time (the user types something the widget won't emit). This is about a value that is already in the record.\n\n## What was measured\n\nDuring #6716's feasibility probe on `faac0d935`, a `location` branch was temporarily installed in `buildValidationRules` and driven through a real `ObjectForm`. On an **edit** form seeded with a stored `{ lat: 999, lng: 999 }`:\n\n- the validator received that object;\n- `aria-invalid` flipped to `\"true\"`;\n- the message rendered through the form renderer;\n- **the write was blocked** — `dataSource.update` called 0 times.\n\n(That run existed as a positive control proving the probe was sound, which is why it also stands as evidence here. The mutation landing and restore were both proven on disk — injected-marker count and blob hashes before/after, `git diff HEAD` empty afterwards. Nothing was committed.)\n\n⇒ The branch is straightforwardly implementable and demonstrably effective on stored values.\n\n## ⭐ Why this needs a decision rather than a patch — it moves a premise under a closed card\n\n**#6714** weighed \"refuse the emission\" against \"emit and mark invalid\" and chose **refusal**, on this premise: *nothing downstream rejects or repairs the value, so an emission is a write.*\n\nThe measurement above shows that with a `location` branch present, **something downstream does reject** — the submit is blocked. So #6714's premise is no longer true once this branch exists.\n\n⛔ That is **not** an argument that #6714 should be reversed, and this card does not propose reversing it. The format arm settles that independently: there is no location value to emit for text like `not a coordinate`, so \"emit and mark invalid\" would mean writing a raw string into a typed location value — a worse contract violation than the one being fixed. The point is narrower and worth recording before someone re-derives it from scratch: **the two changes interact, and landing this one silently changes the ground a closed ruling stood on.**\n\n## ⚠️ What is NOT measured — and why it is probably the deciding question\n\n**Nobody has counted whether out-of-range location values already exist in stored data.** That number decides the shape:\n\n- none ⇒ this is a cheap guard with no migration surface;\n- some ⇒ adding the branch **blocks edits on existing records** until the coordinate is corrected. A user who opens a record they have always been able to save, and now cannot, is a migration-shaped consequence, not a validation improvement. That would need a decision about whether stored-data validation warns or blocks, and possibly a repair path.\n\nAlso not measured: whether other field types have the same stored-value gap in `buildValidationRules`. ⛔ This card is deliberately scoped to `location` — it is not a request for a validation-coverage census.\n\n## Related\n\n- #6716 — the input-time refusal card, where this was measured (its routing comment carries the full reading). Its fix is widget-local and deliberately does **not** touch `buildValidationRules`, so the two do not collide.\n- #6714 — the closed card whose premise this moves.\n- #6715 — a third `LocationField` finding (partly-numeric coordinates), still awaiting grading.\n- objectui#3222 — the published validation slot whose producer this is."
+}

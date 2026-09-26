@@ -1,0 +1,34 @@
+{
+  "number": 3965,
+  "kind": "issue",
+  "title": "examples/schema-catalog: 48 个示例仍用已废弃的 `div` 组件类型,docs 站每张缩略图都刷一条 deprecation warning",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T17:49:58Z",
+  "updated_at": "2026-08-30T10:02:22Z",
+  "closed_at": "2026-08-30T09:59:49Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 24,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3965",
+  "body": "发现于 #3903 的浏览器实证(PR #3964),**不在该 PR 处理** —— 那一单改的是索引页卡片的 DOM 结构,这一条是目录示例 JSON 的内容问题,与卡片外壳无关。\n\n## 现象\n\n`/docs/guide/schema-catalog` 上滚动加载缩略图时,控制台反复刷:\n\n```\n[ObjectUI] The \"div\" component is deprecated. Please use Shadcn components instead:\n  - For containers: use \"card\", \"flex\", or semantic layout components\n  - For simple wrappers: use layout components like \"container\", \"stack\", or \"grid\"\nSee documentation at https://www.objectui.org/docs/components for alternatives.\n```\n\n来源是 `packages/components/src/renderers/basic/div.tsx:17-24`(`DivRenderer` 在 `NODE_ENV !== 'production'` 时每次渲染都 `console.warn`,没有去重)。\n\n命中面:`grep -rl '\"type\": \"div\"' examples/schema-catalog/src/schemas | wc -l` = **48** 个示例(全目录 423 个)。同族的 `span` 渲染器也带同样的废弃警告,但目录里 `\"type\": \"span\"` 命中 **0**,所以现在只有 `div` 这一支。\n\n修 #3903 之后该页 Next dev 指示器仍报 10 个 issue,就是这些警告(嵌套按钮的 2 条已归零:12 → 10)。\n\n## 为什么归为 observation-class\n\n- 只在非 production 构建下 `console.warn`,docs 站生产构建里用户看不到;**今天没有用户会撞到**。\n- 但它是目录本身的作者面问题:目录是「每个示例都是该写法的范本」这一契约的载体,48 个范本示范的是引擎自己标记为废弃的类型。AI 生成 metadata 时正是照着这些范本抄的,所以这批 JSON 的示范价值是负的。\n- 附带的次级问题:`DivRenderer` 的警告没有 per-type 去重,一页 400+ 缩略图会把控制台刷满,把真正的报错埋掉(#3903 的两条嵌套按钮报错就是在这堆噪声里被捞出来的)。是否要给废弃警告加 once 语义,是与「换掉 48 个示例」不同的一个决定,留给分诊。\n\n## 参考位置\n\n- `packages/components/src/renderers/basic/div.tsx:17-24`(警告来源,无去重)\n- `packages/components/src/renderers/basic/span.tsx`(同族警告,目录内暂无命中)\n- `examples/schema-catalog/src/schemas/**`(48 个含 `\"type\": \"div\"` 的示例)\n\n关联:#3903 / PR #3964(发现于此)\n"
+}

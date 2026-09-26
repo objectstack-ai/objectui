@@ -1,0 +1,35 @@
+{
+  "number": 6666,
+  "kind": "issue",
+  "title": "finding(i18n): check-i18n-dead-keys reports LIVE keys as CONFIRMED when a consumer reads the pack by property access",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p1"
+  ],
+  "assignees": [
+    "zhuangjianguo"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-28T11:07:41Z",
+  "updated_at": "2026-08-31T12:02:02Z",
+  "closed_at": "2026-08-31T12:00:52Z",
+  "closed_by": {
+    "login": "zhuangjianguo",
+    "id": 19182527,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6666",
+  "body": "Found while working the objectui#4730 dead-key batch (PR #6662). Filed unassigned as a sub-issue of that umbrella, because it is a defect in the umbrella's *instrument* rather than in its backlog of keys.\n\n## The defect\n\n`scripts/check-i18n-dead-keys.mjs` reported **five live keys at its strongest CONFIRMED tier**. They were caught only by reading the consumer by hand; nothing in the tool's output hinted anything was missed.\n\nMeasured on `813bf8323`:\n\n- `console.loadingSteps.connecting`\n- `console.loadingSteps.loadingConfig`\n- `console.loadingSteps.preparingWorkspace`\n- `console.error.connectionFailed`\n- `console.error.checkServer`\n\nAll five are read by `packages/app-shell/src/chrome/LoadingScreen.tsx`.\n\n## Why both legs of the evidence standard miss it\n\n`LoadingScreen.tsx` is bootstrap-critical UI: it must render *before* i18n loads, which is exactly when the server is unreachable. Its own comment says so, and it deliberately does not call `useObjectTranslation`. Instead it imports the packs and reads them as **plain object properties**:\n\n```ts\nimport { en as enLocale, builtInLocales } from '@object-ui/i18n';\n// ...\nconst strings = getStartupStrings();\nstrings.loadingSteps.connecting      // = console.loadingSteps.connecting\nstrings.error.connectionFailed       // = console.error.connectionFailed\n```\n\n- **The AST pass** classifies `t()` / `tt()` call sites. There is no call, so nothing is visited.\n- **The text safety net** greps the **full dotted key**. The full dotted key is never spelled: the namespace segment is bound to a local variable, so the source contains `strings.loadingSteps.connecting` and never `console.loadingSteps.connecting`.\n\nSo the key is invisible to both, and lands in CONFIRMED — the tier documented as \"no call site and no textual occurrence anywhere else in the repo\", which reads as the safest thing to delete. Deleting this family ships a blank splash screen in ten locales on precisely the server-down boot the screen exists to explain.\n\n## The blind spot is a class, not these five keys\n\nAny consumer that reaches a pack through a reference whose variable name replaces the namespace prefix is invisible the same way. Today the pack-object importers outside `packages/i18n` are:\n\n- `packages/app-shell/src/chrome/LoadingScreen.tsx` (the case above)\n- `packages/app-shell/src/console/ai/outboundAgentText.ts` — indexes `console.ai` dynamically (`ai?.[key]`). Its four keys happen to land in NEEDS-REVIEW because the property names appear as literals in a nearby type union, so the net catches them **by luck, not by design**.\n- `packages/plugin-grid/demo/main.tsx` and `demo/bulk-actions.tsx` — whole-pack `resources` only, no per-key reads.\n\nThe set is small today, which is what makes this cheap to close now.\n\n## Suggested remedy\n\nAdd a **property-chain leg** to the text safety net: alongside the full dotted key, probe the tail chain (`.loadingSteps.connecting`). Validated on this batch with both controls before being trusted:\n\n- the five live keys above: **detected** (1 hit each);\n- `console.error.serverUnreachable` and `console.error.timeout`, which genuinely have no pack reader: **0 hits**.\n\nSo the leg discriminates rather than demoting everything. Note it is only meaningful for keys of three or more segments — a two-segment key yields a one-word tail (`.no`, `.ok`, `.empty`) that is far too generic. For two-segment keys the sound check is the enumerated importer set above, which is what PR #6662 used.\n\nA cheaper partial mitigation, already in place: PR #6662's retirement pin names the nine bootstrap strings, which gives them a textual footprint and demotes them from CONFIRMED to NEEDS-REVIEW in the tool's own output. That protects this one family only, and by side effect rather than by design.\n\n## Why this is filed separately from the umbrella\n\nobjectui#4730 tracks *keys*; this tracks the *tool* every future round of it depends on. The umbrella's remaining trims (`search`, `table`, `report`, `form`, `appDesigner`) will each be triaged against this same CONFIRMED tier, so the false-positive class is live work, not history.\n\nBack-links: objectui#4658 (the sweep mechanism and its three-legged evidence standard), objectui#4730 (the backlog), PR #6662 (where this was measured).\n\n_Generated by [Claude Code](https://claude.ai/code/session_01CRJge11jso9TpXRWFt1Z49)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

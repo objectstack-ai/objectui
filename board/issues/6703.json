@@ -1,0 +1,36 @@
+{
+  "number": 6703,
+  "kind": "issue",
+  "title": "finding(build): an overlapping dependency-closure build can leave an INCOMPLETE `@object-ui/types` dist (4 of 40 `.d.ts`) and still exit 0 — the cascade then reads as real TS errors in unrelated packages",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p1",
+    "tooling"
+  ],
+  "assignees": [
+    "zhuangjianguo"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-28T17:17:21Z",
+  "updated_at": "2026-08-31T12:02:55Z",
+  "closed_at": "2026-08-31T12:01:25Z",
+  "closed_by": {
+    "login": "zhuangjianguo",
+    "id": 19182527,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6703",
+  "body": "Filed unlabelled with suggested routing — `domain:*` and grading belong to triage. **Suggested routing: `domain:devx`** (build tooling). Observation of a real hazard, not a scoped fix.\n\nProvenance: measured by the dev implementing #6527 (PR #6627) while verifying the option-B subpath move. Reported by that dev as a build-tooling hazard rather than a code defect, and it was correct to separate them — the card's own change was fine.\n\n## What was measured\n\nRunning a package build whose task graph pulled the dependency closure (a `^`-prefixed turbo task) **concurrently with another build in the same checkout** produced a `@object-ui/types` `dist/` containing **4 of 40 `.d.ts` files** — and the build **exited 0**.\n\nThe incomplete artifact then cascaded: `packages/permissions` and `packages/mobile` reported TypeScript errors that look exactly like ordinary type errors in those packages. They are not. They are the downstream reading of a truncated `dist/` that nothing reported as truncated.\n\nIsolating the builds sequentially — `types` alone, then `plugin-designer` alone, then `app-shell` alone — reproduced a complete, correct `dist/`, and all three packages built and type-checked clean.\n\n## Why this is worth a card\n\nThe failure has all three properties that make a hazard expensive:\n\n1. **It exits 0.** Nothing in the chain says \"this artifact is incomplete.\" The build is not the thing that goes red.\n2. **It blames the wrong package.** The errors surface in `permissions` and `mobile` — packages the developer was not touching and has no reason to suspect. The natural next move is to \"fix\" a type error that does not exist.\n3. **It is concurrency-dependent**, so it does not reproduce on a retry that happens to run alone. That is the signature of a bug people learn to work around individually and never file.\n\nThis is the same family as the existing rule that a gate reading a build artefact is only as good as the artefact — but one level earlier: here the *artefact producer* reports success on a partial write.\n\n## Adjacent, and probably related — the `check:self-import` gate already knows this shape\n\n`scripts/check-package-self-import.mjs` exists because a package self-import resolves through the package's own `exports` map to `dist/`, while turbo's `type-check` depends on `^build` (the *dependencies'* builds) and not the package's own. Its message states the consequence directly:\n\n> A package self-import is green on every machine that has ever run a build and red on a cold CI cache only — which is why this is a gate and not a review note.\n\nThat gate covers the *self-import* route to depending on an unordered `dist/`. This card is about a different route to a bad `dist/`: one that is ordered, runs, and reports success while writing 10% of its output. Whoever picks this up should check whether the two share a root cause in how the `dist/` write is sequenced (partial-write visibility, no atomic swap, no output manifest check) before treating them as independent.\n\n## Suggested first questions (not prescriptive — untried)\n\n- Does the build write `dist/` in place rather than staging and atomically swapping? A concurrent reader would then legitimately observe a partial tree.\n- Is there any post-build assertion that the emitted `.d.ts` set matches the expected entry set? A 4-of-40 outcome suggests nothing counts them.\n- Is the 40 figure stable enough to assert against, or does it need to be derived from the package's own entry points?\n\n⚠️ Whoever takes this: **the reproduction is concurrency-dependent.** A single clean sequential build proving green is not evidence the hazard is absent — that is the exact reading that makes this class invisible. Establish a reproduction that fails before trusting one that passes.\n\nRefs: #6527 / PR #6627 (where it was measured) · objectui#4801 and PR #4789 (the self-import gate's own history)."
+}

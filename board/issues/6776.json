@@ -1,0 +1,35 @@
+{
+  "number": 6776,
+  "kind": "issue",
+  "title": "finding(console): metadata-admin's 172,651 B eager closure is held by a REGISTRY CONTRACT, not by chunking — registerAppComponent takes a component value",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-29T10:20:59Z",
+  "updated_at": "2026-09-02T01:11:14Z",
+  "closed_at": "2026-08-31T14:24:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6776",
+  "body": "Found while implementing objectui#6681, which measured all four of `AppContent`'s\nnon-single-file `lazy()` surfaces and freed the two that were removable. This records the\none that was NOT, so the 172,651 B does not leave the backlog when objectui#6681 closes.\nFiled unassigned, recording only. Observational: nothing is broken and\n`pnpm check:eager-closure` PASSES (3171.5 KB of a 3222.7 KB ceiling after objectui#6681).\n\n## What was measured\n\nOn `b98352a15`, from `apps/console/dist/eager-closure.json` (`files[]` IS the eager set)\nand the emitted chunks' own module lists — never a source-level search (objectui#6680).\n\n`assets/metadata-admin-*.js` is **172,651 B gzipped, 144 modules, EAGER** — 5.4% of the\nwhole console eager closure and more than three times its 51.1 KB of headroom. Every\nconsole page load pays for it while `AppContent` declares its six pages `lazy()`.\n\nThe chunk is not held by co-tenancy, which is what objectui#6681 repaired for the\nmarketplace routes. It is held by real static edges into\n`packages/app-shell/src/views/metadata-admin/index.ts`, the module all six declarations\ntarget:\n\n| eager importer | what it takes | why it is eager |\n|---|---|---|\n| `packages/app-shell/src/index.ts` | eleven runtime values re-exported (`registerMetadataPreview`, `useMetadataClient`, `getMetadataInspector`, …) | the package barrel; the console entry imports it |\n| `packages/app-shell/src/services/builtinComponents.tsx` | `MetadataDirectoryPage`, `MetadataResourceRouter` **by value**, plus `PackagesPage` and `PermissionMatrixEditPage` | the barrel BARE-imports it (`import './services/builtinComponents.js';`) for its ComponentRegistry registrations |\n\nDecisive for anyone reaching for a chunking lever first: the six pages the declarations\nname (`DirectoryPage`, `StudioHomePage`, `ResourceListPage`, `ResourceEditPage`,\n`ResourceHistoryPage`, `DiagnosticsPage`) have **`dynamicImporters: []`** in the emitted\nmodule graph. They are reached only through the barrel's static re-exports, so no\n`advancedChunks` group separates them from it — grouping them would emit one eager chunk\ninstead of one eager chunk. objectui#6681 measured that failure mode directly on the\nmarketplace pages and recorded it in `apps/console/vite.config.ts`.\n\n## Why it is a registry contract, not a bundling problem\n\n`registerAppComponent({ ref, component })` takes a component **value**, so\n`builtinComponents.tsx` must have loaded the page before it can register the ref. That is\nthe load-bearing half: the registration itself must happen at module load, or\n`ComponentNavView` cannot resolve `metadata:directory` when the first\n`component/...` route mounts.\n\nWhat is NOT load-bearing is that the value be an eagerly-imported component.\n`React.lazy(() => import('../views/metadata-admin/index.js').then(m => ({ default: m.MetadataDirectoryPage })))`\nis also a component type. Whether that is correct depends on two things this card does not\nsettle:\n\n1. whether every render site of a registry component sits inside a `<Suspense>` boundary\n   (`ComponentNavView` and any host embedding the registry);\n2. whether the package barrel should go on re-exporting eleven runtime values from a\n   module its own `sideEffects` array declares side-effectful — those re-exports are a\n   published API with out-of-package consumers, and they alone keep the module eager even\n   if `builtinComponents.tsx` is fixed.\n\nBoth are published-contract decisions rather than in-lane bundling changes, which is why\nobjectui#6681 pinned the surface instead of attempting it.\n\n## What this card does NOT claim\n\n- Not a budget regression. The closure PASSES, with more headroom than before\n  objectui#6681.\n- Not that the five top-level registrations in `views/metadata-admin/index.ts`\n  (`registerBuiltinAnchors`, `registerDefaultMetadataSchemas`, `registerDatasourceResource`,\n  `registerBuiltinPreviews`, `registerBuiltinInspectors`) should be deleted or declared\n  side-effect-free. They are load-bearing, `@object-ui/app-shell`'s `sideEffects` array\n  names the module for exactly that reason, and objectui#6681 added a guard in\n  `scripts/vite-declared-lazy-views.ts` that refuses to declare it pure — proved to fire\n  by ablation.\n\n## Suggested shape, if graded\n\nDecide (1) and (2) above first; they are the card. If both answers allow it, measure what\na lazy `registerAppComponent` value plus a leaf-module re-export path is worth, and delete\nthe `views/metadata-admin/index.ts` line from `DECLARED_LAZY_VIEWS_STILL_EAGER` — the\nledger's `missing` half fails the build until that line goes, so the win cannot be taken\nsilently.\n\n## Related\n\n- objectui#6681 — the card this was found under; the measurement, and the two chunks that\n  WERE freed.\n- objectui#6680 — chunk co-tenancy: the mechanism that held the marketplace routes and\n  explicitly does NOT hold this one.\n- objectui#6683 / objectui#6735 — the `sideEffects` array that names this module.\n- objectui#5324 / objectui#5924 / objectui#6631 — the eager-closure budget and its\n  headroom."
+}

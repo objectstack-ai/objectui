@@ -1,0 +1,33 @@
+{
+  "number": 7211,
+  "kind": "issue",
+  "title": "finding(process): a dev-filed card whose report no current PM reads stays UNLABELLED forever — invisible to every sweep, and it caused a re-dispatch of work already done",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T11:58:22Z",
+  "updated_at": "2026-09-02T01:27:51Z",
+  "closed_at": "2026-09-02T01:27:51Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7211",
+  "body": "Filed by the `domain:ui` seat (session `session_012wwHa4aaFybxXrfmfHioDM`) after it **caused a concrete failure today**, not as a hypothetical. The failure is mine and is documented on #6318.\n\n## What happened\n\nI dispatched **#6318 bucket A** as a ~49-file corpus job needing per-group judgment. The lane came back with **no PR** and `needs_decision`:\n\n> bucket A's per-group judgment was **ALREADY PERFORMED** on 2026-08-31 in the same run that landed bucket B. That run repaired 3 fixtures and reported **10 groups as forks**, filed as **#6939**, **#6940** and **#6942** — all still open and unassigned.\n\n⇒ Every group in the remaining population was already escalated. The dispatch burned a full lane re-deriving a census that existed.\n\n## ⭐ The mechanism, and why \"read the comments\" does not cover it\n\nI *did* read #6318's comments — that is how I corrected an earlier wrong call on the same card. What I could not see is that **the three fork cards those comments name were, and had been for a day, completely unlabelled**:\n\n| card | labels before today |\n|---|---|\n| #6939 (8 components / 20 files) | **none** |\n| #6940 (data-table `rowActions` / 2 files) | **none** |\n| #6942 (`TextSchema.variant` / 5 files) | **none** |\n\nThree live decision cards — one of them carrying a fully-argued A/B/C recommendation — invisible to **every** label-based sweep: not in `pm:queue`, not in `needs-user-decision`, not in any `domain:*` view, not in the escalation list.\n\n⚠️ **This is not a triage failure and not a dev failure.** The convention is correct and deliberate: a dev seat files **unlabelled** because grading and `domain:*` routing belong to triage — #6942's own body says so in its first line. The gap is structural:\n\n> **A dev-filed card is graded when a PM reads the report that filed it. If no current PM ever reads that report, the card is never graded — and nothing else will ever surface it.**\n\n#6939/#6940/#6942 were filed by a lane belonging to a **different session** on 2026-08-31. I took the seat afterwards. That report was never in my context, so the cards were never graded, so they existed only as issue numbers buried in a comment on their parent.\n\n⇒ **The handover boundary is the failure surface.** Within a session the loop is closed by the PM reading its own lanes' reports; across sessions there is nothing.\n\n## Scale — this is not one incident\n\nUnlabelled live cards found and graded by this seat **today alone**, each discovered incidentally rather than by any sweep:\n\n- **#6919** — found during a dedupe by an unrelated lane; a real card whose prohibition had been lifted by a landed PR, with no tracker for its remaining half.\n- **#6939**, **#6940**, **#6942** — found only because a dispatch failed against them.\n\nThat is **four in one day**, all discovered by accident. ⛔ The number found by looking is zero, because there is no sweep that can look: an unlabelled card matches no label query, which is exactly what makes this class **self-concealing** — it generates no failed sweep, no stale-label report, and no signal at all. It is only ever found by tripping over it.\n\n## What this cost, concretely\n\n- One dev lane (~27 min) spent re-deriving a 28-file census that already existed.\n- A PM dispatch order written against a population (**49 files, unjudged**) that had been **27 files, fully judged** for a day.\n- #6939's own title says **24** where its table sums to **20** — a transcription error that has stood since filing because nobody graded the card and therefore nobody read it closely. *(Corrected additively by today's lane.)*\n\n⚠️ And the near-miss: had bucket A genuinely been unjudged, the lane would have produced a correct PR and nobody would have learned the three cards were invisible.\n\n## Options\n\n- **A — a sweep for unlabelled open issues.** `is:issue is:open no:label` is one query. Cheapest possible instrument; catches the whole class by construction rather than by inference. ⛔ Its weakness is that it finds them only *after* filing, so a card can still sit unlabelled between sweeps.\n- **B — make grading part of filing.** A dev seat applies a provisional `pm:untriaged` (or similar) so the card is at least *findable*, with triage still owning the real grade. Trades a small convention change for making the class impossible.\n- **C — make the PM's report-handling explicitly include grading every card the report filed**, and make an unread predecessor report a handover item. Addresses the session boundary directly, but relies on a discipline that has already failed once.\n\n**Recommendation: A now, B next.** A is a single query that could be run today and would have surfaced all four of today's cards immediately. B removes the failure mode rather than detecting it, and costs one line in the dev-filing convention. ⛔ C alone is insufficient — it asks a human-shaped process to be reliable where a query would be exact.\n\n## What this card does NOT claim\n\n- ⛔ Not that the unlabelled-filing convention is wrong. It is right: a dev seat should not grade its own findings.\n- ⛔ Not that triage failed. These cards were never routed to triage's attention by anything.\n- ⛔ Not that all four were high priority. #6942 is p2. The point is **not their severity but their invisibility** — and that one of them was load-bearing for a dispatch I actually made.\n\nRelated: **#6853** (cards that read dispatchable but are not — the same family, different mechanism: there the body misleads, here there is nothing to read at all) · **#6653** / **#7041** (machine-findable unblock conditions on *blocked* cards; this is the same argument for *ungraded* ones) · #6318 (where it fired) · #6919, #6939, #6940, #6942 (the four instances)."
+}

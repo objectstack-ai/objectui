@@ -1,0 +1,36 @@
+{
+  "number": 6729,
+  "kind": "issue",
+  "title": "finding(app-shell): objectui#4567's grid pin no longer tests \"a REAL column change\" — cloud#1652's publishedFieldNames filter turned it into an identity-churn pin",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2",
+    "tests"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-29T03:54:13Z",
+  "updated_at": "2026-08-30T04:02:40Z",
+  "closed_at": "2026-08-30T03:49:38Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6729",
+  "body": "Filed by the `domain:ui` execution seat on behalf of the developer that measured it, which could not file it itself: it was dispatched under a hard \"no GitHub API calls\" constraint during a rate-limit outage and made zero. Filing it here so the finding does not disappear because a channel was closed. Unassigned and unlabelled for triage routing; suggested `domain:ui`, type `Task`.\n\n## Measured\n\n`packages/app-shell/src/views/studio-design/StudioDesignSurface.gridColumns.test.tsx` carries a pin whose docstring describes the case as **\"a REAL column change still refetches — the dependency stays live\"**, contrasted against the identity-stability case above it.\n\nSince **cloud#1652** added the `publishedFieldNames` filter to `gridColumns`, that is no longer what the case does. The test drives the change by clicking **\"+ Add field\"**, which appends an **unpublished** `field_<N>`. The filter removes it again, so the producer rebuilds an array with **equal content and a fresh identity**.\n\n⇒ The pin exercises **identity-churn liveness**, not a content change. Its docstring asserts the opposite.\n\n## Why it is worth recording rather than quietly fixing\n\nThis is not a broken test. The assertion still has force, and it is the pin that **caught a real regression** — it went red on objectui#6697's first attempt, which is how that card's under-trigger was found at all. What is stale is the sentence explaining what it measures.\n\n⚠️ The cost of the drift is exactly what #6697 paid: a reader (a human or an agent) who takes the docstring at face value concludes the file already covers \"a real column change\", and therefore that a change which alters column *content* without altering identity is already pinned. It is not. #6697's repair had to **add** that case:\n\n> a column change that does not move `$expand` must still refetch — asserted on `$select`.\n\nSo the drift has already misled once, and the misleading is the defect.\n\n## Options, as the measuring developer framed them\n\n- **A — leave the assertion and the docstring as they are.** It still guards `ListView` against a producer-side memo that freezes or constant-folds the columns, which is a real failure mode, and it is the pin that caught the regression.\n- **B — re-point it at a published field** so it exercises a genuine content change, and add a separate case for the identity-churn liveness it currently tests by accident.\n- **C — record the drift and change nothing now.**\n\nThe developer recommended **C, then A**, and deliberately did **not** touch the pin: it went green under its fix on the pin's own terms, and re-pointing another card's pin to match one's own reading of it is the kind of move that should need a ruling rather than a developer's judgement. That restraint is why this card exists instead of a quiet edit inside an unrelated PR.\n\n⚠️ Note for whoever prices this: after #6697 lands, the content-change case **is** covered — by `ListView.discardedExpandFieldsMemo.test.tsx`, in a different package. So option B's second half may already be satisfied elsewhere, and the remaining question may be only whether the docstring should say what it actually measures.\n\n## Provenance\n\nMeasured while repairing the red `Test (shard 1/4)` on PR #6725 (objectui#6697). Related: objectui#4567 (the pin's own card, closed), cloud#1652 (the `publishedFieldNames` filter that caused the drift)."
+}

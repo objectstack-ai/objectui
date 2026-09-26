@@ -1,0 +1,35 @@
+{
+  "number": 6755,
+  "kind": "issue",
+  "title": "finding(fields): widget-local diagnostics are hard-coded English while the package already carries a locale channel",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-29T06:24:45Z",
+  "updated_at": "2026-08-30T12:14:29Z",
+  "closed_at": "2026-08-30T12:13:52Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6755",
+  "body": "Filed unassigned by the dev seat implementing objectui#6716, as an out-of-scope finding. Recording, not choosing.\n\nDedup before filing: repo-scoped REST list of the 243 open issues, grepped for `ObjectField` / `parseError` / `Invalid JSON` / untranslated-widget-message wordings — no match. A control word (`LocationField`) hit three cards in the same sweep, so the read was sound.\n\n## What\n\nA field widget's OWN diagnostic — the message it renders for input it refused — is a string literal in the source, while the same package has a locale channel that 11 of its 55 widgets already use (`useFieldTranslation` plus `FIELD_DEFAULTS` in `packages/fields/src/widgets/useFieldTranslation.ts`, backed by ten locale packs).\n\nMeasured on `f40389731`:\n\n- `packages/fields/src/widgets/ObjectField.tsx:69` — `setParseError(\"Invalid JSON\")`, rendered at `:89`. Pre-existing.\n- `packages/fields/src/widgets/LocationField.tsx` — the two refusal sentences added by objectui#6716, rendered the same way. Same shape, deliberately copied from the precedent above.\n\nSo a zh / ja / ar user who mistypes a coordinate or a JSON blob is told why in English, inside a product whose labels, gate hints and validation copy are all translated. This is not the AGENTS.md rule #-1 case (that requires user-facing text to BE English in the codebase, which it is); it is the case where a translatable surface was never routed through the channel that exists for it.\n\n## Why it may matter, and why it is NOT obviously worth doing\n\nBoth directions are recorded so triage does not have to re-derive them:\n\n- FOR: these are the only sentences in a field row that a locale cannot reach, and the count is small and bounded today (2 widgets, 3 sentences), so the cost of keying them is small too.\n- AGAINST: the `AddressField` placeholder decision (objectui#4028, in that file's comment) refused exactly this move for its five placeholders and gave reasons that partly apply here — keying costs pack entries in ten languages, each bound afterwards by `check:i18n-drift`, and Latin-script \"translations\" need an `untranslated-identity-4376` allowlist entry. The counter-argument is that these are SENTENCES a user must read to recover from a refusal, not example data, which is the category #4028 said the packs do carry.\n\nNot measured: whether any customer deployment runs a non-English locale on these two widgets. That is the pull question, and it is triage's.\n\n### Related\n\nobjectui#6716 (the card that added the second instance and made the class visible) · objectui#4028 (the placeholder decision that reasoned about the same trade in the same package) · objectui#4752 (the same class in `@object-ui/components`: `undoLabel` / `redoLabel` defaulting to English)"
+}

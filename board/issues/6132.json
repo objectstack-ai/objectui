@@ -1,0 +1,36 @@
+{
+  "number": 6132,
+  "kind": "issue",
+  "title": "[Decision] Five documented action props have no declared slot at all — delete them, move them onto the item, or is this a types gap?",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T19:37:34Z",
+  "updated_at": "2026-08-30T14:15:27Z",
+  "closed_at": "2026-08-30T14:15:27Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6132",
+  "body": "Escalated by the `domain:devx` @ objectui execution seat (#5748), PM session `session_019b5UBNMtTzKbVtZZGvFuxe`, out of **#6122** / PR **#6130**. The measuring dev flagged this as the one cost it could not decide alone, and I agree — it is a public-contract question, not a documentation cleanup.\n\n## What was measured\n\n#6122 began as \"16 doc sites annotate props as `string | ActionConfig`, and `ActionConfig` does not exist — which type did they mean?\" Resolved individually against the **built** `packages/*/dist/*.d.ts` with the compiler API:\n\n> **Zero of the 16 sites resolve to `ActionSchema` or `UIActionSchema`.**\n\nEvery slot the shipped types declare is a plain **function callback**. The question the card asked has no answer because its premise was wrong.\n\nOf the 16: **6** were determinable and are fixed in PR #6130. **4** need the documented prop renamed and **1** restructured into a nested object — I ruled those, since a slot exists under a different name and the docs are simply wrong about it. **These 5 have no declared slot at all:**\n\n| page | documented prop | shipped type says |\n|---|---|---|\n| `sonner` | `action.onClick` | `SonnerSchema` (`feedback.d.ts:194`) has **no** `action` prop |\n| `context-menu` | `onSelect` | absent (`overlay.d.ts:388`) |\n| `menubar` | `onSelect` | absent (`overlay.d.ts:415`) |\n| `dropdown-menu` | `onSelect` | only `onOpenChange` (`overlay.d.ts:383`) |\n| `button-group` | `onValueChange` | absent (`navigation.d.ts:330`) |\n\nTwo further measurements, both independent of the above:\n\n1. The `string |` half of all 16 annotations documents **exactly the shape objectui#4453 ruled is DROPPED** — an authored `onAction: 'NOT-A-FUNCTION'` is discarded (`packages/plugin-calendar/src/calendar-view-renderer.tsx:322-331`).\n2. **No renderer reads any of these schema-level slots**, for any of the 15 components.\n\n## The question\n\nCorrecting these five is not a rename, because there is nothing to rename to. The choice decides something about the product:\n\n**Are ObjectUI component schemas meant to carry JSON-authorable action references at all?**\n\n- If **no** — the docs are advertising a capability that does not exist, and should stop.\n- If **yes, eventually** — deleting now and restoring later is churn, and the honest interim is a types gap recorded as such.\n\nThat is why this is not the seat's to settle.\n\n## Options\n\n**A — Documentation follows the shipped types all the way.** Delete the five documented props; optionally move the menu handlers onto the item, where the shipped `MenuItem.onClick` (`overlay.d.ts:334`) actually lives.\n*Cost:* reader-facing removal across 15 pages. *Benefit:* every remaining line is true.\n\n**B — Record it as a types gap.** Leave the docs, file a types card asking whether these schemas should gain authorable action slots.\n*Cost:* the pages keep teaching something that does nothing, and `#5867`'s components group (71 files) stays blocked meanwhile. *Benefit:* no churn if the answer turns out to be yes.\n\n**C — Declare the blocks fragments.** ⛔ Rejected on its face — `FRAGMENT_MARKER` is forbidden on genuinely-TypeScript blocks, and it converts a measured defect into a declared skip.\n\n**D — Mint `ActionConfig` or an action-reference union.** ⛔ Rejected — minting a symbol so documentation becomes retroactively true, refused three times already this session (#5329's `$schema` URL, #6107's cell renderers, #6122's own prohibition).\n\n## 四棱分析\n\n- **实际业务需求** — 无实测拉力。在 `examples/`、`apps/`、`content/` 与 `packages/*/src` 中检索作者写入的字符串型 `onSelect`/`onAction`，除 #4453 记录「该值被丢弃」的注释外**一个都没有**。没有任何已知使用者在等这个能力。\n- **项目长远合理性** — 契约优先（AGENTS.md #0.1）。参考文档里写 `string | SomeAction`、而声明侧是函数类型，正是该规则禁止的**第二套事实上的方言**；#4453 已经就这个方向裁过一次。\n- **防 AI 写代码犯错**（决定性一axis）— `string | ActionConfig` 出现在参考页上，恰恰会让 AI 作者写出一个**能通过校验、能发布、然后静默什么都不做**的字符串处理器。这是四个维度里代价最实的一个。\n- **创业阶段不扩散需求** — 选项 D 和「类型应该长出 action 槽」的读法都是能力扩张，而**零实测消费者**。\n\n**Seat recommendation: A**, with B's follow-up card if you also want the types question formally opened. The measuring dev independently reached the same conclusion.\n\n⚠️ **This blocks #5867's `components` group** — 71 files, the largest remaining group in that card's burn-down.\n\nReply 「A」/「B」, or per-component if you want the menus treated differently from `sonner` / `button-group`.\n\nRefs: #6122 / PR #6130 · #4453 · #5867 · #5329 · #6107."
+}

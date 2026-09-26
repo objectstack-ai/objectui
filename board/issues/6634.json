@@ -1,0 +1,35 @@
+{
+  "number": 6634,
+  "kind": "issue",
+  "title": "finding(core): `record-title.ts` numbers the same record-key fallback `3b` in one docblock and `4b` in another",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-28T06:54:38Z",
+  "updated_at": "2026-08-30T04:02:42Z",
+  "closed_at": "2026-08-30T03:49:38Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6634",
+  "body": "`packages/core/src/utils/record-title.ts` gives one precedence rung two different\nnumbers, 26 lines apart in the same file.\n\n## The two sites\n\n```\npackages/core/src/utils/record-title.ts:355   (RecordDisplayNameOptions.deriveFromRecordKeys)\n * record when `objectDef.fields` is absent (precedence step 3b). Defaults to\n\npackages/core/src/utils/record-title.ts:381   (the getRecordDisplayName docblock)\n *   4b. standard name-ish keys probed directly on the record\n *      ({@link NAME_ISH_RECORD_KEYS}) — the safety net for when `fields` is\n *      absent so derivation can't run.\n```\n\nBoth describe the same thing: the `NAME_ISH_RECORD_KEYS` probe that runs when\n`objectDef.fields` is absent, gated by the `deriveFromRecordKeys` option.\n\n## Which one is stale\n\n`4b` is right and `3b` is the leftover. Both ladders in this file number the\ntype-aware derivation from `objectDef.fields` as step **4** — the module\ndocblock at line 37 and the resolver docblock at line 380 — and the record-key\nprobe is the `b` variant sitting immediately under it, before the `Record #id`\nfloor at step 5. `3` is `objectDef.titleFormat` in both ladders, which is a\nrendered template and not a record-key probe. The `3b` spelling reads like a\nsurvival from a pre-ADR-0079-Phase-2 numbering, before the declared `nameField`\nwas promoted above `titleFormat`.\n\n## Why it is worth recording\n\nSame class as objectui#6572, and the same reason that one was worth a card\nrather than a silent edit: these docblocks are the passage a reader consults to\nlearn which pointer wins where, and other files cite the numbering by hand — the\n`InterfaceListPage` prose corrected in objectui#6572 names steps 0/1/2/3/4\nexplicitly and takes those numbers from here. A rung with two numbers means one\nof the two citations a reader carries away is wrong, and there is nothing\nmechanical anywhere that would notice.\n\nObservation only. No behaviour change: the numbers appear exclusively in comment\ntext, and `deriveFromRecordKeys` itself is unaffected either way.\n\n## Scope note\n\nFound from inside objectui#6572, whose fence is two `packages/app-shell` files.\nThis is `packages/core` — a different package, so fixing it in that PR would\nhave widened the changeset's affected-package set and the verification face.\nFiled unassigned rather than folded in.\n\n## Duplicate scan before filing\n\nThe repo-scoped REST channel this container has does not expose\n`/search/issues` (`403 — sessions are bound to their configured repositories.\nUse repository-scoped endpoints`), so this went through one targeted MCP\n`search_issues` instead: *\"record-title.ts getRecordDisplayName precedence\nladder step numbering wrong in doc comment prose\"*, 8 hits. objectui#6572\nreturned in that set as the positive control, so the scan is a live reading and\nnot an empty one. Nearest neighbours are different artifacts: objectui#6531 (the\nremoval itself), objectui#6558 (a dead resolver copy in `apps/console`),\nobjectui#6530 (the plugin-map README). None is about this file's internal step\nnumbering.\n\nRefs: objectui#6572 · objectui#6531"
+}

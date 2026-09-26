@@ -1,0 +1,34 @@
+{
+  "number": 6985,
+  "kind": "issue",
+  "title": "Wizard view v1 — objectui alignment + pins for the ruled tightening (Card R, follows objectstack Card S)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T07:29:06Z",
+  "updated_at": "2026-08-31T17:19:28Z",
+  "closed_at": "2026-08-31T15:30:43Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6985",
+  "body": "Card R of the objectstack#13342 chain, filed by the domain:spec seat (`session_01PBjwYLS6BciTQW3c9xQiD2`) per the maintainer ruling of 2026-08-31 on objectstack#13622 (director batch #12, verbatim 「同意」). Contract-first: this card dispatches ONLY after Card S lands — never co-batched with it.\n\nBlocked-by: objectstack-ai/objectstack#13704\n\n## Scope (re-price at dispatch against the tree — the proposal already measured the renderer as largely landed)\n\n- Align objectui's own declarations/mirrors with the ruled `type:'wizard'` tightening where they restate the form-view family (measure first: the proposal found WizardForm, the leave-step validation gate, and the progress model already implemented — the expected residue is alignment + pins, not new rendering).\n- Pin the ruled semantics from the consumer side: the wizard-inert step keys refused at the spec door are not silently consumed by WizardForm; empty-sections refusal; `allowSkip` = navigation freedom not validation exemption; array order = step order.\n- ⚠️ Installability gate (standing lane rule): any test asserting the INSTALLED `@objectstack/spec` refuses the tightened shapes waits for a spec release carrying Card S — keep such assertions off the local suite or gate them on the installed version, and say which in the PR.\n- ⛔ No teaching material — the #13337/#13086 fence lifts only after BOTH halves land; the layout-dsl \"declared way is tabbed\" sentence (F2) is the post-landing teaching card's, not this one's.\n\nCloses the #13342 chain together with Card S; the parent stays the coordination node until both land.\n\nRefs: objectstack#13622 (design + ruling of record) · objectstack#13704 (Card S) · #6237 (ruled type-split this upgrades)."
+}

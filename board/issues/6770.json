@@ -1,0 +1,36 @@
+{
+  "number": 6770,
+  "kind": "issue",
+  "title": "finding(plugin-timeline): a `null` gantt date is silently coerced to the epoch — a 649-column axis and a negative-width bar, with no diagnostic",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-29T09:53:28Z",
+  "updated_at": "2026-08-29T14:38:36Z",
+  "closed_at": "2026-08-29T14:11:52Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6770",
+  "body": "Filed unassigned, found while implementing #6759 (the unusable-date-range diagnostic). **Not covered by that card**, and deliberately left out of it — see \"Why #6759 does not cover this\" below.\n\nMeasured on `a64e96ca8` — the #6759 branch head, i.e. **with** that card's guards already in the tree — with a throwaway probe, since no pin covers this input.\n\n## The defect\n\n`new Date(null).getTime()` is `0`, not `NaN`. That is the Unix epoch, not an invalid date, so a `null` gantt date passes every parse check there is and flows straight into the arithmetic as `1970-01-01`.\n\nInput: `variant: 'gantt'`, one row, `items: [{ title: 'T', startDate: '2024-01-01', endDate: null }]`.\n\n```\nCASE-NULL alert: null\n          axis: [\"Jan 1970\",\"Feb 1970\",\"Mar 1970\",\"Apr 1970\", … ] (649 month buckets)\n          bars: [\"left: 100%; width: -100%;\"]\n```\n\nThree things go wrong at once, and none of them says so:\n\n1. The axis spans **fifty-four years** — 649 month columns for a task that lasts two months.\n2. The bar gets `width: -100%`, a **negative width**, because `endDate` (epoch) is before `startDate` (2024).\n3. `left: 100%` puts it off the right-hand edge of a chart it is not on anyway.\n\nNo error, no diagnostic, no console warning. This is the same disease as #6759's case 2 — a gantt drawing a confidently wrong picture — reached through a different door.\n\n## Why it is plausible input, not a curiosity\n\n`null` is what a record mapping produces for an empty date field. Any generator that builds gantt rows from records — a project plan whose tasks do not all have an end date yet, a query that left-joins — emits `endDate: null` rather than omitting the key. An **omitted** `endDate` is already refused by #6759 (`new Date(undefined)` is `NaN`); writing the same absence as `null` instead silently draws the chart above.\n\n## Why #6759 does not cover this\n\n#6759 refuses a date that does not **parse**. `null` parses — to the epoch — so it never reaches that guard, and the guard was written not to reach for it:\n\n> ⚠️ `null` is deliberately NOT a fault here. `new Date(null).getTime()` is `0`, not `NaN` — the epoch, not an invalid date — so a `null` date has always drawn a bar anchored at 1970 rather than crashing. Refusing it would be a behaviour change on an input class this card did not measure or adjudicate; it is filed separately instead.\n\nVerified as unchanged by that card: with #6759's guards in the tree the probe above still renders the 1970 axis and the negative-width bar (`alert: null` — no diagnostic fires).\n\n## Why this is a policy question and not a mechanical fix\n\n`new Date(null) === epoch` is correct JavaScript, and there is a real choice about what a `null` date should MEAN on a gantt, with at least three defensible answers:\n\n1. **Refuse it**, the way #6759 refuses an unparseable value — consistent with the \"an unusable range names the offending value\" policy that card established, and with #6655 next door.\n2. **Treat it as open-ended** — a task with no end date runs to the end of the axis. Plausible for real plans, but it is a new rendering behaviour, not a guard.\n3. **Treat it as absent** — fall back to `startDate`, drawing a zero-width (degenerate) bar, which #6750's `totalDuration === 0` guard already renders as a full-width bar on a degenerate axis.\n\nWhich one is right is a product decision about what an author is told versus what they are shown, so it wants the same adjudication #6759's wording got rather than a fixer picking one.\n\n## Where it lives\n\n`packages/plugin-timeline/src/renderer.tsx` — `findUnusableGanttDate` (the parse check `null` passes) and `calculateDateRange` / `calculateBarDimensions` (which then treat the epoch as a real bound). Line numbers deliberately omitted: re-derive them on your base."
+}

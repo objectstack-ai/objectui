@@ -1,0 +1,35 @@
+{
+  "number": 5704,
+  "kind": "issue",
+  "title": "Published skill teaches that `X-Tenant-ID` is what makes tenant scoping work — the framework scopes from the session, and trusting the header as identity is the recorded vulnerability",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-22T12:11:04Z",
+  "updated_at": "2026-08-31T07:42:19Z",
+  "closed_at": "2026-08-31T07:42:19Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5704",
+  "body": "Found while documenting the `X-Tenant-ID` edge contract for #5279. Filed rather than fixed: `skills/**` is a published surface outside that card's fence, and edits there carry their own budget rules.\n\n## The text\n\n`skills/objectui/guides/auth-permissions.md`, \"Multi-tenancy\":\n\n> There is no client-side tenancy layer. Tenant scoping is server-enforced:\n> `createAuthenticatedFetch` (`@object-ui/auth`) injects the active\n> organization as the `X-Tenant-ID` header on every API call, and the backend\n> applies row-level isolation.\n\nThe first sentence is right. The second joins two facts with a colon that reads as cause and effect — *the client sends the header, therefore the backend isolates rows* — and that implication is false.\n\n## What is actually true\n\n- **Row scoping comes from the session, not the header.** `resolveAuthzContext` (framework, `packages/core/src/security/resolve-authz-context.ts`) derives `tenantId` from the API-key principal or from `session.activeOrganizationId`, and from no request header. The framework pins it: `packages/verify/src/harness.org-context.test.ts` — *\"`session.activeOrganizationId` is the ONE field `resolveAuthzContext` reads into `tenantId`\"*.\n- **The header is an edge routing hint**, consumed by the cloud edge to pick a tenant database / environment. It is one of six configurable identification sources in `TenantRoutingConfigSchema` (`@objectstack/spec/cloud`), and by default it ranks *second*, behind `subdomain`.\n- **Trusting the header as identity is a recorded vulnerability.** The framework's `plugin-sharing` documents that its old default trusted `x-user-id` / `x-tenant-id` and that this \"let a client forge attribution and enumerate/revoke other users' links\"; the secure default reads no identity from headers.\n- **\"on every API call\" is inaccurate in both directions.** The stamp is skipped entirely until `AuthProvider`'s async organization chain resolves (the unstamped-first-request window), and it is *not* gated on the URL being an API call the way `Authorization` is.\n\n## Why it matters more than a wording nit\n\nThis is a **published** skill — it is what an agent or integrator reads before wiring multi-tenancy. The belief it plants (\"the header is what enforces tenancy\") is exactly the belief that leads someone to trust `x-tenant-id` server-side, which is the failure `plugin-sharing` already had to remove once. It also points the wrong way when the header is *missing*: a reader who thinks isolation depends on it will treat the first-boot window as a security hole rather than what it is, a routing-input gap.\n\n## Where the correct text now lives\n\n`packages/auth/README.md` gains \"The `X-Tenant-ID` edge contract\" in the #5279 PR — what the header means, who stamps it, who reads it, what a reader may and may not assume, and the unstamped-first-request window. The skill's paragraph can be repointed at that section; the correction is roughly a sentence, not an expansion."
+}

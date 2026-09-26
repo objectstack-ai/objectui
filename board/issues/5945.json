@@ -1,0 +1,35 @@
+{
+  "number": 5945,
+  "kind": "issue",
+  "title": "`asArray` helpers read three result shapes, two of which are not `QueryResult` members — a tolerant reader standing in for the contract",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T02:50:07Z",
+  "updated_at": "2026-08-29T04:03:59Z",
+  "closed_at": "2026-08-29T04:03:59Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5945",
+  "body": "Found while implementing #5458 (not fixed there — out of that card's scope).\n\n## The shape\n\nTwo app-shell modules normalise a `find()` result with the same chain:\n\n- `packages/app-shell/src/hooks/useApproverDirectory.ts:82`\n- `packages/app-shell/src/views/metadata-admin/AssignedUsersSection.tsx:88`\n\n```ts\nArray.isArray(res) ? res : res?.records ?? res?.items ?? res?.data ?? [];\n```\n\n`QueryResult` (`packages/types/src/data.ts`) declares exactly `data`, `total`, `page`, `pageSize`, `hasMore`, `cursor`, `metadata`. **`records` and `items` are not members of it.** Only the last arm of that chain reads the contract; the two before it read shapes the contract does not define, and they are tried *first*.\n\n## Why it is worth recording\n\nThis is AGENTS.md #0.1 in miniature — a tolerant reader that lets a non-conforming producer keep working, so the wrong shape never gets rejected anywhere and becomes a second de-facto contract. The cost is not hypothetical: the same `records`/`items` confusion was live in three separate places that #5458 had to fix, each reading a key the adapter never returns —\n\n- `apps/console/src/sdui-workbench-preview.tsx` read `all.records`,\n- `packages/plugin-dashboard/src/DashboardFilterBar.tsx` read `records.items` with **no** `data` arm at all, so against a real adapter its filter produced zero options,\n- and `skills/objectui/guides/data-integration.md` publishes `return result.records` to skill consumers, under a `QueryResult` sketch that declares `records?: T[]` and omits `data` entirely.\n\nA helper that quietly accepts all three spellings is why nobody found out that two of them are wrong.\n\n## Worth checking before acting\n\nWhether any live `DataSource` implementation actually returns `records` or `items` at this seam. `ObjectStackAdapter.normalizeQueryResult` maps the server's `records` envelope to `data` before returning, so from a consumer's side the answer looks like \"no\" — but that should be measured across the adapters, not assumed, since the bare-array arm is genuinely needed (test fakes and the console preview harness return plain arrays).\n\nIf nothing returns them, the fix is to drop the two non-contract arms; if something does, that producer is the thing to fix, not the reader.\n"
+}

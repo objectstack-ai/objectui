@@ -1,0 +1,34 @@
+{
+  "number": 6302,
+  "kind": "issue",
+  "title": "ObjectStackAdapter.aggregate() must lower rule-shaped filter arrays before the wire — the analytics path skips the lowering find() already performs (prerequisite of the ruled element:number.filter convergence)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T11:28:03Z",
+  "updated_at": "2026-08-30T06:39:19Z",
+  "closed_at": "2026-08-30T06:30:16Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6302",
+  "body": "Filed by the objectstack spec PM seat (`session_01NDGG54XF5gbTLdQzCtnaVV`, R6) executing the maintainer's Key-2 sequencing ruling on objectstack-ai/objectstack#12039. Reader: the objectui execution seat's queue — this is step 1 of the ruled consumer-first sequence.\n\n## Provenance (ruling, verbatim from objectstack#12039)\n\n> **Ruled: A** — sequence the consumer first: an objectui card makes `ObjectStackAdapter.aggregate()` lower rule-shaped arrays before the wire (reusing the `translateFilterArray` machinery its `find()` path already uses); land, bump the objectui pin; **then** converge the spec entry to `z.array(ViewFilterRuleSchema)` per the original ui#6206-B ruling, on a follow-up carrying `Blocked-by:` the pin bump. No ruled semantic changes — only ordering. (Maintainer, 2026-08-25, decision-inbox batch 3, verbatim: 「第三批决策(5 张) 同意」)\n\nOriginal convergence ruling: ui#6206-B (recorded on #6206, 2026-08-25 06:24Z). This card is its runtime prerequisite, measured to be missing.\n\n## The defect (measured at pin `190fbd01`; executable evidence in objectstack PR #12120's body)\n\n- Renderer (`packages/components/src/renderers/basic/elements.tsx`): passes `filter` opaquely to `adapter.aggregate(object, { field, function, groupBy: '_all', filter })`.\n- Adapter (`packages/data-objectstack/src/index.ts`): on that params shape `aggregate()` takes the analytics path and sends the filter **raw**: `payload.where = params.filter` → `client.analytics.query(payload)`.\n- The rule-array lowering machinery (`translateFilterArray` / `objectFilterEntriesToAST`) exists in the same file but runs only on the `find()` path (`convertQueryParams`) — and deliberately not after a server rejection.\n- Runtime door (objectstack `service-analytics`, shared by both strategies): `lowerAnalyticsWhere` on a rule-object array THROWS \"[analytics] received a 'where' array that is not a filter\"; AST tuples are accepted. Analytics is foundational (\"the CLI always loads it\"), so the refusing path is the default deployment's.\n\nNet: an authored `ViewFilterRule[]` filter renders `element:number` into its error state on any analytics-capable deployment.\n\n## Executable acceptance criterion\n\n`ObjectStackAdapter.aggregate()` lowers rule-shaped arrays to the wire's AST vocabulary before `client.analytics.query` (reusing the existing `translateFilterArray` path — no new machinery, no wire loosening), such that: `aggregate(object, { …, filter: [{ field: 'stage', operator: 'equals', value: 'won' }] })` produces the same analytics `where` as the AST-tuple equivalent, proven by a test on the aggregate path. Behaviour for already-AST and record-shaped filters is byte-unchanged.\n\n## Sequencing (for the wiring, not for this card)\n\nAfter this lands and the objectstack-side objectui pin bump covers it, the spec entry converges (`ComponentPropsMap['element:number'].filter` → `z.array(ViewFilterRuleSchema)`) as a spec-lane follow-up carrying `Blocked-by:` on the pin bump — tracked on objectstack#12039 (its Key-2 half is `pm:blocked` on THIS card). The ruling's caveat rides along: the refusal was measured at pin `190fbd01`; re-run the recorded measurement if the pin has moved by execution time.\n\nRefs: objectstack#12039 · objectstack PR #12120 (measurement record) · ui#6206 (ruling B + unlock criterion) · ui#6207."
+}

@@ -1,0 +1,34 @@
+{
+  "number": 6991,
+  "kind": "pull_request",
+  "title": "chore(deps): Bump fumadocs-mdx from 15.2.3 to 15.4.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "automated",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T07:59:40Z",
+  "updated_at": "2026-08-31T14:47:45Z",
+  "closed_at": "2026-08-31T14:46:12Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6991",
+  "body": "Bumps [fumadocs-mdx](https://github.com/fuma-nama/fumadocs) from 15.2.3 to 15.4.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/fuma-nama/fumadocs/releases\">fumadocs-mdx's releases</a>.</em></p>\n<blockquote>\n<h2>fumadocs-mdx@15.4.0</h2>\n<h3>Remark LLMs: export a component with <code>output: &quot;function&quot;</code></h3>\n<p>With <code>output: &quot;function&quot;</code>, <code>_markdown</code> becomes a component instead of a string: Markdown content is still stringified at compile time, while JSX elements stay as JSX, receiving their original props.</p>\n<pre lang=\"ts\"><code>// fumadocs-mdx collection config\npostprocess: {\n  includeProcessedMarkdown: { output: 'function' },\n},\n</code></pre>\n<p>Render it with <code>renderToMarkdown</code> from <code>fumadocs-core/server</code>. Elements resolve from <code>props.components</code>: a component can call <code>asMarkdown()</code> to output its own Markdown form, other components (including missing ones) are serialized as JSX syntax.</p>\n<pre lang=\"tsx\"><code>import { renderToMarkdown } from 'fumadocs-core/server';\n<p>const { _markdown: Content } = await page.data.load();\nconst text = await renderToMarkdown(&lt;Content components={getMDXComponents()} /&gt;);\n</code></pre></p>\n<p><code>getText('processed')</code> keeps working: it renders the component for you, with an optional components map:</p>\n<pre lang=\"ts\"><code>const text = await page.data.getText('processed', { components: getMDXComponents() });\n</code></pre>\n<p>Supported in bundler collections with both compilers, and in <code>dynamic: true</code> collections &amp; <code>@fumadocs/satteri/local-md</code> with the Sätteri compiler.</p>\n<h2>fumadocs-mdx@15.3.1</h2>\n<h3>Scope <code>lastModified</code> git log to the content directory</h3>\n<p><code>git log</code> is scoped to the collection's content directory instead of buffering the repository's entire history in every worker.</p>\n<h3>Fix Vite dev server crash on declaration-only dependencies</h3>\n<p>The injected Vite config no longer pre-bundles packages without runtime JavaScript, such as <code>@types/mdx</code>. Pre-bundling them made esbuild parse <code>.d.ts</code> files and fail on imports that only exist in type space, crashing the dev server.</p>\n<h3>Encode <code>import.meta.glob</code> query values</h3>\n<p>The Vite codegen passed the query to <code>import.meta.glob</code> as an object, letting the bundler serialize it. Rolldown inlines the values as-is, so a macro id such as <code>src/lib/source.ts#docs</code> left an unescaped <code>/</code> in the content file's module id and relative imports from that module (e.g. images from <code>![Banner](https://github.com/fuma-nama/fumadocs/blob/HEAD/logo.png)</code>) failed to resolve, since the importer's directory is derived from the raw id.</p>\n<p>The query is now serialized (and percent-encoded) by Fumadocs itself, matching what the Node.js codegen already did.</p>\n<h2>fumadocs-mdx@15.3.0</h2>\n<h3>Sätteri 0.10</h3>\n<p><code>@fumadocs/satteri</code> now requires <code>satteri</code> ^0.10.3, and the plugins were rewritten on its new capabilities:</p>\n<ul>\n<li>Exports (<code>frontmatter</code>, <code>toc</code>, <code>structuredData</code>, …) are emitted by an <code>after</code> document hook instead of an anchor marker appended to the source, so plugins no longer see (or need to skip) the anchor node.</li>\n</ul>\n<!-- raw HTML omitted -->\n</blockquote>\n<p>... (truncated)</p>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/5cd7b69e672231fdf15c0d89737efadb280645de\"><code>5cd7b69</code></a> Merge pull request <a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3510\">#3510</a> from fuma-nama/tegami/version-packages</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/814559b944093c3965bfcef67daee3ae2e2b51a3\"><code>814559b</code></a> docs: introduce React Markdown Components</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/b4d689df96ed2b55eb6d2911e3853d1bd257c259\"><code>b4d689d</code></a> refactor(core(: rename options</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/eefd3e096ffba1d87235290ff8ea0a3102232e52\"><code>eefd3e0</code></a> feat(satteri): show the type table as a table in markdown form</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/49afb7d62dcdb6e210c4e78dda5cb5e8821e410e\"><code>49afb7d</code></a> docs: support .md apart from .mdx suffix</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/399bea9edece2e16e5e24719412da2b8210f567e\"><code>399bea9</code></a> feat(mdx,satteri): support dynamic markdown renderer on remark-llms plugin</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/7eef0d841ddd143c705e2f5bcbdeea63cc9ee00c\"><code>7eef0d8</code></a> feat(core): React Markdown Component</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/3d07ef53a134672aa4e5755e5269fefc55e78193\"><code>3d07ef5</code></a> fix(core): duplicated record when indexing</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/0687a8b012b0a51ccac08f235dd08cea4a1d4ad8\"><code>0687a8b</code></a> Version Packages (<a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3507\">#3507</a>)</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/cc53d34004c05b659a20c0610f20f7206f8fdf6e\"><code>cc53d34</code></a> internal(core): drop <code>negotiator</code></li>\n<li>Additional commits viewable in <a href=\"https://github.com/fuma-nama/fumadocs/compare/fumadocs-mdx@15.2.3...fumadocs-mdx@15.4.0\">compare view</a></li>\n</ul>\n</details>\n<br />"
+}

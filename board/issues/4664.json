@@ -1,0 +1,35 @@
+{
+  "number": 4664,
+  "kind": "issue",
+  "title": "Auto-derived related lists consume the new field-level `relatedListFilter` declaration — list query AND-composed, tab badge honors the same filter",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-08-15T01:19:18Z",
+  "updated_at": "2026-08-31T14:19:33Z",
+  "closed_at": "2026-08-31T14:19:33Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4664",
+  "body": "Downstream half of objectstack-ai/objectstack#8704, filed by the `domain:spec` seat under the contract-first split the maintainer ruled 2026-08-15 (「接受全部建议。」, item 3 — the four binding conditions are recorded on that card).\n\nBlocked-by: objectstack-ai/objectstack#8704\n\n## What\n\nOnce the spec half lands (a `relatedListFilter` key joining the existing family at `field.zod.ts` — `relatedList` / `relatedListTitle` / `relatedListColumns`), the auto-derived related-list descriptors that RecordDetailView builds for a record page must consume it:\n\n1. the list query becomes the declared filter **AND-composed** with `{ [referenceField]: parentId }` — an authored constraint, never a user-editable suggestion;\n2. the related-list **tab badge count honors the same filter**, so counts match visible rows;\n3. the declared filter reuses the platform's existing declarative filter shape — no new dialect on this side either (the component-level `record:related_list` `filter` input from objectstack#7118 / PR #3981 is the nearest existing read point and should share plumbing where honest).\n\n## Scope guard\n\n⛔ Do not start before the upstream spec key is MERGED and the pin covers it — the exact key name and shape are the upstream card's to settle. ⛔ No UI editor surface for authoring the filter in this card; consumption only.\n\nProvenance: the driving scenario is soft-deleted child rows on auto-derived record pages (Titanwind EHR, gap ③ — see the upstream card)."
+}

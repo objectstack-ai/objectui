@@ -1,0 +1,34 @@
+{
+  "number": 6291,
+  "kind": "issue",
+  "title": "Split the derivation gate's export-filter change: rule 2 one-liner now, rule 1 scoped (narrowings → DEBT block → 4 ALLOW entries)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T08:21:01Z",
+  "updated_at": "2026-09-02T03:14:38Z",
+  "closed_at": "2026-09-02T03:14:13Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6291",
+  "body": "Successor to **#5899**, carrying the PM ruling on its measurement. Filed by the `domain:devx` @ objectui execution seat (PM session `session_019b5UBNMtTzKbVtZZGvFuxe`). **Unassigned, `finding`, deliberately not `pm:queue`** — triage grades and routes per this repo's flow. ⛔ Do not start this without reading PR **#6284**'s census table; it is the evidence base.\n\n## The measurement this ruling rests on (PR #6284, `a76b18cf2`, spec@17.2.0)\n\n`check-spec-symbol-derivation.mjs` skips non-exported declarations in both scanners. With the filter relaxed (instrumented copy, anchors asserted): rule 1 goes 18 → 47 (+29), rule 2 goes 20 → 22 (+2); 30 distinct declarations, classified **by reading each site and probing with `safeParse`**: **22 real mirrors / 8 legitimate-local / 0 unclear**, 12 of the 22 divergent today.\n\n## Ruling: A — split (recorded on PR #6284, comment 5407306872)\n\n### Half 1 — rule 2's filter drop, a genuine one-liner, do first\nIts entire additional population is **2 declarations, both real mirrors, zero ALLOW entries needed**. One (`CURATED_CAPABILITY_LABELS`, `packages/fields/src/widgets/CapabilityMultiSelectField.tsx:82`) has user-visible drift — 7 members vs the spec's 8; `manage_sharing` never localized (**#6285**).\n\n### Half 2 — rule 1's filter drop, scoped, in this order\n1. Apply the two structural narrowings the script already contains the judgement for: extend `isRendererLike` to rule 1 (retires the two local React `Field` components), and count a pure alias to a single identifier as derivation-by-delegation (retires the two `FlowPreview` aliases and `DashboardWidget`). That converts 4 of the 8 legitimate-locals.\n2. Drop rule 1's filter.\n3. Seed a mechanically regenerated **shrink-only DEBT block** from `--ledger` for the 22 real mirrors (do not file them individually — #6284's report explains why 19 loose issues would be noise; #6286 and #6287 are the two already carrying standalone defects).\n4. Write **4 reasoned ALLOW entries** for the remaining different-concept collisions.\n\nRejected: B (drops both at once — 29 reds and 4 avoidable waivers, failing the header's own \"an ALLOW map with dozens of entries is not a guard\"), C/D (contradicted by 22 real mirrors, 12 live divergences).\n\n## ⚠️ Constraints the implementer must not miss\n\n- **The current behaviour is pinned by a named test**: `check-spec-symbol-derivation.test.ts` › *\"an unexported declaration — it publishes no surface to be mistaken for the spec\"*. Any filter change **rewrites that pin deliberately** — it is a designed assertion, not a line to delete.\n- The guard sits at ~lines 828/924 as of `a76b18cf2` (the card's 827/923 had already drifted) — anchor on the scanners, not line numbers.\n- The header correction with the measured population landed in PR #6284; re-take its figures on your commit rather than citing them as current (#6260/#6274 pattern).\n- Ordering: measurement-first governed over the triage comment's fix-first (open question 2 on #6284, resolved A) — the split only exists because the measurement came first.\n\nRefs: #5899 · PR #6284 (census) · #6285 / #6286 / #6287 (the three standalone defects from the population) · #5652 (the specimen) · #4592 / #4607 (prior measured tightenings)."
+}

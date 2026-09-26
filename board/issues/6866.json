@@ -1,0 +1,34 @@
+{
+  "number": 6866,
+  "kind": "issue",
+  "title": "[finding] AGENTS.md's governed-surface section disagrees with the fleet on root skills/** — and its \"this repo has NO mechanical backstop\" paragraph is now false, the guard workflow it promised to mention is live",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "zhuangjianguo",
+    "id": 19182527,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "pm:queue",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-30T07:19:46Z",
+  "updated_at": "2026-08-31T14:17:25Z",
+  "closed_at": "2026-08-31T14:17:25Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6866",
+  "body": "Filed by the objectstack skills lane seat (session `session_01EXxTW8mvPBhoHxmyPZ63de`, PM loop round 1), surfaced live by the ui#5759 dispatch: the dev hit the disagreement mid-run on PR #6865, reported it as a deviation instead of silently resolving it, and took the stricter path (draft-only). ⛔ No `domain:*` set — triage's field; on the routing judgement this is `domain:skills` (the landing file is this repo's `AGENTS.md`, an instruction-architecture face).\n\nTwo separable defects, both landing in `AGENTS.md`'s 受管面 section (~:360–392 on `origin/main` today — re-derive before acting).\n\n## 1. Root `skills/**`: two governing texts, two answers\n\n- **This repo's AGENTS.md (deliberate, reasoned):** root `skills/**` (the published tree, e.g. `skills/objectui/`) is **NOT** governed — \"按普通代码 PR 走:CI 全绿就照上面的常规路径自行入队合并\", with the warning that over-conservative misreads also cost (\"曾有 agent 把发布用的 `skills/` 当成「维护者专属」而不敢挂 auto-merge…往保守方向误判同样是误判\").\n- **The fleet side (objectstack pm-dispatch SKILL.md):** the governed-surface definition (maintainer 2026-08-18 「同意」) includes `skills/**`, and the skills lane's md-content rule (maintainer 2026-08-26) routes any lane PR whose diff contains a `.md` file to maintainer review. The published corpus is also the subject of the 2026-08-21 whole-package ruling (\"对外发布的 skills 是整个平台的最大价值…\").\n\n⇒ For a published-corpus prose PR in this repo, one text says \"self-merge on green\", the other says \"maintainer reviews\". PR #6865 (ui#5759) hit this today; the dev's resolution — draft-only, since it satisfies both — is correct behaviour but leaves the disagreement standing for the next seat, and the next seat may follow the local text and self-merge published-corpus changes with no human eye.\n\n⚠️ This half is a **convention adjudication about governance strength for a published-value surface — a human-floor question**, not something a seat rules. The card records both readings so the grader can put the choice (align objectui's local text to the fleet set, or carve published `skills/**` out fleet-wide with the local rationale) in front of the maintainer.\n\n## 2. The \"no mechanical backstop\" paragraph is measurably false now\n\n`AGENTS.md:392` states: 「**本仓没有任何机械兜底,这一段就是全部。** 本仓没有 CODEOWNERS…受管面上没有 required check、没有钩子,也没有事后审计…哪天本仓真有了检测,它会写在这里。」\n\nMeasured on `origin/main` today: `.github/workflows/governed-surface-guard.yml` exists (the machine half of the no-bypass rule, objectui#6596, delegating to `scripts/check-governed-queue-guard.mjs`), and the `Governed Surface Queue Guard` check ran and reported on PR #6865 this morning. The paragraph's own closing promise (\"它会写在这里\") is the fix instruction: name the guard, its report-only-vs-blocking state (per #6596, the ruleset toggle is still with the maintainer — `pm:awaiting-maintainer`), and what it does and does not catch. This half is a plain staleness fix and does not need the half-1 adjudication.\n\n## Re-check\n\n```\ngit grep -n \"本仓没有任何机械兜底\" origin/main -- AGENTS.md\nls .github/workflows/governed-surface-guard.yml && git grep -ln \"Governed Surface Queue Guard\" origin/main -- .github/workflows/\ngit grep -n \"不在受管面上\" origin/main -- AGENTS.md\n```\n\n⛔ Reverse-check any zero against 「受管面」 in the same file. ⚠️ `AGENTS.md` here is itself governed — any fix PR stays draft for human merge, whatever half-1's outcome.\n\n## Duplicate check\n\nSearched this round (instrument alive — the same query returned the five governance neighbours): #5149 (closed — where the governed rule landed here), #6596 (open, `pm:awaiting-maintainer` — the machine half's ruleset toggle; ADJACENT: it makes half 2 stale-r, it does not record either defect), #3243 / #6325 (closed — different subjects). ⛔ No open card covers either half.\n\n## Refs\n\n- ui#5759 / PR #6865 — where the disagreement fired live (see that PR's report deviation)\n- objectui#6596 — the guard's arrival; objectui#5149 — the local governed rule's provenance\n- objectstack pm-dispatch SKILL.md governed-surface definition + 2026-08-26 md-content split (the fleet-side texts)"
+}

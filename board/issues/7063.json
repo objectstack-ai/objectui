@@ -1,0 +1,34 @@
+{
+  "number": 7063,
+  "kind": "issue",
+  "title": "Dashboard/analytics widgets render a bare 「暂无数据行」 that is indistinguishable from a load failure — make the DEFAULT empty state self-explaining, platform-wide",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T16:00:59Z",
+  "updated_at": "2026-09-02T02:30:17Z",
+  "closed_at": "2026-09-01T03:45:24Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7063",
+  "body": "Filed on the maintainer's ruling (2026-08-31, hotcrm#1212 adjudication, verbatim: 「1212 也是」 — following 「#1203 …这种也是平台的问题啊」: this class is the platform's to fix uniformly, apps must not compensate widget-by-widget).\n\n## The measured scenario (hotcrm#1212, closed with a pointer here)\n\nA fresh install of the flagship demo renders the sales dashboard with eleven populated tiles and one blank one — the quota-attainment table reads exactly 「暂无数据行」, sits mid-page, and reads as \"the dashboard failed to load\". The cause is legitimate (its data source `crm_forecast` has a single scheduled producer that has not run yet — by ruling hotcrm#702), the widget declaration is legitimate, and the only app-side remedy was authoring per-widget `emptyState` prose — the per-app tax the maintainer has ruled against (objectstack#13848 principles: apps are simplified business implementations; uniform behavior belongs to the platform).\n\n## Deliverable\n\nMake the widget DEFAULT empty state self-explaining, uniformly:\n\n1. distinguishable from a load failure at a glance (visual treatment + wording — an empty result is a state, not an error);\n2. self-describing without authored copy: name what is empty (the widget's label and/or its data source) rather than the bare row-placeholder, e.g. a \"no data yet in [source]\" shape — exact copy/design is implementation + review judgment;\n3. the EXISTING authored `emptyState` contract always overrides the default — this card adds no new authoring obligation and no new spec key (if implementation finds a spec-side key is genuinely needed, stop and report — that is a contract question, not a rider);\n4. i18n via the platform's locale bundles, not per-app strings.\n\n## Acceptance scenario\n\nhotcrm `sales_dashboard` fresh install (`pnpm dev`, no snapshot yet): the quota-attainment tile must read as an explained empty state, with zero hotcrm-side changes.\n\nRefs: hotcrm#1212 (measurement + the corrected cause chain) · hotcrm#702 (single-producer ruling that makes seeding the window a non-option) · objectstack#13848 (application-repo principles)."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 7015,
+  "kind": "issue",
+  "title": "docs: expressions/architecture guides teach `text.value` for expressions — switch all 23 occurrences to `content`, the ruled sole evaluation channel (objectstack#13670 option 2)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T12:47:31Z",
+  "updated_at": "2026-09-01T02:57:28Z",
+  "closed_at": "2026-09-01T02:29:20Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7015",
+  "body": "Provenance: maintainer ruling 2026-08-31 (director seat summon #7, decision batch #17, verbatim 「同意」 on objectstack#13670's corrected recommendation, option 2). Ruling record: objectstack#13670 comment 5478581056. Filed by the director seat, session `session_01KGtaLpkW1mycWgkbSb3H6t`.\n\n## The ruled facts\n\n- `text`'s intended evaluation channel is **`content`, solely**. `content: \"${…}\"` evaluates today (its own memo leg); `value: \"${…}\"` renders the literal (no carriage row, and none will be added — ruled).\n- The guides teach the broken spelling: **23 occurrences** of `type: \"text\"` with `${…}` in `value` across the authored corpus, concentrated in `content/docs/guide/expressions.md` and `architecture.md` (census recorded on objectstack#13670; counts from PR #6981's discussion).\n\n## The change\n\nSwitch every one of the 23 occurrences from `\"value\": \"…${…}…\"` to `\"content\": \"…${…}…\"`. Mechanical; each example then works as taught, zero spec change.\n\n## ⚠️ Ordering constraint (from the ruling, binding)\n\nobjectui#4795's second ruled half (build-time rejection of `${…}` outside the carriage map) will legitimately reject `text.value` — **this docs fix must land BEFORE or in the same stroke as that gate**, or the gate reddens the platform's own 23 examples.\n\n## Not this card\n\n- Adding a `text: ['value']` carriage row — ⛔ ruled out.\n- Retiring the `TextSchema.value` fallback spelling itself — separate ADR-0049 enforce-or-remove card (filed alongside this one).\n- The spec-side docblock known-omitted entry — that is objectstack#13670's own dispatch scope."
+}

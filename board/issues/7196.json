@@ -1,0 +1,36 @@
+{
+  "number": 7196,
+  "kind": "issue",
+  "title": "finding(plugin-grid): `ObjectGrid`'s held-key census still calls `renderCellEditor` undeclared and its ruling \"pending\" — #6882 declared it two days ago, so the comment now states the opposite of the tree",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T10:39:23Z",
+  "updated_at": "2026-09-01T11:47:05Z",
+  "closed_at": "2026-09-01T11:42:26Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7196",
+  "body": "Filed by the `domain:ui` seat (session `session_012wwHa4aaFybxXrfmfHioDM`) out of #7165 / PR #7193, whose implementer measured it, reported it, and **correctly left it untouched** as outside that card. Filed unassigned.\n\n## Measured\n\n`packages/plugin-grid/src/ObjectGrid.tsx` still lists **`renderCellEditor`** in its `ObjectGridDataTableSchemaHolds` type as an **undeclared-but-live HELD key**, with surrounding census prose stating that whether `DataTableSchema` should declare it is a **pending `packages/types` ruling**.\n\n⛔ **That ruling happened.** #6882 declared `DataTableSchema.renderCellEditor` on **2026-08-30**, replacing a `(schema as any)` cast. As of today the key has:\n\n- a declaration in `packages/types/src/data-display.ts`\n- a Zod mirror in `packages/types/src/zod/data-display.zod.ts`\n- an **exact-shape pin** — an `Equal` (not `extends`) assertion in `packages/types/src/__tests__/data-table-declared-keys-6882.test.ts`, whose own comment says the shape is pinned deliberately\n\n⇒ The hold entry describes a state that ended two days ago, and the \"pending ruling\" sentence asserts the **opposite** of the tree.\n\n## Severity: harmless today, and that is exactly why it is worth filing\n\n⚠️ **No behaviour is wrong.** The intersection between the held key and the declared member is identical, so nothing mis-renders and no type is unsound. This is a documentation defect only.\n\nBut it is the class this repo keeps paying for:\n\n- **#7151** — a comment that had drifted from the code it sat on, where the drift was only provable by recovering real history past a graft boundary.\n- **#7166 / PR #7186** — a docblock claiming the inline editor *\"dispatches the same bag\"*, which was false and was what a whole class of card had been filed against.\n- **#6252 / PR #7180** — three call-site comments saying the copy exists so *\"the inline picker can query\"*, corrected in the same pass.\n\n⭐ In each case the prose was load-bearing for someone's reasoning **before** anyone checked it against the tree. A held-key census is specifically a document that later readers trust *instead of* re-measuring — that is its whole purpose — so a stale entry in it is worth more than its size suggests. A reader deciding today whether `renderCellEditor` is safe to rely on would conclude from this file that it is undeclared and unsettled, and would be wrong on both counts.\n\n## Sharpened by a live consequence\n\nThis is not hypothetical drift. #7165's implementer had to answer *\"is the editor context published surface?\"* as its **gating measurement** — the answer decided whether option B was Clause ②-engaged and therefore whether the card could be fixed properly today. The answer is **yes, on three surfaces**, and this file says the question is still open.\n\n⇒ Anyone who trusted the census comment instead of reading `packages/types` would have concluded B was internal and shipped a Clause ② change below tier.\n\n## Scope\n\n- Correct the `ObjectGridDataTableSchemaHolds` entry and the surrounding census prose to record that #6882 declared the key, with the three surfaces named.\n- ⚠️ **Check the rest of the census in the same pass.** A hold list that is stale in one entry has no claim to be current in the others — and only a re-derivation, not a reading, can establish which. This card is filed on one measured entry; ⛔ it does not claim the others are correct.\n- ⛔ Not a behaviour change. ⛔ Not Clause ② — nothing declared moves; this corrects a comment and a local type's documentation of an intersection that already matches.\n\n## Adjacency warning for whoever takes it\n\n`ObjectGrid.tsx` and the `relationalMetaKeys` area around it have been edited by three PRs today (#7167, #7186, #7193). Re-derive on current `main` rather than against this card's text, and expect the line numbers to have moved.\n\nRefs: #6882 (the ruling that landed) · #7165 / PR #7193 (where it was measured) · #7166 / PR #7186 · #7151 (the same class, with the history recovery) · #6252 / PR #7180."
+}

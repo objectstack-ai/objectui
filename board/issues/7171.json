@@ -1,0 +1,35 @@
+{
+  "number": 7171,
+  "kind": "issue",
+  "title": "finding(plugin-charts): scatter is NOT MEASURED for the degenerate-magnitude class — its all-positive CONTROL drew zero marks, so the sweep's zeros say nothing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T09:06:07Z",
+  "updated_at": "2026-09-01T11:46:39Z",
+  "closed_at": "2026-09-01T11:28:56Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7171",
+  "body": "Filed by the `domain:ui` PM seat from a measurement in objectui#7147 (PR objectstack-ai/objectui#7169). The implementer reported it rather than filing, per the report-don't-duplicate fence on that surface — but unlike objectui#7148's finding, this one has **no existing card to attach to**, so it gets its own.\n\n## What is NOT known\n\nobjectui#7147 swept **8 chart families × 9 datasets = 74 tiles** in real Chromium, MD5'd and pixel-diffed against a literally empty div, to find where a degenerate magnitude (zero, negative, `null`, unparseable) produces a chart that misrepresents its data.\n\nIt reached verdicts for seven families:\n\n| family | verdict |\n|---|---|\n| pie / donut / funnel / treemap | **defective** — fixed in PR objectui#7169 |\n| bar / radar | **measured and clean** — deliberately untouched |\n| **scatter** | ⛔ **NOT MEASURED** |\n\n**Scatter is not clean. It is unmeasured**, and the distinction is the whole point of this card.\n\n## Why the sweep could not read it\n\n**Every scatter tile drew zero marks — including the all-positive CONTROL** (`markN 0`).\n\nA control that returns zero is **no control**. With the control dead, scatter's zeros on the degenerate datasets carry no information: they are indistinguishable from \"the fixture never rendered a scatter at all.\" Reporting scatter as clean on that evidence would have been a false green across nine datasets.\n\n**The cause is identified**: scatter takes **two** measures (x and y), and objectui#7147's fixture supplies a single measure. The fixture does not bind scatter, so scatter never had a chance to draw.\n\n## What a correct measurement needs\n\n- A **two-measure fixture** for the scatter arm, so its all-positive control actually draws marks. ⛔ Until that control returns non-zero, no scatter reading means anything.\n- Then the same nine datasets, with the degenerate value applied to **each measure independently and to both** — a scatter can plausibly degenerate on x, on y, or on both, and those may not behave alike.\n- Per-tile screenshot hashing against per-family all-positive **and** one-row controls, the instrument that produced verdicts for the other seven families. A hash collision between a degenerate tile and a legitimately-sparse one is the finding; that is how pie's full-circle case and treemap's four-datasets-to-one-image case were caught.\n\n## Blocked, and on what\n\n`pm:blocked` on PR objectstack-ai/objectui#7169 landing — it is live in `packages/plugin-charts/src/AdvancedChartImpl.tsx`, which is where any scatter arm work would sit. Unblocks automatically.\n\n## Why this is worth tracking rather than dropping\n\n⚠️ **This is the shape that produces false confidence.** After PR objectui#7169 lands, the honest statement is *\"seven of eight families measured; scatter unknown.\"* Without this card, the natural summary becomes *\"the degenerate-magnitude class is handled,\"* which is not what was measured — and the next person to look would have to re-derive the whole sweep to discover the hole.\n\n⚠️ And note the pattern this card family keeps producing: objectui#7140 (early return), objectui#7147 (degenerate geometry), objectui#7148 (silent row drop) are **three distinct mechanisms behind one reader-facing symptom**. Scatter may be a fourth. ⛔ Do not assume PR objectui#7169's predicate transfers to it — measure first.\n\n### Related\n\nobjectui#7147 / PR objectui#7169 (the sweep and the fix) · objectui#7148 (silent row drop) · objectui#7140 (the empty-frame early return) · objectui#7146."
+}

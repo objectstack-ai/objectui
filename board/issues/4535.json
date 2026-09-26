@@ -1,0 +1,34 @@
+{
+  "number": 4535,
+  "kind": "issue",
+  "title": "Reconcile `exportOptions` with the spec's new object form (#8010 spec half): false alignment comment, local `'pdf'`, and the `as any` `streaming` read",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-13T05:33:57Z",
+  "updated_at": "2026-08-31T04:42:21Z",
+  "closed_at": "2026-08-31T04:34:33Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4535",
+  "body": "Follow-up card filed at acceptance of objectstack-ai/objectstack#8010's spec half (PR objectstack-ai/objectstack#8324) by the `domain:spec` seat (session `session_01Euoy6wyfzgiWtgCg4s6JK2`), per the maintainer's 2026-08-12 option-A ruling (\"the objectui renderer/type reconciliation follows with `Blocked-by:` on this card\").\n\nBlocked-by: objectstack-ai/objectstack#8010\n\n## What the spec now says (once #8324 merges)\n\n`ListView.exportOptions` is a **strict object**: `{ formats?, maxRecords?, includeHeaders?, fileNamePrefix?, streaming? }` — exactly the five keys `ObjectGrid.tsx` reads (measured at `origin/main@878140b`, `:1596–:1642`). The legacy bare format array is still accepted and **lifts to `{ formats: [...] }` at parse**. `'pdf'` left the format enum (#1301 NOT_PLANNED); declaring it is now a loud parse-time refusal with a prescription.\n\n## What objectui owes (measured on `878140b` — re-verify on current main)\n\n1. **`packages/types/src/objectql.ts:783–785`** — the local `exportOptions` object type and its \"Aligned with @objectstack/spec ListViewSchema.exportOptions\" comment: the comment was false for the old spec and is nearly-true for the new one; align the type to the spec's five keys (or import/derive from the spec type) and make the comment true.\n2. **`'pdf'`** in the local type/format handling: remove — the platform refuses it at publish now; the runtime `console.warn` drop path for it becomes dead.\n3. **The `streaming` read** (`ObjectGrid.tsx` ~:1600/:1642, currently through `as any`): the key is now DECLARED in the spec — type it properly and delete the cast.\n4. Renderer continues to read `.formats` — with the spec's parse-time array lift, a stored bare-array declaration arrives as the object form through any spec-parsing path; confirm whichever path feeds ObjectGrid its schema (spec-parsed vs raw JSON) and keep the renderer's own array tolerance only if raw un-parsed metadata can still reach it (state which in the PR).\n\n## Constraints\n\n- No new keys beyond the spec's five — a sixth undeclared-but-read key recreates the defect #8010 closed.\n- Re-check commands: `git grep -n \"exportOptions\" -- packages/plugin-grid/src/ObjectGrid.tsx packages/types/src/objectql.ts`; spec side `git grep -n \"ListViewExportOptionsSchema\" -- ../objectstack/packages/spec/src/ui/view.zod.ts` (or the published 17.x dist once the pin bumps).\n- Business context: unblocks the XLSX half of `steedos-labs/os-project-titanwind-ehr#1161` (§7.7) end-to-end once both halves land."
+}

@@ -1,0 +1,36 @@
+{
+  "number": 7137,
+  "kind": "issue",
+  "title": "finding(app-shell): InterfacesPillar's block `selection` outlives a leaf change on every non-editable leaf — the clear sits inside the `isEditable` early-return",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T04:32:29Z",
+  "updated_at": "2026-09-01T06:48:43Z",
+  "closed_at": "2026-09-01T06:34:08Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7137",
+  "body": "Found while implementing #7121 (studio-canvas leaves offering Design mode and a \"click a block\" rail). Swept up, **measured**, and deliberately **not** fixed there: the repair reaches every non-editable leaf, not just the studio-canvas leaves that card is fenced to.\n\n## The mechanism\n\n`InterfacesPillar`'s draft-load effect clears the canvas block selection — but the clear sits **after** the guard, so it never runs on the path that returns early:\n\n```\nReact.useEffect(() => {\n  if (!current || !isEditable) {\n    setDraft({});\n    setHasDraft(false);\n    return;              // <-- returns BEFORE the clear below\n  }\n  let cancelled = false;\n  setLoading(true);\n  setError(null);\n  setSelection(null);    // <-- only ever reached on the editable path\n  ...\n}, [client, current, isEditable, publishNonce]);\n```\n\n`packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx`, the effect commented \"Load the selected surface's draft (only for editable preview types)\".\n\nSo walking from a leaf where a block is selected to any leaf with `isEditable === false` carries the selection across. The surviving `selection` describes a block on the **previous** leaf's canvas.\n\n## Measured\n\nWith the designer registry populated, a stub preview for `dashboard` and a stub inspector registered for `object`, selecting a block on the dashboard leaf and then clicking the `object` leaf:\n\n```\n[B] selection live on dashboard leaf: true\n[B] deselect affordance STILL present on object leaf: true\n[D] inspector types now: [\"object\"]\n[D] scoped inspector rendered on studio-canvas leaf: true\n[D] inspector was handed type/name: object:showcase_task:block:blk_1\n```\n\n`blk_1` is a dashboard block. It does not exist on the records grid the object leaf renders. Production registers `ObjectFieldInspector` for `object` (`metadata-admin/inspectors/index.ts`), so the branch is reachable outside the harness.\n\n## What #7121 already covers, and what it does not\n\n#7121 gates the rail and the header's \"clear selection\" button on `StudioCanvas`, and orders the rail's studio-canvas branch ahead of the selection branch. That makes the two **rail** symptoms unreachable on studio-canvas leaves.\n\nIt does **not** clear the state. Still live afterwards:\n\n- `hasInspectorTarget = Boolean((editNav && navSel) || selection)` feeds `nextCenterTab` (`centerTab.ts`). In the folded (narrow / chat-dock) layout, arriving at a leaf with a stale selection reads as \"a target APPEARED\" and auto-switches the center tab to **Properties** — which then states the canvas has no blocks. *(Read from the code path, not measured in a browser.)*\n- The leak is not specific to studio-canvas leaves. It is every leaf where `isEditable` is false, which also includes leaves whose own type has no registered designer.\n\n## Why it was not fixed in #7121\n\nThat card's ruling fences it to studio-canvas leaves — `registerStudioCanvasPreview` types, of which there is exactly one in-repo today (`object`). Moving `setSelection(null)` out of the guard changes behaviour on a strictly larger population, so it is a deliberate decision rather than a rider.\n\n## Not scoped here\n\nWhich repair is right:\n\n- hoist `setSelection(null)` above the guard so any leaf change clears it — simplest, and arguably what the effect already means to say;\n- clear it in the leaf-change handler instead of the load effect, so the reset is not entangled with `isEditable` being in the dependency array;\n- key the selection to the leaf (as `blockingReport` already is via `inspectorKey`) so it expires by construction rather than by an imperative clear. `inspectorKey` is the precedent in the same component.\n\n## Related\n\n#7121 (where this was found) · #6795 part C · `centerTab.ts` / ADR-0057 P3c (the folded-layout consumer of `hasInspectorTarget`)"
+}

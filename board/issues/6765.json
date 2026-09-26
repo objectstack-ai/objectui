@@ -1,0 +1,36 @@
+{
+  "number": 6765,
+  "kind": "issue",
+  "title": "finding(fields): CurrencyField/PercentField lean entirely on browser number-input sanitization, which happy-dom does not implement",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-29T08:03:26Z",
+  "updated_at": "2026-08-29T11:26:39Z",
+  "closed_at": "2026-08-29T11:26:39Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6765",
+  "body": "Filed unassigned by the dev seat implementing objectui#6715, as an out-of-scope finding. **Not fixed there** — that card is fenced to `LocationField`. Recording, not choosing.\n\nDedup before filing: repo-scoped REST list of open issues updated since 2026-08-15 (90 issues), grepped for `CurrencyField` / `PercentField` / `type=\"number\"` / `number input` / `sanitiz`. Only objectui#6452 and objectui#6318 matched, neither about this. A control word (`LocationField`) hit three cards in the same sweep (objectui#6715, objectui#6744, objectui#6755), so the read was sound rather than empty.\n\n## What\n\nTwo sibling widgets hand `parseFloat(e.target.value)` straight to `onChange` with no whole-string guard of their own, measured on `b76ca6764`:\n\n- `packages/fields/src/widgets/CurrencyField.tsx:89` and `:118`\n- `packages/fields/src/widgets/PercentField.tsx:45`\n\nThat is the same reading objectui#6715 has just removed from `LocationField`, where it truncated `12abc` into a plausible wrong coordinate. Here the assumed guard is different: both widgets render `type=\"number\"` inputs, and the HTML value-sanitization algorithm is supposed to make the value an empty string when the text is not a valid floating-point number, so `parseFloat` should never see residue.\n\n## The measurement\n\n**happy-dom — this package's test environment — does not implement that sanitization.** Measured directly:\n\n```\ntype=text   set=\"12abc\" -> value=\"12abc\"  parseFloat=12\ntype=number set=\"12abc\" -> value=\"12abc\"  parseFloat=12\ntype=number set=\"1.2.3\" -> value=\"1.2.3\"  parseFloat=1.2\ntype=number set=\"0x10\"  -> value=\"0x10\"   parseFloat=0\n```\n\nTwo consequences, and the second is the one worth recording:\n\n1. The widgets' correctness rests on a browser behaviour that nothing in this repo asserts. If it holds, the residue case degrades to a **silent drop** (the value becomes an empty string, `onChange` receives `null`, and nothing is said) — which is the objectui#6716 defect class rather than the objectui#6715 one.\n2. **Any test written for these two widgets exercises the unsanitized path, not the shipped one.** A suite can go green on a code path no browser takes, and a pin can fix in place a truncating behaviour that never actually reaches a user. The oracle and the product disagree, and nothing says so.\n\n## What is NOT measured\n\n- Real-browser behaviour of either widget. No dogfood or Playwright run was made against them; the reasoning above about sanitization is from the HTML spec, not from an observation.\n- Whether a silent drop on a currency or percent field is worth announcing, the way objectui#6716 decided it was for a coordinate.\n- Whether either widget has a user-visible defect at all. This is an observation about an unasserted dependency and a misleading test environment, not a reproduced failure.\n\n### Related\n\nobjectui#6715 (the same `parseFloat` reading in `LocationField`, where the input is `type=\"text\"` so there is no sanitization to lean on) · objectui#6716 (the silent-refusal class) · objectui#6272 (the plausible-wrong-value precedent)"
+}

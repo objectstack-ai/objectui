@@ -1,0 +1,35 @@
+{
+  "number": 7147,
+  "kind": "issue",
+  "title": "finding(plugin-charts): funnel and pie handed all-zero rows render a pixel-identical blank tile — same silence as #7140, a different trigger",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T06:01:49Z",
+  "updated_at": "2026-09-01T09:30:30Z",
+  "closed_at": "2026-09-01T09:29:20Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7147",
+  "body": "Filed unassigned by the implementer of #7140 (PR #7146) while measuring the sankey blank. ⛔ Out of scope there and deliberately not fixed in that PR — different trigger, different arm, and a different mechanism.\n\n## The measurement\n\nTwelve chart tiles were rendered in a real Chromium at `origin/main` **e8e4c4df5**, each in a 520x240 box, and every tile's screenshot was hashed. Five hashed **identical to one another** — `b53cc8c42c5341541399eab3475163d0`, a tile with nothing on it:\n\n| tile | descendants | svg | screenshot hash |\n|---|---|---|---|\n| sankey, every measure `0` | 1 | 0 | `b53cc8c4…` |\n| sankey, every measure `null` | 1 | 0 | `b53cc8c4…` |\n| sankey, every measure negative | 1 | 0 | `b53cc8c4…` |\n| **funnel, every measure `0`** | **34** | **1** | **`b53cc8c4…`** |\n| **pie, every measure `0`** | **31** | **1** | **`b53cc8c4…`** |\n| bar, every measure `0` (CONTROL) | 104 | 1 | `81bbfc97…` — axes, ticks, labels, legend |\n| sankey, all values positive (CONTROL) | 26 | 1 | `d9dabc9b…` — a sankey |\n\nThe controls hash differently, so the instrument returns non-zero on the same page and the five zeros are real.\n\n## Why this is NOT #7140\n\n#7140's sankey blank is an **empty DOM** — the arm returns a bare `div`, one element, no `svg`. PR #7146 fixes that by rendering the file's `ChartRefusal` shell instead.\n\nFunnel and pie are the opposite shape and are untouched by that fix: their DOM is **rich** (34 and 31 descendants, a real `svg`, category text nodes) and they still paint **nothing a reader can see**. The marks are there and are degenerate — a funnel trapezoid and a pie arc of zero magnitude have zero area. Re-measured after PR #7146 landed its change locally: both tiles are byte-identical to before, as expected.\n\nSo the sankey fix does **not** close this, and the card's framing in #7140 — \"the last path that renders a blank tile and says nothing\" — is not true on today's `main` even once #7139 lands. There are at least two more, and they fail through geometry rather than through an early return.\n\nAdjacent observation from the same sweep, recorded but not the same defect: **treemap** handed all-zero rows renders ONE full-bleed leaf labelled with the LAST category (`f227415952f8…`) — not blank, but not an honest picture of two equal-zero categories either.\n\n## What this card does NOT assert\n\nIt does not assert the blank is wrong. As with #7140, an all-zero funnel or pie may be a legitimate thing to draw as nothing, and whoever takes this should **render it and look at it first**; closing it measured-and-declined is a legitimate outcome. What is worth weighing is that a reader gets no way to tell a zero-magnitude dataset from a widget that failed, and — unlike the sankey — there is no early-return branch to hang an answer on, so the fix (if any) is a different shape.\n\n## Related\n\n- **#7140** / PR #7146 — the sankey arm's empty-DOM blank; measured in the same sweep, fixed there, does not reach this.\n- **#4695** — a cartesian chart handed no series binding at all. Same family of silence.\n- **#7132** — the `DataEmptyState` convergence, which may absorb the copy question."
+}

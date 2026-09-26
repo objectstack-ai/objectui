@@ -1,0 +1,35 @@
+{
+  "number": 7121,
+  "kind": "issue",
+  "title": "finding(app-shell): the Interfaces pillar offers Design mode and a \"click a block\" rail on leaves that have no block canvas — measured with a POPULATED registry",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T02:54:13Z",
+  "updated_at": "2026-09-01T05:17:38Z",
+  "closed_at": "2026-09-01T05:04:16Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7121",
+  "body": "Found while implementing part C of #6795 (PR #7120), swept up but deliberately **not** fixed there: it is a different cause from that card's, so repairing it in that PR would have widened the blast radius past the ruling's scope.\n\n## The observation\n\n`InterfacesPillar` derives `isEditable = !!Preview && !StudioCanvas` — false whenever the leaf resolves to a **studio-canvas surface** rather than a block-tree designer. Today exactly one type opts in: `object`, which renders the runtime records grid (`registerStudioCanvasPreview('object', StudioObjectRecordsCanvas)`). Schema editing for those lives in the Data pillar, by design.\n\nBut two affordances beside that canvas are not gated on `isEditable`:\n\n1. **The right rail** falls through to its empty state and says *\"Click a block on the canvas, and edit its properties right here.\"* — on a canvas that is a records grid with no blocks in it. Following the instruction is impossible.\n2. **The Design/Run segmented control** (`data-testid=\"canvas-mode-toggle\"`, added by #5800) is still offered. Pressing **Design** flips `canvasMode`, but `StudioObjectRecordsCanvas` takes no `editing` prop, so nothing changes — an inert control that looks live.\n\n## Measured, not inferred — and note the precondition\n\nThis is **not** the empty-registry class #6795 part C repaired. It reproduces with the designer registry **populated**:\n\n```\n[probe] preview types now: [\"dashboard\"]\n[probe] object-leaf text: Tasks | object · showcase_task | Acme · Navigation | Edit | Tasks | object |\n        Design | Run | object · showcase_task | New | ... | Runtime list preview · edit fields /\n        structure in the Data pillar | Properties | Click a block on the canvas, and edit its\n        properties right here.\n```\n\nThe registry is demonstrably non-empty (`listMetadataPreviewTypes()` returns a designer), the leaf renders its studio canvas correctly, and the rail *still* instructs the author to click blocks that do not exist. So the cause is the ungated affordance, not a missing registration.\n\n⚠️ Worth stating because it is the reason this is a separate card: the canvas itself is honest here. It even carries a correct hint — *\"Runtime list preview · edit fields / structure in the Data pillar\"* — right next to a rail contradicting it.\n\n## Why it was not fixed in PR #7120\n\nThat PR's ruling (维护者 2026-08-30, 决裁批 #4) scopes part C to the states caused by an **unpopulated** designer registry. Gating the Design toggle on `isEditable` reaches every studio-canvas leaf, where the registry is populated and the cause is different — a behaviour change on a surface #5800 owns, outside that fence. Filed here instead so the decision is taken deliberately.\n\n## Not scoped here\n\nWhich of the two repairs is right. Options a taker should weigh rather than assume:\n\n- **Rail:** give the studio-canvas branch its own empty state (something like \"this surface is edited in the Data pillar\", echoing the hint already on the canvas), instead of the block-tree invitation.\n- **Toggle:** hide it, disable Design, or let `StudioCanvas` implementations opt into an `editing` prop so the control becomes live rather than removed. #5800's acceptance (\"设计⇄运行 is a round trip, same renderer\") is the constraint to respect — check `StudioDesignSurface.canvasMode.test.tsx` before changing its shape.\n\nBoth land in `packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` (`InterfacesPillar`).\n\n## Related\n\n#6795 (part C, where this was found) · PR #7120 · #5800 (added the Design/Run switch) · the `registerStudioCanvasPreview` extension point in `views/studio-design/studio-canvas-preview.tsx`"
+}

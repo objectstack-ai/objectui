@@ -1,0 +1,33 @@
+{
+  "number": 7165,
+  "kind": "issue",
+  "title": "bug(plugin-grid): a `dependsOn` lookup column is permanently uneditable in ObjectGrid — the inline editor supplies no dependent values, so the picker gates forever",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T08:13:23Z",
+  "updated_at": "2026-09-02T02:03:52Z",
+  "closed_at": "2026-09-02T02:03:44Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7165",
+  "body": "Provenance: measured while implementing objectui#7154, which asked whether copying `dependsOn` onto the grid's relational meta could expose or worsen objectui#2215. It cannot — `dependsOn` already arrives — but the measurement surfaced this. Filed unassigned.\n\n## What is measured\n\nRendered on `51449a043` (`origin/main`), an `ObjectGrid` with `editable: true` over an object schema carrying:\n\n```\nregion:         { type: 'text' }\nregional_owner: { type: 'lookup', reference: 'os_7154_person', dependsOn: ['region'] }\n```\n\nand a row whose `region` is `'north'`. Single-click the `regional_owner` cell and the inline editor renders:\n\n- trigger `data-testid` = `lookup-trigger-gated`, `disabled` = `true`, text \"Select region first\"\n- the browse-all button next to it `disabled` too\n\nThe control column in the same render (same reference, same records, no `dependsOn`) gives `lookup-trigger-owner`, enabled. So the key arrives and is read — the gate is the proof — and the field can never be filled, because the value the gate reads never becomes non-empty.\n\nPinned as current behaviour in `packages/plugin-grid/src/__tests__/lookupPickerKeys-7154.test.tsx` (the `dependsOn` case), added by objectui#7154's PR.\n\n## Root cause — the half of PR objectui#2216 the grid never got\n\nobjectui#2215 (\"Cascading lookup (dependsOn) broken in forms; table picker bypasses the dependent filter\") was closed COMPLETED by PR objectui#2216, which fixed two halves:\n\n1. the FORM renderer injects its live watched record as the `dependentValues` prop, and\n2. every picker surface takes the `dependsOn` chain as a hard `baseFilter`, so no picker bypasses the cascade.\n\nHalf 2 is host-independent and is live on the grid path. Half 1 is per-host, and the grid was never given it. `LookupField` resolves `dependentValues ?? ctx.formValues ?? ctx.data ?? {}` (`packages/fields/src/widgets/LookupField.tsx`, the `resolvedDependentValues` memo):\n\n- `dependentValues` — the grid passes none. `renderCellEditor` in `ObjectGrid.tsx` renders `FieldEditWidget` with `field` / `value` / `onChange` only.\n- `ctx.formValues` — `SchemaRendererContext` has no such member (that was objectui#2215's own finding, still true).\n- `ctx.data` — the grid does not set it for a row.\n\nSo the resolved record is `{}` for every row, `dependenciesMissing` is permanently `true`, and the gate never lifts. Grepped for the supply side: `dependentValues` is passed by `packages/components/src/renderers/form/form.tsx`, `packages/app-shell/src/views/ActionParamDialog.tsx` and `packages/plugin-grid/src/components/BulkActionDialog.tsx` — the grid's own inline editor is not among them.\n\n## Why this was not fixed in objectui#7154\n\nIt is a behaviour change outside that card (which is about the relational copy set), and its shape is a real decision rather than a mechanical fill-in. `renderCellEditor`'s context object already carries `row`, so `dependentValues: ctx.row` is one line — but `row` is the SAVED record. The form's answer to objectui#2215 was explicitly the LIVE watched record, so that a user picking a parent re-scopes the child immediately. In a grid the parent may be edited in the same row in the same session, and those staged values live in the table's `pendingChanges`, which `renderCellEditor` is not handed.\n\nTwo readings, and they are not the same product:\n\n- **A. Feed the saved row** (`ctx.row`). One line, unblocks the field, scopes the query by what is persisted. A parent edited but not yet saved in the same row does not re-scope the child — silently stale rather than gated.\n- **B. Feed the row merged with its staged edits.** Matches the form's semantics, and needs the `DataTableSchema` editor context to carry the pending record — a contract change on the seam (`renderCellEditor`'s context is `{ column, row, value, stage, commit, cancel }`).\n\nRecommend B if the seam change is acceptable, A only as an interim with the staleness written down; the choice belongs to whoever owns that contract.\n\n## What is NOT measured\n\n- No user report is attached; this is a rendering measurement in the test environment, not a browser dogfood run.\n- Whether any shipped app declares `dependsOn` on a field that also appears in an editable grid. The defect is reachable by construction from the spec (`FieldSchema.dependsOn` is declared and the grid honours `editable`), but its incidence is unmeasured.\n- `plugin-detail`'s `InlineFieldInput` renders the same widgets and was not measured here; it may have the same gap.\n\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

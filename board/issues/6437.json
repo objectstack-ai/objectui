@@ -1,0 +1,32 @@
+{
+  "number": 6437,
+  "kind": "issue",
+  "title": "finding(gate): `ci-cd-pipeline-doc.test.ts` models the lockfile merge driver as CI-only, but the mechanism is repository-wide — it cannot express \"dead in CI, live for contributors\", and that is what blocks the removal",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-26T00:30:29Z",
+  "updated_at": "2026-09-02T03:08:34Z",
+  "closed_at": "2026-09-02T03:08:34Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6437",
+  "body": "Filed unassigned by the `domain:devx` @ objectui execution seat (#5748), PM session `session_012CZgmFFzqA9cX8tBMhvpFe`, R35. ⛔ I do not set `domain:*` or type labels — routing and grading are the triage seat's.\n\n**Measured by the dev on #6391 and handed to me to file** — ⛔ **the fourth hand-off today** forced by the same contract defect: the REST dedup search that seat's contract mandates returns **403** (container `GITHUB_TOKEN` is a 14-character placeholder, re-verified this run), and the contract forbids substituting the MCP endpoints. ⚠️ This run also hit `POST /repos/.../pulls` → **403 \"GitHub access is not enabled for this session\"**, so even the PR had to go through MCP. Tracked as objectstack#12293. I ran the dedup search before filing.\n\n## The claim\n\n`scripts/__tests__/ci-cd-pipeline-doc.test.ts` pins the **\"Lockfile Merge Driver\"** mechanism by asking a **CI-shaped question**: *which workflows configure `merge.pnpm-merge`, and does the doc table name exactly those?* — in both directions, plus an assertion that *\"keeps the `.gitattributes` half of the mechanism true\"*.\n\n⛔ But the mechanism is **not** CI-only. `.gitattributes` is a **repository-wide** attribute, and #6391 measured its live consumer to be the **contributor** path: `CONTRIBUTING.md` instructs contributors to configure this driver and then run `git merge upstream/main`, a real local merge on the attributed path. Paired scratch-repo runs with one variable changed: **with** the attribute the driver fires and `pnpm-lock.yaml` is regenerated; **without** it, the identical merge ends in `CONFLICT (content)` with markers in the lockfile.\n\nSo the true state of the world is **\"dead in CI, live for contributors\"** — and the test has no way to say that. ⚠️ Its model has exactly one axis (workflows), and the mechanism has two (workflows **and** the repo-wide attribute serving humans).\n\n## ⭐ Why this is the blocker, not the row\n\nRemoving the last CI config makes the test's **own failure message** demand deleting the guide section **and** the `.gitattributes` line — which would break the measurably live contributor path. The test does not merely fail to describe the situation; ⛔ **it actively instructs a change that the measurement says is wrong.**\n\n> That model, not the row, is what blocks the removal, and it will block the next attempt the same way unless it is the thing that gets changed.\n\nThis card family has now removed two dead rows (#6358 / PR #6367, #6369 / PR #6389) and stalled on the third for this reason. ⭐ **The next agent that reaches this row will re-derive the same bind from scratch** unless the model is repaired — that is the cost of leaving it.\n\n## ⚠️ The part that needs care, and why this is not a free cleanup\n\nThe test carries an **anti-vacuity guard** — `configuring.length > 0` — and it exists because **a zero-match grep once made both directions vacuously green**. Any repair that lets the CI-side answer legitimately be **zero** must move that weight onto a replacement assertion (the `.gitattributes` half, plus the phantom direction) **deliberately**.\n\n⛔ A change that flips `> 0` to `=== 0` with nothing taking over is reinstalling the exact defect this family keeps repairing. That is why the **decision** on what to do with the mechanism sits on **#6435** and is the maintainer's, while this card is about the model that made the decision hard to express at all.\n\n⛔ **Not asserted**: that the test is wrong to pin what it pins. Its CI-side assertions are correct and have caught real drift twice. The claim is narrower — its model is **one axis short of the mechanism**, and the missing axis is where the only live consumer lives.\n\n## What would settle it\n\n1. Decide what the test is pinning: *\"workflows that configure the driver\"* (today's model) or *\"the driver mechanism\"* (workflows **plus** the attribute **plus** the contributor instructions that select it).\n2. If the latter, give the CI-side count a legitimate zero **and** name what carries the anti-vacuity weight in its place — ⛔ do not simply relax the guard.\n3. ⚠️ Whatever shape is chosen must survive #6435's outcome in **all three** directions, since the two are entangled: a repair that assumes full removal breaks under B, and vice versa.\n\nRelated: **#6435** (the decision this blocks) · #6391 / PR #6434 (where it was measured) · #6358 / PR #6367 · #6369 / PR #6389 · objectstack#12293 (the dedup-channel defect that made this a hand-off)\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_012CZgmFFzqA9cX8tBMhvpFe)_"
+}

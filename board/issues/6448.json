@@ -1,0 +1,35 @@
+{
+  "number": 6448,
+  "kind": "issue",
+  "title": "finding(docs): `ci-cd-pipeline.md` says \"every workflow declares `'22.x'`\" — one lane declares `'22'`, and that lane is the reason #6400's anchor normalises on the major",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx"
+  ],
+  "assignees": [
+    "zhuangjianguo"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-26T00:50:07Z",
+  "updated_at": "2026-08-31T14:30:46Z",
+  "closed_at": "2026-08-31T14:30:24Z",
+  "closed_by": {
+    "login": "zhuangjianguo",
+    "id": 19182527,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6448",
+  "body": "Found while implementing #6400 (deriving the `node-version` set from `.github/workflows` so the ledger's `Node 22.x` entries stop restating a hand-written count). Deliberately **not** fixed there: #6400's PR is test-only and this is a prose edit on a guide page, and — more to the point — this exact sentence is the one the *neighbouring* ledger entry (`ci-cd-pipeline.md :: node-version: 20`, landed by #6409) is anchored on. Rewording it is a claim on that entry, not on #6400's.\n\n## The sentence\n\n`content/docs/guide/ci-cd-pipeline.md:1744`, inside the numbered \"adding a new workflow\" steps:\n\n> 2. Copy the pnpm + Turbo setup from a workflow that runs today, not from a snippet on this\n>    page. A copied YAML block is a fossil the moment it is pasted — this page used to keep\n>    one here, and every line of it had drifted: `actions/setup-node@v4` where every workflow\n>    now uses `@v7`, a hardcoded `node-version: 20` **where every workflow declares `'22.x'`**\n>    (and 20 sat below the floor the root `package.json`'s `engines` field now declares), and\n>    `pnpm/action-setup@v4`, which no workflow in this repository has ever used …\n\n## Measured on `c8ea8af9c` (origin/main at 2026-08-26T00:47Z)\n\n```\n$ grep -rhoP \"node-version:\\s*'22\\.x'\" .github/workflows/ | wc -l\n27\n$ grep -rhoP \"node-version:\\s*'22'\"   .github/workflows/ | wc -l\n1\n$ grep -rnP \"node-version:\\s*'22'\" .github/workflows/\n.github/workflows/half-state-patrol.yml:196:          node-version: '22'\n```\n\n28 declarations across 23 files. **27** are spelled `'22.x'`; `half-state-patrol.yml` is spelled `'22'`. So \"every workflow declares `'22.x'`\" is false as written — by one lane, on the spelling, not on the version.\n\nControl, same page and same sweep: the page's three references to `readme-exports.yml` all resolve to a workflow that exists (`.github/workflows/readme-exports.yml`), so this is not a page whose workflow references have gone stale wholesale — the rest of the paragraph measures true, including `@v7` and the `pnpm/action-setup@v4` claim.\n\n## Why it is worth a card rather than a shrug\n\nIt is the same defect shape as #6400 one layer out: an **absolute quantifier over `.github/workflows` written into prose**, which one lane falsifies and nothing re-measures. #6400 moved the ledger's version anchor into a run precisely because a sentence a reader re-measures by is not re-measured by anything; this sentence is on the *page* rather than in the ledger, and #6400's new assertion deliberately does **not** cover it (it compares the major a page states against the major the workflows declare — it is blind to spelling, which is the whole reason it can see the `'22'` lane at all).\n\nThe claim the sentence is *making* is true and worth keeping: a copied block pinning 20 is a fossil, and the tree is on 22 everywhere. What is wrong is the spelling-level absolute.\n\nTwo dispositions, both one line:\n\n- **A** — drop to the version and off the spelling: *\"a hardcoded `node-version: 20` where every workflow declares 22\"*. True today, true after `half-state-patrol.yml` is normalised or not, and it stops the sentence making a claim about YAML quoting that nothing checks.\n- **B** — keep the spelling and make it accurate: *\"…where every workflow declares 22, all but one of them as `'22.x'`\"*. More precise, and re-introduces exactly the kind of count-shaped fact #6400 was filed about — it goes stale the moment that lane is normalised.\n\nA is recommended: the sentence is teaching *don't copy a fossilised pin*, and the spelling of the quote marks is not part of that lesson. Same reasoning #6409 used when it deliberately gave its own `node-version: 20` ledger entry no declaration count.\n\nRelated: #6400 (the ledger entries for the same page's `Node 22.x` literal), #6409 (the ledger entry anchored on this very sentence), #6447 (the same class in the `pnpm 10.x` entries).\n"
+}

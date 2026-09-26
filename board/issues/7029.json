@@ -1,0 +1,36 @@
+{
+  "number": 7029,
+  "kind": "issue",
+  "title": "ObjectView invents `startDateField: 'due_date'` / `titleField: 'name'` for views with no `calendar:` block — the guess short-circuits ObjectCalendar's own refusal screen and piles every record on today",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T13:40:27Z",
+  "updated_at": "2026-08-31T20:12:14Z",
+  "closed_at": "2026-08-31T20:12:14Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7029",
+  "body": "Ruled on objectstack#13748 (2026-08-31, director batch #19, option A — fix both halves). This is the objectui half; the spec half (cross-field validation) is objectstack#13817.\n\n## The three-layer chain (measured)\n\n1. **spec passes the half-written declaration** — `allowedVisualizations` and the `calendar:` block are each optional with no cross-field check (objectstack#13817 closes this);\n2. **ObjectView invents a config** — `packages/app-shell/src/views/ObjectView.tsx:2220`: `startDateField: viewDef.calendar?.startDateField || 'due_date'`, `titleField: … || 'name'` — invented field names for a view that declared none;\n3. **the renderer falls back silently** — `packages/plugin-calendar/src/ObjectCalendar.tsx:445`: `start: startDate ? new Date(startDate) : new Date()` — a record whose invented field is absent lands on \"today\".\n\nThe renderer HAS a refusal screen — `ObjectCalendar.tsx:657`, \"Calendar configuration required. Please specify startDateField and titleField.\" — but it is unreachable from this route: layer 2 always synthesizes a config that looks complete. Measured on hotcrm (`crm_leave_request`, real fields `start_date` / `end_date`): all 9 records piled on today's cell, titles resolved via the display-name chain — a plausible, fully wrong screen with zero signal to the author.\n\n## Deliverable\n\nRemove the invented defaults. A view whose `calendar:` block is missing passes NO calendar config through, so the existing refusal screen catches it — or disable the calendar toggle for such views; implementer picks the mechanically cleaner, ⛔ either way no invented field names. This makes the runtime honest independent of which spec version the host pins.\n\n⚠️ Views currently rendering \"coincidentally right\" via the `due_date` guess (objects that really carry a `due_date` field) flip to the refusal screen — that is the ruled loud-over-silent direction; name any hits in the PR rather than discovering them after.\n\nRefs: objectstack#13748 (phenomenon record, closed by the ruling), objectstack#13817 (spec half), objectstack#13751 (unrelated navigation-step bug on the same surface, separately queued)."
+}

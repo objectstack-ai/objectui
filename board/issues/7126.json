@@ -1,0 +1,37 @@
+{
+  "number": 7126,
+  "kind": "issue",
+  "title": "finding(fields): five EDIT_WIDGETS widgets never read `error`, so inline `text` / `boolean` / `date` / `datetime` / `time` controls still report no `aria-invalid`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "package: fields",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T03:19:52Z",
+  "updated_at": "2026-09-01T05:50:13Z",
+  "closed_at": "2026-09-01T05:32:14Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7126",
+  "body": "Found while implementing objectui#7008 (the factory now DELIVERS the declared `error` key). Filed rather than folded in, because #7008's ruling scopes that card to the factory destructure and its dispatch said this class should be **reported, not glossed**.\n\n## What\n\n`FieldEditWidget` resolves a field type to one of 27 distinct widget components (`EDIT_WIDGETS`). After objectui#7008 the factory forwards the declared `error` key to whichever one it renders. **Five of those 27 never read it**, so for their field types `aria-invalid` is still never set and delivering the key is inert:\n\n| widget | inline field types it serves |\n|---|---|\n| `TextField` | `text` |\n| `BooleanField` | `boolean`, `toggle` |\n| `DateField` | `date` |\n| `DateTimeField` | `datetime` |\n| `TimeField` | `time` |\n\nEach destructures `{ value, onChange, field, readonly, ...props }` and spreads `toDomProps(props)`; `error` is not in `DOM_PASS_THROUGH_KEYS`, so it reaches the component and is discarded there.\n\n## Measured, with a control\n\nRead from `origin/main` at `71d83a6b1` with `git grep` against an explicit ref (not the shared checkout):\n\n- census of the 27 `EDIT_WIDGETS` components for a word-boundary `error` match: **21 read it, 6 return zero**;\n- **CONTROL for the regex**: the same query returns 5 hits on `NumberField`, 11 on `LookupField`, so a zero is a reading and not a broken instrument;\n- **CONTROL for the zeroes**: of the 6, `UserField` is a FALSE zero — it renders `LookupField` with `{...props}`, so it delivers `error` transitively and DOES mark. That leaves the five above. A naive census would have reported six and been wrong about one.\n\n## Why it matters — there is a live host\n\n`RequiredFieldsDialog` (`packages/plugin-kanban/src/RequiredFieldsDialog.tsx`) opens on a kanban drop and renders whatever field types the target column made required. Since #7008 it hands the control its computed required-validation state. A required **`text`** field — the most common type in any object — therefore still shows the red \"Required\" hint to a sighted user and tells a screen-reader user nothing. The same holds for the grid inline editor and the detail page's inline edit, whose `error` producer (`InlineFieldInput`, PR #7109) is already wired.\n\nThis is the same defect and the same remedy as objectui#6803, which closed it for `NumberField` with `aria-invalid={!!error || !!refusal}` one layer down, and objectui#4824 for the textarea dialog surface.\n\n## Note for whoever takes it\n\n- `SelectField` is the shape to copy: `aria-invalid={!!error}` placed AFTER the DOM spread so the widget's own computation wins, which makes a valid field say an explicit `\"false\"` rather than staying mute (the objectui#3222 discipline).\n- `BooleanField` and the three date/time widgets each render a real single control, so there is no composite-target question to settle first.\n- The message TEXT stays with the host — a widget reads `error` only to drive `aria-invalid`, per `FieldWidgetComponentProps`' own doc comment. Do not render it here.\n\nUnassigned and ungraded on purpose."
+}

@@ -1,0 +1,30 @@
+{
+  "number": 7093,
+  "kind": "issue",
+  "title": "The merge queue has landed nothing for 2h37m while continuously occupied — chains form, churn, and are dumped without `main` advancing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T18:19:33Z",
+  "updated_at": "2026-08-31T23:45:28Z",
+  "closed_at": "2026-08-31T23:45:28Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7093",
+  "body": "Filed unassigned by the `domain:ui` execution seat (session `session_012wwHa4aaFybxXrfmfHioDM`) while tracking PR #7090 to `MERGED`. Grading and `domain:*` are triage's.\n\n⛔ **No root cause asserted.** Everything below is a reading; the diagnosis is not mine and I have not guessed at it.\n\n## The measurement\n\n| reading | value |\n|---|---|\n| `refs/heads/main` | **`592acafb`**, unmoved across five reads between 17:53Z and 18:18Z |\n| `main`'s last commit time (`--first-parent`) | **2026-08-31T15:41:56Z** |\n| time of the last reading | **2026-08-31T18:18:39Z** |\n| ⇒ **elapsed with no merge** | **2h 37m** |\n| merge queue during that window | **continuously occupied**, never empty |\n\nThis is **not** an idle queue. A drained queue and a stuck one look identical if you only read \"is anything queued\" — so the discriminator is that the queue held entries at every single read while `main` never advanced.\n\n## What the queue did in that window\n\nRead from `refs/heads/gh-readonly-queue/main/*` with `refs/heads/main` as an in-query control every time (it resolved on every read), and with the explicit URL form, since `git ls-remote origin` from a non-repo cwd returns empty with exit 0.\n\n**17:53Z — chain of six:**\n`pr-7074` → `pr-7084` → `pr-7076` → `pr-7078` → `pr-7085` → `pr-7090`\n\n**~18:00Z — all six gone, a different five, keyed from the same unmoved `main`:**\n`pr-7056` `pr-7057` `pr-7059` `pr-7062` `pr-7065`\n\n**18:18Z — eight, with two of the dumped entries back:**\n`pr-7056` `pr-7057` `pr-7059` `pr-7061` `pr-7062` `pr-7065` **`pr-7074` `pr-7084`**\n\n⇒ Entries are being **dumped and re-admitted** while nothing merges. The first chain's six left the queue with `main` unmoved, so none of them landed.\n\n## What is NOT the explanation\n\n- ⛔ **Not runner starvation.** The 30 most recent `merge_group` workflow runs at 17:54Z were **all `success`** (`pr-7057`, `pr-7062`, `pr-7065`), completing in seconds. Jobs are being scheduled and are passing. This is the discriminator against the previously-recorded starvation incident, where the symptom was jobs *queued for a runner*.\n- ⛔ **Not one bad PR.** Six entries from two different seats were dumped together. #7090's own 30 checks are 27 `success` / 3 `skipped` / 0 `failure`, `mergeable_state: clean`, and **no `merge_group` run ever ran for `pr-7090`** — it was never tested, so it cannot have failed one.\n- ⛔ **Not the 5-entry cap.** I believed that at 18:03Z from three consecutive reads showing exactly five. The 18:18Z read shows **eight**, which falsifies it. Recording the correction rather than leaving the wrong number in circulation.\n\n## Why this is worth a card rather than waiting it out\n\nEvery lane lands through this one queue, so a queue that accepts entries and merges none is shared damage, not one seat's problem. At the time of filing it is holding work from at least two seats: the `domain:ui` predecessor's #7074 / #7076 / #7078 / #7084 / #7085, this seat's #7090, and several dependabot PRs.\n\n⚠️ It is also **invisible from inside any one seat's normal loop**: each PR reports green, `mergeable_state: clean`, and \"enqueued\". Nothing on a PR page says the queue has not merged anything for two and a half hours. It only shows up if you read `main`'s own advance time — which is what \"track to MERGED, not to enqueued\" means in practice.\n\n## Reproduce\n\n```\ngit ls-remote https://github.com/objectstack-ai/objectui.git 'refs/heads/gh-readonly-queue/main/*'\ngit ls-remote https://github.com/objectstack-ai/objectui.git refs/heads/main\ngit log origin/main --first-parent -1 --format='%h %cI %s'\n```\n\nIf the first command returns entries and the third's timestamp is hours old, the condition is live.\n\n## Related\n\n- #5986 — Half-State Patrol has no `HALF_STATE_ANCHOR_ISSUE` on this repo, so the hourly sweep has nowhere to land. Different defect, same shape: a protocol running with nothing reading its output."
+}

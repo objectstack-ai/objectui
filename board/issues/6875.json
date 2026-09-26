@@ -1,0 +1,35 @@
+{
+  "number": 6875,
+  "kind": "issue",
+  "title": "bug(plugin-grid): ObjectGrid's relational copy set is a strict subset of what its own lookup cell and inline picker read (`displayField`, `reference_field`, `descriptionField`, `lookup_columns` never arrive)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-30T08:44:58Z",
+  "updated_at": "2026-09-01T08:18:18Z",
+  "closed_at": "2026-09-01T07:32:21Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6875",
+  "body": "Provenance: measured while implementing objectui#6711 (retiring the dead\n`reference_to_field` from the same list). Filed unassigned. Not folded into that card — it\nnames one key and removes it; this is the opposite direction (keys with readers that are\nnever copied) and is a behaviour change, not a retirement.\n\n## What's measured\n\n`ObjectGrid`'s `applyRelationalMeta` copies a fixed list off the object-schema field def onto\neach relational column's `fieldMeta` (`packages/plugin-grid/src/ObjectGrid.tsx`,\n`RELATIONAL_META_KEYS`), and that bag is what the cell renderer and the inline picker\nreceive. The list is a strict SUBSET of what those two consumers read off the same bag.\n\nConsumer reads, verbatim from `packages/fields`:\n\n- `src/index.tsx` (`LookupCellRenderer`):\n  `display_field || displayField || reference_field`\n- `src/widgets/LookupField.tsx:252` (the grid's inline picker):\n  `fieldMeta?.display_field || fieldMeta?.displayField || fieldMeta?.reference_field || 'name'`\n- `src/widgets/LookupField.tsx:253`:\n  `fieldMeta?.description_field ?? fieldMeta?.descriptionField`\n- `src/widgets/LookupField.tsx:268`:\n  `fieldMeta?.lookup_columns ?? fieldMeta?.lookupColumns`\n- `src/widgets/UserField.tsx:49`:\n  `meta?.display_field || meta?.displayField || meta?.reference_field`\n\nCopied by the grid: `display_field`, `description_field`, `lookup_filters`, `lookupFilters`,\n`id_field`, `reference_to`, `reference` (+ `titleFormat`, see objectui#6874).\n\n**Never copied, though read on the grid's own path:** `displayField`, `reference_field`,\n`descriptionField`, `lookup_columns`, `lookupColumns`.\n\n## Why this is not \"the renderer just accepts extra spellings\"\n\nTwo things make the omission specific rather than cosmetic:\n\n1. **`reference_field` is a DECLARED objectui type member with readers all over the repo** —\n   `packages/types/src/field-types.ts` (`LookupFieldMetadata.reference_field`),\n   `packages/types/src/views.ts`, its zod mirror, and read by `plugin-detail`\n   (`RelatedList`, `RecordMetaFooter`, `RecordDetailDrawer`, `fieldEnrichment`),\n   `plugin-charts` (`ObjectChart`), `plugin-form` (`deriveMasterDetail`), `plugin-list`\n   (`ListView`, `UserFilters`) and `app-shell` (`resolveActionParams`). Every one of those\n   surfaces honours an author's `reference_field`; a lookup rendered by `ObjectGrid` does\n   not, because the key never reaches the cell.\n\n2. **The camelCase spellings are the SPEC-declared ones.** `@objectstack/spec@17.2.0`'s\n   `FieldSchema` (64 props) declares `displayField`, `descriptionField`, `lookupColumns`,\n   `lookupFilters`, `reference` — and none of `display_field`, `description_field`,\n   `lookup_filters`, `reference_to`. The grid's list is mostly the objectql runtime\n   spellings. It is internally inconsistent about this: `lookupFilters` (camel) IS in the\n   copy set next to `lookup_filters`, while `displayField` and `descriptionField` are not\n   next to their snake twins — so the list was assembled from a defect report rather than\n   derived from the readers.\n\n## What is NOT measured here\n\n- Whether the object schema a live `getObjectSchema` returns ever carries the camelCase\n  spellings (the server may normalise on the way out). That check decides how much of item 2\n  is reachable today, and it is the first thing triage should run.\n- No user report is attached. This is a static producer-vs-consumer measurement.\n- `packages/plugin-dashboard`'s `CELL_RELATIONAL_META_KEYS` has the same gap for\n  `displayField` / `reference_field`: its docblock enumerates what `LookupCellRenderer`\n  reads as three keys, and that enumeration missed the two extra spellings in the same\n  fallback chain.\n\n## Shape of a fix\n\nContract-first says the answer may be at the producer (one spelling, normalised once) rather\nthan widening a hand-kept alias list in the renderer — `AGENTS.md` #0.1 is explicit that a\ntolerant renderer fossilises a second dialect. Whatever the direction, the copy set should\nbe DERIVED from the consumers' read set rather than restated, so the two cannot drift again;\nthat is the same repair objectui#6711 and objectui#6874 approach from the dead-key side.\n\n_Generated by [Claude Code](https://claude.ai/code)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

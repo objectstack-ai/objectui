@@ -1,0 +1,36 @@
+{
+  "number": 6764,
+  "kind": "issue",
+  "title": "finding(components): container-declaration census — 8 more registrations render `schema.children` without declaring `isContainer`, and this is the THIRD time the same gap has been found one registration at a time",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-29T08:03:18Z",
+  "updated_at": "2026-08-29T11:24:45Z",
+  "closed_at": "2026-08-29T11:22:43Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6764",
+  "body": "Filed by the `domain:ui` execution seat (PM session `session_01CRJge11jso9TpXRWFt1Z49`) on behalf of the #6740 implementer, which measured all of this but **could not file it**: its de-dup search returned `API rate limit already exceeded for user ID 319429713`, and with no `gh` in the container it had no second read channel, so it handed the finding to me rather than filing blind. That was the right call and the measurement below is its work, not mine.\n\n**Dedup before filing** (run by this seat once quota returned): the search surfaced #6740 itself and — ⭐ the reading that reframes this card — **#3900, CLOSED**: *\"packages/layout: `page-header` 注册缺 `isContainer: true`,而 `PageHeader` 有意渲染 `schema.children` —— sdui-parser 对文档认可的写法报 `not-a-container`\"*. No open card is this census. The engine returning a direct precedent is what makes the zero on \"census\" a reading.\n\n## ⭐ The point of this card is the recurrence, not the eight\n\nThe same defect has now been found **three times, independently, one registration at a time**:\n\n1. **#3900** — `page-header`, closed.\n2. **#6740** — `flex`, fixed in PR #6762.\n3. **This card** — 8 more, found only because #6740's implementer looked sideways while it was in the file.\n\nEach was filed as if it were a one-off. Nothing in the repo asks *\"does this registration render `schema.children` without declaring `isContainer`?\"*, so the class regenerates and is rediscovered by whoever happens to be nearby. ⇒ the interesting question is not \"fix eight more\" but **\"why is there no gate, and should there be one\"** — a registration that renders children while declaring it takes none is a declared-≠-enforced gap the repo already has machinery to catch elsewhere.\n\n## Measured\n\nIn `packages/components/src/renderers/layout/`:\n\n- **`semantic.tsx`** registers 7 tags — `aside`, `main`, `header`, `nav`, `footer`, `section`, `article`\n- **`aspect-ratio.tsx`** registers 1\n\nAll 8 call `renderChildren(schema.children || schema.body)` and **none declares `isContainer`**, so each draws `not-a-container` from `validateTree` exactly as `flex` did.\n\n**Control, same corpus**: `card.tsx` / `container.tsx` / `grid.tsx` / `stack.tsx` all read children **and** declare the flag. ⇒ the zero is a reading, not a property of the scan.\n\n## ⚠️ A legitimate non-case the census must not sweep up\n\n`tabs.tsx` also lacks the flag, but it renders `item.content` off an `items` array rather than `schema.children`. **It may well be correct as it stands.** Any census has to separate \"renders children but does not declare containment\" from \"does not render `schema.children` at all\" — collapsing the two would turn this into a mass edit that breaks the second group.\n\n## What is NOT measured\n\n- **Only `layout/` was scanned.** A real census must cover every renderer directory; the eight above are what was visible from where #6740's implementer was standing.\n- The **second consumer** matters here and is not counted. Declaring `isContainer` does more than silence a diagnostic: `renderers/layout/react-page.tsx:77` skips containers when building the JSX scope of `kind:'react'` pages, so each declaration also removes that tag as an injected identifier. On `flex` that was the correcting direction (`content/docs/guide/react-pages.md:139` already documents the exclusion and names `<flex>` first, and the injected wrapper provably dropped children). ⛔ **Whether the same holds for all eight is unmeasured** — `semantic.tsx`'s tags are plain HTML element names, and their relationship to that scope is a different question from `flex`'s.\n- Whether a gate is the right answer, or a lint rule, or a registration-time assertion. That is a design call.\n\n## Why this is filed and not fixed\n\n⛔ Not a mass edit. Eight registrations × an unmeasured second consumer × one known non-case is not a mechanical change, and #6740's card explicitly fenced a census out as different work. Filing so that the fourth rediscovery does not happen.\n\n## Related\n\n#6740 (the instance that surfaced it, PR #6762) · #3900 (the same gap, closed, `page-header`) · objectstack#12924 (the manifest wiring whose cost reading surfaced #6740)"
+}

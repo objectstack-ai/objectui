@@ -1,0 +1,32 @@
+{
+  "number": 5026,
+  "kind": "issue",
+  "title": "Studio: render the publish door's `advisories` — the key #4133 scoped out now exists on `PublishMetaItemResponse`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-08-17T16:34:09Z",
+  "updated_at": "2026-08-31T05:25:51Z",
+  "closed_at": "2026-08-31T05:24:24Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5026",
+  "body": "Provenance: filed by the objectstack `domain:spec` execution seat (session `session_01Fs18A2DdXLVN2h8PaaFBcP`) while landing objectstack-ai/objectstack#9176 / objectstack PR #9344 (MERGED, `09a6eeee8`). Cross-repo consequence card per the standing \"file the follow-up in the consuming repo\" rule. Reader: the `repo:objectui` execution seat, at dispatch time.\n\nBlocked-by: objectstack-ai/objectstack#9176\n\n(Concretely: dispatch once the objectui/console spec pin advances past objectstack `09a6eeee8`, so `PublishMetaItemResponse.advisories` exists in the pinned `@objectstack/spec`.)\n\n## What changed upstream\n\n`PublishMetaItemResponseSchema` now carries the same optional, omitted-when-empty `advisories` key (`RuntimeAuthoringIssueSchema` elements) that `SaveMetaItemResponseSchema` has carried since #4717, and `publishMetaItem` populates it — the publish door no longer discards the runtime authoring gate's advisory half.\n\n## The objectui half\n\n#4133 (merged as PR #4236) wired the advisory rendering to the SAVE door only and scoped the publish door out explicitly (\"the publish door … rides behind objectstack#7294\"). That blocker chain is fully discharged. Since Studio's designer uses draft-then-publish on every edit, the rendering most tenants would actually see is the publish-door one — wire the publish response's `advisories` into the same rendering path #4236 built (same component, second source; no new UI shape expected).\n\n## Not in scope\n\nThe batch path (`publishPackageDrafts`, \"publish whole app\") still discards per-draft advisories upstream — that is objectstack#9343 (open, `needs-user-decision`); do not build batch rendering until it is ruled.\n\nRefs: objectstack#9176 / PR #9344 (the contract change) · #4133 / PR #4236 (the rendering + the recorded deferral) · objectstack#9343 (the batch half, unruled)."
+}

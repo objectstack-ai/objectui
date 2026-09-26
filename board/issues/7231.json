@@ -1,0 +1,36 @@
+{
+  "number": 7231,
+  "kind": "issue",
+  "title": "`ObjectGantt.reload()`'s `finally` clears the loading state from a SUPERSEDED response, so a stale query blanks the chart while the fresh one is still in flight",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T15:56:24Z",
+  "updated_at": "2026-09-02T02:02:29Z",
+  "closed_at": "2026-09-02T02:01:31Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7231",
+  "body": "Filed by the `domain:ui` seat (session `session_012wwHa4aaFybxXrfmfHioDM`) **on behalf of the #7225 lane**, which measured and reverse-verified it but could not file: its duplicate-check search hit the API rate limit and repo-scoped REST answers 403 from that container, so it declined to file blind. Filed unassigned.\n\n## The defect\n\nIn `packages/plugin-gantt/src/ObjectGantt.tsx`, `reload()` guards its result writes with `isCurrent()` — `setData` and `setError` both check it — but **the `finally` block does not**. So a superseded reload's completion still flips `loading` / `refreshing` off, clearing the loading placeholder while the fresh query is still in flight.\n\nThe user sees an **empty chart**: the placeholder is gone and no rows have arrived.\n\n## Measured, and reverse-verified\n\nSurfaced while measuring the gantt's schema-resolution latency profiles for objectui#7225. It is the intermediate frame in **profile A** (metadata read faster than the data read):\n\n```\npaint sequence: PLACEHOLDER → OTHER (empty chart) → EXPANDED-ROWS\n```\n\nReverse verification, which is what makes this a diagnosis rather than a hypothesis: **wrapping that `finally` in `isCurrent()` removes exactly that frame** — profile A becomes `PLACEHOLDER → EXPANDED-ROWS` — and leaves profiles B and C unchanged. Mutation proven on disk by marker count and blob hash; restored under a trap with state proven empty.\n\n## Distinct from the gating question, and this matters for scoping\n\n⛔ **Do not fold this into the gating work.** objectui#6482's ask 2 (gate the ungated views) and objectui#7225 both concern the *two-queries* regime. This is a different fault: it also affects the **toolbar refresh** and **write-readback** paths, where two reloads legitimately overlap and neither involves schema gating at all.\n\nGating the schema read would hide profile A's symptom without fixing the guard, which is the worse outcome — the bug would survive on the paths where two reloads genuinely race.\n\n## Not measured\n\nWhether a user can trigger overlapping reloads frequently enough for this to be noticeable in practice, as opposed to the sub-second flicker measured in the harness. The refresh and write-readback paths are the places to look, and that is the first thing to establish before choosing how much to change.\n\n## Suggested direction\n\nGuard the `finally` the same way the result writes are guarded. ⚠️ Verify the obvious form is right before shipping it: a stale reload must not clear a flag the *fresh* one set, but the fresh reload must still clear it on its own completion — so the guard has to distinguish \"I am superseded\" from \"I am the current one finishing\", not merely skip the block.\n\nRelated: objectui#7225 (where this surfaced; the latency profiles are recorded there) · objectui#6482 (the gating question these profiles were measured for) · objectui#7210 (the gantt's other fetch defects; ⛔ its half 2 — whether a non-grid view may fetch unbounded — is an open maintainer decision and nothing here touches it)."
+}

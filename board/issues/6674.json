@@ -1,0 +1,36 @@
+{
+  "number": 6674,
+  "kind": "issue",
+  "title": "finding(registry): component deprecation is not declared anywhere machine-readable — the only statements of it are a console.warn literal and a human label, so no gate can ask \"is this type deprecated?\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-28T13:40:12Z",
+  "updated_at": "2026-08-30T04:02:56Z",
+  "closed_at": "2026-08-30T03:30:13Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6674",
+  "body": "Found while measuring #3965 (the `div` residue in `examples/schema-catalog`). Filed unassigned, recording only — not graded, no type. `domain:*` and grading are triage's to produce; the lane label is carried only because the measurement was taken here.\n\nMeasured on `origin/main` `f55d6661`.\n\n## The fact\n\n**Nothing stops the 49th authored `div`.** Both gates that touch component types ask only whether the type *resolves*, never whether it is *deprecated*:\n\n1. `examples/schema-catalog/test/catalog-gallery-render.test.tsx` asserts `ComponentRegistry.get(type)` is truthy and that no `OBJUI-001` \"Unknown component type\" panel paints. `div` **is** registered and **does** render, so it stays green.\n   - ⭐ Demonstrated rather than argued: that suite passes **583/583 with 85 authored `div` nodes present in the corpus**. The green *is* the finding.\n2. `scripts/check-doc-component-types.mjs` asks the same existence question, and is scoped to `content/docs/**` — it does not cover `examples/**` at all.\n\n## Why this is worse than the usual shape\n\nThis lane's common defect is *declared but enforced nowhere*. This one is a layer below that: **the deprecation is not declared anywhere machine-readable to begin with.**\n\n`RegistryComponentMetaExtras` carries `tier`, `namespace`, `skipFallback` and `labelAssociation`. It has **no `deprecated` field**. So the only two statements that `div` is deprecated are:\n\n- a `console.warn` **string literal** inside `div.tsx`, and\n- the human-readable label `Container (Deprecated)`.\n\nA string literal in a renderer and a word in a label are not a contract. No gate, no test and no type can consult either one, which is why a deprecated type can be authored 85 times across 27 shipped exemplars with every check green.\n\n## Suggested disposition (not a decision)\n\nAdd a `deprecated` flag to the registry component metadata, and have the catalog render test fail on any authored node whose type declares it.\n\nThat is one field plus one assertion, and it converts \"somebody remembers to grep for it\" into \"the corpus cannot carry one\". ⭐ It also makes **#3965's option A self-enforcing**: if a neutral `box` type is added and `div` marked deprecated in metadata, a new example authoring `div` goes red on arrival instead of waiting for the next manual census.\n\n⚠️ Whether the flag should also drive anything at author time (the `objectui validate` path, the save gate) is a separate and larger question — ⛔ not proposed here. The bounded version is registry metadata + the one test that already renders the whole corpus.\n\n## Related\n\n- **#3965** — where this was measured; its option A is the thing this would make self-enforcing\n- **#4003** — the migration that removed the mechanically-replaceable `div` nodes (2026-08-17)\n- **#3998** — deduped the deprecation notice to once per module load, which is why the console is quiet today and the 85 nodes are invisible in practice"
+}

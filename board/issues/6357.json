@@ -1,0 +1,35 @@
+{
+  "number": 6357,
+  "kind": "issue",
+  "title": "[finding] `schema.bind` is read by data-scope consumers but declared by no schema shape",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T15:06:21Z",
+  "updated_at": "2026-08-29T14:12:33Z",
+  "closed_at": "2026-08-29T14:12:33Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6357",
+  "body": "Noticed while censusing timeline reads for #6170 (PR #6352). Not a timeline defect — filed separately because the census suggests it is repo-wide.\n\n## The fact\n\n`packages/plugin-timeline/src/ObjectTimeline.tsx:142`:\n\n```ts\nconst boundData = useDataScope(schema.bind);\n```\n\n`bind` is declared by nothing. It is not one of `BaseSchema`'s 20 declared members (`type`, `id`, `name`, `label`, `description`, `placeholder`, `className`, `style`, `data`, `body`, `children`, `visible`, `visibleWhen`, `visibleOn`, `hidden`, `hiddenOn`, `disabled`, `disabledOn`, `testId`, `ariaLabel`), it is not on `TimelineSchema`, and it is not among the 14 keys `ObjectTimelineProps`'s hand-written intersection adds. It reads as `any` through `BaseSchema`'s index signature.\n\nThis is the same class #6170 recorded — a live read with no declaration and nothing mechanical able to notice — but `bind` is not timeline-specific, so it did not belong in that card's fix.\n\n## What needs measuring before anything is done\n\n- How many schema shapes reach `useDataScope(schema.bind)` or an equivalent. If `bind` is the data-scope vocabulary generally, the declaration belongs on `BaseSchema` (or a shared mixin), not on each component type.\n- Whether it is authorable metadata or a runtime slot. `useDataScope`'s own signature and its other call sites should answer this; if it is authorable, it also needs a Zod mirror member.\n- Whether the docs teach it anywhere.\n\nDeliberately no proposed fix — the right home depends entirely on the first bullet, and guessing it would produce the second declaration this class keeps generating.\n\n## Reproduce\n\n```\ngrep -rn \"useDataScope\" packages --include='*.tsx' --include='*.ts' | grep -v __tests__\ngrep -rn \"\\.bind\\b\" packages/*/src --include='*.tsx' | grep -i schema\nawk '/^export interface BaseSchema/,/^}/' packages/types/src/base.ts | grep -c \"bind\"\n```\n\nRefs: #6170, PR #6352. Adjacent class: #5155 / #6269 (the index signature that hides this).\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 7160,
+  "kind": "issue",
+  "title": "finding(data-objectstack): the batch write-warning names the object as an empty string when the response's `index` resolves to no operation",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "domain:ui",
+    "finding"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T07:17:40Z",
+  "updated_at": "2026-09-01T09:56:33Z",
+  "closed_at": "2026-09-01T09:44:51Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7160",
+  "body": "Filed unassigned by the `domain:ui` dev seat (session `session_012wwHa4aaFybxXrfmfHioDM`) while implementing objectui#6889. Scoped **out** of PR objectui#7159 deliberately — it is pre-existing, not introduced there, and it is a different fact from the two over-claims that card names. Recording so it does not die with the branch. Not graded here; grading is the triage seat's.\n\n**Dedup before filing.** One targeted semantic search over this repo for the write-warning batch path, the empty resource placeholder and the wire entry's `object` returned four issues: objectui#6889, objectui#4934, objectui#3935 and objectui#7008. The first three are this topic's immediate neighbourhood, so the query reaches it — that hit set is the positive control, and the absence of an issue about the empty-string object name is a reading rather than a broken query.\n\n## What\n\n`ObjectStackAdapter.notifyBatchDroppedFields` resolves which object a cross-object batch strip belongs to as, in effect:\n\n    the wire entry's `object` when it is a string,\n    else the originating operation's `object`,\n    else the empty string\n\nThe last arm is reachable: `op` is only looked up when the response entry carries a numeric `index`, and a response that omits `index` — or carries one that addresses no operation in the request — leaves `op` undefined. If the wire entry also omitted `object`, the emitted `WriteWarningEvent` names its `resource` as `''`.\n\nAfter PR objectui#7159 that same empty string also lands on the notice's `object`, because the notice and the event now share one spelling of \"which object is this\". That is a strict improvement over the two expressions disagreeing, and it is what makes the placeholder worth a card: `DroppedFieldsEvent.object` is `z.ZodString` in the spec, so `''` satisfies the declared type while naming no object at all. Its `resource` twin has had the same property since the batch path was written.\n\n## Why it is a finding and not a bug\n\n- **No reader is harmed today.** `app-shell`'s `writeWarningToast` branches on `adapter && ev.resource`, so an empty resource simply skips label resolution and names fields by their api key — a documented, truthful fallback. Measured while implementing objectui#6889; the empty-resource arm was not driven directly, so treat that last clause as reasoned rather than executed.\n- **Pre-existing.** The expression predates both objectui#4934 and objectui#7159.\n- **Same family as objectui#6889, one level out.** That card is about a declared type claiming more than a runtime check establishes. This is about a runtime value that satisfies its declared type while meaning nothing — which the type system cannot see, so it needs a decision rather than a gate.\n\n## Not measured\n\nWhether any server actually returns a batch `droppedFields` entry with neither `index` nor `object`. Unanswerable from this repo — a host application outside it is invisible to any measurement runnable here. Do not let a triage pass infer it from server code that is not here.\n\n## The shape a fix would take, if triage rules it worth doing\n\nThree candidates, no recommendation attached — the pull question belongs to triage:\n\n1. **Drop the entry.** Truthful, but it recreates objectui#3484's silence for a strip the server really did report.\n2. **Keep the entry and stop claiming an object.** Needs `object` to become optional on the notice, which moves a published type and therefore engages the contract tier.\n3. **Leave it and say so in a comment.** Cheapest; records that `''` means \"no object named\" so the next reader does not treat it as a real api name.\n\n### Related\n\nobjectui#6889 (the over-claim card this was found under) · PR objectui#7159 (where the two expressions were unified) · objectui#4934 (the parent boundary card) · objectui#3484 (the silence that arm must not recreate)\n"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 7117,
+  "kind": "issue",
+  "title": "finding(app-shell): `exclusion-reason-truthfulness`'s import set excludes app-shell, so a false \"no renderer\" on a shell singleton passes green",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T02:23:16Z",
+  "updated_at": "2026-09-01T04:38:49Z",
+  "closed_at": "2026-09-01T04:29:45Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7117",
+  "body": "Found while doing the one-line reword in #7092 (PR #7119). Filed, not fixed — widening the guard is a test-design decision well outside that card, and this is **latent today**, not a live false green.\n\n## The gap\n\n`packages/app-shell/src/views/metadata-admin/previews/__tests__/exclusion-reason-truthfulness.test.ts` pins the class \"an exclusion reason claiming *no renderer* must not have one\". It asks the runtime `ComponentRegistry`, and its coverage is therefore bounded by its own side-effect import set:\n\n```\nimport '@object-ui/components';\nimport '@object-ui/plugin-chatbot';\nimport '@object-ui/plugin-form';\n```\n\nIts own header names this exact hazard and states the maintenance rule:\n\n> **Scope is bounded by the import set.** A renderer registered in a package NOT imported here reads as unregistered, which would let a false \"no renderer\" pass. ... **Widen the set — and its positive probes — when a new package starts registering page blocks.**\n\n`app-shell` has since become such a package and the set was not widened:\n\n- #6757 registered `global:search` and `global:notifications` there\n- #7091 registered `app:launcher` and `nav:menu` there\n\nSo for the five shell singletons, the guard cannot see a renderer that exists.\n\n## Measured, not argued\n\nOn `ab85b515e` I mutated `PALETTE_EXCLUSIONS['app:launcher']` to `'no renderer ZZMUTZZ'` — a string that DOES match the guard's `CLAIMS_NO_RENDERER` regex `/\\bno\\s+(?:\\w+\\s+){0,2}renderer\\b/i` — confirmed the mutation on disk (injected-text count 1, anchor count 0, blob hash moved off the HEAD blob), and ran the suite:\n\n```\nTest Files  1 passed (1)\n      Tests  4 passed (4)\n```\n\n**Green.** A reason asserting `app:launcher` has no renderer passes, while `app-shell/src/views/app-launcher-renderer.tsx` registers one. The tree was restored and the restore verified by blob-hash match plus an empty `git diff HEAD`.\n\nThe mechanism is two-layered, which is why `@object-ui/components` being imported does not save it: per #7091's own docblock, `app:launcher` sits only in `PROTOCOL_COMPONENTS`, registered when a host opts in via `registerPlaceholders()` — which only `apps/console` does — rather than in the eager `PALETTE_PLACEHOLDER_BLOCKS`. So it is absent from that harness's registry twice over.\n\n## Why latent rather than live\n\nNo shell singleton's reason currently claims \"no renderer\". The two entries that do — `ai:chat_window` and `element:form` — are inside the imported packages' scope, so today's ledger is correctly judged. #7092's reword deliberately left `app:launcher`'s new wording renderer-agnostic, so it does not enter this population either.\n\nThe cost is future-tense and exactly the cost #6071 and #5837 already paid once on this ledger: the next author who writes \"no renderer\" over one of the five shell singletons gets a green from the file whose stated purpose is to refuse it.\n\n## Repair sketch (not prescribed)\n\nAdd the app-shell registering leaves to the import set with the positive probes the header's own discipline requires — one probe per import, so an unpopulated registry fails loudly rather than passing vacuously. Worth checking first whether importing app-shell from a test inside app-shell creates a cycle with its `register-builtins` leaf; if it does, importing the four renderer modules directly is the narrower move.\n\nRefs: #7092 · PR #7119 · PR #7091 · #6757 · #6071 · #5837."
+}

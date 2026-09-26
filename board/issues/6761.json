@@ -1,0 +1,36 @@
+{
+  "number": 6761,
+  "kind": "issue",
+  "title": "finding(react): five spellings of one \"is this a real config bag?\" predicate in packages/react",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-29T07:44:55Z",
+  "updated_at": "2026-08-29T11:24:02Z",
+  "closed_at": "2026-08-29T11:22:43Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6761",
+  "body": "Observation-class, measured while implementing objectui#6752. No behaviour is wrong; this is one question with several spellings.\n\n## The fact, measured on `b76ca6764`\n\n\"Is this value a real config bag (an object, not an array, not null)?\" is asked in `packages/react` in five places, in four different spellings:\n\n1. `SchemaRenderer.tsx` — the `properties` evaluation guard;\n2. `SchemaRenderer.tsx` — `propsWithoutCanonicalKeys`, inline;\n3. `SchemaRenderer.tsx` — the `winningVisibilityKey` caller block, inline;\n4. `utils/propsBagDiagnostic.ts` — a private `isConfigBag` helper (objectui#6708);\n5. `utils/unevaluatedExpression.ts` — the early return in `scanBag` (objectui#4795).\n\nobjectui#6752 unified 1 and 2 behind a single `isConfigBag` in `SchemaRenderer.tsx`, because it had to touch both. Sites 3, 4 and 5 were left alone deliberately: they live in other cards' modules, and merging them is a refactor across cards rather than that one's to make. The new helper's docblock says so rather than leaving it implied.\n\n## Why it is worth a line\n\nThis repo has repeatedly paid for one question having several spellings — `hasDeclaredPredicate` exists because \"is a gate DECLARED?\" had three (objectui#3842 / objectui#3849 / objectui#3850), and the `SchemaRenderer` comments name a \"fourth dialect of one question\" as the thing to avoid. The five sites agree today. The cost is that they can drift apart silently: each is a boolean expression whose disagreement produces no error, only a different answer on one channel.\n\n## Arms, if anyone takes it\n\n- export one predicate (a small shared util in `packages/react/src`) and have all five read it, with a pin that a new spelling fails;\n- or decide the duplication is acceptable at this size and record why, so the next reader does not re-open it.\n\nNo behaviour change either way. Not urgent.\n\nRelated: objectui#6752 (where sites 1 and 2 were merged), objectui#6708, objectui#4795."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 7132,
+  "kind": "issue",
+  "title": "Converge the empty-state defaults onto `DataEmptyState` — four packages now answer \"is it broken or is it young\" four different ways, and two rulings just fixed two of them locally",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T03:55:33Z",
+  "updated_at": "2026-09-01T06:48:26Z",
+  "closed_at": "2026-09-01T06:32:51Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7132",
+  "body": "Filed by the `domain:ui` seat (session `session_012wwHa4aaFybxXrfmfHioDM`) as the **deliberately deferred** convergence half of two maintainer rulings that landed within ten minutes of each other:\n\n- **#7064** / PR #7123 — `eeb6c2f2b`, record-detail empty **sections** (hotcrm#1247 ruling)\n- **#7063** / PR #7124 — `220c18d05`, dashboard **widget** empty state (hotcrm#1212 ruling)\n\nBoth rest on the same principle — objectstack#13848: *apps are simplified business implementations; uniform behaviour belongs to the platform, and per-widget/per-section authored copy is the per-app tax being ruled against.*\n\n## ⭐ Why this card exists rather than having been done inside one of those PRs\n\n`DataEmptyState` (`packages/components/src/custom/view-states.tsx`) is **already consumed by four packages**: `plugin-list`, `plugin-kanban`, `plugin-dashboard` and `plugin-detail`. Its title default is literally `'No data'`.\n\n⇒ Changing **its** defaults would have been a **smaller diff that repaired both rulings at once**, and #7124's implementer identified exactly that and **declined it on purpose**, consuming the primitive unchanged and recording the reason in the new component's file header.\n\nThat was the correct call, and it is the reason this card is filed rather than lost: the two rulings were dispatched **in parallel to two agents who could not see each other's reasoning**, and both dispatch orders explicitly forbade designing a cross-surface abstraction, requiring stop-and-report instead. ⚠️ **A shared abstraction designed simultaneously by two agents is worse than two honest local fixes** — and it would have been invisible as a problem, because the diff would have looked elegant.\n\nBoth local fixes have now landed. The precondition for doing it properly, once, is satisfied.\n\n## The measured spread — four packages, four answers\n\n| surface | what an empty result renders | state |\n|---|---|---|\n| `plugin-detail` record sections | heading + labels + em-dash placeholders, heuristic-owned | ✅ just ruled and fixed (#7064) |\n| `plugin-dashboard` dataset/table/pivot widgets | `WidgetEmptyState` — `role=\"status\"`, title + explanation, names the data source | ✅ just ruled and fixed (#7063) |\n| `plugin-list`, `plugin-kanban` | `DataEmptyState` defaults — terse, unexamined against either ruling | ⚠️ **unmeasured** |\n| `plugin-charts` `ObjectChart` | ⛔ **no empty branch at all** — a bare chart frame | 🟡 filed as #7130 |\n\n⇒ The two rulings did **not** establish a platform-wide answer; they established it on two surfaces. This card is about whether the other two should follow, and whether the shared primitive should carry the answer.\n\n## ⛔ What this card must NOT do\n\n- ⛔ **Do not re-litigate #7063 or #7064.** Both are ruled and landed. If convergence would change either surface's *behaviour*, that is a new question for the maintainer, not a refactor.\n- ⛔ **Do not assume the answer is \"hoist it into `DataEmptyState`\".** That is the hypothesis, not the ruling. A list and a record-detail section and a chart may legitimately want different empty states — #7130 makes exactly that argument for charts (axes may already be self-describing).\n- ⛔ **Do not widen any authoring surface.** Both rulings closed the per-app-compensation route; a convergence that adds an `emptyState` key to a new surface would reopen it one card later. ⚠️ It would also be clause ②, needing a contract review the **exhausted Fable 5 quota currently blocks** — built-but-unlandable, the state #6896 / PR #7111 is in.\n\n## Suggested first step — measurement, not refactor\n\nRender all four surfaces' empty states side by side and judge them against the two rulings' own stated properties:\n\n1. distinguishable from a load failure at a glance (`role=\"status\"` vs `role=\"alert\"` is the structural test #7124 used);\n2. self-describing without authored copy.\n\nThen answer: does the shared primitive carry those properties, or does each surface legitimately differ? ⭐ **\"They legitimately differ, here is the evidence\"** is a fully valid outcome — close it measured-and-declined.\n\n## Sequencing\n\n⚠️ `packages/components` is consumed by all four packages, so a defaults change there is broad-blast. Check the `packages/app-shell` PR backlog before starting.\n\nRefs: #7063 · #7064 · PR #7123 · PR #7124 · #7130 (ObjectChart) · #7125 (dead keys from #7124) · objectstack#13848 · hotcrm#1212 · hotcrm#1247."
+}

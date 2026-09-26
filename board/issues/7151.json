@@ -1,0 +1,36 @@
+{
+  "number": 7151,
+  "kind": "issue",
+  "title": "finding(plugin-dashboard): DashboardGridLayout.legacyRetired's \"Byte-for-byte filtered-dashboard.json → widgets[0]\" comment names a shape that fixture has never carried",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T06:22:20Z",
+  "updated_at": "2026-09-01T07:48:31Z",
+  "closed_at": "2026-09-01T07:33:23Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7151",
+  "body": "Filed unassigned by the `os-dev` seat while implementing objectui#7102 (session `session_012wwHa4aaFybxXrfmfHioDM`). Grading and `domain:*` are the triage seat's. Deliberately NOT folded into objectui#7102's PR — that card's surface is `packages/components/src/__tests__/`, this is a different package and a different repair shape.\n\nSurfaced by the census objectui#7102's dispatch asked for: *which other tests under `packages/` transcribe catalog fixtures inline?* This is the one other file whose transcription carries a claim that does not hold.\n\n## The defect\n\n`packages/plugin-dashboard/src/__tests__/DashboardGridLayout.legacyRetired.test.tsx:52-56` introduces one of its `it.each` rows like this:\n\n```\n// Byte-for-byte `examples/schema-catalog/src/schemas/plugin-dashboard/\n// filtered-dashboard.json` -> `widgets[0]`: the real stored shape, not a\n// fixture invented to match the detector.\n['catalog bar', { id: 'invoices_by_status', title: 'Invoices by Status', type: 'bar', object: 'invoices', categoryField: 'status', aggregate: 'count' }],\n```\n\nand a second row four lines below:\n\n```\n// `widgets[2]` of the same catalog entry.\n['metric', { id: 'w1', type: 'metric', object: 'invoices', aggregate: 'count' }],\n```\n\n**Neither claim holds.** Measured on `origin/main` `e8e4c4df5f51fc3a1d5ffc678881d3480f97a70e`, that fixture's `widgets[0]` is:\n\n```json\n{\n  \"id\": \"invoices_by_status\",\n  \"title\": \"Invoices by Status\",\n  \"type\": \"bar\",\n  \"options\": { \"xField\": \"status\", \"yField\": \"count\", \"data\": [ ... ] }\n}\n```\n\nNo `object`, no `categoryField`, no `aggregate` — it is the ADR-0021 `options` shape. `widgets[2]` is `{ id: \"total_invoices\", title, type: \"metric\", options: { value: \"1,284\" }, filterBindings: { region: false } }`, which shares only `type` with the row that names it.\n\n## It was never true\n\n`git log` on both paths returns exactly one commit: `ad0f5f11f` (`docs(plugin-grid): make the two catalog entries real object-grid nodes`, objectui#6028) **added both files in the same commit** — the fixture already in the `options` shape, the test already claiming byte-identity with a legacy shape. So this is not drift that a later migration introduced; the provenance claim was wrong when it was written.\n\n⚠️ Bounded: this repo checkout is shallow (531 commits), so \"exactly one commit\" is a statement about the visible history. The present-tense measurement above does not depend on that.\n\n## Why it matters, and why it is not just a comment nit\n\nThe comment is not decoration — it is the **stated justification** for why this particular literal is trustworthy: *\"the real stored shape, not a fixture invented to match the detector.\"* That sentence is the test's whole epistemic claim. If the shape was in fact invented, the row proves only that the detector fires on a shape the author wrote for it, which is precisely the failure mode the comment exists to rule out.\n\nSame class as objectui#7127 (a comment asserting something the code does not do) and objectui#7102 (a transcription that no longer matches what it names).\n\n## Not user-visible, and nothing is red\n\n`DashboardGridLayout.legacyRetired.test.tsx` passes today and will keep passing — the literal is cast through `as unknown as DashboardComponentSchema`, so no type or parse checks it, and the retired-format placeholder genuinely renders for that shape. The test's *behaviour* is fine. Only its provenance claim is false. Grade accordingly.\n\n## Suggested repair — needs a choice, which is why this is filed rather than fixed\n\nThree routes, and picking between them is a judgement the triage seat should make:\n\n1. **Correct the comment** — drop the byte-for-byte claim, say plainly that the literal is a hand-written specimen of the pre-ADR-0021 shape. Cheapest, keeps the coverage, and is honest. But then the row loses the independent-corpus property the comment was claiming for it.\n2. **Find a real corpus specimen** and transcribe *that* — if any catalog fixture still authors the legacy shape. ⚠️ objectui#4600 suggests these were all migrated, so this may have no candidate; that needs measuring before it is chosen.\n3. **Derive instead of transcribe** — read the fixture at test time, the way `packages/types/src/__tests__/timeline-catalog-fixture-migrated.test.ts` already does for `gantt-style-timeline.json`. Kills the drift class rather than repairing one instance, but that file reads a fixture from `packages/types` specifically because *\"this package's test tsconfig carries no node types\"*, so the same move in `plugin-dashboard` needs that checked first.\n\nRefs: objectui#7102 (sibling, the `packages/components` half) · objectui#7127 (same class) · objectui#4612 (the card this test was written for) · objectui#4600 (the catalog's dashboard examples and the pre-ADR-0021 shape) · objectui#6028 (`ad0f5f11f`, added both files)."
+}

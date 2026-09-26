@@ -1,0 +1,33 @@
+{
+  "number": 7075,
+  "kind": "issue",
+  "title": "finding(plugin-detail): four more RelatedList test files read a schema-derived verdict through a gate that only settles the fetch chain — 17 tests, measured",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T16:36:45Z",
+  "updated_at": "2026-09-01T00:16:29Z",
+  "closed_at": "2026-08-31T20:27:35Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7075",
+  "body": "Filed by the `os-dev` seat working #7007 (session `session_013hfmP9hoMd3dJwTh85J4yB`), out of a measurement taken there. #7007 is scoped to ONE site and its card fences a rewrite, so this is filed rather than folded into that PR.\n\n## The shape\n\n`RelatedList` fetches the related object's schema in its own effect (`RelatedList.tsx:430`) and derives sort/cell verdicts from it (`withheldFromServerSort`, the lookup cell renderers). A test that settles only the FETCH chain — `waitFor(columnSortable('name') === true)`, or `waitFor(h.schema?.type === 'data-table')` — and then reads a SCHEMA-derived value is reading one promise resolution too early. With no schema in state the predicate falls through to `isUnmaterializedFieldType(undefined)`, i.e. `false`, and the refusal under test has not happened yet.\n\nThese blocks are green today only because the schema effect is declared before the fetch effect and both mocks resolve on the same microtask. Nothing pins that ordering. A flaky RED in the merge queue ejects unrelated PRs (#6959 measured two ejections in fifteen minutes, one PR failing and passing on byte-identical content).\n\n## The measurement — a census, with its bound stated\n\nTiming FACT mutated inside the component and nothing else: the schema fetch deferred by 50ms, so it lands after the fetch chain instead of alongside it.\n\n```\nnew Promise((r) => setTimeout(r, 50)).then(() => dataSource.getObjectSchema(api)).then(setObjectSchema)\n```\n\nWhole package run, `pnpm exec vitest run packages/plugin-detail/`:\n\n- unmutated: `Test Files 118 passed (118)`, `Tests 1089 passed (1089)`\n- with the deferral: `Test Files 4 failed | 114 passed (118)`, `Tests 17 failed | 1072 passed (1089)`\n\nThe four:\n\n| file | failing sites |\n|---|---|\n| `RelatedList.sortabilitySignal.test.tsx` | `:199 :213 :222 :229 :240 :250 :258 :303 :318 :329 :338 :351` |\n| `RelatedList.lookupCellLink.test.tsx` | `:117 :128 :137` |\n| `RelatedList.headerSort.test.tsx` | `:178` |\n| `RelatedList.relationalSort.test.tsx` | `:111` |\n\nThe mutation was proved on disk before the run (anchor count 1 to 0, marker count 0 to 1, `git diff --numstat` = `1 1`), and restored from `HEAD` after with a blob-hash comparison.\n\n⭐ **Hot control, and the reason this reading is not just \"a delay breaks tests\":** `RelatedList.unmaterializedSort.test.tsx` — the file #7007 is about, with its #7007 fix applied — stays GREEN under this same deferral, while its unfixed spelling goes red under a *weaker* perturbation (the mock delayed rather than the call). So the probe distinguishes gated from ungated blocks rather than flagging everything that touches a schema.\n\n## Bound on what this proves\n\nIt proves the STRUCTURAL dependency: the assertion reads a value from a chain the block never settles. It does NOT prove these four have flaked in the merge queue. The queue is where #6959's ejections were measured; nobody has yet correlated a queue failure to these sites.\n\n## Suggested remedy, not a rewrite\n\nThe same one #7007 landed, per file: KEEP the existing gate — it is what proves the view committed with rows at all, and is what keeps a `queryBy…).toBeNull()` read non-vacuous — and ADD a second gate that settles the `getObjectSchema` chain. ⛔ Not `expect(getObjectSchema).toHaveBeenCalled()`: a mock call is issued one resolution before its value reaches state, which is the trap #6959 recorded. ⛔ Do not skip, quarantine or widen a timeout.\n\nEach file needs its own judgement about which of its assertions ride the schema chain — sites listed above are the measured set, not a guess.\n\n## Dedupe bound, stated rather than implied\n\nBoth search channels were down for this seat: REST `/search/issues` answered `403`, and MCP `search_issues` answered `API rate limit already exceeded`. The dedupe actually performed is a **title-level scan over all 273 open issues** pulled through the REST list endpoint, matched against `relatedlist|settle|gate|chain|flak|race|racing|plugin-detail`. No match. That bound does not cover a card that mentions these sites only in its body. If this duplicates something, close it against the original — the miss is this seat's.\n\nRelated: #7007 (the single-site card this came out of), #6959 and #6953 (the ejection precedent and the gate-substitution trap).\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

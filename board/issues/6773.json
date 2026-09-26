@@ -1,0 +1,36 @@
+{
+  "number": 6773,
+  "kind": "issue",
+  "title": "finding(docs,examples): all five `aspect-ratio` docs demos author `content`, a key the renderer never reads — every demo on the published page renders an empty ratio box",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-29T10:03:20Z",
+  "updated_at": "2026-08-29T14:38:37Z",
+  "closed_at": "2026-08-29T14:11:52Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6773",
+  "body": "Found while completing the container-declaration census for #6764. Out of that card's scope (that one is about `isContainer`) and out of its fence (`content/docs/` and `examples/`), so it is filed rather than fixed.\n\n## Measured\n\n`packages/components/src/renderers/layout/aspect-ratio.tsx` reads exactly four keys off the schema: `ratio`, `className`, `image` (with `alt`), and then\n\n```\n{schema.image ? (\n  ...an img...\n) : (\n  renderChildren(schema.children || schema.body)\n)}\n```\n\nThere is **no read of `schema.content`** anywhere in the file, and `content` is not among its declared `inputs` either.\n\nEvery shipped demo authors `content` and nothing else:\n\n| fixture | keys authored | renderer reads them? |\n| --- | --- | --- |\n| `examples/schema-catalog/src/schemas/components-layout-aspect-ratio/16-9-aspect-ratio.json` | `ratio`, `content` | `ratio` yes, `content` **no** |\n| `.../square.json` | `ratio`, `content` | same |\n| `.../4-3.json` | `ratio`, `content` | same |\n| `.../ultrawide.json` | `ratio`, `content` | same |\n| `.../video-aspect-ratio.json` | `ratio`, `content` | same |\n\n5 of 5. None authors `children`, `body` or `image` — the three spellings that would actually put something inside the box. So each demo renders a correctly-proportioned **empty** box, and the docs page `content/docs/components/layout/aspect-ratio.mdx` renders all five.\n\nThe same page's \"Schema\" block publishes the phantom key as contract:\n\n```\ninterface AspectRatioSchema {\n  type: 'aspect-ratio';\n  ratio: number;                  // Width / Height ratio\n  content: ComponentSchema;       // Content to display\n  className?: string;\n}\n```\n\n`image` / `alt`, which the renderer does read and does declare as inputs, are absent from that block. So the documented surface and the implemented surface are disjoint on the content half.\n\n## Contrast that makes this a reading and not a scan artifact\n\nThe sibling family measured in the same pass goes the other way: all **9** `components-layout-semantic` fixtures author `children`, which those renderers do read. So the catalog is not uniformly authored against a phantom key — this one component is.\n\n## Why it stayed invisible\n\nNothing draws a diagnostic that a reader would act on. `content` is not a declared input, so the manifest tier reports it as `unknown-prop` — the same warning it gives a typo — and an empty box on a page of ratio demos looks like a ratio demo.\n\n## Not proposed here, because the direction is a choice\n\nEither the fixtures and the docs block move to the keys the renderer reads (`image` for the photo demo, `children` for the four card demos), or `aspect-ratio` grows a `content` read and declares it. The first is the AGENTS.md #0.1 direction (fix the metadata, not the renderer); the second would add a third spelling of the same concept beside `children` and `body`. Whoever takes it should also check whether these five files are part of the population already counted in #6318.\n\n## Related\n\n#6764 (the census that surfaced it) · #5931 (same class — catalog fixtures declaring keys the renderer never reads; that card names button-group / breadcrumb / command, not this one) · #6318 (in-repo schema files that fail `safeValidateSchema`)"
+}

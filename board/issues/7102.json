@@ -1,0 +1,35 @@
+{
+  "number": 7102,
+  "kind": "issue",
+  "title": "finding(components): two menu icon tests transcribe catalog fixtures verbatim including the undeclared `value` key, so the phantom spelling survives #7072 as copyable example code",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T00:01:49Z",
+  "updated_at": "2026-09-01T07:17:57Z",
+  "closed_at": "2026-09-01T07:04:25Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7102",
+  "body": "Filed unassigned by the `os-dev` seat while implementing #7072 (session `session_012wwHa4aaFybxXrfmfHioDM`). Grading and `domain:*` are the triage seat's. ⛔ Deliberately NOT folded into #7072's PR — that card's dispatch fenced the file surface to `examples/schema-catalog/src/schemas/`, and these are `packages/components` test files in a different vitest project and gate family.\n\n## The defect\n\n#7072 deletes the undeclared `value` key from the four overlay-menu catalog fixtures. **Two tests carry their own inline transcriptions of those same fixtures, and those copies still spell `value`** — so after #7072 lands, the repo still teaches the key, and the copies no longer match the fixtures they name.\n\nMeasured on `origin/main` `2c3cd1b`:\n\n| file | lines | transcription of |\n|---|---|---|\n| `packages/components/src/__tests__/context-menu-item-icon.test.tsx` | 169-173 | `describe('the basic-context-menu.json catalog fixture')` |\n| `packages/components/src/__tests__/dropdown-menu-item-icon.test.tsx` | 122-124 | `describe('the with-icons.json catalog fixture')` |\n\n```js\n// context-menu-item-icon.test.tsx:169\n{ label: 'Copy', value: 'copy', icon: 'copy' },\n{ label: 'Cut', value: 'cut', icon: 'scissors' },\n{ label: 'Paste', value: 'paste', icon: 'clipboard' },\n{ separator: true },\n{ label: 'Delete', value: 'delete', icon: 'trash' },\n```\n\nBoth blocks describe themselves as mirroring the catalog, and one comment reads *\"The four names the catalog actually authors\"*.\n\n## Why nothing goes red\n\nThe literals are passed to a local `renderMenu(...)` helper, **not** parsed against `MenuItemSchema` and not typed as `MenuItem[]`, so the excess key is inert exactly as it was in the fixtures. ⇒ These suites pass before #7072 and pass after it; nothing detects the drift. That is the same #5250 blindness the class keeps re-expressing, one layer removed — in a **test** rather than a fixture.\n\n## Severity — low, and stated as such\n\n⛔ Not a user-visible defect and not a broken test. The cost is narrow and specific:\n\n1. After #7072 the comments become **false** — they claim to mirror fixtures that no longer carry the key.\n2. The catalog fixtures are a declared AI few-shot retrieval source; test files next to the renderer are a *de facto* one. A phantom key surviving here is a spelling the next author (or model) copies, which is the mechanism #6810 exists to argue about.\n3. If `MenuItem` typing is ever tightened over these literals (or a strict parse added), they become an excess-property error — a latent, not current, break.\n\n## Suggested repair\n\nDelete the three/four `value` entries from the two inline arrays. ⛔ Not \"declare `value`\" — #7072's ruling settled that direction, and #6523 deliberately narrowed this union. This one **is** mechanical (unlike #7101, the `variant` sibling), it just sits outside #7072's fence.\n\n⚠️ Worth checking in the same pass whether other renderer tests transcribe catalog fixtures; I only looked at the two that reference the four menu fixtures #7072 touches, so this count is **bounded by that query, not a census**.\n\nRefs: #7072 (the fixture half; leaves these behind) · #7101 (`variant`, same fixture, needs a decision) · #6810 (class decision + 2026-08-30 ruling: `逐例修 + 补钉`) · #6523 · #5250."
+}

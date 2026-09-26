@@ -1,0 +1,35 @@
+{
+  "number": 6711,
+  "kind": "issue",
+  "title": "finding(plugin-grid): ObjectGrid copies `reference_to_field` onto every column's fieldMeta, and nothing in the repo reads it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-28T18:11:02Z",
+  "updated_at": "2026-08-30T10:02:23Z",
+  "closed_at": "2026-08-30T09:17:25Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6711",
+  "body": "Provenance: measured while implementing #6694 (feeding the dashboard widgets' lookup cells\ntheir reference target). Filed unassigned, no `pm:queue` label — an observation, severity is\nfor triage to set.\n\n## What's measured\n\n`ObjectGrid`'s `RELATIONAL_META_KEYS` (`packages/plugin-grid/src/ObjectGrid.tsx:433`) lists\nnine keys that `applyRelationalMeta` copies off the object-schema field def onto the built\n`fieldMeta`, at all three of its column-building call sites (lines 2009, 2200, 2283):\n\n```\n'reference_to', 'reference', 'reference_to_field',\n'display_field', 'id_field', 'description_field',\n'lookup_filters', 'lookupFilters', 'titleFormat',\n```\n\n`reference_to_field` has **zero member reads anywhere in the repo**. Measured across\n`packages/` and `apps/`, excluding `dist/`, the only occurrences of the identifier are:\n\n- the `RELATIONAL_META_KEYS` array literal itself (the write), and\n- the prose / fixture in `packages/plugin-dashboard/src/recordFields.tsx` and\n  `__tests__/lookupRelationalMeta-6694.test.tsx` that #6694 added to record why it is NOT in\n  that seam's copy set.\n\nNo `.reference_to_field` member access, no destructuring, no bracket read. The value is\nwritten onto every relational column's `fieldMeta` on every column build and consumed by\nnothing.\n\nControl for the measurement: the same sweep over its eight list-mates finds real readers for\nall of them — `reference_to` / `reference` / `display_field` in `LookupCellRenderer`\n(`packages/fields/src/index.tsx`), and `id_field` / `description_field` / `lookup_filters` /\n`lookupFilters` / `titleFormat` in `packages/fields/src/widgets/LookupField.tsx` and\n`UserField.tsx`. So the zero is specific to this key, not an artefact of how the sweep was\nwritten.\n\n## Why this is worth a card\n\nThis is the same defect class this repo has retired twice in recent memory, both times in the\nsibling producer:\n\n- #6625 — `FieldMeta.decimals`, written from the schema def on every call, read by nothing.\n- #6597 — `FieldMeta.referenceTo`, same shape, plus a README promise that was never kept.\n\nBoth were retired under the maintainer's standing startup-stage rule (2026-08-27: no measured\ndemand retires immediately). `reference_to_field` is that shape in `plugin-grid` rather than\n`plugin-dashboard`, and it has never been adjudicated either way.\n\n⚠️ Worth noting for triage: unlike `decimals` / `referenceTo`, this key is not an\nauthor-facing override — it is copied from the object schema field def, so retiring it is a\nquestion about the *copy list*, not about an authoring promise. The cheap check is whether\n`@objectstack/spec` declares `reference_to_field` on a field at all; if the spec does not\ndeclare it, no schema field def can carry it and the copy is unreachable as well as unread.\nThat check was not run here — this card records the measured zero-readers fact only.\n\n## Scope note\n\nNot folded into #6694: that card's fix lands in `plugin-dashboard` and deliberately does NOT\ncopy this key (its copy set is the three keys a cell renderer actually reads). Removing the\nkey from `plugin-grid`'s list is a separate change to a different package, with its own\nmeasurement and its own blast radius — `ObjectGrid`'s cells are editable, so anything touching\nits relational copy set has to re-check the inline picker's query path.\n"
+}

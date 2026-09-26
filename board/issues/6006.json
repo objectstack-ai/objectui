@@ -1,0 +1,34 @@
+{
+  "number": 6006,
+  "kind": "issue",
+  "title": "Published skill `objectui/guides/data-integration.md` teaches a `QueryParams` shape the adapters silently drop — unprefixed keys plus a `direction` sort key",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-24T12:30:12Z",
+  "updated_at": "2026-08-29T08:15:54Z",
+  "closed_at": "2026-08-29T08:15:44Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6006",
+  "body": "Found while implementing #5293 (the `ObjectViewProps.views[].sort` spelling rename). **Filed unassigned, not claiming. Deliberately NOT fixed there** — #5293's fence is the `views` prop, and this is a different surface (`QueryParams` / `DataSource.find`) inside the **published** `skills/` package, which carries its own expansion-budget discipline. Recording it so it is not lost.\n\nVerified on `origin/main` @ `8d3a5294a`.\n\n## Two independent defects in one documented example\n\n`skills/objectui/guides/data-integration.md` is a customer-published skill — the artifact AI authors read as authority when composing against ObjectUI.\n\n### 1. The sort key is spelled `direction`; `SortConfig` spells it `order`\n\n```\n:67   sort?: SortConfig[];            // ORDER BY [{field, direction}]\n:272  sort: [{ field: 'name', direction: 'asc' }],\n```\n\n`SortConfig` (`packages/types/src/objectql.ts:212-217`) declares `field` and **`order`**. The shared sink `convertSortToQueryParams` (`packages/core/src/utils/sort-query.ts`) folds each entry as `entry.order === 'desc' ? 'desc' : 'asc'`, so a `direction`-spelled entry yields **ascending**, always — the same silent-wrong-answer mechanism #5293 was filed about, here on the `QueryParams` surface rather than the `views` prop.\n\n### 2. Every query option is documented **without** its `$` prefix\n\n```\n:64   interface QueryParams {\n:65     filter?: Record<string, any>;   // WHERE conditions\n:66     sort?: SortConfig[];\n:67     limit?: number;\n:68     offset?: number;\n:69     fields?: string[];\n:70     expand?: string[];\n:71   }\n```\n\nThe real `QueryParams` (`packages/types/src/data.ts:43`) declares `$select`, `$filter`, `$orderby`, `$top`, … — every option `$`-prefixed. This is a **known live defect class**: #5458 fixed four such calls in repo code, and its changeset states the mechanism plainly — an unprefixed key \"reaches no branch and is dropped — no throw, no warning, and it type-checks because the type carries `[key: string]: any`\". The same changeset records that a dropped `limit` yields an **unbounded** read, because the platform's GET list route has no default page size.\n\nSo the published example at `:270-274` — `dataSource.find('contacts', { filter: {...}, sort: [...], limit: 20 })` — documents a call in which **all three options are dropped**: unfiltered, unsorted, and unbounded, with no failure signal.\n\n## Consequence\n\nAn AI author following the published skill writes a query that type-checks, runs, returns data, and silently ignores every option it was given. #5458 repaired the instances of this inside the repo; the artifact that *teaches* the broken shape to everyone outside it was not part of that sweep.\n\n## Counter-probe\n\n`grep -n \"\\$filter\\|\\$orderby\\|\\$top\" skills/objectui/guides/data-integration.md` returns **0** hits, while `grep -c \"sort\\|filter\" ` on the same file returns many — so the absence of the prefixed spelling is a reading, not a bad grep.\n\n## Scope note for whoever takes this\n\n`skills/**` is a customer-published surface under the maintainer's 2026-08-21 ruling (「对外发布的 skills 是整个平台的最大价值，尤其要整体考虑和评估。」 / 「……不能为了一个小功能扩写很多。」). Current size, for a net-change budget: `skills/objectui/guides/data-integration.md` is **437 lines**; the package's single `SKILL.md` is **155 lines**. This should be a *correction*, not an expansion — the fix is re-spelling keys in two code blocks, not adding new guidance.\n\n## Dedup\n\nSearched open issues (published skill QueryParams drift, `data-integration` guide, sort direction spelling, unprefixed query params) — nothing on this. Related: **#5458** (the unprefixed-key defect class, fixed in repo code), **#5293** (the same `direction`-vs-`order` spelling defect on the `views` prop), **#4869** (the sort-sink convergence family).\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 6780,
+  "kind": "issue",
+  "title": "[Decision] A `type=\"number\"` widget can display one value and store another with nothing said — announce it, and at what scope?",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-29T11:11:11Z",
+  "updated_at": "2026-08-30T04:03:12Z",
+  "closed_at": "2026-08-30T02:55:45Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6780",
+  "body": "Filed by the `domain:ui` execution seat (PM session `session_01CRJge11jso9TpXRWFt1Z49`) from the measurement in #6765 / PR #6777. ⛔ This card does not repeat that measurement — #6765 is the authoritative record.\n\n## The measurement changed the question\n\n#6765 predicted that browser sanitization would turn residue into an **empty string**. Measured in Chromium 141.0.7390.37 via Playwright, real widgets mounted from source, keyboard + real-clipboard paste + `insertText` + programmatic set:\n\n**Sanitization holds — but by FILTERING, not by emptying.**\n\n| typed / pasted | #6765 predicted | actually arrives |\n|---|---|---|\n| `12abc` | `\"\"` | **`\"12\"`** |\n| `1.2.3` | `\"\"` | **`\"1.23\"`** |\n| `0x10` | `\"\"` | **`\"010\"`** |\n\n⇒ Residue never reaches these widgets, which makes **#6715's anchored whole-string guard a provable no-op here** — it would accept every string these boxes can produce and reject only strings the *test environment* fabricates. It was deliberately not copied.\n\n## The defect that WAS reproduced\n\nTyping `1e` leaves Chromium **visibly displaying `1e`** while `.value` reads the empty string. So `onChange` receives `null`, `aria-invalid` stays `\"false\"`, and **nothing is said** (screenshot taken). Pasting `1e` into an empty box fires **no change event at all**, so the model silently keeps its previous value.\n\nThat is #6716's class — **on a money field**.\n\nTwo facts constrain any answer, and are why this was escalated rather than implemented:\n\n1. ⚠️ **It is not specific to the two widgets #6765 names.** `NumberField` and `GeolocationField` read the box the same way. This is one ruling about the `type=\"number\"` widget **class**.\n2. ⚠️ **The truncating rows cannot be refused by ANY widget-side guard.** Pasting `1.2.3` into a currency field stores `1.23`; `0x10` stores `10`. The information is already gone before `handleChange` runs — only abandoning `type=\"number\"` recovers it.\n\nAlso now pinned: the oracle and the product disagree in **6 of 10 measured cases** (e.g. `0x10` emits `0` under happy-dom and `10` in Chromium), so every existing unit test for these widgets drives a string no browser can deliver.\n\n## Options\n\n| | |\n|---|---|\n| **A** | Announce on `e.target.validity.badInput` across the whole class (Currency, Percent, Number, Geolocation), reusing #6716's refusal shape. ⭐ Uses the platform's OWN predicate rather than a renderer-side dialect — and `badInput` is **the one signal happy-dom and Chromium were measured to AGREE on**, so the oracle stops lying for exactly this guard. Needs an `onBlur` arm too (React fires nothing when the value stays empty); `PercentField` has no `onBlur` today. Leaves the filtering truncation silent. |\n| **B** | Do nothing; document the drop as native `type=\"number\"` behaviour and close. Zero risk, zero cost, honest given no user report exists. Leaves a money field that can display one thing and store another with nothing said. |\n| **C** | Move to `type=\"text\"` plus anchored parsing, exactly `LocationField`'s shape. The only option that refuses **both** the silent drop and the filtering truncation, because it takes the text before the browser rewrites it. Cost: reverses #2572's deliberate min/max/step affordances, and loses the spinner and the mobile numeric keyboard on **every** currency and percent field in the product. |\n\n## 四维分析\n\n**① 实际业务需求。** 静默丢弃是**在钱字段上实测复现**的，这是真的。⚠️ 但**没有测到**的是：有没有人真的往货币框里粘 `1.2.3` 或 `0x10`。所以 C 的高昂代价目前压在一条**没有需求证据**的路线上 —— 这与 #6715 的裁决拒绝做「度分秒/半球解析」是同一个理由。\n\n**② 平台长远合理性。** ⭐ A 是**问平台它自己读到了什么**，而不是再发明一套渲染器侧的「什么算数字」——contract-first。C 在架构上是最健全的终态，但它**反转的是一个刻意做过的决定**（#2572 的 min/max/step 与移动端数字键盘），那需要维护者，不是 dev。\n\n**③ 防 AI 写错元数据 —— 也是 A 唯一真正的风险，必须明说而不是掩饰。** 沉默正是错值藏身之处，所以\"说\"胜过\"不说\"。⛔ 但：**一个对 `1e` 报警、却对 `1.2.3` 静默存成 1.23 的控件，等于教会用户「没报警就说明值是对的」** —— 这正是 #6272 自己的原则反过来指向我们。所以 A 若实施，**必须同时写明 filtering 截断仍然静默**，否则它制造的信任比它消除的风险更贵。\n\n**④ 创业阶段不扩散需求。** A 是一个包内四个控件的有界改动；C 是四个控件重写外加**产品里每一个数值字段**的可用性回退，应当等到有实测用户报告再谈。\n\n**本席意见与实施席一致：A**，但**范围按 `type=\"number\"` 这一类的四个控件立成一张卡**，⛔ 不是给 #6765 点名的那两个打补丁；且**与「截断仍静默」的书面说明同批发布**。\n\n⛔ 但这改变已发布控件在什么条件下向用户发声，且要在 `PercentField` 上新增 `onBlur` 面，属于公开行为契约变更，落在人工地板上 —— 本席记录，不代裁。\n\n## Scope note\n\n⭐ `NumberField` / `GeolocationField` were deliberately **not** filed as a separate card by the implementer, on the grounds that doing so would split one ruling across two cards. This seat agrees; that is why this card is scoped to all four.\n\n## Related\n\n#6765 (the measurement) · PR #6777 (the comment-only records and the divergence pin) · #6716 (the silent-refusal class, ruled worth announcing for a coordinate) · #6715 / PR #6766 (the anchored guard, measurably a no-op here) · #6272 (the plausible-wrong-value precedent) · #2572 (the `type=\"number\"` affordances C would reverse)"
+}

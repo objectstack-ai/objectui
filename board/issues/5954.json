@@ -1,0 +1,35 @@
+{
+  "number": 5954,
+  "kind": "issue",
+  "title": "[finding] `aggregate-capability.test.ts`'s header claims `analytics.query()` never throws on a non-2xx — the installed client throws, and the tests below depend on it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T04:28:36Z",
+  "updated_at": "2026-08-29T04:12:05Z",
+  "closed_at": "2026-08-29T04:12:05Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5954",
+  "body": "Found while fixing #5721 (PR #5952). Not folded in: it is a different defect class from that card's status-vs-code misclassification — a stale present-tense claim in a docstring — so it is filed rather than repaired as a rider.\n\n## The claim\n\n`packages/data-objectstack/src/aggregate-capability.test.ts`, file header (\"WHY THIS EXISTS\"):\n\n> `@objectstack/client`'s `analytics.query()` returns `res.json()` WITHOUT checking `res.ok`, so a non-2xx never throws — the error body arrives where rows were expected.\n\n## What the installed client actually does\n\n`@objectstack/client@17.2.0` (`dist/index.mjs`): `analytics.query` does end in `res.json()`, but it gets there through `this.fetch(...)`, and **that wrapper throws on `!res.ok`** — decorating the error with `code` (flattened from `errorBody?.code ?? errorBody?.error?.code`), `httpStatus`, `message`, `details` — so `res.json()` is unreachable for a non-2xx.\n\nMeasured, not inferred: the ablation run for #5721 shows the client logging `HTTP request failed: POST …/analytics/query -> 404` and the adapter's `catch` branching on the decorated error. Every test in the file below the header, old and new, depends on the throw — the first one (`404 … falls back instead of returning an empty result`) passes *because* the throw reaches the `catch`; on a client that truly did not check `res.ok`, `aggregate()` would return `[]` and that test would fail.\n\n## Why it is worth correcting rather than leaving\n\nThe paragraph reads as a present-tense description of the client, sitting directly above tests that assume the opposite. It is exactly the kind of note an agent reads and trusts before touching this file — and the conclusion it invites (\"non-2xx arrives as data, not as a throw\") would send someone to add row-shape guards to `aggregate()`'s success path instead of reading the `catch`.\n\nThe paragraph is presumably true *history* — the defect it describes is real and is what the file was written for. The correction is a tense/attribution fix (name the client version or the era the claim describes), not a deletion.\n\n## Where\n\n- `packages/data-objectstack/src/aggregate-capability.test.ts` — file header, first paragraph.\n- Reference: the wrapper is `ObjectStackClient.fetch` in `@objectstack/client`'s dist; `analytics.query` is the caller."
+}

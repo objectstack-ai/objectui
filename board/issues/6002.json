@@ -1,0 +1,34 @@
+{
+  "number": 6002,
+  "kind": "issue",
+  "title": "finding(types): `DashboardWidgetSchema` SILENTLY DROPS every undeclared widget key — the file's own docstring names this failure mode, and it still applies to the keys nothing declares",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-24T11:50:42Z",
+  "updated_at": "2026-08-31T15:19:45Z",
+  "closed_at": "2026-08-31T14:43:25Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6002",
+  "body": "Found while implementing #4600 (the dashboard catalog gate). Deliberately **not** fixed there: the honest fix is a published-contract decision with blast radius past that card's fence.\n\n## What was measured\n\nOn `claude/issue-4600-schema-catalog-dashboard-gate` at `a54b8bca4`, parsing a dashboard node with `@object-ui/types`' own `DashboardComponentSchema`:\n\n```\ninput   { type: 'metric', title: 'x', zzcanary: 1, categoryField: 'stage', aggregate: 'sum' }\nparsed  { type: 'metric', title: 'x' }\nverdict ACCEPT\n```\n\n`DashboardWidgetSchema` is a plain `z.object()`, so **undeclared keys are stripped, not refused**. Three of the five keys above vanish and the parse reports success.\n\nThis is the same failure the file's own docstring already records, one level out — `zod/complex.zod.ts`, on the derivation that replaced the hand copy:\n\n> The hand copy this replaces declared 10 of the spec's 22 keys, and because a `z.object()` strips unknown keys, the other 12 were dropped **without a word** by `objectui validate`\n\nThat fix restored the 12 keys the spec declares. It did not change what happens to keys **no contract declares** — which is still \"dropped without a word\".\n\n## Why it matters\n\n`object` / `categoryField` / `valueField` / `aggregate` — the retired pre-ADR-0021 inline analytics shape that #4600 was opened about — are exactly such keys. Under the current schema a widget carrying all four **validates clean**. The keys are simply deleted. So the contract cannot tell an author, a designer, or a publish-time check that the document says something the platform stopped honouring; the renderer's `LEGACY_RETIRED_WIDGET_SCHEMA` placeholder is the only surface that ever mentions it, and only at render time.\n\nCompare `actionUrl` / `actionType` / `actionIcon` / `aria` / `responsive`: those are REFUSED by name, with a tombstone message pointing at the surviving home. `report-chart-query-spec-parity.test.ts` states the principle in those words:\n\n> Not \"strips\" — refuses. That distinction is the whole point of ADR-0049 enforce-or-remove: a stale dashboard carrying `actionUrl` gets told where the affordance moved instead of silently losing it.\n\nThe asymmetry is the finding: a key the spec **retired** is refused loudly, while a key that was **never declared at all** is dropped in silence.\n\n## Scope note — what #4600 did instead\n\n#4600 closed the `type` vocabulary (an unbounded `z.string()` → a closed enum), which gives the catalog gate real teeth on `type`. For the key surface it added a **catalog-local** assertion instead of changing the shared schema: the gate routes each widget to the schema that owns it and fails if any authored key is dropped. That protects the few-shot corpus but protects nothing else in the repo.\n\nAblation on that branch, for evidence the detection works: injecting `object` + `categoryField` + `aggregate` into a real catalog entry turns the gate red naming all three; restoring turns it green (21/21).\n\n## The decision this needs\n\nThree routes, none of them mechanical:\n\n1. **`.strict()`** — refuse undeclared keys. Matches the ADR-0049 principle above and is the only option that makes a stale key loud everywhere. Blast radius unmeasured: every stored dashboard, the designer's emit path, and `metric-card`-style component nodes in the widget slot (whose props are legitimately not widget keys — see the `BaseSchema` routing #4600 introduced) would need to be checked first.\n2. **`.passthrough()`** — keep undeclared keys instead of deleting them. Strictly better than silent loss (nothing is destroyed) and consistent with `BaseSchema`, which is already passthrough. But it still cannot report a stale key, so it does not close the hole.\n3. **Leave as-is**, and document that objectui's widget validation is lossy for undeclared keys — with the catalog gate as the only place the loss is detected.\n\nRoute 1 looks right on the \"declared = enforced\" and \"make AI-authored metadata hard to get wrong\" axes, and route 2 is a cheap strict improvement over the status quo. Both want a measurement of the stored/designer population before anyone commits.\n\n## Related\n\n- #5709 (closed) — the same class one layer down, on `DashboardWidgetOptionsSchema.passthrough()`: an undeclared `options.invert` with no observable effect and nothing able to say so.\n- #5853 — `TableColumn.type` disagreeing three ways; sibling declared-vs-enforced drift in the same package.\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 6759,
+  "kind": "issue",
+  "title": "finding(plugin-timeline): two more unusable gantt date ranges — a malformed date still throws, and an inverted author-pinned range silently draws a negative-width bar on no axis",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-29T07:27:04Z",
+  "updated_at": "2026-08-29T11:24:22Z",
+  "closed_at": "2026-08-29T11:22:43Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6759",
+  "body": "Filed unassigned, found while implementing #6750 (the empty `items` guard, PR #6758). **Neither case is fixed by that card**, and both were deliberately left out of it — see \"Why #6750 does not cover this\" below.\n\nMeasured on `a04c3cac2` (the #6750 branch head, i.e. **with** that card's guards already in the tree), with a throwaway probe since no pin covers either case.\n\n## Case 1 — a malformed date still throws\n\n`calculateDateRange` guards the EMPTY list, but not a list whose dates do not parse. `new Date('not-a-date').getTime()` is `NaN`, `Math.min(NaN)` is `NaN`, and `new Date(NaN).toISOString()` throws the same `RangeError` #6750 was about:\n\n```\nCASE-1 malformed date -> RangeError: Invalid time value\n```\n\nInput: `variant: 'gantt'` with one row, `items: [{ title: 'T', startDate: 'not-a-date', endDate: 'also-bad' }]`. Hard render crash, same signature and same crash site as #6750, different input class.\n\n## Case 2 — an inverted author-pinned range renders silent nonsense\n\nAn author who pins `minDate` later than `maxDate` gets no error and no diagnostic. `generateTimeScaleHeaders` refuses an inverted range by returning no headers, so the axis has **zero columns** — but the row loop below it still runs, and `calculateBarDimensions` happily divides by a **negative** `totalDuration`:\n\n```\nCASE-2 inverted pinned range -> axis: [] bars: [\"left: 157.9250720461095%; width: -4.322766570605188%;\"]\n```\n\nInput: `variant: 'gantt'`, one legitimate row spanning 2024-01-01 to 2024-03-01, with `minDate: '2030-01-01'` and `maxDate: '2026-03-15'`. A bar positioned off-canvas at 158% with a negative width, hanging under a header row that has no cells. Nothing anywhere says the range was rejected.\n\n## Why #6750 does not cover this\n\n#6750's triage split the card deliberately and scoped it to the **empty list** — the ordinary empty state of a valid schema. Both cases here are a different input class: a date the author got *wrong*, not a collection that is legitimately empty. Extending #6750's sentinel to swallow them would have been consumer-side tolerance that hides an author error behind a plausible-looking render, which is a policy decision rather than a mechanical fix, so it was filed rather than taken.\n\nThe two cases belong together because a fixer decides one policy for both — the same \"decide it once for the whole branch\" reasoning #6750's triage applied to the empty case. They fail in opposite directions today, which is itself the argument that no policy exists yet: case 1 crashes loudly, case 2 renders confidently wrong.\n\n## Directions, not a recommendation\n\n1. **Refuse loudly**, the way #6655 refuses the object-bound gantt: an unusable range renders a diagnostic naming the offending value. Consistent with the neighbouring ruling, and it keeps a wrong date from ever looking like a right one.\n2. **Validate at the authoring boundary** so the renderer never sees an unusable range, if the date keys can be constrained where they are declared rather than where they are read.\n\nBoth touch what an author should be *told*, which is why this is filed rather than fixed.\n\n## Where it lives\n\n`packages/plugin-timeline/src/renderer.tsx` — `calculateDateRange` for case 1; for case 2, the interaction between the gantt branch's `schema.minDate || dateRange.minDate` resolution, `generateTimeScaleHeaders`'s inverted-range refusal, and `calculateBarDimensions`. Line numbers deliberately omitted: re-derive them on your base, since #6758 moves this file.\n"
+}

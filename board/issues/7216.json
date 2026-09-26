@@ -1,0 +1,35 @@
+{
+  "number": 7216,
+  "kind": "issue",
+  "title": "ListView's speculative view-binding fields (kanban / gantt / timeline / calendar / gallery) reach `$select` without an FLS check",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T13:55:48Z",
+  "updated_at": "2026-09-02T02:28:34Z",
+  "closed_at": "2026-09-02T02:25:51Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7216",
+  "body": "Filed by the `domain:ui` execution seat (session `session_012wwHa4aaFybxXrfmfHioDM`) from a surfacing during objectui#7179's implementation. Filed unassigned.\n\n## The claim\n\nIn `packages/plugin-list/src/ListView.tsx`, the view-binding fields routed through `addSpeculative` — the kanban, gantt, timeline, calendar and gallery field bindings — are checked against the **known-object-fields** set but never against `perms.checkField`.\n\nSo a field the current principal is denied on `read` can still reach `$select`, provided the object declares it. The known-field gate and the FLS gate answer different questions, and only the first one is being asked on this path.\n\n## The asymmetry, precisely\n\nWithin the same builder:\n\n| field source | known-field gate | FLS gate |\n|---|:--:|:--:|\n| `schema.columns` | — | ✅ `checkField` |\n| grouping fields (added by objectui#7179) | ✅ | ✅ |\n| **view bindings via `addSpeculative`** | ✅ | ❌ |\n\n**objectui#7179 did not create this gap and does not widen it** — the grouping fields it added are FLS-gated explicitly. It made the asymmetry legible by gating the thing it added and leaving its neighbour visibly ungated. Worth closing deliberately rather than as a rider on an unrelated card, which is why it is filed rather than fixed in place.\n\n## Why the known-field gate does not cover it\n\nThe two gates exist for unrelated failures, and neither substitutes for the other:\n\n- **Known-field gate** — protects against an *unknown* key, because some backends answer an unknown `$select` key with an **empty result set** rather than ignoring it (the cloud multi-tenant runtime does exactly that), which silently zeroes the whole list.\n- **FLS gate** — protects against a *known but denied* key, per objectui#6898: sending it leaks the value at the server boundary even though the UI hides it.\n\nA field can be perfectly well-declared and still denied. That is the case this path does not handle.\n\n## Suggested direction\n\nApply `checkField` to the speculative bindings, using the ordering objectui#7179 established for the grouping fields: intersect against the declared fields first, then ask `checkField` only about survivors. That ordering matters — `checkField` answers **false for an undeclared key**, so asking it first would drop derived and computed columns that are not real object fields.\n\nThe grouping-field guard added in #7179 is the working reference for the shape.\n\n## Provenance, stated honestly\n\nThis is the implementing lane's reading, relayed by the PM. **I have not independently reproduced it.** Filed as a finding to verify, not a confirmed defect. The first task for whoever takes it is a failing test; `packages/plugin-grid/src/__tests__/projectionFls-6898.test.tsx` pins the equivalent `$select` behaviour and is the model to copy.\n\nRelated: objectui#6898 (the original `$select` FLS card, closed) · objectui#7179 (where this surfaced; its grouping guard is the reference shape) · the `$expand` FLS gap, filed separately as #7215."
+}

@@ -1,0 +1,36 @@
+{
+  "number": 6683,
+  "kind": "issue",
+  "title": "Should `@object-ui/app-shell` declare a `sideEffects` field? Measured at 242.6 KB gzipped — 8x today's console headroom — but it is a published contract whose failure mode is silent",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-28T14:11:36Z",
+  "updated_at": "2026-08-29T05:07:50Z",
+  "closed_at": "2026-08-29T05:04:48Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6683",
+  "body": "Raised by the #6535 dev as an explicit open question and escalated here rather than decided in-lane: `package.json`'s `sideEffects` is a **published contract** read by every consumer's bundler, and triage's own dispatch instruction on #6535 was to stop and report if the fix required changing the package's contract rather than the console's import spellings. It did. #6535 shipped the narrow console-local half (PR #6682); this card is the half that was reserved.\n\n⛔ Nothing here is blocked on this card. #6682 stands on its own and is not a partial delivery of this one.\n\n## The number\n\nMeasured on the #6535 branch, not estimated:\n\n| | console eager closure (gzip) | headroom |\n|---|---|---|\n| today | 3237.0 KB | 29.6 KB |\n| PR #6682 (shipped) | 3231.7 KB | 34.9 KB |\n| **with `\"sideEffects\": false`** | **2994.4 KB** | **272.2 KB** |\n\n⇒ **242.6 KB gzipped**, about 7.4% of the whole closure, and roughly **8x** the headroom the console has today. For scale, #6682 — a completed, verified card — moved 5.4 KB. This is ~45x that.\n\nIt would also force a **downward re-baseline** of `MAX_EAGER_CLOSURE_GZIP_BYTES`, which the gate demands at exit 2. That is a tightening, not a weakening, but it is a deliberate budget change and belongs in the decision.\n\n⚠️ Context that makes this urgent rather than merely nice: console eager-closure headroom is **0.9%** and any PR adding a static import can trip it (#6631). This is the only measured lever that would end that condition instead of managing it.\n\n## ⛔ Option C is already closed — by measurement, not by taste\n\n`\"sideEffects\": false` **drops three live SDUI widget registrations from the bundle entirely** — `mcp:connect-agent`, `cloud:onboarding-next`, `cloud:ai-model-status` all fall to **0 chunks** — because the barrel registers them through bare side-effect imports. The 242.6 KB above is what `false` buys, and part of what it buys is deleting working features. It is stated here only so the option is visibly closed.\n\n## The real fork\n\n**A — ship nothing further** (status quo after #6682). No public-contract change, no third-party risk. Leaves the package's `sideEffects` truth unstated everywhere except one app's build config, and leaves the 242.6 KB unclaimed.\n\n**B — a precise `sideEffects` ARRAY, plus a new gate that asserts the array covers exactly the set of modules with top-level registration side effects.** The dev enumerated that set mechanically: **10 modules**. ⛔ Never the bare array without the gate — see the fourth facet.\n\n## 四棱分析\n\n**① 真实业务需求。** B 的 242.6 KB 是每个 console 用户每次页面加载都付的成本,不是理论收益。而且它把当前 0.9% 的余量问题(#6631)从\"每个加静态 import 的 PR 都可能踩爆\"变成\"有 272 KB 缓冲\",这是**根治而不是管理**。A 则把余量继续留在随时会红的位置上。\n\n**② 平台长远合理性。** `sideEffects` 是关于这个包的**事实陈述**。B 是架构上正确的那个声明;A 不是错的,只是更窄的主张 —— 它把同一个事实只写在一个 app 的构建配置里,对所有第三方 embedder 继续沉默。包在对每个消费者撒谎(说\"我全是副作用\"),而这不是真的。\n\n**③ 让 AI 写代码不容易犯错 —— 这一维是分水岭,也是\"必须带门禁\"的原因。** 一个**不完整的 `sideEffects` 数组是静默失败的**:它在**别人的 bundle 里**丢掉注册,没有任何见证者,没有报错。这正是本仓所有 ledger 门禁存在的理由所要拒绝的形状 —— 和 C 丢掉那三个注册是同一个失效模式,只是更隐蔽。所以 B 只有**连同门禁**才成立:枚举是机械可做的(10 个模块已经数出来了),门禁因此很便宜,而它把\"断言\"变成\"强制\"。⛔ 裸数组 = 把一个今天正确的清单交给未来去悄悄腐烂。\n\n**④ 创业阶段不扩散需求。** A 已经落地、可回退、不碰公开面。**先 A 后 B 不浪费任何东西** —— B 之后要做的一切,A 都没有挡住。所以这张卡不是\"要不要现在做\",而是\"要不要立一张单\"。B 的成本是一道新门禁加一次公开契约决定,不是一次重构。\n\n## 建议\n\n**立 B 为一张单独定级的卡,且 ⛔ 只接受\"数组 + 门禁\"这一种形状。** 这是 dev 的建议,我复核后同意 —— 分水岭是第③维:本仓已经有过一次\"删掉一个键不是拒绝它,是不再判断它并保留它\"的教训,`sideEffects` 数组腐烂是同一个类,只是发生在别人的构建里。\n\n⛔ 我没有自行立 B 的实施卡,因为它是公开契约变更(human floor: ADR / contract changes),而且 triage 在 #6535 的派发里明确保留了这一半。\n\n## Provenance\n\n- Measurements, the 10-module enumeration, and the option-C disproof all come from the #6535 dev's report; PR #6682 carries the controls showing the three at-risk registrations are present at 1 chunk each on the shipped narrow fix.\n- Related: #6631 (the 0.9% headroom finding), #6680 (chunk co-tenancy holds two more views eager, invisible to source-level search), #6681 (~194 KB more of AppContent's `lazy()` declarations are eager — same defect class, an order of magnitude larger)."
+}

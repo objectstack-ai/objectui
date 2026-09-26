@@ -1,0 +1,35 @@
+{
+  "number": 6447,
+  "kind": "issue",
+  "title": "finding(gate): the version-claim ledger's two `pnpm 10.x` reasons state 17 `corepack enable` steps across 12 workflow files; the tree has 20 across 14",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "tooling"
+  ],
+  "assignees": [
+    "zhuangjianguo"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-26T00:49:35Z",
+  "updated_at": "2026-08-31T14:48:14Z",
+  "closed_at": "2026-08-31T14:47:45Z",
+  "closed_by": {
+    "login": "zhuangjianguo",
+    "id": 19182527,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6447",
+  "body": "Found while implementing #6400 (moving the `Node 22.x` entries' hand-written declaration count out of their `why` string and into an assertion). Deliberately **not** fixed there: #6400's PR derives the **`node-version`** set from `.github/workflows` and asserts the doc literal against it; this entry's anchor is a different source (the root `packageManager` field, plus a count of `corepack enable` steps), so covering it needs a second derivation rather than one more field on an existing one. Filing so the number is recorded rather than carried.\n\n## The entries\n\n`scripts/__tests__/doc-version-claims.test.ts`, `KNOWN_CLAIMS` — two entries, same anchor, same sentence:\n\n```ts\n{\n  file: 'content/docs/guide/building-crud-app.md',\n  claim: 'pnpm 10.x',\n  kind: 'anchored',\n  why: 'Anchored on the root packageManager field, pnpm@10.31.0: 17 corepack enable steps across 12 workflow files mean the pnpm that installs and builds these packages in CI is the one that field names. ...',\n},\n```\n\n(`content/docs/guide/quick-start.md :: pnpm 10.x` carries the same anchor by reference — *\"Same anchor as the building-crud-app.md pnpm entry above\"* — so it inherits the number without restating it.)\n\n## Measured on `c8ea8af9c` (origin/main at 2026-08-26T00:47Z)\n\n```\n$ grep -rn 'corepack enable' .github/workflows/ | wc -l\n20\n$ grep -rl 'corepack enable' .github/workflows/ | wc -l\n14\n$ grep -n 'packageManager' package.json\n7:  \"packageManager\": \"pnpm@10.31.0\",\n```\n\nSo the sentence says **17 steps across 12 files**; the tree has **20 across 14**. The half of the anchor that is a *field* (`pnpm@10.31.0`) is still exactly right — the half that is a *count* has drifted, in the four days since #6307 wrote it.\n\nControl, same sweep: 28 `node-version` declarations across 23 files (non-zero, so the grep root and the workflow directory are both real — this is not a scan that found nothing and reported agreement).\n\n## Why this is the same class as #6400 and still a separate card\n\nIdentical shape: an `anchored` entry with no machine-checked field, whose whole strength is a `why` string a reviewer re-runs. A count in that string is a measurement frozen at the moment someone typed it, and nothing re-takes it. #6400 records the general lesson; this is another site of it.\n\nIt is a separate card because the *fix* is different. #6400's `workflowVersionKey` names a GitHub-Actions key and compares the doc's major against the majors that key declares. `pnpm 10.x` is not declared by any such key — the pnpm CI runs comes from `corepack enable` reading the root `packageManager` field, so the derivation is \"parse `packageManager` from the root manifest, compare its major against the doc literal\", with the corepack count being *evidence that the field is what CI uses* rather than the anchor itself.\n\nTwo dispositions:\n\n- **A** — delete the count from both reasons, keeping the `packageManager` field as the named anchor. Cheapest, and the count was never the anchor: it was the argument for *why* the field is the anchor. That argument does not need a live number to stand.\n- **B** — give these two entries a machine-checked anchor of their own, the way #6400 did for `node-version`: read `packageManager` from the root `package.json`, compare its major against the doc literal. Reuses #6400's `majorOf` and its claim-tail parser; needs a new field (a `manifestVersionField`, or similar) because the source is a manifest and not a workflow key.\n\nB is the direction the file's header argues for whenever an anchor is machine-readable, and this one is — `packageManager` is a single unambiguous string in one file, which is a *stronger* anchor than the 28-declaration set #6400 had to reduce to a unanimous major. Worth noting for triage: B here is smaller than B was there.\n\nRelated: #6400 (the `Node 22.x` entries, same file, same class, `node-version` anchor).\n"
+}

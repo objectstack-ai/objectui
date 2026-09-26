@@ -1,0 +1,33 @@
+{
+  "number": 6853,
+  "kind": "issue",
+  "title": "finding(process): 5 of 6 `pm:queue` + `domain:ui` cards read this round were not dispatchable — 3 of them say so in their own body, and only reading the body reveals it",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-30T01:15:55Z",
+  "updated_at": "2026-09-02T01:27:56Z",
+  "closed_at": "2026-09-02T01:27:56Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6853",
+  "body": "Filed by the `objectui` `domain:ui` execution seat (PM session `session_01CRJge11jso9TpXRWFt1Z49`) for the **triage seat**. Unassigned, unlabelled — grading is triage's. ⛔ Not a complaint about any individual grade; the point is the ratio and what it costs.\n\n## The measurement\n\nLooking for dispatchable work in `pm:queue` + `domain:ui` this round, **6 cards were read in full. 5 were not dispatchable.**\n\n| card | why not | how it was found |\n|---|---|---|\n| **#6639** | body: *\"The open question, **which is why this is a finding and not a queue card**\"*; both repair routes touch a published authoring surface | reading the body |\n| **#6124** | body: *\"⛔ Not fixed here — **picking one changes a published contract.** Filed for triage.\"* | reading the body |\n| **#6121** | body: *\"**which type is correct needs a ruling**, and it is not a docs batch's call\"* | reading the body |\n| **#6190** | a maintainer ruling's stated precondition (*\"zero producers author `title`\"*) is falsified by **three** independent measurements, two of them already on the card | reading the **comments** |\n| **#6318** | depends on PR #6075, not landed | reading the body |\n| #6251 | ✅ dispatchable — dispatched, delivered, accepted | — |\n\n⇒ 3 of the 5 carry `pm:queue` over a body that **names its own manual floor, in its own words**.\n\n## ⚠️ What makes this expensive rather than merely untidy\n\n**Nothing outside the body distinguishes these from ready work.** Label says `pm:queue`. `priority` is present or absent independent of this. The title reads like a normal finding. An execution seat that trusts the label — which is what *\"执行座位信任标签\"* instructs — dispatches them.\n\nAnd the cost is not a wasted dispatch. It is worse in two directions:\n\n- **#6190 would have shipped a user-visible regression.** Its ruling says drop the `s.title` limb; the repo's own synthesizer (`buildDefaultPageSchema.ts:623`) emits `title` and **not** `label`, so every `fieldGroups`-derived default detail page would have lost its section headings. Only reading eight comments caught it.\n- **#6639 / #6124 / #6121 each put an implementer in front of a contract call** that neither they nor an execution seat may make. The likely outcome is a dev stopping and reporting — which is the correct behaviour and has happened repeatedly this week — but it spends a full dispatch cycle to rediscover something the card already says.\n\n## ⛔ What this is not\n\n- ⛔ Not a claim that the findings are weak. #6124's measurement is unusually strong (28 keys declared `z.function()` on a **JSON-authored** vocabulary, no JSON value can satisfy it, 14 corpus files invalid today, and **all 14 sit in the structure-key-less set `objectui check` never judges** — invalid *and* unreported).\n- ⛔ Not a request to relabel them one by one. Three now carry `pm:retriage` with dissent comments (#6639, #6124, #6121); #6190 is `needs-user-decision`. Those are done.\n- ⛔ Not a decision-box item. There is nothing here for the maintainer to rule on.\n\n## Suggested shape (⛔ not a ruling — triage owns this)\n\nThe recurring signal is textual and specific: bodies containing *\"needs a ruling\"*, *\"changes a published contract\"*, *\"not a queue card\"*, *\"filed for triage\"*, *\"wants a decision\"*. That is mechanically detectable.\n\n1. **A cheap grep-class check** over `pm:queue` bodies for that phrase family, reporting candidates for regrade. ⚠️ It would be advisory, not a gate — the phrases are heuristics and a card may use them about something already resolved.\n2. **Or a triage-side convention**: when a card's own body names a floor, it goes to `needs-user-decision` or stays `finding` at first touch rather than to `pm:queue`.\n3. ⭐ **The split shape works and is worth reaching for more often.** #6795 was refused as a whole this round but yielded a dispatchable measurement half plus a decision half (#6846). #6121 looks separable the same way — its own body says *\"five of them … compile untouched today\"*, which is queue work sitting behind a ruling that does not block it.\n\n## Provenance\n\nDedup done via repo-scoped REST list (270 open issues) + local grep, with controls firing (`finding` 168, `triage` 116). ⚠️ MCP `search_issues` was **silently returning empty** at the time and could not be used — filed separately as **#6852**, because a dedup run in that state passes vacuously.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

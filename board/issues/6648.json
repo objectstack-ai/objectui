@@ -1,0 +1,36 @@
+{
+  "number": 6648,
+  "kind": "issue",
+  "title": "finding(core,app-shell): after #6528 the relationship-target resolvers still accept array / `{ object }` CARRIERS the spec refuses — same leniency, second axis",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-28T08:37:09Z",
+  "updated_at": "2026-08-29T01:48:13Z",
+  "closed_at": "2026-08-29T01:48:13Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6648",
+  "body": "Surfaced by the census in objectui#6528, deliberately left out of that PR's scope.\n\nobjectui#6528 narrowed both relationship-target resolvers to the single spec SPELLING `reference`. It did not touch the CARRIER — the shape the value may take — because that is a separate axis and its own census was not in the charter. Measuring it turns up the same class of unfounded leniency.\n\n## Measurement\n\n`@objectstack/spec` 17.2.0, `ObjectSchema.safeParse`, one lookup field, three carriers for the canonical `reference` key:\n\n| carrier | verdict |\n|---|---|\n| `reference: 'crm_account'` | ACCEPTED (positive control — parses green, value survives) |\n| `reference: ['crm_account']` | REFUSED — `invalid_type: Invalid input: expected string, received array` |\n| `reference: { object: 'crm_account' }` | REFUSED — `invalid_type: Invalid input: expected string, received object` |\n\n`FieldSchema.reference` is a plain string. Both resolvers nonetheless still branch on all three:\n\n- `packages/core/src/utils/chart-series.ts` — `resolveRelationshipTarget`\n- `packages/app-shell/src/views/metadata-admin/inspectors/useDatasetFields.ts` — `resolveReferenceTo`\n\n```ts\nif (typeof raw === 'string' && raw) return raw;\nif (Array.isArray(raw) && typeof raw[0] === 'string') return raw[0];\nif (raw && typeof raw === 'object') { /* { object } */ }\n```\n\nThe array branch additionally makes a silent product decision: given a multi-target value it returns `raw[0]` and discards the rest.\n\n## Why it was not cut in #6528\n\nScope discipline, and one unfinished measurement. The spelling census had a clean population count behind it (445 of 565 lookup / master_detail defs in the framework tree spell the key `reference`); the carrier axis does not yet. A grep for producers emitting an array carrier returned zero in both trees, but that zero has not been run down to the same standard — in particular whether any polymorphic / multi-target lookup is intended to carry a list. Cutting on an unfinished census is exactly what #6528 was filed to stop.\n\n## The question to settle\n\nSame one AGENTS.md #0.1 asks: a lenient consumer is where a wrong producer hides. If nothing produces an array or `{ object }` carrier, both branches are dead code that reads like a measurement and should go, in both files in one pass (they must not diverge). If something DOES produce one, that is a producer-side defect or a spec question about multi-target lookups — fix it there, not by keeping the tolerant read.\n\nWhoever takes this: the refusal pins added by objectui#6528 (`refuses the legacy spelling ...`) are the pattern to extend, and the two carrier assertions currently live in `useDatasetFields.test.ts` and `chart-series.test.ts` as green pins that would need the same triage — updated with the helper, not preserved as cover."
+}

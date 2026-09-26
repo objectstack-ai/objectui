@@ -1,0 +1,32 @@
+{
+  "number": 7100,
+  "kind": "pull_request",
+  "title": "fix(scripts): collect TypeScript fences opened inside a blockquote",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T00:00:33Z",
+  "updated_at": "2026-09-01T00:27:42Z",
+  "closed_at": "2026-09-01T00:27:41Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": "2026-09-01T00:27:40Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/7100",
+  "body": "Fixes #7086\n\n`check-doc-snippet-types` collects blocks with `scanFences`, whose fence-opening anchor accepted a run of leading spaces and tabs and nothing else. A fence opened inside a Markdown blockquote carries a `> ` prefix, so the anchor never matched, the block was never collected, and the gate compiled nothing for it. There was no diagnostic — an uncollected block appears in no count, and its page still reports as covered. A callout is a natural home for an import example, which is exactly the snippet class that rots when an export is renamed: the one class this gate exists to catch.\n\nTook option (a) of the three the card left open, per the dispatching PM's ruling. This is gate strengthening — restoring declared-equals-enforced on a gate that claimed to compile the docs' TypeScript and silently did not.\n\n## What changed\n\nThe opener now tolerates a blockquote prefix and carries the opener's quote **depth** through the rest of the walk:\n\n- the search for the closing fence reads candidate lines at that same depth;\n- every body line is stripped of that many markers before it reaches the compiler;\n- `stripQuotePrefix` consumes at most one space after each marker, per CommonMark, so indentation belonging to the snippet survives.\n\n**Depth 0 takes an identity path that returns the line unchanged byte for byte.** That is what keeps the other 773 collected blocks in the corpus scanning exactly as before, and it is pinned.\n\nCarrying the depth to the *closing* fence is what makes this safe in both directions. Without it, a blockquoted fence would find no close and swallow the rest of the file; and a plain fence would be closed early by any quoted backtick line sitting inside it as prose. Both directions have a test.\n\n## The ledger movement, measured\n\nThe card warned that widening the anchor \"may pull previously-invisible blocks into the compiled population, which is a ledger movement rather than a one-line edit\". It is, and it is exactly one block:\n\n| | before | after |\n| --- | --- | --- |\n| collected blocks, whole 224-document population | 773 | **774** |\n| gate's own covered blocks | 383 | **384** |\n| of those, to compile | 271 | **272** |\n| declared fragments | 112 | 112 |\n| semantic phase failures | 0 | **0** |\n\nNewly collected: **1** — the import callout at `content/docs/api/schema-reference.md` line 12. Its disposition: **compiles clean**. No longer collected: **0**; nothing left the population. Block identity was compared by document, fence line, language and a hash of the body, so a block whose body merely changed shape would have shown as one removal plus one addition rather than silently matching.\n\nThe card's sharpest handle reproduces and flips: importing the gate's own exported `scanFences` and running it over that page returned **2** collected blocks against 3 typescript fences before, and returns **3** now.\n\n## Verification\n\nRe-derived against `main` @ `2c3cd1b` before editing — every line number and count in the card still held: `TS_FENCE_LANGUAGES` at `:317`, the anchor at `:587`, acted on at `:600`; 224 documents; exactly 1 blockquoted ts/tsx/typescript fence, on the page the card named. The card's three controls all reproduce.\n\nGate and tests, run on the final commit `e463ae1`:\n\n```\nScanned 224 document(s): 181 covered (80 of them hold a ts/tsx block), 43 ungated\nCovered blocks: 384 — 272 to compile, 112 declared fragment(s).\nSemantic phase: 272 of 272 block(s) judged, 0 failed.\nEvery covered documentation snippet compiles against the built types.\n\nTest Files  1 passed (1)\n     Tests  48 passed (48)\n```\n\n`eslint` on both changed files: exit 0. All four changeset gates: exit 0. `check-changeset-presence` verdict, quoted: `✅ No source or published contract of a released package changed in this range, so no changeset is owed.` — so the changeset here is the **empty-frontmatter** form, not a `patch` bump that would falsely claim a released package moved.\n\n**Ablation.** With the fix reverted to the `2c3cd1b` blob (mutation confirmed on disk by hash and by `stripQuotePrefix` dropping to 0 occurrences), 3 of the 4 new pins fail and the gate's covered count falls back to 383/271. The fourth — the depth-0 identity guard — passes in both trees, which is correct: it pins pre-existing behaviour that this change must not move. Restore was proved byte-identical to the `HEAD` blob, with a clean `git diff HEAD`. No rebuild leg is owed here: the gate runs as `node scripts/check-doc-snippet-types.mjs` and the test imports `'../check-doc-snippet-types.mjs'`, both source paths, neither resolved through a package `dist`.\n\n## Scope\n\nConfined to the collector's anchor and its prefix-stripping; the gate is not refactored. One bounded gap is deliberately left alone and filed separately as #7099: `FRAGMENT_MARKER` and the marker-attachment walk are still blockquote-unaware, so a blockquoted block that legitimately cannot compile has no reachable escape hatch. Population there is 0 today (measured, with controls at 2900 plain openers and 112 plain markers), and a correct fix needs a second mechanism — the blank-line walk — which was outside this card's dispatched scope.\n\n_Generated by [Claude Code](https://claude.ai/code/session_012wwHa4aaFybxXrfmfHioDM)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_012wwHa4aaFybxXrfmfHioDM)_"
+}

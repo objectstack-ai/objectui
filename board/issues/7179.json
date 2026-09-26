@@ -1,0 +1,36 @@
+{
+  "number": 7179,
+  "kind": "issue",
+  "title": "Grid grouping collapses every row into one \"(empty)\" bucket when the grouping field is not also a displayed column — `select` is built from `columns` alone",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T09:32:30Z",
+  "updated_at": "2026-09-01T14:19:09Z",
+  "closed_at": "2026-09-01T14:17:58Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7179",
+  "body": "Found by opening a grouped grid in a real ObjectStack application (`objectstack-ai/duly`) against published `@objectstack/*` 17.2.0, with 186 real records across 5 business units. Network payloads captured; root cause confirmed in this repo's source.\n\n## The claim\n\n**A grid view that declares `grouping` on a field absent from its `columns` renders one group labelled `(empty)` containing every row.** No error, no warning, no empty state — a grouped grid that looks like it grouped, and did not.\n\nThe grouping field is fully populated on every record. The same field, grouped by a dashboard chart on the same data, resolves its labels correctly.\n\n## Measured\n\nView declaration:\n\n```ts\nby_unit: {\n  type: 'grid',\n  columns,                                    // subject, status, due_date, period_key, owner, source\n  grouping: { fields: [{ field: 'business_unit' }] },\n}\n```\n\nRendered: a single collapsible group, `(empty)  100`, holding every row.\n\nTwo payloads captured on that page load:\n\n```\nGET /api/v1/data/duly_task?\n  keys: id,…,subject,duty,owner,business_unit,assignment,source,period_key,…\n  business_unit: \"Q2UJSlOy4ICnWmTg\"          ← populated\n\nGET /api/v1/data/duly_task?populate=owner&top=100&select=id,subject,status,due_date,period_key,…\n  keys: id,subject,status,due_date,period_key,owner,source\n  business_unit: undefined                    ← not requested\n```\n\nThe grid's own request builds `select` from the view's **`columns`** and nothing else. `business_unit` is never asked for, so it is `undefined` on every row by the time grouping runs.\n\nStorage confirms the data is not the problem — `select business_unit, count(*) from duly_task group by 1` gives 5 distinct unit ids over 186 rows, **0 nulls**.\n\n## Why it lands on `(empty)` rather than failing\n\n`packages/plugin-grid/src/useGroupedData.ts:119`, first line of `buildSegmentLabel`:\n\n```ts\nif (value === undefined || value === null || value === '') return '(empty)';\n```\n\nThat guard is right for a genuinely empty value and cannot distinguish it from a field that was never fetched. Everything below it handles lookups well — an expanded `{ id, name }` resolves through `name`/`label`/`title`/…, and a bare FK string falls through to `String(value)`, which would at least have shown five distinct id buckets. Neither path is reached, because the value is `undefined` before any of it runs.\n\nSo the defect is upstream of the label builder, in the projection: the query should include every field the view groups by.\n\n## Why this is worth prioritising\n\nIt is a silent **wrong answer**, not a missing feature, and it is invisible in exactly the conditions authors test under:\n\n- `objectstack validate` and `build` are green — `business_unit` *is* a real field on the object, so every binding check passes;\n- the view renders, the row count is right, the rows are right;\n- the only symptom is that the grouping did nothing, and `(empty)` reads as \"these records have no unit\" — a plausible, wrong, actionable conclusion. A manager looking at this concludes the org data is unpopulated.\n\nAn author whose grouping field happens to also be a displayed column never sees it, which is why this survives casual use.\n\n## Reproduce\n\n```ts\n// any object with a populated field `f`\n{ type: 'grid',\n  columns: [{ field: 'a' }, { field: 'b' }],   // note: no `f`\n  grouping: { fields: [{ field: 'f' }] } }\n```\n\nOpen the view. One group, `(empty)`, all rows. Add `{ field: 'f' }` to `columns` and it groups correctly.\n\n## Suggested direction\n\nUnion the grouping fields into the `select` projection where it is built, rather than requiring authors to mirror them in `columns` — grouping by a field you do not want as a visible column is an ordinary thing to want, and it is what the two config keys being separate implies is supported.\n\nWorth checking the same builder for the neighbouring cases before closing: a `sort` on a non-column field, and the `groupBy` fields on kanban and gantt, all take a field name from a config key that is not `columns`.\n\nIf the projection is deliberately columns-only, then the author-time gate is the alternative — refuse a `grouping.fields[]` entry that names no column — but the projection fix is the one that matches what the schema already lets you write.\n\n## Application impact\n\nIn the app that found this, the affected view is the manager's org lens: \"show me what is outstanding, by business unit\". It shipped green, with a passing metadata-binding test that resolves `business_unit` against the object schema — which it does resolve, correctly, and which is exactly why the test could not catch this."
+}

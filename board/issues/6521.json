@@ -1,0 +1,35 @@
+{
+  "number": 6521,
+  "kind": "issue",
+  "title": "finding(docs): `overlay/menubar.mdx` publishes an invented `MenubarItem` interface — it is what taught the fixture its wrong spellings",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-26T08:34:24Z",
+  "updated_at": "2026-08-31T20:25:51Z",
+  "closed_at": "2026-08-31T20:25:51Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6521",
+  "body": "Blocked-by: #6132\n\nFound while implementing #6249 (repairing the menubar demo's array `shortcut` and its two blank-row separators). Filed unassigned and **out of that card's fence**: #6249's triage ruling scopes it to \"one small fixture PR\", and its dispatch says to file anything found outside the fixture rather than widen the PR.\n\n⚠️ **`content/docs/components/overlay/menubar.mdx` is currently held by open PR #6345**, which rewrites the handler line in this same block. That PR belongs to **#6132**, which is this card's blocker — so the same-file hold and the `Blocked-by:` are the same fact. Re-verify the Schema block **on the merged ref** before dispatch.\n\n## What was measured, at `50f987f9a`\n\nThe page's `## Schema` section publishes this:\n\n```plaintext\ninterface MenubarItem {\n  label?: string;\n  value?: string;\n  icon?: string;\n  shortcut?: string[];\n  type?: 'separator';\n  disabled?: boolean;\n}\n```\n\n**No such interface exists.** `MenubarMenu.items` is typed `MenuItem[]` (`packages/types/src/overlay.ts:417-425`), and the shipped `MenuItem` (`overlay.ts:330-359`, mirrored at `zod/overlay.zod.ts:131-141`) disagrees with the published block on five of its six lines:\n\n| taught on the page | actually shipped |\n|---|---|\n| `label?: string` | `label: string` — **required** (`overlay.ts:334`, `z.string()` at `overlay.zod.ts:133`) |\n| `value?: string` | **not declared at all** |\n| `shortcut?: string[]` | `shortcut?: string` (`overlay.ts:350`, `overlay.zod.ts:137`) |\n| `type?: 'separator'` | `separator?: boolean` (`overlay.ts:358`, `overlay.zod.ts:139`) |\n| *(absent)* | `children?: MenuItem[]` — real, and the renderer draws submenus from it |\n| `icon?: string`, `disabled?: boolean` | ✅ these two match |\n\nAlso on the same block: `MenubarSchema.menus` is taught as required, but is declared `menus?: MenubarMenu[]` (`overlay.ts:436`, `overlay.zod.ts:179`).\n\n**Excluded from this card:** the `onSelect?: string | ActionConfig` line. That is the handler question PR #6345 and #6346 already own — this card should not touch it.\n\n## Scope, as graded by triage\n\nCorrect the Schema block to the declared surface: `label` **required**, `shortcut?: string`, `separator?: boolean`, add `children`, drop `value`. The `onSelect` handler line stays excluded.\n\n⚠️ The `value` cleanup face spans **21 catalog items across three fixture families** — that half is catalog-fixture work, and the dispatching seat decides fold-vs-split at claim time.\n\n## Why this is worth a card rather than a note\n\n**This block is the producer of the defect #6249 exists to end.** The fixture wrote `\"shortcut\": [\"Ctrl\",\"T\"]` and `{\"type\":\"separator\"}` because *the page next to it declares exactly those two spellings*. Repairing the fixture alone leaves the page teaching the wrong shapes one screen below the corrected demo — which is precisely the failure #6157's own test header records in reverse (\"#6143 round 2 had just corrected the PROSE on those same pages; the demo rendered beside the prose still contradicted it\").\n\nUnder AGENTS.md #0.1 (fix the metadata at the producer, not the consumer), the published interface *is* the producer here.\n\n`value` is not a menubar-only stray, which is why it belongs on this card rather than being waved through — measured across the whole catalog:\n\n- `components-overlay-menubar/application-menubar` — **11** items carry `value`\n- `components-overlay-context-menu/basic-context-menu` — **4**\n- `components-overlay-dropdown-menu/basic-dropdown-menu` — **3**\n- `components-overlay-dropdown-menu/with-icons` — **3**\n\n**21 items** author a key `MenuItem` does not declare and no renderer reads. `MenuItemSchema` is a bare `z.object`, so zod strips it and reports success — the #6157 class-2 blindness, which is why no gate has ever reported it.\n\n## Related, and deliberately not merged into this\n\n- #6326 — quotes **this same block** as evidence that `MenubarItem.icon` is documented, and is scoped to the renderer's unread `icon`. This card is about the block being wrong; that one is about a key the block gets right. (It is `pm:blocked` behind #5931, now in the decision inbox.)\n- #6346 / PR #6345 — own the handler line.\n- #6249 — repaired the fixture only; the page was fenced out.\n- #5250 — records why nothing caught this: no gate parses these JSON fixtures or this `plaintext` fence.\n\n## The open question\n\nWhether the page should keep teaching `shortcut` at all. It is genuinely declared, but the menubar renderer never reads it (see the companion finding filed alongside this one), so documenting it on *this* page advertises an affordance this component cannot draw. That is the same honesty call #6249's triage already made for the demo, and it should be made once for the prose rather than guessed at.\n\nPer triage: this follows #6249's honesty precedent and is also an input to the **#6523** decision filed alongside — the dev should align with whichever way #6523 is ruled if it lands first, else keep the declared key documented with the renderer caveat.\n\nRefs: #6132 (blocker, via PR #6345's same-file hold) · #6249 · #6326 · #6346 · #6523 · #5250 · #6157.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_011SfZeFWrhGLHmfq61xbz4q)_"
+}

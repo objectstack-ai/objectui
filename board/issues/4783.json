@@ -1,0 +1,32 @@
+{
+  "number": 4783,
+  "kind": "issue",
+  "title": "[finding] 批次 9 三条整洁性观察:modal 派生分组不读 collapse 标志;CONTAINER_GRID_COLS 私有副本;actionDialog.ok/defaultActionTitle 失去唯一调用点",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-16T06:28:04Z",
+  "updated_at": "2026-08-31T01:33:43Z",
+  "closed_at": "2026-08-31T01:33:10Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4783",
+  "body": "批次 9 轮末归档(座位 `repo:objectui`,session_01GTRjn8xBqp75dk7kFupVRt),三条 observation-class 合并,待分诊定级。\n\n## 一(自 #4774/PR #4778):ModalForm 派生分组不读 collapse 标志\n\nModalForm 的派生分组分支渲染静态表头,不读 deriveFieldGroupSections 产出的 collapsible/collapsed —— 声明 `collapse:'collapsed'` 的组在 modal 一律展开。非回归(modal 从来如此);drawer 侧已随 PR #4778 支持。补齐前需先裁 modal 是否该有折叠语义(modal 无折叠 section 基建)。\n\n## 二(自 #4774/PR #4778):CONTAINER_GRID_COLS 私有副本\n\n`DrawerForm.tsx:52-57` 有一份与 `autoLayout.ts` 导出版逐字节相同的私有副本。纯整洁性,零行为影响。\n\n## 三(自 #4766/PR #4782):actionDialog 两个 i18n key 失去唯一调用点\n\n`actionDialog.ok` 与 `actionDialog.defaultActionTitle` 随 DashboardView 私有对话框删除失去调用点;check:i18n-dead-keys 是 report-only 未接 CI。清理落在 packages/i18n 十个语言包。\n\n## 参考\n\n- #4774 / PR #4778、#4766 / PR #4782(发现来源,实测记录在各自报告)"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 6736,
+  "kind": "issue",
+  "title": "`check-changeset-presence.mjs` guards only `<pkg>/src/**`, so a published-contract change in `package.json` is owed no changeset — live instance in #6683",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p1",
+    "tooling"
+  ],
+  "assignees": [
+    "zhuangjianguo"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-29T04:38:22Z",
+  "updated_at": "2026-08-31T12:02:54Z",
+  "closed_at": "2026-08-31T12:01:25Z",
+  "closed_by": {
+    "login": "zhuangjianguo",
+    "id": 19182527,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6736",
+  "body": "Found while implementing #6683 (PR #6735). Filed, not fixed there — out of that card's scope.\n\n## The gap\n\n`scripts/check-changeset-presence.mjs` derives its guarded surface as `<pkg>/src/**` for every package in the `fixed` group of `.changeset/config.json`. Its own header states that derivation and says why it is derived rather than listed, and the reasoning is sound for *source*.\n\nIt does not cover `<pkg>/package.json`. So a change to a package's **published contract** carries no obligation to declare anything, and the platform-side release criterion (objectstack#4731 / #4843 reads this repo's declared changesets) never learns about it.\n\nFields in that class, all of them read by consumers and none of them under `src/`:\n\n- `sideEffects` — every consumer's bundler reads it and tree-shakes accordingly\n- `exports` / `main` / `module` / `types` — what a consumer can import at all\n- `files` — what is in the tarball\n- `peerDependencies` / `engines` — what a consumer must satisfy\n\n## The live instance\n\nPR #6735 adds a `sideEffects` ARRAY to `@object-ui/app-shell`. That changes how every consumer's bundler treats the package: modules the array does not name become droppable, which is the whole point of the change and is also a behaviour change a consumer can be bitten by. The gate's own verdict line on that diff:\n\n```\nCompared the working tree with 9486ac672 (merge-base with origin/main): 7 file(s) changed,\n0 of them published source of a package the release covers, 0 under a package changesets\nignores, 1 changeset(s) added.\n✅  No source of a released package changed in this range, so no changeset is owed.\n```\n\nThe changeset in that PR is there because the author decided it was owed, not because anything asked for it. That is exactly the condition objectui#3387 was filed about — \"a change to published source carries a changeset\" enforced by nothing — one field over.\n\n## Why it is worth a card rather than a note\n\nThe same three fixes that rode out anonymously in objectui#3387's measurement (`19716b5bf`, `5e7ef1141`, `0e50440`) are the argument: the omission is silent, the release notes are assembled from the declarations, and a contract change that no CHANGELOG records is one a consumer debugs from the outside. A `sideEffects` or `exports` edit is arguably *more* consequential per byte than a source edit, because it changes what a consumer's build does with code that did not change.\n\n## Shape of a fix (not a decision — for triage)\n\nWiden the guarded surface from `<pkg>/src/**` to `<pkg>/src/**` plus a named set of `package.json` FIELDS, judged by diffing the manifest rather than by the file's mtime — a `version` bump written by `changeset version` itself, or a `devDependencies` bump from Dependabot, must not demand a changeset, or the gate becomes noise and gets routed around. The field list is the decision worth taking deliberately.\n\nNot attempted in #6735: that PR is the ruled `sideEffects` work, and widening a repo-wide changeset gate inside it would put an unrelated CI-shaped risk on a published-contract change."
+}

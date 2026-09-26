@@ -1,0 +1,35 @@
+{
+  "number": 6781,
+  "kind": "issue",
+  "title": "finding(plugin-timeline): non-string gantt dates that coerce to the epoch (`0`, `false`, `[]`) still draw a 649-column 1970 axis with no diagnostic",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-29T13:11:10Z",
+  "updated_at": "2026-08-30T15:13:16Z",
+  "closed_at": "2026-08-30T15:12:15Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6781",
+  "body": "Filed unassigned while implementing objectui#6770 (the `null` gantt date). **Deliberately left out of that card** — see \"why this is not the same input class\" below.\n\nMeasured on `c6732825d` with a throwaway probe, one row item, i.e. with objectui#6759's guards in the tree and before objectui#6770's change:\n\n```\nCASE-ZERO-NUM  items: [{ label: 'R', items: [{ title: 'T', startDate: '2024-01-01', endDate: 0 }] }]\n               alert: none\n               axis:  649 month buckets, \"Jan 1970\" … \"Jan 2024\"\n               bars:  [\"left: 100%; width: -100%;\"]\n```\n\nIdentical, byte for byte, to the reading objectui#6770 was filed for. `new Date(0)`, `new Date(false)` and `new Date([])` are all the epoch, so every one of them passes the parse guard and anchors the axis in 1970 with no error, no diagnostic and no console warning.\n\n## Why this is NOT the same input class as objectui#6770\n\nobjectui#6770 refuses `null` on the ground that `null` is an **absence** spelling — what a record mapping hands you for an unset field — which objectui#6759 already refuses when it is spelled `undefined`. Its guard is `value === null` and deliberately nothing wider, because:\n\n- `0` is a **legitimate epoch timestamp**. `startDate: 1704067200000` renders 2024 correctly today, and there is no way to tell `0` apart from an author who genuinely means 1970-01-01.\n- `false` / `[]` are neither timestamps nor absence spellings; refusing them means a **type** rule (\"a gantt date must be a string, a number or a Date\"), which is wider than any of the three cards so far and would have to be adjudicated as such.\n\nSo this is a policy question, not a mechanical fix, and it is a different question from the one objectui#6770 answered.\n\n## The three arms, as they look from here\n\n1. **A type rule.** Refuse anything that is not a string, a finite number or a `Date`. Catches `false` / `[]` / `{}` and leaves `0` rendering as 1970 — which is arguably correct, since `0` really is a date in that encoding.\n2. **Refuse `0` too**, on the ground that a `0` in a date field is almost always an unset integer column rather than an author meaning 1970. Costs the ability to author the epoch, which nobody plausibly wants but which is currently legal.\n3. **Leave it.** `false` / `[]` in a date field are not plausible authored input, and `0` is genuinely ambiguous. The 1970 axis stays reachable through a door narrower than the one objectui#6770 closed.\n\n## Where it lives\n\n`packages/plugin-timeline/src/renderer.tsx` — `findUnusableGanttDate`, the `isUnusable` predicate. Line numbers deliberately omitted: re-derive them on your base.\n"
+}

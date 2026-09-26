@@ -1,0 +1,36 @@
+{
+  "number": 6692,
+  "kind": "issue",
+  "title": "finding(docs): core/app-schema.mdx's \"Global Actions\" snippet imports the wrong same-named `MenuItem`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-28T15:40:51Z",
+  "updated_at": "2026-08-30T04:03:00Z",
+  "closed_at": "2026-08-30T03:10:22Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6692",
+  "body": "Found while implementing #6523 / #6346 (the `overlay.ts` `MenuItem` discriminated-union +\n`onClick` fix). Filed unassigned and out of both cards' fence — this is a pre-existing,\nunrelated docs/type-naming collision, not something either ruling's diff touches.\n\n## What was measured, at `c75b928e6`\n\n`content/docs/core/app-schema.mdx`'s `## Global Actions` section has a **real, compiled**\n`ts` fence (unlike the `plaintext` \"Schema\" blocks elsewhere on this same page):\n\n```ts\nimport type { MenuItem } from '@object-ui/types';\n\ninterface AppAction {\n  ...\n  items?: MenuItem[];     // For type='dropdown' or 'user'\n  ...\n}\n```\n\n`import type { MenuItem } from '@object-ui/types'` resolves to the **overlay** `MenuItem`\n(`packages/types/src/overlay.ts`, re-exported at `index.ts:255` under the bare name\n`MenuItem`) — the discriminated union shared by `ui:dropdown-menu`/`ui:context-menu`/\n`ui:menubar`, which #6523 just reshaped.\n\nBut the **real** `AppAction.items` field — `packages/types/src/app.ts:728` — is declared\ninside `app.ts` itself, so `MenuItem[]` there resolves to `app.ts`'s own **local** `MenuItem`\n(`app.ts:461`), a structurally different, legacy navigation-item shape (`type?: 'item' |\n'group' | 'separator'`, `path`, `href`, `badge`, `hidden` — none of which the overlay\n`MenuItem` declares). The barrel re-exports `app.ts`'s version under the renamed\n`AppMenuItem` (`index.ts:59`) specifically to avoid this collision — but the docs snippet\nimports the bare, unrenamed name, so it silently picks up the WRONG same-named type.\n\nConfirmed this is not new: `app.ts`'s own `MenuItem` and `overlay.ts`'s `MenuItem` have\nalways been structurally different (this predates #6523's union split — before it, the\noverlay `MenuItem` was still a single object with `label: string` required, `icon`,\n`disabled`, `onClick`, `shortcut`, `children`, `separator?: boolean`, none of which match\n`app.ts`'s `type`/`path`/`href`/`badge`/`hidden` shape either).\n\n## Why this doesn't block #6523/#6346\n\nThe snippet is a **bare type reference** (`items?: MenuItem[]`), not an object literal that\ninstantiates the shape — so it compiles under `check-doc-snippet-types.mjs` regardless of\nwhich `MenuItem` it actually resolves to, and #6523's union split doesn't change whether it\ncompiles. Confirmed unaffected by grepping the diff: the snippet's own text is untouched by\neither card.\n\n## The open question\n\nTwo candidate fixes, not adjudicated here:\n\n- **A** — the snippet's import is simply wrong; change it to `import type { MenuItem as\n  AppMenuItem } from '@object-ui/types';` (or import from `'@object-ui/types'`'s already-exported\n  `AppMenuItem` name directly) so the reader compiles against the type that's actually there.\n- **B** — `AppAction.items` itself is questionable: dropdown/user toolbar actions plausibly\n  WANT the richer overlay `MenuItem` (icon, onClick, shortcut, submenu children, divider) more\n  than the legacy nav-item shape (`path`/`href`/`badge`) `app.ts` gives them today — worth\n  checking whether `header-bar.tsx` (the renderer consuming `AppAction.items`) actually reads\n  `app.ts`'s fields or the overlay ones before choosing.\n\nWhichever way, this is a genuine decision (which `MenuItem` `AppAction.items` should mean),\nnot a mechanical fix, so it doesn't qualify for the bounded in-place-fix exemption on the PR\nthat found it.\n\nRefs: #6523 · #6346 (found while implementing, unrelated to either ruling).\n"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 6584,
+  "kind": "issue",
+  "title": "The record-drawer `size: 'lg'` bucket decision has no live tracker — three source files point at #6303 and #6259, both now closed",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-26T14:52:25Z",
+  "updated_at": "2026-08-30T16:07:56Z",
+  "closed_at": "2026-08-30T16:07:23Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6584",
+  "body": "Surfaced by post-merge verification of #6303 (PR #6581). Both that PR and its predecessor #6305 were individually correct; the defect is a property of their **sequence**, which is why only a check after the merge finds it.\n\n## The measurement\n\nThree shipped source files now tell a reader that a decision is open, and name a closed card as its home:\n\n| file | line | text | card named | that card's state |\n| :--- | ---: | :--- | :--- | :--- |\n| `packages/plugin-kanban/src/ObjectKanban.tsx` | 712 | *\"stays open on #6303 for a human ruling.\"* | #6303 | **closed** `completed` 2026-08-26T14:50:21Z |\n| `packages/plugin-calendar/src/ObjectCalendar.tsx` | 465 | *\"stays open on #6303 for a human ruling.\"* | #6303 | **closed** |\n| `packages/plugin-gantt/src/ObjectGantt.tsx` | 1283 | *\"to the bucket is open (#6259), and spans kanban/calendar/RecordDetailDrawer as one decision (#6303)\"* | #6259, #6303 | **both closed** `completed` |\n\nSo the pointer chain terminates on closed cards in every direction. The question they point at is not tracked anywhere.\n\n## The question that lost its home\n\nWhether the record-navigation drawer default should converge on the `size` bucket rather than staying on the CSS literal. It is a real behaviour change, not a spelling cleanup — quoting the measurement the three files carry:\n\n> `size: 'lg'` … that bucket is `min(92vw, 960px)`, which agrees with the above only at viewport >= 1600px and is up to 53% wider below it.\n\nIt spans four surfaces: `ObjectGantt`, `ObjectKanban`, `ObjectCalendar` and `RecordDetailDrawer`'s own default. Deciding it for one and not the others re-opens the divergence #6303 was filed to close, so it has to be answered once, for all four.\n\n## Why the pointers went stale\n\n#6259 asked the `width`-vs-`size` question for the gantt. PR #6305 answered the **`width` half only** — drop the deprecated spelling, keep the pixels identical — and deliberately left the bucket half open, saying so in a code comment that pointed forward at #6303. #6303 then carried both halves, and PR #6581 implemented the same `width` half for kanban and calendar, again leaving the bucket half open in the same words. Its `Fixes #6303` closed the card, and the open half went with it.\n\nNobody did anything wrong at either step. A card that carries a decided half and an undecided half closes when the decided half lands, and the undecided half needs its own card **before** that happens rather than after.\n\n## The current state, verified on `main`\n\nThe `width` half is fully converged — all three renderers now read identically, and the literal survives in **code** at exactly one place repo-wide, which is its home:\n\n```\nObjectKanban.tsx:713    const navConfig = (schema as any).navigation ?? { mode: 'drawer' };\nObjectCalendar.tsx:466  const navConfig = (schema as any).navigation ?? { mode: 'drawer' };\nObjectGantt.tsx:1285    const navConfig = schema.navigation ?? { mode: 'drawer' };\n\nObjectKanban.tsx:1018   width={navigation.width as any}\nObjectCalendar.tsx:783  width={navigation.width as any}\nObjectGantt.tsx:1724    width={navigation.width as any}\n\nRecordDetailDrawer.tsx:129   width = 'min(960px, 60vw)',      <- the single remaining code occurrence\n```\n\nEvery other occurrence of the literal in those three renderers is prose in the explanatory comments. So nothing is broken today; what is missing is the tracker for the deliberately-deferred half.\n\n## What this card is asking for\n\nTwo things, and only the first is mechanical:\n\n1. A live home for the bucket question — which is what this card is, if triage grades it into the decision box; the three in-code pointers should then be updated to name it instead of a closed card. That doc-only correction is small and belongs to whichever card gets the ruling, not to a rider on unrelated work.\n2. The ruling itself, which is a **human decision**: a change that is up to 53% wider below a 1600px viewport on four record surfaces is a published-behaviour change, not a cleanup.\n\n⛔ Filed unassigned and ungraded by the `domain:ui` execution seat (session `session_011SfZeFWrhGLHmfq61xbz4q`) — recording only. Grading and routing are triage's.\n\n## The reusable half\n\nA card that closes on `Fixes #` takes any deferred half with it. Where a dispatch deliberately narrows to the decided half of a question — as #6303's did — the open half needs a card of its own **at dispatch time**, not at merge time, and the code comments should point at that card from the start."
+}

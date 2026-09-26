@@ -1,0 +1,33 @@
+{
+  "number": 6728,
+  "kind": "pull_request",
+  "title": "docs(data-objectstack): correct stale header in aggregate-capability.test.ts",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-29T03:46:19Z",
+  "updated_at": "2026-08-29T04:12:05Z",
+  "closed_at": "2026-08-29T04:12:04Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": "2026-08-29T04:12:04Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6728",
+  "body": "Fixes #5954\n\n## What was wrong\n\nThe \"WHY THIS EXISTS\" header in\n`packages/data-objectstack/src/aggregate-capability.test.ts` claimed:\n\n> `@objectstack/client`'s `analytics.query()` returns `res.json()` WITHOUT\n> checking `res.ok`, so a non-2xx never throws — the error body arrives\n> where rows were expected.\n\nThat is false of the client this repo has installed. It was true history —\nthe defect the file was written to pin against — but stated in the present\ntense, directly above tests written against the opposite behaviour.\n\n## What I measured (not copied from triage)\n\n- **Installed version**: `@objectstack/client@17.2.0`, confirmed via\n  `pnpm-lock.yaml` and the resolved `node_modules/.pnpm/@objectstack+client@17.2.0_.../node_modules/@objectstack/client/package.json`.\n- **Throw site**: `ObjectStackClient.fetch` (the `dist/index.mjs` class at\n  line 614), method at line 4272:\n  ```js\n  const res = await this.fetchImpl(url, { ...options, headers });\n  ...\n  if (!res.ok) {\n    let errorBody;\n    try { errorBody = await res.json(); } catch { errorBody = { message: res.statusText }; }\n    ...\n    const error = new Error(errorMessage);\n    error.code = errorCode;       // errorBody?.code ?? errorBody?.error?.code\n    error.httpStatus = res.status;\n    ...\n    throw error;\n  }\n  return res;\n  ```\n  `analytics.query` (line 921-929) is:\n  ```js\n  query: async (payload) => {\n    const route = this.getRoute(\"analytics\");\n    const res = await this.fetch(`${this.baseUrl}${route}/query`, { method: \"POST\", body: JSON.stringify(payload) });\n    return res.json();\n  },\n  ```\n  So `analytics.query` does call `res.json()`, but only after `this.fetch(...)`\n  — and `this.fetch` throws before returning on any non-2xx. `res.json()`\n  inside `analytics.query` is therefore unreachable for a non-2xx response.\n- **Dependent assertions**: every test in the file except the two 2xx cases\n  under `describe('aggregate() on a healthy analytics endpoint', …)` supplies\n  a non-2xx `analyticsStatus` and asserts on the adapter's `catch`-driven\n  behaviour (`classifyAnalyticsFailure`'s branches) — e.g. the very first one,\n  `'404 (routes not mounted, framework#4019) falls back instead of returning\n  an empty result'`, passes *because* the throw reaches that `catch`. On a\n  client that truly returned the error body as data, `aggregate()` would\n  short-circuit on `[]` and that assertion would fail.\n\nConfirms the issue's premise exactly: `premise_still_valid: true`.\n\n## What changed\n\nComment-only rewrite of the header's first paragraph to state the measured,\npresent-tense mechanism (client throws inside `fetch`, decorates the error,\n`analytics.query`'s own `res.json()` is unreachable on non-2xx), with the old\nparagraph kept as explicit history — the defect the file exists to catch —\nrather than deleted. No test code, assertion, or behaviour changed;\n`git diff` touches only the docblock.\n\n## Tests\n\n- `pnpm exec vitest run packages/data-objectstack/src/aggregate-capability.test.ts`\n  (run from repo root — the package-directory form is blocked by this repo's\n  own `OBJECTUI_VITEST_GUARD`, objectui#3378): **12 passed, 12 passed** —\n  unchanged, confirming this is comment-only.\n- `pnpm --filter @object-ui/data-objectstack run type-check` (`tsc --noEmit`): clean.\n- `npx eslint packages/data-objectstack/src/aggregate-capability.test.ts`: 0 errors, 11 pre-existing `no-explicit-any` warnings (all in test-body code untouched by this diff, not in the header).\n- `node scripts/check-changeset-presence.mjs`: ✅ — 1 published-source file changed, 1 changeset declared.\n- `node scripts/check-changeset-no-major.mjs`: ✅.\n- NUL/control-byte self-scan on both changed files: clean.\n\n## Changeset\n\n`packages/data-objectstack` is in `.changeset/config.json`'s `fixed` group,\nand this PR's diff is under its `src/`, so `check-changeset-presence.mjs`\nrequires a declaration even though this is test-only — its own header says\nso explicitly (\"No carve-out for test files under `src/`\"). Added\n`.changeset/5954-aggregate-capability-header.md` with **empty frontmatter**\n(the documented \"declares no release\" exemption) and a one-paragraph\nexplanation, per the gate's own accepted format.\n\n_Generated by [Claude Code](https://claude.ai/code/session_01CRJge11jso9TpXRWFt1Z49)_\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01CRJge11jso9TpXRWFt1Z49)_"
+}

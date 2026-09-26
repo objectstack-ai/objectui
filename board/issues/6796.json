@@ -1,0 +1,33 @@
+{
+  "number": 6796,
+  "kind": "pull_request",
+  "title": "fix(react): stop writing the useSchemaPersistence adapter ref during render",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: react",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-29T14:49:42Z",
+  "updated_at": "2026-08-30T02:55:45Z",
+  "closed_at": "2026-08-30T02:55:43Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": "2026-08-30T02:55:43Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/6796",
+  "body": "Fixes #6745\n\n`useSchemaPersistence` kept the live adapter in a ref that was written in the\n**render body**, drawing three `react-hooks/refs` warnings.\n\n## Measured on my own base, not the card's\n\nThe card's line numbers and counts were taken on `faac0d935`. Re-measured on my\nbase `d06059f24` — the file has grown since, so the lines differ:\n\n```\npnpm exec eslint packages/react/src/hooks/useSchemaPersistence.ts --format json\n\nBEFORE  3 warnings   237:40 react-hooks/refs  Cannot access ref value during render\n                     239:3  react-hooks/refs  Cannot update ref during render\n                     239:35 react-hooks/refs  Cannot access ref value during render\nAFTER   0 warnings\n```\n\nPackage-wide, `pnpm exec eslint packages/react --format json`:\n\n| | files | errors | warnings | `react-hooks/refs` |\n|---|---|---|---|---|\n| before | 126 | 0 | 346 | 6 |\n| after | 127 | 0 | 343 | 3 |\n\nThe 3 that remain are on other files and out of scope here. The extra file is\nthe new pin.\n\n## The shape, and why it is not an effect\n\nThe four callbacks are created once (`[]` deps) and read the adapter at call\ntime, so the newest adapter has to reach them without changing their identity —\nthat is the ref's whole job. The write now happens in `useInsertionEffect`:\n\n- **`useEffect`** lands after paint, so a call made earlier in the same commit\n  reaches the previous adapter.\n- **`useLayoutEffect`** is not enough either: a child's layout effects run\n  before its parent's, so a child calling `save()` from its own layout effect\n  still sees the previous adapter.\n- **`useInsertionEffect`** runs in the mutation phase — ahead of every layout\n  effect in the tree, ahead of paint, ahead of any event handler.\n\n`useEffectEvent` would be the idiomatic answer but is React 19.2+, and this\npackage declares `react: ^18.0.0 || ^19.0.0` as a peer. `useInsertionEffect`\nhas been available since React 18.0.\n\n**What changed observably: nothing any legal call site can reach.** The single\ndeferred window is a read during the render phase itself, and\n`save`/`load`/`list`/`remove` are side effects that are never callable during\nrender. What the old code additionally did — and this is the defect the rule\nnames — was perform the write on renders React discards or replays (StrictMode,\na Suspense retry, a concurrent interruption), so a save could be routed through\nan adapter belonging to a render that never committed.\n\n## Also fixed, named rather than slipped in\n\n`useRef(createLocalStorageAdapter())` invoked the factory on **every** render and\ndiscarded all but the first result. It is now `useMemo`. This is not a widening:\nthe `237:40` warning is a read of `defaultAdapter.current` during render, so\nclearing it requires changing how the default adapter is held, and the lazy-init\nref idiom would read and write a ref during render just the same. The adapter is\na stateless facade over `localStorage` whose identity is never exposed, so the\nchange is unobservable beyond the saved work.\n\n## Pins\n\n`packages/react/src/hooks/__tests__/useSchemaPersistence.adapterTracking.test.tsx`,\n4 pins: a changed `adapter` prop is what the next save reaches; the swap is in\nplace before a **child layout effect of the same commit** (the discriminating\none); the default localStorage adapter still persists across re-renders; an\nexplicit adapter takes over from the default.\n\n## Ablation, both directions\n\nImplementation committed first; every leg confirmed on disk by comparing\n`git hash-object` against the HEAD blob, restored with `git checkout HEAD --`\nunder a trap. The pins import the hook by relative source path and this package\nhas no `dist`, so the mutation bites the file Vitest actually loads — no rebuild\nleg applies.\n\n| leg | mutation | result |\n|---|---|---|\n| A | implementation reverted to `origin/main`, new pins kept | **15/15 pass** — lint warnings return (3, at 237/239/239) |\n| B | `useInsertionEffect` to `useEffect` | pin 2 **fails** |\n| C | `useInsertionEffect` to `useLayoutEffect` | pin 2 **fails** |\n\nLeg B's failure is the stale read itself:\n\n```\n- \"second:from-layout-second\"\n+ \"first:from-layout-second\"\n```\n\n**Leg A is the honest headline: no test fails when the fix is reverted.** The\npins pass against the old code and the new code alike — precisely because the\ntiming was preserved. This is a lint-cleanliness fix with no behavioural\nregression behind it, not a bug fix; the new pins guard the *next* edit (legs B\nand C) rather than a break that exists today. No user-visible break was measured\nhere, and none is claimed.\n\n## Verification\n\nUnion re-run after the final commit, at `a7be07cc5`, tree clean:\n\n- `pnpm exec vitest run` on both pin files (canonical invocation, repo root, no\n  `--`): `Test Files 2 passed (2)`, `Tests 15 passed (15)` — including the 11\n  from the objectui#6658 callable guard, untouched.\n- `pnpm --filter '@object-ui/react' run type-check`: pass. It runs\n  `tsc --noEmit && tsc -p tsconfig.test.json`; `--listFiles` confirms the new\n  pin file is in that program, so the green covers it.\n- `pnpm exec eslint packages/react`: 0 errors, 343 warnings (table above).\n- `check:control-bytes`: `OK (scanned 5646 tracked text file(s))`.\n- `check:vi-mock-specifiers`: `OK`.\n\nRepo-wide `pnpm lint` is left to CI, which runs the farm exactly once.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01CRJge11jso9TpXRWFt1Z49)_"
+}

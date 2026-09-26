@@ -1,0 +1,35 @@
+{
+  "number": 7142,
+  "kind": "issue",
+  "title": "`ActivityTimeline`'s empty state is a hardcoded English literal, so a zh session reads \"No activity recorded\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T05:46:45Z",
+  "updated_at": "2026-09-01T07:17:41Z",
+  "closed_at": "2026-09-01T07:04:25Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7142",
+  "body": "Found while measuring the empty-state surfaces for #7132. Out of scope there, filed rather than fixed.\n\n`packages/plugin-detail/src/ActivityTimeline.tsx:138`:\n\n```tsx\n<DataEmptyState title=\"No activity recorded\" className=\"py-6\" />\n```\n\nThe title is a raw English string literal. It is not a `t()` call and not an inline `defaultValue` — it never reaches the pack system at all, so it stays English in all ten locales.\n\n## Why it is worth a card\n\nIts sibling on the same surface does it correctly. `RecordActivityTimeline.tsx:415` renders the same state as:\n\n```tsx\ntitle={emptyLabel ?? t('detail.noActivity')}\n```\n\nSo the key already exists and is already translated in the packs — this call site simply does not use it. That makes the fix small and the current state a straightforward inconsistency rather than a missing-translation project.\n\n## Measured\n\nRendered `ActivityTimeline` with `activities={[]}`; the empty box reads `text=\"No activity recorded\"` with the literal coming straight from the JSX, not from a pack lookup.\n\n⚠️ Note for whoever takes this: confirm whether `detail.noActivity` is the right key for *this* component's phrasing before reusing it, rather than assuming the two surfaces want identical copy. If they do want different copy, that is a new key in `en.ts` plus its nine sibling packs, with `all-locales-key-parity` green — never an inline `defaultValue` (#3517).\n\nRefs: #7132."
+}

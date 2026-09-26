@@ -1,0 +1,36 @@
+{
+  "number": 6714,
+  "kind": "issue",
+  "title": "finding(fields): `LocationField` emits out-of-range coordinates the spec rejects",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-28T18:28:32Z",
+  "updated_at": "2026-08-29T16:30:05Z",
+  "closed_at": "2026-08-29T01:48:13Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6714",
+  "body": "Filed unassigned by the dev seat working #6664, as an out-of-scope finding. **Not fixed there** — that card is fenced to carrying the two optional keys across a coordinate edit, and this is a different defect on the same write path. Recording, not choosing.\n\nDedup before filing: repo-scoped REST list of open issues updated since 2026-08-27 (74 issues), grepped for `LocationField` / `coordinate` / `latitude` / `lat`+`lng` — only #6664 itself and the seat card matched. #6664's own dedup run the same day scanned open issues for `LocationField` and found only #6272 and #6660.\n\n## What\n\n`packages/fields/src/widgets/LocationField.tsx` accepts any pair of **finite** numbers as a coordinate, but the spec constrains their **range**:\n\n```ts\n// @objectstack/spec, LocationValueSchema\nlat: z.number().min(-90).max(90)\nlng: z.number().min(-180).max(180)\n```\n\nThe widget's guard tests only finiteness — `isLocationValue` checks `typeof x === 'number' && Number.isFinite(x)`, and the write path adds only `!isNaN(...)`. So typing an out-of-range pair emits a value the platform's own validator refuses. Measured against `valueSchemaFor({ type: 'location' })`:\n\n```\n{\"lat\":999,\"lng\":999}    widget emits it | spec: REJECT too_big@[lat], too_big@[lng]\n{\"lat\":91,\"lng\":0}       widget emits it | spec: REJECT too_big@[lat]\n{\"lat\":0,\"lng\":181}      widget emits it | spec: REJECT too_big@[lng]\n```\n\n## Why it may matter\n\nThis is the contract-first failure class in the producer direction: a renderer that **writes** a value the spec rejects. Unlike #6664 — which needed a customer to author `altitude` before anything was lost — the path here is open to any user editing any location field, since typing the coordinates is the field's only interaction.\n\nThe widget already exposes the published validation slot (`error` / `aria-invalid`, objectui#3222), so an in-range check has somewhere to surface without inventing UI.\n\n## What is NOT measured\n\n- Whether anything downstream rejects or repairs the value before it is stored — the seat that filed this did not trace the save path.\n- Whether the right disposition is to refuse the emission (as the widget already refuses text that is not a coordinate pair, leaving the value alone) or to emit and mark the field invalid. Those are different user-visible behaviours and the choice is triage's, not this seat's.\n\n## Not to be confused with\n\nThe pre-existing `parseFloat` looseness on the same lines — `parseFloat('12abc')` is `12` — is a separate question and is not what this card reports.\n\n### Related\n#6664 (the optional-key carry on this same write path, where this was found) · #6272 (the A1 rename that made the widget's declared value type the spec's)"
+}

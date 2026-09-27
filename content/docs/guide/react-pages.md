@@ -141,7 +141,8 @@ If you want the whole record-page composition, author the page as `type:'record'
 instead — that is the page kind that mounts the context these blocks render from.
 
 **Layout containers are deliberately not injected.** The scope builder skips
-every container (`if (!tag || cfg.isContainer) continue;`), so `<flex>`, `<grid>`,
+every container and every html-tier entry
+(`if (!tag || cfg.isContainer || cfg.tier === 'html') continue;`), so `<flex>`, `<grid>`,
 `<card>` and friends have no injected wrapper. In react mode you compose layout
 with real HTML, which React is better at than a schema-children renderer — styled
 inline, not with Tailwind: `<div style={{ display: 'flex', gap: 16 }}>`.

@@ -208,8 +208,8 @@ describe('the declaration is confined to what was measured (objectui#6764)', () 
 describe('the premise that made this change safe on the SECOND consumer (objectui#6764)', () => {
   it('none of the eight is in the curated public contract', () => {
     // `renderers/layout/react-page.tsx` builds the JSX scope of every
-    // `kind:'react'` page with `if (!tag || cfg.isContainer) continue;`, so each
-    // declaration also REMOVES that tag as an injected identifier — the
+    // `kind:'react'` page with `if (!tag || cfg.isContainer || cfg.tier === 'html') continue;`,
+    // so each declaration also REMOVES that tag as an injected identifier — the
     // consequence objectui#6764 recorded as unmeasured. It reads
     // `getPublicConfigs()`, not the whole registry, and none of these eight is
     // in it: there is no `<Aside>` / `<Main>` / `<AspectRatio>` wrapper for the

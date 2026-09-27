@@ -35,6 +35,8 @@ wrote `<Flex>` moves from silently swallowing its children to the page-level
 error panel naming the identifier, with that page's documented remedy being
 real HTML: `<div style={{ display: 'flex', gap: 16 }}>`.
 
+⚠️ **Dated note, 2026-09-27 — the skip line quoted above has since gained a third arm — objectui#10735.** At this change the line read `if (!tag || cfg.isContainer) continue;`; it now reads `if (!tag || cfg.isContainer || cfg.tier === 'html') continue;`, because `getPublicConfigs()` also returns the html tier's intrinsic elements stamped `tier: 'html'` and the scope skips those too. The container arm this entry is about is unchanged; the rest of this entry is kept as the reading of this change.
+
 Pinned over the family rather than over `flex` alone: the defect's shape was
 "three declare it and one does not", and a pin covering only the one that was
 missing would let the next registration rot the same way.

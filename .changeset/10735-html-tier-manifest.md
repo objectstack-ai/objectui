@@ -13,7 +13,7 @@ sectioning tags — and the console has rendered such pages all along. The
 published `sdui.manifest.json` never said so: it was the curated `PUBLIC_BLOCKS`
 vocabulary alone, so the objectstack CLI gate, which whitelists an html page's
 tags from that manifest, refused every plain HTML tag as `forbidden-tag` on
-pages the renderer accepts (200 ledgered rows over the three shipped showcase
+pages the renderer accepts (200 ledgered findings over the three shipped showcase
 pages). The maintainer ruled A on objectstack#20112: the producer declares the
 set, exactly as the registry declares it, and `div` stays deprecated.
 

@@ -533,8 +533,8 @@ const specCarried = (type: string): boolean =>
  * `renderers/__tests__/container-declaration-census.test.tsx` red BY DESIGN — a
  * deliberate re-opening, which is the whole point of pinning it. It does ⛔ NOT
  * remove the tag from any `kind:'react'` page. `renderers/layout/react-page.tsx`
- * builds that scope with `if (!tag || cfg.isContainer) continue;`, so it skips
- * EVERY container config; a ledgered container already carries the flag, so
+ * builds that scope with `if (!tag || cfg.isContainer || cfg.tier === 'html') continue;`,
+ * so it skips EVERY container config; a ledgered container already carries the flag, so
  * promotion changes which list the config comes from and nothing about whether
  * the loop keeps it. Measured on `main`: 46 injected identifiers today, 46 with
  * `main` promoted, `Main` absent from both. The deletion reading is real but
@@ -564,7 +564,7 @@ const SECTIONING_TAG_UNRULED =
   'curating one would move it onto the curated tier, unstamped — a different fact from ' +
   'declaring it.) ⛔ It does NOT delete the tag from ' +
   'any react page, and an earlier revision of this entry said it did: `react-page.tsx` skips ' +
-  'EVERY container config (`if (!tag || cfg.isContainer) continue;`) and these seven already ' +
+  "EVERY container config (`if (!tag || cfg.isContainer || cfg.tier === 'html') continue;`) and these seven already " +
   'carry `isContainer: true`, so a promoted config is skipped on exactly the same line an ' +
   'unlisted one never reaches — measured at 46 injected identifiers before and 46 after ' +
   'simulating the promotion of `main`, with `Main` absent from both. A lowercase `main` in a ' +

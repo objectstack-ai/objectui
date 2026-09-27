@@ -7,16 +7,16 @@
  */
 
 /**
- * The "Schema-Driven Usage" example on this package's README must survive the
- * SHIPPED contract — `safeValidateSchema` from `@object-ui/types/zod`, the call
- * `objectui validate` makes (objectui#10824).
+ * The "Schema-Driven Usage" example on `@object-ui/plugin-timeline`'s README
+ * must survive the contract this package ships — `safeValidateSchema` from
+ * `@object-ui/types/zod`, the call `objectui validate` makes (objectui#10824).
  *
  * ## The hole this closes
  *
  * The README taught its node as `component: 'timeline'`. Every node in this
  * protocol is keyed by `type`, so `safeValidateSchema` refused the document
  * exactly as a reader would copy it (`invalid_union` at `type`), and the page
- * ships on npm — `README.md` is in this package's `files`. No gate was asking:
+ * ships on npm — `README.md` is in that package's `files`. No gate was asking:
  *
  *   - `check:doc-types` judges `type` string literals, and a node spelled with
  *     `component` has none, so there was nothing for it to judge;
@@ -53,13 +53,22 @@
  * harness cannot find or cannot evaluate FAILS; it is never skipped, because an
  * unexaminable block that reads as a clean one is the shape the doc-gate family
  * exists to prevent (objectui#4846).
+ *
+ * ## Why it lives here and not in `packages/plugin-timeline`
+ *
+ * It reads a file off disk, and `packages/plugin-timeline/tsconfig.test.json`
+ * names no `node` types, so a `node:fs` import there does not type-check — the
+ * reason that package's `metaFields` source pin lives elsewhere too. This
+ * package's test config names them, owns both faces the document is judged
+ * against, and already reads another plugin's README the same way
+ * (`calendar-flat-color-allday-8466.test.ts`).
  */
 
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { safeValidateSchema, StrictAnyComponentSchema } from '@object-ui/types/zod';
+import { safeValidateSchema, StrictAnyComponentSchema } from '../zod/index.zod.js';
 // @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
 import { closesFence, openFence } from '../../../../scripts/markdown-fence-scan.mjs';
 
@@ -74,7 +83,8 @@ interface OpenFence {
 const open: (line: string) => OpenFence | null = openFence;
 const closes: (line: string, fence: OpenFence) => boolean = closesFence;
 
-const README = resolve(dirname(fileURLToPath(import.meta.url)), '../../README.md');
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
+const README = join(ROOT, 'packages/plugin-timeline/README.md');
 
 /** The section the example lives in, matched as a whole heading line. */
 const SECTION = '## Schema-Driven Usage';
@@ -144,13 +154,13 @@ describe('plugin-timeline README "Schema-Driven Usage" example (objectui#10824)'
 
   it('validates against safeValidateSchema — the call `objectui validate` makes', () => {
     const result = safeValidateSchema(documentOf(blocks[0])) as Parse;
-    expect(describeIssues(result), `README.md:${blocks[0].line} is refused`).toBe('');
+    expect(describeIssues(result), `packages/plugin-timeline/README.md:${blocks[0].line} is refused`).toBe('');
     expect(result.success).toBe(true);
   });
 
   it('teaches no key the strict authoring face refuses — every key is declared', () => {
     const result = StrictAnyComponentSchema.safeParse(documentOf(blocks[0])) as Parse;
-    expect(describeIssues(result), `README.md:${blocks[0].line} carries an undeclared key`).toBe('');
+    expect(describeIssues(result), `packages/plugin-timeline/README.md:${blocks[0].line} carries an undeclared key`).toBe('');
     expect(result.success).toBe(true);
   });
 });

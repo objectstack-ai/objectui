@@ -27,7 +27,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { safeValidateSchema } from '@object-ui/types/zod';
-import { useObjectChat } from '../useObjectChat';
+import type { UseObjectChatOptions } from '../useObjectChat';
 
 const NODES = ['chatbot', 'chatbot-enhanced', 'chatbot-floating'] as const;
 
@@ -61,14 +61,10 @@ describe('maxToolRoundtrips is retired behind a tombstone on every chat node (ob
 
 describe('the chat hook no longer accepts the option (objectui#5605)', () => {
   it('UseObjectChatOptions has no maxToolRoundtrips (type-level; measured by type-check)', () => {
-    // Referenced, never called: the assertion is the directive below, which
-    // `tsc` reports as unused (an error) if the option is ever declared again.
-    const call = () =>
-      useObjectChat({
-        api: '/api/v1/ai/agents/demo/chat',
-        // @ts-expect-error objectui#5605 — retired; cap tool loops on the agent (`planning.maxIterations`)
-        maxToolRoundtrips: 1,
-      });
-    expect(typeof call).toBe('function');
+    // The assertion is the ANNOTATION: while the option is declared, its type
+    // is `never` and `tsc -p tsconfig.test.json` refuses the `true` below. The
+    // runtime `expect` only keeps the binding used; it cannot fail.
+    const optionIsGone: 'maxToolRoundtrips' extends keyof UseObjectChatOptions ? never : true = true;
+    expect(optionIsGone).toBe(true);
   });
 });

@@ -30,7 +30,7 @@ import {
   objectNavTargetExclusivity,
 } from '@objectstack/spec/ui';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
-import { retirementTombstone } from './tombstone.zod.js';
+import { aliasKeyRefusal, retirementTombstone } from './tombstone.zod.js';
 import type { AppMenuItem } from '../app.js';
 import { stripImportedDefaults } from './imported-defaults.js';
 
@@ -398,7 +398,21 @@ export const AppComponentSchema = BaseSchema.extend(SpecAppFields.shape).extend(
   name: z.string().optional().describe('Application name (system ID)'),
   title: z.string().optional().describe('Display title'),
   description: z.string().optional().describe('Application description'),
-  logo: z.string().optional().describe('Logo URL or icon name'),
+  // The app logo has ONE spelling, `branding.logo` (objectui#10827). A
+  // top-level `logo` was an objectui-only second one: `@objectstack/spec`'s
+  // `AppSchema` never declared it and its alias table answers it with "did you
+  // mean `branding`?". Declared as a named refusal rather than deleted, because
+  // `BaseSchema` is `.passthrough()`: a deleted arm would KEEP the key in
+  // silence. The TS twin is `logo?: never` in `../app.ts`.
+  logo: aliasKeyRefusal(
+    'logo',
+    'branding',
+    'this app',
+    'The app logo is `branding.logo`, the URL `@objectstack/spec`\'s `AppBrandingSchema` declares '
+    + '(objectui#10827): write `branding: { logo: \'/logo.svg\' }`. The top-level `logo` was an '
+    + 'objectui-only second spelling that the platform never accepted, and the console\'s mounted '
+    + 'chrome reads only `branding.logo`. For an icon NAME, use `icon`.',
+  ),
   favicon: z.string().optional().describe('Favicon URL'),
   layout: z.enum(['sidebar', 'header', 'empty']).optional().describe('Global layout strategy'),
   menu: z.array(MenuItemSchema).optional().describe('Legacy navigation menu (deprecated, use navigation)'),

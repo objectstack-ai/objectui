@@ -48,7 +48,7 @@ import { useRecentItems } from '../hooks/useRecentItems.js';
 import { useFavorites } from '../hooks/useFavorites.js';
 import { useNavPins } from '../hooks/useNavPins.js';
 import { useNavActionDispatch } from '../hooks/useNavActionDispatch.js';
-import { matchAppBySegment, appRouteSegment } from '../utils/index.js';
+import { matchAppBySegment, appRouteSegment, resolveKeyedI18nLabel } from '../utils/index.js';
 import { useHomePath } from '../hooks/useHomePath.js';
 // Aliased for symmetry with objectui's own `resolveKeyedI18nLabel` above (the
 // names stopped colliding in objectui#4167): this is the spec's resolver (new in
@@ -159,7 +159,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   const { isMobile, setOpenMobile } = useSidebar();
   const location = useLocation();
   const { t, language } = useObjectTranslation();
-  const { objectLabel: resolveNavObjectLabel, dashboardLabel: resolveNavDashboardLabel, viewLabel: resolveNavViewLabel } = useObjectLabel();
+  const { objectLabel: resolveNavObjectLabel, dashboardLabel: resolveNavDashboardLabel, viewLabel: resolveNavViewLabel, appLabel } = useObjectLabel();
   const { context, currentAppName } = useNavigationContext();
   const { user, activeOrganization } = useAuth();
   const { isAdmin: isWorkspaceAdmin } = useWorkspaceAdminStatus();
@@ -205,6 +205,12 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   const activeApps = apps.filter((a: any) => a.active !== false && a.hidden !== true);
   // ADR-0048 (A) — route segment may be a package id; match by it (name fallback).
   const activeApp = matchAppBySegment(apps.filter((a: any) => a.active !== false), activeAppName || currentAppName) || activeApps[0];
+  // The active app's logo (objectui#10827): `branding.logo`, the one spelling
+  // `@objectstack/spec` declares — an image URL. This is the console chrome's
+  // only reader of it. App context only: on Home `activeApp` falls back to the
+  // FIRST app, whose logo is not this screen's. No logo, no header — the
+  // sidebar renders exactly as it did before the key had a reader.
+  const appLogo: string | undefined = context === 'app' ? activeApp?.branding?.logo : undefined;
 
   // Drag-reorder and pin persistence
   const { applyOrder, handleReorder } = useNavOrder(activeApp?.name || 'home');
@@ -442,6 +448,15 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   return (
     <>
     <Sidebar collapsible="icon" className="!top-14 !h-[calc(100svh-3.5rem)]">
+      {appLogo && (
+        <SidebarHeader className="border-b p-2">
+          <img
+            src={appLogo}
+            alt={appLabel({ name: activeApp.name, label: resolveKeyedI18nLabel(activeApp.label, t) })}
+            className="h-8 w-auto max-w-full object-contain object-left"
+          />
+        </SidebarHeader>
+      )}
       {/* Mobile-only "Home" affordance — the desktop topbar exposes Home
           via the platform logo + AppSwitcher pill, but those are hidden
           on phones. Without this row, users entering an app on mobile

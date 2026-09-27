@@ -150,7 +150,11 @@ export const LayoutRenderer = ({ app, children, currentPath, onNavigate }: Layou
     return <main className={app.className}>{children}</main>;
   }
 
-  const LogoIcon = app.logo && !app.logo.includes('/') && !app.logo.includes('.') ? getIcon(app.logo) : null;
+  // The app logo is `branding.logo`, an image URL (objectui#10827), and an
+  // icon NAME comes from `icon`. The retired top-level `logo` carried both,
+  // told apart by sniffing for `/` or `.`; nothing reads it now.
+  const logo = app.branding?.logo;
+  const LogoIcon = getIcon(app.icon);
 
   return (
     <div className={`flex min-h-screen w-full bg-background ${app.className || ''}`}>
@@ -163,11 +167,11 @@ export const LayoutRenderer = ({ app, children, currentPath, onNavigate }: Layou
             `}
         >
           <div className={`h-14 flex items-center border-b font-semibold text-lg tracking-tight transition-all ${isSidbarOpen ? 'px-6' : 'justify-center px-0'}`}>
-            {LogoIcon ? (
+            {logo ? (
+              <img src={logo} alt={app.title} className="h-6 w-auto" />
+            ) : LogoIcon ? (
               // eslint-disable-next-line react-hooks/static-components -- getLazyIcon returns a module-cached stable component per name, not one created during render
               <LogoIcon className="h-6 w-6" />
-            ) : app.logo ? (
-              <img src={app.logo} alt={app.title} className="h-6 w-auto" />
             ) : <Box className="h-6 w-6" />}
             
             <span className={`ml-2 whitespace-nowrap overflow-hidden transition-all duration-300 ${isSidbarOpen ? 'opacity-100 w-auto' : 'opacity-0 w-0 hidden'}`}>

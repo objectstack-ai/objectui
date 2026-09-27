@@ -462,9 +462,25 @@ export interface AppComponentSchema extends BaseSchema, Omit<SpecApp, (typeof AP
   icon?: string;
 
   /**
-   * Logo URL or Icon name
+   * ⛔ RETIRED — REFUSED BY NAME (objectui#10827, ADR-0049). The app logo is
+   * {@link BrandingConfig.logo}: write `branding: { logo: '/logo.svg' }`.
+   *
+   * `@objectstack/spec`'s `AppSchema` never declared a top-level `logo`: its
+   * alias table answers the key with "did you mean `branding`?", and its
+   * `AppBrandingSchema` declares `logo` as a URL. This member was an
+   * objectui-only second spelling, typed "Logo URL or icon name", that only
+   * `AppSchemaRenderer`'s default sidebar header and the standalone runner read.
+   * Both now read `branding.logo` as an image URL, and take an icon NAME from
+   * {@link AppComponentSchema.icon}, the key the rest of the shell already reads.
+   *
+   * A tombstone rather than a deletion: `BaseSchema`'s index signature and the
+   * mirror's `.passthrough()` would otherwise KEEP an authored value in silence.
+   * `?: never` is the twin of `zod/app.zod.ts`'s `aliasKeyRefusal` arm; the pin
+   * is `__tests__/app-logo-one-spelling-10827.test.ts`.
+   *
+   * @deprecated Not a key of this contract. Author `branding.logo`.
    */
-  logo?: string;
+  logo?: never;
 
   /**
    * Favicon URL
@@ -857,6 +873,9 @@ export function isValidAppName(name: string): boolean {
 
 /**
  * Convert an AppWizardDraft to an AppSchema.
+ *
+ * The draft's logo travels in `branding` only (objectui#10827): `branding.logo`
+ * is the one spelling, so no top-level `logo` is written beside it.
  */
 export function wizardDraftToAppSchema(draft: AppWizardDraft): AppComponentSchema {
   return {
@@ -866,7 +885,6 @@ export function wizardDraftToAppSchema(draft: AppWizardDraft): AppComponentSchem
     label: draft.title,
     description: draft.description,
     icon: draft.icon,
-    logo: draft.branding.logo,
     favicon: draft.branding.favicon,
     branding: draft.branding,
     layout: draft.layout,

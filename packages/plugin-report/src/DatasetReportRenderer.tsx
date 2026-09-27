@@ -64,6 +64,7 @@ import {
   formatDimensionValue,
   buildDatasetFieldHelpers,
   buildDatasetDrillFilter,
+  FilterOperatorError,
   relabelDimensions,
   // The dataset→chart derivation the dashboard and the chart view have always
   // used, adopted here by objectui#4878: it is where the whole null-category
@@ -435,6 +436,35 @@ function useDatasetRows(
   return state;
 }
 
+/**
+ * `buildDatasetDrillFilter`, with a refused filter REPORTED instead of thrown —
+ * objectui#10789. `null` means refused, and the caller then emits no drill.
+ *
+ * Composing the report's `runtimeFilter` with the clicked bucket lowers both
+ * through the throwing converter form. A `runtimeFilter` the dataset query
+ * carried to the server can still be one this layer refuses (a spec `$not`),
+ * and the click then threw out of its handler uncaught.
+ *
+ * ⛔ Not answered with `objectFilter: undefined`. The host reads an absent
+ * `objectFilter` as "older server" and rebuilds the filter from the clicked
+ * group ALONE (`ReportView`'s fallback), which would drop the `runtimeFilter`
+ * and drill into records the report is scoped to exclude. So the drill does
+ * not happen, and the refusal is logged, naming the operator — the channel the
+ * host's own drill failure reports on. Only a `FilterOperatorError` is caught,
+ * the rule `toFilterNodeSafely` states.
+ */
+function drillFilterOrRefusal(
+  ...args: Parameters<typeof buildDatasetDrillFilter>
+): Record<string, unknown> | null {
+  try {
+    return buildDatasetDrillFilter(...args);
+  } catch (error) {
+    if (!(error instanceof FilterOperatorError)) throw error;
+    console.warn(`[DatasetReportRenderer] drill-down refused — the drilled list cannot be scoped: ${error.message}`);
+    return null;
+  }
+}
+
 function EmptyMeasures({ dataset }: { dataset: string }) {
   return (
     <div className="flex items-center justify-center rounded-md border border-dashed bg-muted/20 p-4 text-xs text-muted-foreground">
@@ -547,10 +577,13 @@ function DatasetReportTable({
     // covering a date-ONLY report that has no equality drill dim at all.
     const rowRanges = state.drillRanges?.[index];
     const hasRange = !!rowRanges && Object.keys(rowRanges).length > 0;
-    const objectFilter =
-      state.object && (drillDims.length > 0 || hasRange)
-        ? buildDatasetDrillFilter(state.drillRawRows?.[index], drillDims, state.dimensionFields ?? {}, runtimeFilter, rowRanges)
-        : undefined;
+    let objectFilter: Record<string, unknown> | undefined;
+    if (state.object && (drillDims.length > 0 || hasRange)) {
+      const built = drillFilterOrRefusal(state.drillRawRows?.[index], drillDims, state.dimensionFields ?? {}, runtimeFilter, rowRanges);
+      // Refused: no drill at all — see `drillFilterOrRefusal`.
+      if (built === null) return;
+      objectFilter = built;
+    }
     onDrill!({ dataset, groupKey, runtimeFilter, object: state.object, objectFilter });
   };
 
@@ -1310,10 +1343,13 @@ function DatasetMatrixTable({
     // to the clicked time bucket, not every bucket in that row/column.
     const cellRanges = state.drillRanges?.[index];
     const hasRange = !!cellRanges && Object.keys(cellRanges).length > 0;
-    const objectFilter =
-      state.object && (drillDims.length > 0 || hasRange)
-        ? buildDatasetDrillFilter(state.drillRawRows?.[index], drillDims, state.dimensionFields ?? {}, runtimeFilter, cellRanges)
-        : undefined;
+    let objectFilter: Record<string, unknown> | undefined;
+    if (state.object && (drillDims.length > 0 || hasRange)) {
+      const built = drillFilterOrRefusal(state.drillRawRows?.[index], drillDims, state.dimensionFields ?? {}, runtimeFilter, cellRanges);
+      // Refused: no drill at all — see `drillFilterOrRefusal`.
+      if (built === null) return;
+      objectFilter = built;
+    }
     onDrill!({ dataset, groupKey: { ...rowKey, ...colKey }, runtimeFilter, object: state.object, objectFilter });
   };
 

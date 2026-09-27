@@ -40,7 +40,7 @@ import type { DataSource, LookupColumnDef, LookupFilterDef } from '@object-ui/ty
 // The repo's single filter sink (`packages/core/src/utils/filter-converter.ts`)
 // — shared with plugin-list's `buildEffectiveFilter` and plugin-view's
 // ObjectView, so a spec `ViewFilterRule[]` lowers in exactly one place.
-import { buildExpandFields, mergeFilterNodes, toPredicateRecord } from '@object-ui/core';
+import { buildExpandFields, mergeFilterNodes, toFilterNodeSafely, toPredicateRecord, type FilterNodeResult } from '@object-ui/core';
 import { useSafeFieldLabel, useDisplayLocale } from '@object-ui/i18n';
 import { usePermissions } from '@object-ui/permissions';
 import { useFieldTranslation } from './useFieldTranslation.js';
@@ -690,7 +690,16 @@ export function RecordPickerDialog({
   //
   // When BOTH are in play the record side is still built first and lowered as
   // one node, so its key-overwrite precedence survives the conjunction.
-  const mergedFilter = useMemo<unknown>(() => {
+  //
+  // ⚠️ Each side is lowered through `toFilterNodeSafely` before the merge —
+  // objectui#10789. This is a RENDER-time `useMemo`, and the lowering refuses a
+  // malformed authored rule (an `add.picker.filter` rule the converter cannot
+  // carry) or record condition with a `FilterOperatorError`: uncaught, that
+  // threw out of render into the error boundary. The refusal is kept as a
+  // VALUE: the query does not run (never "no filter", which would list every
+  // record) and the dialog's error state below reports it — the state a
+  // refusal already reaches when the ADAPTER lowers the record form in `find`.
+  const mergedFilter = useMemo<FilterNodeResult>(() => {
     const lookupBase = lookupFilters?.length
       ? lookupFiltersToRecord(lookupFilters)
       : {};
@@ -703,23 +712,31 @@ export function RecordPickerDialog({
       : (baseFilter as Record<string, any> | undefined);
     const combined = { ...lookupBase, ...userFilter, ...(recordBase ?? {}) };
     const record = Object.keys(combined).length > 0 ? combined : undefined;
-    return rules ? mergeFilterNodes(record, rules) : record;
+    if (!rules) return { ok: true, node: record };
+    const recordNode = toFilterNodeSafely(record);
+    if (!recordNode.ok) return recordNode;
+    const rulesNode = toFilterNodeSafely(rules);
+    if (!rulesNode.ok) return rulesNode;
+    return { ok: true, node: mergeFilterNodes(recordNode.node, rulesNode.node) };
   }, [lookupFilters, effectiveFilterColumns, filterValues, baseFilter]);
+  const filterRefusal = mergedFilter.ok ? undefined : mergedFilter.refusal;
 
   // Shared query kernel: builds params, fetches, and owns records/loading/error/
   // total plus the page/search/sort controls. Selection state stays local (above).
   const query = useRecordQuery({
     dataSource,
     objectName,
-    enabled: open,
+    enabled: open && mergedFilter.ok,
     pageSize,
     paginate: true,
-    filter: mergedFilter,
+    filter: mergedFilter.ok ? mergedFilter.node : undefined,
     expand,
   });
   // Preserve the previous local names so the handlers and render below are
-  // unchanged (the migration is a pure refactor).
-  const { records, loading, error } = query;
+  // unchanged (the migration is a pure refactor). A refused filter is this
+  // dialog's error too (objectui#10789): nothing was read, so it is the only one.
+  const { records, loading } = query;
+  const error = filterRefusal ? filterRefusal.message : query.error;
   const totalCount = query.total;
   const totalPages = query.totalPages;
   const searchQuery = query.search;
@@ -1157,14 +1174,18 @@ export function RecordPickerDialog({
           <div className="flex flex-col items-center gap-2 py-4" role="alert">
             <AlertCircle className="size-5 text-destructive" />
             <p className="text-sm text-destructive">{error}</p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => query.refetch()}
-              type="button"
-            >
-              {t('lookup.retry')}
-            </Button>
+            {/* A retry re-runs a failed READ; it cannot repair an authored
+                filter this dialog refused before reading (objectui#10789). */}
+            {filterRefusal ? null : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => query.refetch()}
+                type="button"
+              >
+                {t('lookup.retry')}
+              </Button>
+            )}
           </div>
         )}
 

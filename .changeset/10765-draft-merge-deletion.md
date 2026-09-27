@@ -19,4 +19,7 @@ The spread existed for a partial draft overlay that never reaches these editors:
 row raw, and every draft writer sends a whole document. So each site now takes the served draft
 as-is when there is one and falls back to `effective` (then `code`) only when no draft exists;
 the inherited `type` the spread was protecting is already inside the draft. `config.toDraft`
-still normalises whatever is taken, now on the post-publish refresh as well.
+still normalises whatever is taken, now on the post-publish refresh as well. This removes the
+reach limit the objectui#10746 entry states — a bound published report getting its cleared
+keys back after the first draft save; a report already saved `joined` with stale keys is still
+not repaired on load, and the author deletes them from the JSON tab.

@@ -2971,8 +2971,9 @@ export function DataPillar({
         setHasDraft(!!draftBody);
         setHasBaseline(!!(lay.effective ?? lay.code));
         // The projection baseline: the object as the SERVER has it. `objDraft`
-        // below merges the draft on top, which is right for the editor and
-        // wrong for a `select`.
+        // above is the pending draft as-is when one exists, which is right for
+        // the editor and wrong for a `select`: a draft-only field is not a
+        // column the data API can answer yet (see `gridColumns`).
         setPublishedFieldNames(new Set(readFields(baseline.fields).entries.map((e) => e.name)));
       } catch (e) {
         if (!cancelled) setError(formatMetadataError(e));

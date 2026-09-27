@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { ComponentRegistry } from '@object-ui/core';
+import { ComponentRegistry, isRealCalendarDate, toDisplayDate } from '@object-ui/core';
 import type { DatePickerSchema } from '@object-ui/types';
 import { Calendar, Button, Popover, PopoverTrigger, PopoverContent, Label } from '../../ui';
 import { CalendarIcon } from 'lucide-react';
@@ -15,12 +15,43 @@ import { cn } from '../../lib/utils';
 import { useDisplayDateLocale } from '../../lib/date-fns-locale';
 import { toFormControlDomProps } from '../../lib/form-control-dom-props';
 
-ComponentRegistry.register('date-picker', 
-  ({ schema, className, value, onChange, ...props }: { schema: DatePickerSchema; className?: string; value?: Date; onChange?: (date: Date | undefined) => void; [key: string]: any }) => {
+/**
+ * The day the trigger labels and the calendar selects (objectui#10844).
+ *
+ * `value` is a `Date` once the calendar has been used (`onSelect` hands one
+ * back), but an authored or bound value arrives as the ISO string
+ * `DatePickerSchema.value` admits, and date-fns and react-day-picker parse a
+ * string with the engine's own `Date` parse. That reads a DATE-ONLY string as
+ * UTC midnight, so west of UTC `2024-01-15` was labelled and selected as
+ * January 14th. A date-only string naming a real day is therefore read through
+ * the shared parse step, which rebuilds it at LOCAL midnight of that day (the
+ * objectui#10183 convention).
+ *
+ * Everything else passes UNCHANGED, so the engine parses it exactly as before:
+ * a `Date`, a date-time string (an instant, shown in the viewer's zone), and a
+ * string that is no real date-only day. The last includes an unparseable
+ * string, on which the trigger's `format` throws as it always has, and a
+ * date-only string naming a day its month does not have (`2024-02-30`), which
+ * the engine still rolls forward. Refusing that one here, as `toDisplayDate`
+ * does, would hand `format` an Invalid Date and make it throw where it
+ * rendered before.
+ */
+function toPickerDay(value: Date | string | undefined): Date | string | undefined {
+  return typeof value === 'string' && isRealCalendarDate(value) ? toDisplayDate(value) : value;
+}
+
+ComponentRegistry.register('date-picker',
+  ({ schema, className, value, onChange, ...props }: { schema: DatePickerSchema; className?: string; value?: Date | string; onChange?: (date: Date | undefined) => void; [key: string]: any }) => {
     // `schema.format` is a date-fns pattern, and it is spelled in the display
     // locale: `PPP` and the textual tokens name months and weekdays in the
     // session's language (objectui#10722).
     const locale = useDisplayDateLocale();
+    const day = toPickerDay(value);
+    // The calendar's props are typed `Date`; a string left in `day` is one the
+    // engine parses, which react-day-picker's date-fns comparisons did with
+    // `value` before (see `toPickerDay`). The cast states that, it converts
+    // nothing.
+    const calendarDay = day as Date | undefined;
 
     const handleSelect = (date: Date | undefined) => {
       if (onChange) {
@@ -57,7 +88,7 @@ ComponentRegistry.register('date-picker',
               {...toFormControlDomProps(triggerProps)}
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {value ? format(value, schema.format || 'PPP', { locale }) : <span>{schema.placeholder || 'Pick a date'}</span>}
+              {day ? format(day, schema.format || 'PPP', { locale }) : <span>{schema.placeholder || 'Pick a date'}</span>}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0">
@@ -69,8 +100,8 @@ ComponentRegistry.register('date-picker',
             */}
             <Calendar
               mode="single"
-              defaultMonth={value}
-              selected={value}
+              defaultMonth={calendarDay}
+              selected={calendarDay}
               onSelect={handleSelect}
               autoFocus
             />

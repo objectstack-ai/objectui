@@ -5035,6 +5035,20 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               // and why it is still the correct value to hand down.
               ? {}
               : { data })}
+            {...(viewComponentSchema.type === 'object-grid' && objectDef?.fields
+              // objectui#10657 — the grid is handed the rows this component
+              // fetched, so they paint before the grid's own read of the
+              // object definition settles; until then an untyped column over a
+              // `password` / `secret` field has no type, and the grid can only
+              // withhold it. This component read that definition BEFORE its
+              // rows (the data fetch waits for `objectDefLoaded`), so it hands
+              // the field catalogue down with them and the grid has no window
+              // at all. `objectFields` is the host channel for the catalogue
+              // (decision batch #70): `SchemaRenderer` refuses an AUTHORED
+              // one, and this React prop is not authored. Only the grid reads
+              // it, so only the grid is handed it.
+              ? { objectFields: objectDef.fields }
+              : {})}
             loading={loading}
             onRowSelect={setSelectedRows}
             {...(paginate && serverTotal != null

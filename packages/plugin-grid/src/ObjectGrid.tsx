@@ -33,8 +33,8 @@ import { createSafeTranslation } from '@object-ui/i18n';
 // what dropped a `format`-hinted column's renderer, and one shared owner is
 // what stops a seventh site picking a convention of its own.
 import { resolveGridCellRendering, gridCellRendererForFixedKey, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
-import { isMaskedGridColumn } from './maskedColumn';
-import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue } from '@object-ui/fields';
+import { isMaskedGridColumn, isWithheldGridColumn } from './maskedColumn';
+import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue, MaskedCellRenderer } from '@object-ui/fields';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
 // NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
@@ -613,6 +613,31 @@ export interface ObjectGridComponentProps extends ObjectGridExternalPaginationPr
   schema: ObjectGridSchema;
   dataSource?: DataSource;
   className?: string;
+  /**
+   * [objectui#10657] The object's field catalogue (`fields` of the definition
+   * `getObjectSchema(objectName)` returns), handed down by a HOST that has
+   * already read it. `ListView` passes the definition it fetched before its
+   * rows; the grid answers every field-type question from it until its own
+   * read of the definition lands, and from its own read after that.
+   *
+   * ## Why a host hands it down
+   *
+   * A host that fetches the rows hands them down as `data`, so they paint
+   * before the grid's own schema read settles. Until then an untyped view
+   * column over a `password` / `secret` field has no type, and the grid can
+   * only withhold it (drawn as the mask, never as text). With the catalogue in
+   * hand there is no such window: the column draws, and is flagged, from its
+   * declared type at first paint.
+   *
+   * ## A RUNTIME prop, never authored metadata
+   *
+   * The name is the host channel decision batch #70 ruled for the object's
+   * field catalogue (objectui#7742): `SchemaRenderer` strips an AUTHORED
+   * `objectFields` on every spelling (objectui#8818), so only a host's React
+   * prop can reach this slot, and no view author can supply a catalogue that
+   * types a credential field as text.
+   */
+  objectFields?: Readonly<Record<string, unknown>>;
   /**
    * [objectui#8674] Narrow ONE row's generic Edit / Delete entries — the layer
    * that lets a host withhold an operation the record itself cannot accept.
@@ -1382,6 +1407,12 @@ function describeNonPositivePageSize(
   );
 }
 
+/**
+ * The grouping-refusal signature when no entry is refused (objectui#10583,
+ * objectui#10657): the authored grouping config is then handed on as it is.
+ */
+const NO_GROUPING_REFUSAL = JSON.stringify({ refused: [], warned: [] });
+
 export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   schema,
   dataSource,
@@ -1413,6 +1444,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   onSearchChange: hostOnSearchChange,
   findParams: hostFindParams,
   onColumnStateChange,
+  objectFields: hostObjectFields,
 }) => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1605,6 +1637,32 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // (`ViewDataSchema` declares it required). Kept because this name gates the
   // permission verdicts below — see the note at `inlineEditable`.
   const objectName = resolveRecordSourceObjectName(schema, dataConfig) ?? schema.objectName;
+  /**
+   * The field catalogue this grid answers field-type questions from
+   * (objectui#10657): its own object definition once that read has landed,
+   * the catalogue a host handed down (`objectFields`) until then.
+   *
+   * ⚠️ Only the field reads that decide how a column DRAWS and whether it is
+   * MASKED go through this — the column builders, the masked flag, the client
+   * export, the grouping, the mobile card. Everything that needs the whole
+   * definition (actions, `highlightFields`, the default-column policy) still
+   * waits for `objectSchema`, exactly as before.
+   */
+  const objectFields: Record<string, any> | undefined =
+    objectSchema?.fields ?? hostObjectFields ?? undefined;
+  /**
+   * Are this grid's OBJECT field types still unknown (objectui#10657, which
+   * folded objectui#10706)? True while an object definition is expected (an
+   * object to ask about, and a data source that can answer `getObjectSchema`)
+   * and no catalogue is in hand: the read is in flight, or it failed, which
+   * the inline path swallows as non-fatal. Rows a host hands down paint inside
+   * that window, so every untyped column is WITHHELD until it closes, and for
+   * good if it never does (`isWithheldGridColumn`). With no `getObjectSchema`
+   * there is nothing to wait for, and the authored column types are all this
+   * grid will ever know.
+   */
+  const objectTypesPending =
+    !!objectName && typeof dataSource?.getObjectSchema === 'function' && !objectFields;
   // [#3391] Server-resolved effective API operation set for this object
   // (/me/permissions `apiOperations`). The Export button and handler AND their
   // gate with this — a missing set (unrestricted object / old backend / no
@@ -1949,8 +2007,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           setObjectSchema(schemaData);
         }
       } catch (err) {
-        // Schema fetch failure for inline data is non-fatal; columns will
-        // still fall back to heuristic inference.
+        // Schema fetch failure for inline data is non-fatal: the rows still
+        // draw. An untyped column does NOT fall back to heuristic inference,
+        // though: with no field types in hand it stays WITHHELD (drawn as the
+        // mask, handled as masked), because it could be a `password` /
+        // `secret` field — fail closed (objectui#10657, `objectTypesPending`).
         console.warn(`[ObjectGrid] Failed to fetch objectSchema for inline data (objectName: ${objectName}):`, err);
       }
     };
@@ -2611,7 +2672,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
     for (const gf of groupingFields) {
       const fieldName = gf.field;
-      const objectDefField = objectSchema?.fields?.[fieldName];
+      const objectDefField = objectFields?.[fieldName];
       // Try to find a column override matching this field for type/options
       const cols = normalizeColumns(schema.columns) as any[] | undefined;
       const colOverride = cols?.find?.((c) => typeof c === 'object' && c?.field === fieldName);
@@ -2657,11 +2718,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       }
       return undefined;
     };
-  }, [schema.grouping, schema.columns, schema.objectName, objectSchema, translateOptions, t]);
+  }, [schema.grouping, schema.columns, schema.objectName, objectFields, translateOptions, t]);
 
-  // objectui#10583 — a MASKED field is REFUSED as a grouping key, loudly, once
-  // `objectSchema` has loaded (until then an untyped column's object-declared
-  // type is unknown: the host-fetched window, objectui#10657, which folded objectui#10706).
+  // objectui#10583 — a MASKED field is REFUSED as a grouping key.
   // Grouping by it printed the raw value as each group's label. Masking the
   // label would not be enough: the buckets would still show which records
   // share a credential, ordered by its raw value. So the entry is dropped (the
@@ -2669,26 +2728,40 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // one) and the drop is reported through the grid's warning channel. The rule
   // is the column flag's: `isMaskedGridColumn` over the view column's type and
   // the object-declared type.
+  //
+  // objectui#10657 (which folded objectui#10706) — the same rule's third
+  // argument: while the object's field types are unknown (`objectTypesPending`,
+  // the host-fetched window, or a failed read), an entry on a field whose view
+  // column authors no type is WITHHELD and so refused too, since its group
+  // label would print whatever the field holds. The group label follows the
+  // cell: a withheld cell draws the mask, and a withheld key labels no group.
+  // Once the types are known the entry groups again, unless its field is
+  // masked. The refusal of a withheld entry is not warned: it is not a finding
+  // about the authored grouping, and a failed read reports itself.
   const groupingFieldsRaw = schema.grouping?.fields;
   const maskedGroupingSignature = React.useMemo(() => {
     const cols: ReadonlyArray<string | ListColumn> = normalizeColumns(schema.columns) ?? [];
     const columnTypeOf = (field: string) =>
       cols.find((c): c is ListColumn => typeof c === 'object' && c !== null && c.field === field)?.type;
-    return JSON.stringify(
-      usableGroupingFields(groupingFieldsRaw)
-        .map((gf) => gf.field)
-        .filter((field) => isMaskedGridColumn(columnTypeOf(field), objectSchema?.fields?.[field]?.type)),
-    );
-  }, [groupingFieldsRaw, schema.columns, objectSchema]);
+    const refused = usableGroupingFields(groupingFieldsRaw)
+      .map((gf) => gf.field)
+      .filter((field) => isMaskedGridColumn(columnTypeOf(field), objectFields?.[field]?.type, objectTypesPending));
+    return JSON.stringify({
+      refused,
+      // The ones refused on a KNOWN masked type, which is what the warning names.
+      warned: refused.filter((field) => isMaskedGridColumn(columnTypeOf(field), objectFields?.[field]?.type, false)),
+    });
+  }, [groupingFieldsRaw, schema.columns, objectFields, objectTypesPending]);
   // Keyed on the authored array and the signature STRING, never on a memo's
   // identity (AGENTS.md #10). Read only when something was refused: the
   // unmasked path below hands `useGroupedData` the authored config itself.
   const unmaskedGroupingFields = React.useMemo(() => {
-    const masked: string[] = JSON.parse(maskedGroupingSignature);
-    return usableGroupingFields(groupingFieldsRaw).filter((gf) => !masked.includes(gf.field));
+    const { refused }: { refused: string[] } = JSON.parse(maskedGroupingSignature);
+    return usableGroupingFields(groupingFieldsRaw).filter((gf) => !refused.includes(gf.field));
   }, [groupingFieldsRaw, maskedGroupingSignature]);
+  const groupingRefusesNothing = maskedGroupingSignature === NO_GROUPING_REFUSAL;
   useEffect(() => {
-    const masked: string[] = JSON.parse(maskedGroupingSignature);
+    const { warned: masked }: { warned: string[] } = JSON.parse(maskedGroupingSignature);
     if (masked.length === 0) return;
     console.warn(
       `[ObjectUI] ObjectGrid grouping: ${schema.objectName ?? 'object-grid'} groups by the masked `
@@ -2698,7 +2771,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   }, [maskedGroupingSignature, schema.objectName]);
 
   const { groups, isGrouped, toggleGroup } = useGroupedData(
-    maskedGroupingSignature === '[]' || !schema.grouping
+    groupingRefusesNothing || !schema.grouping
       ? schema.grouping
       : { ...schema.grouping, fields: unmaskedGroupingFields },
     data,
@@ -2955,7 +3028,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         // No readable identity ⇒ nothing to ask the policy about.
         if (!fieldName) return true;
         // Undeclared ⇒ host-joined / derived ⇒ not this gate's business.
-        if (!Object.prototype.hasOwnProperty.call(objectSchema?.fields ?? {}, fieldName)) return true;
+        if (!Object.prototype.hasOwnProperty.call(objectFields ?? {}, fieldName)) return true;
         return perms.checkField(schema.objectName, fieldName, 'read');
       };
       // ObjectStack's DECLARED column spelling is the only one read
@@ -2997,7 +3070,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // name-derived header (e.g. "Request title") even when the field has a
             // localized label (e.g. "申请标题") on a non-English app.
             const rawHeader = resolveColumnLabel(col.label)
-              || resolveColumnLabel(objectSchema?.fields?.[col.field]?.label)
+              || resolveColumnLabel(objectFields?.[col.field]?.label)
               || col.field.charAt(0).toUpperCase() + col.field.slice(1).replace(/_/g, ' ');
             const header = schema.objectName ? resolveFieldLabel(schema.objectName, col.field, rawHeader) : rawHeader;
 
@@ -3008,7 +3081,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // Format hints (e.g. `text` + `format: 'phone'`) promote to the
             // richer renderer (PhoneCellRenderer) via the grid's one shared
             // resolve, `./cellRendererResolution` (objectui#8920).
-            const objectDefField = objectSchema?.fields?.[col.field];
+            const objectDefField = objectFields?.[col.field];
+            // objectui#10657 — an untyped column while the object's field types
+            // are unknown is WITHHELD: drawn as the mask, never as text, and
+            // flagged masked (`isWithheldGridColumn`). No type is inferred for
+            // it — a heuristic guess from the name or the values is exactly
+            // how a credential field ended up drawn as text.
+            const withheld = isWithheldGridColumn(col.type, objectTypesPending);
             // ⭐ ANNOTATED, and the annotation is load-bearing (objectui#6004).
             // `objectSchema` is `useState<any>`, so `objectDefField?.type` is
             // `any` — and an `any` SPREAD into an object literal collapses the
@@ -3016,7 +3095,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // in it. Measured: without this annotation the emit below infers
             // `any[]`, and `ObjectGridColumnDraft` cannot bite on any member. Naming
             // the producer vocabulary here stops `any` at this one boundary.
-            const baseInferredType: string | null = col.type || objectDefField?.type || inferColumnType({ field: col.field }) || null;
+            const baseInferredType: string | null = withheld
+              ? null
+              : col.type || objectDefField?.type || inferColumnType({ field: col.field }) || null;
             // objectui#6458 — the column-level `format` read is RETIRED. The
             // object-field fallback below is now the only road, which is what
             // every measured author already used.
@@ -3025,7 +3106,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // `baseInferredType` is the DECLARED type the inline editor reads,
             // `inferredType` the renderer key it promotes to.
             const { rendererType: inferredType, Renderer } = resolveGridCellRendering({ type: baseInferredType, format: formatHint });
-            const CellRenderer = inferredType ? Renderer : null;
+            const CellRenderer = withheld ? MaskedCellRenderer : inferredType ? Renderer : null;
 
             // Build field metadata for cell renderers with objectDef enrichment
             const fieldMeta: Record<string, any> = { name: col.field, type: inferredType || 'text' };
@@ -3231,7 +3312,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         .filter((fieldName) => typeof fieldName === 'string' && fieldName.trim().length > 0)
         .filter((fieldName) => passesFieldGate(fieldName))
         .map((fieldName, colIndex) => {
-          const fieldDef = objectSchema?.fields?.[fieldName];
+          const fieldDef = objectFields?.[fieldName];
+          // objectui#10657 — a bare field name carries no type of its own, so
+          // while the object's field types are unknown it is WITHHELD (see
+          // path A): the mask, no inferred type.
+          const withheld = isWithheldGridColumn(undefined, objectTypesPending);
           const rawFieldLabel = fieldDef?.label;
           const rawHeader = rawFieldLabel || fieldName.charAt(0).toUpperCase() + fieldName.slice(1).replace(/_/g, ' ');
           const header = schema.objectName ? resolveFieldLabel(schema.objectName, fieldName, rawHeader) : rawHeader;
@@ -3252,10 +3337,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           // members — it moved into the helper's return type, it did not go
           // away.
           const { declaredType, rendererType, Renderer } = resolveGridCellRendering({
-            type: fieldDef?.type || inferColumnType({ field: fieldName }),
+            type: withheld ? null : fieldDef?.type || inferColumnType({ field: fieldName }),
             format: fieldDef?.format,
           });
-          const CellRenderer = rendererType ? Renderer : null;
+          const CellRenderer = withheld ? MaskedCellRenderer : rendererType ? Renderer : null;
 
           // Build field metadata with objectDef enrichment
           const fieldMeta: Record<string, any> = { name: fieldName, type: rendererType || 'text' };
@@ -3410,19 +3495,24 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           // `hasOwnProperty` rather than a truthiness read so an inherited
           // name (`constructor`, `toString`) cannot be mistaken for a declared
           // field and dropped.
-          if (!Object.prototype.hasOwnProperty.call(objectSchema?.fields ?? {}, fieldName)) return true;
+          if (!Object.prototype.hasOwnProperty.call(objectFields ?? {}, fieldName)) return true;
           return perms.checkField(schema.objectName, fieldName, 'read');
         });
         return fieldsToShow.map((fieldName) => {
-          const fieldDef = objectSchema?.fields?.[fieldName];
+          const fieldDef = objectFields?.[fieldName];
+          // objectui#10657 — a row key carries no type of its own, so while
+          // the object's field types are unknown it is WITHHELD (see path A):
+          // the mask, no inferred type. This is the path a host-fetched grid
+          // with no authored columns paints first.
+          const withheld = isWithheldGridColumn(undefined, objectTypesPending);
           // The same two resolves as path B, through the same shared owner
           // (objectui#8920) — and the same objectui#6004 annotation, now
           // carried by `GridCellRendering`'s `string | null` members.
           const { declaredType, rendererType, Renderer } = resolveGridCellRendering({
-            type: fieldDef?.type || inferColumnType({ field: fieldName }),
+            type: withheld ? null : fieldDef?.type || inferColumnType({ field: fieldName }),
             format: fieldDef?.format,
           });
-          const CellRenderer = rendererType ? Renderer : null;
+          const CellRenderer = withheld ? MaskedCellRenderer : rendererType ? Renderer : null;
           const header = fieldDef?.label || fieldName.charAt(0).toUpperCase() + fieldName.slice(1).replace(/_/g, ' ');
 
           // Build field metadata with objectDef enrichment
@@ -3571,7 +3661,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     });
 
     return generatedColumns;
-  }, [objectSchema, schemaFields, schemaColumns, dataConfig, hasInlineData, objectName, navigation.handleClick, executeAction, data, resolveFieldLabel, translateOptions, schema.objectName, perms]);
+  }, [objectSchema, objectFields, objectTypesPending, schemaFields, schemaColumns, dataConfig, hasInlineData, objectName, navigation.handleClick, executeAction, data, resolveFieldLabel, translateOptions, schema.objectName, perms]);
 
   // Formats this grid can actually deliver (objectui#2942): the server stream
   // handles csv/xlsx/json, the client fallback only csv/json. Declared-but-dead
@@ -3709,10 +3799,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     // stamps `TableColumn.masked` (`isMaskedGridColumn`, the narrow-only union
     // of the column's type and the object-declared type), asked per KEY
     // because the JSON branch writes whole records, including fields that are
-    // not columns.
+    // not columns. While the object's field types are unknown (objectui#10657),
+    // a key with no column type of its own is WITHHELD and leaves both files
+    // too: a record field no column types is judged by its object type alone,
+    // and there is none yet.
     const columnTypeByKey = new Map(generateColumns().map((c) => [c.accessorKey, c.type]));
     const isMaskedKey = (key: string) =>
-      isMaskedGridColumn(columnTypeByKey.get(key), objectSchema?.fields?.[key]?.type);
+      isMaskedGridColumn(columnTypeByKey.get(key), objectFields?.[key]?.type, objectTypesPending);
 
     if (format === 'csv') {
       const cols = generateColumns().filter((c) => c.accessorKey !== '_actions' && !isMaskedKey(c.accessorKey));
@@ -3733,7 +3826,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       downloadFile(new Blob([JSON.stringify(unmasked, null, 2)], { type: 'application/json' }), fileNameFor('json'));
     }
     setShowExport(false);
-  }, [data, schema.exportOptions, schema.operations?.export, effectiveApiOps, schema.objectName, objectName, objectSchema, generateColumns, dataSource, hasInlineData, schemaFilter, schemaSort]);
+  }, [data, schema.exportOptions, schema.operations?.export, effectiveApiOps, schema.objectName, objectName, objectSchema, objectFields, objectTypesPending, generateColumns, dataSource, hasInlineData, schemaFilter, schemaSort]);
 
   // objectui#9050 step 2 — a refused filter, from EITHER of this component's
   // two entries into the lowering: `schema.filter` (a render-time `useMemo`,
@@ -3834,7 +3927,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     // line converts a tolerated null into a throw, which is how the protection
     // would be lost a second time for a perfectly good reason.
     if (!col || col.accessorKey === '_actions') return col;
-    const fieldDef = (objectSchema as any)?.fields?.[col.accessorKey];
+    const fieldDef = objectFields?.[col.accessorKey];
     if (!fieldDef) return col;
     const next: ObjectGridColumnDraft = { ...col };
     if (next.type == null && fieldDef.type) next.type = fieldDef.type;
@@ -3893,7 +3986,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       // type ahead of the object's, and `type: 'text'` over a `secret` column
       // must keep the flag. Written only when true, so every unmasked column
       // reaches the table byte-identical to before.
-      const rest = isMaskedGridColumn(producerType, objectSchema?.fields?.[col.accessorKey]?.type)
+      //
+      // objectui#10657 — the third argument: while the object's field types
+      // are unknown, a column with no type of its own is WITHHELD, and so
+      // flagged. `generateColumns()` gave it no inferred type and a mask for a
+      // cell; this is where every table path learns to withhold it as well.
+      const rest = isMaskedGridColumn(producerType, objectFields?.[col.accessorKey]?.type, objectTypesPending)
         ? { ...draft, masked: true }
         : draft;
       if (producerType == null) return rest;
@@ -5358,8 +5456,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     // below pick amount / stage / date / percent by the field's NAME and print
     // the raw value, so a masked column is never classified; it lands in the
     // `col.cell` branch, and the title row routes it through `cell` as well.
+    // A WITHHELD column (objectui#10657: the object's field types are still
+    // unknown, and the column has no type of its own) is handled the same way:
+    // its `cell` draws the mask.
     const isMaskedCardColumn = (key: string) =>
-      isMaskedGridColumn(colMap.get(key)?.type, objectSchema?.fields?.[key]?.type);
+      isMaskedGridColumn(colMap.get(key)?.type, objectFields?.[key]?.type, objectTypesPending);
 
     const classify = (key: string): 'amount' | 'stage' | 'date' | 'percent' | 'other' => {
       if (isMaskedCardColumn(key)) return 'other';

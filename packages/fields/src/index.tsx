@@ -3362,8 +3362,22 @@ function RepeaterCellRenderer({ value }: CellRendererProps): React.ReactElement 
  * states: `EmptyValue` holds a hook, and an inline arrow in the table below
  * is a new component type on every resolution, so it would tear that hook down
  * per render.
+ *
+ * Exported (objectui#10657) for the cell a producer cannot type yet. While an
+ * object-bound table is still waiting for its object's field types, or after
+ * that read failed, a column with no type of its own could be a credential,
+ * so `ObjectGrid`, `RelatedList` and `ObjectDataTable` draw it WITHHELD: as
+ * this mask, never as text. It is this component and not the live registry
+ * entry for `password`, so a host override of a masked type cannot change what
+ * a withheld cell draws. Registering it for a type
+ * (`registerFieldRenderer('api_token', MaskedCellRenderer)`) masks that type,
+ * as {@link isMaskedFieldType} describes. `field` is optional: the mask reads
+ * only whether the value is present, so a withheld cell has no field metadata
+ * to invent.
  */
-function MaskedCellRenderer({ value }: CellRendererProps): React.ReactElement {
+export function MaskedCellRenderer({
+  value,
+}: Omit<CellRendererProps, 'field'> & { field?: CellRendererProps['field'] }): React.ReactElement {
   if (isEmptyValue(coerceToSafeValue(value))) return <EmptyValue />;
   return <span>••••••</span>;
 }

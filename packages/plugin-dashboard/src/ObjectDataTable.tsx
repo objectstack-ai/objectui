@@ -17,7 +17,7 @@ import {
 import type { ObjectDataTableSchema, TableColumn } from '@object-ui/types';
 import { normalizeTableColumnType } from '@object-ui/types';
 import { Skeleton, RefreshIndicator, cn } from '@object-ui/components';
-import { isMaskedFieldType } from '@object-ui/fields';
+import { isMaskedFieldType, MaskedCellRenderer } from '@object-ui/fields';
 import { useSafeFieldLabel, useObjectTranslation, useLocalization, useDisplayLocale } from '@object-ui/i18n';
 import { usePermissions } from '@object-ui/permissions';
 import { resolveFilterPlaceholders, humanizeFieldKey } from './utils';
@@ -412,6 +412,15 @@ export type AuthoredColumnOverrides =
  * shared instance for every other table on the page.
  */
 const EMPTY_ROWS = Object.freeze([]) as unknown as any[];
+
+/**
+ * The cell a WITHHELD column draws (objectui#10657): the mask, never the
+ * value. See `enrich` for when a column is withheld. Module-level, so the
+ * column keeps one `cell` identity across renders.
+ */
+function withheldCell(value: unknown): React.ReactNode {
+  return React.createElement(MaskedCellRenderer, { value });
+}
 
 /**
  * Normalize columns to support both string[] shorthand and object[] formats.
@@ -947,6 +956,21 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
       const maskedStamp = masked ? { masked: true } : {};
 
       if (typeof col.cell === 'function') return { ...col, name: fieldMeta.name, type: columnType, align: inferredAlign, ...maskedStamp };
+
+      // ⭐ WITHHELD (objectui#10657, the objectui#10706 class at this
+      // producer). The flag above withholds; it does not DRAW. `cell` draws
+      // from `fieldMeta.type`, which is the authored `type` or the object's,
+      // so while the object's types are unknown a column that authors none has
+      // no type, and the cell would draw its value as text: a `password` /
+      // `secret` field in the clear, and for good when the read failed. Such a
+      // column draws the mask instead until the definition lands, and keeps
+      // drawing it when the read failed (fail closed, never falling back to
+      // text). A column that authors its own `type` draws from it, as it does
+      // once the definition is in hand: `password` masks, `text` draws the
+      // text it was told to.
+      if (objectTypesPending && !authored.type) {
+        return { ...col, name: fieldMeta.name, type: columnType, align: inferredAlign, cell: withheldCell, ...maskedStamp };
+      }
 
       // Tenant-default currency backstops a currency column with no explicit code.
       const cell = (value: any): React.ReactNode => renderFieldValue(value, fieldMeta, tenantCurrency, displayLocale);

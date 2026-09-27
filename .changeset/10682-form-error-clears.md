@@ -28,10 +28,3 @@ commits.
 A failed background re-read is still reported: no form has a silent mode, so it
 shows the error screen rather than keeping the last good values, and the next
 re-read that succeeds takes the screen back.
-
-The `record:line_items` panel (`LineItemsPanel`) had the same defect on its one
-banner (objectui#10683): a failed load kept its message over the rows a later
-load drew. Now only the current load writes that banner. When it commits rows it
-clears the banner, a failed load's message or a failed save's alike, since those
-rows replace the edits the save was about. A load that another has superseded
-neither raises the banner nor clears it.

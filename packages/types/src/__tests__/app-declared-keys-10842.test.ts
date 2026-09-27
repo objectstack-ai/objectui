@@ -77,10 +77,24 @@ describe('objectui#10842 — the wizard output is a document the spec `AppSchema
 
 describe('objectui#10842 — CONTROL: the spec refuses the keys the converter used to write', () => {
   it('answers `type`, `title`, `favicon` and `layout` with one `unrecognized_keys` at the root', () => {
-    const old = { ...wizardDraftToAppSchema(DRAFT), type: 'app', title: 'Acme CRM', favicon: '/acme.ico', layout: 'header' };
-    expect(specIssues(old)).toEqual([
-      { code: 'unrecognized_keys', path: '', keys: ['type', 'title', 'favicon', 'layout'] },
-    ]);
+    // The converter's old output for DRAFT, written out rather than derived, so
+    // this control does not move with the converter it is the control for.
+    const old = {
+      type: 'app',
+      name: 'acme_crm',
+      title: 'Acme CRM',
+      label: 'Acme CRM',
+      description: 'Accounts and deals',
+      icon: 'Briefcase',
+      favicon: '/acme.ico',
+      branding: { logo: '/acme.svg', primaryColor: '#2563eb', favicon: '/acme.ico' },
+      layout: 'header',
+      navigation: DRAFT.navigation,
+    };
+    const issues = specIssues(old);
+    expect(issues).toHaveLength(1);
+    expect(issues![0]).toMatchObject({ code: 'unrecognized_keys', path: '' });
+    expect([...issues![0].keys!].sort()).toEqual(['favicon', 'layout', 'title', 'type']);
   });
 });
 

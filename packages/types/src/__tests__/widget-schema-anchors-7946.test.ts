@@ -62,6 +62,10 @@
  *     registry `inputs`. They are declared anyway because they are already
  *     passed through `.passthrough()` unvalidated; declaring buys the VALUE
  *     check without minting authorable vocabulary.
+ *     ⚠️ `series` is TWO arms since objectui#10770: the internal `{ dataKey }`
+ *     arm this file pins, plus the spec's `{ name }` author arm, by reference,
+ *     which the react tier's `<ObjectChart>` writes. That arm's pins live in
+ *     `object-chart-react-tier-node-10770.test.ts` beside this file.
  *
  * ## The ceiling, stated rather than assumed (objectui#5155)
  *
@@ -111,12 +115,13 @@ export type assertionXAxisKeyDeclared = Expect<Equal<ObjectChartSchema['xAxisKey
 export type assertionColorsConverged = Expect<Equal<ObjectChartSchema['colors'], string[] | Record<string, string> | undefined>>;
 export type assertionFilterAdmitsBothArms = Expect<Equal<ObjectChartSchema['filter'], any[] | Record<string, any> | undefined>>;
 /**
- * `series`' element type is `ChartRendererProps.schema.series`' INTERNAL arm.
+ * `series`' INTERNAL arm is `ChartRendererProps.schema.series`' internal arm.
  * Spelled here as the two facts a reader needs — the binding key is `dataKey`
  * and it is required — rather than as a copy of the whole arm, which would pin
- * the shape twice and drift.
+ * the shape twice and drift. Read through `Extract` because the element is a
+ * union since objectui#10770 (the spec's `{ name }` arm is the other member).
  */
-export type assertionSeriesBindsDataKey = Expect<Equal<NonNullable<ObjectChartSchema['series']>[number]['dataKey'], string>>;
+export type assertionSeriesBindsDataKey = Expect<Equal<Extract<NonNullable<ObjectChartSchema['series']>[number], { dataKey: string }>['dataKey'], string>>;
 /**
  * ⭐ `aggregate` is the SPEC's symbol, by reference — not a local shape that
  * happens to look like it. `Equal` against `ChartAggregate` itself is the only
@@ -169,7 +174,8 @@ describe('ObjectChartSchema — compile-time pins (objectui#7946)', () => {
       series: [{ dataKey: 'amount', label: 'Amount' }],
       colors: { won: '#10B981' },
     };
-    expect([chart.aggregate?.groupBy, chart.xAxisKey, chart.series?.[0].dataKey]).toEqual(['stage', 'stage', 'amount']);
+    const first = chart.series?.[0];
+    expect([chart.aggregate?.groupBy, chart.xAxisKey, first && 'dataKey' in first ? first.dataKey : undefined]).toEqual(['stage', 'stage', 'amount']);
   });
 
   it('still accepts a MISSPELLING — the ceiling, pinned honestly (objectui#5155)', () => {
@@ -208,7 +214,7 @@ describe('the zod mirror declares the same keys (objectui#7946)', () => {
 
     const refusals: Array<readonly [string, unknown]> = [
       ['xAxisKey is a column NAME, not an index', { xAxisKey: 0 }],
-      ['a series entry binds through `dataKey`', { series: [{ label: 'no binding key' }] }],
+      ['a series entry binds through `dataKey` (or the spec arm\'s `name`)', { series: [{ label: 'no binding key' }] }],
       ['`average` is not the declared function vocabulary', { aggregate: { function: 'average', groupBy: 'stage' } }],
       // F6 — the two keys the first cut declared but never probed on this face.
       ['filter is a FilterArray or an ObjectQL $filter object, never a query STRING', { filter: 'stage=won' }],

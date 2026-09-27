@@ -51,6 +51,7 @@ import {
   NavigationAreaSchema as SpecNavigationAreaSchema,
   ChartTypeSchema as SpecChartTypeSchema,
   ChartAxisSchema as SpecChartAxisSchema,
+  ChartSeriesSchema as SpecChartSeriesSchema,
   DashboardSchema as SpecDashboardSchema,
   DashboardWidgetSchema as SpecDashboardWidgetSchema,
   GlobalFilterSchema as SpecGlobalFilterSchema,
@@ -200,6 +201,10 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // cross the same boundary with the same symbol, so this one entry measures
   // all four crossings.
   ['ChartAxisSchema', SpecChartAxisSchema],
+  // objectui#10770: the author arm of `ObjectChartSchema.series` is the spec's
+  // series schema, whose `yAxis` / `variant` defaults are exactly what this
+  // boundary exists to keep out of a parse output.
+  ['ChartSeriesSchema', SpecChartSeriesSchema],
 ] as const;
 
 /** The subset that actually carries an imported default — where the strip does work. */

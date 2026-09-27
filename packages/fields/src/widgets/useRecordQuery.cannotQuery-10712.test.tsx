@@ -255,6 +255,55 @@ describe('useRecordQuery drops a pending debounced search when the query it was 
     expect(result.current.loading).toBe(false);
   });
 
+  it('a sort change inside the debounce window: the fetch effect carries the typed term with the new sort, and the armed timer runs no older query', async () => {
+    const { dataSource, calls } = makeDeferredDataSource();
+    const { result } = renderHook(() => useRecordQuery({ dataSource, objectName: 'o', debounceMs: DEBOUNCE_MS }));
+    await answer(await nth(calls, 1), 'initial', 1);
+
+    act(() => result.current.setSearch('a'));
+    // The sort changes before the debounce fires. `runQuery`'s identity does
+    // not move on a sort change, so the timer's closure is the current one;
+    // what it lacks is the sort, which the fetch effect already carried.
+    act(() => result.current.toggleSort('name'));
+    const current = await nth(calls, 2);
+    expect(current.params.$orderby).toEqual({ name: 'asc' });
+    expect(current.params.$search).toBe('a');
+
+    await outwaitDebounce();
+
+    expect(dataSource.find, 'the debounced timer ran the query it was armed with, without the sort').toHaveBeenCalledTimes(2);
+
+    await answer(current, 'sorted a', 1);
+    expect(names(result.current.records)).toEqual(['sorted a']);
+    expect(result.current.sort).toEqual({ field: 'name', direction: 'asc' });
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('a page change inside the debounce window (paginate): the fetch effect carries the typed term on the new page, and the armed timer runs no older query', async () => {
+    const { dataSource, calls } = makeDeferredDataSource();
+    const { result } = renderHook(() =>
+      useRecordQuery({ dataSource, objectName: 'o', paginate: true, pageSize: 10, debounceMs: DEBOUNCE_MS }),
+    );
+    const first = await nth(calls, 1);
+    expect(first.params.$skip).toBe(0);
+    await answer(first, 'initial', 30);
+
+    act(() => result.current.setSearch('a'));
+    act(() => result.current.setPage(2));
+    const current = await nth(calls, 2);
+    expect(current.params.$skip).toBe(10);
+    expect(current.params.$search).toBe('a');
+
+    await outwaitDebounce();
+
+    expect(dataSource.find, 'the debounced timer ran the query it was armed with, for page 1').toHaveBeenCalledTimes(2);
+
+    await answer(current, 'page 2 a', 30);
+    expect(names(result.current.records)).toEqual(['page 2 a']);
+    expect(result.current.page).toBe(2);
+    expect(result.current.loading).toBe(false);
+  });
+
   it('control: `reset()` inside the debounce window drops the pending search, as before', async () => {
     const { dataSource, calls } = makeDeferredDataSource();
     const { result } = renderHook(() => useRecordQuery({ dataSource, objectName: 'o', debounceMs: DEBOUNCE_MS }));

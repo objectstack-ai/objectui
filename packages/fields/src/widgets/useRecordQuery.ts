@@ -266,13 +266,19 @@ export function useRecordQuery(options: UseRecordQueryOptions): UseRecordQueryRe
     if (!canQuery) reset();
   }, [canQuery, reset]);
 
-  // Drop a pending debounced search whenever `runQuery` changes, and on unmount
-  // (objectui#10712). The timer closes over the `runQuery` in scope when it was
-  // armed; a filter, object, data-source or page-size change inside the
-  // debounce window re-runs the query through the fetch effect above, with the
-  // current `search`, and the timer would then run the OLDER closure as a call
-  // numbered latest.
-  useEffect(() => () => clearDebounce(), [runQuery, clearDebounce]);
+  // Drop a pending debounced search whenever the fetch effect above is about to
+  // run a query, and on unmount (objectui#10712). Keyed on what that effect is
+  // keyed on: `runQuery` (a filter, object, data-source, page-size or `enabled`
+  // change moves it) AND `page` and `sort`, which move without moving
+  // `runQuery`. Any of these inside the debounce window re-runs the query
+  // through the fetch effect with the current `search`; the armed timer would
+  // then run as a call numbered latest, either the OLDER closure (the previous
+  // filter, object or data source) or the current closure with the OLDER page
+  // or sort (`setSearch` arms it with page 1 and the sort in scope), and its
+  // answer would replace the one the fetch effect asked for. React runs this
+  // cleanup before that effect's body in the same commit, so the timer is gone
+  // before the new query is numbered.
+  useEffect(() => () => clearDebounce(), [runQuery, page, sort, clearDebounce]);
 
   const setSearch = useCallback(
     (query: string) => {

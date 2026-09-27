@@ -44,8 +44,9 @@ collected values — not by the server". The Studio now follows it with one clie
   and is silent on the sibling. Every other expression slot keeps the flow scope.
 - The screen field inspector's `visibleWhen` placeholder is a sibling-field example
   (`createOpportunity == true`); it used to read `stage == "review"`, a run-variable shape.
-- `ScreenView` exports `screenPredicateScope`, unchanged, so the Studio reads the roots a
-  predicate may name off the renderer's own scope instead of restating them.
+- `ScreenView` exports `screenPredicateScope`, unchanged, so the Studio reads the bare roots a
+  predicate may name off the renderer's own scope; only the `record` namespace, which the
+  renderer binds inside `evalFieldPredicate`, is restated by name.
 
 **What did not change.** Whether the renderer shows or hides a predicate it cannot evaluate
 is `ScreenView`'s fallback and objectui#8069's open question; the Studio now renders through
@@ -64,5 +65,5 @@ true, and waives it when they make it false or leave it unevaluable.
 **Still on the flow scope.** The inline inspector's `visibleWhen` cell (`FlowObjectListField`)
 still offers the flow scope picker and its inline note still reads the flow scope, so on the
 sibling-field shape it says "`discount` is not a reference in scope at this step" while the
-Problems panel and the Debug run are silent; aligning that cell is a follow-up outside this
-change.
+Problems panel and the Debug run are silent, and says nothing on a run variable the other two
+report; aligning that cell is a follow-up outside this change.

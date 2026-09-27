@@ -2462,9 +2462,33 @@ export const ObjectChartSchema = BaseSchema.extend({
   // instead bind to a semantic-layer dataset (ADR-0021, #1890).
   objectName: z.string().optional().describe('ObjectQL object name (legacy inline path)'),
   chartType: z.enum(['bar', 'column', 'horizontal-bar', 'line', 'area', 'pie', 'donut', 'scatter']).describe('Chart type'),
-  xAxisField: z.string().optional().describe('X axis field (legacy inline path)'),
-  yAxisFields: z.array(z.string()).optional().describe('Y axis fields (legacy)'),
-  aggregation: z.enum(['cardinality', 'sum', 'avg', 'min', 'max']).optional().describe('Aggregation (legacy)'),
+  // ── objectui#10608: three list-view spellings, RETIRED on this node ──
+  //
+  // `xAxisField` / `yAxisFields` / `aggregation` are the LIST-VIEW chart
+  // block's vocabulary; the list-view relays translate that block before they
+  // compose this node, and no `object-chart` reader consumes the three. Kept
+  // declared and unwritable (ADR-0049): `BaseSchema` is `.passthrough()`, so a
+  // deleted arm would KEEP an authored value in silence instead of refusing it.
+  // Each refusal names the spec spelling as its remedy. The TS twin in
+  // `../objectql.ts` carries the ground; the pin is
+  // `../__tests__/object-chart-legacy-axis-keys-retired-10608.test.ts`.
+  xAxisField: retirementTombstone(
+    'RETIRED (objectui#10608, ADR-0049) — `xAxisField` is the list-view chart block\'s spelling and no '
+    + '`object-chart` reader consumes it: a node written with it draws no category axis. Write the spec\'s '
+    + '`xAxis: { field: \'status\' }` instead; on the inline `objectName` path the category is `aggregate.groupBy`.',
+  ),
+  yAxisFields: retirementTombstone(
+    'RETIRED (objectui#10608, ADR-0049) — `yAxisFields` is the list-view chart block\'s spelling and no '
+    + '`object-chart` reader consumes it: a node written with it plots no series. Write the spec\'s '
+    + '`yAxis: [{ field: \'amount\' }]` instead, one entry per value axis; on the inline `objectName` path the '
+    + 'measure is `aggregate.field`, and a dataset-bound chart selects `values` by name.',
+  ),
+  aggregation: retirementTombstone(
+    'RETIRED (objectui#10608, ADR-0049) — `aggregation` is the list-view chart block\'s spelling and no '
+    + '`object-chart` reader consumes it: a node written with it aggregates nothing. Write the spec\'s '
+    + '`aggregate: { field, function, groupBy }` instead, `function` one of `count`, `sum`, `avg`, `min`, '
+    + '`max`; a dataset-bound chart takes its aggregation from the dataset\'s measures.',
+  ),
   // ADR-0021 semantic-layer binding: dimensions/measures selected BY NAME from a
   // dataset, queried via the governed queryDataset path.
   dataset: z.string().optional().describe('Semantic-layer dataset name (ADR-0021)'),
@@ -2512,7 +2536,7 @@ export const ObjectChartSchema = BaseSchema.extend({
   // authoring door here and at the react-page publish gate are one shape.
   aggregate: stripImportedDefaults(SpecChartAggregateSchema).optional()
     .describe('AUTHORABLE — inline aggregation for the legacy objectName path. @objectstack/spec ChartAggregateSchema ({ field?, function, groupBy }), the same schema the react-page publish gate parses: function and groupBy are REQUIRED, field is optional because only count counts rows rather than a column, and unknown keys are refused rather than dropped'),
-  xAxisKey: z.string().optional().describe('INTERNAL (relay-composed) — the category column the renderer binds the x axis to. Authors write xAxisField (or the spec xAxis: { field } one layer down); all five producers compute this key'),
+  xAxisKey: z.string().optional().describe('INTERNAL (relay-composed) — the category column the renderer binds the x axis to. Authors write the spec xAxis: { field }; all five producers compute this key'),
   series: z.array(z.object({
     dataKey: z.string().describe('Result column this series plots'),
     label: z.string().optional().describe('Series display label'),

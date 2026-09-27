@@ -79,19 +79,32 @@ describe('objectui#7928 — a named view\'s `I18nLabel` renders on the tab strip
     expect(['All deals', 'ZH deals']).toContain(first);
   });
 
-  it('CONTROL: a plain-string label renders unchanged, and a map with no usable entry falls through to `name`, then the key', async () => {
+  it('CONTROL: plain-string labels render unchanged — the rung the fix did not touch', async () => {
     const { findAllByRole } = render(
       <ObjectView
         schema={node({
           v1: { label: 'My Deals', type: 'grid', columns: ['name'] },
-          v2: { label: {}, name: 'named_view', type: 'grid', columns: ['name'] },
-          v3: { label: {}, type: 'grid', columns: ['name'] },
+          v2: { label: 'Other', type: 'grid', columns: ['name'] },
         })}
         dataSource={dataSource()}
       />,
     );
     const tabs = (await findAllByRole('tab')).map((t) => t.textContent);
-    expect(tabs).toEqual(['My Deals', 'named_view', 'v3']);
+    expect(tabs).toEqual(['My Deals', 'Other']);
+  });
+
+  it('a map with no usable entry resolves to nothing and falls through to `name`, then the record key', async () => {
+    const { findAllByRole } = render(
+      <ObjectView
+        schema={node({
+          v1: { label: {}, name: 'named_view', type: 'grid', columns: ['name'] },
+          v2: { label: {}, type: 'grid', columns: ['name'] },
+        })}
+        dataSource={dataSource()}
+      />,
+    );
+    const tabs = (await findAllByRole('tab')).map((t) => t.textContent);
+    expect(tabs).toEqual(['named_view', 'v2']);
   });
 });
 

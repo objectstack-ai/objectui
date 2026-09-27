@@ -22,8 +22,9 @@ import { fileURLToPath } from 'node:url';
  * objectui#10293 added a fifth under the same convention: the `ui:calendar`
  * primitive's selected date, which the renderer now coerces through the same
  * shared step. objectui#10844, the family's closure card, added the dashboard
- * filter's custom range bounds and the `date-picker` renderer's value; a later
- * date-only read site registers here the same way.
+ * filter's custom range bounds, the `date-picker` renderer's value and the
+ * report cell's date face; a later date-only read site registers here the
+ * same way.
  *
  * ## Why a driver, and why the forks pool
  *
@@ -68,9 +69,11 @@ const PINS = [
   // date-only convention at a fifth read site.
   'packages/components/src/renderers/form/__tests__/calendar.dateValueZone-10293.test.tsx',
   // objectui#10844, the family's closure card: the dashboard filter's custom
-  // range bounds and the `date-picker` renderer's authored value.
+  // range bounds, the `date-picker` renderer's authored value, and the report
+  // cell's date face its census found.
   'packages/plugin-dashboard/src/__tests__/DashboardFilterBar.dateOnlyZone-10844.test.tsx',
   'packages/components/src/renderers/form/__tests__/date-picker.dateValueZone-10844.test.tsx',
+  'packages/plugin-report/src/__tests__/formatValue.dateOnlyZone-10844.test.ts',
 ] as const;
 
 /** The vitest CLI entry, resolved rather than assumed at a `node_modules` path. */

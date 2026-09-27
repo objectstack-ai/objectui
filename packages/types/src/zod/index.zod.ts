@@ -268,7 +268,6 @@ export {
   KanbanCardSchema,
   KanbanColumnSchema,
   CardTemplateSchema,
-  ColumnWidthConfigSchema,
   // ⛔ `KanbanSchema` RETIRED with the bare `kanban` node type key
   // (objectui#8802, maintainer ruling 2026-09-09). `RetiredKanbanNodeSchema`
   // takes its place inside `ComplexSchema` so an authored `type: "kanban"` is

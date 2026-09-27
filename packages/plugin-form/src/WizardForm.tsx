@@ -498,6 +498,12 @@ export const WizardForm: React.FC<WizardFormProps> = ({
   // wipe everything the user entered on earlier steps (the create POST then
   // carried only the final step's fields). This guard makes the seed idempotent.
   const seededRef = React.useRef(false);
+  // The record whose data `formData` currently holds. The fetch effect reads it
+  // to tell a genuine record SWAP from a re-run of its own making —
+  // `initialData`/`initialValues` are objects callers commonly rebuild every
+  // render, and flashing the loading state for those would thrash, unmounting
+  // the step form mid-entry (objectui#10726).
+  const loadedRecordIdRef = React.useRef<string | number | undefined>(undefined);
 
   const totalSteps = schema.sections.length;
   const isFirstStep = currentStep === 0;
@@ -562,9 +568,18 @@ export const WizardForm: React.FC<WizardFormProps> = ({
         return;
       }
       
+      // objectui#10726 — only a change of RECORD hides the form. A `recordId`
+      // change re-enters this effect with the wizard still MOUNTED on the
+      // previous record; without going back to loading, record A's values stay
+      // on screen AND EDITABLE while B is in flight, and anything typed there
+      // reads as A's but is submitted against B. The sectioned layouts' own
+      // swap shape, pinned for each of them in recordSwapLoading.test.tsx.
+      if (loadedRecordIdRef.current !== schema.recordId) setLoading(true);
+
       try {
         const data = await dataSource.findOne(schema.objectName, schema.recordId);
         if (cancelled) return;
+        loadedRecordIdRef.current = schema.recordId;
         loadedRecordRef.current = snapshotLoadedRecord(schema, data);
         setFormData(data || {});
         setPersistedRecord(data || {});

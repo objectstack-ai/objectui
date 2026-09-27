@@ -1404,6 +1404,18 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     setContextMenu({ x: e.clientX, y: e.clientY, columnKey });
   };
 
+  // The column the open context menu belongs to (objectui#10727). The menu
+  // holds only a key, so it is resolved from `columns`, the list the header
+  // row renders: `isColumnSortable` then reads the very object the header's
+  // cursor, click and indicator read, and the menu cannot offer a sort the
+  // header refuses. `rawColumns` can carry a different `sortable` for the one
+  // commit after the producer hands new columns, before `columns` re-seeds.
+  // A key that names no rendered column resolves to nothing, and nothing
+  // offers no sort.
+  const contextMenuColumn = contextMenu
+    ? columns.find((col) => col.accessorKey === contextMenu.columnKey)
+    : undefined;
+
   const hideColumn = (columnKey: string) => {
     setColumns(prev => prev.filter(c => c.accessorKey !== columnKey));
     setContextMenu(null);
@@ -2891,9 +2903,11 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
           data-testid="column-context-menu"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* No sort entries for a MASKED column (objectui#10657), the menu's
-              half of `isColumnSortable`. */}
-          {sortingEnabled && !isMaskedColumnKey(rawColumns, contextMenu.columnKey) && (
+          {/* Sort entries exactly where the header sorts: the header's one
+              predicate, `isColumnSortable`, over the same column. So a column
+              declared `sortable: false` offers none (objectui#10727), and
+              neither does a MASKED one (objectui#10657). */}
+          {contextMenuColumn && isColumnSortable(contextMenuColumn) && (
             <>
               <button
                 type="button"

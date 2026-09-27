@@ -78,11 +78,16 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { stripComments as strip } from '../../../../scripts/js-comment-mask.mjs';
 import type { ComponentInput } from '../index.js';
 // @ts-expect-error — `PluginComponentInput` is RETIRED (objectui#5674, stage 2): the
 // published entry no longer exports it, so re-exporting it again would turn this
 // directive unused (TS2578) and fail `type-check`.
 import type { PluginComponentInput } from '../index.js';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const stripComments: (source: string) => string = strip;
 
 /** Keeps the retired-import directive above honest: the name is USED, so a
  *  re-exported `PluginComponentInput` cannot leave the directive satisfied by
@@ -99,18 +104,20 @@ const INDEX_SRC = readFileSync(
 const RETIRED_SPECIFIER = 'ComponentInput as PluginComponentInput';
 
 /**
- * Strips `/* ... *\/` block comments and `//` line comments before the CODE
- * absence check below. Prose is deliberately left free to keep narrating the
- * retired name — `index.ts`'s neighbouring `PluginComponentMeta` docblock
- * explains why ITS deprecation did not land "alongside `PluginComponentInput`",
- * a historical fact about relative timing that stays true forever and is not
+ * `stripComments` (`scripts/js-comment-mask.mjs`, imported above as `strip`)
+ * removes COMMENT characters only, keeping newlines, before the CODE absence
+ * check below. Prose is deliberately left free to keep narrating the retired
+ * name — `index.ts`'s neighbouring `PluginComponentMeta` docblock explains why
+ * ITS deprecation did not land "alongside `PluginComponentInput`", a
+ * historical fact about relative timing that stays true forever and is not
  * this retirement's docblock to rewrite. Only CODE — an export specifier, an
- * alias, an `import`/`export` clause — is asserted clean.
+ * alias, an `import`/`export` clause — is asserted clean. The shared masker
+ * (not a private regex pair) is required here: `check-hand-rolled-comment-mask`
+ * refuses a new hand-rolled projection outright, and `stripComments` is
+ * exactly the right pick since this call site reports neither a line nor an
+ * offset — see that function's own header for the `stripComments` vs
+ * `maskComments` split.
  */
-function stripComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-}
-
 const INDEX_CODE = stripComments(INDEX_SRC);
 
 describe('PluginComponentInput — stage 2: the alias is gone from the published entry', () => {

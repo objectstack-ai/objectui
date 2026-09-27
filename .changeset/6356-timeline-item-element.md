@@ -40,11 +40,23 @@ The item is now declared (objectui#6356, maintainer ruling Q1 = A, Q2 = C):
   example `date`, or `meta`) is an excess-property error. TypeScript cannot see
   the parent's `variant`, so a gantt row on a feed timeline still type-checks;
   validation is where that is refused.
+- In TypeScript, an element of `TimelineSchema.items` is now the union
+  `TimelineFeedItem | TimelineGanttItem`, where it was an object with `unknown`
+  keys. Reading a key that only one shape declares needs the element narrowed
+  first — for example `'label' in item`.
 - `color`, `group`, `meta`, `startDate` and `endDate` on a timeline item are
   **not** authorable. `ObjectTimeline` composes them onto the items it maps from
   records and the renderer still draws them; they are typed inside
   `@object-ui/plugin-timeline` only, and the strict authoring schema refuses
   them by name.
+
+This supersedes two statements elsewhere in these release notes: the
+objectui#7164 and objectui#7365 entries say a row's and a bar's own keys stay
+undeclared and open and that feed timelines are untouched. Their refusals still
+hold, at the same paths — a non-object item at `items[i]`, a non-array row
+`items` at `items[i].items`, a non-object bar at `items[i].items[j]` — and a
+bar still accepts keys it does not declare, but the keys above are now
+declared, and feed timelines are judged too.
 
 `TimelineSchema` stays a zod object: its `.shape`, its place in
 `DataDisplaySchema` and the `timeScale` / `body` / `children` refusals are

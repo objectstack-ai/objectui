@@ -1,13 +1,7 @@
 import React from 'react';
 import { FilterBuilder, cn } from '@object-ui/components';
 import { SchemaRendererContext } from '@object-ui/react';
-import {
-  NUMERIC_VALUE_TYPES,
-  BOOLEAN_VALUE_TYPES,
-  CALENDAR_DATE_TYPES,
-  INSTANT_TYPES,
-  CLOCK_TIME_TYPES,
-} from '@objectstack/spec/data';
+import { NUMERIC_VALUE_TYPES, BOOLEAN_VALUE_TYPES } from '@objectstack/spec/data';
 import type { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { useFieldTranslation } from './useFieldTranslation.js';
@@ -240,13 +234,13 @@ function isEmptyEntry(field: string): Record<string, unknown> {
  * (objectui#10813).
  *
  * The protocol's own value classes (`@objectstack/spec/data`, ADR-0104),
- * asked rather than copied: numeric, boolean, calendar day, instant and time
- * of day. On these columns the SQL driver binds the comparand as-is — its
- * temporal storage rule hands an empty string back unchanged and its
- * column-type gate covers JSON columns only — so `''` reached a `numeric`,
- * `boolean`, `date`, `timestamp` or `time` column as `IN ('')` / `NOT IN ('')`,
- * which a strict backend has to cast. For them "is empty" is `$null: true`
- * and "is not empty" is `$null: false`: the same rows, with no `''` to cast.
+ * asked rather than copied: numeric and boolean — a finite number and a JS
+ * boolean on the wire. On these columns the SQL driver binds the comparand
+ * as-is (its column-type gate covers JSON columns only), so `''` reached an
+ * `integer`, `decimal` or `boolean` column as `IN ('')` / `NOT IN ('')`, which
+ * a strict backend has to cast. For them "is empty" is `$null: true` and
+ * "is not empty" is `$null: false`: the same rows, with no `''` to cast. No
+ * form writes `''` into them either — a cleared number box is sent as `null`.
  *
  * ⛔ Deliberately NOT a list of "string types" with everything else falling to
  * `$null`. A column absent from this set keeps the `''` member byte for byte:
@@ -255,9 +249,20 @@ function isEmptyEntry(field: string): Record<string, unknown> {
  *     `''` is a value a record can really hold — an edit form sends a cleared
  *     text box as `''`, and the platform stores it unchanged — so dropping the
  *     member would change which records a stored sharing rule matches;
+ *   - `date`, `datetime` and `time`, for the same reason on some backends: the
+ *     spec calls their stored form a dialect question (ISO TEXT on SQLite, a
+ *     native type on Postgres), and an edit form sends a cleared date, date-time
+ *     or time box as `''`, which the platform stores unchanged where the column
+ *     is text. Which way to settle that is objectui#10813's open question;
  *   - a field whose type this widget does not know (the schema has not loaded,
  *     or the field is hidden or not in it), because guessing a type here would
  *     re-scope a rule the admin can see on screen.
+ *
+ * ⛔ Not `NON_TEXT_STORED_VALUE_TYPES`, although it is exactly these two classes
+ * in the spec release this package installs: that set is the text-operator
+ * gate's, and the spec's main line has already widened it to the temporal
+ * classes by ruling rather than by storage — adopting it would move the
+ * temporal columns onto `$null` on a spec upgrade, with no change here.
  *
  * Whether the platform's one meaning of "is empty" keeps `''` at all is
  * objectui#10813's open question, and not this set's to answer.
@@ -265,9 +270,6 @@ function isEmptyEntry(field: string): Record<string, unknown> {
 const NON_STRING_VALUE_TYPES: ReadonlySet<string> = new Set([
   ...NUMERIC_VALUE_TYPES,
   ...BOOLEAN_VALUE_TYPES,
-  ...CALENDAR_DATE_TYPES,
-  ...INSTANT_TYPES,
-  ...CLOCK_TIME_TYPES,
 ]);
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -362,7 +364,7 @@ export function condToMongo(c: BuilderCondition, typeOf: (f: string) => string |
     // field key, so it reads back through the ordinary two-operator arm.
     //
     // objectui#10813 — the `''` member only where a stored value can be `''`:
-    // a numeric, boolean or temporal column gets the `$null` half alone (see
+    // a numeric or boolean column gets the `$null` half alone (see
     // {@link NON_STRING_VALUE_TYPES}). Those two shapes are the ones `is_null`
     // / `is_not_null` write, so a reopened rule reads them back under those
     // labels — the same predicate on such a column. A rule stored in the older

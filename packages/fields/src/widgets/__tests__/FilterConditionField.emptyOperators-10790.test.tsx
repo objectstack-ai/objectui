@@ -29,12 +29,13 @@
  *
  * Four blocks:
  *
- *   1. WRITER — each operator on each string-stored field type that offers it
- *      (text, select, lookup: `operatorsForFieldType` in `@object-ui/components`),
- *      driven through the REAL dropdowns. The `equals` rows are the control:
- *      the same harness and the same faces, green before and after, on the
- *      number and date columns too. Those two get the `$null` half alone since
- *      objectui#10813, pinned in `FilterConditionField.typedEmpty-10813.test.tsx`.
+ *   1. WRITER — each operator on each field type that offers it and can store
+ *      `''` (text, date, select, lookup: `operatorsForFieldType` in
+ *      `@object-ui/components`), driven through the REAL dropdowns. The `equals`
+ *      rows are the control: the same harness and the same faces, green before
+ *      and after, on the number column too. A number column gets the `$null`
+ *      half alone since objectui#10813, pinned in
+ *      `FilterConditionField.typedEmpty-10813.test.tsx`.
  *   2. READER — the old shape AND the new shape each open as the same single
  *      builder row, and opening one emits nothing (no rewrite on read alone).
  *   3. RE-SAVE — an old rule is written in the new shape the next time any row
@@ -157,9 +158,9 @@ const TYPES: ReadonlyArray<{ type: string; field: string; label: string }> = [
 
 /**
  * The columns whose stored value can be `''`, so they keep the `''` member.
- * A number or date column gets `$null` alone since objectui#10813.
+ * A number column gets `$null` alone since objectui#10813.
  */
-const STRING_STORED_TYPES = TYPES.filter(({ type }) => type !== 'number' && type !== 'date');
+const STRING_STORED_TYPES = TYPES.filter(({ type }) => type !== 'number');
 
 /** A fresh row on `label`'s column, still on the seed operator (`equals`). */
 async function freshRowOn(label: string) {

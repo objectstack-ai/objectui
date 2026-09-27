@@ -13,23 +13,26 @@
  * Since objectui#10790 the widget stores "is empty" as
  * `{ $or: [{ F: { $in: [''] } }, { F: { $null: true } }] }` and its complement
  * as `{ F: { $nin: [''], $null: false } }` on EVERY field type the dropdown
- * offers them on — number and date included. On a numeric, boolean or temporal
- * column the SQL driver binds that `''` as-is, so it reached the column as
- * `IN ('')` / `NOT IN ('')`, a comparand a strict backend has to cast. Those
- * columns now get the `$null` half alone.
+ * offers them on — number included. On a numeric or boolean column the SQL
+ * driver binds that `''` as-is, so it reached the column as `IN ('')` /
+ * `NOT IN ('')`, a comparand a strict backend has to cast. Those columns now
+ * get the `$null` half alone.
  *
  * What is pinned, and why each block exists:
  *
- *   1. WRITER — a number and a date column, driven through the REAL dropdowns,
- *      write `{ F: { $null: true } }` / `{ F: { $null: false } }`: no `''`.
- *   2. CONTROL — a text, a select and a lookup column write today's bytes,
- *      unchanged. `''` is a value those columns can hold (an edit form sends a
- *      cleared text box as `''` and the platform stores it), so dropping the
- *      member there would re-scope a stored sharing rule — objectui#10813's
- *      stop valve, not this step.
+ *   1. WRITER — a number and a toggle column, driven through the REAL
+ *      dropdowns, write `{ F: { $null: true } }` / `{ F: { $null: false } }`:
+ *      no `''`.
+ *   2. CONTROL — a text, a select, a lookup and a date column write today's
+ *      bytes, unchanged. `''` is a value those columns can hold — an edit form
+ *      sends a cleared text, date, date-time or time box as `''`, and the
+ *      platform stores it unchanged wherever the column is text, which a date
+ *      column is on SQLite — so dropping the member there would re-scope a
+ *      stored sharing rule: objectui#10813's stop valve, not this step.
  *   3. CLASSES — `condToMongo` over every member of the protocol's value
  *      classes it keys on, read from the installed `@objectstack/spec`, plus
- *      the string-stored classes and an unknown type as the other side.
+ *      the string-stored and temporal classes and an unknown type as the other
+ *      side.
  *   4. READER — a rule stored in either OLDER shape on a number column still
  *      opens as the same "is empty" / "is not empty" row and is not rewritten
  *      by opening it; it takes the new shape only when an admin edits it. The
@@ -37,9 +40,9 @@
  *      `is_not_null` label it shares), never the raw-JSON fallback.
  *
  * DIRECTION, predicted before running: on the base tree blocks 1 and 3's
- * typed rows are red (the `''` member is there), the "is empty" RE-SAVE row is
- * red, and every CONTROL, every old-shape READER row and the unknown-type row
- * are green.
+ * numeric and boolean rows are red (the `''` member is there), both RE-SAVE
+ * rows are red, and every CONTROL, every old-shape READER row and the
+ * unknown-type row are green.
  */
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
@@ -76,6 +79,7 @@ const OBJECT_SCHEMA = {
       ],
     },
     { name: 'account', label: 'Account', type: 'lookup', reference: 'account' },
+    { name: 'is_hot', label: 'Hot', type: 'toggle' },
   ],
 };
 
@@ -156,7 +160,7 @@ const withEmptyString = {
   is_empty: (f: string) => ({ $or: [{ [f]: { $in: [''] } }, { [f]: { $null: true } }] }),
   is_not_empty: (f: string) => ({ [f]: { $nin: [''], $null: false } }),
 };
-/** The two shapes a numeric, boolean or temporal column gets (objectui#10813). */
+/** The two shapes a numeric or boolean column gets (objectui#10813). */
 const nullOnly = {
   is_empty: (f: string) => ({ [f]: { $null: true } }),
   is_not_empty: (f: string) => ({ [f]: { $null: false } }),
@@ -167,10 +171,13 @@ const OPERATORS = [
   { id: 'is_not_empty', label: 'Is not empty' },
 ] as const;
 
-describe('WRITER — a number and a date column get no `\'\'` member (objectui#10813)', () => {
+describe('WRITER — a number and a toggle column get no `\'\'` member (objectui#10813)', () => {
+  // `toggle` is the boolean class the dropdown offers these two operators on:
+  // its bucket is the text one, while a `boolean` column's bucket offers
+  // neither (`operatorsForFieldType` in `@object-ui/components`).
   const TYPED = [
     { type: 'number', field: 'amount', label: 'Amount' },
-    { type: 'date', field: 'due_on', label: 'Due on' },
+    { type: 'toggle', field: 'is_hot', label: 'Hot' },
   ];
   describe.each(TYPED)('$type column', ({ field, label }) => {
     it.each(OPERATORS)('"$label" writes the null half alone', async ({ id, label: op }) => {
@@ -189,6 +196,8 @@ describe('CONTROL — a string-stored column writes today\'s bytes (objectui#108
     { type: 'text', field: 'name', label: 'Name' },
     { type: 'select', field: 'stage', label: 'Stage' },
     { type: 'lookup', field: 'account', label: 'Account' },
+    // Stored as ISO text on SQLite, where a cleared date box's `''` is kept.
+    { type: 'date', field: 'due_on', label: 'Due on' },
   ];
   describe.each(STRING_STORED)('$type column', ({ field, label }) => {
     it.each(OPERATORS)('"$label" keeps the `\'\'` member', async ({ id, label: op }) => {
@@ -203,23 +212,23 @@ describe('CONTROL — a string-stored column writes today\'s bytes (objectui#108
 
 describe('CLASSES — the protocol value classes decide which shape a column gets (objectui#10813)', () => {
   const row = (operator: string) => ({ id: 'c1', field: 'f', operator, value: '' });
-  const typed = [
-    ...NUMERIC_VALUE_TYPES,
-    ...BOOLEAN_VALUE_TYPES,
-    ...CALENDAR_DATE_TYPES,
-    ...INSTANT_TYPES,
-    ...CLOCK_TIME_TYPES,
-  ];
+  const typed = [...NUMERIC_VALUE_TYPES, ...BOOLEAN_VALUE_TYPES];
   const stringStored = [...STRING_VALUE_TYPES, ...SINGLE_OPTION_TYPES, ...REFERENCE_VALUE_TYPES];
+  // A dialect question (ISO text on SQLite), left as it is until objectui#10813
+  // settles it — see `NON_STRING_VALUE_TYPES`.
+  const temporal = [...CALENDAR_DATE_TYPES, ...INSTANT_TYPES, ...CLOCK_TIME_TYPES];
 
   it('the classes are not empty — a vacuous sweep would pass on any tree', () => {
     // The installed spec is what both sides read; an empty class would make
     // every `it.each` below run zero cases and report green.
-    for (const t of ['number', 'currency', 'percent', 'boolean', 'toggle', 'date', 'datetime', 'time']) {
+    for (const t of ['number', 'currency', 'percent', 'boolean', 'toggle']) {
       expect(typed, t).toContain(t);
     }
     for (const t of ['text', 'textarea', 'email', 'select', 'lookup', 'user']) {
       expect(stringStored, t).toContain(t);
+    }
+    for (const t of ['date', 'datetime', 'time']) {
+      expect(temporal, t).toContain(t);
     }
   });
 
@@ -230,6 +239,12 @@ describe('CLASSES — the protocol value classes decide which shape a column get
   });
 
   it.each(stringStored)('CONTROL: a %s column keeps the `\'\'` member', (type) => {
+    for (const { id } of OPERATORS) {
+      expect(condToMongo(row(id), () => type)).toEqual(withEmptyString[id]('f'));
+    }
+  });
+
+  it.each(temporal)('CONTROL: a %s column keeps the `\'\'` member until the dialect question is settled', (type) => {
     for (const { id } of OPERATORS) {
       expect(condToMongo(row(id), () => type)).toEqual(withEmptyString[id]('f'));
     }

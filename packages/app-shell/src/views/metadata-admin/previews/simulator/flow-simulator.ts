@@ -489,7 +489,7 @@ export class FlowSimulator {
         Object.keys(wrote).length ? undefined : 'No assignments defined.',
         unmodelled.length
           ? `Kept as written, not modelled by the Debug run: ${unmodelled.join(', ')}. ` +
-              'The runtime resolves these tokens itself (NOW() / TODAY(), $User.*, arithmetic, function calls).'
+              'The runtime resolves NOW() / TODAY(), $User.* and arithmetic itself, and fails the node on a call to a function it does not know.'
           : undefined,
       ),
     });

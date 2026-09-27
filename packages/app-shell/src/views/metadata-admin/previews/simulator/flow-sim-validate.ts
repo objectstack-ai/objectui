@@ -218,7 +218,8 @@ function evalCelPredicate(
  *
  * 1. Absent: `undefined`, `null` or a blank string. This is the runtime's own
  *    test for "declares a predicate" (`validateScreenInputs`), and the field is
- *    then always shown.
+ *    then always shown. objectstack main refuses a blank string at
+ *    `registerFlow`; the installed 17.4.0 admits it.
  * 2. Shape: the spec's `predicateSlotRefusal`. The slot is declared bare CEL
  *    text, so an envelope, a boolean or any other non-string is refused, as
  *    `registerFlow` refuses it.
@@ -243,8 +244,10 @@ export function evalVisibleWhen(visibleWhen: unknown, variables: Record<string, 
  * `{ dialect: 'cel', source: expression }` predicate, through
  * {@link evalCelPredicate} (objectui#10692).
  *
- * - A blank `expression` is `false`: `evaluateCondition` answers an empty
- *   source `false` ("an unauthored branch must not open").
+ * - A blank `expression` is read as `false`, as `evaluateCondition` reads an
+ *   empty source; objectstack main refuses it at `registerFlow`
+ *   (`predicateSlotRefusal`, #17493) and the installed 17.4.0 admits it — a
+ *   declared divergence.
  * - A non-string `expression` is refused with the spec's
  *   `predicateSlotRefusal`, the refusal `registerFlow` applies to this slot.
  */

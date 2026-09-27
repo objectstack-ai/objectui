@@ -605,7 +605,8 @@ be faithfully modelled is surfaced loudly instead of faked.
   and a token it does not model (`NOW()`, `$User.*`, arithmetic) is kept as
   written and named on the step; a paused screen gates each field's
   `visibleWhen` with the same CEL call, and one that cannot be evaluated hides
-  the field, as the runtime reads it;
+  the field, as the runtime's resume door reads it (the flow runner's own
+  `ScreenView` still shows it);
   side-effect nodes write their mock to `outputVariable` (the legacy script
   `outputVariables[]` list is ignored — the engine never binds those names,
   framework#4278);

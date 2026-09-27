@@ -41,9 +41,14 @@ through the same CEL call as the edge guards, over the same variables (bare name
 set, a CEL error) hides the field, which is how the runtime reads it when a screen is
 resumed; the Debug run's screen step names each field hidden that way. A `{var}` brace
 is no longer rewritten to a bare name: `registerFlow` refuses it in this bare-CEL slot,
-so the field is hidden. A non-string `visibleWhen` is refused the same way.
+so the field is hidden. A non-string `visibleWhen` is refused the same way. A blank
+`visibleWhen` still shows the field, and a blank decision-branch `expression` still reads
+as `false`: that is the installed spec 17.4.0 reading. objectstack main refuses both at
+`registerFlow`, so such a flow never runs there.
 
 **Template tokens.** A `NOW()`, `$User.*`, function or arithmetic token inside a longer
 string rendered as `''`, so `'at {NOW()}'` became `'at '` where the runtime writes the
 time. The Debug run still does not model these tokens; it now keeps them as written,
-inside a longer string as for a whole token, and the assignment step names each one.
+inside a longer string as for a whole token, and the assignment step names each one. A
+call to a function the runtime does not know fails the node at runtime; the Debug run
+keeps it and runs on.

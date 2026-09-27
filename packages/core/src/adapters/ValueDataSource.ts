@@ -396,6 +396,47 @@ function refuseListMemberFieldReference(
 }
 
 /**
+ * EQUALITY between a stored value and one comparand, as every equality and
+ * membership position on this face reads it (objectui#10829): the AST arm's
+ * `=` / `!=` / `in` / `nin`, and the object arm's implicit equality, `$eq` /
+ * `$ne` / `$in` / `$nin`. One helper, so the two arms cannot drift apart on it.
+ *
+ * ## Two `Date`s compare their INSTANT
+ *
+ * Every position used `===` (membership used `includes`), which compares a
+ * `Date` by IDENTITY. The constructor `structuredClone`s every row, so a stored
+ * `Date` is never the comparand's instance, and a `Date` equality matched NO
+ * row, not even the one holding that exact instant. The ordering arms already
+ * compared a `Date` by its number, so `>=` and `<=` both held for a row that
+ * `=` rejected. So when BOTH sides are `Date` instances, this compares
+ * `getTime()`, and `=`, `>=` and `<=` give one answer for one instant.
+ *
+ * An invalid `Date` (its time is `NaN`) equals nothing, itself included, so
+ * `!=` / `$ne` / `nin` / `$nin` hold for it.
+ *
+ * ## Everything else is `===`
+ *
+ * A `Date` comparand against an ISO string or an epoch-milliseconds number is
+ * NOT coerced. `@objectstack/spec`'s `FILTER_COMPARAND_TYPE_CASES` declines to
+ * assert a `Date` row set because what it matches "legitimately differs per
+ * storage form (ADR-0053)", and this matcher has no field types to read a
+ * storage form from. The ordering operators and `$between` keep their own
+ * comparisons.
+ *
+ * Membership now reads `===` too, where `includes` read SameValueZero. The one
+ * value those two disagree on is the number `NaN`: `{ x: { $in: [NaN] } }` no
+ * longer matches a stored `NaN`, which agrees with `{ x: NaN }` and `$eq`,
+ * where `NaN` never equalled `NaN`.
+ */
+function comparandEquals(value: unknown, target: unknown): boolean {
+  if (value instanceof Date && target instanceof Date) {
+    const instant = value.getTime();
+    return !Number.isNaN(instant) && instant === target.getTime();
+  }
+  return value === target;
+}
+
+/**
  * Evaluate ONE comparison node — `[field, operator]` or `[field, operator, value]`.
  *
  * The operator is canonicalized through the spec's own
@@ -468,10 +509,12 @@ function matchesComparisonNode(
     case 'is_not_null':
       return value !== null && value !== undefined;
 
+    // objectui#10829 — equality and membership through `comparandEquals`, so
+    // two `Date`s compare their instant; the ordering arms below are untouched.
     case '=':
-      return value === target;
+      return comparandEquals(value, target);
     case '!=':
-      return value !== target;
+      return !comparandEquals(value, target);
     case '>':
       return value > target;
     case '>=':
@@ -481,9 +524,9 @@ function matchesComparisonNode(
     case '<=':
       return value <= target;
     case 'in':
-      return Array.isArray(target) && target.includes(value);
+      return Array.isArray(target) && target.some((member) => comparandEquals(value, member));
     case 'nin':
-      return Array.isArray(target) && !target.includes(value);
+      return Array.isArray(target) && !target.some((member) => comparandEquals(value, member));
     // -- Text operators. THE DIRECTION, so the next reader does not take it for
     // a typo and fold it back (objectui#7379): the `$contains` FAMILY is
     // case-SENSITIVE and `icontains` is its one case-insensitive member. That
@@ -712,10 +755,11 @@ function matchesDollarOperator(
   if (target === REFUSED_COMPARAND) return false;
 
   switch (operator) {
+    // objectui#10829 — the same helper as the AST twins above.
     case '$eq':
-      return value === target;
+      return comparandEquals(value, target);
     case '$ne':
-      return value !== target;
+      return !comparandEquals(value, target);
     case '$gt':
       return value > target;
     case '$gte':
@@ -725,9 +769,9 @@ function matchesDollarOperator(
     case '$lte':
       return value <= target;
     case '$in':
-      return Array.isArray(target) && target.includes(value);
+      return Array.isArray(target) && target.some((member) => comparandEquals(value, member));
     case '$nin':
-      return Array.isArray(target) && !target.includes(value);
+      return Array.isArray(target) && !target.some((member) => comparandEquals(value, member));
     case '$between':
       return Array.isArray(target) && target.length === 2
         && value >= target[0] && value <= target[1];
@@ -987,9 +1031,10 @@ function matchesFilter(
     // `['created', '=', someDate]` (objectui#8555).
     //
     // So it takes the simple-equality branch, the position every other
-    // accepted comparand takes. That branch compares with `===`, the exact
-    // comparison the AST arm's `=` makes in `matchesComparisonNode`, so the
-    // object filter and its lowered array answer one row set. The gate is the
+    // accepted comparand takes. That branch compares through
+    // `comparandEquals`, the helper the AST arm's `=` uses, so the object filter
+    // and its lowered array answer one row set: the rows holding the same
+    // instant as a `Date`. The gate is the
     // spec's `isAcceptedFilterComparand`, the predicate the converter lowers a
     // Date through, rather than a local `instanceof Date`: an object-typed
     // value the converter lowers as a comparand is then one this matcher reads
@@ -1011,7 +1056,7 @@ function matchesFilter(
       return refuseArrayComparand(refusals, key, 'implicit equality');
     } else {
       // Simple equality — a scalar, `null`, or a `Date` (objectui#10829).
-      if (value !== condition) return false;
+      if (!comparandEquals(value, condition)) return false;
     }
   }
   return true;
@@ -1049,8 +1094,9 @@ function matchesFilter(
  * converter refuses it as an exotic comparand (objectui#8567), so this face now
  * refuses it too instead of dropping the constraint. A `Date` has no own keys
  * either, but the converter LOWERS it, so it reaches the matcher, which reads
- * it as implicit equality (objectui#10829). A `null` / `undefined` condition is
- * not an object and is not routed.
+ * it as implicit equality and matches the rows holding the same instant as a
+ * `Date` (objectui#10829). A `null` / `undefined` condition is not an object
+ * and is not routed.
  *
  * ## Why up front, and why the whole filter
  *

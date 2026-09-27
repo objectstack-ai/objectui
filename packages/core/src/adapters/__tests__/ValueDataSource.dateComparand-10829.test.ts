@@ -7,44 +7,52 @@
  */
 
 /**
- * objectui#10829 — `ValueDataSource.find`'s object arm reads a `Date`
- * condition as implicit equality, the way its lowered array answers.
+ * objectui#10829 — a `Date` comparand on `ValueDataSource.find` matches the
+ * rows holding the same instant as a `Date`, in both arms.
  *
- * ## What was wrong
+ * ## What was wrong — two defects, one answer each
  *
- * `matchesFilter` sent any object condition that is not an array to its
- * operator branch. A `Date` has no own keys, so the operator loop ran zero
- * times and the field added NO constraint: `{ status: 'a', created: someDate }`
- * answered the same rows as `{ status: 'a' }`, with no console line.
- * `convertFiltersToAST` lowers the same filter to
- * `['and', ['status', '=', 'a'], ['created', '=', someDate]]` (objectui#8555),
- * because `@objectstack/spec`'s `ACCEPTED_FILTER_COMPARAND_TYPES` includes
- * `Date`. One filter, two fates on one face.
+ * 1. The object arm sent any object condition that is not an array to its
+ *    operator branch. A `Date` has no own keys, so the operator loop ran zero
+ *    times and the field added NO constraint: `{ status: 'a', created: d }`
+ *    answered the same rows as `{ status: 'a' }`. `convertFiltersToAST` lowers
+ *    the same filter to `['created', '=', d]` (objectui#8555).
+ * 2. Every equality and membership position compared with `===` (membership
+ *    with `includes`), which compares a `Date` by IDENTITY. The constructor
+ *    `structuredClone`s every row, so no stored `Date` was ever the comparand's
+ *    instance: `['created', '=', d]` matched NO row, not even the one holding
+ *    that exact instant, while `>=` and `<=` both matched it.
  *
- * ## What the repair is (triage 5858941931)
+ * ## What the repair is (triage 5858941931, seat ruling 5859397811)
  *
- * The Date takes the simple-equality branch, compared the way the AST arm's
- * `=` compares it, so the object filter answers what its lowered array
- * answers. The gate is the spec's `isAcceptedFilterComparand`, the predicate
- * the converter lowers a Date through.
+ * The object arm reads a `Date` condition as implicit equality (the gate is
+ * the spec's `isAcceptedFilterComparand`), and ONE module-private helper,
+ * `comparandEquals`, compares two `Date`s by `getTime()` in the AST arm's
+ * `=` / `!=` / `in` / `nin` and the object arm's implicit equality, `$eq` /
+ * `$ne` / `$in` / `$nin`. An invalid `Date` equals nothing. An ISO string or an
+ * epoch-milliseconds number is NOT coerced: `@objectstack/spec`'s
+ * `FILTER_COMPARAND_TYPE_CASES` declines to assert a `Date` row set, because
+ * what it matches "legitimately differs per storage form (ADR-0053)".
  *
  * ## What the assertions are
  *
- * - §1 — the object filter and its lowered array answer the same rows, over
- *   one row per stored shape: the same instant as a `Date`, as an ISO string
- *   and as epoch milliseconds, a different instant, and a missing value. The
- *   array answer is read live, never transcribed, so the pin follows the AST
- *   arm. The shared answer is also written down AS-IS; see §1's note.
- * - §2 — an invalid `Date` is lowered by the converter, not refused, and this
- *   face answers what the lowered array answers.
- * - §3 — controls, the same on the base and the head: `{ status: 'a' }`, a
- *   string and a number equality, and the `$` operators on a Date comparand,
- *   which already answered what their AST twins answer.
+ * - §1 — the object filter and its lowered array answer the same rows, read
+ *   live, and that row set is written down: over one row per stored shape, only
+ *   the row holding the instant as a `Date` matches.
+ * - §2 — every equality and membership position, in both dialects, compares
+ *   the instant: `$eq` / `$ne` / `$in` / `$nin` and `=` / `!=` / `in` / `nin`.
+ * - §3 — an invalid `Date` is lowered by the converter, and equals nothing.
+ * - §4 — controls: `{ status: 'a' }`, a string and a number equality, and the
+ *   ordering operators, which this card does not touch.
  *
- * ABLATION — direction predicted BEFORE running, from the committed fix, by
- * removing the `isAcceptedFilterComparand` gate from `matchesFilter`: every
- * case in §1 and §2 goes RED (the base answers every row the siblings allow,
- * with no warning) and every case in §3 stays GREEN.
+ * RED LEGS — directions predicted BEFORE running, from the committed fix:
+ * - the base `ValueDataSource.ts` (before this card): §1, §2 and the §3
+ *   implicit-equality case go RED; §4 stays GREEN;
+ * - the round-1 head, which read the `Date` as equality but compared it with
+ *   `===`: the same-instant cases in §1 and §2 go RED; the other stored shapes
+ *   in §1, §3 and §4 stay GREEN;
+ * - an ablation that restores `===` inside `comparandEquals`: exactly the
+ *   round-1 set goes RED.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -52,8 +60,8 @@ import type { QueryParams } from '@object-ui/types';
 import { ValueDataSource } from '../ValueDataSource';
 import { convertFiltersToAST, toFilterNodeSafely } from '../../utils/filter-converter';
 
-/** The instant the card filters on. */
-const INSTANT = new Date(0);
+/** The instant the card filters on. Each use is a fresh instance on purpose. */
+const instant = () => new Date(0);
 
 /** A row: an id, a status, and `created` in one of the stored shapes. */
 type Row = { id: string; status: string; created?: unknown };
@@ -67,6 +75,10 @@ const ROWS: Row[] = [
   { id: 'missing', status: 'a' },
   { id: 'b', status: 'b', created: new Date(0) },
 ];
+
+/** The rows that hold the instant as a `Date`, and every other row. */
+const SAME_INSTANT = ['date', 'b'];
+const NOT_SAME_INSTANT = ['iso', 'ms', 'other', 'missing'];
 
 async function query(filter: unknown, items: Row[] = ROWS) {
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -90,48 +102,84 @@ function lowered(filter: Record<string, unknown>): unknown {
   return result.node;
 }
 
+/** What `find` answers with no warning and exactly these rows. */
+function rows(ids: string[]) {
+  return { ids, total: ids.length, warns: [] };
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('objectui#10829 §1 — a Date condition answers what its lowered array answers', () => {
+describe('objectui#10829 §1 — a Date condition answers the rows holding that instant, like its lowered array', () => {
   it('the converter lowers the card filter to an equality on the Date instance', () => {
-    const ast = convertFiltersToAST({ status: 'a', created: INSTANT });
-    expect(ast).toEqual(['and', ['status', '=', 'a'], ['created', '=', INSTANT]]);
+    const ast = convertFiltersToAST({ status: 'a', created: instant() });
+    expect(ast).toEqual(['and', ['status', '=', 'a'], ['created', '=', instant()]]);
     expect((ast as unknown[][])[2][2]).toBeInstanceOf(Date);
   });
 
-  it('{ status: a, created: Date } answers the lowered array’s rows, not every status-a row', async () => {
-    const filter = { status: 'a', created: INSTANT };
+  it('{ status: a, created: Date } answers the same-instant Date row, on both arms', async () => {
+    const filter = { status: 'a', created: instant() };
     const objectAnswer = await query(filter);
     expect(objectAnswer).toEqual(await query(lowered(filter)));
-    // AS-IS, not endorsed: the AST arm's `=` compares a Date by identity, and
-    // the constructor clones every row, so no stored shape equals the
-    // comparand, not even the same instant held as a Date. That reading is
-    // recorded on objectui#10829's PR and not changed here; the live equality
-    // above is the pin that follows it if it changes.
-    expect(objectAnswer).toEqual({ ids: [], total: 0, warns: [] });
+    expect(objectAnswer).toEqual(rows(['date']));
   });
 
-  it('{ created: Date } alone answers the lowered array’s rows, not every row', async () => {
-    const filter = { created: INSTANT };
+  it('{ created: Date } alone answers every same-instant Date row, on both arms', async () => {
+    const filter = { created: instant() };
     const objectAnswer = await query(filter);
     expect(objectAnswer).toEqual(await query(lowered(filter)));
-    expect(objectAnswer).toEqual({ ids: [], total: 0, warns: [] });
+    expect(objectAnswer).toEqual(rows(SAME_INSTANT));
   });
 
-  it.each(ROWS.filter((row) => row.status === 'a').map((row) => [row.id, row] as const))(
-    'the %s row alone answers what the lowered array answers',
-    async (_id, row) => {
-      const filter = { status: 'a', created: INSTANT };
-      const objectAnswer = await query(filter, [row]);
-      expect(objectAnswer).toEqual(await query(lowered(filter), [row]));
-      expect(objectAnswer.warns).toEqual([]);
-    },
-  );
+  it.each<[string, string[]]>([
+    ['date', ['date']],
+    ['iso', []],
+    ['ms', []],
+    ['other', []],
+    ['missing', []],
+  ])('the %s row alone answers %j, on both arms', async (id, expected) => {
+    const filter = { status: 'a', created: instant() };
+    const only = ROWS.filter((row) => row.id === id);
+    const objectAnswer = await query(filter, only);
+    expect(objectAnswer).toEqual(await query(lowered(filter), only));
+    expect(objectAnswer).toEqual(rows(expected));
+  });
 });
 
-describe('objectui#10829 §2 — an invalid Date is lowered, and answered like its lowered array', () => {
+describe('objectui#10829 §2 — every equality and membership position compares the instant', () => {
+  it.each<[string, string[]]>([
+    ['$eq', SAME_INSTANT],
+    ['$ne', NOT_SAME_INSTANT],
+  ])('{ created: { %s: Date } } answers %j', async (operator, expected) => {
+    expect(await query({ created: { [operator]: instant() } })).toEqual(rows(expected));
+  });
+
+  it('{ created: { $in: [Date] } } answers the same-instant Date rows', async () => {
+    expect(await query({ created: { $in: [instant()] } })).toEqual(rows(SAME_INSTANT));
+  });
+
+  it('{ created: { $nin: [Date] } } answers every other row', async () => {
+    expect(await query({ created: { $nin: [instant()] } })).toEqual(rows(NOT_SAME_INSTANT));
+  });
+
+  it.each<[string, string[]]>([
+    ['=', SAME_INSTANT],
+    ['!=', NOT_SAME_INSTANT],
+  ])('[created, %s, Date] answers %j', async (operator, expected) => {
+    expect(await query(['created', operator, instant()])).toEqual(rows(expected));
+  });
+
+  it('[created, in, [Date]] answers the same-instant Date rows', async () => {
+    expect(await query(['created', 'in', [instant()]])).toEqual(rows(SAME_INSTANT));
+  });
+
+  it('[created, nin, [Date]] answers every other row', async () => {
+    expect(await query(['created', 'nin', [instant()]])).toEqual(rows(NOT_SAME_INSTANT));
+  });
+});
+
+describe('objectui#10829 §3 — an invalid Date is lowered, and equals nothing', () => {
   it('the converter lowers new Date(NaN) rather than refusing it', () => {
     const result = toFilterNodeSafely({ status: 'a', created: new Date(NaN) });
     expect(result.ok).toBe(true);
@@ -140,51 +188,50 @@ describe('objectui#10829 §2 — an invalid Date is lowered, and answered like i
     expect(Number.isNaN((leaf as Date).getTime())).toBe(true);
   });
 
-  it('{ status: a, created: Invalid Date } answers the lowered array’s rows', async () => {
+  it('{ status: a, created: Invalid Date } answers no rows, on both arms', async () => {
     const filter = { status: 'a', created: new Date(NaN) };
     const objectAnswer = await query(filter);
     expect(objectAnswer).toEqual(await query(lowered(filter)));
-    expect(objectAnswer).toEqual({ ids: [], total: 0, warns: [] });
+    expect(objectAnswer).toEqual(rows([]));
+  });
+
+  it('{ created: { $ne: Invalid Date } } answers every row', async () => {
+    expect(await query({ created: { $ne: new Date(NaN) } }))
+      .toEqual(rows([...ROWS.map((row) => row.id)]));
   });
 });
 
-describe('objectui#10829 §3 — controls: the same answer on the base and the head', () => {
+describe('objectui#10829 §4 — controls: the same answer on every leg', () => {
   it('{ status: a } answers every status-a row', async () => {
-    expect(await query({ status: 'a' })).toEqual({
-      ids: ['date', 'iso', 'ms', 'other', 'missing'],
-      total: 5,
-      warns: [],
-    });
+    expect(await query({ status: 'a' })).toEqual(rows(['date', 'iso', 'ms', 'other', 'missing']));
   });
 
   it('a string equality matches the ISO row only, on both arms', async () => {
     const filter = { status: 'a', created: new Date(0).toISOString() };
     const objectAnswer = await query(filter);
-    expect(objectAnswer).toEqual({ ids: ['iso'], total: 1, warns: [] });
+    expect(objectAnswer).toEqual(rows(['iso']));
     expect(objectAnswer).toEqual(await query(lowered(filter)));
   });
 
   it('a number equality matches the epoch-milliseconds row only, on both arms', async () => {
     const filter = { status: 'a', created: 0 };
     const objectAnswer = await query(filter);
-    expect(objectAnswer).toEqual({ ids: ['ms'], total: 1, warns: [] });
+    expect(objectAnswer).toEqual(rows(['ms']));
     expect(objectAnswer).toEqual(await query(lowered(filter)));
   });
 
   it.each([
-    ['$eq', '='],
-    ['$ne', '!='],
     ['$gt', '>'],
     ['$gte', '>='],
     ['$lt', '<'],
     ['$lte', '<='],
   ])('{ created: { %s: Date } } answers what its AST twin %s answers', async (dollar, ast) => {
-    expect(await query({ created: { [dollar]: INSTANT } }))
-      .toEqual(await query(['created', ast, INSTANT]));
+    expect(await query({ created: { [dollar]: instant() } }))
+      .toEqual(await query(['created', ast, instant()]));
   });
 
-  it('{ created: { $in: [Date] } } answers what its AST twin answers', async () => {
-    expect(await query({ created: { $in: [INSTANT] } }))
-      .toEqual(await query(['created', 'in', [INSTANT]]));
+  it('$gte and $lte on one instant both hold for the rows $eq matches', async () => {
+    const both = await query({ created: { $gte: instant(), $lte: instant() } });
+    expect(both.ids).toEqual(expect.arrayContaining(SAME_INSTANT));
   });
 });

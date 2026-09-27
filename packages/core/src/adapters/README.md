@@ -142,16 +142,25 @@ class chose. A `null` and an absent key take the same side of the same predicate
 
 A `Date` condition — `{ created: someDate }` — is a **comparand, not an operator map**
 (objectui#10829). It is read as implicit equality, which is how `convertFiltersToAST`
-lowers it (`['created', '=', someDate]`, objectui#8555), and compared with `===`, the
-comparison the AST arm's `=` makes, so the object filter and its lowered array answer
-the same rows. Before that, a `Date`, which has no own keys, reached the operator loop,
-the loop ran zero times, and the field added no constraint. The gate is the spec's `isAcceptedFilterComparand`, the
-predicate the converter lowers a `Date` through. ⚠️ `===` compares a `Date` by
-identity and every row is cloned on construction, so on both arms no stored value
-equals a `Date` comparand — not a `Date` of the same instant, its ISO string or its
-epoch milliseconds — while `$gt` / `$gte` / `$lt` / `$lte` compare a `Date` by its
-number. That is the AST arm's reading today, recorded on objectui#10829 and not changed
-by it.
+lowers it (`['created', '=', someDate]`, objectui#8555), so the object filter and its
+lowered array answer the same rows. Before that, a `Date`, which has no own keys,
+reached the operator loop, the loop ran zero times, and the field added no constraint.
+The gate is the spec's `isAcceptedFilterComparand`, the predicate the converter lowers a
+`Date` through.
+
+**Two `Date`s compare their instant** in every equality and membership position of both
+dialects — implicit equality, `$eq` / `$ne` / `$in` / `$nin`, and `=` / `!=` / `in` /
+`nin` — through one helper (objectui#10829). They used to compare by identity, and every
+row is cloned on construction, so a `Date` equality matched no row, not even the one
+holding that instant, while `$gte` and `$lte` both matched it. An invalid `Date` equals
+nothing. A `Date` comparand is **not** coerced to another storage form: a row holding the
+same instant as an ISO string or as epoch milliseconds does not equal it, because
+`@objectstack/spec`'s `FILTER_COMPARAND_TYPE_CASES` declines to assert a `Date` row set —
+what it matches "legitimately differs per storage form (ADR-0053)" — and this matcher
+has no field types to read a storage form from. `$gt` / `$gte` / `$lt` / `$lte` /
+`$between` compare a `Date` by its number, as before. Membership reads `===` where it
+read `includes`' SameValueZero, so a stored number `NaN` is no longer a member of
+`[NaN]` — the answer `{ x: NaN }` already gave.
 
 #### Grouped filters — `$and` and `$or`
 
@@ -195,14 +204,15 @@ field entries and the members of
 `toFilterNodeSafely`, so the converter decides what that condition is, in its own
 wording. The field is judged alone, as `{ [field]: condition }`, not inside the whole
 filter: `{ status: ['a'], created: {} }` names `created` here and `status` before a
-wire query, and until objectui#10789 lands the converter still lowers
-`{ $or: [{}, { created: {} }] }` to no constraint while this face refuses it. A
+wire query. `{ $or: [{}, { created: {} }] }` is refused on both paths: since
+objectui#10789 the converter reads every `$or` member before a `{}` absorbs the group,
+so it refuses the `created` member in either order, as this face does. A
 refusal answers the whole filter with no rows and logs the
 converter's reason once — the way the array arm answers a rule its lowering refuses —
 so `{ $or: [{ status: 'b' }, { created: {} }] }` answers no rows, not the `'b'` rows.
 A `RegExp`, `Map` or `Set` comparand has no own keys either and gets the converter's
 exotic-comparand refusal (objectui#8567); a `Date` lowers, so it reaches the matcher,
-which reads it as implicit equality (objectui#10829, below).
+which matches the rows holding the same instant as a `Date` (objectui#10829, above).
 
 Anything else is **refused**: the row is excluded and the reason is logged once per
 distinct refusal per `find()` — never passed through as "no constraint", which is

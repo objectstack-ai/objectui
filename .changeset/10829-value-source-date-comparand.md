@@ -2,30 +2,41 @@
 '@object-ui/core': patch
 ---
 
-`ValueDataSource.find` now reads a `Date` condition in an object `$filter` as implicit
-equality instead of silently dropping that field's constraint (objectui#10829).
+`ValueDataSource.find` now answers a `Date` comparand with the rows holding that instant
+as a `Date`, in both filter dialects (objectui#10829). It used to drop the constraint
+in one dialect and match no row in the other.
 
-**Before.** The object-dialect matcher sent every object condition that is not an array
-to its operator branch. A `Date` has no own keys, so the operator loop ran zero times
-and the field added no constraint: `{ status: 'a', created: someDate }` answered the
-same rows as `{ status: 'a' }`, and `{ created: someDate }` answered every row, with no
-console line. `convertFiltersToAST` lowers the same filter to
+**Before — the object dialect.** The object-dialect matcher sent every object condition
+that is not an array to its operator branch. A `Date` has no own keys, so the operator
+loop ran zero times and the field added no constraint: `{ status: 'a', created: someDate }`
+answered the same rows as `{ status: 'a' }`, and `{ created: someDate }` answered every
+row, with no console line. `convertFiltersToAST` lowers the same filter to
 `['created', '=', someDate]` (objectui#8555), because `@objectstack/spec`'s
 `ACCEPTED_FILTER_COMPARAND_TYPES` includes `Date`.
 
-**After.** A condition the spec's `isAcceptedFilterComparand` accepts takes the
-simple-equality branch, the predicate the converter lowers a `Date` through; today a
-`Date` is its only object-typed member. The branch compares with `===`, exactly as the
-AST arm's `=` does, so an object filter answers what its lowered array answers. An
-invalid `Date` is lowered by the converter too, and is answered the same way.
+**Before — both dialects.** Every equality and membership position compared with `===`,
+and membership with `includes`, so a `Date` was compared by identity. The adapter clones
+every row on construction, so no stored `Date` was ever the comparand's instance:
+`['created', '=', someDate]`, `{ created: { $eq: someDate } }` and `$in: [someDate]`
+matched no row, not even the one holding that exact instant, while `$gte` and `$lte`
+both matched it. `!=`, `$ne` and `$nin` selected every row.
 
-⚠️ **What that answer is today.** `===` compares a `Date` by identity, and the adapter
-clones every row on construction, so on both arms no stored value equals a `Date`
-comparand: not a `Date` of the same instant, not its ISO string, not its epoch
-milliseconds. A filter that selected every row its other keys allowed now selects none.
-`$eq`, `$ne`, `$in` and `$nin` on a `Date` already answered what their AST twins answer,
-and `$gt` / `$gte` / `$lt` / `$lte` compare a `Date` by its number on both arms; none of
-them moves.
+**After.** A condition the spec's `isAcceptedFilterComparand` accepts takes the
+object dialect's implicit-equality branch, the predicate the converter lowers a `Date`
+through; today a `Date` is its only object-typed member. One equality helper serves
+implicit equality, `$eq` / `$ne` / `$in` / `$nin` and the AST `=` / `!=` / `in` / `nin`:
+when the stored value and the comparand are both `Date` instances it compares
+`getTime()`, and an invalid `Date` equals nothing. So an object filter answers what its
+lowered array answers, and `=`, `$gte` and `$lte` agree on one instant.
+
+**Unchanged.** A `Date` comparand is not coerced to another storage form: a row holding
+the same instant as an ISO string or as epoch milliseconds does not equal it.
+`@objectstack/spec`'s `FILTER_COMPARAND_TYPE_CASES` declines to assert a `Date` row set,
+because what it matches "legitimately differs per storage form (ADR-0053)". `$gt` /
+`$gte` / `$lt` / `$lte` / `$between` compare a `Date` by its number, as before. Every
+other comparand keeps `===`. The one value where membership moves is the number `NaN`:
+`includes` found a stored `NaN` in `[NaN]` and `===` does not, so `$in: [NaN]` now agrees
+with `{ x: NaN }` and `$eq`, which never matched it.
 
 **Clause-②: no** — the value face stops dropping a `Date` constraint that
 `@objectstack/spec`'s `ACCEPTED_FILTER_COMPARAND_TYPES` accepts and the converter lowers

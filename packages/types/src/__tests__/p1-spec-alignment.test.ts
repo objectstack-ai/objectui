@@ -447,6 +447,12 @@ describe('P1.3 Dashboard Spec Alignment', () => {
   });
 
   it('should accept DashboardHeader with actions', () => {
+    // `header` is the spec's `DashboardHeader` by reference (objectui#7759), so
+    // `actionUrl` is required, `actionType` is the spec's `ActionType` enum and
+    // `label` is an `I18nLabel`. The first action here used to read
+    // `{ label: 'Refresh', actionType: 'refresh' }` — legal only under the
+    // hand-written restatement this file pinned, refused by the spec and by the
+    // zod mirror alike (no `actionUrl`, and `refresh` is not an action type).
     const dashboard: DashboardComponentSchema = {
       type: 'dashboard',
       widgets: [],
@@ -454,13 +460,16 @@ describe('P1.3 Dashboard Spec Alignment', () => {
         showTitle: true,
         showDescription: false,
         actions: [
-          { label: 'Refresh', actionType: 'refresh', icon: 'RefreshCw' },
+          { label: { en: 'Run forecast', 'zh-CN': '运行预测' }, actionUrl: 'run_forecast', actionType: 'flow', icon: 'Play' },
           { label: 'Export', actionUrl: '/api/export', icon: 'Download' },
         ],
       },
     };
     expect(dashboard.header?.showTitle).toBe(true);
     expect(dashboard.header?.actions).toHaveLength(2);
+    // @ts-expect-error — `refresh` is not a member of the spec's `ActionType`.
+    const refused: DashboardComponentSchema = { type: 'dashboard', widgets: [], header: { actions: [{ label: 'Refresh', actionUrl: 'x', actionType: 'refresh' }] } };
+    expect(refused.type).toBe('dashboard');
   });
 
   // `should accept widget ARIA properties` REMOVED: `dashboard.widgets[].aria`

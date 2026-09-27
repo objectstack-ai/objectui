@@ -164,24 +164,41 @@ describe('GlobalFilterSchema derives from the spec', () => {
   });
 });
 
-describe('GlobalFilterSchema pinned divergences', () => {
-  it('accepts the bare-string options shorthand the runtime normalizes', () => {
-    // `normalizeFilterOptions` (@object-ui/core dashboard-filters.ts) folds both
-    // spellings into the spec's `{ value, label }` form.
-    expect(GlobalFilterSchema.safeParse({ field: 'region', options: ['EMEA', 'APAC'] }).success).toBe(true);
-    expect(GlobalFilterSchema.safeParse({ field: 'region', options: [{ value: 'emea' }] }).success).toBe(true);
-    // The spec requires objects WITH a label. If it ever relaxes, drop the override.
-    expect(SpecGlobalFilterSchema.safeParse({ field: 'region', options: ['EMEA'] }).success).toBe(false);
-    expect(SpecGlobalFilterSchema.safeParse({ field: 'region', options: [{ value: 'emea' }] }).success).toBe(false);
+/**
+ * The two pinned divergences this block used to assert are RETIRED (objectui#7759
+ * group A). `GlobalFilterSchema` restated `options` (bare-string shorthand, an
+ * optional `label`, a `z.string()` label) and `optionsFrom` (optional
+ * `labelField`, `filter: z.any()`) over the spec's shape, asserting each "in both
+ * directions so it dies the day the spec adopts it". The spec did not move; the
+ * ruling did — ruling 5617465269 principle 1: a key the spec declares is stated
+ * by the spec on both faces. So the local schema IS the spec's now, and what is
+ * pinned is that verdict, on the same literals, from both schemas.
+ *
+ * ⚠️ Retired at the SCHEMA only. `normalizeFilterOptions` (`@object-ui/core`'s
+ * `dashboard-filters.ts`) still lifts a stored bare-string option on read, with
+ * its deprecation warning, on the objectstack#7917 window — the objectui#4165
+ * split: the schema refuses, the read path lifts.
+ */
+describe('GlobalFilterSchema: the local divergences are retired (objectui#7759)', () => {
+  const both = (doc: unknown) => [GlobalFilterSchema.safeParse(doc).success, SpecGlobalFilterSchema.safeParse(doc).success];
+
+  it('refuses the bare-string options shorthand and a label-less option, as the spec does', () => {
+    expect(both({ field: 'region', options: ['EMEA', 'APAC'] })).toEqual([false, false]);
+    expect(both({ field: 'region', options: [{ value: 'emea' }] })).toEqual([false, false]);
   });
 
-  it('keeps `optionsFrom.labelField` optional', () => {
-    expect(GlobalFilterSchema.safeParse({
-      field: 'owner', optionsFrom: { object: 'users', valueField: 'id' },
-    }).success).toBe(true);
-    expect(SpecGlobalFilterSchema.safeParse({
-      field: 'owner', optionsFrom: { object: 'users', valueField: 'id' },
-    }).success).toBe(false);
+  it('requires `optionsFrom.labelField`, and takes the spec\'s `FilterCondition` for `filter`', () => {
+    expect(both({ field: 'owner', optionsFrom: { object: 'users', valueField: 'id' } })).toEqual([false, false]);
+    expect(both({
+      field: 'owner', optionsFrom: { object: 'users', valueField: 'id', labelField: 'name', filter: [['active', '=', true]] },
+    })).toEqual([false, false]);
+    expect(both({
+      field: 'owner', optionsFrom: { object: 'users', valueField: 'id', labelField: 'name', filter: { active: true } },
+    })).toEqual([true, true]);
+  });
+
+  it('admits the inline per-locale option label it used to refuse', () => {
+    expect(both({ field: 'region', options: [{ value: 'emea', label: { en: 'EMEA', 'zh-CN': '欧洲' } }] })).toEqual([true, true]);
   });
 });
 
@@ -291,14 +308,19 @@ describe('GlobalFilterSchema carries the spec rc.6 date refinement (objectui#416
     expect(GlobalFilterSchema.safeParse({ field: 'amount', type: 'number', defaultValue: 42 }).success).toBe(true);
   });
 
-  it('still applies the two surviving divergences while carrying the refinement', () => {
-    // The composition has to do BOTH. A version that adopted the refinement by
-    // simply deriving from the spec would silently take the options divergence
-    // away with it.
-    expect(GlobalFilterSchema.safeParse({
-      field: 'created_at', type: 'date', defaultValue: 'last_7_days', options: ['EMEA'],
-      optionsFrom: { object: 'users', valueField: 'id' },
-    }).success).toBe(true);
+  it('carries the refinement with the spec schema itself, now that no divergence is composed over it', () => {
+    // This case used to pin the COMPOSITION — the local `options` / `optionsFrom`
+    // overrides applied alongside a delegated refinement — with a document that
+    // carried the bare-string shorthand and a `labelField`-less `optionsFrom`.
+    // objectui#7759 retired both overrides, so the schema IS the spec's and the
+    // refinement arrives with it: a date default is still judged, on a document
+    // whose options are spec-legal.
+    const withOptions = {
+      field: 'created_at', type: 'date', options: [{ value: 'emea', label: 'EMEA' }],
+      optionsFrom: { object: 'users', valueField: 'id', labelField: 'name' },
+    };
+    expect(GlobalFilterSchema.safeParse({ ...withOptions, defaultValue: 'last_7_days' }).success).toBe(true);
+    expect(GlobalFilterSchema.safeParse({ ...withOptions, defaultValue: 'last_7_dayz' }).success).toBe(false);
   });
 
   describe('the ADR-0089 legacy-alias lift', () => {

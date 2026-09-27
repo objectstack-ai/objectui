@@ -1145,92 +1145,50 @@ const DashboardWidgetSlotComponentSchema = BaseSchema.extend({
 });
 
 /**
- * Global Filter Schema — a dashboard-level filter definition, DERIVED from
- * `@objectstack/spec/ui` (objectstack#4115): `name`, `field`, `label`, `type`,
- * `defaultValue`, `scope` and `targetWidgets` flow in **by reference**.
+ * Global Filter Schema — a dashboard-level filter definition: `@objectstack/spec/ui`'s
+ * `GlobalFilterSchema` BY REFERENCE, whole (objectui#7759 group A). Every key,
+ * every nested shape and the spec's own object-level refinement (the date
+ * `defaultValue` vocabulary check) flow in unchanged; `stripImportedDefaults`
+ * only removes the imported `scope` default, the same treatment every other
+ * spec-derived schema in this package gets.
  *
- * Two pinned divergences, each backed by a runtime normalizer in
- * `@object-ui/core`'s `dashboard-filters.ts`:
- *  - `options` also accepts the bare-string shorthand (`options: ['EMEA', …]`)
- *    and an object without `label`; `normalizeFilterOptions` folds both into the
- *    spec's `{ value, label }` form before anything renders them.
- *  - `optionsFrom.labelField` stays optional (it falls back to `valueField`) and
- *    `filter` stays `z.any()` — objectui passes an ObjectQL FilterNode array
- *    here, not the spec's `FilterCondition` envelope.
+ * ## The two local overrides this replaced, and why they went
  *
- * There used to be a third — `defaultValue` widened to `z.any()` so the
- * `{ preset }` object form would validate. It was RETIRED by the maintainer
- * ruling on objectui#4165 (2026-08-11): the spec stays strict, the bare preset
- * name is the single canonical spelling, and the object form is handled as a
- * documented legacy alias by `liftLegacyGlobalFilterDefault`
- * (`../dashboard-filter-alias.ts`, which carries the retirement window) rather
- * than by a permanently tolerant schema. Keeping it would have been the
- * tolerant-consumer failure AGENTS.md #0.1 names: objectui green on metadata
- * the platform refuses, so the designer saves and the server rejects.
+ * Until objectui#7759 this was the spec's `.shape` spread into a local
+ * `z.object` with `options` and `optionsFrom` restated, plus a `superRefine`
+ * that re-ran the spec schema on the other keys. The restatement disagreed with
+ * the spec in both directions, which is why the dashboard pair carried this key
+ * in BOTH `KnownDrift` and `WiderThanDeclared`
+ * (`__tests__/zod-mirror-parity.test.ts`):
+ *  - WIDER — `options` took the bare-string shorthand (`options: ['EMEA']`) and
+ *    an option with no `label`; `optionsFrom.labelField` was optional and
+ *    `optionsFrom.filter` was `z.any()` (an array parsed green); an unknown key
+ *    in a filter was stripped in silence. The spec refuses each of these, so
+ *    this validator went green on metadata the platform refuses at publish.
+ *  - NARROWER — an option's `label` was `z.string()`, so the spec's inline
+ *    per-locale map (`I18nLabel`), which the declaration admits and the filter
+ *    bar resolves with `pickLocalized`, was refused here.
  *
- * Drift guard: `__tests__/report-chart-query-spec-parity.test.ts`.
+ * The spec declares the key, so under that card's ruling (5617465269,
+ * principle 1) both faces follow the spec, both ways: the declaration already
+ * bound `GlobalFilter` by reference (objectui#4032), and this validator now does
+ * too. The runtime is untouched: `@object-ui/core`'s `normalizeFilterOptions`
+ * still LIFTS a stored bare-string option on read, with its deprecation
+ * warning, on the objectstack#7917 option-② window (the spec stays strict; the
+ * renderer's lift retires behind a survey), and the filter bar still falls back
+ * to `valueField` when `labelField` is absent. This is the objectui#4165 split
+ * applied to `options`: the SCHEMA refuses the legacy spelling, the READ PATH
+ * lifts it.
  *
- * ## Composition: spread + delegated refinement (objectui#4165)
+ * The `{ preset }` `defaultValue` object form was the objectui#4165 instance of
+ * the same shape: refused by the schema, lifted on read by
+ * `liftLegacyGlobalFilterDefault` (`../dashboard-filter-alias.ts`, which carries
+ * the retirement window).
  *
- * @objectstack/spec 17.0.0-rc.6 put a refinement on `GlobalFilterSchema`, and
- * a refined object schema in zod 4 closes every structural door this derivation
- * would normally use. All three were measured on rc.6 + zod 4.4.3:
- *
- *  - `.extend()` — what this used to be — **throws at module load**: *"Cannot
- *    overwrite keys on object schemas containing refinements. Use
- *    `.safeExtend()` instead."* It took six `@object-ui/types` suites down
- *    before any of them ran a test.
- *  - `.safeExtend()` — zod's own suggested replacement — runs, but is "safe"
- *    precisely in that it will not let you REPLACE an existing key's type: it
- *    types every incompatible override as `never`. Still true with only two
- *    overrides left (TS2322 on BOTH `options` and `optionsFrom`), so retiring
- *    the `defaultValue` divergence did not re-open this door.
- *  - `.omit()` — the obvious way to drop the two keys before re-adding them —
- *    **throws** as well: *".omit() cannot be used on object schemas containing
- *    refinements"*. So does `.pick()`, for the same reason.
- *
- * What is left is to spread the spec's `.shape` (fields still flow in BY
- * REFERENCE, so a spec field change lands here) and re-attach the spec's
- * OBJECT-LEVEL rules by DELEGATION: re-parse the spec-owned keys through the
- * spec schema itself and forward its issues. That restates none of the spec's
- * grammar — the rejection message an author sees is the spec's own, and a
- * refinement the spec adds LATER flows in with no change here. The two
- * divergent keys are excluded from the delegated parse by construction, which
- * is the whole and only exemption.
- *
- * Cost: one extra parse of the spec-owned subset per validation. Acceptable —
- * nothing in objectui validates dashboards on a render path; this schema is a
- * published contract for consumers and tooling.
- *
- * Drift guard: `__tests__/report-chart-query-spec-parity.test.ts`.
+ * Drift guard: `__tests__/report-chart-query-spec-parity.test.ts`; pinned by
+ * `__tests__/dashboard-header-global-filters-spec-7759.test.ts`.
  */
-export const GlobalFilterSchema = z.object({
-  ...stripImportedDefaults(SpecGlobalFilterSchema).shape,
-  options: z.array(z.union([
-    z.string(),
-    z.object({
-      value: z.union([z.string(), z.number(), z.boolean()]),
-      label: z.string().optional(),
-    }),
-  ])).optional().describe('Static options — spec `{value,label}` objects or bare-string shorthand'),
-  optionsFrom: z.object({
-    object: z.string(),
-    valueField: z.string(),
-    labelField: z.string().optional(),
-    filter: z.any().optional(),
-  }).optional().describe('Dynamic option source'),
-}).superRefine((filter, ctx) => {
-  // Delegate every spec-owned rule (today the rc.6 date-`defaultValue`
-  // refinement; tomorrow whatever the spec adds) to the spec schema itself.
-  // `options`/`optionsFrom` are the declared divergences and are withheld —
-  // both are `.optional()` upstream, so omitting them is valid input.
-  const specOwned: Record<string, unknown> = { ...filter };
-  delete specOwned.options;
-  delete specOwned.optionsFrom;
-  const result = stripImportedDefaults(SpecGlobalFilterSchema).safeParse(specOwned);
-  if (result.success) return;
-  for (const issue of result.error.issues) ctx.addIssue({ ...issue });
-});
+export const GlobalFilterSchema = stripImportedDefaults(SpecGlobalFilterSchema);
 
 /**
  * Dashboard Schema - Dashboard component
@@ -1249,10 +1207,14 @@ export const GlobalFilterSchema = z.object({
  *
  * Omitted, each for a stated reason:
  *  - `name`/`label`/`description` — component-envelope keys owned by BaseSchema;
- *  - `widgets`/`globalFilters` — objectui's element schemas are their own
- *    ledger entries (the local widget still carries the legacy `component`
- *    envelope the spec has no room for, and the local filter config is
- *    deliberately looser than spec's); migration deferred.
+ *  - `widgets` — objectui's element schema is its own ledger entry (the local
+ *    widget still carries the legacy `component` envelope the spec has no room
+ *    for); migration deferred.
+ *  - `globalFilters` — re-added below over the exported {@link GlobalFilterSchema},
+ *    which since objectui#7759 IS the spec's element schema by reference, so the
+ *    accept set equals the spec member's; the separate const is kept because it
+ *    is published API. (It used to be "deliberately looser than spec's" — the
+ *    bare-string option shorthand and a relaxed `optionsFrom` — see that const.)
  *
  * `dateRange` was a third member of that list until objectui#10334. Its local
  * element (`defaultRange` a bare `z.string()`, a stripping object) admitted

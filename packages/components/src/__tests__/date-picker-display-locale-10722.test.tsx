@@ -31,6 +31,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import React from 'react';
 import { cleanup, render, waitFor } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
+import type { CalendarSchema, DatePickerSchema } from '@object-ui/types';
 import { I18nProvider, LocalizationProvider } from '@object-ui/i18n';
 import { format } from 'date-fns';
 // Module scope, not a hook: the faces load these through a dynamic `import()`
@@ -61,9 +62,9 @@ function session(locale: string, node: React.ReactNode): React.ReactElement {
 }
 
 /** The form date picker (`type: 'date-picker'`), the face the card measured first. */
-function formDatePicker(locale: string, schemaExtra: Record<string, unknown> = {}): React.ReactElement {
+function formDatePicker(locale: string, schemaExtra: Pick<DatePickerSchema, 'format'> = {}): React.ReactElement {
   const Component = ComponentRegistry.get('date-picker')!;
-  const schema = { type: 'date-picker', id: 'due', ...schemaExtra } as any;
+  const schema: DatePickerSchema = { type: 'date-picker', id: 'due', ...schemaExtra };
   return session(locale, <Component schema={schema} value={DAY} />);
 }
 
@@ -172,9 +173,8 @@ describe('a Calendar with no `locale` follows the display locale (objectui#10722
 
   it('reaches the `ui:calendar` renderer', async () => {
     const Component = ComponentRegistry.get('ui:calendar')!;
-    const { container } = render(
-      session('de-CH', <Component schema={{ type: 'ui:calendar', mode: 'single' } as any} defaultMonth={DAY} />),
-    );
+    const schema: CalendarSchema = { type: 'calendar', mode: 'single' };
+    const { container } = render(session('de-CH', <Component schema={schema} defaultMonth={DAY} />));
     await waitFor(() => expect(captionOf(container)).toBe('März 2020'));
   });
 });

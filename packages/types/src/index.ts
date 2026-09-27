@@ -604,15 +604,6 @@ export type {
   FilterBuilderDateRangePreset,
   FilterBuilderConfig,
   FilterFieldConfig,
-  // Validation Schema (Phase 3.5)
-  AdvancedValidationSchema,
-  AdvancedValidationRule,
-  ValidationRuleType,
-  ValidationFunction,
-  AsyncValidationFunction,
-  ValidationContext,
-  AdvancedValidationResult,
-  AdvancedValidationError,
   // Object-level validation rules. The five spec-named variants are derived from
   // `@objectstack/spec/data`; the other three are @deprecated objectui-local
   // variants the spec's union rejects. See data-protocol.ts.

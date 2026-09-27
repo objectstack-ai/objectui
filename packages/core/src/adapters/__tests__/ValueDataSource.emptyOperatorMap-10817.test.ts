@@ -53,6 +53,7 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import type { QueryParams } from '@object-ui/types';
 import { ValueDataSource } from '../ValueDataSource';
 import { toFilterNodeSafely } from '../../utils/filter-converter';
 
@@ -67,7 +68,7 @@ async function query(filter: unknown) {
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
   try {
     const ds = new ValueDataSource({ items: ROWS });
-    const result = await ds.find('rows', { $filter: filter as any });
+    const result = await ds.find('rows', { $filter: filter as QueryParams['$filter'] });
     return {
       ids: result.data.map((r) => r.id),
       total: result.total,

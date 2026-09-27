@@ -1048,14 +1048,14 @@ function matchesFilter(
  * matcher already gives them.
  */
 function zeroKeyConditionRefusal(
-  filter: Record<string, any>,
+  filter: Record<string, unknown>,
 ): FilterOperatorError | undefined {
   for (const [key, condition] of Object.entries(filter)) {
     if (key === '$and' || key === '$or') {
       if (!Array.isArray(condition)) continue;
       for (const member of condition) {
         if (member === null || typeof member !== 'object' || Array.isArray(member)) continue;
-        const refusal = zeroKeyConditionRefusal(member);
+        const refusal = zeroKeyConditionRefusal(member as Record<string, unknown>);
         if (refusal) return refusal;
       }
       continue;

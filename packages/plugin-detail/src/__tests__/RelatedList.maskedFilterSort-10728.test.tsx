@@ -141,12 +141,17 @@ const maskedRowCount = () =>
 /** Names of the rows the `data-list` is handed, in order. */
 const listedNames = () => (h.schema?.data ?? []).map((r: any) => r.name);
 
-/** The labels of the sort-button row. */
+/**
+ * The labels of the sort-button row. A sort button is found by its glyph, not
+ * by its label: before the object definition lands a bare-string column's
+ * header is not its declared label, and a label filter would read an empty
+ * row there whatever the list offered.
+ */
 const sortButtons = () =>
   screen
     .queryAllByRole('button')
-    .map((b) => (b.textContent ?? '').replace(/[↑↓]/g, '').trim())
-    .filter((label) => ['Name', 'Code', 'API Key', 'Token'].includes(label));
+    .filter((b) => b.querySelector('.lucide-arrow-up-down'))
+    .map((b) => (b.textContent ?? '').replace(/[↑↓]/g, '').trim());
 
 async function settled() {
   await waitFor(() => {

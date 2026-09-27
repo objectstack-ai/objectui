@@ -112,8 +112,9 @@ const inputs: ComponentInput[] = [
 // Every key named here is `never` on the published type, so authoring one is a
 // `tsc` error and a named refusal from the Zod mirror (`ComponentInputSchema`).
 // They were never read and never published: the manifest serializer forwards
-// only `name`, `type`, `required`, `enum`, `binding` and `description`, so an
-// authored value was silently dropped. Remedy: delete the key and say it in
+// a fixed key list per input, `of` included since objectui#8067 — `name`,
+// `type`, `of`, `required`, `enum`, `binding`, `description` — so an authored
+// value was silently dropped. Remedy: delete the key and say it in
 // `description`, which IS published. A `Pick` rather than a prose list, so a
 // tombstone that is deleted upstream stops compiling here instead of lingering.
 type ComponentInputTombstones = Pick<

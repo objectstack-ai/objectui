@@ -194,7 +194,8 @@ export function bucketCardsIntoColumns(
 
 // Export types for external use
 // ⛔ `KanbanSchema` RETIRED with the bare `kanban` node type key (objectui#8802).
-export type { KanbanCard, KanbanColumn, CardTemplate, ColumnWidthConfig, InlineFieldDefinition } from './types';
+// ⛔ `ColumnWidthConfig` DELETED — no key referenced it, nothing read it (objectui#10582).
+export type { KanbanCard, KanbanColumn, CardTemplate, InlineFieldDefinition } from './types';
 export { ObjectKanban };
 export type { ObjectKanbanComponentProps } from './ObjectKanban';
 

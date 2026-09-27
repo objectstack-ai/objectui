@@ -35,7 +35,15 @@ collected values — not by the server". The Studio now follows it with one clie
   runtime's `vars.*` root), does not parse as CEL (a `{var}` brace), or is a shape
   `registerFlow` refuses — with the nearest declared field where one is close. A predicate
   over a sibling field (`discount > 0`, `record.discount > 0`) is not reported; it used to
-  be named as "hidden because it could not be evaluated".
+  be named as "hidden because it could not be evaluated". A comprehension's iteration
+  variable (`["a","b"].exists(t, t == note)`) is bound, not a root, and is not reported.
+- The Problems panel (`flow-expr-problems.ts`) judges the `screen` node's `fields[].visibleWhen`
+  column by that same rule instead of the flow scope: it used to warn that `discount` "is not
+  a reference in scope at this step" on the sibling-field shape and stay silent on a run
+  variable; it now warns on the run variable (`needsApproval` is not a field on this screen)
+  and is silent on the sibling. Every other expression slot keeps the flow scope.
+- The screen field inspector's `visibleWhen` placeholder is a sibling-field example
+  (`createOpportunity == true`); it used to read `stage == "review"`, a run-variable shape.
 - `ScreenView` exports `screenPredicateScope`, unchanged, so the Studio reads the roots a
   predicate may name off the renderer's own scope instead of restating them.
 
@@ -50,4 +58,11 @@ with the submitted values layered on top; narrowing it to the declared scope, an
 an undeclared identifier at `registerFlow` and `objectstack validate`, is
 objectstack-ai/objectstack#20178 and is not on objectstack main at this change. Until it
 lands, a predicate over a run variable is an error in the Studio and shown by the runner,
-while the server waives its `required`.
+while the server enforces its `required` only when the run's variables make the predicate
+true, and waives it when they make it false or leave it unevaluable.
+
+**Still on the flow scope.** The inline inspector's `visibleWhen` cell (`FlowObjectListField`)
+still offers the flow scope picker and its inline note still reads the flow scope, so on the
+sibling-field shape it says "`discount` is not a reference in scope at this step" while the
+Problems panel and the Debug run are silent; aligning that cell is a follow-up outside this
+change.

@@ -30,7 +30,8 @@ vi.mock('../../../providers/MetadataProvider', () => ({
 }));
 
 import { ScreenPreview } from './ScreenPreview';
-import { buildScreenSpec, hiddenFieldCount, unevaluableVisibleWhen } from './screen-spec';
+import { buildScreenSpec, hiddenFieldCount, screenPredicateRoots, unevaluableVisibleWhen } from './screen-spec';
+import { screenPredicateScope } from '../../ScreenView';
 
 afterEach(() => {
   cleanup();
@@ -246,6 +247,29 @@ describe('unevaluableVisibleWhen — the names a screen predicate may reference 
     const [only] = unevaluableVisibleWhen(withPredicate('dicount > 0'));
     expect(only.name).toBe('note');
     expect(only.error).toMatch(/discount/);
+  });
+
+  it.each([
+    ['exists', '["a","b"].exists(t, t == note)'],
+    ['all over a sibling', '[discount].all(d, d > 0)'],
+    ['nested map and exists_one over siblings', '[discount].map(i, i + 1).exists_one(q, q > discount)'],
+  ])("a comprehension's iteration variable is bound, not a root: %s is not reported", (_name, visibleWhen) => {
+    expect(unevaluableVisibleWhen(withPredicate(visibleWhen))).toEqual([]);
+  });
+
+  it('a comprehension does not hide an undeclared root inside its body, nor the same name used bare outside it', () => {
+    expect(unevaluableVisibleWhen(withPredicate('["a","b"].exists(t, t == tags)')).map((u) => u.error)).toEqual([
+      expect.stringMatching(/`tags` is not a field on this screen/),
+    ]);
+    const outer = unevaluableVisibleWhen(withPredicate('t == 1 && ["a"].exists(t, t == note)'));
+    expect(outer.map((u) => u.error)).toEqual([expect.stringMatching(/`t` is not a field on this screen/)]);
+  });
+
+  it('one rule: the roots are the keys of the renderer\'s own predicate scope plus record', () => {
+    const node = withPredicate(undefined);
+    const fromRenderer = [...Object.keys(screenPredicateScope(buildScreenSpec(node), {})), 'record'].sort();
+    expect([...screenPredicateRoots(node)].sort()).toEqual(fromRenderer);
+    expect(fromRenderer).toEqual(['discount', 'note', 'plain', 'record']);
   });
 });
 

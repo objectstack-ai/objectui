@@ -197,6 +197,9 @@ export interface RelatedListProps {
    * since objectui#3106 they sort the collection rather than the page, so the
    * button row above them would be a second control over the same order.
    *
+   * A masked column (a `password` / `secret` field, or any column while the
+   * object's field types are still unknown) gets no button (objectui#10728).
+   *
    * @default false
    */
   sortable?: boolean;
@@ -223,7 +226,12 @@ export interface RelatedListProps {
    * second conversion dialect appears.
    */
   filter?: ViewFilterRule[] | FilterNode;
-  /** Enable text filtering */
+  /**
+   * Enable text filtering. The box keeps a row when a column the list shows
+   * contains the term; a masked column (a `password` / `secret` field, or any
+   * column while the object's field types are still unknown) and a field no
+   * column shows are not searched (objectui#10728).
+   */
   filterable?: boolean;
   /** Whether the card is collapsible */
   collapsible?: boolean;
@@ -367,6 +375,11 @@ function withheldCell(value: unknown): React.ReactElement {
 function drawnColumnKey(c: unknown): string | undefined {
   const key = (c as { accessorKey?: unknown } | null | undefined)?.accessorKey || columnIdentity(c);
   return key ? String(key) : undefined;
+}
+
+/** The column keys a content key from `unmaskedColumnKeysKey` lists (objectui#10728). */
+function readColumnKeys(contentKey: string): string[] {
+  return JSON.parse(contentKey) as string[];
 }
 
 /**
@@ -615,8 +628,9 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   );
 
   const effectivePageSize = pageSize && pageSize > 0 ? pageSize : 0;
-  // The built-in contains-filter is a CLIENT-side sweep over every field —
-  // inexpressible as a generic server filter. While the user is typing in it
+  // The built-in contains-filter is a CLIENT-side sweep over the list's
+  // unmasked columns (objectui#10728, `unmaskedColumnKeysKey`) — inexpressible
+  // as a generic server filter. While the user is typing in it
   // (opt-in `filterable` consumers only) we drop back to the legacy
   // fetch-everything mode so the filter keeps seeing the whole collection.
   const filterActive = filterable && filterText !== '';
@@ -1291,104 +1305,6 @@ export const RelatedList: React.FC<RelatedListProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataSource, objectSchema, relatedData]);
 
-  // Filter data (client mode only — windowed mode filters/sorts server-side)
-  const filteredData = React.useMemo(() => {
-    if (windowed || !filterText) return relatedData;
-    const lower = filterText.toLowerCase();
-    return relatedData.filter((row) =>
-      Object.values(row).some((val) =>
-        val !== null && val !== undefined && String(val).toLowerCase().includes(lower)
-      )
-    );
-  }, [relatedData, filterText, windowed]);
-
-  // Sort data (client mode only — a windowed sort is a server $orderby)
-  //
-  // A relational column holds a raw foreign-key id (this list resolves labels
-  // itself, see `lookupLabels`) or — when the parent handed us `$expand`-ed
-  // rows — the related record object. `String(aVal)` ordered the first by an
-  // opaque id and reduced the second to "[object Object]", i.e. every row equal.
-  // Feeding the resolved label map to `getSortValue` sorts by the string the
-  // cell actually renders (objectui#3096).
-  const sortedData = React.useMemo(() => {
-    if (windowed || !sortField) return filteredData;
-    const labels = lookupLabels[sortField];
-    const keyed = filteredData.map((row) => ({ row, key: getSortValue(row[sortField], { labels }) }));
-    keyed.sort((a, b) => {
-      const cmp = compareSortValues(a.key, b.key);
-      return sortDirection === 'asc' ? cmp : -cmp;
-    });
-    return keyed.map((entry) => entry.row);
-  }, [filteredData, sortField, sortDirection, windowed, lookupLabels]);
-
-  // Paginate data. Windowed mode already holds exactly one page; client mode
-  // slices the in-memory collection as before.
-  const paginatedData = effectivePageSize && !windowed
-    ? sortedData.slice(currentPage * effectivePageSize, (currentPage + 1) * effectivePageSize)
-    : sortedData;
-  const totalPages = !effectivePageSize
-    ? 1
-    : windowed
-      ? total != null
-        ? Math.max(1, Math.ceil(total / effectivePageSize))
-        : currentPage + (hasMore ? 2 : 1)
-      : Math.max(1, Math.ceil(sortedData.length / effectivePageSize));
-  const canGoNext = windowed
-    ? (total != null ? (currentPage + 1) * effectivePageSize < total : hasMore)
-    : currentPage < totalPages - 1;
-  const showPagination = effectivePageSize > 0 && (windowed
-    ? currentPage > 0 || canGoNext
-    : sortedData.length > effectivePageSize);
-
-  // Reset to first page when filter/sort changes
-  React.useEffect(() => {
-    setCurrentPage(0);
-  }, [filterText, sortField, sortDirection]);
-
-  const handleSort = React.useCallback((field: string) => {
-    // Same-batch page reset: in windowed mode sort + page feed one fetch, so
-    // resetting here avoids an extra request against the stale page index.
-    setCurrentPage(0);
-    if (sortField === field) {
-      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  }, [sortField]);
-
-  /**
-   * The order the embedded table's headers display — this list's own sort, so
-   * the arrow on a column header and the rows underneath it come from the same
-   * place (objectui#3106).
-   *
-   * Before any click that is the declared `defaultSort`, which is what the
-   * windowed fetch above sends. A header showing nothing while the server was
-   * asked for `created_at desc` would make the first click on that column
-   * request `asc` on a list that is already `desc`.
-   */
-  const activeSort = React.useMemo(
-    () => (sortField ? [{ field: sortField, order: sortDirection }] : defaultSortSpec),
-    [sortField, sortDirection, defaultSortSpec],
-  );
-
-  /**
-   * A header click from the embedded table. It arrives with the direction
-   * already resolved against {@link activeSort}, so this assigns rather than
-   * toggling — running it back through `handleSort`'s own toggle would undo it
-   * whenever the two disagreed about the current state.
-   */
-  const handleTableSort = React.useCallback(
-    (next: Array<{ field: string; order: 'asc' | 'desc' }>) => {
-      const first = next[0];
-      if (!first) return;
-      setCurrentPage(0);
-      setSortField(first.field);
-      setSortDirection(first.order);
-    },
-    [],
-  );
-
   // Confirm-delete dialog state. Replaces window.confirm() so the related
   // list matches the rest of the app's Shadcn AlertDialog UX.
   const [deleteTarget, setDeleteTarget] = React.useState<any | null>(null);
@@ -2003,6 +1919,9 @@ export const RelatedList: React.FC<RelatedListProps> = ({
    *
    * With nothing to stamp, the list is handed on BY REFERENCE, as
    * `sortableColumns` hands it on (the data-table re-seed, objectui#4618).
+   *
+   * This list's own filter box and sort read the same stamp
+   * (`unmaskedColumnKeysKey` below, objectui#10728).
    */
   const tableColumns = React.useMemo(() => {
     const stamped = sortableColumns.map((col) => {
@@ -2016,6 +1935,159 @@ export const RelatedList: React.FC<RelatedListProps> = ({
     });
     return stamped.every((col, i) => col === sortableColumns[i]) ? sortableColumns : stamped;
   }, [sortableColumns, objectSchema, objectTypesPending]);
+
+  /**
+   * The columns this list's OWN filter and sort may read (objectui#10728): the
+   * keys of the columns handed to the table that do not carry the `masked`
+   * stamp {@link tableColumns} puts on them. The stamp is the one reading. It
+   * covers a `password` / `secret` column and, while the object's types are
+   * unknown ({@link objectTypesPending}), every withheld one, so the rule
+   * behind it is not restated at the filter or the sort.
+   *
+   * It is the answer the embedded `data-table` gives for its own search and
+   * sort (its `isMaskedColumnKey`, objectui#10657), so one related list has
+   * one answer:
+   *
+   *  - the filter box sweeps these columns only. A masked column is left out,
+   *    and so is every field the row carries that no column shows: a term that
+   *    matches only such a field keeps no row;
+   *  - the sort orders by one of these columns only. A key naming a masked
+   *    column, or no column at all, orders nothing: fail closed, as the
+   *    table's reader does.
+   *
+   * Held as a content STRING, as `expandKey` and `selectKey` are, so the
+   * memos and callbacks below re-run when the set changes and never on a
+   * recomputed column list alone (commandment #10).
+   */
+  const unmaskedColumnKeysKey = React.useMemo(
+    () =>
+      JSON.stringify(
+        tableColumns.flatMap((col: any) => {
+          if (!col || typeof col !== 'object' || col.masked === true) return [];
+          const key = drawnColumnKey(col);
+          return key ? [key] : [];
+        }),
+      ),
+    [tableColumns],
+  );
+  const unmaskedColumnKeys = readColumnKeys(unmaskedColumnKeysKey);
+
+  // Filter data (client mode only — windowed mode filters/sorts server-side).
+  //
+  // Over the unmasked columns only (objectui#10728), see
+  // `unmaskedColumnKeysKey`. It swept `Object.values(row)`, so a term matched
+  // a `password` / `secret` value its cell draws as the mask: typing a
+  // substring answered "does the credential contain this?".
+  const filteredData = React.useMemo(() => {
+    if (windowed || !filterText) return relatedData;
+    const lower = filterText.toLowerCase();
+    const searched = readColumnKeys(unmaskedColumnKeysKey);
+    return relatedData.filter((row) =>
+      searched.some((key) => {
+        const val = row?.[key];
+        return val !== null && val !== undefined && String(val).toLowerCase().includes(lower);
+      })
+    );
+  }, [relatedData, filterText, windowed, unmaskedColumnKeysKey]);
+
+  // Sort data (client mode only — a windowed sort is a server $orderby)
+  //
+  // A relational column holds a raw foreign-key id (this list resolves labels
+  // itself, see `lookupLabels`) or — when the parent handed us `$expand`-ed
+  // rows — the related record object. `String(aVal)` ordered the first by an
+  // opaque id and reduced the second to "[object Object]", i.e. every row equal.
+  // Feeding the resolved label map to `getSortValue` sorts by the string the
+  // cell actually renders (objectui#3096).
+  const sortedData = React.useMemo(() => {
+    if (windowed || !sortField) return filteredData;
+    // A masked column orders nothing (objectui#10728), including a sort set
+    // before its column was stamped: rows ordered by a credential tell the
+    // reader how it compares with every other row's.
+    if (!readColumnKeys(unmaskedColumnKeysKey).includes(sortField)) return filteredData;
+    const labels = lookupLabels[sortField];
+    const keyed = filteredData.map((row) => ({ row, key: getSortValue(row[sortField], { labels }) }));
+    keyed.sort((a, b) => {
+      const cmp = compareSortValues(a.key, b.key);
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+    return keyed.map((entry) => entry.row);
+  }, [filteredData, sortField, sortDirection, windowed, lookupLabels, unmaskedColumnKeysKey]);
+
+  // Paginate data. Windowed mode already holds exactly one page; client mode
+  // slices the in-memory collection as before.
+  const paginatedData = effectivePageSize && !windowed
+    ? sortedData.slice(currentPage * effectivePageSize, (currentPage + 1) * effectivePageSize)
+    : sortedData;
+  const totalPages = !effectivePageSize
+    ? 1
+    : windowed
+      ? total != null
+        ? Math.max(1, Math.ceil(total / effectivePageSize))
+        : currentPage + (hasMore ? 2 : 1)
+      : Math.max(1, Math.ceil(sortedData.length / effectivePageSize));
+  const canGoNext = windowed
+    ? (total != null ? (currentPage + 1) * effectivePageSize < total : hasMore)
+    : currentPage < totalPages - 1;
+  const showPagination = effectivePageSize > 0 && (windowed
+    ? currentPage > 0 || canGoNext
+    : sortedData.length > effectivePageSize);
+
+  // Reset to first page when filter/sort changes
+  React.useEffect(() => {
+    setCurrentPage(0);
+  }, [filterText, sortField, sortDirection]);
+
+  const handleSort = React.useCallback((field: string) => {
+    // A masked column is never sorted by (objectui#10728). The button row
+    // offers it no button; this is the one door that row passes through.
+    if (!readColumnKeys(unmaskedColumnKeysKey).includes(field)) return;
+    // Same-batch page reset: in windowed mode sort + page feed one fetch, so
+    // resetting here avoids an extra request against the stale page index.
+    setCurrentPage(0);
+    if (sortField === field) {
+      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  }, [sortField, unmaskedColumnKeysKey]);
+
+  /**
+   * The order the embedded table's headers display — this list's own sort, so
+   * the arrow on a column header and the rows underneath it come from the same
+   * place (objectui#3106).
+   *
+   * Before any click that is the declared `defaultSort`, which is what the
+   * windowed fetch above sends. A header showing nothing while the server was
+   * asked for `created_at desc` would make the first click on that column
+   * request `asc` on a list that is already `desc`.
+   */
+  const activeSort = React.useMemo(
+    () => (sortField ? [{ field: sortField, order: sortDirection }] : defaultSortSpec),
+    [sortField, sortDirection, defaultSortSpec],
+  );
+
+  /**
+   * A header click from the embedded table. It arrives with the direction
+   * already resolved against {@link activeSort}, so this assigns rather than
+   * toggling — running it back through `handleSort`'s own toggle would undo it
+   * whenever the two disagreed about the current state.
+   *
+   * The table offers no sort on a masked header (objectui#10657). This list
+   * refuses the key as well (objectui#10728), because in windowed mode it is
+   * sent to the server as `$orderby`, which orders by the stored value.
+   */
+  const handleTableSort = React.useCallback(
+    (next: Array<{ field: string; order: 'asc' | 'desc' }>) => {
+      const first = next[0];
+      if (!first) return;
+      if (!readColumnKeys(unmaskedColumnKeysKey).includes(first.field)) return;
+      setCurrentPage(0);
+      setSortField(first.field);
+      setSortDirection(first.order);
+    },
+    [unmaskedColumnKeysKey],
+  );
 
   // A `grid`/`table` list renders a real table, whose column headers carry the
   // sort. `list` renders `data-list`, which has none — so it keeps the button
@@ -2294,6 +2366,10 @@ export const RelatedList: React.FC<RelatedListProps> = ({
               if (windowed && withheldFromServerSort(field, fieldDef)) {
                 return null;
               }
+              // No button on a masked or withheld column (objectui#10728): a
+              // sort by it orders the rows by the value its cell hides. The
+              // same reading `handleSort` refuses the key with.
+              if (!unmaskedColumnKeys.includes(field)) return null;
               const label = col.header || col.label || field;
               const isActive = sortField === field;
               return (

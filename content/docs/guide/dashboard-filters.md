@@ -173,9 +173,12 @@ deliberately not compared as-is: `field = "last_7_dayz"` matches no row, and
 the widget would render a perfectly healthy-looking `0`.
 
 Static `options` are `@objectstack/spec` object pairs —
-`{ "value": "amer", "label": "AMER" }`. This is the only form the platform
-accepts: a dashboard is validated against `GlobalFilterSchema` when it is
-published, and anything else is refused there.
+`{ "value": "amer", "label": "AMER" }`, where `label` is a string or an inline
+per-locale map (`{ "en": "AMER", "zh-CN": "美洲" }`). This is the only form the
+platform accepts: a dashboard is validated against `GlobalFilterSchema` when it is
+published, and anything else is refused there. objectui's own validator
+(`@object-ui/types`, which `objectui validate` runs) uses the same spec schema, so
+it refuses the same documents before they reach the platform.
 
 > **Deprecated: the bare-string shorthand.** `"options": ["EMEA", "APAC"]` is
 > still lifted by the runtime to `{ "value": "EMEA", "label": "EMEA" }` pairs so
@@ -201,6 +204,11 @@ Options can also be fetched from an object at runtime:
   }
 }
 ```
+
+`object`, `valueField` and `labelField` are all required; when the options have
+no separate label column, name the value field again, as above. An optional
+`filter` narrows the source records and is a filter-condition object
+(`{ "status": "active" }`), not an array.
 
 With a dataset-capable data source, `optionsFrom` resolves distinct values
 **server-side** (a GROUP BY over the source object), so the option list is

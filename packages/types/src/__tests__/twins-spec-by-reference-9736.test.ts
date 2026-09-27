@@ -14,11 +14,12 @@
  * extend `Omit< App | Dashboard | Page, … >` over the SAME `as const` exclusion
  * array their mirror's `specFieldsExcept` call reads (`APP_SPEC_EXCLUDED`,
  * `DASHBOARD_SPEC_EXCLUDED`, `PAGE_SPEC_EXCLUDED`), plus — on the TypeScript
- * face only — the twin members whose hand-written type is not assignable to
- * the spec's (`header` on the dashboard, `slots` on the page, both already
- * ledgered as drift in `zod-mirror-parity.test.ts`), plus the page's
- * `assignedProfiles`, which objectstack `main` retires (a forward-compat
- * omission, objectui#9409).
+ * face only — the twin member whose hand-written type is not assignable to
+ * the spec's (`slots` on the page, ledgered as drift in
+ * `zod-mirror-parity.test.ts`), plus the page's `assignedProfiles`, which
+ * objectstack `main` retires (a forward-compat omission, objectui#9409). The
+ * dashboard's `header` was the second such member until objectui#7759 group A
+ * dropped the omission: the twin now inherits the spec's `header` by reference.
  *
  * ## Why the positive pins are TYPE equalities, not assignments
  *
@@ -124,12 +125,18 @@ describe('spec tombstones surface on the twin as a refusal — the verdict the m
 });
 
 describe('the twin-only omissions keep the twin\'s own member, unwidened', () => {
-  it('Dashboard `header` and Page `slots` are the hand-written types, not the spec\'s', () => {
-    type HeaderAction = NonNullable<NonNullable<DashboardComponentSchema['header']>['actions']>[number];
-    const headerLabel: Equal<HeaderAction['label'], string> = true;
-    const headerNotSpec: Equal<DashboardComponentSchema['header'], Dashboard['header']> = false;
+  it('Page `slots` is the hand-written type, not the spec\'s', () => {
     const slotsNotSpec: Equal<PageNodeSchema['slots'], Page['slots']> = false;
-    expect([headerLabel, headerNotSpec, slotsNotSpec]).toEqual([true, false, false]);
+    expect(slotsNotSpec).toBe(false);
+  });
+
+  it('Dashboard `header` is no longer a twin-only omission: it IS the spec\'s member (objectui#7759)', () => {
+    // It was the hand-written restatement until objectui#7759 group A, with
+    // `actions[].label` typed `string`. The spec declares the key, so the twin
+    // follows it; `dashboard-header-global-filters-spec-7759.test.ts` pins the
+    // accept set on both faces.
+    const headerIsSpec: Equal<DashboardComponentSchema['header'], Dashboard['header']> = true;
+    expect(headerIsSpec).toBe(true);
   });
 
   it('Page `assignedProfiles` keeps the hand-written `string[]` whatever the spec pin declares', () => {

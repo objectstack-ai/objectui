@@ -32,6 +32,7 @@ import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { DashboardComponentSchema } from '@object-ui/types';
 import { ActionProvider } from '@object-ui/react';
+import { I18nProvider } from '@object-ui/i18n';
 import { DashboardRenderer } from '../DashboardRenderer';
 
 afterEach(cleanup);
@@ -81,6 +82,53 @@ describe('DashboardRenderer header actions', () => {
     await waitFor(() => expect(pushState).toHaveBeenCalled());
     expect(handler).not.toHaveBeenCalled();
     pushState.mockRestore();
+  });
+});
+
+/**
+ * A header action's `label` is the spec's `I18nLabel` — a plain string OR an
+ * inline per-locale map (`DashboardHeaderActionSchema.label`), and the zod
+ * mirror has always admitted the map because it takes the spec's `header` by
+ * reference. The TypeScript twin restated it as `string` until objectui#7759
+ * group A, so this read site handed the authored value straight to React: an
+ * unnamed dashboard rendered the map as a button child, a named one passed it
+ * as the bundle lookup's `fallback`. Both render the resolved string now.
+ */
+function localizedActionDashboard(name?: string): DashboardComponentSchema {
+  return {
+    type: 'dashboard',
+    ...(name ? { name } : {}),
+    label: 'Ops',
+    widgets: [],
+    header: {
+      actions: [{
+        label: { en: 'Convert Lead', 'zh-CN': '转换线索' },
+        actionUrl: 'convert_lead_wizard',
+        actionType: 'flow',
+      }],
+    },
+  } satisfies DashboardComponentSchema;
+}
+
+describe('DashboardRenderer header actions — inline per-locale label (objectui#7759)', () => {
+  it.each([
+    ['an unnamed dashboard', undefined],
+    ['a named dashboard with no bundle entry', 'ops_board'],
+  ])('renders the active-language string for %s, and dispatches by actionUrl', async (_what, name) => {
+    const handler = vi.fn().mockResolvedValue({ success: true });
+    render(
+      <I18nProvider config={{ defaultLanguage: 'zh', detectBrowserLanguage: false, resources: {} }}>
+        <ActionProvider handlers={{ flow: handler }}>
+          <DashboardRenderer schema={localizedActionDashboard(name)} />
+        </ActionProvider>
+      </I18nProvider>,
+    );
+
+    const button = screen.getByRole('button', { name: '转换线索' });
+    expect(button.textContent).not.toContain('[object Object]');
+    await userEvent.setup().click(button);
+    await waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+    expect(handler.mock.calls[0][0]).toMatchObject({ type: 'flow', target: 'convert_lead_wizard' });
   });
 });
 

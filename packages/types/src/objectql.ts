@@ -4202,10 +4202,11 @@ export type KanbanConditionalFormattingRule =
  *     `FilterArray` in its react-blocks prop table, and this component's
  *     registry `inputs` advertises `{ name: 'filter', type: 'array' }`.
  *   - `xAxisKey` — INTERNAL (relay-composed). `ChartRendererProps` calls it
- *     "Internal binding. Authors write the spec `xAxis: { field }`"; the
- *     author-facing spelling ON THIS NODE is `xAxisField` above. All five
- *     producers COMPUTE it (`dims[0]`, `chartCategoryKey(...)`), none forwards
- *     an authored value, and it is absent from the registry `inputs`.
+ *     "Internal binding. Authors write the spec `xAxis: { field }`", and that
+ *     spec object ({@link ObjectChartSchema.xAxis}) is the author-facing
+ *     spelling ON THIS NODE. All five producers COMPUTE it (`dims[0]`,
+ *     `chartCategoryKey(...)`), none forwards an authored value, and it is
+ *     absent from the registry `inputs`.
  *   - `series` — INTERNAL (relay-composed). The `{ dataKey }` shape below is
  *     the renderer's internal contract; the spec's author-facing
  *     `ChartSeriesSchema` REFUSES `dataKey` by name (`dataKey` → `name`
@@ -4272,6 +4273,22 @@ export type KanbanConditionalFormattingRule =
  * them — as reads or as exceptions — and neither was moved. Their pin is
  * `__tests__/object-chart-axis-config-10518.test.ts`; the render path was
  * measured once with a real registry probe, recorded on the card's PR.
+ *
+ * ## Three list-view spellings, RETIRED on this node (objectui#10608, ADR-0049)
+ *
+ * `xAxisField`, `yAxisFields` and `aggregation` are the LIST-VIEW chart
+ * block's vocabulary (`chart.xAxisField` and its siblings on a `chart` list
+ * view). The list-view relays translate that block into `aggregate` /
+ * `xAxisKey` / `series` before they compose this node, so on this node the
+ * three were declared and read by nothing: a node written with them drew no
+ * category axis and no series. Each is now a `?: never` tombstone whose zod
+ * twin refuses it by name with the spec spelling as the remedy — `xAxis:
+ * { field }`, `yAxis: [{ field }]`, `aggregate: { field, function, groupBy }`.
+ * The measurement and the producer census are on the card's PR; the pin is
+ * `__tests__/object-chart-legacy-axis-keys-retired-10608.test.ts`.
+ *
+ * ⛔ The LIST-VIEW carriers keep these names: they are a different node, they
+ * read them, and nothing here touches them.
  */
 export interface ObjectChartSchema extends BaseSchema {
   type: 'object-chart';
@@ -4280,12 +4297,39 @@ export interface ObjectChartSchema extends BaseSchema {
   /** Chart type. Includes donut / horizontal-bar / column — all rendered by
    *  AdvancedChartImpl (previously only reachable by passing an untyped string). */
   chartType: 'bar' | 'column' | 'horizontal-bar' | 'line' | 'area' | 'pie' | 'donut' | 'scatter';
-  /** Field for X axis (categories) — legacy inline path */
-  xAxisField?: string;
-  /** Fields for Y axis (values) — legacy */
-  yAxisFields?: string[];
-  /** Aggregation function — legacy */
-  aggregation?: 'cardinality' | 'sum' | 'avg' | 'min' | 'max';
+  /**
+   * RETIRED (objectui#10608, ADR-0049) — the list-view chart block's spelling,
+   * read by no `object-chart` reader. Write the spec's {@link xAxis} object,
+   * `xAxis: { field: 'status' }`; on the inline `objectName` path the category
+   * is `aggregate.groupBy`.
+   *
+   * A tombstone rather than a deletion: `BaseSchema`'s index signature and the
+   * mirror's `.passthrough()` would otherwise KEEP an authored value in silence.
+   *
+   * @deprecated Not a key this node reads. Write `xAxis: { field }`.
+   */
+  xAxisField?: never;
+  /**
+   * RETIRED (objectui#10608, ADR-0049) — the list-view chart block's spelling,
+   * read by no `object-chart` reader. Write the spec's {@link yAxis} list,
+   * `yAxis: [{ field: 'amount' }]` — one entry per value axis, and each entry's
+   * `field` is a plotted column when no `series` is written. On the inline
+   * `objectName` path the measure is `aggregate.field`; a dataset-bound chart
+   * selects {@link values} by name.
+   *
+   * @deprecated Not a key this node reads. Write `yAxis: [{ field }]`.
+   */
+  yAxisFields?: never;
+  /**
+   * RETIRED (objectui#10608, ADR-0049) — the list-view chart block's spelling,
+   * read by no `object-chart` reader. Write the spec's {@link aggregate},
+   * `aggregate: { field, function, groupBy }`, whose `function` is the spec's
+   * own vocabulary; a dataset-bound chart takes its aggregation from the
+   * dataset's measures.
+   *
+   * @deprecated Not a key this node reads. Write `aggregate: { field, function, groupBy }`.
+   */
+  aggregation?: never;
   /** Semantic-layer dataset name (ADR-0021, #1890) */
   dataset?: string;
   /** Dataset dimension names */
@@ -4389,9 +4433,9 @@ export interface ObjectChartSchema extends BaseSchema {
   aggregate?: ChartAggregate;
   /**
    * INTERNAL (relay-composed) — the category column the renderer binds the x
-   * axis to. Authors write `xAxisField` above (or the spec's {@link xAxis}
-   * object below, whose `field` `normalizeChartSchema` resolves); the five
-   * producers of an `object-chart` node compute this key.
+   * axis to. Authors write the spec's {@link xAxis} object below, whose `field`
+   * `normalizeChartSchema` resolves (the retired {@link xAxisField} above is
+   * refused); the five producers of an `object-chart` node compute this key.
    *
    * Typed `string` from `ChartRendererProps.schema.xAxisKey`, the read this
    * value ends at.
@@ -4564,9 +4608,8 @@ export interface ObjectChartSchema extends BaseSchema {
    * single axis object or a bare column name, which the normalizer tolerates,
    * is refused by the mirror and does not compile here.
    *
-   * ⚠️ Declared beside {@link yAxisFields} above, a separate legacy
-   * vocabulary. Whether that key is live on this node is reported on
-   * objectui#10518 for its own ruling; this member settles nothing about it.
+   * The list-view spelling {@link yAxisFields} above is RETIRED on this node
+   * (objectui#10608): this list is the one author-facing value-axis spelling.
    */
   yAxis?: SpecChartAxis[];
 }

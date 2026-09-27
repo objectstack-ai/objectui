@@ -47,6 +47,15 @@ import { DatasetWidget } from './DatasetWidget';
 import { useWidgetSubCaption } from './widgetSubCaption';
 import { DashboardFilterBar } from './DashboardFilterBar';
 
+/**
+ * One `header.actions[]` entry, as the node's declaration types it: the spec's
+ * `DashboardHeaderAction` by reference since objectui#7759, so `label` is an
+ * `I18nLabel` and `actionUrl` is required. Named for the node, not the spec
+ * type, because it is read off `DashboardComponentSchema` and a local alias may
+ * not wear a spec export's name (`check:spec-symbols`).
+ */
+type DashboardNodeHeaderAction = NonNullable<NonNullable<DashboardComponentSchema['header']>['actions']>[number];
+
 interface SortableWidgetWrapperProps {
   id: string;
   disabled?: boolean;
@@ -273,19 +282,6 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     );
     const { variables: filterValues, setVariable: setFilterValue, resetVariables: resetFilterValues } = usePageVariables();
 
-    // Build ActionDef[] from header actions so useActionEngine can dispatch by name.
-    const headerActionDefs = useMemo<ActionDef[]>(() => {
-      const actions = schema.header?.actions ?? [];
-      return actions.map((a: { label: string; actionUrl?: string; actionType?: string; icon?: string }) => ({
-        name: a.actionUrl || a.label,
-        type: (a.actionType as ActionDef['type']) || 'url',
-        target: a.actionUrl,
-        label: a.label,
-      }));
-    }, [schema.header?.actions]);
-
-    const { executeAction, engine } = useActionEngine({ actions: headerActionDefs });
-
     // ── i18n: convention-based label resolution for dashboard / widget /
     // action text. The dashboard name (`schema.name`) keys all lookups; when
     // it's missing we silently degrade to the raw English fallbacks.
@@ -340,17 +336,43 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     /**
      * Translate a header-action label using the
      * `{ns}.dashboards.{dashName}.actions.{actionKey}.label` convention.
-     * Falls back to the action's English label when no translation exists or
+     * Falls back to the action's authored label when no translation exists or
      * the dashboard schema has no `name`.
+     *
+     * The authored label is the spec's `I18nLabel` — a string or an inline
+     * per-locale map — so it is collapsed to the active language BEFORE it is
+     * used as the fallback or the button text (objectui#7759). This read used
+     * to return the authored value as-is, typed `string` by a hand-written
+     * restatement of `header`, and a map reached React as a button child.
      */
     const tActionLabel = useCallback(
-      (action: { label: string; actionUrl?: string }): string => {
-        if (!dashName) return action.label;
-        const key = action.actionUrl || action.label;
-        return dashboardActionLabel(dashName, key, action.label);
+      (action: DashboardNodeHeaderAction): string => {
+        const authored = pickLocalized(action.label, language) || '';
+        if (!dashName) return authored;
+        const key = action.actionUrl || authored;
+        return dashboardActionLabel(dashName, key, authored);
       },
-      [dashName, dashboardActionLabel],
+      [dashName, dashboardActionLabel, language],
     );
+
+    // Build ActionDef[] from header actions so useActionEngine can dispatch by
+    // name. `ActionDef.label` is a `string`, so the def carries the label
+    // resolved against the active language, exactly as the button shows it.
+    // Keyed on `language`, not on a memoised resolver's identity (AGENTS.md #10).
+    const headerActionDefs = useMemo<ActionDef[]>(() => {
+      const actions = schema.header?.actions ?? [];
+      return actions.map((a) => {
+        const label = pickLocalized(a.label, language) || undefined;
+        return {
+          name: a.actionUrl || label,
+          type: (a.actionType as ActionDef['type']) || 'url',
+          target: a.actionUrl,
+          label,
+        };
+      });
+    }, [schema.header?.actions, language]);
+
+    const { executeAction, engine } = useActionEngine({ actions: headerActionDefs });
 
     /**
      * Translate a widget title / description using the
@@ -1067,10 +1089,10 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         )}
         {headerActions.length > 0 && (
           <div className="flex gap-2 mt-3">
-            {headerActions.map((action: { label: string; actionUrl?: string; actionType?: string; icon?: string }, i: number) => {
+            {headerActions.map((action, i) => {
               const Icon = resolveLucideIcon(action.icon);
               const handleClick = async () => {
-                const { actionType, actionUrl, label } = action;
+                const { actionType, actionUrl } = action;
                 if (!actionType || !actionUrl) {
                   console.warn('[DashboardRenderer] Header action missing actionType/actionUrl:', action);
                   return;
@@ -1092,7 +1114,9 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 // never dispatched — a screen flow could not even be launched
                 // from a dashboard (framework#3528). The runner reports an
                 // unknown type itself, so there is nothing to second-guess here.
-                const result = await executeAction(actionUrl || label);
+                // `actionUrl` is non-empty here (the guard above returns
+                // otherwise), and it is the name the def registered under.
+                const result = await executeAction(actionUrl);
                 if (!result?.success) console.warn('[DashboardRenderer] action failed', result?.error);
               };
               return (

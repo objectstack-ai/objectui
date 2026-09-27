@@ -43,12 +43,21 @@
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// No WebGL in the test env: the stub the `plugin-map` tests use. This app does
-// not declare `react-map-gl`, so the bare specifier does not resolve from here;
-// the mock names the file `plugin-map`'s own `react-map-gl/maplibre` import
-// resolves to (its `exports['./maplibre'].import`), which is the module id the
-// mock has to match.
-vi.mock('../../../../packages/plugin-map/node_modules/react-map-gl/dist/maplibre.js', () => ({
+// No WebGL in the test env: the stub the `plugin-map` tests use, under the
+// same bare specifier `ObjectMap` imports. Vitest keys a mock on the RESOLVED
+// module id, so the specifier has to resolve from this file to the very file
+// `plugin-map`'s import resolves to. This app therefore declares `react-map-gl`
+// as a devDependency at `plugin-map`'s own range: pnpm links both packages to
+// one store instance (the optional `maplibre-gl` peer is deduplicated), and the
+// two resolutions meet on one real path.
+//
+// objectui#10731: the previous spelling reached into
+// `packages/plugin-map/node_modules/...` by relative path. That file exists
+// only after `pnpm install`, so the pre-install `Inert vi.mock Specifier Check`
+// read it as a mock that resolves to no file, and `main` went red. A bare
+// specifier is outside that gate's scope (objectui#5646) and resolves through
+// the package map, which is what this mock needs.
+vi.mock('react-map-gl/maplibre', () => ({
   default: ({ children }: { children?: React.ReactNode }) => <div aria-label="Map">{children}</div>,
   Map: ({ children }: { children?: React.ReactNode }) => <div aria-label="Map">{children}</div>,
   NavigationControl: () => <div data-testid="nav-control" />,

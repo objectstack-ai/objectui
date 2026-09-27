@@ -776,9 +776,16 @@ export const ChatbotSchema = BaseSchema.extend({
     + 'and the key the `chatbot-enhanced` and `chatbot-floating` twins already declare. Delete `body` here: '
     + 'nothing renders it, and nothing sends it.',
   ),
-  /** @deprecated objectui#5605 — inert; nothing reads it. Cap loops on the agent (`planning.maxIterations`). Slated for removal. */
-  maxToolRoundtrips: z.number().optional()
-    .describe('DEPRECATED (inert, slated for removal) — Max tool-calling round-trips. Nothing reads this; cap tool loops on the agent via planning.maxIterations'),
+  // objectui#5605, ADR-0049 — retired behind a tombstone, not deleted: under
+  // `BaseSchema`'s `.passthrough()` a deleted arm would KEEP an authored value
+  // in silence. `chatbot-enhanced` and `chatbot-floating` carry this same arm.
+  maxToolRoundtrips: retirementTombstone(
+    'RETIRED (objectui#5605, ADR-0049) — never honoured: a chat node cannot cap tool-calling round-trips. '
+    + 'The tool loop runs on the server agent inside one streamed response, the chat runtime (`useChat`) has '
+    + 'no numeric round-trip cap, and the chat request carries no cap field, so the value was dropped before '
+    + 'any request was sent. Cap tool loops on the agent instead — `planning.maxIterations` (default 10). '
+    + 'Delete the key.',
+  ),
   onError: handlerKeyRefusal('onError', 'runtime-slot', 'Error callback'),
   // --- Local display + legacy auto-response fields (objectui#6169) ---
   // Mirrors the TS declaration added at ../complex.ts in lockstep, so these
@@ -802,7 +809,7 @@ export const ChatbotSchema = BaseSchema.extend({
     + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
     + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `headers`, `maxHeight`, '
-    + '`maxToolRoundtrips`, `messages`, `model`, `onError`, `onSend`, `placeholder`, `requestBody`, '
+    + '`messages`, `model`, `onError`, `onSend`, `placeholder`, `requestBody`, '
     + '`showTimestamp`, `streamingEnabled`, `systemPrompt`, `userAvatarFallback`, `userAvatarUrl`.',
   ),
 });
@@ -837,7 +844,6 @@ const ChatbotSharedMirrorShape = ChatbotSchema.pick({
   model: true,
   streamingEnabled: true,
   headers: true,
-  maxToolRoundtrips: true,
   onError: true,
   showTimestamp: true,
   userAvatarUrl: true,
@@ -872,6 +878,7 @@ export const ChatbotEnhancedSchema = BaseSchema.extend({
   type: z.literal('chatbot-enhanced'),
   ...ChatbotSharedMirrorShape,
   requestBody: chatbotRequestBodyArm(),
+  maxToolRoundtrips: ChatbotSchema.shape.maxToolRoundtrips,
   maxHeight: ChatbotSchema.shape.maxHeight,
   processVisibility: ChatbotSchema.shape.processVisibility,
   enableMarkdown: chatbotEnableMarkdownArm(),
@@ -894,7 +901,7 @@ export const ChatbotEnhancedSchema = BaseSchema.extend({
     + 'The chat API body params go on `requestBody`, which the registration forwards to the chat runtime. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
     + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
-    + '`headers`, `maxHeight`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`headers`, `maxHeight`, `messages`, `model`, `onClear`, `onError`, '
     + '`onSend`, `placeholder`, `processVisibility`, `requestBody`, `showTimestamp`, '
     + '`streamingEnabled`, `surface`, `systemPrompt`, `userAvatarFallback`, `userAvatarUrl`.',
   ),
@@ -905,7 +912,7 @@ export const ChatbotEnhancedSchema = BaseSchema.extend({
     + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
     + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
-    + '`headers`, `maxHeight`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`headers`, `maxHeight`, `messages`, `model`, `onClear`, `onError`, '
     + '`onSend`, `placeholder`, `processVisibility`, `requestBody`, `showTimestamp`, '
     + '`streamingEnabled`, `surface`, `systemPrompt`, `userAvatarFallback`, `userAvatarUrl`.',
   ),
@@ -940,6 +947,7 @@ export const ChatbotFloatingSchema = BaseSchema.extend({
   type: z.literal('chatbot-floating'),
   ...ChatbotSharedMirrorShape,
   requestBody: chatbotRequestBodyArm(),
+  maxToolRoundtrips: ChatbotSchema.shape.maxToolRoundtrips,
   enableMarkdown: chatbotEnableMarkdownArm(),
   enableFileUpload: chatbotEnableFileUploadArm(),
   onClear: chatbotOnClearArm(),
@@ -958,7 +966,7 @@ export const ChatbotFloatingSchema = BaseSchema.extend({
     + 'The chat API body params go on `requestBody`, which the registration forwards to the chat runtime. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
     + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
-    + '`floatingConfig`, `headers`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`floatingConfig`, `headers`, `messages`, `model`, `onClear`, `onError`, '
     + '`onSend`, `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`, `systemPrompt`, '
     + '`userAvatarFallback`, `userAvatarUrl`.',
   ),
@@ -969,7 +977,7 @@ export const ChatbotFloatingSchema = BaseSchema.extend({
     + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
     + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
-    + '`floatingConfig`, `headers`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`floatingConfig`, `headers`, `messages`, `model`, `onClear`, `onError`, '
     + '`onSend`, `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`, `systemPrompt`, '
     + '`userAvatarFallback`, `userAvatarUrl`.',
   ),

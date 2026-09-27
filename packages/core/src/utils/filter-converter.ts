@@ -315,21 +315,26 @@ function falseIdentityLeaf(field: string, value: unknown[]): FilterNode {
  *
  * The PROTOTYPE is the test, deliberately, and not `Object.keys(value).length
  * === 0`: zero own entries is exactly what `{}` and `/x/` have in COMMON, and
- * they need opposite answers — `{}` is the TRUE identity that constrains
- * nothing, pinned in filter-date-comparand-8555.test.ts section 4, and a keys
- * count cannot tell the two apart. Prototype can.
+ * they need different answers — `{}` is an operator map that names no
+ * operator, refused as such (objectui#9164 / objectui#10788), while `/x/` is a
+ * VALUE the spec does not accept as a comparand, refused as that — and a keys
+ * count cannot tell the two apart. Prototype can. (Until objectui#10788 `{}`
+ * beside a key that lowers was the TRUE identity that constrained nothing,
+ * pinned in filter-date-comparand-8555.test.ts section 4; that row now pins
+ * the refusal.)
  *
  * The second hop admits a CROSS-REALM plain object (an iframe, a `vm` context),
  * whose prototype is that realm's `Object.prototype` rather than this one's: a
  * plain object's prototype has a null prototype, while a `RegExp`'s chain is one
  * link longer. So the test is about SHAPE, not about object identity.
  *
- * A plain object with no entries stays an operator map with no operators — the
- * `{}` identity — whatever else it happens to be. That boundary is deliberate:
+ * A plain object with no entries stays an operator map with no operators,
+ * whatever else it happens to be. That boundary is deliberate:
  * this predicate separates values from operator maps, and it is not a second
  * opinion about the identity objectui#5322 already ruled on. What the converter
- * then DOES with an operator map that has no operators is decided in its tail,
- * not here: when it is all the filter says, it is refused (objectui#9164).
+ * then DOES with an operator map that has no operators is decided by its
+ * caller, not here: it is refused wherever it appears (objectui#9164 alone,
+ * objectui#10788 beside a key that lowers; see refuseEmptyOperatorMap).
  */
 function isOperatorMap(value: object): boolean {
   const proto = Object.getPrototypeOf(value) as object | null;
@@ -449,42 +454,51 @@ function refuseTextComparand(field: string, operator: string, target: unknown): 
 }
 
 /**
- * A filter that names a field and NO operator — `{ a: {} }` — and says nothing
- * else (objectui#9164).
+ * A field that names NO operator — `{ a: {} }` — wherever it appears in a
+ * filter: alone (objectui#9164) or beside a key that lowers (objectui#10788).
  *
  * ## What it used to do
  *
  * The loop ENTERS the key — the value is a plain object, so it is an operator
- * map — and the operator loop runs zero times. When nothing else in the filter
- * produced a condition, the general tail handed back the CALLER'S ORIGINAL
- * OBJECT, the last input still doing so after objectui#8770, objectui#9020 and
- * objectui#9030 each removed their own member from that tail. That object then
- * reached the two `find()` routes of `@object-ui/data-objectstack` as two
- * different wrong requests: the plain route spread it into query parameters
- * (`?a=[object Object]`, and no `filter` parameter at all), the `$expand` /
- * `$search` route serialised it into `filter={"a":{}}`.
+ * map — and the operator loop runs zero times, so NO condition is pushed for
+ * the field. What happened next depended on the field's SIBLINGS, the hazard
+ * objectui#8555 named on this file:
+ *
+ * - beside a key that lowers, the sibling's condition carried the filter and
+ *   the field VANISHED from it: `{ status: 'a', created: {} }` lowered to
+ *   `['status', '=', 'a']`, byte-identical to `{ status: 'a' }` on both
+ *   `find()` routes of `@object-ui/data-objectstack` — a result set WIDER than
+ *   the author wrote, silently (objectui#10788);
+ * - alone, the general tail handed back the CALLER'S ORIGINAL OBJECT, which
+ *   reached those two routes as two different wrong requests: the plain route
+ *   spread it into query parameters (`?a=[object Object]`, and no `filter`
+ *   parameter at all), the `$expand` / `$search` route serialised it into
+ *   `filter={"a":{}}` (objectui#9164).
  *
  * ## Why a refusal, and not a fold or a lowering
  *
  * - There is nothing to LOWER it to. `@objectstack/spec` ruled
  *   `{ field: {} }` REJECTED (objectstack#5240, recorded on
- *   `FilterConditionSchema`), so the second request above is one the platform
- *   refuses, and inventing a node for it would invent semantics.
- * - FOLDING it to `undefined` would silently drop a filter the author wrote —
- *   "no filter" is every row, on a slot whose purpose can be to hide rows.
+ *   `FilterConditionSchema`) in every position, so the request above is one
+ *   the platform refuses, and inventing a node for it would invent semantics.
+ * - FOLDING it — dropping the key, which is what the beside-a-key case did —
+ *   silently drops a filter the author wrote, and "no constraint on this
+ *   field" widens the result on a slot whose purpose can be to hide rows.
  * - A refusal is what this function already answers for the bare-array and the
  *   exotic-comparand arms, for the same reason: the author learned nothing at
  *   lowering time.
  *
- * ## Scope — the tail, as ruled
+ * ## Where — the operator-map arm, not the tail
  *
- * Only when the empty operator map leaves the filter with NO condition — alone,
- * beside skipped `null` / `undefined` keys, or beside TRUE-identity groups. It
- * is judged in the tail and not in the loop, because an empty operator map
- * BESIDE a key that lowers is a different, pinned boundary: there the key is
- * still dropped and the sibling carries the filter
- * (filter-date-comparand-8555.test.ts, filter-exotic-comparand-8567.test.ts),
- * and objectui#9164 does not move it.
+ * It is refused where it is met, in the loop, like the two comparand arms.
+ * objectui#9164 judged it in the tail and so reached it only when nothing else
+ * produced a condition; beside a key that lowers the tail is never entered,
+ * which is exactly the case objectui#10788 closes. One throw site serves both,
+ * so the alone case is not refused twice over and cannot drift from the
+ * beside case. A `$and` / `$or` member is converted by this same function, so
+ * a member that is or carries an empty operator map is refused too, once
+ * `lowerLogicalGroup` converts it (a TRUE disjunct earlier in an `$or` still
+ * returns first; objectui#10789).
  *
  * `field` is the only handle, so it travels as the refusal's subject and no
  * `operator` is set: the author wrote none, and naming one would send them
@@ -493,13 +507,15 @@ function refuseTextComparand(field: string, operator: string, target: unknown): 
 function refuseEmptyOperatorMap(field: string): never {
   throw new FilterOperatorError(
     `[ObjectUI] The filter on field '${field}' is an EMPTY operator map — ` +
-    `{ ${field}: {} } names the field and no operator, and nothing else in the ` +
-    `filter produced a condition. It cannot be lowered: the ObjectQL filter AST ` +
-    `has no node for a field with zero operators, and '@objectstack/spec' ruled ` +
-    `the shape REJECTED (objectstack#5240, recorded on FilterConditionSchema). It ` +
-    `is refused here rather than handed back as the caller's object, which ` +
-    `reached the wire as ?${field}=[object Object] on one route and as a filter ` +
-    `the server refuses on the other (objectui#9164). Choose an operator — ` +
+    `{ ${field}: {} } names the field and no operator. It cannot be lowered: the ` +
+    `ObjectQL filter AST has no node for a field with zero operators, and ` +
+    `'@objectstack/spec' ruled the shape REJECTED wherever it appears ` +
+    `(objectstack#5240, recorded on FilterConditionSchema). It is refused here ` +
+    `rather than dropped: beside a key that lowers, the '${field}' condition used ` +
+    `to vanish from the filter and silently WIDEN the result set (objectui#10788), ` +
+    `and alone it was handed back as the caller's object, which reached the wire ` +
+    `as ?${field}=[object Object] on one route and as a filter the server refuses ` +
+    `on the other (objectui#9164). Choose an operator — ` +
     `{ ${field}: { $eq: ... } }, { ${field}: { $in: [...] } }, ` +
     `{ ${field}: { $null: true } } — or remove the key.`,
     { field },
@@ -550,16 +566,20 @@ function refuseEmptyOperatorMap(field: string): never {
  * NON-EMPTY STRING (`{ name: { $icontains: '' } }`, `{ name: { $icontains: 42 } }`)
  * — two shapes `@objectstack/spec`'s `FILTER_TEXT_CASES` declares REFUSED and
  * `ValueDataSource` has refused since objectui#8748; see
- * {@link refuseTextComparand} (objectui#9001), or if an EMPTY operator map
- * (`{ a: {} }`) is all the filter says — nothing else produced a condition —
- * see {@link refuseEmptyOperatorMap} (objectui#9164). Beside a key that DOES
- * lower, an empty operator map is still dropped and constrains nothing; that
- * boundary is pinned by objectui#8555 / objectui#8567 and is not moved here.
+ * {@link refuseTextComparand} (objectui#9001), or if a field is an EMPTY
+ * operator map (`{ a: {} }`) — alone (objectui#9164) or
+ * beside a key that lowers (objectui#10788): see {@link refuseEmptyOperatorMap}.
  *
  * @example
- * // A field with NO operator, and nothing else in the filter (objectui#9164)
+ * // A field with NO operator (objectui#9164)
  * convertFiltersToAST({ a: {} })
  * // => throws FilterOperatorError (INVALID_FILTER / 400), field 'a'
+ *
+ * @example
+ * // … and beside a key that lowers, where it used to vanish and widen the
+ * // result to `['status', '=', 'a']` (objectui#10788)
+ * convertFiltersToAST({ status: 'a', created: {} })
+ * // => throws FilterOperatorError (INVALID_FILTER / 400), field 'created'
  *
  * @example
  * // A filter that is NOTHING BUT combinators reducing to the TRUE identity
@@ -598,13 +618,6 @@ export function convertFiltersToAST(
    * reach the same answer (objectui#9020).
    */
   let skippedNullKeys = 0;
-  /**
-   * The first key whose value was an operator map with NO operators — a key
-   * the loop PROCESSED that produced nothing. Recorded, not refused, in the
-   * loop: the tail decides, because only a filter left with no condition is
-   * refused (objectui#9164, see {@link refuseEmptyOperatorMap}).
-   */
-  let emptyOperatorMapField: string | undefined;
 
   for (const [field, value] of Object.entries(filter)) {
     if (value === null || value === undefined) {
@@ -786,10 +799,13 @@ export function convertFiltersToAST(
         );
       }
 
-      // An operator map with NO operators pushes nothing below. Remember the
-      // field so the tail can name it (objectui#9164).
+      // An operator map with NO operators — `{ created: {} }` — would push
+      // nothing below. It is refused HERE, where it is met, and not in the
+      // tail: beside a key that lowers, the tail is never reached, and the key
+      // used to vanish from the filter (objectui#10788). Alone, it is refused
+      // by this same line (objectui#9164). See refuseEmptyOperatorMap.
       const operatorEntries = Object.entries(value);
-      if (operatorEntries.length === 0) emptyOperatorMapField ??= field;
+      if (operatorEntries.length === 0) refuseEmptyOperatorMap(field);
 
       // Handle operator-based filters
       for (const [operator, operatorValue] of operatorEntries) {
@@ -913,9 +929,9 @@ export function convertFiltersToAST(
     // ⛔ Scoped to a filter whose every PROCESSED key is such a group, which is
     // why the count above is compared with a count instead of being a flag.
     // Inputs that are not combinators at all are NOT this case: `{}` still
-    // reaches the `return filter` below, and an empty operator map is refused
-    // just above it (objectui#9164) — a processed key that is not a group stays
-    // in the denominator, so this fold can never claim one.
+    // reaches the `return filter` below, and an empty operator map never gets
+    // this far — the operator-map arm refuses it where it is met
+    // (objectui#9164, objectui#10788).
     //
     // ⭐ The denominator is the number of keys the LOOP ACTUALLY PROCESSED, not
     // `Object.keys(filter).length` — objectui#9030. Those differ by exactly the
@@ -1004,18 +1020,12 @@ export function convertFiltersToAST(
       return undefined;
     }
 
-    // A key the loop PROCESSED that produced nothing — an empty operator map,
-    // `{ a: {} }` — and nothing else produced a condition: refused, not handed
-    // back as the caller's object (objectui#9164). Neither fold above can have
-    // claimed it: the key is processed, so it stays in the identity fold's
-    // denominator, and it is not skipped, so the all-skipped guard declines.
-    // `{ a: {} }`, `{ a: {}, b: undefined }` and `{ $and: [], a: {} }` all land
-    // here; see refuseEmptyOperatorMap for why a refusal.
-    if (emptyOperatorMapField !== undefined) refuseEmptyOperatorMap(emptyOperatorMapField);
-
     // Only `{}` — a filter with no key at all — still comes back as itself.
-    // Every other way to reach this tail is answered above. `toFilterNode`
-    // folds `{}` one level up, and objectui#8770 measured that boundary.
+    // Every other way to reach this tail is answered above, and an empty
+    // operator map (`{ a: {} }`, `{ a: {}, b: undefined }`,
+    // `{ $and: [], a: {} }`) never reaches it: the operator-map arm refuses it
+    // where it is met (objectui#9164, objectui#10788). `toFilterNode` folds
+    // `{}` one level up, and objectui#8770 measured that boundary.
     return filter;
   }
   

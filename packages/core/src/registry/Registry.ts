@@ -107,14 +107,17 @@ export type AuthoringSurface = 'json' | 'html';
  * ## Why `surfaces` is required, and why a boolean would have been wrong
  *
  * `deprecated: true` would restate, as a contract, the exact falsehood the
- * maintainer ruled against on 2026-08-10 (objectui#4000): the `div` and `span`
- * notices are scoped BY PROVENANCE because those tags are deprecated on the
- * JSON surface and simultaneously PERMANENT, first-class vocabulary of the
- * `kind:'html'` tier — an author there writes the plain tag, our own parser
- * maps it straight through, and no other spelling exists for them to migrate
- * to. "A notice that says the type is deprecated FULL STOP is therefore false
- * for one of its two readers" (`div.tsx`), and the reader it was false for was
- * the one who could do nothing about it. A declaration that dropped the scope
+ * maintainer ruled against on 2026-08-10 (objectui#4000): the `span` notice is
+ * scoped BY PROVENANCE because that tag is deprecated on the JSON surface and
+ * simultaneously vocabulary of the `kind:'html'` tier — an author there writes
+ * the plain tag, our own parser maps it straight through, and no other
+ * spelling exists for them to migrate to. "A notice that says the type is
+ * deprecated FULL STOP is therefore false for one of its two readers"
+ * (`span.tsx`), and the reader it was false for was the one who could do
+ * nothing about it. (`div` carried the same scope until ruling A on
+ * objectstack#20112 deprecated it on the html surface too, with `box` as its
+ * replacement; it now declares both surfaces — objectui#10757. The list is
+ * what let that be one edit.) A declaration that dropped the scope
  * would hand every future gate the same false premise, in a form that is harder
  * to see than a console string. So the scope travels WITH the declaration, and
  * {@link Registry.deprecationFor} makes callers name the surface they are
@@ -912,12 +915,14 @@ export class Registry<T = any> {
    *
    * Because the honest answer differs by surface, and a reader that dropped the
    * distinction would let every caller re-derive it — which is how the same
-   * exemption ends up written N times and wrong in N-1 of them. `div` is
-   * deprecated for JSON-authored pages and is permanent vocabulary of the
-   * `kind:'html'` tier (objectui#4000). Asking `deprecationFor('div', 'html')`
-   * therefore correctly answers `undefined` even when the type declares a
-   * `'json'` deprecation, and a gate over html-tier sources gets the right
-   * answer without knowing the ruling.
+   * exemption ends up written N times and wrong in N-1 of them. `span` is
+   * deprecated for JSON-authored pages and is vocabulary of the `kind:'html'`
+   * tier (objectui#4000). Asking `deprecationFor('span', 'html')` therefore
+   * correctly answers `undefined` even when the type declares a `'json'`
+   * deprecation, while `deprecationFor('div', 'html')` answers the declaration,
+   * because `div` names both surfaces (objectui#10757). A gate over html-tier
+   * sources gets the right answer for either without knowing the rulings: the
+   * console's html compile reads exactly this to decide what it refuses.
    *
    * Returning the DECLARATION rather than a boolean is deliberate: the caller
    * that has to report the finding also needs `replacement` to say what to

@@ -44,3 +44,12 @@ the all-skipped fold (objectui#9020) are unchanged.
 **Migration.** A stored filter carrying `{ field: {} }` with nothing else to say was a
 wrong request before this change. It is now a named refusal. Give the field an operator,
 or delete the key.
+
+⚠️ **Dated note, 2026-09-27 — the beside-a-key boundary is now refused too — objectui#10788.**
+Later in this same release an empty operator map BESIDE a key that lowers
+(`{ status: 'a', created: {} }`) is refused as well, with the same `FilterOperatorError`
+naming the field, instead of being dropped. The refusal moved from the general tail into
+the operator-map arm, so one throw site answers both cases. The "Unchanged" paragraph's
+sentences about that boundary is this change's reading, not the release's. The rest of this
+entry is kept as the reading of this change; the objectui#10788 entry states what that input
+now answers.

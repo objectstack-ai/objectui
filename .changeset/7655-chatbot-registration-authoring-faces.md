@@ -109,3 +109,10 @@ surface with two new node types, two new Zod twins and one new type alias;
 `ChatbotSchema`'s own accept set does not move: objectui's major is pinned to `@objectstack`'s
 (`scripts/check-changeset-no-major.mjs`), and objectui's own contract changes
 ship as `minor` with the semantics spelled out — as above.
+
+⚠️ **Dated note, 2026-09-27 — the shared census is nineteen keys, not twenty — objectui#5605.**
+Later in this same release `maxToolRoundtrips` is retired behind a tombstone: no
+registration reads it, so it leaves `ChatbotSharedKey`, and `ChatbotSchema` declares it
+instead as a `?: never` member that the other two faces pick by name, refused by name on
+the zod twins. The "twenty keys" above is kept as the reading of this change; the
+objectui#5605 retirement entry states what the three faces declare now.

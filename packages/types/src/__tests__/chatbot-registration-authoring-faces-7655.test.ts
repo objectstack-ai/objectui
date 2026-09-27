@@ -23,7 +23,8 @@
  * of the three keys. The union would give three nodes ONE type and re-open what
  * #6169 closed: a single interface declaring keys only some of its own `type`
  * values read. Each new face declares what ITS registration reads, censused per
- * key on the PR's base with lit controls, and the twenty keys all three read
+ * key on the PR's base with lit controls, and the keys all three read (twenty
+ * at objectui#7655, nineteen since objectui#5605 retired `maxToolRoundtrips`)
  * are picked off `ChatbotSchema` by name (`ChatbotSharedKey`) so they stay one
  * declaration.
  *
@@ -109,10 +110,14 @@ type DeclaredKeys<D> = Extract<keyof WithoutIndexSignature<D>, string>;
  */
 type BaseKeys = DeclaredKeys<BaseSchema>;
 
-/** The twenty keys every registration reads, spelled out so the alias is pinned to a list and not to itself. */
+/**
+ * The nineteen keys every registration reads, spelled out so the alias is pinned to a list and not to itself.
+ * `maxToolRoundtrips` left this census when objectui#5605 retired it: no registration reads it now, and all
+ * three faces carry it as the same picked tombstone instead (`RetiredOnEveryFace` below).
+ */
 type SharedKeys =
   | 'messages' | 'placeholder' | 'api' | 'conversationId' | 'systemPrompt' | 'model'
-  | 'streamingEnabled' | 'headers' | 'requestBody' | 'maxToolRoundtrips' | 'onError'
+  | 'streamingEnabled' | 'headers' | 'requestBody' | 'onError'
   | 'showTimestamp' | 'userAvatarUrl' | 'userAvatarFallback' | 'assistantAvatarUrl'
   | 'assistantAvatarFallback' | 'autoResponse' | 'autoResponseText' | 'autoResponseDelay'
   | 'onSend';
@@ -129,16 +134,20 @@ export type assertionOneDiscriminantPerFace = [
 
 export type assertionSharedKeyAliasIsTheCensus = Expect<Equal<ChatbotSharedKey, SharedKeys>>;
 
-/** `chatbot-enhanced`: the shared twenty + `maxHeight`, `processVisibility`, and its four own keys. */
+/** The objectui#5605 tombstone, declared (as `?: never`) on all three faces by one pick. */
+type RetiredOnEveryFace = 'maxToolRoundtrips';
+
+/** `chatbot-enhanced`: the shared nineteen + the tombstone + `maxHeight`, `processVisibility`, and its four own keys. */
 export type assertionEnhancedDeclaresWhatItReads = Expect<
   Equal<
     DeclaredKeys<ChatbotEnhancedSchema>,
-    BaseKeys | SharedKeys | 'maxHeight' | 'processVisibility' | 'enableMarkdown' | 'enableFileUpload' | 'surface' | 'onClear'
+    | BaseKeys | SharedKeys | RetiredOnEveryFace
+    | 'maxHeight' | 'processVisibility' | 'enableMarkdown' | 'enableFileUpload' | 'surface' | 'onClear'
   >
 >;
 
 /**
- * `chatbot-floating`, NAMED reads only: the shared twenty + its three own keys +
+ * `chatbot-floating`, NAMED reads only: the shared nineteen + the tombstone + its three own keys +
  * the two keys it declares alongside `ChatbotSchema`. NO `maxHeight`,
  * `processVisibility` or `surface` — no named read; the raw-spread channel is NOT
  * what this pin measures (see the header).
@@ -146,7 +155,8 @@ export type assertionEnhancedDeclaresWhatItReads = Expect<
 export type assertionFloatingDeclaresWhatItReads = Expect<
   Equal<
     DeclaredKeys<ChatbotFloatingSchema>,
-    BaseKeys | SharedKeys | 'enableMarkdown' | 'enableFileUpload' | 'onClear' | 'displayMode' | 'floatingConfig'
+    | BaseKeys | SharedKeys | RetiredOnEveryFace
+    | 'enableMarkdown' | 'enableFileUpload' | 'onClear' | 'displayMode' | 'floatingConfig'
   >
 >;
 
@@ -160,7 +170,8 @@ export type assertionFloatingDeclaresWhatItReads = Expect<
 export type assertionChatbotKeepsItsWholeFace = Expect<
   Equal<
     DeclaredKeys<ChatbotSchema>,
-    | BaseKeys | SharedKeys | 'loading' | 'onSendMessage' | 'showAvatars' | 'userAvatar' | 'assistantAvatar'
+    | BaseKeys | SharedKeys | RetiredOnEveryFace
+    | 'loading' | 'onSendMessage' | 'showAvatars' | 'userAvatar' | 'assistantAvatar'
     | 'markdown' | 'processVisibility' | 'height' | 'maxHeight' | 'displayMode' | 'floatingConfig'
   >
 >;
@@ -188,8 +199,21 @@ export type assertionSharedKeysAreOneDeclaration = [
   Expect<Equal<ChatbotFloatingSchema['onSend'], ChatbotSchema['onSend']>>,
   Expect<Equal<ChatbotEnhancedSchema['messages'], ChatMessage[]>>,
   Expect<Equal<ChatbotFloatingSchema['requestBody'], ChatbotSchema['requestBody']>>,
-  Expect<Equal<ChatbotEnhancedSchema['maxToolRoundtrips'], ChatbotSchema['maxToolRoundtrips']>>,
   Expect<Equal<ChatbotEnhancedSchema['processVisibility'], ChatbotSchema['processVisibility']>>,
+];
+
+/*
+ * ── `maxToolRoundtrips`: retired on all three faces (objectui#5605) ──────────
+ *
+ * `?: never` reads `undefined` (without `exactOptionalPropertyTypes`), which
+ * `Equal` tells apart from the `any` a DELETION would leave through
+ * `BaseSchema`'s index signature — the reading that says the tombstone is
+ * there, and one declaration, on every face.
+ */
+export type assertionMaxToolRoundtripsIsATombstoneOnEveryFace = [
+  Expect<Equal<ChatbotSchema['maxToolRoundtrips'], undefined>>,
+  Expect<Equal<ChatbotEnhancedSchema['maxToolRoundtrips'], undefined>>,
+  Expect<Equal<ChatbotFloatingSchema['maxToolRoundtrips'], undefined>>,
 ];
 
 /* ── `displayMode` / `floatingConfig`: one type, both faces ─────────────── */
@@ -441,7 +465,7 @@ describe('`ChatbotFloatingSchema` (zod) validates what the face declares, and le
 describe('the census is structural: picked off `ChatbotSchema`, never copied', () => {
   const shared: readonly ChatbotSharedKey[] = [
     'messages', 'placeholder', 'api', 'conversationId', 'systemPrompt', 'model', 'streamingEnabled',
-    'headers', 'maxToolRoundtrips', 'onError', 'showTimestamp', 'userAvatarUrl', 'userAvatarFallback',
+    'headers', 'onError', 'showTimestamp', 'userAvatarUrl', 'userAvatarFallback',
     'assistantAvatarUrl', 'assistantAvatarFallback', 'autoResponse', 'autoResponseText',
     'autoResponseDelay', 'onSend',
   ];

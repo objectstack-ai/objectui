@@ -8,7 +8,7 @@
 
 import React from 'react';
 import type { DateFieldMetadata, DateTimeFieldMetadata, FieldMetadata, SelectOptionMetadata } from '@object-ui/types';
-import { ComponentRegistry, percentDisplayValue, getRecordDisplayName, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, toDisplayDate, extractRecords, type ComponentMeta, type DateDisplayOptions } from '@object-ui/core';
+import { ComponentRegistry, percentDisplayValue, getRecordDisplayName, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, toDisplayDate, extractRecords, withoutDeniedFields, type ComponentMeta, type DateDisplayOptions } from '@object-ui/core';
 // The platform's own value-shape contract, asked rather than restated
 // (objectui#6744). See `locationStoredValueSchemaFor` below for why this is a
 // runtime import in the barrel and not a hand-written coordinate range.
@@ -205,33 +205,6 @@ function resolveLookupRecordName(
 
 /** The two members of the permission context the lookup cell's read gate asks. */
 type FieldReadPolicy = Pick<ReturnType<typeof usePermissions>, 'isLoaded' | 'checkField'>;
-
-/**
- * `record` as the viewer may READ it on `objectName`, for naming a referenced
- * record in the lookup cell (objectui#10501) and for drawing a person's name and
- * avatar in the user cell (objectui#10535). Every field the loaded `policy`
- * denies is removed, which leaves the row ObjectStack's `FieldMasker` already
- * serves. `id` and `_id` are never judged: the id addresses the record and is
- * not a field value the policy withholds. Before a policy loads (also the
- * answer with no provider mounted), with no object to judge against, or with
- * nothing withheld, the SAME object comes back.
- *
- * The lookup editor's option label and the record picker (objectui#10411) and
- * the record title (objectui#10434) apply the same rule, and no copy of it is
- * a package export. This one is module-private too: `LookupField`'s copy is
- * not in reach without widening that module's exports, and the package entry
- * re-exports that module whole.
- */
-function withoutDeniedFields<T>(record: T, policy: FieldReadPolicy, objectName: string | undefined): T {
-  if (!policy.isLoaded || !objectName || !record || typeof record !== 'object') return record;
-  const shown: Record<string, unknown> = {};
-  let withheld = false;
-  for (const [key, value] of Object.entries(record)) {
-    if (key === 'id' || key === '_id' || policy.checkField(objectName, key, 'read')) shown[key] = value;
-    else withheld = true;
-  }
-  return withheld ? (shown as T) : record;
-}
 
 /**
  * Heuristic: detect strings that look like opaque foreign-key IDs (e.g. nanoid

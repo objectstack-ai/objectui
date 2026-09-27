@@ -349,7 +349,7 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
   const { t, language } = useObjectTranslation();
   const [values, setValues] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, boolean>>({});
-  // Params whose upload widget (file/image) is mid-upload. Confirm stays
+  // Params whose upload widget (file/image/avatar) is mid-upload. Confirm stays
   // disabled while any is in flight so a param can't be submitted before its
   // fileId resolves (the value is only the fileId once the upload settles).
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
@@ -541,7 +541,9 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
             const Widget = getLazyFieldWidget(field.type);
             // Only upload widgets emit upload-in-progress; wiring the callback
             // to non-upload widgets would spread an unknown prop toward the DOM.
-            const isUploadWidget = field.type === 'file' || field.type === 'image';
+            // `avatar` joined when its pick started waiting on a network
+            // upload (objectui#10785).
+            const isUploadWidget = field.type === 'file' || field.type === 'image' || field.type === 'avatar';
             const uploadProps = isUploadWidget
               ? { onUploadingChange: (u: boolean) => setUploading((prev) => ({ ...prev, [param.name]: u })) }
               : {};

@@ -25,14 +25,17 @@
  *     it was armed. A filter, object or data-source change inside the debounce
  *     window re-ran the query through the fetch effect (with the typed term),
  *     and the timer then ran the OLDER closure — the previous filter — as a
- *     call numbered latest, so its answer won.
+ *     call numbered latest, so its answer won. A sort or page change inside
+ *     the window did the same without moving `runQuery`: `setSearch` arms the
+ *     timer with page 1 and the sort in scope, so it ran the older sort or
+ *     page.
  *
  * Now the reset is keyed on the hook's ability to query (`enabled`, the data
  * source and the object together): it bumps the run number, ends `loading`,
  * clears a pending debounced search and clears the query state; `reset()`
- * does the same. And a pending debounced search is dropped whenever `runQuery`
- * changes, since the fetch effect issues the current query with the typed term
- * then.
+ * does the same. And a pending debounced search is dropped whenever the fetch
+ * effect is about to run a query (`runQuery`, `page` or `sort` moves), since
+ * that query carries the typed term.
  *
  * Every `find` returns a promise the test settles by hand, so each ordering
  * below is the ordering the answers really land in. The one timer here is the

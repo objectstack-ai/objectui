@@ -49,7 +49,7 @@ change; the objectui#9164 entry states what that input now answers.
 Later in this same release an empty operator map beside a key that lowers
 (`{ status: 'a', created: {} }`) is refused with a `FilterOperatorError` naming the field
 instead of constraining nothing, because `@objectstack/spec` records `{ field: {} }` as
-REJECTED (objectstack#5240). So "still the TRUE identity, still constraining nothing" above,
-and "Beside a key that lowers it still constrains nothing" in the objectui#9164 note, are
-this change's reading, not the release's. The rest of this entry is kept as the reading of
-this change; the objectui#10788 entry states what that input now answers.
+REJECTED (objectstack#5240). So "still the TRUE identity, still constraining nothing" above
+is this change's reading, and "Beside a key that lowers it still constrains nothing" is the
+objectui#9164 note's reading; neither is the release's. The rest of this entry is kept as
+the reading of this change; the objectui#10788 entry states what that input now answers.

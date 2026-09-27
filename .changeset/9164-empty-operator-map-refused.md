@@ -50,6 +50,6 @@ Later in this same release an empty operator map BESIDE a key that lowers
 (`{ status: 'a', created: {} }`) is refused as well, with the same `FilterOperatorError`
 naming the field, instead of being dropped. The refusal moved from the general tail into
 the operator-map arm, so one throw site answers both cases. The "Unchanged" paragraph's
-sentence about that boundary is this change's reading, not the release's. The rest of this
+sentences about that boundary is this change's reading, not the release's. The rest of this
 entry is kept as the reading of this change; the objectui#10788 entry states what that input
 now answers.

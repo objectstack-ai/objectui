@@ -226,8 +226,8 @@ membership test as `{ name: { $in: [...] } }`, and a date bound as
 `{ created: { $gte: someDate } }`. A `Date` comparand is **not** exotic: the spec
 accepts it and it lowers as an equality node (objectui#8555). An **empty
 operator object** — `{ created: {} }`, a field with no operator — is refused too,
-wherever it appears, with a `FilterOperatorError` naming the field (objectui#9164
-alone, objectui#10788 beside other keys). `@objectstack/spec` records
+alone or beside other keys, with a `FilterOperatorError` naming the field
+(objectui#9164 alone, objectui#10788 beside other keys). `@objectstack/spec` records
 `{ field: {} }` as REJECTED (objectstack#5240), and beside a key that lowers it
 used to be dropped the same silent way: `{ status: 'a', created: {} }` sent
 exactly what `{ status: 'a' }` sends. Give the field an operator (`$eq`, `$in`,

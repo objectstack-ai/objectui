@@ -69,6 +69,10 @@
  * tell `{}` from `/x/`, and the two need opposite answers. Section 5 is the
  * control, and it must stay green in every ablation leg.
  *
+ * ⚠️ UPDATED by objectui#10788: an empty operator map is now refused alone or
+ * beside a key that lowers; the bare `{}` filter above is the only shape still
+ * read as the TRUE identity.
+ *
  * ## What carries the weight — two legs, RUN against the committed tree
  *
  * Each was applied to the COMMITTED implementation, proved on disk before it was

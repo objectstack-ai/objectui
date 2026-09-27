@@ -496,7 +496,9 @@ function refuseTextComparand(field: string, operator: string, target: unknown): 
  * which is exactly the case objectui#10788 closes. One throw site serves both,
  * so the alone case is not refused twice over and cannot drift from the
  * beside case. A `$and` / `$or` member is converted by this same function, so
- * a member that is or carries an empty operator map is refused too.
+ * a member that is or carries an empty operator map is refused too, once
+ * `lowerLogicalGroup` converts it (a TRUE disjunct earlier in an `$or` still
+ * returns first; objectui#10789).
  *
  * `field` is the only handle, so it travels as the refusal's subject and no
  * `operator` is set: the author wrote none, and naming one would send them
@@ -565,7 +567,7 @@ function refuseEmptyOperatorMap(field: string): never {
  * — two shapes `@objectstack/spec`'s `FILTER_TEXT_CASES` declares REFUSED and
  * `ValueDataSource` has refused since objectui#8748; see
  * {@link refuseTextComparand} (objectui#9001), or if a field is an EMPTY
- * operator map (`{ a: {} }`) anywhere in the filter — alone (objectui#9164) or
+ * operator map (`{ a: {} }`) — alone (objectui#9164) or
  * beside a key that lowers (objectui#10788): see {@link refuseEmptyOperatorMap}.
  *
  * @example

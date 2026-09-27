@@ -54,6 +54,11 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// @ts-expect-error -- plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { stripComments as strip } from '../../../../scripts/js-comment-mask.mjs';
+
+/** Local annotation, since the import above is untyped -- the call site stays checked. */
+const stripComments: (source: string) => string = strip;
 
 /* ── Compile time: the eight are gone from the barrel and from the module ── */
 
@@ -121,15 +126,19 @@ const declares = (source: string, name: string): boolean =>
 
 /**
  * Every name `source` publishes through an `export { … }` / `export type { … }`
- * list, whether the list spans many lines or one. Comments are stripped FIRST:
- * the barrel annotates its lists with `//` lines that carry commas and braces,
- * and splitting before stripping would fuse a real name into comment text and
- * hide it. Specifiers are then split rather than matched inside the braces, so
- * `ObjectValidationRule` cannot match `ValidationRule…`, and `X as Y` counts as
- * publishing `Y`.
+ * list, whether the list spans many lines or one. Comments go FIRST, through
+ * `scripts/js-comment-mask.mjs`: the barrel annotates its lists with `//` lines
+ * that carry commas and braces, and splitting before stripping would fuse a real
+ * name into comment text and hide it. The shared reader rather than a private
+ * regex pair, because a regex cannot see a string literal and would open a
+ * phantom comment at a glob or URL inside one, reading clean over the names
+ * after it. `stripComments`, not `maskComments`: this reports a set of names,
+ * never a line or an offset. Specifiers are then split rather than matched
+ * inside the braces, so `ObjectValidationRule` cannot match `ValidationRule…`,
+ * and `X as Y` counts as publishing `Y`.
  */
 const reexported = (source: string): Set<string> => {
-  const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+  const code = stripComments(source);
   const names = new Set<string>();
   for (const m of code.matchAll(/\bexport\s+(?:type\s+)?\{([^}]*)\}/g)) {
     for (const specifier of m[1].split(',')) {

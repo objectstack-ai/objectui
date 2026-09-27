@@ -14,5 +14,5 @@ stop doing that (objectui#10519).
 
 Inline rows (a `data` array, the `value` provider) name no object and do not
 subscribe. A tree whose host hands down rows (the `list-view` tree) subscribes
-too: it runs its own full query ahead of those rows, and a host re-read that
-comes back equal does not move them.
+too: it runs its own full query ahead of those rows, so its freshness does not
+rest on the host's rows moving.

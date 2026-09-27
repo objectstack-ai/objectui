@@ -712,11 +712,13 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
   //
   // ⚠️ Rows a HOST hands down as the `data` prop (ListView's tree) do NOT
   // exempt the tree: the `object` arm runs its own full query ahead of them,
-  // and the host's re-read cannot stand in for it. The host fetches only its
-  // display columns (usually not the parent pointer), and a re-read that comes
-  // back equal is handed down as the SAME array (AGENTS.md #10), so a write the
-  // host's projection does not show — a re-parented record — would never move
-  // the `data` dependency below.
+  // so its freshness must not rest on the host's rows moving. The host fetches
+  // only its display columns (usually not the parent pointer), and a host that
+  // hands an equal re-read down as the SAME array — what AGENTS.md #10 asks of
+  // a provider — would never move the `data` dependency below for a write its
+  // projection does not show, such as a re-parented record. Today's ListView
+  // hands down a fresh array on every re-read, so a list-view tree runs its
+  // query twice after such an event: once on this nonce, once on those rows.
   const invalidationNonce = useDataInvalidation(dataSource ? dataObjectName : undefined);
 
   // Fetch records.

@@ -53,6 +53,7 @@ import {
 } from '@object-ui/react';
 import {
   NavigationOverlay,
+  RefreshIndicator,
   cn,
   legacyRecordDrawerWidthKey,
   recordOverlayWidthStorageKey,
@@ -96,6 +97,12 @@ import { ChevronRight, ChevronDown } from 'lucide-react';
  */
 const TREE_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'detail.recordDetail': 'Record Detail',
+  // The refresh bar's accessible name (objectui#10816). Borrowed on the same
+  // reasoning as the heading above: no pack carries a `tree.*` namespace, and
+  // minting one for a single label would be a new i18n surface across every
+  // pack. This control is a tree-GRID — a table of rows re-read in place — so
+  // it takes the name `ObjectGrid` gives the very same bar.
+  'grid.refreshing': 'Refreshing…',
 };
 
 const useTreeTranslation = createSafeTranslation(
@@ -180,6 +187,31 @@ interface TreeNode {
   depth: number;
   children: TreeNode[];
 }
+
+/**
+ * The rows this tree last read, held TOGETHER with the source they were read
+ * for (objectui#10816).
+ *
+ * One value, not rows plus a second "whose rows are these" state, for the
+ * reason `useSettledSchema` gives below: two independent values can disagree,
+ * and "rows, but for a DIFFERENT object" is exactly the disagreement that
+ * would draw one object's records under another's header. With the source
+ * stored beside the rows, the render derives whether they answer the source it
+ * is bound to NOW, and a mismatch is simply "no rows yet".
+ *
+ * The source is the pair the record effect's arms are chosen by: the data
+ * provider (`dataConfig.provider`) and, for the `object` provider only, its
+ * object. A new filter, a permissions answer, a settled schema, rows a host
+ * hands down or a data-invalidation event re-read the SAME source.
+ */
+interface HeldRows {
+  provider: string | undefined;
+  object: string | undefined;
+  rows: any[];
+}
+
+/** What the forest is built from while no rows answer the current source. */
+const NO_ROWS: any[] = [];
 
 /**
  * Normalize a field entry to its string key. Hosts like ListView pass columns
@@ -570,7 +602,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
   onRowClick,
   ...rest
 }) => {
-  const [records, setRecords] = useState<any[]>([]);
+  const [held, setHeld] = useState<HeldRows | null>(null);
   /**
    * Did the platform row ceiling bite, and how large was the whole filtered
    * result set (objectui#7210)? Carried from the response that knew it —
@@ -578,6 +610,12 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
    * apart from one that is exactly that size.
    */
   const [rowCeiling, setRowCeiling] = useState<NonGridCeilingResult | null>(null);
+  /**
+   * A read is in flight — and ONLY that (objectui#10816). It no longer decides
+   * the placeholder on its own: the render draws "Loading…" only while there
+   * are no rows for the current source, and a re-read of that source keeps its
+   * rows on screen with `RefreshIndicator` over them.
+   */
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   // `'undeclared'` — and that is a finding, not a shrug (objectui#8348).
@@ -740,8 +778,10 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
           // so firing early guaranteed one query whose lookup columns came back
           // as bare ids — the user saw those raw ids painted, then replaced a
           // moment later once the real query landed. `loading` stays true here
-          // so the tree shows its spinner instead of a wrong first answer, and
-          // this effect re-runs the moment the latch flips.
+          // so a tree with no rows for this object shows its placeholder
+          // instead of a wrong first answer (one re-reading the same object
+          // keeps its rows under the refresh bar, objectui#10816), and this
+          // effect re-runs the moment the latch flips.
           if (!schemaSettled) return;
           // [objectui#7429] FIELD-LEVEL SECURITY ON `$expand` — the same gate
           // objectui#7215 / PR #7229 put on the two projection sites in its
@@ -800,7 +840,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
           });
           const capped = applyNonGridRowCeiling(result);
           if (!cancelled) {
-            setRecords(capped.rows);
+            setHeld({ provider: dataProvider, object: dataObjectName, rows: capped.rows });
             setRowCeiling(capped);
             setLoading(false);
           }
@@ -822,7 +862,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
         const passed = (rest as any).data ?? schema.data;
         if (Array.isArray(passed)) {
           if (!cancelled) {
-            setRecords(passed);
+            setHeld({ provider: dataProvider, object: dataObjectName, rows: passed });
             setRowCeiling(null);
             setLoading(false);
           }
@@ -886,7 +926,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
           // quiet.
           const capped = applyNonGridRowCeiling(result);
           if (!cancelled) {
-            setRecords(capped.rows);
+            setHeld({ provider: dataProvider, object: dataObjectName, rows: capped.rows });
             setRowCeiling(capped);
             setLoading(false);
           }
@@ -894,7 +934,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
         }
 
         if (!cancelled) {
-          setRecords([]);
+          setHeld({ provider: dataProvider, object: dataObjectName, rows: [] });
           setLoading(false);
         }
       } catch (err) {
@@ -916,8 +956,18 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
     [config.parentField, objectSchema, schema.objectName],
   );
 
+  /**
+   * The rows this render may draw: the held rows when they were read for the
+   * source this render is bound to, else `null` — "nothing to show yet"
+   * (objectui#10816, see {@link HeldRows}). Derived during render, so the
+   * commit that switches the object or the provider already refuses the old
+   * rows, rather than painting them once before the effect runs.
+   */
+  const records: any[] | null =
+    held && held.provider === dataProvider && held.object === dataObjectName ? held.rows : null;
+
   const roots = useMemo(
-    () => buildForest(records, parentField),
+    () => buildForest(records ?? NO_ROWS, parentField),
     [records, parentField],
   );
 
@@ -1042,7 +1092,16 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
     );
   }
 
-  if (loading) {
+  // objectui#10816 — the placeholder is for a tree with NOTHING to show for the
+  // source it is bound to: the first load, a switch to another object or
+  // provider (whose old rows are not the answer and are never drawn under the
+  // new one), and an empty result being re-read. A re-read of the same source
+  // keeps its rows, its scroll container and the user's expansion on screen,
+  // with the refresh bar over them — `ObjectDataTable`'s rule, keyed to the
+  // source. Before this every read took the table off the screen: each
+  // data-invalidation event (objectui#10809) flashed "Loading…" and reset the
+  // scroll.
+  if (records === null || (loading && records.length === 0)) {
     return (
       <div className={cn('flex items-center justify-center h-40 text-muted-foreground', className)}>
         <p>Loading…</p>
@@ -1149,6 +1208,21 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
 
   const treeView = (
     <div className={cn('w-full overflow-auto', className)} data-testid="object-tree">
+      {/* objectui#10816 — the re-read bar, over the rows it is re-reading.
+          `sticky`, not the component's default `absolute`, because this div
+          is itself the scroll container (`ListView` hands it `h-full`): an
+          absolute bar inside it scrolls away with the rows, and a positioned
+          wrapper around it would take the host's `className` off the element
+          that scrolls. `-mb-0.5` hands back the bar's 2px of flow, so the table
+          does not move when it appears. Measured once in Chromium, not
+          re-derived by any test: the sticky bar stayed at the scrollport's top
+          after a 300px scroll, the absolute one moved with it, and the table's
+          offset was the same with and without the bar. */}
+      <RefreshIndicator
+        active={loading && records.length > 0}
+        ariaLabel={t('grid.refreshing')}
+        className="sticky -mb-0.5"
+      />
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b text-left text-muted-foreground">

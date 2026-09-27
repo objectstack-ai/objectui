@@ -240,9 +240,11 @@ export interface UnevaluableVisibleWhen {
  * The authored field rows of a screen whose `visibleWhen` the screen renderer
  * cannot evaluate, with the reason — {@link screenVisibleWhenScopeError} per
  * row, by field name, so the Debug run's screen step can name them
- * (objectui#10743).
+ * (objectui#10743). `locale` is passed through to it, so the reason reads the
+ * designer locale the Debug run writes its step in (objectui#10835); absent,
+ * it reads the en rows.
  */
-export function unevaluableVisibleWhen(node: ScreenPreviewNode): UnevaluableVisibleWhen[] {
+export function unevaluableVisibleWhen(node: ScreenPreviewNode, locale?: string): UnevaluableVisibleWhen[] {
   const raw = (node.config as Record<string, unknown> | undefined)?.fields;
   if (!Array.isArray(raw)) return [];
   const out: UnevaluableVisibleWhen[] = [];
@@ -250,7 +252,7 @@ export function unevaluableVisibleWhen(node: ScreenPreviewNode): UnevaluableVisi
     if (!f || typeof f !== 'object') continue;
     const row = f as Record<string, unknown>;
     if (typeof row.name !== 'string' || !row.name) continue;
-    const error = screenVisibleWhenScopeError(row.visibleWhen, node);
+    const error = screenVisibleWhenScopeError(row.visibleWhen, node, locale);
     if (error) out.push({ name: row.name, error });
   }
   return out;

@@ -408,7 +408,7 @@ export function FlowSimulatorPanel({ nodes, edges, variables, locale, onRunState
                     <span className="truncate font-medium">{s.label}</span>
                     <span className="text-[10px] uppercase text-muted-foreground">{s.type}</span>
                     <span className={cn('ml-auto rounded px-1 py-0.5 text-[9px] font-semibold uppercase', STATUS_TONE[s.status])}>
-                      {s.status}
+                      {tr(`engine.flowSim.stepStatus.${s.status}`, locale)}
                     </span>
                   </div>
                   {s.note && <div className="mt-0.5 text-[10px] text-muted-foreground">{s.note}</div>}
@@ -426,7 +426,10 @@ export function FlowSimulatorPanel({ nodes, edges, variables, locale, onRunState
                             <span>{ed.selected ? '▶' : '·'}</span>
                             {/* An unguarded out-edge has no condition text: name it by its target (objectui#10692). */}
                             <span className="truncate">{ed.isDefault ? 'else' : (ed.condition ?? `→ ${ed.target}`)}</span>
-                            <span className={cn('ml-auto', ed.error && 'text-rose-600')}>{ed.error ? 'error' : ed.result ? 'true' : 'false'}</span>
+                            {/* `true` / `false` are the guard's CEL value, printed on the row's code line like the condition beside it. */}
+                            <span className={cn('ml-auto', ed.error && 'text-rose-600')}>
+                              {ed.error ? tr('engine.flowSim.edge.error', locale) : ed.result ? 'true' : 'false'}
+                            </span>
                           </div>
                           {ed.error && <div className="pl-3 text-[10px] text-rose-600">{ed.error}</div>}
                         </li>

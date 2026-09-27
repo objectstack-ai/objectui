@@ -55,18 +55,22 @@ import type { ObjectFieldInfo } from '../previews/useObjectFields.js';
  * cannot offer a type validation refuses — every entry here is a spec
  * visualization family. A hand-written SUBSET is fine; offering something
  * outside the vocabulary is not.
+ *
+ * Each label is a catalogue key, resolved in the designer locale at render
+ * (objectui#10748, the objectui#10586 `KeyedOption` shape); the stored `value`
+ * never moves.
  */
-const WIDGET_TYPES: ReadonlyArray<{ value: DashboardWidgetTypeName; label: string }> = [
-  { value: 'metric', label: 'KPI Metric' },
-  { value: 'bar', label: 'Bar Chart' },
-  { value: 'horizontal-bar', label: 'Horizontal Bar' },
-  { value: 'line', label: 'Line Chart' },
-  { value: 'area', label: 'Area Chart' },
-  { value: 'pie', label: 'Pie Chart' },
-  { value: 'donut', label: 'Donut Chart' },
-  { value: 'funnel', label: 'Funnel' },
-  { value: 'table', label: 'Table' },
-  { value: 'pivot', label: 'Pivot Table' },
+const WIDGET_TYPES: ReadonlyArray<{ value: DashboardWidgetTypeName; labelKey: string }> = [
+  { value: 'metric', labelKey: 'engine.inspector.widget.type.metric' },
+  { value: 'bar', labelKey: 'engine.inspector.widget.type.bar' },
+  { value: 'horizontal-bar', labelKey: 'engine.inspector.widget.type.horizontalBar' },
+  { value: 'line', labelKey: 'engine.inspector.widget.type.line' },
+  { value: 'area', labelKey: 'engine.inspector.widget.type.area' },
+  { value: 'pie', labelKey: 'engine.inspector.widget.type.pie' },
+  { value: 'donut', labelKey: 'engine.inspector.widget.type.donut' },
+  { value: 'funnel', labelKey: 'engine.inspector.widget.type.funnel' },
+  { value: 'table', labelKey: 'engine.inspector.widget.type.table' },
+  { value: 'pivot', labelKey: 'engine.inspector.widget.type.pivot' },
 ];
 
 const COLORS = [
@@ -168,7 +172,7 @@ export function DashboardWidgetInspector({
   if (selection.kind !== 'widget') {
     return (
       <InspectorEmpty
-        message={`Unsupported selection kind: ${selection.kind}`}
+        message={tFormat('engine.inspector.widget.unsupportedSelection', locale, { kind: selection.kind })}
         onClose={onClearSelection}
         locale={locale}
       />
@@ -177,7 +181,7 @@ export function DashboardWidgetInspector({
   if (!hit) {
     return (
       <InspectorEmpty
-        message="The selected widget was removed from the draft."
+        message={t('engine.inspector.widget.removed', locale)}
         onClose={onClearSelection}
         locale={locale}
       />
@@ -213,7 +217,7 @@ export function DashboardWidgetInspector({
           <div className="truncate text-sm font-semibold">
             {resolveInlineI18nLabel(widget.title, locale) ||
               selection.label ||
-              `Widget ${index + 1}`}
+              tFormat('engine.inspector.widget.untitledN', locale, { n: index + 1 })}
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -309,7 +313,7 @@ export function DashboardWidgetInspector({
           <SelectContent>
             {WIDGET_TYPES.map((wt) => (
               <SelectItem key={wt.value} value={wt.value}>
-                {wt.label}
+                {t(wt.labelKey, locale)}
               </SelectItem>
             ))}
           </SelectContent>

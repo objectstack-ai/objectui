@@ -609,9 +609,10 @@ be faithfully modelled is surfaced loudly instead of faked.
   evaluator, objectui#10743), and the screen step names as an error a predicate
   that references a name that is not a field on this screen or a shape
   `registerFlow` refuses — the Problems panel judges that column by the same
-  rule (a warning), while the inline inspector's `visibleWhen` cell still reads
-  the flow scope (a follow-up); the runtime's resume door still evaluates over
-  the run's variables until objectstack#20178 lands;
+  rule (a warning), and so does the inline inspector's `visibleWhen` cell, whose
+  picker offers the screen's declared fields and `record` (objectui#10772;
+  every other `expression` column keeps the flow scope); the runtime's resume door
+  still evaluates over the run's variables until objectstack#20178 lands;
   side-effect nodes write their mock to `outputVariable` (the legacy script
   `outputVariables[]` list is ignored — the engine never binds those names,
   framework#4278);

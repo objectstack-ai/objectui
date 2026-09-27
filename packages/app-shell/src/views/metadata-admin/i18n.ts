@@ -381,6 +381,22 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.widget.filterBindingDefault': 'Default ({field})',
   'engine.inspector.widget.filterBindingField': 'Bound field for {filter}',
   'engine.inspector.widget.filterBindingReset': 'Reset',
+  // objectui#10748 — the widget-type select's options (keyed by the stored
+  // `type`, which never moves), the untitled-widget fallback and the two
+  // empty-state messages.
+  'engine.inspector.widget.type.metric': 'KPI Metric',
+  'engine.inspector.widget.type.bar': 'Bar Chart',
+  'engine.inspector.widget.type.horizontalBar': 'Horizontal Bar',
+  'engine.inspector.widget.type.line': 'Line Chart',
+  'engine.inspector.widget.type.area': 'Area Chart',
+  'engine.inspector.widget.type.pie': 'Pie Chart',
+  'engine.inspector.widget.type.donut': 'Donut Chart',
+  'engine.inspector.widget.type.funnel': 'Funnel',
+  'engine.inspector.widget.type.table': 'Table',
+  'engine.inspector.widget.type.pivot': 'Pivot Table',
+  'engine.inspector.widget.untitledN': 'Widget {n}',
+  'engine.inspector.widget.unsupportedSelection': 'Unsupported selection kind: {kind}',
+  'engine.inspector.widget.removed': 'The selected widget was removed from the draft.',
   // Flow node inspector
   'engine.inspector.flowNode.kind': 'Node',
   'engine.inspector.flowNode.close': 'Close node',
@@ -399,6 +415,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.flowNode.inactiveRetainedClear': 'Clear value',
   'engine.inspector.flowNode.noConfig': 'No configuration needed for this node type.',
   'engine.inspector.flowNode.nestedIdHint': 'A node inside a container region keeps its id here — rename it in the container’s Advanced JSON.',
+  // objectui#10748 — the nested-node breadcrumb's accessible name, and the
+  // Advanced (JSON) box's refusal of a value that parses but is not an object.
+  'engine.inspector.flowNode.nestedLocation': 'nested node location',
+  'engine.inspector.flowNode.advancedNotObject': 'Must be a JSON object',
   'engine.inspector.flowNode.kv.add': 'Add entry',
   'engine.inspector.flowNode.kv.key': 'Key',
   'engine.inspector.flowNode.kv.value': 'Value',
@@ -433,6 +453,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.flowEdge.branchReject': 'Reject',
   'engine.inspector.flowEdge.branchRevise': 'Revise — send back',
   'engine.inspector.flowEdge.branchCustom': '— Custom —',
+  // objectui#10748 — the word after ` · ` on a decision branch whose condition
+  // is empty or `true` (the default branch), in the branch picker.
+  'engine.inspector.flowEdge.branchDefault': 'default',
   'engine.inspector.flowEdge.connection': 'Connection',
   'engine.inspector.flowEdge.type': 'Type',
   'engine.inspector.flowEdge.typeDefault': 'Normal',
@@ -544,6 +567,14 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.condition.op.lessThan': 'less than',
   'engine.inspector.condition.op.truthy': 'is set / true',
   'engine.inspector.condition.op.falsy': 'is empty / false',
+  // objectui#10748 — the lookup filter's operator words the four above do not
+  // cover (`ObjectFieldInspector` `LOOKUP_OPERATORS`, which reads the four as
+  // well; the symbol a label leads with stays outside the word).
+  'engine.inspector.condition.op.atLeast': 'at least',
+  'engine.inspector.condition.op.atMost': 'at most',
+  'engine.inspector.condition.op.contains': 'contains',
+  'engine.inspector.condition.op.inAnyOf': 'in (any of)',
+  'engine.inspector.condition.op.notIn': 'not in',
   'engine.inspector.view.type.grid': 'Table / List',
   'engine.inspector.view.type.kanban': 'Kanban',
   'engine.inspector.view.type.calendar': 'Calendar',
@@ -1102,6 +1133,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowRegion.branchN': 'Branch {n}',
   'engine.flowRegion.try': 'Try',
   'engine.flowRegion.catch': 'Catch',
+  // objectui#10748 — a loop / map body region; the canvas draws no header for
+  // it, so today only the inspector's nested-node breadcrumb reads it.
+  'engine.flowRegion.body': 'Body',
   // Flow preview header — pills, panel toggles, empty states (FlowPreview).
   'engine.flowPreview.emptyHint': 'Add nodes in the Form tab to see the flow preview.',
   'engine.flowPreview.malformed': 'One of the flow nodes or edges is malformed.',
@@ -1184,6 +1218,37 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowRef.unknownWithSuggestion': 'Unknown reference `{token}` — did you mean `{suggestion}`?',
   'engine.flowRef.notInScope': '`{token}` is not a reference in scope at this step.',
   'engine.flowRef.notInScopeMulti': 'Not in scope: {tokens}.',
+  // objectui#10748 — the author-time expression shape errors
+  // (`validateExpressionClient`, expression-validate), rendered inline under an
+  // expression field, a repeater cell and the edge condition. The code spans
+  // are code and stay as they are in every locale.
+  'engine.flowExpr.templateDialect': 'Expected a text template but got a `{dialect}` expression.',
+  'engine.flowExpr.singleBraceTemplate': 'Single-brace `{{ref}}` is not a valid template hole — use double braces: `{{ {ref} }}`.',
+  'engine.flowExpr.celDialect': 'Expected a CEL expression but got a `{dialect}` dialect.',
+  'engine.flowExpr.braceInCondition':
+    'It looks like a `{{ref}}` template brace was used inside a condition — `{…}` parses as a CEL map literal and fails. Write the bare reference instead, e.g. `{ref}`. Conditions are bare CEL (e.g. `record.rating >= 4`).',
+  'engine.flowExpr.unbalancedParens': 'Unbalanced parentheses in `{source}`.',
+  'engine.flowExpr.unbalancedBrackets': 'Unbalanced brackets in `{source}`.',
+  // objectui#10748 — the variable data-picker (`VariableTextInput`): its button
+  // and search box, its section headings (`useFlowScope`) and the muted detail
+  // beside a reference (`flow-scope`, `useFlowScope`). Tokens, type names and
+  // object names inside a detail are code or author data and stay as they are.
+  'engine.flowScope.picker.insert': 'Insert a reference',
+  'engine.flowScope.picker.search': 'Search references…',
+  'engine.flowScope.picker.empty': 'No matching references.',
+  'engine.flowScope.group.variables': 'Flow variables',
+  'engine.flowScope.group.outputs': 'Upstream outputs',
+  'engine.flowScope.group.loop': 'Loop item',
+  'engine.flowScope.group.trigger': 'Trigger record',
+  'engine.flowScope.group.approvalCurrent': 'Current record (live at node entry)',
+  'engine.flowScope.group.approvalTrigger': 'Trigger snapshot (at submit)',
+  'engine.flowScope.detail.variable': 'variable',
+  'engine.flowScope.detail.variableTyped': 'variable · {type}',
+  'engine.flowScope.detail.triggerRecord': 'trigger record · {object}',
+  'engine.flowScope.detail.previousRecord': 'record values before the change',
+  'engine.flowScope.detail.priorOf': 'prior {detail}',
+  'engine.flowScope.detail.priorValue': 'prior value',
+  'engine.flowScope.detail.preUpdateRow': 'pre-update row',
   // Problems panel (ProblemsPanel).
   'engine.flowProblems.title': 'Problems',
   'engine.flowProblems.empty': 'No problems — this flow is structurally valid.',
@@ -2683,6 +2748,19 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.widget.filterBindingDefault': '默认（{field}）',
   'engine.inspector.widget.filterBindingField': '{filter} 绑定的字段',
   'engine.inspector.widget.filterBindingReset': '恢复默认',
+  'engine.inspector.widget.type.metric': 'KPI 指标',
+  'engine.inspector.widget.type.bar': '柱状图',
+  'engine.inspector.widget.type.horizontalBar': '条形图',
+  'engine.inspector.widget.type.line': '折线图',
+  'engine.inspector.widget.type.area': '面积图',
+  'engine.inspector.widget.type.pie': '饼图',
+  'engine.inspector.widget.type.donut': '环形图',
+  'engine.inspector.widget.type.funnel': '漏斗图',
+  'engine.inspector.widget.type.table': '表格',
+  'engine.inspector.widget.type.pivot': '透视表',
+  'engine.inspector.widget.untitledN': '组件 {n}',
+  'engine.inspector.widget.unsupportedSelection': '不支持的选择类型：{kind}',
+  'engine.inspector.widget.removed': '所选组件已从草稿中移除。',
   // Flow node inspector
   'engine.inspector.flowNode.kind': '节点',
   'engine.inspector.flowNode.close': '关闭节点',
@@ -2698,6 +2776,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.flowNode.inactiveRetainedClear': '清除值',
   'engine.inspector.flowNode.noConfig': '此节点类型无需配置。',
   'engine.inspector.flowNode.nestedIdHint': '容器区域内的节点 ID 在此只读 —— 请在容器的高级 JSON 中重命名。',
+  'engine.inspector.flowNode.nestedLocation': '嵌套节点位置',
+  'engine.inspector.flowNode.advancedNotObject': '必须是 JSON 对象',
   'engine.inspector.flowNode.kv.add': '添加条目',
   'engine.inspector.flowNode.kv.key': '键',
   'engine.inspector.flowNode.kv.value': '值',
@@ -2730,6 +2810,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.flowEdge.branchReject': '驳回',
   'engine.inspector.flowEdge.branchRevise': '退回修改',
   'engine.inspector.flowEdge.branchCustom': '—— 自定义 ——',
+  'engine.inspector.flowEdge.branchDefault': '默认',
   'engine.inspector.flowEdge.connection': '连线',
   'engine.inspector.flowEdge.type': '类型',
   'engine.inspector.flowEdge.typeDefault': '普通',
@@ -2840,6 +2921,11 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.condition.op.lessThan': '小于',
   'engine.inspector.condition.op.truthy': '已设置 / 为真',
   'engine.inspector.condition.op.falsy': '为空 / 为假',
+  'engine.inspector.condition.op.atLeast': '至少',
+  'engine.inspector.condition.op.atMost': '至多',
+  'engine.inspector.condition.op.contains': '包含',
+  'engine.inspector.condition.op.inAnyOf': '属于（任一）',
+  'engine.inspector.condition.op.notIn': '不属于',
   'engine.inspector.view.type.grid': '表格 / 列表',
   'engine.inspector.view.type.kanban': '看板',
   'engine.inspector.view.type.calendar': '日历',
@@ -3427,6 +3513,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowRegion.branchN': '分支 {n}',
   'engine.flowRegion.try': '尝试',
   'engine.flowRegion.catch': '捕获',
+  'engine.flowRegion.body': '循环体',
   // Flow preview header — pills, panel toggles, empty states.
   'engine.flowPreview.emptyHint': '在“表单”标签页中添加节点即可查看流程预览。',
   'engine.flowPreview.malformed': '某个流程节点或连线的格式有误。',
@@ -3510,6 +3597,29 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowRef.unknownWithSuggestion': '未知引用 `{token}` —— 是否想用 `{suggestion}`?',
   'engine.flowRef.notInScope': '`{token}` 在当前步骤的作用域中不是有效引用。',
   'engine.flowRef.notInScopeMulti': '不在作用域内:{tokens}。',
+  'engine.flowExpr.templateDialect': '此处应为文本模板，但得到的是 `{dialect}` 表达式。',
+  'engine.flowExpr.singleBraceTemplate': '单花括号 `{{ref}}` 不是有效的模板占位 —— 请使用双花括号：`{{ {ref} }}`。',
+  'engine.flowExpr.celDialect': '此处应为 CEL 表达式，但得到的是 `{dialect}` 方言。',
+  'engine.flowExpr.braceInCondition':
+    '条件中似乎用了模板花括号 `{{ref}}` —— `{…}` 会被解析为 CEL 映射字面量而失败。请直接写引用本身，例如 `{ref}`。条件是裸 CEL（例如 `record.rating >= 4`）。',
+  'engine.flowExpr.unbalancedParens': '`{source}` 中的圆括号不配对。',
+  'engine.flowExpr.unbalancedBrackets': '`{source}` 中的方括号不配对。',
+  'engine.flowScope.picker.insert': '插入引用',
+  'engine.flowScope.picker.search': '搜索引用…',
+  'engine.flowScope.picker.empty': '没有匹配的引用。',
+  'engine.flowScope.group.variables': '流程变量',
+  'engine.flowScope.group.outputs': '上游输出',
+  'engine.flowScope.group.loop': '循环项',
+  'engine.flowScope.group.trigger': '触发记录',
+  'engine.flowScope.group.approvalCurrent': '当前记录（进入节点时的实时值）',
+  'engine.flowScope.group.approvalTrigger': '触发快照（提交时）',
+  'engine.flowScope.detail.variable': '变量',
+  'engine.flowScope.detail.variableTyped': '变量 · {type}',
+  'engine.flowScope.detail.triggerRecord': '触发记录 · {object}',
+  'engine.flowScope.detail.previousRecord': '变更前的记录值',
+  'engine.flowScope.detail.priorOf': '{detail}（变更前）',
+  'engine.flowScope.detail.priorValue': '变更前的值',
+  'engine.flowScope.detail.preUpdateRow': '更新前的行',
   // 问题面板(ProblemsPanel)。
   'engine.flowProblems.title': '问题',
   'engine.flowProblems.empty': '没有问题 —— 该流程结构有效。',

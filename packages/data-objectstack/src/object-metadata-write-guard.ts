@@ -10,9 +10,10 @@
  * client-side and the PUT body never carries a `lookup` without a non-empty
  * `reference`*. Its PR implemented that ruling by naming the writers it knew
  * about — two of them — and putting the assertion inside each one's array-to-map
- * conversion (`toFieldsMap`). objectui#8057 then reproduced the very failure the
- * ruling was written against, on a THIRD writer neither conversion covers, in
- * that card's own required dogfood. objectui#8676 swept and found nine more.
+ * conversion (`toFieldsMap`). The very failure the ruling was written against
+ * was then reproduced on a THIRD writer neither conversion covers, in that
+ * card's own required dogfood (fixed in `9073cf018`). objectui#8676 swept and
+ * found nine more.
  *
  * The durable half of that card is a sentence about method, not a number:
  *
@@ -54,7 +55,7 @@
  * ⛔ **NOT strip-and-report-saved.** Dropping the half-filled field and
  * reporting success would trade a visible refusal for an invisible deletion —
  * objectstack#4001's shape, ruled out for this family in objectui#7714 and again
- * in objectui#8057. It throws; the caller surfaces the message.
+ * in `9073cf018`. It throws; the caller surfaces the message.
  *
  * ## The type list is pinned to the contract, not to memory
  *
@@ -161,7 +162,7 @@ export function assertObjectMetadataWritable(type: unknown, item: unknown, write
         `\`${String(def.type)}\` and carries ${describeTarget(def.reference)}, so it names no object ` +
         'to link to. `@objectstack/spec` refuses the same document at the server with a 422 on ' +
         `\`fields.${name}.reference\`, and that refusal blocks every later save of this object for ` +
-        'as long as the half-filled field rides along in the draft (objectui#7714, objectui#8057). ' +
+        'as long as the half-filled field rides along in the draft (objectui#7714). ' +
         'Pick the target object, or change the field to a non-relationship type.',
     );
   }

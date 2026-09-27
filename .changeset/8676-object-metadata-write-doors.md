@@ -8,8 +8,8 @@ Apply the object-metadata write invariant at the write DOORS instead of at the w
 
 objectui#7714 ruled that a half-filled relationship stays client-side and the PUT body never
 carries one without a non-empty `reference`, and implemented that ruling by naming the two
-writers it knew of. objectui#8057 reproduced the identical defect on a third; a sweep found
-nine more. The doors — the three places in this repo that actually PUT `/meta/:type/:name` —
+writers it knew of. The identical defect was then reproduced on a third (fixed in `9073cf018`); a
+sweep found nine more. The doors — the three places in this repo that actually PUT `/meta/:type/:name` —
 now apply the invariant themselves, so every writer is covered without any list of writers
 existing anywhere, and a new door is caught by a gate that derives the door set from the
 tree rather than restating it.

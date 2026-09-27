@@ -41,8 +41,10 @@
  *
  * ⚠️ AND ONE PREMISE DIED ON CONTACT. The read-door gap is NOT this PR's doing
  * and is NOT specific to the calendar: measured in the same pass, a named view
- * carrying the objectui#8365 stray `kanban.groupBy` is ACCEPTED here too, while
- * the identical key on a `list-view` document is refused. `ObjectViewSchema`'s
+ * carrying the objectui#8365 stray `kanban.groupBy` was ACCEPTED here too, while
+ * the identical key on a `list-view` document was refused (objectui#10321 has
+ * since added that key to this door; the reading below is the one taken
+ * then). `ObjectViewSchema`'s
  * `listViews` is unmirrored by ruling and rides `.passthrough()`, so NOTHING
  * that lands on a view-kind block reaches a named view. ⇒ what this card
  * regressed on this route is the BEHAVIOUR (drew → mute); the silence at the
@@ -247,7 +249,7 @@ describe('objectui#8355 · second route, half 2 — the document is REFUSED at t
     expect(r.success, r.success ? '' : JSON.stringify(r.error.issues)).toBe(true);
   });
 
-  it('INVERTED SCOPE CONTROL: `listViews` IS the protocol\'s record since objectui#7928 — the MIRROR judges a named view now, not this check', () => {
+  it('INVERTED SCOPE CONTROL: `listViews` IS the protocol\'s record since objectui#7928 — the MIRROR judges a named view now; this door adds only the named alias pointers', () => {
     // Was "`listViews` is still UNMIRRORED — nothing else about a named view is
     // judged": the unmirrored ruling waited on the key's VALUE TYPE, and
     // objectui#7928 chose the protocol's. Each of the three documents that

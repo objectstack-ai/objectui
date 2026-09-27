@@ -3441,15 +3441,15 @@ function inheritedDeclarations(): Map<string, string> {
 const SWEEP_DECLARED_NON_RUN_COMMANDS = new Map<string, string>([
   [
     'spec-main-shape-gate.yml: scripts/dependabot-merge-gate.mjs',
-    'Named as the registry that classifies this context `NOT_A_GATE` — and, in the same ' +
-      'sentence, as the in-tree half of the action that would make it required. A declaration ' +
-      'this section points at, not a step this workflow runs (objectui#9860).',
+    'Named as the registry whose `REQUIRED_CONTEXTS` declares this context blocking — the ' +
+      'in-tree half of the enrolment, taken second, after the ruleset. A declaration this ' +
+      'section points at, not a step this workflow runs (objectui#9860, objectui#9969).',
   ],
   [
     'spec-main-shape-gate.yml: scripts/check-required-check-set.mjs',
     'Named as the one thing in this tree that can READ the ruleset where requiredness actually ' +
-      'lives, in the sentence saying this gate is requirable and not required. A different ' +
-      "workflow's instrument, cited to keep the claim falsifiable (objectui#9860).",
+      'lives, and as the patrol that watches this context\'s enrolment. A different ' +
+      "workflow's instrument, cited to keep the claim falsifiable (objectui#9860, objectui#9969).",
   ],
   [
     'changeset-guard.yml: scripts/check-changeset-presence.mjs',

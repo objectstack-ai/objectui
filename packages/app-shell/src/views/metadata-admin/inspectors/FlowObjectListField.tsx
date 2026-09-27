@@ -14,6 +14,15 @@
  * a repeater-in-repeater. Those cells hold an array and render the matching
  * sibling editor inline (recursively, for `objectList`), so an engine-published
  * nested-array config is editable here instead of dropping to Advanced JSON.
+ *
+ * An `expression` cell reads the flow scope (`scopeGroups`) for its picker and
+ * its inline note — except a `screen` node's `fields[].visibleWhen`, which binds
+ * the same screen's declared fields plus `record` (spec
+ * `ScreenFieldSpec.visibleWhen`; ruling C on objectui#10743). That column is
+ * named by `isScreenVisibleWhenColumn`, the predicate the Problems panel judges
+ * it by, from the node in `context` and this list's `fieldId`; its picker offers
+ * `screenPredicateRoots(node)` and its note is `screenVisibleWhenScopeError`,
+ * the one rule the panel and the Debug run's screen step share (objectui#10772).
  */
 
 import * as React from 'react';
@@ -30,6 +39,8 @@ import { FlowStringListField } from './FlowStringListField.js';
 import { VariableTextInput } from './VariableTextInput.js';
 import type { ScopeGroup } from './useFlowScope.js';
 import { FlowExprIssue } from './FlowExprIssue.js';
+import { isScreenVisibleWhenColumn } from '../previews/flow-expr-problems.js';
+import { screenPredicateRoots, type ScreenPreviewNode } from '../previews/screen-spec.js';
 
 /** A cell is a scalar (string/boolean) or, for a nested-list column, an array. */
 type Cell = string | boolean | unknown[];
@@ -41,6 +52,31 @@ interface Row {
 /** Columns whose cell holds an array (a nested repeater) rather than a scalar. */
 function isListColumn(kind: FlowConfigColumn['kind']): boolean {
   return kind === 'stringList' || kind === 'numberList' || kind === 'objectList';
+}
+
+/**
+ * The screen node an `expression` column binds, when that column is a `screen`
+ * node's `fields[].visibleWhen` (objectui#10772) — else `undefined`, and the
+ * cell keeps the flow scope. `fieldId` is set only on a top-level list, so a
+ * nested list never qualifies.
+ */
+function screenVisibleWhenNode(
+  node: Record<string, unknown> | null | undefined,
+  fieldId: string | undefined,
+  colKey: string,
+): ScreenPreviewNode | undefined {
+  if (!node || typeof node.id !== 'string' || typeof node.type !== 'string' || !fieldId) return undefined;
+  if (!isScreenVisibleWhenColumn(node.type, fieldId, colKey)) return undefined;
+  const config = node.config && typeof node.config === 'object' && !Array.isArray(node.config)
+    ? (node.config as Record<string, unknown>)
+    : {};
+  return { id: node.id, config };
+}
+
+/** The picker section for a screen `visibleWhen` cell: exactly the roots `screenPredicateRoots` admits. */
+function screenScopeGroups(node: ScreenPreviewNode): ScopeGroup[] {
+  const refs = [...screenPredicateRoots(node)].map((token) => ({ token, label: token, group: 'screen_fields' as const }));
+  return [{ id: 'screen_fields', label: 'Screen fields', refs }];
 }
 
 function toRows(list: Array<Record<string, unknown>>, columns: FlowConfigColumn[]): Row[] {
@@ -111,6 +147,13 @@ export interface FlowObjectListFieldProps {
    * runtime), which is why this rides as its own prop.
    */
   approvalScopeGroups?: ScopeGroup[];
+  /**
+   * objectui#10772: this list's descriptor id on the node (`FlowConfigField.id`),
+   * set by `FlowNodeConfigField` and never forwarded to a nested list. With
+   * `context.node` it identifies a `screen` node's `fields` list, whose
+   * `visibleWhen` column reads the screen's declared fields, not `scopeGroups`.
+   */
+  fieldId?: string;
 }
 
 export function FlowObjectListField({
@@ -126,6 +169,7 @@ export function FlowObjectListField({
   context,
   scopeGroups,
   approvalScopeGroups,
+  fieldId,
 }: FlowObjectListFieldProps) {
   // The add/remove/empty/item labels arrive translated from the caller; the
   // flag on a stored select value is composed in this file, so it reads the
@@ -394,26 +438,37 @@ export function FlowObjectListField({
                       );
                     })()
                   ) : col.kind === 'expression' ? (
-                    <div className="flex-1 space-y-1">
-                      <VariableTextInput
-                        mode="expression"
-                        mono
-                        value={typeof row.values[col.key] === 'string' ? (row.values[col.key] as string) : ''}
-                        onValueChange={(v) => setCell(row.id, col.key, v)}
-                        onBlur={() => flush(rows)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                        }}
-                        groups={scopeGroups ?? []}
-                        placeholder={col.placeholder}
-                        disabled={disabled}
-                      />
-                      <FlowExprIssue
-                        value={typeof row.values[col.key] === 'string' ? (row.values[col.key] as string) : ''}
-                        role="predicate"
-                        scopeGroups={scopeGroups}
-                      />
-                    </div>
+                    (() => {
+                      // objectui#10772 — a screen field's `visibleWhen` binds
+                      // the screen's declared fields plus `record`: the picker
+                      // offers those roots and the note judges by the same rule
+                      // as the Problems panel. Every other column: flow scope.
+                      const screenNode = screenVisibleWhenNode(context?.node, fieldId, col.key);
+                      const raw = typeof row.values[col.key] === 'string' ? (row.values[col.key] as string) : '';
+                      return (
+                        <div className="flex-1 space-y-1">
+                          <VariableTextInput
+                            mode="expression"
+                            mono
+                            value={raw}
+                            onValueChange={(v) => setCell(row.id, col.key, v)}
+                            onBlur={() => flush(rows)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                            }}
+                            groups={screenNode ? screenScopeGroups(screenNode) : (scopeGroups ?? [])}
+                            placeholder={col.placeholder}
+                            disabled={disabled}
+                          />
+                          <FlowExprIssue
+                            value={raw}
+                            role="predicate"
+                            scopeGroups={scopeGroups}
+                            screenNode={screenNode}
+                          />
+                        </div>
+                      );
+                    })()
                   ) : (
                     <Input
                       value={typeof row.values[col.key] === 'string' ? (row.values[col.key] as string) : ''}

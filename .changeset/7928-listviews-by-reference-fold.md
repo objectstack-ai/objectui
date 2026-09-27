@@ -36,11 +36,31 @@ node. Where both spell a key, the top-level value wins, the same per-key merge
 exactly as before. Migrate an authored `options: { kanban: { groupByField } }` to
 `kanban: { groupByField, columns }`.
 
-The calendar-alias pointer from objectui#8355 still reaches a named view. The
-protocol now refuses `calendar.dateField` / `calendar.endField` itself, and the
-check adds `Did you mean dateField → startDateField?` (or `endField →
-endDateField`) at the key. Without it, only the protocol's near-miss hint would
-answer, and that hint says `dateField → endDateField`.
+The named-view alias pointers from objectui#8355 and objectui#10321 still reach
+a named view. The protocol now refuses `calendar.dateField` / `calendar.endField`
+and `kanban.groupBy` itself (`unrecognized_keys`, naming the key). The two checks
+on the `object-view` door add this repository's pointer at the key:
+`Did you mean dateField → startDateField?`, `endField → endDateField`, or
+`groupBy → groupByField`. Without them, only the protocol's near-miss hint would
+answer, and for `dateField` that hint says `endDateField`. The legacy
+`options.calendar` / `options.kanban` nesting is refused whole (`options` by
+name) rather than judged inside.
+
+**Keys the protocol's blocks do not declare are refused on a named view.** The
+by-reference record judges each view-kind block with the protocol's strict block,
+so a renderer-ahead knob or legacy alias inside one is an authoring error now.
+Measured on 17.4.0: `kanban.titleField` / `groupField` / `swimlaneField` /
+`conditionalFormatting`, `gallery.imageField`, `timeline.dateField` / `endField`,
+`calendar.allDayField` / `defaultView` and `map.style`. `ObjectView` still reads
+them off a named view that reaches it unvalidated, so a stored body keeps
+rendering. Use the canonical key where one exists (`groupByField`, `coverField`,
+`startDateField`, `grouping` for swimlanes).
+
+**Superseded statements in this release.** Pending entries for objectui#7779,
+objectui#8355 and objectui#10321 say `ObjectViewSchema.listViews` stays
+unmirrored, and the objectui#8355, #8365, #9242 and #10321 entries say the
+named-view doors judge the `options` nesting. This entry supersedes both: the key
+is mirrored by reference, and the `options` bag is refused whole.
 
 `NamedListView` is exported and unchanged. It no longer types
 `ObjectViewSchema.listViews` or `ObjectView`'s named-view config, and

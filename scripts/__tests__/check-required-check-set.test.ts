@@ -23,11 +23,18 @@ const WORKFLOW = '.github/workflows/required-check-set-patrol.yml';
 const FIXTURES = 'scripts/__tests__/fixtures/required-check-set';
 /**
  * The set objectui#9499's ruling installs: the four `Test (shard N/4)` contexts
- * replaced by the one aggregator context `Test`. It is the CONTROL fixture —
- * the answer the patrol is expected to read once the maintainer's third
- * ruleset step is clicked.
+ * replaced by the one aggregator context `Test`. It WAS the control fixture
+ * until objectui#9969 declared one more context; it is kept because it is now
+ * exactly the declared set with `Spec Main Shape Gate` lost, which is the case
+ * that card asked the patrol to report.
  */
-const RULING_FIXTURE = `${FIXTURES}/ruling-9499.json`;
+const RULING_9499_FIXTURE = `${FIXTURES}/ruling-9499.json`;
+/**
+ * objectui#9499's set plus `Spec Main Shape Gate`, which objectui#9969's ruling
+ * A enrolled and this patrol now watches. The CONTROL fixture: byte-identical
+ * to the one above except for that one appended entry.
+ */
+const RULING_FIXTURE = `${FIXTURES}/ruling-9969.json`;
 /**
  * The verbatim live answer of 2026-09-14, kept because it is a real reading and
  * because the window objectui#9499 opens is worth pinning: between this pull
@@ -202,7 +209,10 @@ describe('check-required-check-set — the committed fixture is the live shape',
 
     expect(reading.verdict).toBe('drifted');
     expect(exitCodeFor(reading.verdict)).toBe(EXIT_OK);
-    expect(reading.missingWatched).toEqual(['Test']);
+    // `Spec Main Shape Gate` is missing from this dated answer too: it was not
+    // enrolled until objectui#9969, and the declaration it is read against now
+    // watches it. The fixture is a verbatim reading and stays as it was.
+    expect(reading.missingWatched).toEqual(['Test', 'Spec Main Shape Gate']);
     expect(reading.unexpected).toEqual([
       'Test (shard 1/4)',
       'Test (shard 2/4)',
@@ -212,6 +222,35 @@ describe('check-required-check-set — the committed fixture is the live shape',
     // The pinned tier is untouched by the rename, which is why this is drift
     // and not a breach.
     expect(reading.missingPinned).toEqual([]);
+  });
+
+  /**
+   * objectui#9969: the reason `Spec Main Shape Gate` is watched at all. The
+   * pre-#9969 declared set is the current one with that context lost, so it is
+   * the case to read. Losing it must be NAMED (the patrol's summary says it is
+   * no longer required) and must stay exit 0: watched, not pinned, so no new
+   * red leg is added by declaring it.
+   */
+  it('reads the declared set with `Spec Main Shape Gate` lost as DRIFTED, naming it', () => {
+    const contexts = (rules: Rule[]): string[] =>
+      rules.flatMap((r) =>
+        r.type === 'required_status_checks'
+          ? (r.parameters?.required_status_checks ?? []).map((c) => String(c.context))
+          : [],
+      );
+    // The two ruling fixtures differ by exactly that one context and nothing
+    // else, so the drift below cannot be caused by some second difference.
+    expect(contexts(readFixture(RULING_9499_FIXTURE))).toEqual(
+      contexts(readFixture(RULING_FIXTURE)).filter((c) => c !== 'Spec Main Shape Gate'),
+    );
+    const others = (rules: Rule[]) => JSON.stringify(rules.filter((r) => r.type !== 'required_status_checks'));
+    expect(others(readFixture(RULING_9499_FIXTURE))).toBe(others(readFixture(RULING_FIXTURE)));
+
+    const r = runGate(['--fixture', RULING_9499_FIXTURE]);
+    expect(r.status).toBe(EXIT_OK);
+    expect(r.stdout).toContain('No longer required: `Spec Main Shape Gate`.');
+    expect(r.stdout).not.toContain('✅');
+    expect(r.stderr).toContain('DRIFTED');
   });
 });
 

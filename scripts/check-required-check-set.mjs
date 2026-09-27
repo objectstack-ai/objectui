@@ -178,6 +178,14 @@ export const PINNED_CONTEXTS = Object.freeze(['Type Check']);
  * `drifted` naming both halves, so the window is observable rather than
  * assumed. ⛔ Re-take the live reading after the click; do not edit this list
  * to agree with whatever the endpoint says.
+ *
+ * `Spec Main Shape Gate` joined under objectui#9969's ruling A, which is a
+ * ruling and not an endpoint reading: the maintainer enrolled the context, and
+ * `scripts/dependabot-merge-gate.mjs` moved it into `REQUIRED_CONTEXTS` in the
+ * same change that added it here. Before that change the patrol printed the
+ * name as "required but not declared", and losing it from the ruleset would
+ * only have shortened that list, naming nothing. WATCHED, not pinned:
+ * promoting it is the maintainer's call this header describes, ⛔ not a tidy-up.
  */
 export const WATCHED_CONTEXTS = Object.freeze([
   'Lint',
@@ -185,6 +193,7 @@ export const WATCHED_CONTEXTS = Object.freeze([
   'Test',
   'Build Docs',
   'Changeset Declaration',
+  'Spec Main Shape Gate',
 ]);
 
 /**

@@ -67,3 +67,12 @@ still offers the flow scope picker and its inline note still reads the flow scop
 sibling-field shape it says "`discount` is not a reference in scope at this step" while the
 Problems panel and the Debug run are silent, and says nothing on a run variable the other two
 report; aligning that cell is a follow-up outside this change.
+
+⚠️ **Dated note, 2026-09-27 — the inline `visibleWhen` cell reads the screen's declared fields
+— objectui#10772.** Later in this same release the inline inspector cell for a `screen` node's
+`fields[].visibleWhen` column follows the same rule: its picker offers the roots
+`screenPredicateRoots` admits (the screen's declared fields and `record`), and its inline note
+is `screenVisibleWhenScopeError`'s, so it is silent on the sibling-field shape and names a run
+variable (`needsApproval` is not a field on this screen) as the Problems panel and the Debug
+run do. The paragraph above is kept as the reading of this change; the objectui#10772 entry
+states what the cell now does.

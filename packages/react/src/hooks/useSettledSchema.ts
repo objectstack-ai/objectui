@@ -127,7 +127,7 @@ function isEqualPayload(a: unknown, b: unknown): boolean {
  *   record-bound view, `resolveRecordSourceObjectName(schema, dataConfig) ?? ''`
  *   from `@object-ui/core`. ⛔ Do NOT re-spell that ladder inline here: six view
  *   plugins each carried their own copy and had drifted, which is the whole of
- *   objectui#7627. Choosing the key is still the caller's job — it is the
+ *   what `b041b9c0c` collapsed. Choosing the key is still the caller's job — it is the
  *   component-private half of the original hand copies, not something this hook
  *   can infer — but the ladder behind it is published and shared.
  * @param dataSource - The data source to read the definition from. Pass

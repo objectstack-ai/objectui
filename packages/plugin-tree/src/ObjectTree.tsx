@@ -670,7 +670,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
    * the component rather than one effect of two.
    */
   const dataProvider = dataConfig?.provider;
-  // NOT a delegation site for `resolveRecordSourceObjectName` (objectui#7627):
+  // NOT a delegation site for `resolveRecordSourceObjectName` (`b041b9c0c`):
   // this is the data config's OWN object, deliberately `undefined` for every
   // other provider so an `api`/`value` tree's `objectName` changing cannot move
   // this dependency. The shared reader's second rung would put `objectName`
@@ -985,7 +985,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
     // read untouched.
     navigation: (schema as any).navigation,
     // The record-page URL names the object the ROWS came from, not the block's
-    // bare top-level key (objectui#7638). objectui#6939 published `objectName`
+    // bare top-level key (`2ce2612df`). objectui#6939 published `objectName`
     // as the THIRD RUNG of ONE record-source ladder (`data`, then `staticData`,
     // then `objectName`) rather than as a parallel "page object" concept, so a
     // block has exactly one record source. A row fetched through

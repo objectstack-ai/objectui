@@ -1626,12 +1626,12 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   // here, so they get a sibling localStorage key and restore on mount.
   //
   // ⛔ This line does NOT delegate to `resolveRecordSourceObjectName`, and its
-  // inverted order relative to `resource` above is not the drift objectui#7627
+  // inverted order relative to `resource` above is not the drift `b041b9c0c`
   // collapsed: the two were never answering the same question. What this
   // resolves is a localStorage KEY (`gantt-layout:<key>:filters`), not a record
   // source — re-pointing it silently orphans every saved layout and filter-chip
   // set of any view carrying BOTH bindings. A storage-key migration is a
-  // separate, user-visible change, so the ruling on objectui#7627 excluded this
+  // separate, user-visible change, so `b041b9c0c` excluded this
   // site from the collapse and left the precedence exactly as it is.
   const persistLayoutKey =
     schema.persistLayout === false

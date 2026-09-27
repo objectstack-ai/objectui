@@ -2,7 +2,7 @@
 
 /**
  * flow-region-label — the ONE place a structured region's English fallback
- * header (`Try` / `Catch` / `Branch N`) is translated for display.
+ * header (`Try` / `Catch` / `Branch N` / `Body`) is translated for display.
  *
  * `extractRegions` (the canvas layout helper) and `regionLabelOf` (the
  * nested-node selection codec in `../inspectors/flow-nested-selection.ts`) are
@@ -14,9 +14,11 @@
  * the inspector's container › region › node crumb.
  *
  * A user-supplied `parallel` branch name (anything other than the `Branch N`
- * auto-label) is author content and passes through untouched. `body` has no
- * same-concept catalogue row (the two `Body` rows are page-block body text) and
- * passes through as well.
+ * auto-label) is author content and passes through untouched. A loop / map
+ * `body` reads its own row, `engine.flowRegion.body` (objectui#10748 — the two
+ * older `Body` rows are page-block body text, another concept). `extractRegions`
+ * gives a body no label, so the canvas still draws no header for it; the
+ * nested-node crumb, whose `regionLabelOf` bakes `Body`, is its reader.
  */
 
 import type { LabeledRegion } from './flow-canvas-layout.js';
@@ -26,6 +28,7 @@ export function displayRegionLabel(region: Pick<LabeledRegion, 'key' | 'label'>,
   const { key, label } = region;
   if (key === 'try') return tr('engine.flowRegion.try', locale);
   if (key === 'catch') return tr('engine.flowRegion.catch', locale);
+  if (key === 'body') return label === 'Body' ? tr('engine.flowRegion.body', locale) : label;
   const m = /^branch-(\d+)$/.exec(key);
   if (m) {
     const n = Number(m[1]) + 1;

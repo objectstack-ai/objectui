@@ -778,6 +778,11 @@ const DOC_TYPE_EXEMPTIONS = {
   'content/docs/core/app-schema.mdx': {
     item: 'AppSchema menu entry kind — a navigation item, sibling of `group`. Not a rendered node.',
     group: 'AppSchema menu entry kind — a navigation group holding `children` items.',
+    action:
+      'NavigationItem kind under an app\'s `navigation` (`NavigationItemTypeSchema`, spec ' +
+      '`ActionNavItemSchema`) — an entry that names a declared action by `actionDef.actionName`, ' +
+      'which the console sidebar dispatches. Not a rendered node. The page teaches it as the one ' +
+      'channel for app-level actions since objectui#7469 retired the app node\'s `actions` array.',
   },
   'content/docs/core/enhanced-actions.mdx': {
     action:

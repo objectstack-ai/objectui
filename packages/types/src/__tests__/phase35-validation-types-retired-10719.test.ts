@@ -43,7 +43,8 @@
  * before the retirement: the built entry's namespace carried none of the eight
  * while its `.d.ts` still exported all of them. That probe reads the same in both
  * worlds, so it cannot fail, and writing it would make this file look better
- * covered than it is. `ai-insights-retired-8800.test.ts` records the same reason.
+ * covered than it is. objectui#8800's retirement pin in this directory records
+ * the same reason.
  *
  * Deleting this file is deleting the ruling. Bringing any of the eight back is a
  * new published-contract decision, not an edit here.

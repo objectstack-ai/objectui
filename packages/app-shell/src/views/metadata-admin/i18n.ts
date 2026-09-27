@@ -1282,6 +1282,24 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
     'Multiple conditions matched; the first declared branch was taken (the runtime takes every match, objectstack#15429).',
   'engine.flowSim.note.noEdgeTaken':
     'No out-edge was taken: no guard was true and there is no default edge. The runtime ends this branch here.',
+  // objectui#10848 — the frames `flow-sim-validate` puts around a CEL failure
+  // on a step or an out-edge. `{message}` is the producer's own text
+  // (`@objectstack/formula`), passed through as written; its fallback, when
+  // the producer gives none, is `engine.flowSim.note.evaluationFailed`.
+  'engine.flowSim.note.celEvaluationFailed': 'CEL evaluation failed: {message}',
+  'engine.flowSim.note.celConditionFailed': 'condition failed to evaluate as CEL: {message}',
+  // objectui#10848 — the preview chrome still English under zh-CN after
+  // objectui#10835: `PreviewErrorBoundary`'s heading (every designer preview),
+  // and `ScreenPreview`'s own words (the flow node inspector and the Debug
+  // run's paused screen). Display only: a screen's title, description and
+  // field labels are author data and show as written.
+  'engine.previewShell.renderFailed': 'Preview failed to render',
+  'engine.screenPreview.header': 'Preview',
+  'engine.screenPreview.empty': 'Add a title, description, fields, or an object form to preview this screen.',
+  'engine.screenPreview.submit': 'Submit',
+  'engine.screenPreview.noDataSource': 'Connect to a backend to preview this object form.',
+  'engine.screenPreview.hiddenOne': '{count} field hidden by its “visible when” condition.',
+  'engine.screenPreview.hiddenOther': '{count} fields hidden by their “visible when” conditions.',
   // Structural flow validation (flow-sim-validate) — canvas banner, Problems
   // panel, and the debug simulator.
   'engine.flowValidate.nodeMissingId': 'A node is missing an id.',
@@ -3738,6 +3756,16 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowSim.note.multipleMatched':
     '有多个条件匹配;已走第一个声明的分支(运行时会走所有匹配的分支,objectstack#15429)。',
   'engine.flowSim.note.noEdgeTaken': '未走任何出向连线:没有为真的条件,也没有默认连线。运行时在此结束该分支。',
+  // objectui#10848 — the CEL failure frames and the preview chrome (see the en rows).
+  'engine.flowSim.note.celEvaluationFailed': 'CEL 求值失败:{message}',
+  'engine.flowSim.note.celConditionFailed': '条件无法按 CEL 求值:{message}',
+  'engine.previewShell.renderFailed': '预览渲染失败',
+  'engine.screenPreview.header': '预览',
+  'engine.screenPreview.empty': '添加标题、描述、字段或对象表单,即可预览此交互页面。',
+  'engine.screenPreview.submit': '提交',
+  'engine.screenPreview.noDataSource': '连接后端后即可预览此对象表单。',
+  'engine.screenPreview.hiddenOne': '有 {count} 个字段因其“显示条件”而隐藏。',
+  'engine.screenPreview.hiddenOther': '有 {count} 个字段因其“显示条件”而隐藏。',
   // 连线(edge)Type 枚举值 —— 属性表单里的 SchemaForm 下拉(与画布连线检查器一致)。
   'engine.enum.type.default': '普通',
   'engine.enum.type.conditional': '条件',

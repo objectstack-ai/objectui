@@ -479,7 +479,7 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
         );
       })}
 
-      {isScreen && <ScreenPreview node={node} variables={screenVars} className="mt-1" />}
+      {isScreen && <ScreenPreview node={node} variables={screenVars} className="mt-1" locale={locale} />}
 
       {hasExtras || advReveal ? (
         <details

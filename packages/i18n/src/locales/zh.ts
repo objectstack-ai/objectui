@@ -230,6 +230,7 @@ const zh = {
       remove: '移除 {{name}}',
       exceedsMaxSize: '“{{name}}” 超过大小上限（{{max}} MB）',
       uploadFailed: '上传 “{{name}}” 失败：{{error}}',
+      uploadIncomplete: '“{{name}}” 上传未完成：未返回文件 ID，未保存任何内容',
     },
     image: {
       upload: '上传图片',

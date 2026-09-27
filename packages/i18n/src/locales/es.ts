@@ -240,6 +240,7 @@ const es = {
       remove: 'Quitar {{name}}',
       exceedsMaxSize: '«{{name}}» supera el tamaño máximo ({{max}} MB)',
       uploadFailed: 'Error al subir «{{name}}»: {{error}}',
+      uploadIncomplete: 'La subida de «{{name}}» no se completó: no se devolvió ningún identificador de archivo, así que no se guardó nada',
     },
     richText: {
       format: "Formato: {{format}}",

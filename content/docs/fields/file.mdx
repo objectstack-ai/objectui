@@ -21,7 +21,15 @@ The File Field component provides a file upload interface with support for multi
 
 A file field is authored as `FileFieldMetadata` (`@object-ui/types`), which is the
 source of truth for the key set: it extends `BaseFieldMetadata` with the upload limits.
-A stored file is `UploadedFileMetadata`, exported from the same package.
+
+The field's stored **value** is the bare `sys_file` id the upload adapter minted — a
+`string`, or `string[]` when `multiple` — the reference form the platform's stored
+contract admits. An upload whose adapter surfaces no id is refused in the widget with
+"did not complete" and nothing is submitted (objectui#7699); mount an `UploadProvider`
+whose adapter registers the file with the platform (`createObjectStackUploadAdapter`).
+`UploadedFileMetadata`, exported from the same package, is the **legacy inline shape** a
+record written before file-as-reference may still hold: the widgets still render it,
+and never write a new one.
 
 ```ts
 import type { FileFieldMetadata, UploadedFileMetadata } from '@object-ui/types';
@@ -37,8 +45,9 @@ const attachments: FileFieldMetadata = {
   max_files: 5,
 };
 
-// The shape of one stored file — the field's VALUE, not its metadata.
-const storedFile: UploadedFileMetadata = {
+// The LEGACY inline shape a pre-reference record may still hold as its VALUE —
+// rendered by the widgets, never written by them (a new upload stores the id).
+const legacyStoredFile: UploadedFileMetadata = {
   name: 'contract.pdf',
   original_name: 'Contract (signed).pdf',
   size: 248_310,

@@ -6,6 +6,7 @@ import {
   readFileValues,
   isImageValue,
   fileValueForSubmit,
+  UploadIncompleteError,
   uploadResultView,
   withRecentUploads,
 } from './file-value';
@@ -244,31 +245,56 @@ describe('fileValueForSubmit', () => {
   });
 
   /**
-   * Back-compat: the object-URL fallback adapter, or a backend predating
-   * file-as-reference, surfaces no fileId. The same build must keep working
-   * there, so it submits the legacy blob unchanged.
+   * objectui#7699: the branch that stood here built `{ name, original_name,
+   * size, mime_type, url }` when no fileId came back — the one client path in
+   * either repo still PRODUCING the pre-D3 inline blob, a shape no deployment's
+   * stored contract accepts (`valueSchemaFor(field, 'stored')` is id-only;
+   * ADR-0104's 2026-09-05 addendum fixes the column to the bare id too). It is
+   * retired: the submit is refused by name, and nothing carrying a URL leaves.
    */
-  it('falls back to the legacy inline blob when there is no fileId', () => {
-    expect(fileValueForSubmit(uploadResult(), 'orig.png')).toEqual({
-      name: 'a.png',
-      original_name: 'orig.png',
-      size: 1024,
-      mime_type: 'image/png',
-      url: 'https://app.example.com/api/v1/storage/files/file_a',
+  describe('refuses a completed upload that surfaced no fileId (objectui#7699)', () => {
+    const refusalOf = (run: () => unknown): UploadIncompleteError => {
+      try {
+        run();
+      } catch (err) {
+        return err as UploadIncompleteError;
+      }
+      throw new Error('expected fileValueForSubmit to refuse, but it returned a value');
+    };
+
+    it('throws the NAMED refusal, carrying the pick name — no blob is built', () => {
+      const err = refusalOf(() => fileValueForSubmit(uploadResult(), 'orig.png'));
+      expect(err).toBeInstanceOf(UploadIncompleteError);
+      expect(err.name).toBe('UploadIncompleteError');
+      expect(err.code).toBe('UPLOAD_INCOMPLETE');
+      expect(err.fileName).toBe('orig.png');
+      expect(err.message).toContain('did not complete');
+      // The refusal carries no URL and no MIME type: the adapter's result is
+      // not smuggled out through the error either.
+      const own = JSON.stringify({ ...err, message: err.message });
+      expect(own).not.toContain('https://app.example.com');
+      expect(own).not.toContain('image/png');
+    });
+
+    it('names the adapter’s stored object name when the caller has no pick name', () => {
+      expect(refusalOf(() => fileValueForSubmit(uploadResult())).fileName).toBe('a.png');
+    });
+
+    it('treats a meta.fileId that is not id-shaped as no id at all', () => {
+      const err = refusalOf(() =>
+        fileValueForSubmit(uploadResult({ meta: { fileId: 'https://evil.example/x' } }), 'orig.png'),
+      );
+      expect(err.code).toBe('UPLOAD_INCOMPLETE');
+    });
+
+    it('THE CONTROL: an id-shaped fileId beside the same result still submits the id', () => {
+      expect(fileValueForSubmit(uploadResult({ meta: { fileId: 'file_a' } }), 'orig.png')).toBe('file_a');
     });
   });
 
-  it('ignores a meta.fileId that is not id-shaped', () => {
-    const v = fileValueForSubmit(uploadResult({ meta: { fileId: 'https://evil.example/x' } }));
-    expect(typeof v).toBe('object');
-  });
-
-  it('round-trips through readFileValue in both modes', () => {
+  it('round-trips through readFileValue', () => {
     const asRef = fileValueForSubmit(uploadResult({ meta: { fileId: 'file_a' } }));
-    const asBlob = fileValueForSubmit(uploadResult(), 'orig.png');
-
     expect(readFileValue(asRef).id).toBe('file_a');
-    expect(readFileValue(asBlob).mimeType).toBe('image/png');
   });
 });
 

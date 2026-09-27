@@ -87,6 +87,10 @@ function refuseFilterNode(refusals: Set<string>, reason: string): false {
  * from a `find` that never threw on a bad filter before. The converter's own
  * `[ObjectUI]` prefix and closing period are taken off so the sentence reads
  * once, not twice; the reasoning and the prescription are its own, verbatim.
+ *
+ * The object arm re-seats the converter's refusal through this same function
+ * since objectui#10817, for a field whose condition is an object with no own
+ * keys — see {@link zeroKeyConditionRefusal}. One envelope for both arms.
  */
 function loweringRefusalReason(refusal: FilterOperatorError): string {
   const body = refusal.message.replace(/^\[ObjectUI\]\s*/, '').replace(/\.\s*$/, '');
@@ -993,6 +997,78 @@ function matchesFilter(
   return true;
 }
 
+/**
+ * The object `$filter`'s first condition that is an object with NO OWN KEYS and
+ * that the converter refuses: `{ created: {} }`, alone or anywhere under `$and`
+ * / `$or` (objectui#10817).
+ *
+ * ## What was wrong
+ *
+ * {@link matchesFilter} read `{ created: {} }` as an operator map whose
+ * operator loop runs zero times, so the field added NO constraint.
+ * `{ status: 'a', created: {} }` answered the same rows as `{ status: 'a' }`,
+ * and `{ created: {} }` answered every row, with no console line. The same
+ * authored filter is refused on the ObjectStack path: `@objectstack/spec` ruled
+ * `{ field: {} }` REJECTED wherever it appears (objectstack#5240, recorded on
+ * `FilterConditionSchema`), and `convertFiltersToAST` refuses it alone
+ * (objectui#9164) and beside a key that lowers (objectui#10788). One filter,
+ * two fates, and the value face took the widening one.
+ *
+ * ## Why the converter decides, and not a check written here
+ *
+ * The field is handed to {@link toFilterNodeSafely} on its own, as
+ * `{ [field]: condition }`. The converter alone decides what an empty operator
+ * map is, with its own throw site and its own wording, so there is no second
+ * opinion to drift and no new export (`@object-ui/core` re-exports the whole
+ * converter module). Only a zero-key object is routed: an object that HAS keys
+ * is an operator map the matcher below already reads, and refuses per node
+ * when it cannot.
+ *
+ * What the routing carries, on purpose, is whatever the converter decides for
+ * a zero-key object. A `RegExp`, `Map` or `Set` also has no own keys, and the
+ * converter refuses it as an exotic comparand (objectui#8567), so this face now
+ * refuses it too instead of dropping the constraint. A `Date` has no own keys
+ * either, but the converter LOWERS it, so it reaches the matcher exactly as
+ * before. A `null` / `undefined` condition is not an object and is not routed.
+ *
+ * ## Why up front, and why the whole filter
+ *
+ * {@link matchesFilter} returns on a row's first false entry and `$or` uses
+ * `some`, so a refusal raised while matching would fire for some rows and not
+ * for others: `{ status: 'a', created: {} }` would log only if some row had
+ * status `'a'`, and `{ $or: [{ status: 'b' }, { status: 'a', created: {} }] }`
+ * would still answer the `'b'` rows. `@objectstack/formula` walks the tree
+ * before evaluating for the same reason. A refused filter answers NO rows and
+ * logs the converter's reason once, which is exactly how the array arm answers
+ * a filter its lowering refuses (objectui#10767). `find` never throws on a bad
+ * filter (objectui#7349).
+ *
+ * The walk follows the two combinators {@link matchesFilter} executes. A
+ * malformed group, `$not` and every other `$` key keep the refusals the
+ * matcher already gives them.
+ */
+function zeroKeyConditionRefusal(
+  filter: Record<string, any>,
+): FilterOperatorError | undefined {
+  for (const [key, condition] of Object.entries(filter)) {
+    if (key === '$and' || key === '$or') {
+      if (!Array.isArray(condition)) continue;
+      for (const member of condition) {
+        if (member === null || typeof member !== 'object' || Array.isArray(member)) continue;
+        const refusal = zeroKeyConditionRefusal(member);
+        if (refusal) return refusal;
+      }
+      continue;
+    }
+    if (key.startsWith('$')) continue;
+    if (condition === null || typeof condition !== 'object' || Array.isArray(condition)) continue;
+    if (Object.keys(condition).length > 0) continue;
+    const lowered = toFilterNodeSafely({ [key]: condition });
+    if (!lowered.ok) return lowered.refusal;
+  }
+  return undefined;
+}
+
 /** Apply sort ordering to an array (returns a new sorted array) */
 function applySort<T>(
   data: T[],
@@ -1168,9 +1244,17 @@ export class ValueDataSource<T = any> implements DataSource<T> {
           result = result.filter((r) => matchesASTFilter(r, node, refusals));
         }
       } else if (Object.keys(params.$filter).length > 0) {
-        result = result.filter(
-          (r) => matchesFilter(r, params.$filter as Record<string, any>, refusals),
-        );
+        // objectui#10817 — a condition that is an object with no own keys is
+        // judged by the converter BEFORE any row is matched, and a refusal
+        // answers the whole filter the way the array arm answers one above.
+        const filter = params.$filter as Record<string, any>;
+        const refusal = zeroKeyConditionRefusal(filter);
+        if (refusal) {
+          refuseFilterNode(refusals, loweringRefusalReason(refusal));
+          result = [];
+        } else {
+          result = result.filter((r) => matchesFilter(r, filter, refusals));
+        }
       }
       for (const message of refusals) console.warn(message);
     }

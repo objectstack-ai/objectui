@@ -163,7 +163,10 @@ function toIsoDate(d: Date): string {
  *    nothing, as Radix's type-ahead skips the current item. An in-list pick
  *    also reports a changed value, but while the select is still open (Radix
  *    calls `onValueChange` before `onOpenChange(false)`); `onCustomValue`
- *    leaves that one to the item's mark.
+ *    leaves that one to the item's mark. Opening there would be wrong as well
+ *    as early: an Enter pick opened the calendar during its own keydown, the
+ *    key's activation then landed on the calendar's first button (its
+ *    previous-month arrow), and the calendar opened a month back.
  *
  * The popover's own trigger is an invisible anchor that cannot take focus, so
  * closing the calendar would leave focus on the page body. Focus goes back to

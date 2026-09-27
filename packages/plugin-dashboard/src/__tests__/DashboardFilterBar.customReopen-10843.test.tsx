@@ -125,6 +125,23 @@ describe('DashboardFilterBar — "Custom…" opens the range calendar (objectui#
     expect(captions()).toEqual(['March 2020', 'April 2020']);
   });
 
+  it('by keyboard from a preset: Enter on "Custom…" opens the calendar on today\'s month, and the Enter stays with the list', async () => {
+    // The pick changes the value here, so Radix reports it while the list is
+    // still open. Opening the calendar right then would hand the Enter's own
+    // activation to the calendar's first button (its previous-month arrow).
+    const user = userEvent.setup();
+    const { trigger } = renderBar(PRESET);
+    trigger.focus();
+    await user.keyboard('{Enter}');
+    const custom = await screen.findByRole('option', { name: 'Custom…' });
+    await user.keyboard('{End}');
+    await waitFor(() => expect(document.activeElement).toBe(custom));
+    await user.keyboard('{Enter}');
+    await settle();
+    expect(captions()).toEqual(['September 2026', 'October 2026']);
+    expect(seen).toEqual([['September 2026', 'October 2026']]);
+  });
+
   it('Escape on the reopened calendar closes it and returns focus to the select', async () => {
     const user = userEvent.setup();
     const { trigger } = renderBar(STORED);

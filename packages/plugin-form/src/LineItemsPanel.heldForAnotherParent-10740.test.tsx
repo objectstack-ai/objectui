@@ -277,7 +277,7 @@ describe('LineItemsPanel refuses the lines it holds for another parent (objectui
 
 describe('what the rule leaves alone (objectui#10740 controls)', () => {
   it('a swap to p2 whose load SUCCEEDS: p2’s lines replace p1’s, Save is off, and a save after editing p2’s line carries l2 under p2 and nothing of l1', async () => {
-    const { dataSource, lineReads, saves, view } = await mountP1Edited();
+    const { lineReads, saves, view } = await mountP1Edited();
 
     view.rerender(linesBlock({ parentId: 'p2' }));
     const second = await nth(lineReads, 2);

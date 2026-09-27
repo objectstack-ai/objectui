@@ -1,0 +1,38 @@
+{
+  "number": 7799,
+  "kind": "issue",
+  "title": "finding(test-infra): 16 package tests build repo paths from `process.cwd()`, so the package-level `test` script gives a different verdict than CI",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "pm:dispatched",
+    "priority:p2",
+    "tests"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T20:57:01Z",
+  "updated_at": "2026-09-05T22:49:10Z",
+  "closed_at": "2026-09-05T22:42:03Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7799",
+  "body": "Found while repairing objectui#7791 (PR #7796), which fixed exactly one call site. The census that card asked for — every `readVocabulary` / `VOCABULARY_ROOT` call site — came back with **one** defective site, and that one is repaired. This card is the ADJACENT family, reached by a different helper: tests that build a repo path out of `process.cwd()` directly.\n\n## The class\n\nA package's `test` script is `vitest run --root ../.. packages/PKG/`, and `--root` moves **vitest's** root while leaving `process.cwd()` in the package directory. Any test assertion that reads the filesystem relative to cwd therefore gets a different verdict from `pnpm --filter PKG test` than from the repo-root form CI runs.\n\n## Measured, one tree, one container\n\n`packages/i18n/src/__tests__/common-search-retired-4392.test.ts`:\n\n| invocation | cwd | result |\n| --- | --- | --- |\n| `pnpm exec vitest run packages/i18n/src/__tests__/common-search-retired-4392.test.ts` | repo root | **5 passed (5)** |\n| `cd packages/i18n && pnpm exec vitest run --root ../.. SAMEFILE` (the package script's own form) | `packages/i18n` | **2 failed / 3 passed (5)** |\n\n```\nAssertionError: scan root missing: /home/user/objectui-issue-7791/packages/i18n/packages: expected false to be true\nError: ENOENT: no such file or directory, scandir '/home/user/objectui-issue-7791/packages/i18n/packages'\n```\n\nSame signature as objectui#7791: same tree, cwd the only variable.\n\n## The count, and why the triage is per-file\n\n16 test files under `packages/*/src` build a repo path from `process.cwd()`:\n\n```\ngit grep -lE \"(join|resolve)\\(\\s*process\\.cwd\\(\\)|=\\s*process\\.cwd\\(\\);\" -- 'packages/*/src/**/*.test.ts*'\n```\n\ni18n 10 · plugin-view 3 · plugin-grid 1 · components 1 · cli 1\n\nThree different behaviours already live in that set, which is why a blanket rewrite is the wrong first move:\n\n1. **Red under the package form** — `packages/i18n/src/__tests__/common-search-retired-4392.test.ts`, measured above.\n2. **Documents the falsified premise in prose** — `packages/components/src/__tests__/browser-process-shim-scope.test.ts:69-72`: *\"Root-form Vitest only (`scripts/vitest-invocation-guard.mjs` rejects a package-cwd run), so `process.cwd()` is the repo root\"*. That premise is exactly what objectui#7791 falsified: the guard checks **vitest's** root, which the package script sets correctly, so the guard passes while cwd stays in the package.\n3. **Already worked around, locally** — `packages/plugin-view/src/__tests__/ObjectView.hostOnlyViewTypes.test.tsx:217-221` probes two candidate paths (`src/…` and `packages/plugin-view/src/…`) with `existsSync` and takes whichever exists. Green under both cwds, and evidence the hazard has been met before and patched one file at a time.\n\n**Not censused here, and it is the part that matters most:** which of the 16 fail LOUDLY under the package form (like case 1) and which pass VACUOUSLY — a scan whose root does not exist, guarded so it reports nothing rather than throwing, is a false GREEN, and that direction costs coverage rather than debugging time. Each file needs its own reading under both cwds before anything is rewritten.\n\n## Direction (not chosen here)\n\nThe repair that objectui#7791 landed is file-derived rooting, and there are three spellings already in this repo, none of them universal:\n\n- `dirname(fileURLToPath(import.meta.url))` — the `scripts/` idiom; needs node types, which some packages' test programs deliberately do not have.\n- Segment arithmetic on `import.meta.url` — what objectui#7791 used in a `.test.tsx` under the `dom` project, where node types are absent. Note `new URL(rel, import.meta.url)` is NOT available: Vite rewrites that syntactic form into a `http://localhost:3000/@fs/…` dev-server URL (measured on that card).\n- The two-candidate `existsSync` probe of case 3.\n\nA shared helper that every such test imports would retire the class, and choosing where it lives is a devx decision, not a per-card one.\n\n## Related\n\nobjectui#7791 also records that `AGENTS.md`'s 怎么跑测试 section states the package-level form reaches 和 CI 同一个结论. It does not, for this whole class. Both cards leave that sentence to a maintainer.\n\nNo assignee — PM triage.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

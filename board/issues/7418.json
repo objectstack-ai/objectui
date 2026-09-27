@@ -1,0 +1,38 @@
+{
+  "number": 7418,
+  "kind": "issue",
+  "title": "finding(docs): `guide/expressions.md` still authors `${…}` in 6 more keys with no carriage row — `badge.text` / `badge.variant` / `card.className` / `card.body`, beyond the two the 2026-09-01 ruling named",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "finding",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T00:05:32Z",
+  "updated_at": "2026-09-06T01:11:28Z",
+  "closed_at": "2026-09-06T00:58:04Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7418",
+  "body": "Measured while implementing objectui#7115's part 3. The maintainer's 2026-09-01 ruling (comment 5494799307) chose fork **(B)**: non-`text` types get **no** new carriage rows, and the docs stop authoring `${…}` in keys that have none — 「文档教现实」. It named two sites in this file: `progress.value` (`:388`) and `input.value` (`:453`). Both are rewritten in the #7115 PR.\n\nThe ruling's enumeration came from the objectui#7015 census, which looked at **`type: \"text\"` nodes only**. Re-reading the file against the carriage map itself turns up six more occurrences of the same class, in the same file, that no census has covered.\n\n## The measurement\n\nRead from the artifact, not from prose — `expressionBindableTextKeysFor` out of `@objectstack/spec@17.2.0`'s built `dist/ui/index.mjs`, the same lookup `SchemaRenderer.tsx:1139` consumes:\n\n```\nstatistic     -> [label, value, description]\ncard          -> [title, description]\nbutton        -> [label]\nbadge         -> []\nprogress      -> []\ninput         -> []\n```\n\n`SchemaRenderer` evaluates exactly four top-level channels: `content` (no type gate), the carriage keys for the node's type, the `properties` bag and the `props` bag, plus the condition keys (`visibleOn` / `hiddenOn` / `disabledOn`). Anything else written at a node's top level reaches the renderer as the characters the author typed.\n\n## The six occurrences, on `main` (line numbers as of `24d4a21ff`)\n\n| section | key | node type | carriage rows for that type |\n|---|---|---|---|\n| Comparison Operators | `variant` | `badge` | none |\n| Scoped Data | `body` | `card` | `title`, `description` — no `body` |\n| Nested Ternary | `variant` | `badge` | none |\n| Status Badge | `text` | `badge` | none |\n| Status Badge | `variant` | `badge` | none |\n| Conditional Styling | `className` | `card` | `title`, `description` — no `className` |\n\nNote the Scoped Data block is a **mixed** case worth reading carefully: its sibling `\"title\": \"${item.name}\"` on the same `card` node IS a carriage key and does evaluate. Only `body` beside it does not, so the block half-works, which is the least visible way for this to be wrong.\n\n## Not claimed, deliberately\n\n`\"items\": \"${users}\"` appears twice on `list` nodes. `items` is a data key, not one of the four text keys the carriage map governs, so whether the list renderer resolves it is a **separate, unmeasured question**. It is recorded here so the next reader does not have to re-derive that it was considered — not as part of the finding.\n\n## Why this is a card rather than more of #7115\n\nThe ruling is explicit about which sites it covers, and the seat that dispatched #7115 was explicit that anything the ruling did not cover is flagged, not folded in. The principle 「文档教现实」 clearly reaches these six, but applying it is a rewrite decision per section — a `badge` whose `variant` cannot be an expression needs the section to teach something else, exactly as `progress` and `input` did in #7115 — and that is what the ruling ruled on for two sites, not six.\n\n⚠️ Scheduling note, carried over from the #7115 comment thread: objectui#4795's second half (build-time rejection of `${…}` outside the carriage map) reddens every one of these when it lands."
+}

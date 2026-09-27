@@ -1,0 +1,36 @@
+{
+  "number": 7773,
+  "kind": "issue",
+  "title": "plugin-view / plugin-list: the kanban adapters write the retired `groupField` alongside `groupBy` onto the generated object-kanban node — an inert duplicate write held in place by two pins",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "priority:p3",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T16:42:40Z",
+  "updated_at": "2026-09-07T00:46:00Z",
+  "closed_at": "2026-09-07T00:37:03Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7773",
+  "body": "Found while landing objectui#7322 item ① (the `ObjectKanbanSchema` declaration; PR from branch `claude/issue-7322-object-kanban-group-by-limit`, number in the os-dev-report on objectui#7322). Filed unassigned and NOT touched there — `packages/plugin-view` and `packages/plugin-list` are outside that dispatch's surface, and the dispatch's boundary on the view-level `groupField` alias READS covers the same two files. Measured on `origin/main` `4dfdcc3c`.\n\n## What\n\nBoth kanban adapters write `groupField` alongside `groupBy` onto the `object-kanban` node they generate from a view-level kanban config:\n\n```\npackages/plugin-view/src/ObjectView.tsx:1279-1284   (generateViewSchema, case 'kanban')\n        return {\n          type: 'object-kanban',\n          ...baseProps,\n          groupBy,\n          groupField: groupBy,\n\npackages/plugin-list/src/ListView.tsx:2412-2416     (case 'kanban')\n        return {\n          type: 'object-kanban',\n          ...baseProps,\n          groupBy: laneField,\n          groupField: laneField,\n```\n\nand two tests pin the duplicate write in place:\n\n```\npackages/plugin-view/src/__tests__/ObjectView.kanbanConditionalFormatting.test.tsx:165   expect(node.groupField).toBe('stage');\npackages/plugin-list/src/__tests__/ListView.test.tsx:2795                                 expect(last?.schema?.groupField).toBe('stage');\n```\n\nThe `object-kanban` renderer reads `schema.groupBy` (thirteen sites) and never `schema.groupField` (zero sites under `packages/plugin-kanban/`), so the write is inert: the board groups by `groupBy` and `groupField` rides along unread.\n\n## Why it matters, and why it is not a regression of objectui#7322\n\nobjectui#7322 item ① retires `groupField` on the `object-kanban` node on both faces (`?: never` / `retirementTombstone()`). The generated node is typed `any` (`generateViewSchema(viewType: string): any`; the ListView builder is the same) and never passes through the zod validator at runtime — `SchemaRenderer` runs `@object-ui/core`'s structural `validateSchema`, not `safeValidateSchema` — so nothing breaks. But the adapters now emit a node the published contract refuses by name, and the two pins assert the retired key is present. That is a producer writing a retired spelling, kept alive by tests.\n\n⚠️ Scope boundary, carried from objectui#7322 triage: the view-level READS of the alias — `ListView.tsx:1462` / `:1816` / `:2091` / `:2411` (`groupByField || groupField || …`) and `ObjectView.tsx:1234` (`kanbanCfg.groupField ||`) — are LIVE and stay. `groupField` is a legacy alias of the spec's `groupByField` on the view-level kanban config (`normalize-list-view.ts:191` maps it). Only the WRITE of `groupField` onto the generated node is dead.\n\n## Suggested shape\n\nDelete the two `groupField:` lines from the generated nodes and flip the two pins to assert the key is ABSENT (`expect(node.groupField).toBeUndefined()` / `expect(last?.schema?.groupField).toBeUndefined()`), keeping every alias read untouched. Unblocked: the write is inert before and after item ① lands.\n\nRelated: objectui#7322 (the declaration), objectui#2890 (the broader ListView legacy-vocabulary migration; this is one atomic write, not that audit).\n\nFiled by the dev of the `domain:spec` @ objectui PM seat's dispatch of objectui#7322, session `session_01BAZFhALsQsGqxui8sNqM8s`."
+}

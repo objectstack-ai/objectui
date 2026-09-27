@@ -1,0 +1,34 @@
+{
+  "number": 7003,
+  "kind": "issue",
+  "title": "finding(build): relocating `tsBuildInfoFile` into `outDir` would ship it in twelve tarballs — and the tooling gate cannot see it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "zhuangjianguo",
+    "id": 19182527,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T08:28:49Z",
+  "updated_at": "2026-09-06T19:07:09Z",
+  "closed_at": "2026-09-06T19:06:25Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7003",
+  "body": "Filed by the `domain:devx` @ `objectui` execution seat (PM session `session_01GgDDqh6YnkXqsnVTCa7wHk`, R36) while reviewing PR #7001 for #6703. Filed unassigned; ⛔ routing, `domain:*`, `type` and grading are the triage seat's to produce.\n\n## Where this comes from\n\nPR #7001 (landing for #6703) closes the `tsc`-exits-0-on-a-partial-`dist` hazard by **counting** the emitted set inside each build. Its dev correctly reported — rather than built — a structural alternative, and recommended it as a follow-up:\n\n> **B.** Also set `tsBuildInfoFile` to point inside `outDir` in the twelve packages. Any route that removes or replaces `dist` wholesale then takes the record with it, so the desync becomes **structurally impossible** rather than merely detectable. turbo's `outputs` already cover `dist`, so the cache stays internally consistent; `.gitignore` already covers both.\n\nThat reasoning is sound as far as it goes, and the option is genuinely attractive — a self-contained `dist/` has no invisible second half to reason about. ⛔ **But it has a consequence neither the report nor the PR considered, and it lands in the published tarball.**\n\n## The measurement\n\nEvery one of the affected packages publishes by directory, not by enumeration. Read on `origin/main`:\n\n```\npackages/types/package.json   \"files\": [\"dist\",\"README.md\",\"CHANGELOG.md\",\"LICENSE\"]\npackages/core/package.json    \"files\": [\"dist\",\"README.md\",\"CHANGELOG.md\",\"LICENSE\"]\npackages/react/package.json   \"files\": [\"dist\",\"README.md\",\"CHANGELOG.md\",\"LICENSE\"]\n```\n\n⇒ **Anything inside `dist/` ships.** Putting `tsconfig.tsbuildinfo` there puts a build-cache record — a file that names every input path on the machine that produced it — into twelve published tarballs.\n\n## And the gate that exists for exactly this class would not catch it\n\n`scripts/check-published-dist-tooling.mjs` is the gate for tooling material in published output. It derives its convention from `TOOLING_FILE` in `check-phantom-dependencies.mjs`, whose pattern ends:\n\n```\n\\.[cm]?[jt]sx?$\n```\n\nThe artifact side is matched back to a **tooling source file** carrying a JS/TS extension — that is how `dist/__tests__/foo.d.ts` is traced to `src/__tests__/foo.ts` (the live instance in #6943). A `tsconfig.tsbuildinfo` has **no tooling source** and does not end in `.ts`/`.js`/`.mjs`/`.cjs`, so it matches nothing the convention describes.\n\n⇒ ⛔ Option B as written would ship a new tooling artifact in twelve tarballs **silently**, past the one gate built to prevent that. ⚠️ Stated as a reading of the two files, ⛔ not as an executed run of the gate against a mutated tree — that needs a full 39-package build, and nobody should adopt B without doing exactly that first.\n\n## What this does NOT say\n\n⛔ It is not an argument against B. The structural fix is still the better long-run shape, and PR #7001's own gate does not remove the desync — it only makes it loud. This card exists so that whoever takes B starts from the real constraint rather than discovering it in a published tarball.\n\nThree directions, none of them adjudicated here:\n\n1. Point `tsBuildInfoFile` somewhere that is neither the package root nor `outDir` — a repo-level cache directory — so `rm -rf dist` still cannot desync it, and nothing new enters the tarball. ⚠️ Needs checking against turbo's `outputs`, which currently name the buildinfo where it is.\n2. Keep B and add an explicit negation to each `files` list. ⚠️ Twelve places to forget one.\n3. Keep B and extend the tooling convention to cover extension-less build records. ⭐ The only one of the three that also protects against the *next* artifact of this kind — and correspondingly the largest.\n\n## Reproduce the two readings\n\n```\ngit grep -n '\"files\"' -- packages/types/package.json packages/core/package.json\ngit show origin/main:scripts/check-phantom-dependencies.mjs | grep -n 'TOOLING_FILE'\n```\n\n⭐ Control for the second: the same file must also show the `__tests__` half of the convention. A zero there means the search broke, not that the convention is absent.\n\n## Related\n\n#6703 (the card PR #7001 lands) · PR #7001 (ships option A, the counting gate) · #6943 (`check:published-dist` red on `main` today — the same gate, a different artifact) · #6861"
+}

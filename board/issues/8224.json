@@ -1,0 +1,33 @@
+{
+  "number": 8224,
+  "kind": "pull_request",
+  "title": "test(types): pin zod-mirror-parity's three ledger entry counts and the ratchet restatement (objectui#7733)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T01:48:31Z",
+  "updated_at": "2026-09-07T02:20:38Z",
+  "closed_at": "2026-09-07T02:20:37Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": "2026-09-07T02:20:37Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/8224",
+  "body": "Fixes #7733\n\nThe header of `packages/types/src/__tests__/zod-mirror-parity.test.ts` states three LEDGER entry counts, and the ratchet section restates the `KnownDrift` one about 120 lines below. Nothing compared any of them to the ledgers: `ReconcileAgainstLedger` and its siblings pin each entry's exact KEY SET, so an entry added or removed moved no number they check.\n\n**It had already rotted.** objectui#7542 shrank `KnownDrift` by one entry; the first site was corrected and the restatement was not. On `main` it read **42** against a ledger of **41**, carrying the parenthetical \"(measured, not assumed)\", with the file fully green.\n\n## What this changes\n\n1. **The figure that was already wrong** — the ratchet restatement, corrected to the measured value.\n2. **All three entry counts pinned**, plus the restatement, in one new assertion: `ledgerEntryKeys()` (the AST reader the objectui#7433 census landed) against `headerFigures()` (the reader the objectui#7279 split pin landed, which reads a figure off the header's OWN spelling, so a rewording that drops a digit is red rather than quietly unpinned). Directional failure message patterned on `EXPECTED_MIRROR_PAIRS`'.\n3. A header paragraph saying READ is not CHECKED, naming the pin and stating that the KEY totals are outside it.\n\n⛔ Additive only: no ledger entry, `MIRRORS` entry or `EXCLUSIONS` row moves. No new hand-maintained constant — the pin reads the prose that already existed, so the count a human edits stays exactly one per site.\n\n## Measured, on `ecf8e726e` (line numbers in the card and in triage are both stale)\n\nTwo independent instruments — a TypeScript AST walk over each ledger interface, and a line-oriented parse of the same block — agree:\n\n| ledger | entries | prose site (current line) |\n|---|---:|---|\n| `KnownDrift` | **41** | `:87` (bullet), `:208` (restatement, **was 42**) |\n| `UnmirroredDeclared` | **14** | `:114` |\n| `RuntimeOnlyDeclared` | **7** | `:147` |\n\nAgrees with triage's 41 / 14 / 7. Control on the instruments: the same walk reads `MIRRORS` as 158, which is what the green `EXPECTED_MIRROR_PAIRS` pin says.\n\n## The verification that decides this card: each new row proven to fire\n\nThe defect class here is *a pin that cannot fail*, so every row was mutated on disk and watched go red. Each leg: mutate → prove the mutation landed (marker grep + entry count read back + blob hash differs from HEAD's) → run → restore → **prove the restore by state** (`git hash-object` equal to the HEAD blob and `git diff HEAD` empty), never by an exit code. The implementation was committed first, so the restore leg had a real reference, and the mutation script carried a `trap` on `EXIT INT TERM` with absolute paths.\n\n| leg | mutation | result |\n|---|---|---|\n| 1 | `KnownDrift` +1 entry (41 → 42) | RED — rows `knownDrift` **and** `knownDriftRestated` |\n| 2 | `KnownDrift` +1 entry **and the bullet hand-corrected**, restatement left alone | RED — row `knownDriftRestated` alone |\n| 3 | `UnmirroredDeclared` +1 entry (14 → 15) | RED — row `unmirroredDeclared` (and the objectui#7279 split pin, expected) |\n| 4 | `RuntimeOnlyDeclared` +1 entry (7 → 8) | RED — row `runtimeOnlyDeclared` |\n\n⭐ **Leg 2 is the one that matters.** It reproduces exactly what happened at objectui#7542 — ledger moves, first site corrected, restatement forgotten — and the pin still fires. That is the difference between covering the restatement and merely fixing its digit.\n\nAll four restores verified: blob hash back to `f3c430e`, `git diff HEAD` empty, marker absent.\n\n## Gates\n\nUnion run **after** the final commit, at `482bdc639`:\n\n- `pnpm --filter @object-ui/types lint` (`eslint .`) — exit 0\n- `pnpm --filter @object-ui/types type-check` (`tsc --noEmit && tsc -p tsconfig.examples.json && tsc -p tsconfig.test.json`) — exit 0. `--listFiles` confirms the edited test file is in that project, so this is a reading about it and not a vacuous pass.\n- `vitest run --project unit packages/types/src/__tests__` — **136 files / 2558 tests passed**. The target file alone: **20 passed before** this change, **21 after**.\n- `check-changeset-presence` / `check-changeset-no-major` / `check-control-bytes` / `check-unreferenced-sources` — exit 0\n- changeset: empty frontmatter (test-only, declares no release), the repo's first-class \"releases nothing\" spelling.\n\nRepo-wide `pnpm lint` (turbo, every package) was **not** run locally; CI runs the farm regardless. The narrowing is to the one package this diff touches.\n\n## ⚠️ One thing measured and deliberately NOT touched here\n\nThe same bullet's KEY total says **62 keys**; both instruments measure **63**, and bisection puts the break at objectui#7664, which moved the key total without moving the entry count. Filed separately as **#8222** with the measurement and the bisect, because the card body and triage 5557456510 both fence the key totals off in the same words — a number nobody had measured gets no verdict — and triage's instruction for exactly this case was: measure first, then file separately. ⛔ Neither the digit nor a pin for it is in this PR.\n\nAlso unpinned, and correct as measured today: `RuntimeOnlyDeclared`'s 24 keys, and the \"union … is 15 pairs\" figure. `UnmirroredDeclared`'s entry and key totals turned out to be **already pinned** by the objectui#7279 split test — see the report.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_0114Ytxr5sM1vdW19Y9WAx6E)_"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 7872,
+  "kind": "issue",
+  "title": "finding(docs): 7 more ${…} sites on keys with no carriage row, in 3 pages no card covers — measured by the objectui#7851 census",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T00:50:41Z",
+  "updated_at": "2026-09-06T03:38:49Z",
+  "closed_at": "2026-09-06T02:35:07Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7872",
+  "body": "Measured by the census that objectui#7851 landed (PR objectui#7868), on `59df1dab2`. Filed rather than repaired: objectui#7851's ruling is that the census is the deliverable and ⛔ it does not repair other pages' sites. Recording, not claiming — grading and `domain:*` are the triage seat's.\n\n## The measurement\n\nRead from the artifact, never from prose: `expressionBindableTextKeysFor` out of the built `@objectstack/spec@17.2.0` `dist/ui/index.mjs`, the same lookup `SchemaRenderer.tsx:1139` consumes. `SchemaRenderer` evaluates exactly four channels — `content`, the carriage keys for the node's own type, the `properties` and `props` bags — plus the eight condition keys. An expression written anywhere else reaches the renderer as the characters the author typed.\n\nCorpus-wide: **204 json/jsonc fences, 204 parsed, 0 unparsed, 17 uncarried sites in 5 pages.** Of those 17, 8 belong to objectui#7418 (`guide/expressions.md`, PR objectui#7847) and 1 to objectui#7680 (`schema-rendering.md`'s `chart.data`). **The 7 below belong to no open card.**\n\n## The seven sites\n\n| page | line | node | key | carriage rows for that type |\n|---|---|---|---|---|\n| `content/docs/guide/schema-rendering.md` | 186 | `badge` | `text` | none |\n| `content/docs/guide/schema-rendering.md` | 187 | `badge` | `variant` | none |\n| `content/docs/guide/schema-rendering.md` | 207 | `alert` | `variant` | none |\n| `content/docs/guide/schema-rendering.md` | 416 | `alert` | `message` | none |\n| `content/docs/guide/architecture.md` | 257 | `badge` | `text` | none |\n| `content/docs/guide/architecture.md` | 258 | `badge` | `variant` | none |\n| `content/docs/guide/layout.md` | 511 | `page` | `title` | none |\n\nLine numbers are as of `59df1dab2` and will drift; locate by content.\n\n## Two of them are worse than \"the expression does not evaluate\"\n\nPR objectui#7847 measured both through the real production renderers while repairing the same shapes one page over, so this is quoted rather than re-derived:\n\n- **`text` is not a `BadgeSchema` key at all.** `BadgeSchema` declares `label` / `variant` / `icon` / `children`, and `renderers/data-display/badge.tsx` renders `schema.label`. So `\"text\": \"${…}\"` on a badge renders an **empty badge**, with `text=${…}` leaking as a DOM attribute. Both `badge.text` rows above are that, not merely an unevaluated expression.\n- **`success` / `warning` / `info` are not badge variants.** The closed set is `default` / `secondary` / `destructive` / `outline`. Both `badge.variant` rows above author one of the invalid three. (⚠️ Not asserted for `alert`: that component's variant set was not measured here.)\n\n## The ruling that already applies\n\nThe maintainer's 2026-09-01 ruling on objectui#7115 chose fork **(B)**: non-`text` types get **no** new carriage rows, and the docs stop authoring `${…}` in keys that have none — 「文档教现实」. ⛔ Adding carriage rows for `badge.text`, `alert.message` or `page.title` is fork **(A)** and was rejected; that widens an authoring surface and would be a maintainer decision, not a docs fix.\n\nPR objectui#7847 is the worked precedent for how each site is decided — per passage, not one blanket rule: a passage **demonstrating binding** moves onto a channel that carries (a `text` node's `content`, evaluated on every type; or a real carriage key on the same node; or the `properties` bag), and a passage where the non-carrying component **is** the subject becomes a literal plus prose naming the missing row.\n\n⚠️ Worth reading before acting: `schema-rendering.md`'s two hits sit under headings named \"Conditional Expressions\" and \"Complex Logic\", so those passages are demonstrating binding and cannot simply be de-expressed without teaching something else.\n\n## Considered and deliberately NOT claimed\n\n`content/docs/api/schema-reference.md:612` authors `\"condition\": \"${data.items.length > 0}\"` inside the `ActionSchema` example. The census reports it, and it is recorded here so the next reader does not have to re-derive that it was looked at: `type: \"action\"` is the **action** vocabulary, not an SDUI component node, and `condition` is evaluated by the action runner's own gate rather than by `SchemaRenderer`'s node channels. It is not part of this finding. (`check:doc-types`' header measured at least seven vocabularies in this corpus that all spell the key `type`; the census inherits that gate's ruling that a global key-path discriminator does not converge, and prints \"a hit is a candidate, not a verdict\" under every findings list for exactly this reason.)\n\n## How to re-measure\n\n```\nnode scripts/check-doc-expression-carriage.mjs\n```\n\nReport-only: it prints the census and exits 0. It also prints its own blind spot in three directions — parsed/unparsed per fence language, and whether any fence outside `json`/`jsonc` would have parsed as a JSON document holding a typed node — so the \"7 sites\" above is a bounded number rather than \"7 is what I happened to find\".\n\nRelated, not duplicates: objectui#7418 (`guide/expressions.md`, in flight as PR objectui#7847), objectui#7680 (the `chart.data` site on one of these same pages), objectui#7440 and objectui#7444 (the read-back half of the class, which this census does not answer), objectui#7851 (the census itself).\n\nFiled by the `os-dev` seat working objectui#7851; session `https://claude.ai/code/session_01KbJQ1y1J12nZxYzFWhP8Q3`.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

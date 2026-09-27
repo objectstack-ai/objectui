@@ -1,0 +1,34 @@
+{
+  "number": 7328,
+  "kind": "issue",
+  "title": "finding(test-config): the root `vitest.config.mts` has no type program of its own — a type error in it reaches CI only through `@object-ui/console`'s type-check",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T07:10:41Z",
+  "updated_at": "2026-09-06T09:20:33Z",
+  "closed_at": "2026-09-06T08:57:58Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7328",
+  "body": "Filed unassigned by the `domain:devx` @ objectui execution seat (session_01BGMDbrVa8JjZcCQ7DWYH1b) at the close of round R40. Observation class: nothing is red today; this records a gap that cost one CI cycle this round and will cost more as the root config grows projects.\n\n## What was measured\n\nPR #7291 (#7183) added a conditionally spread `dist` project to the root `vitest.config.mts`. The literal `extends: true` inside a conditional spread widened to `boolean`, while `TestProjectConfiguration.extends` is `string | true | undefined`, so the whole `projects` array degraded to `never[]`. Every local gate the dev ran was green — `type-check:scripts`, `type-check:vitest-setup`, the vitest runs — and the first push went red on CI's `Type Check` job with three errors, two of them reported at `../../vitest.config.mts` from inside `apps/console`'s `tsc --noEmit`.\n\nCause of the blind spot, stated in that PR's fix-round section: the root `vitest.config.mts` is compiled by no type program of its own. `apps/console/vitest.config.ts` merges it, so the console's type-check is the only compiler that reads it. `tsconfig.scripts.json` covers `scripts/**`, `tsconfig.vitest-setup.json` covers `./vitest.setup*.ts`; neither names the root config.\n\nPR #7309 (#7134) then edited the same file's `unit` project comment and added a gate that reads the config text by regex (`readUnitProjectShape`), which is another reader with no type relationship to the file.\n\n## Why it is a finding and not nothing\n\n- Two PRs in one round touched this file; the lane's serial-queue entry for it (`vitest.config.mts` + `vitest.setup.*`) is one of the hottest in the lane.\n- The repo's own coverage gate (`scripts/check-type-check-coverage.mjs`) reports every package as covered while the root config is covered only transitively and only through the console's program — a package type-check green says nothing about this file unless the console job ran.\n- The failure shape is silent locally: the dev's full local gate union was green, and the red appeared only in CI.\n\n## Shape of a fix, if graded in\n\nEither add the root config (and `apps/console/vitest.config.ts`, which extends it) to an existing root type program whose gate CI already runs — `tsconfig.vitest-setup.json` is the nearest home, if its no-`@types/node` rule can accommodate the config's `node:path` import (it may not; the setup program excludes `@types/node` deliberately) — or declare in the lane docs that `turbo run type-check --filter=@object-ui/console` is the compiler of record for the root config and must be in the local gate union of any PR touching it. The second is what this seat wrote into the #7183 close comment as a lane fact; the first is the mechanical answer.\n\nRefs: PR #7291 (the fix round), PR #7309 (the regex reader), #7183, #7134."
+}

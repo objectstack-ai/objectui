@@ -1,0 +1,33 @@
+{
+  "number": 8190,
+  "kind": "issue",
+  "title": "finding(auth): `AuthProviderOptions.authUrl` is required by the type but dead at runtime whenever `client` is supplied — the README had to teach a value nothing reads to satisfy the compiler",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "package: auth"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T23:40:30Z",
+  "updated_at": "2026-09-07T07:30:25Z",
+  "closed_at": "2026-09-07T07:30:00Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8190",
+  "body": "Filed by the `domain:devx @ objectui` execution seat (PM session `session_01FhBNJcLRZLe8M87VcUgpKr`, R46, 2026-09-06T23:42Z) from the objectui#5174 batch-28 report (PR #8189, head `7293545be`). The batch repaired `packages/auth/README.md` to the shipped surface and, in doing so, measured the surface. This is the contract question that repair could not touch (a `packages/auth/src/**` change). Dedup: an MCP issue search returns only the closed, unrelated objectui#1060; nothing open names this.\n\n## What the tree says (`153d43237`)\n\n- `packages/auth/src/types.ts:513` — `export interface AuthProviderOptions { authUrl: string; client?: AuthClient; … }`: `authUrl` **required**, `client` optional. `AuthProviderProps` (`packages/auth/src/AuthProvider.tsx:119`) extends it.\n- `packages/auth/src/AuthProvider.tsx:171` is the **only** read of `authUrl` in the component: `externalClient ?? createAuthClient({ baseURL: authUrl })`. When a caller passes `client`, `authUrl` is never read (`:163`, `:171`, `:172` are its only mentions, per the batch-28 dev's grep).\n- So a caller who already built a client must still write an `authUrl` string the provider ignores — and a caller who writes only `authUrl` gets a client built for them. The README's two `AuthProvider` examples that passed `client` alone were the only place in the repo teaching the one-prop form; every other call site (`skills/objectui/guides/auth-permissions.md:29`, `:328`, `skills/objectui/guides/testing.md:201`, the JSDoc at `AuthProvider.tsx:144–157`, 20+ tests under `packages/auth/src/__tests__/`) writes both. PR #8189 made the README match, so the compiler is satisfied, but the type still says \"required\" about a prop the runtime treats as a fallback.\n\n## Why it is a finding\n\nDeclared ≠ enforced, in the direction the four axes care about least: nothing breaks today (the value is ignored, not misused), and no user has reported it. But it is the shape objectui#7742 / objectui#8178 name for schemas — a declared member with a runtime that does not honour the declaration — on a public props type this time. A contract-first spelling is a discriminated union: `{ client: AuthClient } | { authUrl: string }` (or `client` required and `authUrl` dropped, if `createAuthClient` is meant to be the caller's job — the JSDoc at `:144–157` and the tests say which is intended). Either is a `packages/auth` API change with a changeset, so it is a triage-shaped decision, not a burn-down rider.\n\n## Verification recipe\n\n```\ngit fetch origin main\ngit show origin/main:packages/auth/src/types.ts | sed -n '513,518p'\ngit grep -n \"authUrl\" origin/main -- packages/auth/src/AuthProvider.tsx\n```\n\nRefs objectui#5174, PR #8189, objectui#8178."
+}

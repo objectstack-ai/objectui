@@ -1,0 +1,35 @@
+{
+  "number": 8067,
+  "kind": "issue",
+  "title": "registry-inputs-spec-parity 对 array/object 类 key 降级成「只比名字」——`ComponentInput` 没有承载成员形状的槽位，`page:header.actions` 因此漂移了整整一个契约周期",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T14:15:34Z",
+  "updated_at": "2026-09-06T18:06:50Z",
+  "closed_at": "2026-09-06T17:17:32Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8067",
+  "body": "## 事实\n\n`apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` 自述，逐字：\n\n> **LIMIT — worth knowing before trusting a pass. This gate compares TOP-LEVEL KEY NAMES and nothing else.** Two things it therefore cannot see, both real and both filed:\n>\n> - **member shapes.** An `inputs` entry of type `array`/`object` declares no member shape (**`ComponentInput` has no slot for one**), so a drifted key INSIDE an array element or nested object is invisible here …\n\n本卡是这两条 LIMIT 中**第一条**的卡。（第二条「types NARROWER than the contract」是刻意不 gate 的，见闸门的 ARM DIRECTION 一节与 #4971，⛔ 不在本卡范围。）\n\n`ComponentInput` 定义在 **`packages/types/src/base.ts:528`**，经 `@object-ui/core` 导出。它有 `type: 'array'`，但没有任何字段说「数组里装的是什么」。\n\n⇒ 闸门虽然从 `ComponentPropsMap[type]` 的**运行时 shape** 取期望（spec 侧是知道元素类型的，zod 携带它），但因为 `inputs` 侧无法表达，比较只能退化到顶层 key 名字。\n\n## 已发生的代价：`page:header.actions`\n\n| 侧 | 声明 |\n|:--|:--|\n| `@objectstack/spec` | `actions: z.array(z.string()).describe(\"Action IDs to show in header\")` |\n| 渲染器实际读取 | 把成员当 `ActionDef` 对象：`rawHeaderActions.filter(a => actionRendersAt(a, 'record_header') …)` |\n| **本闸门** | 两侧都有 `actions` 这个 key ⇒ **绿** |\n\n漂移从这个 key 存在起一直到 objectstack#11592（2026-08-24 立卡）才被人注意到，而且**settle 它的是维护者裁决，不是任何测试**（2026-08-25「全部同意」推荐 B；#6252 / #7182 option C）。\n\n⚠️ 今天修好之后，「这是 id」这个事实仍然只活在散文里 —— `packages/components/src/renderers/layout/containers.tsx:2032`：\n\n```js\n{ name: 'actions', type: 'array',\n  description: \"Action IDS — the names of actions declared on the object's own metadata — …\" }\n```\n\n⇒ 机器读不到。这正是本仓反复在打的 declared-in-prose / unenforced 模式。\n\n### 下游代价（说明它为什么值得修，⛔ 不是本卡要做的事）\n\n消费方 `objectstack-ai/hotcrm` 的 `os lint` **是整个系统里唯一看见形状分歧的东西**（`component-props-invalid` 按 spec schema 校验，含形状，16 条）。但那是唯一**没有权威改渲染器**的一侧，于是 16 条正确报警被当成噪声，写进了 `KNOWN_UNCONFORMING` 豁免，并附了一段论证「渲染器才是权威」的散文。那段散文随后误导了一个 PR 和两轮 agent 会话，直到 2026-09-06 维护者裁决 「元数据项目不应该依赖 @object-ui/components」 才推翻。\n\n## 要做的事\n\n**给 `ComponentInput` 一个机器可读的成员形状表达，并让本闸门用上它。**\n\n⛔ 本卡不预设字段名或形状（`of` / `element` / `items` 皆可）——**设计是这张卡的主体**，因为 `ComponentInput` 有四个下游消费者，任何新增都要同时对它们成立：\n\n1. `packages/sdui-parser/scripts/gen-manifest.ts` → `sdui.manifest.json`（save gate + parser 白名单）\n2. 同上 → `sdui-intrinsics.d.ts`（JSX 授权类型面）\n3. `packages/sdui-parser/src/validate.ts`（走 `comp.inputs` 判 `unknown-prop`）\n4. `packages/components/src/renderers/layout/page.tsx:462`（JSX-page prop 白名单）\n\n## ⛔ 硬约束\n\n⚠️ **新槽位必须从第一天起就有 reader。** #5905（已关闭）记录的正是反面教材：`ComponentInput` 的 `inputType`/`min`/`max`/`step`/`placeholder` **五个键没有任何读者**，manifest 序列化器转发六个键、一个都不读。⛔ 再加一个没人读的键，等于把本卡变成 #5905 的续集。\n\n⇒ 验收要求：新槽位落地的**同一个 PR** 里，本闸门必须真的比较成员形状，并且有一条消融证明它能红——把某个 array key 的成员形状改成与 spec 不符，闸门必须失败。\n\n⚠️ **配对正向对照**：消融的同一轮里，必须展示未改动的树上该闸门通过。一个不会红的闸门和一个不存在的闸门无法区分。\n\n## ⛔ 不在本卡内\n\n- 「types NARROWER than the contract」那半边——刻意不 gate，见 #4971。\n- ⛔ 任何对 `@objectstack/spec` 的改动。**协议侧是对的**：`z.array(z.string())` 完整且机器可读，缺口全部在本仓。\n- 把 per-block pin 变成强制——那是**另一张卡**，且是这两者中更要紧的一张（它管的是「渲染器读的形状」，本卡只管「声明能不能表达形状」）。⛔ 只做本卡不做那张，渲染器代码依然不受约束。\n\nRefs: #3797（建立本闸门的卡）· #4971（ARM DIRECTION，第二条 LIMIT）· #5905（无 reader 的 `ComponentInput` 键，反面教材）· #6252 / #7182（`page:header.actions` 的修复与裁决）· objectstack#11592 · objectstack-ai/hotcrm#1279 / #1653。"
+}

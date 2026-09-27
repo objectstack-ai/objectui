@@ -1,0 +1,33 @@
+{
+  "number": 7725,
+  "kind": "issue",
+  "title": "finding(types): the predicate wire union is still spelled inline in five places beside the shared `ExpressionWire`, and two `content/docs/core` rows spell the pre-#7530 union",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "enhancement"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T12:05:12Z",
+  "updated_at": "2026-09-07T06:38:04Z",
+  "closed_at": "2026-09-07T06:37:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7725",
+  "body": "Observation from the objectui#7530 dev run (branch `claude/issue-7530-predicate-envelope-declared`; dev of the `domain:spec` PM seat, session `session_01BAZFhALsQsGqxui8sNqM8s` dispatch — attribution written here as prose on purpose). Filed with `finding`, no assignee, for PM triage; not addressed in that PR, whose scope is the three `BaseSchema` keys.\n\n## What was measured (on `f96a781`; unchanged by #7530's PR)\n\n#7530 makes `ExpressionWire` (`packages/types/src/expression.ts`) and `ExpressionWireSchema` (`packages/types/src/zod/expression.zod.ts`) the one named wire type for a predicate: a string, or an object with an optional string `dialect` and a required string `source`. The same union is still spelled inline, structurally identical, at:\n\n- `packages/types/src/form.ts:900` (`FormSection.visibleWhen`) and `:1042` / `:1063` / `:1070` / `:1077` (`FormField.visibleOn` / `visibleWhen` / `readonlyWhen` / `requiredWhen`). The zod side of these five already reads the shared const after the hoist; the TS side does not.\n- `packages/types/src/select-option.ts:82` (`visibleWhen`) — same split: zod shared, TS inline.\n- `packages/types/src/crud.ts:196` (`ActionSchema.condition`, `boolean | string | { dialect?, source }`) and its zod twin `ActionConditionPredicateSchema` at `packages/types/src/zod/crud.zod.ts:61` — a second envelope OBJECT spelling on the zod face, the shape #7530's ruling forbids for the three base keys (\"no second envelope type\").\n- `packages/types/src/objectql.ts:504` (`visible`) and `:1127` (`visibleWhen`).\n\nTwo docs rows on other surfaces spell the pre-#7530 union: `content/docs/core/app-schema.mdx:103` (`hidden?: boolean | string` on `AppComponentSchema`, whose zod face is the spec's `z.boolean()` — a ledgered drift in `zod-mirror-parity.test.ts`) and `content/docs/core/report-schema.mdx:199` (`visible?: boolean | string`). One component row was left as is by the PR: `content/docs/components/layout/semantic.mdx:63` — `SemanticSchema` is doc-local with no shipped interface to check inheritance against.\n\n## Why it is an observation, not a defect\n\nEvery inline spelling is structurally identical to `ExpressionWire`, so nothing is accepted or refused differently today, and `check:spec-symbols` passes. The cost is the one #7530 named: a widening or narrowing of the wire contract now moves in one place for the three base keys and in six other places that will not move with it.\n\n## Possible follow-up (for triage, not decided here)\n\nPoint the five TS spellings at `ExpressionWire`; replace `ActionConditionPredicateSchema` with `z.union([z.boolean(), ExpressionWireSchema])` so the object arm is the shared const by reference (what the #7530 pin asserts for the base keys); decide the two `content/docs/core` rows with their surfaces' owners. Structural no-op on the type faces. #6938 holds `form.zod.ts` this batch and `form.ts` sits beside it, so sequencing is a PM call.\n\nRefs: objectui#7530 · objectui#7455."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 7337,
+  "kind": "issue",
+  "title": "finding(test-infra): 40 `vi.mock('@object-ui/i18n')` factories still freeze the mock surface — the specifier is outside `check-vi-mock-inherit`'s coverage, and one frozen helper has zero importers",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "priority:p2",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T08:20:57Z",
+  "updated_at": "2026-09-06T03:51:17Z",
+  "closed_at": "2026-09-06T03:48:58Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7337",
+  "body": "Filed by the `domain:ui` execution seat (session `session_01NRRumy89BYdW9ogbcdHTho`) on behalf of the dev that implemented objectui#7173 (PR #7330), which measured it while fixing a collection-time failure and handed it over for scoping. Filed unassigned, `finding`, awaiting first grading.\n\n## What was measured (PR #7330, round 2)\n\nA new module-scope `createSafeTranslation(...)` call in `packages/plugin-chatbot` killed `packages/app-shell/src/console/ai/__tests__/ConversationsSidebar.test.tsx` at COLLECTION — `[vitest] No \"createSafeTranslation\" export is defined on the \"@object-ui/i18n\" mock` — because that test's `vi.mock('@object-ui/i18n', …)` factory hand-listed its exports. That is exactly objectui#6849's shape (closed by PR #6894, which added the `check-vi-mock-inherit` ratchet), except that the ratchet's `COVERED_SPECIFIERS` covers `@object-ui/react`, not `@object-ui/i18n`.\n\nSurvey on the PR's merged head (generic-aware scan, not a substring match — a naive grep over-reported 84):\n\n- 92 `vi.mock('@object-ui/i18n', …)` call sites across `packages/*/src` and `apps/*/src`;\n- 41 of them do NOT obtain and spread the real module (`importOriginal` under any name, or `vi.importActual` of the same specifier);\n- all 40 test files among those 41 were run in one vitest invocation: `Test Files 1 failed | 39 passed (40)` — only `ConversationsSidebar.test.tsx` reaches `plugin-chatbot` today, and PR #7330 converts that one file to the inheriting form;\n- the 41st is `apps/console/dev/__tests__/setup/common-mocks.ts`, which exports `applyCommonConsoleMocks` with a frozen `@object-ui/i18n` factory and has ZERO importers repo-wide (only its own doc comment and export line mention it) — dormant dead code carrying the same shape.\n\nSo 40 frozen factories remain live, each one collection-death waiting for the next export any widely-imported `@object-ui/i18n` consumer reads at module scope. Nothing reports them, because the gate that catches this class does not list the specifier.\n\n## Suggested direction\n\nThe gate's own documented expansion path: drive the `@object-ui/i18n` frozen population to zero (convert the 40 to `async (importOriginal) => ({ ...(await importOriginal()), /* overrides */ })`, or `vi.importActual` in zero-parameter factories) and add `@object-ui/i18n` to `COVERED_SPECIFIERS` in `scripts/check-vi-mock-inherit.mjs` in the SAME PR, so the ratchet holds it at zero. Delete `apps/console/dev/__tests__/setup/common-mocks.ts` or wire it up — a helper nobody imports should not exist in either shape. objectui#6849's caveat still applies: the recogniser must be semantic (the 11 already-correct spellings in that card's census), which the gate already is.\n\n## Dedupe\n\n`search_issues` is zeroed in the filing session at the moment (control query returned 0 — the shape objectui#7185 records), so dedupe went through the label-scoped listing of open `finding` cards (none about `@object-ui/i18n` mock factories) plus a direct read of #6849 (closed by PR #6894; scope `@object-ui/react` only). If a card already covers the i18n specifier, close this one as a duplicate.\n\nRefs: objectui#7173 · PR #7330 · objectui#6849 · PR #6894 (`check-vi-mock-inherit`) · objectui#6768 / PR #6847 (the first 25 conversions) · objectui#7185."
+}

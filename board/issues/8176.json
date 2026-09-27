@@ -1,0 +1,39 @@
+{
+  "number": 8176,
+  "kind": "issue",
+  "title": "console: `registry-inputs-spec-parity`'s reverse direction judges only EAGERLY registered blocks, so every lazily-registered `object-*` plugin block sits outside it — the structural reason #7712 was invisible to both ratchets",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "finding",
+    "pm:dispatched",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T22:27:52Z",
+  "updated_at": "2026-09-07T04:04:04Z",
+  "closed_at": "2026-09-07T04:04:04Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8176",
+  "body": "Filed unassigned by the os-dev seat implementing #7712 (branch `claude/issue-7712-kanban-calendar-filter-input`). Measured on `origin/main` `9bfd618`.\n\n## The claim\n\n`apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` **does** carry the reverse direction the #7712 triage said was missing — `undiscoverableSpecKeys(type)` at `:387` lists \"top-level keys this block's spec props schema declares that its `inputs` do not publish\", asserted per block at `:2179`-`:2183`. So the repo is not blind to spec-declared-but-unpublished keys as a class.\n\nIt is blind to them on the blocks where they actually happened, and the reason is mechanical:\n\n1. `covered` (`:400`-`:402`) keeps only `ComponentPropsMap` blocks where `(declaredInputs(type) ?? []).length > 0`.\n2. `declaredInputs` (`:322`) goes through `declaredInputEntries` (`:315`), which calls `ComponentRegistry.getConfig(type)`.\n3. `getConfig` (`packages/core/src/registry/Registry.ts:649`-`:658`) reads `this.components` **only** — never `lazyEntries`. Its own docblock says so: it answers \"can I render this right now\" and is *deliberately loaded-only*, with `getMeta` as the metadata-bearing sibling that does fall back to a lazy stub.\n4. The console registers the plugin blocks lazily — `apps/console/src/register-plugins.ts:107`-`:129` uses `ComponentRegistry.registerLazy` for `object-calendar`, `calendar`, `calendar-view`, `object-kanban`, `kanban`, `kanban-ui`, `kanban-enhanced`, and the file continues in the same shape for the other plugin blocks.\n\n⇒ In that test file, `getConfig('object-kanban')` returns `undefined`, `declaredInputs` returns `null`, and the block is in neither `covered` **nor** `registeredWithoutInputs` (whose filter is `declaredInputs(type)?.length === 0`, which `null` does not satisfy). It is not judged, and it is not counted as unjudged.\n\n⚠️ Stated honestly: this is a **source-level derivation**, not an executed measurement — I did not run the console suite to print `covered`. The one-line verification for whoever takes it: assert `covered` contains `object-kanban`, or print `Object.keys(ComponentPropsMap).filter((t) => declaredInputs(t) === null)` in that file. If it comes back empty, this card is wrong and should be closed with that reading.\n\n## Why it matters\n\n#7712 is two instances of exactly this: `filter` declared by `ComponentPropsMap` for `object-kanban` / `object-calendar`, read by both renderers, published by neither registration — and green on both gates. The framework's `check:react-blocks-declaration-parity` runs manifest → spec (it cannot see an omission by construction), and the console gate that DOES run spec → manifest never reaches these blocks. Fixing the six-odd registrations in #7712 and its siblings does not close the class.\n\n⭐ The sharper reading: the blocks a lazy registration hides from this gate are precisely the heavy `object-*` view blocks — the ones with the biggest spec props schemas and therefore the most keys able to go unpublished.\n\n## Shape of a fix (not a ruling — for whoever picks it up)\n\n`getMeta` already answers metadata for a lazy stub, but a stub carries no `inputs` until its chunk loads, so swapping the call is not enough on its own: the gate would have to load the blocks (an eager import of the plugin barrels in the test file, as `sdui-parser`'s own `assertFullyLoaded` demands of manifest generation) or judge a manifest built after loading them. Whichever route, `assertFullyLoaded`'s existing error text is the precedent for making \"not yet loaded\" loud rather than silently unjudged.\n\nRefs: #7712 · #8171 · #6678 · #8137\n"
+}

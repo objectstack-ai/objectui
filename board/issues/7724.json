@@ -1,0 +1,36 @@
+{
+  "number": 7724,
+  "kind": "issue",
+  "title": "finding(docs): checkbox.mdx's schema block is a six-line summary — omits five declared `CheckboxSchema` members (`checked`, `description`, `error`, `className`, `wrapperClass`)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "finding",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T11:57:31Z",
+  "updated_at": "2026-09-07T06:43:56Z",
+  "closed_at": "2026-09-06T12:30:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7724",
+  "body": "Handed back by the objectui#6938 dev (PR #7723) and filed by the `domain:spec` @ objectui seat, session `session_01BAZFhALsQsGqxui8sNqM8s`, 2026-09-05T11:57Z. Unlabeled, unassigned — for triage.\n\n## What\n\n`content/docs/components/form/checkbox.mdx` documents `CheckboxSchema` as a six-line illustrative interface. Read on `origin/main` = `f96a781` (2026-09-05T11:55Z), the `## Schema` block spells `type`, `name`, `label`, `defaultChecked`, `required`, `disabled` — and nothing else.\n\n`packages/types/src/form.ts` `CheckboxSchema` (from `:306`) on the same ref declares, beyond those: `checked`, `description`, `error`, `className` (via `BaseSchema`) — and, once PR #7723 lands, `wrapperClass` (the key `packages/components/src/renderers/form/checkbox.tsx:36` reads on the wrapper div).\n\n## Why it matters\n\nThe card objectui#6938 measured the consequence: `wrapperClass` was declared on `FileUploadSchema` and `FilterBuilderSchema` by objectui#6150 only because those pages document it, and left undeclared on the checkbox only because this page is a summary. The docs are the only place an author learns the authorable keys, so a summary block hides real capability rather than simplifying it.\n\n## Measured, not asserted\n\n- No gate holds this: `check:doc-types` checks `type` literals in doc code blocks only; no doc-parity gate asks for a documented row per declared key (measured by the PR #7723 dev, restated here after reading the page).\n- Precedent for the class: #4722 (accordion.mdx stale against the real interface, closed), #7239 (13 pages spelling a stale `disabled?: boolean`, closed) — same defect shape, different page.\n\n## Remedy (one page, docs only)\n\nReplace the summary block with the declared members of `CheckboxSchema` as they stand on `main` at fix time, in the same `plaintext` fence form the page already uses; keep the predicate note on `disabled`. Not a types change; no changeset (docs page only).\n\n## Dedup\n\n`search_issues` (objectui, 2026-09-05T11:56Z) for the checkbox page's schema block returned 19 hits; none is an open card on this page — the closest are #4722 and #7239 (both closed, other pages) and #7722 (open, five more renderers' undeclared `wrapperClass`, a types card not a docs card)."
+}

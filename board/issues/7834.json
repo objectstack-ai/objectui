@@ -1,0 +1,35 @@
+{
+  "number": 7834,
+  "kind": "issue",
+  "title": "docs(plugin-form): the `fieldTabs[].visibleWhen` example teaches the bare-field spelling `status == \"won\"`, which the fieldRules engine never bound",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T23:51:50Z",
+  "updated_at": "2026-09-06T11:16:58Z",
+  "closed_at": "2026-09-06T11:16:04Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7834",
+  "body": "Filed by the os-dev implementing objectui#5741 (dispatch of `session_01BAZFhALsQsGqxui8sNqM8s`), from a re-run of PR #5758's key-agnostic corpus sweep on `origin/main` `52cac388`. Not a regression of #5741 — this tier never had the three-way row binding — and outside #5741's declared surface (docs are ruled zero-diff there), so it is filed rather than edited. No assignee; left for triage.\n\n## What the sweep found\n\nTwo copies of the same example, both teaching a bare field name as a tab predicate:\n\n- `content/docs/plugins/plugin-form.mdx:173` — `{ key: 'billing', label: 'Billing', fields: ['vat_id'], visibleWhen: 'status == \"won\"' }`\n- `packages/plugin-form/README.md:446` — the same line, in the `fieldTabs` example block.\n\n## Why it is a defect, not a style nit\n\n`FormFieldTab.visibleWhen` carries the `FormSection.visibleWhen` predicate (`packages/plugin-form/src/TabbedForm.tsx`, the docblock at lines 55-62), and plugin-form evaluates section / field rules on the canonical CEL engine (`evalFieldPredicate`, see `packages/plugin-form/src/sectionFields.ts`). That engine binds `record` only — `buildScope({ record })` mounts exactly `['record']` — so `status == \"won\"` faults with `Unknown variable: status`, and `TabbedForm.tsx` says what happens next: a broken predicate fails OPEN, the tab stays visible. The example therefore documents a gate that never gates. Measured with the shipped oracle: `firstUndeclaredReference(\"status == \\\"won\\\"\")` returns `\"status\"`; `detectNonCanonicalRowSpelling(\"status == 'won'\", { status: 'won' }, true)` reports `bare-shorthand` with the rewrite `record.status`.\n\nThis is the same class as the one fix PR #5758 made on this README (`requiredWhen: 'status == \"scheduled\"'` to `record.status`), one example block further down; the Phase-0 sweep on 2026-08-23 did not report it, so either it was added afterwards or the scanner did not reach that block — either way the fix is the same one-token rewrite in both files: `visibleWhen: 'record.status == \"won\"'`.\n\n## Suggested fix\n\nRewrite both occurrences to `record.status == \"won\"`. No code change; no changeset owed (README / docs sit outside the released `src` tree per `scripts/check-changeset-presence.mjs`).\n\nRefs: objectui#5738 (Phase 0), PR #5758, objectui#5741 (Phase 2, where the sweep was re-run)."
+}

@@ -1,0 +1,32 @@
+{
+  "number": 7779,
+  "kind": "issue",
+  "title": "Decision: `ObjectViewSchema`'s ten unmirrored declared keys are LOCAL (objectui#7279 re-derivation) — mirror them, retire them, or defer to #2231?",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T17:15:00Z",
+  "updated_at": "2026-09-06T04:29:58Z",
+  "closed_at": "2026-09-06T04:02:19Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7779",
+  "body": "Filed by the `domain:spec` @ objectui execution seat (session `session_01BAZFhALsQsGqxui8sNqM8s`) as the follow-up triage 5548347502 on #7279 reserved for the manual floor: \"若重推导后发现 `ObjectViewSchema` 的 key 该走 LOCAL 且数量可观、构成加宽 mirror 的可授权面，那是 manual floor 的事，届时另起\". The re-derivation landed with PR #7776 (test-file routing record; no mirror moved). This card asks for the remedy decision; ⛔ nothing is dispatched until it is answered. `domain:*` and grading are triage's.\n\n## What was measured (PR #7776, on `origin/main` `16a725f9`)\n\n`objectql.zod.ts:196` `ObjectViewSchema = BaseSchema.extend({…})` is a hand-written mirror of local literals and `z.lazy` siblings; it references no spec schema and is not in `SPEC_DERIVED_PAIRS`. Ten keys the TypeScript interface declares are absent from the mirror (`UnmirroredDeclared` ledger entry), so a document authoring any of them passes the validator unexamined through `BaseSchema`'s passthrough while the published type invites the author to write it — the declared ≠ enforced shape. Read through the installed `@objectstack/spec@17.2.0` (`ui` entry, all 122 exported object schemas walked, control keys hit):\n\n| keys | spec models it | shape |\n|---|---|---|\n| `navigation` | yes — `ListViewSchema.navigation` / `ObjectListViewSchema.navigation` | optional `NavigationConfigSchema`; the declaration already imports that very type |\n| `searchableFields`, `filterableFields` | yes — `ListViewSchema` / `ObjectListViewSchema` | optional array of string (the spec calls `filterableFields` a legacy shorthand for `userFilters.fields`) |\n| `listViews` | by name — `ViewSchema.listViews` | record of spec list views; ⚠️ the declaration's value is the local `NamedListView`, so the value type is a unification question |\n| `allowCreateView`, `defaultListView`, `defaultViewType`, `showViewSwitcher`, `viewActions`, `viewTabBar` | no | plain hand-written omissions — no spec slot anywhere |\n\nRead sites for the six were NOT measured by #7279 (out of its scope); that measurement is the first step of option B below.\n\n## Options\n\n- **A — mirror all ten now**: four by reference to the spec slot that models them, six as local literals matching the declaration. One PR, `@object-ui/types: minor` (accept set narrows for wrong-typed values, widens nothing the type does not already promise). Cost: any of the six that nothing reads becomes an enforced-but-dead key — the #7129 / #7623 precedent says such a key is retired, not mirrored.\n- **B — liveness first, then mirror-or-retire per key** (recommended): mirror the four by spec reference (with the `listViews` value type decided, not papered over with `z.any()`); for each of the six, measure the renderer / app-shell reads — mirror where a read exists, retire (`?: never` + `retirementTombstone()`, the #7129 route) where nothing reads it. One or two PRs, `minor`, \"Breaking for authored metadata\" where a key is retired.\n- **C — defer all ten to #2231** (spec unification): wrong on the evidence — the pair is not spec-derived, so #2231 has nothing to unify here; the keys would stay declared-unenforced indefinitely.\n\n## 决策四维分析\n\n- **实际业务需求**：这十个键是 `ObjectView` 节点上已发布的 TS 声明面；四个键规范已建模（`navigation` / `searchableFields` / `filterableFields` / `listViews`），是真实存在的视图配置；另外六个是 objectui 本地的 UI 旋钮，谁在读尚未实测——B 把实测放在动手之前，A 假设它们都活着，C 假设它们都不归本仓管。\n- **项目长远合理性**：contract-first。四个键按规范引用镜像不会漂移；六个本地键若无读者就按 #7129 路线退役，避免把死键固化成契约（A 的长期代价）。C 把不属于 #2231 的问题挂到 #2231 上，永远等不到解锁。\n- **防 AI 写元数据犯错**：今天这十个键\"声明即邀请、校验器却不认\"，AI 写了就静默通过——正是 declared ≠ enforced 的温床。任何选项都比现状好；B 让每个幸存键都被校验、每个死键被响亮拒绝，A 让死键\"通过校验但无效果\"。\n- **创业阶段不扩散需求**：不新增能力；implementation-first，读者为零的声明面退役而不是补镜像；B 的实测成本是每键一次 grep，远小于固化死键的维护成本。\n\n**Seat recommendation: B.** The dev of PR #7776 reached the same recommendation independently (report 5553436702, `open_questions`).\n\nRefs: #7279 (the re-derivation, PR #7776) · #6152 (the 121-key worklist this entry belongs to; `pm:blocked`, `domain:devx`) · #6058 / PR #6149 (the ledger) · #6705 / PR #7277 (the scanner fix) · #7129 / #7623 (the retire-by-deleting-the-declaration route) · #2231 (spec unification — not this entry's route)."
+}

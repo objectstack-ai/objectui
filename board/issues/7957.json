@@ -1,0 +1,34 @@
+{
+  "number": 7957,
+  "kind": "pull_request",
+  "title": "ci: derive a job ceiling for lint, bundle-analysis and release (objectui#7270)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T04:35:23Z",
+  "updated_at": "2026-09-06T05:05:37Z",
+  "closed_at": "2026-09-06T05:05:36Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-09-06T05:05:36Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/7957",
+  "body": "Fixes #7270\n\nThree jobs declared no job-level `timeout-minutes`, so their only backstop was GitHub's documented 360-minute default. Two of them are required contexts. This PR gives each of the three a ceiling **derived from that job's own measured run distribution**, and records the derivation beside the key.\n\nThe card asked for exactly one ruling — accept 360, or derive a number. The ruling taken here is **derive, per job**. Grounds are the card's own: this repository has twice had a transient fault converted into a `cancelled` check by a job ceiling (objectui#5304, objectui#6577), and `cancelled` is a verdict the merge queue cannot tell from `failure`.\n\n## The derivations\n\nPer-job wall clock from the Actions jobs endpoint (`completed_at` minus `started_at` — the job's own clock, never the run's total). Successful runs only.\n\n| job | N | window | min | median | p95 | max | ceiling | rule that binds |\n|:--|--:|:--|--:|--:|--:|--:|--:|:--|\n| `lint.yml::lint` | 300 | 2026-09-05T11:51Z .. 2026-09-06T04:11Z | 9s | 5m16s | 5m46s | 7m14s | **25** | max + 15min = 22.2min |\n| `performance-budget.yml::bundle-analysis` | 300 | 2026-09-03T11:40Z .. 2026-09-06T04:10Z | 57s | 3m35s | 4m37s | 5m23s | **25** | max + 15min = 20.4min |\n| `changeset-release.yml::release` | 25 | 2026-08-23T06:08Z .. 2026-09-06T00:23Z | 1m23s | 2m37s | 5m37s | 7m15s | **40** | widened — see below |\n\nRule: ceiling is the smallest round number that is at or above both `3 x max` and `max + 15min`. ⛔ Nothing is inherited from `ci.yml`'s 10/15/20/30/40 — objectui#7048 fences exactly that, and two of the three landing on 25 is arithmetic, not a shared constant.\n\n**Why `release` is 40 and not 25.** Its honest slowest run is not the slowest run in its sample. The job's first step, `Wait for older release runs to finish`, declares `MAX_WAIT_SECONDS: '900'` for itself, so a contended release may legitimately spend 15 minutes waiting before doing any work. None of the 25 sampled runs was contended, so that quarter-hour appears nowhere in the distribution and has to be added rather than measured. Ceiling = 15min (the declared cap at face value — it is already hard and fail-open, so multiplying it only buys slack for a clock that cannot overrun) + `3 x` measured max work (21.8min) = 36.8min, rounded to 40. The plain rule would have given 25, leaving a legitimately contended release (15min + 7m15s = 22m15s) inside 12% of its own ceiling — a ceiling under the job's honest slowest run, which is the mirror hazard.\n\n## Two measured corrections to the card\n\n- **`changeset-release.yml` has two unbounded jobs, not one.** `lane` (uncached) sits above `release` (cached). The card named only `release`; the dispatch's file surface covers only it. `lane` is left alone and recorded in objectui#7956 with the five other uncached jobs that declare no ceiling.\n- **`performance-budget.yml` does not subscribe `merge_group`.** It subscribes `push` and `pull_request` only, and 300 sampled runs contain zero `merge_group` runs. So `Bundle Analysis` cannot hold the merge queue the way `Lint` can — what six hours costs there is the pull request and the runner, not a shared serial queue. The exposure is real on its own, so the ceiling still derives; the note is in the workflow so nobody reuses the `Lint` stakes argument there by mistake.\n\nBoth are stated in the workflow comments, not just here.\n\n## The pin\n\n`scripts/__tests__/workflow-cache-save-bound.test.ts` gains one assertion covering the three jobs in both directions: the key missing (the job silently returns to 360) and the number raised above what was derived (objectui#7048's fence). It is the closest existing workflow-shape test — it already parses every workflow's jobs and already reads job-level `timeout-minutes` — so no new file. Its header prose said \"the three jobs here that declare no `timeout-minutes` at all\"; that sentence is now false, and is updated in the same commit.\n\nAblation, on the committed tree: deleting the job-level `timeout-minutes: 25` from `lint.yml` (verified on disk — anchor count 1 before, 0 after, step-level `timeout-minutes: 5` untouched at count 1) turns the run red with `1 failed | 8 passed`, naming `` lint.yml :: job `lint` ``. Restored with `git checkout HEAD --`, byte-identical: blob `414d8c0a28b877cc2c164a4946428a3764dddc2c` before and after, `git diff HEAD` empty.\n\n## Gates\n\nRun at `248b057ef`, verdict lines quoted from the tools themselves:\n\n- `pnpm exec vitest run scripts/` — `Test Files 107 passed (107)`, `Tests 3221 passed (3221)`\n- `pnpm type-check:scripts` — exit 0\n- `pnpm lint:root` — exit 0 (`32 problems (0 errors, 32 warnings)`, all pre-existing; none in a changed file)\n- `pnpm check:control-bytes` — `OK (scanned 6412 tracked text file(s); skipped 85 binary)`\n- `node scripts/check-changeset-presence.mjs` — `No source or published contract of a released package changed in this range, so no changeset is owed.` Workflow files and a test publish nothing.\n- `node scripts/check-governed-queue-guard.mjs --test` on all four paths — `NOT GOVERNED — 4 path(s) checked against 5 governed surface(s); none matched.`\n\n## Not done here\n\n- ⛔ No step-level `timeout-minutes` touched. The `5` values are objectui#7269's and say *DERIVED FOR THIS SITE*.\n- ⛔ No change to `ci.yml` or `live-e2e.yml`, and no existing ceiling anywhere raised or lowered.\n- ⛔ The six remaining unbounded jobs are out of scope and are recorded in objectui#7956, which stays open.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_013uAaxiwgYDybsTNV9xwa1M)_"
+}

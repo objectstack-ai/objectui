@@ -1,0 +1,37 @@
+{
+  "number": 6848,
+  "kind": "issue",
+  "title": "finding(fields): clearing a `GeolocationField` coordinate emits `undefined`, where the other three `type=\"number\"` widgets emit `null`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-29T23:59:59Z",
+  "updated_at": "2026-09-06T14:08:05Z",
+  "closed_at": "2026-09-06T13:57:34Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6848",
+  "body": "Found while re-deriving the divergence table for #6793. Not fixed there — that card is test-only and touches no widget source.\n\n## What was measured\n\nChromium 141.0.7390.37 (Playwright 1.62.1) was driven key by key on a real `input type=\"number\"`, and the resulting `.value` sequence was then driven through each widget in happy-dom. Typing `1e` into an empty box is the reachable \"clear\" route: the browser moves `.value` from `''` to `'1'` to `''`, and the widget is told the box is now empty.\n\n| widget | emission when the box goes empty |\n|:--|:--|\n| `CurrencyField` | `null` |\n| `PercentField` | `null` |\n| `NumberField` | `null` |\n| **`GeolocationField`** | **`{ latitude: undefined }`** |\n\nSame for plain deletion — any route that leaves the box empty. Pinned as current product behaviour in `packages/fields/src/__tests__/NumberInputWidgets.browserDeliverable.test.tsx` (PR for #6793).\n\n## Why it is not cosmetic\n\n`GeolocationField` builds an object instead of emitting a scalar:\n\n```\nonChange({ ...location, [fieldName]: fieldValue ? Number(fieldValue) : undefined });\n```\n\n`undefined` and `null` part company at the persistence boundary. `JSON.stringify` **drops** an `undefined` key entirely, so a cleared latitude can reach the server as an ABSENT key rather than an explicit null. On a PATCH-shaped update an absent key conventionally means \"leave it alone\" — so the user clears a coordinate, sees an empty box, and the old coordinate survives the save. The other three widgets of this class send an explicit `null` and do not have that ambiguity.\n\nNot measured here: whether any data adapter in this repo actually round-trips a geolocation clear that way. That is the first thing to check before choosing a fix — the emission asymmetry is measured, the downstream consequence is reasoned.\n\n## Context, not a second finding\n\nThe class also carries two different parsers — `parseFloat` in `CurrencyField` / `PercentField`, `Number` in `NumberField` / `GeolocationField`. On every string a real browser can deliver they were measured to agree on all rows, so this is latent rather than live; it is worth knowing only because it is the same \"one class, two spellings\" shape.\n\n## Related\n\n#6793 (the test-oracle card this came out of) · #6780 / PR #6801 (the `badInput` announcement across the same four widgets) · #6765"
+}

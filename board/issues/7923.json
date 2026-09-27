@@ -1,0 +1,35 @@
+{
+  "number": 7923,
+  "kind": "issue",
+  "title": "docs(api): `schema-reference.md`'s `object-view` example authors `listViews.NAME.default: true`, a key `NamedListView` never declared and `ObjectView` never reads",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T03:23:46Z",
+  "updated_at": "2026-09-06T07:47:52Z",
+  "closed_at": "2026-09-06T07:39:22Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7923",
+  "body": "Found while executing objectui#7779 (PR #7922) on `origin/main` `6a9ee323`; out of that card's scope (a docs page, and `listViews` stays ledgered there), so filed on its own. Filed by the dev of `session_01BAZFhALsQsGqxui8sNqM8s`'s dispatch.\n\n## What is wrong\n\n`content/docs/api/schema-reference.md`, the `ObjectViewSchema` example (the `listViews` block around line 855): the `my-deals` entry carries `\"default\": true`.\n\n- `NamedListView` (`packages/types/src/objectql.ts:1957`–`:2134`, about 52 members) declares no `default` member.\n- The `object-view` node renderer picks the opening view from the NODE-level `ObjectViewSchema.defaultListView` (`packages/plugin-view/src/ObjectView.tsx:701`, `if (schema.defaultListView && namedListViews?.[schema.defaultListView])`) and otherwise the first key; nothing reads an entry-level flag. The renderer's read set off a named view is `label`, `type`, `columns`, `filter`, `sort`, `options`, `data` (derived off disk in `packages/types/src/__tests__/object-view-unmirrored-keys-7779.test.ts`).\n- `BaseSchema` is passthrough, so the example validates green and the flag does nothing; the same example omits `defaultListView`, so the view it labels as default never opens first.\n\n## A second dialect on the same page\n\nThe same example writes `\"filter\": [[\"owner\", \"=\", \"...\"]]` — the ObjectQL tuple form — while `packages/plugin-view/README.md` and `content/docs/plugins/plugin-view.mdx` teach `filter: [{ field, operator, value }]` objects for the same key. `NamedListView.filter` is typed as an untyped array, so both validate; which of the two `mergeFilterNodes` actually runs was not measured here. Two dialects taught for one key is the objectui#2890 class.\n\n## Expected\n\nThe example spells `defaultListView: \"my-deals\"` and drops `default`; the filter dialect on this page is unified with the plugin-view pages once the running shape is measured. A doc-fixture pin against `NamedListView`'s declared members would keep an undeclared key from being taught again.\n\nRefs: objectui#7779 · PR #7922 · objectui#2890 (the ObjectView audit)"
+}

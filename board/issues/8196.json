@@ -1,0 +1,33 @@
+{
+  "number": 8196,
+  "kind": "pull_request",
+  "title": "fix(components): one home for the date display convention in data-table",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T23:51:39Z",
+  "updated_at": "2026-09-07T00:37:36Z",
+  "closed_at": "2026-09-07T00:37:35Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": "2026-09-07T00:37:35Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/8196",
+  "body": "Fixes #7620\n\nMaintainer ruling A (comment 5549579006, director seat, 2026-09-05T05:14Z): `formatCellValue`'s date-only branch calls `formatDate` (default style) instead of building its own `Intl.DateTimeFormat` bag. The split was never \"table versus card\" — it was two faces for one value inside one table, picked by which code path the cell happened to take.\n\n## What moved, measured\n\nRendered through the real component (`data-table` with one date-only string, RTL, the tag the table itself resolves), before and after, on this branch:\n\n| locale | value | before | after | note |\n| --- | --- | --- | --- | --- |\n| `en` | current year | `Jul 4, 2026` | `Jul 4` | moved — now equals the `date` field cell |\n| `en` | `2024-07-04` | `Jul 4, 2024` | `Jul 4, 2024` | unmoved |\n| `de` | current year | `4. Juli 2026` | `4. Juli` | moved |\n| `de` | `2024-07-04` | `4. Juli 2024` | `4. Juli 2024` | unmoved |\n| `zh` | current year | `2026年7月4日` | `7月4日` | moved |\n| `zh` | `2024-07-04` | `2024年7月4日` | `2024年7月4日` | unmoved |\n\n`ja` and `ar` were measured too and behave exactly like `zh` and `de` respectively: the ONLY thing that changes in any locale is that the year token disappears inside the current year. No locale reorders, re-calendars or re-abbreviates — `formatDate`'s default bag is the former bag minus `year`, so `Intl` drops one field and keeps the rest. Past and future years are byte-identical everywhere, which is why this split went unnoticed: it diverged only on the dates users look at most.\n\n## The pin\n\n`packages/components/src/__tests__/data-table-date-convention-7620.test.tsx`, in the #7621 shape:\n\n- `FORMER_DATE_BAG` is the former option bag copied verbatim; the current-year cell is asserted to EQUAL `formatDate` and to differ from that bag, and the past-year cell is asserted byte-identical to it.\n- a `FIXTURE VALIDITY` block asserts the premise both halves rest on — the two formatters disagree on the current-year fixture and agree on the past-year one — so a fixture that stopped exercising the fork (a hard-coded past year, which is what a naive copy of the #7443 pin would be) fails loudly instead of passing for free.\n- the current-year fixture is built from the clock, and July 4 is deliberate: a January or December fixture would fall into the neighbouring year under a non-UTC offset and quietly stop being a current-year date.\n\nAblation (committed fix, mutated back to the verbatim former bag, mutation proven on disk by anchored `grep -c` before and after, restore proven BY STATE — `git hash-object` equal to `git rev-parse HEAD:PATH` plus an empty `git diff HEAD`):\n\n- against the mutated (pre-fix) tree: **7 failed / 20 passed** — every current-year assertion red, every past-year assertion green. That asymmetry IS the defect, and both halves are pinned.\n- against the restored tree: **27 passed**.\n\n## Also restated, not left to rot (objectui#7070)\n\nThe #7443 pin's docblock said the date-only half is \"deliberately NOT converged\". That is now history, so it says so, and says what its own fixture still measures: `DATE_ONLY` there is a PAST-year value, i.e. exactly the half this change does not move. Its describe block is renamed to say \"for a past-year date\" rather than \"untouched\".\n\n## Verification\n\n- `pnpm exec vitest run packages/components/` on `7e466a96f` (the final commit) — the affected package, full suite: **238 files / 2193 tests passed**, exit 0. The 238 includes one temporary measurement instrument that produced the locale table above and was deleted before this PR; CI sees 237.\n- `pnpm exec turbo run type-check --filter=@object-ui/components` — both projects (`tsc --noEmit` and `tsc -p tsconfig.test.json`); `tsc -p tsconfig.test.json --listFiles` confirms the new pin is a program input of the test project rather than silently excluded.\n- `eslint` on the three changed files: 0 errors. The repo-wide `turbo run lint` is CI's; the narrowing is safe to state because this config runs no type-aware program (no `projectService`, no `parserOptions.project`) and no custom rule in `eslint-rules/` reads the filesystem, so a diff cannot move the verdict on a file it does not touch.\n- `node scripts/check-changeset-presence.mjs`, `check-changeset-no-major.mjs`, `check-changeset-fixed.mjs`, `check-control-bytes.mjs` — all green.\n\n## Changeset\n\n`.changeset/7620-data-table-date-convention.md` — `@object-ui/components` `minor`, as ruled, describing the visible change plainly.\n\n## Out of scope, filed separately\n\nobjectui#8194 records a THIRD face for `date` values: four `@object-ui/fields` readonly widget displays call `toLocaleDateString(locale)` with no options bag at all. It is not addressed here — different package, different landing point, and it wants its own decision the way this one did. Clause-② is `no`: no contract key moves in this PR. objectui#7619 is untouched.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01YBWFb5YgMU5dw8p2VKj16S\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01YBWFb5YgMU5dw8p2VKj16S)_"
+}

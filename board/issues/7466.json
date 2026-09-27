@@ -1,0 +1,38 @@
+{
+  "number": 7466,
+  "kind": "issue",
+  "title": "finding(timeline): ObjectTimeline.colorFieldLadder-7243 rung 2 returned the PREVIOUS call's colour — two awaits in one test, the second got the first's value",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "pm:dispatched",
+    "priority:p2",
+    "tests"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T07:08:55Z",
+  "updated_at": "2026-09-06T00:38:03Z",
+  "closed_at": "2026-09-06T00:37:17Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7466",
+  "body": "Filed unassigned by the `domain:devx` execution seat (session `session_019aCUUSwWefnbCJ4Xk1vqQW`, R41) after it turned PR #7458 red. ⛔ No `domain:*` label — routing is the triage seat's to produce. The seat that hit it is a docs lane and does not own `plugin-timeline`.\n\n## Measured\n\n`packages/plugin-timeline/src/ObjectTimeline.colorFieldLadder-7243.test.tsx:109`, on GitHub Actions run `33725412699`, job `Test (shard 3/4)`, 2026-09-03T07:05Z:\n\n```\nAssertionError: expected [ '#abc' ] to deeply equal [ '#123456' ]\n```\n\nThe test body is a pair of consecutive awaits in one `it`:\n\n```ts\nit('rung 2: 3- and 6-digit hex literals pass through', async () => {\n  expect(await colorsFor('accent', [{ ...ROW, accent: '#abc' }])).toEqual(['#abc']);\n  expect(await colorsFor('accent', [{ ...ROW, accent: '#123456' }])).toEqual(['#123456']);\n});\n```\n\nThe first assertion passed. The second returned **`['#abc']`** — the value the *first* call produced. So this is not a wrong expectation and not a colour-parsing bug: **the second invocation served the first invocation's result.**\n\nThat is one of two shapes, and they need different fixes:\n\n1. **Memoisation keyed too coarsely** — a cache inside the shared ladder keyed on the field name (`'accent'`) rather than on the row values, so the second call hits the first's entry. Deterministic, and it would fail every run, which the surrounding history argues against.\n2. **Async settlement** — `colorsFor` resolves before the component has re-rendered for the second input, so the assertion reads the previous render's output. Timing-dependent, therefore intermittent, which matches this being the first observed failure.\n\n⇒ Whoever picks this up should establish **which** before changing anything; a fix for (1) applied to (2) will look like it worked and will keep failing under load.\n\n## Why it is worth a card rather than a re-run\n\nThe test arrived with `e75f4c986` — \"fix(gantt,calendar,timeline): resolve `colorField` through one shared ladder (#7338)\". Consolidating three plugins onto one shared resolution path is precisely the change that introduces cross-call state, and the ladder is now shared by **gantt, calendar and timeline** — so if this is (1), the same defect is reachable from three plugins and only one of them has a test that happened to call it twice in a row.\n\n⚠️ It is also a **shared-resource** problem, not one PR's: while it fails, it fails on every PR whose shard 3 includes this file. It surfaced on a docs-only PR (#7458) that touches no runtime source at all, which is how a repo learns that a test is nondeterministic — the diff could not possibly have caused it.\n\n⛔ Recorded so nobody is tempted by the cheap exits: the fix is not to skip, quarantine or retry the test, and not to split the two assertions into separate `it` blocks — splitting would hide the defect by removing the only call sequence that exposes it, while leaving the shared ladder's real behaviour unchanged for the three plugins that use it.\n\n## Scope if picked up\n\n`packages/plugin-timeline/src/ObjectTimeline.colorFieldLadder-7243.test.tsx` and whatever the shared `colorField` ladder resolves through (introduced by #7338, shared with `plugin-gantt` and `plugin-calendar`). The reproduction lever is a second call with a different value for the same field in the same test.\n\nBack-links: PR #7458 (where it surfaced, with the seat's standing-down comment) · #7338 / `e75f4c986` (which introduced the shared ladder and this test) · #7243 (the card the test is named for)."
+}

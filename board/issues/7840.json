@@ -1,0 +1,33 @@
+{
+  "number": 7840,
+  "kind": "issue",
+  "title": "test(types): the objectui#7340 pin cannot see example object literals — its DOC_MEMBER_RE requires a declaration row, so a retired handler key in a `const x: Schema = {}` example stays green",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:devx",
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T23:56:48Z",
+  "updated_at": "2026-09-06T14:23:32Z",
+  "closed_at": "2026-09-06T14:23:32Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7840",
+  "body": "Measured on `main` `52cac3886` while landing objectui#7488, which is one instance of this class.\n\nobjectui#7340 landed `packages/types/src/__tests__/component-docs-retired-handler-keys-7340.test.ts`\nas the pin for exactly this class: a doc page that still teaches a handler key the contract\nhas retired to a `never` tombstone. It stayed green on objectui#7488's page for the whole\ninterval, and the reason is structural rather than incidental.\n\n## The mechanism\n\nThe pin's doc reader recognises two shapes, both declaration-shaped:\n\n```\n/** An interface member row: `  onFoo?: (x: T) =` ... */\nconst DOC_MEMBER_RE = /^\\s{0,8}(on[A-Z][A-Za-z0-9]*)\\?:\\s*(\\S.*)$/;\n/** A markdown prop-table row: `| onFoo | function | ... |` */\nconst DOC_TABLE_RE = /^\\|\\s*`(on[A-Z][A-Za-z0-9]*)`\\s*\\|\\s*([^|]*)\\|/;\n```\n\n`DOC_MEMBER_RE` requires the `?` — it matches a member DECLARATION (`onSave?: string;`),\nnot an assignment. So an **example object literal**, which is how most pages actually teach\na schema:\n\n```\nconst builder: ReportBuilderSchema = {\n  showPreview: true,\n  onSave: 'handleSaveReport',\n  onCancel: 'handleCancel'\n};\n```\n\nmatches neither shape, and the pin has nothing to say about it. It is not that the pin\n\"measures table rows and this happened to be prose\" — the population it walks is every\n`.mdx` / `.md` under `content/docs`, this page included; the two regexes simply cannot\nexpress an assignment.\n\n## Why the other instruments do not cover the gap\n\n- `check:doc-snippets` compiles `ts` / `tsx` fences only. A retired key inside a\n  ```plaintext (or `text` / `plain` / `txt` / no info string) fence is invisible to it.\n  That is objectui#5867's population, and `check:doc-fences` carries it as a declared\n  SHRINK-ONLY ledger — so the block being hidden from the compiler is a KNOWN, BASELINED\n  state, not an unknown one.\n- `check:doc-types` reads `type` string literals, nothing else.\n\n⇒ the intersection that nothing covers today: **a retired handler key authored as an\nexample object literal inside a fence that is not `ts`/`tsx`**. Every page still holding a\n`check:doc-fences` ledger entry is a place where this can sit green.\n\n## The measurement this card owes\n\nThe PR for objectui#7488 dealt with its own instance by re-fencing that one block `ts`, which puts\nthe literal under `check:doc-snippets` (it then reports `TS2322: Type 'string' is not\nassignable to type 'undefined'` per line). That works instance by instance. Widening the\npin instead closes the class, and it is its own measurement, for the reason objectui#7488's\ntriage gave: the parse surface of example literals is much larger than that of declaration\nrows, and the false-positive cost is unknown. Specifically it has to answer:\n\n1. Which shapes count as an authored literal? A bare `onSave: 'x',` line matches inside any\n   object anywhere on the page — including one that is deliberately showing the retired\n   dialect as a counter-example, or prose about the retirement itself. The pin already has\n   a PROSE rule (rule 5: it flags rows, never mentions) that would need an analogue.\n2. What owns the literal? The declaration-row reader resolves an owner from the enclosing\n   heading or `interface` declaration; an object literal resolves its owner from its type\n   annotation (`const builder: ReportBuilderSchema = {`), which the current reader does not\n   parse. Without an owner there is no `(owner, key)` pair, and the pin's PAIR RULE — the\n   thing that keeps a live runtime slot such as `ActionSchema.onClick` from being swept —\n   cannot run. A name-level sweep is the shape objectui#7340 explicitly rejected.\n3. What is the population on `main` today, before any change? Both counts: literals that\n   would be flagged, and of those, how many are real (a retired pair) vs. counter-examples.\n\nAn alternative worth pricing in the same measurement: drive the class to zero through\n`check:doc-fences` instead — every block that leaves that shrink-only ledger becomes a\ncompiled block, and a retired key in a compiled block is a `tsc` error by construction, no\nnew pin needed. That trades a new instrument for finishing objectui#5867's lane\n(80 files / 89 blocks at `52cac3886`).\n\n## Provenance\n\nFiled by the execution seat that landed objectui#7488, at the explicit request of that\ncard's triage comment, so the class does not reappear on a fourth page once that card lands. Cross-reference: objectui#7488 (the instance), objectui#7340 (the pin),\nobjectui#5867 / `check:doc-fences` (the hidden-fence population), objectui#7344 (the\nretirement these keys belong to). Generated by Claude Code, session\n`session_01KbJQ1y1J12nZxYzFWhP8Q3`.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,39 @@
+{
+  "number": 7756,
+  "kind": "issue",
+  "title": "finding(plugin-detail): RelatedList.lookupLabelResolution renders inside a waitFor predicate — a 50ms lookup-batch delay exhausts the V8 heap and kills the whole vitest worker",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "plugin",
+    "pm:dispatched",
+    "priority:p2",
+    "tests"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T15:23:37Z",
+  "updated_at": "2026-09-05T21:46:07Z",
+  "closed_at": "2026-09-05T21:45:25Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7756",
+  "body": "Filed by the `os-dev` seat working #7579 (session `session_01KbJQ1y1J12nZxYzFWhP8Q3`), out of a\nmeasurement taken there. #7579 is a one-line value-gate repair; this is a different failure mode\nwith a different repair, so it is filed rather than folded into that PR.\n\n## What was measured\n\n`RelatedList.lookupLabelResolution.test.tsx` **exhausts the V8 heap and kills its vitest worker**\nwhen the batch lookup-label chain in `RelatedList.tsx` resolves 50ms later than it does today.\nNot a slow test and not a failed assertion — the worker dies:\n\n```\nError: Worker exited unexpectedly\n...\nv8::internal::HeapAllocator::AllocateRawWithRetryOrFailSlowPath(...)\nv8::internal::Runtime_AllocateInYoungGeneration(...)\nTest Files   (1)\n     Tests   (2)\n    Errors  1 error\n  Duration  77.61s (transform 3.30s, setup 204ms, import 6.03s, tests 0ms, ...)\n```\n\n`tests 0ms` — nothing was ever reported. `--testTimeout=5000` does not stop it; the allocation\nrunaway outpaces the timeout. Reproduced on `81a2eb1fb`, four times out of four, in both the\ndefault worker pool and `--pool=forks`.\n\n## The instrument, and the isolation\n\nOne timing FACT mutated inside the component and nothing else — the resolution of the\nlookup-label batch deferred by 50ms, at the outer `.then` that calls `setLookupLabels`:\n\n```\n).then((results) => new Promise((res) => setTimeout(() => res(results), 50))).then((results) => {\n```\n\nThe mutation was proved on disk before each run (anchor 1 to 0, marker 0 to 1, a\n`git diff --numstat` naming the file) and restored from HEAD with a blob-hash comparison under a\n`trap ... EXIT INT TERM`.\n\nRun file-by-file over the 21 files in `packages/plugin-detail/src/__tests__/` that declare a\n`lookup` or `master_detail` field, under that one mutation:\n\n| files | result |\n|---|---|\n| 20 of 21 | exit 0 |\n| `RelatedList.lookupLabelResolution.test.tsx` | exit 1, worker killed |\n\nPackage-wide the same mutation kills the run every time (three attempts: default pool,\n`--maxWorkers=2`, and the file-by-file loop), so the whole-package census under this probe is\n**NOT MEASURED**, not a zero. The narrow two-file run\n(`lookupCellLink` + `serverpagination`) is green under the same mutation, so the instrument\nitself is sound.\n\n## The reading — stated as a reading, not as the measurement\n\nBoth tests in the file poll with a **side-effecting** `waitFor` predicate:\n\n```js\nconst renderCellText = (value) => {\n  const col = h.schema?.columns?.find(...);\n  const { container, unmount } = render(FRAGMENT_WITH_col.cell(value));   // mounts into document\n  const text = container.textContent;\n  unmount();                                                             // and unmounts\n  return text;\n};\n...\nawait waitFor(() => expect(renderCellText('ps_1')).toBe('排班员权限'));\n```\n\nRTL's `waitFor` re-runs its callback on DOM mutations as well as on its interval, and this\ncallback mutates the DOM on every run. That is self-feeding: the predicate schedules its own next\nrun. Today the loop terminates almost immediately because the label map lands on the very next\nmicrotask, so the construct is invisible. Give the map 50ms and the loop runs free until the heap\nis gone. Testing Library documents the rule this breaks — a `waitFor` callback must be\nside-effect free.\n\nThat mechanism is consistent with everything measured (heap exhaustion rather than a timeout;\n`tests 0ms`; only this file, which is the only one calling `render` inside a `waitFor`), but the\nmeasurement is the OOM, and the causal chain above has not been separately instrumented.\n\n## Why this is worth a card\n\nThe failure mode is strictly worse than a flaky assertion for the merge queue. A flaky red fails\none test; a dead worker fails **the whole shard**, and #7075 records that a red here ejects\nunrelated PRs — #6959 measured two ejections in fifteen minutes. And 50ms is not an exotic\ncondition: it is an ordinary CI box under load, which is exactly when a shard is most expensive\nto lose.\n\n## What the repair is NOT\n\n⛔ Not #7579's one-line value gate — the assertion here is not reading one resolution too early,\nit is the polling itself that allocates. ⛔ Not a widened timeout, which makes the runaway longer.\nThe direction is to take the side effect out of the predicate: settle the label map with a\nside-effect-free `waitFor`, then render the cell once and assert on it. Whoever takes this should\nconfirm the mechanism above before writing that, since the reading is not yet instrumented, and\nshould re-run the package census under the same 50ms deferral afterwards — it has never completed.\n\n## Dedupe bound, stated rather than implied\n\nREST `/search/issues` is `403` for this seat (`sessions are bound to their configured\nrepositories`). The dedupe performed is one targeted MCP `search_issues` over this repo for the\ncrash shape — `RelatedList lookupLabelResolution test renders inside waitFor callback heap out of\nmemory worker crash` — which returned `total_count: 0`. A control query in the same shape and the\nsame session (`RelatedList test settles only the fetch chain then reads a schema-derived value`)\nreturned 7, including #7075 and #7579, so the zero is a reading rather than a dark channel. That\nbound does not cover a card that mentions this file only in its body.\n\nFiled unassigned.\n\nRelated: #7579 (the card this came out of), #7075 and #6959.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

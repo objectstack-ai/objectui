@@ -1,0 +1,38 @@
+{
+  "number": 7440,
+  "kind": "issue",
+  "title": "finding(docs/components): `record-edit-modes.md` teaches an `action:button` with a NESTED `action` bag, and nothing unwraps it — the live `navigate_create` / `navigate_edit` handlers are unreachable from the documented shape",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "finding",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T04:51:29Z",
+  "updated_at": "2026-09-06T01:24:05Z",
+  "closed_at": "2026-09-06T01:21:55Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7440",
+  "body": "Filed unassigned by the `domain:ui` execution seat (PM session `session_01EMrWaQw3XS5DxTHxp4yRyC`) — recording, not claiming. Grading and `domain:*` are the triage seat's.\n\nProvenance: handed to this seat by the contract review of PR #7436 (director seat, summon #10, comment 5520521996 on #7415), which named it and explicitly left it to be filed: *\"The dev's unfiled out-of-scope finding (the documented page-mode `action:button` shape with a nested `action` bag is inert on both sides of this change) is the ui seat's to file; not a landing condition.\"* Re-measured here on `origin/main` `6411def25` rather than inherited.\n\n## The claim\n\n**`content/docs/guide/record-edit-modes.md` teaches three `action:button` examples that cannot work.** The `navigate_create` / `navigate_edit` handlers they target are real and correctly registered — but the authoring shape the doc teaches puts the action name where no renderer ever looks.\n\n## What the doc teaches\n\n`content/docs/guide/record-edit-modes.md:66` introduces it as the supported path — *\"two declarative actions let you open the page-mode routes from any `<action:button>` in metadata\"* — then gives three examples (`:70`, `:85`, `:101`), of which the third is the clearest:\n\n```jsonc\n{\n  \"type\": \"action:button\",\n  \"label\": \"New\",\n  \"action\": { \"action\": \"navigate_create\" }\n}\n```\n\n## The handlers are live — this is not a dead feature\n\nStated up front because the obvious measurement points the wrong way:\n\n- `packages/app-shell/src/console/AppContent.tsx:475` — `runner.registerHandler('navigate_create', …)`\n- `packages/app-shell/src/console/AppContent.tsx:487` — `runner.registerHandler('navigate_edit', …)`\n- `packages/app-shell/src/utils/recordFormNavigation.ts:251,283` — the URL resolvers, with their own error contracts and a test file covering them\n\n`navigate_create` measures **6** hits and `navigate_edit` **9** in `packages/*/src/**`. The feature works. The `AppContent.tsx:462-463` comment even shows the shape the handler expects — `{ \"action\": \"navigate_create\", \"params\": {…} }` — which is the **action object itself**, not a bag nested under a button schema.\n\n## The gap — measured at the one site that would have to bridge it\n\n`packages/components/src/renderers/action/action-button.tsx` builds what it hands the runner from exactly two schema keys:\n\n```\n:148    type: schema.actionType || schema.type,\n:124    ? { actionParams: schema.params as any }\n:210    await execute({ ...forwarded, ...localContext });\n```\n\nIt never reads `schema.action`. Anchored counts on `packages/*/src/**`:\n\n| pattern | count | reading |\n|---|---:|---|\n| `schema.action` (not `schema.actionX`) | **0** | nothing reads the nested bag |\n| `action.action` (not `action.actionType` etc.) | **0** | nothing unwraps it downstream either |\n| `const { action } = schema \\| props` | **0** | and nothing destructures it |\n| `action.actionType` — **control** | 4 | instrument fires |\n\n⇒ Following the doc, `schema.action` and the `params` inside it are dropped on the floor. The forwarded `type` becomes `schema.actionType || schema.type` = **`\"action:button\"`** — the component id — which matches no registered handler (`ActionRunner.ts:1064`) and no builtin (`:1073`). The button renders, is clickable, and does nothing.\n\n## ⚠️ The measurement that would have produced the WRONG finding\n\nWorth recording, because the cheap reading here inverts the conclusion. `git grep -c 'action\\.action'` in `ActionRunner.ts` returns **3**, which reads as \"the nested bag IS consumed\". All three are prefix matches — `action.actionType` at `:972` and `:1599`, `action.actionParams` at `:1045`. Anchored, the genuine count is **0**.\n\nBut the opposite error is the dangerous one: **`action.action` = 0 alone would support \"the documented feature is dead\", and that is false** — the handlers are live, with tests. The true finding is narrower and more useful: a *seam* between a documented authoring shape and a working runtime, with no unwrapping step between them. Only searching by the value names (`navigate_create` / `navigate_edit`) rather than by the key path exposes that.\n\n## Inert on both sides of PR #7436 — which is why it was fenced out of it\n\nBefore #7436: `type` resolves to `schema.actionType || schema.type` ⇒ `\"action:button\"` ⇒ no handler.\nAfter #7436 (the fallback removed): forwards `type: undefined`, and `ActionRunner` falls through to its `action.name` leg ⇒ still not `navigate_create`.\n\nNeither state reaches the handler, so #7436 neither caused nor fixed this and correctly left it alone.\n\n## The fork (⛔ not proposing a disposition)\n\nTwo coherent directions, and they are different products:\n\n- **Fix the docs** — the examples are simply mis-authored, and the shape that works is `actionType: \"navigate_create\"` with top-level `params`. Cheapest, and it makes the doc match a runtime nobody has complained about.\n- **Unwrap the bag** — treat the nested `action` object as a supported authoring form and read it in the renderer. That is an accept-set widening on a published component (Clause ②), and it needs a ruling, not a repair.\n\n⚠️ The choice is not free either way: three published examples currently teach a shape that silently does nothing, and \"silently\" is the reusable half — an author gets a rendering button, a green `validate`, and no signal at all.\n\n## Dedupe\n\nSearched before filing. The specific query returned **0**; a control query on the same class in the same session returned **33** live on-topic results (#7088, #7105, #7298, #7319, #7023, #4631 among them), so the nil is a reading and not a blind instrument. **#7105** (`EmptySchema.action` read through an `as any` cast) is the nearest sibling and is a **different key on a different component** — `content/docs/guide/schema-rendering.md:402` authors that one on a `\"type\": \"empty\"` node. Not a duplicate; worth reading alongside."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 8075,
+  "kind": "pull_request",
+  "title": "fix(data-objectstack): classify any coded 400 as a query rejection",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T14:45:09Z",
+  "updated_at": "2026-09-06T15:31:05Z",
+  "closed_at": "2026-09-06T15:31:02Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": "2026-09-06T15:31:02Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/8075",
+  "body": "Fixes #7755\n\n## What\n\n`classifyAnalyticsFailure` (`packages/data-objectstack/src/index.ts`) only recognized 400 `VALIDATION_FAILED` (or a code-less 400) as a refusal of our own query body. A 400 carrying any OTHER code — `service-analytics` ships its own 400 `INVALID_FILTER` on a filter shape it refuses — matched none of the four code branches, fell through to `unknown`, and `aggregate()`'s catch has no `unknown` arm, so it silently degraded to `aggregateViaFind`: a re-read through `find()`'s `$filter` query-string contract, a different door that accepts array shapes the analytics POST body does not. A filter the analytics route refused could still render a plausible, wrong number with no sign the request had a defect.\n\nAdjudication (binding, from the PM dispatch on #7755): `status === 400` implies `rejected` regardless of whether a code is present. The four existing code branches (`NOT_IMPLEMENTED`/`ROUTE_NOT_FOUND` → `not-installed`, `VALIDATION_FAILED` → `rejected`, `UNAUTHENTICATED`, `CUBE_NOT_FOUND`) are neither removed nor reordered — this is a floor added *beneath* them. An unmatched **non-400** coded error keeps degrading, unchanged; that question was explicitly ruled out of this card's scope.\n\n## Change\n\n- `classifyAnalyticsFailure`: added `if (status === 400) return { kind: 'rejected', ... }` immediately after the `CUBE_NOT_FOUND` branch and before the code-less residual, and removed the now-redundant/unreachable `status === 400` check that lived inside the `code === undefined` gate (the new floor already covers that case). Extended the existing `rejected`-outcome doc comment in place (per the PM's suggested route) rather than adding a second explanation.\n- `aggregate-capability.test.ts`: extended the module doc table and added a pin — a coded 400 (`INVALID_FILTER`, the real code `service-analytics` ships for a refused filter shape, chosen over a made-up code) reaches the caller as `AnalyticsQueryRejectedError` (with `serverCode` preserved) and never triggers a `/api/v1/data` fallback call.\n\n## Mechanism assumptions — measured, not assumed\n\n- **Reachability**: LIVE, not latent. Confirmed `find()`'s fallback path (`aggregateViaFind` → `this.find(resource, { $filter: params.filter })`) is a genuinely different door than the analytics POST body — `find()` routes through `client.data.find()` → objectql's `$filter` query-string contract, while `aggregate()`'s analytics path posts through `lowerAnalyticsFilterForWire` into `client.analytics.query()`. These are different parsers with different accepted shapes (documented in the surrounding code re: `element:number` array-only shapes, objectstack#12039 / objectui#7752).\n- The triage comment on #7755 (os-zhuang) independently verified, from the sibling `objectstack` repo tree, that `/analytics/query` relays both `code` and `status` verbatim (`dispatcher-plugin.errorResponseBase`, pinned in `analytics-query-read-scope-withhold.test.ts`) and that `service-analytics` does ship `400 INVALID_FILTER` (`spec/src/api/errors.zod.ts` standard catalog, multiple pins across the client/core packages) — so this is live, not merely latent.\n\n## Gates (run from repo root per this repo's vitest-invocation discipline)\n\n- `pnpm exec vitest run packages/data-objectstack/src/aggregate-capability.test.ts` — 13/13 passed.\n- `pnpm exec vitest run packages/data-objectstack/` — 56 test files, 749 tests, all passed.\n- `pnpm --filter @object-ui/data-objectstack type-check` — clean, 0 errors (after building the `@object-ui/types` / `@object-ui/core` dependency closure first).\n- `node scripts/check-control-bytes.mjs` — OK (6472 scanned, 85 skipped-binary).\n- `node scripts/check-changeset-presence.mjs` — OK, 1 changeset declared for the 2 changed source files.\n- `node scripts/check-changeset-no-major.mjs` — OK, no `major` bump declared.\n- `check:published-dist` / `check:published-tsconfig-exclude` — **not run locally** (both rebuild the full workspace, ~30+ packages). This PR's diff touches no `package.json` publish-contract field and no `tsconfig*.json` for `data-objectstack` (verified: `git diff origin/main -- packages/data-objectstack/package.json packages/data-objectstack/tsconfig*.json` is empty) — both gates are structurally invariant to this diff. Deferred to CI.\n\n## Changeset\n\n`.changeset/analytics-coded-400-rejected.md` — `@object-ui/data-objectstack`: **minor** (matches the bump used by the closest precedent, `analytics-failure-code-first.md` for objectui#5721, which changed the same function's throw-vs-degrade behavior the same way).\n\n---\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01YBWFb5YgMU5dw8p2VKj16S\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01YBWFb5YgMU5dw8p2VKj16S)_"
+}

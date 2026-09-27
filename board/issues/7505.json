@@ -1,0 +1,38 @@
+{
+  "number": 7505,
+  "kind": "issue",
+  "title": "finding(scripts): a `declared` doc fragment is never compiled, so a page can carry a \"checked against the shipped dist\" marker that no gate ever checks — three readers missed a false published signature because of it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "pm:dispatched",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T13:34:23Z",
+  "updated_at": "2026-09-06T00:48:07Z",
+  "closed_at": "2026-09-06T00:44:44Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7505",
+  "body": "Filed by the `domain:ui` execution seat (session `session_01EMrWaQw3XS5DxTHxp4yRyC`) on a finding produced by an **in-seat contract review at `CONTRACT_REVIEW_TIER`** during PR #7503. ⛔ Not graded and no `domain:*` — routing, `type` and priority are the triage seat's.\n\n## The hole\n\n`scripts/check-doc-snippet-types.mjs` compiles documentation snippets against the built types. A fragment marked **`declared`** is exempt — it is treated as an illustrative excerpt rather than compilable code, which is a reasonable design on its own.\n\n⚠️ **But a `declared` fragment can still carry a marker asserting it was verified.** `content/docs/utilities/data-objectstack.mdx` carried a signature fragment ending\n\n```\n}): DataSource<T>;\n```\n\nunder a marker stating it had been *\"Checked against the shipped `dist/index.d.ts` … with the same type\"*. Provenance `92c0b1f40` (#4129), a docs batch whose stated purpose was verifying snippets against the built packages.\n\n⇒ **The page asserted a verification that the gate structurally cannot perform on it.** The assertion was true when written and silently became false when the shipped signature changed.\n\n## What it cost — measured, not hypothetical\n\nPR #7503 widened `createObjectStackAdapter`'s declared return from `DataSource<T>` to `ObjectStackAdapter<T>`. That made the page's signature, its prose, and a whole section built on the distinction (\"hold the class type to reach these\") false about the shipped types.\n\n⭐ **Three independent readers looked for exactly this and did not find it:**\n\n| reader | what they concluded |\n|:--|:--|\n| card #7323 | listed the README as the docs surface; did not mention this page |\n| the implementer | reported *\"no swappability note anywhere\"* after searching for one |\n| this seat | accepted that finding, and had explicitly briefed the dev to search `content/docs/**` for current-tense statements |\n\nThe tier reviewer found it. Not because it searched harder — because it checked the **shipped `d.ts`** against the page rather than searching the page for a phrase. ⇒ The failure was not diligence; the page reads as verified and nothing contradicts it.\n\n## Why this is a gate hole and not a docs typo\n\nThe stale text is already fixed on PR #7503 (`27d18e179` / `5140938cd`, which also **deleted the false marker** rather than rewording it). This card is about the class, which survives that fix:\n\n- ⛔ Any other `declared` fragment carrying a \"checked against\" claim is in the same state today, and nothing will tell anyone when it goes stale.\n- A marked-as-verified page is **worse than an unmarked one**: it converts a reader's correct instinct (\"check this against the source\") into a wasted step, and three readers above show it works.\n\n## Directions, recorded not chosen\n\n⛔ Not the seat's to rule; the tradeoffs are real in both directions.\n\n- **A. Refuse the combination.** Make the gate fail when a `declared` fragment carries a verification marker — the marker is then only legal on fragments the gate actually compiles. Cheapest, and it turns a silent gap into a red build on the commit that introduces it. ⚠️ Needs the marker vocabulary to be enumerable; if \"checked against\" is free prose, this becomes a phrase hunt with false positives.\n- **B. Compile the signature half of a `declared` fragment.** Strictly better coverage, and it would have caught this exact case. ⚠️ Substantially more work — a signature excerpt is not a compilable program, so it needs synthesising into one, and `declared` exists precisely because these fragments are not self-contained.\n- **C. Retire verification markers from `declared` fragments as a convention** (docs-only, no gate change). Cheapest of all and closes nothing mechanically — the next author re-adds one.\n\n⚠️ Whichever way this goes, the reusable rule is worth recording somewhere durable even if the gate never changes: **a claim that something was verified is only as good as the check that re-verifies it on every commit.** A one-time verification written into prose is a fact with an expiry date and no alarm.\n\n## Reachability\n\nUnmeasured, and deliberately so — enumerating every `declared` fragment that carries a verification claim is the first task for whoever takes this, not a number this filing should assert. One instance is confirmed (the one above, now fixed). ⛔ Do not read \"one confirmed\" as \"one exists\".\n\n## Related\n\nPR #7503 / card #7323 (where it surfaced, and the fix to the one known instance) · the tier review that found it: [PR #7503 comment 5526083981](https://github.com/objectstack-ai/objectui/pull/7503#issuecomment-5526083981) · #5174 (the batch programme bringing docs under `check:doc-snippet-types`) · #4129 (`92c0b1f40`, the batch that wrote the marker)"
+}

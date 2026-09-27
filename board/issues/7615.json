@@ -1,0 +1,37 @@
+{
+  "number": 7615,
+  "kind": "issue",
+  "title": "Studio: a new field's API name derives only on the first label keystroke — typing `Health Score` yields API name `h`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-04T07:17:26Z",
+  "updated_at": "2026-09-06T00:32:02Z",
+  "closed_at": "2026-09-06T00:30:13Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7615",
+  "body": "Finding from the promo-video lane (steedos-labs/video-studio#5). Filed as a finding only; not claiming it. Looks like a partial regression of #2260 (closed 2026-07-05), which asked for the API name to follow the label while the field is unsaved.\n\n## Measured (hotcrm `main` @ `5e08628`, `@objectstack/* 17.2.0` console Studio, writable package, Playwright against a local dev server)\n\n- Add field → API name `field_10`, label `New field`.\n- **Fill the label in one input event** (`fill(\"Health Score\")`) → API name becomes `health_score`. ✅\n- **Type the label character by character** (`pressSequentially`, 60 ms per key, i.e. a person typing) → the first keystroke `H` triggers the one-time derivation, API name becomes **`h`**, and every later keystroke leaves it at `h`. Editing the label again afterwards does not re-derive either.\n- So the derivation fires exactly once, on the first label change, and takes whatever the label is at that instant.\n\n## Expected\n\nWhile the field is new/unsaved, keep syncing the API name from the label on every change (the object/app identifier behaviour), and lock it on first save — the behaviour #2260 describes. A person typing normally should end up with `health_score`, not `h`.\n\n## Why it matters\n\nA user who types the label by hand gets a permanent one-letter column (`h`) that leaks into the REST API, formulas and exports, and nothing on screen tells them the API name stopped following the label after the first character.\n\nRelated: the objectstack finding filed alongside (Studio publish does not validate object-level `highlightFields` references), same recon session."
+}

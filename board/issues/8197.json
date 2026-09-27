@@ -1,0 +1,39 @@
+{
+  "number": 8197,
+  "kind": "issue",
+  "title": "finding(docs): `collapsible.mdx`'s schema block names a required `children` row the renderer never reads, and omits the required `content` the renderer does read",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "domain:ui",
+    "finding",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T23:52:18Z",
+  "updated_at": "2026-09-07T04:01:05Z",
+  "closed_at": "2026-09-07T04:01:05Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8197",
+  "body": "Found while implementing objectui#7767 (the `CollapsibleSchema.trigger` widening), whose scope is the `trigger` row of the same fence. Fenced out on triage's own terms there. Measured on `origin/main` `daf9d576d`.\n\n## The row\n\n`content/docs/components/disclosure/collapsible.mdx:16` publishes:\n\n```plaintext\ninterface CollapsibleSchema {\n  type: 'collapsible';\n  trigger: SchemaNode | SchemaNode[];\n  children: SchemaNode[];\n  defaultOpen?: boolean;\n}\n```\n\nTwo things are wrong with the `children` line, both about the SAME slot:\n\n1. **The declaration has no such required member.** `packages/types/src/disclosure.ts` declares the content slot as `content: SchemaNode | SchemaNode[];` — required. `children` reaches `CollapsibleSchema` only through `BaseSchema` (`packages/types/src/base.ts`), where it is `children?: SchemaNode | SchemaNode[]` — OPTIONAL, and a different union. So the docs row names the wrong key, marks it required when the inherited one is optional, and spells a narrower type than the inherited one.\n2. **The renderer never reads it.** `packages/components/src/renderers/disclosure/collapsible.tsx` reads `renderChildren(schema.content)` inside `CollapsibleContent`, with no `children` fallback of any kind. The registration's `defaultProps` likewise ships `content`, not `children`.\n\n⇒ an author who follows this page authors `children`, no read site consumes it, the required `content` is absent, and the collapsible renders with an empty body. The `content` key — the only one that works — is not documented on the page at all.\n\nSame class as objectui#6805 (`scroll-area` demos authoring `content`, which that renderer never reads) and objectui#6773 (`aspect-ratio` demos, same shape), both of which were confirmed real and closed. This one is the mirror image: the docs name a key the renderer ignores, rather than the demos doing so.\n\n## Why no gate catches it\n\n`check:doc-types` reads only `type` string literals out of doc code blocks, so it never judges a member row. `check:doc-snippets` compiles only `ts` / `tsx` / `typescript` fences (`TS_FENCE_LANGUAGES` in `scripts/check-doc-snippet-types.mjs`); this block is fenced `plaintext`, so it is outside that gate's population by construction — measured: zero `ts`/`tsx`/`typescript` fences in this file, one `plaintext` fence. The neighbouring `trigger` row on this same page had drifted for the same reason and had to be re-derived by hand under objectui#7767.\n\nRelated but not the same: objectui#6143 records that component reference pages declare their own `interface` so the doc-snippet gate cannot see the props they invent — that is the gate-blindness class; this card is one measured instance of a wrong row, on a specific page.\n\n## Suggested fix\n\nRe-derive the row from the declaration: replace `children: SchemaNode[];` with `content: SchemaNode | SchemaNode[];`. Whether the inherited optional `children` deserves its own row is a separate judgement for whoever picks this up — the defect reported here is that the required slot is undocumented and a non-read key is documented in its place.\n\nDedup: one targeted semantic search on this repository returned no card on the collapsible docs content slot; the same search returned objectui#7767 and the two same-class cards above, so it was not returning an empty set.\n\nRefs: objectui#7767 · objectui#6805 · objectui#6773 · objectui#6143.\n\nWritten by the dev of the objectui#7767 dispatch, session `session_01YBWFb5YgMU5dw8p2VKj16S`, via Claude Code (`https://claude.ai/code`)."
+}

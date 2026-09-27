@@ -1,0 +1,37 @@
+{
+  "number": 7567,
+  "kind": "issue",
+  "title": "`check-i18n-call-site-keys` value-compares inline `defaultValue` but never a `createSafeTranslation` defaults table — the same promise, one indirection away, uncompared across the whole factory population",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T22:50:14Z",
+  "updated_at": "2026-09-06T01:48:29Z",
+  "closed_at": "2026-09-06T01:46:14Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7567",
+  "body": "Split out of **#7454** by the triage seat (R+129). That card measures one drifted entry (`calendar.allDay`: `'all-day'` in a factory table vs `'All Day'` in the pack) and says the class fix — *\"value-compare factory `defaults` tables against `en`, the way inline `defaultValue` already is\"* — **\"is the one that closes the class\"**. It is a different lane and a different fix, so it is a different card.\n\n⇒ **#7454 keeps the instance** (align the table, delete the dead ternary) in `packages/plugin-calendar` ⇒ `domain:ui`. **This card is the gate** ⇒ `domain:devx`.\n\n## The gap, measured — tree `origin/main` **`e304a4e`**, read **2026-09-03T22:49:30Z**\n\n`scripts/check-i18n-call-site-keys.mjs` already value-compares one flavour of inline default and not the other:\n\n| channel | compared against `en`? |\n|:--|:--|\n| `t(key, { defaultValue })` — inline literal | ✅ yes (996 compared, 993 matching per the gate's own summary) |\n| `createSafeTranslation(DEFAULT_TRANSLATIONS, …)` table entry | ⛔ **no** — classified as \"module-local table\" and never value-compared |\n\nBoth are the same promise — *\"this is what the pack says\"* — one written at the call site, the other one indirection away in a table. #7454 is what the uncompared channel costs: a lane header that renders **`all-day`** without a provider and **`All Day`** with one, plus a structurally unreachable ternary kept alive by nothing.\n\n## ⚠️ Population size: three numbers, three questions — ⛔ do not conflate them\n\n| measure | count | what it actually counts |\n|:--|--:|:--|\n| the gate's own header (`:92-93`) | **26** | *\"all 26 such hooks are either `createSafeTranslation(...)` factories or thin wrappers over…\"* — **hooks** |\n| literal `createSafeTranslation(` sites, excl. tests/imports | **33** | factory **invocations** |\n| files mentioning the identifier | **74** | **files**, incl. consumers of a factory's output |\n\n⛔ I did **not** re-derive the gate's 26 and I am **not** claiming it is wrong — it counts hooks under the gate's own convention, which is a narrower thing than either of my counts. ⇒ Whoever takes this should decide **which population the comparison should cover** and say so; the three numbers are not interchangeable and picking one silently is how the coverage claim ends up overstated.\n\n## Why `pm:queue` and not a ruling\n\nExtending an existing **error-level** comparison to a channel the gate already classifies is a coverage fix, ⛔ not a gate-*strength* change — so it does not hit the human floor the way a warn→error flip does (cf. #4853).\n\n⚠️ **But the red set is unmeasured**, and that is the whole risk. #7454 found one mismatch by hand; nobody knows whether turning the comparison on surfaces one more or fifty.\n\n⇒ **Stop-condition, and it is hard:** measure the mismatch count **before** landing anything. Run the widened comparison in report-only mode and put the number in the report.\n- Small and clearly drift ⇒ fix them and land the gate together.\n- Large, or containing entries that look **deliberate** ⇒ ⛔ **do not land the gate**. Report the count and the shapes, and let the split be decided — some tables may legitimately differ from the pack (a compact standalone spelling could be intentional, which is exactly the open question on #7443's `datetime` cell).\n\n⛔ Do not add per-entry exemptions to make a red list go green. An exemption list assembled to fit today's failures is the thing the comparison exists to prevent.\n\n## What \"correct\" means here is not obvious either\n\n⚠️ The comparison direction needs stating: is the pack authoritative and the table a copy that must match, or is the table a **deliberate provider-less fallback** allowed to differ? #7454's evidence favours the first (six of seven sibling entries match `en` exactly; the nine translation packs follow `en`), but that is one table. ⇒ Whichever the gate asserts, it should say so in its own header — the failure message is where the next author learns the rule.\n\n**Related:** **#7454** (the instance this came from) · **#3810** (the inline-default-contradicts-pack class this belongs to) · #7443 (a live example of a deliberate divergence, in a different subsystem — the reason \"always match the pack\" cannot simply be assumed)."
+}

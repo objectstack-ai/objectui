@@ -1,0 +1,38 @@
+{
+  "number": 7592,
+  "kind": "issue",
+  "title": "finding(i18n): check-i18n-dead-keys reports 28 LIVE `chatbot.tool.*` keys as CONFIRMED — the key template lives in a helper, not at the call site",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "i18n",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-04T03:21:31Z",
+  "updated_at": "2026-09-06T00:59:15Z",
+  "closed_at": "2026-09-06T00:58:04Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7592",
+  "body": "A third blind-spot class in `scripts/check-i18n-dead-keys.mjs`, sibling to #6666 but **not covered by its remedy**. Measured on `origin/main` `24135aba1`, which contains the #6666 fix (`2878cede4`, `propertyChainProbe()`).\n\n## The claim\n\nAll 30 `chatbot.tool.*` keys are LIVE and rendering in shipping UI. 28 of them sit in **CONFIRMED**, the tier the script's own header calls the strongest and safest to delete. They are 28 of the 142 CONFIRMED entries — **19.7% of the whole top tier is one false-positive block**.\n\nDeleting them would remove 300 translated strings (30 keys x 10 packs) and silently revert every AI copilot tool card to English in all nine non-English locales — the exact regression cloud#1658 was filed for and objectui#7254 fixed.\n\n## Why both legs are blind — a new class\n\nThe consumer never spells the key. `packages/plugin-chatbot/src/tool-display.ts`:\n\n```ts\nexport function toolTitleKey(name: string): string {\n  return `chatbot.tool.${String(name).trim()}`;\n}\n// …\nreturn translate ? translate(toolTitleKey(trimmed), english) : english;\n```\n\nThe template that builds the key lives **inside a helper function**, so at the `t()`/`tt()`-shaped call site the key argument is a **function call, not a template literal**. In `analyze()` (`check-i18n-call-site-keys.mjs`) both `dynamicHeads` (line 1879) and `dynamicFamilies` (line 1887) are populated only from `staticHead(argument)` / `templateShape(argument)` on an observed template-literal argument. A helper call yields neither.\n\nConsequence, leg by leg:\n\n| leg | sees it? | why |\n|---|---|---|\n| AST `referencedKeys` | no | no literal key at any call site |\n| AST `dynamicHeads` | no | the template is in the helper; the argument is a call expression |\n| full-key `textFootprint()` | no | the dotted key is never spelled |\n| `propertyChainProbe()` (#6666) | no | `.tool.add_field` is spelled nowhere — the pack is not imported as an object here |\n\nThis is distinct from both classes the header enumerates. `LoadingScreen.tsx` is pack-object + property access (covered by design). `outboundAgentText.ts` is pack-object + dynamic index (covered by neither leg, but its four keys land in NEEDS-REVIEW **by luck**, via a nearby type union). This class has no such luck: 28 of 30 land in CONFIRMED. The 2 exceptions (`describe_object`, `visualize_data`) are demoted only because `tool-display-i18n.test.ts` happens to spell those two dotted keys as literals — the same luck, and it covers 2 of 30.\n\n## Evidence\n\n**1. Live call sites.** `packages/plugin-chatbot/src/ChatbotEnhanced.tsx`, both passing `tt = useSafeTranslate()` (line 1471):\n- `:2079` `const friendlyTitle = humanizeToolName(tool.toolName, tt);` — the tool card header\n- `:3127` `groups={summarizeTools(summaryTools, tt)}` — the activity chips, via `summarizeTools` (`:1281`)\n\n**2. Exact registry correspondence.** The pack's 30 `chatbot.tool` leaves are **set-identical** to `PLATFORM_PROVIDED_TOOL_NAMES` in `@objectstack/spec` (`service-ai` 6 + `service-ai-studio` 24). No key without a tool, no tool without a key. Every key is the runtime target of `toolTitleKey(tool.toolName)` for a tool the platform actually ships.\n\n**3. Ablation.** Removing `apply_edit: '应用修改'` from `packages/i18n/src/locales/zh.ts` (mutation confirmed on disk, blob `495a321a4` to `382253a89`; restored, `git diff HEAD` empty) turns the existing rendering pin RED:\n\n```\nFAIL |dom| packages/plugin-chatbot/src/__tests__/toolCardI18n-7254.test.tsx\nTestingLibraryElementError: Unable to find an element with the text: 应用修改\n                                Apply edit\n```\n\nSo one CONFIRMED key already breaks a shipping test on deletion. The pin covers 2 of 30.\n\n**4. The forward gate is blind too — controlled pair, same file, same namespace, one level apart.**\n\n| leg | mutation on `en.ts` | `check:i18n-keys` |\n|---|---|---|\n| A | delete `chatbot.tool.apply_edit` | **exit 0, GREEN** — pack count silently 2962 to 2961, still declares \"every in-scope call-site key resolves\" |\n| B | delete `chatbot.toolState.completed` | **exit 1, RED** — `ChatbotEnhanced.tsx:1486:49 [missing-key]` |\n\nB proves the gate is sensitive; A proves it is blind to this subtree. Nothing in CI would catch the deletion of 28 of these 30 keys.\n\n## Suggested remedy (not implemented here — out of the reporting slice's scope)\n\n`chatbot.tool.` is a textbook dynamic key family with a **closed, external, authoritative vocabulary** (`PLATFORM_PROVIDED_TOOL_NAMES`), which is exactly what `DYNAMIC_KEY_FAMILIES` (#4964) exists to describe. Two independent pieces are needed and neither works alone:\n\n1. Let a family be declared against a helper-built head, since `dynamicHeads`/`dynamicFamilies` are observation-only today and record nothing for this shape.\n2. `check-i18n-dead-keys.mjs` destructures only `referencedKeys, referencedBranches, dynamicHeads` from `analyze()` (line 373) — it never reads `dynamicFamilies`. So even a correctly declared family would **not** protect its members from the reverse sweep until the dead-key script consumes the declared registry as well.\n\nA cheaper interim guard, independent of the above: pin the set-identity asserted in evidence 2 — every `PLATFORM_PROVIDED_TOOL_NAMES` member has a `chatbot.tool.` key and vice versa. That makes the whole subtree's liveness mechanical rather than a matter of a reader noticing.\n\n## Scope note\n\nFiled from the `chatbot.tool` slice of #4730, which **shipped zero diff** as a result: the dispatched deletion target turned out to be entirely live. No pack was edited; all mutations above were ablations, restored and verified byte-identical to their `HEAD` blob.\n\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

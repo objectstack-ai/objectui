@@ -1,0 +1,37 @@
+{
+  "number": 7721,
+  "kind": "issue",
+  "title": "A pending changeset (`.changeset/7344-handler-string-any-mirrors.md`) and its pin test still say \"nothing reads `AppComponentSchema.actions[]`\" — measured false, and the sentence ships as CHANGELOG copy at the next release",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "domain:spec",
+    "finding",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T11:37:49Z",
+  "updated_at": "2026-09-07T06:44:10Z",
+  "closed_at": "2026-09-06T16:03:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7721",
+  "body": "Filed by the `domain:spec` @ objectui execution seat (session `session_01BAZFhALsQsGqxui8sNqM8s`) from the #6854 dev's out-of-scope findings (report on #6854, PR #7720). ⛔ Unassigned; grading and `domain:*` are triage's. Dedup: a natural-language search returned three related-but-different cards (#4202, #5610, #4282), so the instrument was live and none is this.\n\n## The defect\n\n- `.changeset/7344-handler-string-any-mirrors.md:32` (a **pending** changeset, i.e. future published CHANGELOG copy for `@object-ui/types`) carries the parenthetical \"`AppAction.onClick` (nothing reads `AppComponentSchema.actions[]`)\".\n- `packages/types/src/__tests__/handler-keys-string-any-mirrors-7344.test.ts:58–60` records a reader census that omits `@object-ui/runner` — literally true as scoped, and the origin of the false sentence.\n\n**Measured false** (the #6854 Zone-2 census, comment 5551453088 on #7469; re-read by this seat on `origin/main` `f96a781`): `packages/runner/src/LayoutRenderer.tsx` renders `AppComponentSchema.actions[]` — the `'button'` arm as toolbar buttons and the `'user'` arm as an avatar dropdown. What is true is narrower: no reader touches `onClick` on the action or on `items[]` (after PR #7720 deletes the last cast).\n\nPR #7720 corrected the same sentence in the two `packages/types` rationale comments on `onClick` but deliberately did not edit another card's pending changeset or that card's pin (the bounded in-place-fix test fails on the \"mechanical and pinned\" leg). This card is the remainder.\n\n## Fix shape\n\nOne editorial change: reword the parenthetical to the measured claim (\"no renderer reads `onClick`, on the action or on `items[]`\") in the changeset, and extend the census comment in the #7344 pin to name `@object-ui/runner` as a reader of `actions[]` (not of `onClick`). ⛔ No shape moves; Clause-② no. It has to land **before** the changeset is consumed by a release, or the false sentence becomes permanent CHANGELOG copy.\n\n## Related\n\n#7344 (the changeset's card) · #6854 / PR #7720 · #7469 (`pm:retriage` hung by this seat on the same false premise)."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 8098,
+  "kind": "pull_request",
+  "title": "test(plugin-detail): derive the docs activity-map transcription from the map",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T15:25:04Z",
+  "updated_at": "2026-09-06T15:56:59Z",
+  "closed_at": "2026-09-06T15:56:57Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-09-06T15:56:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/8098",
+  "body": "Fixes #7876\n\nRuling A on the card, confirmed by triage `5557286492`: a **derived** transcription pin. One new test file; the page itself is untouched.\n\n## What this closes, and what it does not\n\n`content/docs/plugins/plugin-detail.mdx` restates `ACTIVITY_TYPE_TO_FEED_TYPE` in prose at `:221-225`, and **nothing read that sentence** — `check:doc-types` reads component type literals, `check:doc-snippets` reads fenced code blocks, `check:doc-fences` / `docs:check-links` / `check:docs-route-closure` read fence languages, links and route closure. None of them reads a sentence, which is how #6932 (PR #7871) came to find two `record:activity` statements on this page that were true when written and false on `main`.\n\n⚠️ The **bound is written into the pin's docblock rather than sold past**: this covers the map transcription and **not** the free-prose behaviour statements — the class #6932 actually corrected. Card A's own words: it \"is worth doing because the map is mechanically checkable; it should not be sold as closing the whole gap.\"\n\n## How it works\n\n- **Located structurally, never by line number.** The anchor is the paragraph's opening sentence (`` `sys_activity` rows map to feed items like this: ``); the slice runs to the next blank line. A missing or duplicated anchor throws with a stated reason, so a page restructure reds instead of vacuously passing.\n- **Derived in both directions.** Every key with a feed type must appear under *that* feed type; every `undefined` key must be **named** in the paragraph and **not** listed under any feed type; and no activity type the paragraph names may be absent from the map.\n- **Non-vacuity legs**: the map has ≥ 1 mapped key and ≥ 1 `undefined` key; the anchor matched exactly once; the paragraph yields ≥ 1 type under a feed type and ≥ 1 named without one. A separate leg asserts the slice stopped at the paragraph (the prose at `:239` naming the constant must not be inside it).\n\n## Not the pin `recordActivityFeed.test.ts` forbids\n\nThat file bans deriving `PLATFORM_BUILTIN_ACTIVITY_TYPES` from the map — that list is the platform-**declared** vocabulary, hand-transcribed from upstream, so deriving it would compare the map with itself. The object here is different: prose on an `.mdx` page authored independently of the map, which is exactly what a derived expectation is for. Its neighbour `feedTypeProducerCensus-5877.test.ts` names the same page in order to declare it **out** of the producer census; this is the pin that reads it. Its `repoRoot` resolution is reused rather than re-invented. The map is read from `renderers/recordActivityFeed`, never from app-shell's separate `activityItemType.ts` mapping.\n\n## Drift check on today's page\n\nThe prose and the map **agree** on `main`, so the page is not touched. Re-derived: `created` / `updated` / `deleted` / `assigned` / `shared` → `field_change`, `completed` → `task`, `scheduled` → `event`, `system` → `system`, and `commented` / `mentioned` / `login` / `logout` named as skipped / account events — the map's 12 keys exactly.\n\n## Ablation — five legs, each mutating the page on disk, restored under a `trap` with absolute paths\n\nBlob hashes recorded before and after every leg; each restore is `git checkout HEAD -- <abs path>` verified back to `a1b07f6…` with `git diff HEAD` exit 0.\n\n| leg | mutation | pin exit | it named |\n|---|---|---|---|\n| A | `completed` → `task` becomes → `event` | **1** | `- \"completed\": \"task\" / + \"completed\": \"event\"` |\n| B | delete `shared` from the mapped list | **1** | `- \"shared\": \"field_change\" / + \"shared\": undefined` |\n| C | delete `mentioned` from the skip sentence | **1** | `- \"named\": true / + \"named\": false` |\n| D | prose names `archived`, which the map does not declare | **1** | `undeclared: [ 'archived' ]` |\n| E (live control) | the **same** `completed` → `task` pair where it appears **outside** the paragraph (`:229`) | **0**, as required | — |\n\nLeg E is the ruling's \"prose elsewhere on the page must not be read as the transcription\", measured: the identical text moved outside the slice leaves the pin green. Leg A's first anchor attempt was rejected by the script because that text occurs twice on the page — which is how E got written.\n\n## Gates, all pinned to `cb3ba202c` (the merged head)\n\n`pnpm exec vitest run packages/plugin-detail/` → 133 files / 1205 tests passed · `pnpm --filter @object-ui/plugin-detail type-check` → 0, and `tsc -p tsconfig.test.json --listFiles` names the new file (so the type program is not vacuous over it) · `lint` → 0 errors, 0 findings in the new file · `check:control-bytes` → 0, plus a manual control-byte scan of both changed paths (no hits) · `node scripts/check-changeset-presence.mjs` → 0, empty frontmatter accepted as \"releases nothing\" · `check:governed-queue-guard --test` → **NOT GOVERNED** · `check:doc-types` → 0 · plus the derived set `check:doc-example-readers`, `check:published-tsconfig-exclude`, `check:unreferenced-sources`, `check:esm-specifiers`, `check:self-import` → all 0. Both files that name this page (`check-doc-component-types.mjs` and the census test) were run.\n\n`origin/main` moved from `295804a63` to `c546cdfdd` mid-run; merged in and everything above was re-run on the merged head. The merge is disjoint from `packages/plugin-detail/**` and `content/docs/plugins/**`. `Live E2E (informational)` is red on every branch today for an upstream reason (#7990) — not this change.\n\nRelated, none of them addressed here: #6932 and its PR #7871 are the instance that motivated the card; #5877 owns the neighbouring census pin.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01FhBNJcLRZLe8M87VcUgpKr\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01FhBNJcLRZLe8M87VcUgpKr)_"
+}

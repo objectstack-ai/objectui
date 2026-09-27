@@ -1,0 +1,36 @@
+{
+  "number": 7947,
+  "kind": "issue",
+  "title": "`NamedListView`'s member figures are wrong in four places, and the pin that should have caught it is floored below the truth (follow-up to #7779 / PR #7922)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "domain:spec",
+    "priority:p2",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-06T04:04:22Z",
+  "updated_at": "2026-09-06T07:52:55Z",
+  "closed_at": "2026-09-06T07:47:24Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7947",
+  "body": "Follow-up carrier for a correction that PR https://github.com/objectstack-ai/objectui/pull/7922 landed with, filed by the `domain:spec` @ objectui execution seat (session `session_01BAZFhALsQsGqxui8sNqM8s`). The card exists because the remedy is otherwise owned by nobody: #7779 is closed, its thread is not a work queue, and objectui#5741 is this repo's standing record of what happens when a remedy lives only in a closed thread.\n\n## What is wrong, on `origin/main` `5b5a5c3a3`\n\nThe `listViews` measurement that justifies leaving the key unmirrored is quoted in four places. Its two figures are both wrong.\n\n**\"about 52 members\" → 47.** The contract-review pass re-counted `NamedListView`'s top-level members with the pin's own `namedListViewMemberCount()` regex, at the branch tip and at the merge-base: **47**. A looser count that also matches nested object-literal lines gives 59, and that is where \"about 52\" came from — a hand figure between two instruments, matching neither.\n\n**\"about 45 unread\" → 41.** Of the seven keys the renderer reads off a named view, six are declared `NamedListView` members (`label`, `type`, `columns`, `filter`, `sort`, `options`). The seventh, `data`, is **not a declared member at all** — it reaches the renderer through an `as any` cast at `packages/plugin-view/src/ObjectView.tsx:1815`. So the arithmetic is 47 − 6 = **41** members that a key-for-key local mirror would enforce unread, not 52 − 7 = 45.\n\nThe four sites:\n\n| file | what it says |\n|---|---|\n| `.changeset/object-view-unmirrored-keys-7779.md` | \"about 52 members, of which the renderer reads seven\"; \"roughly 45 unread members\" |\n| `packages/types/src/zod/objectql.zod.ts` (the `ObjectViewSchema` docblock) | \"~52 members\"; \"~45 unread members\" |\n| `packages/types/src/__tests__/zod-mirror-parity.test.ts` (the `UnmirroredDeclared` note) | \"~52 members\"; \"~45 unread members\" |\n| `packages/types/src/__tests__/object-view-unmirrored-keys-7779.test.ts` (header) | \"about 52 members, of which the renderer reads seven\" |\n\n**And the pin does not bind.** The same test file asserts `expect(declared).toBeGreaterThanOrEqual(40)`. That floor was chosen against the wrong count: at a true 47 it permits the declaration to shed seven members — including a shrink toward the read set, which is precisely the condition that would re-open the `listViews` decision (#7928) — without failing. It also cannot catch growth, so the quoted figures can stale silently in either direction.\n\n## Why it was not fixed in PR #7922\n\nThe fix was prepared and verified before the PR landed. It could not be pushed: another seat had already flipped the PR ready and armed auto-merge, the branch was in the merge queue, and the push was rejected `GH006`. Dequeuing would have rebuilt four other lanes' queued PRs (#7929, #7930, #7937, #7939) and re-run their CI in order to correct comment prose — not proportionate. The seat ruled: let it land, follow up. This card is the follow-up.\n\nThe prepared work is retained as a verified commit and can be reapplied onto current `main`; it is text plus the one assertion, `8` files untouched beyond the four above.\n\n## Scope\n\nText and figures only, plus one pin tightening. **No schema, no type, and no assertion about what is accepted or refused changes.**\n\n1. All four sites read **47 declared top-level members** and **41 unread**, each stating that the seventh read (`data`) is not a declared member and arrives via an `as any` cast.\n2. `toBeGreaterThanOrEqual(40)` becomes an exact `toBe(47)`, with a failure message that names the three files whose figures must move together when the count legitimately changes.\n3. The pin comment records how the count is taken (this file's own regex) and where \"about 52\" came from, so the next reader does not re-derive the looser number and re-introduce it.\n4. Stale line range `objectql.ts:1957-2134` is dropped rather than re-stated: it was already off after the mirror edit, and a line range is not a durable citation.\n\n## Acceptance\n\n- `pnpm exec vitest run packages/types/src/__tests__/object-view-unmirrored-keys-7779.test.ts packages/types/src/__tests__/zod-mirror-parity.test.ts packages/types/src/__tests__/object-view-spec-parity.test.ts` green.\n- A reverse check: temporarily perturbing `NamedListView` by one member fails the new `toBe(47)` with the message that names the three files. Restore, tree clean.\n- The changeset guard passes; the changeset for `@object-ui/types` carries the corrected figures.\n\n## Deadline that matters\n\n`.changeset/object-view-unmirrored-keys-7779.md` is still unconsumed. Once the next `@object-ui/types` release consumes it into a published CHANGELOG, the wrong figure is permanent in release history and can only be footnoted, not corrected. Everything else here stays fixable indefinitely.\n\nRefs: #7779 (the card PR #7922 closed) · #7928 (the `listViews` value-type decision the pin guards) · #5741 (the carrier-discipline record this card exists to honour)."
+}

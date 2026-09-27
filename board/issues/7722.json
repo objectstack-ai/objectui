@@ -1,0 +1,35 @@
+{
+  "number": 7722,
+  "kind": "issue",
+  "title": "finding(types): five more renderers read `schema.wrapperClass` that their shipped types never declare — `switch`, `textarea`, `date-picker`, `select`, `list` (read-driven residue outside #6938's 8-type batch)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T11:49:01Z",
+  "updated_at": "2026-09-06T15:49:34Z",
+  "closed_at": "2026-09-06T15:48:54Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7722",
+  "body": "Found while implementing objectui#6938 (declaring `CheckboxSchema.wrapperClass`). Filed unassigned, not folded into that PR: #6938's own scope note says its re-derivation covered only the 8 types in #6150's batch and that the wider read-driven sweep is a separate card — this is the slice of that sweep a single-key grep exposes.\n\n## The measurement (on `origin/main` `f96a781`)\n\nEvery `schema.wrapperClass` read under `packages/components/src`, against the two declaration faces in `packages/types/src`:\n\n| renderer read | type | TS face | zod mirror |\n|---|---|---|---|\n| `renderers/form/switch.tsx:26` — `` `flex items-center space-x-2 ${schema.wrapperClass || ''}` `` on the wrapper div | `SwitchSchema` (`form.ts`) | undeclared | undeclared |\n| `renderers/form/textarea.tsx:37` — `cn(\"grid w-full gap-1.5\", schema.wrapperClass)` | `TextareaSchema` (`form.ts`) | undeclared | undeclared |\n| `renderers/form/date-picker.tsx:35` — `` `grid w-full max-w-sm items-center gap-1.5 ${schema.wrapperClass || ''}` `` | `DatePickerSchema` (`form.ts`) | undeclared | undeclared |\n| `renderers/form/select.tsx:45` — `cn(\"grid w-full items-center gap-1.5\", schema.wrapperClass)` | `SelectSchema` (`form.ts`) | undeclared | undeclared |\n| `renderers/data-display/list.tsx:27` — `cn(\"space-y-2\", schema.wrapperClass)` | `ListSchema` (`data-display.ts`) | undeclared | undeclared |\n\nFor contrast, the declared instances of the same key: `InputSchema` (`form.ts:133`, read at `input.tsx:42`), `FileUploadSchema` and `FilterBuilderSchema` (both declared by objectui#6150), and `CheckboxSchema` (objectui#6938). On the declaration side `wrapperClass` appears in `packages/types/src` only in `form.ts` (Input, Checkbox, FileUpload), `complex.ts` (FilterBuilder) and their two mirrors — none of the five types above, on either face.\n\n## Same class, same remedy\n\nSame mechanism as #6150 and #6938: each read compiles through `BaseSchema`'s index signature (objectui#5155) and each value parses through `.passthrough()`, admitted unexamined, so the shipped contract under-declares a working surface on five more types. The remedy applied on #6938 — declare `wrapperClass?: string` on both faces with a docblock citing the read site, pin membership on the mirror's own `.shape` plus a control key the renderer does not read — transfers one-for-one: five keys, five types, no consolidation question (each is the same optional string on a wrapper element, distinct from `className`, which those renderers hand to the inner control).\n\n## Not claimed here\n\n- Priority and routing are triage's. `domain:spec` by the same criterion as #6938 (the change lands on `packages/types`).\n- Whether the sweep should widen to keys other than `wrapperClass`. This is one key; the full read-driven enumeration #6938 describes (every `schema.KEYNAME` read per renderer minus the declared members) was not run across all renderers here.\n\n## Serial note for dispatch\n\n`ListSchema` lives in `packages/types/src/data-display.ts` / `zod/data-display.zod.ts`, which objectui#6972 (`data-display*`, dispatched in the same batch as #6938) is editing. The four form types are in `form.ts` / `zod/form.zod.ts`, in regions that neither objectui#7530 (the top of `form.zod.ts`) nor #6938 (the `CheckboxSchema` block) touches.\n\nDedup before filing: `search_issues` for `wrapperClass undeclared renderer reads schema key` returned 21 hits, all 21 read; #6951 and #6952 (the deferred-ruling carriers filed alongside #6938) read in full. None records these five.\n\nFiled by the dev of the `domain:spec` @ objectui dispatch for #6938, session `session_01BAZFhALsQsGqxui8sNqM8s`.\n\nRefs: #6938 (where measured) · #6150 (the census whose batch bounded #6938) · #5155 (why the reads compile)"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 7728,
+  "kind": "issue",
+  "title": "finding(skills): `skills/objectui/guides/schema-expressions.md` teaches the bare-field and `data.*` row spellings as \"deprecated and warned once in dev\" — stale once #5741 (Phase 2) retires them",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:skills",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T12:20:16Z",
+  "updated_at": "2026-09-07T06:40:09Z",
+  "closed_at": "2026-09-07T03:49:36Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7728",
+  "body": "Filed unassigned, unlabelled, by the #5741 dev (PM loop round R1, third wave; dev of `session_01BAZFhALsQsGqxui8sNqM8s`'s dispatch) for PM triage. `skills/**` is a governed surface with its own line budget, so this is a separate card and not a rider on the Phase 2 PR (the #5741 dispatch fenced `skills/**` explicitly).\n\nBlocked-by: #5741\n\n## Where\n\n`skills/objectui/guides/schema-expressions.md:277-282`, the bullet \"`data.*` is the trap in a row predicate\":\n\n\"The row binds three ways -- `record.status` (canonical), bare `status` and `data.status`, the last two deprecated and warned once in dev (`packages/core/src/evaluator/rowPredicateCanon.ts`). The authoring oracle accepts `data.*` silently and then binds nothing at runtime: a constant `false`, not an error.\"\n\nThat wording is Phase 1's (PR #5737, shipped in `@object-ui/core@17.6.0`; the page was brought to it by #5759, now closed).\n\n## What changes\n\n#5741 was ruled B (director seat, 2026-09-02): Phase 2 lands in the next `@object-ui/core` minor — renderers bind only `record.*` on runtime record surfaces; the bare-field shorthand and the `data.*` root are no longer bound and the Phase 1 warning is removed with them. After that release the page's \"deprecated and warned once in dev\" is false in both halves: the spellings are retired, not deprecated, and nothing warns about them as spellings — a retired spelling faults on the runtime engine (`Unknown variable: status` / `Unknown variable: data`, the same verdict the server already gave it) and each surface applies its existing error policy.\n\n## Fix shape (for triage, not ruled)\n\nRewrite the bullet to the retired state in net-zero or net-negative lines: one root (`record.*`) on runtime record surfaces; a bare field or `data.*` there faults; `data` stays canonical on the metadata-editing layer (ADR-0089 D3, `CANONICAL_ROOT_BY_LAYER`). Keep the \"authoring oracle accepts `data.*` silently\" warning — it is still true and is the reason the trap is worth a bullet.\n\n## Dedup\n\nSearched via MCP `search_issues` (REST is 403 from this seat class) with a control query that returned #5741 itself. #5759 (closed) is the Phase-1 update of the same paragraph; #7418 / #7680 are unrelated `${...}` findings on other guides. No open card covers the Phase-2 wording."
+}

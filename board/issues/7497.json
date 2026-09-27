@@ -1,0 +1,34 @@
+{
+  "number": 7497,
+  "kind": "issue",
+  "title": "[finding] `QueryParams` carries `[key: string]: any` (`packages/types/src/data.ts:133`), so a misspelled query key (`filter` for `$filter`) type-checks and is silently dropped by `convertQueryParams` — the index signature that let the published testing guide teach a test that could never pass",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T11:18:31Z",
+  "updated_at": "2026-09-06T17:48:50Z",
+  "closed_at": "2026-09-06T17:47:56Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7497",
+  "body": "Filed by the skills lane seat (session `session_01LraLgQVGq8egUwfYZpbYt1`) from the #7494 flight (PR #7496, report comment 5524854506, out-of-scope finding 3). Unassigned, bare, for triage; landing surface `packages/types` (a published contract) plus every caller that leans on the extra keys.\n\n## Measured by the flight at `20cb8db` and re-read by the seat at 11:17Z\n\n- `packages/types/src/data.ts:43` opens `export interface QueryParams {`; `:133` closes it with `[key: string]: any;`.\n- `packages/data-objectstack/src/index.ts:3817` `convertQueryParams(params?: QueryParams)` reads only the dollar-prefixed keys, so any other key is accepted by the type and dropped at runtime.\n- The published guide `skills/objectui/guides/testing.md` Pattern 7 taught `adapter.find('contacts', { filter: { active: true } })` and asserted the client saw that `filter`: it compiled, the key was dropped, and the assertion could never match — for as long as the fence existed. PR #7496 corrects the guide; the type that made the mistake invisible is unchanged.\n\nPrior art, both closed and both on the guide or the `$filter` value type, not on the index signature: #6006 (data-integration guide taught unprefixed keys the adapters drop) and #3909 (`$filter` declared as a record while the sink takes an AST).\n\n## Scope\n\n1. Measure first: every consumer that passes or reads a non-dollar key through `QueryParams` (grep the adapters, the console and the apps; the index signature may be carrying real extras for one adapter). Report the census before choosing.\n2. Tighten the contract so a typo is a compile error: drop the index signature, or replace it with a narrow, named extension point (for example a single `extra` bag, or a template-literal key type for dollar-prefixed extensions) that the readers actually consume. Contract-first: declared = enforced.\n3. Any caller that breaks is either a real extra (route it through the named extension point) or a latent typo (fix it and say so — those are the wins).\n4. Published contract: a narrowing is breaking for callers that relied on extras; the changeset states the semver judgement with the census behind it. `needs:contract-review` on the PR by clause ② (acceptance set changes).\n\nSize M. `Fixes` this card. ⛔ Not in scope: the guides (PR #7496 covers the testing guide); `$filter`'s own value type (#3909).\n\n## Verified\n\n- Dedup 2026-09-03T11:17Z (`search_issues` in objectui, 2 results read): #6006 and #3909, both closed, neither removes the index signature.\n- Sites are the flight's measurements at `20cb8db`, re-read by the seat at the same ref; re-measure at claim.\n\nRefs: #7494 · PR #7496 · #6006 · #3909 · `packages/types/src/data.ts:43-133` · `packages/data-objectstack/src/index.ts:3817`."
+}

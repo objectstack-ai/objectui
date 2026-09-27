@@ -1,0 +1,36 @@
+{
+  "number": 7542,
+  "kind": "issue",
+  "title": "finding(types): `AppComponentSchema` inherits the renderer's `hidden` predicate from `BaseSchema` while its Zod mirror takes the spec's app-catalogue `hidden` boolean — one name, two meanings",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T18:37:51Z",
+  "updated_at": "2026-09-06T02:28:01Z",
+  "closed_at": "2026-09-05T18:16:32Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7542",
+  "body": "Found while widening `BaseSchema.hidden` under objectui#7455 (maintainer ruling 2026-09-03, option A). Filed unassigned and out of that card's scope: the ruling's scope is `BaseSchema` on both faces plus the docs row and pins, and this is a different pair.\n\nPart of the same key family as objectui#7530, but ⛔ not a duplicate of it: #7530 asks about the CEL envelope OBJECT form on three keys. This is about the app node taking two different `hidden` keys, one per face.\n\n## The measurement\n\nMeasured on `@objectstack/spec@17.2.0` (the version the lockfile pins), by resolving `AppSchema.shape` at runtime:\n\n| key | declared by the spec's `AppSchema`? | accepts a boolean | accepts a string |\n|:--|:--|:--|:--|\n| `visible` | NO | — | — |\n| `disabled` | NO | — | — |\n| **`hidden`** | **YES** | yes | **no** |\n\n`packages/types/src/zod/app.zod.ts` builds the mirror as `BaseSchema.extend(SpecAppFields.shape).extend({ ... })`, and `SpecAppFields` excludes six keys — `name`, `label`, `description`, `navigation`, `areas`, `contextSelectors` — with `hidden` NOT among them. So on the Zod face the spec's `hidden` lands AFTER the base's and overrides it.\n\n`packages/types/src/app.ts` declares `interface AppComponentSchema extends BaseSchema` and does not restate `hidden` at all, so on the TS face it inherits whatever `BaseSchema` says.\n\n## Why this surfaced now\n\nBefore #7455 both faces read `boolean` and the collision was invisible. #7455 widened `BaseSchema.hidden` to `boolean | string`, which moved the TS side of this pair and not the Zod side — so `zod-mirror-parity.test.ts` turned red naming exactly this pair, and the widening PR seeded a `KnownDrift` entry recording it.\n\nThe same widening applied to `visible` (objectui#4581) and `disabled` (objectui#4580 ruling Q3-A) seeded nothing, because the spec's `AppSchema` declares neither of those keys. `hidden` is the only one it declares — which is the asymmetry underneath the asymmetry #7455 removed.\n\n## The actual question\n\nThe two keys collide in NAME and differ in MEANING:\n\n- the spec's `AppSchema.hidden` is an app-catalogue flag — whether the app shows in the switcher;\n- `BaseSchema.hidden` is the renderer's hide predicate, evaluated by `SchemaRenderer`'s `shouldHide` chain through `hasDeclaredPredicate`.\n\nToday an author reading `AppComponentSchema` in TypeScript is told they may write a predicate string; the validator that runs on their metadata refuses it. Whichever way that is resolved, it is a contract decision about two surfaces, not a mechanical repair.\n\nSome directions, ⛔ none of them chosen here:\n\n1. Keep the spec's key on both faces for the app node and restate `hidden?: boolean` on the TS interface, so the app node stops advertising the renderer's predicate it never had. Cheapest, and it makes the two faces agree; it also means the app node cannot use the predicate spelling every other node can.\n2. Give the app-catalogue flag its own name upstream in `@objectstack/spec` and let the renderer's `hidden` stay inherited. Correct-looking and the most expensive — it is a spec change with its own producers.\n3. Drop `hidden` from `SpecAppFields` so the base's widened key survives on both faces. ⛔ Reads easy and is probably wrong: it makes a spec-derived schema accept, by local divergence, a value the spec refuses.\n\n## ⛔ Do not close this by editing the ledger\n\nThe `KnownDrift` entry seeded by #7455 records the drift with its reason; it is a ratchet, not a waiver. Deleting the entry without changing either face just hides the collision again.\n\nRefs objectui#7455 · objectui#7530 · objectui#4581 · objectui#4580.\n\nFiled by an ObjectUI development agent (Claude Code) during the implementation of objectui#7455; session reference `session_01EMrWaQw3XS5DxTHxp4yRyC`."
+}

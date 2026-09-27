@@ -1,0 +1,35 @@
+{
+  "number": 7351,
+  "kind": "issue",
+  "title": "docs(api): `schema-reference.md` lists 3 RUNTIME-SLOT handler keys in its JSON authorable-property tables, which the zod mirror refuses by name — plus one `z.function()` mirror survivor of #6124's sweep",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T12:43:29Z",
+  "updated_at": "2026-09-06T07:48:24Z",
+  "closed_at": "2026-09-06T07:48:24Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7351",
+  "body": "Filed by the dev of #7340 / PR #7350 (docs half of #6124) as an out-of-scope finding measured while censusing `content/docs` for retired handler keys. Not fixed there: #7340 explicitly scopes out the 36 runtime-slot keys (\"they keep their function type; pages may keep them\"), so this needs a triage decision rather than a unilateral edit.\n\n⚠️ An earlier revision of this body listed five rows and called all five \"refused by name\". That was wrong and is corrected below: only three are refusals, one is a correct row, and one is a separate types finding. The numbers below were re-measured per key against `packages/types/src/zod/*.zod.ts`.\n\n## Finding 1 (docs) — three authorable-property rows name a key the validator refuses\n\n`content/docs/api/schema-reference.md` documents JSON node schemas — every example on the page is a JSON document — and each section closes with a `| Property | Type | Description |` table of authorable properties. Three of those rows name an `on*` key whose mirror member is `handlerKeyRefusal(key, 'runtime-slot', ...)`, i.e. **refused by name** at authoring time:\n\n| line | key | owner | mirror | doc Type cell |\n| --- | --- | --- | --- | --- |\n| 924 | `onCardMove` | `KanbanSchema` | `handlerKeyRefusal(..., 'runtime-slot')` | `function` |\n| 925 | `onCardClick` | `KanbanSchema` | `handlerKeyRefusal(..., 'runtime-slot')` | `function` |\n| 1042 | `onViewChange` | `CalendarViewSchema` | `handlerKeyRefusal(..., 'runtime-slot')` | `function` |\n\nLine numbers on `origin/main` @ `4704aa4bb`; PR #7350 removes two retired rows at 926–927, so the kanban rows keep their numbers and the calendar row shifts up by 2 once it lands.\n\nThe #6124 wording is explicit that these are \"a host-supplied function, NOT authorable metadata: JSON has no function value, so the zod twin refuses this key by name and points at the node-type spelling.\" A JSON author reading this table has no way to know that: the other rows (`columns`, `draggable`) are authorable and these are not, and the Type column reads `function` either way.\n\n**Measured NOT a defect, recorded so it is not re-reported:** `ViewSwitcherSchema.onViewChange` (line 1192, doc Type `string`) is mirrored as `z.string()` describing \"an event NAME, not a callback or a handler expression\" — the page is right about it, and the key belongs to the `z.string()` dialect population #7344 tracks, not here.\n\n## Finding 2 (types) — one `on*` mirror member is still `z.function()`\n\n`CalendarViewSchema.onEventClick` (`packages/types/src/zod/complex.zod.ts:145`) is still declared\n\n```\nonEventClick: z\n  .function()\n  .optional()\n  .describe('Host-only event click handler (authored JSON cannot produce a function)')\n```\n\nThat is the exact shape #6124 was opened about (\"28 zod-mirror keys are declared `z.function()`, which NO JSON document can satisfy\"), surviving PR #7339's sweep — its sibling on the same schema, `onViewChange`, became a refusal in that PR. A repo-wide scan finds it is the ONLY remaining `on*` member with this shape (the four other surviving `z.function()` members are non-handler keys: `cell`, `renderCellEditor`, `validate`, `custom`).\n\n⚠️ Check #7344 before acting: it tracks the per-key treatment PR #7339 did not cover (8 `z.string()`, 3 `z.any()`). This `z.function()` case is not named in its title, but it may be inside its scope — fold it in there rather than duplicating if so.\n\n## Options for finding 1\n\n- **A** — mark the rows: keep them, add a \"host-supplied; not authorable in JSON\" note in the Description cell (mirroring the disposition the tombstone JSDoc and the refusal message both carry).\n- **B** — remove them from this page's authorable tables and document the runtime-slot surface once, centrally, with a pointer.\n- **C** — no change: accept that a `function` type in the Type column already reads as \"not a JSON value\".\n\nNo recommendation offered — this is a docs-surface convention call, and the #7340 card already ruled that component pages may keep runtime-slot rows; whether the JSON schema reference is the same case is the actual question. If A or B is chosen, the pin added by PR #7350 (`packages/types/src/__tests__/component-docs-retired-handler-keys-7340.test.ts`) already carries the machinery: it resolves each doc row's `(interface, key)` pair against the shipped declaration and can tell runtime-slot from retired without a hand-list. Its CONTROL block currently asserts the opposite (that `KanbanSchema.onCardMove` / `.onCardClick` ARE present and callable), so whichever option lands must update that block deliberately."
+}

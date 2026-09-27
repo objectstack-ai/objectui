@@ -1,0 +1,35 @@
+{
+  "number": 8103,
+  "kind": "issue",
+  "title": "finding(skills): the plugin-development guide's node interface hand-rolls BaseSchema's members and declares `hidden` / `disabled` as plain strings — the fourth surface of the same class",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:skills",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T15:51:22Z",
+  "updated_at": "2026-09-07T03:57:00Z",
+  "closed_at": "2026-09-07T03:49:57Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8103",
+  "body": "Filed by the `domain:skills` @ objectui execution seat while implementing objectui#8065 (branch `claude/issue-8065-skills-baseschema`), unassigned, `finding` only — grading and `domain:*` are triage's. ⛔ Not repaired in that PR: the dispatch's file surface is exactly two files (`skills/objectui/guides/architecture.md`, `skills/objectui/rules/protocol.md`) and `skills/**` is a governed surface, so this cannot ride along.\n\n⚠️ Generic parameters are spelled in WORDS below, never in angle-bracket shape — this repo's `AGENTS.md` records that GitHub's body sanitizer eats tag-shaped fragments even inside backticks and fenced blocks, and this card is about type declarations.\n\n## The observation\n\n`skills/objectui/guides/plugin-development.md:219-228`, under \"Type definitions\", teaches a plugin author to declare their widget's node type like this (verbatim except for the angle-bracket avoidance, which does not occur in these ten lines):\n\n```\nexport interface MyWidgetSchema {\n  type: 'my-widget';\n  id?: string;\n  className?: string;\n  bind?: string;\n  props?: MyWidgetProps;\n  hidden?: string;\n  disabled?: string;\n}\n```\n\nTwo readings, measured at `origin/main` `d3499b31`:\n\n1. **`hidden` and `disabled` are narrower than what the renderer accepts.** The real declarations are `packages/types/src/base.ts:376` and `:412` — each is `boolean` OR `ExpressionWire`, and `ExpressionWire` (`packages/types/src/expression.ts:67`) is itself a string OR the CEL envelope object. `SchemaRenderer` evaluates them through `evaluateCondition`, whose parameter is `string | boolean | undefined` with the envelope routed to `@objectstack/formula` (documented in that same base.ts docblock, ruled 2026-09-04 on objectui#7530). So a plugin author who copies this fence declares a type that refuses `hidden: true` and refuses the envelope — both of which the shipped renderer accepts and acts on. This is the same shape objectui#8092 was graded a card for on root `AGENTS.md`.\n2. **The interface re-states members rather than extending the published one.** `MyWidgetSchema` does not extend `BaseSchema`, so a plugin schema typed this way silently loses `visible` / `visibleWhen` / `children` / `body` / `testId` / `ariaLabel` and the rest. The repo's own published node types do the opposite — `ActionSchema extends BaseSchema` (`packages/types/src/crud.ts:40`), `EventableSchema extends BaseSchema` (`packages/types/src/api-types.ts:278`).\n\nRe-derive:\n\n```\nsed -n '217,231p' skills/objectui/guides/plugin-development.md\nsed -n '376p;412p' packages/types/src/base.ts\n```\n\n## Why it is worth a card rather than a footnote\n\nUnder the maintainer's admission threshold this is the **metadata-authoring-trap** class, and it is the *published* surface: a plugin author (or an agent) copying this block gets a declaration that is wrong in the quiet direction — the JSON still renders, and the mismatch only surfaces later at the member, exactly the failure direction objectui#8092 recorded.\n\n⚠️ Nothing catches it. `pnpm check:skill-examples` is opt-in and this fence carries no marker (the next marker in the file is on the fence below it), so no run has an opinion about it; and even if it were marked it would pass, because the gate compiles a fence as a self-contained program — that is objectui#7646's finding, measured with a two-arm control there.\n\n## Deliberately NOT proposed here\n\n⛔ This seat is not choosing the repair. The obvious shapes each have a cost worth pricing by whoever takes it: make the fence `extends BaseSchema` and drop the four re-stated members (shortest, and correct, but changes what the tutorial is showing); keep the standalone interface and correct the two declarations only; or leave it and add the pointer sentence. ⛔ Also not proposed: a new gate over unmarked fences — that is a new scanning population, the class objectui#7646 and objectui#5250 already hold.\n\n## Dedup — run with a live control\n\nChannel: repo-scoped REST (`/repos/.../issues?state=open`, 4 pages, **383 open issues** read) plus local grep of every title and body; the REST `/search/*` endpoint answers 403 from this container, and no MCP search call was spent. Live control: the token `BaseSchema` matches **43** of the 383, so a zero for the query terms is a real zero and not a broken read. Query terms `plugin-development`, `MyWidgetSchema`, `MyWidgetProps` matched three cards, none of them this:\n\n- **objectui#7646** — 26 doc fences re-declare a **published type name** instead of importing it, so the gate judges a private copy. Adjacent and the reason nothing catches this one; its census keys on fences declaring a name a workspace package already exports, and `MyWidgetSchema` is not such a name.\n- **objectui#7493** — `ComponentInput.defaultValue?: any` and the bare-`any` baseline row at `plugin-development.md:92`. Same file, different line, different contract.\n- **objectui#5174** — the doc-snippet scanner collecting only `.mdx` under `content/docs`. Coverage, not content.\n\nSame family, checked, neither is this: **objectui#8065** (the two fences carrying the retired `UIComponent` name — being repaired now, and this file is outside its ruled surface), **objectui#8092** (root `AGENTS.md`'s member list), **objectui#8093** (extending the vocabulary pin's corpus once both governed halves land — that pin bans two *name spellings*, so it would not see this at all).\n\nGenerated by Claude Code for the `domain:skills` @ objectui execution seat, session `session_019RfFHiRCSs3JXLK4cwcfox`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

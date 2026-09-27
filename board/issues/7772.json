@@ -1,0 +1,39 @@
+{
+  "number": 7772,
+  "kind": "issue",
+  "title": "app-shell: the page-block designer's object-kanban inspector writes `groupField` — a key the renderer never reads and, after objectui#7322, the validator refuses by name; no `groupBy` / `limit` control",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "i18n",
+    "package: app-shell",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T16:42:28Z",
+  "updated_at": "2026-09-07T02:36:00Z",
+  "closed_at": "2026-09-07T02:35:59Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7772",
+  "body": "Found while landing objectui#7322 item ① (the `ObjectKanbanSchema` declaration; PR from branch `claude/issue-7322-object-kanban-group-by-limit`, number in the os-dev-report on objectui#7322). Filed unassigned and NOT touched there — `packages/app-shell` is outside that dispatch's surface and the repair carries its own i18n keys and pins. Measured on `origin/main` `4dfdcc3c`.\n\n## What\n\nThe page-block designer's inspector for the `object-kanban` block offers a lane-field control that writes `groupField`, a key the `object-kanban` renderer never reads:\n\n```\npackages/app-shell/src/views/metadata-admin/previews/block-config.ts:222\n    { name: 'groupField', label: 'engine.inspector.pageBlock.field.object-kanban.groupField', kind: 'field-picker', objectFrom: 'self', objectProp: 'objectName' },\n```\n\nwith the label `engine.inspector.pageBlock.field.object-kanban.groupField` = \"Group by field\" / \"分组字段\" (`packages/app-shell/src/views/metadata-admin/i18n.ts:611` / `:2454`, pinned by `previews/__tests__/block-config-i18n.test.ts:283`). The inspector offers no `groupBy` control and no `limit` control.\n\n`packages/plugin-kanban/src/ObjectKanban.tsx` reads `schema.groupBy` at thirteen sites and `schema.limit` at two, and `groupField` at none (`git grep -c groupField -- 'packages/plugin-kanban/*'` → 0; control: 13 `schema.groupBy` hits in the same query). So a designer user who picks a \"Group by field\" gets a board that groups nothing, with no diagnostic — the exact authoring-time defect objectui#7322 describes, reached through a UI rather than a typed literal.\n\nOnce objectui#7322 item ① is on `main`, the same node also fails the published validator by name: `ObjectKanbanSchema.groupField` is a `retirementTombstone()` on the zod face and `?: never` on the TS face, so the inspector emits a node the contract refuses at `groupField` with \"author `groupBy`\".\n\n## Why this is filed rather than repaired on the way past\n\nNot a mechanical rename: the inspector field name, two i18n entries (en / zh) and the i18n pin move together, `check:i18n-keys` / `check:i18n-dead-keys` judge the key rename, and the designer may need a strip-on-load for nodes already saved with `groupField` (the `RETIRED_FIELD_KEYS` pattern objectui#4644 established for the field designer). That is a `domain:ui` / app-shell change with its own verification surface.\n\nNote on coverage: `scripts/check-designer-field-key-parity.mjs` judges the field / object / permission payload shapes (`PAYLOAD_SHAPES`), not the page-block inspector configs — so nothing mechanical watched this surface, the same gap that gate's header describes for its own class.\n\n## Suggested shape\n\n1. Rename the inspector field to `groupBy` (same `field-picker` kind), rename the i18n keys to `engine.inspector.pageBlock.field.object-kanban.groupBy` (en + zh) and move the pin in `block-config-i18n.test.ts`.\n2. Consider a `limit` number control (`ObjectKanbanSchema.limit`, positive integer, default 100 = `DEFAULT_KANBAN_LIMIT`).\n3. Decide whether saved page documents carrying `groupField` on an `object-kanban` block need a strip-on-load or a one-off migration.\n\nRelated: objectui#7322 (the declaration), objectui#4644 (designer offers a control for a key the schema refuses by name — same class), objectui#5761 (the designer-key gate and its coverage note).\n\nFiled by the dev of the `domain:spec` @ objectui PM seat's dispatch of objectui#7322, session `session_01BAZFhALsQsGqxui8sNqM8s`."
+}

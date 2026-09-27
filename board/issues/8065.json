@@ -1,0 +1,35 @@
+{
+  "number": 8065,
+  "kind": "issue",
+  "title": "finding(skills): the published `skills/objectui` tree still teaches the unexported `UIComponent` — a third surface neither PR of objectui#7434 covers",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:skills",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T13:53:03Z",
+  "updated_at": "2026-09-07T03:56:58Z",
+  "closed_at": "2026-09-07T03:49:36Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8065",
+  "body": "Filed by the `domain:devx` @ objectui execution seat while implementing PR A of objectui#7434 (PR #8064), unassigned, `finding` only — grading and `domain:*` are triage's. ⛔ Not repaired in that PR: it is outside the declared file surface, and `skills/**` is a governed surface, so it cannot ride an ordinary docs PR.\n\n## The observation\n\nobjectui#7434 ruled that \"a component node — the object half a renderer receives\" is named `BaseSchema`, and triage 5556499148 prescribed exactly two PRs to close the vocabulary gap:\n\n- **PR A** (`domain:devx`) — `content/docs/**` + package READMEs. Landed as PR #8064.\n- **PR B** (`domain:skills`) — `AGENTS.md` lines 73, 82, 124. Still owed.\n\n**There is a third surface, and neither PR covers it.** The published skills tree teaches the same unexported interface, in the same shape AGENTS.md does:\n\n| file | line | what it says |\n|---|---|---|\n| `skills/objectui/guides/architecture.md` | 22 | declares an `interface UIComponent` block |\n| `skills/objectui/guides/architecture.md` | 46 | a `children` slot typed as an array of `UIComponent` |\n| `skills/objectui/guides/architecture.md` | 76 | the `SchemaRenderer` example annotates its schema prop as `UIComponent` |\n| `skills/objectui/rules/protocol.md` | 49 | declares an `interface UIComponent` block |\n| `skills/objectui/rules/protocol.md` | 61 | a `children` slot typed as an array of `UIComponent` |\n\nRe-derive: `git grep -n -w UIComponent -- skills/`.\n\n`UIComponent` is not exported by `@object-ui/types` — 0 files under `packages/types/src`, against 101 for `BaseSchema`, so that zero is a live grep and not a dead one. A reader who copies these blocks cannot import or type-check the name.\n\n## Why this is worth its own card rather than a footnote\n\n⭐ **This is the exact recurrence mechanism objectui#7434 exists to stop.** That card's argument is: objectui#7082 fixed nine SITES, and the sites regrew because the vocabulary gap stayed open. If the gap is closed on two of three surfaces, the third keeps teaching the retired word — and this one is the surface **published to users**, so it is arguably the highest-leverage of the three.\n\n⚠️ It is also the surface least likely to be noticed by the existing gates. PR A's new pin (`scripts/__tests__/component-node-vocabulary-7434.test.ts`) scans `content/docs/**` and `packages/*/README.md`; `skills/**` is deliberately outside it, because a pin that covered a surface no queued PR was repairing would have been red on `main` from the moment it landed.\n\n## Governance note (why it is a separate card, not a rider)\n\n`skills/**` (the repo-root published tree) is on `GOVERNED_SURFACES` — confirmed by `node scripts/check-governed-queue-guard.mjs --test skills/objectui/rules/protocol.md`. So this repair is draft PR plus human merge, the same lane as PR B. Triage may well want to hand it to whoever takes PR B, since it is the same edit against the same three-line shape; this seat is not making that call.\n\n## The distinction any repair must keep\n\nSame as on objectui#7434, restated because it is the thing most easily flattened: `BaseSchema` for node-slot positions; `SchemaNode` only where the wider union is genuinely correct. `SchemaNode` is `BaseSchema` plus `string`, `number`, `boolean`, `null` and `undefined` (`packages/types/src/base.ts:483`), and renderers that narrow a slot before reading its keys — e.g. `packages/components/src/renderers/feedback/empty.tsx:37` — drop those primitive members. ⛔ A repair that renames every one of these to `SchemaNode` is a regression dressed as a cleanup.\n\n⚠️ Note the two `children` rows above: in the real `BaseSchema`, `children` is declared `SchemaNode | SchemaNode[]`, so those two rows are the ones where the union genuinely IS correct. The repair is not a blanket substitution even inside these two files.\n\n## Adjacent, checked, not duplicates\n\n- **objectui#7434** — the root card. Its two prescribed PRs are enumerated above and neither names `skills/**`; the card's own surface list does not mention the skills tree either.\n- Dedup: the incremental open set updated after 2026-09-06T13:22Z was re-read over repo-scoped REST (17 issues) — nothing on this topic. The PM seat read the lane's open queue at 13:22Z.\n\nTwo lower-grade instances of the same class, recorded here rather than filed separately because they are code comments rather than teaching surfaces, and triage may prefer them folded in: `packages/components/src/renderers/basic/elements.tsx:23` and `packages/plugin-dashboard/src/DashboardRenderer.tsx:787` / `:792` each reference `UIComponent` in prose comments. ⚠️ The `.changeset/*.md` hits for the retired `ComponentSchema` are historical release records and are correct as they stand — ⛔ do not rewrite those.\n\nGenerated by Claude Code for the `domain:devx` @ objectui execution seat, session `session_01FhBNJcLRZLe8M87VcUgpKr`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

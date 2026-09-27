@@ -1,0 +1,35 @@
+{
+  "number": 8068,
+  "kind": "issue",
+  "title": "per-block spec-parity pin 是自愿的：一个 array/object 类 key 可以完全没有 pin 而闸门照绿——`page:header.actions` 就是那个没被钉住的第四个",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T14:16:13Z",
+  "updated_at": "2026-09-06T16:06:46Z",
+  "closed_at": "2026-09-06T15:50:17Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8068",
+  "body": "## 事实\n\n`apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` 只比顶层 key 名字（见姊妹卡 #8067）。它把成员形状**明确下放**给渲染器旁边的 per-block 测试，并点名了三个：\n\n> … which is why `record:details.sections`, `record:highlights.fields` and `record:related_list.add` publish their members in prose and are **pinned by per-block tests next to their renderers**.\n\n三个都真实存在，已核实：\n\n```\npackages/plugin-detail/src/__tests__/recordDetailsInputs.spec-parity.test.ts\npackages/plugin-detail/src/__tests__/recordHighlightsInputs.spec-parity.test.ts\npackages/plugin-detail/src/__tests__/recordRelatedListInputs.spec-parity.test.ts\n```\n\n全仓共 **37 个** `spec-parity` 测试文件。⇒ 这个纪律是成熟的、被广泛实践的。\n\n## ⚠️ 但它是自愿的，没有任何东西要求它\n\n`page:header.actions` 是第四个同类 key —— array 类型、成员形状只写在 `description` 散文里（`packages/components/src/renderers/layout/containers.tsx:2032`）——**它一直没有 per-block pin**。\n\n于是：\n\n| | |\n|:--|:--|\n| spec | `actions: z.array(z.string())` — 成员是 action id |\n| 渲染器实际读 | `rawHeaderActions.filter(a => actionRendersAt(a, 'record_header') …)` — 当对象读 |\n| parity 闸门 | key 名字对得上 ⇒ **绿** |\n| per-block pin | **不存在** |\n\n⇒ **没有任何一层看得见。** 直到 objectstack#11592（2026-08-24）有人手工发现，再由维护者裁决（2026-08-25「全部同意」推荐 B）才 settle。`packages/components/src/__tests__/page-header-action-ids.test.tsx` 是 #6252 修复时**顺手补上的第四个 pin**，⛔ 不是任何机制要求的产物。\n\n⭐ **这就是本卡的全部论点**：三个 key 做对了，第四个没做，**没有任何东西发现第四个没做**。下一个新增的 array 类 key 会重演。\n\n### 下游代价（⛔ 不是本卡要做的事，只说明分量）\n\n消费方 `objectstack-ai/hotcrm` 的 `os lint` 是唯一看见分歧的东西（`component-props-invalid`，16 条）。但它在唯一没有权威改渲染器的一侧 ⇒ 16 条正确报警被当噪声豁免，豁免里还附了一段论证「渲染器才是权威」的散文，那段散文随后误导了一个 PR 和两轮 agent 会话。**这道缺口的账单是下游付的。**\n\n## 要做的事\n\n**让闸门要求：每一个 `type` 为 `array` 或 `object` 的已注册 input，都必须有一个具名的 per-block 成员 pin；缺失即红。**\n\n闸门已经握有做这件事所需的一切——它遍历完整注册图（`dev/manifest-dump.tsx` 那条路径，`src/register-plugins.ts` + `@object-ui/components`），每个 input 的 `type` 就在手上。\n\n### ⚠️ 第一步是测量，不是写 gate\n\n⛔ **不要直接把 gate 打开。** 先回答：**当前有多少个 `array`/`object` 类 input 没有 pin？**\n\n- 若是个位数 → 直接补齐并让 gate 立即生效。\n- 若是几十个 → 需要一个带**自删除豁免**的过渡，而本仓已有现成范式：该闸门自己的 `OFF_SPEC_EXEMPTIONS` / `UNPUBLISHED_EXEMPTIONS` 就是「显式、带理由、带卡号、过期即红」的写法，**照抄它，⛔ 不要发明第二套**。\n\n⇒ 报告里必须写出这个数字，以及你选了哪条路和为什么。\n\n### pin 长什么样\n\n⛔ 本卡不规定格式。三个既有范例就是参照，`page-header-action-ids.test.tsx` 是第四个。判据只有一条：**pin 必须约束渲染器实际读取的形状**，而不只是复述注册声明——注册说 `of: 'string'` 而代码把成员当对象读，是本卡要挡的那个洞。\n\n## ⛔ 硬约束\n\n⚠️ **消融是验收的主体**：删掉（或改坏）某个 array 类 key 的 pin，新 gate 必须红并点名那个 key。**同一轮里配上正向对照**——未改动的树上 gate 通过。⛔ 一个不会红的 gate 和一个不存在的 gate 无法区分，本仓今晚已经两次栽在假阴性上。\n\n⛔ **不得为了让 gate 跑绿而放宽判据、跳过测试或把某个 key 悄悄移出覆盖集。** 覆盖不了的必须进显式豁免并带卡号。\n\n## ⛔ 不在本卡内\n\n- 给 `ComponentInput` 加成员形状槽位 —— **#8067**。两张卡互补：#8067 让*声明*能表达形状，本卡让*渲染器代码*被钉住。⛔ 只做 #8067 不做本卡，渲染器依然可以声明一套、读另一套。\n- ⛔ 任何对 `@objectstack/spec` 的改动。协议侧是对的。\n- 「types NARROWER than the contract」——刻意不 gate，见 #4971。\n\nRefs: #8067（姊妹卡）· #3797（建立闸门）· #4971 · #6252 / #7182 · objectstack#11592 · objectstack-ai/hotcrm#1279 / #1653。"
+}

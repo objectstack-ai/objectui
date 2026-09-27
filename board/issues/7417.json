@@ -1,0 +1,38 @@
+{
+  "number": 7417,
+  "kind": "issue",
+  "title": "finding(docs): the root README's ts/tsx snippets do not compile — 3 names on no built `dist/index.d.ts`, incl. `createObjectStackAdapter` attributed to the wrong package",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "finding",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T00:05:12Z",
+  "updated_at": "2026-09-06T00:48:09Z",
+  "closed_at": "2026-09-06T00:44:45Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7417",
+  "body": "Measured while landing objectui#7115, which puts the root `README.md` into the scan surface of `check-doc-component-types` and `check-doc-snippet-types` for the first time. The component-type half is green in that PR. This card is the OTHER half: what the snippet gate sees now that it reads the file.\n\n## The measurement\n\nOn branch `claude/issue-7115-root-readme-doc-gate-surface`, with the gate's own build closure built (`pnpm exec turbo run build $(node scripts/check-doc-snippet-types.mjs --build-filter) --concurrency=2`), the root README's five ts/tsx blocks produce **9 semantic diagnostics across 4 blocks**:\n\n```\n[semantic]  README.md:100:20  TS2305: Module '\"@object-ui/app-shell\"' has no exported member 'ObjectRenderer'.\n[semantic]  README.md:106:39  TS2552: Cannot find name 'myAPI'. Did you mean 'Map'?\n[semantic]  README.md:107:29  TS2304: Cannot find name 'MySidebar'.\n[semantic]  README.md:209:10  TS2305: Module '\"@object-ui/components\"' has no exported member 'registerDefaultRenderers'.\n[semantic]  README.md:376:10  TS2305: Module '\"@object-ui/core\"' has no exported member 'createObjectStackAdapter'.\n[semantic]  README.md:384:2   TS2304: Cannot find name 'SchemaRenderer'.\n[semantic]  README.md:384:25  TS2304: Cannot find name 'schema'.\n[semantic]  README.md:394:7   TS2420: Class 'MyCustomDataSource' incorrectly implements interface 'DataSource...': missing findOne, create, update, delete, getObjectSchema\n[semantic]  README.md:395:55  TS2355: A function whose declared type is neither 'undefined', 'void', nor 'any' must return a value.\n```\n\nThree classes, and they are NOT the same job:\n\n| class | count | what it is |\n|---|---|---|\n| **TS2305 missing export** | 3 | candidate real defects — the README teaches an import that does not exist |\n| undefined ambient name | 4 | `myAPI` / `MySidebar` / `SchemaRenderer` / `schema` — the blocks are deliberate fragments |\n| elided body | 2 | `MyCustomDataSource` is written with a `// ... other methods` comment |\n\n## The three names, each measured against the BUILT artifact\n\n1. **`ObjectRenderer` from `@object-ui/app-shell`** — `grep 'Renderer' packages/app-shell/dist/index.d.ts | grep export` returns nothing. ⚠️ **This is the same phantom as objectui#7095**, which recorded it in `examples/byo-backend-console/README.md`. The root README is a second occurrence of the same name; whoever takes #7095 should take this one in the same stroke.\n2. **`registerDefaultRenderers` from `@object-ui/components`** — the only `register*` on that package's built `dist/index.d.ts` is `registerPlaceholders`. The name appears in NO other authored file: `git grep registerDefaultRenderers` over `content/docs`, `packages/*/README.md` and `skills/` is empty. It is taught only in the file no gate read.\n3. **`createObjectStackAdapter` attributed to `@object-ui/core`** — the symbol is real, but it ships from **`@object-ui/data-objectstack`** (present in that package's `dist/index.d.ts` export list; `packages/core/dist/index.d.ts` has zero occurrences). `packages/plugin-dashboard/README.md` already imports it from the right package, so the root README contradicts a sibling README. ⭐ This one is a one-specifier fix with the evidence already in the tree — but it was left alone deliberately, because it is a different defect class from #7115's (an unregistered node `type`) and folding it in would have been unruled scope.\n\n## Why it is a card and not part of objectui#7115\n\n#7115's ruling (maintainer, 2026-09-01, comment 5494799307) covers the scan surface plus the `type` content fix. Making these blocks compile means resolving two phantom APIs — deciding what the console-composition example and the renderer-registration example should actually say — which is authoring work with an API question inside it, not a mechanical edit.\n\nSo #7115 lands the root README into the scan surface and declares this debt by name in `UNGATED_DOCS`, which is that gate's own designed mechanism (its header: an unlisted document is \"neither covered NOR declared ungated\", strictly worse than a named debt; the ledger is re-derived every run and shrink-only). Paying the debt down is this card.\n\n## Adjacent, same blind spot, not covered by #7115's ruling either\n\n`scripts/check-readme-exports.mjs` — the gate whose whole job is \"every name a README imports from its own package must be a real export\" — states its surface as `packages/NAME/README.md`. The **root** README is outside it too, which is why all three names above survived. #7115 widened the two gates its ruling named; this third gate was left alone. Widening it is not free: the root README imports from several packages rather than owning one, so \"its own package\" has no meaning there and the rule would need restating before the surface can move.\n\n## Suggested order\n\n1. `createObjectStackAdapter` specifier — mechanical, evidence in tree.\n2. `ObjectRenderer` — with objectui#7095, one decision for both files.\n3. `registerDefaultRenderers` — decide what the real registration entry point is, then rewrite the Basic Usage block.\n4. Declare the two genuinely-fragmentary blocks with the gate's fragment marker, and take `README.md` off `UNGATED_DOCS`."
+}

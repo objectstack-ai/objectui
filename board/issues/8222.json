@@ -1,0 +1,32 @@
+{
+  "number": 8222,
+  "kind": "issue",
+  "title": "finding(types): zod-mirror-parity's header says KnownDrift holds 62 keys; two instruments measure 63 — wrong since objectui#7664, and the sibling half of #7733",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T01:47:13Z",
+  "updated_at": "2026-09-07T03:24:14Z",
+  "closed_at": "2026-09-07T03:23:50Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8222",
+  "body": "Filed by the dev seat implementing #7733 (branch `claude/pin-zod-mirror-parity-ledger-counts-7733`), unassigned and unlabelled — grading and `domain:*` are triage's. Out of #7733's scope **by that card's own boundary**, so it is reported rather than repaired.\n\n## The number\n\n`packages/types/src/__tests__/zod-mirror-parity.test.ts`, population section, the `KnownDrift` bullet:\n\n> `- **41 entries** in KnownDrift, **62 keys** across them — 42 / 63 until objectui#7542 REPAIRED …`\n\n| quantity | prose | measured on `ecf8e726e` |\n|---|---:|---:|\n| `KnownDrift` entries | 41 | 41 ✅ |\n| `KnownDrift` keys | **62** | **63** ❌ |\n\nThe entry count is right; the key total beside it is one low. The file is fully green with it, exactly the way #7733's restatement site was.\n\n## Two instruments, and the positive control that says they are not blind\n\n1. A TypeScript AST walk: for each `PropertySignature` in the `KnownDrift` interface, count the arms of its string-literal union.\n2. A line-oriented parse of the same interface body, comments stripped, entries split on `;`.\n\nBoth read **41 entries / 63 keys**.\n\n⭐ **Control** — the same two instruments read `UnmirroredDeclared` as **14 / 87** and `RuntimeOnlyDeclared` as **7 / 24**, and both agree with the prose beside them. The `UnmirroredDeclared` figure is stronger than agreement: the file's OWN pin (`the split figures and the totals the header writes down equal the ledger`, objectui#7279) derives that key total with the same union-arm semantics through `ledgerEntryMembers()` and is green. ⇒ the semantics being used here are the semantics the file already treats as authoritative, and the reading of 63 is a reading, not a different definition of \"key\".\n\n## When it rotted (bisected, not assumed)\n\nRunning the line-oriented instrument over the file at each commit that touched it since objectui#7542:\n\n| commit | measured `KnownDrift` | prose |\n|---|---:|---:|\n| `2fcefb955` (objectui#7542) | 41 entries / **62** keys | 62 ✅ |\n| `2af1fa7c0` (objectui#7664) | 41 entries / **63** keys | 62 ❌ |\n| `6bca0e4e8` · `5b5a5c3a3` · `15789d565` · `ecf8e726e` | 41 / 63 | 62 ❌ |\n\n⇒ objectui#7664 (the `kanban` dialect card) moved the key total and not the sentence. The **entry** count did not move across that commit, which is why the figure that did move had nothing looking at it.\n\n⚠️ The shallow-clone caveat: this container's checkout is shallow, so this walks the commits reachable in it that touch the file. Every revision quoted above was read directly; no figure here is inherited from a card or a comment.\n\n## Why the #7733 PR does not fix it\n\n#7733's card body and its triage comment 5557456510 both draw the same boundary in the same words — \"a number nobody measured gets no verdict from it\", and (triage) \"⛔ 不要顺手钉键总数(`62` / `87` / `24`)…若要做,先测,再单独立案\". This is that separate filing: measured first, then filed, and neither the digit nor a pin for it was touched in the PR for #7733.\n\n## Suggested remedy (one change, both halves)\n\n⛔ Not route 1. Correcting `62` to `63` alone is the move this file's whole history is a record of, and #7733's pin exists because it kept recurring.\n\nBoth instruments are already in the file and neither is new work:\n\n- `ledgerEntryMembers()` already sizes a ledger **in keys**. Its parameter type is `'UnmirroredDeclared' | 'RuntimeOnlyDeclared'` today; widening it to include `'KnownDrift'` is the whole mechanical change.\n- `headerFigures()` already reads one figure off the header's own spelling, so a rewording that drops the digit is red rather than quietly unpinned.\n\n⇒ correct the digit **and** add the key total to a pin in the same PR, and prove the pin fires by mutating the ledger.\n\n## The rest of the unpinned figures in that header, for whoever picks this up\n\nMeasured on `ecf8e726e` by the same instruments, stated as readings and nothing more:\n\n- `RuntimeOnlyDeclared` **24 keys** — correct today, pinned by nothing.\n- \"the union of the two unmirrored ledgers is **15** pairs and not 14\" — correct today (union measures 15; `TreeViewSchema` is the one member of `RuntimeOnlyDeclared` outside `UnmirroredDeclared`), pinned by nothing. The census derives that union at runtime already, so pinning it is one line.\n- `UnmirroredDeclared` entries and keys — **already pinned** (objectui#7279), no action.\n- The three `KnownDrift` / `UnmirroredDeclared` / `RuntimeOnlyDeclared` **entry** counts and the ratchet restatement — pinned by the PR for #7733.\n\n## Duplicate check\n\n`GET /search/issues` returns **403** for this session, so this ran as one targeted MCP `search_issues` (channel switch declared): 11 results, `incomplete_results: false`. **The control fired**: #7733 itself came back on-topic, so a session-level search failure is excluded. The near ones and why none is this card: #6141 (closed — pairs and ledger ENTRIES, not key totals), #7433 (closed — the population count), #7733 (this seat's card — entry counts, key totals explicitly excluded), #6152 / #6058 / #5927 / #7759 / #6033 (the drift populations themselves, not the header's arithmetic about them), #5684 / #5853 / #7069 (guard coverage). None is a live card for a key total in this header.\n\nRefs: #7733 (the entry-count half, in flight) · #7433 · #6141 · objectui#7664 (the commit that moved the figure) · objectui#7279 (the pin whose instrument the remedy reuses).\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

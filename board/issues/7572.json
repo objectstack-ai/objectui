@@ -1,0 +1,37 @@
+{
+  "number": 7572,
+  "kind": "issue",
+  "title": "finding(i18n): `createI18n`'s `resources` merge is one level deep, so overriding one key of an existing namespace silently drops that namespace's other keys",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "i18n",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T23:50:36Z",
+  "updated_at": "2026-09-06T13:43:36Z",
+  "closed_at": "2026-09-06T13:42:19Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7572",
+  "body": "Spotted while implementing #7454 (the `calendar.allDay` spelling) — **not fixed there**, that PR's fence is `packages/plugin-calendar`. Filed unassigned.\n\n## Measured on `origin/main` at `ac8abb0f5`\n\n`packages/i18n/src/i18n.ts`, inside `createI18n`:\n\n```\nfor (const [lang, translations] of Object.entries(builtInLocales)) {\n  mergedResources[lang] = {\n    translation: {\n      ...translations,\n      ...(resources[lang] || {}),\n    },\n  };\n}\n```\n\nBoth spreads are **one level deep**, and the pack's top-level keys are the\nnamespace-ish groups (`common`, `calendar`, `list`, ...), each a nested object.\nSo a caller who supplies a partial group does not merge into it — they\n**replace** it:\n\n```\ncreateI18n({ defaultLanguage: 'en', resources: { en: { calendar: { today: 'Heute' } } } })\n```\n\nleaves `calendar.today` = `Heute` and every other `calendar.*` key — `month`,\n`week`, `day`, `allDay`, `newEvent`, `moreEvents`, `unscheduled` — **gone from\nthe instance**. `t('calendar.allDay')` then returns the bare key, which reaches\nthe DOM as the literal text `calendar.allDay`.\n\n## Why the existing pin does not see it\n\n`packages/i18n/src/__tests__/i18n.test.ts:185` is named `merges custom resources\nwith built-in locales`, and it does assert a merge — but only for a **new**\ntop-level key:\n\n```\nresources: { en: { custom: { greeting: 'Hello!' } } },\n...\nexpect(i18n.t('custom.greeting')).toBe('Hello!');\nexpect(i18n.t('common.save')).toBe('Save');   // a DIFFERENT group\n```\n\nAdding a group and overriding a group are the two different operations here, and\nonly the first is pinned. The test's name reads as though it covered both.\n\n## How it surfaced\n\n#7454 deletes a `t('calendar.allDay') === 'calendar.allDay'` ternary in\n`CalendarView` as unreachable. It is unreachable through\n`createSafeTranslation`'s provider-less arm (that arm resolves `defaults[key]`\nfirst) and unreachable with a provider **as long as the instance carries the\nkey** — which the built-in packs guarantee. This shallow merge is the one\nconstruction that removes that guarantee. It was still right to delete the\nternary: it guarded exactly one of the seven `calendar.*` labels that file\nrenders, so in the scenario it protected, the other six already render raw keys.\nThe coherent fix is here, not a per-label guard at the call sites.\n\n## Not judged here\n\nWhether the merge should go one level deeper, or whether a partial group\noverride should be **rejected** at `createI18n` rather than quietly honoured, is\na contract question — the second is the more contract-first shape (declared =\nenforced) but it could break a caller relying on replacement today. There is\nalso a smaller, separate option: rename or split the existing test so its name\nstops promising coverage it does not have. Left to triage.\n\nRelated: #7454 (where this was found and correctly fenced out) - #7567 (the\ngate-blindness half of #7454)."
+}

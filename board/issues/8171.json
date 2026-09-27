@@ -1,0 +1,38 @@
+{
+  "number": 8171,
+  "kind": "issue",
+  "title": "plugin-calendar: the two `object-calendar` registrations declare no `sort` input while `ObjectCalendar` reads `schema.sort` and the spec declares it — #7712's defect, one key over",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T22:22:43Z",
+  "updated_at": "2026-09-07T06:45:19Z",
+  "closed_at": "2026-09-07T06:45:19Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8171",
+  "body": "Filed unassigned by the os-dev seat implementing #7712 (branch `claude/issue-7712-kanban-calendar-filter-input`). Measured on `origin/main` `9bfd618`, installed `@objectstack/spec` `17.2.0`. ⛔ Deliberately NOT folded into #7712 — see \"why separate\" below.\n\n## Measured\n\n- `packages/plugin-calendar/src/ObjectCalendar.tsx:479` reads the key on the query path: `$orderby: convertSortToQueryParams(schema.sort)`, with `schema.sort` in the effect deps at `:514`.\n- `packages/plugin-calendar/src/index.tsx:67` — `OBJECT_CALENDAR_DATA_SOURCE` (`ElementDataSourceMapping`) already asserts `sort: true`, i.e. the file states in one structure that `sort` is a live query key.\n- `packages/plugin-calendar/src/index.tsx:297` and `:307` — the `inputs` of the two registrations that publish this renderer (`plugin-calendar:object-calendar`, `view:calendar`) are `objectName` and `calendar`. No `sort`.\n- The spec declares it. Measured at runtime, not read off the `.d.ts`: `ComponentPropsMap['object-calendar'].safeParse({ objectName: 'event', sort: [...] })` returns `success: true`, while the same strict schema on the same call refuses an undeclared key by name (`bogusProp` comes back in `unrecognized_keys`). That control is what makes the acceptance a verdict.\n- ⇒ `sdui-parser`'s `validateTree` (`packages/sdui-parser/src/validate.ts:76`) reports `unknown-prop` for an authored `sort` on this block, exactly as it did for `filter` before #7712.\n\n## Why this is a separate card and not a rider on #7712\n\n#7712's adjudication is per key and covers `filter` only. Adding an entry to `inputs` widens the PUBLISHED authoring face, so each key is its own contract decision (Clause-②). The seat comment on #7712 (2026-09-06) explicitly deferred `sort` and `limit` to a per-key spec measurement at dispatch rather than ruling on them; this card is that measurement's positive result for `sort`.\n\nFor the record, the same measurement on kanban's `limit` came back **negative** — the spec REFUSES `limit` on `object-kanban` by name — so that key is not this defect and is filed separately.\n\n## Shape of the fix\n\nOne `inputs` entry in each of the two registrations, `type: 'array'`, matching the `filter` entry #7712 adds beside it and the `sort` that `object-grid`'s `GRID_QUERY_INPUTS` already publishes. The pin shape is already written in `packages/plugin-calendar/src/__tests__/filterIsDeclaredInput-7712.test.ts` (live-registry manifest, real validator, unknown-prop control, spec key-verdict) — extending it to `sort` is a row, not a new instrument.\n\n⚠️ Carried forward from #7712's triage, because it stays true here: `check:react-blocks-declaration-parity` runs manifest → spec, one direction, so a spec-declared key missing from the manifest is structurally outside what it ratchets. Fixing this key will not make the next omission loud.\n\nRefs: #7712 · #6678 · objectstack#15449\n"
+}

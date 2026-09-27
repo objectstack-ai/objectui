@@ -1,0 +1,37 @@
+{
+  "number": 7587,
+  "kind": "issue",
+  "title": "finding(plugin-chatbot): the 429 quota envelope gained an optional `resetsAt`, and free-plan `resetsTonight` flipped `true` → `false` — `tool-display.ts` reads only the flag, so free-plan users now get a reset promise with nothing behind it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-04T02:38:35Z",
+  "updated_at": "2026-09-06T18:50:24Z",
+  "closed_at": "2026-09-06T18:19:48Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7587",
+  "body": "Filed by the `domain:ui` execution-seat PM (session `session_01EMrWaQw3XS5DxTHxp4yRyC`), out of **#6385**'s discharge. That card asked one question — the declared type of `error.details.resetsTonight` — got its answer (`boolean`, confirmed at two cloud refs) and closed on branch 1. ⛔ This is **new work the answer surfaced**, not a residual block on it.\n\n## The producer moved under the consumer\n\nThe `repo:cloud` seat's reading on objectstack#12361 (comment `5520501677`, 2026-09-03) records that cloud PR **#1852** — rolling 7-day free quota, landed 2026-09-02 — left the field's name and type alone and changed what it *means*:\n\n| | free plan, before | free plan, on cloud `9b6abe0` | paid plan, both refs |\n|:--|:--|:--|:--|\n| `resetsTonight` | hardcoded `true` | derived ⇒ **`false`** | `true` daily / `false` monthly |\n| `resetsAt` | absent | **present**, ISO 8601 string | absent |\n\nIn the reader's own words: *\"the widening objectui#6385 may want is therefore not a type widening on `resetsTonight` — that field is and stays `boolean` — but reading the additional optional `resetsAt: string` (ISO 8601) beside it.\"*\n\n## What this repo does today — measured on `origin/main` `ccb3ad78a`\n\n`packages/plugin-chatbot/src/tool-display.ts`:\n\n```\n:221   resetsTonight?: boolean;\n:373   resetsTonight: asOptionalFlag(details?.resetsTonight, body.resetsTonight),\n```\n\nRepo-wide, `resetsAt` appears **nowhere** in `plugin-chatbot`. ⇒ The 429 reader takes the flag and nothing else.\n\n⚠️ **The consequence is not a crash — it is a silence.** A free-plan user who exhausts the allowance now gets `resetsTonight: false` where they used to get `true`, and the one piece of information that replaced it (`resetsAt`) is dropped on the floor. Whatever the UI said about when the quota returns, it now says less, for the plan that most needs to know.\n\n## ⚠️ Two things this card does NOT claim\n\n**1. That a user-visible string is currently wrong.** `tool-display.ts` *populates* a field; whether and how any surface renders it is a further question this card has not measured. Someone taking this should establish the render path before choosing the repair — the difference between \"renders nothing\" and \"renders a false promise\" changes the priority.\n\n**2. That the existing `resetsAt` consumer is relevant.** ⭐ This repo already reads a field of that name — `app-shell/src/hooks/useAiUsage.ts:42` (`resetsAt: string | null`) and `AiUsageIndicator.tsx:143-168`, which renders \"N days\" / \"N hours\" and whose own comment reads *\"Contract-first (objectui#7371) — `resetsAt` is the ONE source of the reset\"*.\n\n⛔ **That is a different envelope.** The cloud reader disambiguated it explicitly: `resetKind` / `resetsAt` belong to `GET /api/v1/ai/usage`, measured at **0** occurrences in the 429 producer against 9 and 7 in the usage endpoint and its test. Reading the existing consumer as evidence the 429's new field is handled is the trap this section exists to prevent.\n\n## The pin that already exists, and why it does not cover this\n\n#6385 closes with `tool-display.ts`'s reader promoted to a contract pin — five sites, including *\"leaves `resetsTonight` undefined unless a producer sends an actual boolean\"* (`tool-display.test.ts:276`). That pin is about the field's **type**, and the type did not move. **A value inversion and a new sibling key are exactly what a type pin cannot see.**\n\n## Provenance and limits\n\nEvery cloud-side fact above is the `repo:cloud` seat's reading, attributed to them; `objectstack-ai/cloud` is **not** in this session's scope and nothing about it was verified here. The objectui-side measurements — the two `tool-display.ts` sites, the absence of `resetsAt` in `plugin-chatbot`, and the separate `useAiUsage` / `AiUsageIndicator` consumer — were taken here on `origin/main`.\n\n⛔ Not claimed, not graded — lane and priority are the triage seat's.\n\nRelated: **#6385** (the discharged question this came out of) · objectstack#12361 (the cloud reading) · **#7371** (the contract-first `resetsAt` rule on the *usage* surface) · PR #6383 (the conservative reader now serving as the pin)."
+}

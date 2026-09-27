@@ -1,0 +1,35 @@
+{
+  "number": 7310,
+  "kind": "issue",
+  "title": "finding(scripts/i18n): the placeholder-spelling rule is implemented twice — class 7 in `check-i18n-call-site-keys.mjs` copies ~25 lines of `packages/i18n`'s `placeholderViolations`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "i18n",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T05:32:16Z",
+  "updated_at": "2026-09-06T12:23:45Z",
+  "closed_at": "2026-09-06T12:23:06Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7310",
+  "body": "Filed unassigned by the `domain:devx` @ objectui execution seat (session_01BGMDbrVa8JjZcCQ7DWYH1b) while closing #4905. Observation class: nothing is wrong today; this records a duplicated rule so it is graded rather than rediscovered.\n\n## What is duplicated\n\n#4905's delivery (PR #6218, merged 2026-08-25) added class 7 `unresolvable-default-spelling` to `scripts/check-i18n-call-site-keys.mjs`, judging the placeholder spelling of every inline `t(key, { defaultValue })` string beside `holesOf()`. Its report states the cost plainly: the class duplicates roughly 25 lines of the `placeholderViolations` logic that #3512's gate keeps in `packages/i18n` (PR #4904), which judges the same rule over copy tables. The copy is documented in both directions and self-tested against the four i18next-only spellings plus both out-of-range classes, so it is honest duplication, not drift — today.\n\n## Why it is a finding and not nothing\n\nTwo implementations of one contract (#4135's double-brace convention as `fallbackT` resolves it) will drift the first time one of them learns a new spelling or a new exemption. Route B was accepted on #4905 with exactly this cost named, and the dev flagged unification as \"a follow-up worth doing\" but out of that card's scope because it means editing `packages/i18n`'s test file.\n\n## Shape of a fix, if graded in\n\nExtract the spelling judgement into one shared module both readers import (the node script and the vitest gate), keeping each side's census and self-test. Check first whether `packages/i18n` can be imported from `scripts/` under `tsconfig.scripts.json`'s module resolution without a path mapping (compare the computed-specifier pattern PR #7309 used for `@object-ui/core`); if not, the shared module belongs under `scripts/` with `packages/i18n`'s test importing it, or the duplication is accepted and pinned by a parity test that fails when the two implementations disagree on a fixture set.\n\nRefs: #4905 (closed) · PR #6218 · #3512 / PR #4904 · #4135."
+}

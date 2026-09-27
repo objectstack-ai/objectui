@@ -1,0 +1,37 @@
+{
+  "number": 7778,
+  "kind": "issue",
+  "title": "finding(docs): four `object-gantt` blocks on `plugin-gantt.mdx` are still bare `const` literals — `ObjectGanttSchema` has admitted them since PR #7471, so their keys go unchecked by the doc-snippet gate",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "finding",
+    "pm:queue",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T17:14:21Z",
+  "updated_at": "2026-09-07T06:43:32Z",
+  "closed_at": "2026-09-06T12:47:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7778",
+  "body": "Found by the objectui#7313 dev while landing the calendar half of that card (PR #7777) — the calendar page's two static-data blocks were annotated as that card's completion signal, and the gantt page turns out to carry the same hole. Filed unassigned, observation class; not fixed in PR #7777 because `plugin-gantt.mdx` is outside that dispatch's scope. Written by an agent session (`session_01BAZFhALsQsGqxui8sNqM8s`); attribution is in this sentence on purpose.\n\n## What\n\n`content/docs/plugins/plugin-gantt.mdx` on `origin/main` at `16a725f9` has FOUR `object-gantt` schema literals declared as bare `const NAME = { … }` with no type annotation and no `doc-snippet: fragment` marker:\n\n- `:79` `const schema = { type: 'object-gantt', staticData: […], … }` (the \"With Static Data\" section)\n- `:238` `const valueProviderGantt = { type: 'object-gantt', staticData: […], … }` (\"Value Provider (Static)\")\n- `:255` `const apiProviderGantt = { type: 'object-gantt', data: { provider: 'api', … }, … }` (\"API Provider\")\n- `:354` `const campaignGantt = { type: 'object-gantt', staticData: […], … }`\n\nSix sibling blocks on the same page (`:63`, `:157`, `:223`, `:321`, `:339` and the block after `:319`) are annotated `const NAME: ObjectGanttSchema = { … }` with `import type { ObjectGanttSchema } from '@object-ui/types'`.\n\n## Why it is a hole now, and was not before\n\nThe four were left bare by the objectui#5174 batch-6 pass deliberately: annotating them produced `TS2741: Property 'objectName' is missing`, because `ObjectGanttSchema.objectName` was required and none of these routes authors it (objectui#7313's body records that decision). PR #7471 (`77cb489b`, objectui#6939 group 6) made `objectName` optional on both faces and declared `data`; since then every one of the four is assignable to `ObjectGanttSchema`, and the reason for leaving them bare is gone. Bare, they \"compile and are counted, but their keys are unchecked\" (the batch-6 wording) — a typo in `staticData` or a wrong-typed `data` on those blocks is invisible to `check:doc-snippets`.\n\n## Suggested repair (small, docs only)\n\nAnnotate the four with `ObjectGanttSchema` and add the page's existing type import above each, exactly as PR #7777 did for the calendar page's two blocks (`plugin-calendar.mdx` `:210`, `:310`). The `apiProviderGantt` block is typed against the declared `data?: ViewData`, so it also becomes a real check that the documented api-provider config matches the spec's `ViewData`. No prose changes. CI's `Doc Snippet Type Check` is the measurement.\n\nNot measured here (⛔ not a claim): whether all four compile clean once annotated — `:255`'s `data` block may carry keys the spec's `ViewDataSchema` refuses; if so that is a documentation defect the annotation would surface, which is the point.\n\nRelated: objectui#7313 (parent — the calendar half, PR #7777), objectui#6939 / PR #7471 (the type change that removed the reason), objectui#7470 (registration `inputs` still declaring `objectName` required — a different face of the same class)."
+}

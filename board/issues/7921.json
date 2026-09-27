@@ -1,0 +1,32 @@
+{
+  "number": 7921,
+  "kind": "pull_request",
+  "title": "docs(scripts): point the fixture justifications at the AST walk that replaced the regex",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T03:19:35Z",
+  "updated_at": "2026-09-06T03:50:39Z",
+  "closed_at": "2026-09-06T03:50:37Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-09-06T03:50:37Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/7921",
+  "body": "Fixes #6996\n\nSix test suites under `scripts/__tests__/` explained how they spell their fixtures by describing `scripts-type-check.test.ts` as a **text** matcher over `scripts/` — one that \"greps this directory for import statements\" and \"cannot tell a string literal from an import\". objectui#4902 replaced that regex with `workspaceImportSpecifiers()`, an AST walk over `ImportDeclaration` / `ExportDeclaration` / `ImportEqualsDeclaration` nodes, and pinned the string-literal case directly. Every one of those statements described a matcher that no longer exists.\n\n## The sweep decided the shape\n\nThe card found two sites by exact wording. The triage comment made the wide sweep a precondition for deciding anything else, and it changed the answer: **eight statements across six files**, not two.\n\n| file | what it claimed |\n| --- | --- |\n| `check-i18n-dead-keys.test.ts` | \"its regex cannot tell a string literal … from a real import statement\" |\n| `check-i18n-call-site-keys.test.ts` (x2) | same; plus \"whose regex only looks for workspace-package specifiers\" |\n| `check-i18n-en-drift.test.ts` | \"whose regex looks for workspace-package specifiers\" |\n| `check-doc-component-types.test.ts` | \"that grep cannot tell a string literal — or a comment quoting one — from a real import\" |\n| `check-package-self-import.test.ts` (x2) | \"greps every file in the scripts tsconfig program … cannot tell a comment from an import\" |\n| `check-spec-symbol-derivation.test.ts` | \"it looks for that import TEXT — so a fixture string carrying one trips it\" |\n\nProbes run (positive control first, so a silent zero-hit sweep is distinguishable from a clean one): the card's exact wording (returns the two known sites), `greps this directory`, every mention of `scripts-type-check`, every citation of `4902`, every mention of `workspaceImportSpecifiers`, grep-plus-import prose repo-wide, `cannot tell` scoped to `scripts/`, and \"needs no build\" prose repo-wide. Nothing outside `scripts/__tests__/` describes the gate — docs and `AGENTS.md` are clean.\n\nWith six copies, correcting each in place leaves six things that can drift again. So: the authoritative account stays where it already was — `workspaceImportSpecifiers()`'s own docstring — that docstring now says siblings should point at it rather than restate it, and the six sites became pointers.\n\n## The constants are KEPT, and that was measured\n\nDecision (a) from the card was whether `I18N_PKG` and its twin die with the comments or survive with a corrected reason. Two independent measurements, because the triage forbids removing a constant a live reader depends on:\n\n**Enumeration** — every text-level reader of `scripts/`, derived from `package.json`'s `check:*` scripts and `.github/workflows/`, not from a hand-list:\n\n- `check-phantom-dependencies`, `check-unreferenced-sources`, `check-package-self-import`, `check-shell-escape-residue` — scan roots exclude `scripts/` (confirms the card's one checked gate, and extends it to the set).\n- `check-pre-install-import-graph`, `check-vi-mock-specifiers`, `check-vi-mock-inherit` — do read `scripts/` textually, but mask comments and literals through `js-comment-mask.mjs`, so a specifier in a string is not an edge to them either.\n- `check-entry-guard`, `ci-cd-pipeline-doc.test.ts` — read `scripts/` for other tokens entirely.\n- `e2e-type-check.test.ts:306` and `vitest-setup-type-check.test.ts:138` — the only surviving raw `from '...'` regexes in the tree. They read the e2e and vitest-setup programs, **not** `scripts/`. These are the closest thing to the reader the comments imagined, and they look elsewhere.\n\n**Probe** — inlined the specifier at all 41 fixture sites and deleted both constants, proved the mutation reached disk, then ran the readers. All green, `scripts-type-check.test.ts` included (15/15). Restored, `git diff HEAD` empty.\n\nSo nothing forces the constants. They are kept on their own merit: one spelling across the fixtures, one edit on a package rename. The fixtures are template literals either way, so there is no \"interpolation tax\" being paid at the call sites — the only thing the old comment cost was a false belief.\n\n## No gate behaviour change\n\nComments only, in all seven files. No constant removed, no assertion touched, no scan root moved.\n\n## Gates (all at `fad24dc6f`)\n\n| gate | verdict |\n| --- | --- |\n| the 7 touched suites, `vitest run --maxWorkers=2` | `Test Files 7 passed (7)`, `Tests 348 passed (348)`; lock wrapper `VERDICT command-exit 0` |\n| `pnpm type-check:scripts` | exit 0 |\n| `pnpm lint:root` | exit 0 (`33 problems (0 errors, 33 warnings)`, all pre-existing) |\n| `pnpm check:control-bytes` | `check-control-bytes: OK (scanned 6400 tracked text file(s); skipped 85 binary)` |\n| `pnpm check:i18n-keys` | exit 0 |\n| `pnpm check:i18n-dead-keys` | exit 0 |\n| `pnpm check:i18n-drift` | exit 0 |\n| `pnpm check:self-import` | `No package names itself inside its own src/.` |\n| `pnpm check:spec-symbols` | `spec member citations: no comment cites a key its spec symbol does not declare.` |\n| `node scripts/check-changeset-presence.mjs` | `No source or published contract of a released package changed in this range, so no changeset is owed.` |\n| `check-governed-queue-guard --test` | `NOT GOVERNED — 7 path(s) checked against 5 governed surface(s); none matched.` |\n\nDraft, no auto-merge.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_013uAaxiwgYDybsTNV9xwa1M)_"
+}

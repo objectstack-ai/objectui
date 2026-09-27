@@ -1,0 +1,36 @@
+{
+  "number": 7714,
+  "kind": "issue",
+  "title": "Designer PUTs half-filled `lookup` drafts that `@objectstack/spec` 17.3.0 refuses (`reference` is now required) — keep the draft client-side and do not PUT it (#7122 ruling, item 4 = A)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T10:34:37Z",
+  "updated_at": "2026-09-07T02:00:38Z",
+  "closed_at": "2026-09-07T01:58:57Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7714",
+  "body": "Filed by the `domain:spec` @ objectui execution seat (session `session_01BAZFhALsQsGqxui8sNqM8s`) as the follow-up card the #7122 ruling requires. ⛔ Unassigned; `domain:*` and grading are triage's — the ruling names the landing lane as `domain:ui` (`packages/app-shell`), recorded here for the triage seat rather than stamped by this one.\n\n## Ruling update 2026-09-05T22:4xZ — this card lands FIRST, the #7122 chain waits for it\n\nMaintainer, live PM chat with the filing seat's session, on objectui#7122's Task C (verbatim 「我认为应该以协议为准」, then 「其他同意」 to the tabled sequencing A1): the designer fix does not depend on the 17.3.0 pin — \"a half-filled lookup is held client-side and the PUT body never carries a `lookup` without a non-empty `reference`\" is a client behaviour, pinnable against the installed 17.2.0 too — so it lands on `main` first, and **#7122 carries `Blocked-by: #7714`** (the reverse of the original line, which is struck below). The confidence gap and the three execution bans below stand unchanged. ⚠️ PR #7685's rescue commit `9c1a1ac5f` (22:35Z) already carries ungated designer hunks in `MetadataService.ts`, `plugin-designer/src/MetadataFieldsPage.tsx`, their `specKeyReference` pins and `.changeset/7122-lookup-target-required-before-save.md`; under this ruling those hunks belong to this card's PR, not to the bump PR — the chain's driver and this card's dev coordinate on the card, ⛔ not by hand-ordering landings.\n\n~~Blocked-by: #7122~~ (struck 2026-09-05T23:0xZ under the ruling above)\n\n## The measured fact (PR #7685, `aabc527cb`, both artifacts read side by side)\n\n`FieldSchema.safeParse({ name, label, type: 'lookup' })` is ACCEPT at `@objectstack/spec` 17.2.0 and REFUSE at 17.3.0, with a `custom` issue on `reference`. `MetadataService.saveFields` (`packages/app-shell/src/services/`) deliberately PUTs half-filled lookup drafts, and `MetadataService.specKeyReference.test.ts` pins that behaviour on purpose (\"a HALF-FILLED draft, type `lookup`, target left empty, still saves\"). Against a 17.3.0-aligned backend that PUT answers 422 `INVALID_METADATA` — the failure class `check-designer-field-key-parity` documents as blocking **every subsequent save** of that object.\n\n## The ruling (director seat, #7122 comment 5549255921, 2026-09-05T04:11Z; maintainer verbatim 「15622 也移交了；其他同意」)\n\n> **A — fix the designer**: a half-filled lookup stays client-side and is not PUT. The dev's \"contest upstream first\" is **not** taken: spec's prose already declared `reference` required for relationship types, 17.3.0 closed a declared≠enforced gap deliberately, and asking spec to reopen it is the wrong direction; the correct home for draft state is the client, not the metadata store (#4001's silent-drop shape is the counter-example). ⛔ The pin is not flipped green. Own card, `domain:ui` (touches `packages/app-shell`), `Blocked-by:` this card.\n\n## Execution constraints carried from the ruling\n\n- ⛔ Do not flip `MetadataService.specKeyReference.test.ts` green by weakening it; the pin must state the new truth (a half-filled lookup is held client-side; the PUT body never carries a `lookup` without a non-empty `reference`).\n- ⛔ Not option B (strip incomplete relationship fields from the PUT body while still \"saving\"): the designer would show a field the server never received — the silent-drop shape objectstack#4001 closed.\n- ⛔ Not option C (contest upstream).\n- **Confidence gap carried verbatim**: neither seat has driven \"half-filled lookup → save → later saves blocked\" in a running designer; the dev on this card **measures it first** (dogfood against a 17.3.0 backend — objectstack `main` serves one regardless of objectui's pin). The urgency may move; the direction should not.\n- ~~Lands after the #7122 chain (the lockfile bump), which is what makes the refusal reproducible in this repo's tests.~~ Superseded 2026-09-05T22:4xZ: lands first; the refusal is reproduced against a 17.3.0 backend or an unpacked 17.3.0 artifact, and the pin asserts the PUT body, not the spec's verdict.\n\n## Related\n\n#7122 (the chain and the ruling) · PR #7685 (measurement carrier) · #7635 (item 2 of the same ruling) · #4001 · #6041 / #6043 (earlier designer keys that hard-blocked a save)."
+}

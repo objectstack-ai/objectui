@@ -1,0 +1,37 @@
+{
+  "number": 7755,
+  "kind": "issue",
+  "title": "`classifyAnalyticsFailure` classifies a coded 400 other than `VALIDATION_FAILED` as `unknown`, so `aggregate()` answers a server refusal with client-side numbers",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T15:22:31Z",
+  "updated_at": "2026-09-06T15:42:16Z",
+  "closed_at": "2026-09-06T15:31:04Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7755",
+  "body": "Filed unassigned from the objectui#7752 fix (session `session_01TezFG8ZMrNH6n5VTNpPpdH`, os-dev seat, 2026-09-05), read while working next to it and NOT addressed in PR #7754 — that PR's scope is the lowering, this is a different defect in the same method's error path. #7752 is not addressed by this card either; it remains open on its own PR.\n\nMeasured on `origin/main` `81a2eb1f`, `packages/data-objectstack/src/index.ts`.\n\n## Measured\n\n`classifyAnalyticsFailure` (`:1030`) maps a server error to one of five kinds. Branch order is: `NOT_IMPLEMENTED` / `ROUTE_NOT_FOUND` to `not-installed`; `VALIDATION_FAILED` to `rejected`; `UNAUTHENTICATED`; `CUBE_NOT_FOUND`; then a residual that reads the bare HTTP status **only when `code === undefined`** (`:1067`), which is correct on its own terms and deliberate (objectui#5721 moved the code branches ahead of the status for exactly this reason).\n\nThe gap is between the two: an error that carries a code the four branches do not name — `INVALID_FILTER` on a 400, say, which is the code the data API's own filter refusal ships (objectstack#4121) — matches no code branch, and then the residual declines to read its `400` because a code IS present. It returns `kind: 'unknown'`.\n\n`aggregate()`'s catch has no `unknown` arm: it falls through to `aggregateViaFind` (`:5089-5093`), which re-reads the same rows through `find()` and aggregates them client-side.\n\n## Why it matters\n\n`find()` is a different door with a different filter contract — `$filter` on the query string, which accepts array shapes the analytics body does not. So a filter the analytics route refuses with a coded 400 can be accepted by `/data`, and the widget renders a confident number instead of the refusal. That is precisely the misdirection the `rejected` branch was written to stop, and its own comment says so:\n\n> The server refused OUR body — that is a defect in this adapter's request, not a deployment without the capability. Answering it with the client-side path would produce plausible numbers and bury the contract violation, the misdirection framework#3878 documented.\n\nThe branch just does not cover every way a server says \"I refused your body\": it covers one code.\n\n## Not measured here\n\nNo live deployment was driven; this is read from the two functions plus the code the data API is documented to ship for a filter refusal. Whether any current runtime route actually answers `/analytics/query` with a coded 400 other than `VALIDATION_FAILED` is the open question — if none does, this is latent rather than live, and the fix is still cheap.\n\n## Sketch of a fix (not a ruling)\n\nRead the status as a refusal signal even when a code is present — i.e. `status === 400` implies `rejected` regardless of code — or name the concrete codes. Either way the pin is a test that a coded 400 reaches the caller as `AnalyticsQueryRejectedError` and does **not** reach `aggregateViaFind`. Whether an unmatched non-400 code should keep degrading is the part that needs a decision.\n\nRefs: objectui#7752 / PR #7754 (the card this was found beside) · objectui#5721 (the branch-order fix that produced this shape) · framework#3878."
+}

@@ -1,0 +1,32 @@
+{
+  "number": 7817,
+  "kind": "issue",
+  "title": "SCIM Setup surface — the last uncut leg of objectstack#11632, still measured at zero UI",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T23:00:03Z",
+  "updated_at": "2026-09-06T02:33:53Z",
+  "closed_at": "2026-09-06T02:33:53Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7817",
+  "body": "⛔ Read `objectstack-ai/objectstack#11632` before starting; this card is its scope item 5 and nothing more.\n\n⚠️ **The `Blocked-by: objectstack#11632` line this card was filed with is WITHDRAWN — it was circular and it was my error.** This card is a **leg of** that epic, not a dependent of it; as written, neither could move until the other did. The epic is now owned by the PM session driving this card (takeover 2026-09-06 on the maintainer's instruction).\n\n## Why this exists\n\nThe SCIM migration to stable `@better-auth/scim` **landed** — measured on objectstack `origin/main` 2026-09-06: the pin is `^1.7.2`, the seven stable models are present (`scimConnectionBinding` in 6 files), `storeSCIMToken` survives only as CHANGELOG entries and comments *recording its removal*, and the credential-at-rest posture keeps its own pin. Nine of the epic's ten sub-issues are closed.\n\n**Scope item 5 — the net-new Setup surface — never was.** The epic charters it with the words *\"objectui and cloud measured at zero SCIM UI today\"*, and that measurement still holds: **0** files in this repository mention SCIM, and objectstack's `setup-nav.contributions.ts` names it **zero** times. It was never cut as a card, which is why nothing surfaced it in six days — an epic whose last leg was never cut is indistinguishable, from every queue view, from an epic that is finished.\n\n## ⚠️ Before building: two things the epic leaves to be settled, ⛔ not to be decided by an implementer\n\n1. **Is this still wanted as chartered?** The charter is from 2026-08-24 and the platform's SCIM story changed underneath it. ⛔ Do not build a surface nobody has re-confirmed; ask on the epic first.\n2. **What does the surface administer, now that `sys_scim_provider` is retired** (#11757, closed)? Stable's own `scimConnectionBinding` is what remains, and the epic's *\"Open before leg 2′\"* section says which row the verifier reads was *\"bounded design work inside scope item 1\"*. If that landed, this surface administers the result of it; if it did not, ⛔ stop — a UI over an undecided storage shape is the wrong thing to build first.\n\n## Scope, when the two above are settled\n\nA Setup surface for SCIM provisioning: connection/binding administration, the operator-visible state of provisioned users and groups, and whatever the bearer-token lifecycle exposes **given that ObjectStack owns bearer storage outright** under an app-owned verifier (epic scope 8). ⛔ No credential is ever displayed after creation — the epic's scope 8 is explicit that credential-at-rest posture must be at parity or better, and a UI that renders a token would be a loosening.\n\n⚠️ SCIM is default-off (`OS_SCIM_ENABLED`). The surface must be absent, not broken, on a deployment that has not enabled it — the `requiresService` / capability-gating pattern the Setup app already uses for organization-gated entries is the precedent.\n\n## Acceptance\n\nThe surface is reachable only where SCIM is enabled; it administers real bindings against a running stack (⛔ not a mock); no credential is rendered after creation; and the framework-side declarations it needs (nav contribution, object/app metadata) land with it rather than as a follow-up — a nav entry pointing at a page that does not exist is worse than no entry.\n\nRefs: objectstack#11632 (the epic, scope items 5 / 6 / 8) · objectstack#11757 (`sys_scim_provider` retired) · objectstack#11693 (the `managedConnections` refusal) · objectstack#11820 (blocked on the epic).\n\n\n\n---\n\n## ⭐ Precondition 2 is DISCHARGED — measured on objectstack `origin/main`, 2026-09-06\n\nThis card was filed saying *\"⛔ stop — a UI over an undecided storage shape is the wrong thing to build first\"*. The shape is decided, and here it is, so the implementer does not re-derive it:\n\n`sys_scim_provider` is **retired** — not merely unused: it carries an ADR-0087 semantic migration entry, `packages/spec/src/migrations/entries/semantic/18.scim-provider-object-retired.ts`. Every remaining mention on the tree is a comment recording the retirement, that migration entry, or `cli/src/utils/unmanaged-tables.ts` noting that **cloud's control DB still carries the orphaned table** (that residue is `objectstack-ai/cloud#1739`, a separate card — ⛔ not this one's).\n\n**What the surface administers**, bridged by `plugin-auth/src/objectql-adapter.ts` from stable's model names to platform objects:\n\n| stable model | platform object |\n|---|---|\n| `scimConnectionBinding` | `sys_scim_connection_binding` |\n| — (ObjectStack-owned) | `sys_scim_connection_credential` |\n| `scimUser` / `scimGroup` / `scimGroupMember` | `sys_scim_user` / `sys_scim_group` / `sys_scim_group_member` |\n| `scimSubject` | `sys_scim_subject` |\n| `scimIdentityTombstone` | `sys_scim_identity_tombstone` |\n| — | `sys_scim_projection_grant` |\n\n⚠️ `sys_scim_connection_credential`'s own docblock says it is **deliberately not a resurrection of `sys_scim_provider`**, and that ordinary members are denied it entirely. ⇒ ⛔ The surface must not render or re-expose a credential after creation — epic scope 8 requires credential-at-rest posture at parity or better, and a UI that shows a token would be a loosening. That is a refusal, not a preference.\n\n⇒ **Precondition 1 — is scope 5 still wanted as chartered — is the only one left**, and it is with the maintainer. This card is otherwise ready to dispatch.\n"
+}

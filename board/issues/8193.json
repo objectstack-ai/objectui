@@ -1,0 +1,39 @@
+{
+  "number": 8193,
+  "kind": "issue",
+  "title": "finding(app-shell): ObjectView emits the deprecated view-level kanban alias `groupField` into `options.kanban` instead of the spec-canonical `groupByField` — into the one bag the alias fold is told not to reach",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "package: app-shell",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T23:43:28Z",
+  "updated_at": "2026-09-07T04:05:31Z",
+  "closed_at": "2026-09-07T04:05:31Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8193",
+  "body": "Found while implementing objectui#7773 (the `plugin-view` / `plugin-list` half of the `groupField` cleanup). Filed unassigned and NOT touched there — `packages/app-shell` is outside that dispatch's two packages. Measured on `origin/main` `a915064e`.\n\n## What\n\n`packages/app-shell/src/views/ObjectView.tsx:2414` builds the view-level kanban config for the `list-view` it hands down, and writes the **deprecated legacy alias** rather than the spec-canonical key:\n\n```\npackages/app-shell/src/views/ObjectView.tsx:2409-2415\n    ...(() => {\n        const lane =\n            viewDef.kanban?.groupByField ||\n            viewDef.kanban?.groupField ||\n            detectStatusField(objectDef as any) ||\n            undefined;\n        return lane ? { groupBy: lane, groupField: lane } : {};\n    })(),\n```\n\nIt reads the canonical `groupByField` first (correct), then emits `groupField` — never `groupByField`.\n\n## Why this is not the same defect as objectui#7773, and not inert\n\nThis is the **view-level** config, where `groupField` is a *live* legacy alias of the spec's `groupByField`, not the retired node-level key. So the write works today. Two measured facts make it worth its own card anyway:\n\n1. **Its sibling already migrated, and left a note saying one key is enough.**\n   `packages/app-shell/src/views/InterfaceListPage.tsx:157`, in `defaultKanbanFromObject`:\n   > `groupByField` is the spec key. This used to emit the legacy `groupField` alongside it because ListView rendered off the alias only — that read-site now prefers the spec key, so one key is enough.\n\n   It returns `{ groupByField: field }`. The `ObjectView` twin twelve hundred lines away was not carried along, so the same producer surface speaks two different vocabularies for the same concept depending on which entry point you came through.\n\n2. **The alias fold deliberately does not reach this bag, so the legacy spelling is what actually drives the lanes.**\n   `normalizeListViewSchema` folds `kanban.groupField` into `groupByField` (`packages/core/src/utils/normalize-list-view.ts:191`), but only on the DECLARED path. Its own test pins the boundary as intentional — `packages/core/src/utils/__tests__/normalize-list-view.test.ts:361` `'does not reach into the legacy `options.*` twin'`. `ObjectView` writes into `options.kanban`, so nothing folds it, and `ListView.tsx:2495` resolves the lane as `groupByField || groupField || detectStatusField(...)` — landing on the alias because the canonical key was never written.\n\nNet: a producer in this repo emits the deprecated spelling into the one bag where the migration machinery has been told not to look, and the alias read is load-bearing purely because of that.\n\n## Suggested shape\n\nEmit `groupByField` (matching `InterfaceListPage`), leaving every alias READ untouched — `ListView` already prefers the canonical key, which is exactly the reason `InterfaceListPage` was able to drop the alias. Worth a pin so the two app-shell producers cannot fork again.\n\n## Boundary for whoever takes it\n\n- ⛔ Do not touch any alias READ. `ListView.tsx` `:1536` / `:1890` / `:2165` / `:2494` / `:2495` and `ObjectView.tsx` (plugin-view) `:1283` / `:1313` / `:1323` are the live view-level alias reads; stored metadata still authors the alias.\n- ⛔ Do not touch `packages/plugin-list/README.md` `:126` / `:186` — view-level config examples, still valid.\n- ⚠️ The same expression also writes a view-level `groupBy`, which is read only by the Kanban capability gate (`ListView.tsx:1536` / `:1890`, `v.groupByField, v.groupField, v.groupBy`). objectui's `KanbanConfig` mirror declares only `groupField` and `cardFields` as local extensions on top of the spec config and is `.passthrough()`, so `groupBy` rides through undeclared at this level. I did NOT measure whether `@objectstack/spec`'s own kanban config declares `groupBy` — check that before deciding whether the `groupBy` half is a second alias to fold or a legitimate key.\n- ⛔ Not objectui#7773 (`plugin-view` / `plugin-list` node-level write, in flight) and ⛔ not objectui#7772 (the page-block designer inspector). Both of those concern the RETIRED node-level key; this one is view-level and live.\n\n## Dedup\n\nSearched before filing, with a positive control that fired in the same session (a query naming objectui#7773's defect returned objectui#7773 first). The query for this defect returned no card covering `app-shell`'s `ObjectView` view-level alias emission. Closest neighbours, checked and not duplicates: objectui#2890 (the broad ListView legacy-vocabulary audit — this is one atomic producer site, the same relationship objectui#7773 has to it), objectui#7772 and objectui#7773 (node-level, retired key). ⚠️ Bounded reading: one targeted semantic search, not an exhaustive `state=all` sweep.\n\nFiled by the dev of objectui#7773, session `session_01YBWFb5YgMU5dw8p2VKj16S`.\n"
+}

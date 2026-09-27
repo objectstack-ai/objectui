@@ -1,0 +1,33 @@
+{
+  "number": 4853,
+  "kind": "issue",
+  "title": "finding: 失效 eslint-disable 已清零(#4833/PR4849),`linterOptions.reportUnusedDisableDirectives: 'error'` 一次关门的前置已备 —— 门禁强度变更待裁",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-16T13:32:27Z",
+  "updated_at": "2026-09-06T07:05:48Z",
+  "closed_at": "2026-09-06T06:53:00Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 21,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4853",
+  "body": "Blocked-by: PR #4849(落 main 后本卡前置成立)\n\n## 背景\n\n#4833/PR #4849 把全仓失效 eslint-disable 指令清到 **0**(49→0,逐 rule 对账)。#4833 正文提出的「一次关门」—— eslint flat config 的 `linterOptions.reportUnusedDisableDirectives: 'error'` —— 前置条件已具备:当前计数为零,开启后任何新增失效指令在作者本地与 CI 的 Lint job 都会以 error 形态当场红。\n\n## 为什么单列待裁\n\n这是**门禁强度变更**(warn 流→error 门),按 #3535 的语义相撞纪律与本车道惯例不与清理 PR 搭车:开启瞬间,任何在飞 PR 若携带「其改动使既有指令变失效」的组合,合并窗口内会红(#4835 那次 4 条就是这个形态)。当前该类在飞风险面为零,但开关时机与「是否连同 --max-warnings 类阈值一并考虑」归维护者。\n\n## 建议实施形态(裁定后 XS)\n\n`eslint.config.js` 顶层 `linterOptions: { reportUnusedDisableDirectives: 'error' }`;反向验证 = 任一文件加一条无效 disable 预判 lint exit 非零并指名。\n\nRelated:#4833 / PR #4849、#4806(R 序列)、#4850(两处错位指令,独立压制语义题)。observation-class,未认领。"
+}

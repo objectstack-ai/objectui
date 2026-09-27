@@ -1,0 +1,34 @@
+{
+  "number": 7581,
+  "kind": "issue",
+  "title": "Measure the strict authoring face before building it: run catalog fixtures, docs `json` fences and apps through strict node schemas and count undeclared keys per component (first deliverable of the #5250 ruling)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-04T01:36:09Z",
+  "updated_at": "2026-09-06T03:36:34Z",
+  "closed_at": "2026-09-06T03:35:10Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7581",
+  "body": "Filed by the director seat from the #5250 ruling (maintainer, 2026-09-04, decision batch #25: option 2 — a strict authoring face as a programme, **measurement first**). This card is the measurement. ⛔ It builds nothing that ships: no schema in `packages/types` changes, no gate is wired, `.passthrough()` on the rendering face is not touched.\n\n## Deliverable: a number per component, not a fix\n\nDerive, in a throwaway (a script under `scripts/` or a one-off test that is **not** left in the tree unless the seat decides it is worth keeping as the future gate's skeleton), a **strict variant of every node schema** in `@object-ui/types/zod` — the same declared members, unknown keys refused — and run three corpora through it:\n\n1. every fixture under `examples/schema-catalog/src/schemas/**/*.json`;\n2. every ```` ```json ```` fence under `content/docs/**` that parses as a node document (a fence that is a deliberate fragment is counted separately as \"fragment\", ⛔ not silently skipped — the fragment-marking question #5138 already costed is part of what this measurement prices);\n3. the authored documents under `apps/**` and `packages/*/examples/**`.\n\nReport, in the PR or on this card:\n\n- **per component type**: number of documents, number refused strictly, and the **undeclared keys** with their occurrence counts (this is the list that becomes the declaration-repair worklist in #6939's shape — a key the renderer reads but the schema does not declare — versus the retirement worklist in #7077's shape — a key nothing reads);\n- **per corpus**: totals and the fragment count for docs;\n- the top-level unknown keys that come from `BaseSchema`'s own tolerance versus nested unknown keys inside declared members (the TS index signature at `packages/types/src/base.ts` lines 409 / 441 is the twin of the zod `.passthrough()`; both faces are measured, the TS side by the probe shape recorded on #5250 comments 5521873763 / 5523535054).\n\nA component with zero undeclared keys is a result too — the programme needs to know how much of the tree is already strict-clean.\n\n## Why a measurement card exists at all\n\nThe ruling on #5250 is a multi-week programme touching every node schema and AGENTS.md #0.1. Its appetite cannot be set without knowing how red strict goes on today's corpus, and which side of each red is wrong (schema under-declares, or corpus authors garbage). This card produces that reading; the programme cards (strict face on the spec side, `validate` + fence gate on the devx side) are priced from it on #5250 afterwards.\n\n## Constraints\n\n- ⛔ Do not repair anything you find — file it (dedupe first; #6939, #7077, #7549, #7101 already carry several of the likely hits) or list it in the report. A measurement that fixes as it goes stops being a measurement.\n- ⛔ Do not flip `.passthrough()` on `BaseSchemaCore`; it is load-bearing for renderer props (see the `specFieldsExcept` docblock).\n- The throwaway must be reproducible: pin the `main` SHA it ran against and keep the script in the PR (or attach it to this card) so the numbers can be re-derived after the declaration repairs land.\n- Clause-②: `no` (no published surface moves). `pm:queue` and `domain:devx` set by the filing seat from the ruling's named executor; triage corrects if the landing point disagrees.\n\nUnlocks: #5250 (`Blocked-by:` this card). Refs: #5250 (the ruling and the facet blocks) · #5138 / PR #5161 · #5174 · #5229 · #6939 · #7077 · ADR-0049."
+}

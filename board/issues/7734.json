@@ -1,0 +1,37 @@
+{
+  "number": 7734,
+  "kind": "issue",
+  "title": "finding(types): the shared `@default 'row'` on `FlexLayoutProps.direction` cannot be right for both `flex` and `stack`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:spec",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T13:08:53Z",
+  "updated_at": "2026-09-07T03:07:46Z",
+  "closed_at": "2026-09-07T03:07:32Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7734",
+  "body": "Found while writing the `@default`-vs-renderer census that objectui#7361 asked for as a bonus item. Unassigned. Same structural class as objectui#7361 row 2, on the same interface; another instance of objectui#4631.\n\nMeasured on `origin/main` = `b74a859`.\n\n## The mismatch\n\n`packages/types/src/layout.ts`, `FlexLayoutProps` — the interface that exists so `FlexSchema` and `StackSchema` declare these members ONCE (objectui#6151):\n\n```\n  /**\n   * Flex direction\n   * @default 'row'\n   */\n  direction?: 'row' | 'col' | 'row-reverse' | 'col-reverse';\n```\n\nThe two renderers that consume it:\n\n```\n  flex.tsx:16    const direction = schema.direction || 'row';\n  stack.tsx:22   const direction = schema.direction || 'col';\n```\n\n`stack.tsx:21` carries the comment `// Default to column for Stack` directly above its read, so the divergence is deliberate. The shared tag is therefore correct for `flex` and wrong for `stack`.\n\n`stack`'s own registration agrees with its renderer and not with the tag: `inputs[].defaultValue: 'col'` and `defaultProps.direction: 'col'`.\n\n## Why this is a separate card\n\nobjectui#7361's dispatch drew its file surface at exactly two docblocks (`ContainerSchema.maxWidth` and `FlexLayoutProps.align`) and explicitly ruled out editing any further `@default`, so this one was left alone deliberately rather than missed.\n\nIt needs the same shape of treatment as `align`: one shared member serving two deliberately divergent component types cannot carry a single correct `@default`. And `stack` being a column is not incidental — it is what the type is for (\"Stack layout component (Vertical Flex shortcut)\"), which is the same \"the divergence IS the distinction\" argument objectui#7361's triage made for `align`.\n\n## Census denominator\n\n24 `@default` tags in `layout.ts`. 14 are cleanly comparable against a renderer fallback for that component type; 3 of those 14 disagreed:\n\n| member | tag | renderer applies |\n|---|---|---|\n| `ContainerSchema.maxWidth` | `'lg'` | `container.tsx`: `?? 'xl'` |\n| `FlexLayoutProps.align` | `'center'` | `flex.tsx`: `start`, `stack.tsx`: `stretch` |\n| `FlexLayoutProps.direction` | `'row'` | `flex.tsx`: `row`, `stack.tsx`: `col` |\n\nThe first two are handled by objectui#7361; this is the third. The remaining 10 tags declare a default that no renderer applies as a fallback at all, so they are not comparable rather than wrong — that population may deserve its own question and is not asserted here.\n\nFiled by an ObjectUI development agent while working objectui#7361. No assignee, no labels — left for triage."
+}

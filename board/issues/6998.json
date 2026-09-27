@@ -1,0 +1,34 @@
+{
+  "number": 6998,
+  "kind": "issue",
+  "title": "finding(scripts): `js-comment-mask.mjs` cites two line numbers as evidence and both point at the wrong line (86 and 107 lines off)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "zhuangjianguo",
+    "id": 19182527,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T08:08:27Z",
+  "updated_at": "2026-09-06T04:06:13Z",
+  "closed_at": "2026-09-06T04:04:26Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6998",
+  "body": "Found while implementing #6736. Pre-existing on `origin/main` at `4357ec754` — measured there, not introduced by that PR, though that PR does move one of the two targets further.\n\n## The citation\n\n`scripts/js-comment-mask.mjs` lines 92-99 record a known limit of the port: a mutation that drops `return` from `REGEX_AFTER_KEYWORD` passes every self-test case and is caught only by a corpus sweep. It then names the live shapes in this tree that the mutation would misread, as evidence that the limit is not theoretical:\n\n> The shape that mutation misreads is live in THIS tree too -- `scripts/check-changeset-presence.mjs:555` and `scripts/check-doc-links.mjs:616` both write `return /.../ ` today\n\n## Both line numbers are wrong\n\nMeasured on `origin/main` at `4357ec754`:\n\n| cited | what is actually at that line | where the `return`-regex shape really is | off by |\n|:--|:--|:--|:--|\n| `check-changeset-presence.mjs:555` | a string fragment inside the empty-`fixed`-group error message | line **641** (`isDocumentation`) | 86 |\n| `check-doc-links.mjs:616` | — | line **723** | 107 |\n\nThe shapes themselves are real and still present, so the note's conclusion holds. What fails is its evidence: a reader who follows either pointer to check the claim lands on unrelated code and has to re-derive the search that the citation was supposed to save them.\n\n## Why line numbers in cross-file citations are the defect, not the drift\n\nNeither file is unusually churny; the numbers went stale because a line number into another file is a reference with no mechanism keeping it true. Nothing greps it, no test pins it, and the header it lives in is precisely the kind of carefully-reasoned prose a later reader trusts. #6736 shifts `check-changeset-presence.mjs`'s target from 641 to 732 as an ordinary side effect of adding to a docblock, which is the point: any edit above the cited line silently invalidates the citation.\n\nThe repair that survives is a searchable anchor rather than a coordinate — the identifier the shape sits in (`isDocumentation`, and the corresponding function in `check-doc-links.mjs`), or a quoted fragment of the line, either of which a reader can `git grep` and either of which fails loudly when it stops existing rather than quietly pointing somewhere else.\n\n## Re-derive with\n\n```\ngit grep -n \"return /\" -- scripts/check-changeset-presence.mjs scripts/check-doc-links.mjs\n```\n\nThat is its own control: the shape is known-present, so zero hits means the search broke rather than that the shapes are gone."
+}

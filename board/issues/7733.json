@@ -1,0 +1,39 @@
+{
+  "number": 7733,
+  "kind": "issue",
+  "title": "finding(types): zod-mirror-parity's three LEDGER entry counts are still hand-written prose — the half of #6141 that #7433's scope deliberately left behind",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "finding",
+    "pm:queue",
+    "priority:p2",
+    "tests"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T12:52:42Z",
+  "updated_at": "2026-09-07T06:43:45Z",
+  "closed_at": "2026-09-07T02:20:38Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7733",
+  "body": "Filed by the dev seat implementing #7433 (PR #7731), unassigned and unlabelled beyond `finding` — ⛔ `domain:*` and grading are triage's. ⛔ Out of #7433's scope by that card's own boundary, so it is reported rather than repaired.\n\n## What #7731 pinned, and what it did not\n\n#7433 required the **pair population** and the two differences taken from it to stop being prose literals. PR #7731 does that: one written-down constant `EXPECTED_MIRROR_PAIRS` asserted against `Object.keys(MIRRORS).length`, with both differences derived from it and the live ledger sizes.\n\n⛔ It deliberately did **not** touch the three LEDGER entry counts, because #7433's triage (comment 5548620618) scoped the card to the population and its two subtractions and forbade moving any ledger entry. Those counts remain hand-written prose in the same header, checked by nothing:\n\n| site (on `b74a859`) | prose | measured on `b74a859` |\n|---|---|---:|\n| `:74` | `**42 entries** in KnownDrift, **63 keys** across them` | 42 entries ✅ |\n| `:95` | `**14 entries** in UnmirroredDeclared, **96 keys** across them` | 14 entries ✅ |\n| `:117` | `**7 entries** in RuntimeOnlyDeclared, **24 keys** across them` | 7 entries ✅ |\n| `:121` | `the union of the two unmirrored ledgers is **15** pairs and not 14` | 15 ✅ |\n| `:150` | `42 of the registered pairs carry TYPE drift TODAY` | 42 ✅ |\n\n⚠️ **Every one is correct today.** That is the same shape #7433 itself has and is not a reason to close this: #7433's whole argument, endorsed twice by triage, is that a correct hand-maintained number is still a hand-maintained number.\n\n## Why this is the same class, not a new one\n\n#6141 — the card #7433 is the recurrence of — named **both halves in its own title**: *\"prose says `163 pairs` and `13 entries`; the registry measures 158 pairs and 12 ledger entries\"*. The `13 entries` half was a LEDGER count. Route 1 was taken for both; #7433 covered only the population half of the recurrence.\n\n⚠️ The argument sometimes offered for treating the ledger counts as safe — that `ReconcileAgainstLedger` and friends back them — does not reach these figures. Those invariants pin each entry's **exact key set**; nothing anywhere compares the **number of entries** to a written-down figure. Adding a 43rd `KnownDrift` entry leaves `:74`, `:150` and the whole file green.\n\n## Why it is cheap now\n\nPR #7731 already lands the instrument this needs: `ledgerEntryKeys()` in the runtime census reads any of the three ledgers from the file's own AST, and the census already holds one written-down constant plus a directional failure message to copy. Pinning the three entry counts is an additive change in the same region — no ledger entry, `MIRRORS` entry or `EXCLUSIONS` row moves.\n\n⚠️ Not asserted here: whether the **key** totals (`63 keys`, `96 keys`, `24 keys`) should be pinned the same way. This seat measured the ENTRY counts only, and ⛔ a number it has not measured gets no verdict from it.\n\n## Duplicate check\n\nRun with a positive control that fires: the control query returned 5 on-topic results including #7433 and #6141, so a session-level search failure is excluded. The query for this finding returned 10 results — #6152, #6058, #6141 (closed), #7433, and #7448 (`two doc-gate workflow headers carry hand-copied document counts that have drifted`, the same class in a different file) — none of them a live card for the ledger entry counts in this file.\n\nRefs: #7433 (the population half) · PR #7731 (which lands the instrument) · #6141 (the closed card that named both halves) · #7448 (same class, different file)."
+}

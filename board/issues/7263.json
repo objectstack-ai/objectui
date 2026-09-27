@@ -1,0 +1,34 @@
+{
+  "number": 7263,
+  "kind": "issue",
+  "title": "finding(devx): `upstream-port-pin.json` covers only `scripts/`, so the verbatim cross-repo ports under `.claude/hooks/**` have no drift gate — the same shape #6642 measured at ~212 KB",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T02:03:06Z",
+  "updated_at": "2026-09-06T04:54:11Z",
+  "closed_at": "2026-09-06T04:52:32Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7263",
+  "body": "Observed while landing the ported self-test matrix on #6451. Not a defect in anything that ships — an undrilled-drift gap. Filed rather than fixed: registering a new file in the pin is a scope decision about which surfaces the ledger governs, and `.claude/**` is governed surface with its own merge rules, so it is not a bounded in-place edit for a matrix-only PR.\n\n## The gap\n\n`scripts/check-upstream-port-parity.mjs` exists because a verbatim cross-repo port drifted silently and went on reporting confidently — #6642 measured `scripts/pm/check-half-states.mjs` at 4,637 diff lines and 458 missing predicate cases before the gate landed. Its header states the harm direction plainly: \"A drifted copy does not fail; it reports.\"\n\nThe ledger it verifies (`scripts/upstream-port-pin.json`) currently holds exactly two entries, both under `scripts/`:\n\n```\n$ node scripts/check-upstream-port-parity.mjs\n✓ scripts/pm/check-half-states.mjs: byte-identical to objectstack-ai/objectstack@bf10debd5:... modulo 11 declared divergence(s).\n✓ scripts/invoked-as.mjs: byte-identical to objectstack-ai/objectstack@bf10debd5:... modulo 9 declared divergence(s).\n✓ check-upstream-port-parity: 2 ported file(s) match ... modulo their declared divergences.\n```\n\nMeanwhile `.claude/hooks/` is this repo's densest concentration of verbatim ports from the same upstream, and the history is a list of drifts each caught by a human noticing, one at a time, never by a gate: #5459 (quote-escape fix not ported), #5712 (\"second drift item… reads a shell COMMENT as a command\"), #5789 (the fix family), #6042 (the backslash fail-open that objectstack closed in #11131). Every one of those is the failure mode `check-upstream-port-parity` was built to make impossible, in a directory the ledger does not look at.\n\n## Why now\n\nThe matrix landing on #6451 is a fresh instance with the pin's exact shape already established, and measured rather than assumed:\n\n- upstream blob: `objectstack-ai/objectstack:.claude/hooks/guard-main-checkout.selftest.sh` @ `d63c8a2`\n- ported byte-for-byte, then exactly **4 declared divergences**, all comment/echo-label text: one added `PORTED from…` header paragraph, and two hole-reference re-pointings (`#11809` to `#7259`, `#11810` to `#7260`) that each carry the sibling number as a cross-ref\n- no executable line differs, which is why the sibling file ran here unmodified and returned `87 passed, 0 failed`\n\nSo this one could be registered today with a one-sentence `why` per divergence, which the pin's self-test requires. It would then be the first entry that makes the ledger's promise reach the surface where the drift has actually kept happening.\n\n## The decision this needs (not asserted here)\n\n1. Does the ledger's scope extend to `.claude/**` at all, given that surface's human-merge rule and that a `--resync` rewrites the ported file in place? A `--resync` touching governed surface is the part worth thinking about before, not after.\n2. If yes, do the four existing hook ports get registered too, or only new ones from here on? The three already-drifted hooks would each need a divergence set written down first, which is real work and is the actual value.\n\nFiled unassigned; no `domain:*` or type label set beyond `finding`."
+}

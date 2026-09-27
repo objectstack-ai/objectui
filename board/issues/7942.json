@@ -1,0 +1,32 @@
+{
+  "number": 7942,
+  "kind": "pull_request",
+  "title": "docs(example): byo-backend-console README teaches ObjectView from plugin-view, not the phantom ObjectRenderer",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "examples"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T03:53:09Z",
+  "updated_at": "2026-09-06T04:18:41Z",
+  "closed_at": "2026-09-06T04:18:40Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-09-06T04:18:39Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/7942",
+  "body": "Fixes #7095\n\n## What was wrong\n\n`examples/byo-backend-console/README.md` taught `ObjectRenderer` from `@object-ui/app-shell` in three snippets — six sites, at lines 63, 72, 88, 89, 107, 110. No export of any package in this repository bears that name, so the import does not resolve. This README is the copy-paste starting point for the bring-your-own-backend path, whose readers have no way to tell a phantom name from a real one.\n\n## Why not a bare rename\n\nThe card proposed renaming to `@object-ui/app-shell`'s `ObjectView`. That was measured on this branch and rejected. `packages/app-shell/src/views/ObjectView.tsx:865` is `export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: any)` — it reads `objectName` from the router (`useParams`, line 866), needs an `objects` metadata array (line 876), and types its whole props surface as `any`.\n\nMeasured leg, run in this worktree: the bare-rename form — `import { ObjectView } from '@object-ui/app-shell'` with an `objectName` prop — type-checks **clean**, `tsc` exit 0, zero diagnostics, while staying broken at runtime. That is the failure mode the neighbouring measurement named, now confirmed on this card's own file.\n\nThe spelling that works is `ObjectView` from `@object-ui/plugin-view`, the one `examples/byo-backend-console/src/App.tsx` already runs and the one PR objectui#7836 used for the root README.\n\n## What the snippets say now\n\nAll three carry a `schema` of `type: 'object-view'` with `objectName`, plus the `dataSource` prop the type requires (`packages/plugin-view/dist/ObjectView.d.ts:43` — `dataSource: DataSource`, no question mark).\n\n- Section 2 mirrors `src/App.tsx`: a route renders a small `ObjectPage` of your own that pulls `objectName` from `useParams` and passes `mockDataSource`.\n- Section 3 and the Next.js block use `useDataSource()` from `@object-ui/providers` to show where the data source comes from inside `DataSourceProvider` — the same composition PR objectui#7836 introduced.\n\n`src/App.tsx` is untouched: it is the reference this README must agree with. No export or type was minted anywhere, and no CHANGELOG was edited (the two historical `ObjectRenderer` mentions stay).\n\n## Compile check, by hand\n\nThis file is outside the doc gate's scan surface, so the compile check is not automatic. Measured with the gate's own `listDocuments()` rather than read off its header: 227 documents in the surface, 0 under `examples/`, this file absent; controls positive — root `README.md` present, 39 package READMEs present. `check-readme-exports` reports the same boundary in its census: \"43 tracked README(s) under packages/ (0 outside any package)\".\n\nSo all three snippets were transcribed into a scratch `.tsx` inside the example (never committed; removed before the commit) and judged by the example's own `tsc --noEmit` with its own tsconfig, against the **built** `dist/index.d.ts` of each package.\n\n```\nbaseline, before the scratch file      tsc --noEmit   exit 0\nthree README snippets transcribed      tsc --noEmit   exit 0\n```\n\nNot a hoped-for green — `--listFiles` proves what was in the program: the scratch file present, and `packages/plugin-view/dist/ObjectView.d.ts`, `packages/providers/dist/DataSourceProvider.d.ts`, `packages/app-shell/dist/...` among 3002 files.\n\nThree planted errors, each proven on disk before the run and restored by sha256 afterwards:\n\n```\nold spelling restored                  TS2305  Module '@object-ui/app-shell' has no exported member 'ObjectRenderer'\ndataSource prop deleted                TS2741  Property 'dataSource' is missing ... required in type 'ObjectViewProps'\nschema key objectName renamed          TS2741  Property 'objectName' is missing ... required in type 'ObjectViewSchema'\n```\n\nRestored tree back to exit 0. Name-count leg on the file itself: `ObjectRenderer` in the README 6 to 0, with `packages/app-shell/CHANGELOG.md` as the control, still 1.\n\n## Gates\n\nRun at `f2c189cc6`, verdict lines as each gate printed them:\n\n```\ncheck:doc-fences          exit 0   every TypeScript block in 227 document(s) is fenced ts/tsx/typescript\ncheck:control-bytes       exit 0   scanned 6407 tracked text file(s); skipped 85 binary\ncheck-doc-links.mjs       exit 0   Links are valid across 17 scan roots.\ncheck:readme-exports      exit 0   43 README(s) under packages/ (0 outside any package), 0 unbuilt\ncheck-changeset-presence  exit 0   no changeset is owed (0 published source files changed)\ngoverned-queue-guard      NOT GOVERNED — 1 path checked against 5 governed surface(s)\n```\n\n`check:readme-exports` first reported exit 1 naming 61 unjudgeable self-imports, every one of them \"type entry not on disk — run `pnpm build` first\". That is an unmet prerequisite, not a red gate: after a full `turbo run build` it prints `0 unbuilt` and passes. Recorded rather than dropped.\n\nFiles changed: 1. No changeset owed — an example README publishes nothing.\n\nRelated: objectui#7094 (the sweep that filed it), objectui#7838 (same phantom in `docs/ARCHITECTURE.md`, a separate card).\n\nDraft, no auto-merge, per dispatch.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_013uAaxiwgYDybsTNV9xwa1M)_"
+}

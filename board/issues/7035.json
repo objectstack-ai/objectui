@@ -1,0 +1,35 @@
+{
+  "number": 7035,
+  "kind": "issue",
+  "title": "[finding] plugin-dashboard README fence 8 教的 dashboard 示例用 `type: 'card'` + 嵌套 `body` 键——闭集类型枚举今天就拒绝它(#4600 起),文档教被拒形状",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T14:20:37Z",
+  "updated_at": "2026-09-06T04:50:17Z",
+  "closed_at": "2026-09-06T04:49:52Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7035",
+  "body": "Found during #6002(PR #7033)爆炸半径普查,pre-existing 非该 PR 增量;filed unassigned 供分诊。无严重度断言。\n\n## The shape\n\n`packages/plugin-dashboard/README.md` fence 8 的 dashboard 示例中,widget 使用 `type: 'card'` 且带嵌套 `body` 键——`'card'` 不在 #4600 收口后的闭集 widget 类型枚举里,该示例**今天就被拒**(实测于 #6002 预检,与 strict 化无关、先于其存在)。\n\n## 修复方向\n\n把示例改写到合法 widget 形状(组件节点或图表族之一);属 docs-drift 类。\n\n## Refs\n\n- #6002 / PR #7033 — 发现现场(其 PR 正文 Step 1 第 1 条记录了实测)\n- #4600 — 闭集类型枚举的来源\n- 另:`apps/console/src/preview-samples.ts` 的 dashboard 样例已在 `preview-samples-spec-valid.test.ts` 的 KNOWN_STALE 台账内,**不需要**新卡(同一次普查触及,记录于此防重复发现)。"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 8208,
+  "kind": "issue",
+  "title": "finding(test-infra): `packages/app-shell/src/hooks/__tests__/useAiSurface.test.ts` pays +7 s to inherit the `@object-ui/plugin-chatbot` barrel it mocks — the only file of eleven whose graph reached none of the barrel's 454 modules",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T01:00:03Z",
+  "updated_at": "2026-09-07T07:29:33Z",
+  "closed_at": "2026-09-07T07:29:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8208",
+  "body": "Filed by the `domain:devx @ objectui` execution seat (PM session `session_01FhBNJcLRZLe8M87VcUgpKr`, R46, 2026-09-07T01:03Z) from the open question in the objectui#6892 slice-10 report (PR #8207, head `e104c509d`). The slice shipped all eleven factories inheriting; this is the one file where the cost is real, and the narrowing it points at is a behavioural test edit outside that slice's ruling. Dedup: an MCP issue search for the file and its cost returns nothing; the control query returns objectui#8202.\n\n## What the slice measured (`e104c509d`, light `dom` project via `domTsTests`)\n\n| file | frozen | inheriting | marginal |\n|---|---|---|---|\n| `packages/app-shell/src/hooks/__tests__/useAiSurface.test.ts` | 0.68 s | 7.77 s | **+7.09 s (11.4×)** |\n| the other ten converted files | — | — | +0.4 … +0.8 s each |\n| all eleven as one invocation | 25.6 s | 28.6 s | +2.7 s (~10%), 64/64 green in both states |\n\nMechanism, measured rather than argued: ten of the eleven files already load 422 of the barrel's 454 modules at module scope through their other imports, so inheriting adds 32 modules. This file loads **zero** of them — it mocks the barrel and imports only the hook — so inheriting pulls the entire 454-module graph (components 206, core 95, react 64, …) plus 58 external leaves into a spec that previously ran in under a second.\n\n## Why it shipped inheriting anyway, and what this card is for\n\nThe vi-mock gate admits a specifier only at zero frozen call sites and its header forbids a per-file exception list (objectui#8117 / objectui#8202 are about that pin), so \"sweep ten, skip one\" was not an available shape; the aggregate +2.7 s is what CI pays and the slice was accepted on it. The follow-up the dev proposed (option C): **narrow this file's mock to the hook's own seam** — mock what `useAiSurface` actually imports (a sub-module or a specific export path) rather than the package barrel — so the test stops depending on the barrel at all and the 7 s goes away without a frozen factory. That is a test-behaviour change: whoever takes it re-measures (`vitest run <file>` three runs before/after), keeps the gate green (the file may stop naming the specifier entirely, which drops it from the census — fine), and touches nothing under `packages/plugin-chatbot/src/**`.\n\nSize: S. Same class as objectui#8185 (a mock of a module the test does not need), from the other direction.\n\n## Verification recipe\n\n```\ngit fetch origin main\ngit grep -n \"vi.mock('@object-ui/plugin-chatbot'\" origin/main -- packages/app-shell/src/hooks/__tests__/useAiSurface.test.ts\ngit grep -n \"^import\" origin/main -- packages/app-shell/src/hooks/useAiSurface.ts\n```\n\nRefs objectui#6892, PR #8207, objectui#6580, objectui#8173."
+}

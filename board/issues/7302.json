@@ -1,0 +1,35 @@
+{
+  "number": 7302,
+  "kind": "issue",
+  "title": "finding(docs): three documented `interface` blocks are behind their shipped types — the `PARTIAL_EXCERPTS` ledger #6214 opened with",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T05:02:06Z",
+  "updated_at": "2026-09-06T07:21:24Z",
+  "closed_at": "2026-09-06T07:20:14Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7302",
+  "body": "Filed unassigned, not claiming. Found by the interface pin added in #6214 (`scripts/check-readme-exports.mjs`), whose first run over the tree at `e32824dae` produced exactly this list. #6214 was scoped to wire the gate and was explicitly not allowed to edit README content, so each one is recorded in that script's shrink-only `PARTIAL_EXCERPTS` ledger with a reason and this card is the content half.\n\nThe pin compares a fenced block's documented property names against the shipped declaration's, both ways. All three below are the `stale-omission` direction only — **zero fabricated keys anywhere in the tree**, so nothing here tells a reader to write something that does not type-check. Each entry disappears from the ledger the moment the README is corrected; the gate fails on a ledger entry that no longer omits anything, so the list cannot quietly stop shrinking.\n\n## The three\n\n| README | declaration | shipped keys it never mentions |\n| --- | --- | --- |\n| `packages/plugin-gantt/README.md:303` | `interface GanttTask` (14 documented of 16) | `fields`, `hasOwnDates` |\n| `packages/plugin-kanban/README.md:114` | `interface KanbanColumn` (5 of 6) | `collapsed` |\n| `packages/plugin-kanban/README.md:123` | `interface KanbanCard` (4 of 7) | `cardSubtitle`, `cardFieldCells`, `coverImage` |\n\nThey are **not the same disposition**, which is why they are one card and three fixes:\n\n- **`GanttTask` is genuinely an excerpt.** The prose immediately below the block already says so, and names the two keys: *\"A few more optional fields (`fields` for tooltip rows, `hasOwnDates`) are populated by `ObjectGantt` itself.\"* The correct fix is not to widen the block, it is the one-line in-README declaration the pin ships for exactly this case, placed above the fence:\n\n  `<!-- readme-exports: partial GanttTask — the two ObjectGantt-populated fields are described in the prose below -->`\n\n  Then delete the ledger entry. The gate is green either way; what changes is that the excerpt becomes a declaration a reviewer can see rather than a debt in a script.\n\n- **`KanbanColumn` and `KanbanCard` are staleness.** Nothing on that page says either block is partial, so both read as the whole shape and are one and three keys behind it. The fix is to document the missing keys.\n\n## Related, and deliberately not merged into\n\n#6155 records that `KanbanCard` / `KanbanColumn` are declared four times in this tree and the published copies disagree (`cards` vs `items`, `badges` vs `labels`). That is a different defect one level down — this card is about the README being behind whichever declaration `@object-ui/plugin-kanban` actually exports, which is the one the pin reads. If #6155 lands first, re-run `pnpm check:readme-exports` before writing anything here: the omission set is derived, not copied, and it will have moved.\n\n## Reproducing\n\n```\npnpm exec turbo run build --filter='./packages/*' --concurrency=2\nnode scripts/check-readme-exports.mjs --list | grep -E 'partial-ledger|stale-omission'\n```\n\nTurning the ledger off (`scan(repoRoot, { excerpts: {} })`) reds with exactly these three and nothing else — pinned as a test in #6214, so this list cannot drift from the ledger without the suite saying so.\n\n## Grading\n\nFor PM triage. Labelled `finding`: it is documentation drift with a mechanical detector already in place, and the gate is green at rest without it."
+}

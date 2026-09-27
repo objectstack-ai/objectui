@@ -1,0 +1,32 @@
+{
+  "number": 7950,
+  "kind": "pull_request",
+  "title": "fix(scripts): give a blockquoted doc snippet a reachable fragment marker (objectui#7099)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T04:10:56Z",
+  "updated_at": "2026-09-06T04:40:56Z",
+  "closed_at": "2026-09-06T04:40:55Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-09-06T04:40:55Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/7950",
+  "body": "Fixes #7099\n\nobjectui#7086 brought a fence opened inside a Markdown blockquote under this gate's contract. That contract has two halves — a collected block must **compile**, **or** it must carry a fragment marker declaring why it cannot — and only the first half reached blockquotes. A quoted block that legitimately cannot compile was collected, failed, and had no declared way to say so; the author's only outs were to unindent the callout or to grow `UNGATED_DOCS`, a list that is meant only to shrink.\n\nTwo anchors in `scanFences` were blockquote-unaware:\n\n- `FRAGMENT_MARKER` was anchored `^[ \\t]*`, so `> {/* doc-snippet: fragment ... */}` did not register as a marker at all;\n- the attachment walk wants the nearest **non-blank** line above the fence, and `'>'.trim()` is `'>'`, not the empty string — so even a marker that did register could not cross the bare `>` spacer that separates a callout's prose from its fence.\n\n## What changed\n\nBoth mechanisms move together, because widening the marker anchor alone would pass in tests and fail on the callout shape real pages use.\n\n- The marker is matched against the line with its blockquote prefix stripped (reusing `stripQuotePrefix`), and keeps the depth it was written at.\n- The attachment walk judges blankness **at the fence's depth** (`isBlankAtDepth`), so it crosses a callout's bare `>` spacer.\n- A marker declares only a fence at **its own depth**: a depth-0 marker above a quoted fence sits outside the callout the block lives in, and a quoted marker above an unquoted fence sits inside one the block is not in. Neither attaches, and an unattached marker is reported as `stale-fragment-marker` rather than silently dropped — previously a quoted marker was invisible to that check.\n- A failing collected block at depth > 0 now also names the depth its declaration must be written at, so a marker that did not attach is explained instead of guessed at.\n\nDepth 0 keeps the identity path, so every unquoted fence scans exactly as before. What the gate **accepts** is unchanged: a fragment still requires its written reason, the marker grammar is untouched, and `UNGATED_DOCS` is not touched.\n\n## Population, and why the pins carry the proof\n\nThe reachable population is **0 today and stays 0**, so this behaviour proves itself in the pins, not in the corpus. Read on the merged tree, before and after, through the gate's own document list:\n\n| reading | before | after |\n| --- | --- | --- |\n| blockquoted fragment markers (the population) | 0 | 0 |\n| control: plain fence openers | 2978 | 2978 |\n| control: plain fragment markers | 158 | 158 |\n| control: blockquoted fence openers | 2 | 2 |\n\nThe gate's verdict lines are byte-identical before and after, measured on the same merged corpus by reverting these two files to `58153d9c7` and re-running:\n\n```text\nScanned 227 document(s): 203 covered (101 of them hold a ts/tsx block), 24 ungated — declared in this script, NOT verified by it.\nCovered blocks: 635 — 477 to compile, 158 declared fragment(s).\nSyntax phase:   every block parsed, so every one of them reached the semantic phase.\nRoot bound:     no block imports a specifier that resolves only through this repository's ROOT manifest.\nSemantic phase: 477 of 477 block(s) judged, 0 failed.\n```\n\nNo page gains or loses coverage. (`Covered blocks` moved from 625 to 635 between the branch point and now — that is #7929 batch 13 shrinking `UNGATED_DOCS` by one page, merged into this branch, not this change.)\n\n## Pins, and the ablation that makes them non-vacuous\n\nFive new pins in `scripts/__tests__/check-doc-snippet-types.test.ts`, all red before the fix and green after (full file: 88 passed):\n\n1. a blockquoted marker directly above a blockquoted fence — attaches;\n2. the **callout shape** — marker, bare `>` spacer, then the fence — attaches;\n3. a marker at a different depth than its fence — does not attach, in both directions;\n4. the unquoted path unchanged — a depth-0 marker still attaches across blank lines;\n5. an unattached blockquoted marker is reported rather than never seen.\n\nEach ablation leg was run against the committed implementation, mutated on disk with the mutation proved by occurrence counts, and restored with `git checkout HEAD -- <path>` verified by blob hash equal to HEAD's and an empty `git diff HEAD`:\n\n- **revert the marker anchor alone** → pins 1, 2, 3 and 5 fail (`4 failed | 11 passed`);\n- **revert the blank-line walk alone** → only pin 2, the callout case, fails (`1 failed | 14 passed`), while pin 1, the adjacent case, still passes.\n\nThat asymmetry is the half-fix the card warned about, reproduced deliberately: widening the anchor alone works in tests and fails on the shape real pages use.\n\n## Verification\n\nRun at `f6b860f2d`:\n\n- `pnpm check:doc-snippets` — exit 0, verdict lines above\n- `pnpm exec vitest run scripts/__tests__` — 107 files, 3225 tests passed\n- `pnpm type-check:scripts` — exit 0\n- `pnpm lint:root` — exit 0 (32 pre-existing warnings, none in these two files)\n- `pnpm check:control-bytes` — OK, 6410 tracked text files scanned\n- `node scripts/check-changeset-presence.mjs` — no changeset owed (no published source or contract changed)\n- `node scripts/check-governed-queue-guard.mjs --test <the two paths>` — NOT GOVERNED\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_013uAaxiwgYDybsTNV9xwa1M)_"
+}

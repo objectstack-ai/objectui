@@ -1,0 +1,37 @@
+{
+  "number": 7565,
+  "kind": "issue",
+  "title": "The `icon-sizes` catalog fixture authors `size` as a t-shirt string against a declared pixel number, so it renders four identical icons",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T22:03:44Z",
+  "updated_at": "2026-09-06T01:33:55Z",
+  "closed_at": "2026-09-06T01:27:45Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7565",
+  "body": "Found while burning the `BARE_SPREAD_ON_SVG` group of #5632 (PR #7564). Out of that card's scope — it is authored metadata, not a renderer defect — so recorded here, unassigned and ungraded.\n\n## What is authored\n\n`examples/schema-catalog/src/schemas/components-basic-icon/icon-sizes.json` is, in full:\n\n```json\n{\"type\": \"flex\", \"gap\": 4, \"align\": \"center\", \"children\": [\n  {\"type\": \"icon\", \"icon\": \"star\", \"size\": \"sm\"},\n  {\"type\": \"icon\", \"icon\": \"star\", \"size\": \"md\"},\n  {\"type\": \"icon\", \"icon\": \"star\", \"size\": \"lg\"},\n  {\"type\": \"icon\", \"icon\": \"star\", \"size\": \"xl\"}\n]}\n```\n\nBut `IconSchema.size` is declared `size?: number` — **pixels**, `@default 24` (`packages/types/src/layout.ts`). The t-shirt enum belongs to `SpinnerSchema.size`, which is a genuine `'sm' | 'md' | 'lg' | 'xl'`. The fixture appears to have borrowed the sibling's vocabulary.\n\n## Measured\n\n`IconRenderer` builds `sizeStyle = { width: schema.size, height: schema.size }`, so an authored `\"sm\"` becomes `style.width = 'sm'` — an invalid CSS value the CSSOM drops. Rendered through the real `SchemaRenderer` on PR #7564's branch:\n\n```\nsize=\"sm\" -> width=24 height=24 style=null\nsize=\"md\" -> width=24 height=24 style=null\nsize=\"lg\" -> width=24 height=24 style=null\nsize=\"xl\" -> width=24 height=24 style=null\nsize=24   -> width=24 height=24 style=\"width: 24px; height: 24px;\"\nsize=48   -> width=24 height=24 style=\"width: 48px; height: 48px;\"\n```\n\nSo **all four icons in a fixture named `icon-sizes` render at exactly the same size**, and the example demonstrates nothing. The numeric rows are there to show the declared key does work.\n\n## Not caused by, and not worsened by, PR #7564\n\nWorth stating precisely, because the branch is where this was found. Before that PR the bare spread also handed `size` to lucide's numeric `size` prop, so these nodes carried `width=\"sm\" height=\"sm\"` — invalid SVG dimensions, and the icons still all rendered at the fallback size. After it, the attributes are a valid `24`. The fixture is equally broken either way; the PR makes the DOM valid without making the example correct. No row of the #5632 ledger is involved: `width`/`height` are legitimate on an SVG host, so no leak gate ever reported this in either direction.\n\n## Why it is worth a card rather than a drive-by edit\n\nTwo things could be wrong and they have different fixes:\n\n1. **The fixture is simply off-spec** and should author pixels (`16`, `24`, `32`, `48`). Cheapest, and it makes the example show four sizes.\n2. **`IconSchema.size` should accept the t-shirt scale** the rest of the vocabulary uses, in which case the authored metadata is right and the contract is the thing that is wrong. `SpinnerSchema` already uses that scale for the same concept on the same kind of host, which is the argument for it.\n\nThat is a contract question, so it is not mine to answer inside an unrelated slice. Whichever way it goes, an off-spec `size` should be refused at authoring time rather than silently producing an invalid inline style — the same \"declared = enforced\" direction as #5631's resolution.\n\nA wider sweep is probably worth doing with it: this was found by scanning JSON for icon/spinner nodes carrying `size`/`color`, and the same scan is what showed every authored icon `color` in the catalog is a Tailwind class. Other numeric-vs-enum key collisions of this shape may exist elsewhere in the catalog.\n\n## References\n\n- `examples/schema-catalog/src/schemas/components-basic-icon/icon-sizes.json`\n- `packages/types/src/layout.ts` — `IconSchema.size?: number`\n- `packages/types/src/feedback.ts` — `SpinnerSchema.size?: 'sm' | 'md' | 'lg' | 'xl'`\n- #5632 / PR #7564 — where it surfaced"
+}

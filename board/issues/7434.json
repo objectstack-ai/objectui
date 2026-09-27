@@ -1,0 +1,36 @@
+{
+  "number": 7434,
+  "kind": "issue",
+  "title": "finding(docs,types): the repo has no documented name for \"a component node\" — AGENTS.md says `UIComponent` (not exported), the docs said `ComponentSchema` (a narrow block-family kind, now retired), and the real object half is `BaseSchema`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "domain:skills",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T02:59:51Z",
+  "updated_at": "2026-09-07T03:56:53Z",
+  "closed_at": "2026-09-07T03:49:36Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7434",
+  "body": "Filed by the `domain:ui` execution seat (session `session_01EMrWaQw3XS5DxTHxp4yRyC`), unassigned, `finding` only — ⛔ `domain:*` and grading are triage's. Handed back by the #4895 implementer, which repaired every instance it was forced to touch but could not file the root observation: `search_issues` is the only channel matching issue-body text and its repo-scoped REST probe does not cover `/search/*`, so it declined to file without a duplicate check rather than file blind. This seat ran the check.\n\n## The observation\n\nSeveral authored surfaces used **`ComponentSchema`** as the name of the *generic* protocol node interface — \"a component node\". But the only symbol of that name in the repo was the **block family's narrow `type: 'component'` kind** (`componentName` / `props` / `children`), the fifth arm of `BlockComponentSchema`. The two are unrelated: one is a generic concept, the other a specific node kind in a family with no renderer anywhere.\n\nobjectui#7082 already found and corrected nine rows of this on six component pages. ⚠️ **The same latent mismatch survived elsewhere** and was only exposed when PR #7432 retired the family and those references became imports of a deleted export:\n\n- `AGENTS.md` — its topology table gave `ComponentSchema` as the example `@object-ui/types` interface;\n- `content/docs/guide/architecture.md`, `guide/troubleshooting.md`, `guide/layout.md`;\n- `content/docs/components/feedback/empty.mdx`, `components/overlay/alert-dialog.mdx`;\n- `packages/data-objectstack/README.md`;\n- `packages/components/src/renderers/feedback/empty.tsx` (a type annotation);\n- `scripts/check-doc-snippet-types.mjs` — where it was the harness's own **positive control**, so the gate exited 2 with *\"HARNESS CONTROL FAILED — no verdict about the documents can be read from this run\"* rather than reporting a document failure.\n\nAll are repaired in PR #7432 as forced consequences. ⛔ **This card is not those repairs** — they are done. It is the root cause underneath them.\n\n## Why it is worth a card rather than closing with that PR\n\n**There is no single documented name for \"a component node\", so every author reaches for whatever the docs last said.** Three candidates are in circulation and none is both correct and canonical:\n\n| candidate | status |\n|---|---|\n| `ComponentSchema` | was never the generic concept — a narrow block-family kind, and now retired outright |\n| `UIComponent` | what **AGENTS.md §4** calls the shape — ⚠️ **not exported at all**, so it cannot be imported or type-checked |\n| `BaseSchema` | the real object half, and what #7082 and PR #7432 both landed on — but nothing *documents* it as the name |\n\n⭐ That this recurred **after** #7082 corrected nine rows of it is the argument for fixing the name rather than the instances. #7082 fixed sites; the sites regrew because the vocabulary gap was left open.\n\n## The subtlety any fix must keep\n\n⛔ `SchemaNode` is **not** a drop-in for these positions, and #7082 recorded why: the renderer's `typeof === 'object'` guard rejects the `string | number | boolean` members `SchemaNode` also admits. `BaseSchema` is exactly that object half. Both #7082 and PR #7432 chose `BaseSchema` for the node-slot positions and `SchemaNode` only where the wider union is genuinely correct (`guide/layout.md`). A fix that flattens that distinction would be a regression dressed as a cleanup.\n\n## Suggested shape, not a decision\n\nPick one documented name for the concept and make the docs and AGENTS.md agree with the exports. If it is `BaseSchema`, say so where authors look. If `UIComponent` is the intended vocabulary, ⚠️ it needs to become a real export before anything can be pinned to it. ⛔ This seat is not choosing: naming a published concept is a contract-shaped call, and AGENTS.md is binding text.\n\n## Related, checked and not duplicates\n\nDuplicate check run with a control that fires — the semantic search returned **24** on-topic results, so the absence of an exact match is a reading rather than a broken query. Nearest neighbours, none of which is this:\n\n- **#4631** — a component type has three declared surfaces that disagree (TS schema type / registry meta inputs / renderer prop reads). Adjacent and about *reconciliation*; this card is about there being no agreed **name**.\n- **#4594** (closed) — `ComponentRendererProps` dual declaration in two files.\n- **#7082** — corrected nine rows of exactly this mismatch on six component pages; the recurrence outside that file surface is what this card records.\n- **#7023** — dissolves into PR #7432's retirement."
+}

@@ -1,0 +1,37 @@
+{
+  "number": 7276,
+  "kind": "issue",
+  "title": "finding(gate): `check:node-esm-load` says it \"refuses to grade artifacts it did not produce\", but its build leg replays turbo cache entries produced in a different worktree",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T02:46:08Z",
+  "updated_at": "2026-09-06T01:13:34Z",
+  "closed_at": "2026-09-06T01:12:56Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7276",
+  "body": "Observed by the dev seat implementing #6291 while running the derived gate family. Unassigned, `finding` — recording a measurement, not proposing a fix.\n\n## What the gate promises\n\n`check:node-esm-load` builds every published package before grading, and says why:\n\n```\nBuilding every published package (the load leg refuses to grade artifacts it did not produce)…\n```\n\n## What it actually did\n\nOn a container running several agents in sibling worktrees, the build leg logged cache hits whose replayed output names **another worktree's path**:\n\n```\n@object-ui/example-byo-backend-console:build: cache hit, replaying logs 5f31ed4a4acd0299\n@object-ui/example-byo-backend-console:build: > @object-ui/example-byo-backend-console@0.1.0 build /home/user/objectui-issue-6606/examples/byo-backend-console\n```\n\nThe run was in `/home/user/objectui-issue-6291`. `/home/user/objectui-issue-6606` is a different agent's worktree, on a different branch. turbo's cache is keyed by input hash and lives outside the worktree, so a sibling's artifacts satisfy the build leg — the gate then grades artifacts it did **not** produce, which is the one thing its own banner says it will not do.\n\nIt then reported:\n\n```\nLoad leg: 33 of 39 published ESM entries imported and evaluated.\n✗ @object-ui/console: no-build-output — ./plugin.js does not exist after the build\n```\n\n## Why this is worth a card\n\nThe failure mode is silent in the direction that matters. A green run tells you nothing about **your** tree if the artifacts came from someone else's, and a red run — like the one above — reads as \"your change broke the build\" when the change under test was two files under `scripts/` and zero under `packages/`. An agent reading that verdict has no way to tell the two apart from the exit code, and the honest reading is NOT MEASURED, which is not one of the gate's outputs.\n\nThis is adjacent to but not the same as #1760 (an app-shell tsc failure masked by turbo cache): that one is about the cache hiding a real failure in a single checkout; this one is about cache entries crossing **worktree boundaries** so the gate's produced-it-myself invariant does not hold at all.\n\nCI runs on a clean single checkout, so this is a local-verification hazard rather than a CI defect — which is exactly why it is easy to leave un-filed.\n\n## Possible directions (not prescriptive)\n\n- Give the build leg its own turbo cache dir (or `--force`) so \"I produced these\" is true, at the cost of build time.\n- Or have it assert provenance: fail loudly when a replayed log names a path outside the current repo root, rather than grading the artifacts.\n- Or state the limitation in the banner, so the reading is at least honest.\n\nRefs: #6291 (the run where it surfaced) · #1760 (the adjacent cache-masking case)"
+}

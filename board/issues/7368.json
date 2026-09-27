@@ -1,0 +1,37 @@
+{
+  "number": 7368,
+  "kind": "issue",
+  "title": "app-shell(studio): PackageSwitcher swallows the package-list fetch failure, leaving the raw package id in the top bar",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T13:25:01Z",
+  "updated_at": "2026-09-06T00:32:03Z",
+  "closed_at": "2026-09-06T00:30:13Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7368",
+  "body": "Found while fixing the Studio top bar's package name (objectui#7254, PR #7366). Not fixed there — that card is about what the switcher NAMES, this is about its fetch's error posture.\n\n`PackageSwitcher` in `packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx`:\n\n```\nfetchPackages()\n  .then((parsed) => { if (!cancelled) setPkgs(parsed); })\n  .catch(() => {\n    /* leave null — switcher still works for navigation-free display */\n  });\n```\n\n`pkgs` stays `null`, and the trigger renders `current?.name ?? packageId`. So any failure of `GET /api/v1/packages` — a 503 from the durable half, a network drop, an auth expiry — leaves the Studio top bar showing the raw reverse-domain package id (`app.b2r4`) **forever**, with no toast, no retry and no console line. The author sees something that looks like a name, and it is an id.\n\nThe comment's justification is real (navigation still works), but it argues for degrading, not for degrading silently: the same code path is what makes a genuine \"this package has no declared name\" indistinguishable from \"the list never loaded\".\n\nWorth deciding between: surface the failure (the sibling `openManage` path already does `toast.error(formatMetadataError(e))`), retry once, or at minimum distinguish the loading/failed state from the loaded one so the trigger can say which it is. The same `.catch` shape appears in the other two `fetchPackages()` call sites in that file.\n"
+}

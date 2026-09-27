@@ -1,0 +1,28 @@
+{
+  "number": 10731,
+  "kind": "issue",
+  "title": "main red: `Inert vi.mock Specifier Check` fails on objectui main since PR objectui#10729. `filterContextTokensSweep-10666.test.tsx:51` mocks a path that resolves to no file",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-27T02:03:58Z",
+  "updated_at": "2026-09-27T02:05:04Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10731",
+  "body": "Filing-gate category: ① a product-infrastructure defect with a named site and a reproduction. An advisory gate is red on `main`, which is shared damage: every open PR in this repo inherits the red. Reader: triage first (route and grade), then the seat that owns `apps/console` tests.\n\nFiled by the `domain:spec` @ objectui execution seat (session `session_014fWVhLzhxR8qrFsJ5o8TYW`), which met this red while reviewing its own PR objectui#10730. ⛔ Not graded, ⛔ not routed, and ⛔ not fixed here: the file is outside this seat's lane.\n\n## Signature, identical on `main` and on a PR head built from it\n\n- Check: `Inert vi.mock Specifier Check` → `failure`. The step fails with `Process completed with exit code 1.`\n- `main` `5c61e5241`: check runs `108526869853` and `108525123558`, both `failure`. `main` `f9c06ef6a` also shows `failure`.\n- PR objectui#10730 head `1f612da39` (base `5c61e5241`): job `108529945687`, `failure`, with the same step and the same first error line.\n\nLocal reproduction on a detached worktree of `origin/main` `5c61e5241`, running `node scripts/check-vi-mock-specifiers.mjs` (exit 1):\n\n```\n❌  check-vi-mock-specifiers: 1 mock resolves to no file on disk\n    - apps/console/src/__tests__/filterContextTokensSweep-10666.test.tsx:51 -- vi.mock(\"../../../../packages/plugin-map/node_modules/react-map-gl/dist/maplibre.js\")\n```\n\nThe line came in with PR objectui#10729 (`f9c06ef6a`, objectui#10666). The gate's own text says why this matters: an inert `vi.mock` registers against a module id nothing imports, the REAL module runs, and the suite passes identically to a correct one.\n\n## What it asks\n\nFix the specifier so the mock is installed, or drop it if the suite does not need it. Then confirm the mock bites: revert the code under test to the shape the suite was written to catch, and the suite goes red. That second step is the gate's own prescription.\n\n## Dedupe\n\nThe 100 most recently created objectui items were scanned, open and closed alike (created since 2026-09-09 and 2026-09-25 respectively). The regex matched `filterContextTokensSweep|vi.mock Specifier|vi-mock-specifiers|react-map-gl/dist/maplibre` over title and body. Result: 0 issues; the only hits were PR bodies that list the gate among the gates they ran, among them PR objectui#10729 itself.\n\nDedupe words: `inert vi.mock main red` · `filterContextTokensSweep-10666 maplibre mock` · `check-vi-mock-specifiers failure main`"
+}

@@ -1,0 +1,38 @@
+{
+  "number": 7444,
+  "kind": "issue",
+  "title": "finding(examples,docs): the `color` key three catalog `text` nodes author — and the docs page teaches — is declared by nothing and read by nothing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "finding",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T05:10:22Z",
+  "updated_at": "2026-09-06T01:33:56Z",
+  "closed_at": "2026-09-06T01:29:11Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7444",
+  "body": "Filed unassigned by the `domain:ui` execution seat while implementing #6942 (the `ui:text` `variant`/`align` enforcement). Same file family, different key, deliberately left out of that PR's scope. Grading and `domain:*` are the triage seat's.\n\n## Measured\n\n`examples/schema-catalog/src/schemas/components-basic-text/text-with-colors.json` authors `color` on three `text` nodes:\n\n```json\n{ \"type\": \"text\", \"content\": \"Primary Text\", \"color\": \"text-primary\" }\n```\n\n`content/docs/components/basic/text.mdx` teaches it in the same breath as the keys that do work:\n\n```plaintext\n  color?: string;            // Tailwind color class\n```\n\nNothing declares it and nothing reads it:\n\n- **Not declared.** `TextSchema` has no `color` — neither the interface (`packages/types/src/layout.ts:76`) nor the Zod mirror (`packages/types/src/zod/layout.zod.ts:61`). It survives `safeValidateSchema` only because `BaseSchema` is `.passthrough()`.\n- **Not read.** `packages/components/src/renderers/basic/text.tsx` reads `content`, `value`, `variant`, `align` and `className` — after #6942 those are all of them. A grep of `packages/react/src` and `packages/core/src` for a root-level `color` read on a component node returns nothing; every hit is a different contract (`options[].color`, chart series colour maps, `listConditional`'s `textColor`).\n- **Cannot even leak.** `color` is not on the `toDomProps` whitelist (`packages/core/src/utils/dom-props.ts`), so it does not reach the element as an attribute either.\n\nSo the \"Colored Text\" section of the published docs page demonstrates three tiles that render three identically-styled strings, and an author who copies the snippet gets unstyled text with no diagnostic anywhere: passthrough accepts the key, the renderer ignores it. That is the silent no-op ADR-0049 governs — the same shape as #6902 and #6773, one key over.\n\n## Why this is not part of #6942\n\n#6942's ruling (comment 5509027843) scoped that card to `variant` and `align`: the renderer catches up to the *published enum*, the enum does not move. `color` is a different question — it is not published at all, so honouring it would be a Clause-② declaration change rather than a renderer repair. It is named in that PR's body and handed here rather than fixed in passing.\n\n## The decision this needs\n\n- **A. Retire it** — delete `color` from the catalog entry and from the docs page; authors colour text with `className` (`\"className\": \"text-primary\"`), which the renderer already forwards. Cheapest, and it costs nothing an author cannot already express.\n- **B. Declare and enforce it** — add `color` to `TextSchema` (Clause-② vocabulary growth) and map it in the renderer, the way #6942 mapped `variant`. Buys a shorthand for one Tailwind class that `className` already covers.\n- ⛔ **Not C** — leave it authored and taught while nothing reads it. That is the present state.\n\nRecommendation: **A**, unless the seat wants a colour token vocabulary rather than a raw Tailwind class passthrough — `className` is the existing, working channel and a second spelling for it is a dialect (AGENTS.md #0.1).\n\n## Related\n\n- #6942 — the card this was found under; its PR re-authors the neighbouring entries in this category and leaves `text-with-colors.json` untouched\n- #6902, #6773 — the same class, earlier instances"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 7413,
+  "kind": "issue",
+  "title": "[finding] check-shell-escape-residue's new `.claude/skills` root does not reach the rest of the agent tree — a future `.claude/agents/*.md` repeats #7403 exactly",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "enhancement",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T20:39:18Z",
+  "updated_at": "2026-09-06T09:56:07Z",
+  "closed_at": "2026-09-06T09:37:05Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7413",
+  "body": "Filed out-of-scope from #7403 (the widening itself). Unassigned. **Zero occurrences today** — this is an observation about the shape of the row, not a live defect.\n\n## What\n\n#7403 widened `SCAN_ROOTS` in `scripts/check-shell-escape-residue.mjs` with:\n\n```js\n{ spec: '.claude/skills', kind: 'dir', minFiles: 3 },\n```\n\nThe seat's in-lane ruling on that card was stated about the tree — \"`.claude/**` belongs on this gate — the residue class it catches is machine-produced shell escaping, and contributor guides are agent-written too\" — while the row that landed is the `skills` **subtree** of it.\n\nToday the difference is exactly zero files. Measured on `e7d68db`:\n\n```\n$ find .claude -name \"*.md\" -o -name \"*.mdx\"\n.claude/skills/objectui-contributor/SKILL.md\n.claude/skills/objectui-contributor/guides/console-development.md\n.claude/skills/objectui-contributor/rules/no-touch-zones.md\n.claude/skills/verify/SKILL.md\n```\n\n4 of 4 under `.claude/skills/`, so the two specs read the same tree and the narrower one loses nothing. The row is annotated with that reading and with this gap.\n\n## Why it is worth a card anyway\n\nThe day someone adds `.claude/agents/reviewer.md` or `.claude/commands/ship.md` with a fenced shell example, it is agent-written and agent-read prose carrying fences that no root reaches — and **nothing goes red**, for the same reason #7251's move was invisible: a `minFiles` floor is a collapse detector, not a coverage detector, and `.claude/skills` will still be returning its 4 files. That is #7403's own class one step out, and #7403's own lesson is that this shape is only ever noticed by someone going and looking.\n\n## Not a duplicate of\n\n- #7403 — the widening that created this boundary; it declares `.claude/skills` and says so.\n- #7404 — `check-skills-paths`' workflow header prose, a different gate and a stale-statement defect rather than a scan-surface one.\n- #5151 — the card the gate was built on; it ruled the original four roots.\n\n## Suggested shape, not prescribed\n\nTwo directions, and the choice is a decision rather than a mechanical fix:\n\n1. **Widen the row spec to `.claude`.** Reads identically today, closes the next move by construction. Cost: it also pulls in any future `.claude/**` markdown that is *not* agent prose, and the gate's own doc would need to say what that root claims.\n2. **Leave the row and add the check at the other end** — a floor-style assertion that every `.md`/`.mdx` under `.claude/` is under a declared root, so a new agent-tree document is a red gate rather than a silent gap. That is the general form of the miss and would cover the `skills/` side too.\n\nEither way the arithmetic to re-measure is in the gate's docblock and in PR for #7403."
+}

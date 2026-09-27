@@ -1,0 +1,37 @@
+{
+  "number": 7898,
+  "kind": "issue",
+  "title": "finding(docs): nine JSON fences in guide/ author `button` keys the schema does not declare — six `button.text` (the renderer reads `label`) and three top-level `onClick` (refused by name)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T02:10:37Z",
+  "updated_at": "2026-09-06T03:55:07Z",
+  "closed_at": "2026-09-06T03:53:52Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7898",
+  "body": "Observation-class finding, measured on `655afabf2` while repairing objectui#7872's seven uncarried-expression sites in these same guide pages. Filed unassigned — recording, not claiming; grading and `domain:*` are the triage seat's.\n\nobjectui#7872's census (`scripts/check-doc-expression-carriage.mjs`) judges a key only when it holds an EXPRESSION. These pages also author keys that hold a LITERAL and are declared nowhere, so no gate looks at them at all: `check-doc-component-types` judges the `type` literal and says so deliberately in its own header — \"NOT in scope, deliberately: whether the snippet's OTHER keys are read by the renderer the type resolves to\" — and `check-doc-snippet-types` compiles ts/tsx blocks only.\n\n## Finding 1 — six `button` nodes author `text`, which is not a `ButtonSchema` key\n\n`ButtonSchema` (`packages/types/src/zod/form.zod.ts:160`) declares `label`, `variant`, `size`, `loading`, `icon`, `iconPosition`, `buttonType`, and the TS interface agrees. `renderers/form/button.tsx:73` renders `schema.label || renderChildren(schema.body || schema.children)`. There is no `text` key, so these six nodes render a button with **no text** — the identical defect objectui#7872 repaired on `badge.text`, whose renderer likewise reads `schema.label`.\n\n| page | line | node |\n| --- | --- | --- |\n| `content/docs/guide/architecture.md` | 246 | `button` (under \"Conditional Rendering\") |\n| `content/docs/guide/layout.md` | 155 | `button` in `page.actions` |\n| `content/docs/guide/layout.md` | 161 | `button` in `page.actions` |\n| `content/docs/guide/layout.md` | 520 | `button` in `page.actions` |\n| `content/docs/guide/layout.md` | 527 | `button` in `page.actions` |\n| `content/docs/guide/layout.md` | 653 | `button` in `page.actions` |\n\nLine numbers as of `655afabf2`. objectui#7872's PR does not touch any of them, but it does shift `schema-rendering.md` and `architecture.md` line numbers below its own edits — locate by content.\n\n## Finding 2 — three fences author a top-level `onClick`, which the zod mirror refuses BY NAME\n\n`ButtonSchema.onClick` is `handlerKeyRefusal('onClick', 'runtime-slot', 'Click handler')` (`packages/types/src/zod/tombstone.zod.ts:109`), i.e. `z.custom(() => false)`: any authored value is refused, with guidance saying the key \"is a RUNTIME SLOT for a host-supplied function, not authorable metadata ... A React host supplies it through the TypeScript interface / props, never through this validator, which refuses it by name.\"\n\n| page | line | node |\n| --- | --- | --- |\n| `content/docs/guide/layout.md` | 523 | `button` in `page.actions`, `\"onClick\": \"editRecord\"` |\n| `content/docs/guide/layout.md` | 530 | `button` in `page.actions`, `\"onClick\": \"deleteRecord\"` |\n| `content/docs/guide/schema-rendering.md` | 239 | `button`, `\"onClick\": { \"actionType\": \"ajax\", \"api\": \"/api/action\" }` |\n\n**Measured NOT a defect, recorded so it is not re-reported:** `content/docs/guide/quick-start.md:149` also spells `onClick`, but inside the `events` bag (`\"events\": { \"onClick\": [ { \"action\": \"navigate\", ... } ] }`) under the heading \"Actions are data, not inline functions\". That is the authorable dialect, not the refused top-level key — and it is the remedy the other three sites want.\n\n## Related, not duplicates\n\n- objectui#5250 is this CLASS at the instrument level — \"JSON doc snippets are checked by nothing\", plus the `.passthrough()` half that would make a naive gate vacuous. Its deliverable is the gate and the strictness decision, and it is `pm:blocked` on objectui#7581. These nine sites are repairable today without waiting for it; #5250's own option 3 is \"keep filing instances\".\n- objectui#7351 is the adjacent instance in `content/docs/api/schema-reference.md`'s authorable-property TABLES — a different surface, and refused handler keys only, not a key that does not exist at all.\n- objectui#7872 is the expression-carriage half of the same three pages.\n\n## How to re-measure\n\n```\ngit grep -n '\"text\":' 655afabf2 -- content/docs/guide/architecture.md content/docs/guide/layout.md\ngit grep -n '\"onClick\"' 655afabf2 -- 'content/docs/**/*.md' 'content/docs/**/*.mdx'\n```\n\nFiled by the `os-dev` seat working objectui#7872; session https://claude.ai/code/session_01KbJQ1y1J12nZxYzFWhP8Q3\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

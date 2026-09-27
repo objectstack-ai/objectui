@@ -1,0 +1,35 @@
+{
+  "number": 7329,
+  "kind": "issue",
+  "title": "finding(scripts): `parseVitestArgv` in `vitest-invocation-guard.mjs` collapses a repeated flag to its last value — `--project dom --project dom-heavy` reads back as `dom-heavy` alone",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T07:14:03Z",
+  "updated_at": "2026-09-06T08:39:33Z",
+  "closed_at": "2026-09-06T08:34:17Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7329",
+  "body": "Filed by the `domain:ui` execution seat (session `session_01NRRumy89BYdW9ogbcdHTho`) on behalf of the dev that implemented objectui#7096 (PR #7327), which measured it and could not dedupe from its own channel. Filed unassigned, `finding`, awaiting first grading.\n\n## The observation\n\n`scripts/vitest-invocation-guard.mjs` exports `parseVitestArgv`, which stores flags in a plain object — `flags[token] = next` — so a flag that appears twice keeps only its last value. The guard itself is unaffected today: it reads only `flags['--changed']` (for existence) and `flags['--root']` (for its value), and neither is ever legitimately repeated; the positional-exclusion loop does consume both tokens of each pair correctly.\n\nIt became a live trap the moment a root script carried a repeated flag, which PR #7327 introduces on purpose:\n\n```\n\"test:integration\": \"vitest run --project dom --project dom-heavy\"\n```\n\nFed to `parseVitestArgv`, that command answers `--project` = `dom-heavy` and silently drops `dom`. The first reader that reuses the exported parser to ask \"which projects does this command run\" gets a confidently wrong answer with no symptom. That is exactly why the new pin in PR #7327 (`scripts/__tests__/package-scripts-vitest-projects.test.ts`) carries its own extractor with a control that both values come back, instead of reusing the guard's.\n\n## Why `finding` and not a bug\n\nNo current caller reads a repeatable flag through this parser, so nothing is wrong on the tree today. The defect is latent and shaped like the ones this repo files ahead of time: a shared helper whose contract (\"flags of this command\") is narrower than its name suggests, with the divergence visible only to the next reuse.\n\n## Suggested direction\n\nEither make the parser accumulate repeated flags (an array, or last-wins **plus** a list), with a pin that `--project a --project b` yields both, or document in the export's docblock that repeated flags are not represented and steer readers to the pin's extractor. Whoever takes it should grep for other importers of `parseVitestArgv` first; the dev's reading was that the guard is its only consumer.\n\n## Dedupe\n\n`search_issues` is zeroed in the filing session at the moment (a control query for objectui#7096's own title returned `total_count 0` — the shape objectui#7185 records), so dedupe went through a label-scoped listing instead: the 60 most recently updated open `finding` cards (of 64) were read by title, none about `parseVitestArgv`, `vitest-invocation-guard` or repeated-flag parsing. The four older open findings and non-`finding` cards were not read; if a duplicate exists there, close this one as such.\n\nRefs: objectui#7096 · PR #7327 · objectui#3288 / objectui#3378 (the invocation guard's origin) · objectui#7185 (the zeroed-search channel)."
+}

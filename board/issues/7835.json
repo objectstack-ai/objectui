@@ -1,0 +1,33 @@
+{
+  "number": 7835,
+  "kind": "issue",
+  "title": "finding(components/plugin-detail/app-shell): renderer comments still describe the three-way row binding after #5741 (Phase 2) narrowed it to `record.*`",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T23:51:51Z",
+  "updated_at": "2026-09-07T06:35:49Z",
+  "closed_at": "2026-09-07T06:35:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7835",
+  "body": "Filed by the os-dev implementing objectui#5741 (dispatch of `session_01BAZFhALsQsGqxui8sNqM8s`). Observation class: comment prose only, no behaviour. These files are outside #5741's declared surface (its scope is the two binding sites, the canon module, the pins and the changeset; app-shell source is read-only on that card), so the stale prose is recorded here rather than edited there. No assignee.\n\nBlocked-by: #5741\n\n## The prose that goes stale when #5741 lands\n\nOnce `usePredicateRecordContext` returns `{ record: row }` and `evalRowPredicate`'s scope bag is `{ ...hostScope, record: rowObj }`, every comment that says the row is \"bound the three canonical ways\" describes a binding that no longer exists. Sites, measured on `origin/main` `52cac388`:\n\n- `packages/components/src/renderers/action/action-button.tsx:82` — \"bound the three canonical ways — `record.status`, bare …\"\n- `packages/components/src/renderers/action/action-group.tsx:75`, `:160` (\"Same three-way binding as `InlineActionButton`\"), `:230`\n- `packages/components/src/renderers/action/action-icon.tsx:76`\n- `packages/components/src/renderers/action/action-menu.tsx:81`, `:196`\n- `packages/components/src/renderers/layout/containers.tsx:1443-1445` — \"The record binds three ways inside `evalRowPredicate` — `record.status` (spec/canonical), bare `status` (the row-action shorthand) and `data.status` (legacy)\"\n- `packages/plugin-detail/src/renderers/record-alert.tsx:194-199` — the #4807 rationale (\"the two spellings objectui#5330 kept never reached the row\")\n- `packages/react/src/SchemaRenderer.tsx:638` — points at \"what `usePredicateRecordContext` states for the `useCondition` tier\" (the statement it points at has changed, the pointer still resolves)\n- `packages/app-shell/src/views/DeclaredActionsBar.tsx:138` — \"the record bound the THREE ways the platform's row surfaces bind it\" (app-shell source, read-only on #5741)\n\nEach is a one-sentence rewrite to \"bound as `record.*` through the shared helper (objectui#5741)\"; the helper's own docblock in `packages/react/src/hooks/useExpression.ts` already carries the full statement after #5741, so the sites can point rather than restate.\n\n## One related observation, not a defect claim\n\n`page:header` (`containers.tsx`, the `headerPredicateScope` memo) also builds a `ctx.*` namespace — `ctx: { user, record: predicateRecord, data: predicateRecord, … }` — as a server-CEL-parity alias (objectui#2358). After #5741 the top-level `data` no longer names the row, but `ctx.data` still does, on that one surface. That is a separate namespace with its own rationale and was not part of the #5330 / #5741 ruling; it is noted here so the next reader of the canon does not mistake it for a missed binding site."
+}

@@ -1,0 +1,34 @@
+{
+  "number": 8046,
+  "kind": "pull_request",
+  "title": "test(plugin-markdown): cite toc-anchor-parity instances by content, not line address",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "plugin: markdown",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T12:43:26Z",
+  "updated_at": "2026-09-06T13:19:57Z",
+  "closed_at": "2026-09-06T13:19:56Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": "2026-09-06T13:19:56Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/8046",
+  "body": "Fixes #7913\n\nAuthored by the os-dev seat in session `https://claude.ai/code/session_01QnpvbdoRisQdRAczkLwnf5`.\n\n## The repair\n\n`toc-anchor-parity.test.tsx:136` named its case by line address:\n\n```\nit('resolves the anchor for ### NON_GRID_ROW_CEILING (packages/react/README.md:224)', ...\n```\n\nVerified on `origin/main` at `06761b351`: the heading is now at `packages/react/README.md:253`, and nothing went red — the test asserts an inline string and never reads the file, so the address lived only in the name.\n\n⛔ **The address was dropped, not updated to `:253`.** Updating it defers the rot to the next edit, which is the whole content of the card. The heading text `### NON_GRID_ROW_CEILING` is already the identifying content and is already in the assertion one line below. This is the class objectui#7853 ruled on — *cite the assertion by content, not by line address* — with #6998, #7289 and #6548 as prior recurrences.\n\n## ⭐ Five more addresses in the same file, and the bounded in-place fix\n\nThe card and triage both counted **one** instance in this file. There are **six**. `LIVE_SHAPES` carries a `where` field that line 60 interpolates straight into the test name:\n\n```\nit(`resolves the anchor for ${md} (${where})`, ...\n```\n\nso three more test names carried five more line addresses (`cli.mdx:136`, `cli/README.md:108`, `cli.mdx:220`, `cli/README.md:112`, `runner.mdx:106`). They were missed because a sweep anchored on the `it(` line cannot see a name built from data — the addresses live 16 lines above it in a fixture table.\n\nThose five are repaired here as a bounded in-place fix: same file, same defect class, same suite, no new verification surface, and no other claim on the file. `where` now names the files, which is content identity; the heading text in `md` remains the identifying content.\n\n⚠️ **Measured, since it changes how this reads:** all five were **accurate today** — only the card's `:224` was live-stale. The defect is not that they are wrong, it is that nothing can tell you when they become wrong.\n\nEvidence, from the rendered names at `f6d3b3e`:\n\n```\n✓ ... > resolves the anchor for ### NON_GRID_ROW_CEILING\n✓ ... > resolves the anchor for ### `objectui add [component]` (content/docs/utilities/cli.mdx, packages/cli/README.md)\n```\n\nA comment above `LIVE_SHAPES` now records the convention so the class does not return to this file.\n\n## The sweep across `packages/**`, with a control that fires\n\n```\ngrep -rnE \"^[[:space:]]*(it|test|describe)[.a-zA-Z]*\\(.*\\.(md|mdx|ts|tsx|js|jsx|mjs|cjs|json|ya?ml|css|html|txt|snap|sh):[0-9]+\" \\\n  packages --include='*.test.ts' --include='*.test.tsx' --include='*.test.mts' \\\n           --include='*.spec.ts' --include='*.spec.tsx'\n```\n\n**Control:** against a fixture of five known-positive shapes (single quotes, double quotes, backticks, `it.each`, `it.skip`) and two known-negatives (a bare path with no address; a version number plus a clock time) it reports 5 and 0, and in-tree it reports #7913's own instance. A zero from this regex is now a reading rather than a guess.\n\n**Result: 3 hits across 2 files**, matching triage exactly — this file, plus 2 in `packages/types/src/__tests__/text-value-retired-6951.test.ts`. Coverage: 2352 of the 2357 files under `packages/**` that declare tests match those globs; the remaining 5 were swept separately and are clean. A second, name-agnostic scan (quoted addresses on non-comment lines) found the interpolated group above and nothing else in a test name.\n\nThe `packages/types` pair is **`domain:spec`**, so it is deliberately not in this PR — filed as **#8045** for triage to route, unassigned and `finding`-only. Both are accurate today (`layout.ts:66` really is `TextSpanSchema.value`), which is recorded there because triage had not checked it.\n\n## Verification — all at `f6d3b3e`, clean tree\n\n| Check | Result |\n|---|---|\n| `pnpm exec vitest run packages/plugin-markdown/` | exit 0 — 5 files, 49 tests passed |\n| `pnpm --filter @object-ui/plugin-markdown run type-check` | exit 0 (after `pnpm --filter '@object-ui/plugin-markdown^...' build`; the file is in the program — `tsc --listFiles` reports it once) |\n| `check-changeset-presence` | exit 0 — empty frontmatter accepted as \"releases nothing\" |\n| `check-changeset-fixed` / `-no-major` / `-overwrite` | exit 0 |\n| `check-control-bytes` | exit 0 (6457 files scanned) |\n| `check-governed-queue-guard --test` | NOT GOVERNED — ordinary route |\n\n⚠️ The first type-check run failed with `Cannot find module '@object-ui/core'` on unbuilt dependencies. That is NOT MEASURED rather than red; the row above is the run after the dependency closure was built.\n\n**Lint is a declared narrowing, not a full run.** `eslint --no-inline-config` on the touched file: exit 0, 1 file, 0 errors, 0 warnings. Population, read from ESLint's own ignore logic rather than guessed: **4358** tracked JS/TS files it would lint. Invariance: `eslint.config.js` configures no `project` / `projectService` / `parserOptions.project`, so `typescript-eslint` runs without type information and each file is judged in isolation — a one-file diff cannot move the verdict on any untouched file. The repo-wide scan belongs to CI.\n\n## Notes\n\n- No `skip-changeset` label: this diff is a file under a released package's `src/`, so the repo's own gate owes a declaration. It is answered with an empty-frontmatter changeset, which that gate documents as a first-class pass rather than a workaround.\n- Left in draft for the PM seat; CI convergence is not awaited here.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01QnpvbdoRisQdRAczkLwnf5)_"
+}

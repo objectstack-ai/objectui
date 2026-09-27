@@ -1,0 +1,39 @@
+{
+  "number": 8168,
+  "kind": "issue",
+  "title": "`ObjectChart` has no refusal path for an unresolvable legacy binding — the prerequisite for retiring the forced-path `'name'` / `'value'` floors at three faces (objectui#7547)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "package: app-shell",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T22:21:21Z",
+  "updated_at": "2026-09-07T06:09:44Z",
+  "closed_at": "2026-09-07T06:09:44Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8168",
+  "body": "Split out of objectui#7547 by its implementing seat, on a measurement that contradicted the card's assumed route. Filed as a sub-issue rather than decided inside #7547.\n\n## What #7547 assumed, and what is actually there\n\n#7547 routes the chart `'name'` / `'value'` floors down the objectui#7029 / #7070 / #7500 road: delete the literal, and the renderer's own refusal screen becomes reachable. objectui#7070 wrote the discipline that road depends on, verbatim in its seam note:\n\n> #7029's mechanic is only correct where a refusal path exists\n\nFor calendar that path was `ObjectCalendar`'s \"Calendar configuration required\" screen; for gantt, `ObjectGantt`'s; objectui#7500 got `ObjectTimeline`'s from objectui#7459, which landed **as its own card first**.\n\n**`ObjectChart` has no such screen.** Measured on `20316bac3`:\n\n- `packages/plugin-charts/src/ObjectChart.tsx` — `runAggregate` passes `schema.aggregate` straight to `ds.aggregate(objectName, { field, function, groupBy, filter })` with no guard on `groupBy`, and the `ds.find` leg hands the same bag to `aggregateRecords`, which buckets on `record[groupBy] ?? 'Unknown'`.\n- The only two loud states are `error` (set from a thrown fetch, `data-testid=\"chart-error\"`, `role=\"alert\"`) and the generic \"No data yet\" empty state. Neither is a statement about an absent binding, and which one appears for `groupBy: undefined` is decided by the data source, not by this component.\n\nSo deleting the floors today does not produce an honest refusal — it produces a backend-dependent outcome. That is why #7547 measured this, left the floors standing, and reported instead of deciding.\n\n## The three faces still carrying the floors\n\nLine numbers on `20316bac3`:\n\n- `packages/plugin-list/src/ListView.tsx:2727-2728` — `chartBinding.valueField || 'value'` and `chartBinding.categoryField || 'name'`. The branch already names this card's parent in a comment (\"The floors themselves are objectui#7547 ... deliberately untouched here\").\n- `packages/plugin-view/src/ObjectView.tsx:1518-1519` — the same pair.\n- `packages/app-shell/src/views/ObjectView.tsx:2157-2159` — `chartConfig.xAxisField || 'name'` and `yAxisFields[0] || 'value'`. The site triage found that the original card did not account for.\n\n## Corroborating evidence that `'value'` in particular is harmful\n\n`ObjectChart.tsx` already carries a note about the same literal arriving from the dashboard wiring, which is independent of this route:\n\n> The upstream dashboard wiring defaults `field: 'value'` for charts without an explicit valueField, which crashes on SQL drivers (\"no such column: value\") since dashboards typically count rows, not a measure column.\n\nThe structured-aggregate leg works around it by omitting `field` for `count`. The legacy leg does not.\n\n## What this card is\n\nGive `ObjectChart` the refusal `ObjectTimeline` got in objectui#7459: when the legacy shape is routed with no declared category and no declared measure, say so instead of aggregating on a name nobody wrote. `resolveListChartBinding` in `ListView.tsx` already computes exactly that predicate (`resolves`, with the floors deliberately not applied), so the question is answered upstream and only needs a screen.\n\nOnce it exists, retiring the six literals at the three faces above is mechanical and is the remainder of objectui#7547.\n\n## Not a decision this card should make alone\n\nWhether the refusal belongs in `ObjectChart` (reached by every producer, including the dashboard widgets that still supply `'name'` / `'value'` themselves) or at the three relays is the design question. Stating it here rather than assuming it.\n\n## Dedup\n\n`search_issues` on this repo for a chart refusal path / unresolved legacy aggregate binding: one unrelated hit (objectui#6864, `aggregate()`'s spec-shape branch dropping filter and measure). Positive control in the same session returned objectui#7544 as its first result, so the near-zero is a reading.\n\nRefs: objectui#7547 · objectui#7029 · objectui#7070 · objectui#7459 · objectui#7500 · objectui#7544 · objectstack#13748.\n\nRecorded by the seat implementing objectui#7547 (`session_01YBWFb5YgMU5dw8p2VKj16S`). Unassigned, for triage."
+}

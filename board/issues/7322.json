@@ -1,0 +1,35 @@
+{
+  "number": 7322,
+  "kind": "issue",
+  "title": "finding(types,plugin-kanban): `ObjectKanbanSchema` requires `groupField` (zero read sites) and declares neither `groupBy` nor `limit` — no working `object-kanban` node is assignable to any declared type",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T06:44:19Z",
+  "updated_at": "2026-09-06T21:31:02Z",
+  "closed_at": "2026-09-06T21:30:12Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7322",
+  "body": "Found while bringing `content/docs/plugins/plugin-kanban.mdx` under `check:doc-snippets` (objectui#5174 batch 7, PR to follow). Filed unassigned and NOT fixed there — `packages/*` source is outside that PR's surface. Measured on `origin/main` `d717e8bc3` against the built `dist`.\n\n## What\n\nAn `object-kanban` node cannot be annotated with any type this repo ships. There are two declarations in play and each rejects the shape the renderer actually consumes.\n\n### 1. `ObjectKanbanSchema` names a lane field the renderer never reads\n\n`packages/types/src/objectql.ts` declares:\n\n```ts\nexport interface ObjectKanbanSchema extends BaseSchema {\n  type: 'object-kanban';\n  objectName: string;\n  groupField: string;   // REQUIRED\n  titleField?: string;\n  cardFields?: string[];\n  // … quickAdd, coverImageField, allowCollapse, conditionalFormatting\n}\n```\n\nBut `packages/plugin-kanban/src/ObjectKanban.tsx` — the component the `object-kanban` registration renders — reads **`schema.groupBy`**, at nine sites (lines 630, 631, 642, 654, 655, 660, 669, 670, 776, 894 …), and reads **`schema.limit`** for the row cap (line 293: `$top: schema.limit ?? DEFAULT_KANBAN_LIMIT`, and again in the effect deps at 320).\n\n`groupField` has **zero** read sites anywhere in `packages/plugin-kanban`:\n\n```\n$ git grep -c \"groupField\" -- 'packages/plugin-kanban/**'\n(no output — zero)\n```\n\nNeither `groupBy` nor `limit` is declared on `ObjectKanbanSchema`. They type-check today only because `BaseSchema` carries `[key: string]: any`, so both land on the index signature and are structurally invisible — the objectui#5155 / #6269 blind spot.\n\nThe package's own test suite writes the documented shape, not the declared one:\n\n```ts\n// packages/plugin-kanban/src/ObjectKanban.elementDataSource.test.tsx:192\n{ type: 'object-kanban', objectName: 'account', groupBy: 'status', columns: LANES, limit: 20 }\n```\n\n### 2. `ObjectKanbanComponentProps.schema` is `KanbanSchema`, whose `type` is `'kanban'`\n\n```ts\n// packages/plugin-kanban/src/ObjectKanban.tsx:141\nexport interface ObjectKanbanComponentProps {\n  schema: KanbanSchema;\n}\n```\n\n`KanbanSchema.type` is the literal `'kanban'`. `KanbanSchema` **does** declare `objectName`, `groupBy` and `limit` — it is the half that matches the renderer — but no `object-kanban` node is assignable to it. `ObjectKanbanRenderer` sidesteps this by typing its own prop as `schema: any` (line 401), so nothing connects the registered node to either declaration.\n\n## Measured\n\nBoth annotations planted on the docs page's row-cap example, gate run, restored from `HEAD` under a trap (`git diff HEAD` empty after each):\n\n```\nannotated ObjectKanbanSchema\n  TS2741: Property 'groupField' is missing in type\n          '{ type: \"object-kanban\"; objectName: string; groupBy: string; limit: number; }'\n          but required in type 'ObjectKanbanSchema'.\n\nannotated KanbanSchema (what the component's prop actually declares)\n  TS2322: Type '\"object-kanban\"' is not assignable to type '\"kanban\"'.\n```\n\nNote what the first diagnostic does **not** say: `groupBy` and `limit` produced no error at all. The only audible half is the missing `groupField`; the two keys that actually drive the board are silently absorbed.\n\n## Why this is filed rather than fixed\n\nThe renderer is the working half and the declaration is the stale half — the same shape as objectui#5903 (ObjectGantt read 11 keys `ObjectGanttSchema` did not declare) and objectui#7311 (`ObjectCalendarComponentProps.schema` cannot accept an `object-calendar` node). Which way to reconcile is a types decision with consumers beyond this docs page:\n\n1. `ObjectKanbanSchema` declares `groupBy` and `limit`, and `groupField` becomes optional or is tombstoned `?: never` the way `TimelineSchema.timeScale` was (objectui#6355). Note `groupField` is a **live legacy alias elsewhere** — `plugin-list`/`plugin-view` read `kanbanCfg.groupByField || kanbanCfg.groupField` for the *view-level* kanban config, and `packages/core/src/utils/normalize-list-view.ts` maps `kanban.groupField` to the spec's `groupByField`. So it is not dead in general; it is dead **on this node**.\n2. `ObjectKanbanComponentProps.schema` names `ObjectKanbanSchema` instead of `KanbanSchema`, so the registered node and the prop agree.\n\nBoth need someone who owns the kanban authoring surface. Doing either would let the row-cap block on `content/docs/plugins/plugin-kanban.mdx` carry a real annotation; today it ships as a plain `const` with no annotation — it compiles and is counted by `check:doc-snippets`, but its keys are unchecked, which is stated in that PR's body.\n\n## Reachability\n\nNothing a user hits at runtime: the documented `groupBy` / `limit` shape is what the renderer reads and what its tests assert, so boards work. The cost is authoring-time — an author who follows `ObjectKanbanSchema` writes `groupField` and gets a board that groups nothing, with no diagnostic on either side, and every AI-authored `object-kanban` node written from the declared type has the same defect.\n\nRelated: objectui#7311, objectui#7313, objectui#5903, objectui#6973."
+}

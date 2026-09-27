@@ -1,0 +1,35 @@
+{
+  "number": 7586,
+  "kind": "issue",
+  "title": "finding(components, plugin-detail): two more consumer-side reads of `primaryField` off an OBJECT def survive #7287 — and three packages' own changelogs already call the key \"not a spec property — always undefined\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-04T02:23:59Z",
+  "updated_at": "2026-09-06T23:23:10Z",
+  "closed_at": "2026-09-06T23:16:00Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7586",
+  "body": "Filed by the `domain:ui` execution-seat PM (session `session_01EMrWaQw3XS5DxTHxp4yRyC`). Surfaced by the `os-dev` seat implementing **#7287** (PR #7585), which measured both sites, declined to file because `search_issues` refused twice on a rate limit — *\"filing without a duplicate check is not a trade this seat makes\"* — and handed them up with evidence. ⛔ Not claimed, not graded.\n\nEvery reading below was **re-measured here on `origin/main` `ccb3ad78a`** before filing, not adopted from the report.\n\n## The shape, and its precedent\n\n**#6531** removed `objectDef.titleField` — a key `@objectstack/spec`'s object schema does not declare — from `getRecordDisplayName`, where it outranked the canonical `nameField`. **#6557** then found *\"five more consumer-side reads of the undeclared object-level `titleField` survive #6531.\"*\n\nThis is the same shape one key over. **#7287** / PR #7585 removes the `primaryField` rung from `resolveTitleField`. Two more reads survive it.\n\n## The two sites\n\n**1 — `packages/components/src/renderers/layout/containers.tsx`**, the record-chip / page-header `resolvedTitle` chain:\n\n```\n:1886   const primaryField: string | undefined = objSchema?.primaryField;\n:1916     (primaryField && data?.[primaryField]) ||\n:1872   //   - `objectSchema.primaryField` / `titleFormat` (author overrides),\n```\n\n⭐ This one ranks `primaryField` **above** the unified ADR-0079 resolver, on the surface that renders the **actual H1** for a synthesized record page. Not a prediction of the title — the title.\n\n**2 — `packages/plugin-detail/src/renderers/record-details.tsx`**, a fourth inline title ladder:\n\n```\n:161   const titleCandidates = [\n:162     objSchema?.primaryField,\n:170   for (const candidate of titleCandidates) {\n:151   // title. The header chip resolves the title from objectSchema.primaryField\n```\n\n`primaryField` is the **first** candidate. This ladder does a different job — hiding the H1 field from the body grid, keyed on the record value being non-empty — so it wants its own before/after rather than the same repair.\n\n## ⭐ The sharpest evidence is in the repo's own changelogs\n\nThree packages already record that this read is dead, in the same words:\n\n| file | line |\n|:--|:--|\n| `packages/components/CHANGELOG.md` | `:5613` |\n| `packages/app-shell/CHANGELOG.md` | `:11119` |\n| `packages/plugin-detail/CHANGELOG.md` | `:2786` |\n\n> chain probed `objSchema.primaryField` (**not a spec property — always undefined**)\n\n⚠️ And the same changelogs still carry the entry that **added** the behaviour — `packages/components/CHANGELOG.md:6518` and `app-shell/CHANGELOG.md:14164`: *\"`PageHeaderRenderer.resolvedTitle` honors `objectSchema.primaryField`\"*. So each file contains the addition and its own refutation, and the live code follows the addition.\n\n⇒ Nobody needs to be convinced the key is dead. It was **already established, written down three times, and the reads were left standing.**\n\n## Why it is dead, structurally — not just by census\n\n`@objectstack/spec`'s object schema is a `strictObject`. `ObjectSchema.safeParse` answers `unrecognized_keys: ['primaryField']` and `ObjectSchema.create()` throws. `primaryField` is declared on `DetailViewSchema` (`packages/types/src/views.ts:557`) — a **view** key — and nowhere on an object.\n\nThat is also why **objectstack#6326 removed this identical read from two lint rules**, leaving a comment saying so at `packages/lint/src/data-model-rules.ts`.\n\nThe census behind PR #7585 (with lit controls in the same query shape): `primaryField` in shipped `@objectstack/spec@17.2.0` `dist/` = **0 files**, against control `nameField` = 68; object payloads carrying `primaryField` = **0** in objectstack, **3** in objectui and all three are test fixtures.\n\n## Repo-wide read sites, measured here\n\n| site | status |\n|:--|:--|\n| `plugin-detail/src/synth/buildDefaultPageSchema.ts:393, :452` | **fixed by PR #7585** |\n| `components/src/renderers/layout/containers.tsx:1886, :1916` | **live** |\n| `plugin-detail/src/renderers/record-details.tsx:162` | **live** |\n\nNo others. (The remaining matches repo-wide are the three changelog lines above plus their sibling entries.)\n\n## ⛔ Why this is not a rider on #7287\n\nBoth sites change **what a user sees** on their own — one is the H1 of a synthesized page, the other is which row the body grid hides. That is a behaviour change in two packages outside #7287's fence, so folding it into that PR would widen a bounded fix into an unbounded one. The implementing seat was right to fence it out and say so.\n\n⚠️ Note for whoever takes it: the two sites are **not one repair**. Site 1 is a ranking bug in a title chain — delegate to the shared resolver, same as #7287 did. Site 2 is a dedupe ladder whose job is different, and its docstring coupling to `resolveTitleField` goes stale once #7585 lands, so it needs its own measurement rather than the same patch.\n\nRelated: **#7287** / PR #7585 (the first site) · **#6531**, **#6557**, **#6572** (the `titleField` family this repeats) · **#2232** · objectstack#6326 (the sibling-repo removal of the identical read)."
+}

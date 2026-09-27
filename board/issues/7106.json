@@ -1,0 +1,35 @@
+{
+  "number": 7106,
+  "kind": "issue",
+  "title": "finding(docs): `alert-dialog.mdx` and `sheet.mdx` publish three node slots as REQUIRED that the shipped types declare OPTIONAL — the rows #7073 corrected on the third menu page",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T00:06:08Z",
+  "updated_at": "2026-09-06T04:40:03Z",
+  "closed_at": "2026-09-06T04:39:21Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7106",
+  "body": "Found while implementing #7082, which corrects the *type name* on these same rows. Filed rather than folded in: requiredness is a different defect class from the type name, it is the class #7073 already owns, and #7082's fence is the type name only.\n\nMeasured on `origin/main` `2c3cd1b7572a8aca2958da3551c990164186c9c1`.\n\n## The rows\n\n| page row | shipped declaration | mirror |\n| --- | --- | --- |\n| `content/docs/components/overlay/alert-dialog.mdx:30` — `trigger:` **required** | `trigger?: SchemaNode` — optional, `packages/types/src/overlay.ts:91` | `.optional()`, `zod/overlay.zod.ts:46` |\n| `content/docs/components/overlay/sheet.mdx:26` — `trigger:` **required** | `trigger?: SchemaNode` — optional, `overlay.ts:150` | `.optional()`, `zod/overlay.zod.ts:65` |\n| `content/docs/components/overlay/sheet.mdx:29` — `content:` **required** | `content?: SchemaNode \\| SchemaNode[]` — optional, `overlay.ts:146` | `.optional()`, `zod/overlay.zod.ts:64` |\n\nAll three surfaces agree with each other that these are optional; only the pages say otherwise. Both mirrors are `.optional()`, so a document omitting any of the three **parses green today** — the pages refuse what the platform accepts.\n\n## Why this is exactly #7073's class\n\n#7073 corrected the same defect on `context-menu.mdx`, and its changeset states the rule it applied:\n\n&gt; `trigger: ComponentSchema` (required) | `trigger?: SchemaNode | SchemaNode[]` — optional at `overlay.ts:486`, `.optional()` at `zod/overlay.zod.ts:191`. […] a trigger-less document is legal today\n\nThat card was fenced to two pages (`dropdown-menu`, `context-menu`), so the three rows above were never in scope for it. `ContextMenuSchema.trigger` is now the corrected control: declared optional, published optional. These three are the remainder.\n\n## Why nothing red covers it\n\nAll three rows sit in `plaintext` fences. `check:doc-snippets` compiles `ts`/`tsx`/`typescript` only and `check:doc-types` reads only the `type` string literals, so no gate parses requiredness on these pages (#5250 / #5867).\n\nThey are, however, **pinned as divergences** by `packages/types/src/__tests__/overlay-node-slot-doc-types-7082.test.ts` (landing with #7082), in the `requiredness divergences left to the objectui#7073 class` block: it asserts the declaration is optional and the page still says required, alongside the `ContextMenuSchema` control. So the state is machine-recorded, and whoever fixes either side will see that file go red and be pointed here. Fixing this card means flipping those three assertions with the pages.\n\n## Fix\n\nMechanical, with a fixed correct form and no judgement call: spell all three `trigger?:` / `content?:`. No declaration changes; the declarations are already right.\n\n⚠️ One caveat for whoever takes it: on `alert-dialog.mdx` the surrounding Schema block is diverged far more deeply than requiredness — see #7104, which may want to rewrite that whole fence rather than flip one `?`. `sheet.mdx` has no such complication.\n\nRefs: #7082 · #7073 · #7104 · #5250 · #5867."
+}

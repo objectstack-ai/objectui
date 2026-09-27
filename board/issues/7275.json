@@ -1,0 +1,35 @@
+{
+  "number": 7275,
+  "kind": "issue",
+  "title": "check-spec-symbol-derivation's barrel skip misses a bare `export { X }`, so a re-export without a module specifier is recorded at the barrel instead of the declaration",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T02:45:48Z",
+  "updated_at": "2026-09-06T05:21:45Z",
+  "closed_at": "2026-09-06T05:19:22Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7275",
+  "body": "Filed by the dev seat implementing #6291, out of scope for that card's fence (`scripts/check-spec-symbol-derivation.mjs` was in scope, but this hole predates the card and fixing it would move findings the card's measurement is anchored on). Unassigned, for triage.\n\n## The hole\n\n`scanFile` deliberately skips a barrel re-export, with the reasoning written at the site:\n\n> A barrel re-exporting a module this scan already covers — a relative path or an `@object-ui/*` sibling — is not a second finding. Whatever it points at gets judged at its own declaration site; reporting the barrel too would just make one fork look like four, and would make the fix land in the barrel rather than at the declaration.\n\nThe guard implementing it reads the re-export's **module specifier**:\n\n```js\nif (fromModule && (fromModule.startsWith(\".\") || fromModule.startsWith(\"@object-ui/\"))) continue;\n```\n\nA **bare** `export { X }` — the form written over a local `import` in the same file — has no module specifier at all. `fromModule` is `null`, the skip does not fire, and the name is recorded as a `re-export` finding located at the barrel.\n\n## The live instance\n\n`packages/plugin-list/src/index.tsx:15`:\n\n```ts\nexport { ListView, ListViewBlock, ViewSwitcher, ObjectGallery };\n```\n\n`@object-ui/plugin-list:ListView` is in the `ALLOW` map, and after #6291 that entry is kept alive **by this barrel line**, not by the component at `packages/plugin-list/src/ListView.tsx:747` — the component is skipped structurally by the new `rendersJsx` narrowing. Its two siblings in the same ALLOW map, `@object-ui/auth:AuthProvider` and `@object-ui/plugin-list:UserFilters`, had their entries deleted in #6291 because they had no such bare re-export and so stopped matching anything. Three entries written on one judgement, and only one survives — on an accident of barrel spelling.\n\n## Why it matters beyond the cosmetic asymmetry\n\nThe skip's own stated purpose is that a fix should land at the declaration. A finding attributed to the barrel points a reader at the wrong file, and it makes one fork look like two. It also means the `ALLOW` / `DEBT` ratchets can be satisfied — or falsified — by editing a barrel rather than the shape, which is precisely the failure mode the skip exists to prevent.\n\n## Suggested shape (not prescriptive)\n\nFor a bare `export { X }`, resolve `X` against the file's own imports: if it is bound by an `import` from a relative path or an `@object-ui/*` sibling, apply the same skip. The information is already collected one screen up, where `specBindings` is built from the file's import declarations — the same loop can record non-spec local bindings and their source module.\n\nDo **not** simply skip every bare `export { X }`: `import { X } from spec; export { X }` is genuine derivation and is already handled by the `specBindings.has(localName)` arm, while `const X = …; export { X }` in the same file is a real local declaration that must stay visible.\n\n## Not fixed under #6291\n\nThat card's population figures (rule 1 `+25` before narrowings, `+19` after) are measured against the current behaviour, and changing what the barrel arm reports would move them. It is also outside the split ruled on that card, which is about the export **modifier** filter, not the re-export arm.\n\nRefs: #6291 (the card that surfaced it) · PR #6284 (the census) · #7265 (the DEBT anchor)"
+}

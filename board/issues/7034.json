@@ -1,0 +1,35 @@
+{
+  "number": 7034,
+  "kind": "issue",
+  "title": "finding(gate): the version-claim ledger's ci-cd-pipeline Node 22.x reason states 28 mentions of ci.yml in its pin test; the file holds 29",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T14:20:05Z",
+  "updated_at": "2026-09-06T04:27:48Z",
+  "closed_at": "2026-09-06T04:17:16Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7034",
+  "body": "Found while implementing #6447 (giving the two `pnpm 10.x` ledger entries a machine-checked anchor). Deliberately **not** fixed there: #6447's dispatch drew an explicit boundary around #6400's and #6409's landed `KNOWN_CLAIMS` entries, and this count lives inside one of them. Filing so the number is recorded rather than carried.\n\n## The entry\n\n`scripts/__tests__/doc-version-claims.test.ts`, `KNOWN_CLAIMS` — the entry keyed `content/docs/guide/ci-cd-pipeline.md :: Node 22.x` (located by key, not by line: this file moves every few days). Its `why` ends:\n\n> …it credited this page's own pin test with covering the line - `ci-cd-pipeline-doc.test.ts` contains no node-version and no 22 at all **(control, same file: 28 mentions of `ci.yml`)**. Nothing re-measured either half, which is the whole reason the count moved into a run.\n\nThe identical control also appears once in the file's docblock, in the bullet recording what #6400 found.\n\n## Measured on `e85231bd4`\n\n```\n$ grep -o 'ci\\.yml' scripts/__tests__/ci-cd-pipeline-doc.test.ts | wc -l\n29\n```\n\nSo the reason says **28**; the file holds **29**.\n\nControls, same sweep, same file — both directions, because a count is exactly the kind of reading that can be wrong by being empty:\n\n```\n$ grep -o 'DOCUMENTATION_EXEMPT' scripts/__tests__/ci-cd-pipeline-doc.test.ts | wc -l\n6          # must be non-zero, and is: the grep and the path are both real\n$ grep -o 'node-version' scripts/__tests__/ci-cd-pipeline-doc.test.ts | wc -l\n0          # must be zero, and is: the claim the control was attached to still holds\n```\n\nThe second control is the important one: the CLAIM the sentence makes — that this page's pin test does not cover the `node-version` line — is still exactly true. What has drifted is the parenthetical number offered as evidence that the grep was real.\n\n## Why this is worth a card and not a shrug\n\nIt is the same class as #6400 and #6447 and the third site of it in the same file: a count in a `why` string is a measurement frozen at the moment someone typed it, and nothing re-takes it. This one is smaller than either — it is a CONTROL for a historical reading, not the anchor of a live claim — but the ledger's whole subject is frozen counts, and a wrong one inside it teaches the next reader that the numbers here are approximate.\n\nNote the asymmetry that makes it worth writing down: this reading drifted **upward by one** while the sentence around it stayed true. Nothing goes red. A reviewer who re-runs the command to check the reason finds a number that does not match and has no way to tell whether the claim rotted or only the evidence did.\n\n## Dispositions\n\n- **A** — delete the parenthetical. The control did its job when the measurement was taken; a historical reading does not need a live control carried beside it forever. Cheapest, and consistent with what #6447 did to the two counts it removed.\n- **B** — attribute it, the way #6447 attributed the neighbouring docblock bullet: state the number AS OF #6400's cut, so it reads as history rather than as a reading of today. Keeps the evidence that the sweep was real, costs one clause.\n- **C** — re-take it in a run. Almost certainly wrong here: it would mean a derivation whose only job is to count occurrences of a filename inside a sibling test, guarding a sentence that is already true for a different reason.\n\n**B** is the recommendation. #6447 established the policy the file now states in its own header — a count describing the CURRENT tree is removed and replaced by the run that re-takes it, while a count recording what a change MEASURED when it landed is kept and attributed to that change — and this count is squarely of the second kind. Applying the policy the file already documents is a smaller change than deciding a new one.\n\nSuggested triage: `tooling` / `domain:devx`, type Task. Left unassigned and unlabelled for the PM to dispose of.\n\nRelated: #6447 (the `pnpm 10.x` entries, same file, same class, manifest anchor), #6400 (the `Node 22.x` entries, same file, whose entry this count sits in).\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

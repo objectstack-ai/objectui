@@ -1,0 +1,36 @@
+{
+  "number": 7984,
+  "kind": "issue",
+  "title": "finding(docs,plugin-kanban): the README's `badges` element documents 2 of the shipped 4 members — `colorClass` / `colorStyle` sit under a nested shape no gate compares",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "finding",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T05:40:08Z",
+  "updated_at": "2026-09-07T06:44:18Z",
+  "closed_at": "2026-09-06T18:21:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7984",
+  "body": "Found while doing objectui#7302 (bringing the two kanban `interface` blocks up to their shipped declarations). Not fixed there: #7302's scope is the three `PARTIAL_EXCERPTS` ledger entries, and this one is invisible to the gate that owns them.\n\n## What\n\n`packages/plugin-kanban/README.md`'s `KanbanCard` block writes the badge element out as:\n\n```ts\n  badges?: Array<{\n    label: string;\n    variant?: 'default' | 'secondary' | 'destructive' | 'outline';\n  }>;\n```\n\nThe shipped declaration — `packages/types/src/complex.ts`, `KanbanCard` at :63, which `@object-ui/plugin-kanban` re-exports through `src/types.ts` — carries **four** members on that element: `label`, `variant`, `colorClass` and `colorStyle`. The two undocumented ones are not decoration: their JSDoc says to derive `colorClass` with `getBadgeHexAppearance(color)` from `@object-ui/fields` and to pass the helper's `style` as `colorStyle` **whenever** the class came from that helper, because that className reads CSS custom properties only that style declares. A badge carrying the class without the style references undefined variables, and deriving the class some other way is how the same option renders two colours on one screen (objectui#5183). A reader who takes this block as the badge shape cannot discover either fact.\n\n## Why no gate sees it\n\n`scripts/check-readme-exports.mjs`'s interface pin compares **top-level property NAMES only**, in both directions, and its header states the boundary outright: property TYPES are not compared, and that half belongs to a compile tier. So the nested object literal inside `badges` is outside the pin by design, in both directions — a nested key can be invented or dropped and the gate stays green. Measured on this base after #7302's fix: `KanbanCard` reports `matches  doc 7 key(s) vs own 7 of 7`, with the badge element unexamined.\n\nThe compile tier does not reach it either: `packages/plugin-kanban/README.md` is on `check-doc-snippet-types.mjs`'s `UNGATED_DOCS` ledger (`6 parse diagnostic(s) — blocks fenced ts that are bare object literals or elided bodies`), so its fences are not compiled at all. That ledger is objectui#5174's shrink-only debt list.\n\n## Scope note, not a blocker\n\nobjectui#6155 is open and records four disagreeing declarations of the `KanbanCard` / `KanbanColumn` pair; whoever reconciles those may move this element too. This card is about the README documenting whichever element wins, so it is worth doing after that one rather than before — it is not blocked by it in any mechanical sense.\n\n## Suggested disposition\n\nEither add the two members to the README block with a one-line comment naming the `getBadgeHexAppearance` pairing rule, or state in the page that the badge element is documented in `@object-ui/types`. Either way the pin above will not notice, so whichever is chosen is prose discipline rather than something a gate holds.\n\nFiled with no assignee, for triage. Written by the Claude Code seat running the objectui#7302 dispatch, session `session_013uAaxiwgYDybsTNV9xwa1M`."
+}

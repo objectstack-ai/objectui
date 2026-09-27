@@ -450,8 +450,8 @@ value the cell shows — the label this list already resolved, the formula resul
 the server hydrated — so the affordance stays and orders by that.
 Passing `data` directly keeps the historical client-side slicing, and typing
 in the opt-in filter box temporarily falls back to the full-fetch client
-pipeline (the contains-filter sweeps every field, which no generic server
-filter can express).
+pipeline (the contains-filter sweeps the columns the list shows, which no
+generic server filter can express).
 
 A `password` / `secret` column draws `••••••`, and the list flags it
 `masked` on the table it renders (objectui#10657), so the table never copies it
@@ -463,9 +463,18 @@ definition is still loading, or after its read failed, the list cannot tell
 which columns are masked, so it flags every one and draws every cell it would
 draw from that definition as the mask, never as text; it keeps doing so when
 the read failed (objectui#10657). A column with a `cell` of your own draws what
-your `cell` returns. Not covered: the opt-in filter box matches against every
-field of a row, and the `list` card's sort buttons sort by any column, masked
-ones included.
+your `cell` returns.
+
+The list's own filter box and sort read the same flag (objectui#10728). The
+opt-in filter box matches a term against the columns the list shows that are
+not masked, so a masked value, and a field no column shows, never keeps a row.
+A masked column gets no sort button on a `list` card, a sort by it is refused
+(including one the embedded table asks for, which a paged list would send as
+`$orderby`), and a sort set on a column before it was flagged stops ordering
+the rows. While the definition is loading, or after its read failed, every
+column is flagged: the filter box keeps no row and no sort button is offered.
+Not covered: an authored `sort` naming a masked field is still sent to the
+server as `$orderby` on a paged list.
 
 A list that authors `columns` sends a **`$select` projection** on its
 auto-fetch (`objectui#10186`), the one `ListView` and `ObjectGrid` already send

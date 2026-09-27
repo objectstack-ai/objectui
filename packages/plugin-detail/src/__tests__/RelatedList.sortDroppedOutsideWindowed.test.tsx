@@ -12,8 +12,9 @@
  *
  * `$orderby` is assembled inside `RelatedList`'s WINDOWED branch only, and
  * `windowed` is false whenever `filterActive` is true: the built-in
- * contains-filter is a client-side sweep over every field, inexpressible as a
- * server filter, so the component falls back to fetching the whole collection.
+ * contains-filter is a client-side sweep over the list's unmasked columns
+ * (objectui#10728), inexpressible as a server filter, so the component falls
+ * back to fetching the whole collection.
  * On that path the rows are returned in the order the server chose (primary
  * key), because client-side sorting only runs when the user has clicked a
  * column (`sortField`), and a declared `sort` never sets `sortField`.

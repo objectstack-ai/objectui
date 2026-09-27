@@ -72,9 +72,15 @@ function buildComponentScope(dataSource: unknown): Record<string, React.Componen
   // Some data blocks read their dataSource from props (e.g. `list-view`), others
   // from the SchemaRenderer context (e.g. `object-form`). We inject it as a prop
   // here AND wrap the page in a SchemaRendererProvider below, so both kinds work.
-  for (const cfg of ComponentRegistry.getPublicConfigs() as Array<{ type: string; isContainer?: boolean }>) {
+  for (const cfg of ComponentRegistry.getPublicConfigs() as Array<{ type: string; isContainer?: boolean; tier?: string }>) {
     const tag = cfg.type;
-    if (!tag || cfg.isContainer) continue;
+    // The html tier's intrinsic elements ride `getPublicConfigs()` stamped
+    // `tier: 'html'` so the published manifest can whitelist them for
+    // `kind:'html'` pages (objectui#10735). They are NOT curated blocks and
+    // they are DOM intrinsics in real JSX already — a lowercase `<p>` on this
+    // tier is React's own — so injecting `P` / `A` / `Img` wrappers would widen
+    // this scope for nothing. Skipped by the stamp, not by name.
+    if (!tag || cfg.isContainer || cfg.tier === 'html') continue;
     const name = toPascal(tag);
     if (seen.has(name)) continue;
     seen.add(name);

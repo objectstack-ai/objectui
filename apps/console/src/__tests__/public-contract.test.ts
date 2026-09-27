@@ -525,8 +525,11 @@ const specCarried = (type: string): boolean =>
  *
  * ⚠️ What an entry here COSTS, stated once so no entry has to re-argue it, and
  * corrected because objectui#8499 first shipped it wrong. Curating a ledgered
- * container widens the AI-authoring vocabulary, `sdui.manifest.json` and the
- * generated intrinsics, and turns the census pin in
+ * container widens the curated AI-authoring vocabulary (and, for a container
+ * the html tier does not already declare through `HTML_TIER_INTRINSICS`,
+ * `sdui.manifest.json` and the generated intrinsics too — the seven sectioning
+ * tags are already there as html-tier entries since objectui#10735), and turns
+ * the census pin in
  * `renderers/__tests__/container-declaration-census.test.tsx` red BY DESIGN — a
  * deliberate re-opening, which is the whole point of pinning it. It does ⛔ NOT
  * remove the tag from any `kind:'react'` page. `renderers/layout/react-page.tsx`
@@ -552,10 +555,14 @@ const SECTIONING_TAG_UNRULED =
   '`SemanticElementSchema`, which is what first brought already-declared containers into the ' +
   'population this file derives — none of them is newly a container, and none is newly ' +
   'authorable. What curating one WOULD move, measured rather than reasoned: it widens the ' +
-  'AI-authoring vocabulary, `sdui.manifest.json` and the generated intrinsics, and it turns the ' +
+  'curated AI-authoring vocabulary and it turns the ' +
   '"none of the eight is in the curated public contract" pin in ' +
   '`container-declaration-census.test.tsx` RED BY DESIGN — which is precisely what ' +
-  '`semantic.tsx` means by re-opening the question THERE. ⛔ It does NOT delete the tag from ' +
+  '`semantic.tsx` means by re-opening the question THERE. (Since objectui#10735 the seven are ' +
+  'ALREADY in `sdui.manifest.json` and the generated intrinsics, as html-tier entries stamped ' +
+  '`tier: \'html\'` from `HTML_TIER_INTRINSICS`, so a `kind:\'html\'` page may author them; ' +
+  'curating one would move it onto the curated tier, unstamped — a different fact from ' +
+  'declaring it.) ⛔ It does NOT delete the tag from ' +
   'any react page, and an earlier revision of this entry said it did: `react-page.tsx` skips ' +
   'EVERY container config (`if (!tag || cfg.isContainer) continue;`) and these seven already ' +
   'carry `isContainer: true`, so a promoted config is skipped on exactly the same line an ' +

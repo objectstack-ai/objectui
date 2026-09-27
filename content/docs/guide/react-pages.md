@@ -93,7 +93,10 @@ derived by splitting the registry type on `-`, `_` and `:` and PascalCasing each
 part: `object-grid` → `<ObjectGrid>`, `record:details` → `<RecordDetails>`. A
 `kind:'html'` page writes the registry type itself instead — `<object-grid>`,
 `<record:details>`. Blocks registered lazily are in scope too — you never wait
-on a plugin chunk to reference one.
+on a plugin chunk to reference one. The intrinsic HTML elements the `html` tier
+declares (`h1`, `p`, `a`, the sectioning tags, … — `HTML_TIER_INTRINSICS`, carried
+in `sdui.manifest.json` as `tier: 'html'`) are **not** injected here: on this tier
+a lowercase `<p>` is React's own element, and no `<P>` wrapper exists.
 
 **The authored contract** is the much smaller set that has *published props* —
 checked by `os validate` and generated into the reference an author, human or AI,

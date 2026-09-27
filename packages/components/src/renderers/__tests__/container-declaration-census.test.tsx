@@ -219,17 +219,33 @@ describe('the premise that made this change safe on the SECOND consumer (objectu
     // Pinned rather than left as a comment so that promoting one of these into
     // `PUBLIC_BLOCKS` re-opens the question HERE, instead of silently dropping a
     // tag from every react page.
-    const publicTags = new Set(
-      (ComponentRegistry.getPublicConfigs() as Array<{ type: string }>).map((c) => c.type),
-    );
+    //
+    // objectui#10735 re-opened it, deliberately, and answered it: the seven
+    // sectioning tags now ride `getPublicConfigs()` — the published manifest
+    // must whitelist them for `kind:'html'` pages — but as HTML-TIER entries,
+    // stamped `tier: 'html'`, never as curated blocks. `react-page.tsx` skips
+    // them on that stamp as well as on the container flag, so the premise this
+    // pin guards ("no injected wrapper exists for the flag to delete") holds,
+    // and the CURATED contract is read here as the unstamped entries.
+    const contract = ComponentRegistry.getPublicConfigs() as Array<{ type: string; tier?: string }>;
+    const curatedTags = new Set(contract.filter((c) => c.tier !== 'html').map((c) => c.type));
+    const htmlTierTags = new Set(contract.filter((c) => c.tier === 'html').map((c) => c.type));
 
     // Direction control first. Without it, "none of the eight is public" is
     // indistinguishable from "the public tier is empty / this reader broke",
     // and the assertion below would be green for nothing.
-    expect(publicTags.size).toBeGreaterThan(0);
-    expect(publicTags.has('flex')).toBe(true);
-    expect(publicTags.has('button')).toBe(true);
+    expect(curatedTags.size).toBeGreaterThan(0);
+    expect(curatedTags.has('flex')).toBe(true);
+    expect(curatedTags.has('button')).toBe(true);
 
-    expect(DECLARED_HERE.filter((t) => publicTags.has(t))).toEqual([]);
+    expect(DECLARED_HERE.filter((t) => curatedTags.has(t))).toEqual([]);
+
+    // The seven sectioning tags are declared for the html tier and nowhere
+    // else; `aspect-ratio` is on neither roster (refused on stated merits,
+    // objectui#8628).
+    expect(DECLARED_HERE.filter((t) => htmlTierTags.has(t)).sort()).toEqual(
+      ['article', 'aside', 'footer', 'header', 'main', 'nav', 'section'],
+    );
+    expect(htmlTierTags.has('aspect-ratio')).toBe(false);
   });
 });

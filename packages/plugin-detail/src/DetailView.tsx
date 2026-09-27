@@ -978,7 +978,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
       items.push({
         name: 'sys_delete',
         label: t('detail.delete'),
-        icon: 'trash-2',
+        icon: 'trash',
         type: 'script',
         variant: 'destructive',
         tags: ['separator-before'],

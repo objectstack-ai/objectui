@@ -314,13 +314,23 @@ describe('schema-catalog — no SVG-hosted renderer leaks an authored prop to th
     // `SpinnerSchema.size` is an ENUM consumed through `sizeClasses`. Spreading
     // it handed the string to lucide's numeric `size` prop, which is how
     // `width="lg" height="lg"` reached every sized spinner in the catalog.
-    // `class` carries lucide's own two classes AND both of this renderer's —
+    // `class` carries lucide's own classes AND both of this renderer's —
     // `animate-spin` and the size class. Before this slice it carried ONLY
     // lucide's: the spread's `className` overrode the computed one, so a
     // `ui:spinner` rendered through `SchemaRenderer` did not spin.
+    //
+    // `lucide-loader-2` is lucide's own RETIRED-ALIAS class, not a leak. It
+    // appeared when `createLucideIcon` was reshaped to take an icon-data object
+    // carrying `aliases` (lucide-react 1.43.0; absent in 1.31.0, where icon
+    // modules have no `aliases` field at all) and it now emits one class per
+    // alias. Measured on the installed artifact: 248 of 1818 icon modules carry
+    // aliases, so any icon with one gains a class here. The assertion stays
+    // EXACT on purpose — this list is what catches an authored prop reaching
+    // the DOM, which is the whole point of objectui#5632; loosening it to a
+    // substring match would retire the check rather than update it.
     expect(attributesOf({ type: 'spinner', size: 'lg' })).toEqual([
       'aria-hidden="true"',
-      'class="lucide lucide-loader-circle animate-spin h-8 w-8"',
+      'class="lucide lucide-loader-circle lucide-loader-2 animate-spin h-8 w-8"',
       'data-obj-type="spinner"',
       'fill="none"',
       'height="24"',

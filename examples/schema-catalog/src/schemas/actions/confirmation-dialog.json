@@ -35,7 +35,7 @@
           "type": "button",
           "label": "Yes, Delete",
           "variant": "destructive",
-          "icon": "trash-2"
+          "icon": "trash"
         }
       ]
     }

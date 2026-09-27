@@ -180,25 +180,33 @@ function recordIconName(key: string): string | undefined {
 }
 
 /**
- * The two `lucide-*` class names lucide's own `createLucideIcon` puts on every
- * glyph, rebuilt here because they are added by `createLucideIcon`, which builds the
- * per-icon components this seam no longer loads. `Icon` — the component every
- * lucide glyph ultimately renders, and the one used below — contributes only
- * the bare `lucide` class.
+ * The per-icon `lucide-*` class names, rebuilt here because lucide derives them
+ * from the icon's own module, which this seam does not have on the first frame.
+ * `Icon` — the component every lucide glyph ultimately renders, and the one
+ * used below — contributes only the bare `lucide` class when it is handed a
+ * bare `iconNode`.
  *
  * ⚠️ Without this, `svg.lucide-house` would stop matching anywhere in the
  * product and in 194 lines of this repo's own assertions, and it would stop
  * matching SILENTLY: the glyph still draws, so nothing looks broken until a
  * stylesheet or a query that selects by icon identity quietly matches nothing.
  *
- * Both spellings are derived the way lucide derives them —
- * `lucide-${toKebabCase(toPascalCase(kebab))}` and `lucide-${kebab}` — which is
- * one class for most icons and two for the 95 whose PascalCase key packs digits
- * (`Trash2` gives `lucide-trash2 lucide-trash-2`). The PascalCase key is
- * already in hand here, so only the kebab-casing of it is re-implemented;
- * `resolve-icon-classnames.test.ts` pins the result against the record's own
- * components over the WHOLE vocabulary, so a lucide change to either derivation
- * fails rather than drifts.
+ * Two spellings are emitted: `lucide-${kebab}`, lucide's CANONICAL class for
+ * the icon, and `lucide-${toKebabCase(toPascalCase(kebab))}`, the class lucide
+ * derived from the PascalCase key up to 1.35.0 — one class for most icons and
+ * two for the keys that pack digits or a leading initial (`ArrowDown01` also
+ * gives `lucide-arrow-down01`). The PascalCase key is already in hand here, so
+ * only the kebab-casing of it is re-implemented.
+ *
+ * ⚠️ That is NOT the set lucide-react 1.43.0 puts on its own component, which
+ * no longer carries the key-derived class and carries one class per DECLARED
+ * ALIAS instead (`house` also renders `lucide-home`). The alias list
+ * exists only inside each lazily loaded icon module, and the maintainer's
+ * ruling C on objectui#8941 (comment 5750512894, 「8941 C」) accepted that the
+ * seam reproduces the canonical class and not the aliases, rather than carry
+ * every alias in the eager static name list. `resolve-icon-lazy-9251.test.tsx`
+ * pins exactly that much — `lucide` plus the canonical class — against the
+ * record's own components over the WHOLE vocabulary.
  */
 function lucideClassNames(recordKey: string, kebab: string, className?: string): string {
   const fromKey = `lucide-${recordKey.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()}`;
@@ -208,8 +216,18 @@ function lucideClassNames(recordKey: string, kebab: string, className?: string):
     .trim();
 }
 
-/** lucide's own path-data shape, taken from the component that consumes it. */
-type IconNode = React.ComponentProps<typeof Icon>['iconNode'];
+/**
+ * lucide's own path-data shape, taken from the component that consumes it.
+ *
+ * ⛔ `NonNullable` is load-bearing, not decoration. lucide 1.43.0 split `Icon`'s
+ * props into a UNION — one arm takes `iconNode` and forbids `icon`, the other
+ * takes `icon` and forbids `iconNode` — and indexing a union yields the union
+ * of the members, so this alias silently picked up the second arm's
+ * `iconNode?: undefined`. That widened {@link EMPTY_ICON_NODE} to include
+ * `undefined`, which is the one value NEITHER arm accepts, so the placeholder
+ * written to guarantee a box stopped type-checking as a box.
+ */
+type IconNode = NonNullable<React.ComponentProps<typeof Icon>['iconNode']>;
 
 /**
  * What the glyph holds before its module arrives: the same `<svg>` lucide
@@ -258,8 +276,15 @@ function lazyIconComponent(recordKey: string, kebab: string): LucideIcon {
       // better answer than a thrown render.
       if (!load) return undefined;
       void load()
-        .then((module: { __iconNode?: IconNode }) => {
-          const node = module.__iconNode;
+        .then((module: { __iconNode?: IconNode; __iconData?: { node?: IconNode } }) => {
+          // lucide moved the path data between these two exports: an icon
+          // module used to expose `__iconNode` directly and now wraps it in
+          // `__iconData` alongside `name`, `size` and `aliases`. Both are read
+          // because the failure mode of reading only one is invisible — the
+          // placeholder `<svg>` below is already mounted with the right classes
+          // and the right box, so a glyph that never arrives looks exactly like
+          // one that has not arrived YET. Nothing throws and nothing logs.
+          const node = module.__iconData?.node ?? module.__iconNode;
           if (!node) return;
           loadedIconNodes.set(kebab, node);
           if (live) setIconNode(node);

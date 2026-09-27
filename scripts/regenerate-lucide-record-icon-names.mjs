@@ -26,7 +26,7 @@
  * lucide's OWN export manifest, `lucide-react/dist/esm/icons/index.mjs`, which
  * is the file the `icons` record is built from:
  *
- *     export { default as Trash2 } from './trash-2.mjs';
+ *     export { default as ArrowDown01 } from './arrow-down-0-1.mjs';
  *
  * Each line carries BOTH spellings this repo needs — the PascalCase key the
  * seam looks names up by, and the kebab-case module name `DynamicIcon` loads.
@@ -35,11 +35,13 @@
  * into anybody's bundle.
  *
  * ⚠️ The second spelling is not decoration and ⛔ must not be replaced by a
- * conversion rule at the call site. 95 of the 1,781 keys do not survive one:
- * `Trash2` is `trash-2`, `ArrowDown01` is `arrow-down-0-1`, `Axis3d` is
- * `axis-3d`. A PascalCase-to-kebab regex silently produces `trash2`,
- * `arrow-down01` and `axis3d`, none of which `dynamicIconImports` can load —
- * and the failure surfaces as an icon that renders nothing, with no error.
+ * conversion rule at the call site. The keys that do not survive one —
+ * however many the `carries the kebab spelling lucide ships` pin re-derives on
+ * the installed release — include `ArrowDown01`, which is `arrow-down-0-1`,
+ * and `Axis3d`, which is `axis-3d`. A PascalCase-to-kebab regex silently
+ * produces `arrow-down01` and `axis3d`, neither of which `dynamicIconImports`
+ * can load — and the failure surfaces as an icon that renders nothing, with no
+ * error.
  *
  * ── The three preconditions it refuses to write without ────────────────────
  *
@@ -97,8 +99,18 @@ const EXPORT_LINE = /^export \{ default as ([A-Za-z0-9]+) \} from '\.\/([a-z0-9]
  */
 const CONTROL_PAIR = ['House', 'house'];
 
-/** One of the 95 keys a PascalCase-to-kebab conversion gets wrong. */
-const DIGIT_CONTROL_PAIR = ['Trash2', 'trash-2'];
+/**
+ * One of the keys a PascalCase-to-kebab conversion gets wrong, used as the
+ * second FIRING CONTROL on precondition 1.
+ *
+ * ⛔ It must be a name lucide still carries in the manifest. This control was
+ * `Trash2 -> trash-2`, and that is a spelling lucide RETIRED — so the control
+ * began failing on an upgrade that had broken nothing, reporting a refusal to
+ * write where the derivation was in fact intact. A control that fires on the
+ * library's own vocabulary moving is measuring the wrong thing; it has to fire
+ * only on the PARSE breaking.
+ */
+const DIGIT_CONTROL_PAIR = ['ArrowDown01', 'arrow-down-0-1'];
 
 /**
  * Every `Pascal -> kebab` pair lucide's own export manifest declares, sorted by
@@ -221,8 +233,9 @@ export function renderModule(pairs) {
  * Each entry is \`PascalCaseKey:kebab-module-name\`. The first is what the seam
  * looks a tokenised author-supplied name up by; the second is what
  * \`DynamicIcon\` loads. ⛔ The second is NOT derivable from the first by a
- * regex — 95 of these keys carry digits that lucide splits and a conversion
- * does not (\`Trash2\` is \`trash-2\`, \`ArrowDown01\` is \`arrow-down-0-1\`).
+ * regex — many of these keys carry digits or leading initials that lucide
+ * splits and a conversion does not (\`ArrowDown01\` is \`arrow-down-0-1\`,
+ * \`Axis3d\` is \`axis-3d\`).
  *
  * ⛔ This list is deliberately NOT \`Object.keys(icons)\`. That derivation is the
  * eager record written a second way: indexing the record pulls every icon

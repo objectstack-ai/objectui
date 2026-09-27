@@ -687,7 +687,7 @@ A single-record detail view with grouped fields, actions, and tabs.
   ],
   "actions": [
     { "type": "action", "label": "Edit", "icon": "Pencil", "level": "primary" },
-    { "type": "action", "label": "Delete", "icon": "Trash2", "level": "danger", "actionType": "confirm" }
+    { "type": "action", "label": "Delete", "icon": "trash", "level": "danger", "actionType": "confirm" }
   ],
   "tabs": [
     {

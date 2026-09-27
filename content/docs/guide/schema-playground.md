@@ -190,7 +190,7 @@ A data grid with sortable columns and row actions:
   ],
   "actions": [
     { "label": "Edit", "icon": "pencil", "action": "edit" },
-    { "label": "Delete", "icon": "trash-2", "action": "delete", "variant": "destructive" }
+    { "label": "Delete", "icon": "trash", "action": "delete", "variant": "destructive" }
   ],
   "pagination": {
     "pageSize": 10,

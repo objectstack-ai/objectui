@@ -537,6 +537,92 @@ const isDataObjectValue = (key: string, value: unknown): boolean =>
   !PREDICATE_CHAIN_KEYS.has(key) && isConfigBag(value) && !isExpressionEnvelope(value);
 
 /**
+ * The scope the evaluation memo in {@link SchemaRenderer} evaluates a node's
+ * values against: the ambient host scope, `current_user` aliased to `user`, the
+ * page's bound row as `record` (only when there is one), and page variables as
+ * `page`. Why each root is (and `data` is not) bound is stated where the memo
+ * builds its evaluator from this.
+ *
+ * One function, so the memo and {@link evaluateConfigBagInScope} cannot build
+ * two different scopes (objectui#10290).
+ */
+const configEvaluationScope = (
+  predicateScope: Record<string, unknown>,
+  boundRecord: unknown,
+  pageVariables: unknown,
+): Record<string, unknown> => ({
+  ...predicateScope,
+  current_user: predicateScope?.user,
+  ...(boundRecord && typeof boundRecord === 'object' && !Array.isArray(boundRecord)
+    ? { record: boundRecord }
+    : null),
+  page: pageVariables,
+});
+
+/**
+ * Evaluate ONE config value by its key. This is the per-key rule of the
+ * evaluation memo (the `params` rule, objectui#7867, is stated there): a
+ * `params` bag has every string leaf evaluated, a data object is handed over as
+ * authored, and every other value is evaluated per value and shallow, with a
+ * CEL predicate envelope preserved.
+ */
+const evaluateConfigValueWith = (
+  evaluator: ExpressionEvaluator,
+  key: string,
+  value: unknown,
+): unknown =>
+  key === PARAMS_KEY && isParamsBag(value)
+    ? mapParamsLeaves(value, (leaf) => evaluator.evaluate(leaf))
+    : isDataObjectValue(key, value)
+      ? value
+      : preservePredicateEnvelope(key, value, (v) => evaluator.evaluate(v as any));
+
+/**
+ * Evaluate every value of a config bag with {@link evaluateConfigValueWith}.
+ * The memo's `properties` loop, as a function. Returns a new object; the
+ * authored bag is never mutated.
+ */
+const evaluateConfigBagWith = (
+  evaluator: ExpressionEvaluator,
+  bag: Record<string, unknown>,
+): Record<string, unknown> => {
+  const evaluated: Record<string, unknown> = { ...bag };
+  for (const [key, val] of Object.entries(evaluated)) {
+    evaluated[key] = evaluateConfigValueWith(evaluator, key, val);
+  }
+  return evaluated;
+};
+
+/**
+ * The `properties` evaluation of the {@link SchemaRenderer} memo, for a config
+ * bag that does not pass through `SchemaRenderer` (objectui#10290): the same
+ * per-key rule, the same `ExpressionEvaluator`, and the same scope, built from
+ * the same three inputs. It is not a second template engine.
+ *
+ * The plain half of `useConfigBagEvaluator()` (`hooks/useConfigBagEvaluator`),
+ * which reads those inputs from the contexts the memo reads them from. Call
+ * the hook; this function exists because the rule it applies is this module's.
+ * (The hook is not declared in this module: a hook here puts this file under
+ * the React Compiler lint, which then reports the render-time
+ * `performance.now()` / `Date.now()` debug probes below.)
+ *
+ * A value that is not a config bag is returned unchanged; a bag comes back as a
+ * new, evaluated object and the authored one is never mutated.
+ */
+export function evaluateConfigBagInScope(
+  bag: unknown,
+  predicateScope: Record<string, unknown>,
+  boundRecord: unknown,
+  pageVariables: unknown,
+): unknown {
+  if (!isConfigBag(bag)) return bag;
+  const evaluator = new ExpressionEvaluator(
+    configEvaluationScope(predicateScope, boundRecord, pageVariables),
+  );
+  return evaluateConfigBagWith(evaluator, bag as Record<string, unknown>);
+}
+
+/**
  * Which CONSEQUENCE the diagnostic should print for a faulting predicate on
  * this leg (objectui#6503).
  *
@@ -1005,14 +1091,13 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     // (how `action:group`'s dropdown leaf is driven), turning "this surface has
     // no row of its own" into "this surface's row is empty" — only the latter
     // is entitled to shadow.
-    const evaluator = new ExpressionEvaluator({
-      ...predicateScope,
-      current_user: (predicateScope as any)?.user,
-      ...(boundRecord && typeof boundRecord === 'object' && !Array.isArray(boundRecord)
-        ? { record: boundRecord }
-        : null),
-      page: pageVariables,
-    });
+    //
+    // Built by `configEvaluationScope`, which `useConfigBagEvaluator` shares, so
+    // an action container's members evaluate against this same scope
+    // (objectui#10290).
+    const evaluator = new ExpressionEvaluator(
+      configEvaluationScope(predicateScope, boundRecord, pageVariables),
+    );
     // Shallow copy
     const newSchema = { ...schema };
 
@@ -1310,12 +1395,12 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     // A DATA OBJECT on any other key ({@link isDataObjectValue},
     // objectui#10288) is handed over as authored: `evaluate` would collapse
     // one that carries a string `source` to that string.
+    //
+    // The rule itself is `evaluateConfigValueWith`, at module scope, so that
+    // `useConfigBagEvaluator` applies the same one to an action container's
+    // members (objectui#10290).
     const evaluateConfigValue = (key: string, value: unknown): unknown =>
-      key === PARAMS_KEY && isParamsBag(value)
-        ? mapParamsLeaves(value, (leaf) => evaluator.evaluate(leaf))
-        : isDataObjectValue(key, value)
-          ? value
-          : preservePredicateEnvelope(key, value, (v) => evaluator.evaluate(v as any));
+      evaluateConfigValueWith(evaluator, key, value);
 
     // Carrier 1 of the `params` rule above: the node-level bag. A non-bag
     // node-level `params` (the `ActionParam[]` definition list, or anything
@@ -1400,15 +1485,13 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       : undefined;
 
     if (rawPropertiesBag) {
-      const newProperties: Record<string, any> = { ...rawPropertiesBag };
-      for (const [key, val] of Object.entries(newProperties)) {
-        // objectui#9100 — a CEL predicate envelope survives this loop; see
-        // `preservePredicateEnvelope`. objectui#7867 — a `params` bag has every
-        // string leaf evaluated (carrier 2 of `evaluateConfigValue`). Every
-        // other value evaluates as before.
-        newProperties[key] = evaluateConfigValue(key, val);
-      }
-      newSchema.properties = newProperties;
+      // objectui#9100 — a CEL predicate envelope survives this loop; see
+      // `preservePredicateEnvelope`. objectui#7867 — a `params` bag has every
+      // string leaf evaluated (carrier 2 of `evaluateConfigValue`). Every
+      // other value evaluates as before. The loop is `evaluateConfigBagWith`,
+      // the one `useConfigBagEvaluator` runs over an action container's
+      // member (objectui#10290).
+      newSchema.properties = evaluateConfigBagWith(evaluator, rawPropertiesBag);
     }
 
     /**

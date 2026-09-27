@@ -34,7 +34,7 @@
     "@object-ui/core": "workspace:*",
     "@object-ui/i18n": "workspace:*",
     "@object-ui/types": "workspace:*",
-    "lucide-react": "^1.31.0"
+    "lucide-react": "^1.43.0"
   },
   "devDependencies": {
     "@object-ui/test-support": "workspace:*",

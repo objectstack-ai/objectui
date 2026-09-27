@@ -96,11 +96,16 @@ describe('the generated legal icon-name list (objectui#9251)', () => {
     // The plain cases, so the rows below are not only about the exceptions.
     expect(pairs.get('House')).toBe('house');
     expect(pairs.get('AirVent')).toBe('air-vent');
-    // The 95 that a PascalCase-to-kebab regex gets wrong. Each of these would
-    // become `trash2` / `arrow-down01` / `axis3d`, none of which lucide can
-    // load — and the failure is an icon that draws nothing, with no error.
-    expect(pairs.get('Trash2')).toBe('trash-2');
+    // The ones a PascalCase-to-kebab regex gets wrong. Each of these would
+    // become `arrow-down01` / `arrow-down10` / `axis3d`, none of which lucide
+    // can load — and the failure is an icon that draws nothing, with no error.
+    //
+    // ⛔ The row here was `Trash2 -> trash-2` until lucide retired that
+    // spelling out of the manifest this list is derived from. A row pinned to a
+    // name the library can drop fails on an upgrade that broke nothing, so the
+    // three below are live names carrying the same digit split.
     expect(pairs.get('ArrowDown01')).toBe('arrow-down-0-1');
+    expect(pairs.get('ArrowDown10')).toBe('arrow-down-1-0');
     expect(pairs.get('Axis3d')).toBe('axis-3d');
     const naive = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
     const diverging = [...pairs].filter(([key, kebab]) => naive(key) !== kebab);

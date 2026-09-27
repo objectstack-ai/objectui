@@ -90,14 +90,27 @@ describe('objectui#9251 — the seam draws lazily without moving what renders', 
     expect(renderIcon(resolveIcon('house')!, { size: 32 })!.getAttribute('width')).toBe('32');
   });
 
-  it('reproduces lucide\'s per-icon class names over the WHOLE record vocabulary', () => {
-    // ⚠️ The class names are the part a conversion rule gets wrong silently: 95
-    // of the record's keys pack digits that lucide splits in the module name and
-    // not in the class derived from the key, so `Trash2` renders BOTH
-    // `lucide-trash2` and `lucide-trash-2`. `createLucideIcon` is what builds
-    // them and the seam no longer calls it, so every name is compared against
-    // the record's own component here — not a sample, and not a copy of the
-    // rule.
+  it('carries lucide\'s CANONICAL per-icon class over the WHOLE record vocabulary', () => {
+    // ⚠️ RELAXED under the maintainer's ruling C on objectui#8941 (comment
+    // 5750512894, verbatim 「8941 C」). This row USED TO REFUSE any seam glyph
+    // whose complete class set differed from lucide's own component's. It NO
+    // LONGER DOES, because lucide-react 1.43.0 emits one class per DECLARED
+    // ALIAS (`house` renders `lucide-house lucide-home`) and no longer emits the
+    // class it used to derive from the key, and the alias list exists only
+    // inside each icon module — the modules objectui#9251 made lazy — while the
+    // seam has to put its classes on the FIRST frame. The ruling chose the bump
+    // over carrying every alias in the eager static name list (option A), and
+    // it was taken knowing that it weakens this row. So a seam glyph missing
+    // lucide's alias classes, or carrying the key-derived class lucide no longer
+    // emits, now passes here.
+    //
+    // What it still refuses: a seam glyph without `lucide` or without lucide's
+    // CANONICAL class, `lucide-<icon name>`, which lucide emits first after the
+    // bare `lucide`. That is the class a conversion rule gets wrong silently,
+    // because many keys pack digits that lucide splits in the module name
+    // (`ArrowDown01` is `lucide-arrow-down-0-1`, never `lucide-arrow-down01`).
+    // Every name is still compared against the record's own component — not a
+    // sample, and not a copy of the rule.
     const keys = Object.keys(icons);
     expect(keys.length).toBeGreaterThan(1000);
     const mismatches: string[] = [];
@@ -106,9 +119,13 @@ describe('objectui#9251 — the seam draws lazily without moving what renders', 
       if (/\d/.test(key)) digitKeysChecked += 1;
       const reference = renderIcon((icons as Record<string, React.ElementType>)[key], {});
       const seam = renderIcon(resolveIcon(key)!, {});
-      const want = classesOf(reference).join(' ');
-      const got = classesOf(seam).join(' ');
-      if (want !== got) mismatches.push(`${key}: expected "${want}", got "${got}"`);
+      // Read in lucide's own order: `lucide`, then the canonical class, then
+      // one class per alias. Only the first two are required of the seam.
+      const [base, canonical] = (reference?.getAttribute('class') ?? '').split(/\s+/).filter(Boolean);
+      const got = classesOf(seam);
+      if (base !== 'lucide' || !canonical?.startsWith('lucide-') || !got.includes(base) || !got.includes(canonical)) {
+        mismatches.push(`${key}: expected "${base} ${canonical}" among "${got.join(' ')}"`);
+      }
     }
     expect(mismatches.slice(0, 10)).toEqual([]);
     // Non-vacuity, both ways: the loop ran, and it ran over the class of name

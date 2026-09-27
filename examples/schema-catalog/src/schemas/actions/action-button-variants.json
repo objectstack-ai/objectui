@@ -23,7 +23,7 @@
           "type": "button",
           "label": "Delete",
           "variant": "destructive",
-          "icon": "trash-2"
+          "icon": "trash"
         },
         {
           "type": "button",

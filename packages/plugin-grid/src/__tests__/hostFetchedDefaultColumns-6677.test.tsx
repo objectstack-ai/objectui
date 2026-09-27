@@ -245,7 +245,11 @@ describe('ObjectGrid — host-fetched rows still get the object-schema policy (#
     const ds = makeDataSource({ getObjectSchema: vi.fn(() => pending) });
 
     const { container } = renderHostFedGrid({}, ds);
-    await waitFor(() => expect(screen.getByText('Acme expansion')).toBeInTheDocument());
+    // objectui#10657: with the schema in flight an untyped column is WITHHELD
+    // (drawn as the mask, never as text), so the row is waited for by its mask,
+    // not by the raw name it used to print.
+    await waitFor(() => expect(container.querySelector('tbody')?.textContent ?? '').toContain('••••••'));
+    expect(screen.queryByText('Acme expansion')).toBeNull();
 
     releaseSchema!(OPPORTUNITY_SCHEMA);
 
@@ -300,7 +304,11 @@ describe('ObjectGrid — host-fetched rows still get the object-schema policy (#
     const ds = makeDataSource({ getObjectSchema: vi.fn(() => pending) });
 
     const { container } = renderHostFedGrid({}, ds);
-    await waitFor(() => expect(screen.getByText('Acme expansion')).toBeInTheDocument());
+    // objectui#10657: with the schema in flight an untyped column is WITHHELD
+    // (drawn as the mask, never as text), so the row is waited for by its mask,
+    // not by the raw name it used to print.
+    await waitFor(() => expect(container.querySelector('tbody')?.textContent ?? '').toContain('••••••'));
+    expect(screen.queryByText('Acme expansion')).toBeNull();
 
     // `objectSchema` is still `null`. Gating the legacy path on `objectName`
     // alone would fall through to `if (!objectSchema) return []` and paint an

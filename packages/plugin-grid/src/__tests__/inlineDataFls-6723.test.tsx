@@ -318,7 +318,11 @@ describe('ObjectGrid — FLS on the inline-data path (#6723)', () => {
     const ds = makeDataSource({ getObjectSchema: vi.fn(() => pending) });
     const { container } = renderHostFedGrid({}, ds);
 
-    await waitFor(() => expect(screen.getByText('Acme expansion')).toBeInTheDocument());
+    // objectui#10657: with the schema in flight an untyped column is WITHHELD
+    // (drawn as the mask, never as text), so the row is waited for by its mask,
+    // not by the raw name it used to print.
+    await waitFor(() => expect(container.querySelector('tbody')?.textContent ?? '').toContain('••••••'));
+    expect(screen.queryByText('Acme expansion')).toBeNull();
     expect(dataHeaders(container)).toEqual(['Id', 'Name', 'Amount', 'Salary', 'Computed score']);
   });
 

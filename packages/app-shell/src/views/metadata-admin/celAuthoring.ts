@@ -35,6 +35,8 @@
  * "no lint / no suggestions / test-run unavailable", never to an exception.
  */
 
+import { t } from './i18n.js';
+
 /** A schema hint for the predicate's target object — powers field-existence lint. */
 export interface CelSchemaHint {
   /** The target object api-name (`*` / undefined => no field hints). */
@@ -742,13 +744,22 @@ export function filterCandidates(
  *
  * Never throws — the engine returns a discriminated result and any thrown
  * loader/eval fault collapses to `error` / `unavailable`.
+ *
+ * `locale` (optional, trailing — objectui#10862) is the designer locale the
+ * dialog renders in. It reaches only the words this function writes itself:
+ * the empty-predicate result (`engine.celTest.predicateEmpty`) and the
+ * fallback when the engine reports a failure without a message
+ * (`engine.flowSim.note.evaluationFailed`, the same "Evaluation failed." the
+ * flow debugger uses). The engine's own message passes through as written.
+ * Absent, both read the en rows.
  */
 export async function testRunCelPredicate(
   source: string,
   sample: CelSampleContext,
+  locale?: string,
 ): Promise<CelTestOutcome> {
   if (!source || !source.trim()) {
-    return { status: 'error', kind: 'parse', message: 'The predicate is empty.' };
+    return { status: 'error', kind: 'parse', message: t('engine.celTest.predicateEmpty', locale) };
   }
   let mod: FormulaModule | null;
   try {
@@ -770,7 +781,7 @@ export async function testRunCelPredicate(
       return {
         status: 'error',
         kind: err?.kind ?? 'runtime',
-        message: err?.message ?? 'Evaluation failed.',
+        message: err?.message ?? t('engine.flowSim.note.evaluationFailed', locale),
       };
     }
     if (res.value === true) return { status: 'allow' };

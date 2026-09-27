@@ -44,9 +44,10 @@ import {
 } from 'lucide-react';
 import { EmptyDescription } from '@object-ui/components';
 import type { MetadataPreviewProps } from '../preview-registry.js';
+import { t as tr, tFormat } from '../i18n.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
 
-export function SkillPreview({ name, draft }: MetadataPreviewProps) {
+export function SkillPreview({ name, draft, locale }: MetadataPreviewProps) {
   const d = draft as Record<string, unknown>;
   const skillName = String(d.name ?? name ?? '');
   const label = String(d.label ?? skillName);
@@ -62,7 +63,7 @@ export function SkillPreview({ name, draft }: MetadataPreviewProps) {
   if (!skillName) {
     return (
       <PreviewShell hint="skill">
-        <PreviewMessage>Give the skill a name and at least an instructions block to see the preview.</PreviewMessage>
+        <PreviewMessage>{tr('engine.skillPreview.empty', locale)}</PreviewMessage>
       </PreviewShell>
     );
   }
@@ -84,28 +85,32 @@ export function SkillPreview({ name, draft }: MetadataPreviewProps) {
                   <div className="text-xs text-muted-foreground mt-0.5">{description}</div>
                 )}
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
-                  <Pill icon={Power} label={active ? 'Active' : 'Disabled'} tone={active ? 'green' : 'gray'} />
-                  {model && <Pill label={`model: ${model}`} mono />}
+                  <Pill
+                    icon={Power}
+                    label={tr(active ? 'engine.skillPreview.active' : 'engine.skillPreview.disabled', locale)}
+                    tone={active ? 'green' : 'gray'}
+                  />
+                  {model && <Pill label={tFormat('engine.skillPreview.model', locale, { model })} mono />}
                 </div>
               </div>
             </div>
           </div>
 
           {/* Instructions */}
-          <Section title="Instructions" icon={BookOpen}>
+          <Section title={tr('engine.skillPreview.instructions', locale)} icon={BookOpen}>
             {instructions ? (
               <pre className="rounded border bg-background p-2.5 text-xs font-mono whitespace-pre-wrap break-words max-h-64 overflow-auto">
                 {instructions}
               </pre>
             ) : (
-              <div className="text-xs text-amber-700">No instructions yet — the skill will contribute nothing to the prompt.</div>
+              <div className="text-xs text-amber-700">{tr('engine.skillPreview.noInstructions', locale)}</div>
             )}
           </Section>
 
           {/* Tools */}
-          <Section title={`Tools (${tools.length})`} icon={Wrench}>
+          <Section title={tFormat('engine.skillPreview.tools', locale, { count: tools.length })} icon={Wrench}>
             {tools.length === 0 ? (
-              <EmptyDescription className="text-xs italic">No tools whitelisted.</EmptyDescription>
+              <EmptyDescription className="text-xs italic">{tr('engine.skillPreview.noTools', locale)}</EmptyDescription>
             ) : (
               <div className="flex flex-wrap gap-1">
                 {tools.map((t) => {
@@ -126,7 +131,7 @@ export function SkillPreview({ name, draft }: MetadataPreviewProps) {
             )}
             {tools.some((t) => t.includes('*')) && (
               <div className="mt-1 text-[10px] text-amber-700">
-                Wildcards expand to many tools at runtime — review the matching set in the agent before activating.
+                {tr('engine.skillPreview.wildcardNote', locale)}
               </div>
             )}
           </Section>
@@ -135,27 +140,30 @@ export function SkillPreview({ name, draft }: MetadataPreviewProps) {
               Every column comes from a key SkillTriggerConditionSchema
               declares; nothing is inferred or defaulted. */}
           {triggerConditions.length > 0 && (
-            <Section title={`Trigger Conditions (${triggerConditions.length})`} icon={Filter}>
+            <Section
+              title={tFormat('engine.skillPreview.triggerConditions', locale, { count: triggerConditions.length })}
+              icon={Filter}
+            >
               <div className="rounded border bg-background overflow-hidden">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-muted/30 text-left text-[10px] uppercase tracking-wider text-muted-foreground">
-                      <th className="px-2.5 py-1.5 font-medium">Field</th>
-                      <th className="px-2.5 py-1.5 font-medium">Operator</th>
-                      <th className="px-2.5 py-1.5 font-medium">Value</th>
+                      <th className="px-2.5 py-1.5 font-medium">{tr('engine.skillPreview.col.field', locale)}</th>
+                      <th className="px-2.5 py-1.5 font-medium">{tr('engine.skillPreview.col.operator', locale)}</th>
+                      <th className="px-2.5 py-1.5 font-medium">{tr('engine.skillPreview.col.value', locale)}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {triggerConditions.map((cond, i) => (
                       <tr key={i} className="align-top">
                         <td className="px-2.5 py-1.5 font-mono break-all">
-                          {renderCell(cond.field)}
+                          {renderCell(cond.field, locale)}
                         </td>
                         <td className="px-2.5 py-1.5 font-mono text-muted-foreground">
-                          {renderCell(cond.operator)}
+                          {renderCell(cond.operator, locale)}
                         </td>
                         <td className="px-2.5 py-1.5 font-mono break-all">
-                          {renderCell(cond.value)}
+                          {renderCell(cond.value, locale)}
                         </td>
                       </tr>
                     ))}
@@ -164,7 +172,7 @@ export function SkillPreview({ name, draft }: MetadataPreviewProps) {
               </div>
               {triggerConditions.length > 1 && (
                 <div className="mt-1 text-[10px] text-muted-foreground">
-                  All conditions must hold (AND) for the skill to activate.
+                  {tr('engine.skillPreview.allMustHold', locale)}
                 </div>
               )}
             </Section>
@@ -191,14 +199,14 @@ export function SkillPreview({ name, draft }: MetadataPreviewProps) {
  * point of this preview is to surface the mistake while the author is still
  * looking at it.
  */
-function renderCell(v: unknown): React.ReactNode {
+function renderCell(v: unknown, locale?: string): React.ReactNode {
   if (typeof v === 'string' && v !== '') return v;
   if (Array.isArray(v) && v.every((x) => typeof x === 'string')) {
     return (v as string[]).join(', ');
   }
   return (
-    <span className="text-amber-700" title="Required by SkillTriggerConditionSchema — this draft will be rejected on save.">
-      missing
+    <span className="text-amber-700" title={tr('engine.skillPreview.missingTitle', locale)}>
+      {tr('engine.skillPreview.missing', locale)}
     </span>
   );
 }

@@ -18,6 +18,14 @@
  * The bind recipe (record namespace + flattened fields + verbatim
  * `current_user`) lives in {@link file://./celAuthoring.ts}; this component is
  * just the form + result surface.
+ *
+ * Its words read the `t` its host binds to the designer locale. The dry-run's
+ * own words (the empty-predicate result, the no-message fallback) are written
+ * by `testRunCelPredicate`, which takes that locale as its trailing argument
+ * (objectui#10862). The dialog reads it from `useMetadataLocale()`, the hook
+ * its one host (`PermissionMatrixEditor`) binds `t` from, so both answer the
+ * same language without a second prop threaded through
+ * `PermissionAdvancedFacets`.
  */
 
 import * as React from 'react';
@@ -35,6 +43,7 @@ import {
 } from '@object-ui/components';
 import { AlertCircle, AlertTriangle, ShieldCheck, ShieldX, FlaskConical } from 'lucide-react';
 import { testRunCelPredicate, type CelTestOutcome } from './celAuthoring.js';
+import { useMetadataLocale } from './i18n.js';
 
 type Clause = 'using' | 'check';
 
@@ -77,6 +86,7 @@ export function CelTestRunDialog({
   check,
   t,
 }: CelTestRunDialogProps) {
+  const locale = useMetadataLocale();
   const clauses = React.useMemo<Clause[]>(() => {
     const out: Clause[] = [];
     if (using && using.trim()) out.push('using');
@@ -107,13 +117,13 @@ export function CelTestRunDialog({
   async function run() {
     setOutcome(null);
     setJsonError(null);
-    const record = parseObject(recordJson, t('perm.cel.test.record'));
+    const record = parseObject(recordJson, t('perm.cel.test.record'), t);
     if (!record.ok) return setJsonError(record.error);
-    const currentUser = parseObject(userJson, t('perm.cel.test.user'));
+    const currentUser = parseObject(userJson, t('perm.cel.test.user'), t);
     if (!currentUser.ok) return setJsonError(currentUser.error);
     setRunning(true);
     try {
-      setOutcome(await testRunCelPredicate(source, { record: record.value, currentUser: currentUser.value }));
+      setOutcome(await testRunCelPredicate(source, { record: record.value, currentUser: currentUser.value }, locale));
     } finally {
       setRunning(false);
     }
@@ -228,8 +238,12 @@ type ParsedObject =
   | { ok: true; value: Record<string, unknown> }
   | { ok: false; error: string };
 
-/** Parse a JSON object textarea into a friendly, located result (never throws). */
-function parseObject(raw: string, label: string): ParsedObject {
+/**
+ * Parse a JSON object textarea into a friendly, located result (never throws).
+ * The parser's own message passes through as written; the not-an-object
+ * refusal reads `engine.celTest.notObject` (objectui#10862).
+ */
+function parseObject(raw: string, label: string, t: (k: string) => string): ParsedObject {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw || '{}');
@@ -237,7 +251,7 @@ function parseObject(raw: string, label: string): ParsedObject {
     return { ok: false, error: `${label}: ${(e as Error).message}` };
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return { ok: false, error: `${label}: expected a JSON object.` };
+    return { ok: false, error: `${label}: ${t('engine.celTest.notObject')}` };
   }
   return { ok: true, value: parsed as Record<string, unknown> };
 }

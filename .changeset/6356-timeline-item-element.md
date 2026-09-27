@@ -54,8 +54,9 @@ This supersedes two statements elsewhere in these release notes: the
 objectui#7164 and objectui#7365 entries say a row's and a bar's own keys stay
 undeclared and open and that feed timelines are untouched. Their refusals still
 hold, at the same paths — a non-object item at `items[i]`, a non-array row
-`items` at `items[i].items`, a non-object bar at `items[i].items[j]` — and a
-bar still accepts keys it does not declare, but the keys above are now
+`items` at `items[i].items`, a non-object bar at `items[i].items[j]` — and on
+the tolerant `TimelineSchema` a bar still accepts keys it does not declare (the
+strict authoring schema refuses them by name), but the keys above are now
 declared, and feed timelines are judged too.
 
 `TimelineSchema` stays a zod object: its `.shape`, its place in
@@ -63,7 +64,17 @@ declared, and feed timelines are judged too.
 unchanged. Deriving from it with `.extend()` over an existing key now throws in
 zod 4 (the node carries a refinement); use `.safeExtend()`, which keeps it.
 
-`@object-ui/plugin-timeline`: `TimelineRenderer`'s `schema` prop is typed as the
-renderer's own input — every `TimelineSchema`, plus the composed item keys
-above — rather than as the authored `TimelineSchema`. Anything that type-checked
-against it before still does.
+`@object-ui/plugin-timeline` (**breaking at compile time, shipped as a
+`minor`**): `TimelineRenderer` is a public export, and its `schema` prop is now
+typed as the renderer's own input — the two declared item shapes above, plus the
+item keys `ObjectTimeline` composes (`color`, `group`, `meta`, `startDate`,
+`endDate`, `_data`, and any string as a composed item's `variant`) — rather than
+as the authored `TimelineSchema` of before, whose items accepted any key. So an
+object literal passed to the prop whose item carries a key neither shape
+declares is now an excess-property error (TS2353), exactly as it is against
+`TimelineSchema`: `schema={{ type: 'timeline', items: [{ title: 'T', date: 'x' }] }}`
+type-checked before and does not now. Fix it at the item — a feed item's date is
+`time`. What still type-checks against the prop: any value typed
+`TimelineSchema`, an `items` array that is not written as a fresh literal (for
+example an array of string-keyed records held in a variable), items that are
+empty objects, and the composed keys above.

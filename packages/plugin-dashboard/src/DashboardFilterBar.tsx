@@ -142,16 +142,28 @@ function toIsoDate(d: Date): string {
  *     that focus leaving it dismisses it. From a preset the calendar mounted and
  *     was gone as soon as the select finished closing.
  *
- * So the item marks its own activation, and the popover opens in the select's
- * `onCloseAutoFocus`, after the select is gone, where the focus return is
- * cancelled so the popover can take focus itself. Radix Select items have no
- * `onSelect` event (that is the menu primitives'): a pick is the item's
- * pointer-up, click or Enter/Space key, depending on the input. The mark lives
- * for that one event only: it counts when the select closes DURING it, which is
- * what a pick does (the item runs its own handlers before Radix's, and a
- * controlled `open` reports the close synchronously). A key or pointer event
- * on the item that does not close the select, such as a space typed as part of
- * type-ahead, has cleared its mark before any later close reads it.
+ * Radix Select items have no `onSelect` event (that is the menu primitives').
+ * Radix picks "Custom…" in two ways, and each needs its own wiring:
+ *
+ *  - **From the open list:** the item's pointer-up, click or Enter/Space key,
+ *    depending on the input. The item marks its own activation, and the
+ *    popover opens in the select's `onCloseAutoFocus`, after the list is gone,
+ *    where the focus return is cancelled so the popover can take focus itself.
+ *    The mark lives for that one event only: it counts when the select closes
+ *    DURING it, which is what a pick does (the item runs its own handlers
+ *    before Radix's, and a controlled `open` reports the close synchronously).
+ *    A key or pointer event on the item that does not close the select, such
+ *    as a space typed as part of type-ahead, has cleared its mark before any
+ *    later close reads it.
+ *  - **From the CLOSED trigger's type-ahead:** typing the first letter of
+ *    "Custom…" on the focused, closed select changes the value with no item
+ *    event and no list, so no focus return follows and the popover opens
+ *    straight from `onValueChange` (`onCustomValue`). Only a changed value is
+ *    reported here too, so with a custom range already stored this path does
+ *    nothing, as Radix's type-ahead skips the current item. An in-list pick
+ *    also reports a changed value, but while the select is still open (Radix
+ *    calls `onValueChange` before `onOpenChange(false)`); `onCustomValue`
+ *    leaves that one to the item's mark.
  *
  * The popover's own trigger is an invisible anchor that cannot take focus, so
  * closing the calendar would leave focus on the page body. Focus goes back to
@@ -196,6 +208,9 @@ function useCustomRangePopover() {
         if (event.key === 'Enter' || event.key === ' ') mark();
       },
     },
+    onCustomValue: () => {
+      if (!selectOpen) setPopoverOpen(true);
+    },
     popover: { open: popoverOpen, onOpenChange: setPopoverOpen },
     popoverContent: {
       onInteractOutside: () => { leftOutside.current = true; },
@@ -231,9 +246,10 @@ function DateRangeFilter({ def, value, onChange }: { def: DashboardFilterDef; va
         {...custom.select}
         onValueChange={(v) => {
           if (v === ALL_VALUE) onChange(undefined);
-          // "Custom…" opens the calendar through its own activation, changed
-          // value or not (`useCustomRangePopover`); picking it commits nothing.
-          else if (v !== CUSTOM_VALUE) onChange({ preset: v });
+          // Picking "Custom…" commits nothing; it opens the calendar, from the
+          // list or from the closed trigger's type-ahead (`useCustomRangePopover`).
+          else if (v === CUSTOM_VALUE) custom.onCustomValue();
+          else onChange({ preset: v });
         }}
       >
         <SelectTrigger {...custom.selectTrigger} className="h-8 w-auto min-w-36 gap-1" aria-label={label || tt('dashboard.filters.dateRange', 'Date range')}>

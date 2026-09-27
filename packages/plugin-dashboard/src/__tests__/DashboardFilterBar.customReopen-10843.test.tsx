@@ -138,6 +138,30 @@ describe('DashboardFilterBar — "Custom…" opens the range calendar (objectui#
     expect(document.activeElement).toBe(trigger);
   });
 
+  it('type-ahead on the CLOSED select: "c" over a stored preset picks "Custom…" and the calendar opens and stays open', async () => {
+    // Radix's third pick path: the closed trigger's own type-ahead changes the
+    // value with no item event and no list, so nothing returns focus.
+    const user = userEvent.setup();
+    const { trigger, onChange } = renderBar(PRESET);
+    trigger.focus();
+    await user.keyboard('c');
+    await settle();
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(captions()).toEqual(['September 2026', 'October 2026']);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('control: type-ahead "c" on the CLOSED select over a stored range names the current item, so nothing changes', async () => {
+    // Radix's type-ahead skips the item that is already the value.
+    const user = userEvent.setup();
+    const { trigger, onChange } = renderBar(STORED);
+    trigger.focus();
+    await user.keyboard('c');
+    await settle();
+    expect(seen).toEqual([]);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it('control: closing the select with Escape, even from "Custom…", opens no calendar', async () => {
     const user = userEvent.setup();
     const { trigger } = renderBar(STORED);

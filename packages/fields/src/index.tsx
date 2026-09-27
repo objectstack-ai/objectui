@@ -8,7 +8,7 @@
 
 import React from 'react';
 import type { DateFieldMetadata, DateTimeFieldMetadata, FieldMetadata, SelectOptionMetadata } from '@object-ui/types';
-import { ComponentRegistry, percentDisplayValue, getRecordDisplayName, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, toDisplayDate, extractRecords, type ComponentMeta, type DateDisplayOptions } from '@object-ui/core';
+import { ComponentRegistry, percentDisplayValue, getRecordDisplayName, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, toDisplayDate, extractRecords, withoutDeniedFields, type ComponentMeta, type DateDisplayOptions } from '@object-ui/core';
 // The platform's own value-shape contract, asked rather than restated
 // (objectui#6744). See `locationStoredValueSchemaFor` below for why this is a
 // runtime import in the barrel and not a hand-written coordinate range.
@@ -205,33 +205,6 @@ function resolveLookupRecordName(
 
 /** The two members of the permission context the lookup cell's read gate asks. */
 type FieldReadPolicy = Pick<ReturnType<typeof usePermissions>, 'isLoaded' | 'checkField'>;
-
-/**
- * `record` as the viewer may READ it on `objectName`, for naming a referenced
- * record in the lookup cell (objectui#10501) and for drawing a person's name and
- * avatar in the user cell (objectui#10535). Every field the loaded `policy`
- * denies is removed, which leaves the row ObjectStack's `FieldMasker` already
- * serves. `id` and `_id` are never judged: the id addresses the record and is
- * not a field value the policy withholds. Before a policy loads (also the
- * answer with no provider mounted), with no object to judge against, or with
- * nothing withheld, the SAME object comes back.
- *
- * The lookup editor's option label and the record picker (objectui#10411) and
- * the record title (objectui#10434) apply the same rule, and no copy of it is
- * a package export. This one is module-private too: `LookupField`'s copy is
- * not in reach without widening that module's exports, and the package entry
- * re-exports that module whole.
- */
-function withoutDeniedFields<T>(record: T, policy: FieldReadPolicy, objectName: string | undefined): T {
-  if (!policy.isLoaded || !objectName || !record || typeof record !== 'object') return record;
-  const shown: Record<string, unknown> = {};
-  let withheld = false;
-  for (const [key, value] of Object.entries(record)) {
-    if (key === 'id' || key === '_id' || policy.checkField(objectName, key, 'read')) shown[key] = value;
-    else withheld = true;
-  }
-  return withheld ? (shown as T) : record;
-}
 
 /**
  * Heuristic: detect strings that look like opaque foreign-key IDs (e.g. nanoid
@@ -3362,8 +3335,22 @@ function RepeaterCellRenderer({ value }: CellRendererProps): React.ReactElement 
  * states: `EmptyValue` holds a hook, and an inline arrow in the table below
  * is a new component type on every resolution, so it would tear that hook down
  * per render.
+ *
+ * Exported (objectui#10657) for the cell a producer cannot type yet. While an
+ * object-bound table is still waiting for its object's field types, or after
+ * that read failed, a column with no type of its own could be a credential,
+ * so `ObjectGrid`, `RelatedList` and `ObjectDataTable` draw it WITHHELD: as
+ * this mask, never as text. It is this component and not the live registry
+ * entry for `password`, so a host override of a masked type cannot change what
+ * a withheld cell draws. Registering it for a type
+ * (`registerFieldRenderer('api_token', MaskedCellRenderer)`) masks that type,
+ * as {@link isMaskedFieldType} describes. `field` is optional: the mask reads
+ * only whether the value is present, so a withheld cell has no field metadata
+ * to invent.
  */
-function MaskedCellRenderer({ value }: CellRendererProps): React.ReactElement {
+export function MaskedCellRenderer({
+  value,
+}: Omit<CellRendererProps, 'field'> & { field?: CellRendererProps['field'] }): React.ReactElement {
   if (isEmptyValue(coerceToSafeValue(value))) return <EmptyValue />;
   return <span>••••••</span>;
 }
@@ -4137,6 +4124,11 @@ const FIELD_TYPES_SKIP_FALLBACK = new Set([
   'slider',
   // Display renderer owned by `plugin-markdown:markdown`.
   'markdown',
+  // The html tier's inline `code` element passthrough, owned by `ui:code` in
+  // `renderers/basic/html-elements.tsx` (objectui#10756). Before this line the
+  // bare `code` key was THIS widget's fallback, so `<code>inline</code>` on a
+  // `kind:'html'` page drew a code editor and dropped its text.
+  'code',
   // No other package owns the bare `time`/`address` key, but `registerField`
   // wraps each call in a fresh `React.lazy(...)`, so re-registration (HMR,
   // re-import) fails the registry's identity check every time and logs the

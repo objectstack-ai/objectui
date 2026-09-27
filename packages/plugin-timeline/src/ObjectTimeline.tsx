@@ -643,6 +643,12 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
       // two slots (objectui#10456), so one rule answers both: an expanded
       // lookup reads as its display name, a bare id as itself, a number or a
       // boolean as its string, and an empty value as no line at all.
+      //
+      // `startDate`, `endDate`, `color`, `group`, `meta` and `_data` below are
+      // RENDERER-INTERNAL (objectui#6356, ruling Q1 = A): this composer is
+      // their only producer and `TimelineRenderer` their only reader, so they
+      // are typed by the handoff in `./renderHandoff` and are NOT keys of the
+      // authored `TimelineFeedItem` — the strict authoring face refuses them.
       return {
         title: recordDisplayValueAt(item, titleField),
         time: startRaw,

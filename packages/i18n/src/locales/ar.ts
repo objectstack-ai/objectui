@@ -247,6 +247,7 @@ const ar = {
       remove: 'إزالة {{name}}',
       exceedsMaxSize: '"{{name}}" يتجاوز الحجم الأقصى ({{max}} ميغابايت)',
       uploadFailed: 'فشل رفع "{{name}}": {{error}}',
+      uploadIncomplete: 'لم يكتمل رفع "{{name}}": لم يتم إرجاع معرّف الملف، ولم يُحفظ شيء',
     },
     richText: {
       format: "التنسيق: {{format}}",

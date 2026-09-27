@@ -29,6 +29,7 @@ import {
   CommandItem,
 } from '@object-ui/components';
 import type { ScopeGroup } from './useFlowScope.js';
+import { t, useMetadataLocale } from '../i18n.js';
 
 export type VariableFieldMode = 'expression' | 'template';
 
@@ -78,10 +79,6 @@ export interface VariableTextInputProps {
   className?: string;
 }
 
-const PICK_LABEL = 'Insert a reference';
-const SEARCH_LABEL = 'Search references…';
-const EMPTY_LABEL = 'No matching references.';
-
 export function VariableTextInput({
   value,
   onValueChange,
@@ -101,6 +98,10 @@ export function VariableTextInput({
   // token lands where the author was typing — not appended at the end.
   const caret = React.useRef<{ start: number; end: number }>({ start: 0, end: 0 });
   const [open, setOpen] = React.useState(false);
+  // The picker's own words, in the designer locale — a shared atom reads it
+  // itself, as `InspectorComboField` does (objectui#10748).
+  const locale = useMetadataLocale();
+  const pickLabel = t('engine.flowScope.picker.insert', locale);
 
   const setRef = (el: HTMLInputElement | HTMLTextAreaElement | null) => {
     inputRef.current = el;
@@ -166,8 +167,8 @@ export function VariableTextInput({
           <PopoverTrigger asChild>
             <button
               type="button"
-              aria-label={PICK_LABEL}
-              title={PICK_LABEL}
+              aria-label={pickLabel}
+              title={pickLabel}
               // Capture the caret on mousedown (fires before the input blur), so
               // the insertion point is the author's last position.
               onMouseDown={rememberCaret}
@@ -183,9 +184,9 @@ export function VariableTextInput({
             onCloseAutoFocus={(e) => e.preventDefault()}
           >
             <Command>
-              <CommandInput placeholder={SEARCH_LABEL} className="h-9" />
+              <CommandInput placeholder={t('engine.flowScope.picker.search', locale)} className="h-9" />
               <CommandList>
-                <CommandEmpty>{EMPTY_LABEL}</CommandEmpty>
+                <CommandEmpty>{t('engine.flowScope.picker.empty', locale)}</CommandEmpty>
                 {groups.map((g) => (
                   <CommandGroup key={g.id} heading={g.label}>
                     {g.refs.map((ref) => (

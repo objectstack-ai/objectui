@@ -163,7 +163,10 @@ describe('object-data-table reads once per mount, expanded, and keys on its expa
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const ds = makeDataSource({ schema: 'reject' });
     render(<Host ds={ds} />);
-    await waitFor(() => expect(screen.getByText('Acme')).toBeInTheDocument());
+    // objectui#10657 PR 2: with no definition the untyped column is WITHHELD
+    // (drawn as the mask, never as text), so the shown row is read by its mask.
+    await waitFor(() => expect(document.querySelector('tbody')?.textContent ?? '').toContain('••••••'));
+    expect(screen.queryByText('Acme')).toBeNull();
     await settle();
 
     expect(expands(ds)).toEqual([null]);

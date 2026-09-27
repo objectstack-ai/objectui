@@ -52,3 +52,12 @@ getter are pinned in `packages/types/src/__tests__/zod-lazy-getter-identity-7918
 it is the barrel alias of `app.zod.ts`'s `MenuItemSchema`, while the barrel's own
 `MenuItemSchema` is `overlay.zod.ts`'s. Two different schemas, so the list really is ten
 entries and not nine.
+
+Superseded in this release by objectui#9306: `FilterGroupSchema` is no longer one
+of the lazies that keep their spelling. That change made a filter group's
+`conditions` flat rows (a nested sub-group is retired and refused by name), so
+the body stopped naming the const being declared and the memoisation became
+free; it was taken, and `FilterGroupSchema.unwrap()` is now reference-stable.
+The ledger in `zod-lazy-getter-identity-7918.test.ts` lists it with the memoised
+schemas. The list of eight above describes the tree this entry was written
+against.

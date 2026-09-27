@@ -1,21 +1,69 @@
 import React from 'react';
 import { Avatar, AvatarFallback, AvatarImage, Button } from '@object-ui/components';
-import { Upload, X } from 'lucide-react';
+import { useUpload } from '@object-ui/providers';
+import { useObjectTranslation } from '@object-ui/i18n';
+import { Upload, X, Loader2 } from 'lucide-react';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
+import { useUploadingSignal } from './useUploadingSignal.js';
+import { useUploadingScopeHold } from './uploadingScope.js';
+import type { TranslateFn } from './file-size-guard.js';
+// The error row for a failed OR incomplete upload — the same translated keys
+// FileField and ImageField render for the same outcomes (objectui#7699).
+import { uploadErrorMessage } from './upload-error-message.js';
+import {
+  fileValueForSubmit,
+  readFileValues,
+  uploadResultView,
+  withRecentUploads,
+  type FileValueView,
+} from './file-value.js';
 
 /**
- * Avatar field widget - provides an avatar/profile picture uploader
- * Supports image URLs or file uploads
+ * Avatar field widget - provides an avatar/profile picture uploader.
+ *
+ * `avatar` is a member of the file-reference family, so its stored value is
+ * the bare `sys_file` id, exactly as for `file` and `image` (see
+ * `file-value`'s "Submitting"). A pick uploads through the ambient
+ * `UploadProvider` (`useUpload()`), and the id the adapter surfaced in
+ * `meta.fileId` is what `onChange` receives, through `fileValueForSubmit` —
+ * the one submit rule the file and image widgets use. A pick whose adapter
+ * surfaced no id (the object-URL default `useUpload()` falls back to when no
+ * provider is mounted, an S3/Azure-style adapter that mints no `sys_file`
+ * row) is refused with the same translated "did not complete" row, and the
+ * field is not changed. ⛔ The widget used to read the pick into a `data:` URL
+ * and store that string, inlining the whole image into the record row as a
+ * value the stored contract refuses (objectui#10785).
+ *
+ * Reading is `readFileValue`'s: a bare id renders from the storage endpoint,
+ * and a legacy `data:` or http(s) URL already on a record still renders as
+ * itself — ADR-0104's dual-read window is a read rule.
  */
-export function AvatarField({ value, onChange, field, readonly, error, ...props }: FieldWidgetComponentProps<string>) {
+export function AvatarField({ value, onChange, field, readonly, onUploadingChange, error, ...props }: FieldWidgetComponentProps<string>) {
   const [isHovered, setIsHovered] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  
-  const avatarField = field as any;
+  const { upload } = useUpload();
+  const { t } = useObjectTranslation();
+  const [uploading, setUploading] = React.useState(false);
+  /** The last pick's failure, cleared on the next attempt. */
+  const [uploadError, setUploadError] = React.useState<string | null>(null);
+  // The display view of a just-uploaded avatar, keyed by its new `sys_file`
+  // id: the id the field now holds carries no URL of its own, so this keeps
+  // the new picture visible until the next read expands the value.
+  const [recent, setRecent] = React.useState<Record<string, FileValueView>>({});
+  // The pick now travels over the network, so a save must wait for it — the
+  // same signal and scope the file and image widgets raise (objectui#10180).
+  useUploadingSignal(uploading, onUploadingChange);
+  const holdScope = useUploadingScopeHold();
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const avatarField = field as any;
+  const src = withRecentUploads(readFileValues(value, ''), recent)[0]?.url;
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    // Reset up front, as ImageField does, so a refused pick can be re-picked
+    // under the same name.
+    if (fileInputRef.current) fileInputRef.current.value = '';
     if (!file) return;
 
     // Check file type
@@ -30,12 +78,25 @@ export function AvatarField({ value, onChange, field, readonly, error, ...props 
       return;
     }
 
-    // Convert to base64 or upload to server
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      onChange(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    setUploadError(null);
+    // Released only after `onChange` has handed the value over — see
+    // FileField's pipeline.
+    const releaseScope = holdScope();
+    setUploading(true);
+    try {
+      const result = await upload(file);
+      // Throws when the adapter surfaced no `sys_file` id (objectui#7699), so
+      // the catch below reports it and the field is not changed.
+      const next = fileValueForSubmit(result, file.name);
+      const view = uploadResultView(result, file.name);
+      if (view.id) setRecent((prev) => ({ ...prev, [view.id as string]: view }));
+      onChange(next);
+    } catch (err) {
+      setUploadError(uploadErrorMessage(t as TranslateFn, file.name, err));
+    } finally {
+      releaseScope();
+      setUploading(false);
+    }
   };
 
   const handleRemove = () => {
@@ -56,7 +117,7 @@ export function AvatarField({ value, onChange, field, readonly, error, ...props 
   if (readonly) {
     return (
       <Avatar className="w-16 h-16">
-        {value && <AvatarImage src={value} alt={avatarField?.label} />}
+        {src && <AvatarImage src={src} alt={avatarField?.label} />}
         <AvatarFallback>{getInitials()}</AvatarFallback>
       </Avatar>
     );
@@ -70,7 +131,7 @@ export function AvatarField({ value, onChange, field, readonly, error, ...props 
         onMouseLeave={() => setIsHovered(false)}
       >
         <Avatar className="w-16 h-16">
-          {value && <AvatarImage src={value} alt={avatarField?.label} />}
+          {src && <AvatarImage src={src} alt={avatarField?.label} />}
           <AvatarFallback>{getInitials()}</AvatarFallback>
         </Avatar>
         {!readonly && isHovered && value && (
@@ -83,7 +144,7 @@ export function AvatarField({ value, onChange, field, readonly, error, ...props 
           </button>
         )}
       </div>
-      
+
       <div className="flex flex-col gap-2">
         <input
           ref={fileInputRef}
@@ -101,16 +162,27 @@ export function AvatarField({ value, onChange, field, readonly, error, ...props 
           variant="outline"
           size="sm"
           onClick={() => fileInputRef.current?.click()}
-          disabled={readonly || props.disabled}
+          disabled={readonly || props.disabled || uploading}
           // AFTER the spread so this widget's own computation wins (#3222).
           aria-invalid={!!error}
         >
-          <Upload className="w-4 h-4 mr-2" />
-          {value ? 'Change' : 'Upload'} Avatar
+          {uploading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              {t('fields.image.uploading', { defaultValue: 'Uploading…' })}
+            </>
+          ) : (
+            <>
+              <Upload className="w-4 h-4 mr-2" />
+              {value ? 'Change' : 'Upload'} Avatar
+            </>
+          )}
         </Button>
         <p className="text-xs text-muted-foreground">
           PNG, JPG up to 5MB
         </p>
+        {/* A failed or refused pick — same presentation as ImageField's row. */}
+        {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
       </div>
     </div>
   );

@@ -381,7 +381,12 @@ function InternalSidebar({
   enableReorder?: boolean;
   onReorder?: (reorderedItems: NavigationItem[]) => void;
 }) {
-  const Icon = resolveIcon(schema.logo);
+  // The app logo is `branding.logo`, an image URL (objectui#10827) — the one
+  // spelling `@objectstack/spec` declares. An icon NAME comes from `icon`, the
+  // key every other app surface reads; the retired top-level `logo` carried
+  // both and is read by nothing.
+  const logo = schema.branding?.logo;
+  const Icon = resolveIcon(schema.icon);
   const [searchQuery, setSearchQuery] = useState('');
 
   return (
@@ -393,9 +398,9 @@ function InternalSidebar({
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" tooltip={schema.title ?? schema.name}>
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  {schema.logo && schema.logo.startsWith('http') ? (
+                  {logo ? (
                     <img
-                      src={schema.logo}
+                      src={logo}
                       alt={schema.title ?? ''}
                       className="size-6 object-contain"
                     />
@@ -473,7 +478,7 @@ function InternalSidebar({
  * Renders a complete application shell from an `AppSchema` JSON document.
  *
  * Responsibilities:
- * - Reads `name`, `title`, `description`, `logo`, `favicon` for branding
+ * - Reads `name`, `title`, `description`, `icon`, `branding.logo`, `favicon` for branding
  * - Renders sidebar navigation from `navigation` or `areas[].navigation`
  * - Area switcher when multiple areas are VISIBLE — area visibility is
  *   derived from the items inside, not authored (objectui#3311): an area

@@ -236,6 +236,7 @@ const ja = {
       remove: '{{name}} を削除',
       exceedsMaxSize: '「{{name}}」は最大サイズ（{{max}} MB）を超えています',
       uploadFailed: '「{{name}}」のアップロードに失敗しました：{{error}}',
+      uploadIncomplete: '「{{name}}」のアップロードが完了しませんでした：ファイル ID が返されなかったため、何も保存されていません',
     },
     richText: {
       format: "フォーマット: {{format}}",

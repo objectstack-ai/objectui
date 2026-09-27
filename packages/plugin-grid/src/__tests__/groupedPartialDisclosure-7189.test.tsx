@@ -344,6 +344,12 @@ describe('ObjectGrid — a grouped grid discloses that it grouped a page (object
       page: 1,
       pageSize: 100,
       onPageChange: () => {},
+      // objectui#10657: the ListView paging shape now hands the grid the
+      // object's field catalogue with its rows. Without it the grouping key
+      // (`business_unit`, no column type) is WITHHELD — refused — until the
+      // grid's own schema read lands, so the notice this case reads would sit
+      // behind that re-render of 100 rows.
+      objectFields: OBJECT_FIELDS,
     });
 
     await vi.waitFor(() => expect(notice()).toBeInTheDocument());

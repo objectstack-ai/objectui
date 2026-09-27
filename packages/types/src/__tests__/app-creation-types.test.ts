@@ -69,7 +69,8 @@ describe('App Creation Types', () => {
       expect(schema.label).toBe('Test Application');
       expect(schema.description).toBe('A test app');
       expect(schema.icon).toBe('LayoutDashboard');
-      expect(schema.logo).toBe('https://example.com/logo.svg');
+      // The logo travels in `branding` only — no top-level copy (objectui#10827).
+      expect('logo' in schema).toBe(false);
       expect(schema.favicon).toBe('https://example.com/favicon.ico');
       expect(schema.branding).toEqual({
         logo: 'https://example.com/logo.svg',

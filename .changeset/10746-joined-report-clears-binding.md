@@ -23,9 +23,16 @@ unbound report's switch stays the one-key patch it always was. `runtimeFilter` a
 `drilldown` are kept: the joined branch reads both. Switching between two non-joined
 types keeps the binding; switching away from `joined` restores nothing — the author
 re-binds. `blocks` is never touched. The clear holds for the patch and for the save that
-follows it. The metadata-admin editor rebuilds its draft as the served draft spread over
-`layered.effective` (on load, after each save and after publish), and `effective` is the
-published layer, so a report whose PUBLISHED version was bound gets those keys back in the
-draft after the first draft save until it is published, and a report already saved `joined`
-with stale keys is not repaired on load. Both are the host's draft-over-baseline merge,
-objectui#10765.
+follows it. At this change the metadata-admin editor rebuilds its draft as the served draft
+spread over `layered.effective` (on load, after each save and after publish), and
+`effective` is the published layer, so a report whose PUBLISHED version was bound gets those
+keys back in the draft after the first draft save until it is published, and a report already
+saved `joined` with stale keys is not repaired on load. Both are the host's
+draft-over-baseline merge, objectui#10765.
+
+⚠️ **Dated note, 2026-09-27 — that merge has since been removed — objectui#10765.** Later in
+this same release the metadata-admin editor takes a served draft as-is instead of spreading
+it over the published layer, so the clear holds across the refresh after the save and through
+publish. A report already saved `joined` with stale keys is still not repaired on load; the
+author deletes them from the JSON tab. The rest of this entry is kept as the reading of this
+change; the objectui#10765 entry states what the editors now do.

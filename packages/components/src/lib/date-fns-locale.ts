@@ -35,6 +35,14 @@
  *
  * A tag date-fns has no locale for, and a malformed one, read `enUS`.
  *
+ * ## A caller's own tag goes through the same chain
+ *
+ * A face that formats its other dates with a tag of its own (`CalendarView`'s
+ * authored `locale`) hands that tag to `Calendar` as `localeTag`, and it is
+ * resolved here, by the same chain, in place of the display locale
+ * (objectui#10747). So there is still one resolver, and no caller outside this
+ * package needs date-fns to reach it.
+ *
  * ## Every locale is loaded lazily, one literal specifier each
  *
  * ⛔ Never collapse the loaders into `import(`date-fns/locale/${code}`)`. A
@@ -250,11 +258,32 @@ export function loadDateLocale(key: string): Promise<Locale> {
 }
 
 /**
- * The date-fns `Locale` for the session's display locale. It reads `enUS`
- * until that locale has loaded, then re-renders its caller with it.
+ * `Calendar`'s input that names its locale as a BCP-47 TAG (objectui#10747).
+ *
+ * Declared here, beside the resolver it feeds, so the patch that adds it to the
+ * No-Touch `ui/calendar.tsx` stays a one-line reference.
  */
-export function useDisplayDateLocale(): Locale {
-  const key = dateLocaleKeyFor(useDisplayLocale())
+export interface CalendarLocaleTagProps {
+  /**
+   * The BCP-47 tag this calendar's caption, weekday heads and week start read,
+   * in place of the session's display locale: the tag a host already formats
+   * its own dates with, such as `CalendarView`'s `effectiveLocale`. It is
+   * resolved by the chain in this module's header, so `de-CH` reads date-fns
+   * `de`, and a tag date-fns has no locale for, or a malformed one, reads
+   * `enUS`. Absent, the calendar reads the display locale. A date-fns `locale`
+   * object passed to `Calendar` still wins over both.
+   */
+  localeTag?: string
+}
+
+/**
+ * The date-fns `Locale` for `tag`, or for the session's display locale when no
+ * tag is given (objectui#10747): an explicit tag wins. It reads `enUS` until
+ * that locale has loaded, then re-renders its caller with it.
+ */
+export function useDisplayDateLocale(tag?: string): Locale {
+  const displayLocale = useDisplayLocale()
+  const key = dateLocaleKeyFor(tag ?? displayLocale)
   const [, rerender] = React.useReducer((count: number) => count + 1, 0)
   const resident = loaded.get(key)
 

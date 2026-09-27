@@ -990,7 +990,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   const navIsOverlay = navConfig.mode === 'drawer' || navConfig.mode === 'modal' || navConfig.mode === 'split' || navConfig.mode === 'popover';
   const navigation = useNavigationOverlay({
     navigation: navConfig,
-    // The record-page URL follows the RECORD SOURCE (objectui#7638): the very
+    // The record-page URL follows the RECORD SOURCE (`2ce2612df`): the very
     // `schemaObjectName` resolved above, which already keys this calendar's
     // record query and which the detail drawer at the bottom of this file
     // resolves the same way. Before this it read the bare `schema.objectName`,

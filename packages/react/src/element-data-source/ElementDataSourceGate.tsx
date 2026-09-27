@@ -103,11 +103,15 @@
 import * as React from 'react';
 import {
   elementDataSourceRefusedLimitMessage,
+  filterRefusalSubject,
   isElementDataSourceConfig,
   mergeFilterNodes,
+  toFilterNodeSafely,
   type ElementDataSourceConfig,
   type ElementSavedView,
+  type FilterOperatorError,
 } from '@object-ui/core';
+import { useObjectTranslation } from '@object-ui/i18n';
 import {
   useElementDataSource,
   type ElementDataSourceStatus,
@@ -174,6 +178,15 @@ export interface UseElementDataSourceSchemaResult<S> {
   config?: ElementDataSourceConfig;
   /** Author-facing explanation, set only for `missing`. */
   error?: string;
+  /**
+   * The refused filter that stopped the binding from applying — set only with
+   * `missing`, and `error` then carries its message (objectui#10789). Either
+   * merge can refuse: the view's filter with the binding's own
+   * ({@link useElementDataSource}), or the component's filter with that result
+   * (this hook). {@link ElementDataSourceGate} draws the malformed-filter
+   * notice from it.
+   */
+  filterRefusal?: FilterOperatorError;
 }
 
 /**
@@ -368,6 +381,7 @@ export function useElementDataSourceSchema<S>(
     capMessage: string | null;
     viewCapMessage: string | null;
     bindingCapMessage: string | null;
+    filterRefusal?: FilterOperatorError;
   } => {
     const composed = binding.composed;
     // BY REFERENCE when there is nothing to apply — a fresh object every render
@@ -394,7 +408,21 @@ export function useElementDataSourceSchema<S>(
       // Component filter AND (view filter AND binding filter). `composed.filter`
       // already carries the latter pair; a single surviving source comes back
       // unwrapped, so the common "only the view filters" case stays flat.
-      const merged = mergeFilterNodes(base.filter, composed.filter);
+      //
+      // ⚠️ Each source is lowered through `toFilterNodeSafely` first, the way
+      // `RelatedList` and `LineItemsPanel` lower their own filter before they
+      // merge it — objectui#10789. This is a RENDER-time `useMemo`, and the
+      // lowering refuses malformed authored shapes with a `FilterOperatorError`:
+      // uncaught, that was a render error, thrown BEFORE the wrapped block
+      // reached its own safe lowering and its malformed-filter state. The
+      // refusal is returned as a VALUE and the block is not rendered at all —
+      // never merged as "no filter", which would run it unconstrained. The
+      // merge below then only re-reads nodes the lowering already produced.
+      const own = toFilterNodeSafely(base.filter);
+      if (!own.ok) return { schema, capMessage: null, viewCapMessage: null, bindingCapMessage: null, filterRefusal: own.refusal };
+      const bound = toFilterNodeSafely(composed.filter);
+      if (!bound.ok) return { schema, capMessage: null, viewCapMessage: null, bindingCapMessage: null, filterRefusal: bound.refusal };
+      const merged = mergeFilterNodes(own.node, bound.node);
       if (merged !== undefined) next.filter = merged;
       else delete next.filter;
     }
@@ -446,7 +474,7 @@ export function useElementDataSourceSchema<S>(
   // per render — and it fires from an effect, never from render, which is the
   // same shape the renderer sites use for "you declared it, we dropped it".
   // One effect per message, so a change to one never re-emits another.
-  const { schema: boundSchema, capMessage, viewCapMessage, bindingCapMessage } = mapped;
+  const { schema: boundSchema, capMessage, viewCapMessage, bindingCapMessage, filterRefusal: mergeRefusal } = mapped;
   React.useEffect(() => {
     if (capMessage) console.warn(capMessage);
   }, [capMessage]);
@@ -457,14 +485,26 @@ export function useElementDataSourceSchema<S>(
     if (bindingCapMessage) console.warn(bindingCapMessage);
   }, [bindingCapMessage]);
 
+  // A refused filter — from either merge — is `missing`, the one state every
+  // caller already answers by withholding the block (objectui#10789).
+  const filterRefusal = binding.filterRefusal ?? mergeRefusal;
   return React.useMemo(
-    () => ({
-      status: binding.status,
-      schema: boundSchema,
-      config: binding.config,
-      error: binding.error,
-    }),
-    [binding.status, binding.config, binding.error, boundSchema],
+    () =>
+      filterRefusal
+        ? {
+            status: 'missing' as const,
+            schema: boundSchema,
+            config: binding.config,
+            error: filterRefusal.message,
+            filterRefusal,
+          }
+        : {
+            status: binding.status,
+            schema: boundSchema,
+            config: binding.config,
+            error: binding.error,
+          },
+    [binding.status, binding.config, binding.error, boundSchema, filterRefusal],
   );
 }
 
@@ -499,6 +539,61 @@ export function ElementDataSourceErrorPanel({
     >
       <p className="font-medium">{title}</p>
       {message ? <p className="text-sm mt-1">{message}</p> : null}
+    </div>
+  );
+}
+
+/**
+ * The malformed-filter notice, drawn IN PLACE OF the block when a filter the
+ * gate had to merge is refused (objectui#10789).
+ *
+ * It is the notice the wrapped blocks draw themselves (objectui#9050 step 2 —
+ * `record:related_list`, the line-items panel, `object-grid`): the same
+ * sentence (`view.malformedFilter`), naming the refused operator or field in a
+ * separately addressable headline, with the refusal's own message beneath it.
+ * The gate draws it because its merge refuses FIRST — before the block's own
+ * safe lowering ever runs — so without it the author would get the error
+ * boundary's "failed to render" instead of the sentence those blocks give.
+ *
+ * ⚠️ A separate component, so `useObjectTranslation` runs only on this path:
+ * the gate wraps every object-bound block, and a translation hook in the
+ * gate's own body would run for all of them, including under the many suites
+ * that mock `@object-ui/i18n` by hand.
+ *
+ * The provider-less default is the sentence itself, written the way the
+ * sibling blocks carry it: a LITERAL copy of the `en` pack's value, never a
+ * read of the pack object. The siblings keep theirs in a module-scope
+ * `createSafeTranslation` table, which this module cannot have: it is
+ * re-exported from the package entry, so a factory call at module scope would
+ * run on import for every consumer (`NonGridRowCeilingNote` records that
+ * hazard). So the copy sits in the call's inline `defaultValue`, where
+ * `pnpm check:i18n-keys` holds it byte-identical to the pack, as the siblings'
+ * tables are held. With an `I18nProvider` the pack's value wins, and without
+ * one this literal is interpolated (objectui#6219).
+ */
+function ElementDataSourceMalformedFilterPanel({
+  testId,
+  refusal,
+}: {
+  testId: string;
+  refusal: FilterOperatorError;
+}): React.ReactElement {
+  const { t } = useObjectTranslation();
+  return (
+    <div
+      role="alert"
+      className="rounded-md border border-amber-300 bg-amber-50 p-3 my-2 text-sm text-amber-800"
+      data-testid={`${testId}-malformed-filter`}
+    >
+      {/* The headline is the half that has to NAME the operator; the technical
+          line below repeats it incidentally. */}
+      <p className="font-medium" data-testid={`${testId}-malformed-filter-subject`}>
+        {t('view.malformedFilter', {
+          subject: filterRefusalSubject(refusal) ?? '',
+          defaultValue: 'This view’s filter is malformed, so no records are shown: the {{subject}} condition cannot be applied.',
+        })}
+      </p>
+      <p className="mt-1 text-xs opacity-80">{refusal.message}</p>
     </div>
   );
 }
@@ -728,6 +823,12 @@ export function ElementDataSourceGate<S>({
     return <NoDataSourcePanel testId={testId} message={noDataSourceText} />;
   }
 
+  // A refused filter is `missing` too, but it gets the malformed-filter notice
+  // rather than the "could not be resolved" panel: the binding resolved, and
+  // what the author has to fix is a filter condition (objectui#10789).
+  if (bound.filterRefusal) {
+    return <ElementDataSourceMalformedFilterPanel testId={testId} refusal={bound.filterRefusal} />;
+  }
   if (bound.status === 'missing') {
     return <ElementDataSourceErrorPanel testId={testId} title={errorTitle} message={bound.error} />;
   }

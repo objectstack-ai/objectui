@@ -5,7 +5,7 @@
  * schema-driven config panel framework.
  */
 
-import type { FilterGroup, SortItem } from '@object-ui/components';
+import type { FilterBuilderOperator, FilterGroup, SortItem } from '@object-ui/components';
 // The retirement gate (objectui#4914, ruling B). This package carries no
 // `@object-ui/fields` dependency — and does not gain one here — so it reads
 // the gate from its home in `@object-ui/core`, which `fields` re-exports
@@ -284,7 +284,17 @@ export function deriveFieldOptions(objectDef: { fields?: Record<string, any> }):
 /** Convert draft filter → FilterGroup for FilterBuilder */
 export function toFilterGroup(draftFilter: any): FilterGroup {
     const parsed = parseSpecFilter(draftFilter);
-    return { id: 'root', logic: parsed.logic, conditions: parsed.conditions };
+    // The one place a stored (untyped) draft meets the builder's row type,
+    // whose `operator` is `FilterBuilderOperator` rather than `string` since
+    // objectui#9306. `specToBuilderOperator` answers a builder id for every
+    // spelling the spec or the builder knows. A spelling nothing folds is
+    // carried through verbatim ON PURPOSE (see `specToBuilderOperator`): the row
+    // stays visible, with a blank operator trigger, instead of being coerced to
+    // `equals` — the same way the builder's own read boundary keeps such a row.
+    // So the type is ASSERTED over stored data here, not proven; nothing about
+    // what this function returns at runtime changed.
+    const conditions = parsed.conditions.map((c) => ({ ...c, operator: c.operator as FilterBuilderOperator }));
+    return { id: 'root', logic: parsed.logic, conditions };
 }
 
 /**

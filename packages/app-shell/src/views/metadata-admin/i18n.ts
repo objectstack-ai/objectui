@@ -381,6 +381,56 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.widget.filterBindingDefault': 'Default ({field})',
   'engine.inspector.widget.filterBindingField': 'Bound field for {filter}',
   'engine.inspector.widget.filterBindingReset': 'Reset',
+  // objectui#10748 — the widget-type select's options (keyed by the stored
+  // `type`, which never moves), the untitled-widget fallback and the two
+  // empty-state messages.
+  'engine.inspector.widget.type.metric': 'KPI Metric',
+  'engine.inspector.widget.type.bar': 'Bar Chart',
+  'engine.inspector.widget.type.horizontalBar': 'Horizontal Bar',
+  'engine.inspector.widget.type.line': 'Line Chart',
+  'engine.inspector.widget.type.area': 'Area Chart',
+  'engine.inspector.widget.type.pie': 'Pie Chart',
+  'engine.inspector.widget.type.donut': 'Donut Chart',
+  'engine.inspector.widget.type.funnel': 'Funnel',
+  'engine.inspector.widget.type.table': 'Table',
+  'engine.inspector.widget.type.pivot': 'Pivot Table',
+  'engine.inspector.widget.untitledN': 'Widget {n}',
+  'engine.inspector.widget.unsupportedSelection': 'Unsupported selection kind: {kind}',
+  'engine.inspector.widget.removed': 'The selected widget was removed from the draft.',
+  // objectui#10804 (objectui#10805 folded in) — the dashboard add-widget picker
+  // (`AddWidgetPicker`): its search box, empty text, category headings and the
+  // type names it lists (`WIDGET_TYPE_META[].labelKey`). Display only: the new
+  // widget's default `New TYPE` title is stored author data and keeps writing
+  // `WIDGET_TYPE_META[].label`, the same English as these en rows.
+  'engine.widgetPicker.search': 'Search widgets…',
+  'engine.widgetPicker.noMatches': 'No matches.',
+  'engine.widgetPicker.category.kpi': 'Single value',
+  'engine.widgetPicker.category.chart': 'Charts',
+  'engine.widgetPicker.category.data': 'Tabular',
+  'engine.widgetPicker.type.metric': 'Metric (KPI)',
+  'engine.widgetPicker.type.bar': 'Bar chart',
+  'engine.widgetPicker.type.horizontalBar': 'Horizontal bar',
+  'engine.widgetPicker.type.line': 'Line chart',
+  'engine.widgetPicker.type.area': 'Area chart',
+  'engine.widgetPicker.type.pie': 'Pie chart',
+  'engine.widgetPicker.type.donut': 'Donut chart',
+  'engine.widgetPicker.type.scatter': 'Scatter plot',
+  'engine.widgetPicker.type.funnel': 'Funnel',
+  'engine.widgetPicker.type.table': 'Data table',
+  'engine.widgetPicker.type.pivot': 'Pivot table',
+  // objectui#10835 — the dashboard designer's preview canvas (`DashboardPreview`):
+  // the empty-canvas message, the error-boundary hint, the loading text and the
+  // selected-widget strip. Display only: a widget's stored `title` is author
+  // data and shows as written.
+  'engine.dashboardPreview.empty': 'Add at least one widget to see a preview.',
+  'engine.dashboardPreview.malformed': "A widget references an object or field that doesn't resolve.",
+  'engine.dashboardPreview.loading': 'Loading dashboard renderer…',
+  'engine.dashboardPreview.selected': 'Selected',
+  'engine.dashboardPreview.clickToRename': 'Click to rename',
+  'engine.dashboardPreview.untitled': 'untitled',
+  'engine.dashboardPreview.saveTitle': 'Save title',
+  'engine.dashboardPreview.renameWidget': 'Rename widget',
+  'engine.dashboardPreview.clearSelection': 'Clear selection',
   // Flow node inspector
   'engine.inspector.flowNode.kind': 'Node',
   'engine.inspector.flowNode.close': 'Close node',
@@ -399,6 +449,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.flowNode.inactiveRetainedClear': 'Clear value',
   'engine.inspector.flowNode.noConfig': 'No configuration needed for this node type.',
   'engine.inspector.flowNode.nestedIdHint': 'A node inside a container region keeps its id here — rename it in the container’s Advanced JSON.',
+  // objectui#10748 — the nested-node breadcrumb's accessible name, and the
+  // Advanced (JSON) box's refusal of a value that parses but is not an object.
+  'engine.inspector.flowNode.nestedLocation': 'nested node location',
+  'engine.inspector.flowNode.advancedNotObject': 'Must be a JSON object',
   'engine.inspector.flowNode.kv.add': 'Add entry',
   'engine.inspector.flowNode.kv.key': 'Key',
   'engine.inspector.flowNode.kv.value': 'Value',
@@ -433,6 +487,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.flowEdge.branchReject': 'Reject',
   'engine.inspector.flowEdge.branchRevise': 'Revise — send back',
   'engine.inspector.flowEdge.branchCustom': '— Custom —',
+  // objectui#10748 — the word after ` · ` on a decision branch whose condition
+  // is empty or `true` (the default branch), in the branch picker.
+  'engine.inspector.flowEdge.branchDefault': 'default',
   'engine.inspector.flowEdge.connection': 'Connection',
   'engine.inspector.flowEdge.type': 'Type',
   'engine.inspector.flowEdge.typeDefault': 'Normal',
@@ -544,6 +601,14 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.condition.op.lessThan': 'less than',
   'engine.inspector.condition.op.truthy': 'is set / true',
   'engine.inspector.condition.op.falsy': 'is empty / false',
+  // objectui#10748 — the lookup filter's operator words the four above do not
+  // cover (`ObjectFieldInspector` `LOOKUP_OPERATORS`, which reads the four as
+  // well; the symbol a label leads with stays outside the word).
+  'engine.inspector.condition.op.atLeast': 'at least',
+  'engine.inspector.condition.op.atMost': 'at most',
+  'engine.inspector.condition.op.contains': 'contains',
+  'engine.inspector.condition.op.inAnyOf': 'in (any of)',
+  'engine.inspector.condition.op.notIn': 'not in',
   'engine.inspector.view.type.grid': 'Table / List',
   'engine.inspector.view.type.kanban': 'Kanban',
   'engine.inspector.view.type.calendar': 'Calendar',
@@ -1102,6 +1167,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowRegion.branchN': 'Branch {n}',
   'engine.flowRegion.try': 'Try',
   'engine.flowRegion.catch': 'Catch',
+  // objectui#10748 — a loop / map body region; the canvas draws no header for
+  // it, so today only the inspector's nested-node breadcrumb reads it.
+  'engine.flowRegion.body': 'Body',
   // Flow preview header — pills, panel toggles, empty states (FlowPreview).
   'engine.flowPreview.emptyHint': 'Add nodes in the Form tab to see the flow preview.',
   'engine.flowPreview.malformed': 'One of the flow nodes or edges is malformed.',
@@ -1163,6 +1231,57 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowSim.status.paused': 'paused',
   'engine.flowSim.status.done': 'done',
   'engine.flowSim.status.error': 'error',
+  // objectui#10835 — the Debug run's step records (`FlowSimulator`, shown by
+  // `FlowSimulatorPanel`): a step's status chip, an out-edge's error result, and
+  // every note and error sentence the simulator writes. Node ids, labels, types,
+  // CEL sources, config paths and the producer text a reason carries
+  // (`@objectstack/spec` / `@objectstack/formula`) pass through as written.
+  'engine.flowSim.stepStatus.ok': 'ok',
+  'engine.flowSim.stepStatus.mocked': 'mocked',
+  'engine.flowSim.stepStatus.paused': 'paused',
+  'engine.flowSim.stepStatus.skipped': 'skipped',
+  'engine.flowSim.stepStatus.error': 'error',
+  'engine.flowSim.edge.error': 'error',
+  'engine.flowSim.note.stepLimit': 'Step limit ({max}) exceeded — the flow may contain an infinite loop.',
+  'engine.flowSim.note.nodeNotFound': 'Node "{id}" not found.',
+  'engine.flowSim.note.resumed': 'Resumed.',
+  'engine.flowSim.note.decisionTaken': 'Decision: {decision} → {taken}.',
+  'engine.flowSim.note.decisionNoneTaken': 'no out-edge taken',
+  'engine.flowSim.note.noDecision': 'No decision supplied; every out-edge is considered.',
+  'engine.flowSim.note.flowEnd': 'Flow end reached.',
+  'engine.flowSim.note.unsupported': '"{type}" is not modelled by the simulator; passing through without its real semantics.',
+  'engine.flowSim.note.parallelSplit': 'Parallel split — branches fan out (no join synchronization is simulated).',
+  'engine.flowSim.note.approvalReached': 'Approval reached — choose a decision to continue.',
+  'engine.flowSim.note.waitReached': 'Wait reached — continue manually.',
+  'engine.flowSim.note.screenReached': 'Screen reached — provide inputs, then continue.',
+  'engine.flowSim.note.screenUnevaluable':
+    "A screen field's visibleWhen may reference only the fields declared on this screen; the screen cannot evaluate {fields}.",
+  'engine.flowSim.note.screenUnevaluableField': '"{name}" ({reason})',
+  'engine.flowSim.note.screenNoInput': 'Screen has no input — passed through (matches runtime).',
+  'engine.flowSim.note.passThrough': 'Type "{type}" treated as pass-through.',
+  'engine.flowSim.note.decisionNoOutEdge': 'The decision has no out-edge; the runtime ends this branch here.',
+  'engine.flowSim.note.branchMatched': 'Branch "{label}" matched (config.conditions).',
+  'engine.flowSim.note.noConditionMatched': 'No entry of config.conditions matched; the branch is "{label}".',
+  'engine.flowSim.note.noAssignments': 'No assignments defined.',
+  'engine.flowSim.note.unmodelledToken': '{token} in "{key}"',
+  'engine.flowSim.note.unmodelled':
+    'Kept as written, not modelled by the Debug run: {tokens}. The runtime resolves NOW() / TODAY(), $User.* and arithmetic itself, and fails the node on a call to a function it does not know.',
+  'engine.flowSim.note.loopSinglePass': 'Loop simulated as a single pass (body re-execution is not modelled).',
+  'engine.flowSim.note.loopCollection': 'Collection "{ref}" has {count} item(s); simulated as a single pass.',
+  'engine.flowSim.note.loopNotArray': 'Collection "{ref}" is not an array; loop may not run at runtime.',
+  'engine.flowSim.note.mockedCall': "Mocked call to '{fn}' (no function executed).",
+  'engine.flowSim.note.retiredAction':
+    "Retired '{action}' action — it never delivered anything; use a notify node (or a connector for Slack).",
+  'engine.flowSim.note.retiredScript':
+    'Retired inline script — the runtime never executed it; move the logic into a registered function.',
+  'engine.flowSim.note.mocked': 'Mocked {type} (no backend call).',
+  'engine.flowSim.note.noBranchLabel':
+    'No out-edge carries the branch label "{label}", so every out-edge is considered, as the runtime does (it logs a warning).',
+  'engine.flowSim.note.evaluationFailed': 'Evaluation failed.',
+  'engine.flowSim.note.multipleMatched':
+    'Multiple conditions matched; the first declared branch was taken (the runtime takes every match, objectstack#15429).',
+  'engine.flowSim.note.noEdgeTaken':
+    'No out-edge was taken: no guard was true and there is no default edge. The runtime ends this branch here.',
   // Structural flow validation (flow-sim-validate) — canvas banner, Problems
   // panel, and the debug simulator.
   'engine.flowValidate.nodeMissingId': 'A node is missing an id.',
@@ -1184,6 +1303,46 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowRef.unknownWithSuggestion': 'Unknown reference `{token}` — did you mean `{suggestion}`?',
   'engine.flowRef.notInScope': '`{token}` is not a reference in scope at this step.',
   'engine.flowRef.notInScopeMulti': 'Not in scope: {tokens}.',
+  // objectui#10804 — a screen field's `visibleWhen` names a root that is not a
+  // field declared on the same screen (`screenVisibleWhenScopeError`,
+  // screen-spec): the inline cell's note and the Problems panel. The parse and
+  // shape refusals beside it are `@objectstack/formula`'s and
+  // `@objectstack/spec`'s own words and pass through as they are.
+  'engine.flowRef.notAScreenField': '`{token}` is not a field on this screen',
+  'engine.flowRef.notAScreenFieldWithSuggestion': '`{token}` is not a field on this screen (did you mean `{suggestion}`?)',
+  // objectui#10748 — the author-time expression shape errors
+  // (`validateExpressionClient`, expression-validate), rendered inline under an
+  // expression field, a repeater cell and the edge condition. The code spans
+  // are code and stay as they are in every locale.
+  'engine.flowExpr.templateDialect': 'Expected a text template but got a `{dialect}` expression.',
+  'engine.flowExpr.singleBraceTemplate': 'Single-brace `{{ref}}` is not a valid template hole — use double braces: `{{ {ref} }}`.',
+  'engine.flowExpr.celDialect': 'Expected a CEL expression but got a `{dialect}` dialect.',
+  'engine.flowExpr.braceInCondition':
+    'It looks like a `{{ref}}` template brace was used inside a condition — `{…}` parses as a CEL map literal and fails. Write the bare reference instead, e.g. `{ref}`. Conditions are bare CEL (e.g. `record.rating >= 4`).',
+  'engine.flowExpr.unbalancedParens': 'Unbalanced parentheses in `{source}`.',
+  'engine.flowExpr.unbalancedBrackets': 'Unbalanced brackets in `{source}`.',
+  // objectui#10748 — the variable data-picker (`VariableTextInput`): its button
+  // and search box, its section headings (`useFlowScope`) and the muted detail
+  // beside a reference (`flow-scope`, `useFlowScope`). Tokens, type names and
+  // object names inside a detail are code or author data and stay as they are.
+  'engine.flowScope.picker.insert': 'Insert a reference',
+  'engine.flowScope.picker.search': 'Search references…',
+  'engine.flowScope.picker.empty': 'No matching references.',
+  'engine.flowScope.group.variables': 'Flow variables',
+  'engine.flowScope.group.outputs': 'Upstream outputs',
+  'engine.flowScope.group.loop': 'Loop item',
+  'engine.flowScope.group.trigger': 'Trigger record',
+  'engine.flowScope.group.approvalCurrent': 'Current record (live at node entry)',
+  'engine.flowScope.group.approvalTrigger': 'Trigger snapshot (at submit)',
+  // objectui#10804 — the one section of a screen field's `visibleWhen` picker.
+  'engine.flowScope.group.screenFields': 'Screen fields',
+  'engine.flowScope.detail.variable': 'variable',
+  'engine.flowScope.detail.variableTyped': 'variable · {type}',
+  'engine.flowScope.detail.triggerRecord': 'trigger record · {object}',
+  'engine.flowScope.detail.previousRecord': 'record values before the change',
+  'engine.flowScope.detail.priorOf': 'prior {detail}',
+  'engine.flowScope.detail.priorValue': 'prior value',
+  'engine.flowScope.detail.preUpdateRow': 'pre-update row',
   // Problems panel (ProblemsPanel).
   'engine.flowProblems.title': 'Problems',
   'engine.flowProblems.empty': 'No problems — this flow is structurally valid.',
@@ -2683,6 +2842,45 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.widget.filterBindingDefault': '默认（{field}）',
   'engine.inspector.widget.filterBindingField': '{filter} 绑定的字段',
   'engine.inspector.widget.filterBindingReset': '恢复默认',
+  'engine.inspector.widget.type.metric': 'KPI 指标',
+  'engine.inspector.widget.type.bar': '柱状图',
+  'engine.inspector.widget.type.horizontalBar': '条形图',
+  'engine.inspector.widget.type.line': '折线图',
+  'engine.inspector.widget.type.area': '面积图',
+  'engine.inspector.widget.type.pie': '饼图',
+  'engine.inspector.widget.type.donut': '环形图',
+  'engine.inspector.widget.type.funnel': '漏斗图',
+  'engine.inspector.widget.type.table': '表格',
+  'engine.inspector.widget.type.pivot': '透视表',
+  'engine.inspector.widget.untitledN': '组件 {n}',
+  'engine.inspector.widget.unsupportedSelection': '不支持的选择类型：{kind}',
+  'engine.inspector.widget.removed': '所选组件已从草稿中移除。',
+  'engine.widgetPicker.search': '搜索组件…',
+  'engine.widgetPicker.noMatches': '没有匹配项。',
+  'engine.widgetPicker.category.kpi': '单值',
+  'engine.widgetPicker.category.chart': '图表',
+  'engine.widgetPicker.category.data': '表格',
+  'engine.widgetPicker.type.metric': '指标 (KPI)',
+  'engine.widgetPicker.type.bar': '柱状图',
+  'engine.widgetPicker.type.horizontalBar': '条形图',
+  'engine.widgetPicker.type.line': '折线图',
+  'engine.widgetPicker.type.area': '面积图',
+  'engine.widgetPicker.type.pie': '饼图',
+  'engine.widgetPicker.type.donut': '环形图',
+  'engine.widgetPicker.type.scatter': '散点图',
+  'engine.widgetPicker.type.funnel': '漏斗图',
+  'engine.widgetPicker.type.table': '数据表格',
+  'engine.widgetPicker.type.pivot': '透视表',
+  // objectui#10835 — the dashboard designer's preview canvas (see the en rows).
+  'engine.dashboardPreview.empty': '至少添加一个组件才能查看预览。',
+  'engine.dashboardPreview.malformed': '某个组件引用了无法解析的对象或字段。',
+  'engine.dashboardPreview.loading': '正在加载仪表盘渲染器…',
+  'engine.dashboardPreview.selected': '已选中',
+  'engine.dashboardPreview.clickToRename': '点击重命名',
+  'engine.dashboardPreview.untitled': '未命名',
+  'engine.dashboardPreview.saveTitle': '保存标题',
+  'engine.dashboardPreview.renameWidget': '重命名组件',
+  'engine.dashboardPreview.clearSelection': '取消选择',
   // Flow node inspector
   'engine.inspector.flowNode.kind': '节点',
   'engine.inspector.flowNode.close': '关闭节点',
@@ -2698,6 +2896,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.flowNode.inactiveRetainedClear': '清除值',
   'engine.inspector.flowNode.noConfig': '此节点类型无需配置。',
   'engine.inspector.flowNode.nestedIdHint': '容器区域内的节点 ID 在此只读 —— 请在容器的高级 JSON 中重命名。',
+  'engine.inspector.flowNode.nestedLocation': '嵌套节点位置',
+  'engine.inspector.flowNode.advancedNotObject': '必须是 JSON 对象',
   'engine.inspector.flowNode.kv.add': '添加条目',
   'engine.inspector.flowNode.kv.key': '键',
   'engine.inspector.flowNode.kv.value': '值',
@@ -2730,6 +2930,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.flowEdge.branchReject': '驳回',
   'engine.inspector.flowEdge.branchRevise': '退回修改',
   'engine.inspector.flowEdge.branchCustom': '—— 自定义 ——',
+  'engine.inspector.flowEdge.branchDefault': '默认',
   'engine.inspector.flowEdge.connection': '连线',
   'engine.inspector.flowEdge.type': '类型',
   'engine.inspector.flowEdge.typeDefault': '普通',
@@ -2840,6 +3041,11 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.condition.op.lessThan': '小于',
   'engine.inspector.condition.op.truthy': '已设置 / 为真',
   'engine.inspector.condition.op.falsy': '为空 / 为假',
+  'engine.inspector.condition.op.atLeast': '至少',
+  'engine.inspector.condition.op.atMost': '至多',
+  'engine.inspector.condition.op.contains': '包含',
+  'engine.inspector.condition.op.inAnyOf': '属于（任一）',
+  'engine.inspector.condition.op.notIn': '不属于',
   'engine.inspector.view.type.grid': '表格 / 列表',
   'engine.inspector.view.type.kanban': '看板',
   'engine.inspector.view.type.calendar': '日历',
@@ -3427,6 +3633,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowRegion.branchN': '分支 {n}',
   'engine.flowRegion.try': '尝试',
   'engine.flowRegion.catch': '捕获',
+  'engine.flowRegion.body': '循环体',
   // Flow preview header — pills, panel toggles, empty states.
   'engine.flowPreview.emptyHint': '在“表单”标签页中添加节点即可查看流程预览。',
   'engine.flowPreview.malformed': '某个流程节点或连线的格式有误。',
@@ -3486,6 +3693,51 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowSim.status.paused': '已暂停',
   'engine.flowSim.status.done': '完成',
   'engine.flowSim.status.error': '错误',
+  // objectui#10835 — the Debug run's step records (see the en rows).
+  'engine.flowSim.stepStatus.ok': '正常',
+  'engine.flowSim.stepStatus.mocked': '已模拟',
+  'engine.flowSim.stepStatus.paused': '已暂停',
+  'engine.flowSim.stepStatus.skipped': '已跳过',
+  'engine.flowSim.stepStatus.error': '错误',
+  'engine.flowSim.edge.error': '错误',
+  'engine.flowSim.note.stepLimit': '超出步数上限({max}) —— 流程中可能存在死循环。',
+  'engine.flowSim.note.nodeNotFound': '节点 “{id}” 不存在。',
+  'engine.flowSim.note.resumed': '已继续。',
+  'engine.flowSim.note.decisionTaken': '决策:{decision} → {taken}。',
+  'engine.flowSim.note.decisionNoneTaken': '未走任何出向连线',
+  'engine.flowSim.note.noDecision': '未提供决策;将考虑所有出向连线。',
+  'engine.flowSim.note.flowEnd': '已到达流程结束。',
+  'engine.flowSim.note.unsupported': '模拟器不模拟 “{type}”;按直通处理,不含其真实语义。',
+  'engine.flowSim.note.parallelSplit': '并行拆分 —— 各分支同时展开(不模拟汇合同步)。',
+  'engine.flowSim.note.approvalReached': '已到达审批 —— 请选择一个决策以继续。',
+  'engine.flowSim.note.waitReached': '已到达等待 —— 请手动继续。',
+  'engine.flowSim.note.screenReached': '已到达交互页面 —— 请填写输入后继续。',
+  'engine.flowSim.note.screenUnevaluable':
+    '交互页面字段的 visibleWhen 只能引用此页面上声明的字段;该页面无法求值 {fields}。',
+  'engine.flowSim.note.screenUnevaluableField': '“{name}”({reason})',
+  'engine.flowSim.note.screenNoInput': '交互页面没有输入 —— 已直接通过(与运行时一致)。',
+  'engine.flowSim.note.passThrough': '类型 “{type}” 按直通处理。',
+  'engine.flowSim.note.decisionNoOutEdge': '该条件分支没有出向连线;运行时在此结束该分支。',
+  'engine.flowSim.note.branchMatched': '分支 “{label}” 已匹配(config.conditions)。',
+  'engine.flowSim.note.noConditionMatched': 'config.conditions 中没有条目匹配;分支为 “{label}”。',
+  'engine.flowSim.note.noAssignments': '未定义任何赋值。',
+  'engine.flowSim.note.unmodelledToken': '“{key}” 中的 {token}',
+  'engine.flowSim.note.unmodelled':
+    '按原样保留,调试运行未模拟:{tokens}。运行时会自行解析 NOW() / TODAY()、$User.* 与算术运算,并在调用它不认识的函数时使该节点失败。',
+  'engine.flowSim.note.loopSinglePass': '循环按单次执行模拟(不模拟循环体的重复执行)。',
+  'engine.flowSim.note.loopCollection': '集合 “{ref}” 有 {count} 项;按单次执行模拟。',
+  'engine.flowSim.note.loopNotArray': '集合 “{ref}” 不是数组;运行时循环可能不会执行。',
+  'engine.flowSim.note.mockedCall': '已模拟对 “{fn}” 的调用(未执行任何函数)。',
+  'engine.flowSim.note.retiredAction':
+    '已退役的 “{action}” 动作 —— 它从未投递过任何内容;请改用通知节点(Slack 请用连接器)。',
+  'engine.flowSim.note.retiredScript': '已退役的内联脚本 —— 运行时从未执行过它;请把逻辑移入已注册的函数。',
+  'engine.flowSim.note.mocked': '已模拟 {type}(未调用后端)。',
+  'engine.flowSim.note.noBranchLabel':
+    '没有出向连线带有分支标签 “{label}”,因此会考虑所有出向连线,与运行时一致(运行时会记录一条警告)。',
+  'engine.flowSim.note.evaluationFailed': '求值失败。',
+  'engine.flowSim.note.multipleMatched':
+    '有多个条件匹配;已走第一个声明的分支(运行时会走所有匹配的分支,objectstack#15429)。',
+  'engine.flowSim.note.noEdgeTaken': '未走任何出向连线:没有为真的条件,也没有默认连线。运行时在此结束该分支。',
   // 连线(edge)Type 枚举值 —— 属性表单里的 SchemaForm 下拉(与画布连线检查器一致)。
   'engine.enum.type.default': '普通',
   'engine.enum.type.conditional': '条件',
@@ -3510,6 +3762,32 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowRef.unknownWithSuggestion': '未知引用 `{token}` —— 是否想用 `{suggestion}`?',
   'engine.flowRef.notInScope': '`{token}` 在当前步骤的作用域中不是有效引用。',
   'engine.flowRef.notInScopeMulti': '不在作用域内:{tokens}。',
+  'engine.flowRef.notAScreenField': '`{token}` 不是此页面上的字段',
+  'engine.flowRef.notAScreenFieldWithSuggestion': '`{token}` 不是此页面上的字段(是否想用 `{suggestion}`?)',
+  'engine.flowExpr.templateDialect': '此处应为文本模板，但得到的是 `{dialect}` 表达式。',
+  'engine.flowExpr.singleBraceTemplate': '单花括号 `{{ref}}` 不是有效的模板占位 —— 请使用双花括号：`{{ {ref} }}`。',
+  'engine.flowExpr.celDialect': '此处应为 CEL 表达式，但得到的是 `{dialect}` 方言。',
+  'engine.flowExpr.braceInCondition':
+    '条件中似乎用了模板花括号 `{{ref}}` —— `{…}` 会被解析为 CEL 映射字面量而失败。请直接写引用本身，例如 `{ref}`。条件是裸 CEL（例如 `record.rating >= 4`）。',
+  'engine.flowExpr.unbalancedParens': '`{source}` 中的圆括号不配对。',
+  'engine.flowExpr.unbalancedBrackets': '`{source}` 中的方括号不配对。',
+  'engine.flowScope.picker.insert': '插入引用',
+  'engine.flowScope.picker.search': '搜索引用…',
+  'engine.flowScope.picker.empty': '没有匹配的引用。',
+  'engine.flowScope.group.variables': '流程变量',
+  'engine.flowScope.group.outputs': '上游输出',
+  'engine.flowScope.group.loop': '循环项',
+  'engine.flowScope.group.trigger': '触发记录',
+  'engine.flowScope.group.approvalCurrent': '当前记录（进入节点时的实时值）',
+  'engine.flowScope.group.approvalTrigger': '触发快照（提交时）',
+  'engine.flowScope.group.screenFields': '页面字段',
+  'engine.flowScope.detail.variable': '变量',
+  'engine.flowScope.detail.variableTyped': '变量 · {type}',
+  'engine.flowScope.detail.triggerRecord': '触发记录 · {object}',
+  'engine.flowScope.detail.previousRecord': '变更前的记录值',
+  'engine.flowScope.detail.priorOf': '{detail}（变更前）',
+  'engine.flowScope.detail.priorValue': '变更前的值',
+  'engine.flowScope.detail.preUpdateRow': '更新前的行',
   // 问题面板(ProblemsPanel)。
   'engine.flowProblems.title': '问题',
   'engine.flowProblems.empty': '没有问题 —— 该流程结构有效。',

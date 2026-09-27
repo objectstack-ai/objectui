@@ -1134,9 +1134,23 @@ export interface FilterUISchema extends BaseSchema {
      */
     type: 'text' | 'number' | 'select' | 'multi-select' | 'date' | 'date-range' | 'boolean';
     /**
-     * Filter operator
+     * RETIRED (objectui#10611, ADR-0049) — `filter-ui` never reads a per-filter
+     * operator. Its renderer (`FilterUI` in `@object-ui/plugin-view`) picks the
+     * control from `type` and emits `{ values }` only: a field → value record
+     * with no operator in it. It does no matching of its own, so how each value
+     * is matched is up to the host that consumes the change.
+     *
+     * Until this retirement the key was declared here, mirrored in zod with a
+     * seven-member enum, and taught by the docs page — yet an authored
+     * `operator: 'gt'`, or a nonsense id, rendered and emitted exactly what a
+     * filter without it does. Nothing in this component implements operators,
+     * so no replacement key is named: remove it. `?: never` here and a
+     * `retirementTombstone()` on the mirror refuse it by name; deleting the
+     * member would have let the mirror strip an authored value in silence.
+     *
+     * @deprecated Retired — `filter-ui` does not read it.
      */
-    operator?: 'equals' | 'contains' | 'startsWith' | 'gt' | 'lt' | 'between' | 'in';
+    operator?: never;
     /**
      * Options for select filter
      */

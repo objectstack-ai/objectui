@@ -359,7 +359,13 @@ export const FilterUISchema = BaseSchema.extend({
     field: z.string().describe('Filter field'),
     label: z.string().optional().describe('Filter label'),
     type: z.enum(['text', 'number', 'select', 'multi-select', 'date', 'date-range', 'boolean']).describe('Filter type'),
-    operator: z.enum(['equals', 'contains', 'startsWith', 'gt', 'lt', 'between', 'in']).optional().describe('Filter operator'),
+    operator: retirementTombstone(
+      'RETIRED (objectui#10611, ADR-0049) — `filter-ui` never reads a per-filter `operator`: the renderer '
+      + 'picks the control from `type` and emits `{ values }` only, a field → value record with no operator '
+      + 'in it, and does no matching of its own. An authored value changed nothing the component rendered '
+      + 'or emitted. Nothing in this component implements operators, so remove the key; how each value is '
+      + 'matched is up to the host that consumes the change.',
+    ),
     options: z.array(z.object({ label: z.string(), value: z.any() })).optional().describe('Options for select filter'),
     placeholder: z.string().optional().describe('Placeholder'),
   })).describe('Available filters'),

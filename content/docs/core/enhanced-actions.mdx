@@ -160,7 +160,8 @@ gets its real widget, not a text box (ADR-0059):
   `@objectstack/formula`'s `SCOPE_ROOTS` declares one.
 - Values are passed through to the action exactly as the widget emits them
   (`number` → number, `date` → `YYYY-MM-DD`, lookup → record id(s), `file` →
-  uploaded file descriptor(s); arrays when `multiple`).
+  the uploaded `sys_file` id(s); arrays when `multiple`). An upload whose adapter
+  returns no file id is refused in the widget, so no inline file object is sent.
 
 File/image params upload through the ambient `UploadProvider`; lookup/user
 params query through the surrounding `SchemaRendererContext` data source — no

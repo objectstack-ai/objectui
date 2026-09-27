@@ -39,7 +39,10 @@ import { isExternalWider, deriveMasterObject } from './owd-sharing.js';
 import { toast } from 'sonner';
 
 
-/** A single object's loaded OWD baseline (already merged over any pending draft). */
+/**
+ * A single object's loaded OWD values — read from its pending draft as-is when
+ * one exists, else from its layered baseline (objectui#10765).
+ */
 interface OwdRow {
   name: string;
   label: string;
@@ -143,8 +146,9 @@ export function PackageOwdOverviewPanel({
 
       // The list row carries `sharingModel` but not reliably `fields` (needed
       // for the master link), and never the pending-draft value — so read each
-      // object's merged body (layered ∪ its draft), exactly as the per-object
-      // Settings tab does, and derive every column from that one source.
+      // object's body (its pending draft as-is, else its layered baseline),
+      // exactly as the per-object Settings tab does, and derive every column
+      // from that one source.
       const built = await Promise.all(
         names.map(async (name): Promise<OwdRow> => {
           const [layRaw, draftResp] = await Promise.all([
@@ -154,7 +158,11 @@ export function PackageOwdOverviewPanel({
           const lay = (layRaw ?? {}) as { effective?: Record<string, unknown>; code?: Record<string, unknown> };
           const baseline = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
           const draftBody = extractDraftBody(draftResp);
-          const body = draftBody ? { ...baseline, ...draftBody } : baseline;
+          // The pending draft is the whole document: read it as-is, and the
+          // published baseline only when no draft exists (objectui#10765). A
+          // spread over `effective` showed a model the draft had cleared as
+          // still set, from the published layer.
+          const body = draftBody ?? baseline;
           const internal = typeof body.sharingModel === 'string' ? body.sharingModel : '';
           return {
             name,
@@ -233,7 +241,7 @@ export function PackageOwdOverviewPanel({
     setSaveError(null);
     try {
       // Each changed row lands as that object's package-scoped DRAFT: read the
-      // fresh merged body, apply just the OWD pair (unset → drop the key), and
+      // fresh body (below), apply just the OWD pair (unset → drop the key), and
       // save. Identical to the per-object Settings write, N times — publish
       // then goes through the same package security-domain gate unchanged.
       for (const s of changed) {
@@ -244,7 +252,11 @@ export function PackageOwdOverviewPanel({
         const lay = (layRaw ?? {}) as { effective?: Record<string, unknown>; code?: Record<string, unknown> };
         const baseline = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
         const draftBody = extractDraftBody(draftResp);
-        const next: Record<string, unknown> = { ...baseline, ...(draftBody ?? {}) };
+        // The pending draft is the whole document — the edit lands on it as-is,
+        // and on the published baseline only when no draft exists
+        // (objectui#10765): a spread over `effective` would put back every key
+        // the draft had deleted and save them again as this object's draft.
+        const next: Record<string, unknown> = { ...(draftBody ?? baseline) };
         if (s.edit.internal) next.sharingModel = s.edit.internal;
         else delete next.sharingModel;
         if (s.edit.external) next.externalSharingModel = s.edit.external;

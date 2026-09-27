@@ -738,19 +738,20 @@ export interface TableColumn {
    *
    * `RelatedList` and `ObjectDataTable` fail closed: while their object
    * definition is in flight, or after its read failed, they stamp EVERY column.
-   * Not covered there: in that same window their cells draw a field the object
-   * declares `password` / `secret` as text, because the mask comes from that
-   * declaration (objectui#10657).
    *
-   * Once the grid's object schema has loaded, `ObjectGrid` also leaves every
-   * masked field of its object out of its own client export, draws those
-   * fields through `cell` on its mobile card, and refuses them as grouping
-   * keys. Not covered there: on the host-fetched path (rows handed down as
-   * `data`, as `ListView` and `ObjectView` do), the grid's guards and the
-   * cell's own mask depend on the object schema, which the grid fetches after
-   * first paint, so until it arrives, and for good if that read fails, an
-   * untyped view column over a `password` / `secret` field draws and hands out
-   * the raw value (objectui#10657, which folded objectui#10706); the
+   * WITHHELD columns (objectui#10657, which folded objectui#10706): while an
+   * object-bound producer's field types are unknown (the definition is in
+   * flight, or its read failed), a column it cannot type draws as the mask
+   * instead of as text, and carries this flag; it stays so when the read
+   * failed. In `ObjectGrid` and `ObjectDataTable` that is a column with no
+   * authored `type`; `RelatedList` draws its cells from the object's types
+   * only, so there it is every column without a `cell` of its own. A host that
+   * already holds the object's fields hands them to `ObjectGrid`
+   * (`objectFields`, as `ListView` does), so that grid has no such window.
+   *
+   * `ObjectGrid` also leaves every masked or withheld field of its object out
+   * of its own client export, draws those fields through `cell` on its mobile
+   * card, and refuses them as grouping keys. Not covered there: the
    * server-streamed export (`exportDownload`) sends the masked columns as
    * before and relies on the server's masking; and the client JSON export, and
    * this table's CSV export of a lookup column, write an expanded lookup
@@ -2670,7 +2671,13 @@ export interface PivotTableSchema extends BaseSchema {
 }
 
 /**
- * Timeline event
+ * Timeline event — the element type of the RETIRED `TimelineSchema.events`
+ * (objectui#6170, ADR-0049 stage 2).
+ *
+ * `TimelineSchema.events`, the member that named it, is now a `?: never`
+ * tombstone, and no renderer ever read it. It stays exported because retiring
+ * a published type NAME is a separate break that ruling did not name. ⛔ Not a timeline element shape — an authored feed entry is a
+ * {@link TimelineFeedItem} (its date key is `time`, not `date`).
  */
 export interface TimelineEvent {
   /**
@@ -2713,6 +2720,107 @@ export interface TimelineEvent {
  * construction rather than by coincidence.
  */
 export type TimelineScale = 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year';
+
+/**
+ * The colour an authored timeline element names — a feed item's marker, or a
+ * gantt bar. Exactly the five `content/docs/plugins/plugin-timeline.mdx`
+ * documents under "Marker Variants" (objectui#6356, ruling Q2 = C).
+ *
+ * The marker primitive paints three more (`todo`, `in-progress`, `done`).
+ * Those are reached only by `ObjectTimeline`, which composes a record's own
+ * value into this slot through the renderer-internal handoff type in
+ * `packages/plugin-timeline` — they are not an authoring vocabulary, and the
+ * gantt bar paints none of them.
+ */
+export type TimelineItemVariant = 'default' | 'success' | 'warning' | 'danger' | 'info';
+
+/**
+ * One authored element of a FEED timeline — `variant` `vertical` (the default)
+ * or `horizontal` (objectui#6356).
+ *
+ * ## The seven keys, and why there are no more
+ *
+ * Maintainer ruling on objectui#6356, Q1 = A: the authored feed element
+ * declares the seven keys the docs page documents and every authored corpus
+ * writes — and nothing else. `ObjectTimeline` composes five further keys onto
+ * each record it maps (`color`, `group`, `meta`, `startDate`, `endDate`, plus
+ * the `_data` record handle), and `TimelineRenderer`'s vertical branch reads
+ * them; the horizontal branch reads none of them. They are RENDERER-INTERNAL:
+ * typed by the handoff type inside `packages/plugin-timeline`, never declared
+ * here, and refused when authored on the strict authoring face.
+ *
+ * This interface is closed on purpose. An object literal typed
+ * {@link TimelineSchema} that carries a key no arm of the element declares is
+ * an excess-property error, and the zod mirror's strict authoring face refuses
+ * the same key by name.
+ */
+export interface TimelineFeedItem {
+  /** When it happened — an ISO 8601 date string, formatted by `dateFormat`. */
+  time?: string;
+  /**
+   * The entry's heading. REQUIRED (objectui#6356, ruling Q2 = C): it is the
+   * key that tells a feed item from a gantt row, and the zod mirror judges
+   * each element against the arm `variant` selects by it.
+   */
+  title: string;
+  /** Secondary line under the title. */
+  description?: string;
+  /** Marker colour. */
+  variant?: TimelineItemVariant;
+  /** Emoji or short text drawn inside the marker. */
+  icon?: string;
+  /** Extra content rendered below the description. */
+  content?: SchemaNode | SchemaNode[];
+  /** Tailwind classes for the entry. */
+  className?: string;
+}
+
+/**
+ * One bar inside a {@link TimelineGanttItem} (objectui#6356).
+ *
+ * Every key is optional, and that is the ruling's scope rather than an
+ * omission: objectui#6356 made the ROW's `label` required and named nothing on
+ * the bar. A bar with no usable dates is not a validation failure — it reaches
+ * the render-time `timeline.gantt.unusableRange` diagnostic, which stays the
+ * defined outcome for it (objectui#6759, objectui#6770).
+ *
+ * ⚠️ A `type` alias and not an `interface`, on purpose. It sits one level down
+ * inside {@link TimelineGanttItem}, whose zod twin's bar is `.passthrough()`,
+ * so the twin's input type carries a string index signature there. An
+ * interface has no IMPLICIT index signature and is not assignable to one; an
+ * object type literal is. As an interface, `TimelineGanttItem.items` read as
+ * narrower-than-declared in `zod-mirror-parity.test.ts` for that reason alone,
+ * though both faces accept the same bars. A literal typed with it is still
+ * checked for excess properties exactly as an interface is.
+ */
+export type TimelineGanttItemBar = {
+  /** Bar label, drawn inside the bar and in its tooltip. */
+  title?: string;
+  /**
+   * Bar start. The accept set is the renderer's own date rule (objectui#6781,
+   * ruling 2026-08-30, option A): a string, a FINITE number (epoch
+   * milliseconds), or a `Date`.
+   */
+  startDate?: string | number | Date;
+  /** Bar end — same accept set as {@link TimelineGanttItemBar.startDate}. */
+  endDate?: string | number | Date;
+  /** Bar colour. */
+  variant?: TimelineItemVariant;
+};
+
+/**
+ * One authored ROW of a gantt timeline — `variant: 'gantt'` (objectui#6356).
+ *
+ * `label` is REQUIRED (ruling Q2 = C) for the reason `title` is on
+ * {@link TimelineFeedItem}: it tells a row from a feed item. `items` stays
+ * optional — a row with no bars yet is an ordinary empty state (objectui#6750).
+ */
+export interface TimelineGanttItem {
+  /** Row label, drawn in the row-label gutter. */
+  label: string;
+  /** The row's bars. */
+  items?: TimelineGanttItemBar[];
+}
 
 /**
  * Timeline component (`type: 'timeline'`).
@@ -2765,59 +2873,47 @@ export interface TimelineSchema extends BaseSchema {
    */
   variant?: 'vertical' | 'horizontal' | 'gantt';
   /**
-   * The rows to draw.
+   * The rows to draw — feed items, or gantt rows when `variant` is `gantt`.
    *
-   * TWO element shapes, discriminated by `variant`, both read dynamically by
-   * the renderer (`items.map((item: any) => …)`), so NEITHER shape's own keys
-   * are declared here — what is declared is what the two SHARE:
+   * ## The element is declared: two arms, and `variant` picks one
    *
-   * - `vertical` / `horizontal` — a feed item:
-   *   `{ time, title, description?, variant?, icon?, color?, content?, className?, meta?, group? }`
-   * - `gantt` — a row:
-   *   `{ label, items: [{ title, startDate, endDate, variant? }] }`
+   * objectui#6356 (maintainer ruling 2026-09-27, Q1 = A, Q2 = C) declares the
+   * element as the union of its two authored shapes:
    *
-   * `content/docs/plugins/plugin-timeline.mdx` carries both in full.
+   * - `vertical` (the default) / `horizontal` — a {@link TimelineFeedItem},
+   *   the seven documented keys with `title` required;
+   * - `gantt` — a {@link TimelineGanttItem}, `{ label, items? }` with `label`
+   *   required, each bar a {@link TimelineGanttItemBar}.
    *
-   * ## This type states the shared shape; it no longer describes it in prose
+   * Both arms are CLOSED, so a literal carrying a key neither arm declares is
+   * an excess-property error here. ⚠️ Which arm an element must match depends
+   * on `variant`, a key of the PARENT, and TypeScript cannot see that: a gantt
+   * row on a feed timeline type-checks. That cross-shape case is refused at the
+   * validation door instead — the zod mirror (`./zod/data-display.zod.ts`)
+   * judges each element against the arm `variant` selects, in a node-level
+   * refinement, because before this ruling it parsed green and drew an empty,
+   * unlabelled entry with no diagnostic.
    *
-   * The zod mirror (`./zod/data-display.zod.ts`) and this declaration state the
-   * SAME two levels, and the type below is the TypeScript spelling of the
-   * mirror's `z.object({}).passthrough()` at each of them:
+   * The five keys `ObjectTimeline` composes onto a record-mapped feed item
+   * (`color`, `group`, `meta`, `startDate`, `endDate`) and its `_data` handle
+   * are renderer-internal and are NOT part of this element — see
+   * {@link TimelineFeedItem}.
    *
-   * - every element is an OBJECT — a `null` row, a number, a string, an array
-   *   are all refused (objectui#7164);
-   * - a gantt row's own `items`, when present, is an ARRAY — of OBJECTS. A
-   *   `null` bar is refused by its own name, at `items[i].items[j]`
-   *   (objectui#7365, director seat decision batch #71, 2026-09-07, option B).
+   * ## What objectui#7164 and objectui#7365 pinned still holds
    *
-   * ⭐ objectui#7164 narrowed the ROW and stopped at the bar level
-   * DELIBERATELY, and this docblock recorded the stop in prose. That stop is
-   * SUPERSEDED KNOWINGLY, so the prose describing it is gone rather than
-   * qualified: the next reader should not re-derive a gap that has been closed.
+   * Every element is an OBJECT (objectui#7164), a gantt row's own `items`, when
+   * present, is an ARRAY of OBJECTS, and a `null` bar is refused by its own
+   * name, at `items[i].items[j]` (objectui#7365, director seat decision batch
+   * #71, 2026-09-07, option B). Those refusals keep their own paths: the mirror
+   * judges the arm in a refinement that runs AFTER them, not by an element-level
+   * union that would fold them into one nested `invalid_union`.
    *
-   * ⛔ The render-time diagnostic is UNCHANGED by that ruling
+   * ⛔ The render-time diagnostic is UNCHANGED
    * (`timeline.gantt.unusableRange.malformedRow` and the ten language packs are
    * untouched) — the renderer stays only ever MORE lenient than `validate`, and
    * the date diagnostic remains the defined outcome for anything reaching it.
    */
-  items?: Array<{
-    /**
-     * A gantt row's bars — an ARRAY OF OBJECTS when present. Optional is
-     * deliberate: a row with no bars yet is an ordinary empty state
-     * (objectui#6750) and the renderer draws it. A feed item carries no
-     * `items` key at all and satisfies this element unchanged.
-     *
-     * The bar's OWN keys (`title` / `startDate` / `endDate` / `variant?`) are
-     * NOT declared, for the reason the element's are not: they are read
-     * dynamically and the mirror leaves them open too.
-     */
-    items?: Record<string, unknown>[];
-    /**
-     * The element's own keys, undeclared and open — the TypeScript spelling of
-     * the mirror's `.passthrough()`. Both shapes above pass through here.
-     */
-    [key: string]: unknown;
-  }>;
+  items?: Array<TimelineFeedItem | TimelineGanttItem>;
   /**
    * How item dates are rendered.
    * @default 'short'
@@ -2869,46 +2965,60 @@ export interface TimelineSchema extends BaseSchema {
    */
   maxDate?: string;
   /**
-   * Timeline events.
+   * RETIRED (objectui#6170, ADR-0049 stage 2) — author {@link
+   * TimelineSchema.items} instead, each entry a {@link TimelineFeedItem}
+   * (`{ time, title, … }`).
    *
-   * ⚠️ ZERO read points — `packages/plugin-timeline` never reads this key, so a
-   * timeline authored with `events` renders an EMPTY rail. It was `required`
-   * until objectui#6170, which is why the docs page's own TypeScript example
-   * did not compile; it is OPTIONAL now so that documented authoring form
-   * type-checks, and that widening is the whole of the change made here.
+   * No renderer ever read this key: a timeline authored with `events` drew an
+   * EMPTY rail, with no error and no warning. objectui#6170's maintainer ruling
+   * (2026-08-25, 「同意」) sent it, {@link TimelineSchema.orientation} and
+   * {@link TimelineSchema.position} down the ADR-0049 enforce-or-remove route,
+   * and the producer census recorded on objectui#6170 (a dated reading, not
+   * re-derived here) found no author of any of the three that expected it to
+   * render — so the route is REMOVE, not enforce.
    *
-   * Its RETIREMENT is routed, not done: objectui#6170's maintainer ruling
-   * (2026-08-25) sends this key, {@link TimelineSchema.orientation} and
-   * {@link TimelineSchema.position} down the ADR-0049 enforce-or-remove route.
-   * That is a breaking removal from a published type and therefore its own
-   * change; the house form for it is the `?: never` tombstone convention on
-   * {@link StaticTableColumn} above (objectui#5474).
+   * `?: never` is this package's tombstone convention (see
+   * {@link TimelineSchema.timeScale} a few members above, {@link StaticTableColumn}
+   * objectui#5474), and it is load-bearing rather than decorative.
+   * {@link BaseSchema} carries `[key: string]: any`, so DELETING this member
+   * would let the retired key type-check green and keep drawing an empty rail
+   * — the silent no-op this retirement exists to make audible. Keeping it
+   * declared as `never` is what turns it into a compile error.
    *
-   * @deprecated Never read by any renderer. Use `items` — see
-   * `content/docs/plugins/plugin-timeline.mdx`.
+   * Lockstep with the Zod twin (`zod/data-display.zod.ts`,
+   * `retirementTombstone()`): both halves or neither, since either half alone
+   * leaves the other surface silently accepting the retired key. Absent stays
+   * valid on both. The element type it used to name, {@link TimelineEvent},
+   * stays exported; this member no longer references it.
+   *
+   * @deprecated RETIRED (objectui#6170) — author `items` instead.
    */
-  events?: TimelineEvent[];
+  events?: never;
   /**
-   * Timeline orientation.
+   * RETIRED (objectui#6170, ADR-0049 stage 2) — author {@link
+   * TimelineSchema.variant} instead (`'vertical'`, `'horizontal'` or
+   * `'gantt'`).
    *
-   * ⚠️ ZERO read points — the renderer discriminates on
-   * {@link TimelineSchema.variant}, not on this key. Retirement routed via
-   * ADR-0049; see {@link TimelineSchema.events}.
+   * No renderer ever read this key: the layout is chosen by `variant`, so an
+   * authored `orientation: 'horizontal'` drew the default vertical rail in
+   * silence. Tombstoned `?: never` rather than deleted, for the reason
+   * {@link TimelineSchema.events} gives; lockstep with the Zod twin.
    *
-   * @deprecated Never read by any renderer. Use `variant`.
-   * @default 'vertical'
+   * @deprecated RETIRED (objectui#6170) — author `variant` instead.
    */
-  orientation?: 'vertical' | 'horizontal';
+  orientation?: never;
   /**
-   * Timeline position (for vertical).
+   * RETIRED (objectui#6170, ADR-0049 stage 2) — and NOTHING replaces it.
    *
-   * ⚠️ ZERO read points. Retirement routed via ADR-0049; see
-   * {@link TimelineSchema.events}.
+   * It promised to put the vertical rail's entries on the `left`, `right` or
+   * both sides (`alternate`). No renderer ever read it, and no key does that
+   * job today: the vertical rail is always drawn on the left edge. Tombstoned
+   * `?: never` rather than deleted, for the reason {@link TimelineSchema.events}
+   * gives; lockstep with the Zod twin.
    *
-   * @deprecated Never read by any renderer.
-   * @default 'left'
+   * @deprecated RETIRED (objectui#6170) — no replacement; the vertical rail is always on the left.
    */
-  position?: 'left' | 'right' | 'alternate';
+  position?: never;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `timeline` reads NEITHER
    * content channel: no renderer read consumes `body` or `children` for this

@@ -84,8 +84,9 @@ const { data, total } = await dataSource.find('people', {
 });
 ```
 
-It implements `$filter` (both MongoDB-style objects and FilterNode AST arrays),
-`$search`, `$orderby`, `$skip`, `$top` and `$select` locally, plus `bulk()`,
+It implements `$filter` (MongoDB-style objects, FilterNode AST arrays, and the spec's
+`ViewFilterRule[]` — see below), `$search`, `$orderby`, `$skip`, `$top` and `$select`
+locally, plus `bulk()`,
 `aggregate()` and `onMutation()`. `getAll()` returns a cloned snapshot — the
 same `structuredClone` rule as the constructor — and `count` the current
 length.
@@ -95,6 +96,22 @@ length.
 `find()` picks a matcher on the SHAPE of `$filter` — a FilterNode **array** goes
 to the AST matcher, an **object** to the `$`-dialect matcher — and since
 objectui#8447 the two answer the same question and refuse in the same way.
+
+The array arm **lowers before it matches** (objectui#10767). A spec
+`ViewFilterRule[]` — `[{ field: 'status', operator: 'equals', value: 'open' }]`, the
+ONLY form the spec's converged `filter` doors accept (objectui#6206 B) — goes through
+`toFilterNode` (`../utils/filter-converter.ts`), the same sink the grid, the list and
+every other lowering caller use before a wire query, and arrives at the AST matcher as
+the comparison tuple its operator spells. So the operator vocabulary is the spec's own
+`VIEW_FILTER_OPERATORS`, folded through the spec's `normalizeFilterOperator`; no second
+table lives here. An AST array passes through the sink untouched, an empty array is
+"no filter" (as it is on the wire), and an operator the spec does not know passes
+through VERBATIM so the refusal below still names it. A rule the lowering itself
+refuses — an ARRAY on a single-valued operator (objectui#8557), an empty or non-string
+`icontains` comparand (objectui#9048) — is excluded and logged once like every other
+refusal here, never thrown from `find()`: the producers that call `toFilterNode` before
+a wire query throw because they are deciding whether to send a query at all; this
+matcher is deciding about rows.
 
 The object dialect executes one arm per member of the spec's `FILTER_OPERATORS`:
 
@@ -122,6 +139,30 @@ type test, so a numeric column answered NO to `$notContains` as well and those r
 appeared in no filter answer at all. The stored value is never coerced to text —
 searching `String(50)` would answer a query nobody wrote, in a spelling the storage
 class chose. A `null` and an absent key take the same side of the same predicate.
+
+A `Date` condition — `{ created: someDate }` — is a **comparand, not an operator map**
+(objectui#10829). It is read as implicit equality, which is how `convertFiltersToAST`
+lowers it (`['created', '=', someDate]`, objectui#8555), so the object filter and its
+lowered array answer the same rows. Before that, a `Date`, which has no own keys,
+reached the operator loop, the loop ran zero times, and the field added no constraint.
+The gate is the spec's `isAcceptedFilterComparand`, the predicate the converter lowers a
+`Date` through.
+
+**Two `Date`s compare their instant** in every equality and membership position of both
+dialects — implicit equality, `$eq` / `$ne` / `$in` / `$nin`, and `=` / `!=` / `in` /
+`nin` — through one helper (objectui#10829). They used to compare by identity, and the
+adapter clones the rows it is constructed with, so over those rows a `Date` equality
+matched nothing, not even the row holding that instant, while `$gte` and `$lte` both
+matched it; only a row written through `create` / `update`, which copy shallowly, could
+hold the caller's own instance. An invalid `Date` equals nothing. A `Date` comparand is
+**not** coerced to another storage form: a row holding the same instant as an ISO string
+or as epoch milliseconds does not equal it, because `@objectstack/spec`'s
+`FILTER_COMPARAND_TYPE_CASES` declines to assert a `Date` row set — what it matches
+"legitimately differs per storage form (ADR-0053)" — and this matcher has no field types
+to read a storage form from. `$gt` / `$gte` / `$lt` / `$lte` / `$between` compare a
+`Date` by its number, as before. Membership reads `===` where it read `includes`'
+SameValueZero, so a stored number `NaN` is no longer a member of `[NaN]` — the answer
+`{ x: NaN }` already gave.
 
 #### Grouped filters — `$and` and `$or`
 
@@ -153,6 +194,27 @@ This is pinned against the spec's own cross-backend table
 `ValueDataSource.filterLogicConformance-8513.test.ts`. A malformed group — a
 non-array `$and`, or a member that is not a condition object — is refused like
 anything else below.
+
+#### An empty operator map refuses the whole filter
+
+`{ field: {} }` names a field and no operator; `@objectstack/spec` ruled it REJECTED
+wherever it appears (objectstack#5240). On this face it is judged BEFORE
+any row is matched wherever the matcher executes (objectui#10817) — under `$not`,
+which is refused per node, the walk does not look: the object arm walks the filter's
+field entries and the members of
+`$and` / `$or`, and hands each field whose condition is an object with no own keys to
+`toFilterNodeSafely`, so the converter decides what that condition is, in its own
+wording. The field is judged alone, as `{ [field]: condition }`, not inside the whole
+filter: `{ status: ['a'], created: {} }` names `created` here and `status` before a
+wire query. `{ $or: [{}, { created: {} }] }` is refused on both paths: since
+objectui#10789 the converter reads every `$or` member before a `{}` absorbs the group,
+so it refuses the `created` member in either order, as this face does. A
+refusal answers the whole filter with no rows and logs the
+converter's reason once — the way the array arm answers a rule its lowering refuses —
+so `{ $or: [{ status: 'b' }, { created: {} }] }` answers no rows, not the `'b'` rows.
+A `RegExp`, `Map` or `Set` comparand has no own keys either and gets the converter's
+exotic-comparand refusal (objectui#8567); a `Date` lowers, so it reaches the matcher,
+which matches the rows holding the same instant as a `Date` (objectui#10829, above).
 
 Anything else is **refused**: the row is excluded and the reason is logged once per
 distinct refusal per `find()` — never passed through as "no constraint", which is

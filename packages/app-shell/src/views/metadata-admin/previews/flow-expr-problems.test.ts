@@ -115,3 +115,63 @@ describe('flowExpressionProblems', () => {
     expect(ps[0]).toMatchObject({ level: 'error', target: { kind: 'node', nodeId: 'd' } });
   });
 });
+
+describe("a screen field's visibleWhen is judged over the screen's declared fields, not the flow scope (objectui#10743)", () => {
+  // `needsApproval` is a flow variable, so it IS in the flow scope at the screen;
+  // `discount` is a sibling field on the screen and is NOT in the flow scope.
+  const draft = (visibleWhen: unknown, extraNodes: Array<Record<string, unknown>> = [], extraEdges: Array<Record<string, unknown>> = []) => ({
+    variables: [{ name: 'needsApproval', type: 'boolean' }],
+    nodes: [
+      startUpdate,
+      {
+        id: 'review',
+        type: 'screen',
+        config: {
+          fields: [
+            { name: 'discount', label: 'Discount %', type: 'number' },
+            { name: 'note', label: 'Note', type: 'text', visibleWhen },
+            { name: 'comment', label: 'Comment', type: 'text' },
+          ],
+        },
+      },
+      ...extraNodes,
+    ],
+    edges: [{ source: 'start', target: 'review' }, ...extraEdges],
+  });
+
+  it.each([
+    ['a sibling field', 'discount > 0'],
+    ['a sibling field under the record namespace', 'record.discount > 0'],
+    ['a comprehension over a sibling field', '["a","b"].exists(t, t == note)'],
+    ['control: no predicate', undefined],
+  ])('%s: no problem on the screen', (_name, visibleWhen) => {
+    expect(flowExpressionProblems(draft(visibleWhen))).toEqual([]);
+  });
+
+  it('a run variable the flow scope holds is the unknown reference on the screen, named by field and root', () => {
+    const ps = flowExpressionProblems(draft('needsApproval == true'));
+    expect(ps).toHaveLength(1);
+    expect(ps[0]).toMatchObject({ level: 'warning', target: { kind: 'node', nodeId: 'review' } });
+    expect(ps[0].message).toMatch(/^Note: /);
+    expect(ps[0].message).toMatch(/`needsApproval` is not a field on this screen/);
+  });
+
+  it('a {var} brace in the column is still the brace error, ahead of the scope', () => {
+    const ps = flowExpressionProblems(draft('{discount} > 0'));
+    expect(ps).toHaveLength(1);
+    expect(ps[0]).toMatchObject({ level: 'error', target: { kind: 'node', nodeId: 'review' } });
+  });
+
+  it('control: a decision condition downstream keeps the FLOW scope — the run variable is in scope there, and so is the screen output the field becomes; an unknown root still warns with the flow wording', () => {
+    // The same identifier is clean on the decision and the unknown reference on
+    // the screen: `needsApproval` is a flow variable; `discount`, collected by
+    // the screen, is a flow variable downstream of it (`nodeOutputRefs`).
+    const inScope = { id: 'd', type: 'decision', config: { condition: 'needsApproval == true && discount > 0' } };
+    expect(flowExpressionProblems(draft('discount > 0', [inScope], [{ source: 'review', target: 'd' }]))).toEqual([]);
+    const unknown = { id: 'd', type: 'decision', config: { condition: 'needsAproval == true' } };
+    const ps = flowExpressionProblems(draft(undefined, [unknown], [{ source: 'review', target: 'd' }]));
+    expect(ps).toHaveLength(1);
+    expect(ps[0]).toMatchObject({ level: 'warning', target: { kind: 'node', nodeId: 'd' } });
+    expect(ps[0].message).toMatch(/did you mean `needsApproval`/);
+  });
+});

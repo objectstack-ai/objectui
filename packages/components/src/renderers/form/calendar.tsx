@@ -48,13 +48,40 @@ function toSelection(mode: string, value: unknown): unknown {
   return toDay(value);
 }
 
-ComponentRegistry.register('calendar', 
+/**
+ * The month the calendar opens on (objectui#10799): the first selected day —
+ * the day itself in `single` mode, the first valid listed day in `multiple`
+ * mode, `from` in `range` mode. react-day-picker opens on `month`, else
+ * `defaultMonth`, else today, and `selected` does not move it, so a selection
+ * outside the current month used to open a page, or a year, away from it.
+ *
+ * A day that names no instant (an unparseable string, which {@link toDay}
+ * turns into an Invalid Date) is no selected day: react-day-picker throws a
+ * `RangeError` on an invalid `defaultMonth`, where the same day as `selected`
+ * selects nothing. So a list whose first entry is unparseable opens on the
+ * next valid one, and no selected day opens on today, as it always did.
+ *
+ * ⚠️ Read once, at mount: react-day-picker seeds its month from
+ * `defaultMonth` when it mounts and does not follow later changes to it, and
+ * this calendar is inline, not in a popover that remounts. A `value` that
+ * changes after mount does not move the month the calendar shows.
+ */
+function firstSelectedDay(selection: unknown): Date | undefined {
+  const isDay = (day: unknown): day is Date => day instanceof Date && !Number.isNaN(day.getTime());
+  if (Array.isArray(selection)) return selection.find(isDay);
+  const day = selection instanceof Date ? selection : (selection as { from?: unknown } | undefined)?.from;
+  return isDay(day) ? day : undefined;
+}
+
+ComponentRegistry.register('calendar',
   ({ schema, className, ...props }: { schema: CalendarSchema; className?: string; [key: string]: any }) => {
     const mode = schema.mode || 'single';
+    const selected = toSelection(mode, schema.value || schema.defaultValue);
     return (
       <Calendar
         mode={mode as any}
-        selected={toSelection(mode, schema.value || schema.defaultValue) as any}
+        selected={selected as any}
+        defaultMonth={firstSelectedDay(selected)}
         className={className}
         {...props}
       />

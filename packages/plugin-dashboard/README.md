@@ -624,7 +624,10 @@ an author override does not win: `type: 'text'` over a `secret` field keeps the
 flag, though the cell then draws the value as text. Rows handed in as `data`
 or through `bind` can be drawn before the object schema arrives, and a failed
 schema read never delivers one; in that window the widget flags every column,
-and a masked field is still drawn as text.
+and a column with no `type` of its own draws as the mask, never as text, until
+the schema arrives, or for good when the read failed (objectui#10657). A column
+that authors its `type` draws from it meanwhile. The record drawer a row opens
+(record drill-down) draws every value as the mask in that window too.
 
 ```jsonc
 {

@@ -224,7 +224,7 @@ A responsive grid layout. Columns can be a fixed number or responsive breakpoint
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `columns` | `number \| Record<string, number>` | Number of columns, or responsive map (e.g. `{ sm: 1, md: 2, lg: 3 }`). |
+| `columns` | `number \| Partial<Record<BreakpointName, number>>` | Number of columns, or a responsive map keyed by breakpoint (`xs`, `sm`, `md`, `lg`, `xl`, `2xl`), e.g. `{ sm: 1, md: 2, lg: 3 }`. |
 | `gap` | `number` | Gap between grid items (Tailwind spacing scale). |
 | `children` | `SchemaNode \| SchemaNode[]` | Grid items. |
 
@@ -687,7 +687,7 @@ A single-record detail view with grouped fields, actions, and tabs.
   ],
   "actions": [
     { "type": "action", "label": "Edit", "icon": "Pencil", "level": "primary" },
-    { "type": "action", "label": "Delete", "icon": "Trash2", "level": "danger", "actionType": "confirm" }
+    { "type": "action", "label": "Delete", "icon": "trash", "level": "danger", "actionType": "confirm" }
   ],
   "tabs": [
     {
@@ -698,7 +698,7 @@ A single-record detail view with grouped fields, actions, and tabs.
     {
       "key": "history",
       "label": "History",
-      "content": { "type": "timeline", "events": [] }
+      "content": { "type": "timeline", "items": [] }
     }
   ]
 }
@@ -1145,7 +1145,7 @@ An enhanced detail view for a single record with sections, tabs and navigation.
       "label": "Activities",
       "icon": "Activity",
       "badge": 5,
-      "content": { "type": "timeline", "events": [] }
+      "content": { "type": "timeline", "items": [] }
     }
   ],
   "actions": [

@@ -6,8 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type { BaseSchema, DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
-import { SchemaRenderer, useActionEngine, useObjectLabel, PageVariablesProvider, usePageVariables } from '@object-ui/react';
+import type { BaseSchema, DashboardComponentSchema, DashboardWidgetSchema, DataSource } from '@object-ui/types';
+import { SchemaRenderer, useActionEngine, useObjectLabel, PageVariablesProvider, usePageVariables, useResolvedDataSource } from '@object-ui/react';
 import { useObjectTranslation, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
 import type { ActionDef, ActionResult, ActionContext, ModalHandler, SduiDomPassThroughKey } from '@object-ui/core';
 import {
@@ -207,6 +207,10 @@ export interface DashboardRendererProps
    * is precisely what it resolved to before, so declaring it changes what is
    * DECLARED without changing what any call site is held to. Narrowing it to a
    * real adapter type is a separate change with its own consumer sweep.
+   *
+   * Optional: when it is omitted, the adapter of the enclosing
+   * `SchemaRendererProvider` is used, which is how a `dashboard` block held on
+   * a page gets one (objectui#10815).
    */
   dataSource?: any;
   /** Callback invoked when dashboard refresh is triggered (manual or auto) */
@@ -242,7 +246,23 @@ export interface DashboardRendererProps
 }
 
 const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps>(
-  ({ schema, className, dataSource, onRefresh, recordCount, userActions, designMode, selectedWidgetId, onWidgetClick, onWidgetsReorder, modalHandler, scriptHandlers, hideHeaderText, ...props }: DashboardRendererProps & { [key: string]: any }, ref) => {
+  ({ schema, className, dataSource: dataSourceProp, onRefresh, recordCount, userActions, designMode, selectedWidgetId, onWidgetClick, onWidgetsReorder, modalHandler, scriptHandlers, hideHeaderText, ...props }: DashboardRendererProps & { [key: string]: any }, ref) => {
+    // objectui#10815 — the adapter every child of this dashboard reads, resolved
+    // ONCE here the way the page-embeddable blocks of the family resolve theirs
+    // (`useResolvedDataSource`, the `object-grid` / `object-form` /
+    // `detail-view` rule): an explicit `dataSource` prop first, the
+    // `SchemaRendererProvider` context second.
+    //
+    // A page holds its blocks through `SchemaRenderer`, which strips the node's
+    // `dataSource` key (the spec's element BINDING, objectstack#5576) and
+    // injects no adapter prop. Reading the prop alone, a `dashboard` block on a
+    // page handed `undefined` to every dataset widget, which painted "This data
+    // source does not support dataset queries." beside a page that held a
+    // capable adapter. Resolved here rather than per widget so the widgets, the
+    // filter bar's `optionsFrom` read and the drill drawers all see the same
+    // source. A host that binds no capable adapter anywhere still gets
+    // `DatasetWidget`'s visible alert: that state is deliberate and unchanged.
+    const dataSource = useResolvedDataSource<DataSource>(dataSourceProp);
     // Auto-infer the grid column count when the dashboard schema doesn't
     // specify one. Spec convention is a 12-column grid (widgets use w: 3 for
     // quarter-row KPIs, w: 6 for half-row charts, etc.). If we always default

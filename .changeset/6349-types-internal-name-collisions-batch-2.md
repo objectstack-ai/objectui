@@ -31,5 +31,9 @@ differ from similarly named validation function types in other packages (e.g., i
 `field-types`)") for as long as both existed. The published names `ValidationFunction`
 (data-protocol's) and `FieldValidationFunction` (field-types') are unchanged.
 
+⚠️ **Dated note, 2026-09-27 — data-protocol's `ValidationFunction` is removed from
+`@object-ui/types` by a later change, with the rest of the Phase 3.5 validation
+types; `FieldValidationFunction` stays published — objectui#10719.**
+
 Both `KNOWN_COLLISIONS` lines come down in the same change; that baseline fails in **both**
 directions, so converging without deleting them is red too. 38 entries -> 36.

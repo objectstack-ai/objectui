@@ -383,6 +383,45 @@ describe('the path-filtered blocking checks (optional bucket)', () => {
   });
 });
 
+/**
+ * objectui#9969, ruling A. `Spec Main Shape Gate` moved from `NOT_A_GATE` to
+ * `REQUIRED_CONTEXTS` once the maintainer's enrolment was read back. The
+ * generic cases above already say what "required" means here; this block pins
+ * the MOVE, so an edit that parks the name back in `NOT_A_GATE` (or drops it
+ * from the list) fails by name rather than quietly letting a shape break ride a
+ * Dependabot bump. The control comes first: the same snapshot reads green while
+ * the check passes, so each refusal below is about this one name.
+ */
+describe('Spec Main Shape Gate is waited for (objectui#9969)', () => {
+  const NAME = 'Spec Main Shape Gate';
+
+  it('is declared required, and in neither other bucket', () => {
+    expect(REQUIRED_CONTEXTS).toContain(NAME);
+    expect(Object.keys(NOT_A_GATE)).not.toContain(NAME);
+    expect(Object.keys(OPTIONAL_CONTEXTS)).not.toContain(NAME);
+  });
+
+  it('CONTROL: the all-green snapshot carries it as success and reads green', () => {
+    expect(allGreenSnapshot().find((run) => run.name === NAME)?.conclusion).toBe('success');
+    expect(evaluateGate({ checkRuns: allGreenSnapshot() }).verdict).toBe('green');
+  });
+
+  it('refuses a head on which it reported failure', () => {
+    const runs = allGreenSnapshot().map((run) => (run.name === NAME ? { ...run, conclusion: 'failure' } : run));
+    const result = evaluateGate({ checkRuns: runs });
+
+    expect(result.verdict).toBe('red');
+    expect(result.failing).toEqual([`${NAME} (failure)`]);
+  });
+
+  it('holds a head on which it has not reported at pending, never green', () => {
+    const result = evaluateGate({ checkRuns: allGreenSnapshot().filter((run) => run.name !== NAME) });
+
+    expect(result.verdict).toBe('pending');
+    expect(result.missing).toEqual([NAME]);
+  });
+});
+
 describe('waitForGate: the deadline fails closed', () => {
   const fakeClock = () => {
     let nowMs = 0;

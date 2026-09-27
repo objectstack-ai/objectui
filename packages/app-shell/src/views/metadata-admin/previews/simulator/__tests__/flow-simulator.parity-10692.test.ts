@@ -16,9 +16,12 @@
  * - the `decision` executor (`registerLogicNodes`) — a decision that declares
  *   `config.conditions` reports the first true entry's `label` as its branch,
  *   else `'default'`; one that declares none reports no branch.
- * - `refuseInvalidScreenInput` and `validateScreenInputs` — a screen field's
- *   `visibleWhen` is CEL over the run's variables, and one that cannot be
- *   evaluated is treated as hidden.
+ * - a screen field's `visibleWhen` is the CLIENT's to decide, over the screen's
+ *   own declared fields plus the values being collected (spec
+ *   `ScreenFieldSpec.visibleWhen`); the Debug run hands it to `ScreenView` raw
+ *   and judges only its scope (objectui#10743). The runtime's resume door
+ *   (`refuseInvalidScreenInput`) still reads the run's variables until
+ *   objectstack#20178 lands.
  * - `interpolateString` / `resolveToken` (`builtin/template.ts`) — the
  *   runtime renders `NOW()`, `$User.*` and arithmetic tokens to a value.
  *
@@ -33,7 +36,7 @@
 import { describe, it, expect } from 'vitest';
 import { FlowSimulator } from '../flow-simulator';
 import type { SimEdge, SimNode } from '../flow-sim-types';
-import { buildScreenSpec, isFieldVisibleWhen } from '../../screen-spec';
+import { buildScreenSpec } from '../../screen-spec';
 
 const end = (id: string): SimNode => ({ id, type: 'end' });
 
@@ -224,50 +227,58 @@ describe('an approval resumes through the same successor selection (objectui#106
   });
 });
 
-describe('a screen field visibleWhen is the runtime CEL predicate (objectui#10692, objectui#10693)', () => {
-  const rows: Array<[string, unknown, Record<string, unknown>, boolean]> = [
-    ['the CEL stdlib: size() of an empty list', 'size(tags) > 0', { tags: [] }, false],
-    ['the `vars` root', 'vars.n == 2', { n: 3 }, false],
-    ['CEL equality does not convert types', 'n == "2"', { n: 2 }, false],
-    ['a variable that is not set faults: hidden', 'createOpp == true', {}, false],
-    ['a {var} brace is refused: hidden', '{createOpp} == true', { createOpp: true }, false],
-    ['a non-string is refused: hidden', true, {}, false],
-    ['control: true', 'createOpp == true', { createOpp: true }, true],
-    ['control: the `vars` root, true', 'vars.n == 2', { n: 2 }, true],
-    ['control: no predicate', undefined, {}, true],
-    ['control: a blank predicate', '  ', {}, true],
-  ];
-
-  it.each(rows)('%s', (_name, visibleWhen, vars, visible) => {
-    expect(isFieldVisibleWhen(visibleWhen, vars)).toBe(visible);
+describe('a screen field visibleWhen is decided live by the screen renderer; the Debug run judges its scope (objectui#10692, objectui#10693, objectui#10743)', () => {
+  const screenNode = (visibleWhen: unknown): SimNode => ({
+    id: 'scr',
+    type: 'screen',
+    config: { fields: [{ name: 'a', type: 'boolean' }, { name: 'b', visibleWhen }, { name: 'c' }] },
   });
-
-  it('the screen preview drops a field whose visibleWhen faults', () => {
-    const spec = buildScreenSpec(
-      { id: 'scr', config: { fields: [{ name: 'a' }, { name: 'b', visibleWhen: 'missing > 1' }] } },
-      {},
-    );
-    expect(spec.fields.map((f) => f.name)).toEqual(['a']);
-  });
-
-  it("the Debug run's screen pause names the field it hid for a faulting visibleWhen", () => {
-    const sim = new FlowSimulator(
-      [
-        { id: 's', type: 'start' },
-        { id: 'scr', type: 'screen', config: { fields: [{ name: 'a' }, { name: 'b', visibleWhen: 'missing > 1' }] } },
-        end('e'),
-      ],
+  const pauseOn = (visibleWhen: unknown, seed: Record<string, unknown> = {}) => {
+    const sim = run(
+      [{ id: 's', type: 'start' }, screenNode(visibleWhen), end('e')],
       [
         { source: 's', target: 'scr' },
         { source: 'scr', target: 'e' },
       ],
+      seed,
     );
-    sim.reset();
-    sim.runToEnd();
-    const step = sim.state.steps.find((st) => st.nodeId === 'scr');
+    return sim.state.steps.find((st) => st.nodeId === 'scr');
+  };
+
+  it('the screen preview keeps every field and hands the predicate to ScreenView raw', () => {
+    const spec = buildScreenSpec({
+      id: 'scr',
+      config: { fields: [{ name: 'a' }, { name: 'b', visibleWhen: 'a == true' }, { name: 'c', visibleWhen: 'missing > 1' }] },
+    });
+    expect(spec.fields.map((f) => [f.name, f.visibleWhen])).toEqual([
+      ['a', undefined],
+      ['b', 'a == true'],
+      ['c', 'missing > 1'],
+    ]);
+  });
+
+  it.each([
+    ['a sibling field', 'a == true'],
+    ['a sibling field under the record namespace', 'record.a == true'],
+    ['control: no predicate', undefined],
+  ])('%s: the pause carries no error and names no field', (_name, visibleWhen) => {
+    const step = pauseOn(visibleWhen);
     expect(step?.status).toBe('paused');
-    expect(step?.note).toMatch(/"b"/);
-    expect(step?.note).not.toMatch(/"a"/);
+    expect(step?.error).toBeUndefined();
+    expect(step?.note ?? '').not.toMatch(/"b"/);
+  });
+
+  it.each([
+    ['a run variable the run holds', 'missing > 1', { missing: 2 }],
+    ['a run variable the run does not hold', 'missing > 1', {}],
+    ["the runtime's vars root", 'vars.a == true', { a: true }],
+    ['a {var} brace', '{a} == true', {}],
+    ['a non-string', true, {}],
+  ])('%s: the pause names the field as an error, and the run still pauses', (_name, visibleWhen, seed) => {
+    const step = pauseOn(visibleWhen, seed);
+    expect(step?.status).toBe('paused');
+    expect(step?.error).toMatch(/"b"/);
+    expect(step?.error).not.toMatch(/"a"|"c"/);
   });
 });
 

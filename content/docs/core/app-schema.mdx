@@ -36,7 +36,7 @@ const app: AppComponentSchema = {
   type: 'app',
   name: 'my-crm',
   title: 'My CRM Application',
-  logo: '/logo.svg',
+  branding: { logo: '/logo.svg' },
   favicon: '/favicon.ico',
   layout: 'sidebar',
   
@@ -65,8 +65,13 @@ topic; the declaration remains the complete list.
 | `name` | `string` | Application system identifier |
 | `title` | `string` | Display title shown in browser |
 | `description` | `string` | Application description |
-| `logo` | `string` | Logo URL or icon name |
+| `icon` | `string` | Lucide icon name |
+| `branding.logo` | `string` | Logo image URL (or a `data:` URI) |
 | `favicon` | `string` | Favicon URL |
+
+The logo has one spelling, `branding.logo`. A top-level `logo` is refused by the validator and
+names `branding` as the fix (objectui#10827): it was a second spelling that `@objectstack/spec`
+never declared. For an icon name, use `icon`.
 
 ### Layout Configuration
 
@@ -182,7 +187,7 @@ const crm: AppComponentSchema = {
   name: 'acme-crm',
   title: 'Acme CRM',
   description: 'Customer Relationship Management System',
-  logo: '/acme-logo.svg',
+  branding: { logo: '/acme-logo.svg' },
   favicon: '/favicon.ico',
   layout: 'sidebar',
   

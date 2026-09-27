@@ -43,10 +43,14 @@
  * Two counter-probes, because "the string arrived" and "no upload happened"
  * are each one bit:
  *
- *   1. `renders the defect's own signature with no provider above it` drives
- *      the same widget with no `UploadProvider` anywhere and pins what the
- *      card measured — zero adapter calls, an OBJECT on the wire. A probe
- *      that could not tell those apart would pass here vacuously.
+ *   1. `refuses the pick when no provider is above the control` drives the
+ *      same widget with no `UploadProvider` anywhere: zero adapter calls, and
+ *      — since objectui#7699 retired the inline-blob fallback — a NAMED
+ *      refusal instead of an object on the wire. The object-URL default is
+ *      still invoked (`URL.createObjectURL` is called), so the arm measures
+ *      the fail-open path itself, not a widget that never uploads. A probe
+ *      that could not tell this apart from the provider arm would pass here
+ *      vacuously.
  *   2. `leaves a form with no file field alone` drives a `TextField` through
  *      the same tree: the value is the typed string and the upload adapter is
  *      never touched, so this card's mount point is inert for every other
@@ -207,6 +211,9 @@ afterEach(() => {
   uploadSpy.mockClear();
   adapterOptions.length = 0;
   vi.restoreAllMocks();
+  // The no-provider counter-probe stubs `URL`; undone here, not inline, so a
+  // failing assertion cannot leak the stub into the next test.
+  vi.unstubAllGlobals();
 });
 
 describe('console upload destination — altitude (objectui#10131)', () => {
@@ -236,18 +243,21 @@ describe('console upload destination — altitude (objectui#10131)', () => {
     expect(typeof adapterOptions[0].fetchImpl).toBe('function');
   });
 
-  it('renders the defect signature when no provider is above the control', async () => {
+  it('refuses the pick when no provider is above the control (objectui#7699)', async () => {
     // Counter-probe: the SAME widget with nothing above it. `useUpload()`
-    // hands back `createObjectUrlAdapter()` without a word.
-    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:probe/1');
+    // hands back `createObjectUrlAdapter()` without a word — and that adapter
+    // mints no `sys_file` id, so the widget refuses the pick by name instead
+    // of handing its host the inline blob this card once measured on the wire.
+    const createObjectURL = vi.fn(() => 'blob:probe/1');
+    vi.stubGlobal('URL', Object.assign(Object.create(URL), URL, { createObjectURL }));
     render(<ProbeWidget widget="file" />);
     pickAFile();
 
-    await waitFor(() => expect(onValue).toHaveBeenCalled());
+    await screen.findByText(/Upload of "contract\.pdf" did not complete/);
+    // The fail-open default DID run: this is the object-URL arm, refused.
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
     expect(uploadSpy).not.toHaveBeenCalled();
-    const submitted = onValue.mock.calls[0][0];
-    expect(typeof submitted).toBe('object');
-    expect(submitted).toMatchObject({ original_name: 'contract.pdf', url: 'blob:probe/1' });
+    expect(onValue).not.toHaveBeenCalled();
   });
 
   it('leaves a form with no file field alone', async () => {

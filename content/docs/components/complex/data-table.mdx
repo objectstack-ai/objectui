@@ -170,23 +170,26 @@ so a column that shows a `secret` field as `text` keeps the flag once the object
 types are known.
 
 The related list and `object-data-table` fail closed: while the object definition is
-still loading, or after its read failed, they set the flag on every column. What they
-do not cover: in that same window, their cells draw a field the object declares as
-`password` / `secret` as text, because the mask comes from that declaration
-(objectui#10657).
+still loading, or after its read failed, they set the flag on every column.
 
-Once the object schema has loaded, `object-grid` also leaves every masked field of the
-grid's object out of its own client export (CSV and JSON), draws those fields through
-their `cell` on its mobile card, and refuses them as grouping keys (the entry is
-ignored with a console warning). What `object-grid` does not cover: on the
-host-fetched path (rows handed down as `data`, as `ListView` and `ObjectView` do), the
-grid's guards and the cell's own mask depend on the object schema, which the grid
-fetches after first paint, so until it arrives, and for good if that read fails, an
-untyped view column over a `password` / `secret` field draws and hands out the raw
-value (objectui#10657, which folded objectui#10706). The server-streamed export
-(`exportDownload`) sends the masked columns as before and relies on the server's
-masking, and the client JSON export writes an expanded lookup record whole, so a
-credential field of the related object is not pruned.
+A column whose type is not known yet is **withheld** (objectui#10657, which folded
+objectui#10706). While the object's field types are loading, or after their read
+failed, `object-grid`, the related list and `object-data-table` draw such a column as
+the mask, never as text, and set the flag on it; it stays withheld when the read
+failed. In `object-grid` and `object-data-table` that is a column with no `type` of its
+own. The related list draws its cells from the object's types only, so there it is
+every column without a `cell` of its own. A host that already holds the object's fields
+hands them to `object-grid` as its `objectFields` prop, as the list view does, and then
+there is nothing to withhold.
+
+`object-grid` also leaves every masked or withheld field of the grid's object out of its
+own client export (CSV and JSON), draws those fields through their `cell` on its mobile
+card, and refuses them as grouping keys (a masked entry is ignored with a console
+warning; a withheld one groups again once the types are known). What `object-grid` does
+not cover: the server-streamed export (`exportDownload`) sends the masked columns as
+before and relies on the server's masking, and the client JSON export writes an
+expanded lookup record whole, so a credential field of the related object is not
+pruned.
 
 ## Examples
 

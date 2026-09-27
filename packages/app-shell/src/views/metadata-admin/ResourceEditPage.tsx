@@ -373,7 +373,7 @@ type ObjectCatalog = {
 
 /**
  * A refusal the SERVER returned for this document, held against the draft
- * slices its issue paths named (objectui#8057).
+ * slices its issue paths named (`9073cf018`).
  *
  * Not `issues`: that state is overwritten wholesale by the debounced live Zod
  * pass 200ms after any edit, so a server verdict parked there is gone by the
@@ -703,7 +703,7 @@ function MetadataResourceEditPageImpl({
   // `previewDiagnostics` — and left advisory; the server has the last word.
   // Pinned by `ResourceEditPage.schemaAdvisory.test.tsx`.
   //
-  // ⭐ THE BOUNDARY, stated so a later reader can apply it (objectui#8057).
+  // ⭐ THE BOUNDARY, stated so a later reader can apply it (`9073cf018`).
   // "Advisory" is about a verdict this client PREDICTS, and it is the whole of
   // what is advisory. It has never covered a verdict the server RETURNED:
   //
@@ -714,7 +714,7 @@ function MetadataResourceEditPageImpl({
   // than a promise: only a 422 arms the blocking half, and a draft the server
   // accepts does not produce one. So the dead-bolt this paragraph exists to
   // prevent — Save wedged shut on a draft the server would have taken — stays
-  // unreachable. What ended with objectui#8057 is only the client's habit of
+  // unreachable. What ended with `9073cf018` is only the client's habit of
   // re-sending a document the server had ALREADY refused, on every later edit,
   // while reporting nothing. ⛔ Do not read the blocking half as licence to
   // gate Save on the live Zod pass: that is the skew case, and it is still
@@ -757,7 +757,7 @@ function MetadataResourceEditPageImpl({
   // `ResourceEditPage.schemaAdvisory.test.tsx`.
   //
   // ⭐ Why it is DOCUMENT-scoped where `inspectorBlocking` is SELECTION-scoped.
-  // The measured wedge (objectui#8057) is an author who adds a Lookup field
+  // The measured wedge (`9073cf018`) is an author who adds a Lookup field
   // with an empty target, then selects an unrelated already-saved field and
   // renames it. `inspectorBlocking` above expires when the selection changes —
   // BY DESIGN, and that design is right for what it gates — so it is already
@@ -1044,16 +1044,16 @@ function MetadataResourceEditPageImpl({
         // Prefer the pending draft as the editing baseline — the
         // operator is mid-flight on this item and should see their
         // own in-progress state, not the last published version.
-        // A pending draft overlay can carry only the edited fields, so using
-        // it wholesale would drop inherited fields that were never touched —
-        // notably `type`, which section-level `visibleOn` predicates depend on
-        // (ADR-0047 hides Data Context / Layout when `data.type == 'list'`).
-        // Merge the draft over the effective baseline so those fields survive;
-        // the draft still wins for anything it does carry.
+        // A served draft is the WHOLE document (objectui#10765): the server
+        // stores a `?mode=draft` body raw and its `?state=draft` read returns
+        // that row raw, and every writer of a draft sends a full document —
+        // so `type` and every other inherited field are already inside it.
+        // ⛔ Never spread the draft over `effective`: a spread cannot express
+        // deletion, so a key the author cleared came back from the PUBLISHED
+        // layer on every reload and the next save sent it again. The
+        // baseline is only for an item that has no pending draft at all.
         const baseline = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
-        const rawInitial: Record<string, unknown> = draftReal
-          ? { ...baseline, ...(draftReal as Record<string, unknown>) }
-          : baseline;
+        const rawInitial: Record<string, unknown> = draftReal ?? baseline;
         // Normalise the wire shape into the editor's draft shape (e.g.
         // `view` unwraps an expanded ViewItem's `config` into a
         // `{ list | form }` family key). No-op for types without a hook.
@@ -1513,12 +1513,14 @@ function MetadataResourceEditPageImpl({
       setLayered(lay);
       const draftReal = extractDraftBody(draftResp);
       setHasDraft(!!draftReal);
-      // Merge the draft over the effective baseline (see the load effect):
-      // a partial draft overlay must not drop inherited fields like `type`.
+      // The served draft is the whole document the save just stored (see the
+      // load effect, objectui#10765): take it as-is. ⛔ Not spread over
+      // `effective` — that is the PUBLISHED layer, and a spread would bring a
+      // key this save deleted straight back into the editor, invisibly, for
+      // the next save to send. The baseline is only for a save that left no
+      // draft row to read back.
       const freshBaseline = (lay.effective ?? itemToSave) as Record<string, unknown>;
-      const rawFresh: Record<string, unknown> = draftReal
-        ? { ...freshBaseline, ...(draftReal as Record<string, unknown>) }
-        : freshBaseline;
+      const rawFresh: Record<string, unknown> = draftReal ?? freshBaseline;
       // Re-normalise the refreshed wire shape so the editor keeps showing
       // the canonical draft shape after a save (e.g. the backend re-expands
       // a view into the ViewItem `config` wrapper).
@@ -1588,7 +1590,7 @@ function MetadataResourceEditPageImpl({
         setIssues(mapped);
         // Hold the refusal against the draft slices the server named, so the
         // next auto-save cannot re-send the same refused document behind an
-        // unrelated edit (objectui#8057). Paths that do not localise are
+        // unrelated edit (`9073cf018`). Paths that do not localise are
         // DROPPED rather than kept as a wildcard: a refusal we cannot tie to a
         // slice must gate nothing at all.
         const probe = refusalProbeBody(draft);
@@ -1690,13 +1692,15 @@ function MetadataResourceEditPageImpl({
       setLayered(lay);
       const draftReal = extractDraftBody(draftResp);
       setHasDraft(!!draftReal);
-      // Merge the draft over the effective baseline so a partial draft overlay
-      // doesn't drop inherited fields like `type` (section visibleOn depends
-      // on it — ADR-0047).
+      // After a publish the promoted body IS `effective` and the draft row is
+      // normally gone; a draft that does remain is a whole document and is
+      // taken as-is (objectui#10765). ⛔ Not spread over `effective`: the
+      // spread cannot express deletion and would resurrect a published key
+      // the draft had cleared.
       const freshBaseline = (lay.effective ?? draft) as Record<string, unknown>;
-      const fresh: Record<string, unknown> = draftReal
-        ? { ...freshBaseline, ...(draftReal as Record<string, unknown>) }
-        : freshBaseline;
+      const rawFresh: Record<string, unknown> = draftReal ?? freshBaseline;
+      // Same wire-to-editor normalisation the load and save refreshes apply.
+      const fresh = config.toDraft ? config.toDraft(rawFresh) : rawFresh;
       setDraft(fresh);
       draftSnapshotRef.current = fresh;
     } catch (err: any) {
@@ -1793,7 +1797,7 @@ function MetadataResourceEditPageImpl({
     // the timer publish the malformed definition a second later (objectui#4306).
     if (inspectorBlocking > 0) return;
     // Second validation term, and the one that survives a selection change.
-    // The timer is the door the objectui#8057 wedge actually came through: it
+    // The timer is the door the wedge (`9073cf018`) actually came through: it
     // re-sent the refused document on every later edit, silently, so the
     // designer showed the rename as applied while the server held none of it.
     if (refusalBlocking > 0) return;
@@ -2184,7 +2188,7 @@ function MetadataResourceEditPageImpl({
               (objectui#4306 / #6980);
             - `refusalBlocking` — a 422 the server DID return for this exact
               document, DOCUMENT-scoped so it survives a selection change
-              (objectui#8057).
+              (`9073cf018`).
           `issues` — the live client Zod pass — stays advisory, because the
           only failure the client can cause on its own is being STRICTER than
           the server. The reasoning, and the measurement behind all three, is

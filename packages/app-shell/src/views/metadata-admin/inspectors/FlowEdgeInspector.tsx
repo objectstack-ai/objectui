@@ -188,7 +188,9 @@ export function FlowEdgeInspector({ selection, draft, onPatch, onClearSelection,
             ...branches.map((b, i) => {
               const expr = branchExpr(b);
               const nm = branchName(b) || tFormat('engine.flowRegion.branchN', locale, { n: i + 1 });
-              const suffix = expr === '' || expr === 'true' ? ' \u00b7 default' : ` \u00b7 ${expr}`;
+              const suffix = expr === '' || expr === 'true'
+                ? ` \u00b7 ${t('engine.inspector.flowEdge.branchDefault', locale)}`
+                : ` \u00b7 ${expr}`;
               return { value: String(i), label: `${nm}${suffix}` };
             }),
             { value: '', label: t('engine.inspector.flowEdge.branchCustom', locale) },
@@ -242,7 +244,7 @@ export function FlowEdgeInspector({ selection, draft, onPatch, onClearSelection,
       {(() => {
         // ADR-0032 — flag a malformed edge guard (e.g. `{record.x}` brace-in-CEL)
         // inline, with the same corrective message as build/agent validation.
-        const issue = isDefault ? null : validateExpressionClient('predicate', edge.condition);
+        const issue = isDefault ? null : validateExpressionClient('predicate', edge.condition, locale);
         if (issue) {
           return (
             <p className="text-[11px] leading-snug text-destructive" role="alert">

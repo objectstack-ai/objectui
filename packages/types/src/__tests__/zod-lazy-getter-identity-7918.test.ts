@@ -40,6 +40,11 @@
  * moving the remaining seven — each still names the const being declared, and
  * `mechanism` still reproduces their ReferenceError.
  *
+ * ⚠️ And SIX since objectui#9306, the same way: that card made
+ * `FilterGroupSchema`'s `conditions` flat rows (a nested sub-group is retired
+ * and refused by name), so its body stopped naming the const being declared and
+ * the memoisation became free. Taken, and its row moved to {@link MEMOISED}.
+ *
  * ⇒ the eight-name list above is kept VERBATIM as the objectui#7918 reading it
  * was. It is history, not the current ledger; the arrays below are the ledger.
  *
@@ -132,12 +137,14 @@ const MEMOISED: ReadonlyArray<readonly [string, unknown]> = [
   // objectui#8344 — see the header. Its getter returns the ONE node union that
   // `base.zod.ts` builds below `BaseSchemaCore`, so there is no TDZ left to dodge.
   ['SchemaNodeSchema', SchemaNodeSchema],
+  // objectui#9306 — see the header. Its `conditions` became flat rows, so the
+  // body no longer names `FilterGroupSchema` and there is no TDZ left to dodge.
+  ['FilterGroupSchema', FilterGroupSchema],
 ];
 /** ⛔ Do not "fix" these — each one's `z.lazy` dodges a real ReferenceError. */
 const TDZ_BOUND: ReadonlyArray<readonly [string, unknown]> = [
   ['ActionSchema', ActionSchema],
   ['AppMenuItemSchema', AppMenuItemSchema],
-  ['FilterGroupSchema', FilterGroupSchema],
   ['MenuItemSchema', MenuItemSchema],
   ['NavLinkSchema', NavLinkSchema],
   ['NavigationMenuItemSchema', NavigationMenuItemSchema],
@@ -287,17 +294,23 @@ describe('objectui#7918 · z.lazy getter identity', () => {
       ).success).toBe(false);
     });
 
-    it('FilterGroupSchema still nests conditions and sub-groups through the memoised arm', () => {
+    it('FilterGroupSchema still accepts flat condition rows through the memoised arm', () => {
       // The CONDITION rows carry `id` (required since objectui#8415); the
-      // sub-GROUP's `id` stays what it always was — declared but optional.
+      // GROUP's `id` stays what it always was — declared but optional. This
+      // test used to parse a nested sub-group as well: objectui#9306 retired
+      // nesting and the group now REFUSES a sub-group by name, so that arm is
+      // pinned in `filter-builder-nested-group-retired-9306.test.ts` rather than
+      // kept here as an accept it no longer is.
       const group = {
         id: 'g1', logic: 'and',
         conditions: [
           { id: 'c1', field: 'amount', operator: 'greater_than', value: 100 },
-          { id: 'g2', logic: 'or', conditions: [{ id: 'c2', field: 'stage', operator: 'equals', value: 'won' }] },
+          { id: 'c2', field: 'stage', operator: 'equals', value: 'won' },
         ],
       };
       expect(FilterGroupSchema.safeParse(group).success).toBe(true);
+      expect(FilterGroupSchema.safeParse({ logic: 'and', conditions: [{ id: 'c1', field: 'amount', operator: 'not_a_real_operator' }] }).success)
+        .toBe(false);
     });
   });
 });

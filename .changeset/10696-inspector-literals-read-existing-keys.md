@@ -31,3 +31,9 @@ So a zh-CN author read English on an otherwise Chinese inspector:
   an authored branch name pass through as before.
 
 No catalogue row is added or changed, and the en-US text is unchanged.
+
+⚠️ **Dated note, 2026-09-27 — a loop body's crumb reads a row — objectui#10748.** Later in
+this same release the loop-body region crumb reads its own new row, `engine.flowRegion.body`,
+through the same `displayRegionLabel`, so under zh-CN it no longer passes `Body` through; an
+authored branch name still does. The rest of this entry is kept as the reading of this change; the
+objectui#10748 entry states what the crumb now does.

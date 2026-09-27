@@ -52,7 +52,7 @@ describe('span renders its canonical child key (#5027)', () => {
     // The reproduction from the card, byte for byte: the inline tag's text used
     // to vanish while the paragraph next to it rendered.
     const { container } = renderHtmlPage(
-      '<div className="outer"><span className="inner">hello html tier</span><p>page rendered</p></div>',
+      '<box className="outer"><span className="inner">hello html tier</span><p>page rendered</p></box>',
     );
 
     // Control first: a compile error replaces the whole page with an error

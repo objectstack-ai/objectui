@@ -235,6 +235,7 @@ const pt = {
       remove: 'Remover {{name}}',
       exceedsMaxSize: '"{{name}}" excede o tamanho máximo ({{max}} MB)',
       uploadFailed: 'Falha ao enviar "{{name}}": {{error}}',
+      uploadIncomplete: 'O envio de "{{name}}" não foi concluído: nenhum ID de arquivo foi retornado, então nada foi salvo',
     },
     richText: {
       format: "Formato: {{format}}",

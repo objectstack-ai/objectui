@@ -740,7 +740,9 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
         { key: 'label', label: 'Label', kind: 'text', placeholder: 'Discount %' },
         { key: 'type', label: 'Type', kind: 'text', placeholder: 'number' },
         { key: 'required', label: 'Required', kind: 'boolean' },
-        { key: 'visibleWhen', label: 'Visible when', kind: 'expression', placeholder: 'stage == "review"' },
+        // A sibling-field shape (the flows guide's example): the predicate binds
+        // this screen's own fields, never a run variable (objectui#10743).
+        { key: 'visibleWhen', label: 'Visible when', kind: 'expression', placeholder: 'createOpportunity == true' },
       ],
     }),
     cfg('waitForInput', 'Wait for input', 'boolean', {

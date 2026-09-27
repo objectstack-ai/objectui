@@ -43,6 +43,9 @@ export * from './useActionEngine.js';
 // authored strings an action carries (label / confirmText / successMessage).
 export * from './useActionTextLocalizer.js';
 export * from './useCapabilityGate.js';
+// The `SchemaRenderer` memo's `properties` evaluation, for an action container's
+// members, which are drawn without `SchemaRenderer` (objectui#10290).
+export * from './useConfigBagEvaluator.js';
 // The analytics label net's React glue, consumed by BOTH plugin-dashboard's
 // `DatasetWidget` and plugin-report's dataset block (objectui#4389). It lives
 // here rather than in `@object-ui/core` because it reads `SchemaRendererContext`

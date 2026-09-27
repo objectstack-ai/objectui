@@ -224,7 +224,7 @@ export type {
 // The one select-option contract both option faces extend — `SelectOption`
 // above (the SDUI form face) and `SelectOptionMetadata` below (the
 // object-metadata face). Exported because it appears in the `extends` clause of
-// both, so a consumer that wants to name it can (objectui#7014).
+// both, so a consumer that wants to name it can (`98d4108a2`).
 export type { SelectOptionBase } from './select-option.js';
 
 // ============================================================================
@@ -255,6 +255,10 @@ export type {
   ObjectDataTableDrillDownConfig,
   TimelineEvent,
   TimelineScale,
+  TimelineItemVariant,
+  TimelineFeedItem,
+  TimelineGanttItem,
+  TimelineGanttItemBar,
   TimelineSchema,
   KbdSchema,
   HtmlSchema,
@@ -603,15 +607,6 @@ export type {
   FilterBuilderDateRangePreset,
   FilterBuilderConfig,
   FilterFieldConfig,
-  // Validation Schema (Phase 3.5)
-  AdvancedValidationSchema,
-  AdvancedValidationRule,
-  ValidationRuleType,
-  ValidationFunction,
-  AsyncValidationFunction,
-  ValidationContext,
-  AdvancedValidationResult,
-  AdvancedValidationError,
   // Object-level validation rules. The five spec-named variants are derived from
   // `@objectstack/spec/data`; the other three are @deprecated objectui-local
   // variants the spec's union rejects. See data-protocol.ts.
@@ -1077,17 +1072,6 @@ export type {
    * `major`).
    */
   ComponentMeta as PluginComponentMeta,
-  /**
-   * @deprecated Use `ComponentInput` instead. Since objectui#4972 converged the
-   * plugin-scoped declaration onto `base.ts`, this alias names the SAME type
-   * under a second name — it carries no information `ComponentInput` does not.
-   * Retiring it is objectui#5674 (maintainer ruling, 2026-08-22: deprecate for a
-   * release, then remove). This deprecation window exists for consumers outside
-   * this repository, which cannot be measured from here; in-repo the name has
-   * zero importers. Removal ships as a `minor` under this repo's version policy
-   * (objectui's own breaking changes never declare `major`).
-   */
-  ComponentInput as PluginComponentInput,
   PluginEventHandler,
 } from './plugin-scope.js';
 

@@ -20,6 +20,7 @@ import {
   type TriggerScope,
 } from './flow-scope.js';
 import { useObjectFields } from '../previews/useObjectFields.js';
+import { t, useMetadataLocale } from '../i18n.js';
 
 export interface ScopeGroup {
   id: ScopeGroupId;
@@ -62,12 +63,14 @@ export interface UseFlowScopeResult {
 
 // The REGULAR picker's sections — the approval_* group ids (#3447) never
 // appear here; they ride the separately-emitted approvalExpressionGroups.
+// Each heading is a catalogue key, resolved in the designer locale
+// (objectui#10748).
 const GROUP_ORDER = ['variables', 'outputs', 'loop', 'trigger'] as const;
-const GROUP_LABELS: Record<(typeof GROUP_ORDER)[number], string> = {
-  variables: 'Flow variables',
-  outputs: 'Upstream outputs',
-  loop: 'Loop item',
-  trigger: 'Trigger record',
+const GROUP_LABEL_KEYS: Record<(typeof GROUP_ORDER)[number], string> = {
+  variables: 'engine.flowScope.group.variables',
+  outputs: 'engine.flowScope.group.outputs',
+  loop: 'engine.flowScope.group.loop',
+  trigger: 'engine.flowScope.group.trigger',
 };
 
 /**
@@ -87,19 +90,22 @@ export function useFlowScope(
   nodeId: string | undefined,
   extraRefs?: ReadonlyArray<ScopeRef>,
 ): UseFlowScopeResult {
-  const scope = React.useMemo(() => resolveFlowScope(draft ?? {}, nodeId), [draft, nodeId]);
+  // The picker's headings and details, in the designer locale — read here, as
+  // `VariableTextInput` (which renders them) reads it (objectui#10748).
+  const locale = useMetadataLocale();
+  const scope = React.useMemo(() => resolveFlowScope(draft ?? {}, nodeId, locale), [draft, nodeId, locale]);
   const { fields, loading } = useObjectFields(scope.trigger?.objectName);
 
   return React.useMemo(() => {
     const all: ScopeRef[] = [...scope.refs];
     if (extraRefs && extraRefs.length) all.push(...extraRefs);
-    if (scope.trigger) all.push(...triggerFieldRefs(scope.trigger, fields));
+    if (scope.trigger) all.push(...triggerFieldRefs(scope.trigger, fields, locale));
     // Global de-dup by token (a declared var also written upstream shows once).
     const seen = new Set<string>();
     const refs = all.filter((r) => (seen.has(r.token) ? false : (seen.add(r.token), true)));
     const groups = GROUP_ORDER.map((id) => ({
       id,
-      label: GROUP_LABELS[id],
+      label: t(GROUP_LABEL_KEYS[id], locale),
       refs: refs.filter((r) => r.group === id),
     })).filter((g) => g.refs.length > 0);
 
@@ -125,12 +131,12 @@ export function useFlowScope(
     // no declared variables or upstream outputs.
     approvalVars.push({
       token: 'vars.previous', label: 'vars.previous',
-      detail: 'pre-update row', group: 'approval_vars',
+      detail: t('engine.flowScope.detail.preUpdateRow', locale), group: 'approval_vars',
     });
     const approvalExpressionGroups: ScopeGroup[] = [
-      { id: 'approval_current' as const, label: 'Current record (live at node entry)', refs: approvalCurrent },
-      { id: 'approval_trigger' as const, label: 'Trigger snapshot (at submit)', refs: approvalTrigger },
-      { id: 'approval_vars' as const, label: 'Flow variables', refs: approvalVars },
+      { id: 'approval_current' as const, label: t('engine.flowScope.group.approvalCurrent', locale), refs: approvalCurrent },
+      { id: 'approval_trigger' as const, label: t('engine.flowScope.group.approvalTrigger', locale), refs: approvalTrigger },
+      { id: 'approval_vars' as const, label: t('engine.flowScope.group.variables', locale), refs: approvalVars },
     ].filter((g) => g.refs.length > 0);
 
     return {
@@ -141,5 +147,5 @@ export function useFlowScope(
       loading: !!scope.trigger && loading,
       isEmpty: refs.length === 0,
     };
-  }, [scope, fields, loading, extraRefs]);
+  }, [scope, fields, loading, extraRefs, locale]);
 }

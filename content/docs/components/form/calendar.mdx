@@ -48,6 +48,8 @@ The shape of the selection follows `mode`:
 
 Schema validation refuses a selection whose shape does not fit its mode — a single day under `mode: "multiple"`, for example — instead of letting it reach the renderer.
 
+The calendar opens on the month of its first selected day: the day itself in `single` mode, the first valid listed day in `multiple` mode (an entry that is not a date is skipped), and `from` in `range` mode. With no selection it opens on the current month. It reads that month once, when it first renders: a `value` that changes afterwards does not move the month it shows.
+
 ## Schema
 
 ```plaintext

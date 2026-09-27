@@ -30,6 +30,13 @@ result types in `@object-ui/types` (`AdvancedValidationSchema`,
 comment on `ValidationContext.locale` changed, because the engine it described
 is gone.
 
+⚠️ **Dated note, 2026-09-27 — those types no longer keep their shapes: all
+eight (`AdvancedValidationSchema`, `AdvancedValidationRule`,
+`ValidationRuleType`, `ValidationFunction`, `AsyncValidationFunction`,
+`ValidationContext`, `AdvancedValidationResult`, `AdvancedValidationError`) are
+removed from `@object-ui/types` by a later change, on this same ruling —
+objectui#10719.**
+
 ⚠️ Out-of-repository consumers are NOT MEASURED. This package is published, and
 the zero-consumer reading behind the ruling covers this repository only; a host
 application that imports any of the four names stops compiling on upgrade.

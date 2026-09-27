@@ -19,8 +19,8 @@
  * What the hook is handed as `objectName` is the block's RECORD SOURCE — the
  * object the clicked rows actually came from — read through the ONE shared
  * reader `resolveRecordSourceObjectName` from `@object-ui/core`
- * (objectui#7627), and never a bare top-level `schema.objectName` in its place
- * (objectui#7638). `useNavigationOverlay`'s own doc block carries that rule in
+ * (`b041b9c0c`), and never a bare top-level `schema.objectName` in its place
+ * (`2ce2612df`). `useNavigationOverlay`'s own doc block carries that rule in
  * full, including the caller with NO data config whose `schema.objectName`
  * already IS its record source; this example follows that block rather than
  * restating it, because a ruling written out twice is a ruling one of whose

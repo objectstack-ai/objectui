@@ -11,9 +11,13 @@
  * PARSED (never executed) into the SDUI tree. For that tier to live up to its
  * name, the everyday HTML tags an author reaches for — headings, paragraphs,
  * lists, links, images, emphasis — must each resolve to a renderer (otherwise
- * the parser flags them `unknown-component`). div / span / table / code / label
- * and the semantic sectioning tags are registered elsewhere; this module fills
- * in the rest of the safe flow/inline set.
+ * the parser flags them `unknown-component`). div / span / table / label and
+ * the semantic sectioning tags are registered elsewhere; this module fills in
+ * the rest of the safe flow/inline set — `code` included (objectui#10756): the
+ * bare `code` key used to be the `field:code` widget's namespace fallback, so
+ * `<code>inline</code>` on an html page drew a code EDITOR and dropped its
+ * text. The widget now stands down from the bare key (`FIELD_TYPES_SKIP_FALLBACK`
+ * in `@object-ui/fields`) and stays reachable as `field:code`.
  *
  * Safety: these render real DOM, but the html tier never executes JS, so props
  * are static literals from the parser. As defense-in-depth the passthrough
@@ -33,7 +37,7 @@ type AnyProps = { schema: any; className?: string; [key: string]: any };
 const VOID_TAGS = new Set(['img', 'hr', 'br']);
 
 // The safe set we own here. Deliberately excludes anything already registered
-// (div, span, table, code, label, kbd, the semantic sectioning tags, html) and
+// (div, span, table, label, kbd, the semantic sectioning tags, html) and
 // anything that can execute or escape (script, style, iframe, object, embed,
 // link, meta, form, input, button — button is the shadcn component).
 //
@@ -44,7 +48,7 @@ const VOID_TAGS = new Set(['img', 'hr', 'br']);
 // any tag added here that another renderer already registers.
 const TAGS = [
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-  'p', 'a', 'blockquote', 'pre',
+  'p', 'a', 'blockquote', 'pre', 'code',
   'strong', 'em', 'b', 'i', 'u', 'small', 'mark', 'sub', 'sup', 'del', 'ins', 'abbr',
   'ul', 'ol', 'li', 'dl', 'dt', 'dd',
   'figure', 'figcaption', 'img', 'hr', 'br', 'time', 'address', 'cite', 'q',

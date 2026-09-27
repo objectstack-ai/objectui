@@ -263,6 +263,7 @@ const en = {
       remove: 'Remove {{name}}',
       exceedsMaxSize: '"{{name}}" exceeds max size ({{max}} MB)',
       uploadFailed: 'Failed to upload "{{name}}": {{error}}',
+      uploadIncomplete: 'Upload of "{{name}}" did not complete: no file id was returned, so nothing was saved',
     },
     image: {
       upload: 'Upload image',

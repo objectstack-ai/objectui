@@ -1625,7 +1625,8 @@ describe('objectui#5106 — plugin key tables are judged, on both halves', () =>
     // The universe is a UNION across the repo, so a call skipping its own bare
     // fallback says nothing about whether another package registers that bare
     // name — and in this tree one does. Asserting the negative would red a
-    // correct row (`plugins/plugin-grid.mdx:185` is the live specimen).
+    // correct row (the `view:grid` row of `plugins/plugin-grid.mdx` is the live
+    // specimen).
     const { findings, counters } = tableTree(
       ['| `view:widget` | none — `skipFallback: true` | `W` |'],
       "ComponentRegistry.register('widget', W, { namespace: 'view', skipFallback: true });\n" +
@@ -2497,10 +2498,13 @@ describe('objectui#5118 — the plugin-form page teaches the real `validation` s
 
   it('the bare-`ValidationRule` match discriminates every near-spelling that really exists', () => {
     // Fixtures rather than the tree, so the negative control stays decidable
-    // when the types move. Every negative is a spelling this repository really
-    // writes, cited where it lives — an assertion that red on `FieldValidationRules`
-    // would be deleted by the first person who hit it, and the claim would be
-    // back to unguarded.
+    // when the types move. A negative with a file beside it is a spelling this
+    // repository really writes, cited by that file and never by line: a line
+    // address rots the first time a line lands above it (objectui#7853), and
+    // nothing here re-derives either kind of citation. The others are shapes the
+    // matcher must refuse whether or not anything writes them today. An
+    // assertion that red on `FieldValidationRules` would be deleted by the first
+    // person who hit it, and the claim would be back to unguarded.
     for (const source of [
       'export interface ValidationRule {\n  type: string;\n}',
       'export type ValidationRule = { type: string };',
@@ -2515,13 +2519,18 @@ describe('objectui#5118 — the plugin-form page teaches the real `validation` s
     }
 
     for (const source of [
-      'export interface AdvancedValidationRule {}', //          packages/types/src/data-protocol.ts:708
-      "export type ValidationRuleType = 'required';", //        packages/types/src/data-protocol.ts:748
-      'export type ObjectValidationRule = { name: string };', // packages/types/src/data-protocol.ts:1129
-      'export interface DesignerValidationRule {}', //           packages/types/src/designer.ts:762
-      'export interface FieldValidationRules {}', //             packages/types/src/form.ts:744
-      'interface ValidationRuleDraft {}', //                     app-shell ObjectValidationsPanel.tsx:46
-      'interface BaseValidationRuleShape {}', //                 quoted at types/src/data-protocol.ts:980
+      // SYNTHETIC. objectui#10719 retired both names; its retirement pin
+      // (`phase35-validation-types-retired-10719.test.ts` in `packages/types`)
+      // keeps them out of `@object-ui/types`. They stay as negatives for their
+      // shapes, not their provenance: `ValidationRuleType` is the only negative
+      // here that puts a SUFFIXED name on the `type … =` branch.
+      'export interface AdvancedValidationRule {}',
+      "export type ValidationRuleType = 'required';",
+      'export type ObjectValidationRule = { name: string };', // packages/types/src/data-protocol.ts
+      'export interface DesignerValidationRule {}', //           packages/types/src/designer.ts
+      'export interface FieldValidationRules {}', //             packages/types/src/form.ts
+      'interface ValidationRuleDraft {}', //                     app-shell studio-design/ObjectValidationsPanel.tsx
+      'interface BaseValidationRuleShape {}', //                 a spec type, quoted in the `ConditionalValidation` docblock of types/src/data-protocol.ts
       "import { ValidationRuleSchema } from '@objectstack/spec/data';",
       "export { ValidationRuleSchema } from '@objectstack/spec/data';",
       'export function buildValidationRules(field: unknown) {\n  return field;\n}',

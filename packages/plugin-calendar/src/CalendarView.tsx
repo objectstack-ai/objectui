@@ -344,8 +344,25 @@ function CalendarView({
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
+              {/*
+                The popover reads the grids' locale, not the session's: an
+                authored `locale` reaches its caption and weekday heads too
+                (objectui#10747). `Calendar` resolves the tag through the one
+                date-fns resolver in `@object-ui/components`.
+
+                It opens on the month the header names (objectui#10799):
+                react-day-picker opens on `month`, else `defaultMonth`, else
+                today, and `selected` does not move it. The content unmounts
+                when the popover closes, so every open reads the current date.
+                A host may hand an invalid `Date` (the view renderer passes a
+                `Date` instance through untouched): that names no month, and
+                react-day-picker throws on an invalid `defaultMonth`, so it
+                opens on today instead, as it always did.
+              */}
               <Calendar
+                localeTag={effectiveLocale}
                 mode="single"
+                defaultMonth={Number.isNaN(selectedDate.getTime()) ? undefined : selectedDate}
                 selected={selectedDate}
                 onSelect={handleDateSelect}
                 autoFocus

@@ -62,18 +62,18 @@ const priority: LookupFieldMetadata = {
 ```
 
 A static option may also carry a `description` — secondary text the picker's
-typeahead searches alongside the label. It is a declared `SelectOptionMetadata`
-member, declared for exactly that consumption
-([objectui#6153](https://github.com/objectstack-ai/objectui/issues/6153)), but it
-is an **objectui-side read-model extension, not a spec key**. Measured on the
-installed `@objectstack/spec`, `SelectOptionSchema` is strict over exactly
-`{label, value, color, default, visibleWhen}` and refuses `description` **by
-name** (`unrecognized_keys`), with the same option minus the key accepted as the
-control. `FieldSchema` routes a field's `options` through that schema, so
-authoring `description` on an option in an object document fails the **whole
-field** with a 422 — the key lives on the runtime read model the widget consumes
-and must never reach authored object metadata
-(`0e3b3be09`). The
+typeahead searches alongside the label. Both faces declare it:
+`SelectOptionMetadata` in `@object-ui/types`, and `@objectstack/spec` as
+`SelectOptionSchema.description`, by the option-A ruling on
+[objectui#6140](https://github.com/objectstack-ai/objectui/issues/6140) /
+[objectui#6153](https://github.com/objectstack-ai/objectui/issues/6153) — so an
+option carrying it is accepted in an authored object document. The spec's option
+is still strict: a key it does not declare, such as `icon` (which
+`SelectOptionMetadata` carries only for objectui's own renderers), is refused
+**by name** (`unrecognized_keys`), and since `FieldSchema` routes a field's
+`options` through that schema, it fails the **whole field**.
+`select-option-spec-extension-7014.test.ts` (`@object-ui/types`) re-derives both
+verdicts against the installed spec. The
 `dataSource` a host injects and the `onCreateNew` callback it passes are widget props,
 not metadata.
 

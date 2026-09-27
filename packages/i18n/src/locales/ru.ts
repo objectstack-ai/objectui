@@ -246,6 +246,7 @@ const ru = {
       remove: 'Удалить {{name}}',
       exceedsMaxSize: '«{{name}}» превышает максимальный размер ({{max}} МБ)',
       uploadFailed: 'Не удалось загрузить «{{name}}»: {{error}}',
+      uploadIncomplete: 'Загрузка «{{name}}» не завершена: идентификатор файла не получен, ничего не сохранено',
     },
     richText: {
       format: "Формат: {{format}}",

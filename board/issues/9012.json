@@ -1,0 +1,38 @@
+{
+  "number": 9012,
+  "kind": "issue",
+  "title": "finding(core): `@object-ui/core`'s declared `@objectstack/spec: ^17.2.0` floor admits a spec that refuses its own fold's `userActions` output BY NAME",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "finding",
+    "package: core",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-10T17:39:11Z",
+  "updated_at": "2026-09-10T20:33:20Z",
+  "closed_at": "2026-09-10T20:31:50Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9012",
+  "body": "Split out of objectui#8992 by that card's dev. objectui#8992 was handed the question \"should the floor bump belong here?\" and answered **no, but it is real** — this card carries the measurement so the decision is not lost.\n\n## The claim, measured\n\n`packages/core/package.json` declares, in **`dependencies`** (consumer-facing, not `devDependencies`):\n\n```\n\"@objectstack/spec\": \"^17.2.0\"\n```\n\n`normalizeListViewSchema` (`packages/core/src/utils/normalize-list-view.ts`) folds objectui's legacy toolbar flags onto three `userActions` keys:\n\n```\nshowGroup: 'group',\nshowHideFields: 'hideFields',\nshowColor: 'rowColor',\n```\n\nThose three keys were adopted by the protocol in **17.3.0** (objectui#5435's ruling, 2026-08-22). They do not exist in 17.2.0.\n\nMeasured by parsing the fold's own output against the **published artifacts** of each version — `npm pack @objectstack/spec@VERSION`, then `import('./dist/ui/index.mjs')`, no workspace resolution involved:\n\n```\n--- @objectstack/spec@17.2.0\n    declared keys (8): [\"sort\",\"search\",\"filter\",\"refresh\",\"rowHeight\",\"addRecordForm\",\"editInline\",\"buttons\"]\n    declares group/hideFields/rowColor: group=false hideFields=false rowColor=false\n    parse(core fold output {\"rowHeight\":true,\"group\":false,\"hideFields\":true,\"rowColor\":true}): REFUSED refused-keys=[\"group\",\"hideFields\",\"rowColor\"]\n    FIRING CONTROL {zzUndeclared:true}: REFUSED (control fires)\n--- @objectstack/spec@17.3.0\n    declared keys (11): [\"sort\",\"search\",\"filter\",\"refresh\",\"rowHeight\",\"group\",\"addRecordForm\",\"editInline\",\"hideFields\",\"rowColor\",\"buttons\"]\n    declares group/hideFields/rowColor: group=true hideFields=true rowColor=true\n    parse(core fold output {\"rowHeight\":true,\"group\":false,\"hideFields\":true,\"rowColor\":true}): ACCEPTED\n    FIRING CONTROL {zzUndeclared:true}: REFUSED (control fires)\n```\n\nThe firing control is there because \"REFUSED\" is worth nothing from a schema that refuses everything, and \"ACCEPTED\" is worth nothing from one that accepts everything: the same control key is refused by BOTH versions, so the difference measured above is about the three keys and not about the harness.\n\nSo: a consumer whose resolution lands on `@objectstack/spec@17.2.0` — permitted by core's own declared range, and reachable through a sibling pinning it exactly, an `overrides` entry, or an offline mirror a minor behind — gets a `normalizeListViewSchema` whose output is refused by name at the view save gate. That is the defect class objectui#5793 named, whose triage ruled **floors track reality**, with \"contract-tightening over consumer tolerance\" as the platform default.\n\n## Why no existing gate catches it\n\n`scripts/check-spec-range-floors.mjs` is the repo's floor gate and its criterion is **symbol presence in the published artifact**: the floor must carry every symbol the package's own `dist/` references. `UserActionsConfigSchema` is exported by BOTH 17.2.0 and 17.3.0 — verified in each tarball's `dist/ui/index.d.ts` — so the gate is green at `^17.2.0` and would be green at `^17.3.0`. The requirement here is **behavioural** (which KEYS that symbol declares), which is deliberately outside that gate's criterion — its header explains at length why a src-based or behaviour-based criterion would over-name symbols and demand floors nothing published justifies.\n\n`.github/workflows/spec-range-floors.yml` also only triggers on changes to the gate script itself, so it does not run on ordinary PRs at all.\n\n⇒ Whatever is decided here has to be held by something other than that gate, or it will drift back silently. That is part of what wants deciding.\n\n## Why objectui#8992 did not just do it\n\n- It is a **published-surface change to a different package** than the one that card is scoped to (`@object-ui/types`). Raising a declared floor narrows what consumers may resolve; that deserves its own review, not a rider on a types PR.\n- objectui#8992's diff does **not** move this coupling in either direction — it exists identically before and after that change.\n- objectui#5435 met the same question and deliberately documented the reading instead of bumping. Its pin (`packages/core/src/utils/__tests__/normalize-list-view.foldOutputAuthorable-5435.test.ts`) carries the standing instruction verbatim: *\"if this file ever reddens on a resolved 17.2.x, the reading is that the declared floor is too low, not that the fold regressed.\"* This card is that reading, promoted to a measurement.\n\n## What is owed\n\nDecide, and say which:\n\n- **A — bump** `packages/core/package.json` to `\"@objectstack/spec\": \"^17.3.0\"`, matching `@object-ui/types`, and say what holds it there (the floors gate will not).\n- **B — leave it**, and record why a permitted resolution producing protocol-refused output is acceptable.\n\n⚠️ **Not measured here.** Whether any OTHER package in the workspace has the same shape. 26 manifests declare `^17.0.0` and two declare `^17.2.0`; this card measured only `@object-ui/core`'s, because that is the one with a fold that emits 17.3.0-only keys. A sweep for behavioural (not symbol) floor debt across the other 27 is a separate job.\n\nRefs objectui#8992 · objectui#5435 · objectui#5793.\n"
+}

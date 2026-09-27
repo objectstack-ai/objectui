@@ -1,0 +1,34 @@
+{
+  "number": 8623,
+  "kind": "issue",
+  "title": "finding(docs): nothing checks that a `SchemaExample id=\"…\"` in content/docs resolves in the schema catalog — `getExample` throws, at page render, in production docs",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-08T17:41:18Z",
+  "updated_at": "2026-09-10T18:54:53Z",
+  "closed_at": "2026-09-10T18:54:52Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8623",
+  "body": "Found while executing #6877 (adding a `components-basic-div/use-box-instead` migration example to `div.mdx`) — **not fixed there**, out of that card's scope.\n\n## The gap\n\n`apps/site/app/components/SchemaExample.tsx` resolves its `id` prop with `getExample(id)` from `@object-ui/example-schema-catalog`, and the generated `examples/schema-catalog/src/index.ts` implements that as:\n\n```ts\nexport function getExample(id: string): Example {\n  const entry = REGISTRY[id];\n  if (!entry) {\n    throw new Error(\n      `Unknown example id: \"${id}\". Known ids: ${Object.keys(REGISTRY).join(', ')}`,\n    );\n  }\n  return entry;\n}\n```\n\nSo a mistyped or stale id is a **throw at page render**, not a blank tile. 145 files in the tree carry a `SchemaExample` reference; `content/docs/**` is full of them.\n\n**Nothing statically checks those ids.** Measured on `origin/main` @ `9f5de79dd`:\n\n```\ngit grep -ln 'SchemaExample id=' -- scripts/ examples/ packages/\n  examples/README.md\n  examples/schema-catalog/README.md\n  examples/schema-catalog/src/index.ts\n  examples/schema-catalog/test/smoke.test.tsx\n  scripts/__tests__/extract-mdx-demos.test.ts\n  scripts/extract-mdx-demos.mjs\n  scripts/regenerate-catalog-index.py\n```\n(control on the same command shape and population: `git grep -ln 'describe(' -- scripts/ examples/` → 162 files, so the reader was firing.)\n\nNone of those seven is a gate over `content/docs`:\n\n- `scripts/extract-mdx-demos.mjs` is a one-file CLI (`Usage: node scripts/extract-mdx-demos.mjs <category> <file.mdx>`), not wired into `package.json` or any workflow — `grep -n 'extract-mdx-demos' package.json .github/workflows/*.yml` is empty.\n- `scripts/__tests__/catalog-index-regenerable-4633.test.ts` checks that the generated index matches the **schemas directory**. It says nothing about who references those ids.\n- `examples/schema-catalog/test/catalog-gallery-render.test.tsx` renders every **catalog entry**. An mdx pointing at an id that does not exist is invisible to it — the entry simply is not there to render.\n- `scripts/check-doc-component-types.mjs` walks `content/docs` but asks about component **type** literals, not example ids.\n\n## Why it is worth a gate rather than a shrug\n\nThe failing direction is the expensive one: the id lives in a docs page, the throw happens in the rendered site, and the local signal a contributor gets is **green** — every check above passes on a docs page that will crash. The neighbouring class of defect has been filed repeatedly here (#5136, #6171, #7724 are docs that drifted from the tree), and this one is mechanically checkable in a way those were not: the id set is a generated registry and the references are a grep away.\n\n## Suggested shape (for triage, not binding)\n\nA `check:doc-example-ids` script that greps `content/docs/**` for `SchemaExample id=\"…\"`, resolves each against the ids in `examples/schema-catalog/src/index.ts`, and reports the misses — with a positive control so a zero is a reading rather than a wrong glob. It is the same shape as the existing `check:doc-types` and would sit beside it in `lint.yml`.\n\n## Not this\n\n⛔ Not a proposal to make `getExample` return `undefined` — throwing on an unknown id is the right runtime behaviour. The gap is that nothing asks the question **before** render."
+}

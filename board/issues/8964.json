@@ -1,0 +1,33 @@
+{
+  "number": 8964,
+  "kind": "issue",
+  "title": "The eager-closure gate's header still renders the RETIRED ceiling/baseline pair as \"3.07 MB\" and \"3.12 MB\" — both have been false since `639114c4d`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T11:10:12Z",
+  "updated_at": "2026-09-10T23:32:50Z",
+  "closed_at": "2026-09-10T23:27:46Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8964",
+  "body": "Found while taking the live measurement objectui#7848 was dispatched for (tip `72bcd7783`, commit date 2026-09-10T10:13:32Z). ⛔ Not fixed there: that dispatch fenced its write to one specific class, and this is a different sentence. Filing rather than riding it in.\n\n## The defect\n\n`scripts/check-eager-closure-budget.mjs`, module header, three lines:\n\n- `:208` — \"This is a truthful CURRENT-STATE ceiling, not a target. 3.07 MB gzipped before first render is a bad payload …\"\n- `:213` — \"Nothing here should be read as a finding that 3.12 MB is acceptable.\"\n- `:215`-`:217` — \"The two figures in that paragraph are one constant each, rendered in MiB, and not a contradiction: 3.07 MB is BASELINE's measured payload and 3.12 MB is MAX_EAGER_CLOSURE_GZIP_BYTES, the ceiling standing over it.\"\n\nThat last sentence binds each literal to a named constant, so it is checkable. Checked:\n\n| constant | value on `72bcd7783` | rendered MiB | what the prose says |\n|:--|--:|--:|:--|\n| `BASELINE.gzipBytes` | 3,551,191 | **3.39** | 3.07 |\n| `MAX_EAGER_CLOSURE_GZIP_BYTES` | 3,597,000 | **3.43** | 3.12 |\n\nThe two literals are the **retired** pair, exactly: 3,222,314 / 1048576 = 3.0730 and 3,268,000 / 1048576 = 3.1166. Decimal MB does not fit either figure, and the paragraph itself says \"rendered in MiB\", so there is no reading on which they are current.\n\n## When it broke, traced rather than inferred\n\n`git show` of the file at four commits:\n\n| commit | commit date | `MAX` | `BASELINE.gzipBytes` | prose |\n|:--|:--|--:|--:|:--|\n| `565817a72` | 2026-09-06T00:30:27Z | 3,268,000 | 3,222,314 | 3.07 / 3.12 — **true** |\n| `639114c4d` | 2026-09-07T07:31:44Z | 3,597,000 | 3,551,191 | 3.07 / 3.12 — **false** |\n| `9de7758de` | 2026-09-07T09:40:37Z | 3,597,000 | 3,551,191 | unchanged |\n| `452f1f779` | 2026-09-10T09:43:43Z | 3,597,000 | 3,551,191 | unchanged |\n\nSo the maintainer-authorised re-baseline of objectui#7685 moved both constants and left both renderings behind. Four days and three subsequent edits to this file have not touched them.\n\n## Why nothing caught it\n\nThe prose pin added by objectui#7528 (`scripts/__tests__/check-eager-closure-budget.test.ts`, \"chunk counts in this gate's prose\") matches CHUNK POPULATIONS only, and its own docblock says the size class is out on purpose: \"The workflow's frozen-SIZE prose is a DIFFERENT class and is deliberately OUT of this pin — named here so nobody widens a count pin into a size pin by accident.\"\n\n⇒ This is that deliberate gap producing its first instance in the checker itself. ⛔ This card is **not** a request to widen the pin — that trade was already weighed and declined, and the same docblock explains why.\n\n## The repair this file's own rules point at\n\n⛔ Refreshing the literals to 3.39 / 3.43 restarts the clock the file has already been burned by four times (objectui#7518, objectui#7046, objectui#6778, objectui#7528). The header states the alternative in its own voice, on the bullet objectui#7529 rewrote: \"⛔ No figure is restated here: this bullet carried one and it went a whole re-baseline stale.\"\n\n⇒ The fix that matches the file is to **stop restating the two constants in MiB** and let the paragraph name its subjects — which is all objectui#7528 asked of it in the first place (\"Saying which is which is the whole of this note\"). Docs-only, comment lines only, no constant moves.\n\n## Scope notes\n\n- ⛔ No constant moves on this card, in either direction.\n- Nothing here bears on the live margin; that measurement is on objectui#7848 and it passes.\n- Same class as the two repairs objectui#8956 landed in this file on 2026-09-10, and as objectui#8579 before it — a fact a constant-moving commit did not carry, recorded afterwards.\n\nFiled unassigned, unlabelled, for triage.\n\nThis card was written by an agent seat (Claude Code) during the objectui#7848 measurement run; that attribution is stated here as prose because a footer block does not survive issue creation.\n"
+}

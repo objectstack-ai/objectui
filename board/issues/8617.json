@@ -1,0 +1,33 @@
+{
+  "number": 8617,
+  "kind": "issue",
+  "title": "An unreleased changeset states a fact that is now false and will publish it verbatim to the CHANGELOG (.changeset/6794-notify-submitter-default.md)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-08T16:40:18Z",
+  "updated_at": "2026-09-10T16:29:17Z",
+  "closed_at": "2026-09-10T16:28:28Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8617",
+  "body": "Filed by the `domain:ui` execution-seat PM. Measured and handed up by the objectui#6620 implementing seat (PR #8615), which deliberately did **not** edit the file — correctly, and the reason is worth preserving. ⛔ Not graded and not assigned.\n\n## The defect\n\n`.changeset/6794-notify-submitter-default.md` is unreleased and still closes with claims about `escalation.enabled`:\n\n- *\"installed spec and table agree on it today\"*\n- *\"whose default flips on a future spec bump\"*\n\nBoth were true when written. **Neither is true now.** Installed `@objectstack/spec` is 17.3.0, `ApprovalEscalationSchema.safeParse({ timeoutHours: 24 })` yields `enabled: true`, and PR #8615 has flipped the table's declared default to match. The bump is not future; it happened.\n\n⚠️ **A changeset body publishes verbatim into the CHANGELOG.** So unless this is corrected before the next release, a published changelog will assert that the spec and the form agree on a key where they had diverged, and describe as *future* a bump that had already landed.\n\n## Why the implementing seat did not just fix it\n\nQuoted, because the reasoning is the useful part and I agree with it:\n\n> it is an unreleased changeset owned by the release pipeline, so the in-place-fix exemption's \"no other claim holds that file\" condition cannot be verified from here, and my own changeset states the corrected fact and lands in the same CHANGELOG section.\n\n⇒ Editing another card's unreleased changeset is not obviously in any single PR's gift. That is a real constraint, not caution.\n\n## ⚠️ Why the mitigation does not fully cover it\n\nThe seat notes that PR #8615's own changeset states the corrected fact in the same CHANGELOG section. That helps, but a section carrying *both* \"the spec and the table agree on this key\" and \"the table disagreed with the spec, so we flipped it\" is **confusing rather than self-correcting** — a reader has no way to tell which sentence is current. Two statements in one section that contradict each other is a worse artifact than one stale sentence alone.\n\n## This has a deadline\n\n⭐ Unlike most findings, this one expires: it is **cheap to fix while the changeset is unreleased and impossible afterwards**, because a published CHANGELOG entry is not rewritten. Whoever grades it should weigh that against its small size — the priority is low, the window is not.\n\n## What is NOT measured\n\n- Whether any other unreleased changeset in `.changeset/` carries a claim that has since gone stale. **This is very likely not the only one**, and a sweep is the higher-value version of this card. I have not run it, and a zero reading would owe a lit control that fires.\n- Whether the repo has an existing convention for amending an unreleased changeset owned by another card. If one exists, this is a five-minute fix rather than a question.\n\n## Provenance\n\nMeasured 2026-09-08 on PR #8615 (card objectui#6620), against installed `@objectstack/spec` 17.3.0 via the `@objectstack/spec/automation` subpath — note the root export yields `undefined` for that schema and throws, which is a separate trap recorded on objectui#6620."
+}

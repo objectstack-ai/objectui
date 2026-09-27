@@ -1,0 +1,35 @@
+{
+  "number": 8568,
+  "kind": "issue",
+  "title": "One `$`-dialect, two acceptance sets: `convertFiltersToAST` accepts lowercase aliases that `ValueDataSource` refuses by design",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "needs:contract-review",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T12:04:02Z",
+  "updated_at": "2026-09-10T21:54:28Z",
+  "closed_at": "2026-09-10T15:48:33Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8568",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8558 dev, which measured it while landing PR #8565 and could not file it — its dedup search control query was refused by the rate limit and repo-scoped REST is 403 for that seat. ⛔ Not claimed.\n\n## The disagreement\n\nTwo files in `@object-ui/core` answer the same `$`-dialect differently, and both are deliberate:\n\n| | lowercase aliases `$notin` `$startswith` `$notcontains` `$endswith` |\n|---|---|\n| `src/utils/filter-converter.ts` (`operatorMap`, entries at L69 / L73 / L75 / L77, comment at L59) | **accepted** — \"for tolerance\" |\n| `src/adapters/ValueDataSource.ts` (since PR #8512) | **refused** — its README at `:111` lists them as *\"non-canonical spellings\"* |\n\nSo the same authored filter has two fates depending on which data source is behind the view:\n\n```\n{ email: { $startswith: 'a' } }\n  → ObjectStack adapter:  lowers to ['email','startswith','a']\n  → ValueDataSource:      refused\n```\n\n## Why the refusing side is the one with the ruling behind it\n\nobjectui#8447's changeset states the reason alias arms were **not** added to the matcher: they *\"would fossilise a second dialect.\"* That is AGENTS.md commandment 0.1 — contract-first, no lenient second contract — and it is the same ground objectui#8514 was decided on when the spec declined to rule on a shape and the repair became a refusal rather than an invented semantic.\n\nThe converter's tolerance predates that ruling and has not been reconciled with it. This is not two teams disagreeing; it is one decision that reached one file.\n\n## The decision this card asks for\n\n⚠️ **Not a doc fix and not a mechanical sweep.** Three readings, and the choice is the maintainer's:\n\n1. **Retire the converter's aliases** to match `ValueDataSource`. Contract-first, and what 0.1 points at. **Breaking** for any author who spelled it lowercase and is served by the ObjectStack adapter today — and they get no deprecation window unless one is built.\n2. **Teach `ValueDataSource` the aliases.** Cheap, and explicitly rejected by objectui#8447 with a stated reason. Reopening it needs an argument that ruling did not consider.\n3. **Keep both and document the split.** The status quo, now written down — the honest version of \"we have two dialects\", and the worst one to leave undeclared.\n\n⚠️ Whoever rules this should first **census the authored corpus** for the lowercase spellings, the way objectui#8447 and objectui#8514 did: option 1's cost is entirely a function of how many authors are relying on the tolerance, and nobody has measured that. \"No producer emits X\" is **consumer-local, not seam-wide** — objectui#6839 established that after the phrase was found true of one helper's ten call sites and false of `ListView`.\n\n## Already pinned, deliberately\n\nPR #8565 documents the aliases **as the code stands** and its new reconciliation pin reads the `operatorMap` from source, so **the pin reddens the moment the aliases are removed**. That is the intended signal, not an obstacle: whoever takes option 1 will be told by CI exactly which rows of the README to update in the same change.\n\n## Related\n\nobjectui#8558 / PR #8565 (where it was measured; the README pin) · objectui#8447 / PR #8512 (the ruling the matcher follows, and the \"second dialect\" reasoning) · objectui#8514 / PR #8529 (the same contract-first ground) · objectui#6839 (the consumer-local caveat)\n\n## Dedup\n\n⚠️ **Declared, NOT claimed.** The reporting seat's search control query was refused by the rate limit — it correctly attempted no target query after a dead control. This seat has not run one either: this repo's issue search returns **false zeros** (measured today returning `total_count: 0` for `ValueDataSource` while objectui#8447's own title contains that word), and the zero-quota web issue-search channel was measured dead in the dev container today by its own lit control. **No dedup claim is made.** Suggested manual check: objectui#8447's thread and `packages/core/src/adapters/README.md`."
+}

@@ -1,0 +1,36 @@
+{
+  "number": 8545,
+  "kind": "issue",
+  "title": "finding(tests): whole-corpus walks inside the 15s testTimeout are green on every PR and red on every push — two instances 12 hours apart, each silencing the coverage gate",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx",
+    "priority:p2",
+    "tests",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T08:53:19Z",
+  "updated_at": "2026-09-11T15:21:49Z",
+  "closed_at": "2026-09-11T15:20:19Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8545",
+  "body": "## Observation\n\nTwo test files have now crossed vitest's 15 s `testTimeout` in the **push lane only**, twelve hours apart, and the repair was the same both times: hoist a whole-corpus walk out of the timed window.\n\n| when | file | card | fix |\n|:--|:--|:--|:--|\n| 2026-09-07T21:43Z | `scripts/__tests__/check-doc-links.test.ts` | objectui#8419 | `ANCHOR_CORPUS` at module scope (`0203a29e9`) |\n| 2026-09-08 (in flight) | `scripts/__tests__/check-unused-dependencies.test.ts` | objectui#8479 | `REPOSITORY_SCAN` at module scope (PR #8543) |\n\n⇒ Two instances is a shape, not a coincidence — and the second one held `main`'s coverage gate unevaluated for **84 consecutive runs** before anyone read the name.\n\n## ⭐ Why PR CI structurally cannot see this class\n\nThe two lanes run the **same** 4-way shard split over the **same** files. The only difference is that the push lane adds v8 coverage instrumentation. Measured on objectui#8479's branch, same tree, same shard:\n\n- `--project unit … --shard=1/4` **without** `--coverage`: exit 0, 682 files passed.\n- the same shard **with** `--coverage`: exit 1, three tests `Test timed out in 15000ms`.\n\n⇒ A file whose walk fits inside 15 s uninstrumented and does not fit instrumented is **green on every PR and red on every push**. ⛔ No amount of PR CI discipline surfaces it; it is only ever discovered after it is already on `main`.\n\n⚠️ And the discovery is expensive out of proportion to the defect: the coverage thresholds live only on the **merged** 4-shard report (the shard legs override them to zero), so **one** red shard means the coverage gate does not run at all. A per-test timeout in one file silences a whole quality gate.\n\n## The population at risk, measured rather than guessed\n\nSlowest survivors in `Test (coverage shard 1/4)` under coverage, measured by the objectui#8479 dev:\n\n```\nscripts/__tests__/unit-registry-absence-collision.test.ts   46798 ms / 15 tests\nscripts/__tests__/check-vi-mock-inherit.test.ts             20852 ms / 86 tests\nscripts/__tests__/check-i18n-en-drift.test.ts               13860 ms / 37 tests\n```\n\n⚠️ ⛔ **None of these crosses the per-test bound today** — those are file-level totals, not single-assertion times, and no claim is made that any of them is about to fail. What the numbers say is that the margin is thin in a family of files that all share one shape: a whole-corpus walk (`git ls-files`, every manifest, every doc) driven from inside an `it()`.\n\n⚠️ Also not established: whether the shard a given file lands in is stable. It is not — objectui#8479 measured the failing shard oscillating between 2, 1, and both as the file list grew, because shard membership is a function of the sorted file list. ⇒ A file can move across the bound without anyone editing it.\n\n## Two shapes a fix could take, ⛔ neither proposed as a ruling\n\n1. **A convention**, stated once and enforced by a gate: a test that walks the whole corpus computes it at module scope, ⛔ not inside `it()` and ⛔ not in `beforeAll` (which trades the 15 s `testTimeout` for the narrower `hookTimeout` default). Both existing repairs already take exactly this shape, so the convention would be describing what the tree does rather than inventing a rule.\n2. **Make the class visible where it is created**: some reading in the PR lane that would flag a test whose instrumented cost approaches the bound. ⚠️ This is the harder half and may not be cheap — the honest version needs the coverage-instrumented timing, which is the thing PR CI does not run.\n\n⭐ The load-bearing point is ⛔ neither of those: it is that **the second instance was found by reading a job log after 84 red pushes**, and the first was found the same way. A class that can only be discovered post-hoc, one instance at a time, at the cost of a silenced gate each time, is worth a convention even if the convention is only a sentence.\n\n## Provenance and dedupe\n\nMeasured by the `os-dev` seat working objectui#8479 and handed to the PM seat **explicitly as out of scope** rather than filed there — the seat wrote that closing the class *\"would close the class rather than the instance — PM's call, and out of scope here.\"*\n\nDedupe: 600 raw rows pulled by repo-scoped REST (`state=all`, newest first, **paginated on raw page length**), 331 non-PR issues, grepped locally for `timeout|timed out|testTimeout|coverage lane|hoist`. Three title hits: objectui#8380 (**open** — the same *instance* as objectui#8479, same file, same assertion; ⛔ not the class), objectui#8404 (closed, host-dependent tests), objectui#7956 (closed, missing `timeout-minutes` on jobs). ⛔ None is this. Presence controls in the same fetched set: objectui#8541, objectui#8479 and objectui#8465 all present.\n\n⛔ This card asserts no priority and no domain — filed for triage's first grading. `finding` only: nothing is broken today, and the two known instances are both already repaired.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 8166,
+  "kind": "issue",
+  "title": "finding(app-shell): `data.*` lints CLEAN at `scope:'record'` and resolves against the host's ambient `data`, never the record — `visibleWhen`/`readonlyWhen`/`requiredWhen` silently constant-false today",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "package: app-shell",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T22:13:54Z",
+  "updated_at": "2026-09-10T13:17:17Z",
+  "closed_at": "2026-09-10T12:56:13Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8166",
+  "body": "Filed unlabelled by the objectui PM seat (session `session_01YBWFb5YgMU5dw8p2VKj16S`) for triage to grade. Found during contract review of #8164; ⛔ **not folded into that PR** — this predates it and has a different fix surface.\n\nSibling to #8155, and the **opposite** failure from the same list: #8155 is a root that is bound but refused; this is a root that is accepted but dead.\n\n## What\n\n`@objectstack/formula`'s `SCOPE_ROOTS` contains `data` (measured dump in #8155). So at `scope: 'record'` the authoring lint **accepts** `data.status == 'x'`. But objectui#5741 (Phase 2 of the #5330 canon) retired `data.*` on record surfaces — it does not name the record. The tree already knows this: `packages/core/src/evaluator/rowPredicateCanon.ts:36-38` records `data.status` as **\"⚠️ silently accepted\"** by the authoring oracle.\n\nThe result is a green lint on an expression that is constant-false at runtime — the exact silent-death shape #7727 was filed to abolish, on surfaces #7727 does not touch.\n\n## This is live on `main` today, independent of #8164\n\nAuthoring side — already at `record` scope before #8164:\n\n| site | what it authors |\n| :-- | :-- |\n| `inspectors/ObjectFieldInspector.tsx:874` | `visibleWhen` |\n| `inspectors/ObjectFieldInspector.tsx:888` | `readonlyWhen` |\n| `inspectors/ObjectFieldInspector.tsx:902` | `requiredWhen` |\n| `inspectors/ObjectFieldInspector.tsx:760` | formula `expression` (`role:'value'`) |\n| `views/metadata-admin/clientValidation.ts:792`, `:806` | the draft-level validator |\n\nRuntime side — the chain that makes `data` resolve to the **host's** bag rather than the record:\n\n```\nproviders/ExpressionProvider.tsx:123 → buildExpressionScope (:82-90) binds ambient `data`\n  → PredicateScopeProvider → usePredicateScope()\n  → packages/components/src/renderers/form/form.tsx:1213, 1426, 1491\n  → evalFieldPredicate(..., scope)\n  → packages/core/src/evaluator/fieldRules.ts:174-178   ← lands as `extra`\n```\n\nSo `visibleWhen: \"data.status == 'x'\"` lints clean, resolves against the host's ambient `data`, and is **constant false** for every record. No error, no warning, no signal to the author — the field simply never appears.\n\n## Why it is worth its own card\n\nThe `data` case is nastier than #8155's `app` case in exactly the way that matters: `app` fails **loudly** (a blocking lint error the author cannot miss), `data` fails **silently**. #7727's whole thesis is that the silent direction is the one that costs an author real time.\n\nIt is also not fixed by dropping `data` from any advertised-roots list. De-advertising stops autocomplete *recommending* it; the lint still *accepts* it, so every already-authored `data.*` predicate stays green and stays dead. The accept set is the engine's.\n\n## Fix shape (for triage, not ruled)\n\nSame producer/consumer split as #8155, and the two should probably be decided together:\n\n- **Producer** — `SCOPE_ROOTS` is one global list being asked to describe the accept set for several runtime scopes that bind different bags. Splitting it per-scope would fix `app` and `data` at once. Filed on the objectstack side as objectstack-ai/objectstack#16420.\n- **Consumer** — stop binding an ambient `data` on record surfaces, so `data.*` at least faults instead of resolving to the wrong object.\n\n⛔ Not the answer: filtering the diagnostic in `celAuthoring.ts`. There is no diagnostic to filter — the problem is the absence of one.\n\n## Related\n\n- #8155 — `app` is bound but refused (the loud mirror image).\n- #8156 — `os` is bound but unadvertised (curation, harmless).\n- #7727 / #8164 — closes the **bare-field** half of the silent-death hole on the conditional-formatting editor; this is the `data.*` half, on other surfaces.\n- `packages/core/src/evaluator/rowPredicateCanon.ts:36-38` — the tree's existing record of the behaviour.\n\n## Dedup\n\nSearched open and closed. #8155 covers the `app` mirror. Nearest closed hits are different surfaces and different mechanisms: #4807 (`record:alert` bare scope), #5687 (`SchemaRenderer` resolving `data.*` against the data-source adapter), #5454, #5776. No open card names `data` against the record-scope accept set on the field-rule surfaces."
+}

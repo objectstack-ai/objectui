@@ -1,0 +1,39 @@
+{
+  "number": 9034,
+  "kind": "issue",
+  "title": "types(imported-defaults): `stripImportedDefaults` drops the `.describe()` of every imported default — 110 of 110 described ZodDefault members lose it across spec 17.4.0, 0 survive",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "finding",
+    "package: types",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-10T19:30:43Z",
+  "updated_at": "2026-09-11T03:15:58Z",
+  "closed_at": "2026-09-11T03:15:58Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9034",
+  "body": "`stripImportedDefaults` drops the `.describe()` of every imported default. Measured across the whole published protocol surface: **110 of 110** described `ZodDefault` members lose their description, **0 survive**.\n\n## Provenance\n\nFound by the contract reviewer of PR #9017 (card #8992) and declared **out of scope for that PR**. Filed here as its own card rather than ridden in — the PR's diff is three keys, this is the whole boundary. The numbers below are the seat's own re-measurement, not the reviewer's; they came out larger than the reviewer's PR-scoped \"10 of 11\".\n\n## The mechanism, from source\n\n`packages/types/src/zod/imported-defaults.ts`, the `case 'default':` arm of the walker (re-derive by content — anchors drift; it was at `:200-202` when this was written):\n\n```ts\ncase 'default': {\n  const inner = walk((schema as unknown as { removeDefault: () => z.ZodType }).removeDefault());\n  out = isAlreadyOptional(inner) ? inner : z.optional(inner);\n  break;\n}\n```\n\n`.removeDefault()` returns the node's **inner** type. The protocol's spelling is `.describe(...)` applied **after** `.default(...)`, so the description lives on the **outer** `ZodDefault` node — the node this line discards. Nothing carries it onto the replacement.\n\n## Measurement — spec 17.4.0, whole surface\n\nScript: `desc-loss-v3.mjs` / `desc-loss-split.mjs` (seat scratchpad). It walks every schema-shaped export of every subpath export of the installed `@objectstack/spec` tarball and replays the two operations the arm performs — `.removeDefault()`, then `z.optional(...)` when the result is not already optional-in.\n\n| reading | value |\n|---|---|\n| subpath exports declared / loaded | 18 / 17 |\n| schema-shaped exports walked | 246 |\n| object shape members visited | 811 |\n| members that are `ZodDefault` | 116 |\n| ... of those, carrying a `.description` | 110 |\n| ... **description LOST through the strip** | **110** |\n| ... description kept | **0** |\n\nThe 18th subpath is `./openapi.json` — not a module, excluded explicitly rather than swallowed by the `catch`.\n\n**Where the loss happens**, split by step:\n\n| step | count | why |\n|---|---|---|\n| lost at `.removeDefault()` | **110** | the description sat on the OUTER `ZodDefault` |\n| lost at the `z.optional()` re-wrap | 0 | — |\n| survived both | 0 | — |\n\nOne mechanism, not two. (The re-wrap *would* also lose a description, if any key were spelled `.describe().default()` — none is. Probe: `z.optional(z.string().describe('D')).description === undefined`.)\n\n**Instrument controls.** Positive: a hand-built `z.object({ k: z.string().default('x').describe('D') })` is detected by the same predicate (`type === 'default'`), reads `\"D\"` before and `undefined` after. Negative: the same traversal for a token that cannot exist returns 0. An earlier run of this instrument returned `0 ZodDefault members` — that was the instrument loading only the root export (14 schema-shaped exports, 38 members); the distribution print showed no `default` node anywhere, which is what sent me to the subpath exports. Recorded because a bare `0` from this script is not evidence without the export count beside it.\n\n## Pull — measured, and it is currently ZERO\n\n⛔ Do not dispatch this on the strength of the 110 alone. Nothing in objectui reads a zod node's `.description` in shipping code today:\n\n- **Non-test readers of `shape[...].description`: 0.** The three hits outside `__tests__/` are `flow-canvas-seeds.spec-parse.test.tsx` ×2 and `flow-node-config.spec-reconciliation.test.ts` ×1 — tests that merely live outside the `__tests__/` directory. The other 25 are retirement/tombstone tests reading objectui's **own** `retiredKey(...)` guidance strings, which never pass through the strip.\n- **The five `z.toJSONSchema` emitters bypass the boundary.** `packages/app-shell/src/views/metadata-admin/{view,page,package,dashboard,report}-schema.ts` feed `SchemaForm` — the surface where a JSON-Schema `description` becomes the field's help text — but every one of them imports from `@objectstack/spec/ui` or `@objectstack/spec/kernel` **directly**, not from `@object-ui/types`. They see the unstripped schemas, so they see the descriptions. This was the hypothesised consumer and it is **refuted**.\n\nSo the defect is real and latent, not live. It bites the day any emitter, doc generator, or inspector is pointed at `@object-ui/types` instead of at the protocol — at which point 110 keys silently lose their help text with no gate to catch it.\n\n## Why it is still a defect, in the module's own words\n\nThe module's docblock states an **identity property**: a subtree with no `ZodDefault` in it comes back reference-equal, so the module \"is exactly the identity function the day `@objectstack/spec` adopts the same principle, with nothing to roll back.\" A subtree that *does* contain a `ZodDefault` currently comes back **less faithful than it went in** — it loses documentation the protocol declared. That is a departure from the property the module claims for itself, not a preference.\n\nIt also matters for axis ③ (防 AI 写元数据 app 犯错): the descriptions are the protocol's own guidance to whoever authors a metadata document. Dropping them at the import boundary is a silent narrowing of what the boundary conveys, in the forbidden direction (narrower than the protocol).\n\n## Candidate fix, probed\n\nOne guarded line in the `default` arm — carry the outer node's description onto the replacement:\n\n```ts\ncase 'default': {\n  const inner = walk(schema.removeDefault());\n  const next = isAlreadyOptional(inner) ? inner : z.optional(inner);\n  out = schema.description === undefined ? next : next.describe(schema.description);\n  break;\n}\n```\n\nProbe on zod 4.4.3: `z.optional(src.removeDefault()).describe(src.description).description === \"DESC\"`; the result still parses `undefined` (`true`) and `'a'` (`true`) and carries **no** default (`defOf(...).type !== 'default'`). So the accept-set and the strip are both unchanged — only the description is preserved.\n\n⚠️ Not measured, and a dev must settle it before touching this: whether adding a `.describe()` breaks the **reference-equality** half of the identity property for the `unchanged(...)` short-circuit above (a described node is a new node, but it was already a new node here), and whether `zod-mirror-authors-no-defaults-7735` / `imported-defaults-8317` assert anything about the description of a stripped member.\n\n## What was NOT measured\n\n- Whether spec 17.5.x/17.6.x changes any of the 110 (measured against the 17.4.0 tarball installed in a local worktree).\n- The `@object-ui/types` build — this replays the two operations against the protocol tarball rather than importing objectui's stripped bindings.\n- Any consumer outside this repo.\n\nRefs objectui#8992 · PR objectui#9017 (where the reviewer found it and correctly refused to ride it).\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

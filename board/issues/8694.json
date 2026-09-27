@@ -1,0 +1,33 @@
+{
+  "number": 8694,
+  "kind": "issue",
+  "title": "devx: register `scripts/check-bash32-floor.mjs` in `scripts/upstream-port-pin.json` at its own ref — item 2 of objectui#8385, unblocked by objectui#8288",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T23:11:28Z",
+  "updated_at": "2026-09-11T19:56:31Z",
+  "closed_at": "2026-09-11T19:30:10Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8694",
+  "body": "Split out of objectui#8385 by its triage (comment 5582520495), which narrowed that card to item 1 (the prose fix, landed separately). This is item 2. objectui#8385 is not addressed here.\n\n## Why it is possible now\n\nobjectui#8288 retired the ledger-wide `upstream.ref`. Measured on `origin/main` `da5e4f69e`:\n\n- `scripts/upstream-port-pin.json` `upstream` carries `repo` alone — no `ref`.\n- Every `files[]` entry carries its own `ref`, and `validatePin` requires it to be a 40-char sha (`scripts/check-upstream-port-parity.mjs`, the `f.ref` / `HEX40` check).\n- `validatePin` REFUSES a pin that still carries `upstream.ref`.\n- `resyncedPin` writes only the re-synced entry's `ref` and digest, returning every other entry structurally untouched.\n- The gate's own green line proves entries at different refs coexist today: `3 ported file(s) match ... each at its own pinned ref (2 distinct: ...)`.\n\nSo registering this file no longer forces either of the two trades the old rationale rejected (ship a weaker construct table, or drag every pinned file to one ref).\n\n## What the work is\n\nNot a schema change — per-file work with its own review surface:\n\n1. read the upstream blob (`objectstack-ai/objectstack`) at the ref this port was taken from;\n2. compute its SHA-256 for `upstreamSha256`;\n3. declare every divergence as an exact `upstream`/`ported` text pair with a `why` of at least 10 characters — `validatePin` enforces all of that, and each declared snippet must match exactly once.\n\nThe port has diverged from upstream in at least the shebang-census half (this repo measures 0 shebang-only scripts where upstream calls that half load-bearing), so the divergence list is real work, not a formality.\n\n## Why it matters\n\n`scripts/check-bash32-floor.mjs` has NO drift gate — its own docblock says so. Upstream actively sweeps the construct table; improvements arrive here only if someone carries them by hand, and a construct missing from `CONSTRUCTS` reads as an approval, which is the exact failure class this gate exists to catch.\n\n`scripts/**` is not governed surface (measured: `governedPathsIn(['scripts/check-bash32-floor.mjs'])` returns `[]`), so `--resync` needs no long-form flag here.\n\nNo assignee."
+}

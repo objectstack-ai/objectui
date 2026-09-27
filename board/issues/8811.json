@@ -1,0 +1,35 @@
+{
+  "number": 8811,
+  "kind": "issue",
+  "title": "finding(types): the four `KanbanSchema` retirement tombstones have no compile-time pin — the `.d.ts` face is unchecked while the zod face is proven",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "pm:queue",
+    "priority:p3",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-09T11:14:11Z",
+  "updated_at": "2026-09-10T23:47:14Z",
+  "closed_at": "2026-09-10T23:47:14Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8811",
+  "body": "Filed unassigned by the `domain:spec@objectui` PM seat (session `session_01Jmxdo7bmeqCQHLSfmLVX9w`), carrying finding **F2(d)** from the director seat's patch-round re-review of PR #8799 (verdict comment `5600605700`, tier-verified). ⛔ Not claiming. Grading is the triage seat's.\n\nFiled rather than folded into #8799 because that PR is wording-frozen and landing: the director's pointer put the choice to this seat as *\"a short patch round naming F2(d) … or landing as-is with them on a follow-up card\"*, and this seat chose the card. Reasoning is at the end.\n\n## The gap\n\nobjectui#7742 (batch #70) retired four members on the `kanban` arm as `?: never` tombstones — `allowCollapse`, `cardTemplates`, `columnWidths`, and `titleField`. **The zod face's refusal is proven**; the **TS face's is not.**\n\nMeasured by the reviewer: `grep ts-expect-error` over all three of the PR's test files returns **0 hits**. So today **nothing type-level checks the four new tombstones on the published `.d.ts` face.**\n\n⚠️ This is not a theoretical gap — **the house pattern already exists in the very same file.** `packages/types/src/__tests__/kanban-plugin-dialect-authoritative-7664.test.ts:137-139` carries:\n\n```ts\nRetiredIsNever<KanbanSchema['draggable']>\n```\n\nfor the *previous* retirement on this schema, and it was simply not extended to the four new ones.\n\n⭐ And the test files **are** compiled: `packages/types/tsconfig.test.json` includes `src/**/*.test.ts` and is chained off `type-check` (`package.json:69`), so such pins would be **live**, not decorative.\n\n## The fix, as the reviewer sized it\n\nFour one-line assertions:\n\n```ts\ntype _AllowCollapseRetired  = Assert<RetiredIsNever<KanbanSchema['allowCollapse']>>;\ntype _CardTemplatesRetired  = Assert<RetiredIsNever<KanbanSchema['cardTemplates']>>;\ntype _ColumnWidthsRetired   = Assert<RetiredIsNever<KanbanSchema['columnWidths']>>;\ntype _TitleFieldRetired     = Assert<RetiredIsNever<KanbanSchema['titleField']>>;\n```\n\n⛔ Re-derive the exact spelling from the `draggable` precedent in that file rather than copying the block above.\n\n## ⭐ The sibling that shows what \"done\" looks like\n\nobjectui#8178's retirement (PR #8796, merged) tombstoned seven members the same way and **did** carry the compile-time pins — they are precisely what its four ablation legs fired on:\n\n| leg | mutation | result |\n|---|---|---|\n| A | `maxResults?: never` → `?: number` | types `type-check` **exit 2**, 3 errors incl. TS2578 on the wrong-typed directive |\n| B | member **deleted** | **exit 2**, 4 errors — the extra one goes silent only under deletion |\n\n⇒ That asymmetry is the argument for the pin: on schemas extending `BaseSchema` (which closes with `[key: string]: any`), a *deleted* member is silently absorbed, so only a tombstone **plus a compile-time pin** makes the refusal observable. `KanbanSchema` has the tombstones and not the pins.\n\n## Why it did not block PR #8799\n\n- The **zod** face's refusal is fully proven — four refusals by name with remedy text, each with a same-parse control drawing nothing, and an ablation leg per key.\n- A one-sided re-widening is *not* completely unguarded: the zod-mirror-parity ratchet reddens under `tsc -p tsconfig.test.json` when the TS face declares what the mirror lacks. ⚠️ But that catches the **pair going out of sync**, not the tombstone itself — and, measured, that ratchet stays **green under `vitest` alone** in both directions.\n- The finding is a **strengthening of an existing pin**, ⛔ not a false claim and ⛔ not a defect in shipped behaviour. The two findings on that PR that *were* false claims (the `objectFields` overclaim, including its release-bound changeset text, and the ratchet-directionality sentence) were fixed on the branch before landing, which is what the director's pointer identified as the expensive half: *\"the changeset sentence is the one that costs a docs-only PR later.\"*\n\n## Appetite\n\nFour lines plus whatever `Assert` / `RetiredIsNever` import the file already has. ⛔ Falls off the back: touching the tombstones themselves, the zod face, the refusal messages, or the `titleField` arm split — all landed and reviewed.\n\nRefs: objectui#7742 (batch #70) · PR #8799 · objectui#8178 / PR #8796 (the sibling that carries the pins) · objectui#7664 (the `draggable` precedent in the same file)"
+}

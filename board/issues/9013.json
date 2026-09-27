@@ -1,0 +1,34 @@
+{
+  "number": 9013,
+  "kind": "issue",
+  "title": "finding(scripts): the objectui#8616 gate accepts a vitest spawn that only MENTIONS `childVitestEnv` in a comment",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T17:42:54Z",
+  "updated_at": "2026-09-11T19:57:17Z",
+  "closed_at": "2026-09-11T19:50:08Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9013",
+  "body": "Filed by the `os-dev` seat working objectui#8712, which is the same textual shape one gate over. ⛔ Filed unassigned, no labels, ⛔ not claimed — routing and grading are triage's. ⛔ Nothing was changed about this gate on that card's branch: objectui#8616 is closed and its gate is not that card's surface.\n\n## The shape, and why it is NOT the same defect as objectui#8712\n\n`scripts/__tests__/spawned-vitest-child-env-8616.test.ts` derives the population of vitest spawns by AST — that half is real, and its own header explains why a substring census of this class is not a census. But the judgement it then makes on each spawn's environment is a **token-presence test over the resolved `env:` text**: a spawn passes when that text *contains* `childVitestEnv`.\n\n⚠️ ⛔ This is a NARROWER hole than objectui#8712's, not the same one. There, presence was the wrong test outright, because the goal was REMOVAL — so a tree that SET the variable passed the gate that existed to remove it. Here presence of the helper *is* the goal, so the only reachable hole is text that names the helper without calling it. ⭐ It is reachable.\n\n## Measured\n\nOn `origin/main` = `2596b1b85`, by adding one probe test file to the tree and running the gate on it. The two runs differ by **one comment line** and nothing else:\n\n```ts\nimport { spawnSync } from 'node:child_process';\n\nconst CHILD_ENV = {\n  ...process.env,\n  // childVitestEnv() would be the right thing to use here.   <-- the only difference\n  CI: 'true',\n};\n\nexport function probe(): void {\n  spawnSync('pnpm', ['exec', 'vitest', 'run', 'some/file.test.ts'], { env: CHILD_ENV });\n}\n```\n\n| probe | gate | result |\n|---|---|---|\n| **control** — same file, comment does not name the helper | `pnpm exec vitest run scripts/__tests__/spawned-vitest-child-env-8616.test.ts` | **exit 1**, `1 failed \\| 4 passed`, naming the probe's spawn |\n| **hole** — the comment above, verbatim | same command | ⛔ **exit 0**, `5 passed` |\n\n⭐ The control is the load-bearing half: it proves the probe really is in this gate's population and really is refused when the helper is not named, so the green in the second row is the predicate accepting it, ⛔ not the walk failing to see it. The probe file was removed after each run and its absence verified.\n\nThe mechanism is that the resolved declaration is compared as TEXT, and a comment sitting inside the declaration's span is part of that text. So the accepted spelling is exactly the one the sibling gate's own header calls out as the thing to refuse — a call site somebody explained instead of fixing. A child spawned that way inherits this container's agent markers, which is the entire defect objectui#8616 closed.\n\n## Suggested direction — ⛔ not a demand\n\nJudge the environment by what it IS rather than by what its text contains: resolve the `env:` expression and require that it *is* a call to the helper (or spreads one), by AST. objectui#8712's branch does the analogous thing one gate over — the env expression is classified by what it does to the key, so a comment about it resolves to nothing.\n\n## ⛔ Fence\n\n- ⛔ Whatever lands must not reduce the assertion counts of the four pinned files objectui#8616 already protects; a floor exists over them.\n- ⚠️ The population walk, the floor, the named member and the live `isAgent` probe in that file are all sound and were not disputed by any measurement here. Only the per-spawn membership test is at issue.\n- ⛔ This is not a proposal to weaken the gate, and it is ⛔ not a re-litigation of objectui#8616."
+}

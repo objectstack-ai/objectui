@@ -1,0 +1,35 @@
+{
+  "number": 8762,
+  "kind": "issue",
+  "title": "finding(types,components): `inputType` authored on `{ type: 'email' }` / `{ type: 'password' }` parses green and is OVERWRITTEN by the registration wrapper — a validated key the runtime discards",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-09T04:34:38Z",
+  "updated_at": "2026-09-10T22:28:16Z",
+  "closed_at": "2026-09-10T22:24:01Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8762",
+  "body": "Filed unassigned by the `os-dev` seat while implementing objectui#8499 (session `session_01Jmxdo7bmeqCQHLSfmLVX9w`). Grading and `domain:*` are the triage seat's. Surfaced by #8499's `InputShorthandSchema` arm; deliberately NOT repaired there, because the repair is an accept-set NARROWING and #8499's PR moves the accept set in one direction only (wider), which is what makes it reviewable.\n\n## The claim\n\n`packages/components/src/renderers/form/input.tsx` registers the two shorthands by wrapping the `input` renderer and pinning `inputType`:\n\n```tsx\nComponentRegistry.register('password',\n  (props: any) => (props.schema is spread first, then inputType: 'password' last),\n  { namespace: 'ui', label: 'Password Input', icon: 'lock', ... });\n```\n\nThe wrapper's own value is spread LAST, so an authored `inputType` is overwritten before the renderer sees it. `{ \"type\": \"password\", \"inputType\": \"text\" }` therefore renders a MASKED field, not a text one — the author's key had no effect and no diagnostic said so.\n\nThe validator does not catch it: `BaseSchema` passes unknown keys through, so the document parses green on both faces. Measured on `claude/issue-8499-node-slot-unresolved-arms` after that branch added the `email` / `password` arm:\n\n```\nACCEPT  { type: 'password', inputType: 'text' }      <- the trap\nACCEPT  { type: 'input',    inputType: 'text' }      <- correct, and the control:\n                                                        on `input` the key IS read\n```\n\nBoth accepted; only the second is honoured. That is the \"runtime silently discards authored metadata\" shape — an author (or an AI writing metadata) gets a green check and a component that ignored what they wrote.\n\n## Why the #8499 arm did not close it\n\n`zod/form.zod.ts#InputShorthandSchema` is spelled `InputSchema.omit({ type: true, inputType: true })`, so `inputType` is absent from the DECLARED face and from the TypeScript twin. That states the contract, and its docblock says so — but omission is not refusal while `BaseSchema` is passthrough, and the docblock records that measurement rather than overclaiming.\n\n## The repair, and why it needs a ruling rather than a patch\n\nThis repository already owns the mechanism: `zod/tombstone.zod.ts` declares a key that is unwritable and refuses it BY NAME with guidance, feeding one string into both the parse-time message and `.describe()` (`retirementTombstone`, and its siblings `handlerKeyRefusal` / `aliasKeyRefusal`). Applying it here would refuse `inputType` on the two shorthand literals and point the author at `{ \"type\": \"input\", \"inputType\": \"email\" }`, which IS the honoured spelling.\n\nThat is a **narrowing** of the published accept set — a document that parses today would stop parsing — so it wants the same treatment ADR-0049 removals get, not a rider on a widening card. Two things a ruling would need:\n\n1. a census of authored `inputType` on the shorthand literals across the corpora (this repo's catalog: 23 files carry `inputType`, none of them on a shorthand root — but the hotcrm / objectstack corpora are not measured here);\n2. whether the sibling shorthands registered the same way (`email`) and any later ones are covered by one rule or enumerated.\n\n⚠️ Adjacent but NOT the same defect: the wrapper's precedence could instead be flipped so an authored `inputType` wins. That would make `{ type: 'password', inputType: 'text' }` render an unmasked field under a `password` key, which is worse than refusing it. Recorded so the cheaper-looking route is not taken by accident."
+}

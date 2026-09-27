@@ -1,0 +1,35 @@
+{
+  "number": 9131,
+  "kind": "issue",
+  "title": "finding(components): SchemaRenderer's forwarded `disabled` prop overwrites the action renderers' own computed verdict — the legacy `enabled` leg has never gated through SchemaRenderer",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T09:08:04Z",
+  "updated_at": "2026-09-12T09:34:08Z",
+  "closed_at": "2026-09-12T09:34:08Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9131",
+  "body": "Filed by the `domain:ui` execution seat while implementing objectui#9107 (PR to follow on `claude/issue-9107-enablement-envelope-guard`). ⛔ Not graded and not routed here — both are the triage seat's. Found because objectui#9107's acceptance asked for a render-level assertion on the `enabled` leg and that assertion could not be made honestly.\n\n## The measurement\n\n`action:button` and `action:icon` compute their `disabled` value from the schema:\n\n```\ndisabled={(\n  hasDeclaredVisibilityGate(schema.disabled)\n    ? isDisabled\n    : hasDeclaredVisibilityGate(schema.enabled)\n      ? !isEnabled\n      : false\n) || loading}\nonClick={handleClick}\n{...toFormControlDomProps(rest)}\n```\n\n`toFormControlDomProps` forwards `disabled` (it is in the form-control pass-through list, deliberately), it spreads **after** the computed value, and `pickDomProps` iterates `Object.keys` — so a `disabled` key that is PRESENT with the value `undefined` re-declares and wins.\n\n`SchemaRenderer` always forwards exactly that shape: `disabled: __disabled || undefined`. The key is unconditional; only the value is conditional. So whenever the node gate says nothing, the renderer's own verdict is overwritten with `undefined` on the way to the DOM.\n\nMeasured in-process, `action:button`, four mounts, one variable at a time:\n\n| mount | `enabled` | button disabled? |\n|:--|:--|:--|\n| renderer mounted DIRECTLY | CEL envelope that evaluates FALSE | **true** (correct) |\n| same, plus an explicit `disabled={undefined}` prop | same envelope | **false** |\n| through `SchemaRenderer`, key at node level | same envelope | **false** |\n| through `SchemaRenderer`, key at `properties` level | same envelope | **false** |\n\n## The control that makes this INDEPENDENT of objectui#9107\n\n⭐ A plain literal — no envelope, no CEL dialect, no config bag anywhere in it:\n\n| mount | schema | button disabled? |\n|:--|:--|:--|\n| renderer mounted DIRECTLY | `enabled: false` | **true** |\n| through `SchemaRenderer` | `enabled: false` | **false** |\n\n⇒ the legacy `enabled` leg of these two renderers has never decided anything on the `SchemaRenderer` mount path, for any predicate shape. This is not objectui#9107's envelope flattening and objectui#9107's fix does not move it.\n\n## Why the existing suite is green\n\n`__tests__/action-disabled-declared-gate.test.tsx` pins all eight `disabled` / `enabled` shapes on these renderers, including `enabled: false` -> disabled — and every one of its mounts calls `ComponentRegistry.get('action:button')` and renders the leaf **directly**, which is the one channel that forwards no `disabled` prop. Same shape of blind spot objectui#9100 hit from the other side: the pin measured the channel that works.\n\n## The class\n\nThis is objectui#7238's mechanism — \"the computed verdict re-declared by the DOM spread that carries the host's `disabled` prop\". That card repaired `ui:button` and `form` and its own regression test says so verbatim (`__tests__/disabled-verdict-one-carrier.test.tsx`, the `loading` case). The two action renderers were not in its seven and still carry it.\n\n## Polarity, so the cost is legible\n\nThe overwrite can only erase a verdict of `true` that the node gate did not also reach:\n\n- `disabled` / `disabledOn` — the node gate evaluates the same key and forwards the same answer, so the loss is invisible;\n- `enabled` — the node gate never consults it, so the loss is total, and it is fail-OPEN: a control the author disabled stays pressable. That is the same user-visible harm objectui#9107 describes, arriving through a second, independent mechanism.\n\n## Dedup\n\nRun 2026-09-11T08:5xZ. `search_issues` proven live in-session (a control query naming this card's sibling returned objectui#9107 as its first hit). 18 results scanned for the mechanism. Nearest: objectui#7238 (CLOSED — the class, repaired elsewhere), objectui#8648 (OPEN — a DECISION card about `disabled` being read off `UIActionSchema` undeclared; a declaration question, not this ordering defect), objectui#4202 / objectui#4050 (the forward-whitelist family — which keys are forwarded, not which value wins). No open card covers this.\n\n## Not repaired in objectui#9107's PR, deliberately\n\nDifferent mechanism, pre-existing, and repairing it inside an envelope-carriage card would put an unrelated behaviour change on the same diff. That PR states the seam and deliberately does NOT pin the current (broken) value, so that a repair here does not read as a regression there.\n\nFiled by Claude Code on behalf of the `domain:ui` seat, session `session_01UzHd6hDYatoDn17BuwKxnZ`."
+}

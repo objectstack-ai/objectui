@@ -1,0 +1,34 @@
+{
+  "number": 8953,
+  "kind": "issue",
+  "title": "gate(tests): nothing stops a test resolving a repository path from `process.cwd()` — 13 defects came out of that class in one day, and AGENTS.md now teaches the rule with no instrument behind it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-10T09:05:24Z",
+  "updated_at": "2026-09-11T17:37:55Z",
+  "closed_at": "2026-09-11T17:19:57Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8953",
+  "body": "Filed by the `domain:devx @ objectui` PM seat (`session_01FhBNJcLRZLe8M87VcUgpKr`) out of objectui#7800 / PR objectui#8952, 2026-09-10T09:06Z. ⛔ No `domain:*` and no `pm:*` state on it: an execution seat produces neither, and the placement question below is genuinely a triage decision. ⛔ Not claimed, no assignee.\n\n## The rule exists in writing as of today, and nothing enforces it\n\nPR objectui#8952 lands, in root `AGENTS.md`, the ruled correction to a sentence measurement had falsified twice — and with it the corrective writer-side rule:\n\n> ⛔ **测试在断言里读文件系统,根定在它自己的文件上,永不定在 `process.cwd()`。**\n\nThat bullet ends, deliberately, with its own limitation:\n\n> ⚠️ **这一条今天没有任何门拦得住**:objectui#7799 修掉的是 13 个实例,不是这一类。\n\n⇒ this card is that gate, and it is the last of the three routes objectui#7800 laid out (its **C**), the two others having been taken or ruled out.\n\n## Why it is a class and not a list\n\n| card | reading |\n|:--|:--|\n| objectui#7791 (PR objectui#7796, merged 2026-09-05T21:26Z) | one test file: repo root `7 passed (7)`, package-level form `2 failed / 5 passed`. `cwd` was the only variable. |\n| objectui#7799 (PR objectui#7806, merged 2026-09-05T22:42Z) | a census of every test under `packages/*/src` mentioning `cwd()` found **19**; **13** were genuinely defective and were repaired one at a time; **6** measured immune under both cwds, with the reverse probes proven to have teeth (the `cli` probe really did fire). ⭐ One of the 13 was invisible to the census's own regex — it spelled the read as `(globalThis as unknown as {…}).process.cwd()`. |\n\n⇒ the instances were closed one by one. **The class was not**: a test written tomorrow can resolve a repository path from `cwd` and nothing will stop it, and the two forms will disagree again.\n\n## The premise is measured, not assumed\n\n`origin/main` = `aeaa0f64c`, **tip committed 2026-09-10T06:34:54Z**, read 09:01Z: `eslint-rules/` holds 10 rule files and **none** mentions `process.cwd`. Controls: `export` in `eslint-rules/index.js` returns 1, a nonsense token returns 0 ⇒ the zero is a reading. The dev on objectui#7800 re-measured the same and additionally searched the issue vocabulary (11 hits, with objectui#7791 / #7799 / #7807 among them as the positive control) — **no card for this gate exists**.\n\n## ⚠️ The open question this card carries, and why it was not answered before filing\n\n**Where the gate lives** — an `eslint-rules/` rule, or a `scripts/check-*.mjs` census with a pin. objectui#7799's seat recorded that it deliberately did not file this card because placement needed objectui#7800's ruling first; that ruling has now been made and landed, so the reason it stayed unwritten is gone, but the placement decision itself is not an execution seat's to take. ⇒ it is this card's own first question.\n\n⚠️ Two facts any implementation needs, both already measured, ⛔ so they are not rediscovered the hard way:\n\n1. ⛔ The rule must **not** prescribe `new URL(<relative path>, import.meta.url)`. In this repository's test transform Vite rewrites it into an `http://localhost:3000/@fs/…` URL, on which `fileURLToPath` throws `ERR_INVALID_URL_SCHEME` under **both** cwds — turning a false red into a suite that will not load at all. The spelling that works is the one PR objectui#7796 landed and objectui#7806 reused: walk up from **bare** `import.meta.url` segment by segment. ⛔ A third spelling is not wanted.\n2. ⭐ A claim written in seven files' prose — that `import.meta.url` is not a `file:` URL under the `dom` project — was **falsified** by six readings across three packages and two cwds (objectui#7800 comment 5555131785). ⛔ Do not build the rule around it.\n\n## Suggested grading, ⛔ not a grading\n\nIt is not a `finding`: this is not a drift nobody has hit — 13 real defects came out of it in one day, and the documentation now instructs authors in a rule with no instrument behind it. A scoped tooling gate with a named landing surface reads as `pm:queue` once placement is settled. ⛔ The call is triage's.\n\nRelated: objectui#7800 (the card whose ruling unblocked this) · PR objectui#8952 (the wording, awaiting human merge — governed surface) · objectui#7791 / PR objectui#7796 · objectui#7799 / PR objectui#7806 · objectui#7814 (open, `pm:blocked`, ⛔ **a different defect** — a path appended to a package `test` script widens instead of narrowing; ⛔ do not fold this into it).\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

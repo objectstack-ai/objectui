@@ -1,0 +1,38 @@
+{
+  "number": 9042,
+  "kind": "issue",
+  "title": "docs(changeset): two PENDING changesets carry now-false sentences — a wrong key count in `8992-…md` and a paragraph in `8913-…md` invalidated by objectui#9021; both ship into the types CHANGELOG at the next publish",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:spec",
+    "finding",
+    "package: types",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-10T20:12:35Z",
+  "updated_at": "2026-09-10T22:08:21Z",
+  "closed_at": "2026-09-10T22:06:14Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9042",
+  "body": "`.changeset/8992-user-actions-collapse-and-docblock.md` contains one wrong count that ships straight into `packages/types/CHANGELOG.md` at the next release. **One word, one occurrence** — and the file contains a second, correct occurrence of the same word that ⛔ must not be touched.\n\n## The two occurrences, and only one is wrong\n\n`UserActionsConfigSchema` has **eleven** members. `buttons` is the only one that never carried a default ⇒ **ten** are defaulted. This PR moves **three** of those ten (`group`, `hideFields`, `rowColor`).\n\n| # | text in the changeset | verdict |\n|---|---|---|\n| 1 | \"Measured on this object: **all ten** defaulted keys read `description = undefined` after the strip\" | ✅ **CORRECT** — ⛔ do not change |\n| 2 | \"before, the local extension supplied descriptions **the other ten** defaulted keys did not have\" | ❌ **WRONG** — the three ARE among the ten; \"the other\" ones are **seven** |\n\nThe file's own item 2 already says **\"SEVEN of the other eight keys have declared ZodDefault all along\"** and enumerates them (`sort`, `search`, `filter`, `refresh`, `rowHeight`, `addRecordForm`, `editInline`). So the file contradicts itself, and the seven is the half that is right.\n\n⇒ The fix is exactly: `the other ten defaulted keys` → `the other seven defaulted keys`. A naive find-and-replace of \"ten\" breaks occurrence 1.\n\n⚠️ **Check the PR body too** — objectui#9017's description carries the same sentence.\n\n## Provenance\n\nFound by the round-2 contract reviewer of PR objectui#9017 (record `5624735304`, head `2f430a3152f1a32a77a8b4ad8291f1405bf14586`), which graded it **non-blocking** and returned `VERDICT: PASS` — the preceding sentence carries the true count, and the mechanism and outcome are right. I verified both occurrences myself against the file at that head before filing this; the reviewer's reading reproduces exactly.\n\nThe dispatching seat's only two legal moves on a subagent verdict are to adopt it verbatim or void it entirely — ⛔ never to rewrite one. Another repair round would have moved the head and voided the PASS, costing a full ceiling-tier review for one word. So #9017 was **adopted and landed as measured**, and this card is the correction, filed so the error does not reach the CHANGELOG by default.\n\n⚠️ It is the **same error class round 1 of that review already fixed once** (\"the other eight keys\" → seven of eight). A miscount of the same object survived a repair round aimed at miscounts of that object.\n\n## Timing\n\n`.changeset/*.md` is release-note **input**, consumed at release. ⇒ this must land before `@object-ui/types` next publishes, after which the correction belongs in a docs-only PR against `packages/types/CHANGELOG.md` instead — ⛔ never as a rider on a code PR, per the release-notes guardrail.\n\n## Scope\n\nOne file, one word (two if the PR body is corrected). ⛔ Nothing else rides. `Clause-②: no` — prose in a changeset, no accept-set or public-surface change; declare it in the claim and let the gate judge.\n\nRefs objectui#8992 · PR objectui#9017 · review record `5624735304`.\n\n---\n\n# Site 2 — `.changeset/8913-object-kanban-columns-declared.md`, and it is bigger than a count\n\n⚠️ Added after PR objectui#9021 merged (landing commit `a4b723fab99b5e74917e03598382d25d15f487da`, 2026-09-10T20:22:19Z). That merge is what makes this paragraph false; it was true when written.\n\nLines 65–69 of that **pending** changeset read, verbatim:\n\n> **The bare-string array is admitted for parity and is inert on this block.** The renderer honours it only when a board has no `groupBy`, and `groupBy` is **required** on this face — so no document that passes this schema reaches it. It is declared because refusing an arm the protocol names would be a second narrowing; the requiredness is tracked as objectui#8990.\n\nThree claims in it are now wrong, and ⛔ the last one is the least important:\n\n| claim | status after #9021 |\n|---|---|\n| \"`groupBy` is **required** on this face\" | **FALSE** — `packages/types/src/objectql.ts:3033` is `groupBy?: string;` and `zod/objectql.zod.ts:1286` is `z.string().optional()` on `main` @ `a4b723fab` |\n| \"is **inert** on this block … no document that passes this schema reaches it\" | **FALSE** — a schema-valid lane-less board now reaches the bare-string arm |\n| \"the requiredness is tracked as objectui#8990\" | stale — #8990 is `closed` / `completed` |\n\n⇒ ⛔ Do not fix this by deleting the last clause. The paragraph's **headline sentence** is the wrong one; rewrite it to say the arm is now reachable, and cite #8990 as the change that made it so rather than as pending work.\n\n**Pending, measured:** the file is still in `.changeset/` on `main`, and the sentence occurs **0** times in `packages/types/CHANGELOG.md` — control: that CHANGELOG is 4550 lines, so the query is live. It has not been released yet, and it ships as written at the next publish.\n\n## Why this was nearly missed\n\nThe #9021 landing sweep grepped `content/` and `packages/` for `\"tracked as objectui#8990\"` and got **0**, with a live control (36 hits for `objectui#8990` overall). `.changeset/` is neither directory. A residue sweep that omits `.changeset/` cannot see release-note input — which is the only thing that reaches a CHANGELOG.\n\n## Scope, restated for two sites\n\nBoth sites are prose in **pending** changesets and must land before `@object-ui/types` next publishes; after that they belong in a docs-only PR against `packages/types/CHANGELOG.md`, ⛔ never as a rider on a code PR. `Clause-②: no` — no accept-set or public-surface change. Site 1 is one word; site 2 is one paragraph.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

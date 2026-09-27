@@ -1,0 +1,38 @@
+{
+  "number": 8992,
+  "kind": "issue",
+  "title": "types(zod): collapse the now-redundant `UserActionsSchema` extension, and correct a docblock that tells authors unknown toggles are silently stripped when they are refused by name",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "finding",
+    "package: types",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-10T15:02:29Z",
+  "updated_at": "2026-09-10T20:31:09Z",
+  "closed_at": "2026-09-10T20:28:13Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8992",
+  "body": "Split out of objectui#5435 by that card's dev, which was scoped to \"verification + a pin\" and correctly declined to widen into a published face. Three items, one docblock and its code and its parity entry.\n\n## What is owed\n\n`packages/types/src/zod/objectql.zod.ts`:\n\n1. **Collapse `UserActionsSchema` (`:608`)** from `stripImportedDefaults(Spec).extend({ group, hideFields, rowColor })` into a plain re-export. The `.extend(...)` existed because the protocol did not declare those three keys. **It does now** — `objectstack` `packages/spec/src/ui/view.zod.ts:1045` / `:1048` / `:1049`, with the docblock at **`:1020`** naming objectui#5435 as the ruling it adopted. The local extension is now redundant, and a redundant local extension is how two faces start to drift.\n2. **Update or remove the matching `zod-mirror-parity.test.ts` exemption**, which exists only because of that extension.\n3. ⭐ **Correct a measurably false statement in the same docblock** — see below. This is the urgent part.\n\n## ⭐ The false statement, measured\n\n`packages/types/src/zod/objectql.zod.ts:604` currently reads:\n\n> Note `UserActionsConfigSchema` is NOT `.strict()`, so before this extension an author writing `userActions: { group: false }` had it silently stripped — valid on parse, no effect at render.\n\n**Measured false on the resolved `@objectstack/spec@17.4.0`:** `UserActionsConfigSchema` **refuses** an undeclared key **by name** — `unrecognized_keys`, 1 issue.\n\nIt was almost certainly false when written, too: objectui#5435's own 17.0.0 table records `unrecognized_keys: ['group']`. ⇒ objectui carries **two internal sources that contradict each other about the same fact**.\n\n**Why this is urgent and not cosmetic.** It is an **AI-facing trap in the anti-AI-error direction the decision axes name explicitly**: it tells an author that unknown toggles are *harmlessly dropped*, when they in fact **fail the save gate**. An author — human or AI — who trusts this comment writes a config that is rejected, and the comment tells them that outcome is impossible. ⛔ Silent-tolerance prose in front of a loud-rejection runtime is the exact inversion of 「声明即强制」.\n\n## Why a separate card\n\nAll three move a **published face** (`@object-ui/types`), which deserves its own changeset and its own review rather than riding a test-and-comment PR. objectui#5435's dev recommended exactly this split, and named the alternative it rejected: ⛔ **not** folding into objectui#2231, which is the legacy-vocabulary migration (`viewType` / `fields` / `filters`) — a much larger and separately blocked job. Burying a small correct-and-collapse task inside it defers it indefinitely.\n\n## ⚠️ A neighbouring reading, deliberately not folded in\n\n`@object-ui/core` declares `'@objectstack/spec': '^17.2.0'` while the behaviour objectui#5435's pin asserts exists only from **17.3.0** (`@object-ui/types` already declares `^17.3.0`). Not raised as a defect there because core's runtime fold never imports the spec — the dependency is exercised only by tests — and **bumping a declared floor is itself a published-surface change**. objectui#5435's pin documents the reading instead: if it ever reddens on a resolved 17.2.x, that means the declared floor is too low, ⛔ not that the fold regressed. Whoever takes this card should decide whether the floor bump belongs here.\n\n## Re-check commands\n\n```\ngit -C <fresh objectstack clone> show origin/main:packages/spec/src/ui/view.zod.ts | sed -n '1020p;1045p;1048p;1049p'\ngit -C <fresh objectui clone>    show origin/main:packages/types/src/zod/objectql.zod.ts | sed -n '604p;608p'\n```\n\n⚠️ Re-derive on your own base. The anchors above come from objectui#5435's dev, which measured the **installed artifact** at the resolved version rather than a checkout — and which corrected this seat's own docblock anchor (I wrote `:1018`; it is `:1020`).\n\n## Not measured\n\nWhether the parity exemption has other consumers; whether collapsing the extension changes any inferred type at a call site (objectui#5435's dev did not sweep for that — its consumer sweep covered its own diff, not this one).\n\nRefs objectui#5435 · objectui#2231 (adjacent, ⛔ not this).\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

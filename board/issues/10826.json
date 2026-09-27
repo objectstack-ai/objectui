@@ -1,0 +1,35 @@
+{
+  "number": 10826,
+  "kind": "pull_request",
+  "title": "refactor(types)!: retire the published alias PluginComponentInput",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: types",
+    "tests"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-27T17:45:12Z",
+  "updated_at": "2026-09-27T18:39:13Z",
+  "closed_at": "2026-09-27T18:39:12Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-27T18:39:12Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10826",
+  "body": "Fixes #5674\n\nClause-②: no\n\n## What\n\nExecutes the triage ruling (comment [5857459542](https://github.com/objectstack-ai/objectui/issues/5674#issuecomment-5857459542), carrying the maintainer's 「同意」): deletes the deprecated, zero-consumer published alias `PluginComponentInput` from `@object-ui/types`. This is stage 2 (final) of the two-stage retirement the maintainer ruled on 2026-08-22 (item 13 = A). Stage 1 (PR #5897) marked the alias `@deprecated`, pointing at `ComponentInput`, without removing it.\n\n## Why now, not after a further wait\n\nStage 2 was originally filed as #5892, deliberately unlabelled/unqueued and gated on \"a release actually shipping the deprecation.\" #5892 was later closed as a duplicate into a release-batch tracking card (objectui#10060) that now answers 404 — the gate had no carrier left to clear, and the on-hold card carried no `Restart-when:`. The 2026-09-27 triage ruling deletes now rather than wait on a dead gate, citing the sibling `objectstack` repository's `docs/NORTH-STAR.md` 〈阶段姿态〉: immediate retirement (no alias, no window) is the default disposition once a name has zero consumers.\n\n## Re-measured before touching anything (execution note 1)\n\nRe-counted the consumers of `PluginComponentInput` on `origin/main` (`a14fb23b3`), excluding `dist/` and `node_modules/`, with a lit control:\n\n```\n$ git grep -n \"PluginComponentInput\" origin/main -- . ':!*/dist/*' ':!*/node_modules/*'\n```\n\n18 hits, none an importer: the alias specifier itself (`index.ts:1081`), its own stage-1 pin test (import + 7 more references), docblock prose in `index.ts` (:1061), `base.ts` (:941) and `plugin-scope.ts` (:188), and three changesets (one historical, `componentinput-reexport-4972.md`; the stage-1 changeset; and `5905-componentinput-retire-constraint-keys.md`, which only cites the card number). Control (`ComponentInput`, minus the alias's own occurrences): 386 hits, including real imports — confirming the search instrument is not blind. No importer appeared, so the deletion proceeds per execution note 1's own instruction (\"if any appears, stop and report here\").\n\n## What changed\n\n- **`packages/types/src/index.ts`** — deleted the `ComponentInput as PluginComponentInput,` re-export and its attached `@deprecated` JSDoc block from the `plugin-scope.js` export group. The published entry no longer exports the name at all. The neighbouring `ComponentMeta as PluginComponentMeta` alias (a separate, still-`@deprecated`-not-yet-retired card) and `PluginEventHandler` are untouched.\n- **`packages/types/src/plugin-scope.ts`** — deleted `export type { ComponentInput } from './base.js'` and its docblock. This re-export existed for exactly one reason — feeding `index.ts`'s now-deleted alias — and its own docblock said so explicitly (\"this line is the ONLY mention left... it goes dead the moment that alias is deleted and should be removed with it\"). Verified dead first: `plugin-scope.js` had exactly one importer in the package (`index.ts`), and that importer no longer references `ComponentInput` from it.\n- **`packages/types/src/__tests__/plugin-component-input-deprecation.test.ts`** — flipped in place (not deleted) from a stage-1 \"deprecated, still present\" pin into a stage-2 \"retired, no longer present\" pin. It now asserts: (a) the exact stage-1 specifier and the bare name are both absent from `index.ts` source text; (b) the dead re-export is also gone from `plugin-scope.ts`; (c) importing `PluginComponentInput` from the entry point is a compile error, via a `@ts-expect-error` directive enforced by this package's `type-check` script (same pattern as `app-actions-retired-7469.test.ts`'s full-name retirement); (d) a control that `ComponentInput` and the still-deprecated `PluginComponentMeta`/`PluginEventHandler` neighbours are untouched.\n- **`.changeset/5674-retire-plugin-component-input.md`** — new, `@object-ui/types: minor` (this repo forbids `major`; see `AGENTS.md`'s version-alignment policy). Names `ComponentInput` as the replacement and the migration diff.\n\nDocblock sentences that would have turned false after the deletion (`plugin-scope.ts`'s \"keeps naming a real export\") went away with the block they were attached to, rather than being rewritten in place. `base.ts:941`'s sentence citing objectui#5674 as the precedent for an unmeasurable-external-consumer limit is historical scaffolding, not an existence claim about the alias — it stays as written. The stage-1 changeset (`plugin-component-input-deprecate-5674.md`) is left untouched as history, per this lane's rule that a pending changeset already describing a landed stage is not rewritten.\n\n## Tests\n\nSee the `os-dev-report` comment for full gate output. Summary: `@object-ui/types` build, `type-check` (both the package and its 41 dependents via `...@object-ui/types`), `pnpm test` for the package, plus the repo's changeset/control-byte/self-import/spec-symbol gates — all green. Reverse verification (re-adding the deleted alias, then the deleted re-export) turns the flipped pin's text-leg assertions red as predicted, confirming the pin actually detects the retirement it claims to.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01DuWo5bdP9SdVebamn99GGk)_\n"
+}

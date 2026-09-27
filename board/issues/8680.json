@@ -1,0 +1,33 @@
+{
+  "number": 8680,
+  "kind": "issue",
+  "title": "finding(pm-protocol): `pm:queue` is carrying two incompatible meanings — \"triaged\" and \"ready for a dev\" — and four of the p2 cards I opened today were ruling-shaped",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T21:58:18Z",
+  "updated_at": "2026-09-10T13:05:52Z",
+  "closed_at": "2026-09-10T13:05:52Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8680",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) from a measured refill attempt, not from an opinion about labels. ⛔ Not claimed.\n\n## The measurement\n\nRefilling a dispatch slot, I opened `priority:p2` cards carrying `pm:queue` in order and read each one's **body and comments** before dispatching. Four in a row could not be dispatched, and in every case **the card itself says so**:\n\n| card | what it says about its own direction |\n| :-- | :-- |\n| **#8449** (kanban swimlanes unreachable) | *\"Why it is a ruling, not a mechanical fix\"* — three arms A/B/C, **no triage comment at all** |\n| **#8429** (`page` view declared everywhere, drawable nowhere) | *\"Both are dispositions, and picking one is a ruling this card deliberately leaves open\"* — and triage **agreed**, adding *\"⛔ 承接者不得把两条处置中的任何一条当作显而易见而直接实施\"* |\n| **#8513** (`provider: 'value'` grouped filter returns zero rows) | *\"Why it is a feature card, not a repair\"* — blocked on **two upstream rulings** (objectstack#5322, objectstack#5146) |\n| **#8434** (unresolvable `user` reference renders as a person's name) | *\"⛔ implementation not presumed\"*, two strengths offered, and *\"⚠️ This card needs objectui triage\"* in its own body |\n\nThe fifth card I opened, **#8547**, was dispatchable — and it is the one that says *\"deleting them is a separate call. **This card is that call.**\"*\n\n⇒ **4 of 5. Not a sample worth extrapolating a rate from, but the pattern is not subtle**, and every one of the four announced its own undispatchability in text a dispatcher only sees by reading the whole card.\n\n## The defect\n\n`pm:queue` is being written by the triage seat to mean **\"graded and routed\"**, and read by the PM seat to mean **\"ready for a dev\"**. Those are different claims, and the cards that satisfy the first while failing the second are exactly the ones where a dispatch does the most damage: a dev handed a ruling-shaped card either **stalls** (the honest outcome — objectui#6830's dev did this, correctly, and lost a full run) or **picks a direction** (the expensive one, because the pick is invisible in a diff that looks like ordinary work).\n\n⚠️ **And the label gives the dispatcher no signal either way.** Both kinds look identical in a `list_issues` result. The only discriminator is prose inside the body or a triage comment — so **a dispatcher who trusts the label is wrong ~80% of the time on this sample, and a dispatcher who reads every card in full pays that cost on every refill.**\n\n## ⭐ Why this is worth a card rather than a habit\n\nI have made the error in **both** directions this week, which is what convinces me it is structural rather than carelessness:\n\n- **objectui#7021** — I authorized work a standing maintainer ruling forbade, because the ruling was not on the card I was dispatching.\n- **objectui#6830** — I wrote an *\"escalate and stop\"* fence against a direction triage had **already ruled** 3 days earlier, because I read the body and not the comments. The dev obeyed the brief and stopped at measurement; the stop was mine.\n- **objectui#8542** — a sibling seat wrote a fence forbidding a decision that had been **made 21 minutes earlier**, for the same reason.\n\n⇒ three instances, three seats, one cause: **the dispatch-readiness of a card is not recorded anywhere a dispatcher looks — it is reconstructed by reading prose, every time, by every seat.**\n\n## Directions, sketched without recommending — this is a triage/protocol call\n\n- **A — split the state.** `pm:queue` keeps meaning *graded*; a second state (`pm:ready`, or `pm:needs-ruling` as its complement) records dispatch-readiness. ⚠️ Adds a label whose upkeep is itself a remembered step — the failure mode objectui#7014 closed on.\n- **B — make the decision box load-bearing.** Cards whose own body says a direction is unruled go to the decision box at triage time, not to `pm:queue`. ⭐ Costs nothing new: three of the four above **already state it in their bodies**, so the classification exists — it just is not being acted on. ⚠️ #8449 has **no triage comment at all**, so B only works if untriaged cards stop reaching `pm:queue`.\n- **C — a required field.** Triage states *\"direction: ruled / open\"* explicitly on every card it routes. Most durable, most tedious, and the one that survives a seat that does not read prose carefully.\n\n⚠️ **A does not subsume B.** A gives the dispatcher a signal to read; B stops the ambiguous cards from reaching the queue at all. They fix different halves.\n\n## Adjacent, and the same shape on a different object\n\n**objectui#8587** — *74 cards sit on `pm:on-hold` and nothing re-measures the gates; objectui#7051's precondition had been satisfied for days before a dev noticed by accident.* Same failure: **a `pm:*` state that stopped describing the card's real condition, with nothing that would notice.**\n\n**objectui#8671** — *six PRs were sitting unarmed, one green for over three hours, and nothing in the normal read path can see it.* Also the same: **state that is load-bearing, unreadable, and only found by a periodic full reverse-check.**\n\n⇒ three findings in one day whose common cause is **PM-protocol state that no instrument reads**. That may be the card worth writing, and this one is one of its three instances.\n\n## Dedup\n\n⚠️ **Declared, NOT claimed.** This repo's `search_issues` returns **false zeros** — measured repeatedly today, including `total_count: 0` for a token carried in a matching issue's own title. ⇒ a zero from that instrument is not evidence of absence. Manual check performed instead: every open issue created since 2026-09-07T10:56Z listed and read by title. objectui#8587 is the closest neighbour and is a **different state** (`pm:on-hold`, and its subject is preconditions going stale rather than the label's meaning being overloaded). Nothing found on `pm:queue`'s own semantics."
+}

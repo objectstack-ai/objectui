@@ -1,0 +1,34 @@
+{
+  "number": 9055,
+  "kind": "issue",
+  "title": "finding(plugin-dashboard): two more field-key spellings outside the `table` family — the record drawer's labels and a chart series label disagree with `humanizeFieldKey` on the SAME drill chain",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T20:56:55Z",
+  "updated_at": "2026-09-11T14:47:26Z",
+  "closed_at": "2026-09-11T14:44:21Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9055",
+  "body": "Found while fixing objectui#9000 (the drill `columns` whitelist rendering raw headers). That card's repair made the two header branches of `ObjectDataTable` agree. This card is what the same census turned up **outside** the `table` widget family: two more producers of a field-key display string that do not use `humanizeFieldKey`, one of which is reachable in the very same click path.\n\nobjectui#9000's fix does not touch either of them, deliberately — its scope was the one surface it names.\n\n## The class, already ruled on\n\nobjectui#5425 ruled that a value cannot appear twice under two spellings on one dashboard, and `humanizeFieldKey`'s own docstring names itself \"the single home for this convention\". Both instances below are that class, one step across from where #5425 and #9000 each stopped.\n\n## Instance 1 — the record drawer, on the SAME drill chain (this is the one worth acting on)\n\n`RecordDetailDrawer` builds its own field label inline rather than calling `humanizeFieldKey`. Symbol: the `useMemo` in `packages/plugin-dashboard/src/RecordDetailDrawer.tsx` that maps `keys` to rendered rows; the expression reads `key.charAt(0).toUpperCase()` followed by a camelCase split and an underscore replacement — note that it upper-cases only the FIRST word, where `humanizeFieldKey` title-cases every word.\n\nMeasured, both spellings evaluated side by side:\n\n```\nkey              table header      record drawer label   agree\nclose_date       Close Date        Close date            false\nneeds_analysis   Needs Analysis    Needs analysis        false\nunitPrice        Unit Price        Unit Price            true\namount           Amount            Amount                true\n```\n\nWhy it matters more than a nit: the drill chain runs table then record. `ObjectDataTable`'s drill list is drill-to-record by default, and the record it opens is this drawer. So one user click moves from a column headed **Close Date** to a field labelled **Close date**, over the same key, in the same widget, in one uninterrupted interaction. camelCase agrees, which is exactly why it went unnoticed — the same coincidence that hid #5425's original defect.\n\n## Instance 2 — the chart series label falls back to the RAW key\n\n`resolveSeriesLabel` in `packages/plugin-dashboard/src/DashboardRenderer.tsx` (the `useCallback` whose docblock is about synthetic y-field keys) ends its object-bound arm with a `fieldLabel` call whose fallback is the y-field key ITSELF, not a humanized form. So with no bundle entry loaded — the ordinary case — a chart grouped on `close_date` legends/tooltips it as `close_date`, while the table widget beside it on the same dashboard heads that column `Close Date`.\n\nThis is the exact fallback shape objectui#9000 removed from the table's whitelist branch, surviving on the chart's series label. It was ruled OUT of #9000's diff on purpose: that card fixes the surface it names.\n\n## What a fix would have to decide, and the trap in it\n\n⛔ Not a blind \"call `humanizeFieldKey` in both places\". Instance 2's fallback is a THREE-way choice, and the middle one is real: a synthetic key (`value` / `count`) is already special-cased above it into an i18n'd aggregate name, so only the genuine-field arm is in question. Instance 1 has no such branch and looks like a straight substitution — but its output is a FIELD label, not a column header, and a repo-wide \"one spelling\" move should confirm the detail surfaces (`plugin-detail`'s `DetailSection` / `HeaderHighlight`) resolve their labels from the object schema's own `field.label` first, which is a different population from a derived spelling and must not be swept in.\n\n## Dedup\n\nDeduped against the 446 open issues in this repository (repo-scoped REST list, all five pages, PRs filtered out, matched locally). `drillDown|drill-down` as a positive control term returned 11 issues including objectui#9000, objectui#8071 and objectui#5560, so the empty result for `RecordDetailDrawer` + spelling terms and for `resolveSeriesLabel` is a reading rather than a silent zero. Nearest non-duplicates checked and excluded: objectui#7696 (chart option labels vs list view, an i18n coverage gap, not a derived-spelling disagreement) and objectui#4044 (`chartConfig` key liveness).\n\nFiled by an agent seat working objectui#9000, via Claude Code, session reference `https://claude.ai/code/session_01MPaVWWMuWeT5LgB1qoXjVB`. Attribution written as prose on purpose: this repository's body sanitizer deletes the footer block outright when an issue is created."
+}

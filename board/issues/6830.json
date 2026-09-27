@@ -1,0 +1,34 @@
+{
+  "number": 6830,
+  "kind": "issue",
+  "title": "finding(app-shell): the flow-node inspector's declared `defaultValue` never reaches the rendered control — ten fields declare a default, the control shows none of them",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-29T21:44:00Z",
+  "updated_at": "2026-09-12T01:37:27Z",
+  "closed_at": "2026-09-12T01:37:04Z",
+  "closed_by": {
+    "login": "os-musk",
+    "id": 323835826,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6830",
+  "body": "Filed unassigned by the `domain:ui` execution seat while implementing #6794 (branch `claude/issue-6794-notify-submitter-default`). **Recording, not claiming** — and deliberately not ridden into that PR, whose triage ruling scoped it to one missing declaration.\n\n## The observation\n\n`FlowConfigField.defaultValue` in `packages/app-shell/src/views/metadata-admin/inspectors/flow-node-config.ts` is described in its own doc comment as the \"spec default\". **Ten fields in the table declare one. The rendered control reads none of them.**\n\nMeasured on `origin/main` `26896c689`, by enumerating every consumer of the property in `views/metadata-admin`:\n\n| consumer | reads `field.defaultValue`? |\n|:--|:--|\n| `isFieldVisible` (`flow-node-config.ts`) | **yes** — and it is the only one. Resolves an unset *controller* when evaluating a `showWhen` |\n| `FlowNodeConfigField` — the component that draws every field kind | no |\n| `FlowNodeInspector` — computes the value it passes down | no, it passes `getFieldValue(node, field)`, the stored value alone |\n\nSo the control renders from stored metadata only:\n\n- `case 'boolean'` draws `checked={value === true}` — an unset key is **unchecked**, whatever the table declares.\n- `case 'select'` draws `value != null ? String(value) : ''` — an unset key is an **empty** select, whatever the table declares.\n\nThe ten declaring fields today: `http_request.method` (`GET`), `assignment` `create`, `approval.behavior` (`first_response`), `approval.onEmptyApprovers` (`admin_rescue`), `escalation.enabled` (`false`), `escalation.action` (`notify`), `escalation.notifySubmitter` (`true`, added by #6794), `maxRevisions` (`3`), `waitEventConfig.eventType` (`timer`), and the boundary `error` default. For each, an author whose node omits the key sees a blank or unchecked control while the executor applies the declared value.\n\n## Why this is filed rather than fixed\n\nIt is the half of #6794 that the ruled fix does not reach. That card's severity narrative is \"the checkbox reads unchecked while the runtime notifies\"; adding the missing `defaultValue` makes the **declaration** honest — the table now states what the runtime does, and the offline table stops disagreeing with the online `configSchema` half of the same form — but it cannot change what the checkbox renders, because nothing in the render path consults the property. Both facts belong in the record, so the surviving half gets its own card instead of being folded into a PR that does not fix it.\n\n## ⚠️ Read the adjacent ruling before choosing a direction\n\n⛔ This is **not** obviously \"seed the control from the declared default\". #6263 carries a maintainer ruling (2026-08-28) whose objectui rider is verbatim: *\"the console needs no second default contract\"*, in a decision that narrowed a per-option `default` out of the form-view vocabulary rather than teaching the renderer to honour it. A designer that starts writing declared defaults into stored metadata would be exactly the second contract that ruling refused.\n\nSo the open question is how an effective default is **shown**, not whether to start writing one. Sketching the space without recommending, since this is a triage call:\n\n- **A — show, do not write.** Render the declared default as placeholder text on a select, and as a distinct \"on by default\" affordance beside an unchecked box. Stored metadata untouched; the author can still see what an unset key does.\n- **B — leave it, and drop the claim.** Keep the render path as it is and stop calling `defaultValue` a spec default in the doc comment — say plainly that it resolves `showWhen` and nothing else. Cheapest, and honest, but the author still cannot tell an unset key from a `false` one.\n- **C — seed on author intent.** Write the default when the author first opens the block, so the stored node says what the UI shows. This is the one the #6263 rider argues against.\n\nThere is also a **narrower, purely factual** sub-question that needs no ruling: a boolean control cannot presently distinguish \"key absent\" from \"key stored as `false`\". That is what makes the notify-submitter case read as an assertion rather than an absence.\n\n## Not related to\n\n`escalation.enabled` / #6620 is a different defect on the same lines — that one is about the declared value *being wrong* after a future spec bump, not about the render path ignoring declarations. It stays on hold on its own terms; nothing here should wake it.\n\n## Reproduction\n\n```\nnode -e \"import('@objectstack/spec/automation').then(A => console.log(A.ApprovalEscalationSchema.safeParse({ timeoutHours: 24 }).data))\"\n```\n\nprints `notifySubmitter: true` on the installed `@objectstack/spec` 17.2.0, while an approval node whose `config.escalation` omits the key draws the \"Notify submitter\" box unchecked.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

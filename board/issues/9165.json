@@ -1,0 +1,35 @@
+{
+  "number": 9165,
+  "kind": "issue",
+  "title": "bug(plugin-dashboard): the MetricWidget percent format pattern is a SECOND drifted copy — it disagrees with `percentDisplayValue` at exactly 1 and at values at or below -1",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T13:20:05Z",
+  "updated_at": "2026-09-12T09:40:21Z",
+  "closed_at": "2026-09-12T09:40:21Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9165",
+  "body": "Found while implementing objectui#9071 (the `summaryFields` chip in `plugin-detail`). That card's census concluded the chip held the only drifted percent rule in the tree — \"The chip is the only `num <= 1` spelling in the repo\". That is true of the SPELLING and false of the DRIFT: `formatMetricValue` in `packages/plugin-dashboard/src/MetricWidget.tsx` writes the same rule the other way round, as a pass-through guarded by a greater-than-one test with the multiply in the else arm, so a literal `num <= 1` grep cannot see it. It drifts identically.\n\n## Measured, not inspected\n\nProbe: a `MetricWidget` rendered with `format: '0%'`, against `formatPercent(value, 0, 'en')` — the list-cell path that reaches the declared single source of truth `percentDisplayValue` in `@object-ui/core`. Run on `3b6bc6959` plus the objectui#9071 branch (which changes neither package). Both surfaces rendered in the same run:\n\n| stored | MetricWidget | `formatPercent` (the declared source) | agree? |\n|---|---|---|---|\n| `1` | `100%` | `1%` | **NO** |\n| `-1` | `-100%` | `-1%` | **NO** |\n| `-5` | `-500%` | `-5%` | **NO** |\n| `0.25` | `25%` | `25%` | yes |\n| `12.3` | `12%` | `12%` | yes |\n\nThe disagreement set is exactly the one objectui#9071 named for the chip: **exactly 1**, and **every value at or below -1**. `percentDisplayValue` is the symmetric `value > -1 && value < 1`; this copy scales everything at or below 1 and passes through everything above it, so the negative half is unguarded and the boundary sits on the wrong side of 1.\n\n## Why this is a contract violation and not a boundary nit\n\n`percentDisplayValue`'s own doc comment states the contract — quoting it, because the quote is the judgement:\n\n> This is the SINGLE source of truth for percent display scaling ... If a third surface ever needs percent display, it takes BOTH halves from here — the scaling AND the convention — or this promise breaks again in the same place.\n\nThe metric tile is a surface that needs percent display and takes neither half. The harm class is the one triage named on objectui#9071: the same stored number reads `100%` on a KPI tile and `1%` in the list cell beside it, which a user reports as a data bug rather than a formatting one.\n\n⚠️ The file's own documentation already disagrees with its code. `formatMetricValue`'s doc comment describes the trailing-percent branch as assuming the value is already in 0-100 \"unless\" it is **below** 1 — but the code scales at or below 1, so a stored exactly `1` is scaled in contradiction of the sentence directly above it.\n\n## Scope note — why objectui#9071 did not fix it\n\nobjectui#9071's dispatch scoped the repair to `plugin-detail` and named any change outside that package as a stop condition, so the chip was converged onto `percentDisplayValue` and this copy was left named rather than silently widened into that PR. Nothing in objectui#9071's diff touches `plugin-dashboard`.\n\nNote this is NOT the same path objectui#5607 already repaired: that card moved `recordFields` in this same package onto `percentDisplayValue`, and the dataset measure formatter `formatMeasure` reads the declared `percentScale` first and the shared helper second. The surviving copy is specifically the numeral-pattern branch keyed on a `format` string ending in a percent sign.\n\n## Suggested route\n\nThe same one objectui#9071 took, and for the same reason: delete the local predicate rather than realign its boundary, since realigning leaves two rules agreeing by coincidence. `@object-ui/plugin-dashboard` already reaches `percentDisplayValue` elsewhere in the package, so this adds no dependency edge and needs no new exported symbol.\n\n⚠️ One thing to measure before assuming it is a one-line change: this branch renders with a bare percent sign and a `toFixed` off the pattern's decimal count, so taking the CONVENTION half as well would move values that render correctly today. objectui#9071 took the scaling half only and pinned that boundary as a fact; the same decision has to be made here rather than inherited.\n\n## Dedup\n\nRun. Channel: repo-scoped REST list — the open-issue endpoint filtered to the `domain:ui` label, followed to the end of the label (4 requests, page 4 empty, 298 open issues) — plus a local title-and-body keyword scan for the widget name, the private formatter's name, and `percent`. Controls fired both ways in the same scan: a near-verbatim objectui#9071 title returned 1 hit (so the channel was live, and a zero would have been a reading), and an impossible control string returned 0. The widget-name scan returned one unrelated hit about a DOM-props whitelist; the `percent` scan returned three, none of them this defect. Scope boundary, stated rather than papered over: open issues carrying `domain:ui`; an unlabelled card would not have been seen.\n\nFiled by the `os-dev` seat while implementing objectui#9071, from session `session_01UzHd6hDYatoDn17BuwKxnZ`, generated with Claude Code."
+}

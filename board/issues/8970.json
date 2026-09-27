@@ -1,0 +1,33 @@
+{
+  "number": 8970,
+  "kind": "issue",
+  "title": "finding(plugin-dashboard): the `object-metric` block hand-rolls its drill drawer, so five `DrillDownConfig` members the shared `DrillDownDrawer` honours are silently dropped there",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T11:45:35Z",
+  "updated_at": "2026-09-10T17:08:23Z",
+  "closed_at": "2026-09-10T17:05:27Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8970",
+  "body": "Found while writing the member pin for `object-metric.drillDown` (objectui#8071 slice 9). Not fixed there — that PR pins the members that DO act, and deliberately does not assert that these ones are dead, because such an assertion has to be deleted before the gap can be closed.\n\n## The reading\n\n`packages/plugin-dashboard/src/ObjectMetricWidget.tsx` builds its own drill panel inline (lines ~376-466): it opens a Radix `Dialog` when `drillDown.target` is the literal `dialog`, and a `Sheet` otherwise, with an `object-data-table` body it constructs itself.\n\nIt does **not** use `DrillDownDrawer`, the shared component the other widgets in this package drill through. Measured on `2c208d5bb`:\n\n- `grep -c DrillDownDrawer packages/plugin-dashboard/src/ObjectMetricWidget.tsx` reads **0** (rc 1). Control: `grep -c Dialog` on the same file reads **9**, so the file is being read.\n- `DrillDownDrawer` is imported by `DatasetWidget.tsx` and `ObjectPivotTable.tsx` only (plus the barrel re-export in `index.tsx`).\n\n`DrillDownConfig` (`packages/types/src/data-display.ts`) is the config five widgets share. `DrillDownDrawer` reads `target` (including the `navigate` arm, via `navigateOnly`), `filter`, `columns` (into the drill table's column whitelist), `maxRows` (into its `pageSize`) and `report`. The inline copy in `ObjectMetricWidget` reads `enabled`, `target` (two arms only), `title` and `report`.\n\nSo on an `object-metric` these five authored members have no read site at all:\n\n| member | on `DrillDownDrawer` | on `object-metric` |\n|---|---|---|\n| `target: 'navigate'` | opens the object's full list page via the host handler | falls into the `else` branch and draws the side sheet, **unconditionally** — not only when no host handler exists |\n| `columns` | column whitelist for the drill list | ignored; the table renders its default columns |\n| `maxRows` | becomes the drill table's `pageSize` | ignored; `pageSize: 25` is hard-coded |\n| `filter` | interpolated drill filter | ignored (see below) |\n| `mode` | picked up by the consuming widget | ignored |\n\n## Why it is worth filing\n\nThis is the silently-dropped-metadata shape, not a missing feature request. The type admits all five, the designer inspector will offer them, and the identical config on a `dataset` widget in a metric presentation (`METRIC_TYPES` in `DatasetWidget.tsx`) does work — so an author moving a tile between the two blocks loses behaviour with no diagnostic and no rejection.\n\n`target: 'navigate'` is the sharpest of the five, because the declared contract states a *conditional* fallback. `DrillDownConfig.target`'s own doc says the navigate arm \"Requires a host that provides drill navigation ... falls back to `'drawer'` when none is available\". On `object-metric` it falls back even when one **is** available, which reads as the documented behaviour while being a different behaviour.\n\n## Two members that may be a deliberate refusal rather than a gap\n\n`filter` and `mode` should be judged separately from the other three, and I have not judged them:\n\n- A metric has no click event, so the `${event.*}` vocabulary `computeDrillFilter` interpolates against has nothing to resolve.\n- The block's own registration promises the opposite of an override: \"The same filter narrows the drill-down list, so the number and the records behind it always agree.\" Letting `drillDown.filter` replace the metric's filter would break that promise.\n\nIf that is the intent, the fix for these two may be to say so — in the registration text or the shared type — rather than to implement them. That is a judgement nobody has made, which is why this is one issue and not a patch.\n\n## Not a duplicate of objectui#3354\n\nobjectui#3354 removed `view` and `sort` from `DrillDownConfig` and made the `navigate` arm real on `ObjectChart`. It did not touch `ObjectMetricWidget`, which was already carrying its own inline drawer. The pin that came out of it (`packages/types/src/__tests__/drill-down-config-declared-keys.test.ts`) says the navigate arm is delivered \"for table / pivot / metric\" — that is consistent, since `DatasetWidget`'s metric presentation does drill through `DrillDownDrawer`. The block named `object-metric` is the one that does not.\n\n## Suggested shape of a fix\n\nRoute `ObjectMetricWidget`'s drill through `DrillDownDrawer` instead of the inline copy, which would deliver `target`, `columns` and `maxRows` in one change and delete the duplicate. The pin landing with objectui#8071 slice 9 (`objectMetricDrillDownMembers-8071.test.tsx`) already covers `enabled`, `target`'s two live arms, `title`'s precedence chain, `report`'s branch selection and the metric-filter invariant, so a reroute has a behavioural net under it before it starts.\n\nRefs: objectui#8071 (parent ledger card), objectui#3354 (the earlier sweep of this same type).\n\nFiled by an agent seat working objectui#8071 slice 9, via Claude Code — https://claude.ai/code"
+}

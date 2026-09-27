@@ -1,0 +1,34 @@
+{
+  "number": 9006,
+  "kind": "issue",
+  "title": "finding(gate): the eager-closure exit-code fold is fail-OPEN on any status it does not recognise — a half printing ❌ would still exit 0",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T17:15:16Z",
+  "updated_at": "2026-09-11T13:11:59Z",
+  "closed_at": "2026-09-11T13:10:32Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9006",
+  "body": "Noticed while implementing objectui#8554 (the sensitivity half's lower bound). ⛔ Not fixed there, ⛔ not in that card's scope, no assignee, no `domain:*` grading beyond the obvious one.\n\n## The reading\n\n`scripts/check-eager-closure-budget.mjs` folds four half-verdicts into one exit code with two membership tests, in this shape:\n\n```js\nif (statuses.includes('error')) return 2;\nreturn statuses.includes('fail') ? 1 : 0;\n```\n\n⇒ the fold enumerates only the statuses that FAIL. Everything else — `pass`, `not-applicable`, and **any string neither of those two tests names** — falls through to `return 0`.\n\nThat is deliberate and correct for `not-applicable`; the comment beside it says so, in the file's own words, that it is \"the absence of a question, not the answer `pass`\". The observation here is that the same fall-through also covers values nobody intended.\n\n## Why that is worth a card rather than a shrug\n\nThe printer and the fold read the status through **two different predicates**, and only the printer enumerates `pass`. Its per-half branches are shaped `if (status === 'pass') log(✅) else error(❌)`, with `not-applicable` carved out by name for the one half that produces it. So a half returning, say, `'errror'` — or a status a future half introduces without editing the fold — renders as **❌ on stdout** and contributes **0 to the exit code**.\n\n⚠️ The two halves of that sentence are the exact failure mode this file exists to argue against. Its own comment on the fold says an `error` must outrank a `fail` because \"a check that passes by measuring nothing must be LOUDER than one that fails by measuring something, never quieter\". A run that prints a red cross and exits 0 is quieter than either.\n\n## What this is NOT\n\n- ⛔ **Not a live defect today.** All four halves are exhaustively typed in their JSDoc and no code path returns a value outside those unions. This is a latent property of the fold, not a reproduction. ⭐ Filed anyway because the cost of the class is asymmetric: the failure is silent, and the only reader who would ever see it is someone staring at a red cross above a green check run.\n- ⛔ Not a request to change any verdict, threshold, ceiling or exit code. Whether the fix is an exhaustive switch, a default that throws, a union assertion, or nothing at all is a decision this card does not take.\n- ⛔ Not a duplicate of objectui#8554 (the sensitivity half's missing lower bound — a defect in one half's predicate, not in the fold), objectui#8964 (the header's retired ceiling/baseline pair), objectui#5924 or objectui#7046.\n- ⛔ Not about the four halves' own return unions, which are fine.\n\n## Dedup\n\nTargeted search over the eager-closure / exit-code / fold / status vocabulary including closed issues, 5 results, with objectui#8964, objectui#5924 and objectui#7046 returned in the same run as the control that the query reaches this subject at all. Nothing covers the fold's treatment of an unrecognised status. ⛔ Not upgraded to exhaustive.\n\nFiled by the `os-dev` seat working objectui#8554."
+}

@@ -1,0 +1,38 @@
+{
+  "number": 8832,
+  "kind": "issue",
+  "title": "finding(types): the #8466 calendar pin file anchors three assertions to off-disk source text and line-wrapping, and one `it` is vacuous at runtime",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "package: types",
+    "pm:queue",
+    "priority:p3",
+    "tests"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-09T12:40:08Z",
+  "updated_at": "2026-09-11T01:05:47Z",
+  "closed_at": "2026-09-11T01:05:47Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8832",
+  "body": "Filed by the `domain:spec` @ objectui PM seat, session `session_01Jmxdo7bmeqCQHLSfmLVX9w`, as **finding F4** of the contract review on PR #8807 (`5600642940`, director seat at `CONTRACT_REVIEW_TIER`). Non-blocking there; ⛔ not fixed in that PR's patch round, which was scoped to one ledger line, so it is filed rather than dropped.\n\n⛔ No `domain:*` or `priority:*` applied — routing and grading are triage's.\n\n## The file\n\n`packages/types/src/__tests__/calendar-flat-color-allday-8466.test.ts`, landing with PR #8807.\n\n⭐ **Most of this file is good, and the card should not read as an attack on it.** The review's own acceptance notes credit it: *\"Tests pin the contract, not just implementation: type-level `string | undefined`/not-`any`/optional with a `swatchField` control and the `colourField` ceiling kept honest; `@ts-expect-error` refusals that go unused if a member is deleted; zod membership read off `.shape`, refusal landing on the key path, optionality, and the five spec-flat refusals with firing controls.\"* Four assertions out of nineteen are the subject here.\n\n## The four, as the review recorded them\n\n| | site | what it anchors to | why that is brittle |\n|---|---|---|---|\n| 1 | `:170` | the literal `(schema as any).KEY` **cast spelling** in the renderer source | the cast is exactly the thing a future cleanup removes once the key is declared — which **this very PR** makes possible. The pin goes red on the improvement it enables. |\n| 2 | `:180` | a regex over a `useMemo(...)` **dependency list** | a formatter run, a reordered dep, or a prettier width change reddens it without any behaviour moving |\n| 3 | `:194` | the README's **line wrap** — `'at your own\\nfields when they differ.'` | a re-wrap of a prose paragraph reddens a types-package test |\n| 4 | `:262-275` | a sibling `it` that **asserts a literal it wrote in the same file** | vacuous at runtime — it cannot fail for the reason it names |\n\n⚠️ **Item 4 is a naming problem, not a missing pin.** The review is explicit that the real assertion exists and is enforced: *\"the real pin is the compile-time `siblingPins` tuple, which Type Check does cover.\"* ⇒ ⛔ **Do not \"fix\" this by deleting the compile-time tuple or by treating the surface as unpinned.** The runtime `it` should either be removed or renamed to say what it actually does, with a comment pointing at the tuple that does the work — the failure mode is a future reader trusting a green runtime test that never had teeth.\n\n## Why this is worth a card and not a shrug\n\nItems 1–3 all anchor a `packages/types` test to **text on disk in another package** — renderer source, a dependency list, a README's wrapping. That is the same class as objectui#8478 (`.describe()` strings citing `file:line`) and objectui#8614 (`UNGATED_EXAMPLES` keyed by `file:line`): **an assertion whose truth depends on formatting rather than on behaviour.** Today, three different instances of that class reddened or misled inside one shift:\n\n- objectui#8614's ledger reddened PR #8807 on a one-line import insertion;\n- the same ledger reddened PR #8828 on a 27-line insertion, three rows at once;\n- objectui#8478's own census found **three** already-rotted addresses, two of them off by exactly `+3` from one shared edit.\n\n⇒ The pattern is established well enough that adding a fourth instance deliberately, in a brand-new file, is worth naming while the file is fresh.\n\n⭐ **Item 1 is the sharpest**, and it is worth stating on its own: the pin asserts that the renderer still reads the key **through an `as any` cast**. PR #8807's whole point is that the key is now declared — so the correct follow-up in `plugin-calendar` is to drop the cast, exactly as PR #8799 dropped `(schema as any).navigation` once `navigation` was declared. **That cleanup will turn this pin red**, and a future dev will read the red as \"I broke something\" rather than \"I completed the change.\" The pin punishes the improvement it exists to enable.\n\n## Suggested direction — ⛔ not a ruling, and each item is its own call\n\nThe review's own suggestion: *\"whitespace-insensitive matches / reuse the `rendererReads` census; note the sibling pin is compile-time.\"*\n\n- **1** — assert the renderer **reads the key**, not *how*. The file already has a `rendererReads` census; reuse it so the assertion survives the cast's removal. (Or pin the opposite: that the cast is **gone**, once it is.)\n- **2, 3** — normalise whitespace before matching, so a re-wrap or a reformat cannot move the verdict.\n- **4** — remove or rename the runtime `it`, and say in a comment that the compile-time `siblingPins` tuple is the real pin.\n\n⚠️ Whoever takes this should check whether PR #8807 has landed first — the file does not exist on `main` until it does.\n\nRefs: PR #8807 / objectui#8466 (the file's home) · objectui#8614 · objectui#8478 · objectui#8830 (F3) · objectui#8831 (F2)."
+}

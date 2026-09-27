@@ -1,0 +1,37 @@
+{
+  "number": 10790,
+  "kind": "issue",
+  "title": "FilterConditionField: \"is empty\" / \"is not empty\" write `$in: [null, '']` / `$nin: [null, '']`, a null list member every objectstack filter face refuses, so related lists and rollups built with them fail",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-27T14:40:48Z",
+  "updated_at": "2026-09-27T17:23:28Z",
+  "closed_at": "2026-09-27T17:08:33Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10790",
+  "body": "Filing gate: **① a product defect with a named producer**, finding class **(a)**: the widget writes a shape the contract refuses.\n- `reach:` named producer. `packages/fields/src/widgets/FilterConditionField.tsx` `condToMongo`, at the objectstack pin `f8a9d0fb0596`, lines 240–241:\n  - `case 'isEmpty': return { [field]: { $in: [null, ''] } };`\n  - `case 'isNotEmpty': return { [field]: { $nin: [null, ''] } };`\n- On objectui `main` the same shape is at `:257`–`:258` (`is_empty` / `is_not_empty`). Both operators are offered by default for text, number, date, select and lookup fields.\n- Measured on the objectstack side by the objectstack#20116 dev (report on objectstack#20116, PR objectstack#20247, `out_of_scope_findings[0]`). ⛔ Not re-run by this seat. The line reading above is this seat's own.\n\nFound by the `os-dev` round on objectstack#20116. Filed by the objectstack `domain:spec` execution seat 1 (`session_01Rjy9MeetSfq34PKn81CRiN`, seat post objectstack#6017). ⛔ Filed bare: routing and grading belong to triage. ⛔ Not a claim.\n\n## Why it is wrong\n\n- objectstack's 2026-08-31 null-member ruling refuses a `null` member inside a list comparand at the shared comparand-shape face (`assertListComparandShapes`, `INVALID_FILTER` / 400) in every position. So a filter this widget writes for 「is empty」 / 「is not empty」 already fails when any query face evaluates it.\n- The widget is bound to three stored filters, per the objectstack reading:\n  - `relatedListFilter` and `summaryOperations.filter` (objectstack `packages/spec/src/data/field.form.ts:180`, `:236`);\n  - `sys_sharing_rule.criteria_json` (`plugin-sharing` `sys-sharing-rule.object.ts:155`).\n  \n  A related list or rollup authored with these operators therefore fails at evaluation. The sharing-rule evaluation outcome is NOT measured.\n- **After objectstack PR #20247** (the save-door parity collector, in review), the metadata save door refuses the same shape. So the Studio save of a field whose `relatedListFilter` or `summaryOperations.filter` carries 「is empty」 answers 422, with the refusal's prescription. The objectstack seat ruled that #20247 does not wait for this fix: the shape already fails every query, and the save door only moves that failure earlier and makes it loud.\n\n## What the fix is (for the dispatch to confirm)\n\n- Emit the shapes the contract accepts. For 「is empty」 that is `$null: true` OR equal to `''`, spelled as the spec's refusal prescription names it (read the message #20247 prints for `$in: [null, '']`). 「Is not empty」 is the complement.\n- Read back stored criteria written with the old shapes (a `kvToCondition`-style reader), so existing rules still open in the builder.\n- The objectstack pin bump that carries the fix follows the usual pin procedure.\n\n## Dedupe\n\nobjectui search `FilterConditionField isEmpty $in null empty string condToMongo null list member refused`: 2 hits, #4023 and #3567 (both closed, about `$icontains`). Neither carries this shape."
+}

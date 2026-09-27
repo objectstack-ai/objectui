@@ -1,0 +1,33 @@
+{
+  "number": 8590,
+  "kind": "issue",
+  "title": "finding(types): `@object-ui/types` has no `test` script, so `pnpm --filter @object-ui/types run test` exits 0 having run nothing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-08T13:43:23Z",
+  "updated_at": "2026-09-10T15:25:58Z",
+  "closed_at": "2026-09-10T15:25:09Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8590",
+  "body": "## Observation\n\n`packages/types/package.json` declares `build`, `clean`, `type-check`, `lint` — and no `test`. `pnpm --filter @object-ui/types run test` therefore matches zero scripts and **exits 0 with no output**: it reads as a pass, and nothing ran.\n\nThe package is not untested. It carries 147 test files and 2811 tests, but they run only through the ROOT vitest config (`pnpm exec vitest run packages/types/`), which is how CI reaches them. So the two spellings a contributor might reasonably reach for diverge silently:\n\n    pnpm --filter @object-ui/types run test        exit 0, 0 tests run, no output\n    pnpm exec vitest run packages/types/           exit 0, 147 files, 2811 tests\n\nMeasured on `origin/main` @ `1cca4415e`, while working objectui#8361 (PR #8589). This seat hit it: a verification step of the form `type-check && test` returned exit 0 and printed only the `type-check` banner, and the missing half was visible only because the vitest summary lines were absent from the log.\n\n## Class size\n\nMeasured on the same tree, over `packages/*/package.json` and `apps/*/package.json`: **42 workspace manifests, 38 declare a `test` script, 4 do not.** So the majority spelling exists and this is an asymmetry within the repo, not a house style. (The other three are not enumerated here — that is the triage seat's call, along with whether they are in the same situation or genuinely have nothing to run.)\n\n## Why this is worth a card and not a shrug\n\nThe failure mode is a silent green in a verification step, which is the shape that costs a reader their trust in every other green in the same log. It is the same family as objectui#8361 itself — an instrument that reports \"nothing to report\" when what happened is \"nothing was measured\" — but a completely different mechanism, and it is not fixed by that card.\n\n## Options (not a ruling — filed for triage)\n\n- A. Add `\"test\": \"vitest run --config ../../vitest.config.mts packages/types\"` (or whatever spelling the root config wants) to the four manifests, so the per-package spelling reaches the tests that already exist.\n- B. Leave the manifests alone and make the ABSENCE loud instead — a gate asserting every workspace package that owns test files also declares a `test` script.\n- C. Leave it: CI runs the root config and is correct; the cost is local, and lands on whoever types the per-package spelling.\n\nObservation-class finding (`finding` label, no `pm:queue`): nothing ships wrong and CI's verdict is correct; the cost is a misleading local green.\n\nFiled from Claude Code session `session_01FhBNJcLRZLe8M87VcUgpKr` while working objectui#8361 (PR #8589)."
+}

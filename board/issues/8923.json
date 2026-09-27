@@ -1,0 +1,35 @@
+{
+  "number": 8923,
+  "kind": "issue",
+  "title": "finding(components): a `page:header` given as a SINGLE-NODE `body` still draws a duplicate `h1` — `containsTitledPageHeader` returns early on a non-array",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: components",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T01:36:35Z",
+  "updated_at": "2026-09-11T14:47:24Z",
+  "closed_at": "2026-09-11T14:45:10Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8923",
+  "body": "Filed out of the contract review of objectui#8914 (card objectui#8310), rider F6, at the reviewer's instruction. **Unassigned and ungraded on purpose** — `domain:*`, priority and type are triage's to set. ⛔ Deliberately NOT repaired in objectui#8914: it is pre-existing and outside that ruling's scope.\n\n## The predicate\n\n`packages/components/src/renderers/layout/page.tsx`:\n\n```ts\nfunction containsTitledPageHeader(nodes: unknown, depth = 0): boolean {\n  if (!Array.isArray(nodes) || depth > 6) return false;\n  ...\n}\n\nfunction pageHeaderOwnsTitle(schema: PageNodeSchema): boolean {\n  const regionNodes = (schema.regions ?? []).flatMap((r: any) => r?.components ?? []);\n  return (\n    containsTitledPageHeader(regionNodes) ||\n    containsTitledPageHeader((schema as any).body) ||\n    containsTitledPageHeader((schema as any).children)\n  );\n}\n```\n\nThe helper's first line is an early `false` for anything that is not an array. `pageHeaderOwnsTitle` hands it `schema.body` directly. So a page whose `body` is ONE `page:header` node — not a list containing one — takes the early return, `pageHeaderOwnsTitle` answers `false`, and `PageRenderer` emits its own `h1` next to the one the header renders.\n\nThat is exactly the broken document outline objectui#3434 closed: one document, two `h1` elements with the same name, announced twice by a screen reader and visibly duplicated. The rule is intact for the list arity and for `regions[].components`; only the bare-node channel misses it.\n\n## Why it is worth a card now, when it was only a report bullet before\n\nBefore objectui#8310, `PageNodeSchema.body` was declared `SchemaNode[]`, so the single-node form was refused by the declaration and this path was reachable only by an author who bypassed the type. objectui#8914 widened the key to `SchemaNode | SchemaNode[]` on both faces, matching `BaseSchema` and the renderer's own `FlatContent` fallback — which has always normalized a bare node into a one-element list. The single-node arity is now a **declared, first-class authored shape**, and the root `README.md` flagship example authors it. The delegation check is the one reader on that path that did not follow.\n\n## Second half — a cast that is no longer load-bearing\n\n`pageHeaderOwnsTitle` passes `(schema as any).body` and `(schema as any).children`. The parameter is `unknown`, so neither cast buys anything; the `body` one is doubly redundant now that `PageNodeSchema` declares the key with the arity the helper is being asked about. Removing them is how the type face would have surfaced this in the first place.\n\n## Suggested shape of the repair, for triage — not a ruling\n\nNormalize at the boundary rather than at each call site: have `containsTitledPageHeader` accept one node or a list (the same `Array.isArray` widening `FlatContent` already performs), so `regions`, `body` and `children` are all judged by one rule. Then drop the two `as any`. A pin belongs with it: a `page` whose `body` is a single titled `page:header` must render exactly one `h1`.\n\n## Measurement honesty\n\nRead-derived, from the predicate quoted above — no runtime reproduction was executed in this round. It was reached independently twice: by the implementing seat while writing objectui#8914 (recorded there as `noted, not filed`) and by the contract reviewer of that PR. A browser or jsdom repro is a step the fixing seat should take first, so the pin is written against an observed duplicate rather than against the source reading."
+}

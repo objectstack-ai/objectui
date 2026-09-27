@@ -1,0 +1,34 @@
+{
+  "number": 9001,
+  "kind": "issue",
+  "title": "finding(core): `convertFiltersToAST` has no text-comparand guard — an empty or non-string `$icontains` comparand reaches the wire, a shape `@objectstack/spec`'s `FILTER_TEXT_CASES` declares REFUSED",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T16:35:01Z",
+  "updated_at": "2026-09-10T23:21:05Z",
+  "closed_at": "2026-09-10T23:16:54Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9001",
+  "body": "Found by the `domain:ui` `os-dev` seat while landing objectui#8976 (PR #8996). Out of that card's scope: its ruling was to align `operatorMap` with the contract, and this needs a ruling of its own. Grading and `domain:*` are the triage seat's. ⛔ Not claimed.\n\n## The class\n\n`@objectstack/spec`'s `FILTER_TEXT_CASES` carries two REJECTION rows for `$icontains`, each with `code: 'INVALID_FILTER'` and `mustMention: ['$icontains']`. Read verbatim off spec `17.4.0`:\n\n```\nan empty $icontains comparand is REFUSED\n  filter: { name: { $icontains: \"\" } }\n  note: \"Every row contains the empty substring, so evaluating it is a predicate\n         that constrains nothing — the widening #5240 refused `{ field: {} }` over,\n         one level in.\"\n\na non-string $icontains comparand is REFUSED\n  filter: { name: { $icontains: 42 } }\n  note: \"Coercing 42 to \\\"42\\\" would answer a query nobody wrote; the declared\n         comparand type is string.\"\n```\n\n`ValueDataSource` implements both (objectui#8748, `refuseTextComparand`). `convertFiltersToAST` implements neither — it has no text-comparand guard at all. Measured: `grep -n 'refuseTextComparand|EMPTY STRING|non-empty string' packages/core/src/utils/filter-converter.ts` returns nothing.\n\n## Measured\n\n`origin/main` at `4d65991c5` plus PR #8996, spec `17.4.0`, both faces in one process:\n\n```\n$contains ''     LOWER=[\"name\",\"contains\",\"\"]     MATCH=rows [\"ACME\",\"other\"]\n$contains 42     LOWER=[\"name\",\"contains\",42]     MATCH=rows []\n$icontains ''    LOWER=[\"name\",\"icontains\",\"\"]    MATCH=rows [] REFUSED(1)\n$icontains 42    LOWER=[\"name\",\"icontains\",42]    MATCH=rows [] REFUSED(1)\n$startsWith ''   LOWER=[\"name\",\"startswith\",\"\"]   MATCH=rows [\"ACME\",\"other\"]\n```\n\n`REFUSED(n)` counts the matcher's `console.warn` refusals. So one authored filter is refused by the in-memory matcher and lowered onto the wire by the ObjectStack path — the same acceptance-set split objectui#8568 and objectui#8976 each fixed on the operator-KEY axis, here on the COMPARAND axis.\n\n## ⚠️ Not created by PR #8996 — the entrance was already open\n\nWorth stating precisely, because the timing invites the wrong reading. Before that PR the `$` dialect could not reach this state only because `$icontains` was refused as an *unknown operator* — an accident, not a comparand ruling. The wire entrance existed anyway, through the **object-form** dialect: `FILTER_OPERATOR_ALIASES` in `packages/data-objectstack/src/index.ts` carries `icontains: 'icontains'` as an identity row, so `{ field, operator: 'icontains', value: '' }` lowered to `['field', 'icontains', '']` and reached the wire with no converter involved. Measured on the same tree.\n\nWhat PR #8996 changed is that the `$` dialect is now a second entrance to a door that was already open. It did not open the door.\n\n## Why this needs a ruling and not a mechanical repair\n\nThree questions, and none is settled by the cards above.\n\n1. **Does the guard belong in the converter at all?** `packages/data-objectstack` throws `MalformedFilterError` because it is deciding whether to send a query; `ValueDataSource` excludes-and-logs because it is deciding about one row. `convertFiltersToAST` is a third position — it is the producer, and its declared refusal shape is `FilterOperatorError` (`INVALID_FILTER` / 400), already used for `$regex`, the retired aliases and three comparand shapes.\n2. **Do the siblings come along?** `$contains` / `$startsWith` / `$endsWith` have the same gap and the empty comparand there is arguably harmless (`''` really is contained in everything, so the lowered node is not *wrong*, just useless). `ValueDataSource` deliberately declined to widen by analogy — its docblock: *\"Only `$icontains` because only `$icontains` is what the table declares; the sibling positive operators have no such row and are deliberately left alone rather than widened by analogy.\"* Matching that scope is defensible; so is deciding the producer should be stricter than the table.\n3. **Is the right shape a hand-mirror or enrolment?** objectui#8600 recorded that `ValueDataSource` is the only text-operator face not enrolled in `FILTER_TEXT_CASES` and hand-mirrors it instead. Adding a second hand-mirror in the converter would make that two. Enrolling both against the published table is a different and larger change.\n\n## Serial neighbours\n\nSame function as objectui#8770 (unlowered TRUE-identity groups, `pm:queue`, unassigned) and objectui#8976 (PR #8996, in flight). Three different defect shapes, three different fixes — ⛔ not foldable; they serialise on `packages/core/src/utils/filter-converter.ts`.\n\n## Dedup\n\nTwo channels, each with a control.\n\n- **Local grep of the tree**, positive control `comparand` fires with 6 files under `packages/core/src/utils/`; the guard-name probe above reads 0 in the converter and is the finding.\n- **One targeted semantic search**, repo-scoped, closed included: 16 results. The near neighbours are all CLOSED and all on a different face — objectui#8748 fixed the MATCHER and the PRODUCER widget for exactly these two shapes and did not touch the converter; objectui#8600 is the enrolment question for `ValueDataSource`; objectui#8530 / #8555 / #8567 are the converter's *other* comparand refusals (array, Date, exotic object), none of them textual. Lit controls: objectui#8976 and objectui#8770 both return. No open card names the converter's missing text-comparand guard.\n\nFiled by an agent seat during objectui#8976; the session reference for that run is `https://claude.ai/code/session_01MPaVWWMuWeT5LgB1qoXjVB`."
+}

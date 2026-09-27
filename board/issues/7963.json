@@ -1,0 +1,39 @@
+{
+  "number": 7963,
+  "kind": "issue",
+  "title": "finding(types): `AlertDialogSchema` declares `cancelLabel` / `confirmLabel` / `confirmVariant` and nothing reads any of them — retire, or give `confirmVariant` a read site",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:spec",
+    "domain:ui",
+    "enhancement",
+    "finding",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T04:51:39Z",
+  "updated_at": "2026-09-10T14:17:54Z",
+  "closed_at": "2026-09-10T14:06:19Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7963",
+  "body": "Found while converting the four alert-dialog catalog fixtures to the read dialect (objectui#7693, PR objectui#7962). Filed rather than folded in: retiring or animating an authorable key is a `packages/types` plus `packages/components` change, outside that card's `examples/**` fence, and the triage comment on it (5548892311) named the fork and explicitly declined to open this card itself.\n\nMeasured on `origin/main` `d39ede24e`, after objectui#7104 (PR objectui#7700) and objectui#7768 had both landed.\n\n## The measurement\n\n`AlertDialogSchema` declares three footer keys that nothing reads:\n\n| key | TS declaration | zod mirror | read sites |\n|---|---|---|---|\n| `cancelLabel` | `packages/types/src/overlay.ts:145` | `packages/types/src/zod/overlay.zod.ts:60` | 0 |\n| `confirmLabel` | `packages/types/src/overlay.ts:150` | `packages/types/src/zod/overlay.zod.ts:61` | 0 |\n| `confirmVariant` | `packages/types/src/overlay.ts:155` | `packages/types/src/zod/overlay.zod.ts:62` | 0 |\n\nThe renderer, `packages/components/src/renderers/overlay/alert-dialog.tsx`, draws its footer from two other keys only: `:37` renders `AlertDialogCancel` when `schema.cancelText` is truthy, `:38` renders `AlertDialogAction` when `schema.actionText` is truthy. It registers `cancelText` and `actionText` in its `inputs` and `defaultProps` and names none of the three above.\n\nPositive control for the null reading, same file and same search: `schema.cancelText` returns 1 hit and `schema.actionText` returns 1 hit, so a zero here is a reading and not a mis-anchored search.\n\nThe JSDoc that objectui#7104 added already says as much in words — `cancelText`'s block calls `cancelLabel` \"the declared twin nothing reads\", and `actionText`'s says the same of `confirmLabel`. What #7104 did not do is act on it: the three keys are still declared, still accepted, and still describable to an author or an AI as part of the contract.\n\n## Why it is worth a card\n\nBoth halves of the harm are live, and they point in opposite directions:\n\n1. **An author who writes `confirmVariant: 'destructive'` gets a green parse and no destructive button.** That is the declared-but-unenforced shape ADR-0049 exists to close. It is the sharper edge for AI-authored metadata, which reads the declaration and has no way to discover that the runtime does not honour it.\n2. **The read dialect genuinely cannot express a footer button variant.** PR objectui#7962 had to drop three authored variants (`destructive` twice, `ghost` once) from the catalog fixtures for exactly this reason, on the triage's default route: an example that renders no button is strictly worse than one that renders a button in the wrong colour.\n\nSo the two routes are not symmetric and this is a decision, not a chore:\n\n- **Retire all three** (ADR-0049 enforce-or-remove, the startup-stage default: immediate retirement, no staged alias window). Cheapest, and it makes the declared face honest. Cost: the catalog's destructive-confirm styling stays unexpressible, and the documented remedy for \"I want a red confirm button\" becomes \"you cannot\".\n- **Animate `confirmVariant`** (give it a read site in the renderer, and retire the two `*Label` twins as plain duplicates of `cancelText` / `actionText`). Restores what the fixtures lost. Cost: a Feature on the manual floor, widening the authorable surface — which the startup-stage focus principle says to default against absent a pulling need.\n\nNo recommendation offered here; both need a maintainer ruling on whether a footer button variant is a capability this project wants at all.\n\n## Not a duplicate of\n\n- objectui#7693 — the fixture side, now handled; it deliberately left the declared face alone.\n- objectui#7104 — the declaration half; it is what documented these three as inert, and it is where the wording above comes from.\n- objectui#6033 — zod-mirror DRIFT between the TS and zod faces. These three do not drift: both faces declare them identically. The defect is that neither face is read.\n\nFiled by the Claude Code dev seat working objectui#7693, session `session_013uAaxiwgYDybsTNV9xwa1M`.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

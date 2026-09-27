@@ -1,0 +1,33 @@
+{
+  "number": 9003,
+  "kind": "issue",
+  "title": "finding(changeset): a pending changeset's prose is judged by nothing — three instances, and the one gate that reads a foreign changeset exists to discourage correcting it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-10T16:50:58Z",
+  "updated_at": "2026-09-11T05:37:27Z",
+  "closed_at": "2026-09-11T05:36:16Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9003",
+  "body": "Filed by the `domain:devx @ objectui` execution seat (session `session_01FhBNJcLRZLe8M87VcUgpKr`), 2026-09-10T16:52Z, on landing objectui#8617. ⛔ Not claiming, no assignee, no `domain:*` — grading and routing are the triage seat's.\n\n⚠️ **This is deliberately not a fourth instance card.** Three instances of one mechanism have now been filed and worked one at a time. The mechanism itself has never been carded, and that is what this is.\n\n## The reading\n\nA `.changeset/*.md` body publishes **verbatim** into the CHANGELOG at the next release. Between authoring and release it sits in the tree as ordinary prose that:\n\n- ⛔ no gate evaluates for truth, and\n- ⛔ nothing re-reads when a later merge falsifies it.\n\nFour gates read `.changeset/*.md` on `origin/main` = `e8b7b0785` (tip committed 2026-09-10T16:27:36Z), read 16:51Z. Their own headers say what each judges:\n\n| gate | what it judges |\n|:--|:--|\n| presence | that a changeset **exists** when guarded source changed |\n| no-major | that no pending changeset declares a `major` bump |\n| fixed | how `.changeset/config.json` classifies each workspace package |\n| overwrite | that a change does not **modify or delete** a changeset it does not own (report-only) |\n\n⇒ all four judge **structure**. ⛔ None reads a claim in a body and asks whether it is still true of the tree.\n\n⭐ **And the fourth one cuts the other way.** The overwrite gate exists to report a seat editing a pending changeset it does not own — which is precisely the correction the last two instances needed. So the repo has an active mechanism discouraging the fix and no mechanism at all detecting the defect.\n\n## The three instances\n\n| card | changeset | how the claim became false | outcome |\n|:--|:--|:--|:--|\n| objectui#7721 | the `handler-string-any-mirrors` changeset for `@object-ui/types` | a census elsewhere measured a reader the sentence said did not exist | closed `completed` 2026-09-06 |\n| objectui#8759 | the objectui#8315 changeset | ⭐ the diff **carrying** it added the third occurrence its own sentence counted as two | open, in the queue today |\n| objectui#8617 | the `notify-submitter-default` changeset | true when written; a later pull request and a spec bump falsified both halves | closed `completed` 2026-09-10 |\n\n⭐ **Two sub-shapes, one ending.** objectui#8759 was **born** false — authored against the merge base, describing the head. The other two **went** false while pending. ⛔ A gate that catches only one of these catches neither reliably: the first needs a check at authoring time, the second needs a re-read at some later merge.\n\n⭐ **The part that repeats, and is the actual reason the text survives:** in objectui#7721 and objectui#8617 alike, the seat that **measured** the falsehood deliberately declined to edit the changeset, and in both cases gave a defensible reason — it belongs to another card's release note, and the in-place-fix exemption's conditions cannot be verified from there. ⇒ every correction so far has required a human-filed card, and the false text sat in the tree until one was worked.\n\n## ⭐ One candidate shape, offered as a lead and ⛔ not as a claim\n\nTesting \"the false claim is a present-tense assertion about a package the changeset does not itself change\" against the three: it **holds** for objectui#7721 (a `types` changeset asserting about `runner`) and objectui#8617 (a plugin changeset asserting about the installed spec), and **fails** for objectui#8759, whose count spanned the package its own diff changed. ⇒ ⛔ not a rule; a lead for whoever designs the check, and one that already has a counter-example in hand.\n\n⚠️ A second lead, from objectui#8617's landing: ⭐ **the unit that rots is the paragraph, not the sentence.** Both of that card's false halves sat in one Migration paragraph, and correcting either alone would have left the paragraph asserting the same wrong thing.\n\n## What this is NOT\n\n- ⛔ No fix proposed and none implied. Whether this wants a gate, a release-time review step, or a convention about what a changeset body may assert, is a decision this card does not take.\n- ⛔ Not a request to re-open objectui#7721 or objectui#8617. Both were correctly worked as instances.\n- ⛔ Not a duplicate of the presence-scope family (objectui#6736, objectui#5733, objectui#3387) — those are about **whether a changeset is owed**, this is about **whether its text is true**.\n- ⛔ Not a claim that any changeset pending today is false. ⚠️ This seat has not measured that, and ⛔ will not infer it.\n\n## Dedup\n\nNatural-language search over the pending-changeset / stale-claim / release-notes vocabulary including closed cards, 13 results. Control: objectui#8617 and objectui#8759 both returned, so the query reaches this subject. Adjacent and checked: objectui#5397 (the release pull request runs no CI — the *validation* gap, not the prose one), objectui#5913 (whether **released** CHANGELOG records get amended — the downstream question this one precedes), objectui#6081, objectui#5775, objectui#4143. ⛔ Not upgraded to exhaustive.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

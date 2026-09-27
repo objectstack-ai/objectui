@@ -1,0 +1,33 @@
+{
+  "number": 8559,
+  "kind": "issue",
+  "title": "`scripts/setup.sh` sends every new contributor to `ARCHITECTURE_EVALUATION.md`, a file the tree does not contain",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-08T11:05:53Z",
+  "updated_at": "2026-09-11T00:18:27Z",
+  "closed_at": "2026-09-11T00:18:27Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8559",
+  "body": "Found while implementing #7987 (`scripts/setup.sh`), out of that card's scope and deliberately not repaired there — the fix shape is a choice between three plausible targets, not a mechanical edit, so it is filed rather than ridden along.\n\n## The measurement\n\n`scripts/setup.sh` closes with a \"Next steps\" block. Its third line, on `origin/main` `3f775eeb8`:\n\n```\necho -e \"  3. Read ${GREEN}ARCHITECTURE_EVALUATION.md${NC} for architecture insights\"\n```\n\n`ARCHITECTURE_EVALUATION.md` is not a tracked file:\n\n```\n$ git ls-files --error-unmatch ARCHITECTURE_EVALUATION.md ; echo $?\n1                       # MISSING\n$ git ls-files --error-unmatch package.json ; echo $?\n0                       # control, same command, same run -- the probe works\n```\n\nThe other two files the same block names do exist (`README.md`, `CONTRIBUTING.md`), so this is one dangling pointer, not a broken block.\n\n## What does exist\n\n`git ls-files | grep -i architecture` (exit 0):\n\n```\ncontent/docs/guide/architecture-overview.md\ncontent/docs/guide/architecture.md\ncontent/docs/guide/console-architecture.md\ndocs/ARCHITECTURE.md\nskills/objectui/guides/architecture.md\n```\n\n⇒ there are at least three defensible replacements — `docs/ARCHITECTURE.md`, the published guide (`https://www.objectui.org/docs/guide/architecture-overview`, which `README.md` already links from its \"For Developers\" list), or deleting the line as redundant with that README link. Picking among them is a documentation decision, which is why this is a separate card.\n\n## Blast radius\n\nSame reader as #7987: a human following `README.md`'s \"Quick Setup (Recommended)\" path. The line is `echo` output, so it does not fail the script — the contributor just spends their first hour looking for a file that is not there. No workflow runs `setup.sh`, so CI cannot see it.\n\n## Not fixed by #7987\n\n#7987's PR replaces the build chain and the test step in this same file and leaves this line untouched, on purpose. It is recorded here so the finding does not disappear with that session.\n\nFiled by the `os-dev` seat for #7987. Dedup: the MCP semantic-search channel was **dead** in this session (a control query using #7987's own wording returned 0 while #7987 is open), so dedup was taken on the REST list channel instead — all 472 open non-PR issues fetched and grepped locally at 2026-09-08: `/ARCHITECTURE_EVALUATION/i` over title+body → 0, with the control `/setup\\.sh/i` returning #7987 and #8537 in the same run, so the zero is live.\n\nUnassigned and unlabelled by filing rule.\n\nSession: `https://claude.ai/code/session_01FhBNJcLRZLe8M87VcUgpKr`\n"
+}

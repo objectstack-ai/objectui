@@ -1,0 +1,33 @@
+{
+  "number": 8850,
+  "kind": "issue",
+  "title": "check-side-effects-array walks only the SOURCE BARREL's graph, so a registrar reachable only from a secondary entry form is outside the enumeration",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-09T14:10:09Z",
+  "updated_at": "2026-09-11T00:48:30Z",
+  "closed_at": "2026-09-11T00:47:44Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8850",
+  "body": "`scripts/check-side-effects-array.mjs` derives its enumeration by walking ONE\ngraph: `evaluatePackage` calls `walkEntryGraph(sourceBarrelAbs)`, where\n`sourceBarrelAbs` is the single `src/index.*` that `deriveSpellingMap` finds.\n\nBut `manifestEntryForms` collects EVERY entry form the manifest publishes, and\nevery one of them is a module a consumer's bundler can resolve the package to.\nA package with more than one entry therefore gets its array compared against an\nenumeration derived from only one of them. A module that registers at load time\nand is reachable only from a secondary entry is invisible to the walk: it is\nnever proposed as MISSING, and if the array does name it, it reads as STALE.\n\nThat is the same silent-drop failure class the gate exists to prevent — the\nenumeration is quietly smaller than the promise the array makes.\n\n## Measured\n\n`@object-ui/types` publishes a `./zod` entry whose source barrel is\n`packages/types/src/zod/index.zod.ts`. That file is NOT reachable from\n`packages/types/src/index.ts`:\n\n```\n$ grep -n \"zod\" packages/types/src/index.ts\n75:// they live on the main entry rather than under `/zod` (they carry no zod).\n120:// envelope `{ dialect?, source }`. Its zod twin is `ExpressionWireSchema` on\n121:// the `./zod` entry.\n1170:// *types* only. The companion zod validators (`…Schema`) are deliberately NOT\n```\n\n...only comments. The walk from `src/index.ts` reaches 47 modules and none of\nthem is `index.zod.ts`, which is where the package's one load-time effect lives\n(`AnyComponentSchema = defineNodeComponentUnion(...)`, writing the node\nrecursion point's option slot).\n\n⚠️ This matters for reading objectui#8578's headline number. That card\nattributed the `@object-ui/types` reading of *\"0 module(s) with a top-level\nregistration, 47 walked\"* to the classifier's blindness to a `const`\ninitializer. The classifier blindness was real and is fixed on that card, but\nit was not the only cause: even with the classifier fixed, the walk never\nreaches the module the effect is in. Verified after the objectui#8578 fix —\npointing `scanModule` straight at the file reports the registration, and the\npackage-level walk still does not include the file.\n\n⚠️ `@object-ui/types` declares `sideEffects: false` today, so it is not in this\ngate's population at all (`readArrayPackages` takes ARRAY declarations only).\nThis card is about the gate, not about that manifest — the defect applies to any\nmulti-entry package that declares an array, and `@object-ui/app-shell` already\npublishes many entry forms.\n\n## What a fix has to answer\n\n1. Which entry forms should anchor a walk? Every form `manifestEntryForms`\n   returns is a resolution target, but the gate only knows the SOURCE spelling\n   for the one barrel `deriveSpellingMap` round-trips on. Mapping a published\n   secondary form back to its source file is the inverse of `toPublished` and\n   needs to fail loudly when it cannot.\n2. What is the union's cost? `@object-ui/app-shell` publishes 31 entries; a walk\n   per entry has to stay a single de-duplicated module set or the walk time\n   multiplies.\n3. Reachability (`checkReachability`) currently walks back to ONE barrel. With\n   several entries a registrar is retained if ANY covered entry reaches it, so\n   that check widens with the walk.\n\n## Related\n\nobjectui#8578 (the classifier fix, where this was measured) · objectui#6683 (the\ngate's ruling and its enumeration rule) · objectui#8344 / objectui#8577.\n\nMeasured by the `domain:devx` developer seat working objectui#8578, session\n`session_01FhBNJcLRZLe8M87VcUgpKr`. Generated with Claude Code."
+}

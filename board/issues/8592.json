@@ -1,0 +1,33 @@
+{
+  "number": 8592,
+  "kind": "issue",
+  "title": "finding(devx): `eslint .` itself walks git-ignored build output — `apps/console/plugin.d.ts` reports a warning nobody wrote",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-08T13:46:55Z",
+  "updated_at": "2026-09-10T15:18:18Z",
+  "closed_at": "2026-09-10T15:17:35Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8592",
+  "body": "Filed unassigned by the `domain:devx` dev seat while implementing objectui#8369. Recording, not claiming — that card's fix is about the coverage GATE's census and deliberately does not touch what `eslint .` walks.\n\n## What was measured\n\nobjectui#8369 is about `scripts/check-lint-rule-coverage.mjs` counting git-ignored build output. Its fix drops those paths from that gate's census. It does **not** change ESLint's own population, and ESLint still walks them.\n\nMeasured on `1cca4415e` after a full `turbo run build`, one run, both directions in it:\n\n```\npnpm exec eslint --no-inline-config --format json \\\n  apps/site/next-env.d.ts apps/console/plugin.d.ts apps/console/plugin.js\n\napps/console/plugin.d.ts   0 errors, 1 warning\n                           @typescript-eslint/no-explicit-any at 41:17\napps/console/plugin.js     0 errors, 0 warnings\napps/site/next-env.d.ts    0 errors, 0 warnings\n```\n\nThe two zeros are what make the 1 a reading rather than a broken invocation: the same invocation in the same run answered both ways.\n\nAll three files are build output — git-ignored, absent from `HEAD`, created by `turbo run build` (`apps/console/.gitignore:16-17` for the two `plugin.*`, `apps/site/.gitignore` for `next-env.d.ts`).\n\n## Why it is worth recording, and why it is not p1\n\n`apps/console/plugin.d.ts` is emitted by `tsc -p tsconfig.plugin.json` from console source. The `any` is in generated output: nobody typed it at that line, and the remedy — if one were ever demanded — is not at the site the report names.\n\nToday the consequence is nil, and that is measured too, not assumed:\n\n- CI checkouts are clean, so the file does not exist there.\n- `.github/workflows/lint.yml` deliberately sets no `--max-warnings` (noted at `lint.yml:20` and in `eslint.config.js`'s own comment), so a warning fails nothing.\n\n⇒ Nothing is red and nobody is blocked. What makes it worth a card is the direction it would fail in if the `--max-warnings` threshold question is ever decided: `turbo run lint` would then go red **locally, for developers who had built**, on a file nobody wrote — the same shape objectui#8369 records for the coverage gate, one gate over. It would also be read as damage from the reader's own diff.\n\n## Not a duplicate\n\nobjectui#8369 is the coverage gate's census; this is ESLint's walk. objectui#3549 (closed) is untracked build artefacts from a `tsconfig.node.json` emit, a different producer and no longer live. Dedup was one targeted `search_issues` on this repository whose control term returned objectui#8369, objectui#8337 and objectui#7908 — the cards known to be present — so the absence of a card for the lint run is a real read rather than a silent failure.\n\n## Shape, not a ruling\n\nThe eslint flat config's `ignores` list (`**/dist`, `**/.next`, `**/node_modules`, `**/public`, `**/.source`) is a hand-kept list that a build output only lands in by coincidence. Whether the answer is a row per generated path, an `ignores` entry derived from git, or nothing at all until the `--max-warnings` question is decided, is the queue's call and not this card's."
+}

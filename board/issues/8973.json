@@ -1,0 +1,33 @@
+{
+  "number": 8973,
+  "kind": "issue",
+  "title": "finding(plugin-grid): `object-grid`'s private array-arm lowering interpolates missing keys into `$orderby` — a `SortConfig` with `order` omitted goes out as `name undefined`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T12:13:33Z",
+  "updated_at": "2026-09-10T20:12:12Z",
+  "closed_at": "2026-09-10T20:05:33Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8973",
+  "body": "Filed unassigned by the `os-dev` seat implementing objectui#8767 (session `session_01Jmxdo7bmeqCQHLSfmLVX9w`, PR #8960), on the rework round, at the dispatching seat's request. Not claiming, not grading — triage owns both.\n\n## The defect\n\n`ObjectGrid` lowers `schema.sort` with its own private code rather than the shared sink `convertSortToQueryParams`. Its array arm is a bare template interpolation:\n\n```\nparams.$orderby = schemaSort.map((s: any) => `${s.field} ${s.order}`).join(', ');\n```\n\nEvery key it reads is interpolated **unconditionally**, so a member missing either key reaches the wire as the literal text `undefined`. The shared sink does not do this: it skips entries with no usable `field` and defaults a missing `order` to `'asc'`.\n\nThis matters most for `order`, because that is the key an author is most likely to leave out — the diagnostic PR #8758 ships, which objectui#8767 now makes `object-grid` print, tells the author verbatim that \"`order` is optional and means `'asc'`\". That prescription is true of the sink and **false of this block**: an author who follows the migration advice literally gets `$orderby: 'name undefined'`.\n\n⚠️ `SortConfig.order` is in fact **required** on both declared faces — `packages/types/src/objectql.ts` (`order: 'asc' | 'desc'`, no `?`) and its zod mirror `packages/types/src/zod/objectql.zod.ts` (`z.enum(['asc','desc'])`, no `.optional()`) — and the protocol's reusable `SortItemSchema` requires it too (measured on `@objectstack/spec@17.4.0`: `z.array(SortItemSchema).safeParse([{ field: 'name' }])` refuses with `invalid_value` at `0.order`). So this is not a case of the renderer having to honour an optional key. It is a lowering that turns a type error into silent garbage on the wire instead of dropping it or refusing it.\n\n## Measured — the reproducible probe\n\nRendered the real `object-grid` through `SchemaRenderer` against a `vi.fn()` data source and read `$orderby` off the first `find` call. Run on `claude/issue-8767-object-grid-refuses-string-sort` at `52d28eb4b`. Recipe: render `{ type: 'object-grid', objectName: 'account', columns: [{ field: 'name' }], sort }` inside a `SchemaRendererProvider`, await the first `find`, read `params.$orderby`.\n\n| authored `sort` (array arm) | `$orderby` that goes out |\n| --- | --- |\n| `[{ field: 'name', order: 'desc' }]` — **CONTROL** | `\"name desc\"` |\n| `[{ field: 'name' }]` — `order` omitted | **`\"name undefined\"`** |\n| `[{ field: 'name', order: 'desc' }, { field: 'status' }]` | **`\"name desc, status undefined\"`** |\n| `[]` | **`\"\"`** — an empty `$orderby` is sent rather than the key being omitted |\n| `['name desc']` — the retired array-of-strings | **`\"undefined undefined\"`** |\n| `[{ order: 'desc' }]` — `field` omitted | **`\"undefined desc\"`** |\n\nThe control row is what makes the other five readings a measurement rather than a schema that mangles everything.\n\n## Not objectui#8767's, and why\n\nobjectui#8767's ruling (maintainer, 2026-09-10) is route C: refuse the retired **string** clause, keep the wire shape, touch nothing else. Widening that diff to normalise the array arm is exactly the direction the ruling refused. This defect is **pre-existing and unchanged** by that PR — the contract review measured every input class at base and at head and confirmed these five outputs move on neither side.\n\n## Relationship to objectui#8961\n\nobjectui#8961 parks the other half of the same divergence: the header-arrow reader `parseSchemaSort` is wider than the fetch path. Both cards exist because `object-grid` still owns two private lowerings of one key while every sibling block routes through the shared sink. The contract review's own suggestion was to **append** these array-arm readings to objectui#8961 rather than open a separate card; this is filed separately only because the dispatching seat asked for a dedicated card. ⇒ If triage prefers one card, fold this into objectui#8961 and close this as a duplicate — the readings above are the payload either way.\n\nWhoever takes it should decide the array arm's fate **together with** those two, since a normalised arm and the shared sink's `{ field: direction }` map are the same question asked twice.\n\nRefs: objectui#8767 (the route-C ruling) · PR #8960 (its implementation, where this surfaced) · objectui#8961 (the header-reader half) · objectui#8221 (the retirement ruling) · PR #8758 (the shared sink's narrowing, whose prescription this arm contradicts)\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

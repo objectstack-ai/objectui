@@ -1,0 +1,34 @@
+{
+  "number": 9024,
+  "kind": "issue",
+  "title": "finding(plugin-dashboard): `ObjectPivotTable` spreads an UNDECLARED `filter?: any` into its drill filter — the array-arm mis-composition objectui#8944 just fixed one block over",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T18:40:28Z",
+  "updated_at": "2026-09-11T10:44:52Z",
+  "closed_at": "2026-09-11T10:41:13Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9024",
+  "body": "Filed by the `domain:ui` @ objectui PM seat (Claude Code, session `session_01MPaVWWMuWeT5LgB1qoXjVB`) while reviewing PR objectui#9016. ⛔ **Ungraded and unrouted** — `domain:*`, priority and type are triage's. Filed unassigned.\n\n⚠️ Every reading below is **my own**, re-derived on `origin/main` `bbf068db1` with controls. Where it contradicts PR #9016's acceptance note, I say so.\n\n## The defect\n\n`ObjectPivotTable` composes its drill filter by spreading the widget's own filter into an object literal — `packages/plugin-dashboard/src/ObjectPivotTable.tsx:269`, verbatim:\n\n```ts\nconst merged = { ...(schema.filter || {}), ...baseFilter };\n```\n\nThat is the **identical statement** objectui#8944 removed from `ObjectChart` in PR objectui#9016, and it fails the same way: spreading an ARRAY yields index keys, so an authored `[['region','=','emea']]` becomes `{ '0': ['region','=','emea'], … }` — the widget's own conditions replaced by a key the query layer ignores. Nothing errors; the drawer opens and looks right, scoped by the clicked cell alone.\n\n**Direction:** the widget's filter is what NARROWS, so dropping it makes the drilled list a **superset** — rows the pivot itself was scoped to exclude. The worse direction for a silent bug.\n\n## ⭐ Why this was previously judged unreachable, and why that judgement does not hold\n\nPR objectui#9016's acceptance notes record this file as *\"Not the same defect — `PivotTableSchema.filter` declares no array arm, so it is unreachable there — only the same shape.\"*\n\nThe observation is true. The inference does not follow, because `PivotTableSchema.filter` is not the declaration that governs this component.\n\n| reading | result | control |\n|:--|--:|:--|\n| `PivotTableSchema` (`packages/types/src/data-display.ts:1821`) members named `filter` | **0** | the same probe counts **12** other members on that interface |\n| `BaseSchema` (`packages/types/src/base.ts`) members named `filter` | **0** | the same probe counts **21** other members |\n| declarations of `filter` reaching the component | **1** | — |\n\nThat one declaration is a **local props intersection**, `packages/plugin-dashboard/src/ObjectPivotTable.tsx:41`:\n\n```ts\nexport interface ObjectPivotTableProps {\n  schema: PivotTableSchema & {\n    objectName?: string;\n    dataProvider?: { provider: string; object?: string };\n    filter?: any;\n  };\n```\n\n⇒ `PivotTableSchema.filter` declares no array arm because **it declares no `filter` at all**. The type that actually admits the value is `any`, which is *strictly more permissive* than the chart's `any[] | Record` union — not less. Nothing in the type system stops an author writing the array form on a pivot.\n\n⚠️ **This card corrects that note; it does not fault the PR.** objectui#9016 is a different block with a different authoring surface, and splitting rather than widening is the same call that produced objectui#8883 out of objectui#7299.\n\n## ⭐ The second finding, in the same three lines\n\n`filter?: any` is a member grown on a props intersection rather than declared on the schema — the **second-declaration class objectui#6357 measured**. It sits directly beneath a comment recording that the data-scope binding key *used to be* declared exactly that way and was removed for exactly that reason:\n\n> The data-scope binding key is NOT re-declared here. It used to be, as a local member grown because no schema shape declared it — the second-declaration class objectui#6357 measured.\n\n⇒ The cleanup that comment describes stopped one member short. Whoever takes this should decide the two together: a `filter` declared on `PivotTableSchema` would give the composition something to be correct *about*, and `any` is what makes the array arm both reachable and invisible to every type-level gate.\n\n## Why no gate catches it\n\n`{ ...(schema.filter || {}) }` type-checks — spreading `any` is legal, and spreading an array into an object is legal JavaScript. So every type-level and doc-level gate reads this site green, exactly as they did for `ObjectChart` before objectui#8944. **A green that cannot go red on this defect is not evidence**; the oracle has to be the composed filter's row set, which is the shape PR objectui#9016's new pin uses and which could be reused here.\n\n## ⛔ Scope fence\n\n- ⛔ Not an `ObjectChart` change — that is objectui#8944, landed as PR objectui#9016.\n- ⭐ The fix almost certainly is **not** a second local repair: `composeDrillFilter` (`@object-ui/core`) exists as of objectui#9016 and already names and applies the rule (`widget.filter ∧ drill.filter`, via `mergeFilterNodes`). Routing this site through it is the shape the ruling on objectui#8944 preferred. ⚠️ But confirm the pivot's two drill sinks take the same dialect before assuming the seam drops in.\n- ⚠️ `ObjectMetricWidget` was routed through the shared `DrillDownDrawer` by PR objectui#8999 — check whether it composes its own filter too, rather than assuming this is the last copy.\n\n## ⚠️ Confidence gap\n\nI did **not** measure the reach: whether any live pivot in the corpus authors the array form of `filter`. The defect is in the artifact and is silent by construction, which is what makes it worth a card; the blast radius is unmeasured and is a fair input to grading. Note that unlike `ObjectChart` — whose docblock records that the in-repo corpus authors the object form — the pivot's `any` means there is no declaration to read an intent off at all.\n\nRelated: objectui#8944 (the chart half) · PR objectui#9016 (its fix, and the review that surfaced this — comment 5623662979) · objectui#6357 (the second-declaration class) · objectui#8613 (named in objectui#9016 as this file's next owner) · PR objectui#8999 (`ObjectMetricWidget` through the shared drawer)"
+}

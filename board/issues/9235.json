@@ -1,0 +1,34 @@
+{
+  "number": 9235,
+  "kind": "pull_request",
+  "title": "fix(marketplace): the consent panel promised confinement the runtime does not provide — say what the permission list actually does (objectstack#17147)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-12T02:33:09Z",
+  "updated_at": "2026-09-12T03:12:37Z",
+  "closed_at": "2026-09-12T03:12:36Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-09-12T03:12:35Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/9235",
+  "body": "The objectui half of **objectstack-ai/objectstack#17147**. Framework half: **objectstack-ai/objectstack#17753**.\n\n## What the panel said, and what is true\n\n`PluginDisclosure` introduced a code-bearing package's structured permission set with *\"On install, this package will be granted:\"*. A list of grants on a security panel is read as a **confinement promise** — the complement assumed denied.\n\nMeasured on objectstack `9bd4344e4`:\n\n| the consented set | |\n|---|---|\n| persisted to `sys_package_installation.granted_permissions` | ✅ real |\n| re-confirmed on a widening upgrade (cloud answers 409 without `reconsent`) | ✅ real |\n| registered on the runtime's `PluginPermissionEnforcer` at load (objectstack#13457) | ✅ real |\n| **queried by anything** | ❌ `SecurePluginContext` has **zero** production construction sites; the fs/network gates have **no caller at all** |\n\n⇒ the list is real and auditable. It is **not a gate**.\n\nMaintainer ruling 2026-09-12 took **option B** — the same option objectstack#11330 took on the trust-tier half of this very claim: *say it truthfully now.* Enforcing it is the ADR-0025 materialize seam, a separately designed direction (fenced by ruling `5486840233`).\n\n## The change\n\n- `marketplace.disclosure.grantsIntro` becomes a **request**, not a grant that binds the runtime — *\"This package requests:\"* — in all ten packs.\n- New `marketplace.disclosure.notEnforced`, rendered beside the list in all ten packs: *\"Recorded at install, and re-confirmed if a later version asks for more — but the runtime does not yet restrict the package to this list.\"*\n\nUntouched on purpose: the **trust-tier badge** (`Sandboxed` / `In-process · full trust`) is objectstack#11330's half of the same panel and is corrected in the spec's own text; correcting only your own half is that card's stated convention.\n\n## The `ja` colon, which is conditioned rather than copied\n\nSlice five (objectui#3546) pins that the `ja` pack takes the halfwidth `:` after a **predicate** and the fullwidth `：` after a **noun label**. The new `ja` value is deliberately predicate-final (`このパッケージは次の権限を要求します:`) so that rule still decides it and the case keeps its meaning. Its exact-value assertion and the `ko` value pin follow the new bytes; the comment now spells out that a future reword ending on a noun must flip to `：` rather than keep the byte and lose the rule.\n\n## Verification\n\n- `pluginDisclosureNotEnforced-17147.test.tsx` (new): both clauses on the **rendered output**, the retracted sentence asserted **absent**, plus the no-permissions and no-code branches so the positives cannot be satisfied by a component that renders unconditionally. **Ablated twice** — retracted intro restored, note element removed — each turns it red.\n- `check:i18n-keys` green: every call-site key resolves against the `en` pack and every inline `defaultValue` matches the pack byte for byte (the note is one string literal for exactly this reason).\n- `check:i18n-drift` green: 1 `en` value changed, 1 key added, **9 packs followed**.\n- `packages/app-shell/src/console/marketplace` + `packages/i18n/src/__tests__`: 75 files / 1163 tests pass.\n- `node scripts/check-governed-queue-guard.mjs --test …` → **NOT GOVERNED**; ordinary queue route.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

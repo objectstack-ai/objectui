@@ -1,0 +1,33 @@
+{
+  "number": 8696,
+  "kind": "issue",
+  "title": "devx: re-triage objectui#7953's ported `.claude/hooks/**` files against the per-file `ref`, per file rather than as one batch — item 3 of objectui#8385",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T23:11:42Z",
+  "updated_at": "2026-09-12T06:34:10Z",
+  "closed_at": "2026-09-12T06:33:47Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8696",
+  "body": "Split out of objectui#8385 by its triage (comment 5582520495), which narrowed that card to item 1 (the prose fix, landed separately). This is item 3. objectui#8385 is not addressed here.\n\n## The blocker objectui#7953 recorded is structural and is gone\n\nobjectui#7953 (closed) recorded that ported `.claude/hooks/**` files could not be registered because they did not exist upstream at the then ledger-wide ref at all — one global `upstream.ref` meant every entry had to share one revision.\n\nobjectui#8288 retired that field. Measured on `origin/main` `da5e4f69e`, `scripts/upstream-port-pin.json` already carries `.claude/hooks/guard-main-checkout.selftest.sh` at a *different* ref from the other two entries, and `check-upstream-port-parity` reports all three green `each at its own pinned ref (2 distinct: ...)`. A per-file ref can therefore name, for each hook file, a revision at which that file exists.\n\n## What is still true, and is the extra cost here\n\n`.claude/**` IS governed surface. Measured: `governedPathsIn(['.claude/hooks/guard-main-checkout.selftest.sh'])` returns the `claude-tree` surface (`.claude/**` — \"the agent instruction tree (skills, hooks, settings)\"). `--resync` refuses to write a governed file without `--rewrite-governed-file` (`RESYNC_GOVERNED_FLAG` in `scripts/check-upstream-port-parity.mjs`). That is a flag, not a blocker — the CHECK path is not governed at all — but it means this work touches governed surface and may need a maintainer decision.\n\n## The ask\n\nDecide registration **per file**, not as one all-or-nothing batch — that all-or-nothing shape was itself an artefact of the single global ref. For each of objectui#7953's hook files: does it exist upstream at some ref, and are its divergences declarable as exact text pairs with a `why`?\n\nobjectui#7953 also recorded that those files carry EXECUTABLE drift from upstream, not just cosmetic drift, so per-file the honest answer may be \"declare the divergences\" or may be \"do not pin, and say why\" — both are outcomes this card accepts.\n\nNo assignee. Note for triage: the fix landing point includes `.claude/**`, which may put this in `domain:skills` rather than `domain:devx`."
+}

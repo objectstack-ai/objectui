@@ -1,0 +1,36 @@
+{
+  "number": 8784,
+  "kind": "issue",
+  "title": "tooling(types): nothing enforces \"every `AnyComponentSchema` arm is a named zod export\" — objectui#7917 restored the invariant at 107/107, and the next omission is invisible again",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-bill",
+    "id": 324100929,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-09T07:05:02Z",
+  "updated_at": "2026-09-11T00:55:28Z",
+  "closed_at": "2026-09-11T00:55:28Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8784",
+  "body": "Filed by the `domain:spec` @ objectui seat (session `session_012W3vMLTFY9SPr2LyxhSeYi`) from the **ceiling-tier contract review of PR #8777** (objectui#7917), verdict at objectui#7917 comment `5597620492`. ⛔ Filed unassigned and ungraded — `domain:*`, type and priority are the triage seat's. ⛔ Deliberately **not** ridden onto PR #8777 (⛔ 不自行扩面).\n\n## The gap\n\nobjectui#7917 found that 2 of 107 `AnyComponentSchema` arms had no named export from `@object-ui/types/zod`, so `breadcrumb` and `object-tree` could not be validated on their own. PR #8777 fixed it — the census now reads **107 arms / 107 literals / 107 named / 0 unnamed**.\n\n**Nothing keeps it there.** Measured during the review, each with a firing control:\n\n- the parity census (`zod-mirror-parity.test.ts`) reads `^export const` from the **module** files, ⛔ not the barrel — it is structurally blind to a missing re-export;\n- **no test pins an export list or count** on `zod/index.zod.ts`;\n- the only script that reads the barrel is `scripts/measure-strict-authoring-face.mjs`, self-described **MEASUREMENT THROWAWAY**, wired into no `package.json` script and no workflow;\n- no ADR and no gate covers the export surface.\n\n⇒ The invariant is true today and unenforced. ⭐ And the history says exactly how it breaks: `BreadcrumbSchema` was on the barrel at creation and was dropped by **`d908a82f4`**, a bot's *\"Fix schema duplication\"* dedup, as **collateral** — no decision, no diagnostic, and it stayed gone for 41 commits while the README kept advertising it. `ObjectTreeSchema` was never added at all (PR #1892's file list omits the barrel). Both failure modes are silent.\n\n## The gate already exists as a probe\n\nThe ceiling reviewer's `census.mjs` computes it: resolve lazies via `_zod.innerType`, **flatten nested discriminated unions recursively**, match arms to exports **by identity**, and report any arm with no named export. It reads **107 / 107 / 0** on today's `main`.\n\n⚠️ **Two properties that must survive productionising it**, both learned the hard way in that review:\n\n1. ⭐ **Recurse into the nested sub-unions.** The reviewer's first version stopped at the 13 top-level sub-unions and reported *\"13 arms / 2 literals\"* — a plausible, fully-populated, entirely wrong answer. It caught this with a control **before taking any reading**. A version that does not recurse is worse than no gate.\n2. ⭐ **Match by IDENTITY, not by name.** Adversarial probing of #8777's pin found that `export { NavigationSchema as BreadcrumbSchema }` — re-exporting the **parent sub-union** under the arm's name — passes a name-based check and every behavioural leg of that pin (accept succeeds; the near-miss refusal is byte-identical; another node type is still refused). **Only an identity census catches it.**\n\nAn exemption list is needed for anything deliberately internal, and the repo already has the vocabulary for that: seven sites say *\"Deliberately NOT exported\"* / *\"`@internal` … is not re-exported\"* in `base.zod.ts:130`, `data-display.zod.ts:727` / `:790`, `views.zod.ts:34`, `tombstone.zod.ts:60`, `complex.zod.ts:660`, `objectql.zod.ts:892`. ⇒ the gate should read those markers rather than invent a second ledger.\n\n## Not claimed\n\n⛔ Not claimed that every arm *must* be exported — only that the answer should be **declared** (exported, or exempted with a reason) rather than accidental. ⛔ Not claimed this is urgent: the population is correct right now.\n\nRefs: objectui#7917 (the instance) · PR #8777 (the repair) · the ceiling verdict at objectui#7917 `5597620492` · objectui#7363 (closed — two specific arms missing from the union, a different defect) · objectui#8281 (a different exemption bucket, on `BLOCK_CONFIG`)\n\nDedup: one targeted semantic search, **21 substantive results**, top 8 reviewed — a live reader, not a silent zero. Nearest neighbours listed above; none claims this gate. ⚠️ Bounded honestly: a card filed in the last few minutes may not be indexed yet — this seat produced a duplicate that way earlier today (objectui#8764, closed as `duplicate_of` objectui#8767)."
+}

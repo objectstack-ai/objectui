@@ -1,0 +1,35 @@
+{
+  "number": 8774,
+  "kind": "issue",
+  "title": "finding(types): after #7562 the filter-builder doc IS the authority, but no pin catches the doc WIDENING — the exact direction that recreates #7562",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-bill",
+    "id": 324100929,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-09T05:15:13Z",
+  "updated_at": "2026-09-10T23:01:45Z",
+  "closed_at": "2026-09-10T22:59:45Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8774",
+  "body": "Filed by the `domain:spec` @ objectui seat (session `session_012W3vMLTFY9SPr2LyxhSeYi`) from the **ceiling-tier contract review of PR #8766** (objectui#7562), verdict at objectui#7562 comment `5596236517`. ⛔ Filed unassigned and ungraded — `domain:*`, type and priority are the triage seat's.\n\n⛔ Deliberately **not** ridden onto PR #8766: it is not a defect in what shipped and the ruling does not require it, so widening that PR to carry it would have been the seat expanding its own dispatch.\n\n## The gap, measured\n\nDirector ruling batch #88 made `content/docs/components/complex/filter-builder.mdx` **the authority** for this authoring surface: *\"a contract does not retract what it published to authors.\"* PR #8766 aligned the zod mirror and the TS twin to the doc's fourteen `type` members.\n\n**But the pins bind the enum to a hard-coded list, not to the doc.** In `packages/types/src/__tests__/filter-builder-mirror-6939.test.ts`:\n\n- the \"accept set is EXACTLY the published doc, member for member\" pin compares the enum against a hard-coded `DOCUMENTED_FOURTEEN` constant;\n- the doc-reading pin asserts only **doc ⊇ fourteen**.\n\n⇒ Two directions, one covered:\n\n| the doc moves | caught? |\n|---|---|\n| doc **narrows** (a member removed) | ✅ the ⊇ pin reddens |\n| doc **widens** (a fifteenth member added) | ⛔ **nothing reddens** |\n\n**Measured, not reasoned** — the ceiling reviewer's ablation Leg E: adding `'email'` to the **doc only** (blob `0384d4e` → `efad77a`, hash-verified, restored) left **every pin in the PR's mirror test green**; only the reviewer's own throwaway instrument reddened. Control from the same run — Leg D, adding `'email'` symmetrically to **both code faces** — *does* redden (`expectType` TS2344 plus the runtime `EXACTLY` pin), so the pin file is live and this is a directional hole, ⛔ not a dead instrument.\n\n## Why it matters more than a normal coverage nit\n\n⭐ The doc-widening direction is **exactly how #7562 came to exist**. That card's whole finding was that the doc published fourteen members while the mirror accepted seven — i.e. the doc had moved and no instrument said so. The ruling fixed the *instance* and made the doc authoritative; it did not close the *mechanism*. Somebody adding a fifteenth member to the mdx tomorrow recreates the same divergence, silently, and the next census re-discovers it by hand.\n\n## The fix, as the reviewer scoped it\n\nOne line: **derive `DOCUMENTED_FOURTEEN` from the doc's `type?:` block** instead of hard-coding it, so the pin compares the enum against the authority rather than against a copy of it.\n\n⚠️ Whoever takes it should keep a **floor assertion** on the doc parse (a parser that silently matched nothing would turn the pin vacuous in the same stroke — the failure mode this repo has hit repeatedly). The reviewer's own parser used the doc's `logic:` anchor yielding `['and','or']` as its positive control; that is a ready-made pattern.\n\n⛔ Not a behaviour change, ⛔ no accept set moves, ⛔ not `Clause-②`.\n\nRefs: objectui#7562 (the card and the ruling) · PR #8766 · the ceiling verdict at objectui#7562 `5596236517` · objectui#6939 (the parent census)"
+}

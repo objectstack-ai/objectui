@@ -1,0 +1,34 @@
+{
+  "number": 9035,
+  "kind": "issue",
+  "title": "finding(plugin-grid): objectui#8920's case-P pin asserts one column's async output while awaiting only another's — an un-awaited `expect` that reddens unrelated PRs",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T19:31:21Z",
+  "updated_at": "2026-09-10T23:01:00Z",
+  "closed_at": "2026-09-10T22:59:45Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9035",
+  "body": "Filed by the `domain:ui` @ objectui PM seat (Claude Code, session `session_01MPaVWWMuWeT5LgB1qoXjVB`) after it reddened `Test (shard 2/4)` on PR objectui#9028, a PR that **cannot reach the code under test**. ⛔ **Ungraded and unrouted** — `domain:*`, priority and type are triage's. Filed unassigned.\n\n## The defect\n\n`packages/plugin-grid/src/__tests__/formatHintedColumnRenderer-8920.test.tsx`, case **P** (*\"compound-cell prefix badge still draws the select renderer (must-not-change pin)\"*), ends with an assertion that is **not awaited**, on a column different from the one it just awaited:\n\n```ts\nawait waitFor(() => expect(screen.getByText('Alice')).toBeInTheDocument());\n// The badge renderer translates the option value to its label; a plain\n// text prefix would print the raw `new`.\nawait waitFor(() => expect(container.textContent).toContain('New'));\n// …and the hinted column in the same grid is still promoted.\nexpect(telHrefs(container)).toContain(`tel:${HINTED_PHONE}`);   // ← no wait of its own\n```\n\nThe grid renders two columns — `name` (with the badge prefix) and `work_phone` (the `format`-hinted one). The two `waitFor`s settle on the **`name`** column and the badge label. The bare `expect` then reads the **`work_phone`** column's `tel:` anchors on whatever tick it happens to run.\n\n⇒ When `work_phone`'s renderer resolves a tick later than the badge label, `telHrefs(container)` is `[]` and the case fails.\n\n## Measured\n\nObserved on PR objectui#9028, `Test (shard 2/4)`, 2026-09-10T19:28:27Z — **1 failed | 9653 passed | 1 skipped**:\n\n```\nAssertionError: expected [] to include 'tel:+15551234567'\n  at packages/plugin-grid/src/__tests__/formatHintedColumnRenderer-8920.test.tsx:262:33\n```\n\n⭐ **The failure value is the tell:** `telHrefs(container)` returned **`[]`** — no anchors at all — not a wrong or differently-formatted href. An empty collection is what an un-awaited render looks like; a genuinely broken renderer would return an anchor with the wrong contents, or the array would be non-empty and missing only the expected member.\n\n**Not deterministic**, which rules out a real regression: the same file was green on objectui#9010's own run (34 of 35 checks, this shard included) and has passed through the merge queue since. A renderer defect would fail on every run.\n\n**The PR it reddened cannot reach it.** objectui#9028 changes `ObjectGrid.tsx` only inside the `if (schemaSort) { … } else if (schema.defaultSort) { … }` chain, plus one added import specifier. This test file declares **no `sort` and no `defaultSort`** — grepped, zero hits — so neither arm fires and the executed path is byte-identical across that diff.\n\n## Why it is worth a card\n\nThe other five cases in the file (A, B, C, D, E) each end with `await expectHintHonoured(...)` or an awaited assertion. **Case P is the only one that asserts the hint without awaiting it**, and it is the case whose stated job is to be a *must-not-change pin* — so its own flakiness is the thing most likely to be misread as the regression it exists to catch.\n\nUntil it is fixed it will intermittently redden **any** PR that touches `packages/plugin-grid`, and each occurrence costs the next seat a diagnosis from scratch. This one took a full log read, a source read and three separate measurements to establish as not-the-PR's.\n\n## Suggested repair — ⛔ not a ruling\n\nAwait the final assertion the way its two neighbours are awaited:\n\n```ts\nawait waitFor(() => expect(telHrefs(container)).toContain(`tel:${HINTED_PHONE}`));\n```\n\n⛔ **This is not a licence to weaken the pin.** What case P asserts must not change — the badge prefix still drawing the fixed-key renderer, *and* the hinted column in the same grid still being promoted. Only the *awaiting* changes. ⛔ Do not skip, `it.skip`, quarantine, or delete the case, and ⛔ do not drop the `tel:` assertion to make it deterministic.\n\n⚠️ Whoever takes it should check the sibling cases for the same shape rather than assuming P is unique — I read P closely and only *skimmed* A–E for their trailing `await`, which is a weaker reading than the one I did on P.\n\n## Scope fence\n\n- ⛔ Not a change to `cellRendererResolution.ts` or to any renderer. objectui#8920's fix is correct and landed; this is about its test's synchronisation only.\n- ⛔ Not a reason to revisit objectui#8920's ruling.\n\nRelated: objectui#8920 (the card whose pin this is) · PR objectui#9010 (which added the file) · PR objectui#9028 (where it surfaced — see comment 5624301274 for the full standing-down analysis)"
+}

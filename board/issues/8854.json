@@ -1,0 +1,33 @@
+{
+  "number": 8854,
+  "kind": "issue",
+  "title": "docs(app-shell): the README flow canvas draft is still refused on save — it teaches the retired `ui` position key, and every edge omits the required `id`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-09T14:19:35Z",
+  "updated_at": "2026-09-10T20:12:14Z",
+  "closed_at": "2026-09-10T20:07:59Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8854",
+  "body": "Found while repairing objectui#8483 (the same jsonc block, one node above and four lines below). ⛔ Not repaired there: that card names **one** site and its dispatch fences the rest of the block off explicitly. Filed **unlabelled and unassigned** — grading and routing are the triage seat's.\n\nDedupe before filing: open **and closed** issues carrying `finding` (repo-scoped REST, 2 pages) and `documentation` were pulled and grepped locally for `node.ui`, `objectui#3172`, `FlowEdgeSchema` and `Visual flow canvas` — 316 unique rows (202 open, 114 closed). Zero hits for either defect below; the only `Visual flow canvas` hit is objectui#8483 itself. Positive controls in the same fetched set: objectui#8483 and objectui#7896 are both present, and closed rows are present (114), so the closed half is a reading rather than an empty filter.\n\n## The site\n\n`packages/app-shell/README.md`, the **Visual flow canvas** jsonc block (the `flow` draft). After objectui#8483's fix the block reads:\n\n```jsonc\n{\n  \"nodes\": [\n    { \"id\": \"start\", \"type\": \"start\", \"label\": \"Start\" },\n    { \"id\": \"decide\", \"type\": \"decision\", \"label\": \"Renew?\",\n      \"ui\": { \"x\": 220, \"y\": 180 } },   // optional persisted canvas position\n    { \"id\": \"email\", \"type\": \"notify\", \"label\": \"Send reminder\",\n      \"config\": { \"recipients\": \"{record.owner}\", \"title\": \"Renewal reminder\" } },\n    { \"id\": \"end\", \"type\": \"end\", \"label\": \"End\" }\n  ],\n  \"edges\": [\n    { \"source\": \"start\", \"target\": \"decide\" },\n    ...\n  ]\n}\n```\n\nA reader who copies it **still** gets a 422 on save, now for two reasons that have nothing to do with the node type objectui#8483 fixed.\n\n## Defect 1 — the block teaches the RETIRED `ui` position key, and the page's own prose says it is refused\n\n`flowNodeObject()` (objectstack `packages/spec/src/automation/flow.zod.ts:283`, read at `881ce2b`) is a `strictObject`. Its declared keys are `id`, `type`, `label`, `config`, `connectorConfig`, `position`, `timeoutMs` — **`ui` is not among them**, and `position` (`:360`, `{ x, y }` both required) is the canonical spelling.\n\nThe README says this itself, 12 lines under the block:\n\n> Flows stored with the designer's retired `node.ui.{x,y}` spelling still render pinned, and the canvas lifts them onto `position` in the first patch it emits (objectui#3172) — `FlowNodeSchema` is `.strict()`, so a draft that still carries `ui` fails client-side validation and is rejected on save with a 422.\n\n⇒ the prose documents the refusal, and the code block above it teaches the refused spelling, labelled *\"optional persisted canvas position\"*. The two halves of one section contradict each other, and the half a reader copies is the wrong one. Same class as objectui#8483: a teaching draft that is **loudly** refused, so the cost is a wasted debugging round rather than bad metadata shipping.\n\n## Defect 2 — every edge omits `id`, which the edge schema declares required\n\n`FlowEdgeSchema` (same file, `:562`) declares `id: z.string()` with **no** `.optional()`, beside `source` (`:563`) and `target` (`:564`). All four edges in the block carry only `source` / `target` (plus `condition` / `label` / `isDefault`), so each is missing a required key.\n\nNegative-reading control, same read: `condition`, `label` and `isDefault` — the other keys the block uses — **are** declared on that schema (`:566`, `:576`, `:592`), and `source`/`target` are the canonical spellings rather than the aliased `from`/`to`. So the probe does reach the edge contract, and the zero for `id` is a measurement, not a miss.\n\n⚠️ One thing the taker should confirm rather than take from here: this is a reading of the **spec** declaration. Which door the app-shell draft passes through client-side is stated by the README's own 422 sentence above (it validates drafts against these schemas), but the exact call path was not measured here.\n\n## Why it was not repaired in objectui#8483\n\nThat card's PM ruling names one site — `README.md:395`'s node type — and says in as many words: ⛔ do not touch any other block, ⛔ do not \"check the others while you're there\". Repairing these two under that PR would have been drift. They are the same **class** as objectui#8483 (a draft the runtime refuses) but neither is the same key, node, or contract, so they are filed here for grading rather than ridden along.\n\nRefs: objectui#8483, objectui#8115, objectui#3172, PR #8111.\n\nFiled by an `os-dev` seat working objectui#8483 under PM session `session_01611D6ZaRaMmwTNQmSbk8MH`.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

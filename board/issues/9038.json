@@ -1,0 +1,34 @@
+{
+  "number": 9038,
+  "kind": "issue",
+  "title": "finding(core): `chartConfigPresentation` DROPS an inline-locale-map `title`/`subtitle`/`description`, so a dashboard/report chart authored in the spec's own `I18nLabel` union renders with no heading at all",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T20:02:33Z",
+  "updated_at": "2026-09-11T11:36:11Z",
+  "closed_at": "2026-09-11T11:24:19Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9038",
+  "body": "Found while fixing objectui#8943 (the sibling defect in `normalizeChartSchema`'s `label()`). Filed rather than fixed there: different package, different function, and a different failure mode — 8943 renders the WRONG language, this one renders NOTHING.\n\n## The defect\n\n`packages/core/src/utils/chart-presentation.ts` lowers an authored chart config's chrome onto the chart schema the dataset-bound surfaces hand the renderer. Its `title` / `subtitle` / `description` limbs go through a local `text()` helper that accepts **only a plain string**:\n\n```ts\nconst text = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined);\n\nif (typeof config.showLegend === 'boolean') out.showLegend = config.showLegend;\nconst title = text(config.title);\nif (title) out.title = title;\nconst subtitle = text(config.subtitle);\nif (subtitle) out.subtitle = subtitle;\nconst description = text(config.description);\nif (description) out.description = description;\n```\n\nThe function's own docblock says it lowers the keys of \"spec `ChartConfigSchema` / `ReportChartSchema` — the same keys on both\". `@objectstack/spec` types `ChartConfigSchema.title` as `I18nLabel` — a plain string **OR** an inline locale map — so this is authored surface, not an accident:\n\n```json\n{ \"chartConfig\": { \"title\": { \"zh-CN\": \"定价\", \"en\": \"Pricing\" } } }\n```\n\n`text()` returns `undefined` for the map arm, the `if (title)` guard skips the assignment, and the key never reaches `out`. The chart then draws with **no heading**, in every language, with no diagnostic. The author wrote spec-legal metadata and the runtime discarded it silently.\n\nNote the shape of it: this is not the wrong-language bug. `title` is not resolved badly, it is **not resolved at all** — so it is invisible to any check that asks \"does the heading match the locale\", because there is no heading to compare.\n\n## Reachability — measured, not assumed\n\n`chartConfigPresentation` has two live call sites, both on paths a user reaches:\n\n- `packages/plugin-dashboard/src/DatasetWidget.tsx` — `chartConfigPresentation(widget?.chartConfig, categoryColors)`, i.e. a dashboard widget's own `chartConfig`.\n- `packages/plugin-report/src/DatasetReportRenderer.tsx` — `chartConfigPresentation(chart, categoryColors)` (which then destructures `title` away, so the report surface is affected for `subtitle` / `description` only).\n\nNeither resolves these three keys through `pickLocalized` first. Both files DO import `pickLocalized` and use it — `DatasetWidget` for `options.description`, `DatasetReportRenderer` for measure labels — so the resolver is already in scope at both call sites; these three keys simply do not route through it.\n\n## Why this is not covered by the neighbouring ledger\n\n`chart-presentation.ts` also holds `labelText()`, a deliberate first-string-wins pick for series labels and axis titles. That one IS documented and ledgered — the file states that this package is React-free, holds no i18n provider, and that \"a caller that CAN resolve the language resolves the label itself and overrides the merged one; see objectui#4020\". That mitigation is a real design and this card does not reopen it.\n\n`text()` is a different thing and is not covered by it: it does not make a locale-unaware PICK that a caller can override — it **erases the value**, so there is nothing left for any caller to re-resolve. The override route the `labelText` ledger relies on is unavailable by construction.\n\n## Suggested shape (not a ruling)\n\nThe React-free constraint that shapes `labelText` applies here too, so \"call `pickLocalized` in `@object-ui/core`\" is not obviously the answer. Two directions, both needing a decision rather than a guess:\n\n1. Carry the value through unresolved (widen the lowered key to the `I18nLabel` union) and resolve at the two render sites, both of which already hold a language. This matches the route objectui#8943 rejected for its own site and the route `labelText`'s ledger assumes.\n2. Give `chartConfigPresentation` an optional `language` parameter and resolve through `pickLocalized`, the way `normalizeChartSchema` now does (objectui#8943, PR objectui#9039). Both existing callers are components and can supply one.\n\nWhichever is taken, the acceptance is that a spec-legal locale-map `title` reaches the DOM as a heading in the viewer's language, and that `pickLocalized` stays the single resolver for the union.\n\n## Acceptance\n\n- A dashboard widget whose `chartConfig.title` is an inline locale map renders a heading, in the active language, for at least two languages.\n- The same for `subtitle` and `description` on both the dashboard and report surfaces.\n- A plain-string `title` is unchanged.\n- Whatever is left unresolved on purpose is ledgered by name with a reason, as `labelText`'s neighbouring case already is.\n\nRefs: objectui#8943, objectui#4020.\n\nReported from the os-dev seat while landing PR objectui#9039; session reference `session_01MPaVWWMuWeT5LgB1qoXjVB`. Generated with Claude Code.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

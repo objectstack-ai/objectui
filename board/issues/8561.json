@@ -1,0 +1,33 @@
+{
+  "number": 8561,
+  "kind": "issue",
+  "title": "`ci.yml`'s E2E artifact is named `playwright-report` but never contains one — the name is the only thing a reader sees in the Actions UI",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T11:08:10Z",
+  "updated_at": "2026-09-11T23:24:59Z",
+  "closed_at": "2026-09-11T23:17:11Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8561",
+  "body": "Observation found while fixing objectui#8238 (the Live E2E lane's identical promise). ⛔ Not repaired there — that PR is scoped to `live-e2e.yml` and this is a different lane.\n\n## What is there\n\n`.github/workflows/ci.yml`, the `Build & E2E` job:\n\n```yaml\n      - name: Upload Playwright report\n        uses: actions/upload-artifact@v7\n        if: ${{ steps.relevant.outputs.should_run == 'true' && !cancelled() && failure() }}\n        with:\n          name: playwright-report\n          path: |\n            playwright-report/\n            test-results/\n```\n\n`playwright.config.ts:28` declares `reporter: process.env.CI ? 'github' : 'html'`. On CI that is the `github` reporter, which writes annotations only — so `playwright-report/` is **absent on CI in every outcome** and the artifact contains `test-results/` alone.\n\n## Why this is NOT objectui#8238's defect, and why it is still worth recording\n\n⭐ This lane is the one that already went through the incident. The 12-line comment directly above that step is accurate and complete: it names objectui#4086, states that the `github` reporter produces **no** `playwright-report/` directory, explains that the real evidence lives in `test-results/`, and gives the deliberate reason both paths stay listed (`upload-artifact` only warns when *no* path matches, so the absent one costs nothing and keeps working if the HTML reporter is ever enabled). Nothing there is false. ⇒ ⛔ Do not \"fix\" that comment; it is the prior art that decided the question.\n\nWhat remains is narrower: the **artifact name**. `playwright-report` is what a reader sees in the Actions run summary and in the downloaded zip's filename, and it is the one place the explanatory comment cannot reach — the comment lives in the YAML, the name lives in the UI. A reader who downloads `playwright-report.zip` looking for a report finds `test-results/` and no report, which is the same misdirection objectui#8238 is about, minus the false sentences.\n\n## Measured, not inferred\n\nRan the two reporters directly (Playwright 1.x, this repo's pinned version), with an `html` control leg that proves the directory is observable when a reporter writes it:\n\n| reporter | run outcome | exit | `playwright-report/` |\n|---|---|---|---|\n| `[['list']]` | 1 passed | 0 | **ABSENT** |\n| `[['list']]` | 1 failed | 1 | **ABSENT** |\n| `[['html', { open: 'never' }]]` | 1 passed | 0 | **PRESENT** |\n\nThe `github` reporter is in the same family as `list` for this question: both are stdout/annotation reporters and neither declares an output directory.\n\n## Options, not a decision\n\n- **Rename the artifact** to something the contents can satisfy — `e2e-failure-artifacts`, matching what objectui#8238's PR does for the sibling lane (`live-e2e-artifacts`, step renamed to `Upload failure artefacts and server logs`).\n- **Leave it.** The name is load-bearing for anyone who already knows to look for it, renaming an artifact breaks nothing but does change what people search for in old runs, and the adjacent comment already tells the truth to anyone reading the YAML.\n\n⛔ No opinion offered on which; both are cheap and neither is urgent. Filed so the choice is made deliberately rather than inherited.\n\n## Not in scope\n\n⛔ Says nothing about objectui#8238 (fixed separately, `live-e2e.yml` only) or objectui#4086 (closed; this is its residue, not a regression of it)."
+}

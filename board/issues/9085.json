@@ -1,0 +1,34 @@
+{
+  "number": 9085,
+  "kind": "issue",
+  "title": "finding(core): buildDatasetDrillFilter writes a bare null for the empty bucket, a spelling convertFiltersToAST SKIPS — so an empty-bucket drill-through returns a superset",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-11T00:18:21Z",
+  "updated_at": "2026-09-11T13:27:50Z",
+  "closed_at": "2026-09-11T13:20:55Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9085",
+  "body": "Measured while implementing objectui#9020 (PR objectui#9080), on `origin/main` `2a79e847b`. Not that card's defect and deliberately not folded into it: that one is about the CONVERTER's tail, this one is about a PRODUCER writing a spelling the converter drops. Not claimed.\n\n## Measured\n\n`buildDatasetDrillFilter` (`packages/core/src/utils/dataset-format.ts`) builds the drill-through filter for a dataset widget, and writes a **bare `null`** for a bucket whose dimension value is empty — verbatim:\n\n```\ndrillFilter[dimensionFields[d]] = raw === '' || raw === undefined ? null : raw;\n```\n\nThat filter travels `DatasetWidget.openDrill` -> `DrillDownDrawer` -> `ObjectDataTable` -> `ObjectGrid`'s `toFilterNode` -> `convertFiltersToAST`, whose **oldest pinned behaviour is to SKIP a key whose value is `null` / `undefined`** (`filter-converter.test.ts`, \"should skip null and undefined values\"). So the constraint is dropped:\n\n```\nbuildDatasetDrillFilter({owner: ''}, ['owner'], {owner: 'owner_id'})\n  => { owner_id: null }\n\ntwo drill dimensions, one of them empty:\n  => { stage_id: 'won', owner_id: null }\n  convertFiltersToAST => ['stage_id', '=', 'won']        the null key is GONE\n\none drill dimension + any dashboard runtime filter:\n  => { region: 'apac', owner_id: null }\n  convertFiltersToAST => ['region', '=', 'apac']         the null key is GONE\n```\n\n⇒ **Drilling into the empty bucket returns a superset**: every row, not the rows whose dimension is actually empty. Silently — nothing is thrown and nothing is logged. This is the exact failure direction `filter-converter.ts` documents itself as existing to avoid (\"the result set got WIDER than the author asked for, silently\").\n\n## Why it is intermittent today, which is the part worth grading\n\nThe one case that currently survives is a **single** drill dimension with **no** runtime filter. There `convertFiltersToAST` produces no condition at all, and the tail hands back the caller's object — which then means two different things on the two `find()` routes of `@object-ui/data-objectstack`:\n\n- the plain route sends **no filter parameter** (the client's non-AST branch spreads a plain object's entries and skips null ones) and the drawer lists every row;\n- the `$expand` / `$search` route JSON-serialises it into `filter={\"owner_id\":null}`, which the server accepts as a `FilterCondition`, and the drawer lists the right rows.\n\n`ObjectGrid` auto-injects `$expand` for lookup and master_detail columns (`buildExpandFields`), so **which of the two a drill gets depends on whether the drilled object happens to have an expandable column** — not on the filter. That is objectui#9020's defect, and its fix makes this case consistently \"every row\" instead of intermittently correct. ⚠️ So this card is NOT caused by objectui#9020: the multi-dimension and runtime-filter cases above are broken on `origin/main` today, with or without it. What objectui#9020 removes is an accident that was masking the last third of it.\n\n## Why the repair belongs at the producer\n\n`@objectstack/spec` accepts `{ owner_id: null }` as a `FilterCondition` — `null` is in `ACCEPTED_FILTER_COMPARAND_TYPES` and `FilterConditionSchema.safeParse({ a: null })` succeeds — so the producer is not writing garbage. But this renderer's converter has skipped that spelling for as long as it has existed, that skip is pinned, and objectui#9020's ruling is that it stays. AGENTS.md 0.1 puts the fix at the producer rather than at a renderer-side tolerance, and the spelling that means the same thing on **both** ends is already available and already pinned:\n\n```\n{ owner_id: { $null: true } }   ->   ['owner_id', 'is_null', true]\n```\n\n⚠️ Whoever takes it should confirm rather than inherit from here: `buildDatasetDrillFilter`'s output has three consumers, not one — `ObjectDataTable`, the report-drill `SchemaRenderer` path (which wraps it in `{ $and: [...] }`), and `OpenInListButton`'s host navigation. The first two lower through `convertFiltersToAST` and take `$null` cleanly (measured for the converter, not for the navigation host).\n\n⚠️ Cost, so it is a fair input to grading: the shape is pinned in **14** assertions across `plugin-dashboard` and `plugin-report` test files, all of which assert the bare-`null` spelling and would move with it.\n\n⚠️ Also unmeasured here, and a real question for whoever takes it: `ValueDataSource`'s matcher reads `{ a: null }` as strict equality against `null` — it selects a row with an explicit `a: null` and NOT a row missing `a` entirely, while `['a', 'is_null', true]` selects both. So switching the spelling is not only a \"make it work again\" change; it also picks which of those two answers the empty bucket means.\n\n## Dedup\n\nREST list, `state=all&labels=domain:ui&per_page=100&sort=created&direction=desc` (100 rows, the newest window on the board this file lives on), grepped locally for `drill`, `buildDatasetDrillFilter` and `empty bucket`. Ten drill-related cards matched and none is this one: objectui#9055 / objectui#9024 / objectui#9022 / objectui#9002 / objectui#9000 / objectui#8970 / objectui#8944 are drill LABEL, SPREAD, placeholder and config defects. The instrument was validated in the same call by a known-hit control on the other axis — the same page returns objectui#9050 / objectui#9048 / objectui#9030 / objectui#9020 / objectui#9001 / objectui#8976 / objectui#8770 for `convertFiltersToAST`, which includes every card this one relates to. Closed cards were in range.\n\nRelated: objectui#9020 (PR objectui#9080, the converter tail) · objectui#9030 (the mixed-key counting question in the same tail) · objectui#8555 (the sibling-dependence hazard this shape is an instance of)\n\nFiled by the developer seat implementing objectui#9020, session `session_01MPaVWWMuWeT5LgB1qoXjVB`, with Claude Code.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 8613,
+  "kind": "issue",
+  "title": "finding(plugin-dashboard): the METRIC path has no structured-`groupBy` branch, so an authored `{ field, dateGranularity }` node is posted as an analytics DIMENSION object",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "needs:contract-review",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-08T16:22:56Z",
+  "updated_at": "2026-09-10T20:42:24Z",
+  "closed_at": "2026-09-10T20:40:32Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8613",
+  "body": "Measured while implementing #6864 on `origin/main` @ `ce45a0306`. Different code path, different failure mode, so filed separately rather than ridden into that PR. ⛔ Nothing was changed; this is a source read.\n\n## The measurement\n\n`ObjectChart.runAggregate` (`packages/plugin-charts/src/ObjectChart.tsx:597-613`) knows about two authored `aggregate.groupBy` shapes and routes them to two different wires:\n\n```ts\nconst gb = schema.aggregate.groupBy as any;\n// Structured GroupBy node (e.g. `{ field, dateGranularity: 'day' }`)\n// requires the spec-shape `{ groupBy: GroupByNode[], aggregations, where }`\n// payload so the server-side date-bucket engine kicks in.\n// The legacy `{ field, function, groupBy, filter }` cube/analytics\n// path does NOT honour `dateGranularity`.\nconst isStructured = gb && typeof gb === 'object' && !Array.isArray(gb);\nif (isStructured) { /* spec-shape call */ }\n/* else: legacy `{ field, function, groupBy: gb, filter }` call */\n```\n\nThe METRIC path has no such branch. `ObjectMetricWidget.computeOne` (`packages/plugin-dashboard/src/ObjectMetricWidget.tsx:246-252`) forwards the authored value straight through:\n\n```ts\nconst results = await ds.aggregate(objectName, {\n  field: aggregate.field,\n  function: aggregate.function,\n  groupBy: aggregate.groupBy || '_all',\n  filter: filterForRun,\n});\n```\n\n`grep` over that file for `dateGranularity`, `isStructured` and `aggregations` returns **zero** hits, so there is no structured handling anywhere else in it.\n\n## What that does on the wire\n\nA structured node is an object and not an array, so `looksLikeSpecShape` is false and the call takes `ObjectStackAdapter.aggregate`'s ANALYTICS branch, which builds\n\n```ts\ndimensions: params.groupBy && params.groupBy !== '_all' ? [params.groupBy] : []\n```\n\n⇒ the POST body carries `dimensions: [{ field: 'closed_at', dateGranularity: 'month' }]` — an object where the analytics contract declares a dimension NAME. By the comment quoted above, that path does not honour `dateGranularity` in the first place, so even if the server tolerated the shape the bucketing the author asked for would not happen.\n\n## Why the authored shape is real, not hypothetical\n\n`{ field, dateGranularity }` and `{ field, alias }` are shapes this repo already recognises as authored `aggregate.groupBy`:\n\n- `packages/core/src/utils/chart-category-key.ts` — `chartCategoryKey` resolves the category column for exactly those node shapes;\n- `packages/core/src/utils/chart-category-key.test.ts:45` and `:56` pin them;\n- `packages/plugin-charts/src/ObjectChart.absentCategoryAxisRefusal-8168.test.tsx:125` and `:350` carry `aggregate: { field, function, groupBy: { dateGranularity: 'day' } }`;\n- `packages/plugin-dashboard/src/__tests__/DashboardChart.categoryAxisKey-8269.test.tsx:154` and `:158` carry the same shape in widget metadata.\n\nBoth relays hand the metric family the raw authored value: `DashboardRenderer.tsx:722` and `DashboardGridLayout.tsx:301` both build `aggregate: { field: providerAgg.field, function: providerAgg.function, groupBy: providerAgg.groupBy }` for the `object-metric` node.\n\n## Why the type system does not catch it\n\n`ObjectMetricWidget`'s own props declare `aggregate?: { field: string; function: string; groupBy?: string }` (`:44`) — a STRING. But the value reaching it crosses an `any` seam twice: `isObjectProvider` narrows to `aggregate?: any` (`packages/plugin-dashboard/src/utils.ts:10`), and `computeOne(ds: any, …)` takes the datasource untyped. So the declared `string` refuses nothing at runtime and nothing at compile time either.\n\n## Reachability: NOT established\n\nSame posture as #6825 and #6864. Every one of the sites listed above is a TEST FIXTURE; a sweep of tracked `.json/.ts/.tsx/.mdx/.md/.yaml/.yml` (6557 files, with a lit control on the same command shape returning 208 lines across 103 files) found no shipped app metadata declaring a structured `aggregate.groupBy` on a metric widget. So this is latent, and I am NOT claiming a live defect — recording it because the severity judgement is triage's, not mine.\n\n## Relationship to #6864\n\n#6864 is the ARRAY form on the same authored key: it selects the adapter's spec-shape branch and the legacy keys vanish. This is the OBJECT form on the metric path, which selects the analytics branch and sends the node itself as a dimension. #6864's fix (PR #8612) refuses the array case at the producer and deliberately does not touch this one — an object `groupBy` never reaches the spec-shape branch, so it is outside that gate by construction.\n\nRefs: #6864 - #6825 / PR #6911 - #8266 / #8269 (the measure and category key contracts that read these same node shapes)"
+}

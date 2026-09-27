@@ -1,0 +1,34 @@
+{
+  "number": 8972,
+  "kind": "issue",
+  "title": "`detectNonCanonicalRowSpelling` is exported, written and called by NOTHING on the hot path — wiring it into `celAuthoring` would give the author the diagnostic at typing time instead of at misbehaviour time",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "package: core",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-10T12:10:06Z",
+  "updated_at": "2026-09-11T16:31:11Z",
+  "closed_at": "2026-09-11T16:29:11Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8972",
+  "body": "Filed **unlabelled and unassigned** by the `domain:ui` execution seat (`session_01MPaVWWMuWeT5LgB1qoXjVB`) for triage to grade and route. ⛔ Not claimed, ⛔ no code written. ⛔ **This card rules on nothing** — see \"What is not decided\" below, which is why it is filed rather than dispatched.\n\nSurfaced by the `os-dev` seat working objectui#8166 (PR #8963), as an out-of-scope finding; filed by the dispatching seat rather than folded into that card, because it changes what an author sees at authoring time and that is a decision, not a rung.\n\n## What\n\n`packages/core/src/evaluator/rowPredicateCanon.ts` **exports** `detectNonCanonicalRowSpelling`. Nothing on the hot path calls it.\n\n⇒ The repository already owns an instrument that can recognise a wrong-layer predicate spelling **offline**, and it is not wired to the surface where an author would benefit from it.\n\n## Why it is worth a card now, and not before\n\nobjectui#8166 / PR #8963 has landed the consumer half of the record-scope `data.*` problem: objectui no longer binds an ambient `data` at record scope, so `data.status == 'x'` now **faults loudly** at runtime rather than resolving against the wrong bag.\n\n⚠️ But the **authoring lint still accepts it**, because `SCOPE_ROOTS` in `@objectstack/formula` contains `data` and that accept set belongs to the engine, not to objectui. The producer-side residue is filed separately in objectstack (see Related).\n\n⇒ Today an author can write a record-scope `data.*` predicate, watch the lint go **green**, save it, and discover the problem only when a field misbehaves at runtime. The detector that could have told them at typing time is sitting in the tree, exported and unused.\n\n⭐ The sharper reason this matters, measured on `origin/main` `72bcd7783` by the objectui#8166 dev: before that PR, the **one** mount in the repo whose ambient `data` was non-empty (`AppContent`'s field-list evaluator, binding `data: editingRecord`) would **resolve** a `data.*` predicate off the record under edit, in edit mode, **with zero diagnostics**. So an author testing there saw it **work**, then shipped it dead on every other mount and in create mode. A typing-time diagnostic is precisely the thing that would have caught that, and no runtime change can — the runtime is honest now and the author still gets a green lint.\n\n## ⛔ What is NOT decided here, and why this is filed rather than dispatched\n\n- ⛔ **Whether to wire it in at all.** Making an authoring lint start diagnosing spellings authors can write today is an **author-visible behaviour change**. That is a ruling, ⛔ not a rung, and the dispatching seat deliberately did not make it.\n- ⛔ **What severity it should carry** — a blocking error, a warning, or a hint. `app`'s refusal on this surface is *blocking* and holds Save shut (objectstack#16420 records that); a blocking diagnostic here would refuse predicates that are already saved in existing metadata. That is a migration question, not a wiring question.\n- ⛔ **Whether `celAuthoring` is the right seam.** It is the seam the finding names; it has not been measured as the only or best one.\n- ⛔ **What the detector actually covers.** Its accept/refuse set has **not** been re-measured by this seat — its name suggests row-canon spellings, which may be broader or narrower than the `data.*` case that motivated this. ⭐ **Measure that first**; a card that assumes the detector already answers the question would be building on an unmeasured premise.\n\n## Dedupe — declared with its limit\n\n⚠️ This repository's `search_issues` returns **false zeros** (recorded lane fact), so an absence is not a reading here. What is quoted instead is a **positive**: objectui#8166 is the card whose delivery surfaced this, and its thread carries the measurement; objectui#8155 and objectui#8156 are the sibling root-vocabulary cards on the same list. None of them names this detector or proposes wiring it. ⛔ Not upgraded to exhaustive.\n\nRelated: objectui#8166 / PR #8963 (the consumer half, landed — the runtime is now loud) · objectui#8155 (`app`: bound but refused, the loud mirror) · objectui#8156 (`os`: bound but unadvertised) · objectstack#16420 (closed `not_planned`; the producer-side `app` card and the structural `SCOPE_ROOTS` question) · the objectstack card filed alongside this one for the producer-side residue · `packages/core/src/evaluator/rowPredicateCanon.ts` (the detector)."
+}

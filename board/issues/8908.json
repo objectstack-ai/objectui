@@ -1,0 +1,33 @@
+{
+  "number": 8908,
+  "kind": "issue",
+  "title": "finding(react): the `toRenderableSchema` docblock promises it \"changes no behaviour\" — false for `0` and `false`, and the shipped `empty` renderer prints a stray \"0\" because of it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-09T22:56:58Z",
+  "updated_at": "2026-09-10T20:12:20Z",
+  "closed_at": "2026-09-10T20:09:05Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8908",
+  "body": "Observation-class finding, measured while implementing objectui#8331. Filed unassigned, no labels — grading is the triage seat's.\n\n## The claim\n\n`toRenderableSchema` (`packages/react/src/schema-input.ts`) states in its docblock that it is behaviour-preserving. It is not, for exactly two of the six `SchemaNode` members: `0` and `false`. The shipped `empty` renderer — the slot objectui#7105 just routed through it — consequently renders a stray `\"0\"` / `\"false\"` where `SchemaRenderer` itself renders nothing.\n\n## The contract text being violated\n\n`packages/react/src/schema-input.ts`, the bridge's own docblock, verbatim:\n\n> This is that step, and it is a TOTAL function rather than a cast: it maps the two primitive members onto their text form, which is precisely what the renderer's own defensive branch does with them. So it changes no behaviour and tells no lie — the value a caller forwards renders identically whether or not it passes through here.\n\nThe last sentence is the falsifiable one, and it is false for `0` and `false`.\n\n## Why — the mechanism\n\n`SchemaRenderer` (`packages/react/src/SchemaRenderer.tsx`) narrows in this order:\n\n```\nif (!evaluatedSchema) return null;                // leg 1\nif (typeof evaluatedSchema === 'string') ...      // leg 2 - returns it as its own text\nif (typeof evaluatedSchema !== 'object') ...      // leg 3 - returns String(evaluatedSchema)\n```\n\nLegs 2 and 3 each return a React fragment wrapping that value; the fragment spelling is described rather than quoted here, since this body is stored text.\n\nThe `String(...)` defensive branch is leg 3, and it sits BELOW the `!evaluatedSchema` leg, so `0` and `false` never reach it — they return `null` at leg 1. The bridge applies `String(node)` with no such guard, so it hands `SchemaRenderer` the strings `'0'` and `'false'`, which are truthy and render as their own text. The bridge's claim therefore holds for the truthy primitives (`42`, `true`) and fails for the falsy pair.\n\nThis is also pinned from the other side already: `packages/react/src/__tests__/SchemaRenderer.primitiveSchema.test.tsx` (objectui#4548) asserts `0` and `false` render nothing, in as many words — \"they keep doing so rather than becoming `0` / `false`\".\n\n## Measured on branch `claude/issue-8331-empty-action-primitive-node`, base `f52a9d7ad`\n\nA temporary probe rendered each value both ways and was deleted afterwards (`git status` clean, `git diff HEAD` empty). Readings:\n\n```\nvalue=0       raw=\"\"     bridged=\"0\"      same=false\nvalue=false   raw=\"\"     bridged=\"false\"  same=false\nvalue=42      raw=\"42\"   bridged=\"42\"     same=true\nvalue=true    raw=\"true\" bridged=\"true\"   same=true\nvalue=\"\"      raw=\"\"     bridged=\"\"       same=true\nvalue=\"txt\"   raw=\"txt\"  bridged=\"txt\"    same=true\n```\n\nAnd through the shipped `empty` renderer, whose `action` slot forwards `schema.action` through the bridge under a nullish test:\n\n```\nempty.action=0       text=\"T0\"\nempty.action=false   text=\"Tfalse\"\nempty.action=\"\"      text=\"T\"\n```\n\n⇒ `{ type: 'empty', title: 'T', action: 0 }` renders the title followed by a stray `\"0\"`.\n\n## Why this is worth a card rather than a shrug\n\nThe docblock is not incidental prose — it is marked PERMANENT and it explicitly instructs readers not to route around it. A reader who takes its behaviour-preservation guarantee at face value will conclude that gating a slot on truthiness before the bridge is redundant tidying, and remove it.\n\nThat is the exact reasoning trap objectui#8331's implementation had to navigate: the fix there deliberately KEEPS a truthiness leg so `0` / `false` never reach the bridge, and that decision only makes sense once you know the guarantee is false. The next slot routed through the bridge gets no such warning.\n\nThere are roughly fourteen call sites of `toRenderableSchema` across `components`, `plugin-detail`, `plugin-view`, `plugin-report` and `app-shell`. The blast radius is small in practice — `0` and `false` are rare things to author into a node slot — which is precisely why it will not be found by use.\n\n## Not fixed in place\n\nThree candidate remedies, and choosing between them is not the implementing seat's call:\n\n1. Correct the docblock to state the real boundary — cheapest, changes no behaviour.\n2. Guard the bridge itself so `0` / `false` pass through unchanged — a behaviour change on a published surface at every call site, and it would need its own ruling exactly as objectui#7105 and objectui#8331 did.\n3. Fix only `empty.tsx`'s nullish test, matching what objectui#8331 shipped for `data-table` — narrower, but leaves the bridge's claim false for the next caller.\n\nRoute 2 is the only one that makes the docblock true as written, and it is the only one that is a published-surface behaviour change. That is the decision.\n\n## Refs\n\n- objectui#8331 — where this was measured; its fix keeps a truthiness leg for exactly this reason.\n- objectui#7105 — routed `EmptySchema.action` through the bridge under a nullish test; that is the reachable instance above.\n- objectui#4548 — pins `0` / `false` as rendering nothing.\n- objectui#4622 — the previous correction to this same docblock; a different claim, already closed.\n"
+}

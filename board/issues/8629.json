@@ -1,0 +1,33 @@
+{
+  "number": 8629,
+  "kind": "issue",
+  "title": "docs(guide): two more live document/file counts on ci-cd-pipeline.md declare no measurement point — `181 docs pages` and `16 files`, plus a third copied from a source constant",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-08T18:03:12Z",
+  "updated_at": "2026-09-10T17:50:56Z",
+  "closed_at": "2026-09-10T17:49:44Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8629",
+  "body": "Found by the **re-taken** `content/docs/**` census the objectui#7966 seat was dispatched to run. The successor to objectui#7965, which cleared the previous three. ⛔ **Not fixed on the spot**: objectui#7966's declared file surface is `scripts/**` with `content/docs/**` READ-ONLY, the same fence objectui#7901 had when it filed objectui#7965.\n\n⭐ Two of the three below were **invisible to the census on record** — not because they are new prose, but because that census declared its unit as *\"one LINE\"*, while all three carriers of objectui#7448's pin actually run the pattern over the **joined** text (`split` / `filter` / `map` / `join`, then `matchAll` over the join), so `\\s+` in the family pattern spans a line break. Under the carriers' own unit the sentences below are readable; under a per-line unit they are not. Details in objectui#7966's census comment.\n\n## The three\n\nAll on `content/docs/guide/ci-cd-pipeline.md`, measured on `origin/main` at `86ef0c7643f82a8843fd430ed3a746e52f677235`.\n\n### 1. `:1349` — \"all 181 docs pages\", a docs-population count with no measurement point\n\n> `apps/site/app/components/registerCatalogBlocks.ts` is a list of side-effect imports, and each one pulls its package's module graph into the Next docs route `/docs/[[...slug]]` — a route **all 181 docs pages share**, not just the catalog gallery.\n\nThe corpus that route is built from reads **184** git-tracked `.md` / `.mdx` files under the `dir` `apps/site/source.config.ts` declares, today. Whether 181 was ever exactly right is ⛔ **not established here** — and that is the point: the sentence names no tree and no commit, so nothing can tell. It is the same shape objectui#7448 / objectui#7825 / objectui#7888 pin against in workflow headers, and the strongest member of this batch because its noun is a *document* population, squarely inside the family's stated subject.\n\n### 2. `:1212` — \"16 files stayed behind\", a file-population count with no measurement point\n\n> Nothing could have turned red: the `skills` row's file floor is a **collapse** detector, and 16 files stayed behind to satisfy it while the two that left went unmeasured.\n\nA live count of what the `skills` scan root holds. `node scripts/check-shell-escape-residue.mjs` prints its own per-root figures on every run, which is the reading this sentence should point at.\n\n### 3. `:2059` — \"the sweeper's own upstream default of 4 pages\", copied from a source constant\n\n> the page window is deliberately left unset — back to the sweeper's own upstream default of 4 pages.\n\n**True today** — `scripts/pm/check-half-states.mjs:7902` reads `export const CLOSED_ISSUE_WINDOW_PAGES = 4;` (verified, exit 0). Recorded anyway, and recorded **last**, because it is a copied constant with no measurement point: it rots the moment that export moves, exactly like the three objectui#7965 cleared. ⚠️ It is also the measured instance behind one of objectui#7966's open design questions — `pages?` in the family's noun set matches **paginated API result pages**, a sense of \"page\" that is not a document population at all. If the maintainer narrows the noun set there, this member leaves the class; that ruling is objectui#7966's, ⛔ not this card's.\n\n## Neighbours that are NOT defects, recorded so nobody \"fixes\" them\n\nThe same census matched four more sentences on this page and all four are **correct**, because each declares the tree or window it measured. ⛔ Rewriting any of them into a live figure would create the defect, not remove it:\n\n- `:716` \"Measured on `main@6422aa891`: 18 guide files, 91 candidate spans\" — `check-skills-paths.mjs` prints `88/89 stated path(s) resolve across 20 guide file(s)` today. Every number has moved; the sentence is still true.\n- `:1607` \"112 test files / 3360 tests on `main@59a3a233d`\" — `ls scripts/__tests__/*.test.ts` counts **127** today. Still true. ⭐ This is objectui#7965's own remedy working: PR #8121 converted this cell from the bare `73 files / 1996 tests` into a declared-measurement-point sentence, and it has already survived one drift.\n- `:1828` \"Across all 5281 first-parent commits on `main`, 12 commits modified a pre-existing changeset (19 files)\" — a stated window. ⚠️ The 5281 could not be re-verified here: this checkout is shallow (`git rev-parse --is-shallow-repository` is `true`).\n- `content/docs/fields/file.mdx:89` `// Renders: \"3 files\" or \"document.pdf\"` — quoted program output inside a fence, excluded by the PM ruling of 2026-09-06.\n\n## Acceptance\n\nEach of the three states its population (which tree, which extensions) or points at the live reading its gate already prints on every run — never a copied numeral. ⛔ Updating 181 to 184 and 16 to whatever it is today only restarts the clock; that is the ruling objectui#7448, objectui#7825 and objectui#7965 have each recorded after doing exactly that. Member 3 may instead be closed by objectui#7966's noun-set ruling, if that ruling removes it from the class.\n\n`Blocked-by:` nothing. But objectui#7966's coverage expansion reds on its first run while members 1 and 2 stand — that card's census is what found them.\n\n## Back-links\n\nobjectui#7966 (the re-taken census that found these, and the four design questions still open), objectui#7965 (the previous three, closed by PR #8121), objectui#7901, objectui#7448, objectui#7825, objectui#7888, objectui#7943, objectui#7967.\n\nFiled by the objectui#7966 developer seat. Left unassigned for PM triage."
+}

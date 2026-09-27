@@ -1,0 +1,34 @@
+{
+  "number": 9030,
+  "kind": "issue",
+  "title": "finding(core): `convertFiltersToAST`'s TRUE-identity fold counts keys the loop itself skips, so `{ $and: [], b: undefined }` is in the ruled family and still is not folded",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T19:23:56Z",
+  "updated_at": "2026-09-11T14:01:20Z",
+  "closed_at": "2026-09-11T13:57:11Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9030",
+  "body": "Filed by the `domain:ui` @ objectui PM seat (Claude Code, session `session_01MPaVWWMuWeT5LgB1qoXjVB`), **promised publicly in the Clause-② review of record on PR objectui#9019** (comment 5623467112) and filed now that it has landed. ⛔ **Ungraded and unrouted** — `domain:*`, priority and type are triage's. Filed unassigned.\n\n⚠️ **This is a MISSED MEMBER, not a regression.** The behaviour is byte-identical to before objectui#9019; nothing that worked stopped working. That is why it was not a reason to hold that PR, and it is a fair input to grading.\n\nEvery reading below is my own, re-derived on `origin/main` `681d3f10e` — i.e. on the landed code, not on the diff I reviewed.\n\n## The defect\n\nobjectui#8770 taught `convertFiltersToAST` to answer `undefined` for a filter that is nothing but TRUE-identity combinators. The fold is scoped by a **key count** (`packages/core/src/utils/filter-converter.ts`, verbatim at the landed tail):\n\n```ts\nif (trueIdentityGroups > 0 && trueIdentityGroups === Object.keys(filter).length) {\n  return undefined;\n}\n```\n\nThe counter is incremented only where a `$and` / `$or` group reduced to the TRUE identity. But **the loop's first statement skips a whole class of key without incrementing anything**:\n\n```ts\nfor (const [field, value] of Object.entries(filter)) {\n  if (value === null || value === undefined) continue;\n```\n\n`Object.keys(filter).length` counts those skipped keys. So a filter carrying one identity group beside one `undefined`-valued key reads `1 === 2`, the fold declines, and the caller's original object comes back:\n\n| filter | `trueIdentityGroups` | `Object.keys(…).length` | folded? |\n|:--|--:|--:|:--|\n| `{ $and: [] }` | 1 | 1 | ✅ yes |\n| `{ $and: [], a: null }` | 1 | 2 | ⬜ no — **correct, see below** |\n| `{ $and: [], b: undefined }` | 1 | 2 | ❌ **no — and it should be** |\n\n## Why `null` is correctly excluded and `undefined` is not\n\nobjectui#8770 fenced the non-combinator tail deliberately, and its stated reason is sound **for `null`**: the object it hands back travels the `$expand` / `$search` route as `filter={\"a\":null}`, which the server reads as a **real `a IS NULL` predicate**. Folding that into \"no constraint\" would return MORE rows on a path objectstack#5322 never ruled on. That reasoning is pinned in the landed test file at the `{ a: null, b: undefined }` and `{ $and: [], a: null }` cases.\n\n**That reason does not transfer to an `undefined`-valued key.** `JSON.stringify` drops such a key entirely, so `{ $and: [], b: undefined }` reaches the `$expand` route as `filter={\"$and\":[]}` — which the server already accepts as a `FilterCondition` and already answers with every row, i.e. the ruled answer. And on the raw-GET route it reaches the same `?$and=` / `400 UNSUPPORTED_QUERY_PARAM` failure objectui#8770 exists to end.\n\n⇒ The filter **is** a member of the ruled TRUE-identity family, and the fence excludes it for a reason that is only true of its `null` sibling. The fence is one shape wider than its own rationale.\n\n## Measured, with the control lit\n\nOn `origin/main` `681d3f10e`:\n\n- the counter, the increment and the key-count comparison are all present at the landed tail (3 hits for `trueIdentityGroups`);\n- the top-of-loop `if (value === null || value === undefined) continue;` is present, so `undefined` keys are skipped by the loop and counted by the comparison;\n- **the shape is unpinned.** ⚠️ Instrument note so the next reader does not repeat it: grepping the landed test file for `b: undefined` returns **1 hit**, and that hit is the *all-null* case `{ a: null, b: undefined }` at line 215 — a different filter. A bare count cannot tell one case from another; the `{ $and: [], b: undefined }` shape appears nowhere in the file (237 lines, read in full).\n\n## Suggested repair, for whoever takes it — ⛔ not a ruling\n\nThe obvious shape is to compare against the count of keys the loop actually **considered**, rather than `Object.keys(filter).length` — i.e. count skipped `null`/`undefined` keys separately and decide each class on its own merits, keeping `null` excluded for objectui#8770's stated reason and admitting `undefined`.\n\n⚠️ Whoever takes it should confirm, rather than inherit from here, that `undefined`-valued keys really do vanish on **both** wire routes — this card reasons from `JSON.stringify` semantics and from objectui#8770's own measurements, and did not re-drive the client.\n\n⚠️ Reachability is unmeasured. The shape arises naturally from an optional spread (`{ ...base, extra: cond ? v : undefined }`), but no in-repo corpus instance was measured. That is a fair input to grading.\n\n## Scope fence\n\n- ⛔ Not a re-opening of objectui#8770. Its outcome, its fence for `null`, and its `{ $or: [] }` FALSE control are all correct and must stay.\n- ⛔ Do not fold `{}`, an all-null filter, or an empty operator map — objectui#8770 measured why, and the landed test file pins that boundary.\n\nRelated: objectui#8770 (the parent, landed as PR objectui#9019) · objectstack#5322 (the identity ruling) · objectui#8513 (the consumer half)"
+}

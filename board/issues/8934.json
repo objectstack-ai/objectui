@@ -1,0 +1,37 @@
+{
+  "number": 8934,
+  "kind": "issue",
+  "title": "`record:chatter.feed` / `record:discussion.feed` 宣称「same shape as record:activity」，但其中的过滤成员（types / limit / showCompleted / unifiedTimeline）在这条路径上被静默丢弃",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "package: plugin-detail",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-10T04:14:17Z",
+  "updated_at": "2026-09-10T15:50:50Z",
+  "closed_at": "2026-09-10T15:42:24Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8934",
+  "body": "Found while writing the per-block member pin for `record:chatter.feed` / `record:discussion.feed` (objectui#8071 slice 6). Filed rather than fixed: out of that card's scope, and the fix is a contract decision rather than a renderer tweak.\n\n## The trap\n\n`packages/plugin-detail/src/index.tsx` declares the nested config on both names with:\n\n```ts\n{ name: 'feed', type: 'object', description: 'Activity-feed config nested inside the panel — same shape as record:activity' },\n```\n\nThat description ships to `sdui.manifest.json`, so it is what an AI author reads before writing the block. Taken at its word, `feed: { types: ['comment'], limit: 10, showCompleted: true }` is a legal, recommended write.\n\n**Half of those members do nothing on this path**, with no diagnostic.\n\n## Measured, on `bbe285ee7ef66920e84886f0a472c5b018557a75`\n\nThe `record:activity` inputs split into two groups by WHO applies them:\n\n| group | members | applied by |\n| --- | --- | --- |\n| affordance | `showFilterToggle`, `showCommentInput`, `enableReactions`, `enableThreading`, `showSubscriptionToggle` | `RecordActivityTimeline` — reads them off its `config` prop |\n| filter | `types`, `limit`, `showCompleted`, `unifiedTimeline` | `applyFeedConfig` (`renderers/recordActivityFeed.ts`) |\n\nThe chain for the nested key is `record-chatter.tsx` -> `config.feed` -> `RecordChatterPanel` -> `RecordActivityTimeline`'s `config` prop. `applyFeedConfig` is **never** on it:\n\n```\n$ grep -rn \"applyFeedConfig\" --include=*.ts --include=*.tsx packages/ apps/ | grep -v __tests__ | grep -v \"\\.test\\.\"\npackages/plugin-detail/src/renderers/recordActivityFeed.ts:696:export function applyFeedConfig(\npackages/plugin-detail/src/renderers/record-activity.tsx:67:  applyFeedConfig,\npackages/plugin-detail/src/renderers/record-activity.tsx:219:    return applyFeedConfig(sourceItems, { types, showCompleted, unifiedTimeline }, pageSize);\n```\n\nExactly one non-test call site, and it is `record-activity.tsx`. `RecordActivityTimeline.tsx` reads `config?.showFilterToggle` / `showCommentInput` / `enableReactions` / `enableThreading` / `showSubscriptionToggle` (lines 213-217) and never mentions `types`, `limit`, `showCompleted` or `unifiedTimeline`.\n\n⇒ On `record:chatter` / `record:discussion` the filter members are **declared, published, and inert** — objectstack#4413's shape, which is also precisely what objectui#3165 fixed for `record:activity` itself when its eleven inputs filtered a hard-coded empty feed.\n\n## Why this is worth a card rather than a comment\n\nThe silence is the defect. `types` has an elaborate diagnostic apparatus for authors who name a kind wrong or a kind nothing produces (objectui#5841, objectui#5877) — but that apparatus lives inside `normalizeFeedTypes`, which is only reached through `applyFeedConfig`. Nested inside `feed`, a *correctly spelled* `types` is dropped with no warning at all, so the author gets less feedback for a valid value than for a typo.\n\n## Not decided here\n\nThree readings, and the choice is a contract question rather than a renderer one:\n\n1. **Honour them** — run `applyFeedConfig` over the panel's items in `record-chatter.tsx`, making the description true.\n2. **Narrow the declaration** — say `feed` carries the affordance members only, and drop the \"same shape as record:activity\" sentence that is doing the over-promising.\n3. **ADR-0049 enforce-or-remove** on the filter half of the nested key.\n\nNo recommendation offered: (1) changes what shipped pages render, and that is a behaviour change nobody has asked for.\n\n## Not in scope, deliberately\n\nobjectui#8071 slice 6 pins the members that ARE live and records this boundary as a stated LIMIT in the pin file's docblock rather than freezing the inert half — pinning \"this member is dead\" would be a pin whose whole content is that the contract is wrong, the same reasoning `NO_READ_SITE_TO_PIN` carries for `record:related_list.actions`.\n\nPin file: `packages/plugin-detail/src/renderers/__tests__/recordChatterFeedMembers-8071.test.tsx`"
+}

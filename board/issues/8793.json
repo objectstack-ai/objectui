@@ -1,0 +1,33 @@
+{
+  "number": 8793,
+  "kind": "issue",
+  "title": "record:related_list: 身份解析不出的列条目绕过 enforceFieldSecurity / redactFields,然后经表格自己的 accessorKey 照常渲染",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-09T08:51:39Z",
+  "updated_at": "2026-09-11T10:44:54Z",
+  "closed_at": "2026-09-11T10:41:13Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8793",
+  "body": "## 事实（实测于 `origin/main` @ `b6d07df4`）\n\n`record:related_list` 用两个读点解析 `columns` 的成员身份,两者**不一致**,而字段级安全过滤只走其中一个。\n\n**读点 A —— 块自己的过滤(`packages/plugin-detail/src/renderers/record-related-list.tsx`)**\n\n```ts\nconst colName = (entry: any): string | null =>\n  columnIdentity(entry) || (entry && typeof entry === 'object' ? entry.key : null) || null;\n\nfilteredColumns = rawColumns.filter((c) => {\n  const n = colName(c);\n  return n ? allowed.has(n) : true;   // 解析不出身份 => 保留\n});\n```\n\n`columnIdentity` 按设计**排除** `accessorKey`（`packages/core/src/utils/column-identity.ts` 的 `TABLE_ADAPTER_COLUMN_KEY`,objectui#3104:它是表格库的键,不是 ObjectStack 元数据身份）。所以 `{ accessorKey: 'salary' }` 的 `colName` 是 `null`,落进 `: true` 分支,**无条件保留**。\n\n**读点 B —— `packages/plugin-detail/src/RelatedList.tsx` 实际渲染取值**\n\n```ts\nconst key = c?.accessorKey || columnIdentity(c);\n```\n\n`accessorKey` 在这里是**一等身份**（`RelatedList.tsx` 的 901 / 909 / 962 / 1049 / 1279 / 1511 行都这么读）。\n\n## 后果\n\n一个写成 `{ accessorKey: 'salary' }` 的列:\n\n1. `enforceFieldSecurity: true` 时不进 `readableFields()` 的判定 —— 因为 `colName` 给不出名字;\n2. `redactFields: ['salary']` 也删不掉它 —— 同一个分支;\n3. 然后照常渲染出 `salary` 的值。\n\n即:**块的字段级安全过滤按一套身份词汇判定,渲染按另一套取值**,两套不同的地方正好就是绕过的口子。\n\n## 证据\n\n- 过滤侧已实测并钉住（objectui#8071 slice 2 的成员 pin,`packages/plugin-detail/src/__tests__/RecordRelatedListRenderer.columnMembers.test.tsx`,用例 `keeps a member whose identity it cannot resolve, rather than dropping it`）:`redactFields: ['status']` 下 `{ accessorKey: 'status' }` 原样保留。\n- 渲染侧已有既存绿色用例:`RelatedList.columnIdentityAccessor.test.tsx` 的 `leaves an explicit accessorKey entry rendering as before` —— `{ accessorKey: 'status' }` 渲染出真实单元格值。\n- 两条腿合起来就是绕过。FLS 腿（`enforceFieldSecurity`）与 redact 腿是**同一个 fold**,所以结论对两者同时成立;上面直接实测的是 redact 腿。\n\n## 说明:这两个键本身还是未声明面\n\n`enforceFieldSecurity` 与 `redactFields` 既不在 `@objectstack/spec` 的 `RecordRelatedListProps`（其顶层键实测为 actions / add / aria / columns / filter / limit / objectName / relationshipField / relationshipValueField / showViewAll / sort / title）,也不在本块注册的 `inputs` 里。所以这是一个**未发布的渲染器特性**上的缺陷 —— 这不减轻它,只是说明为什么没有任何 parity 方向看得见它。\n\n## 可能的方向（不预判裁决）\n\n- A:让过滤侧也认 `accessorKey`（两个读点共用一个解析器）。风险:把表格库词汇折进元数据身份,正是 objectui#3104 明确拒绝的合并。\n- B:反过来 —— 解析不出身份的条目在**启用了** FLS/redact 时**丢弃**而不是保留（fail-closed）。\n- C:先裁决 `enforceFieldSecurity` / `redactFields` 该不该是已声明面（ADR-0049 enforce-or-remove）,再谈过滤语义。\n\n由 objectui#8071 slice 2 在写 `record:related_list.columns` 的成员 pin 时实测发现。"
+}

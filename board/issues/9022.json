@@ -1,0 +1,34 @@
+{
+  "number": 9022,
+  "kind": "issue",
+  "title": "finding(app-shell,react): the drill \"Open in list\" / `target: 'navigate'` path sends filter placeholders UNRESOLVED, so one drill has two scopes depending on its target",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T18:25:41Z",
+  "updated_at": "2026-09-11T13:14:22Z",
+  "closed_at": "2026-09-11T13:09:32Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9022",
+  "body": "Found while fixing objectui#8944 (PR #9016). Filed rather than folded in: that card is about how the two filter SOURCES compose, this is about what the composed value still carries. Orthogonal, and this one is not chart-specific.\n\n## The defect\n\nEvery widget that drills through `DrillNavigationContext.openRecordList` hands it the widget's own filter composed with the click context — and that value is the **raw authored filter**, placeholders included. Both in-repo consumers of the handler (`useOpenRecordList` in app-shell, and `OpenInListButton` in plugin-dashboard) pass it straight to `serializeDrillFilterParams`, which writes it into `filter[...]` URL params verbatim. Nothing resolves `{current_quarter_start}` or `{current_user_id}` on the way.\n\n## Why it survived: the drawer path does NOT have the bug\n\nThe in-place drawer renders `object-data-table`, whose own fetch calls `resolveFilterPlaceholders(schema.filter, filterScope)`. So a macro authored on the widget **is** resolved on the drawer path and is **not** on the navigate path.\n\n⇒ One drill, two different scopes, decided only by `drillDown.target`. And the same widget's own chart bars are scoped by the resolved value — `ObjectChart` resolves its query legs through `resolveFilterPlaceholders(schema.filter, filterScope)` while composing the drill from `schema.filter` raw — so the drilled list disagrees with the chart the user clicked.\n\n## The failure is silent and lands on a literal\n\nA widget filter of `{ close_date: { $gte: '{current_quarter_start}' } }` serializes to `filter[close_date][gte]={current_quarter_start}`. The bare data surface parses that back as an ordinary string comparand, so the list matches nothing (or the driver refuses the comparand). Nothing errors at the seam that produced it.\n\nNote this direction is NARROW, unlike objectui#8944's widening — but it is the same class: the widget's declared scope silently not being the scope the drilled list runs under.\n\n## Not chart-specific\n\n`openRecordList` is the shared drill escape hatch: the table / pivot / metric widgets reach it through `DrillDownDrawer` and `OpenInListButton` too. Any of them carrying a placeholder in `filter` has the same split.\n\n## The decision this needs\n\nWhere resolution belongs is the actual question, and it should be answered once rather than per widget:\n\n- **A — at each widget's drill seam**: compose from the already-resolved filter the widget queries with. Local, but it is N seams and the next hand-rolled drill panel will forget it again.\n- **B — inside the `openRecordList` contract**: resolve once where the value crosses into the host, covering every caller including future ones. Needs the filter-token scope to be reachable there.\n\nB looks right, but the scope plumbing is a real design question, so this is not a mechanical fix.\n\n## Acceptance\n\n- A widget whose `filter` carries `{current_user_id}` or a relative-date macro, drilled with `target: 'navigate'`, produces a URL carrying the RESOLVED value.\n- The drawer path keeps resolving exactly once — no double resolution.\n- Pinned for at least one non-chart caller as well, since the contract is shared and a chart-only pin would let the next widget regress silently."
+}

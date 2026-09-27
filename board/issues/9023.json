@@ -1,0 +1,30 @@
+{
+  "number": 9023,
+  "kind": "pull_request",
+  "title": "docs(changeset): drop the stale cardinal from the objectui#8315 changeset",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-10T18:33:13Z",
+  "updated_at": "2026-09-10T20:33:48Z",
+  "closed_at": "2026-09-10T20:33:46Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-09-10T20:33:46Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/9023",
+  "body": "Fixes #8759\n\nThe migration paragraph of the unreleased objectui#8315 changeset asserted a count that\nis not the count of anything on today's tree. A changeset body publishes verbatim into\nthe CHANGELOG, so the window to fix it closes at the next release.\n\n## What was wrong — and what was not\n\nThe sentence made two claims at once, and only one of them was false.\n\n- **The cardinal was wrong.** It said \"two\". It was true at the merge base of the pull\n  request that carried the changeset, and was falsified by that same diff, which added a\n  third pin. This is the ordinary failure mode of a count written into a changeset: it is\n  authored against the base and describes the head.\n- **The class claim was right and stays right.** None of the occurrences is a writer, and\n  the migration guidance resting on it (\"nothing measured has to change\") is correct as\n  written. It is unchanged here — not weakened, hedged or re-scoped.\n\nThere was also a noun problem underneath the number. \"Occurrences\" and \"pins\" are two\ndifferent populations, because one of the occurrences is prose inside a docblock on the\nnarrowed declaration, not a pin. Neither population numbered two.\n\n## Measured on this branch's base\n\n`git grep -n \"binding: 'field'\" -- packages apps examples`, exit 0, printed rather than\ncounted: **four** occurrences.\n\n- Two in the sdui-parser injected-component-input pin file — each with `// @ts-expect-error`\n  on the line immediately above, read off disk;\n- one in the `@object-ui/types` pin file of the same name, likewise `@ts-expect-error`;\n- one inside a docblock on the narrowed `ManifestInput.binding` declaration, in the\n  paragraph beginning \"The permissiveness protected nothing\" — prose about the retirement,\n  not a pin and not a writer.\n\n⇒ three negative pins, one docblock mention, zero writers.\n\n**Firing control.** `binding: 'object'` over the same population returns 23 occurrences\nacross 10 files. The matcher resolves this spelling, so the four is a reading and not a\nbroken query. A whole-tree sweep for the alternate quotings of the same key adds nothing\noutside `.changeset/` prose.\n\n## The repair\n\nThe replacement carries **no cardinal at all**. The card's own appetite asked for this and\nthe reason is the defect itself: the count is what rots, whereas the sentence's real claim\nis universally quantified and stays true as pins are added or removed.\n\nThe population is named explicitly — `packages/`, `apps/` and `examples/` — rather than\nleft as \"in this repo\". That is not a re-scope of the class claim; it is what makes the\nuniversal true, because the retired arm is also spelled in changeset prose (including this\nvery file), and those spellings are neither pins nor docblock mentions. The preceding\nsentence still carries the repo-wide zero-writers measurement unchanged, so nothing is\nlost. The wording convention matches the sibling objectui#6950 changeset, which measures\nover the same three directories by name.\n\nBump level, frontmatter and every other paragraph are untouched. No other changeset is\ntouched; no pin is touched; `packages/spec` is not touched.\n\n## Gates — and why they are not the evidence here\n\nNothing parses changeset prose for truth, so every gate stays green either way. They were\nrun because the mechanics asked, not as acceptance:\n\n- `node scripts/check-changeset-presence.mjs` → exit 0, printed: \"Compared the working tree\n  with bbf068db1 (merge-base with origin/main): 1 file(s) changed, 0 of them published\n  source of a package the release covers, 0 of them a manifest whose published contract\n  moved, 0 under a package changesets ignores, 0 changeset(s) added.\" and\n  \"No source or published contract of a released package changed in this range, so no\n  changeset is owed.\" ⇒ **no second changeset is added**, on the gate's own word.\n- `check-changeset-no-major.mjs` → exit 0, \"No changeset declares a `major` bump.\"\n- `check-changeset-overwrite.mjs` → exit 0 (report-only gate).\n- `check-changeset-fixed.mjs` → exit 0.\n- `check-control-bytes.mjs` → exit 0.\n- `check-governed-queue-guard.mjs --test` on the changed path → \"NOT GOVERNED\".\n\nThe acceptance evidence is the two things above instead: the corrected text read back from\nthe file, and a fresh count with its firing control.\n\n## Scope\n\nThe mechanism question — nothing re-reads a pending changeset when a later pull request\nfalsifies it — is **not** carried here. It has its own entry point at objectui#9003. No\ngate is built on this branch.\n\nDraft on purpose: the PM seat lands it.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01FhBNJcLRZLe8M87VcUgpKr)_"
+}

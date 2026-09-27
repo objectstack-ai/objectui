@@ -1,0 +1,33 @@
+{
+  "number": 8983,
+  "kind": "issue",
+  "title": "finding(app-shell): the host discussion fallback does not run the feed pipeline the authored record:chatter / record:discussion block now runs",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T14:26:57Z",
+  "updated_at": "2026-09-10T18:58:59Z",
+  "closed_at": "2026-09-10T18:52:17Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8983",
+  "body": "Filed unassigned by the `os-dev` seat implementing objectui#8934 (session `session_01Jmxdo7bmeqCQHLSfmLVX9w`, PR #8962), on its second rework round, at the dispatching seat's request. Not claiming, not grading — triage owns both.\n\n## The divergence\n\nThere are **two** chatter surfaces on a record page, and as of objectui#8934 they no longer render the same feed:\n\n1. **The authored / synthesized block.** A page that places `record:chatter` or `record:discussion` — including every synthesized default page, which emits `record:discussion` at `packages/plugin-detail/src/synth/buildDefaultPageSchema.ts:880-883` — renders through `RecordChatterRenderer`. Since objectui#8934 that renderer runs `applyFeedConfig` before handing items to `RecordChatterPanel`, so the protocol's `feed` members and **the protocol's defaults** apply: `showCompleted` false, `limit` 20 with a \"Load more\" control.\n\n2. **The host fallback.** An authored page that omits a discussion block gets `packages/app-shell/src/views/RecordDetailView.tsx:2549` — gated by `showAutoDiscussion` at `:2182` — which mounts `RecordChatterPanel` **directly**, with a hard-coded three-affordance `feed` and `items={feedItems}` straight off `:1551`. That file contains **0** occurrences of `applyFeedConfig`, **0** of `hasMore` and **0** of `onLoadMore`.\n\nSo for the same record, on the same feed, the two surfaces now disagree. Nobody chose that; it is a consequence of closing the gap on surface 1 only.\n\n## Measured — the reproducible probe\n\nOne-shot probe, run on `claude/issue-8934-chatter-feed-affordance-only` at `94ff68051`, then deleted rather than committed. It mounts the two surfaces side by side on the identical feed: the fallback as its JSX is written at `RecordDetailView.tsx:2549-2566` (`RecordChatterPanel` with `config={{ position: 'bottom', collapsible: false, feed: { enableReactions: true, enableThreading: true, showCommentInput: true } }}` and raw `items`), and the authored block as `RecordChatterRenderer` inside a `DiscussionContextProvider` carrying the same items. Reading: the feed rows rendered, and how many \"Load more\" buttons.\n\n| feed | host fallback | authored / synthesized block |\n| --- | --- | --- |\n| 3 comments + 1 `task` row | `[\"Comment 1\",\"Comment 2\",\"Comment 3\",\"Completed task row\"]`, Load more ×0 | `[\"Comment 1\",\"Comment 2\",\"Comment 3\"]`, Load more ×0 |\n| 25 comments | 25 rows, Load more ×0 | 20 rows, Load more ×1 |\n| **CONTROL** — 3 comments, no `task` row | `[\"Comment 1\",\"Comment 2\",\"Comment 3\"]`, Load more ×0 | `[\"Comment 1\",\"Comment 2\",\"Comment 3\"]`, Load more ×0 |\n\nThe control row is what makes the other two a measurement rather than a harness in which the two surfaces could never have agreed.\n\nThe `task` row disappears on surface 1 because `applyFeedConfig` drops `COMPLETED_FEED_TYPES` (`packages/plugin-detail/src/renderers/recordActivityFeed.ts:261`) unless `showCompleted` is true, and the spec's default for it is `false`.\n\n## A sentence in the tree that is now false\n\n`packages/plugin-detail/src/renderers/record-chatter.tsx` said, of the renderer's own default config:\n\n> defaults that match the auto-appended panel used by RecordDetailView — so an author-placed `record:discussion` looks identical to the fallback the host injects when no component is present.\n\nThat was true before objectui#8934 and is false after it for any feed with a `task` row or more than twenty items. PR #8962 rewrites that comment and points at this card; the divergence itself is what this card is for.\n\n## Why it is not part of objectui#8934\n\nThat card's ruling (maintainer, 2026-09-10, via the director seat) is protocol-first: `@objectstack/spec` declares `RecordChatterProps.feed` as `RecordActivityProps` (`component.zod.ts:1366`), so the authored block not applying those members was an implementation gap and was closed. The fallback exposes **no authored `feed` at all** — it hard-codes one — so it is not a defect of that key's contract, and routing it through the same pipeline would be a further behaviour change on authored pages that omit a discussion node, which that ruling does not authorize. The dispatching seat chose to file rather than widen the PR.\n\n## What a fix would look like, if triage wants one\n\n`RecordDetailView.tsx:2549` would run `applyFeedConfig(feedItems, {}, pageSize)` with the same `extraPages` page-window shape `packages/plugin-detail/src/renderers/record-activity.tsx:159-160` uses, and forward `hasMore` / `onLoadMore` to the panel, which already accepts both. That is one call site and roughly the same ten lines objectui#8934 added to `record-chatter.tsx`.\n\nThe alternative worth weighing before taking that one: the fallback is a **host affordance**, not an authored block, so \"no filters, whole feed\" may be the behaviour someone wants there — in which case the fix is to say so where the two surfaces are documented, and this card closes as a decision rather than a patch. Either way the tree should stop implying the two are identical.\n\nPriority, lane and whether this is one card or a note on objectui#8934 are triage's calls, not this seat's.\n\nGenerated by Claude Code in session `session_01Jmxdo7bmeqCQHLSfmLVX9w`.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

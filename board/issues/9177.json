@@ -1,0 +1,35 @@
+{
+  "number": 9177,
+  "kind": "issue",
+  "title": "finding(ci): a red coverage shard on the push lane never says which test failed — the blob reporter prints no names and the blob artifact is download-only",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T14:25:14Z",
+  "updated_at": "2026-09-12T05:29:21Z",
+  "closed_at": "2026-09-12T04:38:02Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9177",
+  "body": "## Observation\n\nWhen a coverage shard goes red on the push lane, **nothing anyone can read says which\ntest failed.** Measured while building the objectui#8545 census, over 347 red runs.\n\n`ci.yml`'s `test-coverage` job runs\n\n```\npnpm test:coverage --reporter=blob --shard=N/4 --coverage.thresholds.lines=0 ...\n```\n\nand `--reporter=blob` **replaces** the default reporter set. A failing shard's job log\ntherefore goes from whatever the tests themselves printed on stdout straight to\n\n```\nblob report written to /home/runner/work/objectui/objectui/.vitest-reports/blob-2-4.json\n ELIFECYCLE  Command failed with exit code 1.\n##[error]Process completed with exit code 1.\n```\n\nNo failing-test names. No assertion text. No `Test timed out in 15000ms`.\n\n**Measured directly, not inferred from a log sample.** Same tree, one throwaway test\nfile with one failing assertion and one deliberate timeout, run both ways:\n\n| reporter | exit | output |\n|---|---|---|\n| default | 1 | `Failed Tests 2`, both test names, `Error: Test timed out in 50ms.`, `Test Files 1 failed (1)`, `Tests 2 failed (2)` |\n| `--reporter=blob` | 1 | **one line**: `blob report written to .vitest-reports/blob.json` |\n\nTwo real red shard logs from `main` were sampled at their tails and match that shape\nexactly: the vitest step's last output is `blob report written to …`, immediately\nfollowed by `ELIFECYCLE Command failed with exit code 1`.\n\nThe failures do exist, inside the `coverage-blob-N` artifact the next step uploads\n`if: always()`. That artifact is **download-only**: `GET /actions/artifacts/ID/zip`\n302s to `productionresultssa0.blob.core.windows.net`, and the same is true of\n`GET /actions/jobs/ID/logs`.\n\nThe check-run annotations do not help either. The shard job carries exactly one, the\ngeneric `Process completed with exit code 1.`; only the `Test (coverage)` job emits a\nuseful one, and it names the *state* (`shards=failure blobs=skipped merge=skipped\nreport=skipped`), never the test.\n\n## Why this is worth a card of its own\n\nobjectui#8545 records two episodes in which one test file held `main`'s coverage gate\nunevaluated — one for 84 consecutive pushes, one for 87 — and both were found the same\nway: **a person reading a job log by hand, days later.** The census now says why that\nwas the only route. The lane reports that it failed and withholds the one fact that\nwould let anyone act on it.\n\n⚠️ Stated as a cost, not as a defect in anyone's work: the blob reporter is correct for\nwhat it was added to do (objectui#5403 shards the coverage lane and merges the blobs),\nand the thresholds genuinely need the merged report. The gap is only that nothing was\nadded alongside it to keep the failure text readable.\n\n## Shapes a fix could take — ⛔ none proposed as a ruling\n\n1. Add a second reporter to the shard legs, so the blob keeps its job and the log\n   keeps the names. `--reporter=blob --reporter=github-actions` or\n   `--reporter=blob --reporter=default`; ⚠️ unmeasured whether vitest 4.1.10 accepts\n   both and whether the annotations survive the sharding.\n2. Upload the failure list as its own small text artifact from the shard leg. Costs an\n   artifact per shard and is still download-only, so it does not help an API reader.\n3. Leave it, and accept that diagnosing a red coverage shard means reproducing it\n   locally. That is what happened twice; the card above prices it.\n\n⛔ This card asserts no priority and no domain — filed for triage's first grading, with\nno assignee.\n\n## Provenance and dedupe\n\nMeasured by the `os-dev` seat working objectui#8545 and filed bare rather than fixed\nthere: that card is a decision-free measurement and this is a different problem with a\ndifferent remedy.\n\nDedupe: 1500 raw rows over repo-scoped REST (`state=all`, newest first, explicit\n`page=N` paging), 773 non-PR issues spanning objectui#7678 .. objectui#9175, grepped\nlocally for `reporter=blob|blob reporter|coverage-blob|job log|blob storage|artifact\ndownload|failing test name`. Three title/body hits: objectui#8545 (this card's parent,\nthe mechanism not the readability), objectui#8099 (closed — a corepack download failure\nreddening `README Export Check`), objectui#7990 (closed — Live E2E red on a backend\npin). ⛔ None is this. Presence controls in the same fetched set: objectui#8545 and\nobjectui#8479 both present. ⚠️ Stated limit: objectui#8419 and objectui#6055 are older\nthan the fetched range, so the pool covers objectui#7678 upward only.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

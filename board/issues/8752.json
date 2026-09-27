@@ -1,0 +1,33 @@
+{
+  "number": 8752,
+  "kind": "issue",
+  "title": "finding(i18n): check-i18n-dead-keys' enumerated pack-object importer list is stale — a fifth non-test importer exists and is unanalysed",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-09T03:26:32Z",
+  "updated_at": "2026-09-10T21:12:44Z",
+  "closed_at": "2026-09-10T21:11:03Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8752",
+  "body": "Observation-class, found while working objectui#8701 (PR for that card touches the same header). ⛔ Not claimed. Deliberately not fixed there: different class from that card's boundary predicate, and its enumeration is a per-importer reading, not a mechanical edit.\n\n## What is stale\n\n`scripts/check-i18n-dead-keys.mjs`'s header section **\"The pack-object importers, enumerated (objectui#6666)\"** writes the class down rather than leaving it to memory, gives the grep to re-derive it, and then says:\n\n> NON-TEST importers — the ones that can keep a SHIPPED key alive (19 matches today, of which these four)\n\nRe-running the header's own grep on `4857776cb`:\n\n```\ngrep -rn --include=*.ts --include=*.tsx -E \\\n  \"import \\{[^}]*\\b(en|zh|builtInLocales|ja|ko|de|fr|es|pt|ru|ar)\\b[^}]*\\}\" \\\n  packages apps examples e2e \\\n  | grep \"@object-ui/i18n\" | grep -v '^packages/i18n/'\n```\n\nreturns **28** matches, not 19, and **five** non-test importers, not four. The unlisted one is:\n\n- `packages/react/src/utils/nonGridRowCeiling.tsx` — imports `en` and dereferences it at render (`en.common.rowCeilingNote`, `en.common.rowCeilingNoteUnknownTotal`) to supply the `defaultValue` beside a literal `t('common.rowCeilingNote', …)` call.\n\n## Why it is worth a row rather than nothing\n\nMeasured: this particular importer establishes no liveness the AST leg does not already see — both keys are spelled literally as `t()` arguments, so they are `referencedKeys` and never candidates. So there is **no wrong verdict on the tree today**, and this is not a defect report.\n\nWhat is stale is the enumeration's own claim. The section exists so that the leg's coverage class can be **checked** rather than trusted, and the four bullets each say what their importer's shape means for the leg (covered by design / not covered / nothing at risk). A fifth importer with no bullet is a reader nobody has classified, and the next one lands in the same silence. objectui#8701 makes the list matter slightly more, not less: with the key boundary on, a two-segment key's pack-object property reader is no longer caught by the full-key probe by accident, and the header now names this enumeration as the remaining hand-read check for that shape.\n\n## Suggested fix\n\nUpdate the count and add a fifth bullet stating this importer's shape (literal `t()` argument beside the property read ⇒ nothing at risk). Consider whether the \"19 matches today\" snapshot should be a count the script prints rather than a number in prose — a number in a comment cannot notice that it drifted.\n\n## Dedup\n\nThe global search endpoint is blocked for this session's proxy (`repo-scoped endpoints only`) and one targeted MCP `search_issues` came back `API rate limit already exceeded`, so dedup was done on the sanctioned fallback: one repo-scoped REST list page — `GET /repos/objectstack-ai/objectui/issues?state=open&labels=finding&per_page=100&sort=updated` — grepped locally for `importer` / `pack-object` / `dead-keys` / `property chain`. Two hits, neither a duplicate: objectui#8701 (this card's parent) and objectui#7911 (unrelated widget-prop finding). ⚠️ That page came back full (100 rows), so the read is the 100 most recently updated open `finding` issues, not the whole label."
+}

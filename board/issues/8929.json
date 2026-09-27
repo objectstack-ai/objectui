@@ -1,0 +1,33 @@
+{
+  "number": 8929,
+  "kind": "issue",
+  "title": ".github/prompts/component.prompt.md teaches the retired `view:kanban` / `view:gantt` keys to every AI that reads it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T02:17:43Z",
+  "updated_at": "2026-09-11T02:19:04Z",
+  "closed_at": "2026-09-11T02:17:56Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8929",
+  "body": "## What is wrong\n\n`.github/prompts/component.prompt.md:71` reads:\n\n> *   **Keys:** `view:grid`, `view:kanban`, `view:map`, `view:calendar`, `view:gantt`, etc.\n\nTwo of those five keys are retired. objectui#8802 retired the bare `kanban` node type key and objectui#8008 retired the bare `gantt` registration (maintainer rulings, 2026-09-09; delivered by PR #8865). `ComponentRegistry.register(type, C, { namespace })` stores **both** the namespaced key and a bare-`type` fallback, so `view:kanban` and `view:gantt` retired with those registrations — pinned in `plugin-kanban/src/__tests__/kanban-family-registry-keys-retired-8257.test.ts` and `plugin-gantt/src/__tests__/bare-gantt-node-key-retired-8008.test.ts`, each against a firing control on the surviving key.\n\nThe surviving spellings are `object-kanban` and `object-gantt`.\n\n## Why this is a trap and not a doc nit\n\nThis file is a **prompt**: its whole function is to be read by an AI that then writes metadata. It is one of the very few files in this tree whose stale line converts directly into authored documents.\n\nAnd the authoring-time check does not catch the result:\n\n- `packages/cli/src/utils/known-schema-types.ts` is GENERATED from the repository's real `ComponentRegistry.register(...)` calls. `apps/console` calls the opt-in `registerPlaceholders()` (`@object-ui/components`, `renderers/placeholders.tsx`), whose `PROTOCOL_COMPONENTS` list contains both `view:kanban` and `view:gantt`, and that registration is a real one.\n- ⇒ Both keys are still on the generated list at `known-schema-types.ts:656,658`, so **`objectui check` validates such a node green**.\n- What renders is not a board. In `apps/console` the node falls to the protocol **placeholder** panel; in every other host, which does not call that bootstrap, it renders the OBJUI-001 \"Unknown component type\" panel.\n\nSo an AI reading this prompt writes a document that passes the repository's own validator and draws nothing. The bare `kanban` / `gantt` entries DID leave the generated list; only the namespaced pair survives, and only because of the placeholder registration.\n\n## Proposed change\n\nReplace the two retired keys on that line with the surviving spellings, and say once that the `view:*` namespaced form is the registry key rather than an authorable node type where the two have diverged. One line; no gate reads this file, so nothing else moves.\n\n## Provenance\n\nFound while implementing the contract-review rework round of PR #8865 and reported there rather than fixed in it: the file is outside that PR's diff and outside its three rulings, so changing it would have widened a PR already under review. The `CONTRACT_REVIEW_TIER` verdict on PR #8865 records the same line as in-tree residue under its finding F5. Not governed surface — `.github/prompts/**` is not one of the five entries in `check-governed-queue-guard.mjs`'s `GOVERNED_SURFACES`, so this lands through the normal queue.\n\nFiled by the `os-dev` seat on branch `claude/kanban-gantt-family-retirement`, session `https://claude.ai/code/session_01Jmxdo7bmeqCQHLSfmLVX9w`, with Claude Code. Deliberately left unassigned."
+}

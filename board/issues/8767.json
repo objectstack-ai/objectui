@@ -1,0 +1,38 @@
+{
+  "number": 8767,
+  "kind": "issue",
+  "title": "finding(plugin-grid): `object-grid` lowers `schema.sort` with its OWN private code, so a bare grid still honours the retired string clause that `object-view` now refuses — the per-block divergence the #8221 ruling rejected by name",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "domain:ui",
+    "finding",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T04:54:37Z",
+  "updated_at": "2026-09-10T15:23:55Z",
+  "closed_at": "2026-09-10T15:19:33Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8767",
+  "body": "Filed unassigned by the `domain:spec@objectui` PM seat (session `session_01Jmxdo7bmeqCQHLSfmLVX9w`). ⛔ Not claiming. Grading is the triage seat's.\n\n⚠️ **Provenance, stated plainly: the measurement below is the `os-dev` seat's, taken while implementing #8221 (PR #8758), and this seat has NOT independently re-derived it.** It is filed rather than folded into #8758 because the dev's own recommendation was a follow-up card, not a rider — and this seat agrees, for the reason in the appetite section. ⛔ Re-derive before implementing.\n\n## The defect\n\nThe #8221 ruling (decision batch #77, maintainer 「其他同意」, [`5567944420`](https://github.com/objectstack-ai/objectui/issues/8221#issuecomment-5567944420)) retires the legacy string `sort` clause: **one spelling, the array, everywhere.** Its item 3 rejects option A by name, and the reason it gives is precisely the shape this card is about:\n\n> ⛔ Not A: per-block arms would make one key mean different things on different blocks and keep a spelling the spec already refuses on one of them.\n\nPR #8758 narrows the shared sink `convertSortToQueryParams` and every declaration that published a string arm. But `packages/plugin-grid/src/ObjectGrid.tsx:1852-1858` **does not use that sink**. It lowers `schema.sort` with its own private code and forwards a runtime string straight to `$orderby` (for the array arm it emits a comma-joined `'field order'` string).\n\n⇒ After #8758 lands, a bare `object-grid` still honours the retired spelling at runtime, while the same key routed through `object-view` is refused with a diagnostic. **One key, two meanings, chosen by which block you are on** — the exact thing the ruling declined to ship.\n\n⚠️ **This is NOT introduced by #8758.** The two paths already differed; #8758 makes the difference load-bearing by fixing one side. That is why it is a follow-up and not a regression.\n\n## The three routes, and why the cheap-looking one is wrong\n\n- **A — leave it.** The declared face is array-only everywhere and the html tier already answers `type-mismatch`, so the grid's string handling becomes dead tolerance for a later reader to remove. ⛔ But this is a *silent* per-block difference in exactly the shape option A was rejected for; \"dead tolerance\" that still changes `$orderby` is not dead.\n- **B — route `ObjectGrid.schema.sort` through `convertSortToQueryParams`.** Completes the ruling's \"everywhere\". ⚠️ **But it changes the wire shape for every grid:** the sink returns a field→direction map where `ObjectGrid` today sends a comma-joined string, and the same value is read by the export path (`:3022`) and the header-arrow resolver `parseSchemaSort` (`:4006`). Blast radius well beyond one card, and it needs its own measurement of the server contract and both readers.\n- **C — keep the wire shape, but make `ObjectGrid` REFUSE a string arm with the same diagnostic before its own lowering.** ⭐ Small, does not touch the array path, closes the divergence, and reuses the diagnostic #8758 already ships.\n\n**The implementing seat's recommendation, and this seat's, is C** — the only option that closes the divergence the ruling cared about without changing `$orderby` for every existing grid. ⛔ But the choice is not an implementing seat's to make: B and C differ in blast radius and C leaves the wire shape divergent even after the accept sets agree. **Routed to the decision box.**\n\n## Appetite, if C is ruled\n\n**In scope:** the refusal + diagnostic at `ObjectGrid`'s own read site, reusing #8758's reporter (deduped once per spelling), and a pin that a bare `object-grid` refuses the clause while the array arm still lowers unchanged.\n\n**⛔ Falls off the back:** the wire shape (that is B, and it is a different card); the export path and `parseSchemaSort`; anything about `object-calendar`, whose local face declares `sort?: any` and is wider than the retired union anyway (`plugin-calendar/src/ObjectCalendar.tsx:76` — observation only, no defect, #8171 and the ruling's item 4 own that block).\n\n## Grading note\n\n⚠️ Ordering: this card is only actionable **after PR #8758 lands**, since C reuses the diagnostic that PR introduces. ⛔ Do not dispatch it before then.\n\nClause-② depends on the route: **C is a narrowing** of what a grid accepts at runtime (a string that lowers today stops lowering) ⇒ same shape as #8221, non-additive on a published face. **B additionally moves the wire shape.** Neither is a widening.\n\nRefs: #8221 (the ruling) · PR #8758 (the retirement, in flight) · #8171"
+}

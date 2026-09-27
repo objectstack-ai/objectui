@@ -1,0 +1,34 @@
+{
+  "number": 8334,
+  "kind": "issue",
+  "title": "finding(gate): the expression-carriage census's dialect blind spot is itself blind to JS object-literal node blocks — and prints \"✅ Dialect blind spot: none\" anyway",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-07T13:02:48Z",
+  "updated_at": "2026-09-11T17:08:47Z",
+  "closed_at": "2026-09-11T17:05:46Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8334",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8140 finisher, which measured it while fixing a red on PR #8324 but had no standing to widen its own scope. ⛔ Not claimed.\n\n**Observation-class, not a live defect.** Nothing is escaping the gate *today*. The finding is that the mechanism which is supposed to tell us when something starts escaping cannot see this whole class, while the summary line reads as full coverage.\n\n## What was measured\n\n`scripts/check-doc-expression-carriage.mjs` publishes two things: the judged population, and a blind-spot measurement that is meant to catch fences the census is not judging. That second measurement is `unscannedJsonLike` (`scripts/check-doc-expression-carriage.mjs:666-673`), and it only counts a fence when **`fence.ok`** — i.e. when the body *parses as JSON*.\n\nThat is the gap. A fence can author a real node tree and still not parse as JSON.\n\nMeasured across `content/docs/components`, the fence population splits:\n\n| tag | total | JSON-ish body | TS `interface` body | other |\n|---|---|---|---|---|\n| ```plaintext | 80 | 6 | 71 | 3 |\n| ```json | 4 | 4 | — | — |\n\nOf those six plaintext JSON-ish blocks, one was PR #8324's (strict JSON, double-quoted keys — it *did* parse, so `unscannedJsonLike` caught it, which is how the red surfaced). **The other five are JavaScript object literals** — unquoted keys, single-quoted strings:\n\n- `content/docs/components/complex/filter-ui.mdx:10`\n- `content/docs/components/complex/sort-ui.mdx:10`\n- `content/docs/components/complex/view-switcher.mdx:10`\n- `content/docs/components/feedback/toaster.mdx:39`\n- `content/docs/components/navigation/header-bar.mdx:83`\n\nEvery one authors a real node tree. None parses as JSON, so none is `fence.ok`, so none is counted by `unscannedJsonLike` — and none is in the judged population either. They sit in **neither**, while the script prints:\n\n```\n✅ Dialect blind spot: none\n```\n\n## Why it matters, and why it is not urgent\n\nThe class objectui#7851 exists to catch is an expression on a typed node riding an uncarried channel. Written in the object-literal style above, such a block would be invisible to both the census and its own blind-spot check — the detection mechanism reports full coverage precisely where it has none.\n\nIt is not urgent because the corpus is currently clean: `grep -c '${'` returns **0** in all five files. The lit control on the same instrument fires (151 `${` occurrences across `content/docs`), so that zero is a real zero and not a broken query.\n\n## ⚠️ The wrong fix\n\nAdding `plaintext` to `JSON_FENCE_LANGUAGES`. That was considered and rejected on PR #8324 by content: `plaintext` is not a JSON dialect, and admitting it would let *every* future JSON-in-plaintext block through unjudged — the exact blind spot this gate closes. The five blocks above are the proof, not the counterexample: they are why the census never counted them.\n\n## Fix shape (for triage, not ruled)\n\n- **A — widen what counts as \"JSON-like\" for the blind-spot measurement only.** Detect a body that is a node tree without requiring strict-JSON parse (an object literal whose first key is `type`, say), and report it as unscanned. The judged population is unchanged; only the honesty of the coverage line improves.\n- **B — retag the five blocks.** Convert them to strict JSON and fence them ```json, putting them in the judged population. Larger diff, touches five pages' teaching content, and each block would need to still read well as an example.\n- **C — declare them.** A shrink-only exemption list naming the five, so the coverage line can stay `none` truthfully and the population is closed against a sixth.\n\n⛔ The wrong answer in any direction is leaving the summary line saying `none` while the measurement behind it cannot see this class.\n\n## Related\n\nobjectui#7851 (the class the census exists to detect) · PR #8324 (where this was measured) · objectui#7896 / objectui#8115 (neighbouring docs-gate census findings, neither covering this)\n\n## Dedup\n\n`search_issues` over open issues for `expression-carriage` / `JSON_FENCE_LANGUAGES` / `\"dialect blind spot\"` — 28 hits, top 10 read. Nearest: #7896, #7966, #8115, #8047 — all docs/gate census findings, none naming `unscannedJsonLike` or the object-literal class. ⚠️ The reporting dev ran **no** dedup search; this one is the PM's and is bounded to open issues."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 8632,
+  "kind": "issue",
+  "title": "finding(app-shell): a malformed picklist option renders as a BLANK row in ObjectFieldInspector — no error, then it is silently dropped on the next save",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-08T18:24:41Z",
+  "updated_at": "2026-09-11T00:03:01Z",
+  "closed_at": "2026-09-10T23:59:00Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8632",
+  "body": "Found while implementing objectui#6844 (the `object` preview sample's `status.options` were bare strings). Filed rather than folded in: the sample fix is a content decision, this one is a product decision, and the only *mechanical* repair available here is the one AGENTS.md #0.1 bans.\n\n## The reader\n\n`packages/app-shell/src/views/metadata-admin/inspectors/ObjectFieldInspector.tsx`, `readOptions()`:\n\n```ts\nconst row: Option = {\n  value: String(o?.value ?? ''),\n  label: typeof o?.label === 'string' ? o.label : undefined,\n  color: typeof o?.color === 'string' ? o.color : undefined,\n};\n```\n\nEvery entry that is not an object with a usable `value` collapses to `value: ''`, `label: undefined` — a bare string, a `{}`, a number, all the same. `OptionsEditor` then renders two inputs per row seeded from exactly those, so the author sees a BLANK row rather than a diagnostic.\n\n## Two consequences, and the second is the worse one\n\n1. **Nothing says anything is wrong.** A picklist authored with malformed options presents as an empty option list. That is how objectui#6844 stayed invisible in the product for as long as it did.\n2. **The rows are then DELETED.** `OptionsEditor.commit` persists only `next.filter((o) => o.value.trim() !== '')`. So the first edit to any other control on that field writes the option list back WITHOUT the malformed entries — content the author was never shown, removed without a prompt. `readOptions` also carries authored extras in `rest` (objectui#7540), and those go with it.\n\n## It is measured, not suspected\n\nIn objectui#6844's reverse-verification leg, reverting that sample's three options to bare strings and rendering the registry-resolved inspector over the real draft:\n\n```\nAssertionError: expected [ '', '', '' ] to deeply equal [ 'draft', 'open', 'closed' ]\n```\n\nThree options in, three empty boxes out. (The pin that produced that line is `apps/console/src/__tests__/preview-samples-designer-options.test.tsx`, added by objectui#6844 — but it guards the SAMPLE, not this reader, so it goes green again the moment the sample is well-formed.)\n\n## Why objectui#6844 did not fix it\n\nThe only mechanical repair is to coerce a bare string into a `{ value: STRING, label: STRING }` option so it renders. That is precisely the tolerant renderer fallback AGENTS.md #0.1 forbids: the spec refuses that shape at the producer, and a designer that silently makes it work teaches a second de-facto contract and hides the producer's bug.\n\nThe correct repair is therefore not a coercion but a decision about what the surface should SAY, which is a product change in a published package (new affordance plus its strings in ten locales):\n\n- **A** — render the malformed entry as a row that is visibly marked as such and is NOT dropped on commit; the author fixes or removes it deliberately.\n- **B** — route it through the existing client-validation diagnostics channel (`clientValidation.ts`), so it reads like every other authoring problem rather than like a new mechanism.\n- **C** — accept it: rely on the authoring gate to reject the document at save, and keep the editor's current \"unrepresentable rows are not represented\" behaviour. ⚠️ This one still owes a fix for consequence (2), because dropping unseen content on an unrelated edit is not the same claim as refusing to display it.\n\nNo recommendation is carried here — the choice is what this card is for.\n\n## Not to be confused with\n\n- objectui#7540 (closed) — the same function, the opposite direction: it dropped `default` and `visibleWhen` off options that were WELL formed. This is about entries the reader cannot represent at all.\n- objectui#8488 — `InspectorSelectField` rendering a blank trigger for a stored value matching no option. Adjacent symptom, different component and different tier.\n- The `object` preview sample itself is fixed in objectui#6844; this card is about the reader, not that sample.\n\nFiled by the objectui#6844 execution seat, session `session_01YBWFb5YgMU5dw8p2VKj16S`. No assignee and no labels on purpose — grading and routing belong to triage."
+}

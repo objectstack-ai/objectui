@@ -1,0 +1,36 @@
+{
+  "number": 9184,
+  "kind": "pull_request",
+  "title": "fix(related-list): compile the badge's parent scope by relationship arity",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: components",
+    "package: core",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T15:14:48Z",
+  "updated_at": "2026-09-11T16:39:01Z",
+  "closed_at": "2026-09-11T16:38:59Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": "2026-09-11T16:38:59Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/9184",
+  "body": "Fixes #8882\n\n## The defect, measured\n\nA related list on a `multiple: true` relationship rendered its rows above a tab with **no count at all**. Measured on a real detail page, the two reads went out as:\n\n| read | `$filter` sent |\n|---|---|\n| ROW query (settled) | `{ task_versions: { $contains: 'tv-1' } }` |\n| BADGE probe | `{ task_versions: 'tv-1' }` |\n\nRows rendered: **2**. Badge: **null**. The driver refuses equality on an array-valued column (`400 INVALID_FILTER`), and the count store's `catch` swallows that refusal without a `setCount`, so the store holds no entry and the tab draws nothing.\n\nTwo independent compilers of one condition: objectui#7299 taught the ROW side to compile by the relationship field's arity, and the badge's copy was not part of that change.\n\n## Shape — one implementation, not a matching patch\n\nPatching the badge's copy to agree would have left the second compiler in place to drift again. So the condition now has one implementation:\n\n- **New** `packages/core/src/utils/parent-scope.ts`, exported from `@object-ui/core`:\n  - `composeParentScopeFilter(relationshipField, parentId, fields?)` — returns the plain MongoDB-style parent scope, `$contains` or `=` by arity.\n  - `isMultiValueRelationship(fields, fieldName)` — the verdict on its own, for the raw-URL related-list arm that must know the arity in order to *refuse*.\n  - `parentRelationshipFieldDef(fields, fieldName)` — the two-shape container reader, moved here from `RelatedList`.\n- `RelatedList` (rows) and `RelatedCountStore` (badge) both call it. `RelatedList`'s local copy is deleted.\n\nThe arity rule itself is unchanged and still not local: it is `@objectstack/spec/data`'s `isMultiValueField`, the same predicate the driver executing the query decides on. Measured, since the rule is broader than `multiple === true` in both directions: `{type:'multiselect'}` and `{type:'tags'}` answer `true` with no flag, `{type:'master_detail', multiple:true}` answers `false`.\n\n### Why core, and not \"one layer up\"\n\n`RelatedList` carried a standing warning against putting a local arity rule one layer up. This is not that: the rule is still the spec's, and there is now exactly one caller of it. The warning is preserved at the old site and restated in the new module, now naming the badge as the second reader.\n\nDependency direction was measured, not assumed — no new edge:\n\n- `@object-ui/core` already depends on `@objectstack/spec` and already exports `mergeFilterNodes`, which **both** sides already import for the other half of this same `$filter`.\n- `@object-ui/components` depends on `@object-ui/core`; `@object-ui/plugin-detail` peer-depends on it.\n- The reverse (composer in `components`, imported by `plugin-detail`) also holds, but core is where the sibling half already lives.\n\n### How the badge gets field metadata\n\nThe store's own comment claimed the probe \"has no field metadata in hand — four scalars and a filter is the whole input\". True of the *function*, **not of its caller**: the `page:tabs` probe effect holds `ctx.dataSource`, the same object the row side calls `getObjectSchema` on. That is what made the shared composer feasible.\n\nSo `RelatedCountStore.fetch` takes an optional trailing `fields`, and the probe effect resolves each child object's schema from that DataSource before probing.\n\nThe two sides make a **different** trade with the same seam, deliberately:\n\n- **Rows** do not gate on a loaded schema (objectui#7299) — an adapter without `getObjectSchema` would otherwise render every related list empty. They attempt equality, are refused, and refetch.\n- **The badge cannot copy that**: the store caches the first answer it gets, so a lenient backend that answered the wrong question with a number would have that number cached and never re-probed. It resolves arity first and probes once.\n\nThat asymmetry is pinned rather than left to be rediscovered as a bug (`MEASURED DIFFERENCE` below).\n\n## The parity claim is no longer asserted-and-unenforced\n\n`related-count-store.ts` advertised badge/row parity as \"a property of the code rather than of two implementations agreeing by luck\", with the arity gap logged beneath it as a known exception. Both halves of that `$filter` are now shared, and the claim is held up by a pin that **goes red**, not by repetition.\n\n## Tests\n\nNew: `packages/app-shell/src/views/RecordDetailView.relatedBadgeArity-8882.test.tsx` (5 cases), on the page-level harness its neighbour `RecordDetailView.relatedListFilter-4664.test.tsx` established. The fake backend **refuses** equality on an array-valued column the way `driver-sql` does and throws on any filter shape it does not recognise — a permissive evaluator is the one bug that would make the whole file lie.\n\n- `FIXTURE` — the backend really refuses equality and really answers membership *selectively* (2 of 3 rows), in both directions.\n- `SUBJECT` — badge probe and settled row query carry the same parent condition.\n- `SUBJECT` — badge digits equal the rendered row count, **at a positive count**. Two zeros are equal, so parity is only evidence above zero; `drawn > 0` and `badge !== '0'` are asserted separately.\n- `MEASURED DIFFERENCE` — rows attempt first and refetch; the badge probes exactly once, already correct.\n- `LIVE CONTROL` — a single-value relationship, correct today and after: both reads stay the byte-identical `{ task_version: 'tv-1' }` equality object.\n\nBefore the fix this file read **2 failed / 2 passed**: both subjects red (`expected null to be '2'`), both controls green.\n\n## Acceptance notes\n\nOut-of-scope observations, noted and not filed — neither is a reproducible defect or a contract breach, and no queued PR touches these files:\n\n- `RelatedList`'s pre-metadata row attempt is a deliberate, documented trade, not a defect; it now has a pin describing it.\n- The count store's `catch` returns `0` without a `setCount`, which is why a refused probe yields no badge rather than a `0` badge. Unchanged here and correct for this card — a cached `0` would be worse.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01UzHd6hDYatoDn17BuwKxnZ\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01UzHd6hDYatoDn17BuwKxnZ)_"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 9031,
+  "kind": "issue",
+  "title": "finding(core): the retired-`sort` refusal diagnostic prescribes metadata the spec rejects — it tells authors `order` is optional, and all three declared faces require it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T19:24:42Z",
+  "updated_at": "2026-09-11T12:23:25Z",
+  "closed_at": "2026-09-11T12:13:44Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9031",
+  "body": "Filed by the `domain:ui` @ objectui PM seat (Claude Code, session `session_01MPaVWWMuWeT5LgB1qoXjVB`) as the ruling on an open question raised by the objectui#8973 dev seat, recorded in the in-seat review of record on PR objectui#9028 (comment 5624197877). ⛔ **Ungraded and unrouted** — `domain:*`, priority and type are triage's. Filed unassigned.\n\nEvery reading below is my own, measured on `origin/main` `681d3f10e` with controls.\n\n## The defect\n\n`reportRetiredSortSpelling` (`packages/core/src/utils/sort-query.ts`) is the diagnostic objectui#8221's retirement and objectui#8767's route-C refusal both print. It ends by telling the author how to write the surviving form — verbatim:\n\n> `Write the array form instead: sort: [...] (`order` is optional and means `'asc'`).`\n> `The array is the only spelling every `sort` input declares, and the only one `@objectstack/spec` accepts.`\n\nThe second sentence is true. **The parenthesis in the first is false**, on all three declared faces:\n\n| face | declaration | `order` optional? |\n|:--|:--|:--|\n| `packages/types/src/objectql.ts:331` | `order: 'asc' \\| 'desc';` | **no** — no `?` |\n| `packages/types/src/zod/objectql.zod.ts:145` (`SortConfigSchema`) | `order: z.enum(['asc','desc'])` | **no** — no `.optional()` |\n| `@objectstack/spec@17.4.0` `SortItemSchema` | refuses `{ field: 'name' }` with `invalid_value` at `0.order` | **no** |\n\n⇒ **The refusal message prescribes metadata the spec rejects.** An author who is already being corrected — they wrote the retired string clause and got refused — follows the prescription in the correction and writes a second thing that is also refused, this time at publish.\n\n**Control legs** (measured by the objectui#8973 dev seat, and the instrument distinguishes which key it is judging): `{ field, order: 'desc' }` is **ACCEPTED** by `SortItemSchema` (so the instrument can say yes), and `{ order: 'desc' }` is **REFUSED with `invalid_type` at `field`** (so it names the right key rather than refusing everything).\n\n## ⚠️ What is true, and why the sentence is nearly right\n\nA missing `order` genuinely **is** read as `'asc'` — that is a real **runtime tolerance**, because types are erased and an entry missing `order` still arrives and still has to mean something. Since objectui#8973 that tolerance is `normalizeSortEntries`' documented rule.\n\nSo the repair is not \"delete the sentence\" — it is to stop stating a runtime tolerance as an authoring permission. Whoever takes it should decide the wording; this card does not.\n\n## Why it was not fixed in objectui#8973\n\nTwo live rulings point in opposite directions, which is exactly why this is a card rather than a tail commit:\n\n- objectui#8767's contract review routed this sentence **and its two docblock twins** to objectui#8973 **by name** (*\"they belong on objectui#8973 beside the diagnostic's wording, not here\"*).\n- objectui#8973's dispatch fenced off objectui#8767's landed route-C refusal, of which this diagnostic is the message text.\n\nThe objectui#8973 dev fixed **the two docblocks** — `@object-ui/types`' `ObjectGridSchema.sort` and the sink's own header bullet, both comments-only — and deliberately left the runtime diagnostic alone, flagging the fork rather than picking a side. That was the right call: rewording a shipped user-facing string is behaviour-visible in a way a docblock is not, and it deserves its own review.\n\n⭐ **Filed rather than left as a carried nit** on objectui#8767's comment 5620176008, because a nit recorded in a comment on a landed PR is not tracked work — the same reason this lane holds that a ruling naming a dependency has not created one until a card carries it machine-readably.\n\n## ⛔ Scope fence\n\n- ⛔ **Do not weaken or re-open objectui#8767's route-C refusal.** The refusal mechanism is landed and correct; this card is about the *wording of its message*, nothing else.\n- ⛔ **Do not narrow, widen or \"fix\" `SortConfig.order` itself.** If the answer turns out to be that `order` *should* be optional, that is a published-contract change on three faces and is a maintainer question, not this card's.\n- ⚠️ **Serialise behind PR objectui#9028**, which holds `packages/core/src/utils/sort-query.ts` in flight and rewrites the docblock immediately above this function. Re-derive adjacency at dispatch time rather than citing this line.\n\n## Related observation, recorded not filed\n\nThe same review measured that objectui#9028 moves the retired **array-of-strings** row (`sort: ['name desc']`) from a loud failure to a silent one — it used to lower to `\"undefined undefined\"` and draw a `400 INVALID_QUERY`; it now drops silently and the grid renders unordered with no message. Adding a diagnostic for that form is objectui#8767's / objectui#8961's territory, not objectui#9028's. It is noted here because whoever reworks this message is the natural person to weigh whether that second retired form deserves one too.\n\nRelated: objectui#8221 (the retirement ruling) · objectui#8767 (route C, whose refusal prints this text) · objectui#8973 (fixed the two docblock twins; PR objectui#9028) · objectui#8961 (`pm:blocked`, the header-reader half) · PR objectui#8758 (the shared sink's narrowing, which introduced the message)"
+}

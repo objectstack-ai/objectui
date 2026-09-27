@@ -1,0 +1,35 @@
+{
+  "number": 8978,
+  "kind": "issue",
+  "title": "capability(components): the destructive (red) confirm button on `alert-dialog` — batch #70 wanted it, `confirmVariant` was never a vehicle for it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "enhancement",
+    "package: components",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-10T13:42:47Z",
+  "updated_at": "2026-09-11T17:53:39Z",
+  "closed_at": "2026-09-11T17:52:08Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8978",
+  "body": "Split out of objectui#7963 by maintainer ruling, 2026-09-10. That card **retires** the key `confirmVariant`; this card carries the **capability** it was supposed to deliver, so the capability is not lost with the key.\n\n## Why the two are separate\n\nThe capability was asked for and granted first, on measurement that did not yet exist:\n\n- **2026-09-07, director seat, decision batch #70** ([`5565626809`](https://github.com/objectstack-ai/objectui/issues/7963#issuecomment-5565626809)) — maintainer verbatim 「同意」. Recorded reason: *\"a footer button variant (the red destructive confirm) is a capability this product wants; our own component catalog authored it three times and had to drop it.\"* The ruling's instruction was **wire `confirmVariant`**.\n- **2026-09-09**, the probe landed by PR #8736 ([`5595380224`](https://github.com/objectstack-ai/objectui/issues/7963#issuecomment-5595380224)) measured all three footer keys **dead**: authoring `confirmVariant` leaves the dialog HTML byte-identical, leaves the confirm button's class at `bg-primary/text-primary-foreground` (**never** `bg-destructive`), and the value reaches **no DOM node at all**. Mechanism measured, not argued: `AlertDialogPrimitive.Root` forwards to `DialogPrimitive.Root`, which destructures only `__scopeDialog / children / open / defaultOpen / onOpenChange / modal` and renders a **context provider, not an element** ⇒ an unknown prop dies before any DOM exists.\n\n⇒ batch #70 asked to *wire* a key on the assumption it was a key that could carry the value. It cannot, and never could. **The want is still good; the vehicle was never real.** objectui#7963 removes the dead vehicle; this card keeps the want.\n\n## The capability is close — measured on `origin/main` `2c208d5bb`\n\n`packages/components/src/ui/alert-dialog.tsx`:\n\n```tsx\n// :15\nimport { buttonVariants } from \"./button\"\n…\n// :115  — the CONFIRM button\n    className={cn(buttonVariants(), className)}\n…\n// :128  — the CANCEL button, right below it\n      buttonVariants({ variant: \"outline\" }),\n```\n\n`buttonVariants` **already takes a variant**, and the Cancel button already passes one. The confirm button calls it with **no argument**, so it is pinned to the default variant. And the renderer never offers one — `packages/components/src/renderers/overlay/alert-dialog.tsx:38`:\n\n```tsx\n{schema.actionText && <AlertDialogAction onClick={schema.onAction}>{schema.actionText}</AlertDialogAction>}\n```\n\n⇒ three things are missing, none of them hard: the primitive hardcodes `buttonVariants()`; the renderer passes nothing; and there is no authorable key.\n\n⚠️ **NOT MEASURED**, owed by whoever takes this: which `variant` values `buttonVariants` actually admits; whether `destructive` is among them; what the \"authored it three times and had to drop it\" catalog sites were and what they wanted; whether changing `AlertDialogAction`'s default has a blast radius across existing dialogs.\n\n## ⛔ Read this before choosing a key name\n\n**objectui#7963 is retiring `confirmVariant` with a named tombstone.** Re-introducing that same spelling here would be a retire-then-re-add cycle on a published key — visible churn, and churn on the authoring surface is exactly what the maintainer flagged on 2026-09-10 (「协议不应该改来改去啊，否则元数据应用怎么办」).\n\nThat is not a veto, but it is a constraint the implementer must answer **before** writing a type:\n\n- Is the right shape the old spelling, wired and pinned this time (so the tombstone becomes a \"retired, then delivered properly\" story)?\n- Or does this capability belong to an existing idiom the repo already has for button variants, so no new authorable key is added at all?\n- Whatever is chosen, it ships with a **behaviour pin that has a firing control** — the reason `confirmVariant` survived declared-and-dead for so long is that nothing ever asserted it moved the DOM.\n\n⛔ Do not resurrect the spelling on the grounds that batch #70 named it. Batch #70 named it before anyone knew it was inert.\n\n## Scope note\n\n`alert-dialog` is **objectui-local**: it is not a governed `@objectstack/spec` component (probed at objectstack HEAD `eabdd66f45f402eba0f8404a8a9de4a501fc83a6` — `alert-dialog` / `AlertDialogProps` return **zero** hits under `packages/spec/src`, with `'record:chatter'` and `'object-metric'` as firing controls and a nonexistent name as the negative control). So the 「以 objectstack 协议为准」 principle does not constrain the shape here — the choice is objectui's own.\n\nRefs objectui#7963 · objectui#8736 · objectui#4631 (the ADR-0049 liveness workbook this family routes through).\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

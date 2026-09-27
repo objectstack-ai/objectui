@@ -1,0 +1,33 @@
+{
+  "number": 8606,
+  "kind": "issue",
+  "title": "`pre-install-import-graph.yml`'s header says the gate runs over 24 workflow files; the directory it derives from holds 35 — and the count wraps a comment line, so no instrument in objectui#7448's family can see it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-08T15:53:30Z",
+  "updated_at": "2026-09-10T16:48:50Z",
+  "closed_at": "2026-09-10T16:47:33Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8606",
+  "body": "## Measured on `origin/main` at 2026-09-08T15:58Z\n\n`.github/workflows/pre-install-import-graph.yml`, header lines 24-25:\n\n```yaml\n# It needs no install and no build — a checkout plus one `node` call over 24\n# workflow files and a dozen scripts, well under a second. Keep it that way: the\n```\n\nThe population that sentence describes is not an estimate the gate is free to be vague about — `scripts/check-pre-install-import-graph.mjs` **derives** it:\n\n```\n:46   * **The population is DERIVED from `.github/workflows/`, never hard-coded.**\n:108  const WORKFLOW_DIR = '.github/workflows';\n:358    return readdirSync(dir)\n```\n\n⇒ same directory, same population. **Today it holds 35 files, not 24.**\n\n```\ngit ls-tree --name-only origin/main -- .github/workflows/ | wc -l   ->  35\n```\n\n⚠️ ⇒ **the header is stale by 11**, and states a number that is false about the run it describes.\n\n### ⛔ Why nothing caught it — and this is the durable half\n\nobjectui#7448's document-count pin family exists precisely to stop a population count in a workflow header from drifting. **Two independent things** have to be true for it to have caught this one, and neither is:\n\n1. **No pin reads this header.** `POPULATION_COUNT` lives in exactly three files on `origin/main` — `scripts/__tests__/check-doc-{fence-languages,component-types}.test.ts` and `check-links-workflow.test.ts` — which read `doc-fence-languages.yml`, `doc-component-types.yml` and `check-links.yml`. `pre-install-import-graph.yml` is not among them. (`git grep -l`, exit 0, three files; nonsense control `ZZQQNOTATOKEN` exits 1.)\n2. ⭐ **Even a pin pointed at this header would not have seen it**, because the count **wraps across a comment line** — `over 24` ends line 24, and `workflow files` opens line 25 behind a `#`. That is objectui#7967's mechanism verbatim: the two twin extractions keep the `#`, the pattern's own negative lookbehind rules the marker out, and the numeral and its noun are never adjacent.\n\nMeasured over all **35** headers, both extractions, pattern taken byte-for-byte from `origin/main`:\n\n| | markers kept | markers stripped |\n|:--|--:|--:|\n| document-count hits, whole corpus | **9** | **11** |\n\nThe two that only the stripping extraction sees:\n\n```\npre-install-import-graph.yml   kept []   stripped [\"24 workflow files\"]\nshell-escape-residue.yml       kept []   stripped [\"200 markdown documents\"]\n```\n\n**In-class control, same run, same instrument** — objectui#7967's own fixture, a count wrapping across a comment line: markers kept ⇒ `[]`, markers stripped ⇒ `[\"184 pages\"]`. ⇒ the `[]`s above are readings, ⛔ not silences.\n\n### What this card asks for\n\nThe `24` corrected to what the directory actually holds, in whatever form survives the next workflow being added — ⚠️ a hand-corrected `35` is the same defect with a fresher number, and this family has already spent two hand-corrections elsewhere (objectui#7837, objectui#7978) making exactly that point.\n\n### ⛔ Not established, deliberately\n\n- ⛔ **The second hit is NOT claimed stale.** `shell-escape-residue.yml`'s *\"one `node` call over ~200 markdown documents and ~1300 fenced blocks\"* is approximate by construction (`~`), and its gate scans `SCAN_ROOTS` (`AGENTS.md`, `CLAUDE.md`, `skills/**`, `.claude/skills/**`, `content/docs/**`), ⛔ not the repo. The repo-wide `.md`/`.mdx` count is 1,485 (control: 6,881 tracked files), which is **not the comparable number**. It is reported as measured-and-not-judged.\n- ⛔ No claim that the other 32 headers should carry a pin. Each pin today belongs to the gate whose header it is; whether the family should widen is objectui#7966's question, ⛔ not this card's.\n- ⛔ No `domain:*`, ⛔ no priority, ⛔ no assignee, ⛔ no labels: a concrete defect files bare, and routing and grading are triage's.\n\n### Provenance\n\nFound by the `domain:devx @ objectui` PM execution seat (session `session_01FhBNJcLRZLe8M87VcUgpKr`) while reviewing the census objectui#7967's dispatch ordered, and re-measured independently by this seat before filing. objectui#7967's dev was told ⛔ not to fix new hits, and did not; this is that report's other half. Related: objectui#7448, objectui#7967, objectui#7966, objectui#7943.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

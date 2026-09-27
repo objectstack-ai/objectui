@@ -1,0 +1,37 @@
+{
+  "number": 9170,
+  "kind": "issue",
+  "title": "bug(plugin-kanban,i18n): the empty board announces \"1 columns\" on a one-lane board — `kanban.columns` is a bare plural with no singular form",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: i18n",
+    "plugin: kanban",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T13:41:41Z",
+  "updated_at": "2026-09-12T10:31:04Z",
+  "closed_at": "2026-09-12T10:31:04Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9170",
+  "body": "Found by the `os-dev` seat while repairing objectui#9045 (the lane-count empty-state predicate). ⛔ Not repaired there: the grammatical repair needs a new key on the published `@object-ui/i18n` catalogue, and that card was claimed with a `Clause-②: no` declaration whose stated hard stop is any change to a published payload.\n\nUnclaimed and unprioritised on purpose — triage owns both.\n\n## The defect\n\n`KanbanImpl` composes the board-level empty state's description as the lane count followed by `t('kanban.columns')`. The English catalogue declares that key as the bare plural `columns`, with no singular form and no `count` pluralisation, so the description is assembled by concatenation and never agrees with the number in front of it.\n\nMeasured in the DOM, reading the live region's own `textContent` at three lane counts on the objectui#9045 branch:\n\n```\nLIVE-REGION ZERO: \"No cards0 columns\"\nLIVE-REGION ONE:  \"No cards1 columns\"\nLIVE-REGION TWO:  \"No cards2 columns\"\n```\n\nThe `TWO` row is the CONTROL: it is grammatical, and it is what makes the `ONE` row a reading about the plural form rather than about a broken probe. `ZERO` is grammatical too — English takes the plural for zero. **Only the one-lane form is wrong.**\n\n`DataEmptyState` there is `role=\"status\" aria-live=\"polite\"`, so this is read aloud, not merely printed.\n\n## Why it is being filed NOW rather than earlier\n\n⭐ The string is not new; its REACHABILITY at one lane is. The predicate used to require more than one lane, so the region never painted below two and the count in front of `columns` was always at least 2 — the bare plural was correct for every board that could reach it. objectui#9045 makes the region paint at zero and one lane, which is the first time the count can be 1.\n\n⛔ This is **not** a reason to hold or revert that repair: the announcement existing at all is the accessibility fix, and a wrong plural is strictly better than silence. It is the residue that repair leaves behind.\n\nBlocked-by: objectui#9169 — before that PR lands, the one-lane form is unreachable and this card cannot be reproduced on `main`.\n\n## What a repair has to decide\n\nNot obvious, and ⛔ it should not be guessed:\n\n1. **Pluralise the key.** The catalogue already uses i18next plural suffixes elsewhere (the `_one` / `_other` convention appears in all ten locale files), so the shape exists. Cost: a new key on a published payload, and ten locale catalogues to keep in step — plus whatever the i18n drift and dead-key gates have to say about a key whose singular arm is reachable only from one call site.\n2. **Withhold the description at exactly one lane.** No published surface moves, but the region then says different things at different lane counts for a reason no reader can infer from the screen.\n3. **Drop the lane-count description entirely.** The lane count is visible on the board already; the announcement's job is \"no cards\".\n\n## Dedupe — with its control\n\nSemantic search over this repository for the empty-state description wording returned **9** neighbours: #9045, #8509, #8913, #8307, #8448, #2792, #8534, #7742, #7303. All are `plugin-kanban` or kanban-adjacent and none is about the description's grammar. The control is that the query returned objectui#9045 itself as its top hit — a card whose text this query was built from — so the absence of a wording card is a reading rather than a dead query. A repository-scoped REST search was tried first and refused with 403 by the container's egress proxy (path allowlist, not a GitHub scope statement), so this reading came from the MCP search channel.\n\nFiled by the `os-dev` seat working objectui#9045, session `session_01UzHd6hDYatoDn17BuwKxnZ`, with Claude Code."
+}

@@ -1,0 +1,34 @@
+{
+  "number": 9106,
+  "kind": "issue",
+  "title": "finding(devx): the three zero-test-file packages cannot satisfy objectui#8991's acceptance — their root-config invocation exits 1, so `--passWithNoTests` would manufacture the disagreement the card requires to be absent",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-11T03:07:09Z",
+  "updated_at": "2026-09-11T11:19:26Z",
+  "closed_at": "2026-09-11T11:17:09Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9106",
+  "body": "Filed by the dev seat working objectui#8991 (branch `claude/issue-8991-package-test-script-class`, PR objectui#9105), as the member set that **stopped and reported** rather than being fixed. Filed **bare** — no `domain:*`, no priority, no type, no assignee, no `pm:*`: routing and grading belong to the triage seat.\n\n## What was measured\n\nobjectui#8991's population, re-derived by **invoking** all 47 workspace manifests, splits the six manifests with no `test` script into two groups. Three carry test files the root config collects and run none of them — `@object-ui/layout` (21 files / 217 tests), `@object-ui/test-support` (5 / 71), `@object-ui/example-console-starter` (1 / 9) — and those are fixed in PR objectui#9105.\n\nThe other three have **no test files anywhere**: `@object-ui/site`, `@object-ui/example-byo-backend-console`, `@object-ui/example-hello-world`. objectui#8991 anticipated these as a weaker sub-case wanting the `--passWithNoTests` variant. Measuring them says otherwise.\n\n## ⭐ The root-config invocation for all three exits 1, not 0\n\nMeasured on `d2f0c108c`, from the repo root:\n\n| invocation | exit | output |\n|:--|--:|:--|\n| `pnpm exec vitest run apps/site/` | **1** | no test files found |\n| `pnpm exec vitest run examples/hello-world/` | **1** | no test files found |\n| `pnpm exec vitest run examples/byo-backend-console/` | **1** | no test files found |\n\nThat is not a malfunction — it is the root config working as designed. It does not set `passWithNoTests` to a constant; it sets it to the negation of whether the CLI named test filters. A positional path filter that collects nothing is exactly the case it is there to reject loudly.\n\n⇒ two consequences, and they are why this is a decision rather than a fix:\n\n1. **objectui#8991's acceptance definition is unreachable here.** It requires the package-level invocation and the root-config invocation to reach the same counts **both exiting 0**. For a package with zero test files the root-config side cannot exit 0 at all.\n2. **`--passWithNoTests` would manufacture disagreement.** It would make the package entry exit **0** while the root-config comparison exits **1** — introducing divergence between precisely the two invocations the card requires to agree, in the name of closing the card.\n\n## ⚠️ `@object-ui/site` carries a second, independent mechanism\n\nEven granting a decision on the above, an entry for `apps/site` could never work the way the `packages/*` entries do, for the reason objectui#8240 established for `apps/console`:\n\n- the root config's shared exclude list ends with `apps/**`; and, decisively,\n- an app comes back through the root config's `projects` array as its **own** project rooted at the app directory, so a positional filter naming `apps/site/` is matched against paths relative to *that* project and can never contain it. An app is reachable only by `--project`, which is how `@object-ui/console`'s entry is spelled — and there is no `site` project.\n\n⇒ a `--passWithNoTests` entry for `apps/site` would be green **by construction** and could never notice a test file being added to that app. That is the silent-false-green class objectui#8991 exists to close, re-created one level up.\n\n## The decision this needs\n\nOne of, for each of the three (they may not get the same answer — `examples/*` is reachable by the root config's `examples/**` globs today, `apps/site` is not):\n\n- **A. Leave them with no `test` script.** Honest about the fact that there is nothing to run; `pnpm --filter <pkg> test` keeps exiting 0 silently, which is the defect shape objectui#8991 objects to, but over an empty set.\n- **B. Give the two `examples/*` members the plain filtered entry now.** It exits 1 today (zero collected) and starts passing the moment a test file is added — loud rather than silent, at the cost of a red entry for a package nobody has written a test for yet.\n- **C. Give them `--passWithNoTests`.** Accepts the exit-0/exit-1 divergence above, and for `apps/site` accepts an entry that can never fail.\n- **D. For `apps/site` only: a `--project` entry**, which requires a `site` project to exist in the root config first — a larger change than a script line.\n\n⛔ No option was taken. Nothing about these three packages is changed by PR objectui#9105.\n\n## Dedup\n\nTargeted search over this vocabulary returned 7 results, with objectui#8991 itself returned as the **control** that the query reaches this subject. Adjacent and checked, ⛔ none of them this: objectui#8240 / objectui#8096 (closed — the console's entry collected zero and exited **1**, i.e. the loud case, and the source of the app/`--project` mechanism cited above), objectui#8590 (closed — the first member of the class, a package that **has** tests), objectui#7799 (closed — package entries diverging from CI via `process.cwd()`), objectui#3288 and objectui#3378 (closed — filters eaten after a double dash, and a package-cwd run collecting another package's files).\n\n⚠️ Channel note: the REST search endpoint answered 403 from this container, so this dedup used one targeted MCP `search_issues` call instead.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

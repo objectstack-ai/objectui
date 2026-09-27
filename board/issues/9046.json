@@ -1,0 +1,34 @@
+{
+  "number": 9046,
+  "kind": "issue",
+  "title": "finding(i18n): check-i18n-dead-keys' class-4 blind spot has a live instance, and only that one file is pinned — the class is derivable and undetected",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T20:33:59Z",
+  "updated_at": "2026-09-11T09:09:10Z",
+  "closed_at": "2026-09-11T09:08:11Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9046",
+  "body": "Observation-class, found while working objectui#8752 (the enumeration that card is about is where this surfaced). Not claimed. Deliberately not done there: objectui#8752 is fenced to the enumeration and explicitly forbidden from widening or narrowing what the leg accepts, and this is a new derivation over the importers, not a correction to the list of them.\n\n## What was measured\n\n`scripts/check-i18n-dead-keys.mjs` enumerates, in its own header, four classes that are KNOWN to be able to put a live key in the CONFIRMED tier. Class 4 is a pack-object property reader of a TWO-SEGMENT key: the property-chain leg returns null below three segments by design, and since the key boundary landed the full-key probe refuses the property read too, because a dot on the left is exactly what marks a longer key.\n\nUntil objectui#8752 that class had no named instance. It has one now — `packages/react/src/utils/nonGridRowCeiling.tsx`, which dereferences the `en` pack at render to supply a default beside a `t()` call, for two keys that are both two segments deep.\n\nMeasured on a fixture carrying ONLY the property-read line, using the script's own `textFootprint()`:\n\n- under today's key boundary: **no hit** for either key;\n- with `keyBoundary: false` (the pre-boundary substring behaviour): **a hit** for both.\n\nBoth legs are blind to that read. Nothing is at risk on the tree today, and the reason is a property of that one FILE rather than of the instrument: the same expression also spells each key literally as the first argument of its `t()` call, so the AST pass reads them directly and neither key is ever a candidate (verified: both absent from CONFIRMED and from NEEDS-REVIEW). That is coverage by coincidence.\n\n## Why it is worth a row rather than nothing\n\nobjectui#8752 records the coincidence in prose, and pins THAT ONE FILE against it: a test asserts both keys stay spelled literally at their call site, so if someone templates a key or moves the default away from the call, a test goes red naming the file.\n\n⛔ What has no detector is the CLASS. A sixth importer that does the same thing — reads a two-segment key off a pack by property access with no co-located literal — arrives with nothing measuring it. The enumerated importer list is now derived and pinned by objectui#8752, so the FILE cannot go unnoticed; what a reader still has to supply by hand is the reading of what that file's shape means, and class 4 is precisely the shape where getting that reading wrong puts a rendering key in the tier a maintainer ruling has already authorised deleting.\n\nThat reading looks derivable. The script already parses the tree, already knows the pack key set, and already knows which files import a pack object. A leg that resolved the local binding a pack import is bound to, and reported its property reads, would turn \"somebody has to read this file and decide\" into \"the instrument says which keys this file reads, and how deep they are\" — the same move from hand-read to derived that objectui#8752, objectui#8606 and objectui#8629 all make one level up.\n\n## Explicitly not claimed here\n\n⛔ No wrong verdict exists on the tree today, and this is not a defect report. ⛔ Nothing here argues for changing the key boundary predicate (objectui#8701), which is correct and whose cost this simply names. ⛔ No key, tier or retirement is in question.\n\n## Dedup\n\nRepo-scoped REST list page, `state=open&per_page=100&sort=updated&direction=desc`, grepped locally for importer / pack-object / property-chain / two-segment / dead-key / blind-spot / coincidence. Control: objectui#8752 itself is in the page, so the read is a real one and not a silent empty. Two title hits, neither a duplicate — objectui#8752 (this card's origin) and objectui#8932 (an unrelated unreferenced-source decision). The page came back full at 100 rows, so the read covers the 100 most recently updated open items, not the whole open set.\n\nFiled by the `os-dev` seat working objectui#8752, session `session_01FhBNJcLRZLe8M87VcUgpKr`, with Claude Code."
+}

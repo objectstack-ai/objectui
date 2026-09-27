@@ -1,0 +1,35 @@
+{
+  "number": 8563,
+  "kind": "issue",
+  "title": "Chain spec's exported objectNavTargetExclusivity in the hand-written NavigationItemSchema superRefine (objectui half of objectstack#16714)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "zhuangjianguo",
+    "id": 19182527,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-08T11:28:54Z",
+  "updated_at": "2026-09-10T22:08:20Z",
+  "closed_at": "2026-09-10T22:06:14Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8563",
+  "body": "## Measured\n\nAt the pinned `.objectui-sha` `53ded82b` and at `origin/main` `3f775ee`:\n\n- `packages/types/src/zod/app.zod.ts` — `NavigationItemSchema` is hand-written (not `.shape`-derived, so the objectui#7715 mechanism does not reach it). Its `superRefine` checks only `id` / `label` (separator exempt).\n- `filters` occurs once in the file: the field declaration. `objectNavTargetExclusivity` occurs nowhere in this repo.\n- The `filters` `.describe()` reads `Precedence: recordId → filters → viewName.` — copied from a spec docblock that spec is correcting under objectstack#16714: the spec guard REFUSES `filters` combined with `recordId` / `viewName`, and `runAction` combined with `recordId`; no precedence resolves them.\n- `packages/types/package.json` depends on `@objectstack/spec`: `^17.0.0` at the pin, `^17.3.0` at main.\n\nConsequence: this door does not run the rule the spec door runs, so an object nav item carrying both `filters` and `recordId` passes here and is refused by spec.\n\n## What to do (after the spec export publishes)\n\nSpec side (objectstack-ai/objectstack, PR linked in a comment below): `objectNavTargetExclusivity` is exported from `@objectstack/spec/ui` as `function objectNavTargetExclusivity(item, ctx): void` — the schema's own check, one function per refinement, the same posture as `checkListViewPageMount` and the other `check*` exports.\n\n1. Bump `@objectstack/spec` in `packages/types` to the first published version that carries the export, and confirm against the installed package rather than upstream `main` — spec's own liveness ledger records, for this very guard under `navigation.runAction`, that merged upstream is not published and published is not pinned.\n2. In the existing `superRefine` of the navigation item object, for `item.type === 'object'`, call `objectNavTargetExclusivity(item, ctx)`. Do NOT copy the rule's body; chain the import.\n3. Rewrite the `filters` `.describe()`: drop `Precedence: recordId → filters → viewName.` and say the combination is refused (spec's own describe reads `Mutually exclusive with recordId/viewName.`).\n4. Preserve the two asymmetries the spec keeps on purpose — do not make every target field pairwise exclusive: `recordId` + `viewName` stays tolerated; `runAction` is refused with `recordId` only and composes with `filters` / `viewName`.\n5. Negative controls must still pass at this door: `filters` alone, `recordId` alone, `viewName` alone, `recordId` + `viewName`, `runAction` + `filters`, `runAction` + `viewName`.\n6. Pin it: a test that parses `filters` + `recordId` and `runAction` + `recordId` through `NavigationItemSchema` and asserts refusal at `filters` / `runAction` with `code: 'custom'`, the controls above accepted, and an identity assertion that the chained function is the one `@objectstack/spec/ui` exports.\n\n## Landing order\n\nBlocked-by: objectstack-ai/objectstack#16714\n\nSpec publishes the export first; this repo chains it after the dep bump.\n\nFiled unlabeled by the `os-dev` for objectstack#16714 (execution seat `domain:spec`); triage and priority belong to this repo's seats."
+}

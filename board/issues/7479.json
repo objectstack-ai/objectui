@@ -1,0 +1,33 @@
+{
+  "number": 7479,
+  "kind": "issue",
+  "title": "i18n: load locale catalogues lazily per locale — take the ten packs out of the eager closure (option C of #7399, adopted 2026-09-03)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T08:44:45Z",
+  "updated_at": "2026-09-11T11:59:14Z",
+  "closed_at": "2026-09-11T11:57:22Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7479",
+  "body": "Filed by the director seat (objectstack#12708, summon #11, session `session_01ShyhexkB2d1AeRZ85tgAAe`) as the C half of the maintainer's ruling on #7399 (2026-09-03, verbatim 「同意」 to \"A′ + file C as its own card\"; ruling comment on that card). ⛔ Not graded and no `domain:*` — triage's. `pm:queue`: the direction is adopted by the ruling; the shape below is the measured starting point, not a specification.\n\n## Why\n\nThe seat's measurement on #7399 (5522762441) shows the ten locale catalogues (`packages/i18n/src/locales/*.ts`) plus the i18n runtime make up 78.7 % of the eagerly loaded `framework` chunk — every page load fetches ten catalogues of which a viewer uses one, and every new translation key (~147 gzipped bytes for a short one) is paid by every visitor in every language. #7399's A′ fixes the *attribution* (the chunk's name and ceiling say what they hold); this card fixes the *payload*: only the active locale's catalogue is fetched, the others are lazy chunks.\n\n## The ask\n\n- `packages/i18n`'s entry stops statically re-exporting all ten packs (`locales/index.ts`); the active locale's catalogue is loaded on demand (dynamic `import()` per locale, resolved before first render or with a documented fallback to `en` while it loads), and the other nine are separate chunks the browser never fetches unless the locale switches.\n- The published `@object-ui/i18n` surface: measure who imports the packs statically (in-repo consumers, the console, `examples/**`, the skill docs) and decide the shape at the contract — a loader API on the provider, not a renderer-side workaround. Clause-② is expected **yes** (a published entry's export shape changes); declare it from the diff.\n- The eager-closure gate re-baselines with the payload it then measures; the pin added by A′ on the chunk's composition is updated in the same PR.\n\n## Executable criterion\n\nAfter landing, a console page load at locale `zh-CN` fetches exactly one locale catalogue chunk; `apps/console/dist/eager-closure.json` shows no `packages/i18n/src/locales/*` module in any eager chunk except the active one (or none, if loaded on demand), and the aggregate eager closure drops by roughly nine catalogues' worth of gzipped bytes (the seat measured the ten at ~476 KB gzipped in total).\n\n## Sequencing\n\n`Blocked-by: #7399` — A′ (attribution + re-baseline + composition pin) lands first so this card's byte delta is measured against a chunk that means what it says. Related: #5324 / #6795 (payload-shrink candidates named earlier), #5468 / #5490 (the eager-closure budget and its per-chunk half)."
+}

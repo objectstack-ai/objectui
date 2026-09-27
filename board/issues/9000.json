@@ -1,0 +1,34 @@
+{
+  "number": 9000,
+  "kind": "issue",
+  "title": "finding(plugin-dashboard): an authored drill `columns` whitelist renders RAW field names as headers, where the same table without one renders the field labels",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T16:31:28Z",
+  "updated_at": "2026-09-10T22:10:18Z",
+  "closed_at": "2026-09-10T22:06:14Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9000",
+  "body": "Found while routing `object-metric` through the shared `DrillDownDrawer` (objectui#8970). Not fixed there: it predates that card, it belongs to the shared drawer rather than to `object-metric`, and fixing it would change column headers for four widgets at once.\n\n## The reading\n\n`ObjectDataTable` derives its column headers on two branches, and both call the same `fieldLabel` lookup. Only the FALLBACK differs.\n\nAuto-derive branch (`packages/plugin-dashboard/src/ObjectDataTable.tsx`, the `buildHeader` closure):\n\n```ts\nconst buildHeader = (k: string) => {\n  const humanized = humanizeFieldKey(k);\n  return objectName ? fieldLabel(objectName, k, humanized) : humanized;\n};\n```\n\nExplicit-whitelist branch, in the same `useMemo`:\n\n```ts\nnormalized.map((col) => ({ ...col, header: fieldLabel(objectName, col.accessorKey, col.header) }))\n```\n\nThe first falls back to the HUMANIZED key. The second falls back to whatever `header` the caller put on the column — and both drill callers put the raw field name there:\n\n- `packages/plugin-dashboard/src/DrillDownDrawer.tsx:122` — `columns: columns?.map((c) => ({ accessorKey: c, header: c }))`\n- `packages/plugin-charts/src/ObjectChart.tsx:1388` — `columns: drillDown?.columns?.map((c: string) => ({ accessorKey: c, header: c }))`\n\nSo when `fieldLabel` does not resolve (no object translation loaded for that object, which is the ordinary case in a drill), authoring `drillDown.columns` degrades the headers instead of merely narrowing them.\n\n## Measured\n\nOn `1def419ff`, through the registered `object-metric` block with a data source whose `getObjectSchema` returns `fields: { name: { type: 'text', label: 'Name' }, stage: ..., amount: ... }`:\n\n- `drillDown: { enabled: true, columns: ['name'] }` renders the single header **`name`**.\n- `drillDown: { enabled: true }` (no whitelist) renders **`Name`**, **`Stage`**, **`Amount`**.\n\nBoth readings come from the same run of the same file, so the object schema, the data source and the locale are held constant across them — the whitelist is the only thing that differs. The first was observed as a genuine assertion failure while writing objectui#8970's acceptance test, before the expectation was relaxed:\n\n```\nAssertionError: expected [ 'name' ] to deeply equal [ 'Name' ]\n```\n\n## Why it is worth filing\n\nThe author's intent in writing `columns` is \"show me these three columns\", not \"show me these three columns and also stop translating their headers\". The degradation is silent, it is invisible to the author until they open the drawer, and it points the wrong way: the MORE deliberate configuration produces the LESS finished table. It reaches every widget that drills through the shared drawer — metric, pivot, dataset, chart — so it is one fallback, not four bugs.\n\nIt is also a live authoring trap rather than a cosmetic nit: `DrillDownConfig.columns` documents itself as \"Optional column whitelist for the inline drill list. When omitted the data table renders all default columns\", which says nothing about headers changing, and nothing in the type or the registration warns that they will.\n\n## Suggested shape of a fix\n\nMake the whitelist branch's fallback the same as the auto-derive branch's — humanize the accessor key before handing it to `fieldLabel` — rather than teaching each caller to pre-humanize. Two callers do the identical `header: c` mapping today, which is the same duplication shape objectui#8970's triage named; a third caller would repeat it. `humanizeFieldKey` is already in the module.\n\nWorth deciding as part of it: whether `DrillDownDrawerProps.columns` should keep taking a bare `string[]` and building the column objects itself, so callers stop owning a mapping they all get the same way.\n\n## Not a duplicate\n\nobjectui#8944 is open against `ObjectChart`'s drill path, but it is about the `filter` ARRAY arm being mis-composed into index keys — a different member and a different mechanism. Deduped against the 190 open issues in this repository (repo-scoped REST list, both pages, with `drillDown` / `drill-down` as a positive control term that returned objectui#8944 and objectui#8970, so the empty result for header/label/whitelist terms is a reading rather than a silent zero).\n\nFiled by an agent seat working objectui#8970, via Claude Code, session reference `https://claude.ai/code/session_01MPaVWWMuWeT5LgB1qoXjVB`. (Attribution written as prose on purpose: this repository's body sanitizer deletes the footer block outright when an issue is created.)"
+}

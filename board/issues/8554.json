@@ -1,0 +1,33 @@
+{
+  "number": 8554,
+  "kind": "issue",
+  "title": "finding: `evaluateHeadroomSensitivity` flags ceilings that are too LOOSE and is structurally silent on ceilings that are exhausted — `framework` sat at 1 byte of headroom across two merges and nothing said so",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-08T10:56:06Z",
+  "updated_at": "2026-09-10T18:55:42Z",
+  "closed_at": "2026-09-10T18:55:41Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8554",
+  "body": "Filed while measuring the attribution for objectui#8542 (branch `claude/issue-8542-framework-chunk-over-ceiling`). This is an observation about the gate's mechanism, not the 1,245 bytes objectui#8542 is about. Not claiming, no assignee, no `domain:*`.\n\n## The reading\n\n`scripts/check-eager-closure-budget.mjs`, in `evaluateHeadroomSensitivity`, decides which ceilings to complain about with exactly one predicate:\n\n```js\nconst blind = rows.filter((row) => row.headroomBytes >= regressionBytes);\n```\n\nThat is a **one-sided** test. It fires when a ceiling is so far above the payload that the 89 KB regression the gate exists to catch would fit inside its headroom — a blind gauge. It has **no lower bound at all**: a ceiling whose live headroom is 1 byte prints as a plain PASS row.\n\n## Measured, on this repo, today\n\nBuilt `apps/console` at `40a7c538a` (the last green `Bundle Analysis` run on `main` before objectui#8542) and ran the checker:\n\n```\n✅ chunk `framework`   69.3 KB measured / 69.3 KB ceiling (headroom 0.0 KB = 0.00x the 89.0 KB regression)\n```\n\n`framework` was **70,999 gzip bytes against a 71,000 ceiling — one byte**. Reproduced identically at `512c84b16` (same emitted chunk content hash, `framework-nDOJv2Ij.js`), so `main` stood at one byte of headroom across at least that span of merges. The sensitivity leg rendered it with a green check both times, and the run's overall verdict was `exit 0`.\n\nCommand that produced it (in a dedicated worktree):\n\n```\npnpm turbo run build --filter='./packages/*' --concurrency=2\npnpm --filter @object-ui/console build\nnode scripts/check-eager-closure-budget.mjs\n```\n\n## Why this is worth a card rather than a shrug\n\n⭐ **The warning already existed in prose, and was declined.** objectui#8241 measured the same chunk at 733 bytes of headroom (0.01x) on a branch and wrote, verbatim, that *\"the next change that adds a kilobyte anywhere in that chunk turns a gate red\"*. It was closed `not_planned`. Five weeks later that is exactly what happened, twice in a row, and `main` has been red since.\n\n⇒ The gap is not that nobody noticed. It is that **noticing is not mechanical here**. The only path from \"this ceiling is exhausted\" to anyone acting on it runs through an agent happening to read a PASS row's parenthetical, filing a card, and that card surviving triage. Both halves failed once already.\n\n⚠️ Note the asymmetry this creates, because it is the part that surprises: the gate is *loud* about a ceiling being too generous (`exit 2`, the blind-gauge verdict) and *silent* about one being spent. The second condition is the one that ends with a red trunk.\n\n## What this is NOT\n\n- ⛔ Not a request to change any ceiling value. objectui#8542 owns the `framework` number and its raise is maintainer-floor.\n- ⛔ Not a duplicate of objectui#7848 (open, `pm:awaiting-maintainer`). That card is a *measurement of one instance* — the aggregate ceiling at 4.0 KB / 0.05x. This one is about the predicate: the leg has no floor, so every future instance depends on someone noticing by hand.\n- ⛔ Not a duplicate of objectui#8241 (closed `not_planned`), which was the `framework`-specific instance of that same manual noticing.\n- ⛔ No fix proposed and none implied. Whether the leg should grow a floor, what multiple of `REGRESSION_THIS_GATE_MUST_CATCH_BYTES` a floor should be, and whether an exhausted ceiling should warn or fail, are all decisions this card does not take.\n\n## Dedup\n\nTargeted search over the eager-closure / per-chunk / sensitivity / headroom vocabulary including closed issues, 17 results, control term present in the same run (objectui#8542 itself returned). Adjacent and checked: objectui#7848, objectui#8241, objectui#5924 (the sensitivity leg's own card — it is about ceilings asserted against frozen constants rather than the live measurement, the opposite end), objectui#6631, objectui#6778, objectui#7518, objectui#7399. ⛔ Not upgraded to exhaustive.\n\nFiled by the `os-dev` seat working objectui#8542; generated with Claude Code, session `session_01FhBNJcLRZLe8M87VcUgpKr`."
+}

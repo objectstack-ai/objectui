@@ -1,0 +1,39 @@
+{
+  "number": 8990,
+  "kind": "issue",
+  "title": "finding(types): ObjectKanbanSchema.groupBy is REQUIRED on both objectui faces while the protocol declares it optional — and that requiredness is what makes the protocol's bare-string columns arm unreachable",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "finding",
+    "package: types",
+    "plugin: kanban",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-10T15:00:30Z",
+  "updated_at": "2026-09-10T20:24:32Z",
+  "closed_at": "2026-09-10T20:22:20Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8990",
+  "body": "Filed by the `os-dev` seat while executing objectui#8913 (PR #8989), session `session_01Jmxdo7bmeqCQHLSfmLVX9w`. Deliberately left alone there: objectui#8913's scope is one declaration, and this is a different key.\n\n**Notation.** Generic parameters are written as UPPERCASE WORDS, never as literal tag-shaped fragments, because GitHub silently eats those from a stored body.\n\n## The reading\n\n`objectstack-ai/objectstack` at `eabdd66f45f402eba0f8404a8a9de4a501fc83a6`, `packages/spec/src/ui/component.zod.ts`, inside `ObjectKanbanPropsSchema`:\n\n```\ngroupBy: z.string().optional().describe('Field whose values become the board columns'),\n```\n\n`objectstack-ai/objectui` at `efead6c6054371d8c487e98395d44a7743ab7bbc`, both published faces of `ObjectKanbanSchema`:\n\n- `packages/types/src/objectql.ts` — `groupBy: string;` (REQUIRED)\n- `packages/types/src/zod/objectql.zod.ts` — `groupBy: z.string()` (REQUIRED, no `.optional()`)\n\nSo objectui **refuses a document the protocol accepts**: an `object-kanban` node with no `groupBy`.\n\n## Why this is being raised now rather than left alone\n\nThe requirement is deliberate and documented (objectui#7322, restated at objectui#7780: \"a board is a grouping of records by one field\"). What changed is the principle now in force, relayed on objectui#8934 (recorded verbatim, untranslated):\n\n> 我们的项目以 objectstack 协议为准，文档应该以实际实现为准。协议不正确的应该先修改协议。\n\nUnder it, \"objectui is narrower than the protocol on a published key\" is the direction that needs a ruling — either objectui relaxes, or the protocol is corrected first. Today neither has happened; the divergence just sits there.\n\n## The consequence measured on objectui#8913, which is what surfaced it\n\nThe protocol declares `object-kanban.columns` with a two-arm element union — a `{ id, title }` lane, **or a bare value string**. objectui's renderer does honour the bare-string arm, but the branch is gated on the absence of `groupBy`:\n\n`packages/plugin-kanban/src/ObjectKanban.tsx`, the `effectiveColumns` memo:\n\n```\nif (typeof schema.columns[0] === 'string') {\n     // If grouping is active, assume string columns are meant for data display, not lanes\n     if (!schema.groupBy) {\n         return (schema.columns as unknown as string[]).map(val => ({ id: val, title: val }));\n     }\n}\n```\n\n⇒ Because `groupBy` is REQUIRED on this face, **every document that passes objectui's own validator has `groupBy` set, so the bare-string arm can never fire.** The protocol's second arm is inert here — not by a decision about `columns`, but as a side effect of this key's requiredness. PR #8989 admits the arm anyway (refusing it would be a second narrowing), and records that it is unreachable rather than pretending otherwise.\n\nRenderer-side, the `groupBy` reads are guarded early-returns (`if (!schema.groupBy)` at two sites), so a lane-less board does not crash — it renders the empty-lane path.\n\n## What a fix would have to weigh\n\n1. **Relax objectui to `optional`, matching the protocol.** Widens a published accept set — a ruling of its own. It would also make the bare-string `columns` arm reachable, which is the only way that arm becomes live.\n2. **Correct the protocol to require `groupBy`.** An `@objectstack/spec` card; objectui then mirrors it and nothing here changes. The protocol's own docs example authors `groupBy`, so the corpus does not contradict this route.\n3. **Leave the divergence and declare it.** Cheapest, but it leaves the principle unapplied on a key where it is measurably load-bearing, and the ⭐ consequence above stays invisible.\n\n⛔ Not a recommendation from this seat: which of the three is right is a contract question, and objectui#8913's dispatch is explicit that a narrowing question belongs upstream rather than to the implementing seat.\n\n## Not this\n\n- ⛔ Not the VIEW-LEVEL `kanban.groupByField` / `groupField` alias, which is live and untouched (objectui#7322 is explicit that the retirement is node-local).\n- ⛔ Not `groupField` on the node, which is a tombstone and stays one.\n- ⛔ Not objectui#8365, which is about a surviving view-config `groupBy` overriding a resolved lane in `plugin-list`; this card is about the node declaration's requiredness instead.\n\nRefs: objectui#8913 / PR #8989 · objectui#7322 · objectui#7780 · objectui#8934.\n\nFiled by Claude Code for the `os-dev` seat on objectui#8913; the session reference is `session_01Jmxdo7bmeqCQHLSfmLVX9w`.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

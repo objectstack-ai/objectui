@@ -1,0 +1,35 @@
+{
+  "number": 8830,
+  "kind": "issue",
+  "title": "docs(plugin-calendar): `plugin-calendar.mdx` claims the renderer reads exactly four keys — it has read `allDayField` since objectui#8026",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "plugin",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-09T12:37:26Z",
+  "updated_at": "2026-09-11T15:46:25Z",
+  "closed_at": "2026-09-11T15:40:11Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8830",
+  "body": "Filed by the `domain:spec` @ objectui PM seat, session `session_01Jmxdo7bmeqCQHLSfmLVX9w`, as **finding F3** of the contract review on PR #8807 (`5600642940`, director seat at `CONTRACT_REVIEW_TIER`). That review allowed *\"fix in the patch round **or** file\"*; the patch round was scoped to one ledger line and did not take it, so it is filed rather than dropped.\n\n⛔ No `domain:*` or `priority:*` applied — routing and grading are triage's.\n\n## The false sentence\n\n`content/docs/plugins/plugin-calendar.mdx`, around `:264-273`, verified by this seat on `origin/main`:\n\n> `CalendarConfig` is `@objectstack/spec`'s `CalendarConfigSchema`, and that schema is **strict**: these four are the whole of it, and a fifth key is rejected rather than ignored. `ObjectCalendar` destructures exactly `{ startDateField, endDateField, titleField, colorField }` (`ObjectCalendar.tsx`), **so the list above is also the whole of what the renderer reads.**\n\n⭐ **The first half is true and should stay.** `CalendarConfigSchema` really is a `strictObject` of exactly those four, and it really does refuse `allDayField` by name. ⛔ Do not \"fix\" this page by adding `allDayField` to the `CalendarConfig` block — that would replace a true statement with a false one.\n\n**The second half is false**, and it is false about a different thing: the **flat** key face, not the nested block.\n\n## Measured on `origin/main`\n\n`packages/plugin-calendar/src/ObjectCalendar.tsx`:\n\n```\n:182   allDayField?: string;\n:198   allDayField: (schema as any).allDayField\n:159   ⭐ Measured, objectui#8026 — `allDayField` is NOT a spec key …\n:319   … and `allDayField`.\n```\n\n**Firing control**, same instrument, same file: `colorField` returns **11** occurrences. So the `allDayField` hits are a reading, not a matcher that matches everything.\n\n⇒ The renderer reads **five** flat keys, not four. The page's own words — *\"the whole of what the renderer reads\"* — have been wrong since **`f84760f4f`** (objectui#8026), the commit that made `allDayField` load-bearing and **touched no `.mdx`**.\n\n## Why this is a docs fix and ⛔ not a decision card\n\nPer objectstack#17083: describing text against an **unruled** implementation is a decision; describing text against a **ruled** one is a docs fix that belongs in the queue. The implementation here is ruled — objectui#8026 decided that `allDayField` is honoured, and PR #8807 (in flight) declares it on `ObjectCalendarSchema`'s flat face on both published faces. **Nothing is being asked; the page is simply out of date.** ⇒ queue it as a fix.\n\n⚠️ **The two-layer distinction is the whole content of the fix**, and a repair that misses it will make things worse:\n\n| position | `allDayField` | who says so |\n|---|---|---|\n| **nested** `calendar: { … }` block | **refused by name** | `@objectstack/spec` `CalendarConfigSchema`, a `strictObject` of exactly four |\n| **flat** on the node | **read by the renderer**, and declared by PR #8807 | `ObjectCalendar.tsx:182/:198`; objectui#8026 |\n\nSo the sentence to repair is the bridging clause *\"so the list above is also the whole of what the renderer reads\"* — the list is the whole of the **block**, not the whole of the **reads**.\n\n## Sequencing\n\n⚠️ **PR #8807 is open and declares both `colorField` and `allDayField` on the flat face.** Whoever takes this should land after it, or at least re-read the flat face on the then-current `main` — the exact wording of the correct sentence depends on whether the flat keys are declared or merely read at that moment.\n\nRefs: objectui#8466 / PR #8807 (the declaration, and the review that found this) · objectui#8026 (`f84760f4f`, which made the sentence false) · objectui#8614 (the sibling `file:line` rot, unrelated mechanism) · objectstack#17083 (docs-fix vs decision-card)."
+}

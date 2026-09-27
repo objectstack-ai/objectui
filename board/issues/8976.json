@@ -1,0 +1,33 @@
+{
+  "number": 8976,
+  "kind": "issue",
+  "title": "finding(core): `convertFiltersToAST` REFUSES `$icontains`, a canonical `FILTER_OPERATORS` member that `ValueDataSource` executes and this repo's own filter builder emits",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T13:28:25Z",
+  "updated_at": "2026-09-10T17:03:24Z",
+  "closed_at": "2026-09-10T17:02:26Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8976",
+  "body": "Found by the `domain:ui` `os-dev` seat while running objectui#8568's prerequisite census (PR for that card is separate; this is out of its scope, which is measurement only and zero behaviour change). Grading and `domain:*` are the triage seat's. ⛔ Not claimed.\n\n## The class\n\nobjectui#8568 records that `convertFiltersToAST` and `ValueDataSource` answer one `$`-dialect with two acceptance sets, and names the direction where the **converter is MORE tolerant** (four lowercase aliases the matcher refuses).\n\nThere is a third leg, in the **opposite** direction, and it is not on that card: `$icontains` is a **canonical member of the spec's `FILTER_OPERATORS`**, `ValueDataSource` executes it, and `convertFiltersToAST` **refuses it with a 400 envelope**.\n\n## Measured\n\n`origin/main` `3ff3fc63f`, spec `17.4.0`, both legs in one process, with a control operator both sides agree on so the difference is about `$icontains` rather than about the harness:\n\n```\nspec FILTER_OPERATORS includes $icontains: true\nLOWERING $icontains          => THREW FilterOperatorError / INVALID_FILTER / 400\nLOWERING CONTROL $contains   => [\"name\",\"contains\",\"AC\"]\nMATCHER  $icontains          => rows [\"ACME\"]\nMATCHER  CONTROL $contains   => rows [\"ACME\"]\n```\n\nThe refusal message enumerates its own supported set, and `$icontains` is absent from it:\n\n```\n[ObjectUI] Unknown filter operator '$icontains' for field 'name'. Supported operators:\n$eq, $ne, $gt, $gte, $lt, $lte, $in, $nin, $between, $contains, $notContains,\n$startsWith, $endsWith, $null, $exists.\n```\n\n## Why this is a contract violation and not a preference\n\n`@objectstack/spec` `data/filter.zod.ts` declares:\n\n```ts\nexport const FILTER_OPERATORS = [\n  '$eq', '$ne',\n  '$gt', '$gte', '$lt', '$lte',\n  '$in', '$nin', '$between',\n  '$contains', '$notContains', '$startsWith', '$endsWith', '$icontains',\n  '$null', '$exists',\n] as const;\n```\n\n`$icontains` is in it. `packages/core/src/adapters/README.md` goes further and names `$icontains` as the **prescription** printed when `$like` / `$ilike` / `$regex` are refused — so the repo tells an author to write the one spelling one of its two lowering paths rejects.\n\n## This repo is itself a producer of it\n\n`packages/fields/src/widgets/FilterConditionField.tsx` emits it for the `containsCaseInsensitive` builder operator:\n\n```ts\ncase 'containsCaseInsensitive': return { [field]: { $icontains: value } };\n```\n\nThat arm exists because objectui#4023 / objectui#3567 (both CLOSED) fixed the case-insensitive contains being unreachable from the filter UI. `kvToCondition` reads it back. So an admin who picks \"contains (ignore case)\" writes criteria that the in-memory matcher honours and the ObjectStack lowering path refuses.\n\n⚠️ The end-to-end reach from `criteria_json` into `convertFiltersToAST` is **not** provable from this repo — the criteria store is not in this tree, and this is exactly the consumer-local caveat objectui#6839 established. What IS proven here is the acceptance-set disagreement and the producer arm.\n\n## Why no existing pin catches it\n\nPR #8565's reconciliation pin (`packages/data-objectstack/src/readme-filter-operator-table.test.ts`) holds the README's operator tables complete against two populations: the keys of `operatorMap`, and the operators the unknown-operator error calls supported. `$icontains` is in **neither**, so the pin is structurally blind to it — and `packages/data-objectstack/README.md` carries no row for `$icontains` in its supported table or its refused table. Measured: `git grep -n icontains -- packages/data-objectstack/` returns nothing.\n\n## Directions (not ruled here)\n\n1. **Add `$icontains` to `operatorMap`** so the lowering matches the spec and the matcher. `icontains` is a member of the spec's `VALID_AST_OPERATORS` (it is already an identity row in `FILTER_OPERATOR_ALIASES` for the object-form dialect, with a comment recording that check), so nothing downstream needs inventing.\n2. **Refuse it deliberately and say so** — a refused-table row plus a prescription, the way `$like` / `$regex` are handled. That contradicts the adapters README, which currently prescribes `$icontains`.\n3. Whatever is chosen, the pin's blind spot is worth closing: it should hold the tables against the spec's `FILTER_OPERATORS` too, not only against the code's own two lists — the omission is invisible to it by construction.\n\n## Dedup\n\nTwo channels, each with controls.\n\n- **REST issue listing, complete and reconciled**: all 459 open items enumerated across 5 pages, `open_issues_count` 459 = 459 listed. Local grep of title+body: `icontains` hits objectui#7750 and objectui#7383, `containsCaseInsensitive` hits objectui#7561. Positive control `ValueDataSource` fires with 12 hits; negative control `ZZQQNOTAWORDZZ` reads 0.\n- **One targeted semantic search** including closed: returns objectui#4023 and objectui#3567 (both the PRODUCER side, both closed and fixed), plus objectui#8568 itself as a lit control.\n\nNone of them names the lowering path refusing `$icontains`: objectui#7383 is `like` / `ilike` in the matcher's AST dialect; objectui#7561 is `filter-builder`'s dropdown-vs-mirror vocabularies; objectui#7750 is `DataScopeManager`. No card names this."
+}

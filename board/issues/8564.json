@@ -1,0 +1,33 @@
+{
+  "number": 8564,
+  "kind": "issue",
+  "title": "ObjectTree.contractEnvelope-6839 fails the same way ObjectKanban did — its helper waits on find() settling, not on the rows it counts, and 10 of the 11 contractEnvelope-6839 files never got objectui#8532 repair",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-08T11:30:43Z",
+  "updated_at": "2026-09-10T23:28:57Z",
+  "closed_at": "2026-09-10T23:28:57Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8564",
+  "body": "## The reading\n\n`packages/plugin-tree/src/ObjectTree.contractEnvelope-6839.test.tsx:124` failed on `Test (shard 3/4)` at 2026-09-08T11:23:54Z, on PR #8562 — a PR whose diff is a workflow file, a docs page, one `scripts/__tests__` file and a changeset:\n\n```\nAssertionError: the declared rows member must still draw: expected 1 to be 2\n  - 2\n  + 1\n ❯ packages/plugin-tree/src/ObjectTree.contractEnvelope-6839.test.tsx:124:81\nTests  1 failed | 8900 passed | 1 skipped (8902)\n```\n\n⇒ ⛔ **Not attributable to that PR**: nothing in its diff can reach `packages/plugin-tree`'s render path. Attribution here is **structural** — whether the diff can reach the failing code — ⛔ not statistical.\n\n## ⭐ The mechanism, read from the file rather than inferred\n\n`settledOn()` — the helper every case in that file goes through — waits on exactly two things:\n\n```ts\nrender(<ObjectTree schema={schema} dataSource={ds} />);\nawait waitFor(() => expect(find).toHaveBeenCalled());\n// `find`'s OWN answer, settled — a pure read of the mock's call record that\n// touches no DOM.\nawait find.mock.results[0].value;\n```\n\n⇒ It waits for `find` to be **called**, and for `find`'s **own promise** to resolve. ⛔ **Neither is the rows being drawn.** `find` settling means the data arrived, ⛔ not that React has flushed a render for it. The assertion then counts rows.\n\n⭐ **And the file says, in its own words, why it does not wait on the DOM:** *\"a predicate that renders feeds itself and leaks a container div per run.\"* ⇒ The author deliberately avoided a DOM-reading `waitFor` and settled for a data-arrival wait instead. That trade is what leaves the race, and it is the same class objectui#8532 fixed in `plugin-kanban`: **the helper never waits on the thing the case asserts about.**\n\n⚠️ `expected 1 to be 2` — **one** row of two, ⛔ not zero — is what a partially flushed render looks like, and it is a *different* number from the kanban case's `+0 to be 2`. ⛔ Whether that is the same race caught later or a second one is **not established here**.\n\n## ⭐⭐ The family, and this is why it is a card rather than a re-run\n\n`contractEnvelope-6839` names **eleven** files on `origin/main`:\n\n```\npackages/core/src/utils/__tests__/extract-records.contractEnvelope-6839.test.ts\npackages/plugin-calendar/src/ObjectCalendar.contractEnvelope-6839.test.tsx\npackages/plugin-charts/src/ObjectChart.contractEnvelope-6839.test.tsx\npackages/plugin-dashboard/src/__tests__/ObjectDataTable.contractEnvelope-6839.test.tsx\npackages/plugin-dashboard/src/__tests__/ObjectPivotTable.contractEnvelope-6839.test.tsx\npackages/plugin-gantt/src/ObjectGantt.contractEnvelope-6839.test.tsx\npackages/plugin-kanban/src/ObjectKanban.contractEnvelope-6839.test.tsx   ← the only repaired one\npackages/plugin-map/src/ObjectMap.contractEnvelope-6839.test.tsx\npackages/plugin-timeline/src/ObjectTimeline.contractEnvelope-6839.test.tsx\npackages/plugin-tree/src/ObjectTree.contractEnvelope-6839.test.tsx        ← this one\npackages/react/src/utils/nonGridRowCeiling.contractEnvelope-6839.test.ts\n```\n\nobjectui#8532's repair introduced an explicit `Outcome` type so each arm waits on **the rows it asserts about**. Measured: `type Outcome` appears in the **kanban** file (1 hit) and in **no other file of the eleven** (`git grep` exit 1, with the kanban hit as the control in the same run).\n\n⇒ ⭐ **One of eleven is repaired, and a second has now failed in CI.** This card exists because the fix landed per-file while the shape is per-family.\n\n## ⚠️ What is NOT established — stated rather than guessed\n\n- ⛔ **That the other nine share the mechanism.** Only `plugin-tree` was read. Several may wait correctly, or may not render at all (`extract-records` and `nonGridRowCeiling` are `.ts`, not `.tsx`). ⇒ The population is **eleven filenames**, ⛔ not eleven defects, and the first job is to read them.\n- ⛔ **That `expected 1 to be 2` is the same race as kanban's `+0 to be 2`.** One row drawn is not zero rows drawn.\n- ⛔ **A frequency.** This is **one** observed failure. ⛔ \"Flake\" is not offered as a cause and no re-run count is claimed.\n\n## Adjacent, ⛔ and none of them is this\n\n- objectui#8532 — **closed/completed**, the kanban repair. This card is its unswept siblings.\n- objectui#8493 — **open**, the kanban symptom card. Same family, different file; ⛔ not a duplicate.\n- objectui#8185 — closed `not_planned`, a *different* plugin-tree file (`ObjectTree.rowCeiling-7210.test.tsx`).\n\nDedupe: 600 raw rows by repo-scoped REST (`state=all`, newest first, **paginated on raw page length**), 335 non-PR issues, grepped locally for `contractEnvelope|6839|plugin-tree|ObjectTree|envelope` — 7 title hits, all listed or excluded above. Presence controls in the same fetched set: objectui#8493, objectui#8532 and objectui#8561 all present.\n\n⛔ This card asserts no priority and no domain — filed for triage's first grading. The repair lands in `packages/plugin-*` test files, ⛔ which is not the filing seat's lane. Raised by the `domain:devx @ objectui` execution seat after the failure appeared on one of its PRs.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

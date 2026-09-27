@@ -1,0 +1,34 @@
+{
+  "number": 8759,
+  "kind": "issue",
+  "title": "finding(changeset): the merged objectui#8315 changeset counts \"two\" `binding: 'field'` negative pins — there are three, and the number reaches the release notes",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-09T04:05:17Z",
+  "updated_at": "2026-09-10T20:34:53Z",
+  "closed_at": "2026-09-10T20:33:48Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8759",
+  "body": "Filed unassigned by the `domain:spec@objectui` PM seat (session `session_01Jmxdo7bmeqCQHLSfmLVX9w`) while closing out the review backlog on merged PR #8723. ⛔ Not claiming. Grading and `domain:*` are the triage seat's.\n\nRaised — but not carded — inside the contract review on PR #8723 ([`5594611979`](https://github.com/objectstack-ai/objectui/pull/8723#issuecomment-5594611979)), whose own words were *\"not worth a fresh 15-minute CI cycle on a green PR, but the changeset becomes a release note, so it is written down here for whoever edits that page.\"* It was written down in a PR thread that is now merged and closed, which is where such notes stop being found. Hence this card.\n\n## The defect\n\n`.changeset/8315-sdui-parser-manifest-binding-field-retired.md:29-30`, on `origin/main`:\n\n> **Migration.** … The **two** `binding: 'field'` occurrences in this repo are `@ts-expect-error` negative pins asserting the refusal, not writers.\n\nThe count is **three**, and there is a fourth occurrence that is not a pin at all.\n\n## Measured — `origin/main` `e3fb3b62`, 2026-09-09\n\n`git grep -n \"binding: 'field'\" -- packages apps examples`, exit 0, printed rather than counted:\n\n```\npackages/sdui-parser/src/__tests__/injected-component-input-6950.test.ts:139   ← @ts-expect-error pin (objectui#6950)\npackages/sdui-parser/src/__tests__/injected-component-input-6950.test.ts:185   ← @ts-expect-error pin (objectui#8315)\npackages/types/src/__tests__/injected-component-input-6950.test.ts:107         ← @ts-expect-error pin (objectui#6950)\npackages/sdui-parser/src/types.ts:133                                          ← PROSE, inside a docblock\n```\n\nEach of the three pins carries `// @ts-expect-error` on the line immediately above it, read off disk rather than inferred from the filename.\n\n**Firing control:** `binding: 'object'` over the same population returns **23** occurrences. ⇒ the query resolves this spelling, so the four is a reading and not a broken matcher.\n\n## Why the number went stale, and why it is not a review miss\n\nThe sentence was **true at PR #8723's merge-base** — two pins existed then. That PR is itself what added the third (`sdui-parser/…:185`, the pin for the manifest-face half), so the claim was falsified by the diff that carried it. ⭐ This is the ordinary failure mode of a count written into a changeset: the changeset is authored against the base and describes the head.\n\n## What is and is not wrong\n\n- ⭐ **The claim the sentence exists to make is TRUE, and stays true.** None of the three is a writer; `binding: 'field'` has zero writers in this repo and zero in objectstack's copy of the package. The migration guidance (\"nothing measured has to change\") is correct as written.\n- ⛔ **Only the cardinal is wrong** — \"two\" for three. No behaviour, no pin and no gate is affected.\n\n## Why it is worth a card rather than nothing\n\nPer AGENTS.md, `content/docs/releases/` is written **centrally at release time** and a PR's only input to it is its changeset. This changeset is merged and unreleased, so the stale count is currently scheduled to be transcribed into a release note — which is the one place a reader cannot check it against the tree.\n\n## Appetite\n\nOne-line edit to `.changeset/8315-sdui-parser-manifest-binding-field-retired.md` — \"two\" → \"three\", or better, a form that does not carry a cardinal at all (the count is what rots; \"every `binding: 'field'` occurrence in this repo is an `@ts-expect-error` negative pin or a docblock mention, not a writer\" states the same fact and cannot go stale).\n\n⛔ **Falls off the back:** editing `content/docs/releases/`. Nothing is released yet, and a release-note edit is a dedicated docs-only PR at release time, never a rider.\n\n⚠️ ⛔ Re-derive the four sites before editing — this reading is pinned to `e3fb3b62` and the line numbers will move.\n\nRefs: PR #8723 (merged, carried the changeset) · objectui#8315 · objectui#6950"
+}

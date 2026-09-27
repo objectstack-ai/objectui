@@ -1,0 +1,37 @@
+{
+  "number": 8913,
+  "kind": "issue",
+  "title": "types(plugin-kanban): restore lane/card judging on `object-kanban` — declare `columns: KanbanColumn[]`, the one thing the retired `kanban` arm judged that nothing else does",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "package: types",
+    "plugin: kanban",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T23:45:37Z",
+  "updated_at": "2026-09-10T17:06:46Z",
+  "closed_at": "2026-09-10T16:50:27Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8913",
+  "body": "Filed by the `domain:spec` @ objectui PM seat, session `session_01Jmxdo7bmeqCQHLSfmLVX9w`, as **option C** of the ruling recorded on this shift.\n\n**Maintainer ruling, 2026-09-09: \"A now, C as the follow-up card.\"** ⇒ ⛔ this card is not asking whether to do it. It is asking the implementing seat to do exactly C and nothing wider.\n\n## What happened\n\nRetiring the bare `kanban` node type (objectui#8802, PR #8865) removed the only schema face that judged several things. The dev surfaced this as an open question **during** execution rather than after — the right time.\n\n`KanbanSchema` (the retired arm) was the **only** face that:\n- **declared** `columns` / `cardTitle` / `swimlaneField` / `grouping` / `navigation`;\n- **refused by name** `allowCollapse` / `cardTemplates` / `columnWidths` / `titleField` / `draggable` / `onColumnAdd` / `onCardAdd`;\n- ⭐ **judged a lane's `cards`**, through `columns: KanbanColumn[]` — which is objectui#6939's actual defect fix.\n\nThe surviving `ObjectKanbanSchema` declares **none** of them, while `ObjectKanban` still **reads all of them**.\n\n⇒ The family went from judging several of 13 read keys to judging **5**.\n\n## ⛔ What this card is NOT\n\n- ⛔ **Not option B.** It does **not** declare the missing scalar keys (`cardTitle`, `swimlaneField`, `grouping`, `navigation`, or the refusal set). That would **widen a published accept set**, needs its own ruling, and re-opens the settled question of which keys the object-bound board honours. The maintainer chose C over B deliberately.\n- ⛔ **Not a claim that anything regressed for authors.** No `object-kanban` document changes meaning: it was **never** judged by the `kanban` arm. What was lost is judging that only ever applied to the retired spelling.\n- ⛔ Not a re-opening of objectui#8802's ruling.\n\n## The scope: one declaration\n\nDeclare on `ObjectKanbanSchema` — TS face and zod mirror, moving together:\n\n```ts\ncolumns?: KanbanColumn[];               // TS\ncolumns: z.array(KanbanColumnSchema)…   // zod mirror\n```\n\n⇒ This restores the **judging** half only: a lane's shape and its `cards` are checked again. The scalar surface is untouched.\n\n⚠️ **Direction check the implementing seat owes.** `BaseSchema` closes with `[key: string]: any` and `.passthrough()`. On such a face a declaration **cannot widen** — it can only **narrow**, by adding validation where there was none. **Verify that this is that case** before writing the PR body, and state it in the strict/lenient vocabulary. If it turns out to widen anything, ⛔ STOP and report: that flips the clause-② verdict and this becomes option B, which is not ruled.\n\n## What is measurably wrong today, and should be the pin\n\nThe dev recorded the concrete consequences of the loss. Each is a candidate assertion:\n\n- `columns[].items` now **parses green** (it is not a declared member of a lane, and nothing refuses it);\n- a card with **no `title`** now parses green;\n- three handler keys are **read but undeclared**.\n\n⇒ The pin should assert the **restored refusals**, each with a firing control showing the same document was accepted before. ⛔ A pin that only asserts a good document parses would have passed before this card too and would pin nothing.\n\n## ⚠️ Two facts the implementing seat must not rediscover the hard way\n\n1. **The two schema-catalog fixtures needed `groupBy` and `data: []` added** during the retirement, because the `object-kanban` face refuses a purely **static** board (lanes carrying their own cards, no `groupBy`, no record source). Their rendered DOM is byte-identical afterwards — the sha256/tag/element pins in `kanban-column-cards-6939.test.tsx` pass unchanged — because both spellings always resolved to the **same renderer**. ⇒ if this card's declaration interacts with that refusal, say so; a static board is exactly the shape `columns[].cards` judging is about.\n2. **`SchemaRegistry` (`packages/types/src/registry.ts`) has never carried an `object-kanban` entry**, so with `'kanban'` retired the kanban family has **no entry in that map at all** and `ComponentType` no longer offers any kanban node type. ⛔ Adding one **widens `ComponentType`** and is a ruling of its own — carrier objectui#7665. ⛔ Do not fix it here.\n\nRefs: objectui#8802 / PR #8865 (the retirement that created this) · objectui#6939 (the lane/card judging defect whose fix is what was lost) · objectui#7665 (`SchemaRegistry` coverage) · objectui#7322 · ADR-0049."
+}

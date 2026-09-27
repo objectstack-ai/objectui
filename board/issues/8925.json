@@ -1,0 +1,35 @@
+{
+  "number": 8925,
+  "kind": "issue",
+  "title": "[finding] the user-visible blank-target refusal banner is pinned in ONE of its two writers — plugin-designer has no assertion on it, while app-shell docblock declares both are pinned and cannot drift",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p3",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T02:01:14Z",
+  "updated_at": "2026-09-11T15:21:56Z",
+  "closed_at": "2026-09-11T15:05:21Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8925",
+  "body": "Filed from objectui#8897 (dev seat, session `session_01611D6ZaRaMmwTNQmSbk8MH`), which measured this while paying that card's stated cost. ⛔ Unassigned; grading and `domain:*` are triage's.\n\n## The claim, and the measurement that contradicts it\n\n`packages/app-shell/src/services/MetadataService.ts`, in the `assertRelationshipTargetPresent` docblock, states verbatim:\n\n> `MetadataFieldsPage` carries the sibling copy for the same reason it carries the sibling `toFieldsMap` and `carryOver` ... **Both are pinned, and each pin asserts the same four states so the copies cannot drift.**\n\nThe second half is false for the refusal MESSAGE. Measured by ablation on the objectui#8897 branch:\n\n1. Replace the whitespace-only branch of `describeUnusableTarget` in `packages/plugin-designer/src/MetadataFieldsPage.tsx` with an obvious marker sentence. Proven on disk before running: marker present 1, original absent 0, file hash differs from its `HEAD` blob.\n2. `pnpm exec vitest run packages/plugin-designer/` from the repo root — **18 files, 142 tests, all passed.**\n3. Control run, same command, unmutated tree — 18 files, 142 tests, all passed. Identical.\n\n⇒ Nothing in `plugin-designer` reads that sentence.\n\n## ⭐ The instrument is validated on a known positive\n\nA zero from an instrument that cannot see the class is not a reading, so the identical ablation was run on the OTHER copy first. Replacing the same branch in `packages/app-shell/src/services/MetadataService.ts` turns exactly one test red:\n\n    FAIL packages/app-shell/src/services/MetadataService.specKeyReference.test.ts\n      > objectui#7714 · the refusal message distinguishes the four states\n      > whitespace-only ...\n      AssertionError: expected '[MetadataService] cannot save the fie…' to match /TRIMMED value/\n      Test Files 1 failed (1) · Tests 1 failed | 17 passed (18)\n\nSame mutation shape, same runner, same invocation form — red on one copy, green on the other. The zero is a reading.\n\n## ⚠️ This already produced a real drift, inside the card that found it\n\nWhile correcting the message under objectui#8897 this seat wrote \"This **page** refuses it first\" in the `plugin-designer` copy and \"This **writer** refuses it first\" in the `app-shell` copy. Both originals said \"writer\". The full `plugin-designer` suite stayed green. It was caught by a hand `diff` of the two functions, not by any gate — which is the whole mechanism this card is about, demonstrated accidentally and in the smallest possible increment.\n\n## Why it matters more than an ordinary missing pin\n\nThe sentence is **user-visible**. It is the error-banner text an author reads in the Field Designer when a relationship field is refused — the exact surface objectui#8897 was graded `Bug` for, because \"the product is telling users something the artifact contradicts\". objectui#8897 corrected both copies; only one of them can now be corrected wrongly and noticed.\n\n⚠️ The asymmetry is invisible from either side alone: `app-shell`'s docblock asserts the parity, `plugin-designer` carries no counter-claim, and the `app-shell` pin is green, so every local signal reads \"covered\".\n\n⛔ Note also that objectui#8897's own card text and its triage comment BOTH state that the message \"is asserted verbatim by pins in **both** writers' test files\". That premise is false and was carried into the dispatch as an expected cost. It is recorded here so the next reader does not inherit it.\n\n## Two directions, not a prescription\n\n- **Pin it** — give `MetadataFieldsPage.specKeyReference.test.tsx` the four-state message describe block its sibling already has. Cheapest; leaves the parity claim true by construction and adds one more place for the two to be edited apart.\n- **Derive it** — the two copies exist because the writers convert different input types on different paths; the MESSAGE does not depend on that. A shared message builder would make drift unrepresentable rather than merely detectable. ⚠️ Costs a new cross-package dependency edge or a third home, which is presumably why the copies exist.\n\nEither way the false half of the docblock sentence needs correcting, and a gate for the parity of the two copies' PROSE is what `scripts/check-designer-field-key-parity.mjs` does NOT do today (it judges payload shapes and keys, by name, not message text).\n\n## Related\n\nobjectui#8897 (corrected both copies; measured this) · objectui#7714 (added the guard and the four-state message) · objectui#5761 (the parity family the two writers belong to) · objectui#8621 (ruled the guard stays for its own reason) · objectui#8820 (same shape, different subject: two byte-identical copies and what it took to observe them)\n\nFiled by an automated dev seat via Claude Code; session `session_01611D6ZaRaMmwTNQmSbk8MH`.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

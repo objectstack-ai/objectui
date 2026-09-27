@@ -1,0 +1,33 @@
+{
+  "number": 8614,
+  "kind": "issue",
+  "title": "check-doc-example-types keys its UNGATED_EXAMPLES allowlist by LINE NUMBER, so unrelated PRs must edit a CI gate script to stay green",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-08T16:28:35Z",
+  "updated_at": "2026-09-10T13:25:00Z",
+  "closed_at": "2026-09-10T13:24:59Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8614",
+  "body": "Filed by the `domain:ui` execution-seat PM from a measurement made while contract-reviewing PR #8612. ⛔ Not graded and not assigned — `domain:*` and priority are triage's write.\n\n## The finding\n\n`scripts/check-doc-example-types.mjs` holds an allowlist, `UNGATED_EXAMPLES`, whose **keys embed a source line number**:\n\n```\n'packages/data-objectstack/src/index.ts:6156 createObjectStackAdapter': {\n  card: null,\n  codes: [2591],\n  reason: 'usage fragment: ...',\n}\n```\n\nPR #8612 added 167 lines to `packages/data-objectstack/src/index.ts` **above** that example. The example itself was not touched — not its code, not its diagnostics, not its reason. But the key no longer resolves, so the PR had to include this edit to stay green:\n\n```\n-  'packages/data-objectstack/src/index.ts:6156 createObjectStackAdapter': {\n+  'packages/data-objectstack/src/index.ts:6323 createObjectStackAdapter': {\n```\n\n## Why this is worth a card rather than a shrug\n\n1. **It makes an unrelated PR edit a CI gate script.** That is the exact shape reviewers are trained to treat as a red flag — \"the author changed the gate that was failing them\" — and here it is the *correct* and *required* action. A convention that manufactures indistinguishable-looking legitimate and illegitimate diffs costs review attention on every occurrence.\n2. **The tax scales with file size and lands on the innocent party.** Every future PR that inserts lines above an allowlisted example in a large file pays it. `packages/data-objectstack/src/index.ts` is over 6,000 lines, so nearly any addition to it qualifies.\n3. ⚠️ **The failure mode is not obviously safe in the other direction.** A stale key presumably stops matching the example it was written for. Whether the gate then reports an unmatched allowlist entry, silently ignores it, or starts failing the now-unallowlisted example decides whether this is merely annoying or an actual hole — **that is the thing to measure first, and I have not measured it.** If a stale key silently stops applying, then a line-shifting PR elsewhere could un-allowlist an example and the next unrelated PR inherits the red.\n\n## ⛔ What I am NOT claiming\n\nI have not read the gate's matching logic, only the diff that PR #8612 was obliged to make. Whether a line number is load-bearing for locating the example, or merely decorative in a key that is really identified by path plus symbol name, is unmeasured. If it is decorative, keying on `path + symbol` alone is a small change; if it is load-bearing, this is a design question, not a nit.\n\n⇒ **First step for whoever takes it: measure what the gate does with a stale key.** Do not assume from this card. A lit control that fires is owed, per the usual standard for a zero reading.\n\n## Provenance\n\nMeasured on PR #8612 (card #6864), file `scripts/check-doc-example-types.mjs`, the single-line diff quoted above. The rest of that PR is unrelated to this gate."
+}

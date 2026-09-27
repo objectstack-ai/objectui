@@ -1,0 +1,34 @@
+{
+  "number": 9071,
+  "kind": "issue",
+  "title": "bug(plugin-detail): the summary chip's percent scaling is a drifted copy — it disagrees with `percentDisplayValue` at exactly 1 and at values at or below -1",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T22:07:26Z",
+  "updated_at": "2026-09-11T14:26:03Z",
+  "closed_at": "2026-09-11T14:11:07Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9071",
+  "body": "Found by the census objectui#8728 asked for (is the chip's `num <= 1 ? num * 100 : num` the repo's interpretation of a stored `percent`, or just this file's?). It is just this file's.\n\n## Measured\n\nCensus of every site that turns a stored `percent` into a display magnitude, on `7f27bc543`:\n\n| site | rule | a stored `1` | a stored `-5` |\n|---|---|---|---|\n| `packages/core/src/utils/dataset-format.ts` — `percentDisplayValue`, the declared single source of truth | `value > -1 && value < 1` | `1%` | `-5%` |\n| `packages/fields/src/index.tsx` — `formatPercent`, so `PercentCellRenderer` / the list cell | via `percentDisplayValue` | `1%` | `-5%` |\n| `packages/plugin-dashboard/src/recordFields.tsx` | via `percentDisplayValue` since objectui#5607 | `1%` | `-5%` |\n| `packages/plugin-grid/src/useColumnSummary.ts` | inline copy, same boundary | `1%` | `-5%` |\n| `packages/plugin-detail/src/DetailView.tsx` — the `summaryFields` chip | `num <= 1 ? num * 100 : num` | `100%` | `-500%` |\n\nThe chip is the only `num <= 1` spelling in the repo. `grep` over `packages/*/src` and `apps/*/src` returns exactly one hit.\n\n## Why this is a contract violation, not a boundary nit\n\n`percentDisplayValue`'s own doc comment states the contract in those words — quoting it, because the quote is the judgement:\n\n> This is the SINGLE source of truth for percent display scaling, shared by the list-view percent cell renderer (`formatPercent` in `@object-ui/fields`) and the dataset measure formatter (`formatMeasure`) so a percent renders identically as a row value and as an aggregated metric — the two surfaces can never drift.\n\n> If a third surface ever needs percent display, it takes BOTH halves from here — the scaling AND the convention — or this promise breaks again in the same place.\n\nThe summary chip is a third surface that needs percent display and takes neither half.\n\nobjectui#5607 already removed this exact drift shape one package over: `plugin-dashboard`'s local `value > 1` branch. Its pin test states the decision in words — exactly 1 is percentage points and renders `1%`, which is the convention `PercentScale` spells out as `whole` is `1` shows `1%`. The chip's `num <= 1` puts exactly 1 on the fraction side and draws `100%`, which is the same drift that card removed.\n\n## The third convention — the one the WRITER of the value used\n\n`packages/fields/src/widgets/PercentField.tsx` does not infer from magnitude at all. It reads the field's declared `max`: a field declaring `max` above 1 (e.g. `max: 100`) stores whole-number percents, everything else stores fractions. So the authoring surface already answers the question the two read-side heuristics are guessing at, and for a field declaring `max: 100` and storing `0.5` the edit widget shows `0.50%` while the chip's bar draws 50%.\n\n## Scope note — what objectui#8728 did and did not do\n\nTriage's ruling there was: make the chip's TEXT follow the BAR's existing rule, do not change the bar, do not invent a third rule. That card did exactly that — one named helper, both halves reading it, every bar answer preserved byte-for-byte including `1` drawing a full bar. Two consequences were recorded there rather than decided:\n\n- exactly `1` stays `100%` on this chip while every other band renders it `1%`;\n- the chip's TEXT for a stored value at or below -1 moved with the bar's rule, so a stored `-5` now reads `-500%` where it read `-5%` before. The bar is unchanged for those inputs (any negative clamps to an empty track either way), so this is the drift becoming visible on the half that had been accidentally right.\n\n## What this card decides\n\nWhich authority the chip reads. Three routes, and the choice is a product decision, not a refactor:\n\n- **A** — `percentDisplayValue` plus the shared percent convention, i.e. both halves as the doc comment requires. Note `@object-ui/plugin-detail` already peer-depends on `@object-ui/core`, so this adds no dependency edge. Taking only the scaling half would be a fourth dialect, and taking the convention half changes what the chip prints for values it renders correctly today (`formatPercent` rounds `12.3` to `12%` at the default precision), so A is a real decision with a visible diff.\n- **B** — read the field's declared `max`, the way the edit widget does, and infer only when it is absent.\n- **C** — carry the scale on the field in `@objectstack/spec` and stop inferring anywhere.\n\n## Dedup\n\nRun. Channel: repo-scoped REST list — `/repos/objectstack-ai/objectui/issues?state=open&labels=domain:ui&per_page=100`, followed to the end of the label (2 pages, 101 open issues) — plus a local title-and-body keyword scan for percent and scaling. Control fired: the same scan returned objectui#8728 itself, so the single hit is a reading and not a silent zero. That one hit was objectui#8728. Scope boundary, stated rather than papered over: open issues carrying `domain:ui`; an unlabelled card would not have been seen.\n\nFiled by the `os-dev` seat while implementing objectui#8728, from session `session_01MPaVWWMuWeT5LgB1qoXjVB`. Not fixed on that card's PR, by its ruling."
+}

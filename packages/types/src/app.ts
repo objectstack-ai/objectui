@@ -483,9 +483,22 @@ export interface AppComponentSchema extends BaseSchema, Omit<SpecApp, (typeof AP
   logo?: never;
 
   /**
-   * Favicon URL
+   * ⛔ RETIRED — REFUSED BY NAME (objectui#10842, the objectui#10827
+   * one-spelling rule). The app favicon is {@link BrandingConfig.favicon}:
+   * write `branding: { favicon: '/favicon.ico' }`.
+   *
+   * `@objectstack/spec`'s `AppSchema` never declared a top-level `favicon`: it
+   * refuses the key (`unrecognized_keys`), and its `AppBrandingSchema` declares
+   * `favicon` as a URL. The console already reads only `branding.favicon`
+   * (`ConsoleLayout` hands it to `AppShell`); `AppSchemaRenderer` now does too.
+   *
+   * A tombstone rather than a deletion, for the reason `logo` above gives. The
+   * twin is `zod/app.zod.ts`'s `aliasKeyRefusal` arm; the pin is
+   * `__tests__/app-declared-keys-10842.test.ts`.
+   *
+   * @deprecated Not a key of this contract. Author `branding.favicon`.
    */
-  favicon?: string;
+  favicon?: never;
 
   /**
    * Branding configuration
@@ -872,22 +885,30 @@ export function isValidAppName(name: string): boolean {
 }
 
 /**
- * Convert an AppWizardDraft to an AppSchema.
+ * Convert an AppWizardDraft to the app document the Studio saves.
  *
- * The draft's logo travels in `branding` only (objectui#10827): `branding.logo`
- * is the one spelling, so no top-level `logo` is written beside it.
+ * The output is a metadata DOCUMENT for `client.meta.saveItem('app', …)`, and
+ * the door judges it with `@objectstack/spec`'s strict `AppSchema`. So it
+ * carries only keys that schema declares (objectui#10842):
+ *   - the draft's title is `label`, the spec's one spelling; the spec answers a
+ *     `title` with "did you mean `title` → `label`?";
+ *   - the logo and favicon travel in `branding` only (objectui#10827);
+ *   - no `type`: that is the renderer-node discriminator of
+ *     {@link AppComponentSchema}, not a key of the stored app;
+ *   - no `layout`: the spec declares no app layout, so the draft's layout
+ *     choice is not part of the saved document.
+ * The pin is `__tests__/app-declared-keys-10842.test.ts`, which parses this
+ * output with the spec's own `AppSchema`.
  */
-export function wizardDraftToAppSchema(draft: AppWizardDraft): AppComponentSchema {
+export function wizardDraftToAppSchema(
+  draft: AppWizardDraft,
+): Omit<SpecApp, 'navigation'> & { navigation: NavigationItem[] } {
   return {
-    type: 'app',
     name: draft.name,
-    title: draft.title,
     label: draft.title,
     description: draft.description,
     icon: draft.icon,
-    favicon: draft.branding.favicon,
     branding: draft.branding,
-    layout: draft.layout,
     navigation: draft.navigation,
   };
 }

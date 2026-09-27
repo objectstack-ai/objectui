@@ -12,9 +12,22 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { AppCreationWizard } from '../AppCreationWizard';
 import { wizardDraftToAppSchema } from '@object-ui/types';
 import type { AppWizardDraft, ObjectSelection } from '@object-ui/types';
+import { AppSchema as SpecAppSchema } from '@objectstack/spec/ui';
 import { useMetadata } from '@object-ui/react';
 import { useAdapter } from '@object-ui/react';
 import { toast } from 'sonner';
+
+/**
+ * The keys an app document may carry — read off `@objectstack/spec`'s own
+ * strict `AppSchema`, never hand-listed, so the set moves with the spec (the
+ * `getListViewConfigKeys` precedent in app-shell's `ObjectView`). Computed on
+ * first use: the schema is a lazy proxy.
+ */
+let appDeclaredKeys: ReadonlySet<string> | undefined;
+function getAppDeclaredKeys(): ReadonlySet<string> {
+  appDeclaredKeys ??= new Set(Object.keys(SpecAppSchema.shape));
+  return appDeclaredKeys;
+}
 
 export function EditAppPage() {
   const navigate = useNavigate();
@@ -43,15 +56,15 @@ export function EditAppPage() {
     if (!appToEdit) return undefined;
     return {
       name: appToEdit.name,
-      title: appToEdit.title || appToEdit.label || '',
+      title: appToEdit.label || '',
       description: appToEdit.description || '',
       icon: appToEdit.icon || '',
       layout: appToEdit.layout || 'sidebar',
       navigation: appToEdit.navigation || [],
       branding: {
-        logo: appToEdit.branding?.logo || appToEdit.logo || '',
+        logo: appToEdit.branding?.logo || '',
         primaryColor: appToEdit.branding?.primaryColor || '#3b82f6',
-        favicon: appToEdit.branding?.favicon || appToEdit.favicon || '',
+        favicon: appToEdit.branding?.favicon || '',
       },
     };
   }, [appToEdit]);
@@ -60,8 +73,16 @@ export function EditAppPage() {
     async (draft: AppWizardDraft) => {
       try {
         const appSchema = wizardDraftToAppSchema(draft);
-        // Merge with original app config to preserve fields not maintained in wizard
-        const merged = { ...appToEdit, ...appSchema };
+        // Keep what the wizard does not maintain (areas, permissions, the
+        // package envelope, …), but only keys the spec's `AppSchema` declares
+        // (objectui#10842). A row stored before that schema closed is served
+        // with the old wizard's top-level `type` / `title` / `logo` / `favicon`
+        // / `layout`, and the door refuses a save that echoes them back.
+        const declared = getAppDeclaredKeys();
+        const preserved = Object.fromEntries(
+          Object.entries(appToEdit ?? {}).filter(([key]) => declared.has(key)),
+        );
+        const merged = { ...preserved, ...appSchema };
         // Persist app metadata to backend
         const client = adapter?.getClient();
         if (client) {

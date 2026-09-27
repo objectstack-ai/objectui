@@ -25,9 +25,9 @@ describe('Phase 2: AppComponentSchema Zod Validation', () => {
       name: 'my-crm',
       title: 'My CRM Application',
       description: 'Customer Relationship Management System',
-      // The logo's one spelling (objectui#10827); a top-level `logo` is refused.
-      branding: { logo: '/logo.png' },
-      favicon: '/favicon.ico',
+      // The logo's and the favicon's one spelling (objectui#10827,
+      // objectui#10842); a top-level `logo` or `favicon` is refused.
+      branding: { logo: '/logo.png', favicon: '/favicon.ico' },
       layout: 'sidebar',
       menu: [
         {

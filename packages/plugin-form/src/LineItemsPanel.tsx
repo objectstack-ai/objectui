@@ -201,6 +201,22 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
   // raises it, and a run a newer one has superseded (another `parentId`, say,
   // while it was in flight) does neither. Held in a ref: nothing renders from it.
   const loadSeqRef = useRef(0);
+  // objectui#10740 — the parent the held `rows` / `original` belong to. Written
+  // in the same commit as the rows (a load that succeeds), and adopted by the
+  // CURRENT load that fails while nothing is held yet: the rows are then the
+  // initial empty set, and a line added in this parent's panel is this
+  // parent's. A load for ANOTHER parent that fails leaves it where it was, so
+  // the rows and this value keep agreeing after `parentId` has moved on. That
+  // disagreement is `heldForAnotherParent`: the grid is not drawn from those
+  // rows, the Save button is off, and `save` sends nothing. Before this card the
+  // failed load left the previous parent's edited lines drawn, editable and
+  // saveable, and Save wrote them under the CURRENT `parentId` (an edit batch's
+  // child rows carry it directly), moving another record's lines. The guard
+  // rather than a clear in the load's `catch`, because a load that DECLINES for
+  // the new parent (a refused filter, say) never reaches that `catch` and left
+  // the same Save enabled over the same rows.
+  const [rowsHeldFor, setRowsHeldFor] = useState<string | undefined>(undefined);
+  const heldForAnotherParent = rowsHeldFor !== undefined && rowsHeldFor !== parentId;
 
   // Child object schema — used to strip computed / read-only columns from each
   // row before persisting (parity with the parent form's sanitize). Rows are
@@ -351,13 +367,23 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
       setRows(data.map((r) => ({ ...r })));
       setOriginal(data.map((r) => ({ ...r })));
       setDirty(false);
+      // The rows just committed are this run's parent's (objectui#10740). Same
+      // commit as the rows, so the two never disagree about whose they are.
+      setRowsHeldFor(parentId);
       // Once the CURRENT run commits, the rows on screen answer what the panel
       // asks for now, so no earlier failure describes it: not a failed load,
       // and not a failed save, whose edits these rows replace (objectui#10682,
       // the objectui#10578 rule: cleared on a commit, never when a load starts).
       if (isCurrent()) setError(null);
     } catch (e: any) {
-      if (isCurrent()) setError(e?.message || 'Failed to load line items');
+      if (isCurrent()) {
+        setError(e?.message || 'Failed to load line items');
+        // Nothing held yet: the empty rows on screen are this parent's from
+        // here on, so a line added under this failure is saved to it and to no
+        // parent the panel moves to later (objectui#10740). Rows already held
+        // for another parent stay that parent's: this failure adopts nothing.
+        setRowsHeldFor((held) => held ?? parentId);
+      }
     } finally {
       setLoading(false);
     }
@@ -394,6 +420,11 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
     // write contract is not the render tree's to keep: this is the same one-line
     // guard `load` takes, on the component's other data-layer entry point.
     if (!dataSource || !parentId || !schema.childObject) return;
+    // The held rows are another parent's (objectui#10740): the batch below
+    // would carry them under THIS `parentId` and move that parent's lines here.
+    // The Save button is off in this state; this is the write contract's own
+    // guard, on the function every caller of it reaches.
+    if (heldForAnotherParent) return;
     setSaving(true);
     setError(null);
     try {
@@ -427,7 +458,7 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
     } finally {
       setSaving(false);
     }
-  }, [dataSource, parentId, rows, original, schema, parentObject, load, childSchema]);
+  }, [dataSource, parentId, heldForAnotherParent, rows, original, schema, parentObject, load, childSchema]);
 
   const gridField = useMemo(
     () =>
@@ -456,7 +487,7 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
             type="button"
             size="sm"
             onClick={save}
-            disabled={saving || loading || !dirty || !parentId}
+            disabled={saving || loading || !dirty || !parentId || heldForAnotherParent}
           >
             {saving ? 'Saving…' : 'Save'}
           </Button>
@@ -513,6 +544,18 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
         ) : !parentId ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
             Save the record first to add line items.
+          </p>
+        ) : heldForAnotherParent ? (
+          /* The held rows were loaded for, or edited under, another parent
+             (objectui#10740): this parent's load failed or declined. They are
+             not drawn as this record's lines, editable or otherwise, and Save
+             is off above. The banner above this branch carries the failure;
+             a load for this parent that commits takes the grid back. */
+          <p
+            className="py-6 text-center text-sm text-muted-foreground"
+            data-testid="line-items-held-for-another-parent"
+          >
+            This record’s line items have not been loaded.
           </p>
         ) : (
           <LineItemsField

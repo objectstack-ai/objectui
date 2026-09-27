@@ -16,6 +16,10 @@ import {
   normalizeFilterOperator,
 } from "@objectstack/spec/ui"
 import { SchemaRendererContext } from "@object-ui/react"
+import type {
+  FilterBuilderCondition as AuthoredFilterBuilderCondition,
+  FilterGroup as AuthoredFilterGroup,
+} from "@object-ui/types"
 // The retirement gate (objectui#4914, ruling B). Read from
 // `@object-ui/core` rather than from `@object-ui/fields` — which is where
 // the maintainer's ruling names it — for the one reason that cannot be
@@ -43,22 +47,45 @@ import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover"
  * and `operator` here is the builder's own dropdown vocabulary
  * (`FILTER_BUILDER_OPERATORS`), not the spec's `$`-tokens.
  *
- * `@object-ui/types` already renamed its identical concept to
- * `FilterBuilderCondition` (objectui#3068); this is the same thing, so it takes
- * the same name rather than inventing a second dialect. Note the same name is
- * NOT the right answer everywhere: `@object-ui/app-shell`'s `FilterCondition`
- * really was the spec's ObjectQL AST and was re-exported (objectui#3169).
+ * DERIVED from `@object-ui/types`, never declared a second time (objectui#9306,
+ * which settles objectui#6349's two parked name-authority rows). That declaration is
+ * the one name authority for the row; this one takes every member from it
+ * (`id`, required since objectui#8415, and `field`) and restates exactly two,
+ * each a named extension:
+ *
+ *   - `operator` — {@link FilterBuilderOperator}: the protocol's ids, which is
+ *     what the authority declares, plus the opt-in `exists` / `notExists` the
+ *     protocol has no member for (objectui#9559 ruling B keeps them opt-in and
+ *     unfolded). It was `string`, which let a caller hand the builder an id no
+ *     dropdown entry can hold.
+ *   - `value` — REQUIRED and narrowed to the scalar-or-list union this builder
+ *     edits, where the authority declares `value?: any`. Every exported helper
+ *     below that takes a row's value (`reshapeFilterValue`, `retypeFilterValue`,
+ *     `narrowFilterValueToOptions`, …) is typed on this member, so `any` here
+ *     would switch their checking off in silence.
  */
-export interface FilterBuilderCondition {
-  id: string
-  field: string
-  operator: string
+export interface FilterBuilderCondition
+  extends Omit<AuthoredFilterBuilderCondition, "operator" | "value"> {
+  operator: FilterBuilderOperator
   value: string | number | boolean | (string | number | boolean)[]
 }
 
-export interface FilterGroup {
-  id: string
-  logic: "and" | "or"
+/**
+ * The group the FilterBuilder edits: one `logic` over FLAT rows.
+ *
+ * DERIVED from `@object-ui/types` like the row above (objectui#9306). Only
+ * `conditions` is restated, to hold THIS package's row; `id` and `logic` are
+ * the authority's own. So `id` is OPTIONAL here, as it is there: nothing in
+ * this builder reads a group's `id`, `onChange` hands back whatever group the
+ * host passed (an id-less group comes back id-less), and only `EMPTY_GROUP`
+ * invents one. The `id: string` this package used to declare described a
+ * group the builder never guaranteed.
+ *
+ * `conditions` is flat because the builder is: it draws each entry as one row
+ * and has no control that creates a group. The authority retired nested
+ * sub-groups in the same change and its zod mirror refuses one by name.
+ */
+export interface FilterGroup extends Omit<AuthoredFilterGroup, "conditions"> {
   conditions: FilterBuilderCondition[]
 }
 
@@ -251,6 +278,21 @@ export const FILTER_BUILDER_OPERATORS = defaultOperators.map(o => o.value)
  */
 export type FilterBuilderOperator = (typeof defaultOperators)[number]['value']
 
+const FILTER_BUILDER_OPERATOR_IDS: ReadonlySet<string> = new Set(FILTER_BUILDER_OPERATORS)
+
+/**
+ * Is this spelling one of the builder's own ids — a value a row's `operator`
+ * may hold (objectui#9306)?
+ *
+ * The narrowing a `string` needs before it can be written into a
+ * {@link FilterBuilderCondition}: the operator Select hands back a `string`, and
+ * {@link normalizeFilterBuilderOperator} answers one. Membership is read from
+ * the list the dropdown renders, never restated.
+ */
+function isFilterBuilderOperator(operator: string): operator is FilterBuilderOperator {
+  return FILTER_BUILDER_OPERATOR_IDS.has(operator)
+}
+
 /**
  * The one stored spelling the builder reads that the spec's alias table does
  * NOT fold (objectui#9306).
@@ -319,7 +361,10 @@ function normalizeGroupOperators(group: FilterGroup): FilterGroup {
   const conditions = group.conditions.map((c) => {
     if (!c || typeof c.operator !== "string") return c
     const operator = normalizeFilterBuilderOperator(c.operator)
-    if (operator === c.operator) return c
+    // A spelling the fold leaves outside this builder's ids is kept as the row
+    // carried it, exactly as a spelling the fold leaves UNCHANGED is: every
+    // answer the fold gives for a spelling it knows is one of the ids below.
+    if (operator === c.operator || !isFilterBuilderOperator(operator)) return c
     moved = true
     return { ...c, operator }
   })
@@ -1335,7 +1380,7 @@ function FilterBuilder({
    * of its value are not independently settable — so they are made together
    * here rather than left for each caller to remember.
    */
-  const changeOperator = (conditionId: string, nextOperator: string) => {
+  const changeOperator = (conditionId: string, nextOperator: FilterBuilderOperator) => {
     handleChange({
       ...filterGroup,
       conditions: filterGroup.conditions.map((c) =>
@@ -1400,7 +1445,12 @@ function FilterBuilder({
       ...filterGroup,
       conditions: filterGroup.conditions.map((c) => {
         if (c.id !== conditionId) return c
-        const nextOperator = reconcileOperatorForField(c.operator, offered)
+        // `reconcileOperatorForField` answers either the row's own operator or
+        // an id the new field offers — builder ids both — so this narrows the
+        // helper's `string` answer to the row's type; it never picks a
+        // different operator (objectui#9306).
+        const reconciled = reconcileOperatorForField(c.operator, offered)
+        const nextOperator = isFilterBuilderOperator(reconciled) ? reconciled : c.operator
         const reshaped =
           nextOperator === c.operator ? c.value : reshapeFilterValue(c.value, nextOperator)
         const retyped = retypeFilterValue(reshaped, nextType, nextOperator)
@@ -1872,7 +1922,12 @@ function FilterBuilder({
                     condition.operator,
                     getOperatorsForField(condition.field),
                   )}
-                  onValueChange={(value) => changeOperator(condition.id, value)}
+                  // Radix hands back the `value` of a mounted `SelectItem`,
+                  // and every one mounted below is a builder id; the guard is
+                  // what tells the compiler so (objectui#9306).
+                  onValueChange={(value) => {
+                    if (isFilterBuilderOperator(value)) changeOperator(condition.id, value)
+                  }}
                 >
                   <SelectTrigger className="h-9 text-sm">
                     <SelectValue placeholder={t('filterBuilder.operator')} />

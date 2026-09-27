@@ -4027,7 +4027,7 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   'complex.zod.ts#FilterBuilderConditionSchema':
     "recursive; declared `z.ZodType<any>`, which exposes no `.shape` to read — and accepts `any`, so it cannot be narrower than any declaration. One of the three consts that REFUSED the objectui#7760 type argument (the mirror accepts more than the declaration states), so this reason is still literally true here",
   'complex.zod.ts#FilterGroupSchema':
-    "recursive; declared `z.ZodType<any>`, which exposes no `.shape` to read — and accepts `any`, so it cannot be narrower than any declaration. One of the three consts that REFUSED the objectui#7760 type argument (the mirror accepts more than the declaration states), so this reason is still literally true here",
+    "a `z.lazy` declared `z.ZodType<any>`, which exposes no `.shape` to read — and accepts `any`, so it cannot be narrower than any declaration. No longer recursive since objectui#9306 made `conditions` flat (a nested sub-group is refused by name), but still one of the three consts that REFUSED the objectui#7760 type argument, transitively: every `conditions` entry is judged by `FilterBuilderConditionSchema`, which accepts more than the declaration states",
   'complex.zod.ts#GlobalFilterSchema':
     "no TS declaration in this package restates it — there is no second definition to drift from",
   'complex.zod.ts#ComplexSchema':

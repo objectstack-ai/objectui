@@ -98,8 +98,11 @@ describe('objectui#8415 — the condition `id` is DECLARED, so it is no longer s
   it('REFUSES a condition with no `id`, on the direct arm and through a group', () => {
     expect(FilterBuilderConditionSchema.safeParse(NO_ID).success).toBe(false);
     expect(FilterGroupSchema.safeParse(group([NO_ID])).success).toBe(false);
-    expect(FilterGroupSchema.safeParse(group([{ id: 'g2', logic: 'or', conditions: [NO_ID] }])).success)
-      .toBe(false);
+    // The third arm this test used to carry — an id-less row inside a nested
+    // sub-group — is gone with the nesting (objectui#9306): a sub-group is now
+    // refused BY NAME whatever its rows say, so that fixture would stay red for
+    // a reason that is not `id`. The sub-group refusal is pinned in
+    // `filter-builder-nested-group-retired-9306.test.ts`.
   });
 
   it('REFUSES it through the authored document too — both entry paths on `FilterBuilderSchema`', () => {
@@ -175,11 +178,25 @@ describe('objectui#8415 — the enforcement the declaration now matches, re-deri
     expect(readerSource).toContain('id: crypto.randomUUID(),');
   });
 
-  it('the component declares `id` non-optional on its own condition type', () => {
-    // The renderer half of `declared = enforced`. `id?: string` here would mean
-    // the component tolerates its absence, and the required mirror would be
-    // narrower than the thing it mirrors.
-    expect(readerSource).toContain('export interface FilterBuilderCondition {\n  id: string\n');
+  it('the component takes `id` from THIS declaration — it derives its condition type, it does not restate it', () => {
+    // The renderer half of `declared = enforced`. It used to be pinned as the
+    // component's own hand-written `id: string`; objectui#9306 deleted that
+    // second declaration, and the component now DERIVES its row from the
+    // `FilterBuilderCondition` declared in this package, restating only
+    // `operator` and `value` (the two named extensions). So the requiredness
+    // pinned at the top of this file — `Equal<…, string>` plus the
+    // `@ts-expect-error` on an id-less literal — is the requiredness the
+    // component gets, by construction. What is pinned here is that the
+    // derivation is still the one in place: `id` is NOT among the members the
+    // component omits and restates, and no hand-written interface is back.
+    // The component-side type pins live in
+    // `packages/components/src/__tests__/filter-builder-name-authority-9306.test.ts`.
+    expect(readerSource).toContain('FilterBuilderCondition as AuthoredFilterBuilderCondition,\n');
+    expect(readerSource).toContain('} from "@object-ui/types"');
+    expect(readerSource).toContain(
+      'export interface FilterBuilderCondition\n  extends Omit<AuthoredFilterBuilderCondition, "operator" | "value"> {\n',
+    );
+    expect(readerSource).not.toContain('export interface FilterBuilderCondition {');
   });
 
   it('anti-vacuity for the source probes: a spelling that is NOT there reads false', () => {

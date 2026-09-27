@@ -371,13 +371,14 @@ function conditionValueFollowsTheProtocolRule(
  * `FilterOperatorSchema` and `conditionValueFollowsTheProtocolRule`, both
  * declared above, and neither reaches back to this const.
  *
- * ⚠️ `FilterGroupSchema` below CANNOT take this shape, and neither can six other
- * `z.lazy` exports of this face: their bodies name the very const being declared
- * (or, for `SchemaNodeSchema`, one declared below it), so evaluating the body
- * eagerly throws `ReferenceError: Cannot access '<name>' before initialization`
- * at module load. The `z.lazy` there is buying a TDZ dodge, not a style. Measured
- * one schema at a time in `../__tests__/zod-lazy-getter-identity-7918.test.ts`
- * — read that before "fixing" any of them to match this one.
+ * ⚠️ Not every `z.lazy` export of this face can take this shape. The ones the
+ * `TDZ_BOUND` ledger of `../__tests__/zod-lazy-getter-identity-7918.test.ts`
+ * lists have bodies that name the very const being declared, so evaluating the
+ * body eagerly throws `ReferenceError: Cannot access '<name>' before
+ * initialization` at module load; the `z.lazy` there is buying a TDZ dodge, not
+ * a style. Read that ledger before "fixing" any of them to match this one.
+ * `FilterGroupSchema` below was one of them until objectui#9306 made its body
+ * flat; it now takes this shape too.
  */
 const FilterBuilderConditionObject = z.object({
   // REQUIRED, and the asymmetry with `FilterGroupSchema.id` below is the whole
@@ -428,7 +429,7 @@ export const FilterBuilderConditionSchema: z.ZodType<any> = z.lazy(() => FilterB
  * (objectui#6939, the `filter-builder` group; maintainer ruling 2026-09-02,
  * director seat summon #8, verbatim 「同意」).
  *
- * The gate is `isValidGroup`, `packages/components/src/custom/filter-builder.tsx:1060`:
+ * The gate is `isValidGroup` in `packages/components/src/custom/filter-builder.tsx`:
  *
  *     Array.isArray(v.conditions) && (v.logic === "and" || v.logic === "or")
  *
@@ -445,19 +446,65 @@ export const FilterBuilderConditionSchema: z.ZodType<any> = z.lazy(() => FilterB
  * `id` from an authored group renders BYTE-IDENTICALLY (76 elements, same text,
  * same SHA-256). Requiring it would refuse a document the renderer draws
  * perfectly — a fresh instance of the exact class objectui#6939 exists to
- * close. Declared rather than dropped because the component's own exported
+ * close. Declared rather than dropped because the component's exported
  * `FilterGroup` carries it, `EMPTY_GROUP` emits it, every catalog entry authors
  * it, and it round-trips out through `onChange`; declaring it buys the type
  * check (`id: 42` now refuses) that an undeclared key would not get, since a
  * plain `z.object` strips unknown keys in silence.
+ *
+ * ## `conditions` is FLAT — a nested sub-group is refused BY NAME (objectui#9306)
+ *
+ * This array used to take `union([condition, group])`, so a sub-group parsed
+ * green. Nothing honours one: `FilterBuilder` draws every entry as one flat
+ * field / operator / value row, so a sub-group rendered as a row with blank
+ * triggers while its own conditions were drawn nowhere, and the builder handed
+ * it back through `onChange` untouched. The maintainer's ruling on
+ * objectui#9306 (「A 撤掉嵌套声明」) retires the nesting at this authority.
+ *
+ * Why a named refusal and not just `z.array(FilterBuilderConditionSchema)`: a
+ * sub-group run through the ROW schema is refused, but only as a missing
+ * `field` and a missing `operator` — true, and no help to an author who wrote
+ * a group on purpose. So each entry is asked one question first: does it carry
+ * its own `conditions`? A row never does, so an entry that does is a
+ * sub-group, and it gets ONE `custom` issue at the entry's own path, carrying
+ * {@link NESTED_FILTER_GROUP_RETIRED}. The pipe does not go on to the row
+ * schema after that issue, so the author reads the reason, not its symptoms.
+ * Every other entry is judged by the row schema exactly as before.
+ *
+ * MEMOISED, like {@link FilterBuilderConditionSchema}: the body no longer names
+ * this const, so the `z.lazy` has no temporal dead zone left to dodge (the
+ * objectui#7918 ledger moved it from `TDZ_BOUND` to `MEMOISED`). The `z.lazy`
+ * and the `z.ZodType<any>` annotation stay, so the public handle's type and
+ * its `.unwrap()` accessor do not move.
  */
-export const FilterGroupSchema: z.ZodType<any> = z.lazy(() =>
-  z.object({
-    id: z.string().optional().describe('Group id — round-tripped through `onChange`; no read site'),
-    logic: z.enum(['and', 'or']).describe('How the conditions combine — read by `isValidGroup`'),
-    conditions: z.array(z.union([FilterBuilderConditionSchema, FilterGroupSchema])).describe('Conditions or sub-groups'),
+const NESTED_FILTER_GROUP_RETIRED =
+  'A nested sub-group is RETIRED (objectui#9306, ADR-0049): every entry of a filter group\'s '
+  + '`conditions` is one flat `{ id, field, operator, value }` row, and an entry carrying its own '
+  + '`conditions` is refused by name. `filter-builder` draws no nested group: it drew a sub-group '
+  + 'as a row with blank field and operator triggers and showed its conditions nowhere. Write the '
+  + 'rows into the one group instead; its `logic` (`and` / `or`) combines all of them.';
+
+const FilterGroupEntrySchema = z
+  .any()
+  .superRefine((entry, ctx) => {
+    if (
+      typeof entry === 'object'
+      && entry !== null
+      && !Array.isArray(entry)
+      && Object.prototype.hasOwnProperty.call(entry, 'conditions')
+    ) {
+      ctx.addIssue({ code: 'custom', message: NESTED_FILTER_GROUP_RETIRED });
+    }
   })
-);
+  .pipe(FilterBuilderConditionSchema);
+
+const FilterGroupObject = z.object({
+  id: z.string().optional().describe('Group id — round-tripped through `onChange`; no read site'),
+  logic: z.enum(['and', 'or']).describe('How the conditions combine — read by `isValidGroup`'),
+  conditions: z.array(FilterGroupEntrySchema).describe(`Flat condition rows. ${NESTED_FILTER_GROUP_RETIRED}`),
+});
+
+export const FilterGroupSchema: z.ZodType<any> = z.lazy(() => FilterGroupObject);
 
 /**
  * Filter Field Schema — one entry of `FilterBuilderSchema.fields`
@@ -577,8 +624,20 @@ export const FilterBuilderSchema = BaseSchema.extend({
   defaultValue: z.union([FilterBuilderConditionSchema, FilterGroupSchema]).optional().describe('Default filter value'),
   value: z.union([FilterBuilderConditionSchema, FilterGroupSchema]).optional().describe('Controlled filter value'),
   onChange: handlerKeyRefusal('onChange', 'runtime-slot', 'Change handler'),
-  allowGroups: z.boolean().optional().describe('Allow grouped conditions'),
-  maxDepth: z.number().optional().describe('Maximum nesting depth'),
+  // Both RETIRED with the nesting they configured (objectui#9306, ADR-0049): no
+  // renderer read either, and `FilterGroupSchema` above now refuses the nested
+  // sub-group they were about. Tombstones rather than deletions because this
+  // node is `.passthrough()`: an undeclared key would be KEPT in silence.
+  allowGroups: retirementTombstone(
+    'REFUSED (objectui#9306, ADR-0049) — `filter-builder` has no nested groups, so `allowGroups` has '
+    + 'nothing to allow: no renderer read it, every entry of a filter group\'s `conditions` is one flat '
+    + 'row, and a nested sub-group is refused by name. Remove the key.',
+  ),
+  maxDepth: retirementTombstone(
+    'REFUSED (objectui#9306, ADR-0049) — `filter-builder` has no nested groups, so `maxDepth` has no '
+    + 'depth to limit: no renderer read it, every entry of a filter group\'s `conditions` is one flat '
+    + 'row, and a nested sub-group is refused by name. Remove the key.',
+  ),
   // Applied at renderers/complex/filter-builder.tsx:37 as `className={schema.wrapperClass || ''}`.
   wrapperClass: z.string().optional().describe('Outer wrapper classes for the filter builder (objectui#6150)'),
   body: retirementTombstone(

@@ -495,7 +495,12 @@ export interface CalendarViewSchema extends BaseSchema {
 export type FilterBuilderOperator = SpecViewFilterOperator;
 
 /**
- * Filter condition
+ * Filter condition — one flat row of a {@link FilterGroup}.
+ *
+ * The single name authority for the builder's row (objectui#9306):
+ * `@object-ui/components` derives its own `FilterBuilderCondition` from this
+ * declaration, restating only its two named extensions — `operator` (these
+ * ids plus the opt-in `exists` / `notExists`) and a narrower `value`.
  */
 export interface FilterBuilderCondition {
   /**
@@ -506,8 +511,9 @@ export interface FilterBuilderCondition {
    * that reason; a CONDITION's `id` is the identity every affordance on the row
    * matches on — `removeCondition`, `updateCondition`, `changeOperator` and
    * `changeField` in `packages/components/src/custom/filter-builder.tsx`, plus
-   * the React `key`. The component's own `FilterBuilderCondition` declares it
-   * `string`, and `addCondition` emits `crypto.randomUUID()`.
+   * the React `key`. The component's `FilterBuilderCondition` takes this member
+   * from this declaration rather than restating it (objectui#9306), and
+   * `addCondition` emits `crypto.randomUUID()`.
    *
    * Undeclared, it was STRIPPED by the `z.object` mirror in silence, so a
    * correctly authored row validated and rendered with no individual identity:
@@ -537,12 +543,16 @@ export interface FilterBuilderCondition {
  * `filter-builder` group; maintainer ruling 2026-09-02, director seat summon
  * #8, verbatim 「同意」).
  *
- * The gate is `isValidGroup`,
- * `packages/components/src/custom/filter-builder.tsx:1060`:
+ * The gate is `isValidGroup` in `packages/components/src/custom/filter-builder.tsx`:
  * `Array.isArray(v.conditions) && (v.logic === "and" || v.logic === "or")`.
  * `logic` is the read key; the former `operator` on this face had zero read
  * sites, and a group spelled that way fails the gate, falls back to
  * `EMPTY_GROUP` and renders an EMPTY board.
+ *
+ * ONE level, never nested (objectui#9306, maintainer ruling 「A 撤掉嵌套声明」).
+ * This declaration is the single name authority for the builder's group:
+ * `@object-ui/components` derives its own `FilterGroup` from it rather than
+ * declaring a second one.
  */
 export interface FilterGroup {
   /**
@@ -550,8 +560,8 @@ export interface FilterGroup {
    *
    * OPTIONAL on purpose. `isValidGroup` never consults it and nothing reads
    * `filterGroup.id`; measured, deleting it from an authored group renders
-   * byte-identically. It is declared because the component's own `FilterGroup`
-   * carries it, `EMPTY_GROUP` emits it and it round-trips out through
+   * byte-identically. It is declared because the component's `FilterGroup`
+   * (derived from this one) carries it, `EMPTY_GROUP` emits it and it round-trips out through
    * `onChange` — so a document that carries it should be TYPE-CHECKED on it
    * rather than admitted unvalidated.
    */
@@ -562,9 +572,19 @@ export interface FilterGroup {
    */
   logic: 'and' | 'or';
   /**
-   * Filter conditions or nested groups
+   * The condition rows, FLAT: every entry is one field / operator / value row.
+   *
+   * A nested sub-group is RETIRED (objectui#9306, ADR-0049 enforce-or-remove).
+   * This used to be `(FilterBuilderCondition | FilterGroup)[]`, but nothing
+   * honoured the nesting. `FilterBuilder` draws each entry as one flat row and
+   * has no control that creates a group; given a sub-group it drew a row with
+   * blank field and operator triggers and showed the sub-group's own conditions
+   * nowhere. The consumers that turn a group into a query or a stored filter
+   * read the entries as rows too (a one-time reading on objectui#9306, not
+   * re-derived here). The zod mirror (`FilterGroupSchema`) refuses a sub-group
+   * by name, so the loss is a validation error instead of a blank row.
    */
-  conditions: (FilterBuilderCondition | FilterGroup)[];
+  conditions: FilterBuilderCondition[];
 }
 
 /**
@@ -595,15 +615,29 @@ export interface FilterBuilderSchema extends BaseSchema {
    */
   onChange?: (filter: FilterGroup) => void;
   /**
-   * Allow nested groups
-   * @default true
+   * REFUSED BY NAME (objectui#9306, ADR-0049) — `filter-builder` has no nested
+   * groups, so there is nothing for this switch to allow.
+   *
+   * It was declared `allowGroups?: boolean` with a documented default of
+   * `true`, and no renderer read it: `FilterBuilder` takes `fields`, `value`,
+   * `onChange`, `className`, `showClearAll` and `extraOperators`, and draws
+   * every entry of `conditions` as one flat row. Nesting itself is retired on
+   * {@link FilterGroup.conditions}. Remove the key.
+   *
+   * @deprecated Not read by `filter-builder` — nested groups are retired.
    */
-  allowGroups?: boolean;
+  allowGroups?: never;
   /**
-   * Maximum nesting depth
-   * @default 3
+   * REFUSED BY NAME (objectui#9306, ADR-0049) — `filter-builder` has no nested
+   * groups, so there is no depth to limit.
+   *
+   * It was declared `maxDepth?: number` with a documented default of `3`, and
+   * no renderer read it (the same reading as `allowGroups` above). Remove the
+   * key.
+   *
+   * @deprecated Not read by `filter-builder` — nested groups are retired.
    */
-  maxDepth?: number;
+  maxDepth?: never;
   /**
    * Tailwind classes on the outermost wrapper `div`.
    *

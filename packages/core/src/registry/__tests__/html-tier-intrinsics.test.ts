@@ -20,17 +20,28 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { HtmlElementSchema, SemanticElementSchema } from '@object-ui/types/zod';
+import { LayoutSchema } from '@object-ui/types/zod';
 import { Registry } from '../Registry.js';
 import { PUBLIC_BLOCKS, PUBLIC_BLOCK_SET } from '../public-blocks.js';
 import { HTML_TIER_INTRINSICS, HTML_TIER_INTRINSIC_SET } from '../html-tier-intrinsics.js';
 
 const C = () => null;
 
-/** The tags the JSON surface declares as html elements — read off the zod enums, not restated. */
-const enumTags = (schema: { shape: { type: { options: readonly string[] } } }): string[] => [
-  ...schema.shape.type.options,
-];
+/**
+ * The tags the JSON surface declares as html elements — read off the layout
+ * union's two `z.enum` arms, not restated. `HtmlElementSchema` and
+ * `SemanticElementSchema` are deliberately NOT exported from the zod barrel
+ * (objectui#9067), so the arms are found by shape: exactly two arms of
+ * `LayoutSchema` key their `type` by an enum, the sectioning family (the one
+ * holding `main`) and the flow/inline family (the one holding `p`).
+ */
+type EnumTypeArm = { shape?: { type?: { def?: { type?: string }; options?: readonly string[] } } };
+const enumArms = (): string[][] =>
+  (LayoutSchema as unknown as { options: EnumTypeArm[] }).options
+    .filter((arm) => arm.shape?.type?.def?.type === 'enum')
+    .map((arm) => [...(arm.shape?.type?.options ?? [])]);
+const flowInlineTags = (): string[] => enumArms().find((arm) => arm.includes('p')) ?? [];
+const sectioningTags = (): string[] => enumArms().find((arm) => arm.includes('main')) ?? [];
 
 describe('HTML_TIER_INTRINSICS — the roster (objectui#10735)', () => {
   it('is duplicate-free and matches its set', () => {
@@ -44,10 +55,11 @@ describe('HTML_TIER_INTRINSICS — the roster (objectui#10735)', () => {
   });
 
   it('carries every tag the JSON surface declares as an html or sectioning element', () => {
-    const flowInline = enumTags(HtmlElementSchema);
-    const sectioning = enumTags(SemanticElementSchema);
-    // Anti-vacuity: the enums resolved, and resolved to the vocabulary this
-    // card is about (one spelling out of each arm).
+    // Anti-vacuity: exactly the two enum arms resolved, and to the vocabulary
+    // this card is about (one spelling out of each arm).
+    expect(enumArms()).toHaveLength(2);
+    const flowInline = flowInlineTags();
+    const sectioning = sectioningTags();
     expect(flowInline.length).toBeGreaterThan(30);
     expect(flowInline).toEqual(expect.arrayContaining(['h1', 'p', 'a', 'img', 'br']));
     expect(sectioning).toHaveLength(7);
@@ -58,7 +70,7 @@ describe('HTML_TIER_INTRINSICS — the roster (objectui#10735)', () => {
   });
 
   it('adds exactly the three "registered elsewhere" tags the ruling names beyond those enums', () => {
-    const declaredByEnums = new Set([...enumTags(HtmlElementSchema), ...enumTags(SemanticElementSchema)]);
+    const declaredByEnums = new Set([...flowInlineTags(), ...sectioningTags()]);
     expect(HTML_TIER_INTRINSICS.filter((tag) => !declaredByEnums.has(tag)).sort()).toEqual(
       ['label', 'span', 'table'],
     );

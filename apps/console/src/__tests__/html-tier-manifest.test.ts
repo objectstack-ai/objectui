@@ -37,7 +37,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
-import { HtmlElementSchema, SemanticElementSchema } from '@object-ui/types/zod';
+import { LayoutSchema } from '@object-ui/types/zod';
 import { compile, generateDts, manifestFromConfigs, type RegistryConfigLike } from '@object-ui/sdui-parser';
 import {
   ComponentRegistry,
@@ -118,9 +118,19 @@ function reactIntrinsicNames(): Set<string> {
   return names;
 }
 
-const enumTags = (schema: { shape: { type: { options: readonly string[] } } }): string[] => [
-  ...schema.shape.type.options,
-];
+/**
+ * The two tag families the JSON layout union declares by `z.enum` — the
+ * flow/inline set (holding `p`) and the sectioning set (holding `main`). Read
+ * off `LayoutSchema`'s arms, because `HtmlElementSchema` and
+ * `SemanticElementSchema` are deliberately not exported (objectui#9067).
+ */
+type EnumTypeArm = { shape?: { type?: { def?: { type?: string }; options?: readonly string[] } } };
+const enumArms = (): string[][] =>
+  (LayoutSchema as unknown as { options: EnumTypeArm[] }).options
+    .filter((arm) => arm.shape?.type?.def?.type === 'enum')
+    .map((arm) => [...(arm.shape?.type?.options ?? [])]);
+const flowInlineTags = (): string[] => enumArms().find((arm) => arm.includes('p')) ?? [];
+const sectioningTags = (): string[] => enumArms().find((arm) => arm.includes('main')) ?? [];
 
 describe('the manifest carries the html tier exactly as the registry declares it (objectui#10735)', () => {
   it('every roster tag is registered under `ui` and reaches the manifest stamped `tier: html`', () => {
@@ -140,8 +150,9 @@ describe('the manifest carries the html tier exactly as the registry declares it
   });
 
   it('declares the child slot exactly where the registration renders a child list', () => {
-    const flowInline = enumTags(HtmlElementSchema);
-    const sectioning = enumTags(SemanticElementSchema);
+    expect(enumArms()).toHaveLength(2);
+    const flowInline = flowInlineTags();
+    const sectioning = sectioningTags();
     expect(flowInline.length).toBeGreaterThan(30);
     expect(sectioning).toHaveLength(7);
 
@@ -262,9 +273,16 @@ describe('what an html-tier author gets from the gate that reads this manifest (
     expect(codes('<p><code>x</code></p>')).toContain('forbidden-tag:code');
   });
 
-  it('warns, honestly, on a `label` authored with children — its renderer reads `text`', () => {
-    expect(codes('<main><label>Name</label></main>')).toContain('not-a-container:label');
-    expect(errors('<main><label>Name</label></main>')).toEqual([]);
+  it('judges a `label` authored with children by its registration — `text` is required and there is no slot', () => {
+    // Declared "exactly as the registry declares it": the renderer reads `text`
+    // (required) and never a child list, so an html author who writes the
+    // HTML-shaped `<label>Name</label>` is told both facts instead of getting
+    // a green save and a blank label.
+    const src = '<main><label>Name</label></main>';
+    expect(codes(src)).toEqual(expect.arrayContaining(['missing-required-prop:label', 'not-a-container:label']));
+    expect(errors(src).map((d) => d.code)).toEqual(['missing-required-prop']);
+    // The registered spelling is clean.
+    expect(errors('<main><label text="Name" /></main>')).toEqual([]);
   });
 });
 

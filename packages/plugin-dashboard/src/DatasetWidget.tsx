@@ -33,7 +33,7 @@ import { useEffect, useMemo, useState } from 'react';
 // behind. It lives in `@object-ui/react` because it reads the host context —
 // see its file header for the measured dependency direction. This widget
 // layers its CHART-ONLY colour/order derivation on top, below.
-import { SchemaRenderer, useDatasetDimensionMeta } from '@object-ui/react';
+import { SchemaRenderer, useDatasetDimensionMeta, useDataInvalidation } from '@object-ui/react';
 import {
   buildChartSeries,
   buildOptionColorMap,
@@ -78,7 +78,7 @@ import {
   type DatasetResultField,
   type DatasetDrillRange,
 } from '@object-ui/core';
-import { cn, Skeleton, ChartSkeleton, GridSkeleton } from '@object-ui/components';
+import { cn, Skeleton, ChartSkeleton, GridSkeleton, RefreshIndicator } from '@object-ui/components';
 import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useDisplayLocale, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import { AlertTriangle, Download, ArrowUpIcon, ArrowDownIcon, MinusIcon, ChevronsUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 // objectui#7063 — the default empty state is stated ONCE for the dashboard
@@ -585,7 +585,9 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
     [compareTo, runtimeFilter],
   );
 
-  const [state, setState] = useState<{ status: 'idle' | 'loading' | 'ok' | 'error'; rows: Row[]; fields?: DatasetResultField[]; object?: string; dimensionFields?: Record<string, string>; drillRawRows?: Array<Record<string, unknown>>; drillRanges?: Array<Record<string, DatasetDrillRange>>; totals?: DatasetTotals[]; error?: string }>({ status: 'idle', rows: [] });
+  // `signature` is the query an `ok` answer was read for, and `refreshing` marks
+  // a re-read of that same query in flight (objectui#10815, see the effect).
+  const [state, setState] = useState<{ status: 'idle' | 'loading' | 'ok' | 'error'; rows: Row[]; fields?: DatasetResultField[]; object?: string; dimensionFields?: Record<string, string>; drillRawRows?: Array<Record<string, unknown>>; drillRanges?: Array<Record<string, DatasetDrillRange>>; totals?: DatasetTotals[]; error?: string; signature?: string; refreshing?: boolean }>({ status: 'idle', rows: [] });
   // Drill-through (ADR-0021 D2): the clicked bucket's record-list filter + title.
   const [drill, setDrill] = useState<{ filter: Record<string, unknown>; title: string } | null>(null);
   // ── The flat table's client-side sort (objectui#5827) ────────────────────
@@ -604,6 +606,26 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // query-affecting options join it so editing a widget's granularity/sort in
   // the designer refetches instead of re-rendering the previous grid.
   const signature = `${widgetType}|${datasetName}|${dimensions.join(',')}|${values.join(',')}|${JSON.stringify(rawFilter ?? null)}|${JSON.stringify(compareTo ?? null)}|${dateGranularity ?? ''}|${JSON.stringify(order ?? null)}|${limit ?? ''}`;
+
+  // ── The data-invalidation bus (objectui#10815) ───────────────────────────
+  // `notifyDataChanged` from `@object-ui/react`, read the objectui#10623 /
+  // objectui#10778 way: the nonce moves when a write to the object this widget
+  // QUERIES is declared, and the fetch effect below names it, so the tile is
+  // re-read in place. Without it a write declared on the bus (a page action over
+  // raw HTTP, a flow, a server action) left the tile stale until something
+  // remounted it.
+  //
+  // A dataset node carries no `objectName`: the object is the dataset's base
+  // object, which only the query's ANSWER names (`object`). It is kept in its
+  // own state, set from each answer that names one, the same key `ObjectChart`
+  // subscribes a dataset-bound chart on (`datasetObject`, objectui#10035). Kept
+  // apart from `state` so a re-read or a failed read does not drop the
+  // subscription. An adapter that cannot run dataset queries never answers, so
+  // nothing subscribes; a widget with no measures queries nothing and does not
+  // subscribe either.
+  const [datasetObject, setDatasetObject] = useState<string | undefined>(undefined);
+  const invalidationNonce = useDataInvalidation(values.length > 0 ? datasetObject : undefined);
+
   useEffect(() => {
     const src = dataSource as DatasetCapableSource | undefined;
     if (!src || typeof src.queryDataset !== 'function') {
@@ -612,7 +634,15 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
     }
     if (values.length === 0) { setState({ status: 'idle', rows: [] }); return; }
     let cancelled = false;
-    setState({ status: 'loading', rows: [] });
+    // A re-read of the query already on screen (the bus moved the nonce) keeps
+    // the current answer up under a `RefreshIndicator` instead of swapping the
+    // tile for its loading skeleton, so the table node, its sort and an open
+    // drill survive the re-read (AGENTS.md #8). A different query (the widget's
+    // dimensions, measures, filter or options changed) starts from the skeleton:
+    // the rows on screen answer another question.
+    setState((prev) => (prev.status === 'ok' && prev.signature === signature
+      ? { ...prev, refreshing: true }
+      : { status: 'loading', rows: [] }));
     src.queryDataset(datasetName, {
       dimensions,
       measures: values,
@@ -624,11 +654,15 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
       ...(order ? { order } : {}),
       ...(limit != null ? { limit } : {}),
     })
-      .then((res) => { if (!cancelled) setState({ status: 'ok', rows: Array.isArray(res?.rows) ? res.rows : [], fields: Array.isArray(res?.fields) ? res.fields : [], object: res?.object, dimensionFields: res?.dimensionFields, drillRawRows: Array.isArray(res?.drillRawRows) ? res.drillRawRows : undefined, drillRanges: Array.isArray(res?.drillRanges) ? res.drillRanges : undefined, totals: Array.isArray(res?.totals) ? res.totals : undefined }); })
+      .then((res) => {
+        if (cancelled) return;
+        setState({ status: 'ok', rows: Array.isArray(res?.rows) ? res.rows : [], fields: Array.isArray(res?.fields) ? res.fields : [], object: res?.object, dimensionFields: res?.dimensionFields, drillRawRows: Array.isArray(res?.drillRawRows) ? res.drillRawRows : undefined, drillRanges: Array.isArray(res?.drillRanges) ? res.drillRanges : undefined, totals: Array.isArray(res?.totals) ? res.totals : undefined, signature });
+        if (typeof res?.object === 'string' && res.object) setDatasetObject(res.object);
+      })
       .catch((e) => { if (!cancelled) setState({ status: 'error', rows: [], error: String((e as Error)?.message ?? e) }); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signature]);
+  }, [signature, invalidationNonce]);
 
   // ── Declared measures this tile will never show (objectui#8894) ──────────
   // `values` is `z.array(z.string()).min(1)` on `DashboardWidgetSchema`, so an
@@ -815,6 +849,10 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
       </div>
     );
   }
+  // A re-read of the answer on screen is in flight (objectui#10815): the rows
+  // below stay, and this bar marks the refresh. Each data branch's root is
+  // positioned, so the bar anchors to the tile's top edge.
+  const refreshBar = <RefreshIndicator active={!!state.refreshing} ariaLabel={tt('dashboard.refreshing', 'Refreshing…')} />;
   // A metric (single value) over an empty dataset is 0, not an empty state —
   // the latter reads as broken for KPIs like "Total Books" on a fresh app.
   // Charts and tables keep the empty state (there is genuinely nothing to
@@ -976,7 +1014,8 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
       ? (pickLocalized(options.description, language) || undefined)
       : (subCaption || undefined);
     return (
-      <div className="flex h-full w-full flex-col items-start justify-center gap-1 p-2">
+      <div className="relative flex h-full w-full flex-col items-start justify-center gap-1 p-2">
+        {refreshBar}
         <span className={cn('text-2xl font-semibold tabular-nums', accentClass)}>{formatMeasure(value, f?.format, f?.currency, f?.percentScale, displayLocale)}</span>
         {delta && (
           <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground" data-testid="dataset-compare-trend">
@@ -1188,7 +1227,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
       const showTotalRow = colTotalById.size > 0;
       const totalLabel = tt('dashboard.total', 'Total');
       return (
-        <div className="relative h-full w-full overflow-auto p-1" data-testid="dataset-matrix">{exportBtn}
+        <div className="relative h-full w-full overflow-auto p-1" data-testid="dataset-matrix">{refreshBar}{exportBtn}
           <table className="w-full text-xs">
             {compareCaption}
             <thead className="bg-muted/40">
@@ -1417,7 +1456,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
     };
 
     return (
-      <div className="relative h-full w-full overflow-auto p-1">{exportBtnFor(orderedEntries.map((e) => e.row))}
+      <div className="relative h-full w-full overflow-auto p-1">{refreshBar}{exportBtnFor(orderedEntries.map((e) => e.row))}
         <table className="w-full text-xs">
           <thead className="bg-muted/40">
             <tr>
@@ -1652,6 +1691,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   const chartDrill = canDrill ? handleChartDrill : undefined;
   return (
     <div className={cn('relative h-full w-full min-h-[220px]')}>
+      {refreshBar}
       <SchemaRenderer
         // isAnimationActive: false — dashboard charts render at final geometry on
         // the FIRST committed frame. Recharts' entrance animation is a rAF tween

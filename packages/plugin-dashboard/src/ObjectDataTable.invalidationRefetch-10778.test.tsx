@@ -55,7 +55,7 @@ function makeDataSource() {
     rename(next: string) {
       name = next;
     },
-    find: vi.fn(async () => ({ data: [{ id: '1', name, amount: 3 }], total: 1 })),
+    find: vi.fn(async (_object: string, _query?: unknown) => ({ data: [{ id: '1', name, amount: 3 }], total: 1 })),
     findOne: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),

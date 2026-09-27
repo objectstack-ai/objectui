@@ -61,7 +61,7 @@ function makeDataSource() {
     rename(next: string) {
       rootName = next;
     },
-    find: vi.fn(async () => ({
+    find: vi.fn(async (_object: string, _query?: unknown) => ({
       data: [
         { id: '1', name: rootName, parent_id: null },
         { id: '2', name: 'Engineering', parent_id: '1' },

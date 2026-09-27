@@ -51,7 +51,7 @@ function makeDataSource() {
     bump(next: number) {
       amount = next;
     },
-    find: vi.fn(async () => ({ data: [{ id: '1', stage: 'won', region: 'EMEA', amount }], total: 1 })),
+    find: vi.fn(async (_object: string, _query?: unknown) => ({ data: [{ id: '1', stage: 'won', region: 'EMEA', amount }], total: 1 })),
     findOne: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),

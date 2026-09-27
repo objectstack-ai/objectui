@@ -1,5 +1,5 @@
 ---
-'@object-ui/app-shell': patch
+'@object-ui/app-shell': minor
 ---
 
 feat(app-shell): a package-provided permission set offers "Clone to customize" as its primary action, and names it first (objectui#5987)
@@ -10,7 +10,9 @@ tier: `isArtifactBackedLayer`, the client mirror of the server's
 edit the source artifact and redeploy, a new runtime set, the
 `OS_METADATA_WRITABLE` hatch. The ruled path (objectstack#11513, 「同意 第一步
 (创业阶段,Salesforce 式)」: lock the base, clone to customize) was never on the
-screen, although the server's own `403 not_overridable` refusal names it.
+screen, and the metadata-door refusal a Studio save receives names only the
+pre-ruling remedies; the data door's refusal is the one that names the Clone
+action.
 
 The locked editor now renders **Clone to customize** in the slot Save would
 occupy. It runs the `clone_permission_set` record action the server publishes

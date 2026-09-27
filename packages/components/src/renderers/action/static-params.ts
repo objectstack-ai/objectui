@@ -120,13 +120,12 @@ export type ConfigBagEvaluator = (bag: unknown) => unknown;
  * `properties` is evaluated. It is not copied onto the member (the memo's
  * hoist), and the member's other keys are left as authored.
  */
-export function withEvaluatedProperties<T extends { properties?: unknown }>(
+export function withEvaluatedProperties<T extends object>(
   member: T,
   evaluateBag: ConfigBagEvaluator,
 ): T {
-  return isConfigBag(member.properties)
-    ? { ...member, properties: evaluateBag(member.properties) }
-    : member;
+  const properties = (member as { properties?: unknown }).properties;
+  return isConfigBag(properties) ? { ...member, properties: evaluateBag(properties) } : member;
 }
 
 /**

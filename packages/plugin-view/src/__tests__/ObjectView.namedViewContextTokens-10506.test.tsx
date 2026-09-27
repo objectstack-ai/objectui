@@ -81,7 +81,8 @@ function namedView(type: 'calendar' | 'grid', filter: any[]): ObjectViewSchema {
     type: 'object-view',
     objectName: 'task',
     defaultListView: 'mine',
-    listViews: { mine: { label: 'Mine', type, filter } },
+    // `columns` since objectui#7928: the named view is the protocol's record.
+    listViews: { mine: { label: 'Mine', type, columns: ['name'], filter } },
   } as ObjectViewSchema;
 }
 

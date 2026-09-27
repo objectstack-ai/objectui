@@ -175,8 +175,10 @@ describe('ObjectView', () => {
         type: 'object-view',
         objectName: 'contacts',
         listViews: {
-          all: { label: 'All Contacts', type: 'grid' },
-          active: { label: 'Active', type: 'grid', filter: [['status', '=', 'active']] },
+          // objectui#7928: a named view is the protocol's `ObjectListViewSchema`,
+          // so it carries `columns` and spells `filter` as rule objects.
+          all: { label: 'All Contacts', type: 'grid', columns: ['name'] },
+          active: { label: 'Active', type: 'grid', columns: ['name'], filter: [{ field: 'status', operator: 'equals', value: 'active' }] },
         },
         defaultListView: 'all',
       };
@@ -192,7 +194,7 @@ describe('ObjectView', () => {
         type: 'object-view',
         objectName: 'contacts',
         listViews: {
-          all: { label: 'All Contacts', type: 'grid' },
+          all: { label: 'All Contacts', type: 'grid', columns: ['name'] },
         },
       };
 
@@ -207,8 +209,8 @@ describe('ObjectView', () => {
         type: 'object-view',
         objectName: 'contacts',
         listViews: {
-          all: { label: 'All Contacts', type: 'grid' },
-          active: { label: 'Active', type: 'grid' },
+          all: { label: 'All Contacts', type: 'grid', columns: ['name'] },
+          active: { label: 'Active', type: 'grid', columns: ['name'] },
         },
       };
 

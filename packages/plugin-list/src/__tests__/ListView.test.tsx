@@ -2686,10 +2686,10 @@ describe('ListView — gantt view fed by an api-provider ViewData', () => {
   // `plugin-gantt/src/ObjectGantt.hostDataProp-7210.test.tsx`). That makes (c)
   // a guard on a path the registry does not currently reach — keep it. The day
   // that wrapper forwards host props (objectui#7210, half 2, an open maintainer
-  // decision) it becomes load-bearing: `ObjectGantt.reload` short-circuits on
-  // `data && Array.isArray(data)`, and this view's rows array is a truthy `[]`
-  // forever, so handing it down would paint an EMPTY chart in place of the
-  // endpoint's tree.
+  // decision) it becomes load-bearing: this view's rows array is not the
+  // endpoint's answer, and `ObjectGantt` adopts any NON-EMPTY host array as its
+  // rows. (An EMPTY one no longer blanks the chart: it reads as "no host rows
+  // yet" and the chart still queries its endpoint, objectui#7333.)
   let prevObjectGantt: ReturnType<typeof ComponentRegistry.get>;
   let ganttCalls: any[];
 

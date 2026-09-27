@@ -144,10 +144,10 @@ export function useGanttTranslation() {
   // provider-safe and wrapping a hook in try/catch violates rules-of-hooks
   // (objectui#2879, same class as #2595/#2596).
   const result = useObjectTranslation();
-  // `language` is a BCP-47 tag (e.g. 'zh', 'en'). We thread it into the
-  // date formatters so the calendar headers/tooltips localize to the SAME
-  // language as the chrome, instead of silently following the browser
-  // locale (which can diverge — English UI but Chinese dates).
+  // `language` is the UI language, a BCP-47 tag (e.g. 'zh', 'en'). It is NOT a
+  // date locale: every gantt date face formats with `useDisplayLocale()` from
+  // `@object-ui/i18n`, which outranks the UI language with the tenant's
+  // display locale (objectui#10442, objectui#10668).
   const language = result.language as string | undefined;
   // Per-key fallback. A consuming app's i18n dictionary commonly translates
   // the *common* gantt keys (column headers, toolbar) but lags behind on

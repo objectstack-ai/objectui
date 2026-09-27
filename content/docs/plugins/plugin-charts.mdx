@@ -228,7 +228,7 @@ const schema: ChartSchema = {
 
 ##### Axis options
 
-`xAxis` and `yAxis` take `@objectstack/spec`'s axis object — the `ChartAxis` a dashboard widget's `chartConfig` uses, with the same keys and the same checks. `xAxis` is one object; `yAxis` is a **list**, one entry per value axis, and a second entry declares the right-hand axis. The object is strict: an undeclared key is refused at parse, with the spec's own hint (`Did you mean grid → showGridLines?`).
+`xAxis` and `yAxis` take `@objectstack/spec`'s axis object — the `ChartAxis` a dashboard widget's `chartConfig` uses, with the same keys and the same checks. `xAxis` is one object; `yAxis` is a **list**, one entry per value axis, and a second entry declares the right-hand axis. A bar (`column`), line, area, combo or `horizontal-bar` chart draws at most two value axes: an entry after the second is accepted but drawn on no axis, and the chart shows a note under the plot naming it (`yAxis[2]`, …) and, when the chart declares neither `series` nor `categories`, the axis its `field` is plotted against — the right-hand one, the top one on `horizontal-bar` (objectui#10691). The object is strict: an undeclared key is refused at parse, with the spec's own hint (`Did you mean grid → showGridLines?`).
 
 | Key | Type | Effect |
 |---|---|---|

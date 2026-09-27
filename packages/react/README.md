@@ -278,6 +278,45 @@ Pass `dataSource: undefined` for a render that should settle immediately with
 no definition (e.g. a provider that issues no metadata read at all) instead of
 adding a separate enable flag.
 
+### useFilterScope / useResolvedFilter
+
+A data node that sends its own authored `filter` into a query resolves the
+spec's context tokens in it first: `{current_user_id}`, `{current_org_id}` and
+the date macros such as `{today}` (objectui#10666). `useFilterScope()` reads
+the session scope a host mounts with `FilterScopeProvider`;
+`useResolvedFilter(filter, scope)` resolves the filter through
+`@object-ui/core`'s `resolveFilterPlaceholders` and HOLDS the result.
+
+```tsx
+import { useEffect } from 'react'
+import { useFilterScope, useResolvedFilter } from '@object-ui/react'
+import type { DataSource, QueryParams } from '@object-ui/types'
+
+function ObjectSomething({
+  schema,
+  dataSource,
+}: {
+  schema: { objectName: string; filter?: QueryParams['$filter'] }
+  dataSource: DataSource
+}) {
+  const filterScope = useFilterScope()
+  const filter = useResolvedFilter(schema.filter, filterScope)
+
+  useEffect(() => {
+    // Query with the held value and key the effect on it, never on schema.filter.
+    void dataSource.find(schema.objectName, { $filter: filter })
+  }, [dataSource, schema.objectName, filter])
+}
+```
+
+The held value keeps its reference while the authored filter is structurally
+equal (a filter rebuilt inline on every render included) and the scope's user,
+organization and `onUnresolved` are unchanged, so the effect above runs once.
+A structurally different filter, or a new signed-in user or organization,
+resolves again. A filter with no token to resolve is handed back as the value
+passed in. A token the scope cannot resolve is left in place, and the resolver
+logs one warning naming it.
+
 ### NON_GRID_ROW_CEILING
 
 The platform's hard row ceiling for a NON-GRID visualisation — gantt, calendar,

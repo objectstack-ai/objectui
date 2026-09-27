@@ -147,6 +147,15 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
    * leaves it here on purpose — see the comment there.
    */
   const [status, setStatus] = React.useState<AttachmentListStatus>('loading');
+  /**
+   * objectui#10684 — which `refresh()` call is the CURRENT one. Every call
+   * takes the next number, and only the newest may commit `rows` or move
+   * `status` off `loading`: when the record changes while a read is in
+   * flight, the previous record's answer can otherwise land after the current
+   * one and replace its list, or settle first and end `loading` while the
+   * current read is still out. Nothing renders from it.
+   */
+  const refreshSeqRef = React.useRef(0);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
   // Same base-URL convention as RecordDetailView's raw API fetches: the
@@ -206,6 +215,11 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
     // Retry would have nothing to retry). Every dep here is in the callback's
     // dependency list, so if one of them arrives later this effect re-runs on
     // its own and the read happens then.
+    //
+    // The run number is taken BEFORE that return: a call that issues no read
+    // still supersedes one in flight for inputs that no longer apply.
+    const seq = ++refreshSeqRef.current;
+    const isCurrent = () => refreshSeqRef.current === seq;
     if (!dataSource || !objectName || !recordId) return;
     setStatus('loading');
     try {
@@ -215,12 +229,17 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
         $top: 100,
       });
       const items: AttachmentRow[] = Array.isArray(res) ? res : res?.data ?? [];
+      // objectui#10684 — a superseded answer is dropped on arrival.
+      if (!isCurrent()) return;
       setRows(items);
       // The read ANSWERED — only now is `rows.length === 0` a fact about the
       // record rather than an absence of information, and only now may the
       // empty state below speak.
       setStatus('loaded');
     } catch (err) {
+      // objectui#10684 — and so is a superseded failure: it describes a read
+      // for inputs that no longer apply, so it may not end `loading` either.
+      if (!isCurrent()) return;
       setRows([]);
       // The read did NOT answer. Which of the three unknown states applies
       // turns on two questions, checked in order — is the object's API

@@ -830,15 +830,14 @@ export interface ValidationContext {
   user?: any;
 
   /**
-   * BCP-47 DISPLAY locale for a built-in rule's default message that prints a
-   * value — `date_min` / `date_max` print their bound. In React, whatever
-   * `useDisplayLocale()` (`@object-ui/i18n`) returns for the session.
+   * BCP-47 DISPLAY locale for a rule message that prints a value (a date
+   * bound, for example). In React, whatever `useDisplayLocale()`
+   * (`@object-ui/i18n`) returns for the session.
    *
-   * Omitted, `Intl` follows the runtime default: the answer
-   * `@object-ui/core`'s `formatDisplayNumber` declares for a non-React caller
-   * with no locale in hand. It is threaded here because the engine is a plain
-   * class with no hook to read, and the version with no way to pass one
-   * printed every bound in the MACHINE's locale (objectui#9909).
+   * Its reader was `@object-ui/core`'s `ValidationEngine`, which printed its
+   * `date_min` / `date_max` bounds in it rather than in the MACHINE's locale
+   * (objectui#9909). That engine was retired in objectui#7659, so at that
+   * change nothing in `@object-ui/core` reads this member.
    */
   locale?: string;
 }

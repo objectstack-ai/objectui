@@ -76,6 +76,16 @@
  * FK. It is green BEFORE and AFTER the fix — that is what makes it a control
  * rather than a second subject: it can only redden if the normal path breaks,
  * never merely because the multi-value path is broken.
+ *
+ * ## One read, after the child definition settles (objectui#10690)
+ *
+ * The row fetch used to go out before the child object's definition landed, so
+ * a multi-value list sent the equality query first — refused — and then the
+ * membership one; this file pinned that as a DECLARED COST. objectui#10690
+ * (auto-adjudicated B) gates the fetch on `useSettledSchema`, the gate the
+ * other views use. The `ONE READ` case is that pin flipped, and the `SETTLES`
+ * cases pin why the gate cannot strand rows: the hook settles with NO
+ * definition when there is no `getObjectSchema` or the read throws.
  */
 
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
@@ -206,25 +216,31 @@ const makeDS = (objectSchema: unknown, rows: Record<string, any>[]) => ({
   getObjectSchema: vi.fn(async () => objectSchema),
 });
 
+const listElement = (
+  ds: unknown,
+  object: string,
+  referenceField: string,
+  extra: Record<string, any> = {},
+) => (
+  <RelatedList
+    title="Assignments"
+    type="table"
+    api={object}
+    objectName={object}
+    referenceField={referenceField}
+    parentId={PARENT_ID}
+    columns={[{ field: 'subject', label: 'Subject' }]}
+    dataSource={ds as any}
+    {...extra}
+  />
+);
+
 const renderList = (
   ds: unknown,
   object: string,
   referenceField: string,
   extra: Record<string, any> = {},
-) =>
-  render(
-    <RelatedList
-      title="Assignments"
-      type="table"
-      api={object}
-      objectName={object}
-      referenceField={referenceField}
-      parentId={PARENT_ID}
-      columns={[{ field: 'subject', label: 'Subject' }]}
-      dataSource={ds as any}
-      {...extra}
-    />,
-  );
+) => render(listElement(ds, object, referenceField, extra));
 
 /**
  * The list's OWN queries, separated from the lookup-label probe the same mock
@@ -265,21 +281,21 @@ describe('RelatedList — a related list on a MULTI-VALUE relationship returns d
     });
   });
 
-  it('DECLARED COST — the arity flip refetches; the first attempt is the pre-card query', async () => {
-    // Stated so it is a decision on the record rather than something a later
-    // reader discovers and "fixes". The arity is `false` until the child
-    // object's schema PROVES otherwise, so a multi-value list sends the
-    // historical equality query once — loudly refused, exactly as before this
-    // card — and then the membership one. The alternative, gating rows on a
-    // resolved schema, makes EVERY related list in the app wait on metadata and
-    // strands rows entirely when a `DataSource` has no `getObjectSchema` or its
-    // schema fetch rejects. ⛔ Do not trade a loud 400 on one relationship
-    // shape for a silent empty list on all of them.
+  it('ONE READ — the fetch waits for the settled child definition; its first and only query is the membership one (objectui#10690)', async () => {
+    // This case was the DECLARED COST: the arity was `false` until the child
+    // definition landed, so a multi-value list sent the equality query first —
+    // refused — and then the membership one. The fetch now waits on
+    // `useSettledSchema`, so the arity is known before the first query. The
+    // stranding that decision guarded against — no `getObjectSchema`, or a
+    // read that rejects — cannot happen, because the hook settles with no
+    // definition on both; the `SETTLES` cases below pin that.
     const ds = makeDS(recordSchema(CHILD, { [REL]: { type: 'user', multiple: true } }), MULTI_ROWS);
     renderList(ds, CHILD, REL);
-    await waitFor(() => expect(scopedCalls(ds, CHILD).length).toBe(2));
+    expect(await screen.findByText('Ship the thing')).toBeInTheDocument();
+    // Give a (wrong) trailing read a few turns to show up before reading the
+    // whole list of queries.
+    await new Promise((r) => setTimeout(r, 10));
     expect(scopedCalls(ds, CHILD)).toEqual([
-      { ...PROJECTION, $filter: { [REL]: PARENT_ID } },
       { ...PROJECTION, $filter: { [REL]: { $contains: PARENT_ID } } },
     ]);
   });
@@ -290,9 +306,9 @@ describe('RelatedList — a related list on a MULTI-VALUE relationship returns d
     expect(await screen.findByText('Alice')).toBeInTheDocument();
     expect(screen.queryByText('Bob')).toBeNull();
     // The pre-card wire, unchanged: a MongoDB-style object, not an AST, and not
-    // an operator map. EVERY scoped call, not just the last — the arity flip the
-    // case above declares must not happen here, and a second, different call is
-    // how it would show.
+    // an operator map. EVERY scoped call, not just the last — one read, as the
+    // `ONE READ` case above asks of the multi-value list, and a second,
+    // different call is how an arity flip would show.
     expect(scopedCalls(ds, 'contact')).toEqual([{ ...PROJECTION, $filter: { account: PARENT_ID } }]);
   });
 
@@ -413,6 +429,69 @@ describe('RelatedList — a related list on a MULTI-VALUE relationship returns d
   });
 });
 
+describe('RelatedList — the fetch waits for the SETTLED child definition, and settling never strands rows (objectui#10690)', () => {
+  it('SETTLES — no `getObjectSchema`: the gate opens inside the mount itself, one read, rows shown', async () => {
+    const ds = { find: vi.fn(async (_o: string, p: any) => evaluate(p?.$filter, SINGLE_ROWS)) };
+    renderList(ds, 'contact', 'account');
+    // Read with NO `await` first. RTL's `render` returns only after React has
+    // flushed the mount's effects and every update they scheduled, and the
+    // hook's no-source exit settles synchronously inside its first effect,
+    // before any `await`. So the query is already out: the gate costs one
+    // extra render here, and no definition read.
+    expect(scopedCalls(ds as any, 'contact')).toHaveLength(1);
+    expect(await screen.findByText('Alice')).toBeInTheDocument();
+    expect(screen.queryByText('Bob')).toBeNull();
+    expect(scopedCalls(ds as any, 'contact')).toEqual([{ ...PROJECTION, $filter: { account: PARENT_ID } }]);
+  });
+
+  it('SETTLES — a definition read that throws: one read, rows shown', async () => {
+    // The hook reports the failed read on `console.error`; silenced, not pinned.
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const ds = {
+        find: vi.fn(async (_o: string, p: any) => evaluate(p?.$filter, SINGLE_ROWS)),
+        getObjectSchema: vi.fn(async () => {
+          throw new Error('metadata read refused');
+        }),
+      };
+      renderList(ds, 'contact', 'account');
+      expect(await screen.findByText('Alice')).toBeInTheDocument();
+      expect(screen.queryByText('Bob')).toBeNull();
+      await new Promise((r) => setTimeout(r, 10));
+      expect(scopedCalls(ds as any, 'contact')).toEqual([{ ...PROJECTION, $filter: { account: PARENT_ID } }]);
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it('SWITCH — a switched `api` queries with the NEW object’s definition, never the previous one’s', async () => {
+    // Mounted on a single-valued child, then switched to the multi-valued one.
+    // A fetch that ran on the previous object's definition would read the new
+    // relationship as single-valued and send the equality the driver refuses.
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const schemas: Record<string, unknown> = {
+        contact: recordSchema('contact', { account: { type: 'lookup', reference: 'account' } }),
+        [CHILD]: recordSchema(CHILD, { [REL]: { type: 'user', multiple: true } }),
+      };
+      const rowsByObject: Record<string, Record<string, any>[]> = { contact: SINGLE_ROWS, [CHILD]: MULTI_ROWS };
+      const ds = {
+        find: vi.fn(async (object: string, params: any) => evaluate(params?.$filter, rowsByObject[object] ?? [])),
+        getObjectSchema: vi.fn(async (object: string) => schemas[object]),
+      };
+      const { rerender } = renderList(ds, 'contact', 'account');
+      expect(await screen.findByText('Alice')).toBeInTheDocument();
+      rerender(listElement(ds, CHILD, REL));
+      expect(await screen.findByText('Ship the thing')).toBeInTheDocument();
+      await new Promise((r) => setTimeout(r, 10));
+      expect(scopedCalls(ds, CHILD)).toEqual([{ ...PROJECTION, $filter: { [REL]: { $contains: PARENT_ID } } }]);
+      expect(scopedCalls(ds, 'contact')).toEqual([{ ...PROJECTION, $filter: { account: PARENT_ID } }]);
+    } finally {
+      error.mockRestore();
+    }
+  });
+});
+
 describe('RelatedList — the raw-URL fallback cannot express membership (objectui#7299)', () => {
   let warn: MockInstance<typeof console.warn>;
   let originalFetch: typeof globalThis.fetch;
@@ -446,13 +525,12 @@ describe('RelatedList — the raw-URL fallback cannot express membership (object
       expect(said).toContain('multi-value field "assignees"');
       expect(said).toContain('no membership operator');
     });
-    // Same declared cost as the adapter path: the pre-arity attempt is the
-    // query this path has always sent. What must not happen is a SECOND one —
-    // once the arity is known this path stops rather than repeating a predicate
-    // it now knows the grammar cannot express.
-    expect(fetchMock.mock.calls.map((c) => String(c[0]))).toEqual([
-      `${CHILD}?filter%5B${REL}%5D=${encodeURIComponent(PARENT_ID)}`,
-    ]);
+    // No request at all (objectui#10690). This used to be the adapter path's
+    // declared cost: the equality URL went out once before the arity was known.
+    // The fetch now waits for the settled child definition, so the arity is
+    // known before the first request and this path refuses without sending one.
+    await new Promise((r) => setTimeout(r, 10));
+    expect(fetchMock.mock.calls.map((c) => String(c[0]))).toEqual([]);
   });
 
   it('CONTROL — leaves the single-valued fallback URL untouched', async () => {

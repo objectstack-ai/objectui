@@ -21,9 +21,20 @@ import type {
   ObjectStackAdapter,
   WriteWarningEvent,
 } from '@object-ui/data-objectstack';
+import type { TranslateFn } from '@object-ui/i18n';
 
-/** i18next's `t`, narrowed to what this module uses. */
-export type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
+/**
+ * i18next's `t`, narrowed to what this module uses — RE-EXPORTED from its one
+ * authority in `@object-ui/i18n`, never re-declared (objectui#8261).
+ *
+ * Its callers keep importing it from here, so no import path moves. This
+ * module declared it itself until the maintainer's ruling on objectui#8165
+ * (option A) moved the one declaration down into `@object-ui/i18n`, the
+ * package both `@object-ui/app-shell` and `@object-ui/fields` already depend
+ * on — the copy in `@object-ui/fields` could never re-export from here,
+ * because app-shell depends on fields and not the other way round.
+ */
+export type { TranslateFn } from '@object-ui/i18n';
 
 /** Convention-based field-label resolver (`useObjectLabel().fieldLabel`). */
 export type FieldLabelFn = (objectName: string, fieldName: string, fallback: string) => string;

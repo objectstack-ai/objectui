@@ -356,6 +356,10 @@ export const ModalForm: React.FC<ModalFormProps> = ({
 
   // Fetch object schema
   useEffect(() => {
+    // objectui#10712 — a read an `objectName` or data-source change has
+    // superseded commits nothing: not the schema, and not the `loading` release
+    // the current read owns (the record read's `cancelled` below, applied here).
+    let cancelled = false;
     // objectui#10682 — this run's writes to the schema read's failure; a newer
     // run of this effect makes them no-ops.
     const run = beginLoadRun(loadRunSeqRef, setLoadFailures, 'schema');
@@ -366,14 +370,17 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       }
       try {
         const data = await dataSource.getObjectSchema(schema.objectName);
+        if (cancelled) return;
         setObjectSchema(data);
         run.commit();
       } catch (err) {
+        if (cancelled) return;
         run.fail(err);
         setLoading(false);
       }
     };
     fetchSchema();
+    return () => { cancelled = true; };
   }, [schema.objectName, dataSource]);
 
   // The record whose data `formData` currently holds. The fetch effect reads it

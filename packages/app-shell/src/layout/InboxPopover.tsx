@@ -33,7 +33,7 @@ import {
   TabsContent,
 } from '@object-ui/components';
 import { Bell, CheckSquare, Activity as ActivityIcon, ChevronRight } from 'lucide-react';
-import { useObjectTranslation } from '@object-ui/i18n';
+import { useObjectTranslation, useDisplayLocale } from '@object-ui/i18n';
 import type { ActivityItem } from './ActivityFeed.js';
 import { useNavigationContext } from '../context/NavigationContext.js';
 import { useMetadata } from '../providers/MetadataProvider.js';
@@ -70,7 +70,10 @@ export function InboxPopover({
   onMarkRead,
   onMarkManyRead,
 }: InboxPopoverProps) {
-  const { t, language } = useObjectTranslation();
+  const { t } = useObjectTranslation();
+  // Every relative time below reads the DISPLAY locale, never the UI language
+  // (objectui#10668), as the Marketplace's and Studio home's already do.
+  const displayLocale = useDisplayLocale();
   const navigate = useNavigate();
   const params = useParams();
   const { currentAppName } = useNavigationContext();
@@ -211,7 +214,7 @@ export function InboxPopover({
 
   // A single notification line — shared by standalone rows and the members of
   // an expanded group (which indent). Kept a render helper (not a nested
-  // component) so it closes over `language`/`handleNotificationClick` without
+  // component) so it closes over `displayLocale`/`handleNotificationClick` without
   // remounting the subtree on every parent render.
   const renderRow = (n: InboxNotification, nested: boolean) => (
     <button
@@ -230,7 +233,7 @@ export function InboxPopover({
             <div className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{n.body}</div>
           )}
           <div className="text-[10px] text-muted-foreground mt-1">
-            {timeAgo(n.created_at, language)}
+            {timeAgo(n.created_at, displayLocale)}
           </div>
         </div>
       </div>
@@ -441,7 +444,7 @@ export function InboxPopover({
                                   </div>
                                 )}
                                 <div className="text-[10px] text-muted-foreground mt-1">
-                                  {timeAgo(group.latestCreatedAt, language)}
+                                  {timeAgo(group.latestCreatedAt, displayLocale)}
                                   {group.unreadCount > 0 && (
                                     <span className="ml-1">
                                       ·{' '}
@@ -553,7 +556,7 @@ export function InboxPopover({
                       <span className="text-muted-foreground">{a.description}</span>
                     </div>
                     <div className="text-[10px] text-muted-foreground mt-0.5">
-                      {timeAgo(a.timestamp, language)} · {a.objectName}
+                      {timeAgo(a.timestamp, displayLocale)} · {a.objectName}
                     </div>
                   </li>
                 ))}

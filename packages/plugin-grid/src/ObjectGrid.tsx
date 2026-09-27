@@ -33,6 +33,7 @@ import { createSafeTranslation } from '@object-ui/i18n';
 // what dropped a `format`-hinted column's renderer, and one shared owner is
 // what stops a seventh site picking a convention of its own.
 import { resolveGridCellRendering, gridCellRendererForFixedKey, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
+import { isMaskedGridColumn } from './maskedColumn';
 import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue } from '@object-ui/fields';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
@@ -2658,8 +2659,48 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     };
   }, [schema.grouping, schema.columns, schema.objectName, objectSchema, translateOptions, t]);
 
+  // objectui#10583 — a MASKED field is REFUSED as a grouping key, loudly, once
+  // `objectSchema` has loaded (until then an untyped column's object-declared
+  // type is unknown: the host-fetched window, objectui#10657, which folded objectui#10706).
+  // Grouping by it printed the raw value as each group's label. Masking the
+  // label would not be enough: the buckets would still show which records
+  // share a credential, ordered by its raw value. So the entry is dropped (the
+  // other entries still group, as `usableGroupingFields` does for an unusable
+  // one) and the drop is reported through the grid's warning channel. The rule
+  // is the column flag's: `isMaskedGridColumn` over the view column's type and
+  // the object-declared type.
+  const groupingFieldsRaw = schema.grouping?.fields;
+  const maskedGroupingSignature = React.useMemo(() => {
+    const cols: ReadonlyArray<string | ListColumn> = normalizeColumns(schema.columns) ?? [];
+    const columnTypeOf = (field: string) =>
+      cols.find((c): c is ListColumn => typeof c === 'object' && c !== null && c.field === field)?.type;
+    return JSON.stringify(
+      usableGroupingFields(groupingFieldsRaw)
+        .map((gf) => gf.field)
+        .filter((field) => isMaskedGridColumn(columnTypeOf(field), objectSchema?.fields?.[field]?.type)),
+    );
+  }, [groupingFieldsRaw, schema.columns, objectSchema]);
+  // Keyed on the authored array and the signature STRING, never on a memo's
+  // identity (AGENTS.md #10). Read only when something was refused: the
+  // unmasked path below hands `useGroupedData` the authored config itself.
+  const unmaskedGroupingFields = React.useMemo(() => {
+    const masked: string[] = JSON.parse(maskedGroupingSignature);
+    return usableGroupingFields(groupingFieldsRaw).filter((gf) => !masked.includes(gf.field));
+  }, [groupingFieldsRaw, maskedGroupingSignature]);
+  useEffect(() => {
+    const masked: string[] = JSON.parse(maskedGroupingSignature);
+    if (masked.length === 0) return;
+    console.warn(
+      `[ObjectUI] ObjectGrid grouping: ${schema.objectName ?? 'object-grid'} groups by the masked `
+      + `field(s) ${masked.join(', ')}. A masked field cannot be a grouping key: its group labels would `
+      + 'show the raw value, and its groups would show which records share it. The entry was ignored.',
+    );
+  }, [maskedGroupingSignature, schema.objectName]);
+
   const { groups, isGrouped, toggleGroup } = useGroupedData(
-    schema.grouping,
+    maskedGroupingSignature === '[]' || !schema.grouping
+      ? schema.grouping
+      : { ...schema.grouping, fields: unmaskedGroupingFields },
     data,
     schema.aggregations,
     groupValueFormatter,
@@ -3664,8 +3705,17 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         : str;
     };
 
+    // objectui#10583 — a MASKED field leaves neither file. The same rule that
+    // stamps `TableColumn.masked` (`isMaskedGridColumn`, the narrow-only union
+    // of the column's type and the object-declared type), asked per KEY
+    // because the JSON branch writes whole records, including fields that are
+    // not columns.
+    const columnTypeByKey = new Map(generateColumns().map((c) => [c.accessorKey, c.type]));
+    const isMaskedKey = (key: string) =>
+      isMaskedGridColumn(columnTypeByKey.get(key), objectSchema?.fields?.[key]?.type);
+
     if (format === 'csv') {
-      const cols = generateColumns().filter((c) => c.accessorKey !== '_actions');
+      const cols = generateColumns().filter((c) => c.accessorKey !== '_actions' && !isMaskedKey(c.accessorKey));
       const fields = cols.map((c) => c.accessorKey);
       const headers = cols.map((c) => c.header);
       const rows: string[] = [];
@@ -3677,7 +3727,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       });
       downloadFile(new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' }), fileNameFor('csv'));
     } else if (format === 'json') {
-      downloadFile(new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' }), fileNameFor('json'));
+      const unmasked = exportData.map((record) =>
+        Object.fromEntries(Object.entries(record).filter(([key]) => !isMaskedKey(key))),
+      );
+      downloadFile(new Blob([JSON.stringify(unmasked, null, 2)], { type: 'application/json' }), fileNameFor('json'));
     }
     setShowExport(false);
   }, [data, schema.exportOptions, schema.operations?.export, effectiveApiOps, schema.objectName, objectName, objectSchema, generateColumns, dataSource, hasInlineData, schemaFilter, schemaSort]);
@@ -3823,7 +3876,26 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       // producer's types have not held in practice. Destructuring a null below
       // would throw where the pre-#6004 code passed it through.
       if (!col) return col;
-      const { type: producerType, ...rest } = col;
+      const { type: producerType, ...draft } = col;
+      // ⭐ THE MASKED FLAG (objectui#10583) — stamped HERE, before the fold,
+      // because the fold is exactly what erases the answer: `password` and
+      // `secret` are not `TableColumnType` members, so `normalizeTableColumnType`
+      // drops them and `data-table` could never tell a masked column from a
+      // text one. It also must not ask the question itself — it cannot import
+      // `@object-ui/fields` — so this producer asks `isMaskedFieldType()` (via
+      // `isMaskedGridColumn`) and the table obeys the flag: no Ctrl+C / Cmd+C
+      // copy, no `title` tooltip, no column in its CSV export, no inline edit.
+      //
+      // Every path that writes `type` is covered for the same reason the fold
+      // is: all four `generateColumns()` literals and the enrichment map above
+      // pass through this pass. The object-declared type is read beside the
+      // producer's for the narrow-only union — path A forwards a VIEW-authored
+      // type ahead of the object's, and `type: 'text'` over a `secret` column
+      // must keep the flag. Written only when true, so every unmasked column
+      // reaches the table byte-identical to before.
+      const rest = isMaskedGridColumn(producerType, objectSchema?.fields?.[col.accessorKey]?.type)
+        ? { ...draft, masked: true }
+        : draft;
       if (producerType == null) return rest;
       const normalized = normalizeTableColumnType(producerType);
       if (normalized === undefined) return rest;
@@ -5281,7 +5353,16 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       return 'border-l-gray-300';
     };
 
+    // objectui#10583 — a MASKED column (the rule that stamps `TableColumn.masked`)
+    // is drawn only through its own `cell`, which draws the mask. The branches
+    // below pick amount / stage / date / percent by the field's NAME and print
+    // the raw value, so a masked column is never classified; it lands in the
+    // `col.cell` branch, and the title row routes it through `cell` as well.
+    const isMaskedCardColumn = (key: string) =>
+      isMaskedGridColumn(colMap.get(key)?.type, objectSchema?.fields?.[key]?.type);
+
     const classify = (key: string): 'amount' | 'stage' | 'date' | 'percent' | 'other' => {
+      if (isMaskedCardColumn(key)) return 'other';
       const k = key.toLowerCase();
       if (amountKeys.some(p => k.includes(p))) return 'amount';
       if (stageKeys.some(p => k.includes(p))) return 'stage';
@@ -5341,7 +5422,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                 {/* Title row - Name as bold prominent title */}
                 {titleCol && (
                   <div className="font-semibold text-sm truncate mb-1">
-                    {coerceToSafeValue(row[titleCol.accessorKey]) ?? '—'}
+                    {isMaskedCardColumn(titleCol.accessorKey)
+                      ? titleCol.cell?.(row[titleCol.accessorKey], row)
+                      : (coerceToSafeValue(row[titleCol.accessorKey]) ?? '—')}
                   </div>
                 )}
 

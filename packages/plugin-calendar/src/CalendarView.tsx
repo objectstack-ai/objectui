@@ -344,7 +344,14 @@ function CalendarView({
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
+              {/*
+                The popover reads the grids' locale, not the session's: an
+                authored `locale` reaches its caption and weekday heads too
+                (objectui#10747). `Calendar` resolves the tag through the one
+                date-fns resolver in `@object-ui/components`.
+              */}
               <Calendar
+                localeTag={effectiveLocale}
                 mode="single"
                 selected={selectedDate}
                 onSelect={handleDateSelect}

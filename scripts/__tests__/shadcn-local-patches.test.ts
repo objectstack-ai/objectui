@@ -292,13 +292,18 @@ describe('shadcn local patches — application to fresh upstream (objectstack#55
   });
 
   /**
-   * The fifth family: the calendar display locale (objectui#10722). Both halves
-   * are listed because the import alone compiles and changes nothing, and the
-   * default alone does not compile.
+   * The fifth family: the calendar display locale (objectui#10722), and the
+   * `localeTag` input that lets a caller name its own tag (objectui#10747).
+   * Every patch is listed because the import alone compiles and changes
+   * nothing, and neither the input nor the default compiles without the others.
    */
   it('calendar declares the display-locale patches', () => {
     const ids = LOCAL_PATCHES.calendar.map((p: { id: string }) => p.id);
-    expect(ids).toEqual(['calendar-display-locale-import', 'calendar-display-locale-default']);
+    expect(ids).toEqual([
+      'calendar-display-locale-import',
+      'calendar-locale-tag-input',
+      'calendar-display-locale-default',
+    ]);
   });
 
   it('applies the slider family to fresh upstream, and is idempotent', () => {

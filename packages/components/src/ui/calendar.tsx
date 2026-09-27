@@ -17,7 +17,7 @@ import {
 import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker"
 
 import { cn } from "../lib/utils"
-import { useDisplayDateLocale } from "../lib/date-fns-locale"
+import { useDisplayDateLocale, type CalendarLocaleTagProps } from "../lib/date-fns-locale"
 import { Button, buttonVariants } from "./button"
 
 function Calendar({
@@ -28,12 +28,13 @@ function Calendar({
   buttonVariant = "ghost",
   formatters,
   components,
+  localeTag,
   ...props
-}: React.ComponentProps<typeof DayPicker> & {
+}: React.ComponentProps<typeof DayPicker> & CalendarLocaleTagProps & {
   buttonVariant?: React.ComponentProps<typeof Button>["variant"]
 }) {
   const defaultClassNames = getDefaultClassNames()
-  const displayDateLocale = useDisplayDateLocale()
+  const displayDateLocale = useDisplayDateLocale(localeTag)
 
   return (
     <DayPicker

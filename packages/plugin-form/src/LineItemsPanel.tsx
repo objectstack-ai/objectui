@@ -202,19 +202,21 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
   // while it was in flight) does neither. Held in a ref: nothing renders from it.
   const loadSeqRef = useRef(0);
   // objectui#10740 — the parent the held `rows` / `original` belong to. Written
-  // in the same commit as the rows (a load that succeeds), and adopted by the
-  // CURRENT load that fails while nothing is held yet: the rows are then the
-  // initial empty set, and a line added in this parent's panel is this
-  // parent's. A load for ANOTHER parent that fails leaves it where it was, so
-  // the rows and this value keep agreeing after `parentId` has moved on. That
-  // disagreement is `heldForAnotherParent`: the grid is not drawn from those
-  // rows, the Save button is off, and `save` sends nothing. Before this card the
-  // failed load left the previous parent's edited lines drawn, editable and
-  // saveable, and Save wrote them under the CURRENT `parentId` (an edit batch's
-  // child rows carry it directly), moving another record's lines. The guard
-  // rather than a clear in the load's `catch`, because a load that DECLINES for
-  // the new parent (a refused filter, say) never reaches that `catch` and left
-  // the same Save enabled over the same rows.
+  // wherever the rows are written: beside a load's commit (that run's parent),
+  // and beside an edit made while nothing is held yet (a grid offered with no
+  // adapter, so no load has settled: the parent on screen). The CURRENT load
+  // that fails while nothing is held adopts its parent too, since the empty
+  // rows it leaves on screen are that parent's. A load for ANOTHER parent that
+  // fails or declines leaves it where it was, so the rows and this value keep
+  // agreeing after `parentId` has moved on. That disagreement is
+  // `heldForAnotherParent`: the grid is not drawn from those rows, the Save
+  // button is off, and `save` sends nothing. Before this card the failed load
+  // left the previous parent's edited lines drawn, editable and saveable, and
+  // Save wrote them under the CURRENT `parentId` (an edit batch's child rows
+  // carry it directly), moving another record's lines. The guard rather than a
+  // clear in the load's `catch`, because a load that DECLINES for the new parent
+  // (a refused filter, say) never reaches that `catch` and left the same Save
+  // enabled over the same held rows.
   const [rowsHeldFor, setRowsHeldFor] = useState<string | undefined>(undefined);
   const heldForAnotherParent = rowsHeldFor !== undefined && rowsHeldFor !== parentId;
 
@@ -405,7 +407,17 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
   const onChange = useCallback((next: Record<string, any>[]) => {
     setRows(next);
     setDirty(true);
-  }, []);
+    // An edit made while nothing is held yet gives the rows their owner, the
+    // parent on screen (objectui#10740). The only grid offered before a load has
+    // settled is the one drawn when the load declined for want of an adapter;
+    // a line typed into it stayed ownerless, and the first parent whose load
+    // later failed adopted it and could save it as its own. Written in the same
+    // handler as the rows rather than in that decline, so that no other way of
+    // offering the grid before a settle (a superseded run releasing `loading`,
+    // objectui#10712's surface) can leave an edited row without an owner. Rows
+    // already held keep their parent.
+    setRowsHeldFor((held) => held ?? parentId);
+  }, [parentId]);
 
   const save = useCallback(async () => {
     // `childObject` joins this guard for the same reason both reads decline

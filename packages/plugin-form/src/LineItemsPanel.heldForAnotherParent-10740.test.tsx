@@ -35,6 +35,12 @@
  *     keeps the author's unsaved edits drawn, editable and saveable — under
  *     that parent — exactly as it did before this card.
  *
+ * The owner is written wherever the rows are written. A grid offered with no
+ * adapter (the load declines before any fetch) holds rows nobody loaded; a line
+ * typed into it takes the parent on screen as its owner at the edit, so the
+ * first parent whose load later fails cannot adopt it as its own (the
+ * adapter-less row below).
+ *
  * Rendered through the real `SchemaRenderer` and this package's own
  * registration of `record:line_items`. Every `find` and every `batchTransaction`
  * returns a promise the test settles by hand, so each assertion is made in the
@@ -249,6 +255,42 @@ describe('LineItemsPanel refuses the lines it holds for another parent (objectui
     await waitFor(() => expect(bannerShows('p2 load failed')).toBe(true));
 
     expect(shownLines(), 'a line added under p1 was drawn under p2').toEqual([]);
+    expect(placeholder()).toBeTruthy();
+    expect(saveButton()?.disabled).toBe(true);
+    await clickSave();
+    await settle(() => {});
+    expect(dataSource.batchTransaction).not.toHaveBeenCalled();
+  });
+
+  it('a line typed under an adapter-less mount on p1, a swap to p2 with no adapter, then the adapter arrives and p2’s load fails: no line drawn under p2, Save off, no batch', async () => {
+    const { dataSource, lineReads } = makeLinesDataSource();
+    const tree = (b: Record<string, unknown>, ds: unknown) => (
+      <SchemaRendererProvider dataSource={ds as any}>
+        <SchemaRenderer schema={b as any} />
+      </SchemaRendererProvider>
+    );
+    // No adapter: the load declines before any fetch and the panel offers its
+    // empty grid (its entry row) for p1. A line typed there is p1's.
+    const view = render(tree(linesBlock(), null));
+    await waitFor(() => expect(lineInputs().length).toBeGreaterThan(0));
+    await editFirstLine('typed under p1');
+    await waitFor(() => expect(shownLines()).toEqual(['typed under p1']));
+    expect(dataSource.find).not.toHaveBeenCalled();
+
+    // The host moves to p2, still with no adapter.
+    view.rerender(tree(linesBlock({ parentId: 'p2' }), null));
+    await settle(() => {});
+    expect(shownLines(), 'a line typed under p1 was drawn under p2 before any load').toEqual([]);
+    expect(saveButton()?.disabled).toBe(true);
+
+    // The adapter arrives, and p2's load fails.
+    view.rerender(tree(linesBlock({ parentId: 'p2' }), dataSource));
+    const first = await nth(lineReads, 1);
+    expect(first.parentId).toBe('p2');
+    await fail(first, 'p2 load failed');
+    await waitFor(() => expect(bannerShows('p2 load failed')).toBe(true));
+
+    expect(shownLines(), 'a line typed under p1 was adopted by p2').toEqual([]);
     expect(placeholder()).toBeTruthy();
     expect(saveButton()?.disabled).toBe(true);
     await clickSave();

@@ -28,6 +28,8 @@
  *   failed read are withheld the same way.
  * - SETTLED: the withholding lifts — the declared `text` field draws its value
  *   — and the declared `password` field keeps the mask.
+ * - THE RECORD DRAWER (record drill-down) draws a clicked row's fields from the
+ *   same unknown types, so after a failed read it withholds every value too.
  *
  * ## Controls
  *
@@ -38,7 +40,7 @@
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, act, cleanup, waitFor } from '@testing-library/react';
+import { render, act, cleanup, waitFor, fireEvent, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
 // Registers `object-data-table` (and, through its imports, `data-table`).
@@ -171,5 +173,21 @@ describe('ObjectDataTable — an untyped column is withheld while the object typ
     await waitFor(() => expect(cellUnder('Note').textContent).toContain(RAW_NOTE));
     expect(cellUnder('API Key').textContent, 'the declared password is masked').toContain(MASK);
     expect(document.body.innerHTML).not.toContain(RAW_KEY);
+  });
+
+  it('REJECTED: the record drawer a row opens draws every value withheld', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const ds = makeDataSource('rejected');
+    mount(ds, { data: ROWS, columns: COLUMNS, drillDown: { enabled: true } });
+    await waitFor(() => expect(error).toHaveBeenCalled());
+    await expectWithheld();
+
+    fireEvent.click(cellUnder('Name'));
+    const body = await screen.findByTestId('record-detail-body');
+    // CONTROL — the drawer rendered this record's fields, not an empty shell.
+    expect(within(body).getByText('Api Key')).toBeInTheDocument();
+    expect(body.textContent, 'the drawer draws the values as the mask').toContain(MASK);
+    expect(document.body.innerHTML, 'the raw credential is nowhere in the DOM').not.toContain(RAW_KEY);
+    expect(document.body.innerHTML, 'the withheld note is nowhere in the DOM').not.toContain(RAW_NOTE);
   });
 });

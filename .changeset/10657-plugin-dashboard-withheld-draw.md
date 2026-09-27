@@ -17,6 +17,10 @@ stays so when the read failed: fail closed, never back to text. A column that au
 `type` draws from it, and a column with a `cell` of its own draws what that `cell`
 returns. Once the definition lands, each column draws from its declared type as before.
 
+The record drawer a row opens (record drill-down) drew the clicked record's fields from
+the same unknown types, so after a failed read it printed a `password` / `secret` field
+as text too. In that window it now draws every value as the mask.
+
 The pending objectui#10657 `object-data-table` changeset says a `password` / `secret`
 field is still drawn as text in that window; that no longer holds once this change ships
 with it.

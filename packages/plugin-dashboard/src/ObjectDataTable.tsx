@@ -1153,6 +1153,7 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
           title={recordTitle}
           target={drillDown?.target === 'dialog' ? 'dialog' : 'drawer'}
           onClose={() => setDrillRecord(null)}
+          objectTypesPending={objectTypesPending}
         />
       )}
     </div>

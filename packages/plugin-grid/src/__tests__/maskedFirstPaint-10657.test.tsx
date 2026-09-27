@@ -31,6 +31,9 @@
  * - HOST CATALOGUE: handed the object's fields (`objectFields`, what `ListView`
  *   passes), the grid has no window: first paint draws each column from its
  *   declared type while its own read is still held.
+ * - THE RECORD PANEL a row opens under overlay navigation, with no declared
+ *   fields in hand, used to print every value of the record by inference: it
+ *   withholds them too after a failed read.
  *
  * ## Controls
  *
@@ -43,7 +46,7 @@
 
 import React from 'react';
 import { describe, it, expect, afterEach, beforeAll, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ActionProvider } from '@object-ui/react';
 import { registerAllFields } from '@object-ui/fields';
@@ -105,8 +108,8 @@ function heldDataSource() {
 }
 
 /** Rows handed down by a host, the way `ListView` hands them. */
-function renderHostFed(ds: unknown, extra: { grouping?: unknown; objectFields?: unknown } = {}) {
-  const { grouping, objectFields } = extra;
+function renderHostFed(ds: unknown, extra: { grouping?: unknown; objectFields?: unknown; navigation?: unknown } = {}) {
+  const { grouping, objectFields, navigation } = extra;
   return render(
     <ActionProvider>
       <ObjectGrid
@@ -115,6 +118,7 @@ function renderHostFed(ds: unknown, extra: { grouping?: unknown; objectFields?: 
           objectName: 'masked_first_paint',
           columns: COLUMNS,
           ...(grouping ? { grouping } : {}),
+          ...(navigation ? { navigation } : {}),
         } as any}
         dataSource={ds as any}
         data={ROWS}
@@ -234,5 +238,24 @@ describe('ObjectGrid — an untyped column is withheld until the object schema s
     expectControlLive();
     // …and the declared `password` field is the mask from the same paint.
     expectWithheld('API Key', RAW_KEY);
+  });
+
+  it('REJECTED: the record panel a row opens draws every value withheld', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { ds, reject } = heldDataSource();
+    renderHostFed(ds, { navigation: { mode: 'drawer' } });
+    await waitFor(() => expect(screen.getByText(CONTROL_VALUE)).toBeInTheDocument());
+    reject(new Error('metadata read refused'));
+    await waitFor(() =>
+      expect(warn.mock.calls.some((c) => String(c[0]).includes('Failed to fetch objectSchema for inline data'))).toBe(true));
+
+    fireEvent.click(screen.getByText(CONTROL_VALUE));
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+    const dialog = screen.getByRole('dialog');
+    // CONTROL — the panel rendered this record's fields, not an empty shell.
+    expect(within(dialog).getByText('Api key')).toBeInTheDocument();
+    expect(dialog.textContent, 'the panel draws the values as the mask').toContain(MASK);
+    expect(document.body.innerHTML, 'the raw credential is nowhere in the DOM').not.toContain(RAW_KEY);
+    expect(document.body.innerHTML, 'the withheld note is nowhere in the DOM').not.toContain(RAW_NOTE);
   });
 });

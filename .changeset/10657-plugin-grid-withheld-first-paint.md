@@ -20,6 +20,10 @@ swallowed as non-fatal, leaving the column in the clear for the life of the grid
   inferred for it from its name or values meanwhile. It stays withheld when the read
   fails: fail closed, never back to text. A column that authors its own `type` draws
   from it, as it did. A grid with no `getObjectSchema` to wait for is unchanged.
+- **The record panel** a row opens under overlay navigation (drawer, modal, split,
+  popover) with no declared fields in hand printed every value of the record, inferred
+  from its value and name. While the types are unknown it now draws each value as the
+  mask as well.
 - **New prop `objectFields` on `ObjectGrid` (`ObjectGridComponentProps`).** The object's
   field catalogue, handed down by a host that has already read the definition. The grid
   answers every field-type question from it until its own read lands, so the columns

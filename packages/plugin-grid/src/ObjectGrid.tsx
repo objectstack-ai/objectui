@@ -5295,12 +5295,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     // Honor `hidden: true` on the schema field def — internal/system fields
     // (e.g. database_url, environment_id, is_system) shouldn't leak into the
     // grid's record-detail drawer just because they're in the record payload.
-    const isHidden = (key: string) => objectSchema?.fields?.[key]?.hidden === true;
+    const isHidden = (key: string) => objectFields?.[key]?.hidden === true;
     // Split business fields from framework-managed system/audit/ownership
     // columns via the shared classifier (branches on `field.system`), so the
     // injected `owner_id` and friends land in the muted meta section rather than
     // the business body — consistent with the grid's default-column derivation.
-    const isSystem = (key: string) => isSystemManagedField(key, objectSchema?.fields?.[key]);
+    const isSystem = (key: string) => isSystemManagedField(key, objectFields?.[key]);
     const regularFields = entries.filter(([key]) => !isSystem(key) && !isHidden(key));
     const metaFields = entries.filter(([key]) => isSystem(key) && key !== '_id' && key !== 'id' && !isHidden(key));
 
@@ -5312,8 +5312,15 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         return <EmptyValue className="text-sm italic" glyph={t('grid.empty')} />;
       }
 
+      // objectui#10657 — while the object's field types are unknown (the
+      // schema read is in flight, or it failed) no value here can be typed,
+      // and any of them could be a `password` / `secret` field: each is drawn
+      // WITHHELD, as the mask, like the grid's own untyped cells, never as the
+      // inferred text below.
+      if (objectTypesPending) return <MaskedCellRenderer value={value} />;
+
       // Use objectSchema field type for type-aware rendering
-      const fieldDef = objectSchema?.fields?.[key];
+      const fieldDef = objectFields?.[key];
       // Through the shared resolve, so the panel honours a `format` hint the
       // same way the row above it does (objectui#8920). `rendererType` is null
       // exactly when the key has no declared type, which is the guard this
@@ -5384,7 +5391,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                   <span className="text-xs text-muted-foreground w-1/3 text-right shrink-0">
                     {formatFieldLabel(key)}
                   </span>
-                  <span className="text-xs text-muted-foreground flex-1 min-w-0 break-words">{String(coerceToSafeValue(value) ?? '')}</span>
+                  <span className="text-xs text-muted-foreground flex-1 min-w-0 break-words">
+                    {/* Withheld while the field types are unknown (objectui#10657). */}
+                    {objectTypesPending ? <MaskedCellRenderer value={value} /> : String(coerceToSafeValue(value) ?? '')}
+                  </span>
                 </div>
               ))}
             </div>

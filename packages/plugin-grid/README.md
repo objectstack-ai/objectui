@@ -398,7 +398,8 @@ Before the object schema has loaded — on the host-fetched path (rows handed do
 mask, never its value as text, and every path above treats it as masked (a grouping
 entry on it is ignored, without a warning, until the schema is in). It stays withheld
 when the schema read fails. A column that authors its own `type` draws from it
-meanwhile.
+meanwhile. The record panel a row opens under overlay navigation draws every value as
+the mask in that window too.
 
 A host that already holds the object's definition passes its `fields` to the grid as
 the `objectFields` prop, beside the `data` it fetched, and the grid answers from them

@@ -50,9 +50,11 @@ import { DashboardFilterBar } from './DashboardFilterBar';
 /**
  * One `header.actions[]` entry, as the node's declaration types it: the spec's
  * `DashboardHeaderAction` by reference since objectui#7759, so `label` is an
- * `I18nLabel` and `actionUrl` is required.
+ * `I18nLabel` and `actionUrl` is required. Named for the node, not the spec
+ * type, because it is read off `DashboardComponentSchema` and a local alias may
+ * not wear a spec export's name (`check:spec-symbols`).
  */
-type DashboardHeaderAction = NonNullable<NonNullable<DashboardComponentSchema['header']>['actions']>[number];
+type DashboardNodeHeaderAction = NonNullable<NonNullable<DashboardComponentSchema['header']>['actions']>[number];
 
 interface SortableWidgetWrapperProps {
   id: string;
@@ -344,7 +346,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
      * restatement of `header`, and a map reached React as a button child.
      */
     const tActionLabel = useCallback(
-      (action: DashboardHeaderAction): string => {
+      (action: DashboardNodeHeaderAction): string => {
         const authored = pickLocalized(action.label, language) || '';
         if (!dashName) return authored;
         const key = action.actionUrl || authored;

@@ -25,6 +25,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import React from 'react';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
+import { SchemaRenderer } from '@object-ui/react';
 // Registers the renderers at module scope, NOT inside a hook (objectui#3010).
 import '../renderers';
 import { DatePicker } from '../custom/date-picker';
@@ -104,6 +105,16 @@ describe('the form date picker opens on its value (objectui#10799)', () => {
     const { container } = renderPicker(new Date(2020, 2, 4));
     expect(await openPicker(container)).toBe('March 2020');
     expect(selectedDays()).toEqual(['2020-03-04']);
+  });
+
+  it('a `date-picker` node authored with an ISO string `value` opens on that month', async () => {
+    // The shape of the docs' `with-default-value` example: the node's `value`
+    // reaches the renderer's `value` prop through `SchemaRenderer`, unparsed.
+    const { container } = render(
+      <SchemaRenderer schema={{ type: 'date-picker', id: 'due', value: '2024-01-15' } as never} />,
+    );
+    expect(await openPicker(container)).toBe('January 2024');
+    expect(selectedDays()).toEqual(['2024-01-15']);
   });
 
   it('control: no value opens on today', async () => {

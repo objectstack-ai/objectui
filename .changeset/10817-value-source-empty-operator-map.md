@@ -45,3 +45,5 @@ ever dropped a constraint. No declared surface moves and no export is added.
 
 **Migration.** A filter carrying `{ field: {} }` returned more rows than it said. It is
 now a named refusal. Give the field an operator, or delete the key.
+
+⚠️ **Dated note, 2026-09-27 — a `Date` condition is now read as implicit equality — objectui#10829.** Later in this same release a `Date` condition in an object `$filter` is read as implicit equality, compared the way the AST arm's `=` compares it, so `{ status: 'a', created: someDate }` answers what its lowered array answers rather than the rows of `{ status: 'a' }`. "where its constraint still vanishes (objectui#10829)" above is this change's reading, not the release's. The rest of this entry is kept as the reading of this change; the objectui#10829 entry states what that input now answers.

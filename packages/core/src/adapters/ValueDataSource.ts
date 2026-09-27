@@ -21,6 +21,7 @@ import type {
 import {
   asciiCaseInsensitiveContains,
   canonicalAstOperator,
+  isAcceptedFilterComparand,
   RETIRED_FILTER_OPERATORS,
 } from '@objectstack/spec/data';
 import { emulateBatchTransaction } from './batchTransaction.js';
@@ -977,7 +978,26 @@ function matchesFilter(
 
     const value = record[key];
 
-    if (condition && typeof condition === 'object' && !Array.isArray(condition)) {
+    // objectui#10829 — a `Date` is a COMPARAND, not an operator map. It is an
+    // object and not an array, so it used to enter the operator branch below,
+    // where `Object.entries` of a Date is `[]`: the loop ran zero times and the
+    // field added NO constraint. `{ status: 'a', created: someDate }` answered
+    // the same rows as `{ status: 'a' }`, in silence, while
+    // `convertFiltersToAST` lowers the same filter to
+    // `['created', '=', someDate]` (objectui#8555).
+    //
+    // So it takes the simple-equality branch, the position every other
+    // accepted comparand takes. That branch compares with `===`, the exact
+    // comparison the AST arm's `=` makes in `matchesComparisonNode`, so the
+    // object filter and its lowered array answer one row set. The gate is the
+    // spec's `isAcceptedFilterComparand`, the predicate the converter lowers a
+    // Date through, rather than a local `instanceof Date`: an object-typed
+    // value the converter lowers as a comparand is then one this matcher reads
+    // as a comparand, and no such value can reach the zero-operator loop.
+    if (
+      condition && typeof condition === 'object' && !Array.isArray(condition)
+      && !isAcceptedFilterComparand(condition)
+    ) {
       // Operator-based filter — every operator on the field is ANDed.
       for (const [op, target] of Object.entries(condition)) {
         if (!matchesDollarOperator(record, value, op, target, key, refusals)) return false;
@@ -990,7 +1010,7 @@ function matchesFilter(
       // exact shape `$not` had before objectui#8447 fixed it.
       return refuseArrayComparand(refusals, key, 'implicit equality');
     } else {
-      // Simple equality
+      // Simple equality — a scalar, `null`, or a `Date` (objectui#10829).
       if (value !== condition) return false;
     }
   }
@@ -1028,9 +1048,9 @@ function matchesFilter(
  * a zero-key object. A `RegExp`, `Map` or `Set` also has no own keys, and the
  * converter refuses it as an exotic comparand (objectui#8567), so this face now
  * refuses it too instead of dropping the constraint. A `Date` has no own keys
- * either, but the converter LOWERS it, so it reaches the matcher exactly as
- * before, where its constraint still vanishes (objectui#10829). A `null` /
- * `undefined` condition is not an object and is not routed.
+ * either, but the converter LOWERS it, so it reaches the matcher, which reads
+ * it as implicit equality (objectui#10829). A `null` / `undefined` condition is
+ * not an object and is not routed.
  *
  * ## Why up front, and why the whole filter
  *

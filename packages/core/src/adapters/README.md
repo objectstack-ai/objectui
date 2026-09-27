@@ -140,6 +140,19 @@ appeared in no filter answer at all. The stored value is never coerced to text �
 searching `String(50)` would answer a query nobody wrote, in a spelling the storage
 class chose. A `null` and an absent key take the same side of the same predicate.
 
+A `Date` condition — `{ created: someDate }` — is a **comparand, not an operator map**
+(objectui#10829). It is read as implicit equality, which is how `convertFiltersToAST`
+lowers it (`['created', '=', someDate]`, objectui#8555), and compared with `===`, the
+comparison the AST arm's `=` makes, so the object filter and its lowered array answer
+the same rows. Before that, a `Date`, which has no own keys, reached the operator loop,
+the loop ran zero times, and the field added no constraint. The gate is the spec's `isAcceptedFilterComparand`, the
+predicate the converter lowers a `Date` through. ⚠️ `===` compares a `Date` by
+identity and every row is cloned on construction, so on both arms no stored value
+equals a `Date` comparand — not a `Date` of the same instant, its ISO string or its
+epoch milliseconds — while `$gt` / `$gte` / `$lt` / `$lte` compare a `Date` by its
+number. That is the AST arm's reading today, recorded on objectui#10829 and not changed
+by it.
+
 #### Grouped filters — `$and` and `$or`
 
 Both are **executed** in the object dialect (objectui#8513), matching the
@@ -188,8 +201,8 @@ refusal answers the whole filter with no rows and logs the
 converter's reason once — the way the array arm answers a rule its lowering refuses —
 so `{ $or: [{ status: 'b' }, { created: {} }] }` answers no rows, not the `'b'` rows.
 A `RegExp`, `Map` or `Set` comparand has no own keys either and gets the converter's
-exotic-comparand refusal (objectui#8567); a `Date` lowers, so it reaches the matcher
-as before, where its constraint still vanishes (objectui#10829).
+exotic-comparand refusal (objectui#8567); a `Date` lowers, so it reaches the matcher,
+which reads it as implicit equality (objectui#10829, below).
 
 Anything else is **refused**: the row is excluded and the reason is logged once per
 distinct refusal per `find()` — never passed through as "no constraint", which is

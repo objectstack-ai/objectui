@@ -180,15 +180,17 @@ describe('objectui#10817 §4 — controls: the same answer on the base and the h
     expect(await query({})).toEqual({ ids: ['1', '2', '3'], total: 3, warns: [] });
   });
 
-  it('a Date comparand is unchanged: the converter lowers it, so it is not refused', async () => {
-    // Today's answer, pinned AS-IS rather than endorsed: the Date constraint
-    // still vanishes on this face (rows 1 and 2, the same as { status: 'a' }).
-    // That is the seat's follow-up card, filed apart from objectui#10817 under
-    // ruling 5858511329 — this card routes the Date and the converter lowers it.
+  it('a Date comparand is not refused: the converter lowers it and this face reads it as equality', async () => {
+    // Flipped by objectui#10829. Pinned AS-IS until then: the Date constraint
+    // vanished on this face (rows 1 and 2, the same as { status: 'a' }).
+    // objectui#10829 reads a Date condition as implicit equality, so the answer
+    // is the rows that hold that instant, and neither row 1 (`'x'`) nor row 2
+    // (no `created`) does. Still a control for this card's walk: the walk
+    // routes the Date, the converter lowers it, and nothing is refused.
     expect(toFilterNodeSafely({ created: new Date(0) }).ok).toBe(true);
     expect(await query({ status: 'a', created: new Date(0) })).toEqual({
-      ids: ['1', '2'],
-      total: 2,
+      ids: [],
+      total: 0,
       warns: [],
     });
   });

@@ -25,6 +25,11 @@
  * nobody asked for — so both are pinned here. `ObjectForm` already did the right
  * thing (it re-enters loading before the fetch), which is why this only ever
  * reproduced on the sectioned variants.
+ *
+ * `WizardForm` got the staleness guard (objectui#10712) but not the loading
+ * half, so a swap left the previous record's values drawn and editable on the
+ * current step while the new read was in flight (objectui#10726). It is a row
+ * of the swap table below, and a create-mode control of its own.
  */
 
 import React from 'react';
@@ -36,6 +41,7 @@ import { ModalForm } from './ModalForm';
 import { DrawerForm } from './DrawerForm';
 import { TabbedForm } from './TabbedForm';
 import { SplitForm } from './SplitForm';
+import { WizardForm } from './WizardForm';
 
 registerAllFields();
 
@@ -82,12 +88,12 @@ const titleInput = () =>
   document.body.querySelector<HTMLInputElement>('[data-field="title"] input');
 
 /**
- * The four containers under test, as one type.
+ * The containers under test, as one type.
  *
- * They are genuinely four different components — `ModalFormProps.schema` is a
+ * They are genuinely different components — `ModalFormProps.schema` is a
  * `ModalFormSchema`, `DrawerFormProps.schema` a `DrawerFormSchema`, and so on,
  * each pinned to its own `formType` literal. A `describe.each` tuple therefore
- * hands JSX a UNION of four component types, and JSX resolves a union of
+ * hands JSX a UNION of their component types, and JSX resolves a union of
  * components by INTERSECTING their props: `ModalFormSchema & DrawerFormSchema &
  * …` reduces `formType` to `never`, so every schema is rejected — including the
  * right one for the case actually running. Ten of this package's thirteen
@@ -99,9 +105,9 @@ const titleInput = () =>
  * deliberately `any` here and cannot be anything else: assigning
  * `React.FC< ModalFormProps >` to a shared component type requires the shared
  * schema type to be assignable to `ModalFormSchema` AND `DrawerFormSchema` AND
- * the other two at once, which nothing but `any` satisfies. That is a fact
- * about these four having no common props base, not a cast hiding a mismatch:
- * the `formType` each case passes is checked below instead.
+ * every other one at once, which nothing but `any` satisfies. That is a fact
+ * about these containers having no common props base, not a cast hiding a
+ * mismatch: the `formType` each case passes is checked below instead.
  */
 type SectionedFormContainer = React.ComponentType<{
   schema: any;
@@ -109,13 +115,15 @@ type SectionedFormContainer = React.ComponentType<{
 }>;
 
 /** The `formType` discriminants these containers are pinned to, spelled once. */
-type SectionedFormType = 'modal' | 'drawer' | 'tabbed' | 'split';
+type SectionedFormType = 'modal' | 'drawer' | 'tabbed' | 'split' | 'wizard';
 
 const CONTAINERS: ReadonlyArray<readonly [string, SectionedFormContainer, SectionedFormType]> = [
   ['ModalForm', ModalForm, 'modal'],
   ['DrawerForm', DrawerForm, 'drawer'],
   ['TabbedForm', TabbedForm, 'tabbed'],
   ['SplitForm', SplitForm, 'split'],
+  // objectui#10726. A wizard step is a section, so `SECTIONS` is its one step.
+  ['WizardForm', WizardForm, 'wizard'],
 ];
 
 /** The two overlay containers — the only ones with an unsaved-input guard. */
@@ -235,5 +243,55 @@ describe('create mode is unaffected', () => {
     await waitFor(() => expect(titleInput()).not.toBeNull());
     expect(titleInput()?.value).toBe('');
     expect(ds.findOne).not.toHaveBeenCalled();
+  });
+
+  // objectui#10726 — the wizard's swap loading sits after its create branch.
+  it('never takes a create wizard back to loading, including when its record effect re-runs', async () => {
+    const { ds } = deferredDataSource();
+    const createWizard = () =>
+      ({
+        type: 'object-form',
+        formType: 'wizard',
+        objectName: 'task',
+        mode: 'create',
+        sections: SECTIONS,
+        // Rebuilt on every render, as callers commonly do: each rerender
+        // re-runs the record effect through its create branch.
+        initialValues: {},
+      }) as any;
+    const { rerender } = render(<WizardForm schema={createWizard()} dataSource={ds} />);
+
+    await waitFor(() => expect(titleInput()).not.toBeNull());
+    const drawn = titleInput();
+    expect(drawn?.value).toBe('');
+
+    rerender(<WizardForm schema={createWizard()} dataSource={ds} />);
+    await waitFor(() => {});
+
+    // A loading state in between would have unmounted the step form.
+    expect(titleInput()).toBe(drawn);
+    expect(ds.findOne).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * objectui#10726 — the wizard goes back to loading on a change of RECORD only.
+ * A re-read of the record already on screen (a caller rebuilding
+ * `initialValues`) keeps the step form mounted, as it does on the other rows.
+ */
+describe('WizardForm — a re-run for the same record', () => {
+  it('keeps the step form mounted while the same record is read again', async () => {
+    const { ds, land } = deferredDataSource();
+    const editWizard = () => ({ ...schemaFor('wizard', 'r1'), initialValues: {} });
+    const { rerender } = render(<WizardForm schema={editWizard()} dataSource={ds} />);
+    await land('r1', 'Record One');
+    await waitFor(() => expect(titleInput()?.value).toBe('Record One'));
+    const drawn = titleInput();
+
+    rerender(<WizardForm schema={editWizard()} dataSource={ds} />);
+    await waitFor(() => expect(ds.findOne).toHaveBeenCalledTimes(2));
+
+    expect(titleInput()).toBe(drawn);
+    expect(titleInput()?.value).toBe('Record One');
   });
 });

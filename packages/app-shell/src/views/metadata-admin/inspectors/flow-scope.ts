@@ -37,7 +37,11 @@ export type ScopeGroupId =
   // conditions (current/trigger/vars — never `record`/bare fields). Their
   // picker groups carry their own ids so they can never leak into the regular
   // condition picker.
-  | 'approval_current' | 'approval_trigger' | 'approval_vars';
+  | 'approval_current' | 'approval_trigger' | 'approval_vars'
+  // objectui#10772: a `screen` node's `fields[].visibleWhen` binds the same
+  // screen's declared fields plus `record` (`screenPredicateRoots`), never the
+  // flow scope — its own id for the same reason.
+  | 'screen_fields';
 
 /**
  * One pickable reference. `token` is the BARE form (no braces); the picker

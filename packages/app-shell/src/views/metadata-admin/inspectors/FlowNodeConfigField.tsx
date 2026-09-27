@@ -201,6 +201,9 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             context={context}
             scopeGroups={scopeGroups}
             approvalScopeGroups={approvalScopeGroups}
+            // objectui#10772 — with `context.node`, names a screen's `fields`
+            // list, whose `visibleWhen` column binds the screen's own fields.
+            fieldId={field.id}
           />
         );
       case 'number':

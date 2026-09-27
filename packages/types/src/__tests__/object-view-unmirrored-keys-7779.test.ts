@@ -1218,7 +1218,9 @@ describe('objectui#7779 → objectui#7928 — `listViews` was ledgered on the fa
     expect(namedViewReads()).toEqual([...NAMED_VIEW_READS].filter((k) => k !== 'name'));
     // The tab strip reads `label` off the entries too — same member, second
     // site — and since objectui#8980 `name` between it and the record key.
-    expect(readRepo(READER)).toContain('{view.label || view.name || key}');
+    // objectui#7928 resolves it as the protocol's `I18nLabel` first; `view.label`
+    // is still the read.
+    expect(readRepo(READER)).toContain('{resolveInlineI18nLabel(view.label, displayLocale) || view.name || key}');
     // ALL twenty are declared `NamedListView` members since objectui#8980:
     // the seventeen the protocol declares on this surface landed with a read
     // point each, and `data` — which used to reach the renderer through an

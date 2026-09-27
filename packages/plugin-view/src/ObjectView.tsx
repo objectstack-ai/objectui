@@ -66,7 +66,11 @@ import {
   toast,
 } from '@object-ui/components';
 import { Plus } from 'lucide-react';
-import { useObjectTranslation, createSafeTranslation } from '@object-ui/i18n';
+import { useObjectTranslation, createSafeTranslation, useDisplayLocale } from '@object-ui/i18n';
+// objectui#7928 — a named view's `label` is the protocol's `I18nLabel` (a plain
+// string or an inline locale map) since `ObjectViewSchema.listViews` became its
+// record by reference. Resolved the way `ListView` resolves its own `label`.
+import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
 import {
   buildExpandFields,
   normalizeListViewSchema,
@@ -898,6 +902,9 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // Declared with the other top-level hooks so it stays above every conditional
   // return — rules-of-hooks.
   const { t: tView } = useObjectViewTranslation();
+  // The locale a named view's `I18nLabel` resolves in on the tab strip
+  // (objectui#7928). A top-level hook for the same rules-of-hooks reason.
+  const displayLocale = useDisplayLocale();
   // The object-schema read and the fact that it has SETTLED are ONE piece of
   // state, keyed by the object it belongs to (objectui#6419). This replaces a
   // `useState` + a render-body `objectSchemaRef.current = objectSchema` write,
@@ -1184,7 +1191,14 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // path honours the key while another ignores it. A view's sort still
         // outranks `table.sort`, the same order the grid path and `mergedSort`
         // express.
-        const sort = currentNamedViewConfig?.sort || activeViewQueryInputs?.sort
+        //
+        // objectui#7928: a named view's `sort` is the protocol's by reference,
+        // which still admits the bare string clause objectui retired
+        // (objectui#8221). The value is handed on UNCHANGED and
+        // `convertSortToQueryParams` refuses a string out loud; the cast only
+        // restates the sink's declared input. ⛔ Never narrow, drop or lower it
+        // here: that would turn the loud refusal into silence.
+        const sort = (currentNamedViewConfig?.sort as ObjectGridSchema['sort']) || activeViewQueryInputs?.sort
           || schema.table?.sort;
 
         // Auto-inject $expand for lookup/master_detail fields. Reached only
@@ -2153,7 +2167,9 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     // `authoredFilters`), and held while their inputs are unchanged — ObjectGrid
     // keys its fetch on `schema.filter`'s identity.
     const viewFilter = authoredFilters.view;
-    const viewSort = currentNamedViewConfig?.sort || activeView?.sort;
+    // objectui#7928: see the non-grid fetch above. A retired string `sort` on a
+    // named view reaches `ObjectGrid` unchanged, which refuses it out loud.
+    const viewSort = (currentNamedViewConfig?.sort as ObjectGridSchema['sort']) || activeView?.sort;
 
     return {
       type: 'object-grid',
@@ -2602,7 +2618,13 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
                 * same string there and no existing tab label moves. It changes
                 * only for an authored view whose `name` differs from its key.
                 */}
-              {view.label || view.name || key}
+              {/*
+                * objectui#7928 — `label` is the protocol's `I18nLabel`, so a
+                * locale map is RESOLVED here; rendered raw it threw "Objects are
+                * not valid as a React child". A map with no usable entry resolves
+                * to nothing and falls through to `name`, then the key.
+                */}
+              {resolveInlineI18nLabel(view.label, displayLocale) || view.name || key}
             </TabsTrigger>
           ))}
         </TabsList>

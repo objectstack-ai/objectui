@@ -738,19 +738,20 @@ export interface TableColumn {
    *
    * `RelatedList` and `ObjectDataTable` fail closed: while their object
    * definition is in flight, or after its read failed, they stamp EVERY column.
-   * Not covered there: in that same window their cells draw a field the object
-   * declares `password` / `secret` as text, because the mask comes from that
-   * declaration (objectui#10657).
    *
-   * Once the grid's object schema has loaded, `ObjectGrid` also leaves every
-   * masked field of its object out of its own client export, draws those
-   * fields through `cell` on its mobile card, and refuses them as grouping
-   * keys. Not covered there: on the host-fetched path (rows handed down as
-   * `data`, as `ListView` and `ObjectView` do), the grid's guards and the
-   * cell's own mask depend on the object schema, which the grid fetches after
-   * first paint, so until it arrives, and for good if that read fails, an
-   * untyped view column over a `password` / `secret` field draws and hands out
-   * the raw value (objectui#10657, which folded objectui#10706); the
+   * WITHHELD columns (objectui#10657, which folded objectui#10706): while an
+   * object-bound producer's field types are unknown (the definition is in
+   * flight, or its read failed), a column it cannot type draws as the mask
+   * instead of as text, and carries this flag; it stays so when the read
+   * failed. In `ObjectGrid` and `ObjectDataTable` that is a column with no
+   * authored `type`; `RelatedList` draws its cells from the object's types
+   * only, so there it is every column without a `cell` of its own. A host that
+   * already holds the object's fields hands them to `ObjectGrid`
+   * (`objectFields`, as `ListView` does), so that grid has no such window.
+   *
+   * `ObjectGrid` also leaves every masked or withheld field of its object out
+   * of its own client export, draws those fields through `cell` on its mobile
+   * card, and refuses them as grouping keys. Not covered there: the
    * server-streamed export (`exportDownload`) sends the masked columns as
    * before and relies on the server's masking; and the client JSON export, and
    * this table's CSV export of a lookup column, write an expanded lookup

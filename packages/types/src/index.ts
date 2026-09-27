@@ -224,7 +224,7 @@ export type {
 // The one select-option contract both option faces extend — `SelectOption`
 // above (the SDUI form face) and `SelectOptionMetadata` below (the
 // object-metadata face). Exported because it appears in the `extends` clause of
-// both, so a consumer that wants to name it can (objectui#7014).
+// both, so a consumer that wants to name it can (`98d4108a2`).
 export type { SelectOptionBase } from './select-option.js';
 
 // ============================================================================

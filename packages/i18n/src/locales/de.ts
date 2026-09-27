@@ -236,6 +236,7 @@ const de = {
       remove: '{{name}} entfernen',
       exceedsMaxSize: '„{{name}}“ überschreitet die maximale Größe ({{max}} MB)',
       uploadFailed: 'Hochladen von „{{name}}“ fehlgeschlagen: {{error}}',
+      uploadIncomplete: 'Hochladen von „{{name}}“ wurde nicht abgeschlossen: Es wurde keine Datei-ID zurückgegeben, nichts wurde gespeichert',
     },
     richText: {
       format: "Format: {{format}}",

@@ -251,7 +251,7 @@ describe('objectui#9020 — controls', () => {
 describe('objectui#9020 — the mixed filter is a different card', () => {
   beforeEach(() => clearSharedDiscoveryCache());
 
-  it('an identity group beside a PROCESSED key that produced nothing is left as it was', async () => {
+  it('an identity group beside a PROCESSED key that produced nothing is not folded', async () => {
     // ⚠️ UPDATED. This used to name `{ $and: [], a: null }` — a filter mixing an
     // identity group with a SKIPPED key — as the case each guard declines
     // because each is keyed on "EVERY key was of MY kind". objectui#9030
@@ -261,14 +261,16 @@ describe('objectui#9020 — the mixed filter is a different card', () => {
     //
     // ⭐ The boundary this card was fenced against moving is still here, one
     // shape over: `{ a: {} }` is a key the loop ENTERED that pushed no
-    // condition, so it is neither an identity group nor a skipped key and no arm
+    // condition, so it is neither an identity group nor a skipped key and no fold
     // claims it. That is what proves the two counts were not merged into "no
     // conditions were produced".
     //
-    // ⚠️ Asserted at the CONVERTER, not on the routes: this input still reaches
-    // both routes as the caller's object, and pinning that in a file whose
-    // subject is route agreement would read as a claim that it is settled.
-    const { convertFiltersToAST } = await import('@object-ui/core');
-    expect(convertFiltersToAST({ $and: [], a: {} })).toEqual({ $and: [], a: {} });
+    // ⚠️ Asserted at the CONVERTER, not on the routes.
+    //
+    // ⚠️ UPDATED. This used to pin the caller's object coming back, which then
+    // reached both routes; since objectui#9164 the converter refuses it, so
+    // neither route sends it. Still not folded — a fold would answer `undefined`.
+    const { convertFiltersToAST, FilterOperatorError } = await import('@object-ui/core');
+    expect(() => convertFiltersToAST({ $and: [], a: {} })).toThrow(FilterOperatorError);
   });
 });

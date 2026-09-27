@@ -80,8 +80,12 @@ function checkScreenVisibleWhen(value: unknown, node: ScreenPreviewNode): { leve
   return scope ? { level: 'warning', message: scope } : null;
 }
 
-/** The `screen` node's `fields[].visibleWhen` column — the one `objectList` expression cell that is not a flow-scope slot. */
-function isScreenVisibleWhenColumn(type: string, fieldId: string, colKey: string): boolean {
+/**
+ * The `screen` node's `fields[].visibleWhen` column — the one `objectList`
+ * expression cell that is not a flow-scope slot. Exported so the inline
+ * inspector cell (`FlowObjectListField`) names the same column (objectui#10772).
+ */
+export function isScreenVisibleWhenColumn(type: string, fieldId: string, colKey: string): boolean {
   return type === 'screen' && fieldId === 'fields' && colKey === 'visibleWhen';
 }
 

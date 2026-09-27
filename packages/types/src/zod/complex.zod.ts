@@ -371,13 +371,14 @@ function conditionValueFollowsTheProtocolRule(
  * `FilterOperatorSchema` and `conditionValueFollowsTheProtocolRule`, both
  * declared above, and neither reaches back to this const.
  *
- * ⚠️ `FilterGroupSchema` below CANNOT take this shape, and neither can six other
- * `z.lazy` exports of this face: their bodies name the very const being declared
- * (or, for `SchemaNodeSchema`, one declared below it), so evaluating the body
- * eagerly throws `ReferenceError: Cannot access '<name>' before initialization`
- * at module load. The `z.lazy` there is buying a TDZ dodge, not a style. Measured
- * one schema at a time in `../__tests__/zod-lazy-getter-identity-7918.test.ts`
- * — read that before "fixing" any of them to match this one.
+ * ⚠️ Not every `z.lazy` export of this face can take this shape. The ones the
+ * `TDZ_BOUND` ledger of `../__tests__/zod-lazy-getter-identity-7918.test.ts`
+ * lists have bodies that name the very const being declared, so evaluating the
+ * body eagerly throws `ReferenceError: Cannot access '<name>' before
+ * initialization` at module load; the `z.lazy` there is buying a TDZ dodge, not
+ * a style. Read that ledger before "fixing" any of them to match this one.
+ * `FilterGroupSchema` below was one of them until objectui#9306 made its body
+ * flat; it now takes this shape too.
  */
 const FilterBuilderConditionObject = z.object({
   // REQUIRED, and the asymmetry with `FilterGroupSchema.id` below is the whole
@@ -428,7 +429,7 @@ export const FilterBuilderConditionSchema: z.ZodType<any> = z.lazy(() => FilterB
  * (objectui#6939, the `filter-builder` group; maintainer ruling 2026-09-02,
  * director seat summon #8, verbatim 「同意」).
  *
- * The gate is `isValidGroup`, `packages/components/src/custom/filter-builder.tsx:1060`:
+ * The gate is `isValidGroup` in `packages/components/src/custom/filter-builder.tsx`:
  *
  *     Array.isArray(v.conditions) && (v.logic === "and" || v.logic === "or")
  *
@@ -445,19 +446,65 @@ export const FilterBuilderConditionSchema: z.ZodType<any> = z.lazy(() => FilterB
  * `id` from an authored group renders BYTE-IDENTICALLY (76 elements, same text,
  * same SHA-256). Requiring it would refuse a document the renderer draws
  * perfectly — a fresh instance of the exact class objectui#6939 exists to
- * close. Declared rather than dropped because the component's own exported
+ * close. Declared rather than dropped because the component's exported
  * `FilterGroup` carries it, `EMPTY_GROUP` emits it, every catalog entry authors
  * it, and it round-trips out through `onChange`; declaring it buys the type
  * check (`id: 42` now refuses) that an undeclared key would not get, since a
  * plain `z.object` strips unknown keys in silence.
+ *
+ * ## `conditions` is FLAT — a nested sub-group is refused BY NAME (objectui#9306)
+ *
+ * This array used to take `union([condition, group])`, so a sub-group parsed
+ * green. Nothing honours one: `FilterBuilder` draws every entry as one flat
+ * field / operator / value row, so a sub-group rendered as a row with blank
+ * triggers while its own conditions were drawn nowhere, and the builder handed
+ * it back through `onChange` untouched. The maintainer's ruling on
+ * objectui#9306 (「A 撤掉嵌套声明」) retires the nesting at this authority.
+ *
+ * Why a named refusal and not just `z.array(FilterBuilderConditionSchema)`: a
+ * sub-group run through the ROW schema is refused, but only as a missing
+ * `field` and a missing `operator` — true, and no help to an author who wrote
+ * a group on purpose. So each entry is asked one question first: does it carry
+ * its own `conditions`? A row never does, so an entry that does is a
+ * sub-group, and it gets ONE `custom` issue at the entry's own path, carrying
+ * {@link NESTED_FILTER_GROUP_RETIRED}. The pipe does not go on to the row
+ * schema after that issue, so the author reads the reason, not its symptoms.
+ * Every other entry is judged by the row schema exactly as before.
+ *
+ * MEMOISED, like {@link FilterBuilderConditionSchema}: the body no longer names
+ * this const, so the `z.lazy` has no temporal dead zone left to dodge (the
+ * objectui#7918 ledger moved it from `TDZ_BOUND` to `MEMOISED`). The `z.lazy`
+ * and the `z.ZodType<any>` annotation stay, so the public handle's type and
+ * its `.unwrap()` accessor do not move.
  */
-export const FilterGroupSchema: z.ZodType<any> = z.lazy(() =>
-  z.object({
-    id: z.string().optional().describe('Group id — round-tripped through `onChange`; no read site'),
-    logic: z.enum(['and', 'or']).describe('How the conditions combine — read by `isValidGroup`'),
-    conditions: z.array(z.union([FilterBuilderConditionSchema, FilterGroupSchema])).describe('Conditions or sub-groups'),
+const NESTED_FILTER_GROUP_RETIRED =
+  'A nested sub-group is RETIRED (objectui#9306, ADR-0049): every entry of a filter group\'s '
+  + '`conditions` is one flat `{ id, field, operator, value }` row, and an entry carrying its own '
+  + '`conditions` is refused by name. `filter-builder` draws no nested group: it drew a sub-group '
+  + 'as a row with blank field and operator triggers and showed its conditions nowhere. Write the '
+  + 'rows into the one group instead; its `logic` (`and` / `or`) combines all of them.';
+
+const FilterGroupEntrySchema = z
+  .any()
+  .superRefine((entry, ctx) => {
+    if (
+      typeof entry === 'object'
+      && entry !== null
+      && !Array.isArray(entry)
+      && Object.prototype.hasOwnProperty.call(entry, 'conditions')
+    ) {
+      ctx.addIssue({ code: 'custom', message: NESTED_FILTER_GROUP_RETIRED });
+    }
   })
-);
+  .pipe(FilterBuilderConditionSchema);
+
+const FilterGroupObject = z.object({
+  id: z.string().optional().describe('Group id — round-tripped through `onChange`; no read site'),
+  logic: z.enum(['and', 'or']).describe('How the conditions combine — read by `isValidGroup`'),
+  conditions: z.array(FilterGroupEntrySchema).describe(`Flat condition rows. ${NESTED_FILTER_GROUP_RETIRED}`),
+});
+
+export const FilterGroupSchema: z.ZodType<any> = z.lazy(() => FilterGroupObject);
 
 /**
  * Filter Field Schema — one entry of `FilterBuilderSchema.fields`
@@ -469,9 +516,9 @@ export const FilterGroupSchema: z.ZodType<any> = z.lazy(() =>
  * `fields.find((f) => f.value === fieldValue)` in `getOperatorsForField`,
  * `changeField`, `getInputType` and `renderValueInput`, plus `fields[0]?.value`
  * in `addCondition` and `<SelectItem value={field.value}>` in the field
- * dropdown — `custom/filter-builder.tsx:1099,1161,1201,1234,1239` and the row
- * render. `name` has zero read sites, and `FilterBuilderProps.fields` (line 66
- * of that file) declares `Array<{ value, label, type? }>`. Measured: rewriting
+ * dropdown — all in `custom/filter-builder.tsx`, plus the row render. `name`
+ * has zero read sites, and `FilterBuilderProps.fields` in that file declares
+ * `Array<{ value, label, type? }>`. Measured: rewriting
  * a catalog entry's `value` to `name` loses the field on every row —
  * `…Clear allCategoryRemove condition…` becomes
  * `…Clear allRemove condition…`, and the three value inputs degrade from
@@ -486,7 +533,8 @@ export const FilterGroupSchema: z.ZodType<any> = z.lazy(() =>
  * and a contract does not retract what it published to authors. So the enum
  * below is the doc's fourteen in the doc's order, and `type` is OPTIONAL
  * because the doc publishes `type?:` and the renderer reads `fieldType ||
- * "text"` (`custom/filter-builder.tsx:408`, and again at 964 for operators).
+ * "text"` (`custom/filter-builder.tsx`: `valueFamilyForFieldType`, and again
+ * in `operatorsForFieldType` for operators).
  *
  * ⛔ The ruling carried a PRECONDITION, measured before this enum moved:
  * every one of the fourteen has a renderer branch, because a key declared that
@@ -577,9 +625,21 @@ export const FilterBuilderSchema = BaseSchema.extend({
   defaultValue: z.union([FilterBuilderConditionSchema, FilterGroupSchema]).optional().describe('Default filter value'),
   value: z.union([FilterBuilderConditionSchema, FilterGroupSchema]).optional().describe('Controlled filter value'),
   onChange: handlerKeyRefusal('onChange', 'runtime-slot', 'Change handler'),
-  allowGroups: z.boolean().optional().describe('Allow grouped conditions'),
-  maxDepth: z.number().optional().describe('Maximum nesting depth'),
-  // Applied at renderers/complex/filter-builder.tsx:37 as `className={schema.wrapperClass || ''}`.
+  // Both RETIRED with the nesting they configured (objectui#9306, ADR-0049): no
+  // renderer read either, and `FilterGroupSchema` above now refuses the nested
+  // sub-group they were about. Tombstones rather than deletions because this
+  // node is `.passthrough()`: an undeclared key would be KEPT in silence.
+  allowGroups: retirementTombstone(
+    'REFUSED (objectui#9306, ADR-0049) — `filter-builder` has no nested groups, so `allowGroups` has '
+    + 'nothing to allow: no renderer read it, every entry of a filter group\'s `conditions` is one flat '
+    + 'row, and a nested sub-group is refused by name. Remove the key.',
+  ),
+  maxDepth: retirementTombstone(
+    'REFUSED (objectui#9306, ADR-0049) — `filter-builder` has no nested groups, so `maxDepth` has no '
+    + 'depth to limit: no renderer read it, every entry of a filter group\'s `conditions` is one flat '
+    + 'row, and a nested sub-group is refused by name. Remove the key.',
+  ),
+  // Applied by renderers/complex/filter-builder.tsx as `className={schema.wrapperClass || ''}`.
   wrapperClass: z.string().optional().describe('Outer wrapper classes for the filter builder (objectui#6150)'),
   body: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `filter-builder` reads NEITHER content channel: measured with the '
@@ -776,9 +836,16 @@ export const ChatbotSchema = BaseSchema.extend({
     + 'and the key the `chatbot-enhanced` and `chatbot-floating` twins already declare. Delete `body` here: '
     + 'nothing renders it, and nothing sends it.',
   ),
-  /** @deprecated objectui#5605 — inert; nothing reads it. Cap loops on the agent (`planning.maxIterations`). Slated for removal. */
-  maxToolRoundtrips: z.number().optional()
-    .describe('DEPRECATED (inert, slated for removal) — Max tool-calling round-trips. Nothing reads this; cap tool loops on the agent via planning.maxIterations'),
+  // objectui#5605, ADR-0049 — retired behind a tombstone, not deleted: under
+  // `BaseSchema`'s `.passthrough()` a deleted arm would KEEP an authored value
+  // in silence. `chatbot-enhanced` and `chatbot-floating` carry this same arm.
+  maxToolRoundtrips: retirementTombstone(
+    'RETIRED (objectui#5605, ADR-0049) — never honoured: a chat node cannot cap tool-calling round-trips. '
+    + 'The tool loop runs on the server agent inside one streamed response, the chat runtime (`useChat`) has '
+    + 'no numeric round-trip cap, and the chat request carries no cap field, so the value was dropped before '
+    + 'any request was sent. Cap tool loops on the agent instead — `planning.maxIterations` (default 10). '
+    + 'Delete the key.',
+  ),
   onError: handlerKeyRefusal('onError', 'runtime-slot', 'Error callback'),
   // --- Local display + legacy auto-response fields (objectui#6169) ---
   // Mirrors the TS declaration added at ../complex.ts in lockstep, so these
@@ -802,7 +869,7 @@ export const ChatbotSchema = BaseSchema.extend({
     + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
     + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `headers`, `maxHeight`, '
-    + '`maxToolRoundtrips`, `messages`, `model`, `onError`, `onSend`, `placeholder`, `requestBody`, '
+    + '`messages`, `model`, `onError`, `onSend`, `placeholder`, `requestBody`, '
     + '`showTimestamp`, `streamingEnabled`, `systemPrompt`, `userAvatarFallback`, `userAvatarUrl`.',
   ),
 });
@@ -837,7 +904,6 @@ const ChatbotSharedMirrorShape = ChatbotSchema.pick({
   model: true,
   streamingEnabled: true,
   headers: true,
-  maxToolRoundtrips: true,
   onError: true,
   showTimestamp: true,
   userAvatarUrl: true,
@@ -872,6 +938,7 @@ export const ChatbotEnhancedSchema = BaseSchema.extend({
   type: z.literal('chatbot-enhanced'),
   ...ChatbotSharedMirrorShape,
   requestBody: chatbotRequestBodyArm(),
+  maxToolRoundtrips: ChatbotSchema.shape.maxToolRoundtrips,
   maxHeight: ChatbotSchema.shape.maxHeight,
   processVisibility: ChatbotSchema.shape.processVisibility,
   enableMarkdown: chatbotEnableMarkdownArm(),
@@ -894,7 +961,7 @@ export const ChatbotEnhancedSchema = BaseSchema.extend({
     + 'The chat API body params go on `requestBody`, which the registration forwards to the chat runtime. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
     + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
-    + '`headers`, `maxHeight`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`headers`, `maxHeight`, `messages`, `model`, `onClear`, `onError`, '
     + '`onSend`, `placeholder`, `processVisibility`, `requestBody`, `showTimestamp`, '
     + '`streamingEnabled`, `surface`, `systemPrompt`, `userAvatarFallback`, `userAvatarUrl`.',
   ),
@@ -905,7 +972,7 @@ export const ChatbotEnhancedSchema = BaseSchema.extend({
     + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
     + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
-    + '`headers`, `maxHeight`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`headers`, `maxHeight`, `messages`, `model`, `onClear`, `onError`, '
     + '`onSend`, `placeholder`, `processVisibility`, `requestBody`, `showTimestamp`, '
     + '`streamingEnabled`, `surface`, `systemPrompt`, `userAvatarFallback`, `userAvatarUrl`.',
   ),
@@ -940,6 +1007,7 @@ export const ChatbotFloatingSchema = BaseSchema.extend({
   type: z.literal('chatbot-floating'),
   ...ChatbotSharedMirrorShape,
   requestBody: chatbotRequestBodyArm(),
+  maxToolRoundtrips: ChatbotSchema.shape.maxToolRoundtrips,
   enableMarkdown: chatbotEnableMarkdownArm(),
   enableFileUpload: chatbotEnableFileUploadArm(),
   onClear: chatbotOnClearArm(),
@@ -958,7 +1026,7 @@ export const ChatbotFloatingSchema = BaseSchema.extend({
     + 'The chat API body params go on `requestBody`, which the registration forwards to the chat runtime. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
     + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
-    + '`floatingConfig`, `headers`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`floatingConfig`, `headers`, `messages`, `model`, `onClear`, `onError`, '
     + '`onSend`, `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`, `systemPrompt`, '
     + '`userAvatarFallback`, `userAvatarUrl`.',
   ),
@@ -969,7 +1037,7 @@ export const ChatbotFloatingSchema = BaseSchema.extend({
     + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
     + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
-    + '`floatingConfig`, `headers`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`floatingConfig`, `headers`, `messages`, `model`, `onClear`, `onError`, '
     + '`onSend`, `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`, `systemPrompt`, '
     + '`userAvatarFallback`, `userAvatarUrl`.',
   ),

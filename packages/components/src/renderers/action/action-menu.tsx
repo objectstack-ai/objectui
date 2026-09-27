@@ -18,7 +18,7 @@ import { ComponentRegistry } from '@object-ui/core';
 import type { ActionDef } from '@object-ui/core';
 import type { UIActionSchema } from '@object-ui/types';
 import { useAction } from '@object-ui/react';
-import { useCondition, toPredicateInput, usePredicateRecordContext } from '@object-ui/react';
+import { useCondition, toPredicateInput, usePredicateRecordContext, useConfigBagEvaluator } from '@object-ui/react';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { Button } from '../../ui';
 import {
@@ -33,7 +33,7 @@ import { Loader2, MoreHorizontal } from 'lucide-react';
 import { resolveIcon } from './resolve-icon';
 import { hasDeclaredVisibilityGate } from './visibility-gate';
 import { useAutoTriggerOnce } from './auto-trigger';
-import { readActionEntryParamValues } from './static-params';
+import { readActionEntryParamValues, readMemberStaticParamValues } from './static-params';
 
 function useMoreActionsLabel(): string {
   // useObjectTranslation is provider-safe (never throws); no try/catch, which
@@ -210,6 +210,9 @@ const ActionMenuRenderer = forwardRef<HTMLButtonElement, { schema: ActionMenuSch
     } = props;
 
     const { execute } = useAction();
+    // The `SchemaRenderer` memo's `properties` evaluation, for the member this
+    // renderer runs itself (objectui#10290) — see `handleExecute`.
+    const evaluateBag = useConfigBagEvaluator();
     const [loading, setLoading] = useState(false);
     const moreActionsLabel = useMoreActionsLabel();
 
@@ -240,9 +243,20 @@ const ActionMenuRenderer = forwardRef<HTMLButtonElement, { schema: ActionMenuSch
           // an array is forwarded as `actionParams`, as `action:button` does. An
           // object is forwarded as values only for `type: 'api'`, the objectstack#5777
           // payload window; any other type drops it (objectui#10462).
+          //
+          // The member's static values ride `properties.params`, as on
+          // `action:button`, and are evaluated here with the `SchemaRenderer` memo's
+          // evaluator and scope: the member never passes through that memo
+          // (objectui#10290). Independent of the input list, so both are forwarded.
+          // They win over the `api` window's object `params`, as `properties.params`
+          // wins over a node-level object on `action:button`.
+          const staticValues = readMemberStaticParamValues(action, evaluateBag);
+          const entryValues = Array.isArray(action.params)
+            ? undefined
+            : readActionEntryParamValues(action, action.type, 'action:menu');
           const paramsPayload: ActionDef = Array.isArray(action.params)
-            ? { actionParams: action.params as any }
-            : { params: readActionEntryParamValues(action, action.type, 'action:menu') };
+            ? { actionParams: action.params as any, params: staticValues }
+            : { params: staticValues !== undefined ? staticValues : entryValues };
           await execute({
             type: action.type,
             name: action.name,
@@ -302,7 +316,7 @@ const ActionMenuRenderer = forwardRef<HTMLButtonElement, { schema: ActionMenuSch
           setLoading(false);
         }
       },
-      [execute],
+      [execute, evaluateBag],
     );
 
     if (schema.visible && !isVisible) return null;

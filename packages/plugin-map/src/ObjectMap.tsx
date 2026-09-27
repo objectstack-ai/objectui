@@ -754,7 +754,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
    * optimisation rather than a correctness dependency (objectui#6592).
    */
   const dataProvider = dataConfig?.provider;
-  // NOT a delegation site for `resolveRecordSourceObjectName` (objectui#7627):
+  // NOT a delegation site for `resolveRecordSourceObjectName` (`b041b9c0c`):
   // this is the data config's OWN object, deliberately `undefined` for every
   // other provider so an `api`/`value` map's `objectName` changing cannot move
   // this dependency. The shared reader's second rung would put `objectName`
@@ -763,7 +763,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
   const dataItems = dataConfig?.provider === 'value' ? dataConfig.items : undefined;
   /**
    * The object this map is BOUND to — the resolved record source's object when
-   * it names one, else the schema's own `objectName` (objectui#7627, the
+   * it names one, else the schema's own `objectName` (`b041b9c0c`, the
    * objectui#6939 ladder). Hoisted to render scope so the definition read below
    * keys on one named value instead of re-deriving the ladder inline.
    */

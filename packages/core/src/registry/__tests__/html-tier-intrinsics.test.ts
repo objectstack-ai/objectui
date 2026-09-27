@@ -83,11 +83,13 @@ describe('HTML_TIER_INTRINSICS — the roster (objectui#10735)', () => {
     expect(HTML_TIER_INTRINSIC_SET.has('box')).toBe(false);
   });
 
-  it('leaves `code` and `kbd` out — a field-widget fallback and an unruled component, not element renderers', () => {
-    // `code` is the bare fallback of the `field:code` widget (no inputs, no
-    // child slot); `kbd` is a `ui` component reading `keys` / `label`. Both are
-    // recorded in the console test's exclusion ledger with their reasons.
-    expect(HTML_TIER_INTRINSIC_SET.has('code')).toBe(false);
+  it('carries `code` and leaves `kbd` out — an element passthrough since objectui#10756, and an unruled component', () => {
+    // `code` used to be the bare fallback of the `field:code` widget (no inputs,
+    // no child slot) and was ledgered out; `html-elements.tsx` now registers it
+    // from `TAGS` and the widget stands down from the bare key. `kbd` is a `ui`
+    // component reading `keys` / `label`, still recorded in the console test's
+    // exclusion ledger with its reason.
+    expect(HTML_TIER_INTRINSIC_SET.has('code')).toBe(true);
     expect(HTML_TIER_INTRINSIC_SET.has('kbd')).toBe(false);
   });
 });
@@ -139,10 +141,34 @@ describe('getPublicConfigs — the html tier rides the contract read, stamped (o
     expect(types).toEqual(['span']);
   });
 
-  it('does not admit a field widget squatting on an html tag name', () => {
+  it('does not admit a field widget squatting on an html tag name that is not on the roster', () => {
+    // `summary` is the console's live instance: the `field:summary` widget's
+    // bare fallback shares its name with the HTML element and is ledgered out.
     const r = new Registry();
-    r.register('code', C, { namespace: 'field' });
+    r.register('summary', C, { namespace: 'field' });
     expect(r.getPublicConfigs()).toEqual([]);
+  });
+
+  it('projects a roster tag from whatever holds its bare key — why `field:code` stands down (objectui#10756)', () => {
+    // The roster names the TAG; the projection copies the registration the bare
+    // key resolves to. Were the field widget still the bare `code` owner, the
+    // manifest would declare a code editor under the tag — the defect this card
+    // closes — so `@object-ui/fields` registers `code` with `skipFallback` and
+    // `html-elements.tsx`'s `ui:code` is the one bare claimant. Both halves,
+    // in one registry:
+    const r = new Registry();
+    r.register('code', C, { namespace: 'field', skipFallback: true });
+    expect(r.getPublicConfigs()).toEqual([]); // the widget declined the bare key: nothing to project
+    const Passthrough = () => null;
+    r.register('code', Passthrough, {
+      namespace: 'ui',
+      inputs: [{ name: 'className', type: 'string' }, { name: 'children', type: 'slot' }],
+    });
+    const cfg = r.getPublicConfigs().find((c) => c.type === 'code');
+    expect(cfg?.tier).toBe('html');
+    expect(cfg?.namespace).toBe('ui');
+    expect(cfg?.component).toBe(Passthrough);
+    expect(r.getConfig('field:code')?.component).toBe(C); // the widget is still its own key
   });
 
   it('resolves a lazily registered roster tag as a stamped stub', () => {

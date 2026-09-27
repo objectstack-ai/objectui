@@ -198,12 +198,18 @@ describe('ObjectGrid — external (host-driven) manual pagination (#2212)', () =
     // ceil(3125 / 50) = 63 — proves the footer uses the host total, not the
     // 50-row window it was handed.
     await waitFor(() => expect(container.textContent).toContain('63'));
-    await waitFor(() => expect(screen.getByText('Row 0')).toBeInTheDocument());
+    // objectui#10657: the fixture's `name` column authors no type, so until the
+    // grid's own schema read lands it is WITHHELD (drawn as the mask) and its
+    // text is no readiness signal. The host's window being drawn is: count it.
+    await waitFor(() => expect(container.querySelectorAll('tbody tr')).toHaveLength(PAGE_SIZE));
   });
 
   it('calls the external onPageChange when the footer turns the page (no client slice)', async () => {
     const { container, onPageChange } = renderExternal();
-    await waitFor(() => expect(screen.getByText('Row 0')).toBeInTheDocument());
+    // objectui#10657: the fixture's `name` column authors no type, so until the
+    // grid's own schema read lands it is WITHHELD (drawn as the mask) and its
+    // text is no readiness signal. The host's window being drawn is: count it.
+    await waitFor(() => expect(container.querySelectorAll('tbody tr')).toHaveLength(PAGE_SIZE));
     const navButtons = Array.from(container.querySelectorAll('button')).filter(
       (b) => !(b as HTMLButtonElement).disabled,
     );

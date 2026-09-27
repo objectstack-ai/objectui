@@ -1746,12 +1746,13 @@ interface FieldInputProps {
 }
 
 /**
- * The widgets that emit upload-in-progress — the only ones handed
- * `onUploadingChange`, exactly as `ActionParamDialog` gates it, so no other
- * widget receives a prop it does not declare.
+ * The widgets that emit upload-in-progress (`file`, `image`, `avatar`) — the
+ * only ones handed `onUploadingChange`, exactly as `ActionParamDialog` gates
+ * it, so no other widget receives a prop it does not declare. `avatar` joined
+ * when its pick started waiting on a network upload (objectui#10785).
  */
 function isUploadWidget(widgetKey: string): boolean {
-  return widgetKey === 'file' || widgetKey === 'image';
+  return widgetKey === 'file' || widgetKey === 'image' || widgetKey === 'avatar';
 }
 
 /**
@@ -1995,8 +1996,8 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
   const [submitting, setSubmitting] = useState(false);
   /**
    * Which rows currently have an upload in flight, keyed by field name
-   * (objectui#10167). Only the upload widgets (`file`, `image`) ever write
-   * here — see {@link isUploadWidget}.
+   * (objectui#10167). Only the upload widgets (`file`, `image`, `avatar`)
+   * ever write here — see {@link isUploadWidget}.
    *
    * Per NAME rather than a single counter so two upload rows cannot cancel each
    * other out: a counter incremented and decremented by two widgets that

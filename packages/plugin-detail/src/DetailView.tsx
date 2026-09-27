@@ -44,7 +44,7 @@ import { ActivityTimeline } from './ActivityTimeline';
 import { HistoryTimeline } from './HistoryTimeline';
 import { RecordMetaFooter } from './RecordMetaFooter';
 import { SchemaRenderer, SchemaErrorBoundary, toRenderableSchema, useSafeFieldLabel, useDataInvalidation, useInlineEdit, useRowPredicate } from '@object-ui/react';
-import { buildExpandFields, declaredNameField, getRecordDisplayName, formatTitleTemplate, recordDisplayValueAt, toDisplayDate, userActionPredicates } from '@object-ui/core';
+import { buildExpandFields, declaredNameField, getRecordDisplayName, formatTitleTemplate, recordDisplayValueAt, toDisplayDate, userActionPredicates, withoutDeniedFields } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 import type { DetailViewSchema, DataSource, ActionSchema, SchemaNode } from '@object-ui/types';
@@ -52,7 +52,6 @@ import { useDetailTranslation } from './useDetailTranslation';
 import { useRecordEditable } from './useRecordEditable';
 import { getCellRenderer, resolveCellRendererType, coerceToSafeValue, formatPercent } from '@object-ui/fields';
 import { hasCellValue } from './emptiness';
-import { withoutDeniedFields } from './withoutDeniedFields';
 import { enrichDetailField } from './fieldEnrichment';
 import { chipTakesCellRenderer } from './summaryChipRenderers';
 import { summaryChipPercentPoints } from './summaryChipPercent';
@@ -978,7 +977,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
       items.push({
         name: 'sys_delete',
         label: t('detail.delete'),
-        icon: 'trash-2',
+        icon: 'trash',
         type: 'script',
         variant: 'destructive',
         tags: ['separator-before'],

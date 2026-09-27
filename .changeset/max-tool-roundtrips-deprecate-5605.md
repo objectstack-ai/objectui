@@ -29,3 +29,11 @@ interface, the zod description and the docs, and that authoring it logs a
 one-time notice naming the knob that does work — `planning.maxIterations` on the
 agent. A follow-up removes the declaration once this deprecation has shipped in a
 release.
+
+⚠️ **Dated note, 2026-09-27 — the key is retired behind a tombstone, not staged for removal — objectui#5605.**
+This deprecation never shipped: it was still a pending changeset when the seat ruled
+arm A on the card, so no release carries the "deprecated, still accepted" state this entry
+describes. Later in this same release `maxToolRoundtrips` is refused by name on all three
+chat nodes, the one-time notice and the renderer pass-throughs are gone, and the key is no
+longer an option of `useObjectChat`. The rest of this entry is kept as the reading of this
+change; the objectui#5605 retirement entry states what an author gets now.

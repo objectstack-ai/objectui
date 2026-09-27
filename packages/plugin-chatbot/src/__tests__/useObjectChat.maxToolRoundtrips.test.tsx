@@ -5,193 +5,66 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * objectui#5605 — `maxToolRoundtrips` is an authorable, documented chatbot key
- * that reaches nothing. ADR-0049 says enforce-or-remove, and the MEASUREMENT
- * decides which arm: it cannot be enforced from here.
+ * objectui#5605 — `maxToolRoundtrips` is RETIRED behind a tombstone (ADR-0049,
+ * arm A of the seat ruling on the card).
  *
- * The installed chat runtime is `@ai-sdk/react`'s `useChat`, whose options are
- * `ChatInit` plus `{ throttle, experimental_throttle, resume }`. `ChatInit`
- * declares exactly one loop control — `sendAutomaticallyWhen`, a boolean
- * predicate — and no numeric cap under any spelling. The numeric knob was
- * removed from `useChat` in a MAJOR ("remove deprecated useChat roundtrip
- * options"), and its successor `maxSteps` was renamed through `continueUntil`
- * to `stopWhen`/`stepCountIs`, which the installed `ai` package declares only
- * on `generateText`, `streamText` and `ToolLoopAgentSettings` — all
- * server-side. ObjectUI is backend-agnostic, so it owns no server loop either.
+ * The key was declared on all three chat nodes, threaded by the renderer into
+ * `useObjectChat`, and dropped there. Enforcing it was measured and is not
+ * reachable from a chat node: the tool loop runs on the server agent inside ONE
+ * streamed response (the hook gives `useChat` no client tool loop), `useChat`
+ * has no numeric round-trip cap, and neither chat request schema in
+ * `@objectstack/spec` carries a cap field. The platform's cap is the agent's
+ * `planning.maxIterations`.
  *
- * So this is stage 1 of a two-stage retirement: the key still parses and still
- * carries its declared shape, but authoring it now says out loud that it does
- * nothing. These tests pin all three halves of that claim, each with a control
- * that fails in the opposite direction:
+ * So the key is refused BY NAME on every chat node, and the refusal points at
+ * the agent. A tombstone rather than a deletion: `BaseSchema` is
+ * `.passthrough()`, so a deleted arm would KEEP an authored value in silence.
  *
- *   1. AUTHORED  → one notice naming the key.   Control: UNAUTHORED → silence.
- *   2. AUTHORED  → the value still never reaches the runtime boundary (the chat
- *      POST body). Control: `model`/`conversationId` DO reach that same body in
- *      the same request, so a dead harness cannot make this pass vacuously.
- *   3. The key still round-trips through `ChatbotSchema` — deprecating it is
- *      not a breaking change for documents that already author it.
- *
- * Resolution note (why no `dist/` rebuild is needed for the cross-package leg):
- * the root vitest config aliases `@object-ui/types` → `packages/types/src` and
- * `@object-ui/types/zod` → `packages/types/src/zod/index.zod.ts`, so test 3
- * reads SOURCE and never resolves through the package's `dist/`.
+ * Driven through the published union entry point (`safeValidateSchema`), so the
+ * arm under test is the one an authored document actually reaches. The root
+ * vitest config aliases `@object-ui/types/zod` to the package SOURCE, so this
+ * reads `packages/types/src` and never resolves through a `dist/`.
  */
-import * as React from 'react';
-import { renderHook as rtlRenderHook, act, waitFor } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { I18nProvider } from '@object-ui/i18n';
-import { ChatbotSchema } from '@object-ui/types/zod';
-import { useObjectChat, resetMaxToolRoundtripsWarning } from '../useObjectChat';
+import { describe, it, expect } from 'vitest';
+import { safeValidateSchema } from '@object-ui/types/zod';
+import type { UseObjectChatOptions } from '../useObjectChat';
 
-/**
- * Every hook mounts under an `I18nProvider`, as the chat surfaces always do.
- * `useObjectChat` reads the display locale (`useDisplayLocale`, objectui#9909)
- * for the local-mode message stamp, and a PROVIDER-LESS first
- * `useTranslation()` prints react-i18next's once-per-module
- * `NO_I18NEXT_INSTANCE` notice — which the `console.warn` spies below, written
- * to count THIS hook's own warning, would otherwise count too.
- */
-function EnSession({ children }: { children: React.ReactNode }) {
-  return (
-    <I18nProvider config={{ defaultLanguage: 'en', detectBrowserLanguage: false }} persistLanguage={false}>
-      {children}
-    </I18nProvider>
-  );
-}
-const renderHook = (<R,>(callback: () => R) => rtlRenderHook(callback, { wrapper: EnSession })) as <R>(
-  callback: () => R,
-) => ReturnType<typeof rtlRenderHook<R, unknown>>;
+const NODES = ['chatbot', 'chatbot-enhanced', 'chatbot-floating'] as const;
 
-const API = 'https://example.test/api/v1/ai/chat';
-
-type AnyRecord = { [key: string]: unknown };
-type FetchMock = { mock: { calls: unknown[][] } };
-
-/** A minimal, well-formed Vercel AI UI-message data stream so a send completes. */
-function dataStreamResponse(): Response {
-  const body =
-    'data: {"type":"start"}\n\n' + 'data: {"type":"finish"}\n\n' + 'data: [DONE]\n\n';
-  return new Response(body, {
-    status: 200,
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'x-vercel-ai-ui-message-stream': 'v1',
-    },
-  });
-}
-
-/** The JSON body of a captured chat POST. */
-function bodyOf(fetchMock: FetchMock, callIndex: number): AnyRecord {
-  const init = fetchMock.mock.calls[callIndex]?.[1] as { body?: string } | undefined;
-  return JSON.parse(init?.body ?? '{}') as AnyRecord;
-}
-
-/** Every string that appears anywhere in a captured body, keys included. */
-function serialize(body: AnyRecord): string {
-  return JSON.stringify(body);
-}
-
-beforeEach(() => {
-  resetMaxToolRoundtripsWarning();
+const doc = (type: (typeof NODES)[number], extra: Record<string, unknown> = {}) => ({
+  type,
+  messages: [{ id: 'm1', role: 'user', content: 'hi' }],
+  api: '/api/v1/ai/agents/demo/chat',
+  ...extra,
 });
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-  vi.restoreAllMocks();
+describe('maxToolRoundtrips is retired behind a tombstone on every chat node (objectui#5605)', () => {
+  for (const type of NODES) {
+    it(`${type}: an authored maxToolRoundtrips is refused at its own key, naming planning.maxIterations`, () => {
+      const result = safeValidateSchema(doc(type, { maxToolRoundtrips: 1 }));
+
+      expect(result.success).toBe(false);
+      const issue = result.error?.issues.find((i) => i.path.join('.') === 'maxToolRoundtrips');
+      expect(issue, JSON.stringify(result.error?.issues)).toBeDefined();
+      // The tombstone's code: `z.never` reports `invalid_type` at the key.
+      expect(issue?.code).toBe('invalid_type');
+      // The remedy an author needs: where the cap actually lives.
+      expect(issue?.message).toContain('planning.maxIterations');
+    });
+
+    it(`CONTROL ${type}: the same node without the key parses green`, () => {
+      const result = safeValidateSchema(doc(type));
+      expect(result.success, JSON.stringify(result.success ? [] : result.error.issues)).toBe(true);
+    });
+  }
 });
 
-describe('useObjectChat — maxToolRoundtrips is inert and now says so (#5605)', () => {
-  it('warns ONCE, naming the key, when an author actually sets it', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-    const { rerender } = renderHook(() => useObjectChat({ api: API, maxToolRoundtrips: 3 }));
-    rerender();
-    rerender();
-
-    expect(warn).toHaveBeenCalledTimes(1);
-    const message = String(warn.mock.calls[0]?.[0]);
-    expect(message).toContain('maxToolRoundtrips');
-    // The notice has to be actionable, not just a scold: it names the real knob.
-    expect(message).toContain('planning.maxIterations');
-  });
-
-  it('CONTROL: stays silent when the key is not authored', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-    renderHook(() => useObjectChat({ api: API }));
-
-    expect(warn).not.toHaveBeenCalled();
-  });
-
-  it('reports an authored `0` too — the cap that most looks like it should bite', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-    renderHook(() => useObjectChat({ api: API, maxToolRoundtrips: 0 }));
-
-    // A truthiness check would swallow this one.
-    expect(warn).toHaveBeenCalledTimes(1);
-  });
-
-  it('does NOT reach the runtime boundary — the value is absent from the chat POST', async () => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const fetchMock = vi.fn(async () => dataStreamResponse());
-    vi.stubGlobal('fetch', fetchMock);
-
-    const { result } = renderHook(() =>
-      useObjectChat({
-        api: API,
-        conversationId: 'conv_1',
-        model: 'gpt-4o',
-        maxToolRoundtrips: 3,
-      }),
-    );
-
-    await act(async () => {
-      result.current.sendMessage('hello');
-    });
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-
-    const body = bodyOf(fetchMock as unknown as FetchMock, 0);
-
-    // CONTROL FIRST — without this, "the key is absent" would also pass if the
-    // request never happened or the body were empty.
-    expect(body.conversationId).toBe('conv_1');
-    expect(body.model).toBe('gpt-4o');
-
-    // The measurement this whole card rests on: the authored cap travels the
-    // renderer → hook path and then stops. It is on no wire.
-    expect(body.maxToolRoundtrips).toBeUndefined();
-    expect(serialize(body)).not.toContain('maxToolRoundtrips');
-  });
-
-  it('is still DECLARED, and the declaration now announces the deprecation', () => {
-    // This is the assertion stage 2 flips. It has to read the SHAPE, not a parse
-    // result: `BaseSchema` is `.passthrough()` (packages/types/src/zod/base.zod.ts),
-    // so an authored `maxToolRoundtrips` survives `safeParse` whether or not it
-    // is declared — measured, by ablating the declaration and watching a
-    // parse-based assertion stay green. Membership in `.shape` is the only
-    // observable that separates "declared authorable" from "gone".
-    expect(Object.keys(ChatbotSchema.shape)).toContain('maxToolRoundtrips');
-
-    const description = ChatbotSchema.shape.maxToolRoundtrips.description ?? '';
-    expect(description).toContain('DEPRECATED');
-    expect(description).toContain('planning.maxIterations');
-  });
-
-  it('does not break documents that already author it (non-discriminating by design)', () => {
-    const parsed = ChatbotSchema.safeParse({
-      type: 'chatbot',
-      messages: [],
-      api: '/api/v1/ai/chat',
-      maxToolRoundtrips: 3,
-    });
-
-    // Recorded as a REGRESSION FLOOR, not as evidence the key is declared: under
-    // `.passthrough()` this passes for any key at all, declared or not. It pins
-    // only that stage 1 broke nothing — and it is worth knowing for stage 2 that
-    // deleting the declaration will NOT make such a document fail; it will keep
-    // passing silently, which is why the runtime notice above is the part that
-    // actually reaches an author.
-    expect(parsed.success).toBe(true);
+describe('the chat hook no longer accepts the option (objectui#5605)', () => {
+  it('UseObjectChatOptions has no maxToolRoundtrips (type-level; measured by type-check)', () => {
+    // The assertion is the ANNOTATION: while the option is declared, its type
+    // is `never` and `tsc -p tsconfig.test.json` refuses the `true` below. The
+    // runtime `expect` only keeps the binding used; it cannot fail.
+    const optionIsGone: 'maxToolRoundtrips' extends keyof UseObjectChatOptions ? never : true = true;
+    expect(optionIsGone).toBe(true);
   });
 });

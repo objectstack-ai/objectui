@@ -87,7 +87,7 @@ describe('span deprecation notice — scoped by provenance (#4917)', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const { container } = renderHtmlPage(
-      '<div className="outer"><span className="inner">hello html tier</span><p>page rendered</p></div>',
+      '<box className="outer"><span className="inner">hello html tier</span><p>page rendered</p></box>',
     );
 
     // Control FIRST: silence proves nothing if the page never rendered. A
@@ -161,11 +161,12 @@ describe('span deprecation notice — scoped by provenance (#4917)', () => {
   });
 
   /**
-   * objectui#6674 — the same scope, DECLARED. Level with the sibling case in
-   * `div-deprecation-provenance.test.tsx`, for the reason objectui#4917 gave
-   * for bringing this renderer level in the first place: the two carry the same
-   * ruling, and a fact stated for one of them and not the other is how they
-   * diverge.
+   * objectui#6674 — the same scope, DECLARED. objectui#4917 brought this
+   * renderer level with `div` because the two then carried the same ruling.
+   * They no longer do: objectui#10757 declared `div` deprecated on both
+   * surfaces (its sibling case in `div-deprecation-provenance.test.tsx` pins
+   * that), while `span` keeps objectui#4000's json-only scope, which this case
+   * pins.
    *
    * The runtime exemption above and the declaration below are the same fact.
    * Moving either alone turns this red.

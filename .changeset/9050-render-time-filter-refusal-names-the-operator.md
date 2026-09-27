@@ -42,3 +42,12 @@ What changes:
 this is a delivery change, not an acceptance one. Where the protocol's own parse accepts
 an input this layer refuses, that gap is the protocol's to close and is filed against
 `@objectstack/spec` rather than papered over here.
+
+⚠️ **Dated note, 2026-09-27 — one more refusal carries no operator — objectui#9164.**
+Later in this same release `convertFiltersToAST` also refuses an empty operator map that
+is all a filter says (`{ a: {} }`). Its `FilterOperatorError` carries `field` and no
+`operator`, like the two comparand arms, so `filterRefusalSubject` names the field and
+the three render-time readers show the malformed-filter state for it. The counts above
+(eleven shapes, two arms without an operator) are this change's reading. The rest of this
+entry is kept as the reading of this change; the objectui#9164 entry states the new
+refusal.

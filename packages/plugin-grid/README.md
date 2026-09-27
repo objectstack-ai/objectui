@@ -393,14 +393,22 @@ The table also leaves such a column out of its client-side search, disables its 
 and sizes it from its header rather than its values (objectui#10657, which folded
 objectui#10658).
 
+Before the object schema has loaded — on the host-fetched path (rows handed down as
+`data`), the rows paint first — an untyped view column is **withheld**: it draws the
+mask, never its value as text, and every path above treats it as masked (a grouping
+entry on it is ignored, without a warning, until the schema is in). It stays withheld
+when the schema read fails. A column that authors its own `type` draws from it
+meanwhile. The record panel a row opens under overlay navigation draws every value as
+the mask in that window too.
+
+A host that already holds the object's definition passes its `fields` to the grid as
+the `objectFields` prop, beside the `data` it fetched, and the grid answers from them
+until its own read lands, so there is no such window; `ListView` does this
+(objectui#10657, which folded objectui#10706). `objectFields` is a runtime prop only:
+an `objectFields` key authored in the schema never reaches the grid.
+
 Not covered:
 
-- On the host-fetched path (rows handed down as `data`, as `ListView` and `ObjectView`
-  do), the grid's guards and the cell's own mask depend on the object schema, which
-  the grid fetches after first paint. Until it arrives, and for good if that read fails
-  (the grid swallows the failure and keeps its heuristic column types), an untyped view
-  column over a `password` / `secret` field draws and hands out the raw value
-  (objectui#10657, which folded objectui#10706).
 - The server-streamed export (`exportDownload`) sends the masked columns as before
   and relies on the server's masking.
 - The client JSON export writes an expanded lookup record whole, so a credential

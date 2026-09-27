@@ -109,7 +109,6 @@ const schema: ChatbotSchema = {
   streamingEnabled?: boolean,
   headers?: Record<string, string>,
   requestBody?: Record<string, unknown>,
-  maxToolRoundtrips?: number, // deprecated - inert, see below
   onError?: (error: Error) => void,
 }
 ```
@@ -145,7 +144,7 @@ Each registration has its own importable authoring-face type in
 `@object-ui/types` (objectui#7655): `ChatbotSchema` for `chatbot`,
 `ChatbotEnhancedSchema` for `chatbot-enhanced` and `ChatbotFloatingSchema` for
 `chatbot-floating`. Each declares exactly the keys its registration reads - the
-twenty shared rows below are one declaration the two newer faces pick off
+nineteen shared rows below are one declaration the two newer faces pick off
 `ChatbotSchema` by name, and a scoped row is declared only on the face(s) whose
 registration reads it. A key a registration ignores is therefore not a declared
 member of its type. It still type-checks (`BaseSchema` ends in an index
@@ -190,7 +189,6 @@ to apply. They are documented in their own table after this one, under
 | `streamingEnabled` | boolean | `true` | Enable SSE streaming for AI responses |
 | `headers` | object | - | Additional headers for API requests |
 | `requestBody` | object | - | Additional body parameters sent with each API request. Authored on the node as `requestBody`; the renderer forwards it to the chat runtime under its own `body` option. Writing `body` on a `chatbot` node instead is **refused by name** - that key is retired there (objectui#8572) and the refusal names `requestBody` as the replacement. The refusal is delivered when the document is parsed (`objectui validate`) or type-checked, not while it renders. `objectui check` does not deliver it: a file whose root carries a structural key (`body` is one, `children` another) is recognised by that key and never parsed against the schema, so `check` passes it |
-| `maxToolRoundtrips` | number | - | **Deprecated - has no effect.** Nothing reads this value, so it never capped anything. Cap tool-calling loops on the agent instead (`planning.maxIterations`). Still accepted so existing documents keep parsing; slated for removal in a future major |
 | `surface` | `'card' \| 'plain'` | `'card'` | **`chatbot-enhanced` only** (declared on `ChatbotEnhancedSchema`). Controls whether the chat renders as a bordered panel (`'card'`) or a frameless full-page workspace (`'plain'`). `chatbot` renders the plain chat component, which has no such chrome to switch, and does not read this key. `chatbot-floating` has no named read for it and `ChatbotFloatingSchema` does not declare it; its panel is a `ChatbotEnhanced`, and an authored value used to reach that panel through the registration's unfiltered props spread, an accidental channel objectui#7708 fenced - it is dark there now, so switch the node to `chatbot-enhanced` if you need the frameless chrome |
 | `processVisibility` | `'hidden' \| 'summary' \| 'debug'` | `'summary'` | **`chatbot-enhanced` only** (declared on `ChatbotEnhancedSchema`; `ChatbotSchema` still declares it too, though the `chatbot` registration has no read for it). Controls how much agent reasoning and tool detail is shown. `chatbot` renders the plain chat component, which has no agent-process display to configure at all - switch the node to `chatbot-enhanced` if you need one. `chatbot-floating` has no named read for it and `ChatbotFloatingSchema` does not declare it; an authored value used to reach its panel through the registration's unfiltered props spread, an accidental channel objectui#7708 fenced - it is dark there now, and there is no floating-side substitute to author |
 | `onError` | function | - | Error callback for streaming/API errors |
@@ -219,6 +217,12 @@ has such a prop, and until objectui#7708 fenced it the `chatbot-floating`
 registration's unfiltered props spread delivered an authored value to it. It is
 dark on all three registrations now. The other five were live on no path at any
 time.
+
+**There is no `maxToolRoundtrips` key: tool-loop caps live on the agent, as
+`planning.maxIterations`.** A chat node cannot honour a cap because the tool loop
+runs on the server agent, so objectui#5605 retired the key on all three chat
+nodes: writing it is a compile error and a parse error that names
+`planning.maxIterations`.
 
 ### `chatbot-floating` panel and trigger keys
 

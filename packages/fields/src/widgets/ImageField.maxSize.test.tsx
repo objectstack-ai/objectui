@@ -45,11 +45,15 @@ function blobOfSize(bytes: number): Blob {
 }
 
 function renderField(field: Record<string, unknown>, value: unknown = undefined) {
+  // Mints a `sys_file` id, as the ObjectStack flow does: an upload that
+  // surfaces none is refused before it reaches `onChange` (objectui#7699), and
+  // the in-limit rows below assert that `onChange` fired.
   const upload = vi.fn(async (f: File | Blob) => ({
     url: 'https://cdn.example/uploaded.png',
     name: (f as File).name ?? 'cropped.png',
     size: f.size,
     mimeType: f.type || 'image/png',
+    meta: { fileId: 'file_uploaded' },
   }));
   const adapter: UploadAdapter = { name: 'spy', upload };
   const onChange = vi.fn();

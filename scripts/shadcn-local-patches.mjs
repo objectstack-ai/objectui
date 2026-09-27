@@ -384,10 +384,18 @@ const sheetHideOverlayPatches = [
  * As with the families above, the payload stays OUT of `src/ui/`: resolving the
  * tag to a `Locale`, and loading it lazily, live in
  * `packages/components/src/lib/date-fns-locale.ts`. The primitive gets an
- * import and a two-line default. The default is placed BEFORE the `{...props}`
- * spread, so a `locale` a caller passes still wins.
+ * import, the `localeTag` input and a two-line default. The default is placed
+ * BEFORE the `{...props}` spread, so a `locale` a caller passes still wins.
  *
- * Both `find` strings were written from the vendored registry bytes in
+ * A caller that formats its other dates with a tag of its own names it through
+ * the `localeTag` input (objectui#10747), and the hook resolves that tag in
+ * place of the display locale. `CalendarView`'s header popover is the caller
+ * that needed it: its grids read the authored `locale`, and a date-fns `Locale`
+ * object is something `plugin-calendar` cannot build without a date-fns
+ * dependency and a second resolver. The input's type and its documentation live
+ * beside the resolver, so the patch names it and nothing more.
+ *
+ * Every `find` string was written from the vendored registry bytes in
  * `scripts/__tests__/fixtures/shadcn-registry/calendar.registry.txt`.
  *
  * @type {LocalPatch[]}
@@ -397,28 +405,50 @@ const calendarDisplayLocalePatches = [
     id: 'calendar-display-locale-import',
     issue: 'objectui#10722',
     reason:
-      'Imports the hook that turns the display locale into the date-fns `Locale` ' +
-      'DayPicker reads. Anchored on the `cn` import, which every Shadcn component carries.',
+      'Imports the hook that turns the display locale, or the `localeTag` a caller ' +
+      'passes (objectui#10747), into the date-fns `Locale` DayPicker reads, and the ' +
+      "type that declares that input. Anchored on the `cn` import, which every Shadcn " +
+      'component carries.',
     find: 'import { cn } from "../lib/utils"',
     replace:
-      'import { cn } from "../lib/utils"\nimport { useDisplayDateLocale } from "../lib/date-fns-locale"',
+      'import { cn } from "../lib/utils"\n' +
+      'import { useDisplayDateLocale, type CalendarLocaleTagProps } from "../lib/date-fns-locale"',
     marker: 'from "../lib/date-fns-locale"',
+    occurrences: 1,
+  },
+  {
+    id: 'calendar-locale-tag-input',
+    issue: 'objectui#10747',
+    reason:
+      'Declares the `localeTag` input, a BCP-47 tag, and takes it out of `props` so it ' +
+      'is not spread onto DayPicker. Anchored on the Calendar signature, which ' +
+      'CalendarDayButton does not share (its props are `DayButton`\'s).',
+    find:
+      '  components,\n  ...props\n}: React.ComponentProps<typeof DayPicker> & {\n',
+    replace:
+      '  components,\n  localeTag,\n  ...props\n}: React.ComponentProps<typeof DayPicker> & CalendarLocaleTagProps & {\n',
+    marker:
+      '  localeTag,\n  ...props\n}: React.ComponentProps<typeof DayPicker> & CalendarLocaleTagProps & {',
     occurrences: 1,
   },
   {
     id: 'calendar-display-locale-default',
     issue: 'objectui#10722',
     reason:
-      "Gives DayPicker the display locale's date-fns `Locale`, so its caption, weekday " +
+      "Gives DayPicker the date-fns `Locale` of the caller's `localeTag` when it names " +
+      "one (objectui#10747), and of the display locale otherwise, so its caption, weekday " +
       'heads and week start follow the session instead of `enUS`. It is the first ' +
       'attribute and `{...props}` is spread last, so a `locale` the caller passes wins. ' +
       "Anchored on the Calendar body's return, which CalendarDayButton does not share.",
     find: '  const defaultClassNames = getDefaultClassNames()\n\n  return (\n    <DayPicker\n',
     replace:
       '  const defaultClassNames = getDefaultClassNames()\n' +
-      '  const displayDateLocale = useDisplayDateLocale()\n\n' +
+      '  const displayDateLocale = useDisplayDateLocale(localeTag)\n\n' +
       '  return (\n    <DayPicker\n      locale={displayDateLocale}\n',
-    marker: 'locale={displayDateLocale}',
+    // Both halves in one marker: the tag reaching the hook, and the hook's answer
+    // reaching DayPicker. Either one missing reads as the patch missing.
+    marker:
+      'useDisplayDateLocale(localeTag)\n\n  return (\n    <DayPicker\n      locale={displayDateLocale}',
     occurrences: 1,
   },
 ];

@@ -243,7 +243,11 @@ describe('ObjectDataTable — a masked column is withheld on every table path (o
 });
 
 describe('ObjectDataTable — fail closed while the object types are unknown (objectui#10657)', () => {
-  const inline = { data: ROWS, columns: [{ field: 'name', label: 'Name' }, { field: 'api_key', label: 'API Key' }] };
+  // `Name` AUTHORS `type: 'text'`, so it draws inside the window: an untyped
+  // column there is withheld from the DRAW too (objectui#10657 PR 2, pinned in
+  // `ObjectDataTable.maskedFirstPaint-10657`). This file pins the FLAG, which
+  // still stamps every column, typed or not, until the types are known.
+  const inline = { data: ROWS, columns: [{ field: 'name', label: 'Name', type: 'text' }, { field: 'api_key', label: 'API Key' }] };
 
   it('inline rows paint before the definition lands: no cell copies until it does', async () => {
     const ds = makeDataSource('held');

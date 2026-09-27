@@ -38,6 +38,17 @@
  * and if a future guard DOES start refusing this shape loudly, this is the test
  * that must be re-decided rather than a silent behaviour change nobody notices.
  *
+ * ## Re-decided on purpose by objectui#10396 — the zero arm now REFUSES
+ *
+ * That guard arrived. objectui#10396 (triage option B) gives a series key NO
+ * row carries its own refusal, `missing-series-key`, naming the column — the
+ * series half of `missing-category-key`. So the `'value'` arm below changed on
+ * purpose, not by accident: it still draws 0 marks and still no
+ * `chart-empty-state`, but the frame with the categories on it is gone and the
+ * tile now says "no row has a `value` field". What the pin still guards is
+ * the reason it was kept: the binding the relays compose must be `count`,
+ * because `value` draws nothing — now loudly instead of silently.
+ *
  * ⚠️ Mark counts are harness-bound (`ResponsiveContainer` is fixed at 480x320
  * here); they are re-derived in this file and never carried in from another.
  */
@@ -100,6 +111,7 @@ const drawWith = async (dataKey: string) => {
     marks: container.querySelectorAll('.recharts-rectangle').length,
     series: container.querySelectorAll('.recharts-bar').length,
     refusal: container.querySelector('[data-chart-error]')?.getAttribute('data-chart-error') ?? null,
+    refusalText: container.querySelector('[data-chart-error]')?.textContent ?? null,
     emptyState: !!screen.queryByTestId('chart-empty-state'),
     ticks: Array.from(container.querySelectorAll('.recharts-cartesian-axis-tick-value')).map((n) => n.textContent),
   };
@@ -122,17 +134,19 @@ describe('a fieldless count projects its value under "count" (objectui#8266)', (
     expect(drawn.ticks).toEqual(expect.arrayContaining(['open', 'paid', '0', '2', '4']));
   });
 
-  it('draws NOTHING, silently, when the series names "value" instead', async () => {
+  it('draws NOTHING when the series names "value" instead — and, since objectui#10396, SAYS so', async () => {
     const drawn = await drawWith('value');
-    // The failure this card is about: a plot frame with the categories on it…
-    expect(drawn.ticks).toEqual(['open', 'paid']);
-    // …and not one mark in it.
+    // The failure this card is about: not one mark…
     expect(drawn.marks).toBe(0);
     expect(drawn.series).toBe(0);
-    // …and nothing anywhere says so. Both guards this renderer carries decline:
-    // `hasNoCategoryKey` is satisfied (the rows DO have `status`) and
-    // `hasNoPlottableSeries` keys on `series: []`, which this is not.
-    expect(drawn.refusal).toBeNull();
+    // …which used to be SILENT, a plot frame with the categories on it and no
+    // refusal (`hasNoCategoryKey` is satisfied — the rows DO have `status` —
+    // and `hasNoPlottableSeries` keys on `series: []`, which this is not).
+    // objectui#10396 re-decided it: the tile now names the missing column
+    // instead of drawing that frame.
+    expect(drawn.refusal).toBe('missing-series-key');
+    expect(drawn.refusalText).toContain('no row has a value field');
+    expect(drawn.ticks).toEqual([]);
     expect(drawn.emptyState).toBe(false);
   });
 });

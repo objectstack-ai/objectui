@@ -28,3 +28,7 @@ success.
 ⛔ The other field types this switch does not spell are untouched. Which ones
 those are is enumerated on objectui#10167, for the separate decision about
 whether this renderer should hold a switch at all.
+
+⚠️ **Dated note, 2026-09-27 — a no-id pick is now refused in the widget, not submitted as an inline blob — objectui#7699.**
+
+The paragraph above describes this route's write at the time it was written. Since objectui#7699, a pick whose adapter surfaced no id is refused in the widget and never submitted as an inline blob; the value this route submits is only ever the `sys_file` id the upload adapter minted, never the legacy inline blob. The rest of this entry is kept as the reading of this change; objectui#7699's own changeset states what a no-id pick does now.

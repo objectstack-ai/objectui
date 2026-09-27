@@ -41,7 +41,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import type { DataSource, FieldMetadata } from '@object-ui/types';
 import type { ViewFilterRule } from '@objectstack/spec/ui';
-import { getCellRenderer, resolveCellRendererType, RecordPickerDialog, deriveLookupColumns } from '@object-ui/fields';
+import { getCellRenderer, resolveCellRendererType, RecordPickerDialog, deriveLookupColumns, MaskedCellRenderer } from '@object-ui/fields';
 import {
   buildExpandFields,
   collectPredicateFieldRefs,
@@ -348,6 +348,15 @@ type FieldReadPolicy = ReturnType<typeof usePermissions>;
  * apart. The value is `ObjectGallery`'s own default, so the cover is unchanged.
  */
 const MOBILE_GALLERY_COVER_FIELD = 'image';
+
+/**
+ * The cell a WITHHELD column draws (objectui#10657): the mask, never the
+ * value. See `tableColumns` for when a column is withheld. Module-level, so
+ * the column keeps one `cell` identity across renders.
+ */
+function withheldCell(value: unknown): React.ReactElement {
+  return React.createElement(MaskedCellRenderer, { value });
+}
 
 /**
  * The key this component DRAWS a column through: the table library's
@@ -1979,6 +1988,19 @@ export const RelatedList: React.FC<RelatedListProps> = ({
    * one, so every column is stamped. A column the loaded definition does not
    * declare is judged on its authored `type` alone.
    *
+   * WITHHELD, not only stamped (objectui#10657, the objectui#10706 class at
+   * this producer): in that same window the columns' cells cannot draw a mask
+   * either. This list draws a cell from the OBJECT's field type
+   * (`makeCell`), never from the column's authored `type`, so with no
+   * definition in hand a column has no cell and the table would draw its value
+   * as text — a `password` / `secret` field in the clear, and for good when
+   * the read failed. So every column without a `cell` of its own draws the
+   * mask ({@link withheldCell}) until the definition lands, and keeps drawing
+   * it when the read failed: fail closed, never falling back to text. A
+   * `cell` the AUTHOR supplied draws what the author chose (none is attached
+   * here while the definition is missing, so any `cell` in that window is
+   * theirs).
+   *
    * With nothing to stamp, the list is handed on BY REFERENCE, as
    * `sortableColumns` hands it on (the data-table re-seed, objectui#4618).
    */
@@ -1988,7 +2010,9 @@ export const RelatedList: React.FC<RelatedListProps> = ({
       const field = col.accessorKey || columnIdentity(col);
       const fieldDef = field ? objectSchema?.fields?.[field] : undefined;
       const masked = objectTypesPending || isMaskedDetailFieldType(col.type, fieldDef?.type);
-      return masked && col.masked !== true ? { ...col, masked: true } : col;
+      const withheld = objectTypesPending && typeof col.cell !== 'function';
+      if (!withheld) return masked && col.masked !== true ? { ...col, masked: true } : col;
+      return { ...col, masked: true, cell: withheldCell };
     });
     return stamped.every((col, i) => col === sortableColumns[i]) ? sortableColumns : stamped;
   }, [sortableColumns, objectSchema, objectTypesPending]);

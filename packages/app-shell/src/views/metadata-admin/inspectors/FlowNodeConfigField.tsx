@@ -201,6 +201,9 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             context={context}
             scopeGroups={scopeGroups}
             approvalScopeGroups={approvalScopeGroups}
+            // objectui#10772 — with `context.node`, names a screen's `fields`
+            // list, whose `visibleWhen` column binds the screen's own fields.
+            fieldId={field.id}
           />
         );
       case 'number':
@@ -369,7 +372,7 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
   // CEL brace-trap must be gated off or it false-positives on every `{…}`.
   const isTemplate = refMode === 'template';
   const exprIssue =
-    field.kind === 'expression' && !isTemplate ? validateExpressionClient('predicate', value) : null;
+    field.kind === 'expression' && !isTemplate ? validateExpressionClient('predicate', value, locale) : null;
 
   // #1934 — pair the picker with a gentle, scope-aware "unknown reference"
   // warning: CEL for predicate expression fields, `{…}` holes for template

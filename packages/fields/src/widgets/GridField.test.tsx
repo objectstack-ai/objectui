@@ -531,11 +531,20 @@ describe('GridField / LineItemsField — editable line items', () => {
       expect(screen.queryByRole('textbox', { name: 'Receipt' })).toBeNull();
     });
 
-    it('uploads a picked file and writes the file object into the row', async () => {
+    it('uploads a picked file and writes the sys_file id into the row', async () => {
       const onChange = vi.fn();
+      // The adapter mints a `sys_file` id, as the ObjectStack flow does. An
+      // adapter that surfaces none is refused by the shared pipeline — pinned
+      // in `fileSubmitRequiresId-7699.test.tsx`, not re-derived here.
       const adapter = {
         name: 'test',
-        upload: async (f: File) => ({ url: 'https://cdn/receipt.png', name: f.name, size: f.size, mimeType: f.type }),
+        upload: async (f: File) => ({
+          url: '/api/v1/storage/files/file_receipt',
+          name: f.name,
+          size: f.size,
+          mimeType: f.type,
+          meta: { fileId: 'file_receipt' },
+        }),
       };
       render(
         <UploadProvider adapter={adapter as any}>
@@ -546,18 +555,8 @@ describe('GridField / LineItemsField — editable line items', () => {
       const input = document.querySelectorAll('input[type="file"]')[0] as HTMLInputElement;
       fireEvent.change(input, { target: { files: [file] } });
       await waitFor(() => expect(onChange).toHaveBeenCalled());
-      expect(onChange).toHaveBeenCalledWith([
-        {
-          description: 'Taxi',
-          receipt: {
-            name: 'receipt.png',
-            original_name: 'receipt.png',
-            size: file.size,
-            mime_type: 'image/png',
-            url: 'https://cdn/receipt.png',
-          },
-        },
-      ]);
+      // The reference form — never the inline blob (objectui#7699).
+      expect(onChange).toHaveBeenCalledWith([{ description: 'Taxi', receipt: 'file_receipt' }]);
     });
 
     it('shows an uploaded file as a removable chip', () => {

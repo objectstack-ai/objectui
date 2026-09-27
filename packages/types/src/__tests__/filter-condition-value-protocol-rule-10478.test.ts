@@ -183,12 +183,25 @@ describe('objectui#10478 — the authoring gate reaches a condition wherever it 
     expect(FilterBuilderSchema.safeParse(good).success).toBe(true);
   });
 
-  it('a condition inside a sub-group is judged the same way', () => {
-    const bad = node([{ id: 'g1', logic: 'or', conditions: [{ id: 'c1', field: 'stage', operator: 'in', value: 'won' }] }]);
-    const r = FilterBuilderSchema.safeParse(bad);
-    expect(r.success ? [] : r.error.issues.map((i) => `${i.code}@${i.path.join('.')}`))
-      .toEqual(['custom@value.conditions.0.conditions.0.value']);
-    const good = node([{ id: 'g1', logic: 'or', conditions: [{ id: 'c1', field: 'stage', operator: 'in', value: ['won'] }] }]);
-    expect(FilterBuilderSchema.safeParse(good).success).toBe(true);
+  it('there is no "inside a sub-group" any more: the sub-group itself is refused by name (objectui#9306)', () => {
+    // This test used to pin that a condition NESTED in a sub-group was judged
+    // like any other (`custom@value.conditions.0.conditions.0.value`). The
+    // nesting is retired: a sub-group entry is refused BY NAME at its own path
+    // before its rows are read, so the well-formed nested document is refused
+    // too, and for the same one reason. The retirement is pinned in
+    // `filter-builder-nested-group-retired-9306.test.ts`; what stays here is
+    // that the rule this file is about still reaches every row there IS — the
+    // same rows, written flat into the one group.
+    const issuesOf = (doc: unknown) => {
+      const r = FilterBuilderSchema.safeParse(doc);
+      return r.success ? [] : r.error.issues.map((i) => `${i.code}@${i.path.join('.')}`);
+    };
+    for (const value of ['won', ['won']]) {
+      const nested = node([{ id: 'g1', logic: 'or', conditions: [{ id: 'c1', field: 'stage', operator: 'in', value }] }]);
+      expect(issuesOf(nested)).toEqual(['custom@value.conditions.0']);
+    }
+    expect(issuesOf(node([{ id: 'c1', field: 'stage', operator: 'in', value: 'won' }])))
+      .toEqual(['custom@value.conditions.0.value']);
+    expect(issuesOf(node([{ id: 'c1', field: 'stage', operator: 'in', value: ['won'] }]))).toEqual([]);
   });
 });

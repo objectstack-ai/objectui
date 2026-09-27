@@ -232,12 +232,29 @@ describe('objectui#8555 — operator objects lower exactly as before', () => {
     expect(() => convertFiltersToAST({ tags: ['a'] })).toThrow(/bare ARRAY/);
   });
 
-  it('an EMPTY operator object still constrains nothing — it is not a comparand', () => {
+  it('an EMPTY operator object is not a comparand — and beside a key it is refused, not dropped', () => {
     // `{}` has no entries either, so a fix gated on `Object.keys(value).length
-    // === 0` would lower it to `['created', '=', {}]`. It must stay the TRUE
-    // identity it has always been: no operators means no constraint, the same
-    // reading `{ $and: [] }` gets in `lowerLogicalGroup`.
-    expect(convertFiltersToAST({ status: 'a', created: {} })).toEqual(['status', '=', 'a']);
+    // === 0` would lower it to `['created', '=', {}]`. That fence is unchanged:
+    // it never reaches comparand position.
+    //
+    // ⚠️ FLIPPED ON PURPOSE by objectui#10788. This row used to pin
+    // `['status', '=', 'a']` — the `created` key DROPPED and the result WIDER
+    // than written, the very direction section 1 above calls this file's one
+    // failure mode, read then as "no operators means no constraint".
+    // `@objectstack/spec` records `{ field: {} }` as REJECTED by
+    // objectstack#5240 (`FilterConditionSchema`), in every position, and
+    // objectui#9164 already refused it alone. So it is now refused beside a
+    // key too, naming the field; the envelope is pinned in
+    // filter-empty-operator-map-beside-key-10788.test.ts.
+    let thrown: unknown;
+    try {
+      convertFiltersToAST({ status: 'a', created: {} });
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toMatchObject({
+      name: 'FilterOperatorError', code: 'INVALID_FILTER', httpStatus: 400, field: 'created', operator: undefined,
+    });
   });
 
   it('a non-Date exotic object is NOT promoted into comparand position', () => {

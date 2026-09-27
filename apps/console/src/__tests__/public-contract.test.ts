@@ -404,7 +404,7 @@ describe('PUBLIC_BLOCKS ↔ console coverage (reverse direction)', () => {
  * Scope, stated plainly: this covers the CONTAINER half of the layout
  * vocabulary. The non-container arms (`span`, `separator`, `scroll-area`,
  * `resizable`, `page`, the deprecated `div`, and — since objectui#8499 armed
- * them — the 37 flow/inline HTML tags of `HtmlElementSchema`, not one of which
+ * them — the 38 flow/inline HTML tags of `HtmlElementSchema`, not one of which
  * declares containment) are outside it because curating any of them is an
  * unruled question of its own, and a ledger is a forcing function, not a place
  * to park four of those at once.
@@ -456,7 +456,7 @@ describe('PUBLIC_BLOCKS ↔ console coverage (reverse direction)', () => {
  * the first is what objectui#8499 broke here. A `z.literal` arm carries one
  * spelling on `.value`; a `z.enum` arm carries a whole registered family on
  * `.options` — `SemanticElementSchema`'s seven sectioning tags, and
- * `HtmlElementSchema`'s 37 flow/inline tags. A `.value`-only read resolved
+ * `HtmlElementSchema`'s 38 flow/inline tags. A `.value`-only read resolved
  * neither, and the anti-vacuity case below reported it as 19 arms yielding 17
  * literals, which is precisely the job that case exists to do.
  *
@@ -602,7 +602,7 @@ describe('PUBLIC_BLOCKS ↔ the declared layout containers (derived, objectui#68
     //
     // ⚠️ Counting literals against arms — what this line did before
     // objectui#8499 — is NOT the same assertion and cannot be restored: a single
-    // enum arm contributes 37 spellings, so the two numbers are no longer meant
+    // enum arm contributes 38 spellings, so the two numbers are no longer meant
     // to match. What still holds one-for-one is that no arm contributes ZERO.
     expect(LAYOUT_UNION_ARMS.length).toBeGreaterThan(0);
     expect(LAYOUT_ARM_LITERALS.filter((literals) => literals.length > 0)).toHaveLength(

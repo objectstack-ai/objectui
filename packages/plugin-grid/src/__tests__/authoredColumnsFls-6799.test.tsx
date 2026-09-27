@@ -392,7 +392,11 @@ describe('ObjectGrid — FLS on the authored `columns` path (#6799)', () => {
       </ActionProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText('Acme expansion')).toBeInTheDocument());
+    // objectui#10657: with the schema in flight an untyped column is WITHHELD
+    // (drawn as the mask, never as text), so the row is waited for by its mask,
+    // not by the raw name it used to print.
+    await waitFor(() => expect(container.querySelector('tbody')?.textContent ?? '').toContain('••••••'));
+    expect(screen.queryByText('Acme expansion')).toBeNull();
     expect(dataHeaders(container)).toEqual(['Name', 'Salary']);
   });
 

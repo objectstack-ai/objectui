@@ -74,7 +74,7 @@ resolve this package. That is the range stating the truth rather than a new
 restriction — the artifact already required those symbols — and it is the
 remedy the gate itself prescribes ("Raise that package's range to the lowest
 version that exports the symbol… Do not add a tolerant re-declaration on this
-side: the range is the claim, and the claim is what is wrong", objectui#5793).
+side: the range is the claim, and the claim is what is wrong", `111741454`).
 `@object-ui/core` and `@object-ui/data-objectstack` already declare `^17.2.0`
 and `@object-ui/plugin-detail` `^17.1.0`, so a floor above the family minimum is
 this repo's normal state, not an exception.

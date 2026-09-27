@@ -28,15 +28,27 @@ function image(name: string): File {
   return new File(['x'], name, { type: 'image/png' });
 }
 
+/** The `sys_file` id the spy adapter mints for `name` — id-shaped, so `isFileIdToken` accepts it. */
+const idOf = (name: string) => `file_${name.replace(/[^A-Za-z0-9_-]/g, '_')}`;
+
 /**
  * `upload` rejects for any name listed in `failing`, resolves otherwise. A crop
  * uploads a bare `Blob`, which carries no name, so it is keyed `cropped.png`.
+ * A resolving upload mints a `sys_file` id, as the ObjectStack flow does: since
+ * objectui#7699 an upload that surfaces none is refused rather than submitted,
+ * and that arm has its own pins in `fileSubmitRequiresId-7699.test.tsx`.
  */
 function renderField(field: Record<string, unknown>, value: unknown, failing: string[]) {
   const upload = vi.fn(async (f: File | Blob) => {
     const name = (f as File).name ?? 'cropped.png';
     if (failing.includes(name)) throw new Error('network down');
-    return { url: `https://cdn.example/${name}`, name, size: f.size, mimeType: 'image/png' };
+    return {
+      url: `https://cdn.example/${name}`,
+      name,
+      size: f.size,
+      mimeType: 'image/png',
+      meta: { fileId: idOf(name) },
+    };
   });
   const adapter: UploadAdapter = { name: 'spy', upload };
   const onChange = vi.fn();
@@ -104,8 +116,8 @@ describe('ImageField — a failed upload is reported, not swallowed (#10226)', (
     await screen.findByText('Failed to upload "bad.png": network down');
     await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
     const added = onChange.mock.calls[0][0] as unknown[];
-    expect(added).toHaveLength(1);
-    expect(JSON.stringify(added)).toContain('https://cdn.example/good.png');
+    // The reference form the adapter minted for the good pick — and only that.
+    expect(added).toEqual([idOf('good.png')]);
     expect(JSON.stringify(added)).not.toContain('bad.png');
   });
 
@@ -116,7 +128,7 @@ describe('ImageField — a failed upload is reported, not swallowed (#10226)', (
 
     await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
     await settle();
-    expect(JSON.stringify(onChange.mock.calls[0][0])).toContain('https://cdn.example/good.png');
+    expect(onChange.mock.calls[0][0]).toBe(idOf('good.png'));
     expect(screen.queryByText(/Failed to upload/)).toBeNull();
     expect(unhandled).toHaveLength(0);
   });
@@ -144,7 +156,7 @@ describe('ImageField — a failed upload is reported, not swallowed (#10226)', (
 
     await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
     await settle();
-    expect(JSON.stringify(onChange.mock.calls[0][0])).toContain('https://cdn.example/cropped.png');
+    expect(onChange.mock.calls[0][0]).toBe(idOf('cropped.png'));
     expect(screen.queryByText(/Failed to upload/)).toBeNull();
     expect(unhandled).toHaveLength(0);
   });

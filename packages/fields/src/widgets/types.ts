@@ -154,7 +154,7 @@ export type FieldWidgetComponentProps<T = any> = {
    */
   error?: string;
   /**
-   * Upload widgets (`file`/`image`) fire this when their in-progress state
+   * Upload widgets (`file`/`image`/`avatar`) fire this when their in-progress state
    * flips, so a host can block submit until a presigned upload settles. Other
    * widgets ignore it.
    */

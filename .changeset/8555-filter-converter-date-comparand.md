@@ -37,3 +37,19 @@ Operator objects are untouched: `{ age: { $gt: 26 } }`, `$in` / `$nin` /
 `$between` members, `$null` / `$exists`, the `$regex` / `$not` / bare-array
 refusals, and an empty `{}` operator object (still the TRUE identity, still
 constraining nothing) all behave exactly as before.
+
+⚠️ **Dated note, 2026-09-27 — an empty operator object ALONE is now refused — objectui#9164.**
+Later in this same release an empty operator map that is all a filter says
+(`{ created: {} }`) is refused with a `FilterOperatorError` rather than returned as the
+object. Beside a key that lowers it still constrains nothing, which is what "still the
+TRUE identity" above describes. The rest of this entry is kept as the reading of this
+change; the objectui#9164 entry states what that input now answers.
+
+⚠️ **Dated note, 2026-09-27 — an empty operator object BESIDE a key is now refused too — objectui#10788.**
+Later in this same release an empty operator map beside a key that lowers
+(`{ status: 'a', created: {} }`) is refused with a `FilterOperatorError` naming the field
+instead of constraining nothing, because `@objectstack/spec` records `{ field: {} }` as
+REJECTED (objectstack#5240). So "still the TRUE identity, still constraining nothing" above
+is this change's reading, and "Beside a key that lowers it still constrains nothing" is the
+objectui#9164 note's reading; neither is the release's. The rest of this entry is kept as
+the reading of this change; the objectui#10788 entry states what that input now answers.

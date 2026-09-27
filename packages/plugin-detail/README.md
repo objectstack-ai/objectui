@@ -460,8 +460,10 @@ it by its value. The rule is `isMaskedFieldType()` from `@object-ui/fields`,
 read over the column's authored `type` and the object's field type, so an
 authored `type: 'text'` over a `secret` field keeps the flag. While the object
 definition is still loading, or after its read failed, the list cannot tell
-which columns are masked and flags every one; in that window a masked field is
-still drawn as text. Not covered: the opt-in filter box matches against every
+which columns are masked, so it flags every one and draws every cell it would
+draw from that definition as the mask, never as text; it keeps doing so when
+the read failed (objectui#10657). A column with a `cell` of your own draws what
+your `cell` returns. Not covered: the opt-in filter box matches against every
 field of a row, and the `list` card's sort buttons sort by any column, masked
 ones included.
 

@@ -455,7 +455,13 @@ describe('RelatedList — the fetch waits for the SETTLED child definition, and 
         }),
       };
       renderList(ds, 'contact', 'account');
-      expect(await screen.findByText('Alice')).toBeInTheDocument();
+      // objectui#10657 PR 2: after a failed definition read every cell is
+      // WITHHELD (drawn as the mask), so the shown rows are counted, not read
+      // by name: the parent-scoped query returns the one matching row.
+      await waitFor(() => {
+        expect(document.querySelector('tbody')?.textContent ?? '').toContain('••••••');
+        expect(document.querySelectorAll('tbody tr')).toHaveLength(SINGLE_MATCH_COUNT);
+      });
       expect(screen.queryByText('Bob')).toBeNull();
       await new Promise((r) => setTimeout(r, 10));
       expect(scopedCalls(ds as any, 'contact')).toEqual([{ ...PROJECTION, $filter: { account: PARENT_ID } }]);

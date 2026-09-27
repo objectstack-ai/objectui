@@ -145,6 +145,39 @@ isSystemView(draft)                          // false — clone is no longer Sys
 `Date`, `RegExp`, `Map`, `Set`, and class instances passed via `props` are
 intentionally **not** frozen so infrastructure objects keep working.
 
+### Field-level read gate (`withoutDeniedFields`)
+
+Field-level security gates what the renderer DRAWS (objectui#7215 /
+objectui#7230): a value the loaded permission policy denies is not shown, even
+when a backend serves it. `withoutDeniedFields` is that rule for one record —
+call it on a row before building a display value from the whole row (a record
+title, a lookup label, a search-hit label), so a denied field reads exactly as
+an absent one.
+
+```typescript
+import { withoutDeniedFields } from '@object-ui/core'
+
+// `policy` is structural: `usePermissions()` from `@object-ui/permissions`
+// satisfies it, as does any `{ isLoaded, checkField }` object.
+const policy = {
+  isLoaded: true,
+  checkField: (object: string, field: string) => !(object === 'account' && field === 'salary'),
+}
+
+withoutDeniedFields({ id: 'a1', name: 'Acme', salary: 100 }, policy, 'account')
+// { id: 'a1', name: 'Acme' }
+
+// A declared id field is kept without asking the policy, like `id` and `_id`:
+withoutDeniedFields({ account_code: 'A-1', salary: 100 }, policy, 'account', ['account_code'])
+// { account_code: 'A-1' }
+```
+
+- `id`, `_id` and every key in the optional fourth argument are never judged.
+- Before the policy loads, with no policy, with no object name, or for a value
+  that is not an object, the record comes back as it is.
+- When nothing is withheld the SAME object comes back, so callers can tell the
+  two cases apart by identity.
+
 ## Philosophy
 
 This package is designed to be **framework-agnostic**. It contains:

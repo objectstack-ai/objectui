@@ -52,7 +52,6 @@
 // ============================================================================
 export type {
   AppComponentSchema,
-  AppAction,
   NavigationItem,
   NavigationItemType,
   NavigationArea,
@@ -252,6 +251,8 @@ export type {
   PivotTableSchema,
   DrillDownConfig,
   ObjectMetricDrillDownConfig,
+  ObjectPivotDrillDownConfig,
+  ObjectDataTableDrillDownConfig,
   TimelineEvent,
   TimelineScale,
   TimelineSchema,
@@ -340,7 +341,6 @@ export type {
   // (objectui#8802, maintainer ruling 2026-09-09) — `ObjectKanbanSchema` below
   // is the surviving kanban face.
   CardTemplate,
-  ColumnWidthConfig,
   CalendarViewMode,
   CalendarEvent,
   CalendarViewSchema,

@@ -3908,7 +3908,9 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
         data,
         opts?.ifMatch ? { ifMatch: opts.ifMatch } : undefined,
       );
-      this.emitMutation({ type: 'update', resource, id, record: { ...result.record } });
+      // String, as sent on the wire above (objectui#10078): the event states
+      // the protocol id, whatever this method's wider parameter admitted.
+      this.emitMutation({ type: 'update', resource, id: String(id), record: { ...result.record } });
       this.notifyDroppedFields('update', resource, result, id, data as Record<string, unknown>);
       return result.record;
     } catch (err) {
@@ -3947,7 +3949,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
       // stale — and this method, declared `Promise<boolean>`, actually resolved
       // `undefined`. Following the rename is what restores both.
       if (result.success) {
-        this.emitMutation({ type: 'delete', resource, id });
+        this.emitMutation({ type: 'delete', resource, id: String(id) });
       }
       return result.success;
     } catch (err) {

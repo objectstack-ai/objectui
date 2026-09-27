@@ -10,8 +10,10 @@ schema and then the record before it draws, and shows its error screen ahead of
 the form whenever a load error is set. Both reads wrote that one error and
 nothing ever cleared it. After one failed read, a later read that succeeded
 still wrote its values, but the form stayed on the error screen until it
-remounted. Since objectui#10572 the default layout also re-reads its record on
-every data-invalidation event, so one failed background re-read was enough.
+remounted. Since objectui#10572 the default layout also re-reads its record in
+place when the data-invalidation bus reports a change to that record, to its
+object as a whole, or to everything, and holds that re-read while the form has
+unsaved input. So one failed background re-read was enough.
 
 Each form now keeps the failure of each read apart and shows the error screen
 while either is set. A read's failure is cleared when a later run of the same

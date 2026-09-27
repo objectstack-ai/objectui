@@ -172,7 +172,7 @@ describe('objectui#10691 — a `yAxis` entry after the second is drawn on no axi
   // ── One answer: the normalizer binds from the placement the note reads ──
   it('`placeYAxes` lists every entry after the second as undrawn, and the normalizer binds its derived series from that answer', () => {
     const axes = normalizeChartSchema({ chartType: 'bar', yAxis: FOUR }).yAxes!;
-    const placement = placeYAxes(axes, false);
+    const placement = placeYAxes(axes, 'bar');
     expect(placement.undrawn.map((n) => n.index)).toEqual([2, 3]);
     const series = normalizeChartSchema({ chartType: 'bar', yAxis: FOUR }).series!;
     for (const note of placement.undrawn) {
@@ -182,7 +182,7 @@ describe('objectui#10691 — a `yAxis` entry after the second is drawn on no axi
 
   it('`placeYAxes` lists nothing as undrawn for two entries or fewer', () => {
     for (const n of [0, 1, 2]) {
-      expect(placeYAxes(THREE.slice(0, n), false).undrawn).toEqual([]);
+      expect(placeYAxes(THREE.slice(0, n), 'bar').undrawn).toEqual([]);
     }
   });
 });

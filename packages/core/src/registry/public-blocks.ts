@@ -22,6 +22,14 @@
  *
  * This is a single, reviewable source of truth for the public surface — prefer
  * editing this list over scattering `tier` flags across registration sites.
+ *
+ * ⛔ The html tier's intrinsic elements (`h1`, `p`, `a`, the sectioning tags, …)
+ * do NOT belong here. They reach the published manifest through the second
+ * roster beside this one, `HTML_TIER_INTRINSICS`, stamped `tier: 'html'`, so
+ * that the manifest's other reader — the objectstack gate that whitelists a
+ * `kind:'html'` page's tags — accepts them without this curated JSON-surface
+ * vocabulary growing (objectui#10735). Listing one here would widen the
+ * vocabulary silently; `html-tier-intrinsics.test.ts` pins the two disjoint.
  */
 export const PUBLIC_BLOCKS: readonly string[] = [
   // ── Tier A — object-aware blocks (the contract core) ──────────────────────

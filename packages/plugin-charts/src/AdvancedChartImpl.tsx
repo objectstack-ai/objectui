@@ -324,9 +324,10 @@ export interface AdvancedChartImplProps {
    * `series[].yAxis` binds a series to a slot (`placeYAxes` in
    * `normalizeChartSchema`). A lone entry is the chart's only value axis,
    * drawn on the side it names. Carries `min`/`max` (domain), `format`
-   * (ticks), `logarithmic` (scale) and `title`. An entry after the second is
-   * drawn on no axis, and the chart carries a note naming it
-   * (`yAxisUndrawnNotes`, objectui#10691).
+   * (ticks), `logarithmic` (scale) and `title`. An entry after the second
+   * (after the first on `scatter`, which draws one y axis) is drawn on no
+   * axis, and the chart carries a note naming it (`yAxisUndrawnNotes`,
+   * objectui#10691, objectui#10721).
    */
   yAxes?: NormalizedAxis[];
   /** Spec `ChartConfig.showLegend`. Omitted → shown (the schema default). */
@@ -683,17 +684,24 @@ function yAxisPositionNotes(placement: YAxisPlacement, valueAxesRunAcross: boole
 
 /**
  * The notes a cartesian chart carries for each `yAxis` entry drawn on no axis
- * — every entry after the second, `placeYAxes`'s `undrawn` list
- * (objectui#10691). `null` when there is none, which keeps every chart of two
- * entries or fewer, and every family that places no value axis, unchanged.
+ * — every entry after the second (after the first on `scatter`),
+ * `placeYAxes`'s `undrawn` list (objectui#10691, objectui#10721). `null` when
+ * there is none, which keeps every chart of two entries or fewer (one on
+ * `scatter`), and every family that places no value axis, unchanged.
  *
  * The spec declares `yAxis` uncapped, so the entry is valid and the count is
- * not narrowed; the chart draws with its two value axes, so this is a
+ * not narrowed; the chart draws with its value axes, so this is a
  * `ChartFootnote` note like the position notes above, not a `ChartRefusal`.
  * It names the entry and, from the same placement the normalizer binds with,
  * the axis a series derived from it is plotted against — the entry drawn in
  * that slot. A field-less entry derives no series, so its note says only that
  * it is not drawn.
+ *
+ * On `scatter` the note names the entry and the one axis drawn, and nothing
+ * about a derived series: a scatter plots one measure, so with neither
+ * `series` nor `categories` two fielded entries are refused whole
+ * (`SeriesArityRefusal`) rather than plotted, and the two-slot sentence's
+ * "its field is plotted against" would be false there.
  */
 function yAxisUndrawnNotes(
   placement: YAxisPlacement,
@@ -701,11 +709,28 @@ function yAxisUndrawnNotes(
   valueAxesRunAcross: boolean,
 ): React.ReactNode {
   if (placement.undrawn.length === 0) return null;
+  // An entry is undrawn only once every slot is taken, so `slotOf` holds
+  // exactly the value axes this chart draws: one on `scatter`, two elsewhere.
+  const oneValueAxis = placement.slotOf.length === 1;
   const sides = valueAxesRunAcross ? 'one at the bottom and one at the top' : 'one on each side';
   return joinNotes(
     ...placement.undrawn.map((note) => {
-      const field = yAxes?.[note.index]?.field;
       const against = placement[note.boundTo];
+      if (oneValueAxis) {
+        return (
+          <p key={note.index} role="note" data-chart-note="y-axis-undrawn" className="px-1 text-xs text-muted-foreground">
+            <code className="font-mono">{`yAxis[${note.index}]`}</code> is not drawn &mdash; this chart draws one
+            value axis
+            {against !== undefined ? (
+              <>
+                , <code className="font-mono">{`yAxis[${against}]`}</code>
+              </>
+            ) : null}
+            .
+          </p>
+        );
+      }
+      const field = yAxes?.[note.index]?.field;
       return (
         <p key={note.index} role="note" data-chart-note="y-axis-undrawn" className="px-1 text-xs text-muted-foreground">
           <code className="font-mono">{`yAxis[${note.index}]`}</code> is not drawn &mdash; this chart draws at most two
@@ -1758,9 +1783,11 @@ function AdvancedChartImplInner({
   // the series it derives from the entries with the same call). `chartType` is
   // the EFFECTIVE family, and `comboBaseFamily` never widens a horizontal-bar,
   // so `categoriesRunDown` is exactly "the value axes run across the plot".
-  // Scatter draws one y axis, the primary's, so only that entry is placed.
+  // Scatter draws one y axis, the primary's: `placeYAxes` places only that
+  // entry and lists the rest as undrawn (objectui#10721), so the footnote
+  // names them.
   const categoriesRunDown = chartType === 'horizontal-bar';
-  const yPlacement = placeYAxes(chartType === 'scatter' ? yAxes?.slice(0, 1) : yAxes, categoriesRunDown);
+  const yPlacement = placeYAxes(yAxes, chartType);
   const leftY: NormalizedAxis | undefined = yPlacement.left !== undefined ? yAxes?.[yPlacement.left] : undefined;
   const rightY: NormalizedAxis | undefined = yPlacement.right !== undefined ? yAxes?.[yPlacement.right] : undefined;
   // Two value axes exactly when two entries are declared, one per slot, and
@@ -3049,7 +3076,7 @@ function hasNoNumericSeriesValue(props: AdvancedChartImplProps): string[] | null
   );
   if (!resolved) return null;
   const yAxes = Array.isArray(props.yAxes) ? props.yAxes : [];
-  const placement = placeYAxes(yAxes, chartType === 'horizontal-bar');
+  const placement = placeYAxes(yAxes, chartType);
   const left = placement.left !== undefined ? yAxes[placement.left] : undefined;
   const right = placement.right !== undefined ? yAxes[placement.right] : undefined;
   const dual = !!left && !!right;

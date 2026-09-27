@@ -16,7 +16,7 @@
 
 import * as React from 'react';
 import type { MetadataInspectorProps } from '../inspector-registry.js';
-import { t } from '../i18n.js';
+import { t, tFormat } from '../i18n.js';
 import {
   InspectorShell,
   InspectorTextField,
@@ -187,11 +187,11 @@ export function FlowEdgeInspector({ selection, draft, onPatch, onClearSelection,
           options={[
             ...branches.map((b, i) => {
               const expr = branchExpr(b);
-              const nm = branchName(b) || `Branch ${i + 1}`;
+              const nm = branchName(b) || tFormat('engine.flowRegion.branchN', locale, { n: i + 1 });
               const suffix = expr === '' || expr === 'true' ? ' \u00b7 default' : ` \u00b7 ${expr}`;
               return { value: String(i), label: `${nm}${suffix}` };
             }),
-            { value: '', label: '\u2014 Custom \u2014' },
+            { value: '', label: t('engine.inspector.flowEdge.branchCustom', locale) },
           ]}
           onCommit={applyBranch}
           disabled={readOnly}

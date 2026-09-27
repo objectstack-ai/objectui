@@ -190,6 +190,19 @@ const REGISTRY_FIXTURES: Record<string, RegistryFixture> = {
     sha256: '48bd0ba32cc7f341ecca995374be73111da2f761694cfcf91dbf8d4d9e632c06',
     roundTrip: true,
   },
+  calendar: {
+    url: 'https://ui.shadcn.com/r/styles/default/calendar.json',
+    repoPath: 'apps/v4/public/r/styles/default/calendar.json',
+    // Captured for objectui#10722 at the same commit as the four above, from
+    // `raw.githubusercontent.com` (the registry host does not resolve here).
+    // The same capture reproduces `slider`'s recorded sha256 byte for byte.
+    headSha: '8a7701ec27eb9cb8e0377db769fbe6d744113c52',
+    sha256: '745a6c30a70681c3ae88cb1421317ec5d06d02202e615f12db700e1776311148',
+    // `calendar.tsx` carries undeclared local edits: the Tailwind v4
+    // `[--cell-size]` → `(--cell-size)` migration documented in
+    // `shadcn-components.json`, and no `month_grid` class entry.
+    roundTrip: 'ships undeclared local edits (the Tailwind v4 `(--cell-size)` spelling, no `month_grid` entry)',
+  },
 };
 
 /** The captured registry bytes for `name`, exactly as served (pre-rewrite). */
@@ -276,6 +289,16 @@ describe('shadcn local patches — application to fresh upstream (objectstack#55
       'slider-thumb-root-split',
       'slider-thumb-aria-delivery',
     ]);
+  });
+
+  /**
+   * The fifth family: the calendar display locale (objectui#10722). Both halves
+   * are listed because the import alone compiles and changes nothing, and the
+   * default alone does not compile.
+   */
+  it('calendar declares the display-locale patches', () => {
+    const ids = LOCAL_PATCHES.calendar.map((p: { id: string }) => p.id);
+    expect(ids).toEqual(['calendar-display-locale-import', 'calendar-display-locale-default']);
   });
 
   it('applies the slider family to fresh upstream, and is idempotent', () => {

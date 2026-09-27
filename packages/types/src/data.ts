@@ -1171,8 +1171,13 @@ export interface DataSourceMutationEvent<T = any> {
   resource: string;
   /** The affected record (present for create/update) */
   record?: T;
-  /** The ID of the affected record (present for update/delete) */
-  id?: string | number;
+  /**
+   * The ID of the affected record (present for update/delete). A string, per
+   * the one record-id rule stated on {@link DataSource} (objectui#9511,
+   * objectui#10078): an adapter whose backend keys are numeric converts at its
+   * own boundary before it emits, so no subscriber has to.
+   */
+  id?: string;
 }
 
 /**

@@ -7,7 +7,7 @@ import { SchemaExample } from '@/app/components/ComponentDemo';
 
 # Application Schema
 
-The `AppComponentSchema` defines the top-level configuration for your entire ObjectUI application, including navigation menus, branding, layout strategies, and global actions.
+The `AppComponentSchema` defines the top-level configuration for your entire ObjectUI application, including navigation menus, branding, layout strategies, and app-level actions.
 
 ## Overview
 
@@ -15,7 +15,7 @@ AppComponentSchema provides a declarative way to configure:
 - **Navigation menus** - Hierarchical menu structures with icons and badges
 - **Branding** - Logo, title, favicon
 - **Layout strategies** - Sidebar, header, or empty layout
-- **Global actions** - User menu, global toolbar buttons
+- **App-level actions** - `navigation` items of type `action` that run a declared action
 
 ## Interactive Examples
 
@@ -46,14 +46,6 @@ const app: AppComponentSchema = {
       label: 'Dashboard',
       icon: 'layout-dashboard',
       path: '/dashboard'
-    }
-  ],
-  
-  actions: [
-    {
-      type: 'user',
-      label: 'John Doe',
-      avatar: '/avatar.jpg'
     }
   ]
 };
@@ -139,27 +131,46 @@ interface AppMenuItem {
 
 ### Global Actions
 
-The `actions` property defines global toolbar buttons:
+App-level actions — a "Quick Create" or "Log a Call" entry that is not tied to
+one record — are `navigation` items of type `action`. The item names an action
+declared in your metadata by `actionDef.actionName`; it does not carry the
+action's definition. This is the same item shape `@objectstack/spec` accepts in
+an app's `navigation`, so the document validates on both sides:
 
 ```ts
-// `AppAction.items` uses the navigation-item shape documented under "Navigation
-// Menu" above — declared and published as `AppMenuItem`. The bare `MenuItem`
-// export is the unrelated overlay menu type used by `ui:dropdown-menu`.
-import type { AppMenuItem } from '@object-ui/types';
+import type { AppComponentSchema } from '@object-ui/types';
 
-interface AppAction {
-  type: 'button' | 'dropdown' | 'user';
-  label?: string;
-  icon?: string;
-  onClick?: never;        // RETIRED (objectui#7344): the handler-expression string is refused by name — author an action:button node instead
-  avatar?: string;        // For type='user'
-  description?: string;   // For type='user'
-  items?: AppMenuItem[];  // For type='dropdown' or 'user'
-  shortcut?: string;      // Keyboard shortcut
-  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
-  size?: 'default' | 'sm' | 'lg' | 'icon';
-}
+const app: AppComponentSchema = {
+  type: 'app',
+  name: 'acme_crm',
+  title: 'Acme CRM',
+  navigation: [
+    {
+      id: 'quick_create',
+      type: 'action',
+      label: 'Quick Create',
+      icon: 'zap',
+      actionDef: { actionName: 'quick_create' }
+    }
+  ]
+};
 ```
+
+The console renders the item in the app's sidebar. On click it looks up the
+action named in `actionDef.actionName` among the declared `action` metadata and
+runs it through the same action runner as a toolbar button, so confirmations,
+parameter dialogs and permission checks apply. `actionDef.params` passes
+arguments to that action. An item that names no declared action shows an error
+when clicked instead of doing nothing. The standalone runner renders only the
+legacy `menu` and does not render `navigation` items.
+
+<Callout type="warn">
+The free-form `actions` array (`AppAction`: header buttons and a user avatar
+menu) is retired, and an app that authors `actions` fails validation with a
+message pointing here (objectui#7469). `@objectstack/spec`'s `AppSchema` never
+declared the key, so the platform rejected those apps too. The signed-in user's
+menu belongs to the host shell, not to app metadata.
+</Callout>
 
 ## Complete Example
 
@@ -238,44 +249,6 @@ const crm: AppComponentSchema = {
       path: '/settings',
       hidden: '${user.role !== "admin"}'
     }
-  ],
-  
-  actions: [
-    {
-      type: 'button',
-      label: 'Quick Actions',
-      icon: 'zap',
-      variant: 'outline'
-    },
-    {
-      type: 'user',
-      label: 'John Doe',
-      avatar: '/avatars/john.jpg',
-      description: 'john@acme.com',
-      items: [
-        {
-          type: 'item',
-          label: 'Profile',
-          icon: 'user',
-          path: '/profile'
-        },
-        {
-          type: 'item',
-          label: 'Settings',
-          icon: 'settings',
-          path: '/settings'
-        },
-        {
-          type: 'separator'
-        },
-        {
-          type: 'item',
-          label: 'Logout',
-          icon: 'log-out',
-          path: '/logout'
-        }
-      ]
-    }
   ]
 };
 ```
@@ -332,7 +305,6 @@ AppComponentSchema is ideal for:
 3. **Limit top-level items** - Keep the main menu concise (5-7 items)
 4. **Add badges for notifications** - Show counts or status indicators
 5. **Hide admin features** - Use conditional visibility for role-based access
-6. **Provide keyboard shortcuts** - Add shortcuts for frequently used actions
 
 ## Related
 

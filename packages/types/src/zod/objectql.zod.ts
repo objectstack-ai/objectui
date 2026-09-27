@@ -2462,9 +2462,33 @@ export const ObjectChartSchema = BaseSchema.extend({
   // instead bind to a semantic-layer dataset (ADR-0021, #1890).
   objectName: z.string().optional().describe('ObjectQL object name (legacy inline path)'),
   chartType: z.enum(['bar', 'column', 'horizontal-bar', 'line', 'area', 'pie', 'donut', 'scatter']).describe('Chart type'),
-  xAxisField: z.string().optional().describe('X axis field (legacy inline path)'),
-  yAxisFields: z.array(z.string()).optional().describe('Y axis fields (legacy)'),
-  aggregation: z.enum(['cardinality', 'sum', 'avg', 'min', 'max']).optional().describe('Aggregation (legacy)'),
+  // ── objectui#10608: three list-view spellings, RETIRED on this node ──
+  //
+  // `xAxisField` / `yAxisFields` / `aggregation` are the LIST-VIEW chart
+  // block's vocabulary; the list-view relays translate that block before they
+  // compose this node, and no `object-chart` reader consumes the three. Kept
+  // declared and unwritable (ADR-0049): `BaseSchema` is `.passthrough()`, so a
+  // deleted arm would KEEP an authored value in silence instead of refusing it.
+  // Each refusal names the spec spelling as its remedy. The TS twin in
+  // `../objectql.ts` carries the ground; the pin is
+  // `../__tests__/object-chart-legacy-axis-keys-retired-10608.test.ts`.
+  xAxisField: retirementTombstone(
+    'RETIRED (objectui#10608, ADR-0049) — `xAxisField` is the list-view chart block\'s spelling and no '
+    + '`object-chart` reader consumes it: a node written with it draws no category axis. Write the spec\'s '
+    + '`xAxis: { field: \'status\' }` instead; on the inline `objectName` path the category is `aggregate.groupBy`.',
+  ),
+  yAxisFields: retirementTombstone(
+    'RETIRED (objectui#10608, ADR-0049) — `yAxisFields` is the list-view chart block\'s spelling and no '
+    + '`object-chart` reader consumes it: a node written with it plots no series. Write the spec\'s '
+    + '`yAxis: [{ field: \'amount\' }]` instead, one entry per value axis; on the inline `objectName` path the '
+    + 'measure is `aggregate.field`, and a dataset-bound chart selects `values` by name.',
+  ),
+  aggregation: retirementTombstone(
+    'RETIRED (objectui#10608, ADR-0049) — `aggregation` is the list-view chart block\'s spelling and no '
+    + '`object-chart` reader consumes it: a node written with it aggregates nothing. Write the spec\'s '
+    + '`aggregate: { field, function, groupBy }` instead, `function` one of `count`, `sum`, `avg`, `min`, '
+    + '`max`; a dataset-bound chart takes its aggregation from the dataset\'s measures.',
+  ),
   // ADR-0021 semantic-layer binding: dimensions/measures selected BY NAME from a
   // dataset, queried via the governed queryDataset path.
   dataset: z.string().optional().describe('Semantic-layer dataset name (ADR-0021)'),
@@ -2512,7 +2536,7 @@ export const ObjectChartSchema = BaseSchema.extend({
   // authoring door here and at the react-page publish gate are one shape.
   aggregate: stripImportedDefaults(SpecChartAggregateSchema).optional()
     .describe('AUTHORABLE — inline aggregation for the legacy objectName path. @objectstack/spec ChartAggregateSchema ({ field?, function, groupBy }), the same schema the react-page publish gate parses: function and groupBy are REQUIRED, field is optional because only count counts rows rather than a column, and unknown keys are refused rather than dropped'),
-  xAxisKey: z.string().optional().describe('INTERNAL (relay-composed) — the category column the renderer binds the x axis to. Authors write xAxisField (or the spec xAxis: { field } one layer down); all five producers compute this key'),
+  xAxisKey: z.string().optional().describe('INTERNAL (relay-composed) — the category column the renderer binds the x axis to. Authors write the spec xAxis: { field }; all five producers compute this key'),
   series: z.array(z.object({
     dataKey: z.string().describe('Result column this series plots'),
     label: z.string().optional().describe('Series display label'),
@@ -2711,7 +2735,10 @@ export const ObjectGallerySchema = BaseSchema.extend({
  *     and left it unmirrored — minting the mirror was a new export outside
  *     that ruling — so `UnmirroredDeclared` carried it, as it had carried
  *     `ChartSchema.drillDown` since objectui#6058; both entries left the
- *     ledger with that mirror.
+ *     ledger with that mirror. Since objectui#10685 it is this block's OWN
+ *     drill shape, the twin of `ObjectDataTableDrillDownConfig`: the shared
+ *     mirror extended so that `filter`, `maxRows` and `report` are refused by
+ *     name and `target` takes `'drawer'` or `'dialog'` only.
  *   - `dataProvider` is a RETIREMENT TOMBSTONE (objectui#7353), `?: never` on
  *     the TS twin: refused by name, pointing at `objectName`. Deleting it
  *     instead would leave an authored value KEPT unchecked, because
@@ -2730,8 +2757,41 @@ export const ObjectDataTableSchema = BaseSchema.extend({
   columns: z.array(z.any()).optional().describe('Column definitions (names or column objects)'),
   searchable: z.boolean().optional().describe('Forwarded to the rendered data-table'),
   pagination: z.boolean().optional().describe('Forwarded to the rendered data-table'),
-  drillDown: DrillDownConfigSchema.optional().describe(
-    'Drill-to-record: clicking a row opens that record in a detail drawer (DashboardRenderer defaults object-backed table widgets to { enabled: true, mode: record })',
+  // objectui#10685 — this block's OWN drill shape, the twin of
+  // `ObjectDataTableDrillDownConfig` (`../data-display.ts`). A row drills to the
+  // one record it already is, so the three members that configure a drilled
+  // record LIST have nothing to act on, and `'navigate'` (the object's list
+  // page) is the wrong destination for one record. `retirementTombstone` is the
+  // repo's one declared-and-refused mechanism; here it refuses per block, not a
+  // retirement: the shared mirror keeps all three keys for the blocks that read
+  // them. `enabled`, `mode`, `title` and `columns` parse exactly as the shared
+  // mirror parses them.
+  drillDown: DrillDownConfigSchema.extend({
+    filter: retirementTombstone(
+      'REFUSED on `object-data-table` (objectui#10685) — `drillDown.filter` scopes a drilled record list, and '
+      + 'this block drills to the one record its row already is, so there is no list to filter. A drill `filter` '
+      + 'applies on `object-chart` and `object-pivot`. Delete the key.',
+    ),
+    maxRows: retirementTombstone(
+      'REFUSED on `object-data-table` (objectui#10685) — `drillDown.maxRows` caps a drilled record list, and '
+      + 'this block drills to the one record its row already is. It applies on `object-chart`, `object-pivot` '
+      + 'and `object-metric`, whose drill lists page by it. Delete the key.',
+    ),
+    report: retirementTombstone(
+      'REFUSED on `object-data-table` (objectui#10685) — `drillDown.report` replaces a drilled record list with '
+      + 'a report, and this block drills to the one record its row already is. It applies on `object-pivot` and '
+      + '`object-metric`, whose drill drawer renders it. Delete the key.',
+    ),
+    target: z.enum(['drawer', 'dialog'], {
+      error: '`drillDown.target` on `object-data-table` is `\'drawer\'` or `\'dialog\'` (objectui#10685). '
+        + '`\'navigate\'` is refused here: it opens the object\'s full list page, and this block\'s row opens one '
+        + 'record. `\'navigate\'` applies on `object-chart`, `object-pivot` and `object-metric`.',
+    }).optional().describe(
+      "Where the record drill lands: 'drawer' (default) or 'dialog'. 'navigate' is refused on this block (objectui#10685)",
+    ),
+  }).optional().describe(
+    'Drill-to-record: clicking a row opens that record in a detail drawer (DashboardRenderer defaults object-backed table widgets to { enabled: true, mode: record }). '
+    + 'This block\'s own drill shape: filter, maxRows and report are refused by name, and target is drawer or dialog (objectui#10685)',
   ),
   onRowClick: handlerKeyRefusal('onRowClick', 'runtime-slot', 'Row click handler (overrides drill-to-record)'),
   body: retirementTombstone(

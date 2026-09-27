@@ -551,8 +551,8 @@ export interface CommentSearchResult {
   comment: CommentEntry;
   /** Object name the comment belongs to */
   objectName: string;
-  /** Record ID the comment belongs to */
-  recordId: string | number;
+  /** Record ID the comment belongs to. A string, per the one record-id rule (objectui#9511, objectui#10078). */
+  recordId: string;
   /** Highlighted text snippet with search term marked */
   highlight?: string;
 }
@@ -727,8 +727,8 @@ export interface Reaction {
  * subscriptions and app billing — so none of them is a replacement.
  */
 export interface RecordSubscription {
-  /** Record ID */
-  recordId: string | number;
+  /** Record ID. A string, per the one record-id rule (objectui#9511, objectui#10078). */
+  recordId: string;
   /** Whether the current user is subscribed */
   subscribed: boolean;
   /** Notification channels */

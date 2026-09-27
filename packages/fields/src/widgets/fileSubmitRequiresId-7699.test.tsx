@@ -55,7 +55,14 @@ import './ImageCropperDialog';
 /** uuid/nanoid-shaped, so the platform's `isFileIdToken` accepts it. */
 const MINTED_ID = 'f0e1d2c3b4a5968778695a4b3c2d1e0f';
 
-const REFUSAL = 'did not complete: no file id was returned, so nothing was saved';
+/**
+ * The refusal's ruled NAME ("did not complete") for the named pick. The rest of
+ * the sentence is translatable copy nobody parses, so it is deliberately not
+ * pinned; the prefix is enough to tell it from the transport failure's
+ * `Failed to upload "NAME": ...` row.
+ */
+const refusalFor = (name: string) =>
+  new RegExp(`^Upload of "${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}" did not complete`);
 
 /** A legacy inline blob, as a record written before file-as-reference holds it. */
 const LEGACY_BLOB = {
@@ -136,7 +143,7 @@ describe('FileField submits the sys_file id or refuses (objectui#7699)', () => {
 
     fireEvent.change(fileInput(), { target: { files: [pick('contract.pdf')] } });
 
-    await screen.findByText(`Upload of "contract.pdf" ${REFUSAL}`);
+    await screen.findByText(refusalFor('contract.pdf'));
     // The refusal sits AFTER the transport: the adapter ran and reported success.
     expect(upload).toHaveBeenCalledTimes(1);
     expect(onChange).not.toHaveBeenCalled();
@@ -171,7 +178,7 @@ describe('FileField submits the sys_file id or refuses (objectui#7699)', () => {
 
     fireEvent.change(fileInput(), { target: { files: [pick('good.pdf'), pick('bad.pdf')] } });
 
-    await screen.findByText(`Upload of "bad.pdf" ${REFUSAL}`);
+    await screen.findByText(refusalFor('bad.pdf'));
     await waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
     expect(onChange.mock.calls[0][0]).toEqual([MINTED_ID]);
     expect(everythingHandedOver(onChange)).not.toMatch(/url|mime_type|bad\.pdf/);
@@ -212,7 +219,7 @@ describe('FileField submits the sys_file id or refuses (objectui#7699)', () => {
 
     fireEvent.change(fileInput(), { target: { files: [pick('contract.pdf')] } });
 
-    await screen.findByText(`Upload of "contract.pdf" ${REFUSAL}`);
+    await screen.findByText(refusalFor('contract.pdf'));
     expect(createObjectURL).toHaveBeenCalledTimes(1);
     expect(onChange).not.toHaveBeenCalled();
     expect(everythingHandedOver(onChange)).not.toMatch(/blob:|url|mime_type/);
@@ -241,7 +248,7 @@ describe('FileCell (line-item grid) shares the pipeline (objectui#7699)', () => 
     );
     fireEvent.change(fileInput(), { target: { files: [pick('receipt.png', 'image/png')] } });
     // The cell's error row shows the first message and titles the whole list.
-    await screen.findByText(`Upload of "receipt.png" ${REFUSAL}`);
+    await screen.findByText(refusalFor('receipt.png'));
     expect(withoutId.upload).toHaveBeenCalledTimes(1);
     expect(onChangeB).not.toHaveBeenCalled();
   });
@@ -274,7 +281,7 @@ describe('ImageField submits the sys_file id or refuses — both upload paths (o
 
     fireEvent.change(fileInput(), { target: { files: [pick('bad.png', 'image/png')] } });
 
-    await screen.findByText(`Upload of "bad.png" ${REFUSAL}`);
+    await screen.findByText(refusalFor('bad.png'));
     expect(upload).toHaveBeenCalledTimes(1);
     expect(onChange).not.toHaveBeenCalled();
     expect(everythingHandedOver(onChange)).not.toMatch(/url|mime_type/);
@@ -299,7 +306,7 @@ describe('ImageField submits the sys_file id or refuses — both upload paths (o
     fireEvent.click(screen.getByTestId('image-field-crop-0'));
     fireEvent.click(await screen.findByTestId('fake-crop-confirm'));
 
-    await screen.findByText(`Upload of "cover.png" ${REFUSAL}`);
+    await screen.findByText(refusalFor('cover.png'));
     expect(upload).toHaveBeenCalledTimes(1);
     expect(onChange).not.toHaveBeenCalled();
     expect(everythingHandedOver(onChange)).not.toMatch(/url|mime_type/);

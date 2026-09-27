@@ -1,18 +1,23 @@
 ---
-'@object-ui/types': patch
+'@object-ui/types': minor
 '@object-ui/plugin-dashboard': patch
 ---
 
 `object-data-table` refuses `drillDown.filter`, `.maxRows`, `.report` and `target: 'navigate'`, and `object-pivot` refuses `drillDown.mode` (objectui#10685)
 
-**Stored JSON: `objectui validate` now refuses an `object-data-table` config that carries
-`drillDown.filter`, `drillDown.maxRows`, `drillDown.report` or `drillDown.target: 'navigate'`.**
-Each refusal names the key and the blocks that do read it. None of the four was ever read by
-this block. Its row drills to the one record it already is, so a drilled list's filter, row
-cap and report had nothing to act on, and `'navigate'` was drawn as a drawer. Before this
-change the table's zod mirror took the shared `DrillDownConfigSchema` and accepted all four.
-Delete the key; for the drill target, write `'drawer'` or `'dialog'`. `enabled`, `mode`,
-`title` and `columns` are accepted exactly as before.
+**Breaking for authored metadata, graded `minor` by this repo's convention (AGENTS.md: a
+breaking change here is `minor`, never `major`):** `object-data-table` no longer accepts
+`drillDown.filter`, `drillDown.maxRows`, `drillDown.report` or `drillDown.target: 'navigate'`
+on either published face — the TypeScript `ObjectDataTableSchema.drillDown` and its zod
+mirror, the door `objectui validate` / `safeValidateSchema` run — so a stored JSON table
+config that parsed green before is refused by name now. Each refusal names the key and the
+blocks that do read it. None of the four was ever read by this block. Migration: delete the
+key; for the drill target write `'drawer'` or `'dialog'`. `enabled`, `mode`, `title` and
+`columns` are accepted exactly as before.
+
+Its row drills to the one record it already is, so a drilled list's filter, row cap and
+report had nothing to act on, and `'navigate'` was drawn as a drawer. Before this change the
+table's zod mirror took the shared `DrillDownConfigSchema` and accepted all four.
 
 `object-pivot` is refused at the TypeScript door only. A stored JSON pivot config carrying
 `mode` is still accepted and ignored at render, as it was before: neither `object-pivot` nor

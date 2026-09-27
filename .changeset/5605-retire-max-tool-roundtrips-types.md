@@ -7,11 +7,12 @@ feat(types)!: `maxToolRoundtrips` is retired behind a tombstone on all three cha
 **BREAKING (authoring).** `maxToolRoundtrips` on `ChatbotSchema`, `ChatbotEnhancedSchema`
 and `ChatbotFloatingSchema` is refused by name. The zod twins now carry a
 `retirementTombstone` arm whose message points at the agent's `planning.maxIterations`,
-and the TypeScript member is `maxToolRoundtrips?: never`, picked onto the two twins from
-`ChatbotSchema` so the three faces share one declaration. The key also leaves the
-`body` / `children` refusal messages' key lists and the published `ChatbotSharedKey` union
-(reachable through the `@object-ui/types/complex` subpath): no registration reads it. Code
-that names `'maxToolRoundtrips'` as a `ChatbotSharedKey` stops compiling.
+and the TypeScript member is `maxToolRoundtrips?: never`, picked onto
+`ChatbotEnhancedSchema` and `ChatbotFloatingSchema` from `ChatbotSchema` so the three
+faces share one declaration. The key also leaves the `body` / `children` refusal messages'
+key lists and the published `ChatbotSharedKey` union (reachable through the
+`@object-ui/types/complex` subpath): no registration reads it. Code that names
+`'maxToolRoundtrips'` as a `ChatbotSharedKey` stops compiling.
 
 **Migration:** remove `maxToolRoundtrips`; cap tool loops on the agent
 (`planning.maxIterations`).

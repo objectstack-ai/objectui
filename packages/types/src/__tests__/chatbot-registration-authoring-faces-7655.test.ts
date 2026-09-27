@@ -23,7 +23,8 @@
  * of the three keys. The union would give three nodes ONE type and re-open what
  * #6169 closed: a single interface declaring keys only some of its own `type`
  * values read. Each new face declares what ITS registration reads, censused per
- * key on the PR's base with lit controls, and the twenty keys all three read
+ * key on the PR's base with lit controls, and the keys all three read (twenty
+ * at objectui#7655, nineteen since objectui#5605 retired `maxToolRoundtrips`)
  * are picked off `ChatbotSchema` by name (`ChatbotSharedKey`) so they stay one
  * declaration.
  *

@@ -112,7 +112,7 @@ ship as `minor` with the semantics spelled out — as above.
 
 ⚠️ **Dated note, 2026-09-27 — the shared census is nineteen keys, not twenty — objectui#5605.**
 Later in this same release `maxToolRoundtrips` is retired behind a tombstone: no
-registration reads it, so it leaves `ChatbotSharedKey`, and all three faces declare it
-instead as the same `?: never` member picked off `ChatbotSchema`, refused by name on the zod
-twins. The "twenty keys" above is kept as the reading of this change; the objectui#5605
-retirement entry states what the three faces declare now.
+registration reads it, so it leaves `ChatbotSharedKey`, and `ChatbotSchema` declares it
+instead as a `?: never` member that the other two faces pick by name, refused by name on
+the zod twins. The "twenty keys" above is kept as the reading of this change; the
+objectui#5605 retirement entry states what the three faces declare now.

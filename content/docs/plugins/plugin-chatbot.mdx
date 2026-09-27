@@ -144,7 +144,7 @@ Each registration has its own importable authoring-face type in
 `@object-ui/types` (objectui#7655): `ChatbotSchema` for `chatbot`,
 `ChatbotEnhancedSchema` for `chatbot-enhanced` and `ChatbotFloatingSchema` for
 `chatbot-floating`. Each declares exactly the keys its registration reads - the
-twenty shared rows below are one declaration the two newer faces pick off
+nineteen shared rows below are one declaration the two newer faces pick off
 `ChatbotSchema` by name, and a scoped row is declared only on the face(s) whose
 registration reads it. A key a registration ignores is therefore not a declared
 member of its type. It still type-checks (`BaseSchema` ends in an index

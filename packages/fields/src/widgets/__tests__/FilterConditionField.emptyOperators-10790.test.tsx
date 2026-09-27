@@ -29,10 +29,12 @@
  *
  * Four blocks:
  *
- *   1. WRITER — each operator on each field type that offers it (text, number,
- *      date, select, lookup: `operatorsForFieldType` in `@object-ui/components`),
+ *   1. WRITER — each operator on each string-stored field type that offers it
+ *      (text, select, lookup: `operatorsForFieldType` in `@object-ui/components`),
  *      driven through the REAL dropdowns. The `equals` rows are the control:
- *      the same harness and the same faces, green before and after.
+ *      the same harness and the same faces, green before and after, on the
+ *      number and date columns too. Those two get the `$null` half alone since
+ *      objectui#10813, pinned in `FilterConditionField.typedEmpty-10813.test.tsx`.
  *   2. READER — the old shape AND the new shape each open as the same single
  *      builder row, and opening one emits nothing (no rewrite on read alone).
  *   3. RE-SAVE — an old rule is written in the new shape the next time any row
@@ -153,6 +155,12 @@ const TYPES: ReadonlyArray<{ type: string; field: string; label: string }> = [
   { type: 'lookup', field: 'account', label: 'Account' },
 ];
 
+/**
+ * The columns whose stored value can be `''`, so they keep the `''` member.
+ * A number or date column gets `$null` alone since objectui#10813.
+ */
+const STRING_STORED_TYPES = TYPES.filter(({ type }) => type !== 'number' && type !== 'date');
+
 /** A fresh row on `label`'s column, still on the seed operator (`equals`). */
 async function freshRowOn(label: string) {
   const utils = renderWidget('');
@@ -162,7 +170,7 @@ async function freshRowOn(label: string) {
 }
 
 describe('WRITER — each operator on each offered field type writes the accepted shape (objectui#10790)', () => {
-  it.each(TYPES)('"Is empty" on a $type column', async ({ field, label }) => {
+  it.each(STRING_STORED_TYPES)('"Is empty" on a $type column', async ({ field, label }) => {
     const { onChange } = await freshRowOn(label);
     await pickFrom(1, 'Is empty');
     const stored = lastEmitted(onChange);
@@ -170,7 +178,7 @@ describe('WRITER — each operator on each offered field type writes the accepte
     expectAcceptedByTheFaces(stored);
   });
 
-  it.each(TYPES)('"Is not empty" on a $type column', async ({ field, label }) => {
+  it.each(STRING_STORED_TYPES)('"Is not empty" on a $type column', async ({ field, label }) => {
     const { onChange } = await freshRowOn(label);
     await pickFrom(1, 'Is not empty');
     const stored = lastEmitted(onChange);

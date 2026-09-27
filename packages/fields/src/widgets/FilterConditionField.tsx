@@ -1,6 +1,13 @@
 import React from 'react';
 import { FilterBuilder, cn } from '@object-ui/components';
 import { SchemaRendererContext } from '@object-ui/react';
+import {
+  NUMERIC_VALUE_TYPES,
+  BOOLEAN_VALUE_TYPES,
+  CALENDAR_DATE_TYPES,
+  INSTANT_TYPES,
+  CLOCK_TIME_TYPES,
+} from '@objectstack/spec/data';
 import type { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { useFieldTranslation } from './useFieldTranslation.js';
@@ -218,10 +225,50 @@ function toArray(value: any): any[] {
  * rather than the field, so it merges into an AND group beside field keys and
  * {@link kvToCondition} reads it back as one row. Two such rows collide on
  * `$or` and fall to the `$and` form, as any two rows on one key already do.
+ *
+ * Written only for a column whose stored value can be the empty string — see
+ * {@link NON_STRING_VALUE_TYPES} for the columns that get `$null` alone
+ * (objectui#10813).
  */
 function isEmptyEntry(field: string): Record<string, unknown> {
   return { $or: [{ [field]: { $in: [''] } }, { [field]: { $null: true } }] };
 }
+
+/**
+ * Field types whose stored value is never a string, so the `''` member of
+ * "is empty" / "is not empty" has no row it could match and must not be sent
+ * (objectui#10813).
+ *
+ * The protocol's own value classes (`@objectstack/spec/data`, ADR-0104),
+ * asked rather than copied: numeric, boolean, calendar day, instant and time
+ * of day. On these columns the SQL driver binds the comparand as-is — its
+ * temporal storage rule hands an empty string back unchanged and its
+ * column-type gate covers JSON columns only — so `''` reached a `numeric`,
+ * `boolean`, `date`, `timestamp` or `time` column as `IN ('')` / `NOT IN ('')`,
+ * which a strict backend has to cast. For them "is empty" is `$null: true`
+ * and "is not empty" is `$null: false`: the same rows, with no `''` to cast.
+ *
+ * ⛔ Deliberately NOT a list of "string types" with everything else falling to
+ * `$null`. A column absent from this set keeps the `''` member byte for byte:
+ *
+ *   - text, select, lookup and every other string-stored column, because there
+ *     `''` is a value a record can really hold — an edit form sends a cleared
+ *     text box as `''`, and the platform stores it unchanged — so dropping the
+ *     member would change which records a stored sharing rule matches;
+ *   - a field whose type this widget does not know (the schema has not loaded,
+ *     or the field is hidden or not in it), because guessing a type here would
+ *     re-scope a rule the admin can see on screen.
+ *
+ * Whether the platform's one meaning of "is empty" keeps `''` at all is
+ * objectui#10813's open question, and not this set's to answer.
+ */
+const NON_STRING_VALUE_TYPES: ReadonlySet<string> = new Set([
+  ...NUMERIC_VALUE_TYPES,
+  ...BOOLEAN_VALUE_TYPES,
+  ...CALENDAR_DATE_TYPES,
+  ...INSTANT_TYPES,
+  ...CLOCK_TIME_TYPES,
+]);
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -313,10 +360,22 @@ export function condToMongo(c: BuilderCondition, typeOf: (f: string) => string |
     // "Is not empty" is its exact complement — has a value (`$null: false`,
     // the refusal's own "has a value" half) AND that value is not `''` — on one
     // field key, so it reads back through the ordinary two-operator arm.
-    case 'is_empty': return isEmptyEntry(field);
-    case 'is_not_empty': return { [field]: { $nin: [''], $null: false } };
+    //
+    // objectui#10813 — the `''` member only where a stored value can be `''`:
+    // a numeric, boolean or temporal column gets the `$null` half alone (see
+    // {@link NON_STRING_VALUE_TYPES}). Those two shapes are the ones `is_null`
+    // / `is_not_null` write, so a reopened rule reads them back under those
+    // labels — the same predicate on such a column. A rule stored in the older
+    // shapes still reads back as "is empty" and is rewritten only when an admin
+    // edits it.
+    case 'is_empty':
+      return t !== undefined && NON_STRING_VALUE_TYPES.has(t) ? { [field]: { $null: true } } : isEmptyEntry(field);
+    case 'is_not_empty':
+      return t !== undefined && NON_STRING_VALUE_TYPES.has(t)
+        ? { [field]: { $null: false } }
+        : { [field]: { $nin: [''], $null: false } };
     // Null / existence spec operators. Distinct from is_empty/is_not_empty,
-    // which also treat '' as empty.
+    // which also treat '' as empty on a column that can store it.
     case 'is_null': return { [field]: { $null: true } };
     case 'is_not_null': return { [field]: { $null: false } };
     case 'exists': return { [field]: { $exists: true } };

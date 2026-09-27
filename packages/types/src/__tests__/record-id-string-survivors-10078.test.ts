@@ -7,15 +7,18 @@
  */
 
 /**
- * objectui#10078 - the three record-id declarations the objectui#9511 ruling
- * did not enumerate are strings too.
+ * objectui#10078 - three more record-id declarations that the objectui#9511
+ * ruling did not enumerate are strings too.
  *
  * ## What is pinned
  *
  * Director batch #195 item 1, letter A (objectui#9511) made a record id a
- * `string` wherever this package names one, "one rule, no exception". Three
- * published declarations carried the same id with the old `string | number`
- * spelling and were named by no ruling:
+ * `string` wherever METADATA names one, and extended it as "the same
+ * principle" to `CommentEntry.recordId` / `MentionNotification.recordId`. The
+ * three below are runtime / API shapes that ruling did not name; carrying the
+ * rule to them is the `domain:spec` seat's inheritance decision in the claim on
+ * objectui#10078. Each carries the same id with the old `string | number`
+ * spelling:
  *
  * - `CommentSearchResult.recordId` - the record a matching comment belongs to,
  *   copied from `CommentEntry.recordId` (already a string since objectui#9511);
@@ -26,6 +29,10 @@
  * All three are runtime / API shapes with NO zod mirror (nothing authors them
  * into JSON), so the compiler is the only face that can refuse a number, and
  * this file is where that refusal is asserted.
+ *
+ * ⚠️ This file pins these three ONLY. Other record ids in this package still
+ * admit a number and are out of its scope, so a green run here says nothing
+ * about the rest of the family.
  *
  * ## Where each row lives - these two halves measure different things
  *
@@ -144,8 +151,9 @@ describe('the three surviving record ids are strings (objectui#10078)', () => {
         memberType(TEXT[file], iface, member),
         [
           `\`${iface}.${member}\` in ${file} declares a record id wider than \`string\`.`,
-          'A record id is a string wherever this package names one (objectui#9511);',
-          'a host whose keys are numeric converts once, at its own adapter boundary.',
+          'objectui#10078 carries the objectui#9511 record-id rule (a record id is a string',
+          'wherever metadata names one) to this runtime shape; a host whose keys are',
+          'numeric converts once, at its own adapter boundary.',
         ].join('\n'),
       ).toBe('string');
     });

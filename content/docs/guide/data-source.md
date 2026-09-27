@@ -15,17 +15,17 @@ import type { BatchTransactionOperation, QueryParams, QueryResult } from '@objec
 
 export interface DataSource<T = unknown> {
   find(resource: string, params?: QueryParams): Promise<QueryResult<T>>;
-  findOne(resource: string, id: string | number, params?: QueryParams): Promise<T | null>;
+  findOne(resource: string, id: string, params?: QueryParams): Promise<T | null>;
   create(resource: string, data: Partial<T>): Promise<T>;
   update(
     resource: string,
-    id: string | number,
+    id: string,
     data: Partial<T>,
     opts?: { ifMatch?: string },
   ): Promise<T>;
   delete(
     resource: string,
-    id: string | number,
+    id: string,
     opts?: { ifMatch?: string },
   ): Promise<boolean>;
 

@@ -32,7 +32,7 @@
  * refusal's message must be the published `.describe()` metadata, one string.
  *
  * The `@ts-expect-error` directives and the `Expect<Equal<…>>` aliases in block
- * (d) are REAL enforcement: this package type-checks its tests through
+ * (e) are REAL enforcement: this package type-checks its tests through
  * `tsconfig.test.json`, so re-widening a member fails the build (TS2578 on an
  * unused directive, TS2344 on a false `Expect`). A green `vitest` run is NOT
  * evidence about them — type assertions are erased before it runs.
@@ -85,9 +85,22 @@ describe('objectui#10825 (a) — a bare condition authored as `value` is REFUSED
   });
 });
 
-/* ── (b) LIT CONTROL: a group parses, and other shapes are judged as a group ─ */
+/* ── (b) the union is gone: a group's refusal is reported at its own path ──── */
 
-describe('objectui#10825 (b) — LIT CONTROL: a group `value` is accepted, and nothing else moved', () => {
+describe('objectui#10825 (b) — with the condition arm gone there is no union at `value`', () => {
+  it('an id-less row in a group `value` is reported at its own path, not as an `invalid_union` at `value`', () => {
+    // The union wrapped every refusal of a group in one `invalid_union` at
+    // `value`, so a consumer reading `issue.path` never found the row.
+    const idLess = node({ value: group([{ field: 'amount', operator: 'equals', value: 1 }]) });
+    for (const r of bothDoors(idLess)) {
+      expect(envelope(r)).toEqual([{ code: 'invalid_type', path: ['value', 'conditions', 0, 'id'] }]);
+    }
+  });
+});
+
+/* ── (c) LIT CONTROL: a group parses, and other shapes are judged as a group ─ */
+
+describe('objectui#10825 (c) — LIT CONTROL: a group `value` is accepted, and nothing else moved', () => {
   it('the same condition, wrapped in a group, is accepted at both doors and parses to itself', () => {
     for (const r of bothDoors(node({ value: group([ROW]) }))) {
       expect(issuesOf(r)).toEqual([]);
@@ -107,19 +120,11 @@ describe('objectui#10825 (b) — LIT CONTROL: a group `value` is accepted, and n
       expect(issues.every((i) => i.code !== 'custom'), JSON.stringify(issues)).toBe(true);
     }
   });
-
-  it('with the condition arm gone there is no union: a group\'s own refusal is reported at its own path', () => {
-    // At base the union wrapped this in one `invalid_union` at `value`.
-    const idLess = node({ value: group([{ field: 'amount', operator: 'equals', value: 1 }]) });
-    for (const r of bothDoors(idLess)) {
-      expect(envelope(r)).toEqual([{ code: 'invalid_type', path: ['value', 'conditions', 0, 'id'] }]);
-    }
-  });
 });
 
-/* ── (c) `defaultValue` is RETIRED on `filter-builder` ─────────────────────── */
+/* ── (d) `defaultValue` is RETIRED on `filter-builder` ─────────────────────── */
 
-describe('objectui#10825 (c) — `defaultValue` is RETIRED on `filter-builder`', () => {
+describe('objectui#10825 (d) — `defaultValue` is RETIRED on `filter-builder`', () => {
   it.each([
     ['a group', group([ROW])],
     ['a bare condition', ROW],
@@ -144,7 +149,7 @@ describe('objectui#10825 (c) — `defaultValue` is RETIRED on `filter-builder`',
   });
 });
 
-/* ── (d) the TS twin carries the same contract ────────────────────────────── */
+/* ── (e) the TS twin carries the same contract ────────────────────────────── */
 
 type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
@@ -155,7 +160,7 @@ export type assertionValueIsAGroup = Expect<Equal<FilterBuilderSchema['value'], 
 /** The helper can FAIL — control on the surviving `value` member of the same node. */
 export type assertionEqualCanFail = Expect<Equal<Equal<FilterBuilderSchema['value'], undefined>, false>>;
 
-describe('objectui#10825 (d) — the TS twin refuses what the mirror refuses', () => {
+describe('objectui#10825 (e) — the TS twin refuses what the mirror refuses', () => {
   it('an authored `defaultValue` is a compile error — checked by `tsc -p tsconfig.test.json`', () => {
     const withDefault: FilterBuilderSchema = {
       type: 'filter-builder',

@@ -30,7 +30,10 @@
  * ── en ───────────────────────────────────────────────────────────────────────
  * Where the site reads a row it already had, the en case reads that row. Where
  * the row is new, the en case asserts the English the literal rendered, so it
- * holds on the base as well as the head: en does not move.
+ * holds on the base as well as the head: en does not move. The exception is the
+ * `engine.flowRef.notAScreenField*` note, a hint sentence: its en cases read
+ * the en row through `tFormat(key, 'en-US', …)` rather than pin its wording
+ * (the objectui#10832 review, carried by objectui#10835).
  *
  * ── Left literal on purpose (the objectui#10678 / objectui#10651 ruling) ─────
  * A new widget's default `New TYPE` title is stored author data: it keeps
@@ -264,12 +267,12 @@ describe('the screen visibleWhen cell — its note (objectui#10804)', () => {
     zhRow('engine.flowRef.notAScreenFieldWithSuggestion');
   });
 
-  it('en: both read the English the literal wrote', async () => {
+  it('en: both read the en rows of the same keys', async () => {
     mountScreen('en');
     await flush();
     expect(notes()).toEqual([
-      '`needsApproval` is not a field on this screen',
-      '`dicount` is not a field on this screen (did you mean `discount`?)',
+      tFormat('engine.flowRef.notAScreenField', 'en-US', RUN_VAR),
+      tFormat('engine.flowRef.notAScreenFieldWithSuggestion', 'en-US', MISSPELT),
     ]);
   });
 });
@@ -367,8 +370,8 @@ describe('the Problems panel — expression messages (objectui#10804)', () => {
     const messages = await problemMessages('en');
     expect(messages).toContain(tFormat('engine.flowExpr.unbalancedParens', 'en-US', { source: '(amount > 1' }));
     expect(messages).toContain(`Reason: ${tFormat('engine.flowExpr.braceInCondition', 'en-US', { ref: 'discount' })}`);
-    expect(messages).toContain('Approval: `needsApproval` is not a field on this screen');
-    expect(messages).toContain('Visible when: `needsApproval` is not a field on this screen');
+    expect(messages).toContain(`Approval: ${tFormat('engine.flowRef.notAScreenField', 'en-US', RUN_VAR)}`);
+    expect(messages).toContain(`Visible when: ${tFormat('engine.flowRef.notAScreenField', 'en-US', RUN_VAR)}`);
   });
 });
 

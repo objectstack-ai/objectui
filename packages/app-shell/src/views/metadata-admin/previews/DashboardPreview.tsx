@@ -135,7 +135,7 @@ export function DashboardPreview({
   if (widgets.length === 0) {
     return (
       <PreviewShell hint={`dashboard${designMode ? ' · design' : ''}`} toolbar={addButton}>
-        <PreviewMessage>Add at least one widget to see a preview.</PreviewMessage>
+        <PreviewMessage>{tr('engine.dashboardPreview.empty', locale)}</PreviewMessage>
       </PreviewShell>
     );
   }
@@ -147,10 +147,11 @@ export function DashboardPreview({
       }`}
       toolbar={addButton}
     >
-      <PreviewErrorBoundary fallbackHint="A widget references an object or field that doesn't resolve.">
+      <PreviewErrorBoundary fallbackHint={tr('engine.dashboardPreview.malformed', locale)}>
         {canEdit && selectedWidget ? (
           <SelectedWidgetStrip
             widget={selectedWidget}
+            locale={locale}
             onRename={(nextTitle) => handleRenameWidget(selectedWidget.id!, nextTitle)}
             onClose={() => onSelectionChange?.(null)}
           />
@@ -158,7 +159,7 @@ export function DashboardPreview({
         <React.Suspense
           fallback={
             <div className="p-6 text-sm text-muted-foreground flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading dashboard renderer…
+              <Loader2 className="h-4 w-4 animate-spin" /> {tr('engine.dashboardPreview.loading', locale)}
             </div>
           }
         >
@@ -197,14 +198,18 @@ export function DashboardPreview({
  * Floating strip that appears above the dashboard whenever a widget
  * is selected in design mode. Lets the author rename the widget
  * inline (Enter commits, Esc cancels) without diving into the right-
- * side inspector for a single text edit.
+ * side inspector for a single text edit. Its own words read the designer
+ * `locale` (objectui#10835); the widget's title is author data, shown as
+ * written.
  */
 function SelectedWidgetStrip({
   widget,
+  locale,
   onRename,
   onClose,
 }: {
   widget: DashboardWidgetSchema;
+  locale?: string;
   onRename: (nextTitle: string) => void;
   onClose: () => void;
 }) {
@@ -241,7 +246,7 @@ function SelectedWidgetStrip({
     <div className="sticky top-0 z-10 flex items-center gap-2 border-b bg-primary/5 px-3 py-1.5 text-xs">
       {TypeIcon ? <TypeIcon className="h-3.5 w-3.5 text-primary" /> : null}
       <span className="rounded bg-primary px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary-foreground">
-        Selected
+        {tr('engine.dashboardPreview.selected', locale)}
       </span>
       {editing ? (
         <>
@@ -265,7 +270,7 @@ function SelectedWidgetStrip({
             type="button"
             onClick={commit}
             className="rounded p-1 hover:bg-primary/10"
-            aria-label="Save title"
+            aria-label={tr('engine.dashboardPreview.saveTitle', locale)}
           >
             <Check className="h-3.5 w-3.5" />
           </button>
@@ -276,15 +281,17 @@ function SelectedWidgetStrip({
             type="button"
             onClick={() => setEditing(true)}
             className="flex-1 min-w-0 truncate text-left font-medium hover:underline"
-            title="Click to rename"
+            title={tr('engine.dashboardPreview.clickToRename', locale)}
           >
-            {currentTitle || <span className="italic text-muted-foreground">untitled</span>}
+            {currentTitle || (
+              <span className="italic text-muted-foreground">{tr('engine.dashboardPreview.untitled', locale)}</span>
+            )}
           </button>
           <button
             type="button"
             onClick={() => setEditing(true)}
             className="rounded p-1 hover:bg-primary/10"
-            aria-label="Rename widget"
+            aria-label={tr('engine.dashboardPreview.renameWidget', locale)}
           >
             <Pencil className="h-3.5 w-3.5" />
           </button>
@@ -294,7 +301,7 @@ function SelectedWidgetStrip({
         type="button"
         onClick={onClose}
         className="rounded p-1 hover:bg-primary/10"
-        aria-label="Clear selection"
+        aria-label={tr('engine.dashboardPreview.clearSelection', locale)}
       >
         <X className="h-3.5 w-3.5" />
       </button>

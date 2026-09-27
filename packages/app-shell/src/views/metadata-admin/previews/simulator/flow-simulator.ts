@@ -33,6 +33,7 @@ import { evalBranchPredicate, evalGuard, evalValueEnvelope, validateFlowDraft } 
 import { conditionText } from '../flow-canvas-layout.js';
 import { unevaluableVisibleWhen } from '../screen-spec.js';
 import { isValueEnvelopeSlot } from '../../inspectors/flow-value-envelope.js';
+import { t as tr, tFormat } from '../../i18n.js';
 
 const MAX_STEPS = 500;
 
@@ -124,12 +125,22 @@ export class FlowSimulator {
     traversedEdgeIds: [],
   };
 
+  /**
+   * The designer locale: `validateFlowDraft`'s messages and every note and
+   * error sentence a step records are written in it (objectui#10835), through
+   * {@link say}. Absent, they read the en rows — the English they always were.
+   */
   private readonly locale?: string;
 
   constructor(nodes: SimNode[], edges: SimEdge[], locale?: string) {
     for (const n of nodes) this.nodes.set(n.id, n);
     this.edges = edges;
     this.locale = locale;
+  }
+
+  /** The `engine.flowSim.note.*` row `key` in the designer locale, formatted with `vars`. */
+  private say(key: string, vars?: Record<string, string | number>): string {
+    return vars ? tFormat(key, this.locale, vars) : tr(key, this.locale);
   }
 
   /** Validate + seed variables and queue the entry node. Returns the validation. */
@@ -160,7 +171,7 @@ export class FlowSimulator {
     if (s.status === 'error' || s.status === 'done' || s.status === 'paused') return null;
     if (this.seq >= MAX_STEPS) {
       s.status = 'error';
-      s.error = `Step limit (${MAX_STEPS}) exceeded — the flow may contain an infinite loop.`;
+      s.error = this.say('engine.flowSim.note.stepLimit', { max: MAX_STEPS });
       return null;
     }
     const nodeId = s.frontier.shift();
@@ -171,7 +182,7 @@ export class FlowSimulator {
     }
     const node = this.nodes.get(nodeId);
     if (!node) {
-      return this.record(nodeId, 'unknown', nodeId, 'error', { error: `Node "${nodeId}" not found.` });
+      return this.record(nodeId, 'unknown', nodeId, 'error', { error: this.say('engine.flowSim.note.nodeNotFound', { id: nodeId }) });
     }
     s.status = 'running';
     s.activeNodeId = nodeId;
@@ -223,7 +234,7 @@ export class FlowSimulator {
         this.record(node.id, node.type, node.label, routing.error ? 'error' : 'ok', {
           edges: routing.evals,
           error: routing.error,
-          note: joinNotes('Resumed.', routing.note),
+          note: joinNotes(this.say('engine.flowSim.note.resumed'), routing.note),
         });
       }
     }
@@ -256,8 +267,11 @@ export class FlowSimulator {
       error: routing.error,
       note: joinNotes(
         want
-          ? `Decision: ${decision} → ${taken.length ? taken.join(', ') : 'no out-edge taken'}.`
-          : 'No decision supplied; every out-edge is considered.',
+          ? this.say('engine.flowSim.note.decisionTaken', {
+              decision: decision ?? '',
+              taken: taken.length ? taken.join(', ') : this.say('engine.flowSim.note.decisionNoneTaken'),
+            })
+          : this.say('engine.flowSim.note.noDecision'),
         routing.note,
       ),
     });
@@ -270,7 +284,7 @@ export class FlowSimulator {
 
     if (type === 'end') {
       // Terminate this branch only; other queued branches still run.
-      return this.record(node.id, type, node.label, 'ok', { note: 'Flow end reached.' });
+      return this.record(node.id, type, node.label, 'ok', { note: this.say('engine.flowSim.note.flowEnd') });
     }
 
     if (type === 'decision') return this.executeDecision(node);
@@ -279,13 +293,13 @@ export class FlowSimulator {
 
     if (UNSUPPORTED.has(type)) {
       return this.proceed(node, 'skipped', {
-        note: `"${type}" is not modelled by the simulator; passing through without its real semantics.`,
+        note: this.say('engine.flowSim.note.unsupported', { type }),
       });
     }
 
     if (type === 'parallel_gateway') {
       return this.proceed(node, 'ok', {
-        note: 'Parallel split — branches fan out (no join synchronization is simulated).',
+        note: this.say('engine.flowSim.note.parallelSplit'),
       });
     }
 
@@ -296,13 +310,13 @@ export class FlowSimulator {
       // than fanning out to every out-edge at once.
       this.state.status = 'paused';
       this.state.pausedReason = 'approval';
-      return this.record(node.id, type, node.label, 'paused', { note: 'Approval reached — choose a decision to continue.' });
+      return this.record(node.id, type, node.label, 'paused', { note: this.say('engine.flowSim.note.approvalReached') });
     }
 
     if (type === 'wait') {
       this.state.status = 'paused';
       this.state.pausedReason = 'wait';
-      return this.record(node.id, type, node.label, 'paused', { note: 'Wait reached — continue manually.' });
+      return this.record(node.id, type, node.label, 'paused', { note: this.say('engine.flowSim.note.waitReached') });
     }
 
     if (type === 'screen') {
@@ -323,17 +337,27 @@ export class FlowSimulator {
         // `registerFlow` refuses — is an error on the step, per field. Whether
         // the renderer then shows or hides that field is its own fallback
         // (objectui#8069), not a reading the Debug run makes.
-        const unevaluable = unevaluableVisibleWhen(node);
+        // The reason names the root in the designer locale where objectui owns
+        // the sentence (`engine.flowRef.notAScreenField*`); a parse or shape
+        // refusal is the producer's own text and passes through.
+        const unevaluable = unevaluableVisibleWhen(node, this.locale);
         return this.record(node.id, type, node.label, 'paused', {
-          note: 'Screen reached — provide inputs, then continue.',
+          note: this.say('engine.flowSim.note.screenReached'),
           error: unevaluable.length
-            ? `A screen field's visibleWhen may reference only the fields declared on this screen; the screen cannot evaluate ${unevaluable
-                .map((u) => `"${u.name}" (${u.error.split('\n')[0]})`)
-                .join('; ')}.`
+            ? this.say('engine.flowSim.note.screenUnevaluable', {
+                fields: unevaluable
+                  .map((u) =>
+                    this.say('engine.flowSim.note.screenUnevaluableField', {
+                      name: u.name,
+                      reason: u.error.split('\n')[0],
+                    }),
+                  )
+                  .join('; '),
+              })
             : undefined,
         });
       }
-      return this.proceed(node, 'ok', { note: 'Screen has no input — passed through (matches runtime).' });
+      return this.proceed(node, 'ok', { note: this.say('engine.flowSim.note.screenNoInput') });
     }
 
     if (type === 'loop') {
@@ -350,7 +374,7 @@ export class FlowSimulator {
 
     // start / anything else: pass straight through.
     return this.proceed(node, 'ok', {
-      note: PASS_THROUGH.has(type) ? undefined : `Type "${type}" treated as pass-through.`,
+      note: PASS_THROUGH.has(type) ? undefined : this.say('engine.flowSim.note.passThrough', { type }),
     });
   }
 
@@ -396,7 +420,7 @@ export class FlowSimulator {
       note: joinNotes(
         branch.note,
         routing.note,
-        leaves ? undefined : 'The decision has no out-edge; the runtime ends this branch here.',
+        leaves ? undefined : this.say('engine.flowSim.note.decisionNoOutEdge'),
       ),
     });
   }
@@ -413,12 +437,12 @@ export class FlowSimulator {
       // An empty label is no branch at all (the runtime's `if (branchLabel)`).
       const label = typeof cond.label === 'string' && cond.label ? cond.label : undefined;
       return label
-        ? { selection: { label, claims: (l) => l === label }, note: `Branch "${label}" matched (config.conditions).` }
+        ? { selection: { label, claims: (l) => l === label }, note: this.say('engine.flowSim.note.branchMatched', { label }) }
         : {};
     }
     return {
       selection: { label: DEFAULT_BRANCH_LABEL, claims: (l) => l === DEFAULT_BRANCH_LABEL },
-      note: `No entry of config.conditions matched; the branch is "${DEFAULT_BRANCH_LABEL}".`,
+      note: this.say('engine.flowSim.note.noConditionMatched', { label: DEFAULT_BRANCH_LABEL }),
     };
   }
 
@@ -482,7 +506,7 @@ export class FlowSimulator {
       } else {
         const tokens: string[] = [];
         resolved = this.interpolateValue(value, tokens);
-        for (const t of tokens) unmodelled.push(`${t} in "${key}"`);
+        for (const token of tokens) unmodelled.push(this.say('engine.flowSim.note.unmodelledToken', { token, key }));
       }
       this.state.variables[key] = resolved;
       wrote[key] = resolved;
@@ -490,11 +514,8 @@ export class FlowSimulator {
     return this.proceed(node, 'ok', {
       wrote: Object.keys(wrote).length ? wrote : undefined,
       note: joinNotes(
-        Object.keys(wrote).length ? undefined : 'No assignments defined.',
-        unmodelled.length
-          ? `Kept as written, not modelled by the Debug run: ${unmodelled.join(', ')}. ` +
-              'The runtime resolves NOW() / TODAY(), $User.* and arithmetic itself, and fails the node on a call to a function it does not know.'
-          : undefined,
+        Object.keys(wrote).length ? undefined : this.say('engine.flowSim.note.noAssignments'),
+        unmodelled.length ? this.say('engine.flowSim.note.unmodelled', { tokens: unmodelled.join(', ') }) : undefined,
       ),
     });
   }
@@ -571,14 +592,14 @@ export class FlowSimulator {
   private executeLoop(node: SimNode): string {
     const ref = str(node.config?.collection);
     const iterVar = str(node.config?.iteratorVariable);
-    let note = 'Loop simulated as a single pass (body re-execution is not modelled).';
+    let note = this.say('engine.flowSim.note.loopSinglePass');
     if (ref) {
       const resolved = this.resolveRef(ref);
       if (Array.isArray(resolved)) {
-        note = `Collection "${ref}" has ${resolved.length} item(s); simulated as a single pass.`;
+        note = this.say('engine.flowSim.note.loopCollection', { ref, count: resolved.length });
         if (iterVar && resolved.length) this.state.variables[iterVar] = resolved[0];
       } else if (resolved !== undefined) {
-        note = `Collection "${ref}" is not an array; loop may not run at runtime.`;
+        note = this.say('engine.flowSim.note.loopNotArray', { ref });
       }
     }
     return note;
@@ -619,14 +640,14 @@ export class FlowSimulator {
       // (framework#4343) — the branches below describe a stored node that has
       // not been migrated yet, and say plainly that they never ran.
       const fn = str(node.config?.function);
-      if (fn) return `Mocked call to '${fn}' (no function executed).`;
+      if (fn) return this.say('engine.flowSim.note.mockedCall', { fn });
       const action = str(node.config?.actionType);
       if (action && action !== 'code') {
-        return `Retired '${action}' action — it never delivered anything; use a notify node (or a connector for Slack).`;
+        return this.say('engine.flowSim.note.retiredAction', { action });
       }
-      return 'Retired inline script — the runtime never executed it; move the logic into a registered function.';
+      return this.say('engine.flowSim.note.retiredScript');
     }
-    return `Mocked ${node.type.replace(/_/g, ' ')} (no backend call).`;
+    return this.say('engine.flowSim.note.mocked', { type: node.type.replace(/_/g, ' ') });
   }
 
   /**
@@ -669,9 +690,7 @@ export class FlowSimulator {
       if (claimed.length === 0 && branch.label === DEFAULT_BRANCH_LABEL) claimed = out.filter((x) => x.e.isDefault === true);
       if (claimed.length > 0) considered = claimed;
       else {
-        notes.push(
-          `No out-edge carries the branch label "${branch.label}", so every out-edge is considered, as the runtime does (it logs a warning).`,
-        );
+        notes.push(this.say('engine.flowSim.note.noBranchLabel', { label: branch.label }));
       }
     }
 
@@ -685,7 +704,7 @@ export class FlowSimulator {
       const cond = conditionText(e.condition);
       const g = evalGuard(e.condition, vars);
       if (g.kind !== 'value') {
-        const error = g.kind === 'fault' ? g.error : 'Evaluation failed.';
+        const error = g.kind === 'fault' ? g.error : this.say('engine.flowSim.note.evaluationFailed');
         evals.push({ edgeId: edgeId(e, i), target: e.target, condition: cond, result: false, error, selected: false });
         return { evals, gated, error: cond ? `${cond}: ${error}` : error };
       }
@@ -708,10 +727,10 @@ export class FlowSimulator {
     }
 
     if (trueGuards > 1) {
-      notes.push('Multiple conditions matched; the first declared branch was taken (the runtime takes every match, objectstack#15429).');
+      notes.push(this.say('engine.flowSim.note.multipleMatched'));
     }
     if (considered.length > 0 && taken.length === 0) {
-      notes.push('No out-edge was taken: no guard was true and there is no default edge. The runtime ends this branch here.');
+      notes.push(this.say('engine.flowSim.note.noEdgeTaken'));
     }
     for (const { e, i } of taken) this.traverse(e, i);
     return { evals, gated, note: notes.length ? notes.join(' ') : undefined };

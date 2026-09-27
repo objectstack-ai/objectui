@@ -344,7 +344,13 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
   const commitAdvanced = () => {
     try {
       const parsed = advText.trim() === '' ? {} : JSON.parse(advText);
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Must be a JSON object');
+      // A value that parses but is not an object is this box's own refusal, in
+      // the designer locale (objectui#10748); a parse failure keeps the
+      // engine's own `SyntaxError` text below.
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        setAdvError(t('engine.inspector.flowNode.advancedNotObject', locale));
+        return;
+      }
       // Form-owned config keys always win: the Advanced block may only set keys
       // that no form field owns, so it can never overwrite or resurrect one.
       const knownPart = Object.fromEntries(Object.entries(config).filter(([k]) => ownedConfigKeys.has(k)));
@@ -386,12 +392,13 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
       footer={nested ? undefined : <InspectorRemoveButton label={t('engine.inspector.flowNode.remove', locale)} onClick={remove} disabled={readOnly} />}
     >
       {nested && (
-        <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground" aria-label="nested node location">
+        <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground" aria-label={t('engine.inspector.flowNode.nestedLocation', locale)}>
           <span className="max-w-[45%] truncate font-medium">{loc?.container?.label || loc?.container?.id}</span>
           <span aria-hidden>›</span>
-          {/* The region's English structural fallback (`Try` / `Catch` / `Branch N`)
-              reads the same catalogue rows the canvas header above it reads;
-              `Body` and an authored branch name pass through (objectui#10696). */}
+          {/* The region's English structural fallback (`Try` / `Catch` / `Branch N`,
+              and a loop body's `Body`) reads its catalogue row through the same
+              `displayRegionLabel` the canvas header reads; an authored branch
+              name passes through (objectui#10696, objectui#10748). */}
           <span className="truncate">
             {loc?.regionKey ? displayRegionLabel({ key: loc.regionKey, label: loc.regionLabel }, locale) : loc?.regionLabel}
           </span>

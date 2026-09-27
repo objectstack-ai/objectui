@@ -44,7 +44,7 @@ import type { MetadataDefaultInspectorProps } from '../default-inspector-registr
 import { SchemaForm } from '../SchemaForm.js';
 import { getDashboardForm, getDashboardSchema } from '../dashboard-schema.js';
 import { mergeServerFields } from '../mergeServerFields.js';
-import { t } from '../i18n.js';
+import { t, tFormat } from '../i18n.js';
 // `DashboardWidget.title` is the spec's `I18nLabel`, which @objectstack/spec
 // 17.0.0-rc.6 widened from plain `string` to `string | Record<string, string>`
 // (the inline per-locale map, folded in from the retired `I18nObject`). Every
@@ -117,7 +117,7 @@ export function DashboardDefaultInspector({
       label:
         resolveInlineI18nLabel(widget.title, locale) ||
         widget.id ||
-        `Widget ${index + 1}`,
+        tFormat('engine.inspector.widget.untitledN', locale, { n: index + 1 }),
     });
   };
 
@@ -219,7 +219,7 @@ export function DashboardDefaultInspector({
                   >
                     {resolveInlineI18nLabel(w?.title, locale) ||
                       w?.id ||
-                      `Widget ${i + 1}`}
+                      tFormat('engine.inspector.widget.untitledN', locale, { n: i + 1 })}
                   </button>
                   <code className="text-[10px] text-muted-foreground">{w?.type}</code>
                   {!readOnly && (

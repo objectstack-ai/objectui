@@ -1541,17 +1541,31 @@ function OptionsEditor({
 
 /* ─────────────── Lookup picker config (displayField / filters / dependent) ─────────────── */
 
-const LOOKUP_OPERATORS: Array<{ value: string; label: string }> = [
-  { value: 'eq', label: '= equals' },
-  { value: 'ne', label: '≠ not equals' },
-  { value: 'gt', label: '> greater than' },
-  { value: 'lt', label: '< less than' },
-  { value: 'gte', label: '≥ at least' },
-  { value: 'lte', label: '≤ at most' },
-  { value: 'contains', label: 'contains' },
-  { value: 'in', label: 'in (any of)' },
-  { value: 'notIn', label: 'not in' },
+/**
+ * The lookup filter's operators (objectui#10748). The word is a catalogue key,
+ * resolved in the designer locale at render; the symbol a label leads with is
+ * the same in every locale and stays OUTSIDE the word, so the four
+ * `engine.inspector.condition.op.*` rows the condition builder already reads
+ * serve here unchanged. The stored `value` never moves.
+ */
+const LOOKUP_OPERATORS: ReadonlyArray<{ value: string; symbol?: string; labelKey: string }> = [
+  { value: 'eq', symbol: '=', labelKey: 'engine.inspector.condition.op.equals' },
+  { value: 'ne', symbol: '≠', labelKey: 'engine.inspector.condition.op.notEquals' },
+  { value: 'gt', symbol: '>', labelKey: 'engine.inspector.condition.op.greaterThan' },
+  { value: 'lt', symbol: '<', labelKey: 'engine.inspector.condition.op.lessThan' },
+  { value: 'gte', symbol: '≥', labelKey: 'engine.inspector.condition.op.atLeast' },
+  { value: 'lte', symbol: '≤', labelKey: 'engine.inspector.condition.op.atMost' },
+  { value: 'contains', labelKey: 'engine.inspector.condition.op.contains' },
+  { value: 'in', labelKey: 'engine.inspector.condition.op.inAnyOf' },
+  { value: 'notIn', labelKey: 'engine.inspector.condition.op.notIn' },
 ];
+
+function lookupOperatorOptions(locale?: string): Array<{ value: string; label: string }> {
+  return LOOKUP_OPERATORS.map((o) => {
+    const word = t(o.labelKey, locale);
+    return { value: o.value, label: o.symbol ? `${o.symbol} ${word}` : word };
+  });
+}
 
 type LookupFilter = { field?: string; operator?: string; value?: unknown };
 
@@ -1709,7 +1723,7 @@ function LookupConfigFields({
                 disabled={readOnly}
                 mono
               />
-              <InspectorSelectField label={tr('designer.field.lookup.filterOperator')} value={f.operator ?? 'eq'} options={LOOKUP_OPERATORS} onCommit={(v) => patchFilter(i, { operator: v })} disabled={readOnly} />
+              <InspectorSelectField label={tr('designer.field.lookup.filterOperator')} value={f.operator ?? 'eq'} options={lookupOperatorOptions(locale)} onCommit={(v) => patchFilter(i, { operator: v })} disabled={readOnly} />
               <InspectorTextField
                 label={tr('designer.field.lookup.filterValue')}
                 value={valueToText(f.value)}
@@ -2043,7 +2057,7 @@ function SummaryConfigFields({
                 disabled={readOnly}
                 mono
               />
-              <InspectorSelectField label={tr('designer.field.lookup.filterOperator')} value={f.operator ?? 'eq'} options={LOOKUP_OPERATORS} onCommit={(v) => patchFilterRow(i, { operator: v })} disabled={readOnly} />
+              <InspectorSelectField label={tr('designer.field.lookup.filterOperator')} value={f.operator ?? 'eq'} options={lookupOperatorOptions(locale)} onCommit={(v) => patchFilterRow(i, { operator: v })} disabled={readOnly} />
               <InspectorTextField
                 label={tr('designer.field.lookup.filterValue')}
                 value={summaryValueToText(f.value)}

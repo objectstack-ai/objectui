@@ -11,11 +11,18 @@
  * of other obvious shape errors, with the **same corrective message** the
  * server-side validator emits.
  *
+ * The messages read the designer catalogue (`engine.flowExpr.*`) in the
+ * `locale` the caller passes (objectui#10748); the en rows are the server's
+ * words, and an absent locale reads them. The code spans inside a message are
+ * code and read the same in every locale.
+ *
  * NOTE: this is an intentionally small client-side check (no CEL parser in the
  * browser). Once `@objectstack/formula` is published, swap the body of
  * {@link validateExpressionClient} for a call to its shared `validateExpression`
  * so the GUI, SDK, and CLI share one validator verbatim.
  */
+
+import { tFormat } from '../i18n.js';
 
 export type ExprFieldRole = 'predicate' | 'value' | 'template';
 
@@ -40,7 +47,7 @@ function balanced(src: string, open: string, close: string): boolean {
  * Validate one expression for a field role. Returns `null` when clean, or an
  * issue with a corrective message. Empty/absent input is always clean.
  */
-export function validateExpressionClient(role: ExprFieldRole, raw: unknown): ExprClientIssue | null {
+export function validateExpressionClient(role: ExprFieldRole, raw: unknown, locale?: string): ExprClientIssue | null {
   // Accept a bare string or an Expression envelope ({ dialect, source }).
   let source = '';
   let dialect: string | undefined;
@@ -54,36 +61,31 @@ export function validateExpressionClient(role: ExprFieldRole, raw: unknown): Exp
 
   if (role === 'template') {
     if (dialect && dialect !== 'template') {
-      return { message: `Expected a text template but got a \`${dialect}\` expression.` };
+      return { message: tFormat('engine.flowExpr.templateDialect', locale, { dialect }) };
     }
     if (!balanced(source.replace(/\{\{/g, '').replace(/\}\}/g, ''), '{', '}')) {
       // crude: only flag obviously single-brace mustache misuse below
     }
     const m = SINGLE_BRACE_RE.exec(source);
     if (m) {
-      return { message: `Single-brace \`{${m[1]}}\` is not a valid template hole — use double braces: \`{{ ${m[1]} }}\`.` };
+      return { message: tFormat('engine.flowExpr.singleBraceTemplate', locale, { ref: m[1] }) };
     }
     return null;
   }
 
   // predicate | value → CEL
   if (dialect && dialect !== 'cel') {
-    return { message: `Expected a CEL expression but got a \`${dialect}\` dialect.` };
+    return { message: tFormat('engine.flowExpr.celDialect', locale, { dialect }) };
   }
   const m = SINGLE_BRACE_RE.exec(source);
   if (m) {
-    return {
-      message:
-        `It looks like a \`{${m[1]}}\` template brace was used inside a condition — ` +
-        `\`{…}\` parses as a CEL map literal and fails. Write the bare reference instead, e.g. \`${m[1]}\`. ` +
-        `Conditions are bare CEL (e.g. \`record.rating >= 4\`).`,
-    };
+    return { message: tFormat('engine.flowExpr.braceInCondition', locale, { ref: m[1] }) };
   }
   if (!balanced(source, '(', ')')) {
-    return { message: `Unbalanced parentheses in \`${source}\`.` };
+    return { message: tFormat('engine.flowExpr.unbalancedParens', locale, { source }) };
   }
   if (!balanced(source, '[', ']')) {
-    return { message: `Unbalanced brackets in \`${source}\`.` };
+    return { message: tFormat('engine.flowExpr.unbalancedBrackets', locale, { source }) };
   }
   return null;
 }

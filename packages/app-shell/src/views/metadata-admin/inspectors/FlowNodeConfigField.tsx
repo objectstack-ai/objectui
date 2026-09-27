@@ -369,7 +369,7 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
   // CEL brace-trap must be gated off or it false-positives on every `{…}`.
   const isTemplate = refMode === 'template';
   const exprIssue =
-    field.kind === 'expression' && !isTemplate ? validateExpressionClient('predicate', value) : null;
+    field.kind === 'expression' && !isTemplate ? validateExpressionClient('predicate', value, locale) : null;
 
   // #1934 — pair the picker with a gentle, scope-aware "unknown reference"
   // warning: CEL for predicate expression fields, `{…}` holes for template

@@ -28,7 +28,12 @@
  *
  * The graph-walk here is the unit-tested heart of the picker; async field-list
  * expansion and rendering live in the React layer so this module stays pure.
+ * The one piece of wording it produces, a reference's muted `detail`, reads the
+ * designer catalogue in the `locale` the caller passes (objectui#10748), the way
+ * `flow-ref-check`'s messages do; an absent locale reads the en rows.
  */
+
+import { t, tFormat } from '../i18n.js';
 
 /** Which group a reference belongs to (drives the picker's section headers). */
 export type ScopeGroupId =
@@ -236,7 +241,7 @@ function dedupeByToken(refs: ScopeRef[]): ScopeRef[] {
  * the UI layer to expand. Order: flow variables, upstream outputs, loop
  * iterators, then trigger refs, de-duplicated by token.
  */
-export function resolveFlowScope(draft: Record<string, unknown>, nodeId: string | undefined): FlowScope {
+export function resolveFlowScope(draft: Record<string, unknown>, nodeId: string | undefined, locale?: string): FlowScope {
   const nodes = asArray(draft.nodes).map(asRecord) as ScopeFlowNode[];
   const edges = asArray(draft.edges) as FlowEdgeLike[];
   const refs: ScopeRef[] = [];
@@ -247,7 +252,12 @@ export function resolveFlowScope(draft: Record<string, unknown>, nodeId: string 
     const name = str(rec.name);
     if (!name) continue;
     const type = str(rec.type);
-    refs.push({ token: name, label: name, detail: type ? `variable · ${type}` : 'variable', group: 'variables' });
+    refs.push({
+      token: name,
+      label: name,
+      detail: type ? tFormat('engine.flowScope.detail.variableTyped', locale, { type }) : t('engine.flowScope.detail.variable', locale),
+      group: 'variables',
+    });
   }
 
   if (!nodeId) return { refs: dedupeByToken(refs) };
@@ -279,10 +289,10 @@ export function resolveFlowScope(draft: Record<string, unknown>, nodeId: string 
       // (`status`), so the whole record is not a named ref there; `previous` is
       // (`previous.status`). Downstream the record is the named `record` object.
       if (!onStart) {
-        refs.push({ token: 'record', label: 'record', detail: `trigger record · ${objectName}`, group: 'trigger' });
+        refs.push({ token: 'record', label: 'record', detail: tFormat('engine.flowScope.detail.triggerRecord', locale, { object: objectName }), group: 'trigger' });
       }
       if (includePrevious) {
-        refs.push({ token: 'previous', label: 'previous', detail: 'record values before the change', group: 'trigger' });
+        refs.push({ token: 'previous', label: 'previous', detail: t('engine.flowScope.detail.previousRecord', locale), group: 'trigger' });
       }
       return { refs: dedupeByToken(refs), trigger: { objectName, fieldPrefix: onStart ? '' : 'record.', includePrevious } };
     }
@@ -300,6 +310,7 @@ export function resolveFlowScope(draft: Record<string, unknown>, nodeId: string 
 export function triggerFieldRefs(
   trigger: TriggerScope,
   fields: ReadonlyArray<{ name: string; label?: string; type?: string }>,
+  locale?: string,
 ): ScopeRef[] {
   const out: ScopeRef[] = [];
   for (const f of fields) {
@@ -311,7 +322,7 @@ export function triggerFieldRefs(
       out.push({
         token: `previous.${f.name}`,
         label: `previous.${f.name}`,
-        detail: detail ? `prior ${detail}` : 'prior value',
+        detail: detail ? tFormat('engine.flowScope.detail.priorOf', locale, { detail }) : t('engine.flowScope.detail.priorValue', locale),
         group: 'trigger',
       });
     }

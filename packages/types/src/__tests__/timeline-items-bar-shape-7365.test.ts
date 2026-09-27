@@ -154,11 +154,11 @@ describe('a gantt BAR that is not an object is refused at authoring time (object
     // inside the row — rebuilt on today's `TimelineSchema` so the "before"
     // column of the table in the header is measured against the same base,
     // not remembered.
-    // Annotated `z.ZodType<any>` for `.safeExtend` below, which admits only a
-    // replacement whose TYPE fits the slot it replaces — and the old row is the
-    // looser declaration. The annotation is static only: the control measures
-    // the RUNTIME accept set, which it does not touch.
-    const previousRow: z.ZodType<any> = z.object({ items: z.array(z.any()).optional() }).passthrough();
+    // Annotated `z.ZodType<any, any>` for `.safeExtend` below, which admits
+    // only a replacement whose output AND input types fit the slot it replaces
+    // — and the old row is the looser declaration. The annotation is static
+    // only: the control measures the RUNTIME accept set, which it does not touch.
+    const previousRow: z.ZodType<any, any> = z.object({ items: z.array(z.any()).optional() }).passthrough();
     // `.safeExtend`, not `.extend`: since objectui#6356 the node carries a
     // refinement, and zod 4 refuses to `.extend()` a refined object over an
     // existing key. `.safeExtend` keeps that refinement; every row below has a

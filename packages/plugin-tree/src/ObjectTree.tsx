@@ -49,6 +49,7 @@ import {
   NonGridRowCeilingNote,
   useFilterScope,
   useResolvedFilter,
+  useDataInvalidation,
 } from '@object-ui/react';
 import {
   NavigationOverlay,
@@ -697,6 +698,22 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
   const filterScope = useFilterScope();
   const queryFilter = useResolvedFilter(schema.filter, filterScope);
 
+  // objectui#10778 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10623 way: the nonce moves when a
+  // write to the object this tree QUERIES is declared, and the record effect
+  // below names it, so the rows are re-read in place. Without it a page action
+  // over raw HTTP left the tree stale unless the page was remounted.
+  //
+  // The object is `dataObjectName` — the `object` provider's own object,
+  // whether the node spelled it `objectName` or `data: { provider: 'object' }`.
+  // Subscribed only when the `object` arm is the one that queries: inline rows
+  // (a `data` array, the `value` provider) name no object, and rows a HOST hands
+  // down as the `data` prop (ListView) are refreshed by that host, which reads
+  // the bus itself and hands down fresh rows this effect already keys on.
+  const invalidationNonce = useDataInvalidation(
+    dataSource && !Array.isArray((rest as any).data) ? dataObjectName : undefined,
+  );
+
   // Fetch records.
   useEffect(() => {
     let cancelled = false;
@@ -884,7 +901,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [dataProvider, dataObjectName, dataItems, dataSource, queryFilter, objectSchema, schemaSettled, (rest as any).data, perms]);
+  }, [dataProvider, dataObjectName, dataItems, dataSource, queryFilter, objectSchema, schemaSettled, (rest as any).data, perms, invalidationNonce]);
 
   const config = useMemo(() => getTreeConfig(schema), [schema]);
   const parentField = useMemo(

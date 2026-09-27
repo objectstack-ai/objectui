@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect, useContext } from 'react';
-import { useDataScope, SchemaRendererContext, useFilterScope } from '@object-ui/react';
+import { useDataScope, SchemaRendererContext, useFilterScope, useDataInvalidation } from '@object-ui/react';
 import { useSafeFieldLabel } from '@object-ui/i18n';
 import { extractRecords, computeDrillFilter, composeDrillFilter, isDrillEnabled, resolveDrillTitle, type DrillEvent } from '@object-ui/core';
 import { Skeleton, cn } from '@object-ui/components';
@@ -194,6 +194,21 @@ export const ObjectPivotTable: React.FC<ObjectPivotTableProps> = ({ schema, data
   // filter. Read at component level — the fetch below is async.
   const filterScope = useFilterScope();
 
+  // objectui#10778 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10623 way: the nonce moves when a
+  // write to the object this pivot QUERIES is declared, and the fetch effect
+  // below names it, so the cross-tab is re-read in place (the skeleton is drawn
+  // only while there are no rows yet). Without it a page action over raw HTTP
+  // left the pivot stale unless the page was remounted.
+  //
+  // `schema.objectName` is the object for both spellings of the binding: the
+  // flat key, and the element `dataSource: { object }` that `ObjectPivotBlock`
+  // binds onto it. Subscribed only when this effect queries: bound rows and
+  // authored `data` rows are not its query.
+  const fetchesForItself =
+    !!dataSource && !!schema.objectName && !boundData && (!schema.data || schema.data.length === 0);
+  const invalidationNonce = useDataInvalidation(fetchesForItself ? schema.objectName : undefined);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -233,7 +248,7 @@ export const ObjectPivotTable: React.FC<ObjectPivotTableProps> = ({ schema, data
     }
 
     return () => { isMounted = false; };
-  }, [schema.objectName, dataSource, boundData, schema.data, schema.filter, filterScope]);
+  }, [schema.objectName, dataSource, boundData, schema.data, schema.filter, filterScope, invalidationNonce]);
 
   // Resolve data: bound data > static schema data > fetched data
   const rawData = boundData || schema.data || fetchedData;

@@ -105,7 +105,15 @@ describe('object-tree re-reads on the data-invalidation bus (objectui#10778)', (
     await waitFor(() => expect(screen.getByText('Acme')).toBeTruthy());
     await settle();
     expect(ds.find).toHaveBeenCalledTimes(1);
-    const tree = screen.getByTestId('object-tree');
+
+    // The user flips the root's expansion: component state a remount would lose.
+    const toggle = screen.getByRole('button', { name: /Expand|Collapse/ });
+    const before = toggle.getAttribute('aria-label');
+    await act(async () => {
+      toggle.click();
+    });
+    const flipped = screen.getByRole('button', { name: /Expand|Collapse/ }).getAttribute('aria-label');
+    expect(flipped).not.toBe(before);
 
     ds.rename('Acme (renamed)');
     await act(async () => {
@@ -116,8 +124,12 @@ describe('object-tree re-reads on the data-invalidation bus (objectui#10778)', (
     expect(screen.getByTestId('bus-control').textContent, 'control: the event never reached a subscriber').toBe('1');
     expect(ds.find, 'the block never re-read after the bus reported a change').toHaveBeenCalledTimes(2);
     expect(screen.getByText('Acme (renamed)')).toBeTruthy();
-    // The re-read is in place: the same tree node, so expansion and scroll survive.
-    expect(screen.getByTestId('object-tree'), 'the tree was remounted by the re-read').toBe(tree);
+    // The re-read is in place: the same component instance, so the user's
+    // expansion choice survives it.
+    expect(
+      screen.getByRole('button', { name: /Expand|Collapse/ }).getAttribute('aria-label'),
+      'the tree lost the user’s expansion choice: it was remounted by the re-read',
+    ).toBe(flipped);
   });
 
   it('a change to its own object re-runs its query once; another object does not', async () => {

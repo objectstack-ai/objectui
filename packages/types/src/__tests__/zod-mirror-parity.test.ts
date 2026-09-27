@@ -687,7 +687,7 @@ import type { z } from 'zod';
 
 import { AppComponentSchema, MenuItemSchema as AppMenuItemSchema, NavigationAreaSchema, NavigationItemSchema } from '../zod/app.zod.js';
 import { BaseSchema, ComponentConfigSchema, ComponentInputSchema, ComponentMetaSchema, KeyedI18nLabelSchema, SchemaNodeSchema } from '../zod/base.zod.js';
-import { CalendarEventSchema, CalendarViewSchema, CarouselItemSchema, CarouselSchema, ChatbotSchema, ChatbotEnhancedSchema, ChatbotFloatingSchema, ChatMessageSchema, ChatMessageSourceSchema, ChatToolInvocationSchema, DashboardComponentSchema, DashboardConfigSchema, DashboardWidgetConfigSchema, DashboardWidgetLayoutSchema, DashboardWidgetSchema, FilterBuilderSchema, FilterFieldSchema, KanbanCardSchema, KanbanColumnSchema, CardTemplateSchema, FilterBuilderConditionSchema, FilterGroupSchema } from '../zod/complex.zod.js';
+import { CalendarEventSchema, CalendarViewSchema, CarouselItemSchema, CarouselSchema, ChatbotSchema, ChatbotEnhancedSchema, ChatbotFloatingSchema, ChatMessageSchema, ChatMessageSourceSchema, ChatToolInvocationSchema, DashboardComponentSchema, DashboardConfigSchema, DashboardWidgetConfigSchema, DashboardWidgetLayoutSchema, DashboardWidgetSchema, FilterBuilderSchema, FilterFieldSchema, KanbanCardSchema, KanbanColumnSchema, CardTemplateSchema, FilterGroupSchema } from '../zod/complex.zod.js';
 import { ActionSchema, CRUDDialogSchema, DetailSchema } from '../zod/crud.zod.js';
 import { AlertSchema, AvatarSchema, BadgeSchema, BarChartSchema, ChartDataSeriesSchema, ChartSchema, DataTableSchema, DrillDownConfigSchema, HtmlSchema, KbdSchema, ListItemSchema, ListSchema, MarkdownSchema, StaticTableColumnSchema, StatisticSchema, TableColumnSchema, TableSchema, TimelineEventSchema, TimelineFeedItemSchema, TimelineGanttItemBarSchema, TimelineGanttItemSchema, TimelineSchema, TreeNodeSchema, TreeViewSchema } from '../zod/data-display.zod.js';
 import { AccordionItemSchema, AccordionSchema, CollapsibleSchema, ToggleGroupItemSchema, ToggleGroupSchema } from '../zod/disclosure.zod.js';
@@ -5181,13 +5181,19 @@ function measureReachableLazyNodes(): Map<unknown, string> {
  * `unknown` INPUT parameter. So the exclusion is only as bounded as that population
  * is — and the population is exactly what the type level cannot report.
  *
- * ⚠️ Seven of the ten below no longer PRODUCE that face: objectui#7760 gave them their
+ * ⚠️ Seven of the nine below no longer PRODUCE that face: objectui#7760 gave them their
  * TypeScript declaration as both type arguments, so their slots are measured now. They
  * stay in this list unchanged, and the list's name is still right, because what this
  * leg pins is the set of RECURSION-BREAKING SOURCES — every lazy node reachable from a
  * registered mirror — not the set of erased faces. A `z.lazy` is what the walk can see;
- * an annotation is not. ⇒ A future card that fills the remaining three ⛔ still may not
- * shorten this list: it would stop being able to detect the eleventh. At the type
+ * an annotation is not. ⇒ A future card that fills the remaining two ⛔ still may not
+ * shorten this list: it would stop being able to detect the tenth. (The list held ten
+ * until objectui#10825: `complex.zod.ts#FilterBuilderConditionSchema` LEFT it with its
+ * annotation still standing. `FilterBuilderSchema.value` stopped naming it when that
+ * card retired the bare-condition arm, and the only path left to it runs through
+ * `FilterGroupSchema`'s getter, which the walk does not enter — so it is no longer a
+ * source by this leg's definition, and the no-dead-entries case below removed the row.
+ * That is a change in what is REACHABLE, not a filled annotation.) At the type
  * level every unconstrained face looks alike, so a NEW recursive mirror enlarges
  * the blind region without changing one character the compiler reads. At runtime
  * the mirrors are values and the lazy nodes are reachable, so the region can be
@@ -5208,7 +5214,6 @@ const RECURSION_BREAKING_MIRRORS: readonly (readonly [string, unknown])[] = [
   ['base.zod.ts#SchemaNodeSchema', SchemaNodeSchema],
   ['app.zod.ts#NavigationItemSchema', NavigationItemSchema],
   ['app.zod.ts#MenuItemSchema', AppMenuItemSchema],
-  ['complex.zod.ts#FilterBuilderConditionSchema', FilterBuilderConditionSchema],
   ['complex.zod.ts#FilterGroupSchema', FilterGroupSchema],
   ['crud.zod.ts#ActionSchema', ActionSchema],
   ['data-display.zod.ts#TreeNodeSchema', TreeNodeSchema],

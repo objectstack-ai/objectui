@@ -13,7 +13,10 @@ page action over raw HTTP does) re-reads a `report` / `spec-report` block in
 place: the rows on screen stay drawn until the answer replaces them, where
 before the block dropped back to "Running report…". The `spec-report` a
 drill-down drawer opens for `drillDown.report` re-reads the same way. A report
-whose answer names no object does not subscribe.
+whose answer names no object does not subscribe. A re-read that fails shows the
+error in place of the rows and keeps listening, so the next such write re-reads
+the report; a first load that fails, or a new selection, listens to nothing
+until an answer names its object.
 
 The child-row read of `record:line_items` now names the nonce for its child
 object, so a panel with an authored `parentId` / `recordId` (one a stored page

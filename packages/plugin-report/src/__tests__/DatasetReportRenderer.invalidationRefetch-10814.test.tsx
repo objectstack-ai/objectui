@@ -48,6 +48,7 @@ interface PendingQuery {
   dataset: string;
   selection: { dimensions?: string[]; measures?: string[] };
   resolve: (value: unknown) => void;
+  reject: (reason: unknown) => void;
 }
 
 /**
@@ -61,8 +62,8 @@ function makeDataSource() {
     queries,
     queryDataset: vi.fn(
       (dataset: string, selection: PendingQuery['selection']) =>
-        new Promise((resolve) => {
-          queries.push({ dataset, selection, resolve });
+        new Promise((resolve, reject) => {
+          queries.push({ dataset, selection, resolve, reject });
         }),
     ),
   };
@@ -81,6 +82,14 @@ const answer = (amount: number) => ({
 async function answerAll(ds: ReturnType<typeof makeDataSource>, amount: number, from = 0) {
   await act(async () => {
     for (const q of ds.queries.slice(from)) q.resolve(answer(amount));
+    await Promise.resolve();
+  });
+}
+
+/** Fail the `n`-th query (1-based). */
+async function failQuery(ds: ReturnType<typeof makeDataSource>, n: number, message: string) {
+  await act(async () => {
+    ds.queries[n - 1].reject(new Error(message));
     await Promise.resolve();
   });
 }
@@ -196,6 +205,66 @@ describe('report / spec-report over a dataset re-reads on the data-invalidation 
     await waitFor(() => expect(withChart.queryDataset).toHaveBeenCalledTimes(4));
     const reread = withChart.queries.slice(2).map((q) => q.selection.dimensions?.join(','));
     expect(reread.sort(), 'the chart query and the table query each re-read').toEqual(['stage', 'stage']);
+  });
+
+  it('a re-read that FAILS keeps listening: the error replaces the rows, and the next change re-reads', async () => {
+    const ds = makeDataSource();
+    const { container, queryByRole, getByText } = renderBlock({ type: 'spec-report', report: SUMMARY }, ds);
+    await waitFor(() => expect(ds.queryDataset).toHaveBeenCalledTimes(1));
+    await answerAll(ds, 100);
+    await waitFor(() => expect(getByText('100')).toBeTruthy());
+
+    await emit({ objectName: '*' });
+    await waitFor(() => expect(ds.queryDataset).toHaveBeenCalledTimes(2));
+    await failQuery(ds, 2, 'upstream timeout');
+    // The table's error branch draws the error INSTEAD of the rows.
+    await waitFor(() => expect(queryByRole('alert')?.textContent).toContain('upstream timeout'));
+    expect(container.querySelector('table'), 'rows were kept under the error').toBeNull();
+
+    await emit({ objectName: '*' });
+    await waitFor(() =>
+      expect(ds.queryDataset, 'one failed re-read left the report deaf to the bus').toHaveBeenCalledTimes(3),
+    );
+    await answerAll(ds, 400, 2);
+    await waitFor(() => expect(getByText('400')).toBeTruthy());
+    expect(queryByRole('alert')).toBeNull();
+  });
+
+  it('control: a first load that fails, with no answer ever, subscribes to nothing', async () => {
+    const ds = makeDataSource();
+    const { getByTestId, queryByRole } = renderBlock({ type: 'spec-report', report: SUMMARY }, ds);
+    await waitFor(() => expect(ds.queryDataset).toHaveBeenCalledTimes(1));
+    await failQuery(ds, 1, 'no such dataset');
+    await waitFor(() => expect(queryByRole('alert')?.textContent).toContain('no such dataset'));
+
+    await emit({ objectName: '*' });
+
+    expect(getByTestId('bus-control').textContent).toBe('1');
+    expect(ds.queryDataset).toHaveBeenCalledTimes(1);
+  });
+
+  it('control: a new selection does not keep the previous selection’s subscription', async () => {
+    const ds = makeDataSource();
+    const tree = (report: Record<string, unknown>) => (
+      <SchemaRendererProvider dataSource={ds as any}>
+        <BusControl />
+        <SchemaRenderer schema={{ type: 'spec-report', report } as any} />
+      </SchemaRendererProvider>
+    );
+    const view = render(tree(SUMMARY));
+    await waitFor(() => expect(ds.queryDataset).toHaveBeenCalledTimes(1));
+    await answerAll(ds, 100);
+
+    // Another selection, whose first load fails: it has had no answer, so it
+    // must not listen on the object the previous selection's answer named.
+    view.rerender(tree({ ...SUMMARY, values: ['amount_avg'] }));
+    await waitFor(() => expect(ds.queryDataset).toHaveBeenCalledTimes(2));
+    await failQuery(ds, 2, 'unknown measure');
+
+    await emit({ objectName: '*' });
+
+    expect(view.getByTestId('bus-control').textContent).toBe('1');
+    expect(ds.queryDataset, 'the new selection listened on the previous selection’s object').toHaveBeenCalledTimes(2);
   });
 
   it('control: a report over authored rows queries nothing on an invalidation', async () => {

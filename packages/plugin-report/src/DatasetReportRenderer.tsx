@@ -399,13 +399,21 @@ function useDatasetRows(
   // `PageView` is to stop doing that (objectui#10519).
   //
   // A dataset selection names no object of its own: the object is the dataset's
-  // base object, which only the query's ANSWER names (`state.object`), the key
-  // `ObjectChart`'s dataset arm reads (objectui#10035). So nothing subscribes
-  // until an answer has named it, and a selection that queries nothing (idle,
-  // or an error) has no object and does not subscribe. Every presentation (the
+  // base object, which only the query's ANSWER names, the key `ObjectChart`'s
+  // dataset arm reads (objectui#10035). It is held apart from `state`, as
+  // `ObjectChart` holds its `datasetObject`, because the two outlive different
+  // things: `state` is replaced by every outcome, while the subscription must
+  // survive a FAILED re-read of the same selection. Otherwise one failed bus
+  // re-read would unsubscribe the block, and nothing would ever re-read it again
+  // (not even `'*'`) until its selection changed. So: set by an answer; kept by
+  // a failure of the same selection (the next bus event re-reads it); cleared by
+  // a new selection (it never subscribes on the previous dataset's object), and
+  // by a selection that queries nothing (idle, or no `queryDataset`). A first
+  // load that fails therefore subscribes to nothing. Every presentation (the
   // table, the matrix, the embedded chart, each joined block) funnels through
   // this hook, and so does a `drillDown.report` a drill-down drawer renders.
-  const invalidationNonce = useDataInvalidation(state.object);
+  const [datasetObject, setDatasetObject] = React.useState<string | undefined>(undefined);
+  const invalidationNonce = useDataInvalidation(datasetObject);
   // The signature whose query last ran. A run for the SAME signature is a
   // re-read of the rows already on screen (the nonce moved), so it keeps them
   // and swaps them for the answer when it lands; it does not blank the block
@@ -417,18 +425,23 @@ function useDatasetRows(
     const src = dataSource as DatasetCapableSource | undefined;
     if (!src || typeof src.queryDataset !== 'function') {
       lastQueriedSignatureRef.current = null;
+      setDatasetObject(undefined);
       setState({ status: 'error', rows: [], error: 'This data source does not support dataset queries.' });
       return;
     }
     if (!dataset || measures.length === 0) {
       lastQueriedSignatureRef.current = null;
+      setDatasetObject(undefined);
       setState({ status: 'idle', rows: [] });
       return;
     }
     let cancelled = false;
     const inPlace = lastQueriedSignatureRef.current === signature;
     lastQueriedSignatureRef.current = signature;
-    if (!inPlace) setState({ status: 'loading', rows: [] });
+    if (!inPlace) {
+      setDatasetObject(undefined);
+      setState({ status: 'loading', rows: [] });
+    }
     src
       .queryDataset(dataset, {
         dimensions,
@@ -439,6 +452,7 @@ function useDatasetRows(
       })
       .then((res) => {
         if (!cancelled) {
+          setDatasetObject(typeof res?.object === 'string' && res.object ? res.object : undefined);
           setState({
             status: 'ok',
             rows: Array.isArray(res?.rows) ? res.rows : [],
@@ -452,6 +466,10 @@ function useDatasetRows(
         }
       })
       .catch((e) => {
+        // The error replaces the rows, on a first load and on a failed re-read
+        // alike: the table's error branch draws the error INSTEAD of a table, so
+        // no rows are kept under it. `datasetObject` is deliberately left as it
+        // is, so a failed re-read stays subscribed (see above).
         if (!cancelled) setState({ status: 'error', rows: [], error: String((e as Error)?.message ?? e) });
       });
     return () => {

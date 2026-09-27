@@ -299,14 +299,14 @@ describe('objectui#8355 · surfaces 3 and 4 — the `object-calendar` node', () 
 });
 
 describe('objectui#8355 · surface 5 — a NAMED VIEW, and the ledger it must not disturb', () => {
-  it('⭐ `listViews` is STILL ABSENT from `ObjectViewSchema.shape` — the check is not a mirror', () => {
-    // THE STRUCTURAL GUARD for the unmirrored ruling. That ruling waits on the
-    // key's VALUE TYPE; the round-3 refusal is a `.check()` on the object, so it
-    // declares nothing and the key never enters the shape. If a later edit turns
-    // it into a member — of any type — this row reddens before the parity
-    // ledger has to notice.
+  it('⭐ `listViews` is a MEMBER of `ObjectViewSchema.shape` since objectui#7928 — the value type was ruled, and the check is still not the mirror', () => {
+    // THE STRUCTURAL GUARD for the unmirrored ruling, inverted when that ruling
+    // was answered. It waited on the key's VALUE TYPE; objectui#7928 (ruling A)
+    // chose the protocol's `ObjectListViewSchema` by reference, so the key is a
+    // member now. The round-3 refusal is still a check beside it, not the
+    // member: it adds the by-name pointer to the protocol's own refusal.
     const keys = Object.keys(ObjectViewSchema.shape);
-    expect(keys).not.toContain('listViews');
+    expect(keys).toContain('listViews');
     expect(keys, 'the shape is unreadable — the row above would pass vacuously').toContain('objectName');
   });
 

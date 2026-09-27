@@ -50,16 +50,17 @@
  *
  * ## THE REFUSAL'S SHAPE HERE, and why it is not a mirror
  *
- * `listViews` STAYS UNMIRRORED. The ruling that keeps it so (recorded on
- * `ObjectViewSchema` in `@object-ui/types`) turns on its VALUE TYPE — neither
- * the spec's strict `ObjectListViewSchema` nor the local `NamedListView` can be
- * the declared value without losing documented behaviour or enforcing 43 unread
- * members, so the key waits for the maintainer to decide that type, and ⛔ not
- * `z.any()`. A `.check()` on the `object-view` object decides none of that: it
- * declares no value, puts no key in `.shape`, enforces none of the 43, and
- * judges exactly the two spellings this card retires. The in-module precedent
- * is `ListViewSchema.options`, an untyped bag whose own `.check()` refuses
- * `kanban.groupBy` and this card's two calendar spellings by name.
+ * `listViews` stayed unmirrored when this file was written, waiting on its
+ * VALUE TYPE. objectui#7928 answered that (ruling A): the key is the protocol's
+ * strict `ObjectListViewSchema` record by reference now, so the protocol refuses
+ * both spellings under `listViews.KEY.calendar` itself. The `.check()` this
+ * card added stays beside that member, still not the mirror: it reads the
+ * protocol's refusal and adds the by-name pointer at the key (the protocol's own
+ * hint answers `dateField` → `endDateField`). The legacy `options.calendar`
+ * nesting is refused WHOLE now (`options` is not a member) and is no longer read
+ * off a named view; a stored body's bag is folded at `ViewPreview`
+ * (objectui#7928 director ruling, Q1 A). The scope controls below were
+ * inverted to that tree, ⛔ none deleted.
  */
 
 import React from 'react';
@@ -196,13 +197,17 @@ describe('objectui#8355 · second route, half 1 — the emitted node carries can
     expect(node.allDayField).toBe('is_all_day');
   });
 
-  it('CONTROL: the LEGACY `options.calendar` nesting is stripped on the same path', async () => {
-    // `viewOptions` merges the canonical block over the legacy `options` bag,
-    // and the file's own note says that bag "is where the legacy field aliases
-    // … `dateField` live" — so it is the nesting stored views actually carry.
+  it('CONTROL: the LEGACY `options.calendar` nesting is stripped on the same path — and since objectui#7928 not read at all', async () => {
+    // `viewOptions` merged the canonical block over the legacy `options` bag
+    // until objectui#7928, and that bag "is where the legacy field aliases …
+    // `dateField` live". The two assertions that follow still hold; the third is
+    // the inversion: the bag is no longer READ off a named view (a stored body's
+    // bag is folded at `ViewPreview`, where it becomes `calendar` and meets the
+    // strip above), so its `titleField` does not reach the node either.
     const node = await generatedCalendarNode({ options: { calendar: { dateField: 'kickoff', titleField: 'name' } } });
     expect(Object.keys(node)).not.toContain('dateField');
     expect(node.startDateField).toBeUndefined();
+    expect(node.titleField).toBeUndefined();
   });
 });
 
@@ -220,36 +225,68 @@ describe('objectui#8355 · second route, half 2 — the document is REFUSED at t
     expect(issues[0].message).toContain('Did you mean `endField` → `endDateField`?');
   });
 
-  it('the LEGACY `options.calendar` nesting is refused too, with the same message', () => {
-    const issues = issuesEndingIn(objectViewDoc({ options: { calendar: { dateField: 'kickoff' } } }), 'options.calendar.dateField');
-    expect(issues).toHaveLength(1);
-    expect(issues[0].message).toContain('Did you mean `dateField` → `startDateField`?');
+  it('INVERTED: the LEGACY `options.calendar` nesting is refused WHOLE — `options` by name — and no longer judged inside (objectui#7928)', () => {
+    // Was "refused too, with the same message" at `options.calendar.dateField`.
+    // The named view is the protocol's strict record now, which refuses the
+    // `options` key itself; the check no longer reads inside a bag the contract
+    // refuses and the renderer does not read. A stored body's bag is folded onto
+    // `calendar` at `ViewPreview`, where the arms above judge it.
+    const doc = objectViewDoc({ options: { calendar: { dateField: 'kickoff' } } });
+    const issues = issuesEndingIn(doc, 'options.calendar.dateField');
+    expect(issues).toHaveLength(0);
+    expect(issues.some((i) => i.message.includes('Did you mean `dateField` → `startDateField`?'))).toBe(false);
+    const whole = issuesEndingIn(doc, 'listViews.v1').filter((i) => i.code === 'unrecognized_keys');
+    expect(whole).toHaveLength(1);
+    expect((whole[0] as { keys?: string[] }).keys).toEqual(['options']);
   });
 
   it('DARK CONTROL: the canonical named view parses GREEN through the same door', () => {
-    const r = safeValidateSchema(objectViewDoc({ calendar: { startDateField: 'kickoff', endDateField: 'wrapup' } }));
+    // `columns` since objectui#7928: the protocol's named view requires it, so a
+    // canonical view carries it.
+    const r = safeValidateSchema(objectViewDoc({ columns: ['name'], calendar: { startDateField: 'kickoff', endDateField: 'wrapup' } }));
     expect(r.success, r.success ? '' : JSON.stringify(r.error.issues)).toBe(true);
   });
 
-  it('SCOPE CONTROL: `listViews` is still UNMIRRORED — nothing else about a named view is judged', () => {
-    // ⭐ THE ARM THAT PROVES THIS IS NOT A MIRROR. The unmirrored ruling waits
-    // on the key's VALUE TYPE; a check that declared one would refuse an
-    // undeclared member, require `columns`, or reject the legacy `options` bag.
-    // None of that happens: only the two retired spellings are judged.
-    const undeclared = safeValidateSchema(objectViewDoc({ calendar: { zzqxNoSuchField: 'x' } }));
-    expect(undeclared.success, 'an undeclared key inside a named view is now refused — that is a mirror, not a check').toBe(true);
+  it('INVERTED SCOPE CONTROL: `listViews` IS the protocol\'s record since objectui#7928 — the MIRROR judges a named view now, not this check', () => {
+    // Was "`listViews` is still UNMIRRORED — nothing else about a named view is
+    // judged": the unmirrored ruling waited on the key's VALUE TYPE, and
+    // objectui#7928 chose the protocol's. Each of the three documents that
+    // parsed green then is refused now, by the mirror and at the key.
+    const undeclared = safeValidateSchema(objectViewDoc({ columns: ['name'], calendar: { startDateField: 'kickoff', zzqxNoSuchField: 'x' } }));
+    expect(undeclared.success, 'an undeclared key inside a named view is accepted — the mirror is not the protocol\'s strict record').toBe(false);
+    expect(issuesEndingIn(objectViewDoc({ columns: ['name'], calendar: { startDateField: 'kickoff', zzqxNoSuchField: 'x' } }), 'listViews.v1.calendar')
+      .some((i) => i.code === 'unrecognized_keys')).toBe(true);
     const noColumns = safeValidateSchema(objectViewDoc({ calendar: { startDateField: 'kickoff' } }));
-    expect(noColumns.success, 'a named view without `columns` is now refused — the spec value type leaked in').toBe(true);
-    const legacyBag = safeValidateSchema(objectViewDoc({ options: { calendar: { startDateField: 'kickoff' } } }));
-    expect(legacyBag.success, 'the legacy `options` bag is now refused — documented behaviour was lost').toBe(true);
+    expect(noColumns.success, 'a named view without `columns` is accepted — the spec value type is not the mirror').toBe(false);
+    const legacyBag = safeValidateSchema(objectViewDoc({ columns: ['name'], options: { calendar: { startDateField: 'kickoff' } } }));
+    expect(legacyBag.success, 'the legacy `options` bag is accepted on a named view — the contract refuses it (objectui#7928)').toBe(false);
+    // …and the check still judges only the two calendar spellings: none of the
+    // three draws a `custom` issue.
+    for (const doc of [
+      objectViewDoc({ columns: ['name'], calendar: { startDateField: 'kickoff', zzqxNoSuchField: 'x' } }),
+      objectViewDoc({ calendar: { startDateField: 'kickoff' } }),
+      objectViewDoc({ columns: ['name'], options: { calendar: { startDateField: 'kickoff' } } }),
+    ]) {
+      const r = safeValidateSchema(doc);
+      const custom = r.success ? [] : r.error.issues.filter((i) => i.code === 'custom');
+      expect(custom).toEqual([]);
+    }
   });
 
-  it('SCOPE CONTROL: the TIMELINE alias is untouched on this route too', () => {
-    const r = safeValidateSchema({
+  it('SCOPE CONTROL: the TIMELINE alias is untouched BY THIS CHECK — the protocol\'s strict record refuses it since objectui#7928', () => {
+    const doc = {
       type: 'object-view',
       objectName: 'task',
       listViews: { v1: { type: 'timeline', timeline: { dateField: 'kickoff' } } },
-    });
-    expect(r.success, r.success ? '' : JSON.stringify(r.error.issues)).toBe(true);
+    };
+    const r = safeValidateSchema(doc);
+    // INVERTED from `success === true`: the protocol's timeline block declares
+    // no `dateField` (and requires `startDateField` / `titleField`), and the
+    // named view is that block by reference now.
+    expect(r.success).toBe(false);
+    expect(issuesEndingIn(doc, 'listViews.v1.timeline').some((i) => i.code === 'unrecognized_keys')).toBe(true);
+    // The scope this control exists for is unchanged: the calendar check adds
+    // nothing under `timeline`.
+    expect(issuesEndingIn(doc, 'timeline.dateField').filter((i) => i.code === 'custom')).toEqual([]);
   });
 });

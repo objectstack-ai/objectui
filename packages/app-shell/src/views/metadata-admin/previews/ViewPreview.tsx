@@ -47,6 +47,54 @@ function resolveObjectName(
   return undefined;
 }
 
+/**
+ * The protocol's per-kind config blocks on a list view — the keys
+ * `ObjectListViewSchema` carries at the top level, and the ones `plugin-view`'s
+ * `ObjectView` reads off a named view (its `canonicalViewKindBlocks`).
+ */
+const VIEW_KIND_BLOCKS = ['kanban', 'calendar', 'gallery', 'timeline', 'gantt', 'map', 'chart', 'tree'] as const;
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === 'object' && !Array.isArray(v);
+}
+
+/**
+ * objectui#7928 — translate a STORED list body into the named-view shape, at
+ * the one door that relays a stored body into `object-view`'s `listViews`.
+ *
+ * A stored list overlay may carry the legacy per-kind bag `options.KIND`: the
+ * protocol declares it on that wire and nowhere else (objectstack#20051), and
+ * objectui#10380 ruling A keeps it legal there. The named-view record this body
+ * is injected into is the protocol's strict `ObjectListViewSchema`, which
+ * refuses `options`, and `plugin-view` no longer reads it off a named view. So
+ * the bag is folded here, before the node is built: each `options.KIND` block
+ * becomes the top-level `KIND` block, and where both spell a key the TOP-LEVEL
+ * value wins — the same per-key merge the #20051 door describes and the one
+ * `ObjectView` applied while it still read the bag. `options` itself is not
+ * relayed; the renderer read nothing from it but these blocks.
+ *
+ * Director ruling on objectui#7928 (comment 5856694523, Q1 A). ⛔ This is the
+ * wire → authoring translation for a STORED body only; it is not a tolerance
+ * for authored `options`, which the contract refuses by name.
+ *
+ * A body without `options` is returned as the same object, so nothing changes
+ * for the population that never carried the bag.
+ */
+export function foldStoredListOptions(body: Record<string, unknown>): Record<string, unknown> {
+  if (!('options' in body)) return body;
+  const { options, ...rest } = body;
+  if (!isPlainObject(options)) return rest;
+  const folded: Record<string, unknown> = { ...rest };
+  for (const kind of VIEW_KIND_BLOCKS) {
+    const legacy = options[kind];
+    if (!isPlainObject(legacy)) continue;
+    const canonical = rest[kind];
+    if (canonical === undefined) folded[kind] = { ...legacy };
+    else if (isPlainObject(canonical)) folded[kind] = { ...legacy, ...canonical };
+    // A top-level value that is not a block wins as written; the record judges it.
+  }
+  return folded;
+}
 
 // A ViewItem form section uses the spec's `{ field, readonly, … }` shape, but
 // `object-form` selects fields by `name` and reads `readOnly`. Normalize so the
@@ -102,7 +150,9 @@ export function ViewPreview({ name, draft, editing }: MetadataPreviewProps) {
   const designMode = !!editing;
 
   // Surface the draft body as a named listView so the preview renders THIS
-  // view (with unsaved edits) rather than the object's saved default.
+  // view (with unsaved edits) rather than the object's saved default. The body
+  // is a STORED ViewItem config, so a legacy `options.KIND` bag is folded onto
+  // the top-level blocks first (`foldStoredListOptions`, objectui#7928).
   const { listViews, defaultViewId, defaultViewType } = React.useMemo(() => {
     if (!body) {
       return { listViews: {}, defaultViewId: undefined, defaultViewType: 'grid' };
@@ -111,7 +161,7 @@ export function ViewPreview({ name, draft, editing }: MetadataPreviewProps) {
     return {
       listViews: {
         [id]: {
-          ...body,
+          ...foldStoredListOptions(body),
           label: (body as any).label ?? (draft as any).label ?? name,
         },
       },

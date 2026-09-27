@@ -59,6 +59,7 @@ import {
   PageTypeSchema as SpecPageTypeSchema,
   PageVariableSchema as SpecPageVariableSchema,
   ListViewSchema as SpecListViewSchema,
+  ViewSchema as SpecViewSchema,
   KanbanConfigSchema as SpecKanbanConfigSchema,
   GanttConfigSchema as SpecGanttConfigSchema,
   CalendarConfigSchema as SpecCalendarConfigSchema,
@@ -200,6 +201,10 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // cross the same boundary with the same symbol, so this one entry measures
   // all four crossings.
   ['ChartAxisSchema', SpecChartAxisSchema],
+  // objectui#7928: `ObjectViewSchema.listViews` is the view container's own
+  // `listViews` record, crossed through this boundary, so the container is
+  // measured here like every other crossing.
+  ['ViewSchema', SpecViewSchema],
 ] as const;
 
 /** The subset that actually carries an imported default — where the strip does work. */
@@ -258,12 +263,13 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
     it('the walker docblock\'s `lazy` count is re-derived, not quoted', () => {
       // The `lazy` arm is the one place the identity property cannot hold: it
       // must rebuild without forcing the getter, so a clean subtree behind a
-      // `z.lazy` is rebuilt anyway. The module's docblock names THREE such
-      // nodes and says the exception costs nothing today because each sits
+      // `z.lazy` is rebuilt anyway. The module's docblock names FOUR such
+      // nodes (the fourth, `ViewSchema`'s form-field group, since objectui#7928)
+      // and says the exception costs nothing today because each sits
       // inside a schema that is being rebuilt regardless. Both halves are
       // measured here, so a spec bump that moves either one is red rather than
       // quietly making the docblock false.
-      expect(walk(IMPORTED.map(([, s]) => s)).lazies).toBe(3);
+      expect(walk(IMPORTED.map(([, s]) => s)).lazies).toBe(4);
       const lazyOwners = IMPORTED.filter(([, s]) => walk([s]).lazies > 0);
       expect(lazyOwners.length, 'no schema owns a lazy — the count above found them elsewhere').toBeGreaterThan(0);
       for (const [name, schema] of lazyOwners) {

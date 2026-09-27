@@ -131,6 +131,10 @@ const walk = (schema: z.ZodType): z.ZodType => {
   // the same recursive nav item; the recursive filter clause under
   // `DashboardWidgetSchema.filter` / `GlobalFilterSchema.optionsFrom.filter` /
   // `PageSchema.slots.header…dataSource.filter`; and `PageSchema.regions[].components[]`).
+  // objectui#7928 added a FOURTH by importing the view container `ViewSchema`
+  // for its `listViews` slot: the recursive form-field group under
+  // `ViewSchema.formViews[…].groups[].fields[]`, walked because the whole
+  // container crosses the boundary, not only the slot.
   // Each sits inside a schema that carries a default anyway, so today the
   // exception costs no extra rebuild — the pin file re-derives that count and
   // goes red if it moves, rather than trusting this sentence.

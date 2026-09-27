@@ -241,6 +241,14 @@ function viewColumnFieldNames(columns: unknown): string[] | undefined {
 }
 
 /**
+ * One entry of `ObjectViewSchema.listViews` — the protocol's
+ * `ObjectListViewSchema`, by reference (objectui#7928). Derived from the member
+ * rather than named on its own, so this component reads exactly the type the
+ * contract declares.
+ */
+type NamedViewConfig = NonNullable<ObjectViewSchema['listViews']>[string];
+
+/**
  * The three authored filter segments this component chains, in precedence
  * order: the active view's own filter (a named `listViews` entry, else the
  * host's `views` entry), then the object-level `table.filter`, then its
@@ -848,8 +856,8 @@ export const OBJECT_VIEW_HOST_COMPOSITION_VIEW_TYPES = [
  *     objectName: 'contacts',
  *     listViews: {
  *       all: { label: 'All Contacts', type: 'grid', columns: ['name', 'email', 'phone'] },
- *       board: { label: 'By Status', type: 'kanban', options: { kanban: { groupField: 'status' } } },
- *       calendar: { label: 'Meetings', type: 'calendar', options: { calendar: { startDateField: 'meeting_date' } } },
+ *       board: { label: 'By Status', type: 'kanban', columns: ['name'], kanban: { groupByField: 'status', columns: ['name', 'email'] } },
+ *       calendar: { label: 'Meetings', type: 'calendar', columns: ['name'], calendar: { startDateField: 'meeting_date' } },
  *     },
  *     defaultListView: 'all',
  *   }}
@@ -993,8 +1001,9 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     return '';
   });
 
-  // Get current named view config
-  const currentNamedViewConfig: NamedListView | null = useMemo(() => {
+  // Get current named view config. Typed off `ObjectViewSchema.listViews`, the
+  // protocol's `ObjectListViewSchema` by reference (objectui#7928).
+  const currentNamedViewConfig: NamedViewConfig | null = useMemo(() => {
     if (!hasNamedViews || !activeNamedView) return null;
     return namedListViews![activeNamedView] || null;
   }, [hasNamedViews, activeNamedView, namedListViews]);
@@ -1664,9 +1673,20 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       color: activeView?.color,
     };
 
-    // Resolve type-specific options from current named view or active view
-    // Per @objectstack/spec, type-specific config MUST be nested under the view type key
-    const legacyViewOptions: Record<string, any> = currentNamedViewConfig?.options || activeView || {};
+    // Resolve type-specific options from the host's active view (the `views`
+    // prop). Per @objectstack/spec, type-specific config MUST be nested under the
+    // view type key.
+    //
+    // objectui#7928 (director ruling, comment 5856694523, Q1 A) — a NAMED view's
+    // legacy `options` bag is no longer read here. The protocol refuses `options`
+    // on a named view (`ObjectViewSchema.listViews` is its strict
+    // `ObjectListViewSchema` by reference), so the canonical top-level blocks
+    // below are the named view's only source. A stored body that still carries
+    // `options.KIND` is folded onto `KIND` at the door that relays it into
+    // `listViews` — `@object-ui/app-shell`'s `ViewPreview` — so it arrives here
+    // already canonical. ⛔ Do not restore the read: that would re-open a
+    // dialect the contract refuses. The host `views` entry keeps this rung.
+    const legacyViewOptions: Record<string, any> = activeView || {};
 
     // ⭐ objectui#8980 — THE CANONICAL, PROTOCOL-DECLARED PLACE FOR THE EIGHT
     // VIEW-KIND BLOCKS, read here for the first time.
@@ -1685,6 +1705,9 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     // aliases `groupField` / `imageField` / `dateField` live), while a canonical
     // block wins key-by-key over the legacy one for the same kind. A partially
     // declared canonical block therefore does not blank its legacy neighbour.
+    // ⚠️ Since objectui#7928 the legacy side is the host `views` entry only; a
+    // named view's own `options` bag is folded at `ViewPreview` instead (see
+    // `legacyViewOptions` above).
     //
     // ⚠️ IDENTITY IS PRESERVED WHEN NOTHING CANONICAL IS DECLARED — the `else`
     // arm hands back the very object the line above produced. That is the whole
@@ -1869,10 +1892,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // ⛔ STRIPPING IS ONLY THE QUIET HALF, and on its own it would make this
         // route fail CONSISTENTLY and still mutely, which is the shape the
         // ruling refuses. The loud half is the read door:
-        // `@object-ui/types`' `ObjectViewSchema` carries a `.check()` that
-        // refuses both spellings BY NAME under `listViews[*].calendar` and
-        // `listViews[*].options.calendar`, naming `startDateField` /
-        // `endDateField`. ⛔ Never land one half without the other.
+        // `@object-ui/types`' `ObjectViewSchema` refuses both spellings under
+        // `listViews[*].calendar` (the protocol's strict calendar block, since
+        // objectui#7928), and its check names `startDateField` / `endDateField`
+        // beside that refusal. A named view's `options` bag is refused whole.
+        // ⛔ Never land one half without the other.
         //
         // ⛔ Deliberately NOT folded onto the canonical keys: option A was put to
         // the director seat and refused as the end state on the first route, and
@@ -1973,7 +1997,8 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       case 'map':
         // Whitelisted flatten (objectui#5177) — see `FLAT_MAP_CONFIG_SPELLING`,
         // which also carries `style` out as `mapStyle` (objectui#9950).
-        // `viewOptions.map` is an untyped bag (`NamedListView.options`); a raw
+        // `viewOptions.map` is an untyped bag (the host `views` entry, merged
+        // with the named view's canonical `map` block); a raw
         // spread here forwarded every key the author wrote, including `style`,
         // which `ObjectMap`'s `FlatMapConfigKeys` declares OUT of this flat form.
         //
@@ -2406,7 +2431,9 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           // no rung here at all. Canonical source first, host `views` entry
           // second — the precedence every other pair on this branch uses.
           grouping: currentNamedViewConfig?.grouping ?? activeView?.grouping,
-          options: currentNamedViewConfig?.options || activeView,
+          // objectui#7928 — the host `views` entry only; a named view's legacy
+          // `options` bag is no longer read (see `legacyViewOptions` above).
+          options: activeView,
           // Toolbar policy — one vocabulary (#2890). The host node and the
           // active view may still carry the legacy bare `show*` flags, so both
           // go through `normalizeListViewSchema` (the single fold) and merge,

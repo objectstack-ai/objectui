@@ -2,7 +2,7 @@
 '@object-ui/types': minor
 ---
 
-Converge the two named select-option types onto one spec-derived base (objectui#7014, Q1).
+Converge the two named select-option types onto one spec-derived base.
 
 `SelectOptionMetadata` (`field-types`, the object-metadata read model) and `SelectOption`
 (`form`, the SDUI form vocabulary) each restated the select-option vocabulary by hand.

@@ -3,7 +3,7 @@
 '@object-ui/fields': minor
 ---
 
-A picklist option with a blank label now renders its `value` instead of a blank row (objectui#9230).
+A picklist option with a blank label now renders its `value` instead of a blank row.
 
 Adding a picklist option in App Builder and filling only the value box publishes
 `{ "value": "low", "label": "" }`, and the record form's select then offered three
@@ -13,7 +13,7 @@ unclickable blank rows with nothing anywhere explaining why.
 measured on `@objectstack/spec` 17.4.0, `SelectOptionSchema` accepts
 `{ value: 'low', label: '' }` and refuses `{ value: 'low' }` at `[label]` — so `''` is
 the only legal thing the designer can write for a cleared Label box, and it writes it
-deliberately (objectui#7014 Q2, pinned). What the contract does not state is what a
+deliberately (`f0f774b0d`, pinned). What the contract does not state is what a
 renderer should DISPLAY for a legal-but-blank label, and objectui had already answered
 that on half its read sites: all four option widgets fell back to the value on their
 read-only path (`opt?.label || v`) and rendered `{opt.label}` raw on their interactive

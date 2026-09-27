@@ -10,7 +10,7 @@ directory (objectui#7799).
 
 Nothing ships: no runtime source changed, and no package is released by this
 change. The root is now derived from each test file's own `import.meta.url`,
-copying the precedent landed for objectui#7791, so every one of them reaches the
+copying the precedent landed in `223b1e4a3`, so every one of them reaches the
 same verdict under both invocations.
 
 Readings for the whole class, one tree, cwd the only variable — 17 files /

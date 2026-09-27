@@ -2,8 +2,8 @@
 '@object-ui/fields': patch
 ---
 
-Stop shipping `dist/__tests__/numberInputBrowserReadings.d.ts` in the published tarball
-(objectui#6943). `packages/fields/tsconfig.json` now excludes the tooling DIRECTORIES
+Stop shipping `dist/__tests__/numberInputBrowserReadings.d.ts` in the published tarball.
+`packages/fields/tsconfig.json` now excludes the tooling DIRECTORIES
 (`__tests__`, `__mocks__`, `__benchmarks__`), not just the `*.test.*` NAME.
 
 `numberInputBrowserReadings.ts` holds the measured Chromium/happy-dom readings the number

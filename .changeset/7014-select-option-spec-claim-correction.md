@@ -3,7 +3,7 @@
 ---
 
 Correct three false `@objectstack/spec` alignment claims on field metadata, and pin the
-real boundary (objectui#7014).
+real boundary.
 
 **No contract change.** No type, schema, export or runtime path moves. What changes is
 published JSDoc — the text that reaches your editor tooltips through `.d.ts` — which was

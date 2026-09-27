@@ -9,7 +9,7 @@
 ---
 
 `@object-ui/core` publishes `resolveRecordSourceObjectName`, the ONE reader for "which
-object is this block bound to" (objectui#7627).
+object is this block bound to".
 
 Six view plugins each spelled that resolution locally — `ObjectCalendar` twice,
 `ObjectGantt`, `ObjectTree` twice, `ObjectMap`, `ObjectGrid` — and had drifted: three

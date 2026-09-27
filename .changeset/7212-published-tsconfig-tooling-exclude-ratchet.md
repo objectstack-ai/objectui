@@ -9,7 +9,7 @@ and a new per-PR gate enforces it: `pnpm check:published-tsconfig-exclude`
 
 The same defect had been repaired three times and gated never — objectui#4006 (73 `*.test.d.ts`
 published from two packages), objectui#4836 (9 more, one of them an emitted module whose first
-statement imports `vitest`) and objectui#6943 (the same package as the first, because that fix
+statement imports `vitest`) and `39d69ad53` (the same package as the first, because that fix
 wrote the name form and the directory form was never generalised). objectui#7212 measured the
 standing exposure instead of another instance: 29 published packages carried the name form with
 ZERO offending files, green because nobody had yet added a shared helper to a `__tests__/`

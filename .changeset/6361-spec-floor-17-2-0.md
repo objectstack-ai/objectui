@@ -22,7 +22,7 @@ mirror two minors behind — satisfied `^17.0.0` and got a dangling reference.
 Nothing a consumer installs today changes: normal resolution already picks the newest
 17.x, and `pnpm-lock.yaml` still resolves `17.2.0` on both edges after the bump — only
 the recorded `specifier:` moves. No source and no behaviour changes, which is why this
-is scored `patch`, on the reasoning objectui#5793 used for the same remediation on
+is scored `patch`, on the reasoning `111741454` used for the same remediation on
 `@object-ui/plugin-detail`.
 
 The bump is release-blocking rather than cosmetic. `check:spec-floors` is deliberately

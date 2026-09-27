@@ -12,8 +12,8 @@ One shared record-source ladder, five plugins delegate (objectui#7632).
 `@object-ui/core` publishes `resolveRecordSourceConfig(schema)` — the ONE implementation
 of the ruled three-rung record source ladder: `data` first, then `staticData` wrapped as
 `{ provider: 'value', items }`, then `objectName` folded to `{ provider: 'object' }`, and
-`null` when nothing is bound. It is the PRODUCER whose output the objectui#7627 reader
-`resolveRecordSourceObjectName` consumes, and it now sits beside it in the same module.
+`null` when nothing is bound. It is the PRODUCER whose output the reader
+`resolveRecordSourceObjectName` (`b041b9c0c`) consumes, and it now sits beside it in the same module.
 
 That ladder is published contract on both faces — `packages/types/src/objectql.ts` and its
 zod mirror both ship `.describe()` strings naming `getDataConfig`'s order (objectui#6939,
@@ -45,7 +45,7 @@ equivalence is pinned on a fixture that really lacks both keys rather than argue
 `ObjectCalendar`, `ObjectGantt` and `ObjectTree` do not, and return the array verbatim. That
 is a real divergence on off-contract input — `ViewData` is a discriminated union over object
 variants, so an array under `data` cannot be published. It is NOT unified here: the shared
-rung stays contract-strict and the two sites keep the head locally, the same way objectui#7627
+rung stays contract-strict and the two sites keep the head locally, the same way `b041b9c0c`
 left the off-contract `{ provider: 'object' }` tails at their sites. Both sides of the fork are
 pinned, so neither folding the head in nor deleting it as redundant can happen silently.
 

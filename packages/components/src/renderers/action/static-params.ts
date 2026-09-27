@@ -71,6 +71,14 @@ function warnNodeLevelObjectParams(subject: StaticParamsSubject, where: string):
   );
 }
 
+/** The subject's `properties.params` when it is an object bag, otherwise `undefined`. */
+function propertiesParams(subject: StaticParamsSubject): Record<string, unknown> | undefined {
+  const properties = subject.properties;
+  return isConfigBag(properties) && isConfigBag(properties.params)
+    ? (properties.params as Record<string, unknown>)
+    : undefined;
+}
+
 /**
  * The static values to forward as the runner's `ActionDef.params`: the node's
  * `properties.params` when it is an object bag, otherwise `undefined`.
@@ -82,11 +90,7 @@ export function readStaticParamValues(
   subject: StaticParamsSubject,
   where: string,
 ): Record<string, unknown> | undefined {
-  const properties = subject.properties;
-  const values =
-    isConfigBag(properties) && isConfigBag(properties.params)
-      ? (properties.params as Record<string, unknown>)
-      : undefined;
+  const values = propertiesParams(subject);
   const nodeLevel = subject.params;
   if (isConfigBag(nodeLevel) && nodeLevel !== values) {
     warnNodeLevelObjectParams(subject, where);
@@ -95,10 +99,61 @@ export function readStaticParamValues(
 }
 
 /**
+ * Evaluates a config bag the way `SchemaRenderer` evaluates `properties`: the
+ * function `useConfigBagEvaluator()` (`@object-ui/react`) returns.
+ */
+export type ConfigBagEvaluator = (bag: unknown) => unknown;
+
+/**
+ * A container MEMBER with its `properties` evaluated (objectui#10290).
+ *
+ * `action:bar`, `action:group` and `action:menu` draw their member actions
+ * themselves, so a member never passes through the `SchemaRenderer` memo that
+ * evaluates a node's `properties`. Its static values ride `properties.params`
+ * (objectui#10289), and they are templates (objectui#7867): on a record page,
+ * `"recordId": "${record.id}"` has to reach the handler as the record's id. The
+ * container evaluates the member's `properties` with the memo's own evaluator
+ * and scope (`evaluateBag`, from `useConfigBagEvaluator()`), once, where it
+ * composes or runs the member.
+ *
+ * Returns the member itself when it carries no `properties` bag. Only
+ * `properties` is evaluated. It is not copied onto the member (the memo's
+ * hoist), and the member's other keys are left as authored.
+ */
+export function withEvaluatedProperties<T extends { properties?: unknown }>(
+  member: T,
+  evaluateBag: ConfigBagEvaluator,
+): T {
+  return isConfigBag(member.properties)
+    ? { ...member, properties: evaluateBag(member.properties) }
+    : member;
+}
+
+/**
+ * A container member's static values (objectui#10290): its `properties.params`,
+ * evaluated through {@link withEvaluatedProperties}, or `undefined`.
+ *
+ * For `action:group` / `action:menu` items, which run the member themselves.
+ * (`action:bar` hands an inline member to `action:button` / `action:icon` with
+ * its `properties` already evaluated, and `readStaticParamValues` reads it
+ * there.)
+ */
+export function readMemberStaticParamValues(
+  member: StaticParamsSubject,
+  evaluateBag: ConfigBagEvaluator,
+): Record<string, unknown> | undefined {
+  if (!propertiesParams(member)) return undefined;
+  return propertiesParams(withEvaluatedProperties(member, evaluateBag));
+}
+
+/**
  * The same ruling on a spec ACTION ENTRY (objectui#10462): `element:button`'s
  * inline `action`, `action:group` / `action:menu` items and `page:header`'s
- * actions. An entry is not an SDUI node, so it has no `properties.params` bag;
- * `params` is its `ActionParam[]` input list and nothing else.
+ * actions. `params` is an entry's `ActionParam[]` input list and nothing else.
+ * (An `action:group` / `action:menu` item is also a container member, so its
+ * static values ride `properties.params`, read by
+ * {@link readMemberStaticParamValues} — objectui#10290. `element:button`'s
+ * inline `action` and `page:header`'s actions do not read `properties.params`.)
  *
  * One type is still different: `api`. The objectstack#5777 window keeps the
  * runner reading an object `params` as the request payload (with its own

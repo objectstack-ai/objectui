@@ -51,11 +51,12 @@ import React, { forwardRef, useMemo } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import type { UIActionSchema, ActionLocation, ActionComponent } from '@object-ui/types';
 import { ACTION_LOCATIONS, actionRendersAt } from '@object-ui/types';
-import { useCondition, toPredicateInput, useCapabilityGate } from '@object-ui/react';
+import { useCondition, toPredicateInput, useCapabilityGate, useConfigBagEvaluator } from '@object-ui/react';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { cn } from '../../lib/utils';
 import { useIsMobile } from '../../hooks/use-mobile';
 import { ButtonGroup } from '../../custom/button-group';
+import { withEvaluatedProperties } from './static-params';
 
 function useActionsLabel(): string {
   // useObjectTranslation is provider-safe (never throws); no try/catch, which
@@ -157,6 +158,9 @@ const ActionBarRenderer = forwardRef<HTMLDivElement, { schema: ActionBarSchema; 
     const isMobile = useIsMobile();
     // [ADR-0066 D4 / framework#3923] Shared capability gate — see below.
     const mayInvoke = useCapabilityGate();
+    // The `SchemaRenderer` memo's `properties` evaluation, for the members this
+    // bar draws itself (objectui#10290) — see `renderMember` below.
+    const evaluateBag = useConfigBagEvaluator();
 
     // Filter business actions by location and deduplicate by name
     const filteredActions = useMemo(() => {
@@ -327,6 +331,14 @@ const ActionBarRenderer = forwardRef<HTMLDivElement, { schema: ActionBarSchema; 
     // One inline member, drawn by the renderer `componentType` names. The whole
     // action is spread onto that renderer's schema, so it carries its own gates
     // and its `autoTrigger` with it.
+    //
+    // The member is mounted without `SchemaRenderer`, so nothing else evaluates
+    // its `properties`: its static values (`properties.params`, objectui#10289)
+    // would reach the handler as raw `${…}` text. They are evaluated here, once,
+    // with the memo's evaluator and scope (objectui#10290). An overflow member
+    // is NOT evaluated here: it goes to the `action:menu` above as authored,
+    // and that renderer evaluates it when it runs it, so no value is evaluated
+    // twice.
     const renderMember = (action: UIActionSchema, componentType: ActionComponent) => {
       const Renderer = ComponentRegistry.get(componentType);
       if (!Renderer) return null;
@@ -335,7 +347,7 @@ const ActionBarRenderer = forwardRef<HTMLDivElement, { schema: ActionBarSchema; 
         <Renderer
           key={action.name}
           schema={{
-            ...action,
+            ...withEvaluatedProperties(action, evaluateBag),
             type: componentType,
             actionType: action.type,
             variant: action.variant || schema.variant,

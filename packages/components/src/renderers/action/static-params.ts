@@ -19,8 +19,10 @@
  * Static values a handler reads (`navigate_edit`'s `objectName` / `recordId`,
  * say) therefore ride the node's already-declared config bag, as
  * `properties.params`. `SchemaRenderer` template-evaluates every string leaf
- * of that bag (objectui#10282), so `"recordId": "${record.id}"` resolves on a
- * record page.
+ * of that bag; a container member, which never passes through
+ * `SchemaRenderer`, is evaluated by its container with the same rule and scope
+ * (`useConfigBagEvaluator`, objectui#10290) (objectui#10282), so `"recordId":
+ * "${record.id}"` resolves on a record page.
  *
  * The maintainer's ruling on objectui#10289 (letter A, 2026-09-25): `params`
  * never carries two shapes, and no new value-bag key is declared. So an OBJECT
@@ -150,9 +152,12 @@ export function readMemberStaticParamValues(
  * inline `action`, `action:group` / `action:menu` items and `page:header`'s
  * actions. `params` is an entry's `ActionParam[]` input list and nothing else.
  * (An `action:group` / `action:menu` item is also a container member, so its
- * static values ride `properties.params`, read by
- * {@link readMemberStaticParamValues} — objectui#10290. `element:button`'s
- * inline `action` and `page:header`'s actions do not read `properties.params`.)
+ * static values are read from `properties.params` and evaluated by the
+ * container through {@link readMemberStaticParamValues} (objectui#10290).
+ * `UIActionSchema` declares no `properties`, so on a container member this bag
+ * is read off the authored object, not off a declared key. `element:button`'s
+ * inline `action` and `page:header`'s actions do not read
+ * `properties.params`.)
  *
  * One type is still different: `api`. The objectstack#5777 window keeps the
  * runner reading an object `params` as the request payload (with its own

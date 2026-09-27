@@ -126,8 +126,10 @@ function toIsoDate(d: Date): string {
  * The wiring between the date select's "Custom…" item and the range calendar's
  * popover (objectui#10843).
  *
- * Two facts, both measured in Chromium, rule out the obvious wiring (opening
- * the popover from the select's `onValueChange`):
+ * Two facts rule out the obvious wiring (opening the popover from the
+ * select's `onValueChange`). Both were read in Chromium when this was written;
+ * `DashboardFilterBar.customReopen-10843.test.tsx` re-derives them through the
+ * real select on every run.
  *
  *  1. **An unchanged value is never reported.** Radix Select reports a pick
  *     through controllable state, which calls back only when the value CHANGES.
@@ -138,7 +140,7 @@ function toIsoDate(d: Date): string {
  *     Once its closing animation ends, the select's content hands focus back to
  *     its trigger. A popover opened by the pick is already showing by then, and
  *     that focus leaving it dismisses it. From a preset the calendar mounted and
- *     was gone a few dozen milliseconds later.
+ *     was gone as soon as the select finished closing.
  *
  * So the item marks its own activation, and the popover opens in the select's
  * `onCloseAutoFocus`, after the select is gone, where the focus return is

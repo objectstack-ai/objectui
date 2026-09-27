@@ -468,13 +468,18 @@ your `cell` returns.
 The list's own filter box and sort read the same flag (objectui#10728). The
 opt-in filter box matches a term against the columns the list shows that are
 not masked, so a masked value, and a field no column shows, never keeps a row.
-A masked column gets no sort button on a `list` card, a sort by it is refused
-(including one the embedded table asks for, which a paged list would send as
-`$orderby`), and a sort set on a column before it was flagged stops ordering
-the rows. While the definition is loading, or after its read failed, every
-column is flagged: the filter box keeps no row and no sort button is offered.
-Not covered: an authored `sort` naming a masked field is still sent to the
-server as `$orderby` on a paged list.
+A masked column gets no sort button on a `list` card, and a sort by it is
+refused (including one the embedded table asks for, which a server-paged list
+would send as `$orderby`). In a list that sorts in the browser, a sort set on a
+column before it was flagged also stops ordering the rows. While the definition
+is loading, or after its read failed, every column is flagged: the filter box
+keeps no row and no sort button is offered. Not covered: on a server-paged
+list, an authored `sort` naming a masked field is still sent to the server as
+`$orderby`, and so is a sort the user set on a column before that column was
+flagged, with each page the list fetches, until the user sorts by another
+column. The column is flagged after the sort only when the `columns` or the
+object of a list already on screen change; `record:related_list` sets both
+once per block.
 
 A list that authors `columns` sends a **`$select` projection** on its
 auto-fetch (`objectui#10186`), the one `ListView` and `ObjectGrid` already send

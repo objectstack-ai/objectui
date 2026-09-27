@@ -1,0 +1,41 @@
+---
+'@object-ui/core': patch
+---
+
+`ValueDataSource.find` now refuses an object `$filter` that carries an EMPTY operator
+map — `{ created: {} }`, alone, beside other keys, or inside a `$and` / `$or` member —
+instead of silently dropping that field's constraint (objectui#10817).
+
+**Before.** The object-dialect matcher read `{ created: {} }` as an operator map with
+zero operators, so the field added no constraint. `{ status: 'a', created: {} }`
+answered the same rows as `{ status: 'a' }`, and `{ created: {} }` answered every row,
+with no console line. The ObjectStack path refuses the same filter: `@objectstack/spec`
+ruled `{ field: {} }` REJECTED wherever it appears (objectstack#5240, recorded on
+`FilterConditionSchema`), and `convertFiltersToAST` refuses it alone (objectui#9164) and
+beside a key that lowers (objectui#10788).
+
+**After.** Before any row is matched, the object arm walks the filter's field entries
+and the members of `$and` / `$or`. A field whose condition is an object with no own
+keys is handed to `toFilterNodeSafely` on its own, so the converter alone decides what
+an empty operator map is, in its own wording. If the converter refuses it, the whole
+filter answers no rows (`data: []`, `total: 0`) and the converter's reason is logged
+once — the envelope the array arm already uses for a rule its lowering refuses
+(objectui#10767). `find` still never rejects. `{ $or: [{ status: 'b' }, { status: 'a',
+created: {} }] }` answers no rows, not the `'b'` rows.
+
+**Also refused, by the same routing.** A `RegExp`, `Map` or `Set` in comparand position
+has no own keys either. The converter refuses it as an exotic comparand
+(objectui#8567), so this face now refuses it too, with the converter's wording, instead
+of dropping the constraint: `{ status: 'a', created: /x/ }` used to answer rows 1 and 2.
+
+**Unchanged.** `{ status: 'a' }`, a real operator beside the key, the `{}` whole filter
+and a `null` condition answer as before. A `Date` comparand is not refused: the
+converter lowers it, so it reaches the matcher exactly as before. Every other refusal
+on this face — an operator the matcher does not implement, an array comparand, `$not` —
+is still excluded per node with its own sentence.
+
+**Clause-②: no** — the value face now refuses, in its own exclude-and-log envelope, a
+shape objectstack#5240 ruled refused. No declared surface moves and no export is added.
+
+**Migration.** A filter carrying `{ field: {} }` returned more rows than it said. It is
+now a named refusal. Give the field an operator, or delete the key.

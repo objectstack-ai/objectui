@@ -113,7 +113,7 @@ function warnDeprecatedOnce(type: string, message: string): void {
  * this notice claims to offer.
  */
 const DIV_DEPRECATION_NOTICE =
-  '[ObjectUI] The "div" component is deprecated for JSON-authored pages. Please use Shadcn components instead:\n' +
+  '[ObjectUI] The "div" component is deprecated on every authoring surface. Please use Shadcn components instead:\n' +
   '  - For a plain wrapper the drop-in swap is "box": same element, your `className` verbatim, no layout of its own.\n' +
   '  - Reach for "card", "flex", "container", "stack", or "grid" only when you want their layout — each injects classes of its own, and "card" also moves children into an extra element.\n' +
   '  - Move any `body` content into `children` first: every replacement above except "card" reads `children` only, so a blind retype drops it silently at an unchanged element count.\n' +

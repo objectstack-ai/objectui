@@ -18,7 +18,9 @@
  * flow/inline set from its `TAGS` loop, `renderers/layout/semantic.tsx` the
  * seven sectioning tags, and `span` / `table` / `label` are registered by
  * their own modules. The console's html-tier compile whitelists
- * `ComponentRegistry.getKnownTypes()`, so those pages render today.
+ * `ComponentRegistry.getKnownTypes()` minus the types whose registration is
+ * deprecated on the `'html'` surface (objectui#10757), so those pages render
+ * today.
  *
  * The PUBLISHED contract did not say so. `sdui.manifest.json` is
  * `getPublicConfigs()` serialised, and that read was the curated JSON-surface

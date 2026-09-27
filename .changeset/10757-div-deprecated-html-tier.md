@@ -1,5 +1,7 @@
 ---
 '@object-ui/components': minor
+'@object-ui/core': patch
+'@object-ui/sdui-parser': patch
 ---
 
 feat(components): `div` is deprecated on the html tier too — a `kind:'html'` page that authors `<div>` is refused at compile time, and the error names `box`
@@ -33,3 +35,15 @@ html parser emitted (objectui#4000).
 
 Semver: `minor`, not `major`, per this repository's version-alignment rule. The
 breaking semantics are stated above.
+
+**Published declaration text (prose only, no behaviour change).**
+
+- `@object-ui/core`: the emitted `dist/registry/Registry.d.ts` carries the
+  rewritten `ComponentDeprecation` and `deprecationFor` docblocks, where `span` is
+  now the worked example of a json-only deprecation and `div` is stated to name
+  both surfaces. `dist/registry/html-tier-intrinsics.d.ts` carries the rewritten
+  `HTML_TIER_INTRINSICS` docblock: its `div` bullet and the sentence describing the
+  console's html-tier whitelist.
+- `@object-ui/sdui-parser`: the emitted `dist/provenance.d.ts` carries the
+  rewritten file-header sentence, where `span` is now the example of a tag that
+  stays html-tier vocabulary.

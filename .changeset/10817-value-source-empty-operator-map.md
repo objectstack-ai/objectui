@@ -31,8 +31,8 @@ of dropping the constraint: `{ status: 'a', created: /x/ }` used to answer the s
 
 **Unchanged.** `{ status: 'a' }`, a real operator beside the key, the `{}` whole filter
 and a `null` condition answer as before. A `Date` comparand is not refused: the
-converter lowers it, so it reaches the matcher exactly as before — where its constraint
-still vanishes, exactly as before (objectui#10829). Every other refusal
+converter lowers it, so it reaches the matcher exactly as before, where its constraint
+still vanishes (objectui#10829). Every other refusal
 on this face — an operator the matcher does not implement, an array comparand, `$not` —
 is still excluded per node with its own sentence; when the same filter also carries a
 condition the walk refuses, only that refusal is logged — `{ status: ['a'], created: {} }`

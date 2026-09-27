@@ -174,7 +174,7 @@ anything else below.
 #### An empty operator map refuses the whole filter
 
 `{ field: {} }` names a field and no operator; `@objectstack/spec` ruled it REJECTED
-wherever the matcher executes (objectstack#5240). On this face it is judged BEFORE
+wherever it appears (objectstack#5240). On this face it is judged BEFORE
 any row is matched wherever the matcher executes (objectui#10817) — under `$not`,
 which is refused per node, the walk does not look: the object arm walks the filter's
 field entries and the members of

@@ -516,9 +516,9 @@ export const FilterGroupSchema: z.ZodType<any> = z.lazy(() => FilterGroupObject)
  * `fields.find((f) => f.value === fieldValue)` in `getOperatorsForField`,
  * `changeField`, `getInputType` and `renderValueInput`, plus `fields[0]?.value`
  * in `addCondition` and `<SelectItem value={field.value}>` in the field
- * dropdown — `custom/filter-builder.tsx:1099,1161,1201,1234,1239` and the row
- * render. `name` has zero read sites, and `FilterBuilderProps.fields` (line 66
- * of that file) declares `Array<{ value, label, type? }>`. Measured: rewriting
+ * dropdown — all in `custom/filter-builder.tsx`, plus the row render. `name`
+ * has zero read sites, and `FilterBuilderProps.fields` in that file declares
+ * `Array<{ value, label, type? }>`. Measured: rewriting
  * a catalog entry's `value` to `name` loses the field on every row —
  * `…Clear allCategoryRemove condition…` becomes
  * `…Clear allRemove condition…`, and the three value inputs degrade from
@@ -533,7 +533,8 @@ export const FilterGroupSchema: z.ZodType<any> = z.lazy(() => FilterGroupObject)
  * and a contract does not retract what it published to authors. So the enum
  * below is the doc's fourteen in the doc's order, and `type` is OPTIONAL
  * because the doc publishes `type?:` and the renderer reads `fieldType ||
- * "text"` (`custom/filter-builder.tsx:408`, and again at 964 for operators).
+ * "text"` (`custom/filter-builder.tsx`: `valueFamilyForFieldType`, and again
+ * in `operatorsForFieldType` for operators).
  *
  * ⛔ The ruling carried a PRECONDITION, measured before this enum moved:
  * every one of the fourteen has a renderer branch, because a key declared that
@@ -638,7 +639,7 @@ export const FilterBuilderSchema = BaseSchema.extend({
     + 'depth to limit: no renderer read it, every entry of a filter group\'s `conditions` is one flat '
     + 'row, and a nested sub-group is refused by name. Remove the key.',
   ),
-  // Applied at renderers/complex/filter-builder.tsx:37 as `className={schema.wrapperClass || ''}`.
+  // Applied by renderers/complex/filter-builder.tsx as `className={schema.wrapperClass || ''}`.
   wrapperClass: z.string().optional().describe('Outer wrapper classes for the filter builder (objectui#6150)'),
   body: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `filter-builder` reads NEITHER content channel: measured with the '

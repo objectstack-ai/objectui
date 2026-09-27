@@ -641,7 +641,7 @@ export interface FilterBuilderSchema extends BaseSchema {
   /**
    * Tailwind classes on the outermost wrapper `div`.
    *
-   * READ SITE: `packages/components/src/renderers/complex/filter-builder.tsx:37`
+   * READ SITE: `packages/components/src/renderers/complex/filter-builder.tsx`
    * — `className={schema.wrapperClass || ''}`.
    *
    * Distinct from {@link BaseSchema.className}, which this renderer applies
@@ -727,8 +727,8 @@ export interface FilterField {
   /**
    * Field type — the value FAMILY the column is edited in. OPTIONAL: absent
    * means `text`, which is what `valueFamilyForFieldType` and
-   * `operatorsForFieldType` both read (`fieldType || "text"`,
-   * `custom/filter-builder.tsx:408` and `:964`).
+   * `operatorsForFieldType` both read (`fieldType || "text"` and
+   * `const type = fieldType || "text"` in `custom/filter-builder.tsx`).
    *
    * The fourteen members are the published doc's
    * (`content/docs/components/complex/filter-builder.mdx`), which objectui#7562

@@ -267,6 +267,25 @@
  *     default away from its call site, and both go dark to every leg while a
  *     shipping component still renders them — and that edit would read as a
  *     tidy-up.
+ *   - `packages/react/src/element-data-source/ElementDataSourceGate.tsx` — the
+ *     second instance of class 4, and the same shape as `nonGridRowCeiling`
+ *     above on purpose (objectui#10789). Its malformed-filter panel renders
+ *     only when a filter the gate merges is refused; it dereferences the `en`
+ *     pack at render to supply the `defaultValue` beside a `t()` call, and the
+ *     ONE key it reads is TWO SEGMENTS. So BOTH LEGS ARE BLIND to the property
+ *     read, for the reason given in that bullet. The CLI row for this file
+ *     reports it as seen by the full-key leg, and that is the co-located
+ *     spelling doing the work: the key is also the literal first argument of
+ *     the `t()` call that default sits in. ⇒ the READ is covered BY
+ *     COINCIDENCE. The KEY is NOTHING AT RISK, and not by that coincidence:
+ *     the same key is the literal `t()` argument of the malformed-filter states
+ *     this panel copies (objectui#9050: `record:related_list`, the line-items
+ *     panel, `object-grid`), so the AST pass reads it at call sites outside
+ *     this file too. Re-derive both halves rather than trusting this sentence:
+ *     the class-4 row this script prints for the file, and a search for the
+ *     key as a quoted `t()` argument. Template the key HERE and the read goes
+ *     dark while those sites still hold it out of the tiers. Template it at
+ *     ALL of them and it lands in CONFIRMED with this panel still rendering it.
  *
  * The rest of the matches are TEST-only importers, deliberately not listed one
  * by one. A key read only by a test is not a key a user can see, so a test
@@ -743,6 +762,7 @@ export const ANALYSED_PACK_OBJECT_IMPORTERS = Object.freeze([
   'packages/plugin-grid/demo/main.tsx',
   'packages/plugin-grid/demo/bulk-actions.tsx',
   'packages/react/src/utils/nonGridRowCeiling.tsx',
+  'packages/react/src/element-data-source/ElementDataSourceGate.tsx',
 ]);
 
 /** A path is a TEST importer when it lives in a `__tests__` directory or is

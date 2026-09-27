@@ -23,7 +23,6 @@
  * provider whose adapter counts `queryDataset` calls. The bare
  * `useDataInvalidation` reader beside it is the positive control.
  */
-import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, act, cleanup, waitFor } from '@testing-library/react';
 import { SchemaRendererProvider, notifyDataChanged, useDataInvalidation } from '@object-ui/react';

@@ -415,8 +415,16 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
     // handler as the rows rather than in that decline, so that no other way of
     // offering the grid before a settle (a superseded run releasing `loading`,
     // objectui#10712's surface) can leave an edited row without an owner. Rows
-    // already held keep their parent.
-    setRowsHeldFor((held) => held ?? parentId);
+    // already held keep their parent. `parentId` is narrowed to a string before
+    // the updater closes over it: the setter's state is `string | undefined`,
+    // and `parentId` is `string | null | undefined` here (there is no `load`
+    // guard above this handler to narrow it), so a bare `held ?? parentId`
+    // would widen the updater's result to include `null`. A grid is only
+    // offered with a parent bound anyway (the `!parentId` branch draws no grid).
+    if (parentId) {
+      const owner = parentId;
+      setRowsHeldFor((held) => held ?? owner);
+    }
   }, [parentId]);
 
   const save = useCallback(async () => {

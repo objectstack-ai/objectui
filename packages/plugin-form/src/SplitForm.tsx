@@ -44,6 +44,7 @@ import {
   type LoadRunSeq,
 } from './loadFailure';
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
+import { useRecordInvalidation } from './recordInvalidation';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
 
 export interface SplitFormSectionConfig {
@@ -223,6 +224,13 @@ export const SplitForm: React.FC<SplitFormProps> = ({
   // Set by the `findOne` below and nowhere else, so a caller-supplied record is
   // never a baseline.
   const loadedRecordRef = useRef<LoadedRecordSnapshot | null>(null);
+  // objectui#10715 — the data-invalidation bus, read the way the default arm
+  // reads it (the rule is stated once in `recordInvalidation.ts`): a change to
+  // this record, to its object or to `'*'` re-reads the record IN PLACE through
+  // the effect below while the form is pristine, and is held while it is dirty.
+  // Dirtiness is the form renderer's `onDirtyChange`, wired below.
+  const { refetch: recordRefetch, onDirtyChange: handleDirtyChange, saved: recordSaved } =
+    useRecordInvalidation(schema.objectName, schema.recordId, !!schema.recordId && schema.mode !== 'create');
 
   // Fetch initial data
   useEffect(() => {
@@ -283,11 +291,15 @@ export const SplitForm: React.FC<SplitFormProps> = ({
       }
     };
 
+    // A bus re-read (objectui#10715, `recordRefetch` below) re-runs this
+    // effect for the record already on screen: it lands IN PLACE, since the
+    // loading branch above is keyed on a change of record, and a re-read a
+    // later run has superseded commits nothing, as above.
     if (objectSchema || !dataSource) {
       fetchData();
     }
     return () => { cancelled = true; };
-  }, [objectSchema, schema.mode, schema.recordId, schema.initialData, schema.initialValues, dataSource, schema.objectName]);
+  }, [objectSchema, schema.mode, schema.recordId, schema.initialData, schema.initialValues, dataSource, schema.objectName, recordRefetch]);
 
   // Build form fields from section config
   const buildSectionFields = useCallback(
@@ -396,6 +408,10 @@ export const SplitForm: React.FC<SplitFormProps> = ({
       // The write landed: the next save from this still-mounted form diffs
       // against the record as it now stands, not as first read.
       loadedRecordRef.current = advanceLoadedRecord(loadedRecordRef.current, schema, writePayload);
+      // objectui#10715 — and what the form shows is what the server holds: a
+      // bus change held while it was dirty (its own write's echo included) is
+      // replayed now rather than behind input that is no longer unsaved.
+      recordSaved();
       if (schema.onSuccess) {
         await schema.onSuccess(result);
       }
@@ -406,7 +422,7 @@ export const SplitForm: React.FC<SplitFormProps> = ({
       }
       throw err;
     }
-  }, [schema, dataSource, objectSchema, perms, saveWithOcc, formData, uploadGate.uploading, uploadGate.reason]);
+  }, [schema, dataSource, objectSchema, perms, saveWithOcc, formData, uploadGate.uploading, uploadGate.reason, recordSaved]);
 
   // Handle cancel
   const handleCancel = useCallback(() => {
@@ -546,6 +562,8 @@ export const SplitForm: React.FC<SplitFormProps> = ({
           showCancel: schema.showCancel !== false,
           onSubmit: handleSubmit,
           onCancel: handleCancel,
+          // The renderer's dirtiness feeds the bus gate above (objectui#10715).
+          onDirtyChange: handleDirtyChange,
           // A single pane is not a split — the renderer then falls back to a
           // plain field list rather than a one-panel resizable group.
           fieldPanes: panes.map((pane) => ({

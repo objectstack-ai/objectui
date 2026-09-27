@@ -37,7 +37,6 @@ interface FilterUISchema {
     field: string;
     label?: string;
     type: 'text' | 'number' | 'select' | 'date' | 'date-range' | 'boolean';
-    operator?: 'equals' | 'contains' | 'startsWith' | 'gt' | 'lt' | 'between' | 'in';
     options?: Array<{ label: string; value: any }>;
     placeholder?: string;
   }>;
@@ -48,3 +47,11 @@ interface FilterUISchema {
   layout?: 'inline' | 'popover' | 'drawer';
 }
 ```
+
+### Retired: `filters[].operator`
+
+A filter entry no longer takes an `operator` (objectui#10611). The component never
+read one: it picks each control from `type` and reports changes as `{ values }`, a
+field-to-value record with no operator in it, and it does no matching of its own. How
+each value is matched is up to the host that consumes the change. An authored
+`operator` is now refused by name when the schema is validated.

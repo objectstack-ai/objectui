@@ -24,4 +24,6 @@ not read as values (objectui#10289).
 `@object-ui/react` exports `useConfigBagEvaluator()` for this. It returns the
 `SchemaRenderer` memo's own `properties` evaluation (the same per-key rule and
 the same `record` / `current_user` / `page` scope) for a node rendered without
-`SchemaRenderer`. It is not a second template engine.
+`SchemaRenderer`. It is not a second template engine. Its plain half,
+`evaluateConfigBagInScope()`, is exported beside `SchemaRenderer`, which applies
+the same rule through it.

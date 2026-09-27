@@ -156,6 +156,7 @@ import { isEntrypoint } from './invoked-as.mjs';
  *   docs-route-eager-closure.yml   Docs Route Eager Closure Check
  *   governed-surface-guard.yml     Governed Surface Queue Guard
  *   action-ref-convention.yml      Action Ref Convention
+ *   spec-main-shape-gate.yml       Spec Main Shape Gate
  *
  * `Governed Surface Queue Guard` is the newest and the one whose reading here
  * differs from every other row, so it is worth a sentence. On a PULL REQUEST it
@@ -217,6 +218,28 @@ export const REQUIRED_CONTEXTS = Object.freeze([
   // to introduce an off-convention reference and the least likely to have a
   // human reading each edited line.
   'Action Ref Convention',
+  // objectui#9969, ruling A — the residual of objectui#9860's ruling C. This
+  // name sat in `NOT_A_GATE` until two facts that were somebody else's to
+  // establish had both been established, and it moved only after both were:
+  //   (1) the maintainer enrolled the context in ruleset 11776024, read back
+  //       on 2026-09-27 and recorded on objectui#9969. ⛔ A dated reading, not
+  //       a live one: `scripts/check-required-check-set.mjs` re-takes it, and
+  //       no decision in this file turns on what the ruleset says;
+  //   (2) the day-one break cleared: the check read `success` on this
+  //       repository's `main` on 2026-09-27, and the job itself re-derives that
+  //       verdict on every queue build. On 2026-09-18 its first run was RED on
+  //       one objectui file for a spec change made in objectstack — enrolled in
+  //       that state, it would have turned every objectui pull request red over
+  //       an objectstack commit, which is why it waited.
+  // ⭐ The two halves were ordered, not simultaneous: ruleset first, this line
+  // second. This gate reads check runs and never the ruleset, so with this name
+  // here and the ruleset silent it would still wait for the check on a
+  // Dependabot head and refuse it red or absent — stricter than the queue, never
+  // looser. Enrolling first means no Dependabot bump ever waited on a check the
+  // queue did not. What a red here says, and why it may name an objectstack
+  // commit rather than anything the bump changed, is `spec-main-shape-gate.yml`'s
+  // header.
+  'Spec Main Shape Gate',
 ]);
 
 /**
@@ -308,8 +331,6 @@ export const NOT_A_GATE = Object.freeze({
     "lockfile-integrity.yml (objectui#8326) reports a lockfile DELTA — an `@objectstack/*` identity moving backward, or a workspace-declared dependency gaining a physical copy. ⛔ It is deliberately NOT a blocking context: enrolling it changes what stops the merge queue, which is a maintainer decision the #8326 dispatch reserved rather than took, and its pull request writes up the cost as input (measured: it would have blocked 3 of the 40 most recent lockfile-changing commits on `main`, each for a real duplication of a runtime-declared package). Its pull_request trigger is also path-filtered to `pnpm-lock.yaml` and its own two files, so it cannot be REQUIRED under #3523's rule while that filter stands — promoting it means removing the filter as well.",
   'Live half-state sweep':
     'half-state-patrol.yml is REPORT-ONLY by ruling (objectui#5791): a completed sweep exits 0 whether it found 0 half-states or 40, and the job gates no branch and blocks no queue. It goes red only when the sweep could not RUN — the patrol reporting its own death, which is a fact about the patrol, not a verdict on the pull request. Its pull_request trigger is also path-filtered to the workflow file (the sweeper runs from an objectstack checkout since objectui#10208), so a Dependabot bump never produces this check at all.',
-  'Spec Main Shape Gate':
-    "spec-main-shape-gate.yml (objectui#9860) compiles this repository against `@objectstack/spec` built from objectstack `main` — the maintainer's option C, under which a real consumer's compile is the ONLY shape gate for that package's public surface. ⛔ It is NOT classified here because it cannot say no: it is an ordinary blocking check, unfiltered on `pull_request` and subscribed to `merge_group`, and a shape break is a real red naming the objectui file and the objectstack commit. It is here because REQUIREDNESS IS NOT IN THIS TREE — it is GitHub ruleset 11776024, repository settings, which `scripts/check-required-check-set.mjs` can read and nothing here can write. Two facts decide when the name moves to `REQUIRED_CONTEXTS`, and both are somebody's to establish rather than this file's to assume: (1) a maintainer enrols the context in that ruleset — the workflow already reports on queue builds, so the enrolment is safe to take alone, which is the #3523 ordering; and (2) the day-one break clears. On 2026-09-18, its first run against `objectstack-ai/objectstack@96cf32b07579` was RED on one objectui file, for a spec change in that repository and not for anything a pull request here did — so enrolling it in that state would have turned every objectui pull request red over an objectstack commit. ⛔ Do not read that as a live reading: the instrument that re-derives it is the job itself, on every run.",
   'Line Citation Gate':
     'line-citation-gate.yml is REPORT-ONLY by ruling (objectui#8875, clause 2): it prints the cross-file line-address citations a pull request ADDED against its base and exits 0 whatever it finds, so requiring it would enrol a check that cannot say no. It goes red only when one of its own synthetic controls fails — the differ reporting its own death, which is a fact about the instrument and not a verdict on the pull request. It also declares NO `merge_group` trigger, because it needs a base to be differential at all and only a pull request has one; under #3523 a required context that never reports on a queue build stalls the queue until the ruleset timeout fails it, so promoting this one means giving it a queue leg first. That promotion is the flip condition the ruling states, and a maintainer decision, ⛔ not a tidy-up.',
 });

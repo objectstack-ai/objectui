@@ -43,7 +43,7 @@ one has its own section below.
 | `readme-exports.yml` | README Export Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a `packages/**/README.md` imports a name from its own package that the package does not export, or the scan's population collapses |
 | `docs-route-eager-closure.yml` | Docs Route Eager Closure Check | Push / PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — when a package named in `apps/site/app/components/registerCatalogBlocks.ts` is not already reachable from the docs route's module graph (exit 1), or when the gate's own gauge cannot be trusted (exit 2) |
 | `line-citation-gate.yml` | Line Citation Gate | PR to `main`, `develop` — **no path filter**; manual | No — **report-only** while it beds in; it exits 0 whatever it finds, and exits 1 only when one of its own synthetic controls fails. It declares no `merge_group` trigger, so it cannot be a required context in its current state |
-| `spec-main-shape-gate.yml` | Spec Main Shape Gate | PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | No — **not yet**. It is an ordinary blocking check and a shape break is a real red, but requiredness lives in the repository's ruleset and not in this tree; `scripts/dependabot-merge-gate.mjs` classifies it `NOT_A_GATE`, with the two conditions for moving it, until a maintainer enrols the context ([#9860](https://github.com/objectstack-ai/objectui/issues/9860)) |
+| `spec-main-shape-gate.yml` | Spec Main Shape Gate | PR to `main`, `develop` — **no path filter**; merge-queue builds; manual | **Yes** — a shape break is a real red naming the objectui file and the objectstack commit ([#9860](https://github.com/objectstack-ai/objectui/issues/9860)). The maintainer enrolled the context under [#9969](https://github.com/objectstack-ai/objectui/issues/9969)'s ruling A, and `scripts/dependabot-merge-gate.mjs` declares it in `REQUIRED_CONTEXTS`, so a Dependabot bump waits for it too |
 | `governed-surface-guard.yml` | Governed Surface Queue Guard | PR to `main`, `develop` (incl. `ready_for_review`) — **no path filter**; merge-queue builds | **Yes on a queue build only** — a governed-surface diff with no authorized approval record (on any commit) is refused there, and so is any merge group whose queued pull requests still carry `needs:contract-review`; on the pull request itself it is deliberately green and prints an early warning |
 | `performance-budget.yml` | Bundle Analysis | Push / PR touching `packages/**`, `apps/console/**`, `pnpm-lock.yaml` | **Yes** — the console entry gzip budget |
 | `lockfile-integrity.yml` | Lockfile Integrity Check | PR to `main`, `develop` touching `pnpm-lock.yaml` or the gate's own two files; manual | No — **deliberately not a blocking context** ([#8326](https://github.com/objectstack-ai/objectui/issues/8326)); it names the packages and the Dependabot merge gate classifies it `NOT_A_GATE` |
@@ -2061,12 +2061,19 @@ to match in it. `scripts/__tests__/spec-main-shape-gate.test.ts` pins the bypass
 flag, the unfiltered trigger, the queue subscription and both attribution carriers, each with the
 firing control that proves the assertion is not satisfied by something else.
 
-**Why it is not a required check yet.** Requiredness is a GitHub ruleset — repository settings —
+**How it became a required check.** Requiredness is a GitHub ruleset — repository settings —
 which `scripts/check-required-check-set.mjs` can read and nothing in this tree can write. The
-workflow is built to be requirable (unfiltered on `pull_request`, subscribed to `merge_group`, no
-`continue-on-error`), so a maintainer can enrol the context on its own without stalling the queue;
-the in-tree half of that action is moving its name from `NOT_A_GATE` to `REQUIRED_CONTEXTS` in
-`scripts/dependabot-merge-gate.mjs`, where the conditions are written down.
+workflow was built to be requirable (unfiltered on `pull_request`, subscribed to `merge_group`, no
+`continue-on-error`), so the maintainer could enrol the context on its own without stalling the
+queue. It waited for the day-one break to clear — its first run was red on one objectui file over
+an objectstack commit — and was enrolled under
+[#9969](https://github.com/objectstack-ai/objectui/issues/9969)'s ruling A. The in-tree half of that
+action came second: the name moved from `NOT_A_GATE` to `REQUIRED_CONTEXTS` in
+`scripts/dependabot-merge-gate.mjs`, where the two conditions and their order are written down. That
+gate reads check runs and never the ruleset, so the order could not let a red through either way;
+enrolling first only meant no Dependabot bump waited on a check the queue did not. Whether the
+context is *still* enrolled is not answered here: `scripts/check-required-check-set.mjs` watches it,
+and reports its loss in the patrol's run summary without failing.
 
 
 ## Release Workflows

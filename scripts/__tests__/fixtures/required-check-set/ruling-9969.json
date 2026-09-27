@@ -61,6 +61,10 @@
           "integration_id": 15368
         },
         {
+          "context": "Type Check",
+          "integration_id": 15368
+        },
+        {
           "context": "Build & E2E",
           "integration_id": 15368
         },

@@ -6,8 +6,9 @@ fix(app-shell): designer inspector words that had no catalogue row gain en-US an
 
 objectui#10696 moved the inspector literals whose English already had a row. The
 rest had none, so a zh-CN author still read English on an otherwise Chinese
-inspector. Each now reads a new `engine.*` row, and each en row carries the
-English the literal did, so en-US renders the same words:
+inspector. Each now reads an `engine.*` row — a new one, except four
+lookup-operator words that reuse the condition builder's rows — and each en row
+carries the English the literal did, so en-US renders the same words:
 
 - the dashboard widget inspector's type select (`KPI Metric` … `Pivot Table`,
   `engine.inspector.widget.type.*`; the stored `type` does not move), its two

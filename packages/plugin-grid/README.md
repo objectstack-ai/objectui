@@ -397,17 +397,14 @@ Before the object schema has loaded — on the host-fetched path (rows handed do
 `data`), the rows paint first — an untyped view column is **withheld**: it draws the
 mask, never its value as text, and every path above treats it as masked (a grouping
 entry on it is ignored, without a warning, until the schema is in). It stays withheld
-when the schema read fails. A column that authors its own `type` draws from it meanwhile. A host that
-already holds the object's fields passes them as the `objectFields` prop, and the grid
-answers from them until its own read lands, so there is no such window; `ListView`
-does this (objectui#10657, which folded objectui#10706).
+when the schema read fails. A column that authors its own `type` draws from it
+meanwhile.
 
-```tsx
-<ObjectGrid schema={gridSchema} dataSource={dataSource} data={rows} objectFields={objectDef.fields} />
-```
-
-`objectFields` is a runtime prop only: an `objectFields` key authored in the schema
-never reaches the grid.
+A host that already holds the object's definition passes its `fields` to the grid as
+the `objectFields` prop, beside the `data` it fetched, and the grid answers from them
+until its own read lands, so there is no such window; `ListView` does this
+(objectui#10657, which folded objectui#10706). `objectFields` is a runtime prop only:
+an `objectFields` key authored in the schema never reaches the grid.
 
 Not covered:
 

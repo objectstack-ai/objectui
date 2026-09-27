@@ -49,9 +49,9 @@
  *   - `div` — deprecated on the JSON surface in favour of `box` (objectui#3965,
  *     PR objectui#6878) and kept out of the published contract by the same
  *     ruling that admits the rest: the gate keeps refusing `<div>` on an html
- *     page. The renderer still registers it and its declared deprecation still
- *     names only the `json` surface (objectui#4000); reconciling that runtime
- *     exemption with this contract is a separate card, not a roster edit.
+ *     page. The renderer still registers it, and its declared deprecation names
+ *     both surfaces, `json` and `html` (objectui#10757): the console's html
+ *     compile refuses it too, naming `box`, so the renderer and the gate agree.
  *   - `kbd` — a `ui` component under an HTML tag name (renders `keys` /
  *     `label`), not named by the ruling. Admitting it is additive and cheap on
  *     a named need; retracting a declared tag is a narrowing.

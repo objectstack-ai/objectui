@@ -1824,7 +1824,10 @@ export function InterfacesPillar({
         const lay = layRaw as { effective?: Record<string, unknown>; code?: Record<string, unknown> };
         const eff = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
         const appDraftBody = extractDraftBody(appDraftResp);
-        const body = appDraftBody ? { ...eff, ...appDraftBody } : eff;
+        // A served draft is the whole document — taken as-is, never spread
+        // over the published layer (objectui#10765; the rule is stated once
+        // at `ResourceEditPage`'s load effect). Baseline only when no draft.
+        const body = appDraftBody ?? eff;
         if (typeof body.label === 'string' || typeof body.name === 'string') {
           setAppLabel(String(body.label ?? body.name ?? label));
         }
@@ -1951,7 +1954,9 @@ export function InterfacesPillar({
           (lay as { code?: unknown }).code ??
           {}) as Record<string, unknown>;
         const body = extractDraftBody(draftResp);
-        setDraft(body ? { ...baseline, ...body } : baseline);
+        // Served draft as-is, baseline only without one (objectui#10765): a
+        // spread over `effective` resurrects every key the draft deleted.
+        setDraft(body ?? baseline);
         setHasDraft(!!body);
         setIfDirty(false);
       } catch (e) {
@@ -2961,7 +2966,8 @@ export function DataPillar({
         const lay = layRaw as { effective?: Record<string, unknown>; code?: Record<string, unknown> };
         const baseline = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
         const draftBody = extractDraftBody(draftResp);
-        setObjDraft(draftBody ? { ...baseline, ...draftBody } : baseline);
+        // Served draft as-is, baseline only without one (objectui#10765).
+        setObjDraft(draftBody ?? baseline);
         setHasDraft(!!draftBody);
         setHasBaseline(!!(lay.effective ?? lay.code));
         // The projection baseline: the object as the SERVER has it. `objDraft`
@@ -4012,7 +4018,8 @@ export function AutomationsPillar({
         const lay = layRaw as { effective?: Record<string, unknown>; code?: Record<string, unknown> };
         const baseline = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
         const draftBody = extractDraftBody(draftResp);
-        setDraft(draftBody ? { ...baseline, ...draftBody } : baseline);
+        // Served draft as-is, baseline only without one (objectui#10765).
+        setDraft(draftBody ?? baseline);
         setHasDraft(!!draftBody);
       } catch (e) {
         if (!cancelled) setError(formatMetadataError(e));

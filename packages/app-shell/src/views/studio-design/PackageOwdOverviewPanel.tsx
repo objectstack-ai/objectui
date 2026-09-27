@@ -154,7 +154,11 @@ export function PackageOwdOverviewPanel({
           const lay = (layRaw ?? {}) as { effective?: Record<string, unknown>; code?: Record<string, unknown> };
           const baseline = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
           const draftBody = extractDraftBody(draftResp);
-          const body = draftBody ? { ...baseline, ...draftBody } : baseline;
+          // The pending draft is the whole document: read it as-is, and the
+          // published baseline only when no draft exists (objectui#10765). A
+          // spread over `effective` showed a model the draft had cleared as
+          // still set, from the published layer.
+          const body = draftBody ?? baseline;
           const internal = typeof body.sharingModel === 'string' ? body.sharingModel : '';
           return {
             name,
@@ -244,7 +248,11 @@ export function PackageOwdOverviewPanel({
         const lay = (layRaw ?? {}) as { effective?: Record<string, unknown>; code?: Record<string, unknown> };
         const baseline = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
         const draftBody = extractDraftBody(draftResp);
-        const next: Record<string, unknown> = { ...baseline, ...(draftBody ?? {}) };
+        // The pending draft is the whole document — the edit lands on it as-is,
+        // and on the published baseline only when no draft exists
+        // (objectui#10765): a spread over `effective` would put back every key
+        // the draft had deleted and save them again as this object's draft.
+        const next: Record<string, unknown> = { ...(draftBody ?? baseline) };
         if (s.edit.internal) next.sharingModel = s.edit.internal;
         else delete next.sharingModel;
         if (s.edit.external) next.externalSharingModel = s.edit.external;

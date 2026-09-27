@@ -840,6 +840,37 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
    * over by hand.
    */
   const reportOwedRef = useRef(false);
+  /**
+   * Rows a HOST component handed down as a `data` prop, or `null` when it
+   * handed none (objectui#7333).
+   *
+   * ⭐ An EMPTY array is `null` here. It is "no host rows yet", ⛔ not "the
+   * host owns zero rows". Both sites that read this prop — the short-circuit
+   * at the head of `reload` and `recordQueryDerivesExpand` below — used to
+   * take `[]` as an authoritative answer (`[]` is truthy, and
+   * `Array.isArray([])` holds): the chart adopted it and returned before its
+   * own query, and painted an EMPTY chart in place of the rows its `data`
+   * config names. A host array that has not been filled yet looks exactly like
+   * that. So an empty array leaves the chart reading from its own source, as it
+   * does with no host array at all; a NON-EMPTY one is adopted as it always
+   * was. Pinned in `ObjectGantt.emptyHostData-7333.test.tsx`.
+   *
+   * One predicate, evaluated once per render, for BOTH sites. `reload` reads it
+   * through `hostRowsRef` rather than closing over `rest`: `reload` does not
+   * key on the host rows, so a closed-over value is the one from whichever
+   * render last rebuilt `reload`. When a host's rows arrive after an empty
+   * first render, `recordQueryDerivesExpand` flips and fires the fetch effect,
+   * and that run must see the rows that flipped it, not the `[]` before them.
+   *
+   * ⚠️ The registry path never hands this prop: the registered `object-gantt`
+   * renderer forwards no host prop (`ObjectGantt.hostDataProp-7210.test.tsx`
+   * pins that), and `ObjectGanttProps` does not declare `data`. What reaches it
+   * is a direct caller that spreads one in.
+   */
+  const hostRowsProp: unknown = (rest as Record<string, unknown>).data;
+  const hostRows = Array.isArray(hostRowsProp) && hostRowsProp.length > 0 ? hostRowsProp : null;
+  const hostRowsRef = useRef(hostRows);
+  hostRowsRef.current = hostRows;
   const reload = useCallback(async ({ silent = false, inPlace = silent }: { silent?: boolean; inPlace?: boolean } = {}) => {
     const seq = ++reloadSeqRef.current;
     const isCurrent = () => reloadSeqRef.current === seq;
@@ -848,10 +879,12 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
     try {
       if (inPlace) setRefreshing(true);
       else setLoading(true);
-      // 1. Check for data prop (Unified ListView)
-      if ((rest as any).data && Array.isArray((rest as any).data)) {
+      // 1. Rows a host handed down — non-empty only (objectui#7333); see
+      // `hostRows` above for why this reads the ref.
+      const handedRows = hostRowsRef.current;
+      if (handedRows) {
         if (isCurrent()) {
-          setData((rest as any).data);
+          setData(handedRows);
           setRowCeiling(null);
           // Committed rows clear an earlier failure (objectui#10578) — the
           // reasoning sits on the adapter's commit below.
@@ -1003,18 +1036,21 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
     // The fetch effect below repeats this list for the same reason; the pins in
     // `ObjectGantt.discardedReloadIdentity-10036.test.tsx` hold the two in
     // parity by exercising each entry.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- (rest as any).data intentionally untracked, matching the original effect
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `searchFields` is keyed by its serialised value, `searchFieldsKey`; the host rows are read through `hostRowsRef` (objectui#7333)
   }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, queryFilter, schema.sort, searchTerm, searchFieldsKey, objectSchema, perms]);
 
   /**
    * Does the query this effect is about to issue DERIVE anything from the
-   * object schema? Only the adapter branch does. A host-supplied `data` array
-   * and an inline `value` set both paint with no metadata read at all, so
-   * gating them would hold a paint on a resolution that buys them nothing.
-   * Same scoping ObjectCalendar's gate uses, and for the same reason.
+   * object schema? Only the adapter branch does. Rows a host handed down and
+   * an inline `value` set both paint with no metadata read at all, so gating
+   * them would hold a paint on a resolution that buys them nothing. Same
+   * scoping ObjectCalendar's gate uses, and for the same reason.
+   *
+   * "Rows a host handed down" is `hostRows`, the predicate `reload` reads — an
+   * EMPTY host array is not one (objectui#7333), so it keeps the gate and the
+   * invalidation subscription of the query the chart still issues.
    */
-  const hasHostData = Array.isArray((rest as any).data);
-  const recordQueryDerivesExpand = !hasHostData && !hasInlineData;
+  const recordQueryDerivesExpand = hostRows === null && !hasInlineData;
 
   // ⭐ objectui#7225 ask 2 (objectui#6482's undischarged gating half) — the
   // object schema GATES this query; it does not refine it afterwards.

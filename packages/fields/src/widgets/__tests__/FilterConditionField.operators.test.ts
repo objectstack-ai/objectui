@@ -91,11 +91,17 @@ const noTypes = () => undefined;
  */
 const KNOWN_UNREACHABLE = new Set(['$eq', '$between', '$like', '$ilike']);
 
-/** Pull the operator keys out of a `{ field: { $op: v } }` fragment. */
+/**
+ * Pull the operator keys out of a `{ field: { $op: v } }` fragment — descending
+ * into a `$or` / `$and` entry, which is how "is empty" is stored since
+ * objectui#10790, so its inner operators are judged like every other row's.
+ */
 function operatorsOf(frag: Record<string, any> | null): string[] {
   if (!frag) return [];
-  return Object.values(frag).flatMap((v) =>
-    v !== null && typeof v === 'object' && !Array.isArray(v) ? Object.keys(v) : [],
+  return Object.entries(frag).flatMap(([key, v]) =>
+    (key === '$or' || key === '$and') && Array.isArray(v)
+      ? v.flatMap((child) => operatorsOf(child))
+      : v !== null && typeof v === 'object' && !Array.isArray(v) ? Object.keys(v) : [],
   );
 }
 
@@ -329,10 +335,12 @@ describe('objectui#8748 — an unfinished text row is dropped, not emitted', () 
       .toEqual({ name: { $exists: true } });
     expect(condToMongo({ id: 'c3', field: 'name', operator: 'notExists', value: '' } as any, noTypes))
       .toEqual({ name: { $exists: false } });
+    // objectui#10790: no `null` list member — the shapes the objectstack
+    // faces accept (`FilterConditionField.emptyOperators-10790.test.tsx`).
     expect(condToMongo({ id: 'c4', field: 'name', operator: 'is_empty', value: '' } as any, noTypes))
-      .toEqual({ name: { $in: [null, ''] } });
+      .toEqual({ $or: [{ name: { $in: [''] } }, { name: { $null: true } }] });
     expect(condToMongo({ id: 'c5', field: 'name', operator: 'is_not_empty', value: '' } as any, noTypes))
-      .toEqual({ name: { $nin: [null, ''] } });
+      .toEqual({ name: { $nin: [''], $null: false } });
   });
 
   it('equals with an empty comparand still emits — it is a real predicate', () => {

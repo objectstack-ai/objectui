@@ -78,8 +78,8 @@ const EXCLUDED_HTML_NAMED: Record<string, string> = {
   div:
     'deprecated on the JSON surface in favour of `box` (objectui#3965, PR objectui#6878) and kept out of the ' +
     'published contract by the objectstack#20112 ruling A: the gate that reads the manifest refuses `<div>` on ' +
-    'an html page. The renderer still registers it with a `json`-only deprecation (objectui#4000); reconciling ' +
-    'that runtime exemption with this contract is a separate card, not a roster edit.',
+    'an html page. The renderer still registers it, and its declared deprecation names both surfaces, `json` and ' +
+    '`html` (objectui#10757): the console\'s html compile refuses it too, naming `box`.',
   summary: 'the bare fallback key of the `field:summary` widget — a field, not an element renderer.',
   object: 'the bare fallback key of the `field:object` widget — a field, not an element renderer.',
   view: 'the bare `view` registration of `@object-ui/plugin-view`, which happens to share its name with the SVG element.',

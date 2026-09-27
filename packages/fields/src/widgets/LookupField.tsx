@@ -18,7 +18,7 @@ import type { RecordPickerFilterColumn } from './RecordPickerDialog.js';
 import { PeoplePicker } from './PeoplePicker.js';
 import { useRecordQuery } from './useRecordQuery.js';
 import { deriveLookupColumns } from './deriveLookupColumns.js';
-import { buildExpandFields, getRecordDisplayName, mergeFilterNodes, toPredicateRecord } from '@object-ui/core';
+import { buildExpandFields, getRecordDisplayName, mergeFilterNodes, toPredicateRecord, withoutDeniedFields } from '@object-ui/core';
 import { getRecentLookupIds, pushRecentLookupId } from './recentLookups.js';
 import { getPersonInitials } from './personDisplay.js';
 import { getCellRendererResolver } from './_cell-renderer-bridge.js';
@@ -123,10 +123,11 @@ const DEFAULT_DISPLAY_FIELD = 'name';
  * ADR-0079 rung.
  *
  * The label is a DISPLAY value, so it is built from the row as the user may
- * read it (objectui#10373): with `readable` given (a loaded permission policy),
- * every field it denies is removed first — the row ObjectStack's `FieldMasker`
- * already serves — and the chain above falls through exactly as it does for
- * that row. Nothing else moves: the value, the description and the record the
+ * read it on `policyObject` (objectui#10373): once `policy` has loaded, every
+ * field it denies is removed first by `withoutDeniedFields` from
+ * `@object-ui/core` (objectui#10594), `idField` kept — the row ObjectStack's
+ * `FieldMasker` already serves — and the chain above falls through exactly as
+ * it does for that row. Nothing else moves: the value, the description and the record the
  * option carries (what `onSelectRecord` receives) are the row as served.
  *
  * @param displayField the lookup field's DECLARED `displayField` (or
@@ -138,12 +139,13 @@ function recordToOption(
   record: any,
   displayField: string | undefined,
   idField: string,
-  descriptionField?: string,
-  objectDef?: any,
-  readable?: FieldReadGate,
+  descriptionField: string | undefined,
+  objectDef: any,
+  policy: FieldReadPolicy,
+  policyObject: string | undefined,
 ): LookupOption {
   const val = recordValue(record, idField);
-  const shown = withoutDeniedFields(record, readable);
+  const shown = withoutDeniedFields(record, policy, policyObject, [idField]);
 
   // Object-level resolver, excluding its id floor so we don't shadow the
   // explicit `String(val)` tail.
@@ -201,42 +203,8 @@ function mergeRowsByValue(
   return Array.from(map.values());
 }
 
-/** "May the user read this field?" on one object, once a policy has loaded. */
-type FieldReadGate = (field: string) => boolean;
-
-/**
- * The field-read gate on `objectName`, or `undefined` while no policy has
- * loaded — before then nothing is withheld, as at every other gate in this
- * file. The identity columns are never judged: the id is the committed value,
- * not a display value.
- */
-function fieldReadGate(
-  perms: ReturnType<typeof usePermissions>,
-  objectName: string | undefined,
-  idField: string,
-): FieldReadGate | undefined {
-  if (!perms.isLoaded || !objectName) return undefined;
-  return (field) =>
-    field === idField || field === 'id' || field === '_id' || perms.checkField(objectName, field, 'read');
-}
-
-/**
- * `record` without the fields `readable` denies — the same object back when
- * nothing is withheld (or no gate is given), so a caller can tell the two
- * apart by identity. `RecordPickerDialog` applies the same rule to its display
- * column's `titleFormat` (its own `withoutDeniedFields`); each file keeps its
- * own copy so that neither becomes a package export.
- */
-function withoutDeniedFields<T>(record: T, readable: FieldReadGate | undefined): T {
-  if (!readable || !record || typeof record !== 'object') return record;
-  const shown: Record<string, unknown> = {};
-  let withheld = false;
-  for (const [key, value] of Object.entries(record)) {
-    if (readable(key)) shown[key] = value;
-    else withheld = true;
-  }
-  return withheld ? (shown as T) : record;
-}
+/** The two members of the permission context the field-read rule asks. */
+type FieldReadPolicy = Pick<ReturnType<typeof usePermissions>, 'isLoaded' | 'checkField'>;
 
 /**
  * A reference value can arrive JSON-encoded — e.g. an unresolved external-id
@@ -631,7 +599,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
    *
    * The id column is never filtered: it holds the value being committed. The
    * option's label is not one of these columns; `recordToOption` builds it
-   * from the row with the denied fields removed (`fieldReadGate`), so the
+   * from the row with the denied fields removed (`withoutDeniedFields`), so the
    * display field and a `titleFormat` obey the same policy without dropping
    * the option. `candidateExpand` keeps
    * reading the unfiltered list and gating its own output, as every
@@ -719,7 +687,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
         recordToOption(
           toPredicateRecord(r, refObjectSchema?.fields),
           declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema,
-          fieldReadGate(perms, referenceTo, idField),
+          perms, referenceTo,
         ),
       ),
     [popoverQuery.records, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, perms, referenceTo],
@@ -878,9 +846,8 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   // (objectui#10373) — rather than whatever either was in the render the fetch
   // returned to (objectui#10487) or the pick was made in (objectui#10559).
   const [pickedOptions, hydratedOptions] = useMemo<[LookupOption[], LookupOption[]]>(() => {
-    const readable = fieldReadGate(perms, referenceTo, idField);
     const toOption = (r: Record<string, unknown>) =>
-      recordToOption(r, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, readable);
+      recordToOption(r, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, perms, referenceTo);
     return [pickedRecords.map(toOption), hydratedRecords.map(toOption)];
   }, [pickedRecords, hydratedRecords, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, perms, referenceTo]);
 
@@ -948,7 +915,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       // mapped directly, mirroring the read cell (`LookupCellRenderer`).
       const asObject = typeof raw === 'object' ? raw : parseReferenceObjectString(raw);
       if (asObject) {
-        return recordToOption(asObject, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, fieldReadGate(perms, referenceTo, idField));
+        return recordToOption(asObject, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, perms, referenceTo);
       }
       // Bare id: strict match first, then a String()-coerced fallback so a
       // numeric cell value still resolves against a string-keyed option (and
@@ -1136,7 +1103,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
         recordToOption(
           toPredicateRecord(r, refObjectSchema?.fields),
           declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema,
-          fieldReadGate(perms, referenceTo, idField),
+          perms, referenceTo,
         ),
       ),
     [recentRows, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, perms, referenceTo],
@@ -1223,7 +1190,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
           modal: { objectName: referenceTo, mode: 'create' },
         } as any);
         if (result?.success && result.data) {
-          const opt = recordToOption(result.data, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, fieldReadGate(perms, referenceTo, idField));
+          const opt = recordToOption(result.data, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, perms, referenceTo);
           handleSelect(opt, result.data);
           return;
         }
@@ -1239,7 +1206,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       setCreating(true);
       try {
         const created = await (dataSource as any).create(referenceTo, { [displayField]: label });
-        const opt = recordToOption(created, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, fieldReadGate(perms, referenceTo, idField));
+        const opt = recordToOption(created, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, perms, referenceTo);
         handleSelect(opt, created);
       } catch (err) {
         setCreateError(err instanceof Error ? err.message : String(err));
@@ -1443,16 +1410,15 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
    * A search-first chip's avatar, read only from a field the user may read on
    * `referenceTo` (objectui#10433). The option carries the row as served (see
    * `recordToOption`), so the chip used to draw a denied avatar on a backend
-   * that does not strip it. Both keys the chip reads are judged, each by its
-   * own name: the configured avatar field, and `image`, the fallback, which is
-   * a field of the same row. Before a policy loads nothing is withheld, as at
-   * every other gate in this file.
+   * that does not strip it. Both keys the chip reads come from the option as
+   * the user may read it (`withoutDeniedFields`, objectui#10594), so each is
+   * judged by its own name: the configured avatar field, and `image`, the
+   * fallback, which is a field of the same row. Before a policy loads nothing
+   * is withheld, as at every other gate in this file.
    */
-  const chipAvatarReadable = fieldReadGate(perms, referenceTo, idField);
   const chipAvatarUrl = (opt: LookupOption | undefined): string | undefined => {
-    const drawn = (key: string) =>
-      !chipAvatarReadable || chipAvatarReadable(key) ? opt?.[key] : undefined;
-    const url = drawn(avatarField) || drawn('image');
+    const shown = withoutDeniedFields(opt, perms, referenceTo, [idField]);
+    const url = shown?.[avatarField] || shown?.image;
     return url ? String(url) : undefined;
   };
 

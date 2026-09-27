@@ -33,9 +33,16 @@
  *   is an empty operator map is refused too, instead of being read as the TRUE
  *   identity (which widened an `$or` to every row).
  *
- * The boundary objectui#9164 does NOT move — an empty operator map BESIDE a key
- * that lowers is still dropped — stays pinned where it was ruled:
+ * The boundary objectui#9164 did NOT move — an empty operator map BESIDE a key
+ * that lowers was still dropped — was pinned where it was ruled:
  * filter-date-comparand-8555.test.ts and filter-exotic-comparand-8567.test.ts.
+ *
+ * ⚠️ UPDATED by objectui#10788: that boundary is now refused too, and the
+ * refusal moved from the tail into the operator-map arm, so one throw site
+ * answers both cases. The three inputs above keep the envelope asserted here;
+ * the beside-a-key case is pinned in
+ * filter-empty-operator-map-beside-key-10788.test.ts, and both boundary rows
+ * above now pin the refusal.
  */
 
 import { describe, it, expect } from 'vitest';

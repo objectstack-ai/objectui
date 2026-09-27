@@ -47,3 +47,10 @@ deleted a row: `requestBody` (objectui#6193) kept its row and documented the sea
 `renderer.surface.test.tsx` pins all of it through the real SDUI host rather than a bare
 component render, and asserts the rendered chrome rather than the forwarded prop, so a
 regression where the key is forwarded but no longer acted on is still red.
+
+⚠️ **Dated note, 2026-09-27 — `maxToolRoundtrips` no longer keeps its row — objectui#5605.**
+Later in this same release `maxToolRoundtrips` is retired behind a tombstone: its props-table
+row is gone, it no longer warns at runtime, and authoring it on any chat node is refused by
+name with the agent's `planning.maxIterations` as the remedy. The sentence above that says it
+"kept its row, marked it inert, and warns once at runtime" is kept as the reading of this
+change; the objectui#5605 retirement entry states what an author gets now.

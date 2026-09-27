@@ -87,7 +87,7 @@ describe('span deprecation notice — scoped by provenance (#4917)', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const { container } = renderHtmlPage(
-      '<div className="outer"><span className="inner">hello html tier</span><p>page rendered</p></div>',
+      '<box className="outer"><span className="inner">hello html tier</span><p>page rendered</p></box>',
     );
 
     // Control FIRST: silence proves nothing if the page never rendered. A

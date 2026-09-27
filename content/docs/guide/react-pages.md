@@ -339,6 +339,9 @@ convention and are not registered names (`<ListView>` is rejected with
 look uniform — `<record:related-list>` is not registered, only
 `<record:related_list>` is.
 
+The plain wrapper on this tier is `<box>`. `<div>` is deprecated here as it is in
+JSON, and the page is refused at compile time with an error that names `box`.
+
 Use it for anything author- or AI-generated. Expressions are limited to what the
 schema supports (`${data.x}`), and there is no local state or event handling
 beyond the action system.

@@ -16,7 +16,7 @@ import React, { useMemo } from 'react';
 import type { BaseSchema, PageNodeSchema, PageNodeRegion, SchemaNode } from '@object-ui/types';
 import { SchemaRenderer, toRenderableSchema, PageVariablesProvider, PageVariableActionBridge } from '@object-ui/react';
 import { ComponentRegistry, toDomProps } from '@object-ui/core';
-import { compile, manifestFromConfigs } from '@object-ui/sdui-parser';
+import { compile, manifestFromConfigs, type Diagnostic } from '@object-ui/sdui-parser';
 import { ReactKindPage } from './react-page';
 import { cn } from '../../lib/utils';
 
@@ -474,16 +474,42 @@ function getJsxManifest() {
   // SchemaRenderer triggers the loader and swaps in the real block. Authoring
   // time still gets full prop validation — `sdui.manifest.json` is generated
   // with every plugin eagerly loaded, and asserts as much.
+  //
+  // A type whose registration declares it DEPRECATED ON THE HTML SURFACE is
+  // left out (objectui#10757). The tier refuses such a tag at compile time,
+  // which is the answer the published gate gives for the same page (the
+  // manifest does not declare it), and `nameHtmlTierReplacement` below turns
+  // the refusal into one that says what to author instead. The registration's
+  // `deprecated` declaration is the one authority here, so no list of tag
+  // names lives in this file.
   const version = ComponentRegistry.getVersion();
   if (_jsxManifest === null || _jsxManifestSig !== version) {
-    const configs = ComponentRegistry.getKnownTypes().map((t) => {
-      const meta = ComponentRegistry.getMeta(t);
-      return { type: t, namespace: meta?.namespace, isContainer: meta?.isContainer, inputs: meta?.inputs };
-    });
+    const configs = ComponentRegistry.getKnownTypes()
+      .filter((t) => !ComponentRegistry.deprecationFor(t, 'html'))
+      .map((t) => {
+        const meta = ComponentRegistry.getMeta(t);
+        return { type: t, namespace: meta?.namespace, isContainer: meta?.isContainer, inputs: meta?.inputs };
+      });
     _jsxManifest = manifestFromConfigs(configs as unknown as Parameters<typeof manifestFromConfigs>[0]);
     _jsxManifestSig = version;
   }
   return _jsxManifest;
+}
+
+/**
+ * A `forbidden-tag` refusal for a tag its registration declares deprecated on
+ * the html surface, extended to say so and to name what to author instead
+ * (objectui#10757). The replacement is the declaration's own `replacement`
+ * line, not a second copy of the guidance. The parser's sentence stays first,
+ * so the refusal reads the same as the one the published gate gives. Any other
+ * diagnostic passes through untouched.
+ */
+function nameHtmlTierReplacement(d: Diagnostic): Diagnostic {
+  if (d.code !== 'forbidden-tag' || !d.tag) return d;
+  const deprecation = ComponentRegistry.deprecationFor(d.tag, 'html');
+  if (!deprecation) return d;
+  const why = `${d.message}: it is deprecated on kind:'html' pages`;
+  return { ...d, message: deprecation.replacement ? `${why}. Instead, ${deprecation.replacement}` : why };
 }
 
 // Main PageRenderer
@@ -559,7 +585,9 @@ export const PageRenderer: React.FC<{
     if (kind === 'html' || kind === 'jsx') {
       const src = (schema as { source?: string }).source ?? '';
       const { tree, diagnostics } = compile(src, getJsxManifest());
-      const errors = diagnostics.filter((d) => d.severity === 'error');
+      const errors = diagnostics
+        .filter((d) => d.severity === 'error')
+        .map(nameHtmlTierReplacement);
       if (errors.length) {
         return (
           <div className="m-4 rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">

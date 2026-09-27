@@ -6,10 +6,13 @@
  * source, compiled tag-name-straight-through) or AUTHORED AS JSON metadata.
  *
  * Why a renderer needs it: the two surfaces have different vocabularies. A type
- * the JSON surface is steering authors away from can still be a first-class,
- * permanently-supported tag in the html tier — the plain box element is exactly
- * that. Advice aimed at the JSON surface, delivered to an html-tier author, is
- * advice they cannot act on: in that tier there is no other spelling. The
+ * the JSON surface is steering authors away from can still be a supported tag
+ * in the html tier — the plain inline element (`span`) is exactly that. (The
+ * plain box element was too, until objectui#10757 deprecated `div` on the html
+ * surface as well; the console's html compile now refuses it outright, so no
+ * notice is involved there.) Advice aimed at the JSON surface, delivered to an
+ * html-tier author, is advice they cannot act on: in that tier there is no
+ * other spelling. The
  * deprecation notice fired at them anyway (objectui#4000), which is also why the
  * type could never be retired — the engine's own compiler keeps emitting it.
  *

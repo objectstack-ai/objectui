@@ -7,7 +7,6 @@
  */
 
 import { ComponentRegistry } from '@object-ui/core';
-import { isHtmlTierNode } from '@object-ui/sdui-parser';
 import type { DivSchema } from '@object-ui/types';
 import { renderChildren } from '../../lib/utils';
 import { forwardRef } from 'react';
@@ -40,15 +39,26 @@ function warnDeprecatedOnce(type: string, message: string): void {
 }
 
 /**
- * The notice, including WHICH AUTHORING SURFACE it is about.
+ * The notice, including WHICH AUTHORING SURFACES it is about.
  *
- * Scope is part of the message, not decoration. This type is deprecated on the
- * JSON surface and simultaneously a permanent, first-class tag of the
- * `kind:'html'` tier — an author there writes the plain box tag and our own
- * parser maps it straight through, and no other spelling exists for them to
- * migrate to. A notice that says the type is deprecated FULL STOP is therefore
- * false for one of its two readers, and it was the reader who could do nothing
- * about it who kept receiving it (objectui#4000).
+ * ## Deprecated on BOTH surfaces — re-ruled in objectui#10757
+ *
+ * objectui#4000 scoped this deprecation to the JSON surface and kept the tag as
+ * vocabulary of the `kind:'html'` tier. The maintainer's later ruling A on
+ * objectstack#20112 supersedes that for this type: the published manifest
+ * declares the html tier's intrinsic set, `div` stays deprecated there, and
+ * `box` replaces it. So the declaration on the registration below names both
+ * surfaces, and the html tier's compile (`layout/page.tsx`) REFUSES the tag —
+ * a `forbidden-tag` error that names the declared replacement — instead of
+ * compiling it straight through. That is the answer the published gate gives
+ * for the same page, and it is a refusal, not a dev-only notice.
+ *
+ * An html author therefore never reaches this renderer with a `div` through
+ * the console, and this notice is read by JSON authors. Its scope sentence
+ * still names the html tier, so a reader of either surface can tell the notice
+ * is about them too.
+ *
+ * ⛔ `span` keeps objectui#4000's provenance scope: the ruling names only `div`.
  *
  * ## The guidance was RE-RULED in objectui#6877 — it is no longer #4000's bytes
  *
@@ -107,8 +117,8 @@ const DIV_DEPRECATION_NOTICE =
   '  - For a plain wrapper the drop-in swap is "box": same element, your `className` verbatim, no layout of its own.\n' +
   '  - Reach for "card", "flex", "container", "stack", or "grid" only when you want their layout — each injects classes of its own, and "card" also moves children into an extra element.\n' +
   '  - Move any `body` content into `children` first: every replacement above except "card" reads `children` only, so a blind retype drops it silently at an unchanged element count.\n' +
-  '  This applies to JSON-authored nodes. In a kind:\'html\' page the tag is part of that tier\'s own\n' +
-  '  vocabulary, is compiled straight through, and is not reported here.\n' +
+  '  This applies to JSON-authored nodes and to kind:\'html\' pages alike: an html page refuses the\n' +
+  '  tag when it compiles, naming the same replacement.\n' +
   'See documentation at https://www.objectui.org/docs/components for alternatives.';
 
 // Index signature on the parameter annotation, not on the `forwardRef` type
@@ -116,20 +126,14 @@ const DIV_DEPRECATION_NOTICE =
 // `__tests__/forwardref-props-annotation.guard.test.ts`.
 const DivRenderer = forwardRef<HTMLDivElement, { schema: DivSchema; className?: string }>(
   ({ schema, className, ...props }: { schema: DivSchema; className?: string; [key: string]: any }, ref) => {
-    // Deprecation notice — JSON-authored nodes only (objectui#4000), once per
-    // module load (objectui#3965, see warnDeprecatedOnce).
-    //
-    // ORDER, same discipline as the production early-return inside
-    // warnDeprecatedOnce: the exemption is checked BEFORE the seen-set is
-    // marked. An html-tier node rendering first must not latch the guard, or it
-    // would swallow the notice a JSON-authored node earns later on the same
-    // page — silencing exactly the reader this notice is for.
-    //
-    // The test is provenance, established by the producer (the parser stamps
-    // what it emits), not a guess about the node's shape here.
-    if (!isHtmlTierNode(schema)) {
-      warnDeprecatedOnce('div', DIV_DEPRECATION_NOTICE);
-    }
+    // Deprecation notice, once per module load (objectui#3965, see
+    // warnDeprecatedOnce). There is no provenance exemption any more: the
+    // declaration below names both authoring surfaces (objectui#10757), so a
+    // node the html tier's parser emitted is as deprecated as a JSON-authored
+    // one. In the console such a node never gets this far, because the html
+    // compile refuses the tag first. A host that compiles against its own
+    // whitelist still hears about it here.
+    warnDeprecatedOnce('div', DIV_DEPRECATION_NOTICE);
 
     // Extract designer-related props
     const { 
@@ -169,18 +173,24 @@ ComponentRegistry.register('div',
      * green: both gates that touch component types ask whether the type
      * RESOLVES, and this one resolves.
      *
-     * `surfaces` carries the objectui#4000 ruling rather than restating it in a
-     * second place: the `isHtmlTierNode` exemption ABOVE and this list are the
-     * same fact, and `__tests__/div-deprecation-provenance.test.tsx` pins them
-     * to each other so neither can move alone.
+     * `surfaces` names BOTH authoring surfaces (objectui#10757, executing
+     * ruling A on objectstack#20112, which supersedes objectui#4000's html-tier
+     * exemption for this type). This list is the ONE authority its readers
+     * consult, and none of them keeps a second list of tag names: the renderer
+     * above no longer exempts html-tier nodes, and the html tier's compile
+     * (`layout/page.tsx`) leaves every type deprecated on `'html'` out of its
+     * whitelist and names `replacement` in the refusal.
+     * `__tests__/div-deprecation-provenance.test.tsx` pins the declaration, the
+     * refusal and the renderer to each other, so none of them can move alone.
      *
-     * ⛔ Declaring this deprecates NOTHING NEW and fails NO build. The catalog
-     * ratchet (`examples/schema-catalog/test/deprecated-component-types.test.ts`,
+     * ⛔ On the JSON surface declaring this fails NO build. The catalog ratchet
+     * (`examples/schema-catalog/test/deprecated-component-types.test.ts`,
      * objectui#6732) freezes the existing stock and refuses growth; draining it
-     * is objectui#3965's worklist.
+     * is objectui#3965's worklist. On the html surface it IS a refusal: a
+     * `kind:'html'` page that authors the tag fails to compile.
      */
     deprecated: {
-      surfaces: ['json'],
+      surfaces: ['json', 'html'],
       /**
        * Re-ruled with the notice above in objectui#6877 — the two are asserted
        * to offer the SAME set of alternatives (objectui#6823), so they cannot

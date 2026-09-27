@@ -286,12 +286,24 @@ describe('objectui#8567 — the envelope is shared, the idiom is not', () => {
 describe('objectui#8567 — the identity and the operator path are untouched', () => {
   it('an EMPTY operator object is never read as an exotic comparand', () => {
     // The control for every ablation leg: `{}` is entry-less exactly like `/x/`,
-    // and a fix gated on the key COUNT would sweep it up. It must not move:
-    // beside a key that lowers it still constrains nothing.
-    expect(convertFiltersToAST({ status: 'a', created: {} })).toEqual(['status', '=', 'a']);
+    // and a fix gated on the key COUNT would sweep it up into THIS arm. That
+    // fence stands: whatever `{}` answers, it is not this file's refusal.
+    //
+    // ⚠️ FLIPPED ON PURPOSE by objectui#10788. Beside a key that lowers this
+    // row used to pin `['status', '=', 'a']` — the `created` key dropped and
+    // the result WIDENED, the silent drop this file refuses for `/x/`.
+    // `@objectstack/spec` records `{ field: {} }` as REJECTED by
+    // objectstack#5240 in every position, so it is now refused as an EMPTY
+    // OPERATOR MAP naming the field — never as an exotic comparand (envelope
+    // pinned in filter-empty-operator-map-beside-key-10788.test.ts).
+    const beside = refusalOf(() => convertFiltersToAST({ status: 'a', created: {} }));
+    expect(beside.returned).toBeUndefined();
+    expect(beside.thrown).toMatchObject({ ...INVALID_FILTER, field: 'created', operator: undefined });
+    expect((beside.thrown as Error).message).not.toMatch(/comparand position/);
     // ⚠️ UPDATED. Alone it used to come back as the original object; since
-    // objectui#9164 it is refused as an EMPTY OPERATOR MAP — the tail's arm,
-    // not this file's (envelope pinned in filter-empty-operator-map-9164.test.ts).
+    // objectui#9164 it is refused as an EMPTY OPERATOR MAP — the operator-map
+    // arm's refusal, not this file's (envelope pinned in
+    // filter-empty-operator-map-9164.test.ts).
     expect(() => convertFiltersToAST({ created: {} })).toThrow(FilterOperatorError);
   });
 

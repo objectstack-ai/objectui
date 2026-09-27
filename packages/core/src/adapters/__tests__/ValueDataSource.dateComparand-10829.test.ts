@@ -19,9 +19,11 @@
  *    the same filter to `['created', '=', d]` (objectui#8555).
  * 2. Every equality and membership position compared with `===` (membership
  *    with `includes`), which compares a `Date` by IDENTITY. The constructor
- *    `structuredClone`s every row, so no stored `Date` was ever the comparand's
- *    instance: `['created', '=', d]` matched NO row, not even the one holding
- *    that exact instant, while `>=` and `<=` both matched it.
+ *    `structuredClone`s the rows it is given, so none of them holds the
+ *    comparand's instance (only `create` / `update`, which copy shallowly, can
+ *    store the caller's own), and a `Date` equality matched none of them, not
+ *    even the one holding that exact instant, while `>=` and `<=` both matched
+ *    it.
  *
  * ## What the repair is (triage 5858941931, seat ruling 5859397811)
  *
@@ -41,9 +43,14 @@
  *   the row holding the instant as a `Date` matches.
  * - §2 — every equality and membership position, in both dialects, compares
  *   the instant: `$eq` / `$ne` / `$in` / `$nin` and `=` / `!=` / `in` / `nin`.
- * - §3 — an invalid `Date` is lowered by the converter, and equals nothing.
+ * - §3 — an invalid `Date` is lowered by the converter, and equals nothing,
+ *   itself included: `=` / `$eq` / `in` / `$in` never match a stored invalid
+ *   `Date`, and `!=` / `nin` / `$nin` keep it.
  * - §4 — controls: `{ status: 'a' }`, a string and a number equality, and the
  *   ordering operators, which this card does not touch.
+ * - §5 — membership reads `===`, so a stored `NaN` is not a member of `[NaN]`
+ *   (`$in` / `in` answer none) and `$nin` / `nin` keep it, agreeing with
+ *   `{ x: NaN }` and `$eq`.
  *
  * RED LEGS — directions predicted BEFORE running, from the committed fix:
  * - the base `ValueDataSource.ts` (before this card): §1, §2 and the §3
@@ -52,7 +59,12 @@
  *   `===`: the same-instant cases in §1 and §2 go RED; the other stored shapes
  *   in §1, §3 and §4 stay GREEN;
  * - an ablation that restores `===` inside `comparandEquals`: exactly the
- *   round-1 set goes RED.
+ *   round-1 set goes RED;
+ * - an ablation that reverts membership to `includes`: §5's four `NaN`
+ *   membership cases go RED, and so do §2's four `Date` membership cases
+ *   (`$in` / `$nin` / `in` / `nin`), because `includes` compares a `Date` by
+ *   identity too; nothing else. The first prediction named only §5 and was
+ *   wrong: the run showed the §2 half.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -199,6 +211,33 @@ describe('objectui#10829 §3 — an invalid Date is lowered, and equals nothing'
     expect(await query({ created: { $ne: new Date(NaN) } }))
       .toEqual(rows([...ROWS.map((row) => row.id)]));
   });
+
+  /** A stored invalid `Date` beside a valid one: the invalid one equals nothing, itself included. */
+  const WITH_INVALID: Row[] = [
+    { id: 'bad', status: 'a', created: new Date(NaN) },
+    { id: 'date', status: 'a', created: new Date(0) },
+  ];
+
+  it.each<[string, unknown]>([
+    ['!= Invalid Date', ['created', '!=', new Date(NaN)]],
+    ['nin [Invalid Date]', ['created', 'nin', [new Date(NaN)]]],
+    ['$nin: [Invalid Date]', { created: { $nin: [new Date(NaN)] } }],
+    ['!= Date', ['created', '!=', new Date(0)]],
+    ['$nin: [Date]', { created: { $nin: [new Date(0)] } }],
+  ])('a stored invalid Date is kept by %s', async (_label, filter) => {
+    const answer = await query(filter, WITH_INVALID);
+    expect(answer.ids).toContain('bad');
+    expect(answer.warns).toEqual([]);
+  });
+
+  it.each<[string, unknown]>([
+    ['= Invalid Date', ['created', '=', new Date(NaN)]],
+    ['in [Invalid Date]', ['created', 'in', [new Date(NaN)]]],
+    ['$eq: Invalid Date', { created: { $eq: new Date(NaN) } }],
+    ['$in: [Invalid Date]', { created: { $in: [new Date(NaN)] } }],
+  ])('a stored invalid Date is not matched by %s', async (_label, filter) => {
+    expect(await query(filter, WITH_INVALID)).toEqual(rows([]));
+  });
 });
 
 describe('objectui#10829 §4 — controls: the same answer on every leg', () => {
@@ -233,5 +272,46 @@ describe('objectui#10829 §4 — controls: the same answer on every leg', () => 
   it('$gte and $lte on one instant both hold for the rows $eq matches', async () => {
     const both = await query({ created: { $gte: instant(), $lte: instant() } });
     expect(both.ids).toEqual(expect.arrayContaining(SAME_INSTANT));
+  });
+});
+
+describe('objectui#10829 §5 — membership reads ===, so a stored NaN is not a member of [NaN]', () => {
+  /**
+   * `includes` read SameValueZero, which finds `NaN` in `[NaN]`; `===` never
+   * equals `NaN`. Membership now agrees with `{ x: NaN }` and `$eq`. One `NaN`
+   * row is stored by the constructor (`structuredClone` keeps `NaN`), and one is
+   * written through `create`, which copies the record shallowly.
+   */
+  async function queryNaN(filter: unknown) {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const ds = new ValueDataSource<{ id: string; x: unknown }>({
+        items: [{ id: 'nan', x: NaN }, { id: 'one', x: 1 }],
+      });
+      await ds.create('rows', { id: 'created-nan', x: NaN });
+      const result = await ds.find('rows', { $filter: filter as QueryParams['$filter'] });
+      return { ids: result.data.map((r) => r.id), warns: warn.mock.calls.length };
+    } finally {
+      warn.mockRestore();
+    }
+  }
+
+  it.each<[string, unknown]>([
+    ['{ x: { $in: [NaN] } }', { x: { $in: [NaN] } }],
+    ["['x', 'in', [NaN]]", ['x', 'in', [NaN]]],
+  ])('%s answers no row', async (_label, filter) => {
+    expect(await queryNaN(filter)).toEqual({ ids: [], warns: 0 });
+  });
+
+  it.each<[string, unknown]>([
+    ['{ x: { $nin: [NaN] } }', { x: { $nin: [NaN] } }],
+    ["['x', 'nin', [NaN]]", ['x', 'nin', [NaN]]],
+  ])('%s keeps every row, the NaN rows included', async (_label, filter) => {
+    expect(await queryNaN(filter)).toEqual({ ids: ['nan', 'one', 'created-nan'], warns: 0 });
+  });
+
+  it('{ x: NaN } and $eq agree: no row', async () => {
+    expect(await queryNaN({ x: NaN })).toEqual({ ids: [], warns: 0 });
+    expect(await queryNaN({ x: { $eq: NaN } })).toEqual({ ids: [], warns: 0 });
   });
 });

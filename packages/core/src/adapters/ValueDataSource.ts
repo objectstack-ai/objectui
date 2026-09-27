@@ -404,12 +404,14 @@ function refuseListMemberFieldReference(
  * ## Two `Date`s compare their INSTANT
  *
  * Every position used `===` (membership used `includes`), which compares a
- * `Date` by IDENTITY. The constructor `structuredClone`s every row, so a stored
- * `Date` is never the comparand's instance, and a `Date` equality matched NO
- * row, not even the one holding that exact instant. The ordering arms already
- * compared a `Date` by its number, so `>=` and `<=` both held for a row that
- * `=` rejected. So when BOTH sides are `Date` instances, this compares
- * `getTime()`, and `=`, `>=` and `<=` give one answer for one instant.
+ * `Date` by IDENTITY. The constructor `structuredClone`s the rows it is given,
+ * so none of them holds the comparand's instance (only `create` / `update`,
+ * which copy shallowly, can store the caller's own), and a `Date` equality
+ * matched none of them, not even the one holding that exact instant. The
+ * ordering arms already compared a `Date` by its number, so `>=` and `<=` both
+ * held for a row that `=` rejected. So when BOTH sides are `Date` instances,
+ * this compares `getTime()`, and `=`, `>=` and `<=` give one answer for one
+ * instant.
  *
  * An invalid `Date` (its time is `NaN`) equals nothing, itself included, so
  * `!=` / `$ne` / `nin` / `$nin` hold for it.

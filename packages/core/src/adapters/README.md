@@ -150,17 +150,19 @@ The gate is the spec's `isAcceptedFilterComparand`, the predicate the converter 
 
 **Two `Date`s compare their instant** in every equality and membership position of both
 dialects — implicit equality, `$eq` / `$ne` / `$in` / `$nin`, and `=` / `!=` / `in` /
-`nin` — through one helper (objectui#10829). They used to compare by identity, and every
-row is cloned on construction, so a `Date` equality matched no row, not even the one
-holding that instant, while `$gte` and `$lte` both matched it. An invalid `Date` equals
-nothing. A `Date` comparand is **not** coerced to another storage form: a row holding the
-same instant as an ISO string or as epoch milliseconds does not equal it, because
-`@objectstack/spec`'s `FILTER_COMPARAND_TYPE_CASES` declines to assert a `Date` row set —
-what it matches "legitimately differs per storage form (ADR-0053)" — and this matcher
-has no field types to read a storage form from. `$gt` / `$gte` / `$lt` / `$lte` /
-`$between` compare a `Date` by its number, as before. Membership reads `===` where it
-read `includes`' SameValueZero, so a stored number `NaN` is no longer a member of
-`[NaN]` — the answer `{ x: NaN }` already gave.
+`nin` — through one helper (objectui#10829). They used to compare by identity, and the
+adapter clones the rows it is constructed with, so over those rows a `Date` equality
+matched nothing, not even the row holding that instant, while `$gte` and `$lte` both
+matched it; only a row written through `create` / `update`, which copy shallowly, could
+hold the caller's own instance. An invalid `Date` equals nothing. A `Date` comparand is
+**not** coerced to another storage form: a row holding the same instant as an ISO string
+or as epoch milliseconds does not equal it, because `@objectstack/spec`'s
+`FILTER_COMPARAND_TYPE_CASES` declines to assert a `Date` row set — what it matches
+"legitimately differs per storage form (ADR-0053)" — and this matcher has no field types
+to read a storage form from. `$gt` / `$gte` / `$lt` / `$lte` / `$between` compare a
+`Date` by its number, as before. Membership reads `===` where it read `includes`'
+SameValueZero, so a stored number `NaN` is no longer a member of `[NaN]` — the answer
+`{ x: NaN }` already gave.
 
 #### Grouped filters — `$and` and `$or`
 

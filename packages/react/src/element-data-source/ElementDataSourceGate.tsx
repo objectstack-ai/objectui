@@ -111,7 +111,7 @@ import {
   type ElementSavedView,
   type FilterOperatorError,
 } from '@object-ui/core';
-import { useObjectTranslation, en } from '@object-ui/i18n';
+import { useObjectTranslation } from '@object-ui/i18n';
 import {
   useElementDataSource,
   type ElementDataSourceStatus,
@@ -558,8 +558,18 @@ export function ElementDataSourceErrorPanel({
  * ⚠️ A separate component, so `useObjectTranslation` runs only on this path:
  * the gate wraps every object-bound block, and a translation hook in the
  * gate's own body would run for all of them, including under the many suites
- * that mock `@object-ui/i18n` by hand. `en` is dereferenced here, at render,
- * for the same reason (see `NonGridRowCeilingNote`).
+ * that mock `@object-ui/i18n` by hand.
+ *
+ * The provider-less default is the sentence itself, written the way the
+ * sibling blocks carry it: a LITERAL copy of the `en` pack's value, never a
+ * read of the pack object. The siblings keep theirs in a module-scope
+ * `createSafeTranslation` table, which this module cannot have: it is
+ * re-exported from the package entry, so a factory call at module scope would
+ * run on import for every consumer (`NonGridRowCeilingNote` records that
+ * hazard). So the copy sits in the call's inline `defaultValue`, where
+ * `pnpm check:i18n-keys` holds it byte-identical to the pack, as the siblings'
+ * tables are held. With an `I18nProvider` the pack's value wins, and without
+ * one this literal is interpolated (objectui#6219).
  */
 function ElementDataSourceMalformedFilterPanel({
   testId,
@@ -580,7 +590,7 @@ function ElementDataSourceMalformedFilterPanel({
       <p className="font-medium" data-testid={`${testId}-malformed-filter-subject`}>
         {t('view.malformedFilter', {
           subject: filterRefusalSubject(refusal) ?? '',
-          defaultValue: en.view.malformedFilter,
+          defaultValue: 'This view’s filter is malformed, so no records are shown: the {{subject}} condition cannot be applied.',
         })}
       </p>
       <p className="mt-1 text-xs opacity-80">{refusal.message}</p>

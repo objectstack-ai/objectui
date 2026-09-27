@@ -96,9 +96,21 @@ function renderPivot(filter: unknown, target: 'drawer' | 'navigate') {
   return openRecordList;
 }
 
+/**
+ * The spec's own refusal, the drill seam's second refusing step: the array
+ * dialect passes the converter untouched and `parseFilterAST` refuses a scalar
+ * on a list operator.
+ */
+const SPEC_REFUSED = [['region', 'in', 'emea']];
+
 describe('ObjectPivotTable — a refused drill filter (objectui#10789)', () => {
-  it.each(['drawer', 'navigate'] as const)('target %s — the pivot stays, nothing opens, the refusal is logged', (target) => {
-    const openRecordList = renderPivot(REFUSED, target);
+  it.each([
+    ['converter refusal', 'drawer', REFUSED, '$not'],
+    ['converter refusal', 'navigate', REFUSED, '$not'],
+    ['spec refusal (array dialect)', 'drawer', SPEC_REFUSED, '$in'],
+    ['spec refusal (array dialect)', 'navigate', SPEC_REFUSED, '$in'],
+  ] as const)('%s, target %s — the pivot stays, nothing opens, the refusal is logged', (_label, target, filter, operator) => {
+    const openRecordList = renderPivot(filter, target);
     fireEvent.click(screen.getByLabelText('Drill into stage=won, source=web'));
 
     // Still mounted: the click did not throw the pivot into a boundary.
@@ -106,7 +118,7 @@ describe('ObjectPivotTable — a refused drill filter (objectui#10789)', () => {
     expect(drawerProps).toHaveLength(0);
     expect(openRecordList).not.toHaveBeenCalled();
     expect(refusalWarnings()).toHaveLength(1);
-    expect(refusalWarnings()[0]).toContain('$not');
+    expect(refusalWarnings()[0]).toContain(operator);
   });
 
   it('CONTROL — a well-formed pivot filter still opens the drawer, scoped', () => {
@@ -163,15 +175,19 @@ const clickFirstSegment = () => {
 };
 
 describe('DatasetWidget — a refused drill filter (objectui#10789)', () => {
-  it('opens no drawer and logs the refusal instead of throwing from the click', async () => {
-    renderDatasetWidget(REFUSED);
+  it.each([
+    ['converter refusal', REFUSED, '$not'],
+    // Object dialect, passed by the converter, refused by the spec's lowering.
+    ['spec refusal', { owner: { $in: 'me' } }, '$in'],
+  ] as const)('%s — opens no drawer and logs the refusal instead of throwing from the click', async (_label, filter, operator) => {
+    renderDatasetWidget(filter);
     await waitFor(() => expect(capturedChartProps?.onSegmentClick).toBeTypeOf('function'));
 
     expect(() => clickFirstSegment()).not.toThrow();
     expect(screen.queryByTestId('drill-drawer')).toBeNull();
     expect(drawerProps).toHaveLength(0);
     expect(refusalWarnings()).toHaveLength(1);
-    expect(refusalWarnings()[0]).toContain('$not');
+    expect(refusalWarnings()[0]).toContain(operator);
   });
 
   it('CONTROL — a well-formed widget filter still opens the drawer, scoped', async () => {

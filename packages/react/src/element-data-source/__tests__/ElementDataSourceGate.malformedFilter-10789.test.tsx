@@ -31,6 +31,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, renderHook, waitFor } from '@testing-library/react';
 import * as React from 'react';
+import { I18nProvider } from '@object-ui/i18n';
 import {
   ElementDataSourceGate,
   useElementDataSourceSchema,
@@ -79,7 +80,12 @@ describe('ElementDataSourceGate — a malformed filter draws the notice (objectu
     await waitFor(() => expect(queryByTestId('probe-malformed-filter')).not.toBeNull());
     // The headline NAMES the operator the author has to fix — the sibling
     // blocks' sentence, not the "data source could not be resolved" panel.
-    expect(getByTestId('probe-malformed-filter-subject').textContent).toContain('$regex');
+    // No `I18nProvider` here: the sentence itself reaches the screen, not the
+    // raw key, and its `{{subject}}` hole is filled.
+    const headline = getByTestId('probe-malformed-filter-subject').textContent ?? '';
+    expect(headline).toContain('filter is malformed');
+    expect(headline).toContain('the $regex condition');
+    expect(headline).not.toContain('view.malformedFilter');
     expect(getByTestId('probe-malformed-filter').getAttribute('role')).toBe('alert');
     // Refused, not dropped: the block never mounts, so it cannot run the query
     // unconstrained.
@@ -98,6 +104,20 @@ describe('ElementDataSourceGate — a malformed filter draws the notice (objectu
     expect(refusal?.httpStatus).toBe(400);
     expect(refusal?.operator).toBe('$regex');
     expect(result.current.error).toBe(refusal?.message);
+  });
+
+  it('with an I18nProvider, the headline is the pack sentence naming the operator', async () => {
+    const { queryByTestId, getByTestId } = render(
+      <I18nProvider config={{ defaultLanguage: 'en', detectBrowserLanguage: false, resources: {} }}>
+        <ElementDataSourceGate schema={CASES[0][1]} mapping={MAPPING} dataSource={makeAdapter()} testId="probe">
+          {(bound) => <Block schema={bound} />}
+        </ElementDataSourceGate>
+      </I18nProvider>,
+    );
+    await waitFor(() => expect(queryByTestId('probe-malformed-filter')).not.toBeNull());
+    const headline = getByTestId('probe-malformed-filter-subject').textContent ?? '';
+    expect(headline).toContain('filter is malformed');
+    expect(headline).toContain('the $regex condition');
   });
 
   it('CONTROL — a well-formed filter still renders the block with the merged filter', async () => {

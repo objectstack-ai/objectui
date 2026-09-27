@@ -81,12 +81,25 @@ function renderChart(filter: ObjectChartSchema['filter'], target: 'drawer' | 'na
 const refusalWarnings = () =>
   warn.mock.calls.map((c: unknown[]) => String(c[0])).filter((m: string) => m.includes('drill-down refused'));
 
-/** `$not` — declared by the spec, refused by this layer's converter. */
-const REFUSED = { $not: { region: 'apac' } } as unknown as ObjectChartSchema['filter'];
+/**
+ * Two refusals, one per refusing step of the drill seam:
+ *  - `$not` — declared by the spec, refused by this layer's CONVERTER;
+ *  - `[['stage', 'in', 'won']]` — the array dialect `ObjectChartSchema.filter`
+ *    admits, which the converter passes through untouched and the spec's own
+ *    `parseFilterAST` refuses (a scalar on a list operator). The contract
+ *    review's probe of this PR's first head.
+ */
+const REFUSALS: ReadonlyArray<[string, ObjectChartSchema['filter'], string]> = [
+  ['converter refusal', { $not: { region: 'apac' } } as unknown as ObjectChartSchema['filter'], '$not'],
+  ['spec refusal (array dialect)', [['stage', 'in', 'won']] as unknown as ObjectChartSchema['filter'], '$in'],
+];
+const CASES = REFUSALS.flatMap(([label, filter, operator]) =>
+  (['drawer', 'navigate'] as const).map((target) => [label, target, filter, operator] as const),
+);
 
 describe('ObjectChart — a refused drill filter (objectui#10789)', () => {
-  it.each(['drawer', 'navigate'] as const)('target %s — the chart stays, nothing opens, the refusal is logged', (target) => {
-    const openRecordList = renderChart(REFUSED, target);
+  it.each(CASES)('%s, target %s — the chart stays, nothing opens, the refusal is logged', (_label, target, filter, operator) => {
+    const openRecordList = renderChart(filter, target);
     fireEvent.click(screen.getByTestId('fake-segment'));
 
     // The chart is still mounted: the click did not throw it into a boundary.
@@ -94,7 +107,7 @@ describe('ObjectChart — a refused drill filter (objectui#10789)', () => {
     expect(screen.queryByTestId('chart-drill-body')).toBeNull();
     expect(openRecordList).not.toHaveBeenCalled();
     expect(refusalWarnings()).toHaveLength(1);
-    expect(refusalWarnings()[0]).toContain('$not');
+    expect(refusalWarnings()[0]).toContain(operator);
   });
 
   it('CONTROL — a well-formed widget filter still drills', () => {

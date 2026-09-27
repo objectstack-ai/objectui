@@ -28,8 +28,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { DatasetReportRenderer } from '../DatasetReportRenderer';
 
-/** `$not` — declared by the spec, refused by this layer's converter. */
-const REFUSED_SCOPE = { $not: { owner: 'them' } };
+/**
+ * Two refusals, one per refusing step of the drill seam: `$not` is declared by
+ * the spec and refused by this layer's CONVERTER; a scalar on `$in` passes the
+ * converter and is refused by the spec's own `parseFilterAST`.
+ */
+const REFUSALS = [
+  ['converter refusal', { $not: { owner: 'them' } }, '$not'],
+  ['spec refusal', { owner: { $in: 'me' } }, '$in'],
+] as const;
 
 function makeSource(rows: Array<Record<string, unknown>>, rawRows: Array<Record<string, unknown>>) {
   return {
@@ -58,13 +65,13 @@ const refusalWarnings = () =>
   warn.mock.calls.map((c: unknown[]) => String(c[0])).filter((m: string) => m.includes('drill-down refused'));
 
 describe('DatasetReportRenderer — a refused runtimeFilter drills nothing (objectui#10789)', () => {
-  it('the grouped-row drill logs the refusal and emits no drill', async () => {
+  it.each(REFUSALS)('%s — the grouped-row drill logs the refusal and emits no drill', async (_label, scope, operator) => {
     const onDrill = vi.fn();
     render(
       <DatasetReportRenderer
         report={{ name: 'r', type: 'summary', dataset: 'task_metrics', rows: ['status'], values: ['est_hours'] }}
         dataSource={makeSource([{ status: 'Open', est_hours: 3 }], [{ status: 'open' }])}
-        runtimeFilter={REFUSED_SCOPE}
+        runtimeFilter={scope}
         onDrill={onDrill}
       />,
     );
@@ -73,16 +80,16 @@ describe('DatasetReportRenderer — a refused runtimeFilter drills nothing (obje
 
     expect(onDrill).not.toHaveBeenCalled();
     expect(refusalWarnings()).toHaveLength(1);
-    expect(refusalWarnings()[0]).toContain('$not');
+    expect(refusalWarnings()[0]).toContain(operator);
   });
 
-  it('the matrix-cell drill logs the refusal and emits no drill', async () => {
+  it.each(REFUSALS)('%s — the matrix-cell drill logs the refusal and emits no drill', async (_label, scope, operator) => {
     const onDrill = vi.fn();
     render(
       <DatasetReportRenderer
         report={{ name: 'm', type: 'matrix', dataset: 'task_metrics', rows: ['status'], columns: ['priority'], values: ['est_hours'] }}
         dataSource={makeSource([{ status: 'Open', priority: 'High', est_hours: 3 }], [{ status: 'open', priority: 'high' }])}
-        runtimeFilter={REFUSED_SCOPE}
+        runtimeFilter={scope}
         onDrill={onDrill}
       />,
     );
@@ -91,7 +98,7 @@ describe('DatasetReportRenderer — a refused runtimeFilter drills nothing (obje
 
     expect(onDrill).not.toHaveBeenCalled();
     expect(refusalWarnings()).toHaveLength(1);
-    expect(refusalWarnings()[0]).toContain('$not');
+    expect(refusalWarnings()[0]).toContain(operator);
   });
 
   it('CONTROL — a well-formed runtimeFilter still drills with the scope conjoined', async () => {

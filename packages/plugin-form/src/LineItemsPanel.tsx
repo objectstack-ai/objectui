@@ -408,10 +408,10 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
     setRows(next);
     setDirty(true);
     // An edit made while nothing is held yet gives the rows their owner, the
-    // parent on screen (objectui#10740). The only grid offered before a load has
-    // settled is the one drawn when the load declined for want of an adapter;
-    // a line typed into it stayed ownerless, and the first parent whose load
-    // later failed adopted it and could save it as its own. Written in the same
+    // parent on screen (objectui#10740). The grid this was found on is the one
+    // drawn when the load declined for want of an adapter; a line typed into it
+    // stayed ownerless, and the first parent whose load later failed adopted it
+    // and could save it as its own. Written in the same
     // handler as the rows rather than in that decline, so that no other way of
     // offering the grid before a settle (a superseded run releasing `loading`,
     // objectui#10712's surface) can leave an edited row without an owner. Rows

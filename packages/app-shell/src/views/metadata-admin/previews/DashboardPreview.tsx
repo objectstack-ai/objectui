@@ -216,7 +216,9 @@ export function DashboardPreview({
  * spec's `I18nLabel`, so it may be a per-locale map: it is shown, and the
  * rename draft seeded, through `resolveInlineI18nLabel` in the same designer
  * `locale` the selection label uses (objectui#10847). The map itself never
- * reaches React as a child. The inspector stays the place to edit every locale.
+ * reaches React as a child. The widget inspector's title field edits the same
+ * entry through the same read/write pair (`resolveInlineI18nLabel` and
+ * `setLocalized`); editing every locale from one surface is still an open question.
  */
 function SelectedWidgetStrip({
   widget,

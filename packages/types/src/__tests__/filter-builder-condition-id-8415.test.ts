@@ -105,14 +105,14 @@ describe('objectui#8415 — the condition `id` is DECLARED, so it is no longer s
     // `filter-builder-nested-group-retired-9306.test.ts`.
   });
 
-  it('REFUSES it through the authored document too — both entry paths on `FilterBuilderSchema`', () => {
-    // `value` and `defaultValue` are each `union([condition, group])`, so a
-    // condition reaches the mirror two ways and the union must not launder it
-    // through the group arm.
+  it('REFUSES it through the authored document too — a row of the group `value`', () => {
+    // This test used to carry three entry paths: `value` and `defaultValue`
+    // were each `union([condition, group])`, so a condition reached the mirror
+    // bare or inside a group. objectui#10825 left one. A bare condition is now
+    // refused as a `value` BY NAME whatever its keys say, and `defaultValue` is
+    // retired, so those two fixtures would stay red for a reason that is not
+    // `id`; both are pinned in `filter-builder-value-group-only-10825.test.ts`.
     expect(safeValidateSchema(doc(group([NO_ID]))).success).toBe(false);
-    expect(safeValidateSchema(doc(NO_ID)).success).toBe(false);
-    expect(safeValidateSchema({ type: 'filter-builder', name: 'f', fields: FIELDS, defaultValue: group([NO_ID]) }).success)
-      .toBe(false);
   });
 
   it('type-checks `id` now that it is declared — `id: 42` was ACCEPTED before', () => {

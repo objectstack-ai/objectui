@@ -617,13 +617,72 @@ export const FilterFieldSchema = z.object({
 });
 
 /**
+ * `FilterBuilderSchema.value` — a filter GROUP, and nothing else (objectui#10825).
+ *
+ * This key used to take `union([condition, group])`, while the TypeScript face
+ * declares `value?: FilterGroup`, so the mirror was WIDER than the published
+ * type. A bare condition parsed green, and `FilterBuilder` then drew an EMPTY
+ * builder: its `isValidGroup` gate (`custom/filter-builder.tsx`) needs
+ * `conditions` and `logic`, a condition carries neither, and the component
+ * falls back to `EMPTY_GROUP` with no error. The condition was lost in silence.
+ *
+ * The contract follows the published type. The value is judged by
+ * {@link FilterGroupSchema} alone, and a value that is recognisably a bare
+ * condition is refused BY NAME first, in the shape `FilterGroupEntrySchema`
+ * above uses for a nested sub-group: ONE `custom` issue at `value`, carrying
+ * {@link BARE_CONDITION_VALUE_REFUSED}, after which the pipe does not go on to
+ * the group schema, so the author reads the prescription and not the missing
+ * `logic` and `conditions` it would otherwise report.
+ *
+ * "Recognisably a bare condition" is a plain object that carries a
+ * condition's own `field` or `operator` and no `conditions` of its own. Every
+ * other shape (a group missing `logic`, a query-style `{ field: value }` map,
+ * a string) is judged by the group schema exactly as a group is.
+ *
+ * The union also wrapped every refusal of a GROUP in an `invalid_union` at
+ * `value`. With the condition arm gone there is no union, so a group's own
+ * refusals are reported at their own path under `value`.
+ */
+const BARE_CONDITION_VALUE_REFUSED =
+  'A bare condition is REFUSED as a `filter-builder` `value` (objectui#10825): the value is a filter '
+  + 'group, the only shape `FilterBuilder` reads, and it drew a bare `{ id, field, operator, value }` '
+  + 'condition as an EMPTY builder, with no error. Wrap it in `{ logic, conditions: [ … ] }`: `logic` '
+  + 'is `and` or `or`, and the condition becomes the one row of `conditions`.';
+
+const FilterBuilderValueSchema = z
+  .any()
+  .superRefine((value, ctx) => {
+    if (
+      typeof value === 'object'
+      && value !== null
+      && !Array.isArray(value)
+      && !Object.prototype.hasOwnProperty.call(value, 'conditions')
+      && (Object.prototype.hasOwnProperty.call(value, 'field') || Object.prototype.hasOwnProperty.call(value, 'operator'))
+    ) {
+      ctx.addIssue({ code: 'custom', message: BARE_CONDITION_VALUE_REFUSED });
+    }
+  })
+  .pipe(FilterGroupSchema);
+
+/**
  * Filter Builder Schema - Filter builder component
  */
 export const FilterBuilderSchema = BaseSchema.extend({
   type: z.literal('filter-builder'),
   fields: z.array(FilterFieldSchema).describe('Available filter fields'),
-  defaultValue: z.union([FilterBuilderConditionSchema, FilterGroupSchema]).optional().describe('Default filter value'),
-  value: z.union([FilterBuilderConditionSchema, FilterGroupSchema]).optional().describe('Controlled filter value'),
+  // RETIRED (objectui#10825, ADR-0049): measured through the real
+  // `SchemaRenderer`, a group authored as `defaultValue` drew the same empty
+  // builder as a node with no filter key at all. The registration hands
+  // `FilterBuilder` `schema.value || props.value`, and `FilterBuilder` has no
+  // `defaultValue` prop. A tombstone rather than a deletion because this node
+  // is `.passthrough()`: an undeclared key would be KEPT in silence.
+  defaultValue: retirementTombstone(
+    'RETIRED (objectui#10825, ADR-0049) — never read: the `filter-builder` renderer hands `FilterBuilder` '
+    + 'only `value`, and `FilterBuilder` has no `defaultValue` prop, so an authored default drew the same '
+    + 'empty builder as no key at all. Author the filter group as `value` instead, the key the renderer '
+    + 'reads. Delete the key.',
+  ),
+  value: FilterBuilderValueSchema.optional().describe(`Controlled filter value — a filter group. ${BARE_CONDITION_VALUE_REFUSED}`),
   onChange: handlerKeyRefusal('onChange', 'runtime-slot', 'Change handler'),
   // Both RETIRED with the nesting they configured (objectui#9306, ADR-0049): no
   // renderer read either, and `FilterGroupSchema` above now refuses the nested

@@ -597,11 +597,26 @@ export interface FilterBuilderSchema extends BaseSchema {
    */
   fields: FilterField[];
   /**
-   * Default filter configuration
+   * REFUSED BY NAME (objectui#10825, ADR-0049) — never read.
+   *
+   * It was declared `defaultValue?: FilterGroup`, and nothing reads it: the
+   * `filter-builder` renderer hands `FilterBuilder` `schema.value || props.value`,
+   * and `FilterBuilder` has no `defaultValue` prop. Measured through the real
+   * `SchemaRenderer`, a group authored here drew the same empty builder as a
+   * node with no filter key at all. Author the group as {@link value} instead.
+   *
+   * @deprecated Not read by `filter-builder` — author the group as `value`.
    */
-  defaultValue?: FilterGroup;
+  defaultValue?: never;
   /**
-   * Controlled filter value
+   * Controlled filter value — a {@link FilterGroup}, the only shape
+   * `FilterBuilder` reads (its `isValidGroup` gate needs `logic` and
+   * `conditions`).
+   *
+   * The zod mirror follows this declaration (objectui#10825): a bare condition
+   * is refused by name, with the prescription to wrap it in
+   * `{ logic, conditions: [ … ] }`. It used to be accepted there, and the
+   * builder then drew it as an empty group.
    */
   value?: FilterGroup;
   /**

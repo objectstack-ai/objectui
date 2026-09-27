@@ -93,10 +93,14 @@ above, plus `card`'s border, shadow and `CardContent` wrapper. When you want
 none of that, `box` is the one that gives you none of it. It always renders a
 `div`, so it is never a landmark: when a JSON page needs one, use the curated
 page block — `page:section`, `page:footer` and `page:sidebar` render a
-`section`, `footer` and `aside` around their `children`, and `page:header`
-renders the page's `header`, a title row (`title`, `subtitle`, `breadcrumb`,
-`actions`) that takes no `children`. The bare HTML sectioning tags (`section`,
-`header`, `nav`, …) are not curated blocks; they belong to `kind:'html'` pages.
+`section`, `footer` and `aside` around their `children`, each with layout of
+its own (`page:section` spaces its children with `space-y-4`; `page:footer`
+draws a separator above a justified, muted row; `page:sidebar` is a
+`w-full md:w-80 shrink-0` column, fixed at 20rem from `md` up), and
+`page:header` renders the page's `header`, a title row (`title`, `subtitle`,
+`breadcrumb`, `actions`) that takes no `children`. The bare HTML sectioning
+tags (`section`, `header`, `nav`, …) are not curated blocks; they belong to
+`kind:'html'` pages.
 
 ### 4. Wire renderer and registry cleanly
 

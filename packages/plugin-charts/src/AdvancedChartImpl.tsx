@@ -3048,9 +3048,10 @@ function hasNoPlottableSeries(props: AdvancedChartImplProps): NoPlottableSeries 
  * and one unresolved key keeps the whole tile silent: this predicate cannot
  * tell whether that series draws, so it must not claim it does not (measured:
  * `a.b` beside an all-boolean `w` drew bar 3 rectangles / line 2 paths).
- * The same gate keeps a key NO row carries — the objectui#8266 shape, whose
- * own render pins keep it silent until it is re-decided as its own question —
- * out of this answer. For both shapes the gate errs to silence.
+ * The same gate keeps a key NO row carries — the objectui#8266 shape — out of
+ * this answer: when EVERY bound key is such a key, `hasNoCarriedSeriesKey`
+ * refuses first with its own code (objectui#10396); when only SOME are, this
+ * gate still errs to silence and neither refusal fires.
  *
  * ## A series on an axis with a declared scale is live
  *
@@ -3087,6 +3088,83 @@ function hasNoNumericSeriesValue(props: AdvancedChartImplProps): string[] | null
       stackModeOf(chartType, series, i) !== 'none' || declared(s) || axisHasScale(rows, String(s.dataKey)),
   );
   return live ? null : keys;
+}
+
+/**
+ * The series half of the `missing-category-key` doctrine — objectui#10396, the
+ * objectui#8266 shape: series are bound and rows arrived, but not one row
+ * carries ANY bound series key. Returns those keys, or `null` when anything
+ * can draw or this cannot tell.
+ *
+ * **Key ABSENT is what this asks, and only that** — `key in row`, the very
+ * test `hasNoCategoryKey` makes for the category axis. A key that is present
+ * with a `null`, boolean or unparseable value on every row is a different
+ * diagnosis (the binding resolved, the axis has no scale) and belongs to
+ * `hasNoNumericSeriesValue`'s `no-numeric-value`.
+ *
+ * ## Keyed on ALL series and ALL rows, like its siblings
+ *
+ *   - **One row carrying the key draws**, exactly as one row carrying the
+ *     category key does (measured: bar 1 rectangle, line / area a path).
+ *   - **One series whose key a row carries draws**, and a series beside it
+ *     whose key no row carries is left silent: a whole-tile refusal would
+ *     blank marks that are on screen (measured: bar 2 rectangles), the same
+ *     reason `hasNoNumericSeriesValue` declines a dual-axis tile with one dead
+ *     axis. An absent key beside a present-but-dead one (an all-boolean
+ *     sibling) is left silent too — see that function's resolved-key gate.
+ *   - **Every bound key absent refuses**, whatever else the tile declares: a
+ *     stack, a declared `min` / `max` or `stepSize`, a second axis. None of
+ *     them gives a mark a value to draw (measured on the base tree, bar /
+ *     column / horizontal-bar / line / area / combo: 0 marks in every case).
+ *
+ * ## Only a plain key is judged
+ *
+ * Recharts reads a series through `get(row, key)` (es-toolkit's `compat/get`),
+ * which returns `row[key]` for a key without a `.` or a `[`, and walks a path
+ * otherwise (`'a.b'` into `{ a: { b: 3 } }` draws). Rather than re-implement
+ * that path grammar, a path-shaped key is never judged absent, so one keeps
+ * the whole tile silent — the same choice, for the same reason, as
+ * `hasNoNumericSeriesValue`'s resolved-key gate. Erring to silence.
+ *
+ * Only {@link SERIES_ONLY_CHART_TYPES}, for the reason given on that set, and
+ * only once `hasNoPlottableSeries` has passed, since that guard owns "no series
+ * at all". Scatter's absent key is already refused by `no-plottable-points`.
+ */
+function hasNoCarriedSeriesKey(props: AdvancedChartImplProps): string[] | null {
+  const chartType = props.chartType === 'column' ? 'bar' : (props.chartType ?? 'bar');
+  const rows = Array.isArray(props.data) ? props.data : [];
+  const series = Array.isArray(props.series) ? props.series : [];
+  if (!SERIES_ONLY_CHART_TYPES.has(chartType) || rows.length === 0 || series.length === 0) return null;
+  const keys: unknown[] = Array.from(new Set(series.map((s) => s.dataKey)));
+  const absent = keys.every(
+    (key) =>
+      typeof key === 'string' &&
+      /^[^.[]+$/.test(key) &&
+      !rows.some((row) => row != null && typeof row === 'object' && key in row),
+  );
+  return absent ? (keys as string[]) : null;
+}
+
+/**
+ * The refusal a series-only tile renders when not one row carries any bound
+ * series key (objectui#10396). Worded after `missing-category-key`, whose
+ * sentence it mirrors for the other half of the binding: it names every
+ * missing key, joined with "or" as `NumericValueRefusal` joins its keys.
+ * English literal, no locale key, matching every sibling sentence.
+ */
+function MissingSeriesKeyRefusal({ keys, className }: { keys: string[]; className?: string }) {
+  return (
+    <ChartRefusal code="missing-series-key" className={className}>
+      This chart cannot plot its series: no row has a{' '}
+      {keys.map((key, i) => (
+        <React.Fragment key={`${i}-${key}`}>
+          {i > 0 ? ' or ' : ''}
+          <code className="font-mono">{key}</code>
+        </React.Fragment>
+      ))}{' '}
+      field.
+    </ChartRefusal>
+  );
 }
 
 /**
@@ -3131,17 +3209,28 @@ export default function AdvancedChartImpl(props: AdvancedChartImplProps) {
   // failure and the more specific message. Without this gate such a chart would
   // also warn about its series, printing two diagnoses for one cause.
   const noPlottableSeries = missingCategoryKey ? null : hasNoPlottableSeries(props);
-  // objectui#7195 comes THIRD: it needs a category axis and a bound series to
-  // say anything true, so either guard above is the more fundamental answer.
-  // Scatter's half of the same refusal lives in its own arm, after the
-  // arity and positional refusals it ranks below.
+  // objectui#10396 comes THIRD: a series key no row carries needs a bound
+  // series to be named, and when the category key is missing too, the axis
+  // refusal above is the more fundamental answer (the objectui#8269 pin's
+  // `name` / `value` pair). It is a BINDING diagnosis — the column is not
+  // there — so it ranks above the scale diagnosis below.
+  const missingSeriesKeys =
+    missingCategoryKey || noPlottableSeries ? null : hasNoCarriedSeriesKey(props);
+  // objectui#7195 comes FOURTH: it needs a category axis, a bound series and a
+  // carried key to say anything true, so every guard above is the more
+  // fundamental answer. Scatter's half of the same refusal lives in its own
+  // arm, after the arity and positional refusals it ranks below.
   const noNumericSeriesValue =
-    missingCategoryKey || noPlottableSeries ? null : hasNoNumericSeriesValue(props);
+    missingCategoryKey || noPlottableSeries || missingSeriesKeys ? null : hasNoNumericSeriesValue(props);
   const xAxisKey = props.xAxisKey ?? 'name';
   const firstRowKeys = React.useMemo(
     () => Object.keys((Array.isArray(props.data) ? props.data[0] : undefined) ?? {}),
     [props.data],
   );
+  // Primitives, so the effect below re-runs on the diagnosis and never on the
+  // identity of an array (AGENTS.md #10).
+  const missingSeriesKeyList = missingSeriesKeys ? JSON.stringify(missingSeriesKeys) : null;
+  const firstRowKeyList = JSON.stringify(firstRowKeys);
 
   React.useEffect(() => {
     if (!missingCategoryKey) return;
@@ -3181,6 +3270,19 @@ export default function AdvancedChartImpl(props: AdvancedChartImplProps) {
     );
   }, [noPlottableSeries, xAxisKey, firstRowKeys]);
 
+  React.useEffect(() => {
+    if (!missingSeriesKeyList) return;
+    // The diagnostic PAIR `missing-category-key` prints, for the series half:
+    // the keys the series were told to plot and the keys the rows actually
+    // carry. In the objectui#8266 shape the second half IS the fix — a
+    // fieldless count's rows carry `count`, not `value`.
+    console.warn(
+      `[chart] no row has the series key(s) ${missingSeriesKeyList} — rendering an explanatory ` +
+      `placeholder instead of an empty frame. Row keys: ${firstRowKeyList}. ` +
+      `A series \`dataKey\` must name a column the rows carry (objectui#10396).`,
+    );
+  }, [missingSeriesKeyList, firstRowKeyList]);
+
   if (missingCategoryKey) {
     return (
       <ChartRefusal code="missing-category-key" className={props.className}>
@@ -3206,6 +3308,10 @@ export default function AdvancedChartImpl(props: AdvancedChartImplProps) {
         <code className="font-mono">{xAxisKey}</code> axis.
       </ChartRefusal>
     );
+  }
+
+  if (missingSeriesKeys) {
+    return <MissingSeriesKeyRefusal keys={missingSeriesKeys} className={props.className} />;
   }
 
   if (noNumericSeriesValue) {

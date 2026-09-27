@@ -55,8 +55,11 @@ import { convertFiltersToAST, toFilterNodeSafely } from '../../utils/filter-conv
 /** The instant the card filters on. */
 const INSTANT = new Date(0);
 
+/** A row: an id, a status, and `created` in one of the stored shapes. */
+type Row = { id: string; status: string; created?: unknown };
+
 /** One row per stored shape. Every row but `b` has status `'a'`. */
-const ROWS = [
+const ROWS: Row[] = [
   { id: 'date', status: 'a', created: new Date(0) },
   { id: 'iso', status: 'a', created: new Date(0).toISOString() },
   { id: 'ms', status: 'a', created: 0 },
@@ -65,13 +68,13 @@ const ROWS = [
   { id: 'b', status: 'b', created: new Date(0) },
 ];
 
-async function query(filter: unknown, items: unknown[] = ROWS) {
+async function query(filter: unknown, items: Row[] = ROWS) {
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
   try {
-    const ds = new ValueDataSource({ items: items as any[] });
+    const ds = new ValueDataSource<Row>({ items });
     const result = await ds.find('rows', { $filter: filter as QueryParams['$filter'] });
     return {
-      ids: result.data.map((r: any) => r.id),
+      ids: result.data.map((r) => r.id),
       total: result.total,
       warns: warn.mock.calls.map((c) => String(c[0])),
     };
@@ -95,7 +98,7 @@ describe('objectui#10829 §1 — a Date condition answers what its lowered array
   it('the converter lowers the card filter to an equality on the Date instance', () => {
     const ast = convertFiltersToAST({ status: 'a', created: INSTANT });
     expect(ast).toEqual(['and', ['status', '=', 'a'], ['created', '=', INSTANT]]);
-    expect((ast as any[])[2][2]).toBeInstanceOf(Date);
+    expect((ast as unknown[][])[2][2]).toBeInstanceOf(Date);
   });
 
   it('{ status: a, created: Date } answers the lowered array’s rows, not every status-a row', async () => {
@@ -132,7 +135,7 @@ describe('objectui#10829 §2 — an invalid Date is lowered, and answered like i
   it('the converter lowers new Date(NaN) rather than refusing it', () => {
     const result = toFilterNodeSafely({ status: 'a', created: new Date(NaN) });
     expect(result.ok).toBe(true);
-    const leaf = (result.ok ? (result.node as any[])[2] : [])[2];
+    const leaf = (result.ok ? (result.node as unknown[][])[2] : [])[2];
     expect(leaf).toBeInstanceOf(Date);
     expect(Number.isNaN((leaf as Date).getTime())).toBe(true);
   });

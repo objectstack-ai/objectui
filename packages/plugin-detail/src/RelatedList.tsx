@@ -1962,7 +1962,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   const unmaskedColumnKeysKey = React.useMemo(
     () =>
       JSON.stringify(
-        tableColumns.flatMap((col: any) => {
+        tableColumns.flatMap((col) => {
           if (!col || typeof col !== 'object' || col.masked === true) return [];
           const key = drawnColumnKey(col);
           return key ? [key] : [];

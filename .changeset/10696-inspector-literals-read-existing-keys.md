@@ -2,7 +2,7 @@
 '@object-ui/app-shell': patch
 ---
 
-fix(app-shell): inspector words that already had a catalogue row read it, so zh-CN authors see Chinese there (objectui#10696)
+fix(app-shell): eight inspector words that already had a catalogue row read it, so zh-CN authors see Chinese there (objectui#10696)
 
 A few designer inspector props passed an English literal although the designer's
 own string catalogue already carried the same English under a key with a zh row.
@@ -22,6 +22,12 @@ So a zh-CN author read English on an otherwise Chinese inspector:
 - the flow edge inspector's decision-branch picker, whose custom entry read
   `— Custom —` and whose unnamed branches read `Branch N`; they now read
   `engine.inspector.flowEdge.branchCustom` (the row the approval-branch picker
-  beside it already reads) and `engine.flowRegion.branchN`.
+  beside it already reads) and `engine.flowRegion.branchN`;
+- the flow node inspector's container › region › node breadcrumb for a node
+  nested in a `try_catch` or `parallel` region, whose region crumb read `Try`,
+  `Catch` or `Branch N`; it now reads `engine.flowRegion.try`, `.catch` and
+  `.branchN` through the same `displayRegionLabel` the canvas region header
+  already reads, so the canvas and the inspector show the same word. `Body` and
+  an authored branch name pass through as before.
 
 No catalogue row is added or changed, and the en-US text is unchanged.

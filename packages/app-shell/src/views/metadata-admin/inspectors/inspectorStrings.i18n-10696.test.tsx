@@ -50,6 +50,16 @@ const state = vi.hoisted(() => ({
 vi.mock('../useMetadata', () => ({
   useMetadataClient: () => state.metadataClient,
 }));
+// FlowNodeInspector: the engine config-schema hook and the trigger field catalog
+// are stubbed the way `FlowNodeInspector.test.tsx` stubs them, so the inspector
+// uses its hardcoded field groups and `useFlowScope` needs no network client.
+vi.mock('../previews/useFlowNodePalette', () => ({
+  useActionConfigSchemas: () => ({}),
+  useFlowNodePalette: () => [],
+}));
+vi.mock('../previews/useObjectFields', () => ({
+  useObjectFields: () => ({ fields: [], loading: false, error: null }),
+}));
 
 import { t, tFormat } from '../i18n';
 import { DashboardWidgetInspector } from './DashboardWidgetInspector';
@@ -57,6 +67,8 @@ import { DatasetDefaultInspector } from './DatasetDefaultInspector';
 import { ViewVariantInspector } from './ViewVariantInspector';
 import { ObjectFieldInspector } from './ObjectFieldInspector';
 import { FlowEdgeInspector } from './FlowEdgeInspector';
+import { FlowNodeInspector } from './FlowNodeInspector';
+import { encodeNestedNodeId, NESTED_NODE_KIND } from './flow-nested-selection';
 
 afterEach(cleanup);
 
@@ -372,5 +384,98 @@ describe('FlowEdgeInspector — the decision-branch picker’s option labels (ob
     expect(mountEdge('en', { condition: EXPR }).textContent).toBe(
       `${tFormat('engine.flowRegion.branchN', 'en-US', { n: 1 })} · ${EXPR}`,
     );
+  });
+});
+
+// ─── FlowNodeInspector — the nested-node breadcrumb's region crumb ──────────
+//
+// `regionLabelOf` (flow-nested-selection.ts) bakes the English structural
+// fallbacks `Try` / `Catch` / `Branch N`, as the canvas layout does; the crumb
+// now translates them through the canvas header's own `displayRegionLabel`, so
+// the canvas and the inspector show one word. `Body` (no same-concept row) and
+// an authored branch name pass through.
+
+/** A try_catch and a parallel container; the parallel's second branch is unnamed. */
+const NESTED_DRAFT = {
+  nodes: [
+    { id: 'start', type: 'start' },
+    {
+      id: 'guard',
+      type: 'try_catch',
+      label: 'Guard',
+      config: {
+        try: { nodes: [{ id: 'call', type: 'http_request', label: 'Call' }], edges: [] },
+        catch: { nodes: [{ id: 'alert', type: 'http_request', label: 'Alert' }], edges: [] },
+      },
+    },
+    {
+      id: 'fan',
+      type: 'parallel',
+      label: 'Fan out',
+      config: {
+        branches: [
+          { name: 'Slack', nodes: [{ id: 's', type: 'http_request', label: 'Slack' }], edges: [] },
+          { nodes: [{ id: 'c', type: 'http_request', label: 'CRM' }], edges: [] },
+        ],
+      },
+    },
+  ],
+  edges: [{ source: 'start', target: 'guard' }],
+};
+
+/** Mount the inspector on a nested node and return the crumb's region segment. */
+function regionCrumb(lang: Lang, path: { containerId: string; regionKey: string; nodeId: string }): string | null {
+  inLang(lang, (
+    <FlowNodeInspector
+      type="flow"
+      name="renewal"
+      draft={NESTED_DRAFT}
+      selection={{ kind: NESTED_NODE_KIND, id: encodeNestedNodeId(path) }}
+      onPatch={() => {}}
+      onClearSelection={() => {}}
+      readOnly={false}
+      locale={LOCALE[lang]}
+    />
+  ));
+  const crumb = document.body.querySelector('[aria-label="nested node location"]');
+  expect(crumb, 'the nested-node breadcrumb').toBeTruthy();
+  // container › region › node — three text segments; the separators are aria-hidden.
+  const segments = Array.from(crumb!.querySelectorAll('span:not([aria-hidden])'));
+  expect(segments, 'three crumb segments').toHaveLength(3);
+  return segments[1].textContent;
+}
+
+const TRY = { containerId: 'guard', regionKey: 'try', nodeId: 'call' };
+const CATCH = { containerId: 'guard', regionKey: 'catch', nodeId: 'alert' };
+const NAMED_BRANCH = { containerId: 'fan', regionKey: 'branch-0', nodeId: 's' };
+const UNNAMED_BRANCH = { containerId: 'fan', regionKey: 'branch-1', nodeId: 'c' };
+
+describe('FlowNodeInspector — the nested-node breadcrumb’s region crumb (objectui#10696)', () => {
+  it('zh, lit control: the nested-id hint on the same mount already read its row', () => {
+    regionCrumb('zh', TRY);
+    expect(screen.getByText(zhRow('engine.inspector.flowNode.nestedIdHint'))).toBeTruthy();
+  });
+
+  it('zh: a try region reads engine.flowRegion.try', () => {
+    expect(regionCrumb('zh', TRY)).toBe(zhRow('engine.flowRegion.try'));
+  });
+
+  it('zh: a catch region reads engine.flowRegion.catch', () => {
+    expect(regionCrumb('zh', CATCH)).toBe(zhRow('engine.flowRegion.catch'));
+  });
+
+  it('zh: an unnamed parallel branch reads engine.flowRegion.branchN; an authored name passes through', () => {
+    zhRow('engine.flowRegion.branchN');
+    expect(regionCrumb('zh', UNNAMED_BRANCH)).toBe(tFormat('engine.flowRegion.branchN', 'zh-CN', { n: 2 }));
+    cleanup();
+    expect(regionCrumb('zh', NAMED_BRANCH)).toBe('Slack');
+  });
+
+  it('en: the crumb reads the en rows of the same keys, word for word', () => {
+    expect(regionCrumb('en', TRY)).toBe(t('engine.flowRegion.try', 'en-US'));
+    cleanup();
+    expect(regionCrumb('en', CATCH)).toBe(t('engine.flowRegion.catch', 'en-US'));
+    cleanup();
+    expect(regionCrumb('en', UNNAMED_BRANCH)).toBe(tFormat('engine.flowRegion.branchN', 'en-US', { n: 2 }));
   });
 });

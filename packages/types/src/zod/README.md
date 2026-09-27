@@ -231,6 +231,9 @@ function validateComponent(config: unknown) {
 - `KanbanSchema`, `CalendarViewSchema`
 - `FilterBuilderSchema`, `CarouselSchema`, `ChatbotSchema`
 
+### AI Components (3)
+- `AIFormAssistSchema`, `AIRecommendationsSchema`, `NLQuerySchema`
+
 ## Schema Structure
 
 All component schemas follow the @objectstack/spec UI specification format:

@@ -1180,7 +1180,9 @@ export class ValueDataSource<T = any> implements DataSource<T> {
       throw new Error(`ValueDataSource: Record with id "${id}" not found`);
     }
     this.items[index] = { ...this.items[index], ...data };
-    this.emitMutation({ type: 'update', resource: _resource, id, record: { ...this.items[index] } });
+    // The event carries the protocol's string id (objectui#10078): an inline
+    // item may hold a numeric key, and this adapter is where it converts.
+    this.emitMutation({ type: 'update', resource: _resource, id: String(id), record: { ...this.items[index] } });
     return { ...this.items[index] };
   }
 
@@ -1190,7 +1192,7 @@ export class ValueDataSource<T = any> implements DataSource<T> {
     );
     if (index === -1) return false;
     this.items.splice(index, 1);
-    this.emitMutation({ type: 'delete', resource: _resource, id });
+    this.emitMutation({ type: 'delete', resource: _resource, id: String(id) });
     return true;
   }
 

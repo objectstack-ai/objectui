@@ -23,6 +23,7 @@ import {
   isElementDataSourceBlock,
 } from '../data-scope/element-data-source.js';
 import { PUBLIC_BLOCKS } from './public-blocks.js';
+import { HTML_TIER_INTRINSICS } from './html-tier-intrinsics.js';
 
 /**
  * The renderer a registration carries — the IDENTITY alias, deliberately.
@@ -338,9 +339,22 @@ export type RegistryComponentConfig<T = any> = ComponentConfig<T> &
  * imported yet, so there is no renderer to hand out. Consumers render such an
  * entry through `SchemaRenderer`, which triggers the loader and shows a
  * placeholder in the meantime (objectui#2953).
+ *
+ * `tier` is widened by one PROJECTION-ONLY value, `'html'`: an entry the html
+ * tier's intrinsic roster contributed (objectui#10735). No registration
+ * declares it — `RegistryComponentMetaExtras.tier` stays `'public' | 'internal'`
+ * — the read stamps it, and `manifestFromConfigs` carries it into the manifest
+ * so a consumer that means the CURATED vocabulary can filter it out.
  */
-export type PublicComponentConfig<T = any> = ComponentMeta & {
+export type PublicComponentConfig<T = any> = Omit<ComponentMeta, 'tier'> & {
   type: string;
+  /**
+   * The registration's declared tier, or `'html'` for an entry that reaches the
+   * contract through {@link HTML_TIER_INTRINSICS} rather than through the
+   * curated roster or a `tier: 'public'` opt-in. Absent or `'public'` = the
+   * curated JSON-surface vocabulary.
+   */
+  tier?: ComponentMeta['tier'] | 'html';
   component?: ComponentRenderer<T>;
   /** True while this entry is a `registerLazy` stub whose loader has not run. */
   lazy?: boolean;
@@ -959,9 +973,18 @@ export class Registry<T = any> {
   }
 
   /**
-   * Get the curated PUBLIC-tier component configs (ADR-0080) — those registered
-   * with `tier: 'public'`. This is the contract/AI-vocabulary surface, a subset
-   * of the full rendering capability returned by {@link getAllConfigs}.
+   * Get the CONTRACT-surface component configs (ADR-0080) — what the published
+   * `sdui.manifest.json` serialises. A subset of the full rendering capability
+   * returned by {@link getAllConfigs}, made of two tiers:
+   *
+   *   - the curated PUBLIC tier — `PUBLIC_BLOCKS` plus registrations that opted
+   *     in with `tier: 'public'` — the JSON-surface AI-authoring vocabulary;
+   *   - the html tier's registered intrinsic elements — `HTML_TIER_INTRINSICS`,
+   *     each entry stamped `tier: 'html'` (objectui#10735). A `kind:'html'` page
+   *     may author these tags and the gate that reads the manifest must accept
+   *     them; they are NOT part of the curated vocabulary, so a consumer that
+   *     means that vocabulary alone — the `kind:'react'` JSX scope, the block
+   *     list, a census of curated blocks — filters on the stamp.
    *
    * Includes blocks that are only lazily registered so far; those come back
    * with `lazy: true` and no `component` (see {@link PublicComponentConfig}).
@@ -988,6 +1011,14 @@ export class Registry<T = any> {
     // … and the same opt-in for stubs whose loader has not run yet.
     for (const [key, entry] of this.lazyEntries.entries()) {
       if (entry.meta?.tier === 'public' && !key.includes(':')) add(key, this.getContractConfig(key));
+    }
+    // … and the html tier's registered intrinsic elements, LAST and STAMPED:
+    // the dedupe above means a tag on both rosters comes out curated and
+    // unstamped, which is why the two rosters are pinned disjoint. The stamp is
+    // a projection, never written back onto the registration (objectui#10735).
+    for (const tag of HTML_TIER_INTRINSICS) {
+      const cfg = this.getContractConfig(tag);
+      if (cfg) add(tag, { ...cfg, tier: 'html' });
     }
     return out;
   }

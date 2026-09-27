@@ -77,8 +77,14 @@ export interface RegistryConfigLike {
    * input named `children` (objectui#9910; `acceptsChildren` in `validate.ts`).
    */
   isContainer?: boolean;
-  /** ADR-0080 contract tier — only 'public' configs form the AI/contract surface. */
-  tier?: 'public' | 'internal';
+  /**
+   * ADR-0080 contract tier — only 'public' configs form the AI/contract
+   * surface under `publicOnly`. `'html'` is the projection-only stamp
+   * `ComponentRegistry.getPublicConfigs()` puts on the html tier's intrinsic
+   * elements (objectui#10735); it is the one value {@link manifestFromConfigs}
+   * carries into `ManifestComponent.tier`.
+   */
+  tier?: 'public' | 'internal' | 'html';
   label?: string;
   category?: string;
   inputs?: Array<{
@@ -196,6 +202,11 @@ export function manifestFromConfigs(
       type: c.type,
       namespace: c.namespace,
       isContainer: c.isContainer,
+      // The html tier's stamp, and ONLY that stamp (objectui#10735): a
+      // registration's `'public'` / `'internal'` is registry mechanics the
+      // manifest never carried, and `undefined` is dropped by `JSON.stringify`,
+      // so every curated entry serialises exactly as before this key existed.
+      tier: c.tier === 'html' ? 'html' : undefined,
       inputs: (c.inputs ?? []).map((i) => ({
         name: i.name,
         type: canonicalizeInputType(i.type),

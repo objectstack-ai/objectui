@@ -30,10 +30,11 @@
  *   - A failed BACKGROUND re-read of the record does NOT keep the last good
  *     values on screen. No form has a silent mode, so the failure is reported
  *     like any other, and the next re-read that succeeds takes the screen
- *     back. The default arm's background re-read is the data-invalidation bus
- *     (objectui#10572). The five other layouts do not subscribe to the bus;
- *     theirs is a host re-render that rebuilds `initialValues`, which re-runs
- *     their record read in place.
+ *     back. The default arm's background re-read here is the data-invalidation
+ *     bus (objectui#10572). For the five other layouts this file drives a host
+ *     re-render that rebuilds `initialValues`, which re-runs their record read
+ *     in place; since objectui#10715 they read the bus too, pinned per arm in
+ *     `formArmsInvalidation-10715.test.tsx`.
  *
  * The seventh site is `record:line_items` (`LineItemsPanel`, objectui#10683
  * folded in). It makes one read that can fail on screen, its rows, and writes

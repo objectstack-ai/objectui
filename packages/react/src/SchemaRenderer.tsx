@@ -543,16 +543,16 @@ const isDataObjectValue = (key: string, value: unknown): boolean =>
  * `page`. Why each root is (and `data` is not) bound is stated where the memo
  * builds its evaluator from this.
  *
- * One function, so the memo and {@link useConfigBagEvaluator} cannot build two
- * different scopes (objectui#10290).
+ * One function, so the memo and {@link evaluateConfigBagInScope} cannot build
+ * two different scopes (objectui#10290).
  */
 const configEvaluationScope = (
-  predicateScope: Record<string, any>,
+  predicateScope: Record<string, unknown>,
   boundRecord: unknown,
   pageVariables: unknown,
-): Record<string, any> => ({
+): Record<string, unknown> => ({
   ...predicateScope,
-  current_user: (predicateScope as any)?.user,
+  current_user: predicateScope?.user,
   ...(boundRecord && typeof boundRecord === 'object' && !Array.isArray(boundRecord)
     ? { record: boundRecord }
     : null),
@@ -594,37 +594,32 @@ const evaluateConfigBagWith = (
 };
 
 /**
- * The `properties` evaluation of the {@link SchemaRenderer} memo, for a node
- * that is rendered WITHOUT `SchemaRenderer` (objectui#10290).
+ * The `properties` evaluation of the {@link SchemaRenderer} memo, for a config
+ * bag that does not pass through `SchemaRenderer` (objectui#10290): the same
+ * per-key rule, the same `ExpressionEvaluator`, and the same scope, built from
+ * the same three inputs. It is not a second template engine.
  *
- * The action containers (`action:bar`, `action:group`, `action:menu` in
- * `@object-ui/components`) draw their member actions themselves, so a member's
- * `properties` never passes through the memo. Its static execution values ride
- * `properties.params` (objectui#10289), and those values are templates
- * evaluated where `properties` are (objectui#7867). This hook is that
- * evaluation: the same per-key rule, the same `ExpressionEvaluator`, and the
- * same scope, read from the same contexts the memo reads. It is not a second
- * template engine.
+ * The plain half of `useConfigBagEvaluator()` (`hooks/useConfigBagEvaluator`),
+ * which reads those inputs from the contexts the memo reads them from. Call
+ * the hook; this function exists because the rule it applies is this module's.
+ * (The hook is not declared in this module: a hook here puts this file under
+ * the React Compiler lint, which then reports the render-time
+ * `performance.now()` / `Date.now()` debug probes below.)
  *
- * The returned function takes a config bag and returns a new, evaluated bag. A
- * value that is not a config bag is returned unchanged. Call it once per
- * authored bag: the result is already evaluated, and evaluating it again would
- * interpolate text that came out of the row.
- *
- * A fresh function each render. Nothing may depend on its identity
- * (AGENTS.md #10).
+ * A value that is not a config bag is returned unchanged; a bag comes back as a
+ * new, evaluated object and the authored one is never mutated.
  */
-export function useConfigBagEvaluator(): (bag: unknown) => unknown {
-  const predicateScope = usePredicateScope();
-  const boundRecord = useRecordContext()?.data;
-  const { variables: pageVariables } = usePageVariables();
-  return (bag: unknown): unknown => {
-    if (!isConfigBag(bag)) return bag;
-    const evaluator = new ExpressionEvaluator(
-      configEvaluationScope(predicateScope, boundRecord, pageVariables),
-    );
-    return evaluateConfigBagWith(evaluator, bag as Record<string, unknown>);
-  };
+export function evaluateConfigBagInScope(
+  bag: unknown,
+  predicateScope: Record<string, unknown>,
+  boundRecord: unknown,
+  pageVariables: unknown,
+): unknown {
+  if (!isConfigBag(bag)) return bag;
+  const evaluator = new ExpressionEvaluator(
+    configEvaluationScope(predicateScope, boundRecord, pageVariables),
+  );
+  return evaluateConfigBagWith(evaluator, bag as Record<string, unknown>);
 }
 
 /**

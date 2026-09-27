@@ -32,6 +32,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import '@testing-library/jest-dom';
 import React from 'react';
 import type { ActionContext, ActionDef, ActionResult } from '@object-ui/core';
+import type { BaseSchema } from '@object-ui/types';
 import { ActionProvider, RecordContextProvider, SchemaRenderer } from '@object-ui/react';
 // Module-scope side-effect imports: `action:bar` resolves its members and its
 // overflow menu through the ComponentRegistry at render time, and the light
@@ -81,7 +82,7 @@ function renderOnRecordPage(schema: Record<string, unknown>) {
   return render(
     <ActionProvider handlers={{ navigate_edit: navigateEdit }}>
       <RecordContextProvider objectName="account" recordId={ROW.id} data={ROW}>
-        <SchemaRenderer schema={schema as any} />
+        <SchemaRenderer schema={schema as unknown as BaseSchema} />
       </RecordContextProvider>
     </ActionProvider>,
   );

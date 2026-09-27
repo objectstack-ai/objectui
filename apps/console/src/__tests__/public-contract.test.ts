@@ -602,7 +602,7 @@ describe('PUBLIC_BLOCKS ↔ the declared layout containers (derived, objectui#68
     //
     // ⚠️ Counting literals against arms — what this line did before
     // objectui#8499 — is NOT the same assertion and cannot be restored: a single
-    // enum arm contributes 37 spellings, so the two numbers are no longer meant
+    // enum arm contributes 38 spellings, so the two numbers are no longer meant
     // to match. What still holds one-for-one is that no arm contributes ZERO.
     expect(LAYOUT_UNION_ARMS.length).toBeGreaterThan(0);
     expect(LAYOUT_ARM_LITERALS.filter((literals) => literals.length > 0)).toHaveLength(

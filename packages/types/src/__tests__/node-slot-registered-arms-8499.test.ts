@@ -230,11 +230,11 @@ describe('objectui#8499 — the family arms are compared against their registrat
     expect(semanticArmed).not.toEqual([...htmlTags].sort());
 
     // And the reader must be able to come back EMPTY rather than fabricate a
-    // pass — which is what makes the `toBe(7)` / `toBe(37)` guards above real
+    // pass — which is what makes the `toBe(7)` / `toBe(38)` guards above real
     // guards. A declaration name that is not in the file throws rather than
     // quietly yielding [], so the non-vacuity checks cannot be satisfied by a
-    // reader that has stopped reading. (The `toBe(38)` guards count `code`,
-    // admitted to `TAGS` and to this arm together by objectui#10756.)
+    // reader that has stopped reading. (The `toBe(38)` guards read 37 when this
+    // card landed; `code` joined `TAGS` and this arm together in objectui#10756.)
     expect(() => sourceArray(read(SEMANTIC_RENDERER), 'const notADeclaration = ')).toThrow(
       /declaration not found/,
     );

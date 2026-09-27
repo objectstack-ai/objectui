@@ -1,0 +1,35 @@
+{
+  "number": 8178,
+  "kind": "issue",
+  "title": "finding(types,plugin-ai): the three AI schemas carry six zero-read members (`formId`, `objectName`×3, `fields`, `maxResults`) plus a dead `autoFill` destructure — and the registry advertises five of them to the designer",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "domain:ui",
+    "enhancement",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-09-06T22:33:36Z",
+  "updated_at": "2026-09-09T10:50:17Z",
+  "closed_at": "2026-09-09T10:45:37Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8178",
+  "body": "Measured while compiling `packages/plugin-ai/README.md`'s snippets for objectui#5174 batch 27 (PR to follow). Not fixed there — that batch's licence is the README and one ledger entry, and ⛔ no edit to `packages/plugin-ai/src/**` or `packages/types/src/**`. Filing so the shape is not lost.\n\nThis is the **plugin-ai instance of the class objectui#7742 already carries for `KanbanSchema`** (three zero-read members + one undeclared read, enforce-or-remove). objectui#5098 was the plugin-form README instance of the same thing. Nothing here is a duplicate of either: different package, different keys.\n\n## What was measured\n\nEvery key below is **declared** by its schema type in `packages/types/src/ai.ts` and **never read** by the component that the schema drives. The three components in `packages/plugin-ai/src/` are the only consumers of these three types repo-wide (`grep -rln` over `packages/*/src` and `apps/*/src` returns the three components plus the declaration and the barrel).\n\n| Key | Declared | Read at runtime? | Note |\n|---|---|---|---|\n| `AIFormAssistSchema.formId` | `ai.ts:97` | **no** — zero occurrences in `AIFormAssist.tsx` | |\n| `AIFormAssistSchema.objectName` | `ai.ts:102` | **no** — zero occurrences | |\n| `AIFormAssistSchema.fields` | `ai.ts:107` | **no** — zero occurrences | |\n| `AIFormAssistSchema.autoFill` | `ai.ts:127` | **dead read** — destructured at `AIFormAssist.tsx:31` with a default, never referenced again | the only occurrence of the identifier in the file is that destructure |\n| `AIRecommendationsSchema.objectName` | `ai.ts:209` | **no** — zero occurrences in `AIRecommendations.tsx` | |\n| `AIRecommendationsSchema.maxResults` | `ai.ts:229` | **no** — zero occurrences | see below |\n| `NLQuerySchema.objectName` | `ai.ts:321` | **no** — zero occurrences in `NLQueryInput.tsx` | |\n\nWhat each component *does* read, for contrast (the destructure is the whole surface in all three):\n\n- `AIFormAssist.tsx:27-32` — `suggestions`, `showConfidence`, `showReasoning`, `autoFill` (dead).\n- `AIRecommendations.tsx:27-33` — `recommendations`, `showScores`, `layout`, `loading`, `emptyMessage`.\n- `NLQueryInput.tsx:25-32` — `placeholder`, `result`, `suggestions`, `showHistory`, `history`, `loading`.\n\n## Why `maxResults` is the sharp one\n\nIts doc comment reads `Maximum number of results to display`. `AIRecommendations` renders **every** item in `recommendations` — there is no slice, no cap, no read of the key at all. An author who writes `maxResults: 5` against a 50-item list gets 50 rows and no diagnostic. That is a declared capability the runtime does not honour, which is the exact failure mode the coding standards' contract-first rule and the dispatch framework's third axis (making it structurally hard for an AI to write wrong metadata) exist to prevent.\n\n`grep -rn maxResults packages/*/src` returns exactly three hits: the declaration (`types/src/ai.ts:229`), the designer input below, and nothing else.\n\n## The designer amplifies five of the seven\n\n`packages/plugin-ai/src/index.tsx` advertises these keys as authorable inputs in its `ComponentRegistry.register` metadata, so the field designer offers them and a metadata author can pick them from a list:\n\n- `ai-form-assist` (`index.tsx:24-30`) — offers `formId`, `objectName`, `fields`, `autoFill`.\n- `ai-recommendations` (`index.tsx:41-51`) — offers `objectName`, `maxResults`.\n- `nl-query` (`index.tsx:60-65`) — offers `objectName`.\n\nSo the loop is closed the wrong way: the type declares it, the designer offers it, the JSON validates, and the renderer ignores it — silently, at every depth (objectui#7869 explains why nesting makes even the value check vacuous). This is the mirror image of objectui#7712 / #8171 / #8172 / #8174, which all report a key the renderer *reads* but the registration does *not* declare; here the registration and the type declare what nothing reads.\n\n## Not decided here\n\nEnforce-or-remove is a maintainer call and the two directions have different costs, so this card does not pick one:\n\n- **Remove** — retire the seven members and their designer inputs. Cheapest, matches the startup-stage focus principle (an unpulled declaration surface defaults to strict) and the immediate-retirement ruling. Cost: `objectName` reads like context an AI backend would eventually want, and removing it is visible in a published `.d.ts`.\n- **Enforce** — implement the reads (`maxResults` as a slice, `fields`/`formId`/`objectName` as the context the suggestion call needs). Larger, and it is only worth it if a real caller wants it — which is the first axis, and nothing in the repo currently pulls on these.\n\nThe measurement above is what the decision needs either way; note that until one is chosen, `packages/plugin-ai/README.md` teaches five of the seven keys in its examples (they are declared, so the repaired snippets compile — the gate cannot see inertness, only types).\n"
+}

@@ -1,0 +1,39 @@
+{
+  "number": 8827,
+  "kind": "issue",
+  "title": "finding(plugin-kanban): chunk 加载与数据 commit 是两个无序竞态 —— objectui#8534 关掉了镜子那一半,`React.lazy` 这一半仍然开着",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "plugin",
+    "plugin: kanban",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T12:25:36Z",
+  "updated_at": "2026-09-09T14:18:02Z",
+  "closed_at": "2026-09-09T14:17:05Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8827",
+  "body": "由 `domain:ui @ objectui` 派发席开出,作为 objectui#8534 的**第二半**。⛔ 未认领。\n\n## 为什么单独开卡\n\nobjectui#8534 点出看板首帧有**两个互不排序的竞态**:\n\n- ✅ **已关闭 —— 镜子晚一拍。** `KanbanImpl` 把 `columns` prop 镜像进 state 并由 passive effect 回同步 ⇒ 每次 prop 驱动的变化晚一个 commit 上屏。由 **PR #8825** 改为渲染期对齐后关闭。\n- ❌ **仍然开着 —— 本卡。** `KanbanRenderer` 通过 `React.lazy` 在 `Suspense` 后加载 `KanbanImpl`(`packages/plugin-kanban/src/index.tsx:137`,边界在 `:233` / `:372`)⇒ **chunk 到达与数据到达之间没有任何东西排序。**\n\n⚠️ **#8534 已被 PR #8825 关闭**,所以若不单独立卡,这一半会随那张卡一起消失。PR #8825 的正文**明确写着**它只关掉一个,⛔ 不得被读成「首帧问题已解决」。\n\n## 为什么它没有搭在 #8534 里\n\nPR #8825 的判断,派发席确认:**动它会移动 chunk 边界与包体** —— 那是与「组件内部状态同步时机」完全不同的机制和验证面。⇒ 分开是对的。\n\n## ⚠️ 证据限度 —— ⛔ 请勿当成已复现\n\n**本卡没有实测。** #8534 的原始测量与 PR #8825 的测量都**只针对镜子那一半**;`React.lazy` 这一半是**读源码点名的**,不是跑出来的。\n\n⇒ **承接第一步(⛔ 不可跳过):先实跑复现。** 造出「chunk 后到 / 数据后到」两种顺序,量出各自的首帧是什么。**带亮对照** —— 一个已知会变的读数必须显示差异,否则你的「两种顺序看起来一样」是仪器没接上。\n\n⚠️ 并且先回答:**关掉镜子那一半之后,这个竞态还剩多少可观察后果?** ⛔ 有可能 #8825 已经顺带削弱了它 —— 若实测发现首帧已经没有可观察问题,**那本卡应当被关闭而不是被修**,请带读数关闭它。**证伪比修复有价值。**\n\n## 待判定(若复现成立)\n\n1. 该不该排序它 —— 例如让数据加载与 chunk 加载共用一个 Suspense 边界,还是在 chunk 就绪前不发起数据请求?\n2. 代价是什么 —— 任何排序都会**延后**首屏可见时间以换取首帧正确,这是一个产品取舍,⛔ 不是纯技术选择。\n3. 这个形状是不是 kanban 独有?⚠️ 其它 `React.lazy` 插件(`plugin-grid`、`plugin-detail` 等)可能同形 —— **未测**,承接者若要主张「只此一处」需自己量。\n\n## ⛔ 承接约束\n\n- ⛔ 不要动 `KanbanImpl` 的镜子同步:那是 #8534 / PR #8825 的,已落地,且它的重置触发条件与 objectui#4138 的回滚绑定。\n- ⛔ 不要为了「首帧正确」而移除 `React.lazy`:那会把整个 kanban 打进主 chunk,是包体决定,不是本卡的。\n\n## Dedup\n\n⚠️ 派发席**没有**为本卡跑带亮对照的查重 ⇒ 上面没有「未见重复」的断言,承接者请自行查重。已知相邻:objectui#8534(母卡)· PR #8825(关掉的那一半)· objectui#8532 / PR #8533(测试侧的那一半)。\n\n## 来源\n\nobjectui#8534 · PR #8825 的「Which race this closes — and which it does NOT」一节与其 `验收备注` 第一条 · `packages/plugin-kanban/src/index.tsx:137` / `:233` / `:372`"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 8703,
+  "kind": "issue",
+  "title": "finding(tests): objectui#8690's strict bucket is matcher-dependent — 7 further strict-shape sites were never read",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "pm:dispatched",
+    "tests"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T23:24:56Z",
+  "updated_at": "2026-09-09T01:12:43Z",
+  "closed_at": "2026-09-09T01:12:43Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8703",
+  "body": "Filed by the objectui#8690 dev seat (branch `claude/issue-8690-recorder-wait-audit`, PR #8702) as an out-of-scope by-product. Not claimed, not assigned. ⛔ Nothing below is claimed as a defect — the detector answers where to look, never what is wrong, which is objectui#8690's own rule and the reason this is a card and not a patch.\n\n## What was measured\n\nobjectui#8690's nine sites were audited (1 repaired, 8 measured sound; PR #8702). Its detector was re-derived from the card's four-step description and kept as `scripts/census-recorder-wait-shape.mjs`.\n\nRe-deriving it surfaced something the card does not record: **the strict bucket (\"the wait named a recorder\") depends on how a recorder name is matched, and the two reasonable choices give buckets that do not contain each other.**\n\nOn `da5e4f69e`, 2776 tracked test files:\n\n| recorder-match | total flags | strict | files |\n|---|---|---|---|\n| `ident` — bare identifier, receiver ignored | 159 | 15 | 10 |\n| `path` — dotted path | 167 | 18 | 12 |\n| objectui#8690 as filed | 160 | 9 | 7 |\n\n`ident` misses a wait written as a member of a host object (a recorder pushed as bare `inits`, waited as `host.calls`); `path` misses the mirror case. objectui#8690's nine sit inside the union of the two, and the union is wider than nine.\n\n## The sites in the union that nobody has read\n\nLine numbers on `da5e4f69e`. ⛔ Unaudited — no reading was performed on any of them:\n\n- `packages/components/src/renderers/form/__tests__/form-onchange-wiring.test.tsx:207` — waits `submitted`, reads `received`\n- `packages/plugin-dashboard/src/__tests__/DatasetWidget.localSelectI18n.test.tsx:356` — waits `drillFilters`, reads `blobs`\n- `packages/plugin-dashboard/src/__tests__/DatasetWidget.optionLabelI18n.test.tsx:313` — waits `drillFilters`, reads `requested`\n- `packages/plugin-dashboard/src/__tests__/DatasetWidget.tableTotalsRow.test.tsx:319` — waits `drillFilters`, reads `blobs`\n- `packages/plugin-view/src/__tests__/ObjectView.tableColumnsForwarding.test.tsx:136` — waits `rendered`, reads `seen`\n- `packages/plugin-view/src/__tests__/ObjectView.tableColumnsForwarding.test.tsx:149` — waits `rendered`, reads `gridSchemas`\n- `packages/app-shell/src/views/metadata-admin/PermissionMatrixEditor.scope.test.tsx:177` — waits `server.saved`, reads `server.savedOpts` — the same construction as the two audited `packageDoorFacets` sites, which measured **sound** (both pushes are consecutive synchronous statements in one `save` double), so this one is the cheapest of the seven to settle.\n\nThe three `packages/permissions` flags in the strict bucket are objectui#8688 / PR #8689 and are excluded here.\n\n## What a reader should do with this\n\nRead each site and classify it, the same contract objectui#8690 set: force the unfavourable ordering (50ms, not 0ms — RTL's `asyncWrapper` drains one macrotask, so a 0ms deferral sits inside its own window) and observe the old wait either red or unbreakable. ⛔ A batch repair driven by this list would be the mistake objectui#8665 warns about.\n\n## A second, weaker observation from the same audit\n\n`packages/plugin-list/src/__tests__/ListView.objectProviderBinding-7477.test.tsx` — the `provider: 'value'` control asserts `expect(dataSource.find).not.toHaveBeenCalled()` after waiting on the renderer's props. For an inline-items provider `ListView` starts with `loading === false`, so that renderer's first props arrive in the FIRST commit rather than after a settled load — unlike the object-provider cases in the same file, whose anchors were measured post-settle. So this particular absence is read early. It is a mock-call absence and not a recorder array, so it sits outside the detector's population entirely, and it was **not** measured: a query started in a mount effect would already be recorded by the time `render` returns, and only an async-deferred query would slip. Recorded so the observation is not lost, not as a claim.\n\n## Dedup — declared\n\nThis repo's `search_issues` returns false zeros, so a zero from it would not be evidence. The query run here was not a zero: `recorder wait census strict shape sites outside the nine audited`, scoped to this repo, returned exactly one hit — objectui#8690 itself — which is a self-validating non-empty result, and nothing matching this finding.\n\nGenerated by Claude Code in session `session_01YBWFb5YgMU5dw8p2VKj16S` (attribution written as prose, because a footer block is stripped on issue creation)."
+}

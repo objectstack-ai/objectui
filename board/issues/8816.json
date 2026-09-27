@@ -1,0 +1,36 @@
+{
+  "number": 8816,
+  "kind": "issue",
+  "title": "[decision] `i18n-locales` 的 eager-closure 上限只剩 0.5 KB —— 抬上限、按预算配给,还是拆 chunk?下一张加语言包键的卡会撞上,而且可能撞在**无辜的 PR** 上",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx",
+    "i18n",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T11:38:27Z",
+  "updated_at": "2026-09-10T10:02:12Z",
+  "closed_at": "2026-09-10T10:01:19Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 14,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8816",
+  "body": "由 `domain:ui @ objectui` 派发席开出,来源是 objectui#8441 / PR #8815 的实现方在 `open_questions` 里提的升级。⛔ 未认领。\n\n## 读数\n\n```\n✅ chunk `i18n-locales`   443.8 KB measured / 444.3 KB ceiling   (headroom 0.5 KB)\n```\n\nPR #8815 给十个语言包各加了两组复数族(`detail.repeaterItemCount`、`detail.fileCount`),十个包文件的**源码 gzip** 增长 **783 字节**(536,883 → 537,666,`-9` 口径;这是对 chunk 增量的近似,因为该 chunk 是压缩并打包后的)。⇒ 本次吃掉了余量的大部分,**而在它之前余量就已经很少**。\n\n门禁当前是**绿的**。这张卡不是报缺陷。\n\n## ⚠️ 真正的问题不是「上限快满了」,而是它会**红错 PR**\n\n派发席最初的判断是「不开卡 —— 门禁自己就是标记,下一张加包键的卡会被它拦住,并给出清楚的信息」。**这个判断不完整,现予更正。** #8815 的实现方指出的机制比它严重:\n\n> 门禁称量的是 **merge ref**。所以一个新增语言包键的兄弟 PR 若**先落地**,会让一个**在飞的**、本身并不越界的 PR 在合并队列里变红 —— 那是一次**算术碰撞,读起来却像是该 diff 自己的缺陷**。\n\n⇒ 这不是「门禁拦住了该拦的人」,而是**门禁把账算到了无辜的 PR 头上**。被拦的那个 dev 会去检查自己的 diff,而他的 diff 没有问题。\n\n⚠️ 这正是本仓已经为之退役过一个门禁的形状:**一个会误归因的仪器,比一个缺失的仪器更贵**。\n\n⇒ 定级 `p2`(⛔ 不是 p3):它不是「以后要处理的技术债」,而是一个**会主动生成假红并误导承接者**的机制,且触发条件(两个 i18n PR 在飞)本班次已经出现过。\n\n## 三个选项(⛔ 派发席不代维护者决定)\n\n**A — 在一张专门的 PR 里抬 `PER_CHUNK_GZIP_CEILINGS['i18n-locales']`**,按 ratchet 平常移动的方式。\n代价:一次维护者决定。收益:后续每一张 i18n 卡都不被卡住,假红消失。\n⇒ **实现方推荐 A,派发席同意**,理由是上面那条假红机制:它的代价不是「一张卡被挡」,而是「一个无关的 dev 去调查一个不存在的缺陷」。\n\n**B — 不动,让下一次加键把门禁撞红**,把那次红当作触发 chunk 拆分 / 懒加载的强制函数。\n代价:一个被打断的 dev + 一张被挡的卡,**外加上面那条假红的风险**。\n\n**C — 全仓把复数族缩成 base + `_one`**(去掉 `_other`,i18next 本来就会把它解析回 base —— `common.objects` / `common.objects_one` 已经是这个写法)。\n可在现有各族上省下几 KB。\n⚠️ 但它会在同一个包里**混用两种约定**,除非作为一次全仓清扫来做。⛔ 且不应搭在任何功能卡上。\n\n⛔ **#8815 刻意没有选 C 来给自己买余量**,派发席已确认这个拒绝是对的:base + `_one` + `_other` 是 `en` 包自己的规范注释所背书的「A REAL i18next plural family」形状,**为一个不属于该 PR 的天花板牺牲约定清晰度,方向是反的**。\n\n## ⚠️ 承接约束\n\n- ⛔ **不要在一张功能卡里顺手抬上限。** ratchet 的移动要可追溯到一次明确的决定,而不是藏在某个改动的附带里。\n- ⛔ **不要按「先测一下到底还剩多少」来代替决定。** 数字已经在上面了(0.5 KB),而且它每次有人加键就会变 —— 再测一次不产生新信息。\n- 若取 A:PR 里应写清**抬到多少、依据什么**(例如「够 N 个语言包键」),否则下一次还是同一个问题,只是推迟了。\n- 若取 C:那是一次**全仓清扫**,需要自己的卡和自己的反向核验,⛔ 不要与 A 打包。\n\n## Dedup\n\n派发席按 `i18n-locales` / `eager-closure` / `PER_CHUNK_GZIP_CEILINGS` 在本仓 open issue 中查过,未见覆盖本决定的卡。⚠️ 该查询**没有配亮对照**,所以这个零应当被当作**未经确认的读数** —— 承接者若要依赖它,请带对照重查。\n\n## 来源\n\nobjectui#8441 · PR #8815(该 PR 的 `验收备注` 与 `open_questions` 载有完整读数)· `check:eager-closure`"
+}

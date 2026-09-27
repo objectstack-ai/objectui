@@ -1,0 +1,35 @@
+{
+  "number": 8889,
+  "kind": "issue",
+  "title": "finding(plugin-dashboard): a client-i18n-bundle sub-caption still cannot reach a dataset-bound KPI tile — `tWidgetSubCaption`'s bundle limb needs `dashName`, which `DatasetWidget` is given by neither dispatch site",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "i18n",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T19:44:41Z",
+  "updated_at": "2026-09-10T00:35:32Z",
+  "closed_at": "2026-09-10T00:33:05Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8889",
+  "body": "立卡自 #7293 的执行席交办（该席自己的 dedup 搜索失败，判定「那个 0 不是读数」后交给 PM，没有盲填 —— 处理正确）。**PM 席已独立复核下述每一条读数**，并完成了 dedup。\n\n## 一、缺陷\n\n`DashboardRenderer.tWidgetSubCaption` 有**两条肢**：\n\n```\npackages/plugin-dashboard/src/DashboardRenderer.tsx:412-421\n  const authored = (widget.options as Record<string, unknown> | undefined)?.description;\n  const fallback = resolveLabel(authored);          // 肢 1：把作者写的值（含 inline per-locale map）塌成当前语言\n  if (!dashName || !widget.id) return fallback;\n  return widgetSubCaption(dashName, widget.id, fallback);   // 肢 2：让 i18n bundle 里的条目盖过作者值\n```\n\n#7293 / PR #8887 接上了**肢 1**（以及随之而来的 server-overlay 通道 —— `translateDashboard` 在 bundle 有非空 `subCaption` 时会把翻译**写进** `options.description`，所以一个**由平台服务**的 dashboard 现在能拿到译文）。\n\n**肢 2 仍然到不了 dataset-bound tile。** 它需要 `dashName`，而：\n\n```\npackages/plugin-dashboard/src/DatasetWidget.tsx:408\n  export function DatasetWidget({ widget, dataSource }: { widget: any; dataSource: unknown })\n\npackages/plugin-dashboard/src/DashboardRenderer.tsx:935    <DatasetWidget widget={effectiveWidget} dataSource={dataSource} />\npackages/plugin-dashboard/src/DashboardGridLayout.tsx:584  <DatasetWidget widget={widget}          dataSource={dataSource} />\n```\n\n**两个 dispatch site 都只传 `widget` 和 `dataSource`。** 没有 dashboard 名，也没有把 `tWidgetSubCaption` 的结果传进去（`tWidgetSubCaption` 的返回值只挂在 `getComponentSchema()` 的两条 inline arm 上 —— 这正是 #7293 的根因，一层未变）。\n\n⇒ 一个**从 app bundle 加载**、而非由平台服务的 dashboard，其副标题若**只**写在客户端 i18n bundle 的 `{ns}.dashboards.{dash}.widgets.{id}.subCaption` 上、作者没写 `options.description`，那么在 dataset-bound tile 上**什么也不渲染**。\n\n⚠️ 而这种写法**不是滥用**：`tWidgetSubCaption` 自己的 docblock 写着 —— 「A translation with no authored counterpart is legitimate and matches the server」。**这是被明文承认的合法形态。**\n\n这是 ADR-0049 「declared-but-unenforced」家族，与 #7293 同型，位置低一层。\n\n## 二、命名探针（未跑，留给执行席）\n\n> 在一个 `I18nProvider` 里渲染一个 dataset-bound metric tile，provider 的 bundle 携带 `{ns}.dashboards.{dash}.widgets.{id}.subCaption`，而 widget **不**声明 `options.description`。\n\n预期今天：**什么都不渲染**。修好后：渲染 bundle 里那句。\n\n⚠️ **控制必须会动**：一个**同时**写了 `options.description` 的 tile，在两个世界里都必须渲染出**bundle 的值盖过作者值**（这是肢 2 的既定语义：「a bundle entry always wins over an inline map and the two channels can never disagree」）。如果你的控制在主体坏掉时也红，它不是控制。\n\n## 三、⚠️ 形状上的两条岔路，⛔ 分诊/执行席请勿默认走第一条\n\n修法不止一种，而且**代价差得很远**：\n\n1. **把 `dashName` 传下去** —— 改 `DatasetWidget` 签名。⚠️ 它有**两个** dispatch site，只改一个会「修好一个面、另一个面静默照旧」，#7293 的执行席正是因为这一点才选择在组件内读键而非加 prop（objectui#4614 是这条教训的原始卡）。\n2. **把已解析的值传下去** —— 同样改签名，但把 `tWidgetSubCaption` 的调用留在 renderer 侧。\n3. **在 `DatasetWidget` 内部读 i18n** —— 不改签名，但要在组件里拿到 dashboard 名，而它今天**根本不知道自己在哪个 dashboard 上**。\n\n⛔ **本卡不裁定走哪条**。三条都改了授权面或组件契约，值得分诊席按机械边界测一次型（Bug / Feature）。\n\n## 四、定级理由（p3，可被分诊席推翻）\n\n不上 p2 —— 与 #7293 的差别是实的：\n- #7293 时该槽位在 dataset-bound 路径上**四层管道全部落空**，且下游产品（duly#109）已被迫降级发布。\n- 本卡是 #8887 落地**之后**的残留：作者值通道通了、server-overlay 通道通了，**只剩「客户端 bundle 写了、作者没写」这一种拼法**走不通。\n- 有明确绕法且是这个字段本来就推荐的写法：**把值写进 `options.description`**，今天就渲染。\n\n不降 p4 —— 它是被 docblock **明文承认为合法**的形态，静默无输出，作者无从察觉。\n\n## 五、dedup（已完成，非盲填）\n\n`search_issues` 语义检索，`owner/repo` 限定 objectui，19 个结果全部过目：#7293（本卡的父，肢 1）、#4032（`resolveLabel` 从不调 `t()` —— 本卡的祖先，已关）、#4614（`DashboardGridLayout` 无 dataset 路径 —— 「两个 dispatch site」这条教训的出处，已关）、#4620、#7353、#7534、#7151、#5742、#5280 等。**无一是本卡**。\n\n⚠️ 执行席交办时该通道对它返回 `API rate limit already exceeded`（未在循环里重试，正确）；其 fallback（repo 限定 issue 列表 + 本地 grep）**自控制失败**（扫了 200 行 `domain:ui`，连 #7293 自己都不在里面 ⇒ 那个 0 不是读数）。它因此拒绝盲填并交办 —— **这个判断是对的**。本席重跑时限流已恢复，读数成立。"
+}

@@ -1,0 +1,39 @@
+{
+  "number": 8440,
+  "kind": "issue",
+  "title": "DetailSection's click-to-copy writes a `password` / `secret` field's RAW value, while the cell beside it renders the mask",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "plugin",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T23:34:34Z",
+  "updated_at": "2026-09-09T00:41:24Z",
+  "closed_at": "2026-09-09T00:41:24Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8440",
+  "body": "Filed by the objectui#8395 dev (branch `claude/issue-8395-copyfield-object-values`) while measuring what `handleCopyField` writes per field type. ⛔ Not claimed. Out of scope there: objectui#8395 is about OBJECT-valued cells writing `[object Object]`; this is a *string*-valued cell whose copy payload is correct-as-a-string and wrong-as-a-contract. The two fixes do not touch the same branch of the handler.\n\n## What\n\n`packages/plugin-detail/src/DetailSection.tsx` (read at `ca3942729af817b3e017b8dcb99e1a4826a603f9`), line 220:\n\n```ts\nconst textValue = value !== null && value !== undefined ? String(value) : '';\nnavigator.clipboard.writeText(textValue).then(...)\n```\n\n`packages/fields/src/index.tsx` lines 2380-2381 register the read-side mask:\n\n```ts\npassword: () => span with ••••••,\nsecret:   () => span with ••••••,\n```\n\nSo the cell **deliberately refuses to render the value**, and the copy affordance sitting on the same row hands the raw value to the clipboard.\n\n## Reachability — measured, not assumed\n\nThe affordance is offered on these rows. `copyInteractive = canCopy && !canInlineEditField`; `canCopy` is `hasCellValue(value)`, true for any non-empty string, and `canInlineEditField` is false because `password` / `secret` are in `isInlineExcludedDetailFieldType` (objectui#4221 put them there precisely because the row has no real value to seed an editor with). So a `password` row in read mode is copy-interactive: the row click, Enter/Space on the row, and the hover copy button all reach `handleCopyField`.\n\nMeasured by rendering a real `DetailSection` (happy-dom, `window.innerWidth` pinned to 1280, `navigator.clipboard.writeText` a spy), one row per field type:\n\n```\n--- pw   (type: password, stored value 's3cret-value')\n    RENDERED_TEXTCONTENT = \"••••••\"\n    CLIPBOARD_PAYLOAD    = \"s3cret-value\"\n```\n\n## Why this is a real gap and not a hypothetical\n\nWhether a raw secret is in `value` at all is a **server** question, and it varies by deployment. The renderer's mask is the client-side defence-in-depth for the case where it is; this handler defeats that defence on the same row, silently, with no error and no visible sign. A masked cell that can be copied in the clear is worse than an unmasked one, because the reader believes the value is protected.\n\nRelated but NOT this: objectui#4221 fixed the *write* direction (inline edit rendered the mask as the value and wrote it back over the credential). This is the *read* direction, and objectui#4221's fix — excluding the types from inline edit — is exactly what leaves the copy affordance in place on the row.\n\n## Fix shape (a suggestion, not a ruling)\n\nWhatever objectui#8395 settles for object-valued cells, this one has an answer that does not depend on that decision: the copy handler should honour the same per-type refusal the cell renderer applies. Either do not offer `copyInteractive` for the masked types, or write the mask. Choosing between \"no affordance\" and \"copies the bullets\" is a small product call; both are strictly better than today.\n\nThe pin should assert what reaches `navigator.clipboard.writeText` from a rendered `DetailSection` for a `password` row, with a control asserting an ordinary text row still copies its own value unchanged.\n\n## Dedup\n\n`search_issues` once, self-validating (it returned objectui#8395, which IS about this file's clipboard write). The password/secret + clipboard + DetailSection wording returned exactly two issues: objectui#8395 and objectui#4221 (closed, the inline-edit write-back direction). Nothing names the copy/read direction."
+}

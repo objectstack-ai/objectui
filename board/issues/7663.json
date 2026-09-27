@@ -1,0 +1,37 @@
+{
+  "number": 7663,
+  "kind": "issue",
+  "title": "`element:record_picker` registry `inputs.filter` still declares `type: 'object'` and its parity pins assert the record form — flip both to the `ViewFilterRule` array arm once the spec that converged the entry reaches the pin (objectstack#14406)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-04T15:58:26Z",
+  "updated_at": "2026-09-09T17:47:20Z",
+  "closed_at": "2026-09-09T17:47:20Z",
+  "closed_by": {
+    "login": "os-bill",
+    "id": 324100929,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7663",
+  "body": "Filed by the os-dev executing objectstack#14406 (session `session_01G4138K1EG7kQ81FNba5Kp4`), unassigned, for triage.\n\nBlocked-by: objectstack#14406 — its PR landing in `@objectstack/spec`, AND a released spec version carrying it reaching this repo's lockfile / the `.objectui-sha` pin. Until then nothing here is red, and nothing here should move.\n\n## What objectstack#14406 does\n\nConverges `ComponentPropsMap['element:record_picker'].filter` from the MongoDB-style `FilterConditionSchema` record to `z.array(ViewFilterRuleSchema)` — the last record-form `filter` in the map after ui#6206-B (maintainer ruling 2026-08-25, verbatim 「同意」: one filter orthography platform-wide), with an ADR-0087 D3 entry `element-record-picker-filter-rule-array`.\n\n## Measured at the pin `00d3f09c500c4a45b5f27aca8af80349412faaf1` (identical on `main` `f7cf7e8` for every file named)\n\nThe RUNTIME read path already takes the array end to end, which is why the spec-side card proceeds:\n\n- `packages/components/src/renderers/basic/record-picker.tsx:108` `const filter = composed?.filter ?? props.filter;` → `:135` `query.$filter = filter` → `:138` `adapter.find(object, query)`.\n- `packages/data-objectstack/src/index.ts:3846-3851` (`convertQueryParams`): an ARRAY `$filter` is lowered through `translateFilterArray` (`:348`, `[{ field, operator, value }]` → AST tuples via `objectFilterEntriesToAST`); an object goes through `convertFiltersToAST`.\n- Nothing on that path parses `properties` against the installed `@objectstack/spec` (`readProps` is a spread; non-test src mentions `ElementRecordPickerPropsSchema` in comments only).\n\nWhat does NOT follow by itself is the DECLARATION layer in this repo:\n\n1. `packages/components/src/renderers/basic/record-picker.tsx:344-370` — `inputs.filter` declares `type: 'object'`, and its description ends \"A rule ARRAY (an ObjectQL AST, or a view's rule list) is not a FilterCondition and the spec rejects it here.\" After the spec converges, a JSX page writing the array form gets a `type-mismatch` diagnostic on a legal write (`packages/sdui-parser/src/validate.ts:246` — severity `warning`, so `renderers/layout/page.tsx:553` still renders and the picker still filters; the harm is the false diagnostic and a description teaching the retired form).\n2. `packages/components/src/__tests__/record-picker-inputs-spec-parity.test.ts:163-171` pins `withFilter({ status: 'open' })` as accepted and `withFilter([['a', '=', 1]])` as refused, and `:187-193` pins `input('filter')?.type === 'object'` against the live validator. Both go red the moment a released spec carrying objectstack#14406 is installed.\n3. `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts:1837-1856` keeps `element:record_picker.filter` pinned as DECLARED — that stays true; only the arm changes.\n\n## Shape of the fix (when unblocked)\n\nFlip `type: 'object'` → `'array'` on the `filter` input, rewrite its description around `[{ field, operator, value }, ...]` (keep the PRECEDENCE paragraph — `dataSource.filter ?? filter` is unchanged), and re-point the two parity pins so the record form is the refused shape (`invalid_type` at `filter`) and the rule array is the accepted one. No renderer change: `filter?: unknown` passes through to `$filter`, and `find()` already lowers it. Same closing move as objectui#6206's `element:number.filter:array` exemption deletion.\n\nRefs: objectstack#14406 (the spec convergence and its measurement) · objectstack#12039 (Key 2, the `element:number` precedent) · objectui#6206 (the ruling) · objectui#3830 (this input's declaration) · objectui#6828 (the aggregate-path lowering)."
+}

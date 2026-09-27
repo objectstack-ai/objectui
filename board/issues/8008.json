@@ -1,0 +1,39 @@
+{
+  "number": 8008,
+  "kind": "issue",
+  "title": "plugin-gantt/types: the registered `gantt` node spelling has no declared schema type — `ObjectGanttSchema.type` is the literal `'object-gantt'`, so a typed author cannot write the key the registry (and the README's table) teaches",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "finding",
+    "package: types",
+    "plugin",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-06T08:32:06Z",
+  "updated_at": "2026-09-10T10:17:09Z",
+  "closed_at": "2026-09-10T10:17:09Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8008",
+  "body": "Found while compiling `packages/plugin-gantt/README.md` for objectui#5174 batch 18 (PR opened from `claude/issue-5174-ungated-docs-batch18`). Filed unassigned and NOT fixed there — that batch is barred from widening a public type, and the choice here belongs to a maintainer.\n\n## Measured\n\n`packages/plugin-gantt/src/index.tsx` registers the same renderer under two keys:\n\n- `ComponentRegistry.register('object-gantt', ObjectGanttRenderer, …)`\n- `ComponentRegistry.register('gantt', ObjectGanttRenderer, …)` (namespaced `view:gantt`)\n\nThe README's own registration table teaches both spellings as schema `type` values, and its first Usage block authors `type: 'gantt'`.\n\nThe published declaration admits only one of them. `packages/types/dist/objectql.d.ts`:\n\n```\nexport interface ObjectGanttSchema extends BaseSchema {\n    type: 'object-gantt';\n```\n\n`grep \"type: 'gantt'\" packages/types/dist/*.d.ts` returns nothing: no declared schema interface names the `gantt` spelling for a component node. So an author who annotates their node — the thing every doc gate and the CLI push people toward — cannot write the key the registry accepts, while an author who leaves the literal bare gets no checking at all (the class objectui#7778 and objectui#7972 record on other surfaces).\n\nIt is reachable through the plugin's own typed prop, not only through metadata: `ObjectGanttProps.schema` is `ObjectGanttSchema`, so passing a `type: 'gantt'` node to the `ObjectGantt` element is TS2322 — `Type '\"gantt\"' is not assignable to type '\"object-gantt\"'`. That is one of the 26 diagnostics the gate measured on this README, and the reason the direct-render example in it was moved to the `object-gantt` spelling rather than annotated. The registration table was left as it is: it describes the registry truthfully.\n\n## Why it is a decision, not a repair\n\nThree routes, all of them a published-contract change:\n\n1. Widen `ObjectGanttSchema.type` to `'object-gantt' | 'gantt'` — matches the registry, but the flatteners (`plugin-view/src/ObjectView.tsx`, `plugin-list/src/ListView.tsx`) emit `object-gantt`, so a second accepted spelling starts a dialect the way Commandment #0.1 warns about.\n2. Declare a separate view-type schema for the `gantt` key, if that key is meant only as a list/object VIEW type rather than a component node type.\n3. Rule the bare `gantt` node spelling unauthorable and stop teaching it in the registration table (the registry entry can stay for the `view:gantt` lookup).\n\nNothing here is broken at runtime: the registered renderer takes `schema: any`, so both spellings mount and draw. The cost is that the typed surface and the documented surface disagree, and the disagreement only surfaces when someone finally annotates.\n\nDedup search ran first (targeted `search_issues`, 28 hits reviewed): objectui#6475 is the `gantt` BLOCK face on this schema, not the `type` literal; objectui#7470 is the designer-facing `inputs`; objectui#7778 / #7972 are bare-const literals on doc surfaces. None is this defect.\n"
+}

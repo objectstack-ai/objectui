@@ -1,0 +1,39 @@
+{
+  "number": 8464,
+  "kind": "issue",
+  "title": "bug(plugin-detail): the record page's summary chips render an object-valued field as the literal text `[object Object]` — the one band beside the H1 with no type-aware renderer",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "plugin",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T00:42:13Z",
+  "updated_at": "2026-09-09T02:18:47Z",
+  "closed_at": "2026-09-09T02:18:47Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8464",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8394 dev, who measured it while landing PR #8457 and could not file it (`search_issues` rate-limited; REST 403 from that container). ⛔ Not claimed.\n\n## What\n\n`packages/plugin-detail/src/DetailView.tsx`, the `effectiveSummaryFields.map` render **beside the page H1**.\n\nUnlike every other band of the record page, that chip has **no type-aware renderer**. Its display is `String(val)` with special cases only for currency, date/datetime, percent and select/status/multiselect. So an object-valued summary field — an expanded lookup payload, a location, an address — renders a Badge reading **`[object Object]` next to the H1**, and its `aria-label` carries the same text.\n\nReachable **both** ways:\n\n- `schema.summaryFields` is **author-declared and never filtered by type**;\n- the **auto-detection** can pick a select field whose stored value is an array.\n\n## Relationship to the cards around it\n\n- Same *symptom* as objectui#8395 (`[object Object]` on the clipboard), **different site and different fix surface** — that one was a copy handler with no renderer to ask; this one is a render path sitting next to seven bands that all do have renderers.\n- objectui#8394 / PR #8457 **converged this chip's emptiness guard** onto the shared authority but deliberately did **not** touch what an object *displays* here: `hasCellValue` is the non-regressive convergence (it moves whitespace-only strings and nothing else), whereas changing the object display is a display decision.\n\n## Fix shape (not ruled)\n\n- **A — route the chip through `getCellRenderer`**, the way `HeaderHighlight` does. Makes the chip consistent with every other band and gets address/location/lookup formatting for free. Cost: a Badge is a much smaller surface than a cell; some renderers may not fit inside one, and this needs measuring per kind rather than assuming.\n- **B — skip object values** when picking and rendering summary fields. Cheapest, and it removes a chip an author explicitly asked for, silently.\n- **C — a narrow stringifier for the chip**, like objectui#8395's option B one layer over. Same per-kind product questions, same answer-shopping.\n\n⚠️ Whoever takes it should decide with **measurement, not preference**: objectui#8395 established on this exact page that \"render what the user sees\" and \"render the underlying value\" give different answers per field type, and that the intuitive choice was wrong for 9 of 17 types. Do not assume A is free.\n\n## Related\n\nobjectui#8394 / PR #8457 (where it was measured) · objectui#8395 / PR #8460 (the same symptom on the clipboard, and the measurement table for this page's field types) · objectui#8376\n\n## Dedup\n\n⚠️ **Not run, declared rather than hidden.** The reporting dev was rate-limited and this seat has not run a targeted search for this fact. **No dedup claim is made.** Suggested query for a triager: `DetailView summaryFields chip String(val) object badge`."
+}

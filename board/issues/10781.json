@@ -1,0 +1,31 @@
+{
+  "number": 10781,
+  "kind": "issue",
+  "title": "test hygiene: `check-doc-component-types.test.ts` keeps two negative fixtures cited to `data-protocol.ts` lines that objectui#10719 deletes",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:spec",
+    "pm:queue",
+    "priority:p3",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-27T13:31:27Z",
+  "updated_at": "2026-09-27T13:31:27Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10781",
+  "body": "## Finding\n\n`scripts/__tests__/check-doc-component-types.test.ts:2518-2519` keeps `'export interface AdvancedValidationRule {}'` and `\"export type ValidationRuleType = 'required';\"` as negative fixtures for its bare-`ValidationRule` matcher, each cited to where the spelling lives (`data-protocol.ts:708`, `:748`) under a comment that says each is \"a spelling this repository really writes\". PR objectui#10759 (card objectui#10719) removes both declarations, so after it lands the two spellings exist nowhere in the tree and the two addresses point at deleted lines. The fixtures are strings and remain valid negatives, so the test stays green; the line-citation gate counts only citations new relative to base, so nothing reddens. The comment and the addresses are what go stale.\n\n## Where it was found\n\nThe contract-review record 5853372594 on objectui#10759 (③, first flag) and the dev's own PR body listed it as correctly deferred with \"Carrier: none named\"; record 5856248406 asked for the carrier. This card is it; nothing in objectui#10759 changes for it.\n\n## Fix\n\nEither re-cite the two fixtures to a spelling the repository still writes at the time of the fix (a live `export interface … {}` / `export type … = '…';` pair that the matcher must still reject), or drop the \"really writes\" claim and keep them as synthetic negatives with the comment saying so. Test-only; no published surface moves.\n\n## Acceptance\n\n- No fixture in that file cites a `packages/types/src/**` address that does not hold the cited spelling at head.\n- The bare-`ValidationRule` matcher's negative cases still pass with the fixtures it keeps.\n- Changeset: none (scripts test).\n\nClause-②: no"
+}

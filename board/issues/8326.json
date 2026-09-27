@@ -1,0 +1,36 @@
+{
+  "number": 8326,
+  "kind": "issue",
+  "title": "dependabot's lockfile regeneration silently downgraded the `@objectstack/*` family 17.3.0 → 17.2.0 and forked zod, doubling `packages/spec` in the console bundle — on three PRs at once",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "dependencies",
+    "domain:devx",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-07T12:34:20Z",
+  "updated_at": "2026-09-09T02:13:06Z",
+  "closed_at": "2026-09-09T02:10:59Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8326",
+  "body": "Filed by the director seat, 2026-09-07, from measurements handed back by the seats that diagnosed PRs #7053, #7054 and #7058. Unassigned, ungraded — triage's.\n\n## What was measured\n\nOn PR #7058's head `08e8a477`, only **2 of 50** eager chunks moved against its own parent: `ui-components` **+3.9 KB** (lucide's real cost) and `vendor-objectstack` **+1373.3 KB**. The second was not caused by the dependency being bumped:\n\n- dependabot's regenerated lockfile changed **46 package identities**, downgrading the whole `@objectstack/*` family **17.3.0 → 17.2.0** and forking **zod into 4.4.3 + 4.5.4**;\n- that split the workspace across **two physical `@objectstack/spec` copies** (console / core / runner on one, app-shell / components on the other). Nothing dedupes two real paths, so spec was bundled twice: `vendor-objectstack` 4,030,557 → 8,423,436 raw bytes (**2.09×**), the `objectstack/spec` marker count 620 → 1136.\n- **Control**: a lockfile regenerated from the same base with only the lucide bump changes **12** identities, all lucide.\n- ⭐ Every workspace range is a floating `^17.0.0` / `^17.1.0` / `^17.2.0` and the registry's latest is 17.3.0, so **a fresh resolve can never pick 17.2.0** — it is a stale resolution carried across rebases (the branch is still named `…/lucide-react-1.35.0` while the PR title says 1.41.0).\n\n**The same downgrade was present on #7053 and #7054.** On #7058's newest head (after a re-create) it corrected itself, and `Bundle Analysis` went green — which is the confirmation, not a coincidence.\n\n## Why it deserves a card rather than a shrug\n\nThe failure mode is **silent and misattributing**: `Bundle Analysis` reds on a dependency bump for a reason that has nothing to do with the dependency, and the obvious reading (\"this bump bloats the bundle\") is wrong. Two seats spent a full diagnosis each arriving at the same answer, and #7053's verdict may be the same artifact rather than better-auth's doing.\n\n## Shape of a remedy — ⛔ not a ruling, the lane decides\n\n- A lockfile-integrity check in CI that reds when a PR's lockfile moves a `@objectstack/*` identity **backwards** or forks a single-copy dependency (zod), naming the packages — cheap, and it would have said in one line what took two seats a day.\n- And/or a dependabot config that regenerates from a clean base rather than carrying a resolution across re-creates.\n\n⚠️ Related but separate, from the same round: `ui-components` has **1.9 KB** of per-chunk headroom at lucide 1.40.0 and a float to 1.42.0 exceeds it by **9.6 KB**, so the next icon bump reds that ceiling for an ordinary reason. That is a pin-vs-ceiling question, carried on #7058, not here.\n\nRefs: #7058 (where it was traced, with the control) · #7053 · #7054 (merged) · `scripts/check-eager-closure-budget.mjs`."
+}

@@ -1,0 +1,36 @@
+{
+  "number": 8542,
+  "kind": "issue",
+  "title": "CI BLOCKER: `main` is red on `Bundle Analysis` since `f76f4362` — the `framework` chunk is OVER its per-chunk ceiling, and every PR touching core/react/types inherits it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "ci/cd",
+    "domain:devx",
+    "priority:p1",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-08T08:30:19Z",
+  "updated_at": "2026-09-09T04:26:33Z",
+  "closed_at": "2026-09-09T04:26:33Z",
+  "closed_by": {
+    "login": "os-bill",
+    "id": 324100929,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 13,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8542",
+  "body": "Filed unassigned by the `domain:spec @ objectui` execution seat (session `session_01CZY49skxUBYyJcdnTcYPrE`), found while running the pre-enqueue gate on PR #8540. ⛔ Grading and `domain:*` are the triage seat's. ⛔ Not claiming. ⛔ No ceiling was touched.\n\n## The reading\n\n`Bundle Analysis` runs on every push to `main`. Its last eight results on `main`, by run number:\n\n| run | `main` head | landed by | conclusion |\n| --- | --- | --- | --- |\n| 10702 | `639ca9dc` | #8495 | ✅ success |\n| 10704 | `f08d1a86` | #8485 | ✅ success |\n| 10706 | `40a7c538` | #8503 | ✅ success |\n| 10712 | `512c84b1` | #8519 | cancelled |\n| **10713** | **`f76f4362`** | **#8512** | ❌ **failure** |\n| 10718 | `c3002671` | #8528 | ❌ failure |\n| 10719 | `e76634cc` | #8529 | ❌ failure |\n| 10721 | `90a9aab3` | #8533 | ❌ failure |\n\n⇒ **`main` went red at `f76f4362` (2026-09-08T05:44:56Z) and has stayed red across four consecutive merges.** Last green: `40a7c538`, 04:01:25Z.\n\n**It is the budget, not the infrastructure.** In run 10721 the job's only failing step is **#11 \"Check console performance budget\"**; steps 1–10 and 12–33 all concluded `success` or `skipped`. Build packages ✅, Build Console ✅.\n\n## Which half objects, and by how much\n\nRead off PR #8540's run at head `63c9bd239` (a `main`-based branch, so the shape is the same):\n\n```\n✅ Console eager closure is 3475.0 KB gzipped across 50 of 518 chunks (budget: 3512.7 KB, headroom: 37.7 KB).\n❌ 1 eager chunk is over its per-chunk budget:\n  ✅ vendor-objectstack   1206.2 KB / 1224.6 KB ceiling (headroom 18.4 KB)\n  ✅ i18n-locales          441.5 KB /  444.3 KB ceiling (headroom  2.8 KB)\n  ✅ ui-components         384.1 KB /  389.6 KB ceiling (headroom  5.6 KB)\n  ❌ framework              70.6 KB /   69.3 KB ceiling (OVER by 1.2 KB)\n✅ Ceiling sensitivity (5 ceilings) · ✅ Ceiling freshness (3 constants unchanged on main)\n```\n\n⭐ The aggregate ceiling **passes with 37.7 KB of headroom** — which is precisely the case objectui#5490 built the per-chunk half for: *\"one chunk growing while others shrink is invisible to a single total.\"* The gate is working; the payload moved.\n\n`framework` is `packages/(core|react|types)` — `apps/console/vite.config.ts` routes it there. Ceiling: `PER_CHUNK_GZIP_CEILINGS.framework = 71_000` at `scripts/check-eager-closure-budget.mjs:584` (verbatim on `origin/main e76634cc8`; ⚠️ the value has NOT moved — the freshness leg confirms all three constants are unchanged).\n\n## ⭐ Where the headroom went — from the tree's own record\n\n`main` was at **one byte**. #8519's commit message says so verbatim, landed minutes before the first red:\n\n> The zod mirror is deliberately left open and reported for its own card: closing it ships runtime bytes into the console `framework` chunk, **measured at 70,999 gzip bytes against a 71,000 ceiling.**\n\nAnd PR #8485's own message records how it got there: `framework` was **70,651** on a clean `origin/main` (349 bytes of headroom); that PR measured itself to 71,042, then trimmed two redundant strings back to **70,999** rather than raise anything.\n\n⇒ Then `f76f4362` (#8512) landed — *\"execute the declared `$` operators in ValueDataSource, refuse the rest\"* — which adds one refusal message string per operator into `packages/core`, and `packages/core` is inside `framework`.\n\n⚠️ **Stated as the reading the timestamps, the chunk definition and the diff's shape support. ⛔ This seat did NOT build `f76f4362` to attribute the bytes, and does not claim a measured attribution.** Whoever takes this should build the two commits and read `framework` on each — that is the one measurement this card is missing, and ⛔ it should not be skipped just because the timing is suggestive.\n\n## Why this is a blocker and not a nuisance\n\nEvery PR whose diff adds a byte to `packages/core`, `packages/react` or `packages/types` now fails a required check it cannot fix within its own appetite. Two are already held:\n\n- **PR #8540** (card #8338, retire `ToastSchema.action`) — measures `framework` 70.6 KB. It would have to REMOVE ~1.2 KB to pass, roughly three times everything it adds.\n- **PR #8501** (card #8344, the node-recursion-point redirect) — measured 71,007 / 71,000 on the older base `f08d1a86`, back when the overage really was 7 bytes.\n\n⚠️ The `domain:spec` queue is almost entirely `packages/types`. ⇒ this gate now sits in front of most of that lane.\n\n## ⛔ What this card does NOT propose\n\n- ⛔ **Not** \"raise `PER_CHUNK_GZIP_CEILINGS.framework`.\" That is a maintainer-floor action no seat takes, and the gate's own failure text says *\"do not widen it just to get a green check.\"* If raising it IS the answer, it is the maintainer's to say, with what the bytes buy stated in the PR — and `PER_CHUNK_BASELINE` moves with it.\n- ⛔ **Not** \"revert #8512.\" That card fixed a silent fail-open where an unrecognised operator matched every row; its diagnostics are the deliverable. ⛔ Trading a correctness fix for bytes is not this seat's call either.\n- ⛔ **Not** a repair. Trim, re-chunk, raise, or move code out of the eager closure — all four are open, and picking among them needs the attribution measurement above first.\n\n## ⚠️ One thing worth ruling separately\n\n`main` merged four times while a required check was red. Whether the merge queue should hold on this check, or whether it is advisory by design, is a question about the QUEUE rather than about the bytes — ⛔ recorded, not answered here, and deliberately not folded into this card's ask.\n\n## Dedup\n\nTargeted search over the eager-closure / per-chunk / framework-ceiling vocabulary INCLUDING closed issues. The adjacent cards are all about the gate's construction, ⛔ none about it being red on `main` today: objectui#5324 (the eager-closure half), objectui#5490 (the per-chunk half this red comes from), objectui#5924 (ceiling sensitivity), objectui#6245 (ceiling freshness), objectui#6230 (verdicts published but unread), objectui#3152 (an empty status rendering as FAIL), objectui#7528 (⛔ no size named in the workflow comment), objectui#6683 / objectui#6776 (a ceiling set and retired). ⛔ Not upgraded to exhaustive.\n\n## Reproduction\n\nAny push to `main`, or any PR adding bytes to `packages/(core|react|types)`. Direct: <https://github.com/objectstack-ai/objectui/actions/runs/34202033489> (run 10721, `main` head `90a9aab3`)."
+}

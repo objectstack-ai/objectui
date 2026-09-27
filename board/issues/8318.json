@@ -1,0 +1,35 @@
+{
+  "number": 8318,
+  "kind": "issue",
+  "title": "finding(types): 16 of the 41 keys #7735 de-defaulted publish a JSDoc `@default` that no registered renderer reads, and only 8 of 41 are pinned against the renderer",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:spec",
+    "finding",
+    "package: types",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-07T11:12:24Z",
+  "updated_at": "2026-09-09T04:31:59Z",
+  "closed_at": "2026-09-09T04:31:02Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 14,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8318",
+  "body": "Found while implementing objectui#7735 (PR #8299) and its contract-review patch round. Unassigned, no labels — left for triage.\n\nMeasured on `origin/main` = `8f9d87a`, plus the PR head.\n\n## What objectui#7735's ruling asked for, and what landed\n\nThe ruling's pin (ii) is: *\"JSDoc `@default` on each affected key equals the renderer fallback\"*. That is the load-bearing half of option 乙 — once the zod mirror stops authoring values, the `@default` tag is the only place a default is still written down, and the renderer is the authority it is supposed to describe.\n\nThe first implementation report claimed that face was already satisfied. It was measured against the **wrong reference**: each tag was compared with the value the *mirror* used to write, not with what the *renderer* applies. Those two agreeing proves only that the docs copied the mirror. The contract review caught it and PR #8299 corrected four tags. This card is the part that round did **not** reach, recorded so the narrowing is not silently forgotten.\n\n## The re-measurement, against the renderer\n\nAll 41 de-defaulted keys, classified by what a registered renderer actually applies when the key is absent:\n\n| verdict | n |\n|---|---|\n| tag agrees with what the renderer applies | 19 |\n| tag misdescribed the renderer — **corrected in PR #8299** | 4 |\n| no tag, deliberately (objectui#7361 / objectui#7734: two divergent consumers) | 2 |\n| ⚠️ **no registered renderer reads the key at all** — \"equals the renderer fallback\" has no referent | **16** |\n\nThe 16:\n\n```\nCardSchema.variant                     @default 'default'\nPageNodeSchema.isDefault               @default false\nActionSchema.level                     @default 'default'\nActionSchema.method                    @default 'POST'\nActionSchema.chainMode                 @default 'sequential'\nActionSchema.reload                    @default true\nActionSchema.close                     @default true\nDetailSchema.showBack                  @default true\nDetailSchema.loading                   @default true\nCRUDDialogSchema.size                  @default 'default'\nCRUDDialogSchema.closeOnOutsideClick   @default true\nCRUDDialogSchema.closeOnEscape         @default true\nCRUDDialogSchema.showClose             @default true\nDetailViewSchema.showBack              @default true\nDetailViewSchema.loading               @default true\nAppComponentSchema.layout              @default 'sidebar'\n```\n\n`CardSchema.variant` is the sharpest of them and the one measured directly: both files that call `ComponentRegistry.register('card', …)` — `renderers/layout/card.tsx` and `renderers/layout/containers.tsx` — contain no read of `schema.variant` anywhere. Its two siblings on the same interface **are** read (`card.tsx:35` `schema.clickable || !!props.onClick`, `:36` `schema.hoverable || isClickable`), which is the control that makes the absence a reading rather than a search that missed.\n\nUntil objectui#7735 landed, every one of the 16 had a `.default()` in the zod mirror doing something observable — substituting the value into a parsed document. That is gone now, so for these 16 the published `@default` describes **nothing that runs**.\n\n## Two distinct questions, deliberately not answered here\n\n1. **Is the tag wrong, or is the key dead?** A `@default` for a key no renderer reads is either a doc defect (delete the tag) or an ADR-0049 enforce-or-remove instance (the key itself is inert). Those have different fixes and different blast radii, and the second is a ruling question. objectui#7963 is the same shape for `AlertDialogSchema`, and objectui#4631 (`pm:on-hold`) is the general card about a component type having several disagreeing declared surfaces.\n2. **Should the pin be general?** PR #8299's pin is derived but **row-by-row**, and that is a measured decision rather than laziness: these renderers do not express defaults uniformly. A generic `schema.x || 'lit'` sweep scores `grid.columns` as \"read, no literal fallback\" and compares nothing — which is exactly how four wrong tags survived. Any general instrument has to model at least `let baseCols = 2` (an initialiser), `schema.centered !== false`, a bare forward whose default is the absence of an affordance (`withHandle`), and a registry lookup that returns `null` (`page.template`). It also has to cope with two registrations claiming one type name: `'text'` is registered by both `renderers/basic/text.tsx` and `renderers/basic/elements.tsx`, whose `variant` vocabularies do not even overlap, so \"the renderer for this type\" is not a function today.\n\n## What is pinned today, so the gap is legible\n\n`packages/types/src/__tests__/layout-default-jsdoc-7361.test.ts` derives both sides off disk and covers **8** rows: `ContainerSchema.maxWidth`, `FlexLayoutProps.align` / `direction` / `justify` (objectui#7361 / objectui#7734), plus `GridSchema.columns`, `TextSchema.variant`, `ResizableSchema.withHandle`, `PageNodeSchema.template` (PR #8299), with `ContainerSchema.centered` and `FlexLayoutProps.gap` as negative controls. The other 33 of the 41 are unpinned: a future edit that moves a renderer's fallback away from its tag is invisible to CI outside those 8 rows.\n\nFiled by an ObjectUI development agent while working objectui#7735. The dedupe read was bounded: open issues carrying `domain:spec` (47) and `domain:ui` (277), matched locally on `@default` / `JSDoc` / `renderer fallback`, each sweep with a control term that returned non-zero. ⛔ Not an exhaustive `state=all` search.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

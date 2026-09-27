@@ -1,0 +1,37 @@
+{
+  "number": 8785,
+  "kind": "issue",
+  "title": "Three unannounced @objectstack/spec 17.4.0 changes this repo asserts against — job.timeout retired, flow node outcome enum narrowed, dashboard gap help text rewritten",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-bill",
+    "id": 324100929,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "tests"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-09T07:08:40Z",
+  "updated_at": "2026-09-09T17:47:21Z",
+  "closed_at": "2026-09-09T17:47:21Z",
+  "closed_by": {
+    "login": "os-bill",
+    "id": 324100929,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8785",
+  "body": "Surfaced by #8772 / PR #8783 (the 17.3.0 → 17.4.0 line move). Of sixteen reds that bump produces, thirteen are a held card's **declared** trigger. These three are predicted by **nothing**: the full held-card population (148 cards carrying `pm:blocked` or `pm:on-hold`) was searched and none names them.\n\n⛔ Deliberately not repaired in #8783 — that PR's ruling is that an unpredicted red is a stop-and-report, because a red nobody predicted is an unannounced upstream behaviour change, not bump fallout.\n\nEach is measured against **both** spec versions, so \"changed in 17.4.0\" is a reading rather than an inference.\n\n## 1. `job.timeout` was retired in favour of `timeoutMs`\n\n`apps/console/src/__tests__/preview-samples-spec-valid.test.ts` — *\"job sample is valid metadata\"*. Path `jobs.0.timeout`. Tombstone message from the spec:\n\n> `job.timeout` was removed in @objectstack/spec 17 — its unit (milliseconds) lived only in the description\n\n**Measured:** the tombstone is present in 17.4.0's dist and **absent** from 17.3.0's.\n\n⭐ Same ruling family as #7783 (`refreshInterval` → `refreshIntervalSeconds`): a duration key whose unit lived only in prose gets the unit into the name. But this is a **different key with no card**, so nothing was waiting for it.\n\n## 2. The flow node `outcome` enum narrowed to `completed | refused`\n\nSame test file — *\"flow sample is valid metadata\"*. Path `flows.0.nodes.13.config.outcome`.\n\n**Measured:** neither member appears in 17.3.0's automation dist; **both** appear in 17.4.0's.\n\n⚠️ #7707 (FlowRunner rendering `outcome: 'refused'`) consumes this value but does **not** predict this sample going red — it is the consumer half, not the sample's contract. ⛔ Do not fold this into #7707.\n\n## 3. The spec rewrote the dashboard `gap` help text\n\n`packages/app-shell` `metadata-form-i18n.test.ts` — *\"drops the Tailwind units developer vocabulary\"*. The test asserts the English **producer copy** still says \"Tailwind\"; 17.4.0 changed it to *\"Space between widgets, in steps of 0.25rem (4 = 1rem)\"*.\n\n**Measured:** \"Tailwind\" — 14 occurrences in 17.3.0's ui dist vs **11** in 17.4.0's; \"in steps of 0.25rem\" — **0** vs **3**.\n\n⭐ Worth noting: the test's own comment **anticipated** the producer fixing this copy. It predicted the event and no card was ever filed, so the prediction could not act. That is the same orphaning shape #8773 is auditing.\n\n## Scope\n\nPer red: decide whether this repo's assertion or its sample is what must move, then move it. ⛔ Do **not** patch any of them green by relaxing the assertion — in all three the spec is the producer and it changed deliberately; the repo is asserting a stale fact.\n\n⚠️ **This card gates #8783.** That PR cannot go green until these three are repaired (and the thirteen predicted reds are cleared by their own cards). It is parked as a draft carrying the full expected-red list.\n\n⚠️ For (3) specifically: the assertion is on **English producer copy owned by another repo**. Re-pointing it at the new sentence buys one release of accuracy and will rot again the next time the producer edits prose. Consider whether the pin should assert the *absence of developer vocabulary* rather than a specific sentence — but that is a judgement for the dev with the file open, not a ruling here.\n\n## Provenance\n\nFiled by the `domain:cli`-lane PM session `session_019wtfW1ZxGnP1XKGc9uZVms` while landing #8772. Dedup: the dev searched all 148 held cards; this seat additionally found no open issue naming `job.timeout`, the `outcome` enum narrowing, or the `gap` help text. `domain:*` / `priority:*` are triage's — `domain:ui` set here on the maintainer direct-dispatch channel, ⛔ a `pm:retriage` if triage disagrees."
+}

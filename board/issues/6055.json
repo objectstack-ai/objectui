@@ -1,0 +1,33 @@
+{
+  "number": 6055,
+  "kind": "issue",
+  "title": "Measure the runner-minute delta from #5422's per-sha push concurrency, now that bursty merges no longer collapse",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T14:52:11Z",
+  "updated_at": "2026-09-09T17:42:41Z",
+  "closed_at": "2026-09-09T17:42:41Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6055",
+  "body": "Filed by the `domain:devx` @ objectui execution PM seat (#5748, PM session `session_019b5UBNMtTzKbVtZZGvFuxe`) as the ruled follow-up to **#5422 / PR #6049**. Unassigned; grading and `domain:*` are the triage seat's.\n\n⏳ **Do not start this until PR #6049 has been merged for at least a full working day** — the whole point is a before/after over comparable merge traffic.\n\n## Why this card exists\n\nPR #6049 changed `ci.yml`'s workflow `concurrency` group to carry `github.sha` on the `push` trigger, so a merge to `main` no longer cancels the previous merge's still-running CI. It was ruled and landed on a measured 61% loss rate: of 64 completed push-lane runs (2026-08-23T06:34Z .. 2026-08-24T13:56Z), **39 lost the coverage gate to cancellation**, not to a red suite.\n\nThe change is correct and weakens nothing. But it carries a **cost that was named and never measured**, and it is bigger than option A's own description implied:\n\n- Option A on #5422 said *\"give the coverage lane its own concurrency group … costs runner minutes when merges come in bursts.\"*\n- ⚠️ **That mechanism does not exist.** A job-level `concurrency:` grants no exemption from the workflow-level `cancel-in-progress`, which cancels the entire run and every job in it. The group therefore had to move at **workflow level**.\n- So the protection — and the cost — applies to the **whole push lane**, not only the coverage jobs. `Type Check`, `Build Docs` and `Build & E2E` now also run to completion on every merge instead of being cancelled.\n\nThe PM ruling accepted that blast radius on the grounds that those jobs' verdicts were being discarded at the same 61% rate, and that while #4986 leaves the merge queue producing no build, the push lane is the only post-merge validation this repository has. **That reasoning is about correctness. It says nothing about spend**, and nobody has measured the spend.\n\n## What this card owes\n\n1. **Before/after runner minutes for the push lane**, over comparable windows of merge traffic. The \"before\" window is available from the runs the #6049 measurement already enumerated; take an \"after\" window of similar length and merge volume, and normalise per merge rather than per day, since merge rate itself moves (measured median inter-merge interval was 25.2 min on 2026-08-19/20 and **8.8 min** on 2026-08-24).\n2. **The delivery rate after the change** — the coverage gate should now deliver for ~100% of merges that are not red. If it does not, the fix did not do what it was ruled to do, and that is the more important finding.\n3. **A recommendation**, one of:\n   - **Keep as is** — the cost is acceptable for a lane that is the repo's only post-merge signal.\n   - **Narrow it** — split `test-coverage` + `coverage-report` into their own workflow with a per-sha group, restoring cancellation for the rest of the push lane. ⚠️ This relocates the `Test (coverage)` and `Test (coverage shard N/4)` **check names between workflows**, which touches required-check configuration in **repository settings** — a surface no PR can complete (same class as #4986). It would need a maintainer to finish it, so propose it as a coordinated change, never as a PR that half-lands.\n   - **Revert** — one line, back to `github.ref`. Only if the measurement shows the spend is unacceptable AND the delivery gain is not worth it; note this restores a 61% loss rate.\n\n## Method notes for whoever takes it\n\nReuse #6049's method, including its two hard-won corrections:\n\n- ⛔ **Run-level `cancelled` is not a proxy for \"the gate did not deliver.\"** Two runs in the original window were cancelled *after* the coverage report had already published (`32730945699`, `32650838484`). Read delivery per run from `list_workflow_run_artifacts` (presence of the `coverage-report` artifact) and check cancelled runs individually.\n- ⚠️ **Do not compute over a glob of saved tool results.** The #6049 dev hit exactly this: a saved response from an **earlier session** contaminated the set with 30 `pull_request` runs, which briefly looked like the `event` filter being ignored. Derive only from responses you fetched in your own session, and counter-probe (a query returning zero must be shown returning non-zero for a case known to exist).\n- The Codecov framing on #5422 is **stale** — #5436 removed the upload. The deliverable today is the merged 4-shard report enforcing `coverage.thresholds`.\n\n⛔ Out of scope, as on #5422: `changeset-release.yml`, shard counts, timeouts, any gate-weakening change (human manual floor), and the merge queue (#4986).\n\nRefs: #5422 · PR #6049 · #5393 (maintainer CI ruling) · #5395 (cost re-measurement) · #5436 · #4986."
+}

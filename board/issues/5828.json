@@ -1,0 +1,33 @@
+{
+  "number": 5828,
+  "kind": "issue",
+  "title": "observation: guest and previewMode boots write an `@anon` metadata seed — benign only if /meta/* is unfiltered on those deployments, which is reasoned not measured",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "security"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-23T13:48:31Z",
+  "updated_at": "2026-09-10T08:10:35Z",
+  "closed_at": "2026-09-10T08:10:34Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5828",
+  "body": "Blocked-by: #6654\n\nSplit out of **#5746** (closed `latent-not-live`) as the one reading that card measured but could not decide. **Filed unassigned, deliberately unlabelled — this needs triage first-touch, and the deciding question is server-side, outside what the `domain:ui` seat can measure.**\n\n> **Status update (2026-08-28, unlock scan):** the **guest / stub-auth half is MEASURED-SHUT** — objectstack#11806 measured that `/meta/*` reads on such boots are refused outright or served unfiltered, never a permission-filtered artifact, and this seat confirmed the branch predicate matches (`isServiceUsable` trips on `enabled === false`, not only on `handlerReady === false`). What remains is the **`previewMode` half**, now carried by #6654 — `@objectstack/spec` retired preview mode entirely (objectstack#11846), while this repo still reads `discovery.previewMode` on a branch that disables auth. See the comment thread for the full measurement.\n\n## The reading\n\n#5746 measured both of its named windows SHUT: on a real `apps/console` session the metadata seed is never written under the `@anon` principal, because `ConsoleShell`'s #4042 session gate holds `MetadataProvider` from mounting until `getSession()` has already written `TokenStorage` (true for bearer *and* cookie-only sign-in — better-auth v1.6.28 returns `session.token` either way).\n\nTwo boots outside those windows **do** write `@anon`:\n\n- a **guest** boot — `ConditionalAuthWrapper` with `enabled={false}`\n- **`previewMode`**\n\nboth writing `objectui:metadata:app:@none:@anon`.\n\n## Why this is not obviously a defect, and not obviously safe\n\nThe argument that these are harmless is that `ConditionalAuthWrapper` selects those branches **only** when discovery reports an auth stub / `handlerReady:false`, or the deployment is a marketplace preview — i.e. precisely when the server is **not** filtering `/meta/*` per user, so the cached list is not a permission-filtered artifact and there is no cross-principal disclosure to make.\n\n⚠️ **That argument is REASONED, not measured.** #5746's dev flagged it as such rather than presenting it as a result, which is why it is being carried here instead of being closed with the parent card. Confirming or refuting it means establishing what the server actually serves on `/meta/*` for a stub-auth or marketplace-preview deployment — a question this repo cannot answer from the client side.\n\n`apps/console` never takes either branch, so nothing shipped in the console is implicated. The exposure, if any, is in stub/preview deployments.\n\n## What #5746 established that bears on this\n\nThe parent card's most load-bearing finding is a **correction**: #5744's wholesale drop does **not** cover the seed read. React runs child effects before parent effects, so `MetadataProvider`'s seed read (a child effect, newly mounted in the commit where `isLoading` flips) precedes `AuthProvider`'s `purgePreviousUserClientState` (a parent effect). **The principal-scoped key from #5198 is the sole protection on that boot** — measured, not argued: with `TokenStorage` empty on an authenticated session, a second user booting in the same tab HIT the first user's key and rendered `hr-secret`.\n\nSo a `@anon` write is only benign for as long as the thing being cached is not permission-filtered. That is exactly the property this card needs someone to establish for the two synthetic-identity branches.\n\n## An asset that exists and is not merged\n\n#5746's harness renders the **real** console mount path — real `AuthProvider`, real `ConnectedShell` session gate, real `MetadataProvider`, with only the two servers doubled, and nothing writing `objectui:metadata:*` by hand (so it cannot agree with a key format the provider does not produce). It is the instrument that produced every reading above, including the `S4`/`S5` writes this card is about.\n\nIt lives unmerged on `claude/issue-5746-anon-seed-scope-measurement` at `packages/app-shell/src/console/__tests__/anonSeedScope-5746.enumeration.test.tsx`.\n\n> **Landed since:** that harness was recovered and landed as a regression pin in PR #6103 (`Part of` this card), with a new scenario added because the original could not have detected the loss of #5198 — both of its two principals degenerated to `@anon`.\n\nWorth considering — as a **recommendation, not a decision** — landing it as a regression pin alongside whatever this card rules, given that the main safety property now rests on a single mechanism. Two instrument defects it already caught are documented in its own comments, both of which would otherwise have produced a false \"no writes anywhere\" reading: jsdom hands out `sessionStorage` as a Proxy (so `this === sessionStorage` is never true inside a `Storage.prototype` method), and `vi.restoreAllMocks()` does not undo a reassigned property.\n\nRefs: #5746 (parent, closed `latent-not-live`) · #5198 (the principal-scoped key) · #5744 (the purge that does **not** cover this) · #4042 (the session gate that shuts both named windows) · #6654 (the `previewMode` half) · objectstack#11806 (the server-side measurement, closed)."
+}

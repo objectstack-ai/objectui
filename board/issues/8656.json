@@ -1,0 +1,33 @@
+{
+  "number": 8656,
+  "kind": "pull_request",
+  "title": "test(core): widen the record-title step-numbering pin to its sibling test file",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T20:01:53Z",
+  "updated_at": "2026-09-09T00:41:24Z",
+  "closed_at": "2026-09-09T00:41:23Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": "2026-09-09T00:41:23Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/8656",
+  "body": "Fixes #6843\n\n## What changed\n\n- `packages/core/src/utils/__tests__/record-title.test.ts:133` — the comment on the record-level name probe said \"step 3b\"; it now says \"step 4b\". That is the number `record-title.ts` gives the rung everywhere it states its ADR-0079 ladder (step 3 is `objectDef.titleFormat`, a rendered template; step 4 is the `objectDef.fields` derivation with `NAME_ISH_RECORD_KEYS` beneath it as 4b), and the number the same file already used at three other sites (`:150`, `:245`, `:252`).\n- `packages/core/src/utils/__tests__/record-title.stepNumbering.test.ts` — the pin from PR #6842 scanned `record-title.ts` only, so this drift sat in its declared blind spot. Its scanned set is now an explicit list, `SCAN_SET`, naming `record-title.ts` and `__tests__/record-title.test.ts`, and:\n  - a vacuity guard requires the set to be non-empty, to contain both files by name, both present on disk and non-empty, and to exclude this pin itself (its docblock spells `3b` as the bug it describes);\n  - every scanned file declares a label floor in `CONTROL_LABEL_COUNTS`, typed over the set so a new entry without a floor is a compile error; the cross-set floor must be greater than 0;\n  - the collector also reads the hyphenated `step-4b` spelling the sibling uses, and reports file plus line for every stray label;\n  - a fixture self-test proves the collector and the verdict helper (`strayLabels`) depend on their input — the fixture carries the original uncorrected `:133` text — and that `it('0b. …')` test names stay out of the population;\n  - one absolute pin keeps `titleFormat` on step 3 and the fields derivation on step 4 — the numbers the hand-citing sites outside the module carry (`InterfaceListPage` prose, the #6530 changeset, this sibling test). Everything else stays relative to the ladder, so a deliberate renumbering edits two constants on purpose instead of silently reconciling a stray label by moving the ladder.\n- `.changeset/6843-record-title-step-numbering-scan.md` — empty frontmatter; comment text and tests only, nothing is released.\n\n## Measured before widening\n\nOf the 49 files under `packages/core/src/utils/__tests__/`, exactly one besides the pin cites the ladder: `record-title.test.ts` (`step 3b` once, `step 4b` twice, `step-4b` once). No other file enters the population, so this is not a bigger card. Repo-wide `git grep 'step 3b'` over `packages/*/src/*` and `apps/*` now hits only the pin's own fixture and expectation lines (the lit control for the sweep); `step 4b` / `step-4b` hits 10 lines.\n\n## Evidence (all at `e64f3af96`, vitest root-relative form, runs under the shared verify lock)\n\nRed on the uncorrected file, before the one-line edit: the widened pin failed with `sub-step labels disagreeing with the ladder's 4b` listing `__tests__/record-title.test.ts:133 \"step 3b\" says 3` — 1 failed, 6 passed. After the edit: 7 passed.\n\nAblation legs — each mutation proven on disk by `grep -c` before the run, each restored with `git checkout HEAD -- ABSOLUTE_PATH` under a trap and proven by `git hash-object` equal to the `HEAD` blob plus an empty `git diff HEAD`:\n\n- V1 empty `SCAN_SET` — RED: guard `expected 0 to be greater than or equal to 2`; cross-set floor `expected 0 to be greater than 0` (2 failed, 5 passed — the per-file loop is vacuous over an empty set, which is exactly why the guard exists).\n- V2 mis-pathed entry (`record-titel`) — RED: guard `to include '__tests__/record-title.test.ts'`, plus ENOENT in the two reading tests (3 failed).\n- S re-introduce `3b` at `:133` — RED naming `:133` (1 failed).\n- R1 the plausible wrong \"fix\": renumber the derivation 4 to 3 consistently in module and sibling — every relative check stays green; only the absolute pin fails: `fields-derivation sites not on step 4` listing 3 sites (1 failed).\n- R2 renumber `titleFormat` 3 to 2 in the module — only the absolute pin fails: `titleFormat sites not on step 3` listing 4 sites (1 failed).\n- C1 extractor returns constant 4 — only the fixture self-test fails (`[[2,4],[3,4],[4,4],…]` vs `[[2,3],[3,3],[4,3],…]`).\n- C2 verdict constant (`strayLabels` returns `[]`) — only the fixture self-test fails.\n- C3 scan collects nothing — per-file control (`record-title.ts: 0 sub-step label(s) found, control floor is 3`), cross-set floor and self-test fail (3 failed).\n\nNo void legs. No `dist/` is involved: the pin reads source through `node:fs`, so no build step sits between a mutation and its measurement.\n\nLeg D, JSON reporter over `pnpm exec vitest run packages/core/`: 132 files, 701 suites, 2792 tests, all passed; `record-title.stepNumbering.test.ts` 7/7 passed, `record-title.test.ts` 75/75 passed; no death strings.\n\n`pnpm --filter @object-ui/core type-check` (script name echoed; `@object-ui/types` built first): 0 TS errors, and `tsc -p tsconfig.test.json --listFiles` reads all three `record-title*` files. ESLint on both test files: 0 errors (2 pre-existing `no-explicit-any` warnings at `record-title.test.ts:311` and `:362`, lines not touched here).\n\n`node scripts/check-changeset-presence.mjs`: \"2 source file(s) of 1 released package(s) changed, and this change declares 1 changeset(s) … Every one of them has an EMPTY frontmatter — declared as releasing nothing, which is the explicit exemption and a complete answer to this gate.\"\n\n`node scripts/check-governed-queue-guard.mjs --test PATHS`: \"NOT GOVERNED — 3 path(s) checked against 5 governed surface(s); none matched.\"\n\nPlaceholders in this body are written as upper-case words (ABSOLUTE_PATH, PATHS) because the platform strips tag-shaped text from bodies.\n\nSession: `https://claude.ai/code/session_01YBWFb5YgMU5dw8p2VKj16S`\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01YBWFb5YgMU5dw8p2VKj16S\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01YBWFb5YgMU5dw8p2VKj16S)_"
+}

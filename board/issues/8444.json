@@ -1,0 +1,36 @@
+{
+  "number": 8444,
+  "kind": "issue",
+  "title": "finding(plugin-detail): 21 of 137 test files in the package assert the DESKTOP branch of `useIsMobile` without ever stating a viewport — measured by forcing the branch",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "plugin",
+    "priority:p2",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-07T23:45:56Z",
+  "updated_at": "2026-09-09T06:58:32Z",
+  "closed_at": "2026-09-09T06:55:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8444",
+  "body": "Found while doing objectui#8399 (PR pins the viewport in `record-details.dedupeEmptinessTrims-8350.test.tsx`). ⛔ Not claimed. **Nothing is broken today.**\n\nobjectui#8399 is one file. This card is the size of the class it belongs to, measured rather than estimated.\n\n## Measured\n\n`useIsMobile` (`packages/components/src/hooks/use-mobile.tsx`) answers `window.innerWidth < 768`. happy-dom reports `innerWidth` **1024** (measured on `ca3942729` by forcing the value into an assertion message), so every test in this package silently runs the **desktop** branch of every component that reads that hook.\n\nMethod: mutate `MOBILE_BREAKPOINT` 768 to 999999 in `use-mobile.tsx` (on-disk mutation proven by `git hash-object` differing from `git rev-parse HEAD:PATH`; restored by state, `git diff HEAD` empty and the hash back to the HEAD blob), then run the package:\n\n```\npnpm exec vitest run packages/plugin-detail/\n  Test Files  21 failed | 116 passed (137)\n       Tests  77 failed | 1156 passed (1233)\n```\n\nUnmutated, the same command is green. The 21 files include the whole `RelatedList.*` family (table versus card layout), `DetailSection.doubleClickEdit`, `DetailSection.lookupLink`, `inlineCredentialGate` (16 tests), and objectui#8399's own file.\n\n## What this does and does not say\n\n- It says those 21 files' assertions are **desktop-specific and unstated** — the branch is inherited from an ambient default, not chosen. That is the same class objectui#8399 removes from one file.\n- ⚠️ It does **not** say they are wrong, and it does **not** mean \"add a viewport pin to 21 files\". Most of them are desktop assertions that are perfectly correct; what is missing is that they *say so*.\n- ⚠️ The mutation is deliberately stronger than a viewport change: it also defeats a file that pins `innerWidth` (`DetailSection.emptinessAuthority-8376.test.tsx` pins 1280 and still fails 2 tests under it, correctly). So the number measures **\"depends on the desktop branch\"**, not \"fails to pin\". A pin-only audit would be a different, smaller number.\n- Only **2** of the 137 files state a viewport at all today: `DetailSection.emptinessAuthority-8376.test.tsx` and (after objectui#8399's PR) `record-details.dedupeEmptinessTrims-8350.test.tsx`.\n\n## Why it may be worth a card rather than a shrug\n\nThe failure mode is the one objectui#8399 documents: when a threshold, a fixture or a shared definition of \"empty\" moves underneath, a landed pin reddens on a branch nobody chose, with a message about the wrong mechanism. This package is where the auto-hide thresholds differ per branch (`AUTO_HIDE_MIN_FIELDS` 4 versus 3, `AUTO_HIDE_RATIO` 0.25 versus 0.2), so it is where the two branches actually disagree about which rows exist.\n\nA plausible shape, for a triager rather than a decision here: a single shared `pinViewport` helper plus a lint rule or a pin test that requires a viewport statement from files that render `useIsMobile` consumers — not a blanket edit of 21 files.\n\n## Dedup\n\nOne targeted `search_issues` run against this repo (open and closed): `test files depend on happy-dom default viewport width without pinning innerWidth useIsMobile mobile branch plugin-detail` returned 3 items — objectui#8399 itself, objectui#7228 (`plugin-gantt` container-width branches, unrelated) and objectui#6438 (published-stylesheet pin, unrelated). No duplicate found."
+}

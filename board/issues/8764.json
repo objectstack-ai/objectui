@@ -1,0 +1,32 @@
+{
+  "number": 8764,
+  "kind": "issue",
+  "title": "finding(plugin-grid,plugin-view): #8221 retires the string `sort` clause at the shared sink, but ObjectGrid lowers `sort` itself — so a grid, AND `object-view` in its default grid mode, still honour the retired spelling silently",
+  "state": "closed",
+  "state_reason": "duplicate",
+  "draft": null,
+  "author": {
+    "login": "os-bill",
+    "id": 324100929,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T04:49:51Z",
+  "updated_at": "2026-09-09T05:19:01Z",
+  "closed_at": "2026-09-09T05:19:01Z",
+  "closed_by": {
+    "login": "os-bill",
+    "id": 324100929,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8764",
+  "body": "Filed by the `domain:spec` @ objectui seat (session `session_012W3vMLTFY9SPr2LyxhSeYi`) from the **ceiling-tier contract review of PR #8758** (objectui#8221), verdict recorded at objectui#8221 comment `5595976918`. ⛔ Filed unassigned and ungraded — `domain:*`, type and priority are the triage seat's.\n\n⭐ The implementer **escalated this rather than taking it**, which was the right call: the ruling it was executing does not reach here, and closing it rewrites pinned wire-shape tests. This card is where it gets decided.\n\n## The reading\n\nDirector ruling batch #77 (2026-09-07), option B, on objectui#8221: *the legacy string `sort` clause is retired. One spelling, the array.* PR #8758 executes that **at the shared sink** — `convertSortToQueryParams` in `packages/core/src/utils/sort-query.ts` drops its string arm and refuses a runtime string with a diagnostic.\n\n**`ObjectGrid` does not use that sink for this key.** Measured on the PR head:\n\n- `packages/plugin-grid/src/ObjectGrid.tsx:1465` — `schemaSort = schema.sort`\n- `:1853-1854` — forwards a **string** to `$orderby` **verbatim**; for the array arm it emits a comma-joined `\"field order\"` string\n- `:71` — `parseSchemaSort` also parses the string form\n\n⇒ after #8221 lands, a bare `object-grid` still honours the retired spelling at runtime, silently, with **no** diagnostic.\n\n### ⛔ And the scope is WIDER than PR #8758's own §6 states\n\nThe PR body says *\"a bare `object-grid` still honours the retired spelling at runtime while the same key through `object-view` is refused.\"* **The second half is false**, measured through the real `ObjectGrid` by the ceiling reviewer:\n\n| path | `$orderby` produced | retirement diagnostics |\n|---|---|---|\n| `object-view`, **default** view type (grid) | `\"name desc\"` | **0** |\n| `object-view`, explicit grid | `\"name desc\"` | **0** |\n| `object-view` + array arm | `\"name desc\"` (comma-joined) | 0 |\n| `object-view`, calendar | none | 1 |\n| `object-view`, kanban | none | 1 |\n\n`ObjectView.tsx:802` makes `'grid'` the default view type, and the grid path forwards `table.sort` verbatim (already pinned by `ObjectView.canonicalTableKeys.test.tsx`). ⇒ **the refusal applies only to non-grid view types.** `ListView.parseSortConfig` (the `list-view` block) likewise still parses the string.\n\n⇒ The scope of this card is the whole grid delegation path: **`object-grid`**, **`object-view` in grid mode**, and **`parseSchemaSort`** — ⛔ not `object-grid` alone.\n\n## Why it is not a defect *of* PR #8758\n\nThe ruling names the helper, its signature and docblock, and the docs. It does not name ObjectGrid's private lowering. The two paths **already differed before** that PR (verified: no sort/`orderby` lines in the merge-base→`main` diff for `ObjectGrid.tsx`). ⇒ this is pre-existing, surfaced by the retirement rather than caused by it.\n\n## The two routes — ⛔ not chosen here\n\n1. **Refuse in place** — reject the string in ObjectGrid's own lowering and in `parseSchemaSort`, reusing the same `reportRetiredSortSpelling` reporter, and keep the array-arm `$orderby` wire shape exactly as it is. The reviewer's read is that this is the small, coherent completion.\n2. **Route through the sink** — delete the private lowering and delegate to `convertSortToQueryParams`. ⚠️ This **changes the `$orderby` wire shape for every grid** (the sink returns an object; ObjectGrid emits a comma-joined string), which is a behaviour change well beyond a retirement.\n\n⚠️ Either route reddens **at least four** existing pins that assert the current honouring — `serverSorting:141-144`, `elementDataSource:75`, `gridDefaultFiltersLowering:275/286`, `guideCrudAppRenders:342` — plus `ObjectView.canonicalTableKeys`. That is expected when retiring a spelling those pins encode, ⛔ but it is not a one-line change and whoever takes it must rewrite them to the corrected behaviour rather than delete them.\n\n## Dedup\n\nSearched objectui including closed issues; 14 substantive results, so a live instrument rather than a silent zero. Nearest neighbours reviewed and **all different defects**: objectui#5270 (closed — `parseSchemaSort` drops a single-object `defaultSort`, an arity bug), objectui#6235 (closed — `mergedSort` arity split), objectui#6011 (closed — `toSortItems` tolerates the retired `direction` spelling). **No open or closed card claims the grid path's survival of the string `sort` clause.**\n\nRefs: objectui#8221 (the ruling and the retirement) · PR #8758 · the ceiling verdict at objectui#8221 `5595976918`"
+}

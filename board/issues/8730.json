@@ -1,0 +1,37 @@
+{
+  "number": 8730,
+  "kind": "issue",
+  "title": "finding(plugin-grid): a bare-string member in `object-grid.bulkActionDefs` throws during render and takes the whole selection bar down",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "package: plugin-grid",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T01:41:24Z",
+  "updated_at": "2026-09-09T03:16:59Z",
+  "closed_at": "2026-09-09T03:16:58Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8730",
+  "body": "## 复现(实测于 `origin/main` @ `2f881a90`,objectui#8071 的成员 pin 工作中发现)\n\n`object-grid` 的 `bulkActions` 与 `bulkActionDefs` 是同一个 affordance 的两套词汇:\n\n- `bulkActions` 成员 = **裸动作名字符串**,`resolveBulkActions` 拿它去 `objectDef.actions` 解析并提升成 def;\n- `bulkActionDefs` 成员 = **完整 `BulkActionDef` 对象**,原样使用。\n\n把其中一个的词汇写进另一个,两边都没有任何东西会拒绝:注册声明两个都是 `type: 'array'` 且无 `of`,\nspec 的 `ComponentPropsMap['object-grid']` 两行都是 `z.array(z.unknown())`,JSON 视图上 `tsc` 也看不见。\n\n**方向一(`bulkActions: [{ name: 'approve' }]`)静默丢弃** —— `resolveBulkActions` 的\n`if (typeof name !== 'string' || name === '') continue;` 跳过它,无任何诊断。这是可以接受的失败形态。\n\n**方向二(`bulkActionDefs: ['approve']`)不是静默,是崩溃:**\n\n```\nTypeError: Cannot read properties of undefined (reading 'replace')\n ❯ formatActionLabel packages/plugin-grid/src/components/RowActionMenu.tsx:43:17\n ❯ BulkActionButton packages/plugin-grid/src/components/BulkActionBar.tsx:64:21\n```\n\n`Array.isArray(schema.bulkActionDefs)` 为真 ⇒ 字符串原样进入 `rawAuthored` ⇒\n`BulkActionBar` 用它渲染 `BulkActionButton`,`def.name` 是 `undefined`,\n`def.label ?? formatActionLabel(def.name)` 在 render 中抛出。作者第一次勾选多行时整条选择条就没了\n(React 还会先抱怨一次 `Each child in a list should have a unique \"key\" prop`,因为 `key={def.name}` 也是 `undefined`)。\n\n## 已有的失败探针\n\nobjectui#8071 的成员 pin 把这条行为**按当前形态**钉住了,以免它被误读成方向一的静默:\n\n`packages/plugin-grid/src/__tests__/bulkActionMembers-8071.test.tsx` 第 5 行断言\n`renderAndSelectAll({ bulkActionDefs: ['approve'] })` 必须 reject 并匹配上面的 `TypeError`。\n⚠️ 那一条是**记录现状,不是契约**:本卡的修复落地时它会转红,必须在同一笔里改写成修复后的行为。\n\n## 为什么值得单开一卡\n\n`BulkActionBar` 渲染的是**作者可写的元数据**,不是内部数据结构。一个 spec 与注册面都接受的成员形状\n不应该让渲染抛错 —— 至少要退化成\"跳过该成员\"(与方向一对齐),更好的是留一条具名诊断。\n两个方向的处置不一致本身就是缺陷:同一类作者错误,一边静默一边崩。\n\nRefs: objectui#8071(发现处)· objectui#8068(成员 pin 判据)· objectui#3002 / objectui#3139(两套词汇的来源)\n"
+}

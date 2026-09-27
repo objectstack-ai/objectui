@@ -1,0 +1,37 @@
+{
+  "number": 8690,
+  "kind": "issue",
+  "title": "finding(tests): a corpus scan for objectui#8688's shape — a `waitFor` on one recorder array, a read of another — leaves 9 unaudited sites outside `packages/permissions`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "pm:dispatched",
+    "tests"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T22:47:22Z",
+  "updated_at": "2026-09-09T01:55:46Z",
+  "closed_at": "2026-09-09T01:55:46Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8690",
+  "body": "Filed by the objectui#8688 dev seat (branch `claude/issue-8688-provider-ctx-wait-alignment`, PR #8689) as an out-of-scope by-product. ⛔ Not claimed, not assigned. The number below is a **raw detector count, not a diagnosis** — every site still needs a human reading.\n\n## What was scanned\n\nobjectui#8688 was one instance of: `await waitFor(...)` keyed on one recorder array, followed by a read of a **different** recorder array, with nothing establishing the second was filled. Fixing it needed a sweep, so a mechanical detector was written and pointed at the in-scope package. It is cheap to point at the whole corpus, so that was measured too.\n\n**Algorithm** (about 30 lines of node; re-derivable from this description alone):\n\n1. Per file, discover recorders mechanically: every identifier appearing as the target of a `.push(` call.\n2. For each `await waitFor(`, balance parentheses to the end of the wait, and collect which recorders are named inside it — the WAIT SET.\n3. Scan forward to the next `await` (or the end of the block), collecting recorders that are read (excluding their own `.push(` lines).\n4. Flag any read of a recorder the wait did not name.\n\n## The reading\n\nPopulation: **2776** `*.test.ts` / `*.test.tsx` files tracked in the repo, on `da5e4f69e`.\n\n| bucket | count | what it means |\n|---|---|---|\n| total flags | 160 | before triage |\n| **wait named a recorder** — the strict objectui#8688 shape | **9** (7 files) | worth reading |\n| wait named no recorder (a DOM node, a hook result, a test id) | 151 | ⛔ **out of the detector's judgement** — it cannot tell whether that signal gates the read |\n\nThe 151 are not claimed as defects and mostly look benign on spot-check (e.g. a recorder filled *causally upstream* of the awaited signal, in the same render commit). They are reported only so the 160 is not mistaken for 160 findings.\n\n### The 9 strict-shape sites\n\n- `packages/app-shell/src/views/metadata-admin/PermissionMatrixEditor.packageDoorFacets.test.tsx:241` — waits `server.saved`, reads `server.savedOpts[0]`\n- `packages/plugin-charts/src/ObjectChart.optionColors.test.tsx:285` — waits `host.calls`, reads `host.inits[0]`\n- `packages/plugin-dashboard/src/__tests__/DatasetWidget.relabel.test.tsx:206` — waits `host.calls`, reads `host.inits[0]`\n- `packages/plugin-designer/src/MetadataObjectsPage.lookupKeying.test.tsx:380` — waits `puts`, reads `deletes` (an **absence** assertion)\n- `packages/plugin-list/src/__tests__/ListView.objectProviderBinding-7477.test.tsx:161, :191, :231` — waits one renderer's props recorder, asserts the other is **empty**\n- `packages/plugin-list/src/__tests__/ListView.timeline-binding.test.tsx:82`\n- `packages/plugin-tree/src/ObjectTree.settledSchemaKeying-6481.test.tsx:169`\n\n⚠️ Several are **absence** assertions (\"the other renderer got nothing\"), which is a related but *different* weakness: an absence can also be satisfied by not having rendered yet, so it is weak in the same direction but not by the same mechanism. Two more (`calls` then `inits[0]`) are plausibly sound by construction — both arrays are pushed by the same fetch double, likely in one statement. **Read each; do not batch-repair.**\n\n## Dedup — declared, not claimed\n\n⚠️ This repo's `search_issues` returns **false zeros** (recorded on objectui#8688), so no zero from it is evidence of absence. Channel used instead: read the nearest neighbours by number. objectui#8665 is the closest and is a **different population** — the eleven named `contractEnvelope-6839` files, keyed on *mount vs rows signals* in the DOM. Its checklist is about DOM completion anchors; this is about two plain arrays in a test's own closure. The intersection of the two lists is **empty** (`ObjectTree.settledSchemaKeying-6481` is flagged here and is not one of #8665's eleven). objectui#8534 (kanban mirrored state) and objectui#8664 / objectui#6839 (the worked ObjectTree repair) are the same family at a different layer.\n\n## Why this is a card and not a PR\n\nThe detector answers *where to look*, never *what is wrong*: three of the nine may well be sound. A batch repair driven by the flag list would be the exact mistake objectui#8665 warns about — porting a diff shape into an undiagnosed race."
+}

@@ -1,0 +1,38 @@
+{
+  "number": 8704,
+  "kind": "issue",
+  "title": "finding(scripts): the recorder-wait census counts declarations as reads and lets its window run into the next test — 7 of its 18 strict flags are not reads",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "pm:dispatched",
+    "tests",
+    "tooling"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T23:44:14Z",
+  "updated_at": "2026-09-09T02:53:06Z",
+  "closed_at": "2026-09-09T02:53:06Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8704",
+  "body": "Filed as an out-of-scope by-product of objectui#8703 (branch `claude/issue-8703-matcher-dependent-strict-bucket`). Not claimed, not assigned. The card objectui#8703 characterised the defect and recorded it in `scripts/census-recorder-wait-shape.mjs`'s header; **this card is the repair**, which objectui#8703 declared out of scope.\n\n## What was measured\n\nTwo rules in `scripts/census-recorder-wait-shape.mjs` are the same in both `--recorder-match` modes and dominate the mode choice the census was carded about:\n\n- **D1 — the forward window is not scoped to the enclosing test.** Step 3 scans from the end of the wait to the next textual `await` **in the file**. A `waitFor` that is the last `await` of its test therefore gets a window that runs on into the *next* test — and the next test's opening lines are exactly where recorder arrays get declared.\n- **D2 — any textual occurrence counts as a \"read\".** Only `X.push(` is excluded. A declaration (`const blobs: Blob[] = []`), a destructuring (`const { requested } = installMetaRouter(...)`), a reset (`gridSchemas.length = 0`) and a function parameter named `log` all register as reads.\n\n**Measured on `da5e4f69e`, `--recorder-match=path`, 18 strict flags: SEVEN point at something that is not a read.**\n\n| flagged line | what it actually is |\n|---|---|\n| `form-onchange-wiring.test.tsx:207` | `const received: Record_[] = [];` — declaration in the NEXT `it` |\n| `DatasetWidget.localSelectI18n.test.tsx:356` | `const blobs: any[] = [];` — declaration in the next `it` |\n| `DatasetWidget.optionLabelI18n.test.tsx:313` | `const { requested } = installMetaRouter(...)` — a different `describe` |\n| `DatasetWidget.tableTotalsRow.test.tsx:319` | `const blobs: Blob[] = [];` — declaration in the next `it` |\n| `ObjectView.tableColumnsForwarding.test.tsx:136` | `const seen: any[] = [];` — a different helper function |\n| `ObjectView.tableColumnsForwarding.test.tsx:149` | `gridSchemas.length = 0;` — a reset, in yet another helper |\n| `providerCtxIdentity.discarded.test.tsx:515` | `function makeFetcher(tag: string, log: string[])` — a parameter name |\n\nIn every one of the six audited by objectui#8703, the wait's enclosing `it` or helper **closes** before the flagged line, and the flagged recorder is never mentioned inside the wait's own block.\n\n## Forced, not read\n\nA throwaway git repo with five fixtures, run through the real script (both modes). Fixture `f4-window-crosses-test.test.ts`:\n\n```ts\nit('a — its wait is the last await of this test', async () => {\n  const first: number[] = [];\n  first.push(1);\n  await waitFor(() => expect(first.length).toBe(1));\n  expect(first[0]).toBe(1);\n});\n\nit('b — a different test, with its own recorder', async () => {\n  const second: number[] = [];\n  second.push(2);\n  await waitFor(() => expect(second.length).toBe(1));\n});\n```\n\nBoth modes flag `f4-window-crosses-test.test.ts:9` — which is `const second: number[] = [];`, in a different test. D1 and D2, reproduced in isolation.\n\n## The same truncation loses real hazards\n\nFixture `f5-window-truncated.test.ts` — a genuine cross-recorder read, one `await` further on:\n\n```ts\nawait waitFor(() => expect(arrivals.length).toBe(1));\nawait Promise.resolve();\nexpect(payloads[0]).toBe(2);   // the real hazard\n```\n\n**Zero flags, in both modes.** So the instrument is not merely imprecise, it is also blind in the direction that matters: the window ends at the second `await` and the read is never examined.\n\n## What a repair has to do\n\nNot a bigger regex. The recorder's identity is currently its *spelling* at the push site, matched textually at the read site by a name regex whose lookbehind forbids a preceding `.` — which is also why the two matcher modes are incomparable (see objectui#8703). A quotable instrument needs to:\n\n1. resolve recorder **identity** (binding / alias resolution over an AST — same array object, not same name);\n2. scope the forward window to the **enclosing test body**, in statements rather than characters;\n3. classify each occurrence as **read / write / declaration**.\n\nThat is an AST pass, not a census script. ⛔ Whatever it becomes, it must stay out of CI while its bucket is matcher-dependent — that fence is objectui#8703's own conclusion and it is recorded in the script header.\n\n## Dedup — declared\n\n`search_issues` returns false zeros in this repo, so a zero would not be evidence. The query run here was not a zero: `census recorder wait shape script window ends at next await, declaration counted as a read, false positives` scoped to this repo returned six hits (objectui#8327, objectui#8492, objectui#8703, objectui#8690, objectui#6938, objectui#6724) — a self-validating non-empty result. objectui#8492 is the same defect class in the docs census, not this instrument; nothing matching this finding.\n\nGenerated by Claude Code in session `session_01YBWFb5YgMU5dw8p2VKj16S` (attribution written as prose, because a footer block is stripped on issue creation)."
+}

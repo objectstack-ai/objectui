@@ -1,0 +1,33 @@
+{
+  "number": 8843,
+  "kind": "pull_request",
+  "title": "ci(vi-mock): delete the stale scope sentence from vi-mock-specifiers.yml's step comment",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T13:56:20Z",
+  "updated_at": "2026-09-09T14:53:56Z",
+  "closed_at": "2026-09-09T14:53:05Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-09-09T14:53:05Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/8843",
+  "body": "Fixes #8392\n\n## What changed\n\nOne file, four deleted lines, zero added. In `.github/workflows/vi-mock-specifiers.yml`, the step comment above `node scripts/check-vi-mock-inherit.mjs` lost its scope paragraph and the `#` separator that would otherwise dangle against the step:\n\n```diff\n       # `vi.importActual` of the same specifier -- and SPREADS it.\n-      #\n-      # Narrow by ruling: only the covered workspace specifiers in\n-      # `COVERED_SPECIFIERS` are judged. Whole-module replacement of a local\n-      # module is legitimate and out of scope by construction, not by exemption.\n       - name: Check every covered vi.mock factory inherits the real export surface\n         run: node scripts/check-vi-mock-inherit.mjs\n```\n\n## Why the sentence was false\n\nobjectui#8141 (PR #8391) widened the resolver from \"a `COVERED_SPECIFIERS` member\" to \"a member **or any subpath of one**\". The gate's own header and its verdict line moved with it; this workflow comment did not. The gate says so itself at rest on this branch:\n\n```\n✅  check-vi-mock-inherit: OK (… 680 call site(s) on @object-ui/react, …, @object-ui/core\n    and their subpaths judged (680 inherit, 0 auto-mocked); …)\n```\n\n`scripts/check-vi-mock-inherit.mjs:83` — the current statement:\n\n```\n *     nor a SUBPATH of one.** See below, and \"A member covers its subpaths\".\n```\n\n## Why deleted rather than reworded (triage option 2)\n\nTriage ruled option 2 on a fact the card supplied: the gate header is where **the last three** boundary changes were recorded, and the workflow copy was left behind all three times. A second prose site describing the same boundary is a structure that goes stale periodically, not a one-off miss — rewording fixes this instance and not the next one. Removing the duplicate leaves exactly one authoritative description.\n\nNothing is lost by the deletion:\n\n- The step's `run:` line names `scripts/check-vi-mock-inherit.mjs`, so a reader landing here from a red check-run is one hop from the header.\n- The whole-module-replacement carve-out the paragraph restated is already stated in full in that header, under *\"Three things are therefore out of scope by construction, not by exemption\"*.\n\nOption 1's binding condition (state in the workflow that the authoritative description lives in the gate header) does not apply, because option 1 was not taken. No pointer sentence was added either: the ruling's criterion is a change that **only removes** the statement destined to go stale again.\n\n## Pins checked before deleting\n\nBoth wiring suites that read this workflow (`scripts/__tests__/check-vi-mock-inherit.test.ts`, `scripts/__tests__/check-vi-mock-specifiers.test.ts`) assert through a `yamlOf()` helper that filters `/^\\s*#/` lines before matching, so whole-line comments are structurally invisible to them. A repo-wide search found no pin on the deleted text and no line-number citation of this file:\n\n```\n$ git grep -n \"Narrow by ruling\"            -> only the workflow itself\n$ git grep -n \"covered workspace specifiers\"-> only the workflow itself\n$ git grep -n \"vi-mock-specifiers\\.yml[:# ]*[0-9]\"  -> no matches\n```\n\nNo pin had to change, so none did.\n\n## Verification\n\nAll run on this branch at `ca7e77913`.\n\n```\nnode scripts/check-vi-mock-inherit.mjs            EXIT=0  ✅ OK\nnode scripts/check-vi-mock-specifiers.mjs         EXIT=0  ✅ OK\nnode scripts/check-control-bytes.mjs              EXIT=0  ✅ OK (7041 tracked text files)\nnode scripts/check-action-ref-convention.mjs      EXIT=0  ✅ 111 refs in 36 workflow files\nnode scripts/check-pre-install-import-graph.mjs   EXIT=0  ✅ 27 pre-install steps in 21 jobs\nnode scripts/check-governed-queue-guard.mjs --self-test  EXIT=0  132 cases pass\nnode scripts/check-changeset-presence.mjs         EXIT=0\n```\n\n```\npnpm exec vitest run scripts/__tests__/check-vi-mock-inherit.test.ts \\\n  scripts/__tests__/check-vi-mock-specifiers.test.ts \\\n  scripts/__tests__/merge-queue-reporting.test.ts\n\n Test Files  3 passed (3)\n      Tests  146 passed (146)\n```\n\n(The red-looking census blocks in that log are fixture output captured inside the gate's own passing ablation cases, not failures.)\n\n## Changeset\n\nNone, and the gate is the authority per AGENTS.md §9:\n\n```\nCompared the working tree with e9d92120a (merge-base with origin/main): 1 file(s) changed,\n0 of them published source of a package the release covers, 0 of them a manifest whose\npublished contract moved, 0 under a package changesets ignores, 0 changeset(s) added.\n✅  No source or published contract of a released package changed in this range, so no\n    changeset is owed.\n```\n\nNo `skip-changeset` label was applied — in this repo that label exempts nothing and the gate's verdict line is what decides.\n\n## Scope\n\n`.github/workflows/vi-mock-specifiers.yml` only. The gate, its header, `COVERED_SPECIFIERS` and the pins under `scripts/__tests__/` are objectui#8141 / PR #8391's surface and were not touched. objectui#8117 is a different file and is not addressed here.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01FhBNJcLRZLe8M87VcUgpKr)_"
+}

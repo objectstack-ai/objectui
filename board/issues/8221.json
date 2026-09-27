@@ -1,0 +1,35 @@
+{
+  "number": 8221,
+  "kind": "issue",
+  "title": "finding(core/sdui-parser): the legacy string `sort` clause `convertSortToQueryParams` honours is declared by none of the seven `sort` inputs — every one is `type: 'array'`, so the html tier answers `type-mismatch`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-07T01:46:47Z",
+  "updated_at": "2026-09-09T05:24:43Z",
+  "closed_at": "2026-09-09T05:21:22Z",
+  "closed_by": {
+    "login": "os-bill",
+    "id": 324100929,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8221",
+  "body": "Filed unassigned by the os-dev seat implementing #8171 (branch `claude/issue-8171-calendar-sort-declared-input`). Measured on `origin/main` `2efe57db0`.\n\n## Measured\n\n`packages/core/src/utils/sort-query.ts:60` — `convertSortToQueryParams(sort: string | QuerySortEntry[])` is the repo's ONE sink for lowering an authored `sort` onto `$orderby`, and it deliberately honours **two** spellings: the array of `{ field, order }`, and a legacy string clause (`:66-70`, `\"name desc\"`, a bare field meaning ascending). Its docblock at `:42-45` states the intent: \"Only the two spellings the schema types declare are honoured.\"\n\nSeven live call sites take that helper's output, six of them from an authored `schema.sort`:\n\n`plugin-calendar/src/ObjectCalendar.tsx:479` · `plugin-form/src/LineItemsPanel.tsx:155` · `plugin-gantt/src/ObjectGantt.tsx:739` · `plugin-map/src/ObjectMap.tsx:796` · `plugin-timeline/src/ObjectTimeline.tsx:311` · `plugin-view/src/ObjectView.tsx:973` · `app-shell/src/utils/deriveRelatedLists.ts:161`.\n\nBut **every** `sort` declaration in the tree publishes the array arm alone. Enumerated as sites rather than searched for by spelling, and printed rather than counted:\n\n- `components/src/renderers/basic/data-list.tsx:194` — `type: 'array'`\n- `components/src/renderers/basic/record-picker.tsx:412` — `type: 'array'`\n- `plugin-detail/src/index.tsx:522` — `type: 'array'`\n- `plugin-grid/src/index.tsx:222` — `type: 'array'`\n- `plugin-list/src/index.tsx:56` and `:97` — `type: 'array'`\n- `plugin-view/src/index.tsx:165` — `type: 'array'`\n\nSeven for seven. Control that the enumeration fires at all: the same shape of read finds 39 `objectName` declarations.\n\n## The consequence, measured through the real validator\n\n`validateTree` coarse-checks a declared input's value against `inputTypeArms(input.type)` (`sdui-parser/src/validate.ts:124`, `checkType`). Measured against a one-component manifest declaring `sort` as `type: 'array'` (a probe manifest, NOT the live-registry instrument — this reads `checkType`'s behaviour, not any one registration):\n\n- `[{ field: 'a', order: 'desc' }]` — no diagnostics.\n- `'a desc'` — `type-mismatch`, the message says the prop expected an array.\n- Control on the same manifest: an undeclared key still draws `unknown-prop`, so the two readings above are verdicts and not a validator that reports nothing.\n\nSo the spelling `@object-ui/core` documents and honours is the spelling the html tier tells authors is wrong. `content/docs/plugins/plugin-map.mdx:110` advertises it in as many words — `sort?: string | SortConfig[]`.\n\n## What makes this a decision and not a mechanical widening\n\n⛔ The arm set cannot be widened blanket-wise. Measured, the two ends disagree per block:\n\n- `element-record-picker`: the spec genuinely constrains `sort` to the array of `{ field, order }` and refuses the string — the in-code comment at `record-picker.tsx:412-419` records that measurement, and declaring a string arm there would publish a key the save gate rejects.\n- `object-calendar` and `object-grid`: `ComponentPropsMap` does not constrain the VALUE at all — an array, a string and a bare number all return `success: true` (measured on `@objectstack/spec` 17.2.0, with `bogusProp` refused by name on the same call as the control). So the spec is not the authority for the arm on those blocks, and `type: 'array'` there is a renderer-side authoring choice rather than a derived one.\n\nADR-0049 enforce-or-remove shape, so the two honest routes are: declare `type: ['string', 'array']` on the blocks whose spec permits it, or retire the legacy string arm from `convertSortToQueryParams` and the docs that advertise it. ⛔ Neither should be picked by an implementing seat without a ruling — the second one deletes a spelling that works today.\n\n## How it surfaced\n\n#8171 declares `sort` as `type: 'array'` on the two `object-calendar` registrations, following all seven existing sites. That moves the legacy string spelling on a calendar from `unknown-prop` to `type-mismatch`. **Not a regression** — the html tier never accepted the key in any form before that change, so no working spelling goes from silent to loud — but it is what made the arm gap concrete enough to file.\n\nRefs: #8171 · #7712 · #6678\n\nFiled by an agent seat via Claude Code, session `session_01YBWFb5YgMU5dw8p2VKj16S`.\n"
+}

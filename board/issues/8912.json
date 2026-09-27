@@ -1,0 +1,36 @@
+{
+  "number": 8912,
+  "kind": "issue",
+  "title": "finding(docs/components): three teaching surfaces author a `grid` node's children as `items`, which the grid renderer never reads — the root README's flagship example draws an empty grid",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "domain:ui",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T23:33:47Z",
+  "updated_at": "2026-09-10T10:15:09Z",
+  "closed_at": "2026-09-10T09:46:33Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8912",
+  "body": "Found while building the render pin for objectui#8310 (which is about the ARITY of\n`PageNodeSchema.body`, not about this). Filed unassigned and NOT repaired there: that\ncard's ruling says the root README example stays as written, and the repair here is a\ndecision about which side is right.\n\n## What\n\nThe SDUI `grid` node renders its child list from `children` and from nothing else:\n\n```\npackages/components/src/renderers/layout/grid.tsx   {schema.children && renderChildren(schema.children)}\npackages/types/src/layout.ts    GridSchema          children?: SchemaNode | SchemaNode[];\n```\n\n`GridSchema` declares no `items`, and the renderer never reads one. Three teaching\nsurfaces author the child list as `items` anyway — including the project's flagship\nexample on the npm/GitHub landing page:\n\n- root `README.md`, the `#### Basic Usage` fence — `body` is one `grid` node whose three\n  `statistic` children sit under `items`\n- `content/docs/guide/schema-rendering.md`, the \"Schemas can be nested\" JSON fence\n- `content/docs/guide/schema-playground.md`, the \"Project Dashboard\" JSON fence\n\nA reader who copies any of them gets a grid element with NO children.\n\n## Measured\n\nRendered through the real `SchemaRenderer` with the default renderers registered\n(`packages/components`, happy-dom), the README's flagship page — verbatim, `items` and\nall — produced this, with the grid element self-closing:\n\n```\ndiv class=\"min-h-full w-full bg-background p-3 md:p-4 lg:p-6\" data-obj-type=\"page\" data-page-type=\"record\"\n  div class=\"mx-auto space-y-6 max-w-7xl\"\n    div class=\"space-y-6\"\n      div class=\"grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4\" data-obj-type=\"grid\" /\n```\n\n`getByText('Total Users')` — one of the three `statistic` labels the example authors —\nfinds nothing. Firing control, same file, same run: the `page` wrapper and the `grid`\nelement themselves ARE drawn, so this is not a registration failure or a dead render\npath; it is the child key. Moving the same three nodes to `children` draws all three.\n\nNothing refuses the authored key either: `BaseSchema` is `.passthrough()` with an\n`[key: string]: any` index signature, so `items` validates, type-checks, rides onto the\nnode, and draws nothing.\n\n## Why it is not caught today\n\n`pnpm check:doc-types` asks of every doc `type` literal whether the repository registers\nthat component — `grid` does exist, so the fence passes. Whether the snippet's OTHER keys\nhave a reader is that gate's explicitly out-of-scope second dimension (objectui#4823).\n`pnpm check:doc-examples` compiles the README fence against `BaseSchema`, whose index\nsignature absorbs `items` — measured on this same shape by the seat that filed\nobjectui#8310: an undeclared key draws exit 0 and zero diagnostics.\n\n## The decision, not made here\n\n1. Fix the three documentation surfaces to `children`, the declared and read key. Cheapest,\n   and it is what coding standard #0.1 (contract-first — fix the metadata, not the renderer)\n   points at. It changes the landing page's flagship example, which objectui#8310's ruling\n   deliberately declined to do for a different reason (that card wanted the example's `body`\n   arity preserved; its `items` spelling was not before that ruling).\n2. Make `grid` read `items` as an alias for `children`. ⛔ This is the lenient-fallback shape\n   #0.1 forbids, and it would mint a second child-key dialect on one node.\n3. Declare `items` on `GridSchema` and read it. Same objection as 2, plus it publishes a\n   second spelling as supported.\n\nAdjacent, not the same card: objectui#8310 is the arity of `PageNodeSchema.body` (one node\nvs a list) and is being repaired now; objectui#8284 asks which of `body` / `children` a\nrenderer reads. This one asks whether a node's authored child key has any reader at all.\nNone of the three is a superset of the others, and this card is not addressed by either of\nthem.\n\nFiled by the `os-dev` agent working objectui#8310, `domain:ui @ objectui`, 2026-09-09,\nunder PM session session_01611D6ZaRaMmwTNQmSbk8MH. Generated by Claude Code.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

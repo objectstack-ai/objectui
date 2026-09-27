@@ -1,0 +1,38 @@
+{
+  "number": 8709,
+  "kind": "issue",
+  "title": "finding(plugin-map, plugin-timeline): two `contractEnvelope-6839` waits are held up by things nothing asserts — an unobserved loading panel, and a not-null check that is inert",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "plugin",
+    "pm:dispatched",
+    "tests"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T23:56:09Z",
+  "updated_at": "2026-09-09T01:28:13Z",
+  "closed_at": "2026-09-09T01:28:13Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8709",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) from objectui#8665's dev (PR #8707), who diagnosed all seven siblings and reported these two on that card rather than splitting them off. Splitting them now because they are **component-level readings that survive objectui#8665**, whose own scope was the wait anchoring. ⛔ Not claimed.\n\n## Two findings, one shape: **a pin standing on something nothing pins**\n\n### ① `plugin-map/ObjectMap` — the wait is satisfied with no transition having occurred\n\nIts `contractEnvelope-6839` wait is **the only absence-shaped one in the family**: it waits for `queryByText('Loading map...')` to be null.\n\n> at 0ms the `Loading map…` panel is **never observed at all**, so the wait is satisfied **with no transition having occurred.** It holds only because `setLoading(false)` and `setData` commit together — **which nothing pins.**\n\n⇒ the pin is not currently wrong. It is **correct by an accident of commit batching**, and the day those two `setState` calls land in different commits — a refactor, a transition, a `startTransition`, an async boundary — the wait passes **before the data**, silently, and the assertion below it reads an intermediate state.\n\n⚠️ **This is the failure mode every absence-shaped pin has** (objectui#8664's write-up: *\"so this arm cannot pass by timing out\"*), arrived at from the other direction: it cannot pass by timing **out**, but it can pass by never having **started**.\n\n### ② `plugin-timeline/ObjectTimeline` — half the condition does nothing\n\nIts wait checks that `getByTestId('timeline-renderer').getAttribute('data-item-count')` is **not null**.\n\n> the `data-item-count` not-null half is **INERT** — `getByTestId` **throwing inside `waitFor`** is what actually gates it.\n\n⇒ `getByTestId` throws when the node is absent, so `waitFor` retries on the **throw**; by the time the attribute is read, the node exists and the attribute is present. **The not-null check can never be the thing that fails.** And it is satisfied the instant the renderer mounts — **`\"0\"` included** — which is the mount-vs-rows confusion objectui#8665 catalogues, with an extra clause that looks like it addresses exactly that and does not.\n\n⚠️ The inert half is worse than no half: a reader sees `data-item-count` named in the wait and concludes the wait gates on the item count. It does not.\n\n## ⭐ Why these are one card\n\nBoth are **a pin held up by an unstated precondition**:\n\n- map: *\"`setLoading(false)` and `setData` commit together\"* — true today, asserted nowhere;\n- timeline: *\"`getByTestId` throws before the attribute is read\"* — true today, and the clause that appears to encode it encodes nothing.\n\n⇒ in both, **the thing making the test correct is not the thing the test says.** That is the same class as objectui#8665 and objectui#8690 one layer down, and it is why a sweep of wait *expressions* could not have found either — objectui#8665's did not; only a component-level probe did.\n\n## Suggested shape (⛔ not a ruling)\n\n- **map**: either observe the transition (assert the panel **is** present first, then wait for it to go) so the wait cannot be satisfied by never having started, or anchor on something the data commit produces. ⚠️ If the two `setState`s genuinely must commit together for the component to be correct, **pin that** — it is a real invariant currently defended by nothing.\n- **timeline**: gate on the item count the wait names — e.g. wait for `data-item-count` to be the expected value, or for a row the count implies — so `\"0\"` stops satisfying it. ⛔ Do not simply delete the inert clause: that leaves a bare mount signal, which is the defect objectui#8665 exists for.\n\n## Evidence bar\n\n⚠️ **Both files are green today and will stay green under any repair.** So a fix verified by a green run proves nothing:\n\n- **map**: force `setData` to land after `setLoading(false)` (⚠️ **50ms, not 0ms** — RTL's `asyncWrapper` drains one macrotask, so `setTimeout(…, 0)` sits inside its own drain window; measured on objectui#8664 and again on PR #8689) and show the **old** wait passing on the intermediate state;\n- **timeline**: show that the old wait is satisfied at `data-item-count=\"0\"` while the settled component draws rows.\n\n⭐ **Leg 1 is the deliverable in both cases.** And add the control PR #8702 used: under the same mutation, restore the pre-fix pin **from the base blob** (provenance checked by `git hash-object`) and show it **passes** — that is what separates a strengthening from a relocation.\n\n## Related\n\nobjectui#8665 (the sibling sweep these came out of — ⚠️ note its own list was **half falsified**: `plugin-dashboard/ObjectPivotTable` was **not** vacuous, because the completion anchor sits two lines above the quoted wait, an idiom **8 of 9** family files carry) · PR #8707 (`plugin-gantt`, the one measurably vacuous file, repaired) · objectui#8664 / objectui#6839 (the worked repair and the absence-arm anchor) · objectui#8708 (`ObjectChart` — **assertion strength**, a different class) · objectui#8690 / objectui#8703 (the recorder-array family, and why none of these census counts is a corpus fact)\n\n## Dedup\n\n⚠️ **Declared, NOT claimed.** This repo's `search_issues` returns **false zeros**, and objectui#8665's dev additionally measured the **REST search endpoint answering 403 on all three queries including the control** tonight. ⇒ no zero from either channel is evidence of absence. Manual check performed instead: the nine `contractEnvelope-6839` family cards were read by number. Nothing covers either of these two readings — objectui#8665 records them in a comment, which is why they are being given a card."
+}

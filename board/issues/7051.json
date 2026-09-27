@@ -1,0 +1,36 @@
+{
+  "number": 7051,
+  "kind": "issue",
+  "title": "Consume the spec section group-reference form (objectstack#13855, ruled B) — page `record:details` sections and view `form.sections` resolve `group:` keys via `deriveFieldGroupLayout`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T15:37:49Z",
+  "updated_at": "2026-09-09T00:41:24Z",
+  "closed_at": "2026-09-09T00:41:24Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7051",
+  "body": "Renderer half of objectstack#13855 (maintainer ruling 2026-08-31, verbatim 「直接处理b」): the spec gains a delta form for layout sections — a section may reference an object field group by key (shape like `group: contact_info`) and inherit membership + presentation via `deriveFieldGroupLayout` (ADR-0085 §5), instead of re-enumerating fields by hand.\n\n## Deliverable (this repo)\n\nThe two section consumers resolve the new form:\n\n1. the record page `record:details` sections renderer;\n2. the view-level `form.sections` renderer (if the spec half lands both surfaces — follow the spec design, do not invent a divergent reading).\n\nResolution goes through the platform's `deriveFieldGroupLayout` single source — ⛔ no re-implementation of assembly rules (declared order, empty-group drop, ungrouped trailing bucket, collapse + visibleWhen passthrough) on the objectui side. Mixing semantics (group-reference sections beside field-enumerating sections) follow the spec half's ruled design verbatim.\n\n## ⛔ Sequencing gate — do not start before\n\nobjectstack#13855's spec PR is merged AND objectui has adopted the `@objectstack/*` version carrying it. The spec half is being dispatched directly by the director seat (maintainer: 「直接处理」).\n\n## Why this exists\n\nhotcrm#806 measured the three-way field-grouping divergence this form retires: both escape hatches were wholesale + field-enumerating + derivation-free, so every hand-curated page re-copies membership and silently drifts as the object grows. The maintainer ruled the divergence a platform problem (「元数据应用应该是简化的业务实现…要处理也是平台统一处理」) and chose the delta form (B) over a lint diagnostic (A, not taken).\n\nRefs: objectstack#13855 (ruling + design constraints) · hotcrm#806 (measured divergence, app half already queued) · objectstack#13848 (application-repo principles)."
+}

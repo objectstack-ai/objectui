@@ -1,0 +1,38 @@
+{
+  "number": 8596,
+  "kind": "issue",
+  "title": "The `{}` column of the cell-renderer census is objectui#8490 untouched — a checked checkbox, live `mailto:[Object]` anchors with a copy button, an avatar captioned \"U\", a swatch coloured `[object Object]`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: fields",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T14:26:32Z",
+  "updated_at": "2026-09-08T23:16:23Z",
+  "closed_at": "2026-09-08T22:23:59Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8596",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) from the objectui#8580 dev's census, measured while landing PR #8595 and handed over under an explicit MCP-frugality instruction. ⛔ Not claimed.\n\n## The `[]` class is closed. The `{}` class has never been opened.\n\nThree cards measured the empty-array class and it grew each time — objectui#8481 (three multi-value renderers), objectui#8490 / PR #8586 (nine more), objectui#8580 / PR #8595 (markdown / html / richtext). PR #8595's census can finally say it is finished: **25 of 212 cells moved on merged HEAD = #8586's 19 + #8595's 6, nothing else**, and the only `[]` rows still differing from `null` are objectui#8481's declared json-literal fence.\n\n**PR #8586 deliberately left `{}` unchanged everywhere.** That was the right scoping decision and it was never a claim that `{}` is fine. Measured on merged HEAD `e122a5e95`, rendering all 53 registered types, here is what `{}` draws:\n\n| renderer family | `{}` renders |\n|---|---|\n| `boolean` / `toggle` | a **CHECKED** checkbox |\n| `email` / `url` / `phone` | a **live anchor** — `href=\"mailto:[Object]\"`, `tel:[Object]` — **plus a copy button** |\n| `user` | an avatar stack with initial **U**, labelled **User** |\n| `select` / `status` / `multiselect` / `radio` / `checkboxes` / `tags` | the literal text `[Object Object]` |\n| `color` | a swatch whose `background` is the string `[object Object]` |\n| `file` / `video` / `audio` | one chip named **File** |\n| `date` | a hand-rolled em-dash with **no accessible name** |\n| `location` / `geolocation` | the `{}` literal (objectui#8481's json-literal fence) |\n| `number` / `currency` / `percent` / `slider` / `rating` / `text` / `code` / `formula` / `lookup` | `[Object]` — the string class's answer, **consistent** |\n\nThe last row is the tell: where a family has a declared coercion, `{}` lands on it correctly. Everywhere else the renderer invents something, and several of the inventions are **assertions the record never made** or **affordances that cannot work** — a live `mailto:[Object]` with a copy button is the exact shape PR #8586 removed for `[]`.\n\n## ⛔ Two of these rows are already spoken for — do not take them here\n\n- **`boolean` / `toggle`** is objectui#8582 / PR #8594 territory, and its ruling is already made from four spec instruments: a `boolean` field holds a JS boolean, so a non-boolean is **no value**. That PR fixed `{}` for boolean along with the rest. Verify it landed before touching this row; if it did, this table's first line is already stale.\n- **`location` / `geolocation`** sit behind objectui#8481's **declared** json-literal fence. Leave them or reopen that fence deliberately — do not sweep them.\n\n## ⚠️ The direction is NOT open per family — read the spec first\n\nPR #8595 established the pattern: for the string family the spec settles `{}` **away from** the \"no value\" affordance and **toward** the family's existing coercion (`STRING_VALUE_TYPES` — *\"Value is a plain string\"*; write seam `z.string()`). It then pinned the result **byte-equal to what `text` prints for `{}`**, so the rule stays true without being restated.\n\n⇒ Do the same per family. **`@objectstack/spec` has settled four of these questions today already** (objectui#8555, objectui#8497, objectui#8582, objectui#8580) — in every case the answer existed and in one it was the opposite of what the PM guessed. Read `valueSchemaFor`'s arm for each family before choosing, and report what you found even where it confirms the obvious.\n\n⚠️ Where the spec is silent, the safe answer is the family's **existing** coercion, not a new renderer-side fallback — a fallback invented here is the AGENTS.md #0.1 second dialect.\n\n## ⭐ Evidence bar\n\nUse the instrument that found this: **render all 53 registered types against `[]`, `{}`, `''` and `null`** on a pinned base and diff the cells. A regex over class strings under-counted this class three separate times.\n\nThe caricature is drawing the shared `EmptyValue` for every `{}` — it satisfies *\"the checked checkbox is gone\"* while erasing the families whose coercion is correct. **Your load-bearing cases are the 9 consistent rows staying byte-identical**, plus every populated value.\n\n⚠️ **An assertion never observed to fail has not been tested.** PR #8595 found one of its own passing on the caricature because it compared `undefined` to `undefined`. Run the caricature; read failure **modes**, not counts. ⚠️ Prove every mutation on disk in **both** directions **plus a line-total gate**, and count harness-death signatures separately — objectui#8490 lost a leg to an empty file that a deleted-text-only gate accepted, and objectui#8582 turned that accident into a control worth copying.\n\n## Related\n\nobjectui#8490 / PR #8586 (the `[]` half, and the deliberate `{}` exclusion) · objectui#8580 / PR #8595 (the census that closed `[]` and produced this table) · objectui#8481 (the json-literal fence) · objectui#8582 / PR #8594 (the boolean ruling, and the `{}` row it already covers) · objectui#8581 (`DateCellRenderer`'s hand-rolled dash — the `date` row here is the same renderer)\n\n## Dedup\n\n⚠️ **Declared, NOT claimed.** This repo's issue search returns **false zeros** — measured five times today, including `total_count: 0` for `ValueDataSource` while objectui#8447's own title carries that word. **No dedup claim is made.** Suggested manual check: objectui#8490's thread and objectui#8481."
+}

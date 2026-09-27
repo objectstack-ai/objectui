@@ -1,0 +1,36 @@
+{
+  "number": 7293,
+  "kind": "issue",
+  "title": "A dataset-bound KPI tile can render no sub-caption at all: DatasetWidget drops every measure after values[0] and never reads options.description",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T04:50:41Z",
+  "updated_at": "2026-09-09T20:28:16Z",
+  "closed_at": "2026-09-09T20:27:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7293",
+  "body": "Found while building a manager dashboard in `objectstack-ai/duly` (duly#109), where the card asks a KPI tile for a rate **plus** a two-number sub-caption under it (\"N to confirm / M to approve\"). Neither of the two ways to author that reaches the screen, and both fail silently.\n\nMeasured against `@objectstack/spec` 17.2.0 and this repo's `plugin-dashboard`.\n\n## 1. Extra `values[]` on a metric tile are dropped without a word\n\n`packages/plugin-dashboard/src/DatasetWidget.tsx`, the `if (isMetric)` branch:\n\n```ts\nconst f = measureField(values[0]);\nconst value = state.rows[0]?.[values[0]] ?? 0;\n…\n<span className=\"text-xs text-muted-foreground\">{headerLabel(values[0])}</span>\n```\n\n`values` is `z.array(z.string()).min(1)` on `DashboardWidgetSchema` — an author may legally select three measures. The query runs for all of them and the renderer shows the first. No warning, no console message; the widget looks correct and is answering a narrower question than the metadata asks.\n\nThe `isMetric` family is `metric` / `kpi` / `gauge` / `solid-gauge` / `bullet` (and any widget with no dimensions), so there is no chart type an author can switch to and keep a tile.\n\n## 2. The authored sub-caption slot is unreachable on every spec-valid widget\n\n`options.description` is the sub-caption — it has its own translation key (`{ns}.dashboards.{dash}.widgets.{id}.subCaption`), the server overlays it in `translateDashboard`, and `DashboardRenderer.tsx` resolves it properly in `tWidgetSubCaption` (added by #4032 item 4).\n\nBut the resolved value is only ever attached inside `getComponentSchema()`, on the two inline arms:\n\n```ts\nconst subCaption = tWidgetSubCaption(widget);\nif (isObjectProvider(widgetData)) {\n  return { type: 'object-metric', …, description: subCaption, … };\n}\nreturn { type: 'metric', …, description: subCaption, … };\n```\n\nA dataset-bound widget never goes through `getComponentSchema()` — `renderWidget` routes it to `<DatasetWidget>` — and `DatasetWidget` does not read `widget.options` for a caption at all.\n\n**`dataset` is REQUIRED on `DashboardWidgetSchema`** (`dataset: SnakeCaseIdentifierSchema`, no `.optional()`), so every widget the current spec admits takes the `DatasetWidget` path. The sub-caption key is therefore declared end-to-end — spec slot, translation node, server overlay, renderer resolver — and consumed by nothing: the ADR-0049 declared-but-unenforced shape, with four live pieces of plumbing pointing at a dead end.\n\n`MetricWidget`'s `bare` layout already renders a caption row (`gates its whole caption row on the value's truthiness`), so the missing piece is on the dataset side only.\n\n## Repro\n\n```ts\n{\n  id: 'list_completeness',\n  type: 'metric',\n  dataset: 'duly_duty_register',\n  values: ['approved_rate', 'duties_to_confirm', 'duties_to_review'],\n  options: { description: 'awaiting confirmation / awaiting approval' },\n}\n```\n\nRenders the big number for `approved_rate` and nothing else. Expected: the other two measures reachable as a caption line, and/or `options.description` honoured.\n\n## Why it matters more than it looks\n\nA KPI tile is the one widget where a missing element is invisible. A chart with a series missing looks wrong; a tile that quietly answers with one of the three numbers it was given looks finished. On the dashboard this was found on, the tile's job is a governance completeness rate whose whole point is the two pending counts beside it.\n\n## What duly does meanwhile\n\nShips the tile with `values: ['approved_rate']` and no sub-caption, and says so in the dashboard's module header rather than faking the counts as static text. The two extra measures are deliberately not declared on the dataset until this lands, so nothing declared there is unconsumed.\n\n## Suggested shape\n\nEither is enough for the case above; the first is the smaller change:\n\n1. `DatasetWidget`'s metric branch reads `widget.options.description` and renders it in the caption row, matching `MetricWidget`'s `bare` layout — the key is already resolved and translated by the time the widget is rendered, it just is not passed down.\n2. Render measures after `values[0]` as secondary values on the tile (the same row the `compareTo` delta already occupies), so a tile can carry its own breakdown.\n\nIf neither is wanted, the honest alternative is to retire `options.description` under ADR-0049 rather than leave four layers of plumbing wired to a slot no author can reach."
+}

@@ -1,0 +1,34 @@
+{
+  "number": 7299,
+  "kind": "issue",
+  "title": "`record:related_list` cannot bind to a multi-value relationship field — `RelatedList` builds its parent filter as bare equality, which the driver refuses with 400 INVALID_FILTER",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T04:59:07Z",
+  "updated_at": "2026-09-10T04:55:26Z",
+  "closed_at": "2026-09-10T04:38:38Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7299",
+  "body": "Measured against a live seeded app (objectstack-ai/duly#13), driver `SqlDriver(better-sqlite3)`, objectui at the current checkout.\n\n## Repro\n\nObject `duly_assignment` has `assignees: Field.user({ multiple: true })` — one assignment names N people. On a `sys_user` record page, the natural way to list \"the assignments this person is named on\" is:\n\n```ts\n{\n  type: 'record:related_list',\n  properties: {\n    objectName: 'duly_assignment',\n    relationshipField: 'assignees',\n    columns: ['subject', 'assigner', 'due_date', 'status'],\n  },\n}\n```\n\n`RecordRelatedListBody` passes `referenceField` + `parentId` to `RelatedList`, which composes the parent filter as bare equality — `{[relationshipField]: parentId}`. The request and the answer:\n\n```\nGET /api/v1/data/duly_assignment?top=20&skip=0&sort=due_date\n    &filter=[\"assignees\",\"=\",\"ql8NO1TcKsuFrrH-\"]\n\n400 INVALID_FILTER\nThe bare equality spelling { \"assignees\": value } WAS NOT APPLIED: \"assignees\"\nis a multi-value (or otherwise JSON-valued) field, stored by this driver as a\nJSON TEXT column (e.g. [\"a\",\"b\"]), and \"=\" compares that whole serialized text\nagainst a single value — it can never equal one member. Use \"$contains\" for\nmembership ({ \"assignees\": { \"$contains\": \"a\" } }), or an $or of \"$contains\"\nfor any-of …\n```\n\n## Why this is objectui's\n\n**Credit where due — the driver behaves exactly right.** It refuses loudly, names the field, explains the storage, and prescribes the working spelling. This is not a silent-zero bug; the section renders an error and the console logs it.\n\nThe problem is that `$contains` **is not reachable from the authoring surface.** `RecordRelatedListProps` lets an author supply an additional `filter`, but the *parent* filter — the one that makes it a related list at all — is composed by the component from `relationshipField` alone. There is no operator, no `relationshipOperator`, nothing. So the list cannot be written correctly; it can only be not written.\n\nNor is there another route to the same data: `RelatedList` has no dotted-path column support, so the value cannot be reached from the child side either (`duly_task.assignment → duly_assignment.assigner` is one hop too far). On the page in question that meant one line of the requirement — \"showing who assigned each\" — could not be delivered at all, and the list was deleted rather than left showing a 400.\n\n## Suggested shape\n\nHave the renderer pick the membership spelling when the parent field is multi-valued — the child object's field metadata is already in hand (`useFieldPermissions(objectName)` resolves the object), so `multiple: true` is knowable at compose time and `{[relationshipField]: {$contains: parentId}}` is what the driver is asking for. An explicit author-side escape (`relationshipOperator: 'contains'`) would work too but puts the burden in the wrong place — the component knows the field's arity, the author is just naming the relationship.\n\nWhichever way: the m2m-by-multi-value-field shape is common enough (it is the platform's own `Field.user({ multiple: true })`), and today it is the one relationship a related list cannot express.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01SqkTcrxUFci7nqXdbBSe2p"
+}

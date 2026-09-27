@@ -1,0 +1,38 @@
+{
+  "number": 8701,
+  "kind": "issue",
+  "title": "finding(i18n): check-i18n-dead-keys demotes 13 pack keys to NEEDS-REVIEW on evidence about a DIFFERENT key — textFootprint's full-key probe is a plain substring test",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "finding",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T23:14:18Z",
+  "updated_at": "2026-09-09T04:03:18Z",
+  "closed_at": "2026-09-09T04:03:18Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8701",
+  "body": "Filed by the objectui#8388 dev (`session_01FhBNJcLRZLe8M87VcUgpKr`, PR #8699) — measured while extending that script to a second corpus. ⛔ Not claimed, and ⛔ deliberately **not** fixed in PR #8699.\n\n## The defect\n\n`textFootprint()` in `scripts/check-i18n-dead-keys.mjs` decides the CONFIRMED / NEEDS-REVIEW split with\n\n```js\nconst literal = content.includes(key);\n```\n\nPack keys are dotted and densely prefix-nested, so `ns.group.leaf` is a substring of `ns.group.leaf.detail`. A candidate that is a **strict prefix of a longer, live sibling** therefore collects the sibling's call-site line as its own \"textual hit\" and is demoted out of CONFIRMED — on evidence about a different key.\n\nThe report then sends a human to a line that never mentions the key they are hunting. That is the exact failure the file's own `PROPERTY_CHAIN_HIT_SUFFIX` comment already worries about for the *chain* probe, and the guard it introduced for that leg (`occursAtPropertyBoundary`, next character may not continue an identifier) is **not applied to the full-key probe** — and would not be sufficient there anyway, because a `.` is not an identifier character, so `ns.group.leaf` followed by `.detail` passes it.\n\n## Measured on `da5e4f69e`\n\nPack sweep as it ships today: **114 CONFIRMED / 247 NEEDS-REVIEW**.\n\nRe-running `textFootprint()` over exactly those 247 keys with a key-boundary requirement (a match must be bounded on both sides by a character that is not one of `[A-Za-z0-9_$.-]`) leaves **13 with no textual evidence at all**:\n\n```\nappDesigner.noNavItems      console.objectView.groupBy   home.recent\nappDesigner.separator       console.objectView.toolbar   home.starred\napprovals.reject            dashboard.removeWidget       home.subtitle\nmarketplace.pricing.free    form.addItem                 sidebar.help\n… 13 total\n```\n\n⇒ each of those 13 is in NEEDS-REVIEW **only** because a longer sibling key is spelled somewhere. The count is identical whether the property-chain probe stays on or off, so this is the boundary artefact alone and not an interaction with that leg.\n\n⚠️ The direction matters: the demotion is towards *safer*, so nothing is currently mis-deleted. What it costs is the tier's meaning — CONFIRMED is documented as \"the tier to READ FIRST\", and 13 keys with no evidence against them are sitting outside it.\n\n## Why PR #8699 did not fix it\n\nThat PR adds the boundary as an **opt-in** `keyBoundary` option, defaults it **off**, and turns it on only for the new designer-table corpus (where the artefact was severe — 4 of 7 NEEDS-REVIEW entries were pure prefix noise). The pack half is left byte-for-byte as it was, deliberately:\n\n- objectui#4658's dispatch ruling rests on a **measured false-positive rate for the pack sweep**, taken with the current behaviour. Silently re-tiering 13 keys inside an unrelated PR would move that reading without anybody re-measuring it.\n- The right change is a small one (flip the default, or pass `keyBoundary: true` from `sweep()`), but it needs its own sampled check of the 13 — some may be genuinely dead, in which case this also *finds* work rather than only tidying a tier.\n\n## Dedup\n\nOne targeted `search_issues` was run and is declared rather than hidden: `check-i18n-dead-keys textFootprint substring match demotes a pack key that is a prefix of a longer sibling key to NEEDS-REVIEW`. Nearest neighbours are objectui#7592 (helper-built key templates putting LIVE keys in CONFIRMED), objectui#6666 (property-access pack readers, same direction), and objectui#4964 (template families prefix-checked in the FORWARD, call-site direction) — all closed, all a different class. No duplicate found.\n\n## Related\n\nobjectui#8388 / PR #8699 (the second corpus, where this artefact was measured) · objectui#4658 (the pack sweep and its false-positive-rate ruling)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01FhBNJcLRZLe8M87VcUgpKr"
+}

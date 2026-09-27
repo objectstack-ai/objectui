@@ -1,0 +1,36 @@
+{
+  "number": 8772,
+  "kind": "issue",
+  "title": "chore(deps): take the 17.4.0 @objectstack/* line — the lockfile still pins 17.3.0, and a cluster of pm:on-hold cards is waiting on the pin, not on a merge",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-bill",
+    "id": 324100929,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-09T05:12:33Z",
+  "updated_at": "2026-09-09T17:47:19Z",
+  "closed_at": "2026-09-09T17:47:19Z",
+  "closed_by": {
+    "login": "os-bill",
+    "id": 324100929,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8772",
+  "body": "This repo consumes `@objectstack/*` as **published packages**, so the unlock criterion for its cross-repo cards is *consumer-installable*, never *upstream merged*. The pin is one release behind.\n\n## Measured, 2026-09-09T04:2xZ\n\n| reading | value |\n|:--|:--|\n| npm `@objectstack/spec` `dist-tags.latest` | **17.4.0** (published 2026-09-09T03:57:51Z) |\n| this repo's `package.json` declaration | `\"@objectstack/spec\": \"^17.0.0\"` (caret) |\n| this repo's **`pnpm-lock.yaml`** | **17.3.0** |\n\nThe lockfile holds **seven** packages on the 17.3.0 line — read from `origin/main`:\n\n```\n@objectstack/client@17.3.0   @objectstack/core@17.3.0     @objectstack/formula@17.3.0\n@objectstack/lint@17.3.0     @objectstack/sdui-parser@17.3.0\n@objectstack/spec@17.3.0     @objectstack/types@17.3.0\n```\n\nThe declaration is a caret, so the manifest needs no edit — a lockfile refresh floats the line to 17.4.0. Move the family as one line, not package by package.\n\n## ⚠️ This bump is EXPECTED to turn some pins red — that is the point, and they must not be patched green\n\nAt least one held card says so in its own title: **#7267** — *\"flips red the day objectui takes the `@objectstack/spec` release carrying objectstack#13802\"* (`LocationField.optionalKeys.test.tsx` pins `LocationValueSchema` as NOT strict). Others in the pin-gated cluster may behave the same way.\n\n⛔ A pin that flips by design is a card to route, not a test to silence. When one goes red:\n1. find the held card that predicted it (the cluster is listed below),\n2. if the red is that card's declared trigger, say so in this PR and let that card be dispatched separately — do **not** carry its repair here,\n3. if the red is *not* predicted by any card, stop and report: that is an unannounced upstream behaviour change and it needs its own triage.\n\n## What this unblocks (routing note, ⛔ not this card's work)\n\nThese carry a release/pin gate rather than a dependency on another card. Each is re-judged **individually against its own criterion** once the pin moves — ⛔ this card does not close any of them and does not pre-judge which actually clear:\n\n#6328 · #5291 · #5831 · #7267 · #7614 · #7663 · #7716 · #7783 · #7845\n\n⭐ **#7716 is the one to look at first** — its stated gate is `@objectstack/spec` **17.3.0**, which the lockfile *already* holds, so it may have been waiting on nothing for some time.\n\n⚠️ Two other clusters look similar in the listing and are **not** unblocked by this bump — deprecation-window / stage-2 cards (#5919 #5892 #5674 #5861 #6354 #5817) and \"UI half of objectstack#N\" cards (#6246 #5987 #5920). Different mechanisms; don't sweep them in.\n\n## Acceptance\n\n1. `pnpm-lock.yaml` resolves all seven `@objectstack/*` entries to **17.4.0**; `package.json` unchanged (the caret already admits it).\n2. Build, typecheck and the test suite green — or, for each red, the classification above (predicted-by-card / unannounced) stated explicitly.\n3. The reds that are a held card's declared trigger are **named in the PR body with their card number**, not repaired here.\n\n## Provenance\n\nFiled by the PM session verifying objectstack#16500's fix on the published 17.4.0. Maintainer instruction, verbatim (⛔ 照抄不译): 「先 bump，两张卡都开出来」 and 「这两个任务都你处理」. `domain:*` / `priority:*` are triage's; `domain:devx` set here per the anchoring table (engineering surface) on the maintainer direct-dispatch channel — ⛔ a `pm:retriage` if triage disagrees, not a precedent.\n\nCompanion card: the hold-condition encoding audit (filed alongside this one) — several of the cards above cannot be woken by any scan today."
+}

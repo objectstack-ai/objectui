@@ -1,0 +1,38 @@
+{
+  "number": 8708,
+  "kind": "issue",
+  "title": "ObjectChart's contractEnvelope-6839 site-2 refusal asserts `.not.toBe('Apollo')` — a shape `undefined` satisfies, so it cannot fail for the right reason",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "plugin",
+    "pm:dispatched",
+    "tests"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T23:51:37Z",
+  "updated_at": "2026-09-09T01:15:23Z",
+  "closed_at": "2026-09-09T01:15:23Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8708",
+  "body": "Found while diagnosing the `contractEnvelope-6839` family for objectui#8665. ⛔ Not graded and not assigned. Out of scope for that card and for PR #8707, which deliberately changed no file but `plugin-gantt`'s.\n\nDifferent class from objectui#8665: that card is about **waits that fail to gate a read**. This one is about **assertion strength** — the wait here is fine.\n\n## The site\n\n`packages/plugin-charts/src/ObjectChart.contractEnvelope-6839.test.tsx`, site 2, the group-by label domain:\n\n```\nasync function labelThrough(envelope: Envelope): Promise<string> {\n  const ds: any = { find: vi.fn(async () => envelope(PROJECTS)) };\n  const out = await resolveGroupByLabels(\n    [{ stage: 'p1', amount: 10 }],\n    'stage',\n    { name: 'crm_opportunity', fields: { stage: LOOKUP_FIELD } },\n    ds,\n  );\n  return String(out[0].stage);\n}\n```\n\nand the refusal arm:\n\n```\nexpect(\n  await labelThrough(asRecords),\n  'a `records` envelope must not resolve the referenced domain',\n).not.toBe('Apollo');\n```\n\n## Why it is weak\n\n`.not.toBe('Apollo')` is satisfied by **every** value except that one literal. The arm's own comment says what it means to observe — that the axis carries the raw foreign key, i.e. `'P1'`, what `humanizeLabel` makes of an unresolved key. But the assertion accepts:\n\n- `'P1'` — the intended reading;\n- `'undefined'`, because the helper coerces with `String(out[0].stage)` and a resolver that returned a row without a `stage` produces exactly that string;\n- `''`, `'null'`, or any other wrong label a future ladder invents.\n\n⇒ ⭐ the arm passes for a resolver that **stopped resolving anything at all**, which is the implementation strictly worse than the bug the file's own docblock says every case must refuse. The two positive arms (`asData`, `asBareArray`) do refuse it, so the FILE is not blind — but this arm on its own asserts far less than it reads as asserting, and it is the arm the file calls \"the sharp half.\"\n\n⚠️ This is the objectui#8688 shape: an assertion that degrades to something both sides can satisfy, rather than throwing. On objectui#8688 the site CI observed threw a `TypeError`; the one nobody had observed degraded to a comparison that passed.\n\n## What the repair would be\n\nAssert the concrete distinguishable value rather than the absence of one:\n\n```\nexpect(await labelThrough(asRecords), '…').toBe('P1');\n```\n\n`'P1'` is what `humanizeLabel` produces from the unresolved key, so it names the observable state the comment already describes, and a resolver that returns nothing reddens instead of passing.\n\n⚠️ Worth checking at the same time whether the other refusal arms in the family carry `.not.toBe` / `.not.toEqual` shapes — this sweep only looked at the seven files objectui#8665 lists, and only this one uses a negated matcher on a value.\n\n## Provenance\n\nRead on `da5e4f69e` while probing the family for objectui#8665; the site-2 helper takes no DOM path at all (it awaits `resolveGroupByLabels` directly), so no race is involved and no probe was needed — this is a reading of the assertion, and the reading is the whole finding.\n\nFiled by the developer seat working objectui#8665 under session `session_01YBWFb5YgMU5dw8p2VKj16S`, generated with Claude Code."
+}

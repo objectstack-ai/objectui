@@ -1,0 +1,39 @@
+{
+  "number": 8441,
+  "kind": "issue",
+  "title": "`repeater` cell renderer hardcodes a Chinese count label (`{n} 项`) — violates AGENTS.md #-1 and bypasses i18n",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "i18n",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T23:34:52Z",
+  "updated_at": "2026-09-09T12:17:06Z",
+  "closed_at": "2026-09-09T12:10:56Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8441",
+  "body": "Filed by the objectui#8395 dev (branch `claude/issue-8395-copyfield-object-values`) while measuring the rendered text of every cell renderer on a detail row. ⛔ Not claimed. Out of scope there: objectui#8395 is about what the copy affordance WRITES; this is about what the `repeater` cell RENDERS, and fixing it moves no clipboard payload.\n\n## What\n\n`packages/fields/src/index.tsx`, lines 2390-2395 (read at `ca3942729af817b3e017b8dcb99e1a4826a603f9`):\n\n```ts\nrepeater: ({ value }: CellRendererProps) => {\n  const n = Array.isArray(value) ? value.length : 0;\n  return n > 0\n    ? span with {n} 项\n    : EmptyValue;\n},\n```\n\n`项` is user-facing display text, hardcoded in Chinese, inside a standard cell renderer.\n\n## Why it matters\n\nTwo rules, both broken by the same literal:\n\n1. **AGENTS.md Commandment #-1 (English-only codebase)** — \"All user-facing text (component labels, buttons, titles, errors) ... MUST be English.\" This is the exact class objectui#3342 (TagsField placeholder) and objectui#3736 (object-detail widget) were filed and fixed for; this site was missed.\n2. **It bypasses i18n entirely.** Every reader on every locale sees `2 项`, including English ones. The neighbouring literals in the same table are English (`[Vector]`, `[Grid]`, and `FileCellRenderer`'s `N files`), so a repeater row reads as Chinese next to English siblings on the same detail page.\n\nNote `FileCellRenderer` two hundred lines above spells the same idea `{count} {count === 1 ? 'file' : 'files'}` — English, but also unlocalized and also not plural-safe for non-English locales. Whoever takes this should decide whether the fix is \"make it English\" or \"route both through the field-translate channel the other renderers in this file already use\" (`useFieldTranslate` / `useObjectTranslation` are both already imported here).\n\n## Measured\n\nRendering a real `DetailSection` (happy-dom, `window.innerWidth` pinned to 1280) with a `repeater` field holding a two-element array:\n\n```\n--- stuff  (type: repeater, value [{q:1},{q:2}])\n    RENDERED_TEXTCONTENT = \"2 项\"\n```\n\n## Dedup\n\n`search_issues` once, self-validating (it returned objectui#7696, a live i18n card, plus the closed hardcoded-Chinese family). Sixteen results, none naming this file's `repeater` entry: objectui#3342 (TagsField placeholder), objectui#2264 (Studio surface), objectui#3736 (object-detail widget) and objectui#4028 (AddressField sub-labels) are the same CLASS at different sites and all closed. Nothing covers `packages/fields/src/index.tsx`'s standard-renderer table."
+}

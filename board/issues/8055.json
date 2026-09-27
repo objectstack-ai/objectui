@@ -1,0 +1,38 @@
+{
+  "number": 8055,
+  "kind": "issue",
+  "title": "finding(fields): `GeolocationField` renders a valid `0` coordinate as EMPTY, and leaks a literal `0` into the DOM",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: fields",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T13:18:20Z",
+  "updated_at": "2026-09-09T21:38:27Z",
+  "closed_at": "2026-09-09T21:34:25Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8055",
+  "body": "Found while implementing #6848 (the emission fix). Out of that card's scope and deliberately **not** fixed there: #6848 is about the widget's **emission** path (`handleFieldChange`), this is its **display/read** path. Different code, different defect class. Filed unassigned for triage.\n\n## What was measured\n\n`packages/fields/src/widgets/GeolocationField.tsx` guards its display branches with **falsy tests on the parsed NUMBER**, so a legitimate `0` coordinate — the equator (`latitude: 0`) or the prime meridian (`longitude: 0`) — takes the \"no location\" branch.\n\nMeasured by rendering the real widget (happy-dom, `@object-ui/fields` suite), reading `document.body.textContent`:\n\n| value | readonly render | expected |\n|:--|:--|:--|\n| `{ latitude: 30.2741, longitude: 120.1551 }` (control) | `\"30.274100, 120.155100View on map\"` | correct |\n| `{ latitude: 0, longitude: 120.1551 }` (a real point on the equator) | `\"—0\"` | `\"0.000000, 120.155100View on map\"` |\n| `{ latitude: 0, longitude: 0 }` | `\"—0\"` | the coordinates |\n\nEditable mode, same value `{ latitude: 0, longitude: 120.1551 }`: the buttons rendered are `[\"Use Current Location\"]` — the **\"View on map\"** button is suppressed. The control renders `[\"Use Current Location\", \"View on map\"]`.\n\n## Two distinct defects in that one reading\n\n**1. A valid location displays as empty.** `—` is the `EmptyValue` placeholder. `formatLocation` is\n\n```\nif (!loc.latitude || !loc.longitude) return '';\n```\n\nso any coordinate pair containing a zero formats to `''` and the widget shows the empty placeholder instead of the location the record actually holds. \"View on map\" is withheld from the same value by the same shape of guard.\n\n**2. A literal `0` leaks into the rendered output** — the trailing `0` in `\"—0\"`. The guard is written as a JSX render expression:\n\n```\n{location.latitude && location.longitude && (\n  ... View on map button ...\n)}\n```\n\nWith `location.latitude === 0`, `0 && x` evaluates to `0`, and React **renders the number 0** as a text node rather than rendering nothing. The user sees a stray `0` next to the empty-value dash. This is the standard `&&`-with-a-numeric-operand React hazard, not a variant of defect 1: fixing the emptiness test alone would leave it, and fixing the render guard alone would leave the emptiness.\n\n## Affected sites (re-taken on `main`, `packages/fields/src/widgets/GeolocationField.tsx`)\n\n- `:153` `if (!loc.latitude || !loc.longitude) return '';` — `formatLocation`\n- `:158` `if (!location.latitude || !location.longitude) return;` — `openInMaps` refuses to open a valid location\n- `:174` `{location.latitude && location.longitude && (` — readonly \"View on map\"; **the `0`-leaking site**\n- `:210` `{location.latitude && location.longitude && (` — editable \"View on map\"; same shape\n- `:268` `{location.accuracy && (` — an accuracy of `0` hides the accuracy row; same shape, and it renders a stray `0` too\n\n`:230` `value={location.latitude ?? ''}` is **correct already** — it uses `??`, so the input box shows `0` properly (measured: `\"0\"`).\n\n## Not the same as #6848\n\n#6848's emission guard, `fieldValue ? Number(fieldValue) : null`, tests the raw input **string**, and `'0'` is not empty — so `0` is emitted correctly as `0`. That was measured under #6848 and is now pinned in `packages/fields/src/__tests__/GeolocationClearEmission.test.tsx`. The falsy-vs-zero problem is live only on the display side, which is what this card is about.\n\n## Not measured here\n\nWhether the sibling `LocationField` has the same display-side shape, and whether any consumer depends on the current empty rendering. Both are cheap to check and belong to whoever picks this up.\n"
+}

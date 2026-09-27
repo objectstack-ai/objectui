@@ -1,0 +1,36 @@
+{
+  "number": 8026,
+  "kind": "issue",
+  "title": "plugin-calendar: `ObjectCalendar` resolves `allDayField` into its `CalendarConfig` and never reads it — `allDay` is inferred from the absence of an end date, while the `calendar-view` sibling honours the key",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "plugin",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T11:24:50Z",
+  "updated_at": "2026-09-09T05:25:15Z",
+  "closed_at": "2026-09-09T05:24:30Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8026",
+  "body": "Filed unassigned, out of scope for objectui#7711 (`filter.calendar` retirement), found while auditing what `getCalendarConfig` can return. Measured on `origin/main` @ `f5c8b8e`, from the worktree of branch `claude/issue-7711-calendar-config-key`.\n\n## Measured\n\n`packages/plugin-calendar/src/ObjectCalendar.tsx` resolves the key into the config it returns:\n\n```\n:168          allDayField: (schema as any).allDayField\n```\n\nand then never reads it back. The events pass destructures only four keys and infers the flag:\n\n```\n:527    const { startDateField, endDateField, titleField, colorField } = calendarConfig;\n:603          allDay: !endDate, // If no end date, treat as all-day event\n```\n\n`git grep -n \"allDayField\" packages/plugin-calendar/src/ObjectCalendar.tsx` returns the resolution site and the memo dependency only — no consumer.\n\n## Why it matters\n\nThe key is declared, documented and plumbed, and it is silently dropped by this one renderer:\n\n- **Declared, and by the spec.** `CalendarConfig` is re-exported straight from `@objectstack/spec/ui` (`packages/types/src/objectql.ts:145`, `CalendarConfigSchema`); `packages/types/src/complex.ts:512` carries `allDayField?: string` with `@default 'allDay'` and the doc comment \"Record field indicating an all-day event.\"\n- **Plumbed.** `packages/app-shell/src/views/ObjectView.tsx:2085` lists `allDayField` among the flat keys it flattens down onto the view, so an authored value does reach this component.\n- **Documented.** `packages/plugin-calendar/README.md:254` tells authors to \"point `titleField` / `startDateField` / `endDateField` / `allDayField` / `colorField` at your own fields when they differ.\"\n- **Honoured by the sibling.** `packages/plugin-calendar/src/calendar-view-renderer.tsx:285,292` does exactly what the declaration says: `const allDayField = schema.allDayField || 'allDay'` then `allDay: record[allDayField]`.\n\nSo two renderers in one package answer the same declared key two different ways. An author who sets `allDayField: 'is_all_day'` on an `object-calendar` gets the flag computed from whether the record happens to carry an end date instead — and a record with a real end date that IS flagged all-day renders as a timed event, with no diagnostic.\n\nNot the same defect as objectui#5667 (which recorded `calendar-view` dropping declared `CalendarViewSchema` keys, and is closed): this is the opposite component and the opposite direction — `calendar-view` reads it, `object-calendar` does not.\n\n⚠️ Not measured here: whether the inference at `:603` is itself the ruled behaviour and the declaration is the thing that should go, or whether the read is simply missing. Both directions are open — that judgement is triage's, not this report's.\n\nRefs: objectui#7711 (the card this was found under, which does not touch it).\n"
+}

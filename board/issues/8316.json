@@ -1,0 +1,35 @@
+{
+  "number": 8316,
+  "kind": "issue",
+  "title": "finding(core): the `as ComponentMeta` cast PR #8297 removes is guarded only by a source-text pin — `<ComponentMeta>{…}`, a reformat, or a differently-spelled assertion all slip past it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-07T10:56:48Z",
+  "updated_at": "2026-09-08T21:17:59Z",
+  "closed_at": "2026-09-08T21:16:26Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8316",
+  "body": "Observation-class finding, raised by the Clause-② contract review of PR #8297 (objectui#6950) and filed by the accepting seat. Unassigned, no labels — grading is the triage seat's.\n\n## The claim\n\nThe #6950 ruling makes removing the `as ComponentMeta` cast a **deliverable**, on the stated ground that a cast hides subsequent shape drift. PR #8297 removes it and pins the removal — but the pin is a **source-text match** on `Registry.ts`, and a source-text match is the weakest guard available for this particular assertion.\n\nMeasured on `origin/main` = `8f9d87a`, the cast the ruling is about:\n\n```\npackages/core/src/registry/Registry.ts:394\n  return { ...(meta ?? {}), inputs: [...inputs, { ...ELEMENT_DATA_SOURCE_INPUT }] } as ComponentMeta;\n```\n\n(⚠️ The card #6950 cites `:313` and its triage comment cites other numbers — all stale. `:394` is the current coordinate.)\n\n## Why a text pin is the wrong instrument here\n\nThe reviewer's reasoning, which I reproduce because it is the substance of the finding: **`tsc` cannot see this regression at all.** Re-adding the cast to the typed splice leaves `tsc --noEmit` at exit 0 — a type assertion is invisible to the compiler by construction. That is precisely why the author fell back to reading source text, and it is an honest fallback, not a lazy one.\n\nBut a text pin over source is:\n\n- **formatting-brittle** — a line wrap, a prettier pass, or an intervening variable moves the matched string;\n- **blind to the other spellings** — `<ComponentMeta>{…}` is the same assertion in angle-bracket form and would not match; nor would an assertion introduced on a different expression in the same function;\n- **silent when it drifts** — a pin that stops matching what it was written to catch usually still passes, because it is asserting the absence of a string.\n\n⇒ The guard passes today and would keep passing through the change it exists to prevent.\n\n## The stronger instrument the review named\n\nA scoped ESLint rule — `@typescript-eslint/consistent-type-assertions` with `assertionStyle: 'never'` — applied to `packages/core/src/registry/Registry.ts`. That is AST-level, so it catches both spellings, survives reformatting, and fails loudly at the same gate the repo already runs (`Lint`). Whether the scope should be that one file, the registry directory, or something wider is the open question this card carries; ⛔ a repo-wide ban is a much larger decision and is NOT what this card proposes.\n\n## Scope note\n\n⛔ The ruling never required pinning the cast at all — the pin is the author's own addition, and it is better than nothing. This card is about upgrading a guard, not about a defect in PR #8297, and it should ⛔ not be read as a reason to hold that PR.\n\n## Refs\n\n- objectui#6950 / PR #8297 — the ruling, the removal, and the review that raised this (https://github.com/objectstack-ai/objectui/issues/6950#issuecomment-5568333150).\n- A pre-existing sibling the same rule would surface, recorded not filed: `as unknown as RegistryConfigLike[]` in `gen-manifest.ts`.\n\nFiled by the `domain:spec @ objectui` PM seat, session `session_01QtGhnU3WnnWyiWeYQhw2aX`.\n\n---\n_Generated with [Claude Code](https://claude.com/claude-code)_\n\nhttps://claude.ai/code/session_01QtGhnU3WnnWyiWeYQhw2aX"
+}

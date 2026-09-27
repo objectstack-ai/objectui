@@ -1,0 +1,34 @@
+{
+  "number": 8576,
+  "kind": "issue",
+  "title": "`KbdGroup` declares `React.ComponentProps&lt;'div'&gt;` and returns a `kbd` — unlike `EmptyDescription`, this mismatch may be type-observable",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T13:08:05Z",
+  "updated_at": "2026-09-10T04:55:23Z",
+  "closed_at": "2026-09-10T04:38:38Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8576",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8571 dev, which found it with the class-wide sweep it built while landing PR #8574 and could not file it — its dedup control query returned `total_count: 0` for `EmptyDescription`, a word in objectui#8571's own title, so the search channel is dead for absence; repo-scoped REST is 403 for that seat. ⛔ Not claimed.\n\n## What is there\n\n`packages/components/src/custom/kbd.tsx` — `KbdGroup` declares its props as `React.ComponentProps<'div'>` and returns a `kbd`. Upstream shadcn carries the same shape.\n\n## ⚠️ Why this is NOT a repeat of objectui#8571\n\nobjectui#8571 fixed `EmptyDescription`, which declared `'p'` and rendered a `div`. That one turned out to be **invisible to `tsc`**: measured under TypeScript 6.0.3 / `@types/react` 19.2.18, `React.ComponentProps<'div'>` and `React.ComponentProps<'p'>` are **identical types** — `HTMLAttributes` is one interface for every element, and `HTMLDivElement` / `HTMLParagraphElement` share every member. The repair there was honest documentation, not type safety.\n\n**`HTMLDivElement` and `HTMLElement` are not identical.** `kbd` resolves to `HTMLElement`, which is a supertype rather than a sibling — so a `ref` typed `HTMLDivElement` receiving an `HTMLElement` is a real assignability question, not a cosmetic one. **Measure it before assuming either way**: the whole reason objectui#8571 shrank from a type-safety fix to a documentation fix is that nobody had checked whether the two types actually differ.\n\n## The decision\n\nTwo directions, and unlike objectui#8571 the safe default is not obvious:\n\n1. **Type follows element** — declare `React.ComponentProps<'kbd'>`. Matches what ships. If the types genuinely differ, this may **break callers** who are passing `div`-typed refs today, so census the call sites first.\n2. **Element follows type** — render a `div`. Matches the declaration and the name (*group*), but changes rendered output and loses the `kbd` semantics that presumably motivated the element.\n\n⚠️ Read what a **group of `kbd` elements** should semantically be before choosing. A `kbd` containing `kbd`s is legal HTML; a `div` wrapping them is also legal. This is a semantics question wearing a types question's clothes, and the answer decides the direction rather than following from it.\n\n## Already ratcheted\n\nPR #8574 added a class-wide guard that reads the **source** of every judged function component under `packages/components/src/custom` (the `ComponentProps` literal must equal the returned intrinsic tag) and ties it to the DOM by rendering and reading `tagName`. `KbdGroup` is **ledgered in it** as `'kbd.tsx:KbdGroup': 'div -> kbd'` — an accepted exception carrying this card's number.\n\n⇒ **The exception line must be removed in the same PR that fixes this**, or the guard will keep accepting the mismatch. Whoever takes this should confirm the guard reddens on removal before repairing, so the ratchet is exercised rather than assumed.\n\n## Evidence bar\n\n⚠️ **`type-check` may not be the discriminating instrument here** — it was not for objectui#8571. Measure whether the two types actually differ before designing a pin around them; if they do not, the discriminating instrument is the source pin plus the rendered `tagName`, which PR #8574 already provides.\n\n⭐ The caricature is widening the props (to `ComponentProps<'div'> & ComponentProps<'kbd'>`, or to `any`) — it makes the mismatch go away by deleting the constraint, and it was the **only** leg `type-check` could see on objectui#8571.\n\n## Related\n\nobjectui#8571 / PR #8574 (the sibling defect, the identical-types measurement, and the guard this card is ledgered in) · objectui#8342 (type-level cases red only in the test program — the rule that did **not** hold for #8571)\n\n## Dedup\n\n⚠️ **Declared, NOT claimed.** The reporting seat's control query returned zero for a word in the very card it was working, so the channel is dead for absence; this seat has not run one either, for the same reason — measured today returning `total_count: 0` for `ValueDataSource` while objectui#8447's own title contains that word. **No dedup claim is made.** Suggested manual check: objectui#8571's thread and any card touching `packages/components/src/custom/kbd.tsx`."
+}

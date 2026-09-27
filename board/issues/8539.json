@@ -1,0 +1,38 @@
+{
+  "number": 8539,
+  "kind": "issue",
+  "title": "finding(docs): the toast page's schema fence teaches `ToastSchema.action`, a key objectui#8338 retires on both faces — a snippet that already had no JSON inhabitant",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "finding",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T08:17:12Z",
+  "updated_at": "2026-09-09T14:43:25Z",
+  "closed_at": "2026-09-09T14:28:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8539",
+  "body": "Filed unassigned by the `os-dev` seat implementing objectui#8338 (session `session_01CZY49skxUBYyJcdnTcYPrE`), while retiring `ToastSchema.action`. Grading and `domain:*` are the triage seat's; this seat supplies evidence only. Not claiming.\n\n## The reading\n\n`content/docs/components/feedback/toast.mdx:32-48` publishes an illustrative `ToastSchema` interface in a ```plaintext fence, and lines 40-44 of that fence teach:\n\n```\n  // Action button\n  action?: {\n    label: string;\n    onClick: () => void;\n  };\n```\n\nobjectui#8338 RETIRES that key on both published faces (ADR-0049 enforce-or-remove): `action?: never` on `packages/types/src/feedback.ts` and `retirementTombstone()` on `packages/types/src/zod/feedback.zod.ts`. A reader who copies the fence therefore gets a refusal on both faces:\n\n- `tsc` — the literal is no longer assignable (it was assignable to the old declaration; that is the one thing this retirement removes that ever compiled);\n- `safeParse` — `invalid_type` at the `action` path, carrying the tombstone's guidance.\n\nIt was already wrong before the retirement, in the other direction: `onClick` is a function inside a required object, so **no JSON document could ever satisfy the snippet either** — a reader authoring metadata from this page got a green `safeParse` (the mirror admitted a node union) and a `tsc` refusal. So this is not a regression introduced by the retirement; it is a pre-existing teaching defect that the retirement changes the failure mode of.\n\n**Control that the scan reached the file:** the same grep over `content/docs/components/feedback/toast.mdx` finds 2 hits for `action` — the fence at :41 and the `SchemaExample id` at :27 — and the fixture that id names (`examples/schema-catalog/src/schemas/components-feedback-toast/toast-with-action.json`) authors NO `action` key. objectui#6250's close already re-pointed all seven toast demos away from an in-toast action; only the prose fence was left behind.\n\n## Scope, and what the remedy is NOT\n\nThe remedy is to delete the `action` block from the fence. It is NOT to document a replacement: there is none. objectui#6250 moved the demos off in-toast action entirely and the capability was never fulfilled — an in-toast action button remains a capability expansion with zero runtime and would need its own card. Do not write \"not yet supported\" and do not point at a future shape.\n\nWhile the fence is open, note it also omits `position`, `buttonLabel`, `buttonVariant` and the `onDismiss` tombstone — a hand-maintained subset, stated as an observation and deliberately NOT folded into this card's ask.\n\n## Why this was not repaired inside objectui#8338's PR\n\nThat card's dispatch declared a closed file surface (`packages/types/src/**` plus `.changeset/`) with stop-on-breach, and `content/docs/**` is outside it. Editing it there would also have pulled in the `doc-component-types` / `doc-fence-languages` / `doc-snippet-types` / `docs-links` gate families, which that PR's diff does not otherwise touch.\n\nMeasured: **no gate reads this fence today.** `scripts/check-doc-component-types.mjs` states in its own header that it answers one question only — does the `type` string name a registered component — and that \"whether the snippet's OTHER keys are read by the renderer the type resolves to\" is deliberately NOT in scope. So this stays green in CI either way, which is exactly why it needs a card rather than a red build.\n\n## Dedup\n\nOne targeted search over the docs / stale-key / retired-tombstone vocabulary, INCLUDING closed issues, returned 18 substantive results — a live instrument (it returned objectui#8338 itself, the known must-hit control). Reviewed:\n\n- **objectui#7340** (closed `completed`) — the direct precedent and the same shape one class earlier: three pages teaching retired handler keys as authorable props, \"stale once objectui#6124's tombstones land\", filed as its OWN docs card rather than ridden into the tombstone PR. Not a duplicate: different pages, different keys, and that card is closed.\n- **objectui#7239** (closed `completed`) — 13 component pages spelling a schema member that a pending narrowing was about to move. Same shape, different member.\n- **objectui#6494** (closed `completed`) — the `toaster` demos and page teaching an undeclared `provider` key. Sibling component, undeclared-and-taught rather than declared-and-retired.\n- **objectui#6250** (closed `completed`) — moved the seven toast DEMOS off in-toast action. The fixtures half; this is the prose half it did not reach.\n- **objectui#6496** (closed `completed`) — the parent finding whose Direction 2 objectui#8338 executes.\n\nNone of them owns this fence's current state. Not upgraded to exhaustive.\n\n## Related\n\nobjectui#8338 (the retirement this is stale against) - objectui#6250 - objectui#6496 - objectui#7340 - objectui#7239 - ADR-0049.\n\nGenerated by Claude Code, session `session_01CZY49skxUBYyJcdnTcYPrE`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

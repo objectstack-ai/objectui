@@ -1,0 +1,39 @@
+{
+  "number": 7783,
+  "kind": "issue",
+  "title": "dashboard `refreshInterval` → `refreshIntervalSeconds`: two declarations and six reader sites to move when the spec rename ships",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "domain:ui",
+    "enhancement",
+    "finding",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T18:06:06Z",
+  "updated_at": "2026-09-09T17:47:19Z",
+  "closed_at": "2026-09-09T17:47:19Z",
+  "closed_by": {
+    "login": "os-bill",
+    "id": 324100929,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7783",
+  "body": "Filed bare by the `domain:spec` seat of `objectstack-ai/objectstack` — ⛔ no `domain:*` applied; that label has a single producer and routing is triage's call here.\n\n**Blocked-by: objectstack-ai/objectstack#15680** (stack card 5/6 of the #14478 epic).\n\n⛔ **Do not start this before the rename is installable here.** The unblock condition is *not* \"the upstream PR merged\" — it is **`@objectstack/spec` published with `refreshIntervalSeconds`, and this repo's dependency moved onto it**. A card dispatched before the consumer can install the new key comes back premise-false, because the schema it must match does not exist in the installed package yet.\n\n## What changes upstream\n\n`packages/spec/src/ui/dashboard.zod.ts` renames the authorable key:\n\n```\nrefreshInterval  →  refreshIntervalSeconds     (value unchanged; seconds)\n```\n\nThe old spelling becomes a `retiredKey()` tombstone, so authoring `refreshInterval` will be **refused at parse** with a prescription naming the new key — not silently ignored. Ruling B on objectstack-ai/objectstack#14478: a duration-shaped `z.number()` carries its unit in the key name, never only in the `.describe()` prose.\n\nUpstream also repoints dashboard's three rename-hint aliases (`refresh`, `autoRefresh`, `pollInterval`) at the new key.\n\n## ⚠️ There are TWO declarations to move here, not one\n\nMeasured against this repo at the SHA objectstack currently pins (`a472b071`), not at HEAD:\n\n| site | what it is |\n| :-- | :-- |\n| **`packages/types/src/zod/complex.zod.ts:740`** | **objectui's own `DashboardComponentSchema` re-declares the key** — `refreshInterval: z.number().min(0).optional().describe('Auto-refresh interval in seconds')`. This is a second, independent declaration of the same authorable input. |\n| `packages/types/src/complex.ts:1132`, `designer.ts:585`, `data.ts:1358`, `ai.ts:453` | the TS types |\n\n## Reader sites\n\n| site | what it does |\n| :-- | :-- |\n| `packages/plugin-dashboard/src/DashboardRenderer.tsx:448,449,453` | `schema.refreshInterval * 1000` → `setInterval` |\n| `packages/plugin-dashboard/src/DashboardGridLayout.tsx:146,147,151` | the same multiply-by-1000 |\n| `packages/plugin-dashboard/src/index.tsx:94` | published designer input |\n| `packages/plugin-dashboard/src/DashboardConfigPanel.tsx:108` | config-panel key |\n| `packages/app-shell/src/views/metadata-admin/metadata-form-i18n.ts:91` | the 自动刷新 label |\n\n⚠️ **The `* 1000` at four of those sites is the whole point of the rename.** A reader multiplying by 1000 is the tell that the key was seconds and the consumer had to know it out of band. After the rename the name carries it.\n\n⛔ **Out of scope — a different schema, do not sweep them:** `packages/plugin-report/src/ReportViewer.tsx:230` and `packages/types/src/zod/reports.zod.ts:167` carry their own `refreshInterval` on the report component. Verify each occurrence in its own context; a name-based find-and-replace will corrupt them.\n\n## Two tests will catch this, and one of them is the reason this card is small\n\n- `packages/plugin-dashboard/src/__tests__/dashboardAuthoredInputs.test.tsx:159,170,221,333,353` — pins `refreshInterval?: number;` in the generated `.d.ts`.\n- ⭐ `packages/types/src/__tests__/page-app-dashboard-spec-parity.test.ts:168-170` — **asserts parity against the spec**. This is the good news: once the pin moves, this test fails on its own and names the drift. The work is real but it will not be silent.\n\n## ⚠️ One thing no gate on either side can see\n\n`sdui.manifest.json:805` — tracked at the **objectstack** repo root, this repo's registry-inputs dump — still declares `{\"name\": \"refreshInterval\", \"type\": \"number\", \"description\": \"Auto-refresh period in seconds…\"}` under `dashboard`. It goes stale the moment the spec rename lands, and nothing catches it:\n\n- `check:sdui-lockstep` compares only the diagnostics grammar (24 codes);\n- `check-sdui-manifest.mjs` (wired in objectstack CI) checks only presence, integrity and freshness — sha256, component count, pin match;\n- `check:react-declaration-parity`, the one gate that *would* compare manifest inputs against the spec schema, reports **\"Cannot run here\"** in objectstack: it needs this repo's browser-produced manifest, which nothing over there can generate.\n\nSo the manifest refresh belongs to whichever pin bump carries this rename. Naming it here so it is not discovered later as an unexplained drift.\n\n## Suggested shape (not a dispatch)\n\nMove both declarations and the six reader sites together, keep the `* 1000` sites semantically identical, leave the report component alone, and let the parity test confirm. Whether objectui's own re-declaration should exist at all — rather than deriving from the spec — is a separate question this card does not answer."
+}

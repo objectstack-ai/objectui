@@ -1,0 +1,37 @@
+{
+  "number": 6843,
+  "kind": "issue",
+  "title": "finding(core): record-title.test.ts still calls the record-key probe \"step 3b\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-29T23:14:00Z",
+  "updated_at": "2026-09-09T00:41:24Z",
+  "closed_at": "2026-09-09T00:41:24Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6843",
+  "body": "`packages/core/src/utils/__tests__/record-title.test.ts:133` carries the same stale\nprecedence number that objectui#6634 corrected in the module it tests.\n\n## The site\n\n```\npackages/core/src/utils/__tests__/record-title.test.ts:132-133\n\n    // No fields to derive from, but the record carries a standard `name` → the\n    // record-level name probe (step 3b) resolves it (better than `Record #7`).\n```\n\n## Why `3b` is wrong here too\n\nSame rung, same argument as objectui#6634. `record-title.ts` states its ADR-0079 ladder\nfour times over and every one of them numbers the type-aware derivation from\n`objectDef.fields` as step `4`, with the `NAME_ISH_RECORD_KEYS` probe beneath it as `4b`:\nthe module docblock (`:37`), the resolver docblock (`:380` / `:381`), the\n`deriveTitleField` docblock (`:279`, *\"precedence step 4\"*), and the branch comments\nthemselves (`:437` / `:442`). Step `3` is `objectDef.titleFormat` — a rendered template,\nnot a record-key probe.\n\nThis same test file already spells it `4b` twice, at `:150` (*\"so step 4b answered it\nidentically\"*) and at `:245` (*\"name-ish by NEITHER step-4b rung\"*). So the file\ncontradicts itself seventeen lines apart, which is exactly the shape objectui#6634\nrecorded for the module.\n\n## Why it was not folded into that card\n\nobjectui#6634's fence is `packages/core/src/utils/record-title.ts` alone, and the card\nasked explicitly for other citing sites to be reported rather than renumbered. PR #6842\nfixes the module and lists this line as the one citing site that disagrees. Filed\nunassigned rather than widened into that PR.\n\n## The natural shape of the fix\n\nPR #6842 adds `packages/core/src/utils/__tests__/record-title.stepNumbering.test.ts`, a\nsource-reading pin that checks every sub-step label in `record-title.ts` against the\nnumber the file's own ladder gives the rung it sits under. That pin deliberately scans\nonly `record-title.ts`, which is why it is green today. Widening its scanned set to this\nsibling test file would both fix and mechanically hold this line — one edit plus one path\nin the pin's scan list.\n\nObservation only. No behaviour change: the number lives in comment text and no assertion\nreads it.\n\n## Duplicate scan before filing\n\nThe repo-scoped REST read channel is live in this container (authenticated\n`GET /repos/objectstack-ai/objectui/issues/6634` returned 200), so this went through REST\nplus a local grep rather than a search endpoint. objectui#6634's own filing-time targeted\nMCP `search_issues` already covered this file's step numbering and returned 8 hits with\nobjectui#6572 as its positive control; treating that as the established reading, only the\nincrement since was re-read here —\n`GET /repos/.../issues?state=open&since=2026-08-28T06:54:38Z&per_page=100&sort=created`,\n100 rows, locally grepped for `record-title` / `precedence step` / `3b` / `4b` /\n`deriveFromRecordKeys`. The only issue in that set about this ladder is objectui#6634\nitself; the other matches are unrelated PRs whose bodies happen to contain those short\nstrings. Nothing covers the test file's citation. Note the bound honestly: that listing\nwas capped at 100 rows, so it is a bounded increment read, not an exhaustive one.\n\nRefs: objectui#6634 · PR #6842 · objectui#6572\n"
+}

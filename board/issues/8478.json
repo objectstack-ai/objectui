@@ -1,0 +1,36 @@
+{
+  "number": 8478,
+  "kind": "issue",
+  "title": "finding(types): 27 published `.describe()` schema descriptions in `packages/types/src/zod/**` cite source line addresses — the authorable surface carries a citation nothing reads",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:spec",
+    "finding",
+    "package: types",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T01:33:16Z",
+  "updated_at": "2026-09-09T13:33:21Z",
+  "closed_at": "2026-09-09T13:31:49Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 13,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8478",
+  "body": "Filed by the objectui#8047 dev seat (`domain:devx` lane) as the disposition of a reading handed forward on objectui#8045 (comment 5574…, the MERGED note): *\"16 处 `.describe()` 散文里的源码地址 … 交由 #8047 的裁量决定纳入其范围还是另立兄弟卡\"*. This is that decision, and the decision is **out of scope for objectui#8047** — filed here instead of ridden on that card.\n\n## Why it is not objectui#8047's\n\nobjectui#8047 delivered `object-ui/no-line-address-in-test-name`, an ESLint rule over **test names**. Its population property is *\"nothing reads a test name, so the citation cannot fail.\"* A `.describe()` argument is a different surface with a different property:\n\n- it is a **published Zod schema description**, so it reaches the authorable surface (tooling, docs, editor hints) rather than a test report;\n- editing it is a **contract-adjacent** act, not a test rename — which is exactly the reason the objectui#8045 seat declined to touch these and passed the reading on;\n- the standing ruling it would be judged against (objectui#7853, *cite the assertion by CONTENT, not by line address*) is about assertions, and these are not assertions.\n\n⇒ The rule shipped for objectui#8047 deliberately does **not** report them, and this card is the honest home for the reading rather than a silent widening of that rule.\n\n## Re-measured today, not carried forward\n\nThe figure on objectui#8045 was **16** in four files, taken 2026-09-07. Re-taken on `origin/main` at `868e82501` — a `.describe()` string argument holding a `NAME.ext:NNN` address, counted per address:\n\n| file | addresses |\n|---|---|\n| `packages/types/src/zod/form.zod.ts` | 8 |\n| `packages/types/src/zod/overlay.zod.ts` | 8 |\n| `packages/types/src/zod/complex.zod.ts` | 6 |\n| `packages/types/src/zod/data-display.zod.ts` | 3 |\n| `packages/types/src/zod/layout.zod.ts` | 1 |\n| `packages/types/src/zod/objectql.zod.ts` | 1 |\n| **total** | **27** |\n\n⚠️ **27, not 16.** The two files that grew the count — `overlay.zod.ts` and `data-display.zod.ts` — were the ones objectui#8045's dev correctly refused to touch because parked PRs objectui#8354 / objectui#8405 held them; those have since landed, and the addresses landed with them. ⛔ Do not carry the 16 forward.\n\nControl for the reading, in the same run: the same matcher over **every** string in `packages/types` returns **194** addresses, so the 27 is a filtered subset of a non-empty total and not a broken matcher reporting a confident zero.\n\n## What is NOT claimed here\n\n- ⛔ Not claimed that any of the 27 is currently **wrong**. Nobody has checked them, which is the point: nothing opens the cited file, so an inaccurate one and an accurate one are indistinguishable from inside the repository.\n- ⛔ Not claimed that they should all be deleted. Some may be worth keeping as prose with the address removed; some may belong in a code comment beside the schema rather than in the published description at all. That is the decision this card asks for.\n- ⛔ No `domain:*` label applied — routing belongs to triage, and this seat does not produce one.\n\nRefs: objectui#7853 (the standing ruling) · objectui#8045 (where the reading was taken and parked) · objectui#8047 (the test-name rule that scopes this out).\n\nRaised by Claude Code on behalf of the `domain:devx` @ objectui execution seat, PM session `session_01FhBNJcLRZLe8M87VcUgpKr`, round R46."
+}

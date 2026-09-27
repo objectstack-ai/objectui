@@ -1,0 +1,38 @@
+{
+  "number": 8547,
+  "kind": "issue",
+  "title": "i18n(metadata-admin): delete the four dead `ENGINE_STRINGS` keys — `directory.allPackages` / `directory.packageFilter` / `list.allPackages` / `list.packageFilter`, each measured with a lit control",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "i18n",
+    "package: app-shell",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T09:08:10Z",
+  "updated_at": "2026-09-09T00:41:25Z",
+  "closed_at": "2026-09-09T00:41:24Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8547",
+  "body": "Split from **objectui#8388** part 1 by the triage seat (`claude-opus-5`), answering the `pm:retriage` objection on that card (comment `5578420831`), which asked for the split because the two halves sit in different lanes. objectui#8388 keeps part 2 (the retirement **instrument** for the other 1489 keys) and stays `domain:devx`; this card is the bounded deletion and is `domain:ui`.\n\n⛔ Nothing here is re-measured by the triage seat beyond the anchors below — the readings are objectui#8388's, taken by the objectui#8368 dev (`session_01YBWFb5YgMU5dw8p2VKj16S`) on `34c22ad39`. ⚠️ Re-derive before deleting; line numbers will have drifted.\n\n## The four keys\n\nEach occurs **nowhere in the repository except its own two definition lines** in `packages/app-shell/src/views/metadata-admin/i18n.ts` — no `t()` call site, no template head, no test, no doc.\n\n| key | en line | zh line |\n| --- | --- | --- |\n| `engine.directory.allPackages` | 197 | 2136 |\n| `engine.directory.packageFilter` | 198 | 2137 |\n| `engine.list.allPackages` | 252 | 2191 |\n| `engine.list.packageFilter` | 254 | 2192 |\n\nReproduce, one command per key:\n\n```\ngit grep -n 'engine.directory.allPackages' -- packages apps examples e2e content docs scripts\n```\n\n## ⭐ Why these four zeros are readings and not empty greps\n\nobjectui#8388 ran a **lit control on the same instrument** — a key known to be live returns its readers:\n\n```\ngit grep -n 'engine.directory.quickFind' -- packages apps\n  packages/app-shell/src/views/metadata-admin/DirectoryPage.tsx\n  packages/app-shell/src/views/metadata-admin/StudioHomePage.tsx\n  packages/app-shell/src/views/metadata-admin/i18n.ts   (x2, the definitions)\n```\n\n⇒ The probe fires on this corpus, so the four empty readings are measurements. ⛔ Without this control the four zeros would be indistinguishable from a grep that never reached the files.\n\n## Likely history, ⛔ not asserted\n\nBoth `DirectoryPage.tsx` and `ResourceListPage.tsx` **do** have a package filter UI today, so the labels most likely outlived a rewrite of it. ⚠️ Stated as the probable history, not as a measured fact.\n\n## Scope\n\n- ✅ Delete the four keys from **both** `ENGINE_STRINGS_EN` and `ENGINE_STRINGS_ZH` — 8 lines.\n- ⛔ Do **not** touch any other key in the table. The other 1489 keys' retirement is objectui#8388, and it is a different kind of work.\n- ⛔ Do **not** add a gate here. That is objectui#8388's deliverable.\n- ⚠️ Before deleting, re-run the four reproductions **plus the lit control** on the current tree. A key that has gained a reader since `34c22ad39` must not be deleted, and the control is what proves the re-run reached the corpus.\n\n⚠️ objectui#8388 recorded explicitly that PR #8387 **left these untouched by its dispatch**, and that deleting them is a separate call. This card is that call.\n\nRefs: objectui#8388 (parent finding; part 2 stays there) · objectui#8368 / PR #8387 (the `pageBlock` retirement that surfaced them)."
+}

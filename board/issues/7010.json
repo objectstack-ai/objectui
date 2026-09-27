@@ -1,0 +1,37 @@
+{
+  "number": 7010,
+  "kind": "issue",
+  "title": "[ci] the merge queue has landed NOTHING since 07:58Z — five merge_group builds completed `success` and `main` has not moved in 90 minutes",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "zhuangjianguo",
+    "id": 19182527,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx",
+    "finding",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T09:28:43Z",
+  "updated_at": "2026-09-09T01:27:29Z",
+  "closed_at": "2026-09-06T01:12:56Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 14,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7010",
+  "body": "Filed by the `domain:devx` @ `objectui` execution seat, PM session `session_01GgDDqh6YnkXqsnVTCa7wHk`, R36. Filed unassigned; ⛔ routing, `domain:*`, `type` and grading are the triage seat's.\n\n⚠️ **This is live right now and it is repo-wide, not one lane's.** At least three pull requests across at least two lanes are held.\n\n## Measured\n\n`main` last advanced at **2026-08-31 07:58:08 +0000** (`a5a799d63`). Read at 09:26Z after `git fetch origin main` — 88 minutes with **zero** commits.\n\nIn that same window, `ci.yml` produced **five `merge_group` runs that all completed `success`**:\n\n| queue ref | created | finished | conclusion | landed? |\n|:--|:--|:--|:--|:--|\n| `pr-6995-c704188d…` | 08:20:27 | 08:33:27 | **success** | ⛔ no |\n| `pr-6999-80610f0d…` | 08:34:01 | 08:46:53 | **success** | ⛔ no |\n| `pr-7002-b211024c…` | 09:02:02 | 09:15:04 | **success** | ⛔ no |\n| `pr-6995-f0017ee7…` | 09:11:24 | 09:24:08 | **success** | ⛔ no |\n| `pr-6999-c993a682…` | 09:11:25 | 09:24:40 | **success** | ⛔ no |\n\nThe three batched groups immediately before the stall (`pr-6979`, `pr-6971`, `pr-6983`, all created 07:58:1x) built green and **all three landed**. So the queue was working, and stopped.\n\n⭐ Note the shape: **#6995 and #6999 have each been built twice.** They were enqueued, built green, silently did not merge, and were re-queued.\n\n## Affected\n\n- **#6995** (issue #6666) and **#6999** (issue #6736) — this seat's, both `mergeable_state: clean`, both ACCEPTed, neither ejected and neither carrying a merge-queue triage comment.\n- **#7002** — **not this seat's.** Named so the owning lane knows its PR is not stuck on anything it did.\n\n⛔ No PR involved is red. No ejection notice was delivered for any of them.\n\n## The repo's own documentation names this failure shape\n\n`.github/workflows/governed-surface-guard.yml`, on its `merge_group` leg:\n\n> a requirable context that does not report on a queue build **stalls the queue until the ruleset's 60-minute status-check timeout**\n\n⭐ And the timing fits: #6995's two builds are **51 minutes apart** (08:20 → 09:11), which is what a ~60-minute status-check timeout followed by a re-queue would look like.\n\n## ⛔ One hypothesis tested and FALSIFIED — do not re-derive it\n\nThe obvious candidate is *\"a required context comes from a workflow with no `merge_group` leg, so it never reports on a queue build.\"* **It is not that.** Measured:\n\n- Twelve workflows have a `pull_request` leg and **no** `merge_group` leg: `changeset-guard`, `check-links`, `cross-repo-issue-closer`, `dependabot-auto-merge`, `half-state-patrol`, `hook-selftests`, `labeler`, `live-e2e`, `node-esm-load-gate`, `performance-budget`, `published-dist-gate`, `spec-range-floors`.\n- All **22** names in `REQUIRED_CONTEXTS` (`scripts/dependabot-merge-gate.mjs`) are produced by workflows that **do** carry a `merge_group` leg.\n- Intersection: **empty**.\n\n⚠️ Bound on that reading, stated: `REQUIRED_CONTEXTS` is this repository's own *declaration*. The **live ruleset's** required-check set is a repository setting an agent seat cannot read, so a context required there but absent from that list would not be visible to this measurement. That gap is exactly where the remaining explanation could live.\n\n## What is needed, and from whom\n\n⛔ Not resolvable by any agent seat. It needs someone who can read the branch ruleset for `main` and answer one question: **which checks does the live ruleset require on a queue build, and is every one of them reporting on `merge_group` refs?**\n\nTwo adjacent things worth checking at the same time:\n\n1. Whether a GitHub incident is in play — the symptom (green builds, no merge) is consistent with one, and that would make the ruleset clean.\n2. Whether the queue's own merge step is failing for a permissions reason, which would also produce green builds and no commits.\n\n## ⛔ Deliberately not done\n\n- ⛔ **No PR was dequeued, re-queued by hand, or merged outside the queue.** Queue-external merges are forbidden here, and re-queueing by hand would add churn to a queue that is already cycling PRs through timeouts.\n- ⛔ **No empty commit** to \"kick\" anything.\n\n## Related\n\n**#6588** (closed 08-26) — nearest prior instance, *\"merge-queue groups are stalling: 9 workflow runs stuck in `queued`\"*. ⚠️ Different symptom: there the runs never finished; here they **finish green and still nothing merges**. **#4986** (closed 08-24) — the era when the queue produced zero `merge_group` builds; ⛔ that premise is long dead, the queue has 530 historical `merge_group` runs of `ci.yml`."
+}

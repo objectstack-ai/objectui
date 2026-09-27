@@ -1,0 +1,39 @@
+{
+  "number": 8483,
+  "kind": "issue",
+  "title": "docs(app-shell): the README's flow draft teaches node type `action`, which `FlowNodeAction` does not contain and nothing in the flow canvas handles — a second re-classification out of the #8111 census",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "finding",
+    "package: app-shell",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T02:03:03Z",
+  "updated_at": "2026-09-09T15:05:10Z",
+  "closed_at": "2026-09-09T15:02:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8483",
+  "body": "Found while ruling the 25 candidate `DOC_TYPE_EXEMPTIONS` entries for objectui#8115 (the package-README census, PR #8111). Filed **unlabelled and unassigned**: grading and routing are the triage seat's. ⛔ Not repaired here — objectui#8115 forbids package README content edits.\n\nDedupe before filing: open issues carrying `finding` (154 rows, two pages) and `documentation` (31 rows) were pulled by repo-scoped REST and grepped locally for `flow.?node`, `FlowNodeAction`, `app-shell/README` and `DOC_TYPE_EXEMPTIONS`. Zero hits for this defect. Positive control in the same scan: objectui#7896 is present in the fetched set, so the reading is a reading.\n\n## The site\n\n`packages/app-shell/README.md:395`, inside the \"Visual flow canvas\" jsonc block:\n\n```jsonc\n{ \"id\": \"email\", \"type\": \"action\", \"label\": \"Send reminder\" },\n```\n\nPR #8111's census tabled this site as one of four *\"flow-graph node kinds\"* and therefore as a candidate exemption. Three of the four are real. This one is not.\n\n## Why it is not a flow node kind — measured on `c1ae1af0b`\n\n- **`FlowNodeAction`**, the canonical list of built-in node type ids, is declared in the `objectstack` sibling repo at `packages/spec/src/automation/flow.zod.ts:27-51`. Its 20 members include `start`, `end` and `decision` — the README's other three — and `action` is **not** among them.\n- **`NODE_PALETTE`**, the add-node palette at `packages/app-shell/src/views/metadata-admin/previews/flow-canvas-parts.tsx:333-355`, offers 18 kinds. `action` is not one of them.\n- **Nothing in the flow canvas, layout, inspector or simulator branches on a node type of `action`.** The `case 'action':` hits under `previews/` are in `AppNavCanvas.tsx` and `AppPreview.tsx`, which are the app NAVIGATION item vocabulary (`AppPreview.tsx:69` lists it beside `object` / `dashboard` / `page` / `url` / `report`), and `FlowCanvas.tsx:993`'s `pick('action')` reads a config KEY named `action`, not a node type.\n- **The consequence is a loud rejection, not a silent nothing.** `flow.zod.ts:14-16` records that `FlowNodeSchema.type` is a validated string *\"checked against the live action registry at `registerFlow()` time, not frozen here\"*. A reader who copies this draft gets it refused at registration.\n\nNegative-reading control, same run: `decision` resolves in `NODE_PALETTE` at `flow-canvas-parts.tsx:338` and in `FlowCanvas.tsx:960`, so the search does reach flow code and a zero for `action` is a measurement rather than a miss.\n\n## Why this matters for objectui#8115\n\nThe census's proposed exemption for this site would have read *\"flow-graph node kind\"*. That reason is **false**, and a false reason in `DOC_TYPE_EXEMPTIONS` is worse than a missing entry: the table's entire contract is that the next reader can re-check the ruling rather than take it. This is the second re-classification the census's 26 hits carry, alongside the `activity-timeline` defect already carded as objectui#8114 — which is itself the evidence that the 25 cannot be transcribed from the census table as a group of ten vocabularies.\n\n## Suggested repair, for whoever takes it\n\nThe node's label is \"Send reminder\", so `notify` is the built-in whose intent matches; `script` is the other candidate. Which one is a documentation decision, not a mechanical one, so it is left open here.\n\nRefs: objectui#8115, objectui#7896, objectui#8114, PR #8111.\n\nFiled by an `os-dev` seat working objectui#8115 under PM session `session_01FhBNJcLRZLe8M87VcUgpKr`. Generated with Claude Code (https://claude.ai/code)."
+}

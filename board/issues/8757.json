@@ -1,0 +1,36 @@
+{
+  "number": 8757,
+  "kind": "issue",
+  "title": "decision(ci): `check:doc-examples` is declared in package.json and run by no workflow — wire it, or record that it is hand-run only",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx",
+    "finding",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-09T04:00:12Z",
+  "updated_at": "2026-09-10T09:17:02Z",
+  "closed_at": "2026-09-10T09:15:53Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8757",
+  "body": "Filed unassigned by the os-dev seat implementing #8221 (branch `claude/issue-8221-retire-legacy-string-sort`). Deliberately NOT fixed there — different defect class, and #8221's diff must stay on the sort retirement.\n\n## Measured, with a control at the merge base\n\n`node scripts/check-doc-example-types.mjs` exits **1** on an unmodified `origin/main`, one failure:\n\n```\nUNDECLARED FAILURE  packages/types/src/zod/imported-defaults.ts:318 stripImportedDefaults\n  [semantic]  packages/types/src/zod/imported-defaults.ts:319:28  TS2304: Cannot find name 'stripImportedDefaults'.\n```\n\nThe measurement was taken in a **separate detached worktree at `f6205c10`** (the merge base), `pnpm install`, then the build the gate itself prescribes (`pnpm exec turbo run build $(node scripts/check-doc-snippet-types.mjs --build-filter) --concurrency=2`, exit 0), then the gate. Exactly one UNDECLARED FAILURE there, and exactly the same one on the #8221 branch — the delta from that branch is **zero**, which is what makes this a property of `main` and not of a pull request.\n\nControl that the gate is not simply refusing everything: on the same run it judged every other `@example` block in the tree and reported no other failure and no stale ledger row.\n\n## The example\n\n`packages/types/src/zod/imported-defaults.ts:318-322`:\n\n```ts\nimport { ListViewSchema as ImportedSpecListViewSchema } from '@objectstack/spec/ui';\nconst SpecListViewSchema = stripImportedDefaults(ImportedSpecListViewSchema);\n```\n\nThe block imports the spec schema it operates on but never imports `stripImportedDefaults`, which is the very symbol the example documents. The gate compiles each block in isolation against the built types, so the free identifier is TS2304.\n\nIt arrived with PR #8721 (objectui#8317), merged `645087cd` at 2026-09-09T02:24Z — about two hours before this reading.\n\n## Why nobody saw it\n\n`check:doc-examples` is declared in `package.json` and is run by **no workflow**:\n\n```\ngit grep -rn \"doc-examples\\|check-doc-example-types\" -- .github package.json\npackage.json:68:    \"check:doc-examples\": \"node scripts/check-doc-example-types.mjs\",\n```\n\nControl that the read fires: the sibling `check:doc-snippets` is grepped the same way and does appear in `.github/workflows/doc-snippet-types.yml`. So the absence above is a reading, not a bad grep.\n\n⚠️ The half that IS enforced per PR is `scripts/__tests__/check-doc-example-types.test.ts` (it runs under `pnpm test`), and it only asserts that every LEDGER ROW names a real block. It does not assert the absence of undeclared failures, so this class is invisible to CI in both directions.\n\n## The two honest routes\n\n1. Fix the example — add `import { stripImportedDefaults } from './imported-defaults';` (or make the fenced block a usage fragment that declares it), so the gate goes green on its own terms.\n2. Declare it — add a ledger row keyed `packages/types/src/zod/imported-defaults.ts:318 stripImportedDefaults` carrying codes `[2304]`, a written reason and the card that owns it, which is the escape hatch the gate itself prints.\n\n⚠️ Route 2 on a symbol's OWN example is the weaker one: the ledger's existing rows are all \"usage fragment references symbols the example never declares\", i.e. context the example deliberately elides. Here the missing name is the documented function itself, which is the one name a reader will copy.\n\n⚠️ Separately worth a decision, and NOT assumed here: whether `check:doc-examples` should join a workflow at all. A gate with a ledger and a maintained escape hatch that nothing runs is a gate that will keep drifting; but wiring it is a CI-surface decision, so it is named rather than taken.\n\n⛔ Note that the LINE NUMBER in a ledger key moves whenever anything above it in the file moves — #8221 had to re-key `packages/types/src/objectql.ts:1604 ObjectFormSchema` to `:1607` purely because three lines were added higher up. That coupling is a separate observation and is not part of this card.\n\n## Dedup\n\nMCP `search_issues` on `repo:objectstack-ai/objectui stripImportedDefaults example` returned `total_count: 0`. Known-hit control on the same tool in the same session: `repo:objectstack-ai/objectui convertSortToQueryParams` returned `total_count: 2` (#8221, #6006), so the zero above is a reading and not a silently cleared query.\n\nRelated: #8317 (the card whose PR added the example), #8221 (the card whose seat measured this).\n\nFiled by an agent seat via Claude Code, session `session_01Jmxdo7bmeqCQHLSfmLVX9w`."
+}

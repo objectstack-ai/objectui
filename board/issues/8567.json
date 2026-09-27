@@ -1,0 +1,37 @@
+{
+  "number": 8567,
+  "kind": "issue",
+  "title": "`convertFiltersToAST` still SILENTLY DROPS a non-Date exotic-object comparand — a bare RegExp widens the result set with no error",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T11:59:29Z",
+  "updated_at": "2026-09-09T18:57:53Z",
+  "closed_at": "2026-09-09T18:54:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8567",
+  "body": "Filed by the dev seat that implemented objectui#8555 / objectui#8557 (PR #8566), which measured this while closing the Date half of the same hole. Not claimed. No assignee.\n\n## Measured\n\n`packages/core/src/utils/filter-converter.ts` — the operator-object arm opens on `typeof value === 'object'` and iterates `Object.entries(value)`. Any object with **no own enumerable entries** therefore runs the loop body zero times and pushes **no condition for that field**.\n\nobjectui#8555 closed exactly one door of that hole — `Date`, which the spec rules IN as a literal comparand. Every other entry-less object is still dropped:\n\n```\n{ status: 'a', created: /abc/ }         ->  ['status', '=', 'a']\n{ status: 'a', tags: new Set(['x']) }   ->  ['status', '=', 'a']\n{ status: 'a', m: new Map() }           ->  ['status', '=', 'a']\n```\n\nSame failure direction as objectui#8555 and the worst one this file has: nothing throws, nothing warns, and the result set gets **wider** than the author asked for. As there, it needs a sibling field to become visible — with the exotic value alone, `conditions` ends empty and `convertFiltersToAST` returns the original object untouched.\n\n## Why this is its own card, not part of objectui#8555\n\nThe two shapes need **opposite** answers, which is why only one was in scope:\n\n- `Date` is one of the spec's six accepted literal comparand types (`ACCEPTED_FILTER_COMPARAND_TYPES` is `['string','number','bigint','boolean','null','Date']`), so objectui#8555 LOWERS it.\n- A `RegExp` is not. Measured against `@objectstack/spec` 17.3.0: `isAcceptedFilterComparand(/x/)` is `false`, and `normalizeFilterComparandTypes({ created: /x/ })` refuses with `INVALID_FILTER` / 400 and the message *\"Filter comparand at where.created is a RegExp instance ..., which no driver can compare.\"*\n\nSo the spec has already ruled this shape OUT. Lowering it would merely move the failure downstream; the open question is whether this layer should **refuse** it here — in the thrown `FilterOperatorError` idiom the file uses for `$regex`, `$not` and bare arrays — where the field name and the offending value are still in hand.\n\nA `RegExp` is the reachable case, not a hypothetical: `$regex` is refused in this file precisely because authors reach for patterns, and `{ name: /abc/ }` is the spelling someone tries next. It is the one shape here that fails silently instead of loudly.\n\n## Suggested direction (not ruled)\n\nRefuse a comparand the spec's own `isAcceptedFilterComparand` rejects, rather than dropping it. That reuses the predicate objectui#8555 already imports, needs no second list, and turns a silent widening into the same `INVALID_FILTER` / 400 the wire would have answered two layers later. Whoever takes it should check the one shape that must NOT be swept up: an empty operator object `{}` is the TRUE identity and constrains nothing today — that is deliberate and pinned in `filter-date-comparand-8555.test.ts`, which also pins the negative for the RegExp case so a fix here has a starting point rather than a blank file.\n\n## Dedup\n\nOne targeted `search_issues` call, self-validating (non-empty: it returned objectui#8555 itself as the control). Two hits, neither a duplicate: objectui#8555 is the Date half, closed by PR #8566; objectui#8452 is `not_contains` on a non-string stored value, matcher side, a different defect. The repo's zero-quota web search channel was tried first and its lit control returned zero, so that channel produced no reading and was abandoned rather than trusted.\n\n## Related\n\nobjectui#8555 / PR #8566 (the Date half of this hole, and where this was measured) · objectui#8530 / PR #8551 (the bare-array refusal, the idiom to follow) · objectui#8514 (the spec-declines-to-rule precedent, which does not apply here — the spec does rule)\n\nReported from the `domain:ui` dev seat, session reference `session_01YBWFb5YgMU5dw8p2VKj16S`."
+}

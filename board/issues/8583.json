@@ -1,0 +1,35 @@
+{
+  "number": 8583,
+  "kind": "issue",
+  "title": "types: `RecordDetailsComponentProps.sections[]` omits six member keys `@objectstack/spec` 17.3.0 declares, and declares one (`collapsed`) the spec refuses — a spec-valid section does not type-check",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "package: types",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T13:27:18Z",
+  "updated_at": "2026-09-08T19:52:09Z",
+  "closed_at": "2026-09-08T19:47:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 17,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8583",
+  "body": "Found while implementing objectui#8497 (the `sections[].group` reference form). Filed unassigned; **not** fixed there — #8497's PR moves only the two members its own change needs (`fields` to optional, `group` added), because the rest is a pre-existing divergence that predates it and deserves its own decision.\n\n## The divergence\n\n`@object-ui/types` `packages/types/src/record-components.ts` declares the `record:details` section entry as:\n\n```ts\nsections?: Array<{\n  name?: string;\n  label?: string;\n  fields?: string[];   // optional as of #8497\n  group?: string;      // added by #8497\n  collapsible?: boolean;\n  collapsed?: boolean;\n}>;\n```\n\n`@objectstack/spec` 17.3.0 (`packages/spec/src/ui/component.zod.ts`, `RecordDetailsProps.sections`) declares these members on the same entry:\n\n`name` · `label` · `columns` · `group` · `fields` · `hideEmpty` · `collapsible` · `showBorder` · `defaultCollapsed` · `icon` · `description` · `headerColor`\n\nSet difference, both directions:\n\n| direction | keys |\n|---|---|\n| spec declares, this type omits | `columns`, `icon`, `description`, `showBorder`, `defaultCollapsed`, `headerColor` |\n| this type declares, spec refuses | `collapsed` |\n\n## Why it is not cosmetic\n\n`RecordDetailsRenderer` honours the omitted keys — it spreads every authored member through to `DetailSection`, which reads `columns`, `icon`, `description`, `showBorder`, `defaultCollapsed` and `headerColor`. So the TypeScript face is the only layer that says no.\n\nMeasured while writing #8497's type pin, and it is how this was found: the literal\n\n```ts\nconst props: RecordDetailsComponentProps = { sections: [{ group: 'terms', columns: 2 }] };\n```\n\nis accepted by `@objectstack/spec`, rendered correctly by this repo's renderer, and **refused by `tsc`**:\n\n```\nerror TS2353: Object literal may only specify known properties,\nand 'columns' does not exist in type '{ name?: ...; label?: ...; fields?: ...; group?: ...; collapsible?: ...; collapsed?: ... }'\n```\n\n⚠️ Worth recording separately: `vitest` was **green** on that same literal — it strips types — and only `type-check` saw it. A pin for a type-level claim that runs under the test project alone measures nothing.\n\n`collapsed` runs the other way: it is declared here, no producer can emit it through a spec parse (the section object answers `unrecognized_keys` for it), and the spec's spelling for that state is `defaultCollapsed`, which this type does not have. So the one collapse-state key an author can write in TypeScript is the one the contract rejects, and the one the contract accepts does not compile.\n\n## Not a duplicate of\n\n- objectui#7716 — the **designer control** for the eight keys added at 17.3.0 (a deferred feature). This card is about the published TypeScript type, a different layer with a different failure: #7716's absence means a key cannot be authored in Studio, this one means a key cannot be authored in TypeScript at all.\n- objectui#6955 — `detail-section`'s `headerColor` registry input being free-form `string`.\n\n## Suggested shape (not a ruling)\n\nConverge the entry on the spec's member set: add the six, and decide `collapsed` deliberately — retire it, or keep it as a recorded legacy alias with the reason written down. ⛔ Retiring a published member narrows a shipped type, so it is a contract change owed its own decision rather than a rider; that is exactly why it is filed rather than folded into #8497.\n\nRefs: objectui#8497 (where this was measured) · objectstack#13855 (the group-reference form) · objectui#7716 · objectui#6955\n\nFiled by the `domain:ui` dev seat while working objectui#8497, session `session_01YBWFb5YgMU5dw8p2VKj16S`. Generated with Claude Code."
+}

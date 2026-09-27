@@ -1,0 +1,38 @@
+{
+  "number": 8581,
+  "kind": "issue",
+  "title": "finding(fields): `DateCellRenderer` still draws `formatDate`'s hand-rolled em-dash for an unparsable date string — no `aria-label`, a bare punctuation mark to a screen reader",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: fields",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T13:18:22Z",
+  "updated_at": "2026-09-09T11:13:09Z",
+  "closed_at": "2026-09-09T11:12:19Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8581",
+  "body": "Found while implementing objectui#8490, whose adjacent ninth row was `date` holding `[]` rendering a hand-rolled em-dash instead of the shared `EmptyValue`. That fix routes the **coerced-empty** input (`[]`, `''`, whitespace) to the shared affordance. It deliberately did not touch the other input that reaches the same dash, and this card records it. DOM shapes are written in words — tag-shaped fragments are eaten from GitHub bodies even inside backticks.\n\n## The remaining input\n\n`formatDate` in `packages/core/src/utils/date-display.ts` returns its own em-dash for any value whose `new Date(...)` is invalid (the second guard: not a Date, or `isNaN(date.getTime())`). `DateCellRenderer` in `packages/fields/src/index.tsx` then wraps that string in a SPAN classed `tabular-nums` whose `title` is the raw value. So a `date` column holding the string `not-a-date` renders a bare em-dash with no `data-slot` of `empty-value` and no `aria-label` — the same class of defect as objectui#8475 (`RelatedList`'s hand-rolled dash) and objectui#8491 (`ObjectGrid`'s three sites): a screen reader gets naked punctuation.\n\n`DateTimeCellRenderer`, one function down in the same file, already answers the identical input with the shared affordance (`if (date === null || isNaN(date.getTime())) return EmptyValue`). The two siblings disagree.\n\n## Why it was not swept into objectui#8490\n\nIt is a decision, not a mechanical fix. Two readings:\n\n1. An unparsable string is **no value** — match `DateTimeCellRenderer`, render `EmptyValue`. Cost: the raw string currently reachable on hover through `title` is lost, and \"No value\" is a statement about a record that does hold *something*.\n2. It is a value the renderer **cannot format** — surface the raw text, the way `NumberCellRenderer` and `PercentCellRenderer` print `String(safe)` on their NaN branch. Cost: an unformatted string in a date column.\n\nEither way the bare dash goes. Recommendation: (1) for parity with the sibling renderer, unless the `title` hint has a consumer.\n\n## Dedup\n\nREST is 403 from this container (proxy allowlist), so one targeted MCP `search_issues` was used — declared channel switch. Two results: objectui#8263 is `formatMeasureDate`'s impossible-calendar-date guard in `core` (a different function and a different failure), objectui#3566 is `GridField`'s date input echo. A control query in the same session returned objectui#8481 and objectui#8490, so the channel is live.\n\nFiled unassigned, not claimed, by the ObjectUI dev agent working objectui#8490, session `session_01YBWFb5YgMU5dw8p2VKj16S`, from branch `claude/issue-8490-fields-empty-array-fabrication`. (Attribution written as prose deliberately: a footer block is stripped from issue bodies on create.)"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 8847,
+  "kind": "issue",
+  "title": "finding(plugin-form): the same top-level `fields` silent-drop trap is undocumented on TWO more registrations — `form`/`view:form` and `object-master-detail-form`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T14:03:38Z",
+  "updated_at": "2026-09-10T00:02:13Z",
+  "closed_at": "2026-09-10T00:02:13Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8847",
+  "body": "## Context\n\nobjectui#8738 (route 2, closed by objectui#8846) documents `object-form`'s\ntop-level `fields` input: members are bare field names, `{ name }` tolerated,\nand the spec `FormFieldSchema` object (`{ field: 'note', colSpan: 2 }`) —\nlegal in `sections[].fields` — resolves to no name and is silently skipped\n(`SimpleObjectForm` in `ObjectForm.tsx`; `buildFlatFields` in `flatFields.ts`).\n\nRe-deriving the read sites for #8738 (against `main` @ `e9d92120a`) turned up\nthe identical, still-undocumented trap on two more `ComponentRegistry`\nregistrations in `packages/plugin-form/src/index.tsx`:\n\n1. **`packages/plugin-form/src/index.tsx:292`** —\n   `ComponentRegistry.register('form', ObjectFormRenderer, …)`, the\n   `view:form` alias of the exact same `ObjectFormRenderer` / `SimpleObjectForm`\n   component `object-form` uses. Its `{ name: 'fields', type: 'array' }` entry\n   has **no description at all** — the same gap #8738 closed for `object-form`,\n   left open here.\n2. **`packages/plugin-form/src/index.tsx:~430`** —\n   `object-master-detail-form`'s `fields` input, documented as `'Which parent\n   fields to show, in order. Ignored when `sections` is given — sections carry\n   their own field lists.'`. `MasterDetailForm.tsx`'s own comment says this is\n   `'Parent form sections/fields — passed straight through to ObjectForm'` —\n   i.e. the same `SimpleObjectForm` read site — so the same\n   `{ field: 'note' }` silent-drop applies, and the existing description does\n   not mention it.\n\n## Why this is a category-(c) trap, not a nit\n\nBoth entries let an author (or an AI generating metadata) write the spec's\n`FormFieldSchema` object into a `fields` array that looks identical in shape\nto `sections[].fields`, and get a silent drop with no throw, warning, or\nempty-state — exactly the population #8738 was opened to close, just reached\nthrough a different registered `type` name.\n\n## Suggested fix\n\nSame route-2 treatment as #8846: add/extend the `description` on both entries\nto state the bare-name-only vocabulary and the contrast with\n`sections[].fields`, mirroring the text #8846 added to `object-form.fields`.\nRoute 1 (whether to also `console.warn`) is out of scope here too — that\nquestion is still unruled for #8738 and this finding doesn't change that.\n\n## Not filed as part of #8846\n\n#8738's dispatch and its pinned probe\n(`objectFormFieldsMembers-8071.test.tsx`) scope specifically to `object-form`;\nwidening that PR's diff to other registrations wasn't authorized, so this is\nfiled separately rather than folded in.\n"
+}

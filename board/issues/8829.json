@@ -1,0 +1,34 @@
+{
+  "number": 8829,
+  "kind": "pull_request",
+  "title": "fix(ci): make an unconfigured half-state anchor a supported configuration",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T12:27:37Z",
+  "updated_at": "2026-09-09T13:07:07Z",
+  "closed_at": "2026-09-09T13:04:57Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-09-09T13:04:57Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/8829",
+  "body": "Fixes #8740\n\n## What changed\n\n`half-state-patrol.yml` resolved `vars.HALF_STATE_ANCHOR_ISSUE` and, on an empty value, emitted `::error::` and `exit 1`. This repository has no anchor and will not get one — the maintainer closed #7852 and #5986 with 「7852 太麻烦，直接关闭」 — so a six-hourly scheduled job was permanently red for a **settled configuration**. #6596 already ruled on that shape: a check red on the healthy case trains everyone to ignore red.\n\nAn empty anchor now emits `::notice::` naming the variable and exits **0**. The sweep still runs, and its rendered body still reaches the run summary.\n\nThree coupled edits, all in the one workflow:\n\n1. **Resolve the anchor issue** — empty ⇒ `::notice::` + `exit 0` + `configured=false`; non-numeric ⇒ `::error::` + `exit 1`, unchanged; numeric ⇒ `configured=true`.\n2. **Update the pinned anchor issue** — now gated on `steps.anchor.outputs.configured == 'true'`. Exiting 0 with no anchor makes this step *reachable* with an empty `ANCHOR_ISSUE`, and `Number('')` is `0`: unguarded, an unconfigured install would PATCH issue 0 on every run. The guard reads the resolve step's output rather than testing `env.ANCHOR_ISSUE != ''` a second time — that second spelling disagrees with the first on a whitespace-only value, and two spellings of \"no anchor\" drift.\n3. **Publish the rendered body to the run summary** — on the explicit not-configured reading only, the summary says it is the sole delivery. Otherwise a delivered run and an undelivered one read identically in the one place a reader looks (#4690's shape, newly reachable because of this change).\n\n## What did NOT change\n\n- ⛔ **The carve-out is empty-only.** A configured-but-unusable anchor still fails loudly. The non-numeric guard is byte-identical.\n- ⛔ **The sibling fallback is untouched**: `github.repository == 'objectstack-ai/objectstack' && '9857'` still resolves, still takes the numeric branch, still fails loudly there.\n- ⛔ **`merge-queue-head-patrol.yml` is not touched.** The card's body says two workflows share this defect. Measured on `8241a4400`, that is false: that workflow reads a *different* variable (`vars.MERGE_QUEUE_ANCHOR_ISSUE`, `:127`), its refresh step is already `if: env.ANCHOR_ISSUE != ''` (`:171`), and its `exit 1` (`:267`) is the wedge verdict. It already degrades gracefully; there is nothing there to fix. (The PM's claim comment carries the same correction; this PR confirms it against the tree.)\n\n## How this is proven\n\nThe acceptance criterion is about a scheduled run, which no test can start. The wiring test extracts the resolve step's own `run:` body out of the YAML and executes it under `bash` in **both** directions — the posture `ci-setup-pnpm-wiring.test.ts` already takes for its shell. A pin spelled `expect(workflow).toContain('::notice::')` would be satisfied by a step that emits the notice and exits 1 anyway.\n\nTwo ablations, each run from the committed tree with the mutation proven on disk (marker counts before/after + blob hash) and restored via `git checkout HEAD -- <path>` (`git diff HEAD` empty afterwards):\n\n| ablation | expected direction | observed |\n|:--|:--|:--|\n| revert the workflow to `8241a4400` (the bug) | empty-anchor pins go red, malformed pin stays green | `4 failed \\| 24 passed`; first failure `an unset anchor must not fail the run (input \"\"): expected 1 to be +0` |\n| widen the fix: make the non-numeric branch `exit 0` too | malformed pin goes red | `1 failed \\| 27 passed`; `a bad anchor number must still fail the run (input \"abc\"): expected +0 to be 1` |\n\nThe second one is why both directions are pinned: the malformed test passes on the buggy tree *and* on the fixed one, so it detects nothing about this fix — it detects the over-fix this card forbids.\n\n## Verification\n\n- `pnpm exec vitest run scripts/__tests__/` — `Test Files 131 passed | 2 skipped (133)`, `Tests 3778 passed | 2 skipped (3780)` at `226c7c4aa`.\n- `node scripts/check-changeset-presence.mjs` — exit 0: *\"0 of them published source of a package the release covers … no changeset is owed\"*. No changeset, by the gate's own verdict rather than by judgement.\n- `check-control-bytes`, `check-doc-fence-languages`, `check-upstream-port-parity`, `check-action-ref-convention`, `check-shell-escape-residue` — all exit 0. The port-parity gate matters here: this workflow is **not** in `scripts/upstream-port-pin.json` (only the sweeper, `invoked-as.mjs` and a hook are), so the edit does not touch a pinned ported file.\n- `npx eslint --no-inline-config .` — 4,648 files linted, changed file 0 errors / 0 warnings. The 94 repo-wide errors are pre-existing and live in files this diff does not touch; `eslint.config.js` declares no `project`/`projectService`, so no untouched file's verdict can move.\n- `node scripts/check-governed-queue-guard.mjs --test <the 3 paths>` — `NOT GOVERNED`.\n\n## Documentation\n\n`content/docs/guide/ci-cd-pipeline.md` said the run goes red \"until [the variable] is set\". Left alone, that sentence would have been false the moment this merged, in the file this repo's readers use to answer exactly this question — so the workflow-table row and the Half-State Patrol section now state the empty-anchor branch, its empty-only limit, and its accepted cost (findings live only in run summaries, which notify nobody — #5791 measured 58% of this board's machine-readable blocks false in exactly that silence).\n\n⚠️ Not in this PR, and the card says so explicitly: the `SKILL.md` half — the protocol's \"read the half-state anchor first\" criterion, which is vacuous in an install with no anchor — is objectstack `domain:skills`, and the seat-post note is the PM's.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01FhBNJcLRZLe8M87VcUgpKr\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01FhBNJcLRZLe8M87VcUgpKr)_"
+}

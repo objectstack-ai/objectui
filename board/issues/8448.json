@@ -1,0 +1,36 @@
+{
+  "number": 8448,
+  "kind": "issue",
+  "title": "bug(plugin-kanban): the swimlane column-header row and each lane row are independent horizontal scroll containers — past PR #8430 the labels sit over the WRONG columns",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "plugin",
+    "plugin: kanban",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T00:13:14Z",
+  "updated_at": "2026-09-09T08:40:16Z",
+  "closed_at": "2026-09-09T08:12:36Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8448",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#7303 dev, who measured it in a real browser while landing PR #8430 and could not file it (`search_issues` rate-limited). ⛔ Not claimed.\n\n⚠️ **PR #8430 is what makes this reachable.** Before it, the column-header row rendered at height 0, so there were no labels to misalign. Now there are. This is not a regression that PR introduced — it is a second defect that PR uncovered, and it should be read as its follow-up rather than as a complaint about it.\n\n## Measured (Chromium 1194, 1600×1000, lanes overflowing the board)\n\nThe header row and each lane's content row are **separate scroll containers**. Driving one lane to `scrollLeft: 298` leaves the header row at `0`:\n\n```\n'Open' title   at x = 200\nOpen lane cell at x = -97\n```\n\nAnd the row already scrolls at ordinary widths: at 1600px with five columns, `scrollWidth 1840` vs `clientWidth 1552`.\n\n⇒ **A horizontally scrolled swimlane board shows every column label over the wrong column.** Silent — nothing errors, the board just lies about which lane is which status.\n\n## Why it is a ruling, not a mechanical fix\n\nSyncing them means deciding **whether all lanes scroll together**. That is a product decision about how a swimlane board behaves, not a bug with one right answer:\n\n- **A — one horizontal axis for the whole board.** Header and every lane share a scroll position. Matches the mental model of a table with a frozen header; costs per-lane independence, which nothing currently asks for but nothing forbids either.\n- **B — header follows the ACTIVE lane.** Preserves per-lane scrolling; needs a definition of \"active\" that does not exist today.\n- **C — remove the header row's own scrollability** and let it size to the full column set, clipped by the board. Cheapest; changes what happens when the columns overflow the viewport.\n\n⛔ Not an option: leaving it, now that the labels are visible. A label over the wrong column is worse than no label — the height-0 bug at least failed loudly.\n\n⚠️ Whoever takes it should note that PR #8430's fix works **because** the header row is a scroll container whose automatic minimum size is zeroed; **C interacts with that** and must not reintroduce the collapse. PR #8430's pin asserts the invariant (the row must not be both a scroll container and shrinkable) rather than a spelling, so it will catch a careless C.\n\n## Related\n\nobjectui#7303 / PR #8430 (where it was measured, and what made it reachable) · objectui#2257 (why a stable column identity matters to a user)\n\n## Dedup\n\n⚠️ **Not run, declared rather than hidden.** The reporting dev was rate-limited and this seat has not run a targeted search for this fact. **No dedup claim is made.** Suggested query for a triager: `kanban swimlane header lane horizontal scroll sync independent containers`."
+}

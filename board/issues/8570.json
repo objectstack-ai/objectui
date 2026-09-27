@@ -1,0 +1,37 @@
+{
+  "number": 8570,
+  "kind": "issue",
+  "title": "Two inline empty markers in metadata-admin/previews hand-roll their own text — `'none'` and `'not configured'` want ONE inline-marker ruling, not two cards",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T12:21:19Z",
+  "updated_at": "2026-09-09T14:43:00Z",
+  "closed_at": "2026-09-09T14:35:00Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8570",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8526 dev, which measured both while landing PR #8569 and was asked to conserve GitHub calls. ⛔ Not claimed. **This card asks for a ruling, not a sweep.**\n\n## What is there\n\n```\npackages/app-shell/src/views/metadata-admin/previews/ValidationPreview.tsx:353    'none'\npackages/app-shell/src/views/metadata-admin/previews/DatasourcePreview.tsx:225    'not configured'\n```\n\nBoth are **inline** empty markers — a word standing in for an absent scalar inside a sentence or a row — not block-level empty-collection statements.\n\nPR #8569 (objectui#8526) migrated the **block-level** family in this directory to the shared `EmptyDescription`, and deliberately left these two: my ruling on that card scoped it to block-level states and named only one of the two. There are two, they are the same shape, and neither has a home.\n\n## Why one ruling and not two cards\n\nThey differ only in wording. Whatever answers one answers the other, and filing them separately guarantees two people re-derive the same question.\n\n⚠️ **`EmptyValue` is the obvious candidate and it is not obviously right.** Its docblock scopes it to *\"a missing cell/field value\"* and its `aria-label` resolves `detail.noValue` → \"No value\". These two carry **their own words** — `'none'` and `'not configured'` are not interchangeable with each other, let alone with \"No value\", and `'not configured'` in particular says something `EmptyValue` cannot: that the thing is configurable and unconfigured.\n\nSo the question is not \"swap them for `EmptyValue`\" but:\n\n1. **Is an inline empty marker with author-supplied text a thing the shared family should carry?** `EmptyValue` takes a `glyph` prop; it does not take a phrase, and its accessible name is fixed.\n2. **Or are these two legitimately bespoke**, because the word is doing semantic work the shared component would flatten?\n3. **Or does one of them belong in the block-level family after all** — i.e. is `'not configured'` a statement about a collection wearing an inline shape?\n\nAnswer 2 is defensible and would make this a documentation change rather than a migration: record why these stay hand-rolled so the next sweep does not \"fix\" them.\n\n## Scope\n\n**Not** the two further hand-rolled families in the same directory, which the same dev reported and which are a separate design call: nine amber warning-toned empties (`JobPreview`, `SkillPreview`, `ValidationPreview`, `BookPreview`) and five dashed drop-zone placeholders in **two** dashed conventions (`border border-dashed` vs `border-2 border-dashed`). Those want their own card once someone rules on whether the shared family grows a tone axis.\n\n## Related\n\nobjectui#8526 / PR #8569 (the block-level migration; both carriers measured there) · objectui#8520 / PR #8527 (the `EmptyDescription`-alone precedent) · objectui#8506 (where `EmptyValue`'s accessible name was established as `detail.noValue`)\n\n## Dedup\n\n⚠️ **Declared, NOT claimed.** This repo's issue search returns **false zeros** — measured today returning `total_count: 0` for `ValueDataSource` while objectui#8447's own title contains that word — and the zero-quota web issue-search channel was measured dead in a dev container today by its own lit control. **No dedup claim is made.** Suggested manual check: objectui#8526's thread."
+}

@@ -1,0 +1,36 @@
+{
+  "number": 8740,
+  "kind": "issue",
+  "title": "[ci] Both patrols must degrade gracefully when no anchor is configured — the maintainer has declined the anchor setup, so the current hard failure is now permanent red",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "ci/cd",
+    "domain:devx",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T02:26:57Z",
+  "updated_at": "2026-09-09T13:07:09Z",
+  "closed_at": "2026-09-09T13:04:59Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8740",
+  "body": "Filed by the PM/director-drafting seat on the maintainer's 2026-09-09 reply to decision batch (this session), which closed #7852 and #5986 verbatim: 「7852 太麻烦，直接关闭」.\n\n⇒ The anchor setup (open a `tracking` issue + set the repository variable `HALF_STATE_ANCHOR_ISSUE`) **will not happen**. The 2026-09-06 ruling that adopted it is withdrawn. This card takes the consequence.\n\n## The problem the closure leaves behind\n\nClosing those two cards does **not** make anything green. Two scheduled workflows resolve the same unset variable and then hard-fail:\n\n- `.github/workflows/half-state-patrol.yml` — step *Resolve the anchor issue* → FAILURE, *Update the pinned anchor issue* → skipped. Measured 50 consecutive failures 2026-08-28 → 2026-09-06 (#7852).\n- `.github/workflows/merge-queue-head-patrol.yml` — same `ANCHOR_ISSUE` expression; step *Refresh the pinned anchor issue* → skipped, 7 consecutive failed runs 2026-09-08 22:29Z→23:56Z (#7852 comment `5594367075`).\n\nBoth refuse to guess an issue number and exit non-zero. **In isolation that is the right call** — it is what each workflow's own header argues for. It is only wrong now that the answer to \"configure an anchor\" is a settled *no*: a check that is red four times a day forever is a check nobody reads, and **this repository has already ruled on exactly that shape** — #6596: *a check red on the healthy case trains everyone to ignore red*.\n\n⇒ Permanent red is now the larger defect, not the missing anchor.\n\n## What this card asks for\n\nMake \"no anchor configured\" a **supported configuration** rather than a failure, in both workflows:\n\n1. When `ANCHOR_ISSUE` resolves empty: run the sweep, publish the rendered body to the **run summary**, emit a `::notice::` (not `::error::`) naming the variable that would enable anchor delivery, and **exit 0**.\n2. Keep the hard failure for every *other* reason the anchor step can fail (issue not found, write rejected, malformed body) — ⛔ do not widen this into \"the anchor step never fails\".\n3. The sibling-repo literal fallback (`github.repository == 'objectstack-ai/objectstack' && '9857'`) is untouched: objectstack keeps its anchor and keeps failing loudly if that anchor breaks.\n\n## ⚠️ The consequence that must be written down, not silently accepted\n\n`SKILL.md:421-422` (and its copy `references/core-rules.md:103`) make reading the half-state anchor the **first criterion of every round**, and say 「锚行未处置 ⛔ 不开新派发」. In this repository there will now be **no anchor to read**. That criterion is therefore vacuous here, and a seat that reads it as satisfied is reasoning from an absence.\n\nThis card does **not** propose editing `SKILL.md` (that is objectstack `domain:skills`, and the rule is correct where an anchor exists). What it asks is that the objectui seat post state plainly, in its 说明 段, that this repo has no anchor and the first criterion is satisfied by reading the patrol's **run summaries** instead — so the gap is a declared configuration, not an unnoticed hole.\n\n⚠️ Known cost of accepting this, stated so nobody rediscovers it as news: findings will live only in run summaries, which notify nobody. #5791's adoption note measured what that costs on this board — a hand-run of one predicate found **7 blocks whose blocker had already closed, 58% of the machine-readable blocks false, one for a week**. That cost is now accepted deliberately rather than incurred by accident.\n\n## Acceptance criterion\n\nA scheduled run of each workflow, on this repository, with `HALF_STATE_ANCHOR_ISSUE` unset: job **succeeds**, the run summary carries the rendered sweep body, and the log carries a notice naming the variable. A run with a *bad* anchor number still fails.\n\nRefs: #7852 (closed, carries the measurements) · #5986 (closed, the older card for the same action) · #6596 (the red-on-healthy ruling) · #5791 (the 58% measurement) · #8043 (the docs half, unaffected)"
+}

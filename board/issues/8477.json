@@ -1,0 +1,39 @@
+{
+  "number": 8477,
+  "kind": "issue",
+  "title": "finding(plugin-detail): a RelatedList column with no resolvable field type gets no cell renderer, so pruning and the cell placeholder still disagree on that path",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "plugin",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T01:31:29Z",
+  "updated_at": "2026-09-09T12:28:20Z",
+  "closed_at": "2026-09-09T12:27:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8477",
+  "body": "Found while implementing objectui#8459 and **left deliberately unfixed there**. Filed unassigned, ⛔ not claimed.\n\n## What objectui#8459 fixed, and the gap it does not close\n\nobjectui#8459 / PR #8476 converged `RelatedList`'s cell placeholder onto `isValueEmpty`, the same predicate `pruneEmpty` uses, so a surviving whitespace-only or empty-array cell now draws the muted em-dash instead of painting blank.\n\nThat fix lives inside `makeCell`. But `makeCell` opens with:\n\n```ts\nconst makeCell = (key: string, def: any): ((value: any) => any) | undefined => {\n  if (!def?.type) return undefined;\n  const rendererType = resolveCellRendererType({ type: def.type, format: def.format }) || def.type;\n  const CellRenderer = getCellRenderer(rendererType);\n  if (!CellRenderer) return undefined;\n```\n\nWhen it returns `undefined` the column gets **no `cell` function at all**, so the data-table renders the raw row value and the placeholder branch — fixed or not — never runs. `pruneEmpty` still judges that column with the full `isValueEmpty`, so the two spellings go on disagreeing on exactly this path.\n\n## Measured\n\nExplicit `columns: [{accessorKey:'product'}, {accessorKey:'memo'}]` where `memo` is **not declared in the object schema** (so `fieldDef` is `undefined`), against `claude/issue-8459-relatedlist-emptiness` with the objectui#8459 fix applied:\n\n```\nheads: [\"Product\",\"Memo\"]\nrows:  [[\"Widget\",\"   \"], [\"Gadget\",\"real memo\"]]\n```\n\nThe `Memo` column survives (one row has a value), and the whitespace-only cell renders `\"   \"` — a **visually blank cell**, the same defect objectui#8459 closed for typed columns.\n\n## How it is reached\n\nAny column whose accessor does not resolve to a schema field with a `type`:\n\n- a page author passing `columns: ['some_key']` for a key the child object's schema does not declare (or declares without a `type`);\n- a column surviving against data whose shape has drifted from the schema.\n\nBoth are author-side mistakes in a sense, but the failure is silent and the renderer already chose to render *something* for them, so \"blank vs em-dash\" is still this component's call.\n\n## Why it was not fixed in objectui#8459\n\nAttaching a `cell` to columns that deliberately have none is a **different mechanism**, not a widening of an existing predicate: it changes rendering for every untyped column, including ones currently rendering raw objects as `[object Object]`. That is a new verification surface and a behaviour change well outside a card scoped to \"the two spellings must stop disagreeing\", so it was measured and reported rather than ridden in.\n\n## Suggested shape (not settled)\n\nEither give the no-renderer path a minimal `cell` that answers `isValueEmpty` and otherwise renders the raw value unchanged, or decide explicitly that untyped columns are outside the placeholder contract and say so at the `return undefined`. The first keeps one definition of emptiness for the whole grid; the second at least stops the disagreement being accidental.\n\n⚠️ If it is fixed, the pin belongs with the objectui#8459 cases and must assert the **rendered outcome** with a by-value control, and stay green for an untyped column holding a real value.\n\n## Dedup\n\nSearched `objectstack-ai/objectui` via MCP `search_issues` (REST is 403 from the dev container): `RelatedList two emptiness spellings disagree pruneEmpty makeCell`, which returned objectui#8459 as a control hit so the reading is real. Nothing covers the untyped-column path.\n"
+}

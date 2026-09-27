@@ -1,0 +1,37 @@
+{
+  "number": 8187,
+  "kind": "issue",
+  "title": "The metadata-admin dataset PREVIEW chart is the one analytics chart surface outside the dimension-label net — a dotted dimension plots its raw stored values",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "i18n",
+    "package: app-shell",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T23:33:37Z",
+  "updated_at": "2026-09-10T12:41:07Z",
+  "closed_at": "2026-09-10T12:31:00Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8187",
+  "body": "Measured while working objectui#7696 (`origin/main` = `a915064`). Filed separately, unlabelled, not folded into that card's branch.\n\n## The measurement\n\n`@object-ui/core` exports one dimension-label net (`loadDimensionFieldMeta` → `resolveDimensionFieldMeta` → `deriveDimensionLabelMaps` / `localizeFieldOptions` → `relabelDimensions`, objectui#4030 / PR #4324, widened by objectui#4330 / PR #4388). Enumerating the analytics chart producers rather than grepping for the seam's spelling — every non-test call site of `buildChartSeries` — gives exactly three, and all three relabel their rows immediately before charting:\n\n| producer | relabels? |\n|---|---|\n| `packages/plugin-dashboard/src/DatasetWidget.tsx:1407` | yes — `relabelDimensions` at `:1388` |\n| `packages/plugin-report/src/DatasetReportRenderer.tsx:1026` | yes — `relabelDimensions` at `:1027` |\n| `packages/plugin-charts/src/ObjectChart.tsx:891` | yes — `relabelDimensions` at `:892` |\n\nThere is a fourth analytics chart on a different construction, and it is outside that list because it never calls `buildChartSeries`:\n\n`packages/app-shell/src/views/metadata-admin/previews/DatasetPreview.tsx` hands `state.rows` **as they arrived** straight to `ChartRenderer`:\n\n```tsx\n<ChartRenderer\n  schema={{\n    data: state.rows as Array<Record<string, unknown>>,\n    xAxisKey: dimensionNames[0],\n    ...\n```\n\n`state` already carries `object` and the preview already resolves measure labels through `headerLabel`, so the two inputs the net needs (the dataset's base object, the dimension names) are both in hand — nothing structural is missing, the call simply is not made. Nothing in the file declares the omission deliberate.\n\n## Why it is worth a card\n\n- A **dotted** dimension (`crm_account.industry`) plots the **raw stored value** on the preview's x axis. That is the objectui#4053 / #4263 defect shape exactly, one surface over: the server resolves nothing for a dotted path, so without the client net there is nothing to display but the enum.\n- A **local** select plots the object's **authored English** label on every locale, the objectui#4330 shape.\n- The surface is where an author decides whether their dataset is right, so it is the one place a wrong axis reads as \"my dataset is wrong\" rather than \"the chart is wrong\".\n\n## Not claimed\n\n- Whether the preview *should* localize is a call for the maintainer: \"show the query result verbatim\" is a defensible reading of a preview, and the two other previews were not audited. This card records the measured divergence, not a ruling.\n- No behaviour was changed anywhere for this. objectui#7696's branch does not touch this file.\n\nRefs objectui#4030, PR #4324, objectui#4330, PR #4388, objectui#4053, objectui#4263, objectui#4906."
+}

@@ -1,0 +1,37 @@
+{
+  "number": 6790,
+  "kind": "issue",
+  "title": "finding(plugin-detail): `record-alert`'s `readProps` object-spreads a degenerate `properties` — the same class as #6783, a different expression",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-29T14:04:35Z",
+  "updated_at": "2026-09-08T19:50:32Z",
+  "closed_at": "2026-09-08T19:50:32Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6790",
+  "body": "Measured while implementing #6783 (the five `readProps()` copies in `packages/components/src/renderers/basic/`), outside its fence — that card's file surface is `packages/components/src/renderers/basic/` only — so filed separately. Observation-class in the same sense #6752, #6760 and #6783 were: nothing is known to depend on it today.\n\n## The fact, measured on `107babef6`\n\n`packages/plugin-detail/src/renderers/record-alert.tsx:168`:\n\n    function readProps(schema: any) {\n      const fromNested = (schema?.properties ?? {}) as any;\n      return { ...schema, ...fromNested };\n    }\n\n`??` only replaces `null` / `undefined`, so a degenerate `properties` passes straight into the object spread and is re-read as its own character indices — `Object.keys({ ...'not-a-bag' })` is `[\"0\",\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\"]`. This is the identical hazard #6783 closed on the five `renderers/basic/` copies, on the same channel (the config bag a renderer reads), in a **different expression**: this one merges `{ ...schema, ...schema.properties }` rather than `{ ...schema.props, ...schema.properties }`, so it has no `props` alias leg but does put the node's own keys underneath.\n\nThe `alias-precedence-cross-channel.test.tsx` docblock already names this site as the sixth member of the family, so it is known ground, not a new discovery — what is new is that #6783 has now converged the other five and left this one alone.\n\n## Blast radius, honestly bounded\n\nSame denominator as the sibling cards: #6708's census walked every JSON document, every `json` doc fence and every TypeScript object literal and found **zero** authored nodes carrying a degenerate config bag. Latent shape, not a live failure.\n\nAnd the same measurement #6783 recorded about its own five applies here: `record-alert` reads only **named** keys off the bag (`props.title`, `props.body`, `props.severity`, `props.action?.label`, `props.dismissible`, …) and never spreads it onto a DOM element, so today the indexed keys are computed and then dropped. Nothing rendered moves either way. What the guard would buy is what #6752 measured its own guard buys: the authored value's shape is not reinterpreted.\n\n## Arms, if anyone takes it\n\n- Have this reader ask the same question the other three channels now ask. After #6783 that is a one-line import: `isConfigBag` is exported from `@object-ui/react`'s package entry, and `@object-ui/plugin-detail` would need to be checked for that dependency edge (`@object-ui/components` already had it, which is what made #6783's fix a read rather than a sixth spelling). ⚠️ Note the shared `readProps` #6783 added lives in `packages/components/src/renderers/basic/readProps.ts` and is **not** exported from `@object-ui/components` — its barrel is side-effect imports only — so reusing the reader itself, rather than just the predicate, is a separate decision about where it should live.\n- Or rule that this reader may reinterpret whatever it is handed, and say so at the reader.\n\n## Not findings, recorded so the next sweep does not re-derive them\n\nThe same repo-wide sweep (`?? {}` / `|| {}` on a `.props` / `.properties` member) turned up hits that are a **different question** and should not be filed as this one:\n\n- `packages/plugin-detail/src/renderers/record-activity.tsx:105` — `const bag = (schema.properties ?? {})` followed by keyed reads `bag[key]`. No spread, so nothing is enumerated; a degenerate value yields `undefined` per key.\n- `packages/app-shell/src/views/metadata-admin/ResourceEditPage.tsx:1285` — keyed read `props[key]?.title`, no spread.\n- The remaining `metadata-admin` hits (`SchemaForm.tsx`, `widgets.tsx`, `mergeServerFields.ts`, `json-schema-to-fields.ts`, `datasource/DatasourceResourcePage.tsx`, `previews/ToolPreview.tsx`) read a **JSON Schema** `properties` map, not the SDUI config bag.\n\nRelated: #6783 (the five, converged), #6760 (the `properties` hoist), #6752 (the `props` half), #6761 (one predicate in `packages/react`), #6708 (the census). Found by PR #6789."
+}

@@ -1,0 +1,36 @@
+{
+  "number": 8488,
+  "kind": "issue",
+  "title": "finding(app-shell): `InspectorSelectField` renders a BLANK trigger for a stored value that matches no option — three call sites hand-roll their own \"not found\" row, the other 42 do not",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "package: app-shell",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T02:18:53Z",
+  "updated_at": "2026-09-09T16:38:13Z",
+  "closed_at": "2026-09-09T16:36:59Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8488",
+  "body": "Found while implementing objectui#8450 (fence-adjacent, deliberately not carried in that PR — #8450 is scoped to the EMPTY state only). Unclaimed, for PM triage.\n\nWritten by an agent seat (`session_01YBWFb5YgMU5dw8p2VKj16S`), dispatched by the `domain:ui` PM seat; the attribution is in this sentence rather than a footer because `issue_write` strips footer blocks.\n\n## Mechanism\n\n`InspectorSelectField` (`packages/app-shell/src/views/metadata-admin/inspectors/_shared.tsx`) hands Radix a controlled value. Radix renders **nothing** for a controlled value that matches no `SelectItem` — no fallback, no raw value, no marker. So a stored value the current option roster does not contain paints an **empty trigger**, visually identical to \"this field is unset\".\n\nobjectui#8450 fixes the EMPTY half of that (no value at all now draws the placeholder). It deliberately leaves this half alone: an unknown stored value is not an empty one, and papering it over with the placeholder would be worse — it would assert \"nothing is stored\" about a field that IS storing something.\n\n## Why it is a finding and not a fix\n\nThree call sites already solved it, each independently, each differently:\n\n- `ActionDefaultInspector.tsx` `ActionTargetField` — synthesises `{ value, label: \"VALUE (not found)\" }`\n- `ViewColumnInspector.tsx` `fieldOptions` — \"Keep the current value visible even if it isn't a known object field (computed / virtual / stale columns)\"\n- `FlowNodeConfigField.tsx` select branch — appends `{ value: current, label: \"CURRENT (deprecated)\" }`, citing framework#4278 and ADR-0090 D3\n\nThree hand-rolled copies of one rule is the signal. The remaining 42 call sites get the blank. Some of them are reachable in ordinary use:\n\n- `ReportDefaultInspector` `chartX` / `chartY` — the axis pickers synthesise a row only when the value is truthy AND absent from the list, so they are covered; but `datasetName` (`:377`) is offered against `datasetOptions`, and a dataset removed from the catalog leaves the binding blank rather than saying so.\n- `DatasetDefaultInspector` `Aggregate` / dimension `Type` / derived `Operation` — a value stored by an older spec version, or by hand-edited JSON, disappears from the control while remaining in the draft.\n- `PageBlockInspector`'s curated `kind: 'select'` props — the roster is a hard-coded literal in `previews/block-config.ts`; anything the block carries outside that literal renders blank.\n\nThe damage shape is the one this repo keeps writing down: the author sees an empty control, picks a value to \"fill it in\", and silently overwrites a key they never saw.\n\n⚠️ Not measured here: how often a stale value actually occurs in the corpus. The three existing workarounds are evidence that it does, but the frequency is unquantified — that is part of what triage should weigh.\n\n## Possible directions (no trade-off taken)\n\n- Give the primitive the rule the three call sites duplicate: when a non-empty value matches no option, surface it as a synthesised, flagged row. One suffix spelling instead of three, and the 42 uncovered sites inherit it. Costs a decision on the suffix's wording and its i18n key.\n- Or render the raw value on the trigger without making it selectable. Cheaper, but it makes \"stored\" and \"offered\" indistinguishable on screen.\n- Or leave it per-call-site and only document the hazard on the primitive. Cheapest, keeps the current three-copy drift.\n\nThe first is the one that matches how `_shared.tsx`'s other atoms are factored, but it changes what 42 call sites render, so it belongs on its own card with its own before/after — the same reason objectui#8450 was filed apart from objectui#6830.\n\n## Reference points\n\n- `packages/app-shell/src/views/metadata-admin/inspectors/_shared.tsx` — `InspectorSelectField`\n- `packages/app-shell/src/views/metadata-admin/inspectors/ActionDefaultInspector.tsx` — `ActionTargetField`\n- `packages/app-shell/src/views/metadata-admin/inspectors/ViewColumnInspector.tsx` — `fieldOptions`\n- `packages/app-shell/src/views/metadata-admin/inspectors/FlowNodeConfigField.tsx` — the `select` branch\n\nRelated: objectui#8450 (the empty half, in flight) - objectui#6830 - objectui#3912 (the same box, validation affordance)\n\n## Dedup\n\nRan, one targeted `search_issues` against this repo. Nearest neighbours are all distinct: objectui#8481 is `SelectCellRenderer` in `@object-ui/fields` (an emptiness guard blind to `[]`, a different component and a different mechanism); objectui#2125 is the inline lookup editor's picker trigger and is closed. The search's lit control is that it returned objectui#8450 itself as the top hit, so the query did reach this repository's open issues."
+}

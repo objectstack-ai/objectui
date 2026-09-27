@@ -1,0 +1,35 @@
+{
+  "number": 8809,
+  "kind": "issue",
+  "title": "finding(fields): `DateField`'s readonly face draws `formatDate`'s bare em-dash for an unparsable value — the same defect one widget over from objectui#8581",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: fields",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T10:41:32Z",
+  "updated_at": "2026-09-09T11:59:03Z",
+  "closed_at": "2026-09-09T11:58:19Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8809",
+  "body": "Found while implementing objectui#8581 (`DateCellRenderer` renders the shared `EmptyValue` for a value it cannot parse). Filed unassigned, not claimed. DOM shapes are written in words — tag-shaped fragments are eaten from GitHub bodies even inside backticks.\n\n## The site\n\n`packages/fields/src/widgets/DateField.tsx`, the readonly branch, last line before the editor:\n\n```\nreturn value ? <SPAN className=\"text-sm\">{formatDate(value, undefined, { locale })}</SPAN> : <EmptyValue />;\n```\n\nThe guard is `value ?`, so only a FALSY value reaches `EmptyValue`. A truthy value that `new Date(...)` cannot parse — `not-a-date`, `2024-13-45`, the epoch as a string — reaches `formatDate`, which returns its own em-dash, and that dash is painted inside a plain SPAN: no `data-slot` of `empty-value`, no accessible name. A screen reader gets naked punctuation. This is the objectui#8475 (`RelatedList`) / objectui#8491 (`ObjectGrid`) / objectui#8581 (`DateCellRenderer`) class of defect, in the same package as the last one.\n\n## Why it matters more after objectui#8581 lands\n\nThis widget's readonly face is what `FieldEditWidget` renders in the grid and detail inline editors — the file's own docblock says so, and names the drift it was written to close (objectui#8194 / objectui#7620: \"two faces for one value, picked by which path the surface happened to take\"). objectui#8581 moves `DateCellRenderer` to the shared affordance. After it lands, the same unparsable value renders \"No value\" in the cell and a bare dash in the inline-editor read face beside it — the exact disagreement this file was converged to remove, reopened one input-shape over. It is not caused by that card (both drew a dash before), but that card makes the seam visible and worth closing.\n\n## Not a mechanical fix — one decision, and it is not obviously the same one\n\nobjectui#8581 was ruled arm 1 (match the nearest sibling, render `EmptyValue`) on NEAREST-SIBLING PARITY: `DateTimeCellRenderer` sits one function down from `DateCellRenderer` and already answered the identical input that way. That argument does not transfer by itself here, because this site's nearest siblings are the other readonly WIDGET faces, not the cell renderers. Two readings, same as the parent card:\n\n1. **Unparsable is no value** — match `DateCellRenderer` after objectui#8581, `EmptyValue`. Cost: \"No value\" is a statement about a field that does hold something.\n2. **It is a value the widget cannot format** — surface the raw text, the way `NumberCellRenderer` / `PercentCellRenderer` print `String(safe)` on their NaN branch.\n\nEither way the bare dash goes, and \"leave it\" is not an arm — objectui#8475 and objectui#8491 settled that. Recommendation: (1), for parity with the cell this widget renders beside; but the widget family may have its own precedent worth reading first.\n\n## Scope note\n\nNot swept into objectui#8581's PR: that card's 裁决 names `DateCellRenderer` and nothing else, and its scope section says so explicitly. Two other call sites of the shared `formatDate` paint the same dash and are NOT part of this card — `packages/plugin-grid/src/ObjectGrid.tsx:4416` and `:4639`, and `packages/plugin-gantt/src/ObjectGantt.tsx:920` / `:927`. Whether objectui#8491 already covers the `ObjectGrid` pair is unverified here; that repo area has its own seat.\n\n⛔ Do not fix this by changing `formatDate`'s return. It is the shared formatter in `@object-ui/core` with nine call sites, every one a string consumer with no `EmptyValue` to return, and two landed pins assert its dash directly (`core`'s `date-display.optionsStyle-7745.test.ts:183`, `fields`' `date-formatter-residue-4272.test.ts:118`). The repair is a renderer-level intercept, as in objectui#8581.\n\n## Dedup\n\nREST search endpoints are refused for this session (repository-scoped endpoints only), so dedup went through the repo-scoped list endpoint plus a local grep: all 9 open issues labelled `package: fields`, filtered for date / dash / empty wording. Hits: objectui#8581 (this finding's parent, the CELL renderer), objectui#8209 (the readonly `datetime` widget faces — a locale/format-convergence defect, `toLocaleDateString` + `toLocaleTimeString` instead of `formatDateTime`, a different failure from an unnamed dash), objectui#8055 (`GeolocationField`). None covers this. Lit control on the same command shape: the listing contains objectui#8581, so the zero is a reading.\n\nFiled by the ObjectUI dev agent working objectui#8581, session `session_01611D6ZaRaMmwTNQmSbk8MH`, from branch `claude/issue-8581-date-cell-unparsable`. Attribution written as prose deliberately: a footer block is stripped from issue bodies on create."
+}

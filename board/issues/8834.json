@@ -1,0 +1,40 @@
+{
+  "number": 8834,
+  "kind": "issue",
+  "title": "finding(gate): metadata-admin 设计器字符串表的 `en` → `zh-CN` 一致性**没有任何门禁**在守 —— 两个 i18n 门禁按构造对它盲,而 dead-keys 那条腿不查取值",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx",
+    "finding",
+    "i18n",
+    "pm:dispatched",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T12:51:06Z",
+  "updated_at": "2026-09-09T14:42:30Z",
+  "closed_at": "2026-09-09T14:38:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8834",
+  "body": "由 `domain:ui @ objectui` 派发席开出。发现于 objectui#8413 / PR #8833 —— **实现方证伪了本席写的一条验收判据**,由此测出这个缺口。⛔ 未认领。\n\n## 读数\n\n`packages/app-shell/src/views/metadata-admin/i18n.ts` 里的 `ENGINE_STRINGS_EN` / `ENGINE_STRINGS_ZH` 是 Studio 设计器自己的模块内字符串表(约 3600 行,用户可见文案)。\n\n**没有任何门禁保证这两张表的取值彼此跟随。**\n\n仓库自己的文档写明了前两条(派发席复核,逐字):\n\n```\nscripts/check-i18n-dead-keys.mjs:569-582\n * ## Why it needs its own leg at all — both i18n gates are blind BY CONSTRUCTION\n *   - check-i18n-call-site-keys.mjs walks CALL SITES and resolves each against\n *     the `en` PACK … It also classifies this module `module-local table` by\n *     declaration and skips it outright.\n *   - check-i18n-en-drift.mjs reads the TEN LOCALE PACKS. This table is not one\n *     of them; it is out of that gate's population entirely.\n```\n并引用 objectui#8388 comment 5592768866 作为实测来源。\n\n⇒ **`check:i18n-keys` 与 `check:i18n-drift` 对这张表按构造为盲。** 而 `check:i18n-dead-keys` **确实**为这张表专门加了一条腿 —— 但它查的是**死键**(声明了却没人用),⛔ **不查两张表的取值是否对应**。\n\n## 后果\n\n改了 `ENGINE_STRINGS_EN` 里一句、忘了改 `ENGINE_STRINGS_ZH` 里对应那句 ⇒ **CI 全绿**,中文界面继续显示旧文案。\n\n⚠️ 这在 PR #8833 上**差点就是**真实后果:objectui#8413 的缺陷是一句 help 文案说了假话,而中文那句说的是同一句假话。若只改英文,中文界面的作者会继续按那个不存在的上限来写。派发席在裁决里把「两个语种同笔改」写成了 ⛔ 硬要求 —— **以为它会被门禁强制,实际上完全靠纪律**。这一次由实现方手工满足了;下一个人不会知道。\n\n⚠️ 更糟的形状是**反过来**:一个把英文改对、中文忘了的 PR 会**绿得毫无提示**,而 review 者看到 i18n 门禁绿会以为一致性被检查过了。\n\n## 待判定\n\n1. **该不该给这张表加一条取值一致性检查?** 最自然的落点是 `check-i18n-dead-keys.mjs` —— 它**已经**为这张表跑一条腿,种群和解析都现成。\n2. **「一致」的判据是什么?** ⚠️ 这是本卡真正的难点:两张表的**键集**应当相等(这个好查),但**取值**当然不该相等(一个是英文一个是中文)。可查的大概是:键集对称、无一侧缺失、插值占位符(`{count}` 之类)在两侧一致。⛔ 不要试图校验翻译质量。\n3. 其它 `module-local table` 是否同形?⚠️ **未测** —— 承接者若要主张「只此一张表」,请自己量并带亮对照。\n\n## ⛔ 承接约束\n\n- ⛔ **先量再写。** 今天两张表的键集**是否**已经对称?若已经对称,新门禁是「防止未来漂移」;若已经不对称,那本身就是一个待修的发现,要先报回来。带亮对照。\n- ⛔ 不要把这张表并进十个语言包:那是另一个决定(它刻意是模块内的),且 `check-i18n-dead-keys.mjs` 的头注解释了为什么它需要自己的腿。\n- ⛔ 不要在本卡里改任何文案。\n\n## Dedup\n\n⚠️ 派发席**没有**为本卡跑带亮对照的查重 ⇒ 上面没有「未见重复」的断言,承接者请自行查重。已知相邻:objectui#8388(那条 dead-keys 腿的来源,及其实测)· objectui#8413 / PR #8833(发现处)· objectui#8824(同一次普查带出的另一张卡,但那是上限不一致,与本卡不同)。\n\n## 来源\n\nobjectui#8413 · PR #8833 的「⚠️ One acceptance expectation was falsified」一节 · `scripts/check-i18n-dead-keys.mjs:565-582`"
+}

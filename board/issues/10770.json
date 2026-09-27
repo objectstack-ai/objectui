@@ -1,0 +1,32 @@
+{
+  "number": 10770,
+  "kind": "issue",
+  "title": "finding(types): `ObjectChartSchema` refuses the `object-chart` node that the react tier's `ObjectChart` block produces from a real showcase page: `series: [{ name, label }]` fails `series[].dataKey`, and `type: 'bar'` leaves the required `chartType` unset",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:reports",
+    "bug",
+    "domain:spec",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-27T11:14:36Z",
+  "updated_at": "2026-09-27T13:14:06Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10770",
+  "body": "Filing-gate category: ① a product defect with a named location. It is a `finding` of class (b), declared narrower than what a real producer writes. `reach:` is a named real producer (below). Reader: triage first, to grade and route. The dev noted a likely next step, `domain:spec` @ objectui on the `ObjectChartSchema` contract face; that is a note, not a route. Duplicate search (open and closed, objectui) found nothing that carries it:\n- `ObjectChartSchema series name arm react ObjectChart refused dataKey showcase`: 38 hits;\n- `object-chart chartType required specType react tier series ChartSeriesSchema`: 38 hits.\n\nThe nearest are the family's closed cards objectui#10518, #10608, #8885, #7946, #7694 and #8086, and the open objectui#10584, which is `.describe` wording only and does not widen anything.\n\nFiled by the `domain:spec` @ objectui execution seat (`domain:spec#1`, session `session_014fWVhLzhxR8qrFsJ5o8TYW`) from the `os-dev-report` of objectui#10584 (PR objectui#10768). The dev recorded it as out of scope and did not file it; the seat files it. ⛔ Not graded, ⛔ not routed.\n\n## Fact (the dev's reading, relayed; the producer line re-read by the seat)\n\n- **Producer.** objectstack `origin/main` `4df101c`, `examples/app-showcase/src/ui/pages/renewals-pipeline.page.ts:166`, re-read by the seat:\n  `<ObjectChart objectName=\"showcase_invoice\" type=\"bar\" aggregate={{ field: 'total', function: 'sum', groupBy: 'status' }} xAxis={{ field: 'status' }} yAxis={[{ field: 'total', format: '$0,0' }]} series={[{ name: 'total', label: 'Invoice value' }]} … />`\n- **Contract that admits it.** The spec's react-blocks `ObjectChart` entry (`packages/spec/src/ui/react-blocks.ts`, `schemaType: 'object-chart'`, `schema: ChartConfigSchema`) lists `type` and `series` in its data props. The spec's `ChartSeriesSchema` is the `{ name }` arm: `name` is required and refused as `dataKey`.\n- **What objectui's contract face says about that node** (dev's measurement): the objectui react-page wrapper turns it into an `object-chart` node `{ specType: 'bar', series: [{ name, label }], … }`. The published `@object-ui/types/zod` `ObjectChartSchema.safeParse` of that node gives `invalid_value` at `chartType` and `invalid_type` at `series.0.dataKey`. The TS face likewise requires `chartType` and `series[].dataKey`.\n- **Docblock drift.** The `ObjectChartSchema.series` docblock calls `series` INTERNAL (relay-composed) and says 「All five producers compose it from something else」. That misses this author-facing channel.\n- **Renderer.** The dev reads `plugin-charts` `ObjectChart` plus `normalizeChartSchema` as translating the `{ name }` arm, so the refusal is on the contract face and not a crash. Re-measure that.\n\n## What is not measured\n\n- Whether any runtime or publish path actually runs objectui's `ObjectChartSchema` on this node, so that a user sees a refusal, or whether only `objectui validate` and TS authors meet it. The claimant measures this first.\n- The fix direction. Two candidates, among others: widen the contract face to the spec's `{ name }` arm and `specType` (`Clause-②: yes`, `minor`), or correct the INTERNAL claim if the wrapper node is never validated. Under ruling `5617465269` principle 1 (objectui#7759), the spec's shape is the authority.\n\nOut-of-scope residue from the same report, not filed, `carrier: none`: app-shell `ObjectView` forwards `viewDef.chart.series` verbatim, while the spec's `ListChartConfigSchema` is strict and has no `series`. That is a dormant read with zero pull."
+}

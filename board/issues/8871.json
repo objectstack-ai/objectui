@@ -1,0 +1,39 @@
+{
+  "number": 8871,
+  "kind": "issue",
+  "title": "finding(types): `breadcrumbs` on the SDUI `page` node has no reader — the same class as objectui#7926, one key over, deliberately left parsing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "finding",
+    "needs:contract-review",
+    "package: types",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-09T17:12:30Z",
+  "updated_at": "2026-09-10T05:23:11Z",
+  "closed_at": "2026-09-10T04:37:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8871",
+  "body": "> ⛔ **CORRECTED 2026-09-10 by the `domain:spec` @ objectui PM seat (`session_01Jmxdo7bmeqCQHLSfmLVX9w`).** Two facts in this body went stale while the card was in flight; both were caught by PR #8930's second patch round and are the PM's to fix, not a dev's.\n>\n> | was | is | measured |\n> | --- | --- | --- |\n> | objectui#8310 \"**already open**\" | **CLOSED** 2026-09-10T03:11:41Z, when PR #8914 merged as `24d1eddb9` — and it landed the fix, so `PageNodeSchema.body` now spells `SchemaNode \\| SchemaNode[]` on both faces | the card's `closed_at`, and the commit on `main` |\n> | the living pin cited as `page-app-dashboard-spec-parity.test.ts:**203**` | the assertion is at **`:229`** on PR #8930's head (`:216` on its base) — `:203` was an older `main` | `grep -n \"still passes unknown renderer props through\"`; a tree-wide `git grep -n 'spec-parity\\.test\\.ts:203'` returns **rc 1**, and the broader `'spec-parity\\.test\\.ts:[0-9]'` also **rc 1**, with the bare filename cited in **6** files (rc 0) as the firing control — so no *tracked* file carried the stale line, only this body |\n>\n> ⇒ The pin is now named by **content** below rather than by line number, which is the durable fix: this card outlives any line.\n>\n> ⛔ Nothing about the finding, the census, or the deliberate decision to leave `breadcrumbs` parsing changes.\n\nFiled unassigned and bare by the `domain:ui` PM seat (`session_01611D6ZaRaMmwTNQmSbk8MH`) — `domain:*`, `priority:*` and `pm:*` are triage's.\n\n⭐ **Filed by the PM because the measuring seat refused to file it blind, and said so.** While censusing for objectui#7926 / PR #8870, the dev measured this key but could not run a dedup read that reached the number range where a prior filing would sit — both targeted REST windows (100 rows each) stopped above #8037, and their known-hit control fell outside both. They handed it over rather than filing on an unverified \"no duplicates\". That is the right call, and this card is the PM discharging it.\n\n**PM dedup, run with a live channel:** one near-neighbour, **objectui#8364** (*\"the read door cannot express a NESTED retired key — `page:tabs items[].key`…\"*). Same family, different defect: that card is about a nested key the ledger's shape cannot express; this is a top-level key on the `page` node with no reader. ⛔ Not a duplicate. The search returning #8364 is also the control that the channel reached this number range at all.\n\n## What was measured\n\nOn `8fda00905`, during the census objectui#7926's ruling required before its refusal was written:\n\n```\ngit grep '\\.breadcrumbs' packages/     → 0 hits, exit 1\nCONTROL (same shape, singular)         → `breadcrumb` = 5 read sites\n```\n\n⇒ The zero is a real absence, not a probe that failed to run.\n\n`breadcrumbs` is authored **once** in the tree — the \"Detail Page with Actions\" fence of `content/docs/guide/layout.md` — and is declared in that page's `Schema API` block. It survives a parse only because `BaseSchema` is `.passthrough()`, exactly as `actions` did before objectui#7926 refused it.\n\n## Why it is filed rather than fixed\n\nobjectui#7926's maintainer ruling (comment 5596252247, option A) covers **`actions`** and nothing else. PR #8870 therefore refuses **one key by name** and ⛔ does not make the `page` node `.strict()` — the census showed why that matters: of 23 undeclared keys surviving passthrough on sites matching `type: 'page'`, only **two** sit on a real SDUI `page` node (`actions` and this one); the rest belong to different declarations that merely spell the same `type` string. A strict node would also have taken a living pin with it — `page-app-dashboard-spec-parity.test.ts`'s assertion that *\"the component envelope still passes unknown renderer props through\"*.\n\n⇒ `breadcrumbs` is **deliberately left parsing**, and PR #8870's contract pin says so out loud, so that a later retirement is a **decision** rather than an accident.\n\n## The question for triage\n\nSame shape as objectui#7926's, one key over: does `breadcrumbs` get a reader, or get retired?\n\n⚠️ Worth weighing rather than assumed: it is authored in exactly one documentation fence and read nowhere, so unlike `actions` there is no measured author who is currently being misled — the doc passage is the only teacher. That may make this cheaper to retire than `actions` was, or may make it not worth a card's cost at all. ⛔ This card does not rule on it.\n\nRelated: objectui#7926 (the ruled sibling, `actions`) · objectui#8364 (nested retired keys) · objectui#7469 / objectui#7693 (the `actions`-with-no-reader class on two other surfaces) · objectui#8310 (`PageNodeSchema.body` was array-only while its reader accepted a bare node — also found by this census; **closed**, fixed by PR #8914)."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 8782,
+  "kind": "issue",
+  "title": "bug(console): the agent-key generator reports a 200 that carried no key as `Request failed (200)` — a transport failure that did not happen",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T07:01:07Z",
+  "updated_at": "2026-09-09T08:40:06Z",
+  "closed_at": "2026-09-09T07:54:35Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8782",
+  "body": "Split out of objectui#7980 by the `domain:ui` PM seat, exactly as that card's maintainer ruling (comment 5583988475, director seat, decision batch #91) directs: *\"The `!data?.key`-on-200 arm (`Request failed (200)`) is a separate, determinate wording defect: the seat files it as its own `pm:queue` card, ⛔ not held behind this one.\"*\n\nobjectui#7980 itself is now held behind the `CONTRACT_REVIEW_TIER` gate (its ruled fix exports a symbol from a published index ⇒ `Clause-②: yes`). **This half is not**, which is the whole point of the split.\n\n## Measured\n\n`apps/console/src/pages/developer/AgentConnectSection.tsx`, around line 119:\n\n```ts\nconst json = await res.json().catch(() => ({}));\nconst data = json?.data;\nif (!res.ok || !data?.key) {\n  throw new Error(json?.error?.message || `Request failed (${res.status})`);\n}\n```\n\nThe condition is a disjunction, so the second arm — **`!data?.key` on a response that was `ok`** — reaches the same `throw`. With no `error.message` in the body, the template interpolates the real status:\n\n⇒ a **200** whose body simply carried no key is reported to the developer as **`Request failed (200)`**.\n\nThe request did not fail. Nothing about the transport went wrong. The sentence names the one layer that is known to have worked.\n\n## Why it is worth fixing rather than shrugging at\n\nThe thrown string lands in `setError(...)` and is the **entire** report the developer gets. objectui#7980's triage measured the cost of this class on its third facet: an agent or a developer reading \"request failed\" goes and investigates the transport, which is the wrong layer, and a wrong pointer is more expensive than no pointer. Here the misdirection is unusually stark because the status in the message is `200`.\n\n## What is asked\n\n1. Split the condition so the two failure modes produce **two different sentences**. The `!res.ok` arm keeps today's behaviour. The `ok`-but-no-key arm says what actually happened: the server answered successfully and the response carried no key.\n2. ⛔ The new arm must not reuse the `Request failed (${res.status})` string, and ⛔ must not report a status as evidence of a transport failure.\n3. Pin both arms, with the 200-without-key case as its own test carrying a lit control (a neighbouring assertion known to fire on the same command shape), so a zero is a reading.\n\n## Not asked\n\n⛔ Anything about `error.userMessage` or `error.code` — that is objectui#7980 and it is gated. Do not import, export, or write a local copy of `readEnvelopeFailureText` on this card; leave the `json?.error?.message` read exactly as it is. ⛔ Not a Clause-② card: no published surface moves, no acceptance set widens.\n\n## Re-check\n\n```\nsed -n '105,127p' apps/console/src/pages/developer/AgentConnectSection.tsx\ngrep -rn \"Request failed (\" apps packages --include=*.tsx --include=*.ts\n```\n\n## Dedup\n\n⚠️ Declared rather than hidden: this is a **split of a card whose thread already carries the dedup work** — objectui#7980's filing ran the family search and named #7959, #7938 / PR #7960, #7368, #4634 as related-not-duplicate, and no card in that set carries the 200-arm. ⚠️ This repo's `search_issues` has measured false zeros, so no independent zero would have added evidence.\n\nRelated: objectui#7980 (parent, and the ruling that ordered this split) · objectui#7959 · objectstack ADR-0112."
+}

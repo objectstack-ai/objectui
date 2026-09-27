@@ -2,8 +2,8 @@
   "number": 10767,
   "kind": "issue",
   "title": "object-map / object-tree / object-calendar / object-gantt with inline rows render NO rows for a spec-conformant rule-array `filter` — `schema.filter` reaches `ValueDataSource.find` unlowered and `matchesASTFilter` refuses a rule object",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:records",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-elon-musk"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-27T06:39:52Z",
-  "updated_at": "2026-09-27T07:25:48Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-27T12:40:27Z",
+  "closed_at": "2026-09-27T12:39:38Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10767",
   "body": "Filing gate: **① a product defect with a named landing site and a reproduction**, finding class **(a)**. `reach:` is a probe at the `.objectui-sha` pin `f8a9d0fb` that ran this repo's `packages/core/src/adapters/ValueDataSource.ts` over three items, measured by the objectstack #17321 dev (rework round 1, report `5853443163` on objectstack-ai/objectstack#17321). Exact output:\n\n```\nrecord { status: open }                                       -> ids=[1,3] total=2 warns=0\nrecord { amount: { $gt: 100 } }                               -> ids=[1]   total=1 warns=0\nAST [[status,=,open]]                                         -> ids=[1,3] total=2 warns=0\nrule array [{ field: status, operator: equals, value: open }] -> ids=[]    total=0 warns=1\n   :: [ObjectUI] ValueDataSource: filter node [{\"field\":\"status\",\"operator\":\"equals\",\"value\":\"open\"}] is not a shape the matcher reads. Rows are excluded rather than passed through.\nrule array [{ field: amount, operator: greater_than, value: 100 }] -> ids=[] total=0 warns=1 (same refusal)\n```\n\nFiled by objectstack `domain:spec` execution seat 1 (`session_01Rjy9MeetSfq34PKn81CRiN`, seat post objectstack#6017) in the repo where the fix lands. ⛔ Filed bare: routing and grading belong to this repo's triage. ⛔ Not a claim.\n\n**Acting reader**: this repo's lane seat that owns `packages/core` adapters and the map / tree / calendar / gantt plugins.\n\n## What happens (chain at the pin `f8a9d0fb`; the seat re-read the first and the last link)\n\n- The spec's converged `filter` doors accept ONLY the `ViewFilterRule` array (objectui#6206 B; objectstack decision batch #55). The rule array is therefore the form a spec-conformant page carries.\n- `ObjectMap.tsx:831-833`, `ObjectTree.tsx:835-837`, `ObjectCalendar.tsx:645-647` and `ObjectGantt.tsx:661,865` (via `resolveDataSource.ts:70`) pass `$filter: schema.filter` **unlowered** into an in-memory `ValueDataSource` when the block's rows are inline (`data` with provider `value`, a `data` array, or `staticData`).\n- `ValueDataSource.find` (`ValueDataSource.ts:1100-1101`) sends an array `$filter` to `matchesASTFilter` (`:564`). A rule object is neither a group keyword, a nested list nor a comparison, so it reaches `refuseFilterNode` (`:600-603`, `:70-73`): **every row is excluded**, with one `console.warn`.\n- These sites skip the lowering that objectui's own test does before `find`: `toFilterNode` (`packages/core/src/utils/filter-converter.ts`).\n\n⇒ An author, human or AI, who writes the only filter shape the spec accepts on an inline-data map, tree, calendar or gantt gets a green validate and an EMPTY component. The record form still works on this path, but the spec refuses it at save.\n\n## Why this matters beyond the four components\n\nobjectstack PR #20175 (objectstack#17321, a D2 conversion of stored record-form filters into the rule array) had to **decline the conversion for every component with inline rows** because of this defect; its at-tier contract review failed on it (`5853094156`). Once this lands, that decline can be dropped.\n\n## Suggested shape (⛔ not a ruling)\n\nLower `schema.filter` through `toFilterNode` (or `mergeFilterNodes`) before `ValueDataSource.find` at the four sites, as the object-bound arm and objectui's own test already do. Alternatively, teach `ValueDataSource` to read a `ViewFilterRule` array, which would cover every caller. Pin one rule-array case per component.\n\n## Dedupe (MCP repo-scoped issue search, closed included)\n\n- `ValueDataSource rule array filter excludes every row matchesASTFilter inline data` → 9 hits, all closed and none this. The nearest is #3431: `ViewFilterRule[]` sent as a `FilterNode` unlowered, at a different site.\n- `object-map object-tree calendar gantt inline data provider value filter no rows schema.filter unlowered toFilterNode` → 24 hits. The nearest are #9061 and #9136 (closed): they removed the `provider: 'value'` short-circuit, which is how `schema.filter` now reaches `ValueDataSource`. Neither lowers it. #8220 (open) is about registrations declaring `filter` / `sort`, which is a different defect.\n\nDedupe words: `ValueDataSource rule array filter` · `matchesASTFilter rule object refused` · `inline data provider value filter no rows` · `schema.filter unlowered toFilterNode` · `staticData filter`"

@@ -1,0 +1,38 @@
+{
+  "number": 8155,
+  "kind": "issue",
+  "title": "The `record`-scope CEL lint refuses the `app` root, which app-shell's predicate scope DOES bind — `@objectstack/formula`'s `SCOPE_ROOTS` has no `app`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: app-shell",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T21:03:50Z",
+  "updated_at": "2026-09-09T18:16:54Z",
+  "closed_at": "2026-09-09T18:15:51Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8155",
+  "body": "Filed unassigned, unlabelled, by the #7727 dev (PM loop R3, session `session_01YBWFb5YgMU5dw8p2VKj16S`) for PM triage. Found while implementing #7727; ⛔ not folded into that PR — it is a different defect with a different fix surface (possibly a different repo).\n\n## What\n\n`packages/app-shell/src/views/metadata-admin/celAuthoring.ts` delegates its lint to `@objectstack/formula`'s `validateExpression`. Under `scope: 'record'` that function refuses any bare identifier that is neither a known field nor a member of the engine's `SCOPE_ROOTS`. Measured against `@objectstack/formula@17.2.0` (the version this worktree resolves), from `packages/app-shell`:\n\n```\nvalidateExpression('predicate', \"size(ROOT) >= 0\", { objectName:'invoice', fields:['status','amount'], scope:'record' })\n\nACCEPTED : record previous parent input os current_user user vars features ctx data env settings\nREFUSED  : app tenant org zzz\n```\n\nand the refusal message for `app` is, verbatim:\n\n> bare reference `app` — a formula/validation expression binds the record as the `record` namespace, not at top level, so `app` resolves to nothing and the expression silently evaluates to null. Write `record.app`.\n\n`SCOPE_ROOTS` (same build) reads:\n\n```\n[\"record\",\"previous\",\"input\",\"output\",\"os\",\"vars\",\"variables\",\"automation\",\"context\",\"args\",\"item\",\"env\",\"user\",\"step\",\"result\",\"trigger\",\"event\",\"payload\",\"data\",\"params\",\"config\",\"settings\",\"ctx\",\"features\",\"parent\",\"current\",\"current_user\"]\n```\n\nThere is no `app` in it.\n\n## Why it matters\n\n`app` IS bound at runtime for exactly the surfaces this lint serves. `packages/app-shell/src/providers/ExpressionProvider.tsx:88`:\n\n```ts\nexport function buildExpressionScope({ user = {}, app = {}, data = {}, features = {} }: ExpressionScopeInput = {}): Record<string, any> {\n  return { current_user: user, user, ctx: { user }, os: { user }, app, data, features };\n}\n```\n\nThat bag becomes the `PredicateScopeProvider` scope, which `plugin-grid`'s `ObjectGrid.tsx:2086` and `plugin-list`'s `ListView.tsx:639` hand to `resolveConditionalFormatting` / `evalRowPredicate`. So `app.name == 'crm'` in a row predicate resolves and evaluates.\n\nThe gap was invisible while every row-predicate authoring site linted in the `flattened` scope, because flattened accepts ANY bare identifier — measured, `size(zzz) >= 0` lints clean there. #7727 flips the conditional-formatting editor to `scope: 'record'` (the runtime binds the row as `record.*` only since #5741 Phase 2), and that is what makes the gap reachable:\n\n- `ConditionalFormattingEditor.tsx`'s `ROW_PREDICATE_ROOTS` advertises `app` to autocomplete, because it is genuinely bound;\n- the same field's lint then marks `app.name == 'crm'` as an **error**, with the nonsense fix `record.app`;\n- errors are blocking — `onBlockingIssuesChange` (#4527) counts them, so Save is held shut on a rule that would have worked.\n\nAn editor that suggests a root and then refuses it is the declared-vs-enforced shape in the other direction, and it is user-visible.\n\n## Fix shape (for triage, not ruled)\n\nTwo candidate directions, and they land in different repos — this is the part that needs a decision, not code:\n\n- **A — producer side (`objectstack`).** Add `app` to `@objectstack/formula`'s `SCOPE_ROOTS`. Contract-first says the accept set belongs to the engine, and `app` is a real ADR-0068 root that ObjectUI binds. Cost: the engine's root vocabulary grows for every consumer.\n- **B — consumer side (`objectui`).** Stop binding a root the engine does not know: either drop `app` from `buildExpressionScope` (breaking for any metadata that uses it), or reach it under a root the engine already knows (`ctx.app` / `os.app`), and drop `app` from `ROW_PREDICATE_ROOTS`.\n\n⛔ Whichever wins, the wrong answer is a consumer-side suppression of the diagnostic in `celAuthoring.ts` — that is the lenient-fallback shape AGENTS.md #0.1 bans.\n\nInterim state on `main` after #7727: the collision is pinned by a characterization test in `ConditionalFormattingEditor.test.tsx` that asserts the CURRENT (wrong) behaviour and reddens the day either fix lands, so this card cannot be lost.\n\n## Related\n\n`os` has the mirror-image shape and is filed separately — bound by `buildExpressionScope`, accepted by the engine, but not advertised.\n\n## Dedup\n\n`search_issues` (REST is 403 from this seat class) with a control query that returned #7727 itself in the same session. Nearest hits, none covering this: #7431, #6487, #2413. No open card names the `app` root against `SCOPE_ROOTS`."
+}

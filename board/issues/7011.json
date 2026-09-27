@@ -1,0 +1,36 @@
+{
+  "number": 7011,
+  "kind": "issue",
+  "title": "站内信新消息到达完全静默:增加站内 toast 与桌面通知(不含推送通道)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T11:40:28Z",
+  "updated_at": "2026-09-09T01:14:06Z",
+  "closed_at": "2026-09-09T01:14:06Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7011",
+  "body": "## 问题\n\n站内信(收件箱)目前对\"新消息到达\"完全静默:`sharedUserFeeds` 每 10 秒(后台标签 60 秒)轮询 `sys_inbox_message`,新行到达后唯一的表现是铃铛角标数字变化和首页动态中心多一行。没有 toast、没有横幅、没有声音、没有浏览器系统通知。\n\n排查确认过所有潜在弹出路径均未接到站内信到达上:\n\n- `packages/app-shell/src/hooks/sharedUserFeeds.ts` 只把新数据写进 store,无\"检测到新增行 → 提示\"的逻辑;\n- console 的 sonner toast 体系(`ConsoleShell` 挂的 `NotificationProvider` + `presentNotificationToast`)只服务页面/动作**主动声明**的 `displayType: 'toast'` 通知,与收件箱轮询无关;\n- 全仓库无任何 `new Notification(...)` / `Notification.requestPermission()` 调用,mobile 包的 service worker 只做 PWA 缓存。\n\n结果:用户不主动盯铃铛就完全感知不到新消息,审批、@提及等时效性消息经常被漏看。\n\n## 方案\n\n只做**通知呈现层**,不动传输层(轮询保留原样;WebSocket/SSE 推送通道明确**不在本 issue 范围内**,属于 framework 侧的平台工作,另行立项)。分两块:\n\n### 1. 站内 toast:前台标签页,到达即弹\n\n在 `sharedUserFeeds` 的 inbox feed 上 diff 出\"本次轮询新增且未读\"的行,通过现有 toast 体系弹出提醒:\n\n- **首拉不弹**:会话内维护\"已见 id 集合\",仅对首拉之后新出现的行弹;登录/刷新时的历史未读只走角标,不弹屏。\n- **合并弹**:一个轮询周期内新增多条时合并为一条(\"你有 N 条新消息\"),单条时显示标题摘要;复用收件箱既有的 (topic, title) 折叠口径,不刷屏。\n- **点击跳转**:点 toast 走既有 `resolveNotificationTarget` 深链到目标记录,无链接的打开铃铛面板;点击后同步标记该条已读(走既有 `POST /api/v1/notifications/read`)。\n- **自己触发的不弹**:actor 是当前用户自身的回执类消息不弹。\n- 仅在标签页可见(`document.visibilityState === 'visible'`)时弹 toast;隐藏标签交给下面的桌面通知,两者互斥。\n\n### 2. 桌面通知(Notification API):标签页在后台时\n\n- 仅当标签页 hidden 且用户已授权时,对新增未读行弹系统通知(同样合并、同样首拉不弹)。\n- **授权流程**:绝不在页面加载时索要权限。在用户设置里加\"桌面通知\"开关,用户主动开启时才调 `Notification.requestPermission()`;被拒后开关置灰并提示去浏览器设置恢复。\n- 点击系统通知:`window.focus()` + 深链,与 toast 同口径。\n- 已知约束:后台标签轮询为 60 秒降频,桌面通知最坏延迟约 1 分钟——本 issue 接受该延迟,秒级实时依赖后续推送通道立项。\n\n### 3. 最简通知偏好\n\n设置项(本地持久化即可,服务端偏好对象可后续跟进):\n\n- 站内 toast:开/关(默认开);\n- 桌面通知:开/关(默认关,开启即触发授权流程)。\n\n### 验收要点\n\n- 前台标签:另一用户触发一条站内信后,≤10s 内出现 toast,点击可跳转且该条转为已读;\n- 刷新页面:存量未读只更新角标,不弹任何 toast;\n- 后台标签 + 已授权:收到系统通知,点击聚焦并跳转;未授权/关闭开关则完全静默(回归现状);\n- 同周期多条消息只弹一条合并提示;\n- showcase 真机实测(examples/app-showcase),测试实例作为夹具保留。\n\n### 明确不做\n\n- WebSocket / SSE / 长连接推送(framework 平台工作,另行立项);\n- 声音提醒;\n- 邮件/短信等站外渠道;\n- 服务端持久化的通知偏好对象(本期本地存储)。\n"
+}

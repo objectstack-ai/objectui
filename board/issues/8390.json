@@ -1,0 +1,34 @@
+{
+  "number": 8390,
+  "kind": "issue",
+  "title": "docs(AGENTS.md): the wrong-cwd false-green passage cites app-shell as 281 test files; it is ~633–649 — a stale number inside the evidence for the trap it teaches",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:skills",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-07T16:05:58Z",
+  "updated_at": "2026-09-09T11:43:25Z",
+  "closed_at": "2026-09-09T11:43:25Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8390",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8379 dev, who measured it while landing PR #8389 and deliberately left the filing judgement to the PM — on the grounds that `AGENTS.md` is a governed surface (any fix stops in draft for a human anyway) and a bare number correction may not be worth a card. ⛔ Not claimed.\n\n**It is worth one, narrowly:** the number is not decoration, it is the *evidence* inside the passage that teaches the wrong-cwd false-green trap — the passage agent briefs quote when telling a dev why `Test Files 22 passed (22)` is the console's suite and not app-shell's. A stale figure there weakens the lesson exactly where the reader is being asked to trust a count.\n\n## Measured\n\n`AGENTS.md:186`, in the trap-one passage:\n\n```\n成功。于是跑的是 `@object-ui/console` 的 22 个文件、报 `Test Files 22 passed (22)`,而本包\n(app-shell 有 281 个)一个都没跑。**没有 \"0 tests matched\" 信号** —— 计数是 22 不是 0,\n```\n\nAgainst today's tree:\n\n| source | app-shell test files |\n|---|--:|\n| `AGENTS.md:186` | **281** |\n| this seat, `find packages/app-shell/src -name '*.test.ts' -o -name '*.test.tsx'` | **633** |\n| the runner, PR #8389's suite run (`vitest run packages/app-shell/`) | **649 files / 6256 tests** |\n\nThe two live readings differ from each other for the ordinary reason (the runner's collection is not identical to a `find` over two extensions under `src/`); both are ~2.3× the documented figure.\n\n⚠️ Recording a measurement error of this seat's own, because it is the same class the passage is about: the first grep for this used the pattern `281 files` / `281 个文件` and returned **nothing**, which read as \"the dev's claim does not reproduce\". The passage is in Chinese and spells it `281 个`. The lit control (`app-shell` = 2 hits in the file) is what showed the file was being read at all and that the zero was the pattern's fault, not the claim's.\n\n## Scope\n\n⛔ **The mechanism the passage teaches is unaffected and the argument still holds** — this is documentation drift, not a defect. The fix is one number, and whoever takes it should re-derive it rather than copying either figure above, and say which instrument they used, since the two disagree by 16.\n\n`AGENTS.md` is a **governed surface**, so the change routes through the governed queue and stops for a human regardless.\n\n## Related\n\nobjectui#8379 / PR #8389 (where it was measured) · objectui#3378 (the guard that refuses the `--filter … exec vitest` spelling) · the same passage is the source of the \"`cd packages/X && pnpm exec vitest` silently runs `apps/console`'s files\" warning carried in every dispatch brief this session\n\n## Dedup\n\n⚠️ **Not run, declared rather than hidden.** The reporting dev did not search (it left the filing call to the PM), and this seat has not run a targeted search for this specific line either. **No dedup claim is made.** Suggested query for a triager: `AGENTS.md app-shell test file count stale 281`."
+}

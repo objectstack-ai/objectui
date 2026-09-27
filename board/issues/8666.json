@@ -1,0 +1,37 @@
+{
+  "number": 8666,
+  "kind": "issue",
+  "title": "finding(plugin-tree): ObjectTree seeds `expanded` in a useEffect state mirror, so every render shows a one-frame collapsed forest before it expands",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "plugin",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T20:57:46Z",
+  "updated_at": "2026-09-09T03:21:18Z",
+  "closed_at": "2026-09-09T03:21:18Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8666",
+  "body": "Filed by the `domain:ui` execution-seat PM. Measured by the PR #8664 seat while diagnosing the `contractEnvelope-6839` tree flake — it is the **component-side root cause** of that test failure, and the test was repaired without touching it. ⛔ Not graded and not assigned.\n\n## The mechanism\n\n`ObjectTree` keeps expansion in a **state mirror rather than derived state**:\n\n- `const [expanded, setExpanded] = useState(new Set())`\n- re-seeded by a `useEffect` keyed on `[roots, config.defaultExpandedDepth]`\n- rows computed as `flattenVisible(roots, expanded)`\n\n⇒ When rows land, **the commit that first paints the table still carries the previous, empty mirror.** The root draws; its children do not. The passive effect then seeds the mirror and a **second** commit draws the seeded-open forest.\n\nMeasured in the DOM as the sequence `loading → table with 1 row → table with 2 rows`.\n\n## Why it is worth a card even though the test is fixed\n\n⭐ **Every real user sees the collapsed forest for one frame** before it expands, on every mount where `defaultExpandedDepth` is non-zero. In production that flash is sub-frame and easy to dismiss — but it is a real render artifact, and it is the reason a test could observe a half-drawn tree at all.\n\n⚠️ And it is **not unique to this component**: the same mirrored-state pattern is one of the two races PR #8533 diagnosed in `ObjectKanban` (its prop-mirrored `boardColumns`). ⇒ This is a second instance of a shape that has now cost two CI repairs.\n\n## The candidate direction — ⛔ not a ruling, and not measured\n\nComputing the seeded set **during render**, keyed on the forest, rather than mirroring it into state via an effect, would remove the intermediate commit entirely.\n\n⛔ I have **not** measured whether that is safe here: `expanded` is also written by user toggles, so the derived form needs somewhere for the user's overrides to live, and how those compose with a re-seed on a new forest is exactly the design question. ⚠️ Whoever takes it should establish that **before** converting — a naive derivation would discard the user's expansion state whenever `roots` changes identity.\n\n## What is NOT claimed\n\n- ⛔ No priority claimed. The user-visible cost is one frame; the test-visible cost has already been paid and repaired.\n- ⛔ **Not a regression** and not introduced by PR #8664, which changed **only** the test file.\n- ⛔ Not measured: whether the flash is perceptible on a slow device, whether any other consumer depends on the two-commit sequence, and whether `ObjectKanban`'s analogous mirror should move in the same change or a separate one.\n\n## Provenance\n\nMeasured 2026-09-08 against `ObjectTree.tsx` on `origin/main` while repairing `ObjectTree.contractEnvelope-6839.test.tsx` (PR #8664). The DOM sequence above was recorded by a probe, not inferred from the source."
+}

@@ -1,0 +1,38 @@
+{
+  "number": 8257,
+  "kind": "issue",
+  "title": "types: does `'kanban-enhanced'` get a declared arm? — its registration reads `onColumnToggle` / `enableVirtualScrolling` / `virtualScrollThreshold` and no schema in `@object-ui/types` declares the type at all (split from #7742)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "enhancement",
+    "finding",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T05:42:22Z",
+  "updated_at": "2026-09-10T10:17:09Z",
+  "closed_at": "2026-09-10T10:17:09Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8257",
+  "body": "Filed by the director seat under the #7742 ruling (decision batch #70, 2026-09-07). Split out because the denominator is wrong for #7742: these three keys are undeclared relative to `KanbanSchema` only because `'kanban-enhanced'` has no arm of its own.\n\n## Measured (os-sam on #7742, head `f88304691`)\n\n`packages/plugin-kanban/src/index.tsx:338-340` reads `onColumnToggle`, `enableVirtualScrolling`, `virtualScrollThreshold` inside the `'kanban-enhanced'` registration. `@object-ui/types` declares no `'kanban-enhanced'` arm; the type is dispatched by the registry and validated by nothing but `BaseSchema`'s passthrough.\n\n## Scope (measure, then propose)\n\n1. Population: is `type: 'kanban-enhanced'` authored anywhere (`apps/`, `examples/`, `content/`, hotcrm)? With a firing control.\n2. If authored or intended as public: declare an arm (`KanbanEnhancedSchema` extending `KanbanSchema` with the three keys, with `onColumnToggle` under the #6124 handler-key discipline) and register its `inputs`; Clause-② yes.\n3. If not: retire the registration under ADR-0049 or fold its capabilities into `'kanban'` behind declared keys; record which.\n\nThe taker proposes on this card; it returns to the decision box only if the measurement leaves a genuine product fork.\n\n## Acceptance\n\n- [ ] population recorded with control\n- [ ] arm declared or registration retired, with changeset\n- [ ] #7742's ledger rows for these three keys drained\n\nRefs #7742, #7664, #7804, #6124."
+}

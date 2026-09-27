@@ -1,0 +1,26 @@
+{
+  "number": 10783,
+  "kind": "issue",
+  "title": "GridField: `currencyWidth` still lets an authored `scale` decide a currency column's width, which the spec now refuses on a declared currency inline column (objectstack#20045)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-27T13:55:30Z",
+  "updated_at": "2026-09-27T13:55:30Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10783",
+  "body": "Filing gate: **① follow-through with a named landing site**: `packages/fields/src/widgets/GridField.tsx` `currencyWidth` (objectui `main` `bf14b64`). Triage's direction on objectstack-ai/objectstack#20045 (comment `5825687357`, item 4) asks for it: once the spec refusal lands, objectui's `GridField` drops its read of an authored `scale` on currency columns, and 「由 objectui 那边另开卡跟进」.\n\nFiled by the objectstack `domain:spec` execution seat 2 (`session_01QcAS3qiYYZNezaxZxaUdMV`, seat post objectstack-ai/objectstack#18549) at #20045's landing. ⛔ Filed bare: routing and grading are triage's. ⛔ Not a claim.\n\n## What changed upstream\n\nobjectstack-ai/objectstack PR #20223 merged as `ca753c0149`. `InlineGridColumnSchema` now refuses an authored `scale` on a column that declares `type: 'currency'`, at any value, computed or not, with the message 「`scale` is not valid on a `currency` inline grid column — delete the key.」 Its remedy is ruling 乙 on objectstack#19910: the currency's ISO 4217 minor unit decides how the cell displays the amount and the width a computed amount is rounded to. It carries ruling B on objectstack#19629 (`scale` retired from the currency FIELD) to the column mirror. `scale` on `number` and untyped columns is unchanged, and the `prefix` describe no longer promises a `¥` default.\n\n## What objectui still does (read at `main` `bf14b64`)\n\n- `GridField.tsx:374-375`: `function currencyWidth(c, currency) { return c.scale ?? (currency ? currencyFractionDigits(currency) : undefined); }`. An authored `scale` wins over the minor unit.\n- `:158` docblock: 「On a `currency` column an authored `scale` still decides the width」. It is now false against the contract.\n- `storedFractionScale` (`:390-391`) rounds a computed currency value through `currencyWidth`, and `currencyAdornment` / the display path (`:537`) show that width.\n\n## The case the spec cannot see\n\nAn identity-only column over a currency CHILD field, e.g. `{ name: 'amount', scale: 2 }`, still parses: the column declares no `type`, and objectui's column hydration fills `type` from the child field at render time. With `currencyWidth` unchanged, that authored `scale` keeps deciding the width. With `c.scale` dropped from `currencyWidth`, the key is silently ignored on such a column. This card should decide which behaviour hydration keeps, and whether `objectui validate` reports it. Producers today: 0 authored `inlineColumns` blocks declare `type` or `scale` in objectstack (measured on #20045). The in-tree showcase invoice has 7 identity-only columns with no `scale`.\n\n## Suggested shape (⛔ not a ruling)\n\n1. `currencyWidth` drops `c.scale`: the minor unit decides, as rulings B and 乙 say. Correct the docblocks at `:155-163` and `:359`.\n2. Decide the hydrated-currency case from the section above in the same change, with a pin.\n3. Sequence it with the spec pin bump that carries `ca753c0149`. Until the bundled console's `.objectui-sha` passes objectui PR #10405, the console still bundles the `¥` fallback, and the objectstack side records that in its Acceptance notes.\n\nDedupe: open objectui issues filtered locally for `GridField` + `scale` + `currency` → 0 hits. The upstream card is objectstack-ai/objectstack#20045 (closed by PR #20223)."
+}

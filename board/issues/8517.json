@@ -1,0 +1,40 @@
+{
+  "number": 8517,
+  "kind": "issue",
+  "title": "finding(types): `zod-mirror-parity`'s WiderThanDeclared operator is BLIND to a `z.record(z.string(), T)` mirror against a `Partial[Record[UNION, T]]` declaration — the two are mutually assignable, so BOTH parity directions read the pair as clean",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "finding",
+    "package: types",
+    "pm:dispatched",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-08T05:06:48Z",
+  "updated_at": "2026-09-08T22:17:48Z",
+  "closed_at": "2026-09-08T22:17:48Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8517",
+  "body": "Filed unassigned by the dev seat executing objectui#8505. Measured on that branch's head; base `f08d1a86a`. Recording an instrument gap only; not proposing a remedy. Not claimed.\n\n⚠️ **Notation.** Generic type arguments are written with SQUARE brackets below — `Partial[Record[BreakpointName, number]]`, not the real spelling. AGENTS.md's byte-rewriting section records that tag-shaped fragments are silently deleted on save, backticks and fenced blocks included, and this card is entirely about type shapes.\n\n## What was measured\n\nobjectui#7069 built the `WiderThanDeclared` ledger so that \"a key the zod face accepts and the TS face refuses\" stops being invisible by construction. Its operator, `packages/types/src/__tests__/zod-mirror-parity.test.ts`:\n\n```\nexport type WiderThanDeclaredKeys[ M, D ] = {\n  [K in MirroredKeys[ M ] & DeclaredKeys[ D ]]:\n    Unconstrained[ InputOf[ ShapeOf[ M ][K] ] ] extends true\n      ? never\n      : [InputOf[ ShapeOf[ M ][K] ]] extends [D[K]] ? never : K;\n}[MirroredKeys[ M ] & DeclaredKeys[ D ]];\n```\n\nThe reported-or-not decision is one assignability test. That test cannot separate an index-signature record from a partial record over a key union, **in either direction**, so a mirror spelled `z.record(z.string(), z.number())` reads as clean against a declaration spelled `Partial[Record[SOME_UNION, number]]` — even though the mirror genuinely accepts keys the declaration refuses.\n\nMeasured with the operator's own predicate, in this package's test program (`tsc -p tsconfig.test.json`), with a lit control that fires:\n\n| assertion | result |\n| :--- | :--- |\n| `[number \\| Record[string, number] \\| undefined] extends [number \\| Partial[Record[BreakpointName, number]] \\| undefined]` | **true** — so the widening is NOT reported |\n| lit control: the same predicate over `'a' \\| 'b'` against `'a'` | **REPORTED** — the predicate can fire |\n| `[Record[string, number]] extends [Partial[Record[BreakpointName, number]]]` | **true** — the root cause, isolated |\n| the reverse, `[Partial[Record[BreakpointName, number]]] extends [Record[string, number]]` | also **true** — mutually assignable, so the NARROWER-direction operator is blind too |\n\nThe last row is the sharp end: the two shapes are mutually assignable for this predicate, so **both** parity directions read the pair as agreeing while the accept sets genuinely differ.\n\n## The live instance\n\nobjectui#8505 narrowed `GridSchema.columns` to `number | Partial[Record[BreakpointName, number]]` and left its mirror at `z.record(z.string(), z.number())`. `GridSchema.safeParse({ type: 'grid', columns: { xxl: 6 } })` returns `success: true` and `tsc` refuses the same node — the textbook `WiderThanDeclared` reading — and the ledger stayed green with no entry added and no ratchet moved. That was verified by running the whole `packages/types` suite (149 files, 2822 tests) and `turbo run type-check` repo-wide (81 tasks, cache forced off) on the branch: both green.\n\n⚠️ The ledger is not merely silent here, it is **confidently** silent: mutating the declaration a different way (dropping the bare-number arm) DID redden `zod-mirror-parity.test.ts` at two sites, so the pair is registered and the guard does watch it. It watches, and sees nothing.\n\n## Why this matters beyond the one key\n\nobjectui#7759's census — 27 CONCRETE keys across 18 pairs — was produced by this operator. A shape it cannot see is a shape absent from that census, so the census is a floor rather than a count, and any future \"the WiderThanDeclared lane is empty\" reading inherits the same blind spot. `Partial[Record[UNION, T]]` against `z.record(z.string(), T)` is not an exotic pairing: it is the natural spelling for every per-breakpoint, per-locale and per-variant map in this repo.\n\n## Not to be conflated with\n\n- objectui#6058 — the same file, a different blindness: a key declared on the TS side and absent from the mirror. Listed to prevent re-conflation, not re-filed.\n- objectui#8458 / objectui#8243 / objectui#8222 — header and docstring figures drifting from the ledger. Bookkeeping, not operator semantics.\n- objectui#8252 — per-key verdicts over per-arm facts on the SCHEMA-NODE bucket. Adjacent, different mechanism.\n\n## Dedup\n\nOne targeted semantic `search_issues` over this repo describing the blindness. 18 results, self-lit (objectui#7759 and objectui#6058, both known to exist, came back). Reviewed every one; objectui#7069 is the card that BUILT this ledger and is state closed, and none of the open ones names this structural gap.\n\nFiled by the objectui#8505 dev seat, session `session_01YBWFb5YgMU5dw8p2VKj16S`, via Claude Code."
+}

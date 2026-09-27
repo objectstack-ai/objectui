@@ -1,0 +1,36 @@
+{
+  "number": 8896,
+  "kind": "issue",
+  "title": "`MetadataFieldsPage`'s carried-through half and metadata-admin's `readFields` still lose a target stored only as `referenceTo` — and the tombstone registry still says the strip \"loses nothing\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "finding",
+    "package: types",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-09T20:52:41Z",
+  "updated_at": "2026-09-10T02:40:05Z",
+  "closed_at": "2026-09-10T01:33:19Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8896",
+  "body": "Filed from objectui#8058 (dev seat, session `session_01611D6ZaRaMmwTNQmSbk8MH`), which surfaced this while fixing its own half. ⛔ Unassigned; grading and `domain:*` are triage's.\n\n## What objectui#8058 closed, and the half it did not reach\n\nobjectui#8058 taught `MetadataFieldsPage`'s READ DOOR (`toDesignerField`) to find a lookup's target under either spelling, so a field whose target survives only as the pre-objectui#6041 `referenceTo` keeps its relationship through an edit-and-save. That fix reaches the **designable** half only — the fields that go through `toDesignerField` at all.\n\nTwo sites carry the identical defect and have no read door in front of them.\n\n### 1. `MetadataFieldsPage`'s carried-through half — measured\n\nobjectui#8060 split the stored `fields` map: a field whose stored `type` this designer cannot author (`master_detail`, `vector`, the other 20) is **preserved** and re-emitted straight from the stored document as `carryOver(keep.raw)` — which strips `referenceTo` — with no `toDesignerField` in the path. So the strip takes the target and `assertRelationshipTargetPresent` refuses the whole save.\n\nMeasured on this branch, with objectui#8058's read-door fix already applied, stored document `{ parent_id: { type: 'master_detail', label: 'Parent', referenceTo: 'invoice' } }`, author relabels an unrelated `name` field:\n\n```\nPROBE-RESULT puts=[] || error=[MetadataFieldsPage] cannot save the field `parent_id`:\na `master_detail` field needs a `reference` naming the object it links to, and this\none has none. ...  Pick the target object, or change the field to a non-relationship\ntype.\n```\n\n⭐ **This half is worse than the one objectui#8058 fixed, and the difference is the repair path.** A designable `lookup` refused this way has a control on screen — the author re-picks the target. A preserved field is rendered **read-only** on this page by design (objectui#8060), so \"Pick the target object\" names a control that does not exist here. Every later save of that object is refused from this page and the author has no way out of it from this page.\n\n### 2. metadata-admin's `readFields` — the `metadataAdminFieldsReadDoor` site\n\n`packages/app-shell/src/views/metadata-admin/previews/object-fields-io.ts` strips the same key **on read** and its docblock states the same invariant:\n\n> Nothing is lost on the way out: where the spec has a spelling for the concept it is a SEPARATE key (`reference`, `system`) that is NOT stripped and rides through untouched, which is what lets the designer read it back.\n\nThat holds only when the draft carries the spec spelling. A draft holding the target **only** as `referenceTo` has it stripped on load with nothing left behind. ⚠️ Not measured by this seat — stated as the shape to measure first, not as a finding.\n\n`MetadataService`'s `metadataServiceCarryOver` site takes an already-built payload rather than a stored document, so its read path is a third thing to check rather than an assumed instance.\n\n## The declared claim this falsifies\n\n`packages/types/src/internal/retired-field-keys.ts`, the `referenceTo` tombstone:\n\n> A rename: the spec spells the lookup target `reference` (\"Did you mean `referenceTo` -> `reference`?\"). **The strip loses nothing** — every write path re-emits the designer's target under `reference`, and the read door's writers never emit the retired spelling.\n\nobjectui#8058 made that true for one site's designable half by adding the read it depends on. It is still written as unconditional, and for site 1 above it is measurably false. **Class (b) — violation of a declared contract, the contract being the registry entry's own stated invariant.** The same sentence is what a future reader uses to skip the check, which is how objectui#8058 got there.\n\n## The shape of the repair, for whoever grades this\n\n⛔ Not \"read both spellings in three more places\". The registry already knows this key is a pure rename with a `specEquivalent`. Canonicalizing at the strip — rewrite `referenceTo` onto `reference` when the spec key holds nothing, instead of deleting it — would close the class at every site at once and make the tombstone's sentence true as written. That is a decision about the registry's contract, not a local patch, which is why it is filed rather than ridden along on objectui#8058.\n\n## Related\n\nobjectui#8058 (the designable half) · objectui#6041 (the rename) · objectui#6043 (the `formula` precedent, and why it does not transfer to this key) · objectui#6527 (the tombstone registry) · objectui#8060 (the preserved half exists because of it) · objectui#7714 (the guard that makes this loud)\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

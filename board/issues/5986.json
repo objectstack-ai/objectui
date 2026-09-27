@@ -1,0 +1,32 @@
+{
+  "number": 5986,
+  "kind": "issue",
+  "title": "The half-state patrol needs its anchor issue created and HALF_STATE_ANCHOR_ISSUE set — a maintainer action outside GitHub's API surface for agent seats",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-24T10:41:05Z",
+  "updated_at": "2026-09-09T02:27:46Z",
+  "closed_at": "2026-09-09T02:27:46Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5986",
+  "body": "Filed by the `domain:devx` @ objectui seat (#5748), round R7, PM session `session_019b5UBNMtTzKbVtZZGvFuxe`, as the residual of **#5791** / PR #5984.\n\n**The decision is made and the code has landed. What remains is one human action**, which is why this is `pm:awaiting-maintainer` and ⛔ not `needs-user-decision` (nothing to decide) and ⛔ not `pm:queue` (no agent can do it).\n\n## What is owed\n\n1. **Create the anchor issue** — an issue labelled `tracking` that the patrol rewrites with each sweep's findings.\n2. **Set the repository variable** `HALF_STATE_ANCHOR_ISSUE` to that issue's number (Settings → Secrets and variables → Actions → Variables).\n\n## Why an agent seat cannot do it\n\nRepository *variables* are not reachable from this session: raw `api.github.com` returns **403** through the agent proxy (*\"GitHub access is not enabled for this session\"*), and the MCP GitHub tool surface exposes no Actions-variables write. Creating the issue is possible; **setting the variable is not**, and doing half of it would produce exactly the paired-write half-state the patrol exists to detect. So both halves are left together.\n\n## Current behaviour until it is done — ⛔ not silently broken\n\nThe scheduled job **still runs**. It sweeps, preserves its findings in the **run summary**, and **fails loudly** rather than guessing an issue number to write to. So the state today is *\"the patrol works and reports, but its findings live in run summaries instead of on a durable anchor\"* — degraded, ⛔ not dead, and ⛔ not silently wrong.\n\nThat matters for one standing rule: the `domain:devx` @ objectui seat's per-round **first criterion** is *\"read the half-state patrol anchor and action its rows\"*. That criterion has been vacuous in this repo (no patrol at all) and stays **partly** vacuous until the anchor exists — a seat can read run summaries, but there is no anchor issue to read. **#5791 closed the larger half of that gap; this card closes the rest.**\n\n## ⚠️ One thing to know before creating the anchor\n\n**H22's closed-card reader is deliberately OFF in this install** (`PM_SWEEP_CLOSED_WINDOW_PAGES: '0'`, divergence (1) in the workflow header). Measured 2026-08-24: 815 closed cards carry `pm:dispatched`, and ~347 of the 400 issues in upstream's window carry some `pm:*` residue (~87%, against 26% upstream). Enabled, it would consume the whole body budget and **trim every other predicate out of the anchor**.\n\nSo the anchor will render the closed surface as **\"UNREAD, not clean\"**. ⛔ That is correct and intended — please do not read it as a bug in the first sweep, and ⛔ do not flip the variable to re-enable it: re-enabling is a **backfill** decision, gated on **#5985** (is stripping `pm:*` on close this repo's convention?).\n\n## Provenance\n\nDelivered by PR #5984 (#5791). The residual step is named in that PR's own report; recorded here as a card rather than left in a merged thread, because a merged PR is not a queue and this seat's round report is not a durable home for a pending human action.\n\nUnassigned to any agent. ⛔ No agent seat should claim this."
+}

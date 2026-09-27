@@ -1,0 +1,36 @@
+{
+  "number": 8449,
+  "kind": "issue",
+  "title": "bug(plugin-kanban): swimlanes below the fold are UNREACHABLE — the swimlane region is overflow-hidden and the document does not scroll",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "plugin",
+    "plugin: kanban",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T00:13:35Z",
+  "updated_at": "2026-09-09T09:38:39Z",
+  "closed_at": "2026-09-09T09:37:49Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8449",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#7303 dev, who measured it in a real browser while landing PR #8430 and could not file it (`search_issues` rate-limited). ⛔ Not claimed.\n\n## Measured (Chromium 1194, 1600×1000, three swimlanes)\n\n```\nswimlane region   scrollHeight 2104   clientHeight 1000   overflow: hidden\ndocument.documentElement                                   not scrollable\n```\n\n⇒ **lanes 2 and 3 cannot be reached at all.** Not \"awkward to reach\" — there is no scroll affordance on either the region or the document, so the content below the fold is simply inaccessible.\n\nThis is a **different defect class** from objectui#7303 (a collapsed header row) and from objectui#8448 (two horizontal axes out of sync): those are about labels, this is about content the user cannot get to.\n\n## Why it is a ruling, not a mechanical fix\n\nChoosing **where a swimlane board scrolls vertically** is a layout decision with more than one defensible answer, and it interacts with the board's `h-full` height-bounding:\n\n- **A — the swimlane region scrolls.** `overflow-y: auto` on the region. Keeps the board inside its allotted height; the column-header row then needs a decision of its own (does it stick?), which is where this meets objectui#8448.\n- **B — the board grows and the page scrolls.** Drop the height bound. Simplest for the user; changes the board from a self-contained pane into something that stretches its container, which other surfaces embedding it may not expect.\n- **C — lanes collapse by default beyond the first N.** Sidesteps the scroll question; adds an interaction that did not exist.\n\n⚠️ **A interacts with PR #8430's fix.** That fix works because the header row is a scroll container whose automatic minimum size is zeroed and it was the only shrinkable flex item; adding another scrollable region to the same column changes the shrink arithmetic. PR #8430's pin asserts the invariant (the row must not be both a scroll container and shrinkable), so a careless A will redden it — which is the intended behaviour, not an obstacle.\n\n## Reachability\n\nWhoever takes it should establish how many lanes a real board has in practice before grading urgency: at 1600×1000 the measurement used three lanes and lost two. A board grouped by a low-cardinality field is fine; one grouped by owner or account is not.\n\n## Related\n\nobjectui#7303 / PR #8430 (the browser measurement this came from) · objectui#8448 (the horizontal half of the same layout)\n\n## Dedup\n\n⚠️ **Not run, declared rather than hidden.** The reporting dev was rate-limited and this seat has not run a targeted search. **No dedup claim is made.** Suggested query for a triager: `kanban swimlane vertical scroll overflow hidden lanes unreachable`."
+}

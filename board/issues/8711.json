@@ -1,0 +1,34 @@
+{
+  "number": 8711,
+  "kind": "pull_request",
+  "title": "test(plugin-charts): pin what the site-2 refusal settles to, not what it is not",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "plugin: charts",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T00:10:01Z",
+  "updated_at": "2026-09-09T01:15:23Z",
+  "closed_at": "2026-09-09T01:15:22Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": "2026-09-09T01:15:22Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/8711",
+  "body": "Fixes #8708\n\n## What was wrong\n\n`ObjectChart.contractEnvelope-6839`'s site-2 refusal arm asserted `.not.toBe('Apollo')` — a negation over an **open codomain**. Every value except that one literal satisfied it: `String(undefined)`, `''`, `'null'`, and every other value a resolver emits once it has stopped resolving anything.\n\n## Leg 1 — the vacuity, demonstrated rather than argued\n\nTwo read-site mutations were run against the **pre-fix** file. Both mutated `resolveGroupByLabels` in `packages/plugin-charts/src/ObjectChart.tsx`, never the pin; both ran from a committed tree with `trap` restore and were proved on disk by anchor counts, `git hash-object` against the HEAD blob, and a line-total gate; both restored by state (`git diff HEAD` empty).\n\n**Mutation A — \"the read returns nothing, ever\"** (`extractRecords(results)` becomes `[]`; on-disk `cb9934d7` to `252cc4ad`):\n\n| case | verdict |\n|---|---|\n| site 1, all three | PASSED |\n| site 2 `data` | FAILED |\n| site 2 bare array | FAILED |\n| **site 2 `records` (the refusal arm)** | **PASSED** |\n\nThe refusal arm passes while the resolver resolves nothing at all. But this mutation is **NEGATIVE, not a discriminator**: the new pin passes under it too (re-run and confirmed, 4 passed / 2 failed, identical classification). That is structural — an arm asserting \"this envelope resolves nothing\" cannot, on its own, redden for an implementation that resolves nothing for everything. What catches mutation A is the file's two positive arms, not the refusal arm.\n\n**Mutation B — the sharp one** (drop the `|| rawValue` fallback, so an unresolved foreign key reaches the axis as the literal string `undefined`; on-disk `cb9934d7` to `4e1f6df5`):\n\n**All six cases GREEN.** The file blessed a component that renders `undefined` on the axis for every unresolved lookup key — an implementation strictly worse than the bug the module docblock says every case must refuse.\n\n## The repair — assert the positive\n\n```\nexpect(\n  await labelThrough(asRecords),\n  'a `records` envelope must leave the axis on the raw foreign key, unresolved',\n).toBe('p1');\n```\n\n**`'p1'`, measured — not `'P1'`.** The card and the file's own helper docstring both claimed `humanizeLabel` uppercases the unresolved key. It does not: the lookup branch ends `[groupByField]: idToName[rawValue] || rawValue`, and `humanizeLabel` is not on that path at all. Probed directly (a deliberate `toBe('___PROBE___')` read, restored by state): `expected 'p1' to be '___PROBE___'`. A pin written for `'P1'` would have reddened on a correct refusal. The docstring is corrected here for the same reason.\n\n`'p1'` is not an accidental value — it is the raw-foreign-key axis the module docblock already describes as the silent-looking failure.\n\n## Legs 2-4\n\n- **Leg 2** — new pin under mutation B: **RED**, and the only red in the file. `AssertionError: expected 'undefined' to be 'p1'` — exactly the `String(undefined)` family the card names.\n- **Leg 3** — new pin, ordinary path: 6/6 green.\n- **Leg 4, the control** — under the **identical** mutation B (read-site hash `4e1f6df5`, asserted equal to legs 1b/2), the **pre-fix pin restored from the base blob** — `git checkout da5e4f69e -- FILE`, on-disk `git hash-object` = `c3d2540f8d44300a65e7c50e4d3ed284e787eaa9` = `git rev-parse da5e4f69e:FILE`, anchor counts `.not.toBe('Apollo')` = 1 and `.toBe('p1')` = 0 — **passes 6/6**. A strengthening, not a relocation.\n\nThe first leg-4 attempt was **VOID** (harness argument bug, `exit 127`, no JSON emitted) and is reported as void, not green; the run above is the fixed re-run.\n\nEvery verdict above is per-test classification from vitest's **JSON reporter**, never the text reporter.\n\n## Population sweep — reported, not batch-repaired\n\nAcross the seven `contractEnvelope-6839` siblings, negated value matchers (`.not.toBe` / `.not.toEqual` / `.not.toStrictEqual`): **charts 1, the other six 0.** Control **LIT** — the same grep against this file's base blob finds the known `.not.toBe('Apollo')` at line 191, so the six zeros are readings.\n\nRepo-wide the same shape occurs **541** times in `packages/**` test files. That is a pointer, not a diagnosis, and it is left untouched: most uses are legitimate (asserting two values differ), and telling those apart needs a read per site.\n\n## Scope and verification\n\n- Test-only. **No production code changed** — `ObjectChart.tsx` was mutated for ablation and restored by state each time.\n- `pnpm exec vitest run packages/plugin-charts/` — **52 files, 488 tests, all passed**.\n- `pnpm --filter @object-ui/plugin-charts run type-check` — green, with the dependency closure built. Coverage **measured, not assumed**: `tsc -p tsconfig.test.json --listFiles` counts this test file **1**, so the type-check really sees it.\n- `node scripts/check-changeset-presence.mjs` green on an **empty-frontmatter** changeset (the explicit \"releases nothing\" exemption; `skip-changeset` is a phantom label here). `check-changeset-no-major` green. `check-control-bytes` green, plus a direct control-byte scan of both changed files.\n- `node scripts/check-governed-queue-guard.mjs --test` — **NOT GOVERNED**, 2 paths against 5 surfaces.\n- Verified at `5f18ba861`. No overlap with objectui#8709 (`plugin-map` / `plugin-timeline`), objectui#8703 / PR #8706 (`scripts/`), or the PR #8668 `app-shell` CI repair.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01YBWFb5YgMU5dw8p2VKj16S\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01YBWFb5YgMU5dw8p2VKj16S)_"
+}

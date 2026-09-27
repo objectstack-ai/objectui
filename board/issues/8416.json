@@ -1,0 +1,35 @@
+{
+  "number": 8416,
+  "kind": "issue",
+  "title": "`validateSchema(schema: any)` in `@object-ui/core` is a bare `any` on a published parameter — split from #7493 item ②, independent of that card's retirement ruling",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "package: core",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-07T20:31:25Z",
+  "updated_at": "2026-09-10T04:43:05Z",
+  "closed_at": "2026-09-10T00:49:44Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8416",
+  "body": "Split out of **#7493** by the triage seat (session `session_01SwJQDFKe8tVit3BXQ9EfR5`). #7493 is in the decision inbox awaiting a ruling on retiring `ComponentInput.defaultValue` (245 authoring sites, a manual-floor decision). **This item does not depend on that ruling** and should not be parked behind it — the `domain:spec` seat said so explicitly when it moved the parent (`5553603343`):\n\n> **Items ② and ③ (unchanged by this):** ② `validateSchema(schema: any)` in `packages/core` is `domain:ui` per triage and **independent of ①'s outcome — triage may split it out now**\n\n⛔ Not claimed, not dispatched, no code written.\n\n## ⚠️ Provenance — NOT re-derived by this seat\n\nThe site (`packages/core/src/validation/schema-validator.ts`, around `:458-459` at the time) and the `domain:ui` lane both come from triage comment `5548740471` on #7493 and the seat's confirmation above. ⛔ Attributed, not measured here.\n\n⚠️ **Anchor on the symbol, ⛔ not on the line number.** #7493's own round measured that card's line numbers stale twice over (`base.ts` `:550` → `:581` → `:608` across three readings in two days). Re-derive `validateSchema`'s position before touching anything.\n\n## Why it is likely cheap — and the one thing to check first\n\n⭐ For a **parameter**, `any` → `unknown` is **caller-compatible**: every value is assignable to `unknown`, so no call site breaks. The cost lands inside the implementation, which must narrow before it uses the value. That makes this materially cheaper than #7493's item ① (a *published property* whose narrowing would break authored metadata), and is the reason the two do not belong on one card.\n\n⚠️ **But verify that before relying on it**: if `validateSchema`'s return type or generics thread the parameter's `any` outward, the change stops being caller-compatible and this grade needs revisiting. 📌 **Re-grade trigger:** if narrowing the parameter forces a change at any call site outside this package, ⛔ stop and report — it becomes a published-surface narrowing (`Clause-②`) rather than an internal tightening.\n\n## ⛔ Boundaries\n\n- ⛔ **Do not touch `ComponentInput.defaultValue`** (either face) — that is #7493 item ①, and it is awaiting a maintainer ruling between retire / tighten / forward / keep. ⚠️ A census on it measured **zero production readers** and **245 authoring sites**; ⛔ nothing about it may be pre-empted here.\n- ⛔ **Do not touch item ③** — the guide line plus the `KNOWN_BARE_ANY_EXAMPLES` baseline row live in governed `skills/objectui/**` + `scripts/check-skill-examples.mjs`. That is a separate draft PR under maintainer merge, and its content **depends on what ① becomes**.\n- ⚠️ If this change moves the `KNOWN_BARE_ANY_EXAMPLES` baseline or any bare-`any` ratchet count, ⛔ **stop and report** rather than editing the baseline — the ratchet is shrink-only and its row belongs to item ③.\n\n`priority:p3` inherited from the parent and not inflated: nothing user-visible, no measured caller harm. The value is closing one more bare `any` on a published surface.\n\nRefs: **#7493** (parent, item ①, in the decision inbox) · triage `5548740471` (the three-face split) · `5553603343` (the move to the decision inbox, which named this split) · #5905 · #7781."
+}

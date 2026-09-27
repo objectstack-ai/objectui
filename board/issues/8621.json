@@ -1,0 +1,33 @@
+{
+  "number": 8621,
+  "kind": "issue",
+  "title": "Retire the \"declared divergence\" note on the two metadata writers' `reference.trim() !== ''` guard — the spec now refuses a whitespace-only `reference` upstream (objectstack#16920)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T17:14:23Z",
+  "updated_at": "2026-09-09T02:13:30Z",
+  "closed_at": "2026-09-09T02:07:43Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8621",
+  "body": "## Terminal state (one sentence)\n\n`@object-ui/app-shell`'s `MetadataService.saveFields` / `saveObject` and `@object-ui/plugin-designer`'s `MetadataFieldsPage` keep their `typeof reference === 'string' && reference.trim() !== ''` guard, and the docblocks (and any changeset prose still describing it) call it contract-following, not a deliberate divergence.\n\n## Background\n\nobjectui#7685 (part of objectui#7122) declared, in both writers' docblocks and in its changeset, that refusing a whitespace-only `reference` was a deliberate divergence from `@objectstack/spec`, which at 17.3.0 accepted `'   '` (objectstack#16126). objectstack PR #16920 (`fix(spec): refuse a whitespace-only reference on lookup / master_detail`, contract review PASS at `ab4d4a284`, https://github.com/objectstack-ai/objectstack/pull/16920#issuecomment-5588998995) trims before the emptiness test, so the spec now refuses the same shape under the same `custom` issue. The client guard becomes contract-following; only the note is stale.\n\n## Work\n\n- Rewrite the two docblocks: the guard mirrors the spec's own rule (cite the spec refinement in `packages/spec/src/data/field.zod.ts`), no longer a local opinion. ⛔ Do not remove the guard: it still gives the author an editor-time refusal before the publish gate does.\n- Retire any \"declared divergence\" sentence in a pin or test description that names it (grep `divergence` / `stricter than the contract` under `packages/app-shell/src` and `packages/plugin-designer/src`).\n- No behaviour change; `Clause-②: no` (nothing accepted or refused differently on this side).\n\n## Gate\n\nDo this **after** objectstack#16920 is MERGED and the pinned `@objectstack/spec` in this repo carries the trimmed refinement (check `node_modules/@objectstack/spec` or the lockfile's pin; if the pin predates the fix, the docblock must say \"matches the spec from `<version>`\" rather than \"matches the installed spec\"). Re-check command: `git grep -n \"divergence\" -- packages/app-shell/src packages/plugin-designer/src` → 0 hits when done (positive control: `git grep -c \"reference.trim()\" -- packages/app-shell/src` ≥ 1).\n\n## Related\n\nobjectstack#16126 · objectstack PR #16920 · objectui#7685 · objectui#7122.\n\nFiled by the director seat after the contract review of objectstack PR #16920 (review finding F4 / triage boundary ②)."
+}

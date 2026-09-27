@@ -1,0 +1,32 @@
+{
+  "number": 8869,
+  "kind": "pull_request",
+  "title": "docs(plugin-form): document embeddable-form fields member vocabulary",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T17:09:24Z",
+  "updated_at": "2026-09-10T00:02:14Z",
+  "closed_at": "2026-09-10T00:02:12Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": "2026-09-10T00:02:12Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/8869",
+  "body": "Fixes objectstack-ai/objectui#8847\n\n## What\n\nAdds the missing `description` to `embeddable-form`'s top-level `fields` registration input in `packages/plugin-form/src/index.tsx`, modelled on the ones already on `object-form` (PR #8846) and `form` (PR #8859). States that members are **bare field names** (`{ name }` tolerated), and that this is **not** the `sections[].fields` vocabulary, which also accepts the spec `FormFieldSchema` object (identity key `field`, e.g. `{ field: 'note', colSpan: 2 }`) — that shape resolves to no name here and is silently skipped.\n\nThis is the remainder the corrected card (`issuecomment-5604654332`) identified: `object-master-detail-form` was never bare; the genuinely undescribed second surface was `embeddable-form`.\n\n## Re-derived attribution table (measured on `origin/main` @ `42ddd7f71`, independently — not copied from the card)\n\n```\nregistrations:  :226 object-form   :285 form   :337 embeddable-form\n                :358 form-analytics   :402 object-master-detail-form   :499 line_items\n\n:232  described (PR #8846)  -> object-form\n:292  described (PR #8859)  -> form\n:346  ⛔ BARE               -> embeddable-form          ← the remainder (this PR)\n:430  described (PR #8859)  -> object-master-detail-form\n```\n\nBare `{ name: 'fields', type: 'array' },` count: **1** (before this PR). Control: **4** `fields` inputs total — matcher hits everything. After this PR: **0** bare, same control of 4.\n\n## Measurement — does #8859's warning reach `embeddable-form`?\n\n**Yes — measured, not assumed.** `EmbeddableForm.tsx` builds `schema = { type: 'object-form', objectName, fields: config.fields, ... }` with no `sections` and no `formType`, and renders it through `<ObjectForm>` directly (not via the component registry). `ObjectForm.tsx`'s formType/sections routing (`schema.sections?.length` guards on every sectioned branch) falls through to `SimpleObjectForm` — the exact `warnUnresolvedTopLevelField` read site — regardless of the registered type key.\n\nConfirmed with a throwaway render probe (not committed — one-time proof per this repo's reverse-verification convention):\n- `fields: [{ field: 'note' }]` → `console.warn` fires **once**, with the same message text as the `object-form` pin (`objectFormFieldsMembers-8071.test.tsx` row 4): *\"top-level `fields` entry { field: 'note' } resolved to no field name and was skipped... NOT the same vocabulary as `sections[].fields`...\"*\n- `fields: ['note']` (firing control) → **0** warnings.\n\nSo the description text says \"silently skipped\" (matching the established wording on `object-form`/`form`/`object-master-detail-form`, none of which mention the warning either) rather than claiming a warning this round adds — the warning already exists via inheritance and is out of scope for this PR (Clause-② no).\n\n## Why / risk\n\nCategory-(c) trap per the card family: an author (or an AI generating metadata) writing spec-legal `sections[].fields` shape into this top-level key gets a silent drop. Pure documentation addition — no accept-set, key, shape, or arm change; no new warning; `normalizeSectionField`, `buildFlatFields`, `SimpleObjectForm`, and `warnUnresolvedTopLevelField` are untouched.\n\n## Tests\n\n- `pnpm exec vitest run packages/plugin-form/src/__tests__/objectFormFieldsMembers-8071.test.tsx --reporter=verbose` → **8/8 passed**, same test names/order as `main` — assertions did not move.\n- `pnpm exec vitest run packages/plugin-form/` → 89 files / 883 passed, 1 skipped (884) — full package regression, exit 0.\n- `pnpm exec vitest run apps/console/` → 98 files / 1132 passed — sweep per dispatch requirement, exit 0.\n- `pnpm --filter '@object-ui/plugin-form' run type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`) → exit 0, no output.\n- Dependency closure build (`turbo run build --filter='@object-ui/plugin-form^...'`) → 11/11 successful, then `pnpm --filter '@object-ui/plugin-form' build` → exit 0; confirmed the new description string reached `packages/plugin-form/dist/index.js`.\n- `node scripts/check-doc-example-types.mjs` → exit 2, but only on missing `dist/*.d.ts` for ~26 unrelated packages (workspace-wide build precondition, out of this PR's local-verification scope); the `UNGATED_EXAMPLES` ledger itself has **zero** entries for `packages/plugin-form/src/index.tsx` (grepped directly), so today's ledger re-keying by sibling PRs does not touch this file. My edit is also a net-zero line-count single-line replacement (`git diff --stat`: 1 insertion, 1 deletion), so no line-shift risk either way.\n- `node scripts/check-changeset-presence.mjs` → exit 0 after adding the changeset.\n- `node scripts/check-changeset-no-major.mjs` → exit 0.\n- `npx eslint packages/plugin-form/src/index.tsx --no-inline-config` → exit 0, 25 pre-existing warnings (none on the touched line), 0 errors.\n- Control-byte self-scan on the touched file → clean.\n- Base→`origin/main` pre-flight: empty window (worktree base `42ddd7f71` == `origin/main` at push time).\n\n## Changeset\n\n`.changeset/8847-embeddable-form-fields-description.md` — patch bump for `@object-ui/plugin-form` (published `inputs[].description` is an authoring surface).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01Jmxdo7bmeqCQHLSfmLVX9w)_"
+}

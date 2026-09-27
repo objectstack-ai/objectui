@@ -1,0 +1,36 @@
+{
+  "number": 8331,
+  "kind": "issue",
+  "title": "finding(types,components): `DataTableSchema.emptyAction` declares `SchemaNode` on both faces while the renderer admits only objects — a bare string is silently dropped, the identical defect objectui#7105 just closed one slot over",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "package: components",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-07T12:54:39Z",
+  "updated_at": "2026-09-10T00:35:26Z",
+  "closed_at": "2026-09-10T00:33:05Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8331",
+  "body": "Observation-class finding, measured while accepting PR #8330 (objectui#7105). Filed unassigned, no labels — grading is the triage seat's.\n\n⭐ **This one arrives with its ruling already made, one slot over.** objectui#7105 (director seat, decision batch #69, 2026-09-07, maintainer 「其他同意」) ruled exactly this shape on `EmptySchema.action`: the declaration says `SchemaNode`, the renderer required an object, and the ruling's answer was **relax the renderer, not narrow the declaration** — \"a primitive node is handed to `SchemaRenderer` like any other node slot (a string renders as text), so a bare string is no longer silently dropped.\"\n\n## The claim\n\n`DataTableSchema.emptyAction` is declared `SchemaNode` on **both** faces and rendered only when it is an object. A bare string node — legal by the declaration, and what `SchemaRenderer` renders as text — is silently dropped.\n\n## Measured on `origin/main` = `fedfa3e`\n\n```\npackages/types/src/data-display.ts:1148        emptyAction?: SchemaNode;\npackages/types/src/zod/data-display.zod.ts:285 emptyAction: SchemaNodeSchema.optional().describe('Optional schema node rendered inside the empty-state, …')\npackages/components/src/renderers/complex/data-table.tsx:2160\n    {schema.emptyAction && typeof schema.emptyAction === 'object' && (\n:2161  <SchemaRenderer schema={schema.emptyAction} />\n```\n\n⇒ Both declared faces admit any `SchemaNode`; the render path admits only the object subset. **Declared wider than enforced**, in the direction that loses the author's content without a diagnostic.\n\n⚠️ **The path is `renderers/complex/`, not `renderers/data/`** — recorded because I searched the wrong directory first and got a clean zero. A zero from the wrong path is not a finding, and this is the sort of near-miss that turns a real defect into a \"does not reproduce\".\n\n## Why this is the same defect, not merely a similar one\n\nThe behaviour `SchemaRenderer` gives a primitive is already pinned in this repo — `packages/react/src/__tests__/SchemaRenderer.primitiveSchema.test.tsx` (objectui#4548): a non-empty string renders as its own text, a number as `'42'`, a boolean as `'true'`, and `''` / `0` / `false` render nothing. ⇒ The object-only guard is not protecting the renderer from anything it cannot handle; it is discarding input the declaration promises to accept.\n\n⚠️ **One thing that is NOT settled by #7105's ruling and needs measuring here**, because this slot has history the other did not: `data-table.tsx:2131-2144` carries a docblock about this very slot, and `packages/components/src/renderers/complex/__tests__/data-table-empty-action-visible-when.test.tsx` pins `visibleWhen` behaviour on it — including the note that the empty state is the only place it renders. ⇒ Whoever takes this reads both before touching the guard; relaxing it must not disturb the `visibleWhen` gate that test pins.\n\n## The remedy #7105 shipped, for whoever takes this\n\nNot a template to copy blind, but the shape is settled: declaration unchanged, guard relaxed, the value handed to `SchemaRenderer` through the repo's existing bridge (`toRenderableSchema` in `packages/react/src/schema-input.ts`, a documented-PERMANENT total function that maps number and boolean onto the text form the renderer's own defensive branch produces — `SchemaRendererProps.schema` deliberately excludes those two per #4548 ruling Q2). ⛔ No coercion needs inventing.\n\n⚠️ **It is still a behaviour change on a published surface and owes its own ruling**, exactly as #7105 did — a node that renders nothing today starts rendering. ⛔ Do not treat #7105's adoption as pre-authorising this one; what it settles is the *shape* of the answer and the fact that the bridge exists.\n\n## Why it was not fixed in place\n\nThe implementing session found it and correctly left it: `data-table.tsx` is outside objectui#7105's declared file surface, it is a large hot file whose claim state it could not cheaply establish, and the honest remedy is a behaviour change. ⇒ Reported to the seat rather than absorbed — the right call, and the reason this card exists instead of a widened PR.\n\n## Refs\n\n- objectui#7105 / PR #8330 — the settled precedent, the ruling, and the working bridge.\n- objectui#4548 — what `SchemaRenderer` does with a primitive, already pinned.\n- objectui#6150 — the declared-vs-enforced ledger this class belongs to.\n\nFiled by the `domain:spec @ objectui` PM seat, session `session_01QtGhnU3WnnWyiWeYQhw2aX`, 2026-09-07T12:56Z.\n\n---\n_Generated with [Claude Code](https://claude.com/claude-code)_\n\nhttps://claude.ai/code/session_01QtGhnU3WnnWyiWeYQhw2aX"
+}

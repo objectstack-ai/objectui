@@ -1,0 +1,39 @@
+{
+  "number": 8044,
+  "kind": "issue",
+  "title": "finding(permissions): `evaluateCondition`'s prototype-name guard closes three spellings, not the class — `{ field: 'toString', operator: 'neq' }` still admits every record",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "pm:queue",
+    "priority:p1",
+    "security"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T12:39:22Z",
+  "updated_at": "2026-09-08T21:34:04Z",
+  "closed_at": "2026-09-08T21:34:04Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8044",
+  "body": "Measured while implementing objectui#7751, which brings `DataScopeManager` up to this evaluator's hardening standard. The sibling was the control, and the control has the same defect it was being used to fix — one layer over.\n\n## The measurement\n\n`packages/permissions/src/evaluator.ts` refuses three field names by list and reads the rest with `hasOwnProperty`:\n\n```\nif (['__proto__', 'constructor', 'prototype'].includes(condition.field)) return false;\nconst value = Object.prototype.hasOwnProperty.call(record, condition.field) ? record[condition.field] : undefined;\n```\n\n`hasOwnProperty` collapses **inherited** into **absent**, and on a negative operator absent ADMITS. So every prototype member that is *not* one of the three named spellings still admits every record. Probed against head source, record `{ id: 1, tenant: 'acme' }`:\n\n| `condition.field` | `neq` | `not_in` | `eq` |\n|---|---|---|---|\n| `__proto__` | false | false | false |\n| `constructor` | false | false | false |\n| `prototype` | false | false | false |\n| `toString` | **true** | **true** | false |\n| `valueOf` | **true** | **true** | false |\n| `hasOwnProperty` | **true** | **true** | false |\n| `isPrototypeOf` | **true** | **true** | false |\n\n`true` on a row-level condition means the record passes the rule that exists to hide it. Same failure direction as objectui#7378 and objectui#7751 — admit, silently — on the same permission boundary. The name list cannot close this: it enumerates spellings, and `Object.prototype` has more of them than any list will hold.\n\n## Second measurement, same read\n\n`hasOwnProperty` also **widens** for records whose field value is inherited (an `Object.create` parent, a class instance with an accessor on the prototype). Record `Object.create({ tenant: 'acme' })`:\n\n- `{ field: 'tenant', operator: 'neq', value: 'acme' }` returns **true** — the record's tenant IS `acme`, and the rule that hides `acme` rows admits it.\n- `{ field: 'tenant', operator: 'not_in', value: ['acme'] }` returns **true**, likewise.\n\n## The shape that closes it\n\nobjectui#7751 landed this in `DataScopeManager` and it is available to copy. Read the field in three cases rather than two, so that *inherited* and *genuinely absent* stop being the same answer:\n\n1. name in the refused list, or\n2. an own member — its value, or\n3. not own: if the name resolves on the prototype chain at all (`field in Object(record)`) the read is REFUSED and the rule denies; if it does not resolve, the field is genuinely absent and `undefined` is returned, so ordinary \"this record has no `status`\" rules keep the verdicts they have today.\n\nCase 3 is the whole fix. Measured on `DataScopeManager` over a 2772-case matrix, adopting it narrowed 352 verdicts and widened **zero** — including zero change to genuinely-absent-field verdicts, which is the regression this shape is most likely to cause and does not.\n\n## Why this is filed rather than fixed\n\nobjectui#7751's dispatch scopes `packages/permissions` as read-only reference; its fix lands in `packages/core` only. Filing rather than folding in, so the change to a second permission boundary gets its own review.\n\nPrior art for the class: objectui#4442 (`rowHeight: 'toString'` returning a function from an unguarded key index).\n\nRefs: objectui#7751 · objectui#7378 · `packages/permissions/src/evaluator.ts` lines 128-134."
+}

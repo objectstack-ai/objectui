@@ -1,0 +1,39 @@
+{
+  "number": 8900,
+  "kind": "issue",
+  "title": "`elementDataSourceViewNotFoundMessage` states \"This object has no saved views.\" on a read that never happened — the second consumer of the objectui#8151 swallow",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "needs:contract-review",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-09T21:19:30Z",
+  "updated_at": "2026-09-10T03:14:00Z",
+  "closed_at": "2026-09-10T03:11:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8900",
+  "body": "⛔ **Ungraded and unrouted** — `domain:*`, priority and type are triage's. Filed unassigned, out of scope, from the objectui#8151 round. ⛔ Not filed as a duplicate of objectui#8151: that card's delivery is the adapter-side discrimination plus the toast, and this sentence survives it intact.\n\n## The behaviour\n\nMeasured on `origin/main` `b686ebf7d`.\n\n`packages/core/src/data-scope/element-data-source.ts`, `elementDataSourceViewNotFoundMessage`, the `knownViews.length` ternary:\n\n```js\nconst known = knownViews.length\n  ? `Known views: ${[...knownViews].sort().join(', ')}.`\n  : 'This object has no saved views.';\n```\n\n`knownViews` is filled by `fetchSavedViews` in `packages/react/src/hooks/useElementDataSource.ts`, whose overlay leg is:\n\n```js\nconst overlay = canReadOverlay\n  ? dataSource.listViews(object).then((rows) => rows, () => undefined)\n  : Promise.resolve(undefined);\n```\n\nThat leg maps a REJECTION to `undefined` — a deliberate discrimination, and the right one. But `ObjectStackAdapter.listViews` **never rejects**: it degrades every failure to `[]` (that is the shipped, deliberate contract, and objectui#8151 explicitly keeps it). So a refused or broken `view` read arrives here as an EMPTY ARRAY on the resolved path, `collectSavedViews` contributes nothing, `knownViews.length` is `0`, and the renderer states as fact:\n\n> `dataSource.view \"X\" was not found on object \"Y\". This object has no saved views.`\n\nBoth halves of that sentence are unsupported by what actually happened. Nobody found out whether the object has saved views.\n\nThe sentence is pinned, so it is a live surface and not dead code: `packages/plugin-list/src/__tests__/ListView.elementDataSource.test.tsx:283` asserts the rendered panel contains `no saved views`, and `packages/core/src/data-scope/__tests__/element-data-source.test.ts` has the unit pin beside it.\n\n## Why objectui#8151 does not close this\n\nobjectui#8151 adds the discrimination at the adapter and announces it on `onMetadataReadWarning`, which `app-shell`'s `AdapterProvider` renders as a toast. That is a real improvement and this card is not a complaint about it. It is not enough here for two measured reasons:\n\n1. **The toast is beside the lie, not instead of it.** Under `AdapterProvider` a user now gets a warning toast AND a config-error panel that still says the object has no saved views. A transient toast does not retract a sentence sitting on screen.\n2. **This consumer is not in `app-shell`.** `useElementDataSource` lives in `@object-ui/react` and this message is rendered by `@object-ui/plugin-list`'s `ConfigError`. A host that composes those packages without `AdapterProvider` subscribes to nothing at all and sees only the sentence.\n\n## Why this is its own card and was not folded in\n\nobjectui#8151's dispatch scoped it to `listViews`'s catch arm and the warning channel, and said in as many words ⛔ 不要顺手改 the empty-state copy — measure it, name a successor, do not widen the surface. This is that successor. The repair also belongs to a different package pair (`@object-ui/core` + `@object-ui/react`) than the one that card touches, and it has a design question objectui#8151 has no standing to answer:\n\n- `fetchSavedViews` already distinguishes \"could not read\" from \"read, found none\" — for the REJECTION shape. The adapter's contract is that it never rejects, so the distinction has no way to arrive. Does the fix teach that hook to consult `onMetadataReadWarning`, does `composeElementDataSource` take a third state, or does the sentence simply stop making the claim (`Known views could not be read.`)? That is a contract decision, not a copy edit.\n\n## Re-check\n\n```sh\ngit -C objectui grep -n \"no saved views\" origin/main -- packages/core packages/react packages/plugin-list\n```\n\nThree hits on `origin/main` `b686ebf7d`: the declaration in `element-data-source.ts`, and the two pins.\n\n## Related\n\n**objectui#8151** (the adapter-side discrimination this was found from) · **objectui#7741** (the sibling one method over) · **objectui#7143** (`ListView` rendering a load FAILURE through `DataEmptyState`, closed — same family of confusion, a different surface) · **#13906** decision 1 option A (*a thing that could not be READ is not a thing that is ABSENT*, the governing discrimination).\n"
+}

@@ -1,0 +1,40 @@
+{
+  "number": 8268,
+  "kind": "issue",
+  "title": "finding(types): `BaseSchema.testId`'s JSDoc promises \"Rendered as data-testid attribute\" — nothing renders it, and it reaches the DOM as a lowercase `testid`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "needs:contract-review",
+    "package: types",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-07T07:00:51Z",
+  "updated_at": "2026-09-10T03:29:00Z",
+  "closed_at": "2026-09-10T03:29:00Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8268",
+  "body": "Found while fixing objectui#8234 (the `scroll-area.mdx` schema fence). Measured on `origin/main` `0fa7a9c83`. Exact class-mirror of objectui#7088 (`BaseSchema.hidden`'s JSDoc promising `visibility: hidden` while the renderer returns null) — same interface, different key, and that one is closed.\n\n## The claim\n\n`packages/types/src/base.ts:419-423`:\n\n```ts\n  /**\n   * Test ID for automated testing.\n   * Rendered as data-testid attribute.\n   */\n  testId?: string;\n```\n\n## What actually happens\n\n**1. Nothing in the repo reads `schema.testId`.** `git grep 'schema\\.testId' packages/` returns exactly two hits, and neither is a read into the DOM:\n\n- `packages/core/src/builder/schema-builder.ts:84` — `this.schema.testId = testId;`, which *writes* it;\n- `packages/core/src/builder/__tests__/schema-builder.test.ts:177` — the assertion that the write happened.\n\nThe ~40 other `testId` hits across `packages/*/src` are ordinary React component props on hand-written components (`PageHeader`, `HomeRail`, the metadata-admin inspectors, …), unrelated to the schema key.\n\n**2. `SchemaRenderer` does not strip it, so it is spread as a raw React prop.** The metadata destructure at `packages/react/src/SchemaRenderer.tsx:1451-1478` names `type` / `children` / `body` / `visible` / `visibleWhen` / `visibleOn` / `visibility` / `hidden` / `hiddenOn` / `disabled` / `disabledOn` / `dataSource` / `responsiveStyles` and the two internal flags. `testId` is not in that list, so it lands in `componentProps` and is spread onto the component, which spreads it onto the DOM element.\n\n**3. React writes it as `testid`, not `data-testid`.** Measured through `SchemaRenderer` with a `ui:scroll-area` node (`testId: 'my-tid'`):\n\n```\n[data-testid=\"my-tid\"] present = false\n[testid=\"my-tid\"]      present = true\nouterHTML head = DIV dir=\"ltr\" class=\"relative overflow-hidden\" style=\"…\" testid=\"my-tid\" data-obj-type=\"scroll-area\"\n                 (opening tag; angle brackets written out as DIV so this body survives the sanitizer)\n```\n\nSo the attribute an author gets is `testid`, a non-standard attribute that no test-library query helper looks for. `screen.getByTestId(…)` and `[data-testid=…]` both miss it. A contrast leg in the same run: `id: 'my-scroll'` **does** reach the DOM correctly, as `id=\"my-scroll\"` plus `data-obj-id=\"my-scroll\"` — so the strip list and the spread are working as designed; it is only this key that has no mapping.\n\n## Why it matters beyond one key\n\nThe row is published to authors. `testId?: string;` appears in the \"Base properties\" block of **16 component doc pages** (`grep -rlF '// Base properties' content/docs/components/` — `basic/div`, `basic/span`, `complex/carousel`, `complex/data-table`, `complex/filter-builder`, `complex/resizable`, `complex/scroll-area`, `data-display/statistic`, `data-display/tree-view`, `feedback/toaster`, `form/calendar`, `form/file-upload`, `layout/box`, `layout/page`, `layout/semantic`, `navigation/header-bar`). An author who reads any of them, writes `testId: 'x'`, and then writes `getByTestId('x')` gets a failing test with no diagnostic pointing anywhere near the cause.\n\nThe zod twin declares it too (`packages/types/src/zod/base.zod.ts:229`, `testId: z.string().optional().describe('Test identifier')`), so it validates cleanly on the way in.\n\n## Not fixed under objectui#8234\n\nThat card is the `scroll-area` reference page and its fence. The `testId` row on that page is **accurate against the declaration**, so correcting the page would have meant making it disagree with `base.ts` to route around a defect elsewhere — the lenient-fallback shape AGENTS.md #0.1 forbids. Left alone there deliberately, and filed here instead. Contract-first, the fix is at the producer, and it is one of two directions:\n\n- **A — make the promise true.** Add `testId` to `SchemaRenderer`'s metadata destructure and emit `data-testid={schema.testId}` alongside the existing `data-obj-id` / `data-obj-type`. Every one of the 16 doc pages then becomes correct with no doc edit. Risk: it adds an attribute to rendered output, so any snapshot holding a node that authors `testId` moves.\n- **B — retire the promise.** Delete the \"Rendered as data-testid attribute\" sentence, or the key, under the enforce-or-remove reading: it has one writer, no reader, and its only observable effect today is a stray non-standard DOM attribute. Needs the 16 doc pages updated if the key goes.\n\nNot choosing between them here — that is a contract decision. Note that objectui#7088 (the same shape on `hidden`) resolved by making the *declaration* honest rather than by changing the renderer, which is a precedent for B, but `hidden` had a working behaviour to describe and this key has none.\n\n## Gate blindness\n\nNothing catches it. `check:doc-types` reads only `type` string literals from doc code blocks. `check:doc-snippets` compiles only `ts`/`tsx`/`typescript` fences, and the Base-properties blocks on all 16 pages are fenced `plaintext`. No test asserts a `data-testid` produced from a schema node. Same class as objectui#6143."
+}

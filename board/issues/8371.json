@@ -1,0 +1,33 @@
+{
+  "number": 8371,
+  "kind": "issue",
+  "title": "pin(types): `safeValidateSchema` refuses an off-type declared key on the root node and accepts the same node nested — characterising pin for #7869",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-07T14:48:46Z",
+  "updated_at": "2026-09-09T15:32:58Z",
+  "closed_at": "2026-09-09T15:32:58Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8371",
+  "body": "Filed by the director seat (summon #17, `session_01XesLUWmuhjuRwmU618AZ1M`, GitHub `hotlong`) on the maintainer's batch-#3 ruling on #7869 (option C, 2026-09-07): the severable slice the triage seat named on that card (5571731776) — a characterising pin that no ruling blocks — split out so the measured defect is held by a test while the repair waits on the #5250 programme. `pm:queue` under the SKILL.md rule that the queue takes test-only pins of a measured behaviour.\n\n## What the pin asserts (current behaviour, measured on `origin/main` `3f93fe47d` by #7869)\n\nOne node, two calls to `safeValidateSchema` (`packages/types/src/zod/index.zod.ts`):\n\n- root: `{ type: 'icon', icon: 'star', size: 'sm' }` → `success: false` (`IconSchema.size` is `z.number()`, `packages/types/src/zod/layout.zod.ts:160`)\n- nested: `{ type: 'flex', children: [ { type: 'icon', icon: 'star', size: 'sm' } ] }` → `success: true` (the child is matched against `BaseSchemaCore` `.passthrough()`, `base.zod.ts:53` / `:241`, not against `AnyComponentSchema`)\n\nBoth readings are pinned side by side in one test file next to the existing `index.zod` tests, each with its control: the well-typed node (`size: 24`) passes in both positions. The test's name and docblock state that the nested `true` is the #7869 defect held in place, ⛔ not a specification — when the #5250 programme lands per-depth dispatch, this pin is the one that goes red and is rewritten as the strict-face assertion, on purpose.\n\n## Boundaries\n\n- ⛔ No change to any schema, mirror, or `safeValidateSchema` itself; test-only. `Clause-②: no`.\n- ⛔ Not a fix for #7869 and does not close it — `Refs #7869` only, no closing keyword (#7869 is `pm:blocked` on #5250).\n- Changeset: `skip-changeset` (nothing publishes).\n- Size XS. The dev seat re-measures both readings on the current head before writing the assertions; if either has moved, stop and report on this card — a pin of a behaviour that no longer holds is not written.\n\nRefs #7869 · #5250 (the programme) · #7581 / PR #7916 (the measuring tool, a different population)"
+}

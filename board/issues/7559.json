@@ -1,0 +1,38 @@
+{
+  "number": 7559,
+  "kind": "issue",
+  "title": "[finding] The object-view relay's `viewDef` is an untyped record, so a MISSING key rung is invisible to tsc — the same defect has now been fixed twice (`description`, `rowColor`) with a third half still open",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "enhancement",
+    "finding",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T21:19:26Z",
+  "updated_at": "2026-09-09T17:35:33Z",
+  "closed_at": "2026-09-09T17:34:05Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7559",
+  "body": "Found while implementing objectui#7218 (relay a per-view `rowColor`). Filed rather\nthan folded into that PR: it is the MECHANISM behind that card's defect class, not\nthat card's defect, and acting on it is a design decision rather than a rung.\n\n## The observation\n\n`packages/app-shell/src/views/ObjectView.tsx` builds the list schema its\n`renderListView` hands to `ListView` by spreading the host's schema and then\nrelaying **47 named keys** off the active view:\n\n```\nconst fullSchema: ListViewSchema = {\n    ...listSchema,\n    label: viewDef.label ?? listSchema.label,\n    description: viewDef.description ?? listSchema.description,\n    ...45 more\n};\n```\n\nThe OUTPUT is typed — `fullSchema: ListViewSchema`. The INPUT is not. `viewDef`\nis `activeView`, an element of the array `buildViewTabs` returns, whose declared\ntype is `Array<Record<string, any> & { id: string }>`. So every rung reads `any`.\n\n⇒ The compiler checks that each key this literal WRITES is a legal\n`ListViewSchema` member. Nothing checks the other direction — that a declared\n`ListViewSchema` member the renderer READS actually has a rung. A key with no\nrung is not a type error, not a lint finding, and not a test failure. It is\nsilence.\n\n## Why this is worth a card: the class has now recurred three times\n\n| card | key | state |\n|:--|:--|:--|\n| objectui#7199 | `description` | fixed |\n| objectui#7218 | `rowColor` | fixed (this finding's PR) |\n| objectui#7516 | `fieldOrder` | open, `needs-user-decision` |\n\nAll three are the same shape, and the card that found the second pair described\nit exactly: *\"nothing errors, every authoring gate passes, and the only symptom\nis that an authored column order (or row colour) has no effect on screen. An\nauthor has no way to notice short of diffing the DOM.\"*\n\nThree instances of one mechanism, found one at a time by eye, is the signal that\nthe mechanism deserves the attention rather than the instances.\n\n## What this is NOT\n\n⛔ Not the objectui#5043 family track. That one owns the `(schema as any)` reads\nin `plugin-view`'s `ObjectView` — typing the HOST-COMPOSITION block as an\nexplicit host-side prop contract. This is the other host and the other direction:\n`app-shell`'s relay has no casts to retire, it has a source object whose type is\n`Record<string, any>` and a set of rungs nobody can enumerate against the target.\n\n⛔ Not a claim that a rung is missing today. I did not census the remaining\n`ListViewSchema` members against the 47 rungs — that census is most of the work\nand is what a dispatched card would do first.\n\n## Not verified here\n\nWhether the right answer is (a) type `viewDef` as the view-entry type it actually\ncarries so the compiler can see the gap, (b) a gate that enumerates\n`ListViewSchema` members against the relay's key set and requires each absence to\nbe declared, or (c) neither, because a relay is deliberately a whitelist and the\nabsences are choices rather than omissions. Option (c) is a real possibility and\nis why this is a `finding` rather than a bug: `quickFilters: undefined` in that\nsame literal is an absence that IS deliberate and documented.\n\nThere is prior art for the typing half being genuinely hard — objectui#4337\nrecorded that the legacy `list-view` vocabulary has no declared type at all, so\nevery fixture exercising the fold must cast.\n\n## Where to start\n\n- The relay: `packages/app-shell/src/views/ObjectView.tsx`, the `fullSchema`\n  literal inside the `renderListView` callback.\n- The source type: `buildViewTabs` in the same file, and `viewEntry` in\n  `packages/app-shell/src/utils/viewIdentity.ts`.\n- The target: `ListViewSchema` in `packages/types/src/objectql.ts`, which imports\n  its spec-owned members by reference.\n- The sibling host, for contrast: `packages/plugin-view/src/ObjectView.tsx`, whose\n  equivalent literal IS fenced and DOES have a pin that re-derives its read set\n  from the source at test time (`objectViewHostSurface.test.tsx`) — a working\n  example of the \"enumerate the set mechanically\" option applied to the other\n  direction.\n\nFiled unassigned, per the dispatch. Related: objectui#7199, objectui#7218,\nobjectui#7516, objectui#5043, objectui#4337 — none of them is this, and none of\nthem is duplicated by it.\n\nGenerated by Claude Code, session `session_01EMrWaQw3XS5DxTHxp4yRyC`, while\nimplementing objectui#7218."
+}

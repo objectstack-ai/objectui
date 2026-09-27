@@ -1,0 +1,35 @@
+{
+  "number": 8535,
+  "kind": "issue",
+  "title": "finding(gate): all three copies of objectui#7448's document-count pin read workflow headers — none reads a gate `.mjs` docblock, which is where the last two rotted counts were",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T07:33:15Z",
+  "updated_at": "2026-09-09T15:32:32Z",
+  "closed_at": "2026-09-09T15:32:32Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8535",
+  "body": "Found while implementing objectui#8484 (the package-README census in `check-doc-component-types.mjs`' header read \"26 across 12 files\"; the true reading is 26 across 8). Not fixed there: that card's surface is one paragraph of one gate, and this is the class question. Filed rather than folded in.\n\n## The gap\n\nobjectui#7448 ruled that a count copied into a header rots, and gave the class a mechanical half: the `documentCounts` / `POPULATION_COUNT` pin. Three copies exist today — `check-doc-component-types.test.ts:64`, `check-doc-fence-languages.test.ts:54`, `check-links-workflow.test.ts:132`.\n\n**Every one of them reads a workflow YAML header** (the third also reads its own test file's header). Grepped on `c30026715`: the string `documentCounts(` appears only against `headerComments(workflowYaml())`, `commentProse(workflowYaml())` and `ownHeaderComment()`. Positive control in the same run: `POPULATION_COUNT` itself is found 3 times, one per copy, so the zero is a property of the surface and not of a grep that missed.\n\n⇒ **No copy reads a gate `.mjs` docblock**, and that is where the counts that actually rot are living. Two instances landed there in the last week alone:\n\n- `check-shell-escape-residue.mjs:232` — \"203 of today's 207 files\", true 202/206 (objectui#8122, closed).\n- `check-doc-component-types.mjs:287` — \"26 unregistered `type` literals across 12 files\", true 8 (objectui#8484). This one had already been quoted onward into objectui#8115's brief, which instructs its implementer not to re-derive the census.\n\nobjectui#8122 named the gap in passing and fixed its own two sites; objectui#7966 (open) and objectui#7901 (closed) are the same family pointed at `content/docs/**` prose. **`scripts/*.mjs` gate docblocks are the sibling surface none of them covers.**\n\n## The part that makes this a design question, measured\n\nA verbatim extension does not work, and here is the reading rather than the guess. The pin's own pattern, applied unchanged to the comment prose of the three doc gates on `c30026715`:\n\n```\nscripts/check-doc-component-types.mjs   34036 prose chars   6 hits\nscripts/check-doc-fence-languages.mjs   15424 prose chars   2 hits\nscripts/check-doc-snippet-types.mjs     92068 prose chars   8 hits\n```\n\nMost of those 16 are **legitimate and cannot rot**, because they are dated readings rather than live claims:\n\n- `check-doc-fence-languages.mjs:345` — \"`273537957`: 83 files, 105 blocks\" — a count anchored to a commit.\n- `check-doc-snippet-types.mjs:704` and `:771` — a count quoted *as the example of a count that went stale*, which is a quotation, not a claim.\n- `check-doc-component-types.mjs:89` — \"Measured over all 143 files on ...\" — a stated measurement point.\n\nSo the question the card has to answer is the one the pattern cannot: **how does a check tell a dated reading from a live claim?** The two candidate answers already present in this tree, both worth costing before either is built:\n\n1. **Require the anchor.** A numeral qualifying a document-population noun is a finding *unless* the same sentence names a commit or a re-derivation command. That is the shape objectui#8484 used for its fix and the shape `check-doc-fence-languages.mjs:345` already uses. It has a real false-positive tail (the quotation case above would still fire).\n2. **Re-derive and compare.** The test re-runs the instrument and asserts the header's numbers equal today's reading. No hard-coded expected value, fails exactly when the measurement moves — but it turns every README/doc edit into a comment edit, and it only works where an instrument is cheap to re-run.\n\n⛔ Neither is obviously right, which is why this is filed rather than implemented.\n\n## Why it is worth a card\n\nNothing goes red on any of it. The class has now produced instances in `content/docs` prose (objectui#7965, objectui#7886), in workflow headers (objectui#7825, objectui#7448), and twice in gate docblocks (objectui#8122, objectui#8484) — and the docblock instances are the worst of the three, because a gate's docblock is what the next author of that gate reads before moving its scan population, and in objectui#8484's case the wrong number had already been copied into a dispatch brief that told its reader not to check it.\n\n## Back-links\n\nobjectui#8484 (the instance that prompted this), objectui#8122, objectui#7966, objectui#7965, objectui#7901, objectui#7888, objectui#7825, objectui#7448.\n\nFiled by the objectui#8484 developer seat, session `https://claude.ai/code/session_01FhBNJcLRZLe8M87VcUgpKr`, left unassigned for PM triage.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

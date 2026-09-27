@@ -1,0 +1,35 @@
+{
+  "number": 8802,
+  "kind": "issue",
+  "title": "finding(plugin-kanban,types): after batch #70 the `view:kanban` registry `inputs` still declares `titleField` while the zod arm refuses it — two published faces of one type key, opposite verdicts, and every pin stays green",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T09:47:34Z",
+  "updated_at": "2026-09-10T10:17:08Z",
+  "closed_at": "2026-09-10T10:17:08Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8802",
+  "body": "Filed by the dev seat executing objectui#7742 (decision batch #70). This is a residual **created by** PR #8799 and deliberately left open there rather than closed unilaterally: closing it means re-opening a landed ruling. ⛔ The PR does not address this; it reports it.\n\n## What batch #70 ordered, and what it did not reach\n\nThe ruling: *\"`titleField` on the `kanban` arm — retire the fallback — one arm, one spelling: `cardTitle`; named refusal pointing at it; the `object-kanban` arm keeps its declared `titleField`.\"*\n\nThe objectui#8410 screen recorded on objectui#7742 stated its own radius: it covered the **prop-spread channel only**, and the **registry `inputs` face** was neither confirmed nor falsified. Measuring it is what produced this card.\n\n## The measurement\n\n`packages/plugin-kanban/src/index.tsx` declares ONE array, `OBJECT_KANBAN_INPUTS`, and spreads it into **both** registrations:\n\n- `ComponentRegistry.register('object-kanban', ObjectKanbanRenderer, { inputs: [...OBJECT_KANBAN_INPUTS] })`\n- `ComponentRegistry.register('kanban', ObjectKanbanRenderer, { inputs: [...OBJECT_KANBAN_INPUTS] })`\n\nand that array carries `titleField`, described as \"Legacy spelling of `cardTitle`\".\n\nThe sharing is **structurally pinned on purpose**. `packages/plugin-kanban/src/__tests__/scalarKeysAreDeclaredAndHonoured-8201.test.ts` states it as its own row 5: *\"ONE SHARED LIST — both tags are the same renderer, so the declared surfaces must be the same OBJECT, not two lists that happen to agree.\"* That same file carries a row per (tag, key) pair asserting the html tier ACCEPTS `titleField` for `view:kanban`.\n\n⇒ After PR #8799, a document `{ \"type\": \"kanban\", \"titleField\": \"name\" }` gets:\n\n| face | verdict |\n| --- | --- |\n| registry `inputs` / html tier (`validateTree`) | **accepted** — no `unknown-prop` diagnostic |\n| `@object-ui/types` zod arm (`safeValidateSchema`) | **refused by name**, pointed at `cardTitle` |\n\n## Why nothing catches it\n\nMeasured after the change: `apps/console` 95 files / 1116 tests green, `packages/plugin-kanban` and `packages/types` 197 files / 3381 tests green, `pnpm check` exit 0. The `8201` rows stay green because they read the SPEC's `ComponentPropsMap` entry, not this repo's zod mirror — and `ComponentPropsMap` has an `object-kanban` entry and **no `kanban` entry** at all, so there is nothing for a split list to be compared against. The divergence is mechanically invisible in both directions.\n\nNote the direction. The repo already tolerates the OTHER one — `quickAdd` is declared on the zod arm and deliberately absent from `OBJECT_KANBAN_INPUTS` (escalated as objectui#8201). This is the first key in the reverse position: the designer-facing face says yes and the document validator says no, on the same type key.\n\n## Why PR #8799 does not fix it\n\nUn-sharing the array for the `kanban` tag is the mechanical fix, and it costs three things the executing seat has no standing to spend: it reddens objectui#8201's row 5, it contradicts that row's stated reason (one renderer, therefore one surface), and it leaves the split list with no upstream entry to check parity against. That is a ruling, not a repair.\n\n## The options\n\n- **A — accept the divergence.** The zod arm is the stricter, authoritative face and its refusal is loud and names the remedy. Cost: an author gets a green from the designer and a red from `objectui validate` on the same document, and nothing explains why.\n- **B — un-share the `inputs` array** so `kanban` publishes the list minus `titleField`. Cost: re-opens objectui#8201's structural pin, and needs a rule for what the split list is checked against upstream.\n- **C — do not retire `titleField` on the `kanban` arm after all**, keeping both faces accepting. Cost: reverses one row of a maintainer ruling already executed.\n- **D — take it upstream**: give `@objectstack/spec` a `kanban` entry distinct from `object-kanban`, then split the list against it. Largest, and the only one that makes the two arms genuinely independent.\n\n⛔ This seat does not choose. Recommendation for triage, not a decision: **A now, D as the real answer** — the divergence is loud rather than silent today, and every cheaper fix trades one landed ruling for another.\n\nRefs: objectui#7742 (batch #70) · PR #8799 (its execution, which reports this in its body) · objectui#8201 (the shared list and its pin) · objectui#7322 item ② (the two-arm prop union) · ADR-0049.\n\nFiled from Claude Code session `session_01Jmxdo7bmeqCQHLSfmLVX9w`; this paragraph is the attribution, written as prose rather than a footer block."
+}

@@ -1,0 +1,40 @@
+{
+  "number": 8084,
+  "kind": "issue",
+  "title": "live-e2e's RUN conclusion asserts `success` while its JOB reports `failure` — the outage detector reports the opposite of what it detects (defect ② of the original card; ① landed in PR #8239)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "ci/cd",
+    "domain:devx",
+    "pm:dispatched",
+    "priority:p1",
+    "tests",
+    "tooling"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T14:58:09Z",
+  "updated_at": "2026-09-09T00:57:41Z",
+  "closed_at": "2026-09-09T00:57:41Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8084",
+  "body": "Filed unassigned and ungraded by the `domain:ui` execution seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) at 2026-09-06T14:5xZ, while establishing whether a `Live E2E (informational)` red on a dispatched PR was that PR's fault. It is not — it is red on `main`. Advisory red reaching `main` is shared damage, so it is carded on sight. ⛔ This seat produces no `domain:*` or grade; triage owns routing (this looks like `domain:devx`, but that is triage's call, not mine).\n\n## Two defects, and the second is why nobody has noticed the first\n\n### ① The live E2E has stopped running — the backend will not start\n\nMeasured on `main`, scheduled runs, **job** conclusions read directly (⛔ not run conclusions):\n\n| date | run | job | step 7 `Start ObjectStack backend (published packages)` | job |\n|---|---|---|---|---|\n| **2026-09-05** 06:41Z | `33950494089` | `101264218858` | ✅ **success in 76s** (06:41:40 → 06:42:56) | ✅ success — E2E actually ran, allowlist passed |\n| **2026-09-06** 06:41Z | `34017174769` | `101442890465` | ❌ **failure after ~6 min** (06:42:23 → 06:48:25, a timeout) | ❌ failure — steps 8–14 all `skipped` |\n\n⇒ The break is **new inside that 24-hour window**, ⛔ not a chronic condition. The 09-05 run is the lit control: the same step, the same workflow, the same fixture path, green in 76 seconds. Everything downstream — build console, serve, Playwright, **the entire E2E allowlist** — is `skipped` on the 09-06 run. So there is currently **no live end-to-end coverage at all** on this repository.\n\n⚠️ **The suspect is a cross-repo one and it is not pinned.** The step starts the backend from **published packages**, and objectui has **no SHA pin for objectstack** — it resolves by npm semver through the lockfile. A newly published `@objectstack/*` that fails to boot would produce exactly this, would have landed in exactly this window, and would affect **every consumer who installs the current published versions**, not just CI. ⛔ That is a hypothesis with a plausible mechanism, **not a measurement** — I did not read the step's log, diff the resolved versions, or drive a local install. Whoever takes this should start there, because if it is right the blast radius is much larger than a CI gate.\n\n### ② ⭐ The RUN says `success` while the JOB says `failure` — the gate is structurally blind\n\nThe same 09-06 run reports:\n\n```\nrun  34017174769  conclusion: success     ← what any run-level reading sees\njob  101442890465 conclusion: failure     ← what actually happened\nstep 7                       failure\n```\n\nThis is not the ordinary \"an advisory job does not block the merge\" arrangement. The aggregate does not merely *omit* the failure — it **asserts the opposite of it**. All three most recent scheduled runs on `main` (09-04, 09-05, 09-06) report `conclusion: success` at the run level, and only one of the three is actually green inside.\n\n⇒ **Any monitoring, dashboard, digest or agent that reads run-level conclusions for this workflow reports green while the E2E has not executed for a day.** That is the reason ① went unnoticed, and it will hide the next one too. It is arguably the more expensive of the two defects: ① is an outage, ② is an outage detector that reports success.\n\n⚠️ Note for whoever fixes ②: making the job blocking is **not** obviously the right repair, and ⛔ should not be done reflexively — `live-e2e` is deliberately informational, and a gate that reddens the healthy case is a permanently red check nobody reads (the same reasoning `governed-surface-guard.yml`'s header gives for its `pull_request` leg exiting 0). The defect is that the **run conclusion contradicts the job**, not that the job is advisory.\n\n## Why this is worth a card rather than a shrug\n\nEvery PR opened in this repo right now carries a red `Live E2E (informational)`. Two things follow, both bad:\n\n- The enqueue rule is 每一个 check 全绿, ⛔ not the required subset. A permanently red advisory check trains every seat to wave one specific red through — and 「it's just live-e2e」 is exactly the sentence under which a real red eventually walks past.\n- The coverage it was buying is gone, silently. ⚠️ The published-package boot path is the one thing this workflow tests that unit tests structurally cannot.\n\n## Dedup\n\nSearched this repo for prior art on the live-e2e / Build & E2E family. **Control fires**: the query returns four on-topic cards — #3425 (live-e2e failing at the workflow level with 0 jobs), #5304 (`Build & E2E` hanging in `apt-get update`, p0), #4086 (`Build & E2E` red on `main`, console smoke), #5996 (eager-closure ENOENT). ⇒ A non-empty on-topic hit set makes the absence of a match a reading rather than a broken query. **All four are CLOSED, and none describes either defect above.**\n\n⚠️ Bounded reading: I did not sweep `state=all` across sibling repos, and ⛔ this is not an exhaustive search.\n\n## ⛔ Not asking for\n\n⛔ Not asking to make `live-e2e` blocking — see the note on ② above. ⛔ Not asserting the published-package hypothesis as fact; it is the first thing to test, not a finding."
+}

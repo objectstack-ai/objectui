@@ -1,0 +1,39 @@
+{
+  "number": 8897,
+  "kind": "issue",
+  "title": "The installed `@objectstack/spec` pin is 17.4.0, not 17.3.0 — three version-qualified measurements (one of them a user-visible error message) describe a spec that is not installed",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "needs:contract-review",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-09T20:53:17Z",
+  "updated_at": "2026-09-10T03:15:11Z",
+  "closed_at": "2026-09-10T03:15:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8897",
+  "body": "Filed from objectui#8058 (dev seat, session `session_01611D6ZaRaMmwTNQmSbk8MH`), which measured this while establishing its own premise. ⛔ Unassigned; grading and `domain:*` are triage's.\n\n## The reading\n\n`pnpm-lock.yaml` on `origin/main` resolves `@objectstack/spec` to **17.4.0**:\n\n```\n'@objectstack/spec@17.4.0':\n'@objectstack/spec@17.4.0(ai@7.0.65(zod@4.4.3))':\n```\n\nThree places state the installed pin as 17.3.0 and hang a version-qualified claim on it.\n\n## Measured on the installed 17.4.0 artifact\n\n```\nFieldSchema.safeParse({ type: 'lookup', label: 'L', reference: '   ' })\n  => success = false\n  => custom at path [\"reference\"]\n```\n\nControls at the same pin, same run: `reference: 'account'` accepted; `reference: ''` and an absent `reference` refused as `custom` at `reference`; `referenceTo: 'account'` refused as `unrecognized_keys` with the rename hint.\n\nSo the whitespace-only target is now refused **upstream**, at the installed pin.\n\n## What that falsifies\n\n**1. `packages/plugin-designer/src/MetadataFieldsPage.tsx`**, the `assertRelationshipTargetPresent` docblock:\n\n> ⚠️ That is the spec FROM THE RELEASE CARRYING objectstack#16920, not the INSTALLED spec. This repo's pin is `@objectstack/spec` 17.3.0 (`pnpm-lock.yaml`), which predates the fix ... Measured on the installed 17.3.0 artifact, whose shipped test still reads `field.reference === ''`: `FieldSchema.safeParse({ type: 'lookup', label: 'L', reference: '   ' }) => success = true` ... Until the pin reaches the fix, this guard is still the only thing refusing `'   '` here.\n\nThe pin has reached the fix. The same docblock's closing line says the refusal message \"retires with the pin bump, not with this note\" — the bump happened and the message did not retire.\n\n**2. The user-visible refusal text** in the same file's `describeUnusableTarget`, which an author reads in the page's error banner:\n\n> `@objectstack/spec` 17.3.0 ACCEPTS this value (measured, at field level and through `ObjectSchema`), so the PUT would succeed and the failure would surface later and further away\n\nAgainst the installed spec the PUT would **not** succeed. `packages/app-shell/src/services/MetadataService.ts` carries the word-for-word sibling copy (objectui#5761 parity family), so both writers say it.\n\n**3. `packages/plugin-designer/src/MetadataFieldsPage.specKeyReference.test.tsx`**, the comment on the four-state refusal case:\n\n> this repo's pin is `@objectstack/spec` 17.3.0 (`pnpm-lock.yaml`), which predates objectstack#16920 and still parses `reference: '   '` green at field level and through `ObjectSchema`.\n\n## What this is NOT\n\n⛔ Not a behaviour bug. Both writers still refuse a whitespace-only target and should keep refusing it — objectui#8621 already ruled that the guard stays for its own reason (it refuses at editor time, before the PUT, naming the field) rather than for the divergence. Nothing about the guard's predicate needs to change.\n\nWhat is wrong is that three version-qualified measurements, one of them shown to authors in an error banner, describe a spec artifact that is not the one installed. **Class (b) — a declared, version-stamped measurement contradicted by the artifact it names.** objectui#8621 retired the divergence NOTE and left the pin claim standing behind it.\n\n⚠️ Whoever takes this: the refusal message is asserted verbatim by pins in both writers' test files, so correcting it flips existing pins. That is the whole reason it is a card and not a drive-by edit.\n\n## Related\n\nobjectui#8621 (retired the divergence note) · objectui#7714 (added the guard) · objectstack#16920 (the upstream trim fix) · objectstack#16126 (named in the message) · objectui#8058 (measured the pin while establishing its own premise)\n"
+}

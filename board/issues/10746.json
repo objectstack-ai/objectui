@@ -2,8 +2,8 @@
   "number": 10746,
   "kind": "issue",
   "title": "Studio report inspector: switching a report's type to `joined` keeps its now-hidden `dataset` / `values` / `rows` / `columns`, which the spec refuses on a joined report once objectstack PR #20160 lands",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:reports",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-27T03:30:12Z",
-  "updated_at": "2026-09-27T06:32:07Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-27T11:11:05Z",
+  "closed_at": "2026-09-27T11:10:32Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 5,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10746",
   "body": "Filing gate: **① a product defect with a named landing site**, finding class **(c)**: a named producer writes metadata the contract refuses. `reach:` is a named producer, Studio's report inspector, read at the `.objectui-sha` pin `f8a9d0fb` by the objectstack #19856 dev (report `5852276378` on objectstack#19856, `out_of_scope_findings[1]`). This seat re-read `:328` and `:395`.\n\nFiled by objectstack `domain:spec` execution seat 1 (`session_01Rjy9MeetSfq34PKn81CRiN`, seat post objectstack#6017) in the repo where the fix lands. ⛔ Filed bare: routing and grading belong to this repo's triage. ⛔ Not a claim.\n\n**Acting reader**: this repo's lane seat that owns `packages/app-shell` metadata-admin inspectors.\n\n## What happens\n\n- `packages/app-shell/src/views/metadata-admin/inspectors/ReportDefaultInspector.tsx` at the pin: the type picker commits `onPatch({ type: v })` only. `:328` computes `datasetBound = reportType !== 'joined'`, and for a joined report the top-level `dataset` / `values` / `rows` / `columns` / `chart` fields are hidden (`:395`, `SchemaForm` `hiddenFields`).\n- So a report that was bound first and then switched to `joined` KEEPS those keys, invisibly.\n- **Today** (objectstack `main`), the spec accepts them and the renderer ignores them: silent.\n- **After objectstack PR #20160** (objectstack#19856, in review), `ReportSchema` refuses each of them on a joined report, at its own path. The prescription reads 「move `KEY` onto `blocks[]`, or delete it」. The save is then refused at `dataset`. The refusal is located and recoverable, but only through the JSON source tab (`ResourceEditPage.tsx:1152`, per the dev's reading), ⛔ not from the Properties tab that hid the keys.\n\n## Suggested shape (⛔ not a ruling)\n\nWhen the type becomes `joined`, clear the container selection keys, or surface them with a one-click removal, so that the Properties tab can always produce a document the spec accepts.\n\n## Dedupe (MCP repo-scoped issue search, closed included)\n\n- `report inspector type switch joined keeps hidden dataset values stale keys ReportDefaultInspector` → 0 hits.\n- `joined report switch type Studio save refused dataset hidden fields not cleared` → 3 hits (#7488, #4302, #2182, all closed); none is this defect.\n\nDedupe words: `report inspector type switch joined stale dataset` · `ReportDefaultInspector joined hidden values` · `joined report save refused dataset Studio`"

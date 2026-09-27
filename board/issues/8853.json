@@ -1,0 +1,34 @@
+{
+  "number": 8853,
+  "kind": "issue",
+  "title": "finding(fields): `DateTimeCellRenderer` and `DateCellRenderer` accept DIFFERENT `field.format` vocabularies — `format: 'relative'` is honoured on a `date` column and silently dropped on a `datetime` one",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "package: fields"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T14:15:39Z",
+  "updated_at": "2026-09-10T11:13:34Z",
+  "closed_at": "2026-09-10T11:11:16Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8853",
+  "body": "Found while implementing objectui#8352 (the same defect class on the dataset-measure path) by the objectui `domain:ui` seat, session `session_01611D6ZaRaMmwTNQmSbk8MH`. Filed rather than fixed there: different package, different surface, and it needs its own verification surface. Not claimed, no code written.\n\n## The asymmetry\n\n`packages/fields/src/index.tsx`, the two neighbouring cell renderers:\n\n```\n:919   DateCellRenderer      const style = dateField.format || 'relative';\n:928                         formatDate(safe, style, { dueLike, locale, t });\n\n:970   DateTimeCellRenderer  const style = field.format || 'compact';\n:994                         formatDateTime(date, { style, locale, t });\n```\n\nBoth read the author's `field.format` and hand it to a formatter. The formatters do not accept the same vocabulary:\n\n- `formatDate` honours `'short'` and `'relative'`; anything else falls to the default locale face.\n- `formatDateTime` honours `'compact'` alone; anything else falls to the verbose default.\n\n⇒ An author who writes `format: 'relative'` on a field gets the relative face on a `date` column and **silently the verbose default** on a `datetime` column. No error, no warning, no fallback — the same silent-drop signature as objectui#8352, one surface over. The reverse holds too: `format: 'compact'` is honoured on a `datetime` column and inert on a `date` one.\n\n`DateDisplayOptions.style`'s own docblock states the split as intended for the *functions* (\"`'compact'` is `formatDateTime`'s dense grid cell face, `'short'` and `'relative'` are `formatDate`'s\"). What is not stated anywhere is that the two CELL renderers therefore accept different authored vocabularies for the same key name on the same metadata surface.\n\n## Measured vs read\n\n**Measured** (unit level, `TZ=UTC`, `en-US`, clock pinned to `2026-09-09T12:00:00Z`, value `2026-09-11T09:30:00.000Z`):\n\n| call | output |\n|:--|:--|\n| `formatDateTime(v, { locale })` | `Sep 11, 2026, 09:30 AM` |\n| `formatDateTime(v, { locale, style: 'relative' })` | `Sep 11, 2026, 09:30 AM` — unchanged |\n| `formatDateTime(v, { locale, style: 'short' })` | `Sep 11, 2026, 09:30 AM` — unchanged |\n| `formatDate('2026-09-11', 'relative', { locale })` | `In 2 days` |\n\n**Read from source, not driven:** that `DateTimeCellRenderer` passes `field.format` into that `style` key unchanged (lines above). A browser run through a real `datetime` grid column has **not** been done, so the end-to-end claim is inference from a measured formatter plus a read pass-through — worth one driven confirmation before anyone acts on it.\n\n## Why it is a metadata trap, not a nitpick\n\n`field.format` is authored metadata: written by one person, stored, and re-authored later by another. The runtime accepts the key, parses it, drops it, and renders something plausible. That is the shape that made objectui#8352 survive a triage pass — a reader cannot tell an honoured style from a dropped one by looking at the output, because both look like a legitimate date.\n\n## Scope note\n\nWhether to fix this by widening `formatDateTime`'s vocabulary, by mapping at the renderer, or by rejecting the unaccepted spelling is a real design call with a published signature nearby, so it is left to a ruling rather than guessed. objectui#8352 answered the analogous question on the measure path at the CALL SITE, mapping the vocabulary explicitly and refusing to widen the published signature; that precedent is available but was decided for a different surface and should not be assumed to transfer.\n\n⛔ Not the same as objectui#8209 (the readonly `datetime` WIDGET faces, which do not call `formatDateTime` at all) and not objectui#8507's bare-em-dash family. Dedupe: one targeted search over the datetime / `field.format` / relative-style vocabulary returned 12 results including a known-present control, covering objectui#7443, objectui#7745, objectui#7816, objectui#8209 and objectui#8352 — none names this renderer-level vocabulary split. Not upgraded to exhaustive.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

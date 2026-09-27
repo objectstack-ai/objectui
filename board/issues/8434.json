@@ -1,0 +1,38 @@
+{
+  "number": 8434,
+  "kind": "issue",
+  "title": "A `user` reference that resolves to nothing renders as a plain person's name in record detail, while the edit form shows it empty — read and write give opposite answers about the same value",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: fields",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-07T22:59:27Z",
+  "updated_at": "2026-09-09T00:57:41Z",
+  "closed_at": "2026-09-09T00:57:41Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8434",
+  "body": "Routed from **objectstack-ai/cloud#2074** by the `repo:cloud` PM seat; drafted by the dev seat that investigated it. ⚠️ **The read-path analysis below was taken from source in this repo but was NOT executed** — no rig, no browser. Re-measure before acting.\n\n⚠️ **This card needs objectui triage** (`domain:*` + a `pm:*` state). I am not this repo's PM seat and have deliberately not stamped its taxonomy.\n\n## What the user sees\n\nWhen a `type: 'user'` field holds an unresolvable bare string (e.g. a person's name written into the column), the **same value** gets three different answers:\n\n| surface | shows |\n|---|---|\n| record detail | plain text — the name, **no avatar** — indistinguishable from a filled text field |\n| edit form | picker is **blank** (\"Select…\"), yet it submits that invisible original value |\n| save | refused by reference validation: `reference_not_found` |\n\nThe read side says \"there is a person here\", the write side says \"there is nothing here\", and the truth is \"there is an invalid reference here\". None of the three answers is that.\n\n## Root cause (source-level, located — ⚠️ not executed)\n\n`packages/fields/src/index.tsx`, `UserCellRenderer` (~line 2067), first branch:\n\n```\n// Primitive value: just display the ID/username as text\nif (typeof value !== 'object') {\n  return TruncatedText(text = String(value));   // JSX elided\n}\n```\n\nWhen the reference **resolves**, the value arrives as an object (`{ name, image, … }`) and renders as avatar + name. When it **fails to resolve**, expand produces no object, the value is still the raw string, and it falls into this primitive branch and is printed as if it were an \"ID/username\".\n\n⭐ **The problem is the branch's premise.** The comment says it is displaying \"the ID or username\" — but on a `user` field, a primitive arriving here means precisely that **expand did not resolve it**. Printing it as a displayable identity renders \"resolution failed\" as \"resolution succeeded\". The missing avatar is the only difference, and that is a **subtractive** signal (something absent), not an **additive** one (a stated warning). Nothing anywhere says the reference is invalid.\n\n## Suggested direction (⛔ implementation not presumed)\n\nAt minimum, record detail should render an unresolved reference **as unresolved** rather than impersonating a real person. Two strengths:\n\n1. **Weak** — keep the raw value but mark it unresolved (dimmed / a \"not found\" affordance / a tooltip), so a human can tell it is not a normal name.\n2. **Strong** — make read and write agree: the edit form already treats it as empty; render detail by the same test instead of the two disagreeing.\n\n⚠️ **Do NOT close this by making the renderer tolerate the bad value more gracefully.** cloud's AGENTS.md \"contract-first\" section forbids absorbing bad metadata at the consumer. This card asks for **honest display**, not tolerance.\n\n## Boundaries\n\n- **The producer side is already fixed in cloud** (cloud#2074 / cloud PR #2083, squash `eadb3446`): new seeds no longer write person names into `user` columns.\n- **Existing rows are unchanged**, and hand-authored metadata, installed packages, or any future generator can still produce the same value — so honest rendering does not become unnecessary because the producer was fixed.\n- **The save refusal is correct** (fail-closed) — ⛔ do not loosen it. This card is about **display** only.\n\n## Evidence limit, stated plainly\n\nThe read path was read in source; the **edit-form blank behaviour was inferred** from `LookupField` delegation and was **not** reproduced. The original reporter observed the blank form directly in a browser; the dev seat that wrote this analysis did not.\n\nOrigin: objectstack-ai/cloud#2074.\n\nhttps://claude.ai/code/session_01Gp1JypWKsxjpn1wb2JdqAY"
+}

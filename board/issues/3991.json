@@ -1,0 +1,35 @@
+{
+  "number": 3991,
+  "kind": "issue",
+  "title": "[components] 内建 select 的空选项/依赖门态分支把 host id 落在一个 div 上 —— label 的 for 指向不可 label 元素,仍是不关联的",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-09T21:05:21Z",
+  "updated_at": "2026-09-09T10:46:43Z",
+  "closed_at": "2026-09-09T10:44:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3991",
+  "body": "实施 #3976(内建 select 分支的 host id 落到真实 trigger)时顺手测到的相邻状态,**与 #3976 的修法不相交**,单独记录。\n\n## 实测(probe,未提交;#3976 的修改对这一条无影响)\n\n一个 `{ name: 'empty', label: 'Empty', type: 'select', options: [] }`:\n\n```\nlabel for = _r_7_-form-item   ->  owner tag = DIV\n```\n\nDOM:\n\n```\nlabel class=\"…\" for=\"_r_7_-form-item\">Empty</label>\ndiv class=\"text-sm text-muted-foreground\" id=\"_r_7_-form-item\"\n    aria-describedby=\"_r_7_-form-item-description\" aria-invalid=\"false\">No options available</div>\n```\n\n即:选项为空(或 #2284 的依赖门态,`emptyHint` 分支)时,内建 select 渲染的是\n`BuiltinSelectEmptyState` 那个 `div`,`FormControl`(Radix Slot)下发的 id 就落在这个 div 上,\n而 `FormLabel` 的 `for` 指向它。**`for` 只能指向可 label 元素**(button / input / meter /\noutput / progress / select / textarea),指向 `div` 是惰性 HTML。\n\n## 与既有工作的关系\n\n- #3976 修的是「有选项时 id 落到 Radix Root 被丢弃」;这一条是「无选项时 id 落到一个不可 label 的 div」,原因不同。\n- #3961 / PR #3978 为**不可 label 的复合控件**引入了 `aria-labelledby` 的 IDREF 通道;但这里的空状态**根本没有控件**,所以「改成 IDREF」并不显然正确 —— 也可能应当在分支不渲染控件时干脆不发 `for`(渲染器目前无从得知),或者给空状态一个语义角色。方向属于裁决,不在这里预设。\n\n## 影响面(诚实说:很小,所以按 observation 记)\n\n- 用户侧:空状态里没有任何可聚焦控件,所以「点标签没反应」与「控件无可访问名」都无处发生 —— 名字要命名的东西不存在。\n- 作者/测试侧有真实摩擦:对这样的字段 `getByLabelText('Empty')` 会抛\n  \"found a label … however no form control was found associated to that label\",\n  读起来像渲染器坏了,而实际是空状态。\n- 同形的还有 `@object-ui/fields` 的 `OptionsEmptyState`(注册 widget 路径的空状态),如果这一条要修,两条路径应一起看。\n\n严重度交 PM 分诊;这里只按 #4949 的纪律把事实与证据落到纸面。\n\n## 参考\n\n- #3976(内建 select 的 host id;本单在其 probe 中被测到)\n- #3306(widget 侧同机制)\n- #3961 / PR #3978(不可 label 控件的 IDREF 命名通道)\n- #2284(依赖门态的 `emptyHint`)\n"
+}

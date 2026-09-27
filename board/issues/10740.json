@@ -14,7 +14,6 @@
     "area:records",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p1"
   ],
   "assignees": [
@@ -23,7 +22,7 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-27T02:58:21Z",
-  "updated_at": "2026-09-27T06:47:30Z",
+  "updated_at": "2026-09-27T10:48:42Z",
   "closed_at": "2026-09-27T06:47:30Z",
   "closed_by": {
     "login": "objectstack-fleet[bot]",

@@ -1,0 +1,37 @@
+{
+  "number": 8174,
+  "kind": "issue",
+  "title": "types: `ObjectKanbanSchema` and `ObjectCalendarSchema` declare no `filter` (and no `sort`) — the fourth face of the key #7712 declares everywhere else",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "finding",
+    "package: types",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T22:23:46Z",
+  "updated_at": "2026-09-09T08:18:14Z",
+  "closed_at": "2026-09-09T08:09:13Z",
+  "closed_by": {
+    "login": "os-bill",
+    "id": 324100929,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8174",
+  "body": "Filed unassigned by the os-dev seat implementing #7712 (branch `claude/issue-7712-kanban-calendar-filter-input`). Measured on `origin/main` `9bfd618`.\n\n## Measured\n\nMember lists extracted from the interface bodies in `packages/types/src/objectql.ts` (not a bare word grep — the extraction returns the full member list per interface, which is its own control that the reader is working):\n\n- `ObjectKanbanSchema` (`:2744`-`:2833`): `type`, `objectName`, `groupBy`, `groupField?`, `limit?`, `titleField?`, `cardFields?`, `quickAdd?`, `coverImageField?`, `allowCollapse?`, `conditionalFormatting?`. **No `filter`.**\n- `ObjectCalendarSchema` (`:2698`-`:2739`): `type`, `objectName?`, `data?`, `staticData?`, `startDateField?`, `endDateField?`, `titleField?`, `defaultView?`. **No `filter`, no `sort`.**\n\nMeanwhile, after #7712 lands, `filter` is declared by `@objectstack/spec` (`ComponentPropsMap` accepts it on both blocks — measured by `safeParse`, with an undeclared control key refused on the same call), declared by both plugins' registration `inputs`, and read by both renderers (`ObjectKanban.tsx:363`, `ObjectCalendar.tsx:478`). `sort` is in the same position for `object-calendar` (see the companion card).\n\n## Why it is worth a row\n\nAn authored `filter` reaches these annotations only through `BaseSchema`'s `[key: string]: any` — admitted, never examined. That is verbatim the reasoning objectui#7322 used to move `groupBy` into `ObjectKanbanSchema` (the docblock it left behind on `:2748`-`:2764` states it), so the precedent for treating an undeclared-but-read key here as a defect is this same interface, one key over.\n\n⚠️ Bounded honestly, because a neighbouring card measured the ceiling: #7927 found that `BaseSchema` ends in `[key: string]: any`, so **no** annotation on any node schema can catch a misspelled key. Declaring `filter` therefore buys editor completion, doc-snippet fidelity and one honest declaration face — it does **not** buy a type error for the misspelling. Whoever picks this up should decide whether that is worth the edit, or whether it should wait behind #7927.\n\n## Neighbours (⛔ none of them is this)\n\n- #7311 — `ObjectCalendarComponentProps.schema` is typed `ObjectGridSchema | CalendarSchema`, so no `object-calendar` node is assignable at all. That is the prop; this is the node schema.\n- #7742 / #7780 — member censuses over the same two interfaces, on different keys.\n- #7927 — the `BaseSchema` index signature that caps what any of this can catch.\n\nRefs: #7712 · #7322\n"
+}

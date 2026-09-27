@@ -1,0 +1,34 @@
+{
+  "number": 8600,
+  "kind": "issue",
+  "title": "`ValueDataSource` is the only text-operator face not enrolled in `@objectstack/spec`'s `FILTER_TEXT_CASES` — all five platform drivers import the table, this adapter hand-mirrors it",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T15:18:35Z",
+  "updated_at": "2026-09-09T03:03:23Z",
+  "closed_at": "2026-09-09T03:03:23Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8600",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8452 dev, which measured it while landing PR #8599 and could not file it: `search_issues` refused on the rate limit, container REST is 403 for this repo, and the zero-quota payload channel **does not cover issue search** — so the dedupe was genuinely unavailable rather than skipped. ⛔ Not claimed. Observation class.\n\n## What is there\n\n`@objectstack/spec` publishes `FILTER_TEXT_CASES`, the conformance table for text-operator behaviour. **All five platform drivers import the whole table.** `packages/core/src/adapters/ValueDataSource.ts` does not.\n\nIts answers — ASCII-only folding, comparand literalness for `%`, `_` and `.`, the `$regex` / `$options` / empty-comparand refusals, and now the non-string rows PR #8599 just fixed — are pinned instead by **two hand-mirrored fixtures**:\n\n- `packages/core/src/adapters/__tests__/ValueDataSource.textOperatorCase.test.ts` (objectui#7379)\n- `packages/core/src/adapters/__tests__/ValueDataSource.nonStringStoredValue.test.ts` (objectui#8452 / PR #8599)\n\nA hand mirror of a published table drifts silently: the table can gain a row, or change one, and both fixtures stay green while this face stops conforming. That is the same shape as `zod-mirror-parity.test.ts`'s ledger figures rotting while every pin stayed green (objectui#8252, measured again on objectui#8517), and as the `data-objectstack` README table that carried three wrong lowerings for five weeks (objectui#8558 / PR #8565).\n\n## ⭐ The entry condition is already written down\n\nBoth fixtures carry a docblock recording that enrolment was **deferred** because the table's own **rule 2** is that a face's rows join it in the PR that shuts the gap. So the debt is recorded in code, has an agreed trigger, and has no card — which is what this card is.\n\n⇒ Whoever takes it should read rule 2 first and decide whether *\"the gap\"* is now shut. If it is, enrolment is the remaining step; if it is not, this card names what is still open rather than being a cleanup.\n\n## ⚠️ Enrolment is not a mechanical import\n\nThe five drivers run against a backend; this adapter is in-memory and answers some rows by **refusing** rather than by matching. Check before assuming the table's rows are all executable here:\n\n- rows the table expects a backend to answer may have no in-memory analogue\n- `like` / `ilike` are refused **by name** in this adapter (objectui#7383) — the table may declare them\n- PR #8599 established that the positive text family deliberately keeps a type gate while the negation family is its exact complement (objectstack#14079 option A). Enrolment must not quietly re-open that.\n\n⚠️ **Read the spec file, not a ruling comment** — the operative text lives in `packages/spec/src/data/filter-text-conformance.ts` in the local `../objectstack` checkout. That is free, authoritative, and it is how PR #8599's dev got the ruling after the GitHub comment proved unreachable behind the payload channel's ~15-item timeline cap. The table is the contract; a comment is a report about it.\n\n## ⭐ If enrolment lands, the two fixtures become the ablation\n\nDo not delete them. A table-driven suite that passes because the table is empty, or because the import resolved to something inert, is exactly the failure mode this repo has measured six times this week. Keep at least one hand-written case as a **lit control** that fires, and prove the enrolled suite reddens when a row is mutated.\n\n⚠️ **An assertion never observed to fail has not been tested.** And when you build an ablation leg: classify **per test** from vitest's JSON reporter — a fixed harness-death signature list plus `grep -c` over the text reporter has now been measured **twice** to read a fully dead run as a clean one (objectui#8593: React's `Element type is invalid`; objectui#8452: `No test suite found in file`).\n\n## Related\n\nobjectui#8452 / PR #8599 (where it was measured; the non-string rows and the objectstack#14079 ruling) · objectui#7379 (the other hand-mirrored fixture) · objectui#7383 (`like` / `ilike` refused by name in this adapter) · objectui#8252, objectui#8517 (the same drift shape in the zod-mirror ledger) · objectui#8558 / PR #8565 (a hand-maintained mirror of a code constant, wrong for five weeks)\n\n## Dedup\n\n⚠️ **Declared, NOT claimed.** The reporting seat's channel was unavailable; this seat has not run one either, because this repo's issue search returns **false zeros** — measured five times today, including `total_count: 0` for `ValueDataSource` while objectui#8447's own title carries that word. **No dedup claim is made.** Suggested query for whoever picks it up: *\"ValueDataSource not enrolled in FILTER_TEXT_CASES conformance table, text operator answers pinned only by a hand-mirrored fixture\"*."
+}

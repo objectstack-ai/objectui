@@ -1,0 +1,33 @@
+{
+  "number": 8952,
+  "kind": "pull_request",
+  "title": "docs(agents): narrow the package-level test claim, root test reads at the file",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "needs-user-decision"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-10T08:59:34Z",
+  "updated_at": "2026-09-10T12:55:17Z",
+  "closed_at": "2026-09-10T12:55:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-09-10T12:55:15Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/8952",
+  "body": "Fixes #7800\n\n## What the sentence claimed, and why measurement says otherwise\n\nThe 「怎么跑测试」 section of root `AGENTS.md` asserted that the package-level form —\n`pnpm --filter PKG test` and `turbo run test` — runs the repo-root config **and reaches\nthe same conclusion as CI**.\n\nobjectui#3240 moved **vitest's `root`**. It did **not** move `process.cwd()`. A test that\nresolves a filesystem path from the cwd inside an assertion therefore reads a *different\ntree* under the two forms, and reaches a different conclusion.\n\nMeasured on this branch's own tree rather than inherited from the card:\n\n```\n$ node -e 'console.log(process.cwd())'\n/home/user/objectui-issue-7800\n\n$ pnpm --filter @object-ui/i18n exec node -e 'console.log(process.cwd())'\n/home/user/objectui-issue-7800/packages/i18n\n```\n\n## The two falsifications this corrects\n\n| Card | Reading |\n|:--|:--|\n| objectui#7791 (PR #7796, merged 2026-09-05T21:26Z) | `CapabilityMultiSelectField.specParity-6285.test.tsx` — repo root `7 passed (7)`, package-level `2 failed / 5 passed`. cwd was the only variable. |\n| objectui#7799 (PR #7806, merged 2026-09-05T22:42Z) | A sweep of `packages/*/src` found 19 tests of the same kind: 13 genuinely defective (repaired one by one), 6 measured immune under both cwds. |\n\n## What this PR changes\n\nOne file, `AGENTS.md`, +14 / -3. Two halves, exactly the ruled direction A:\n\n1. **Narrowed** the claim to what is true today — the package-level form runs the *same\n   root config*; that it does not entail the same conclusion is now stated, along with the\n   mechanism (`process.cwd()` stays at the package directory).\n2. **Added** the corrective writer-side rule as a final bullet in the same list: a test\n   that reads the filesystem inside an assertion roots that read at **its own file**, via\n   bare `import.meta.url`, never at `process.cwd()`.\n\nThe new bullet reuses the spelling PR #7796 landed and #7806 adopted — walk up from bare\n`import.meta.url` — and explicitly warns against resolving a relative specifier against\n`import.meta.url`, which Vite rewrites in this repo's test transform into an `@fs`\ndev-server URL that makes `fileURLToPath` throw `ERR_INVALID_URL_SCHEME` under **both**\ncwds. No third spelling is introduced.\n\nIt also records the thing a reader would otherwise assume wrong: **nothing gates this\ntoday**. objectui#7799 closed 13 instances, not the class.\n\n## Deliberately fenced off\n\n- **Option B** — re-pointing the ~40 package `test` scripts at a repo-root cwd. Out of an\n  agent seat's authority; two seats ruled that independently.\n- **Option C** — the lint rule that would keep the corrected sentence true. Real and\n  wanted, but a separate card, and the placement question is not settled inside this one.\n  Confirmed absent on this base: `eslint-rules/` holds 10 rule files, none mentions\n  `process.cwd`; `eslint.config.js` has 0 `cwd` hits.\n\n## Checks run locally on `9701f77ef`\n\n| Check | Result |\n|:--|:--|\n| `node scripts/check-control-bytes.mjs` | exit 0 — `OK (scanned 7153 tracked text file(s); skipped 85 binary)` |\n| `node scripts/check-doc-links.mjs` | exit 0 — `Links are valid across 17 scan roots.` |\n| `node scripts/check-shell-escape-residue.mjs` | exit 0 — `OK (5/5 root(s) resolved -- AGENTS.md: 1 file(s), 15 fence(s) …)` |\n| `node scripts/check-changeset-presence.mjs` | exit 0 — `No source or published contract of a released package changed in this range, so no changeset is owed.` |\n| `node scripts/check-governed-queue-guard.mjs --self-test` | exit 0 — 132 cases pass |\n| `node scripts/check-governed-queue-guard.mjs --test AGENTS.md` | exit 3 — `GOVERNED`, as expected for this diff |\n| The three suites that read the real `AGENTS.md` from disk | `Test Files 3 passed (3)` · `Tests 179 passed (179)` |\n\nSuites run: `scripts/__tests__/check-doc-links.test.ts`,\n`scripts/__tests__/check-shell-escape-residue.test.ts`,\n`scripts/__tests__/check-governed-queue-guard.test.ts`.\n\n**Lint is NOT MEASURED here, and cannot be.** `npx eslint AGENTS.md --format json` returns\n`File ignored because no matching configuration was supplied` — markdown is outside the\nconfigured universe of `eslint.config.js` entirely. Since the only changed file is one\neslint does not read, this diff cannot move any eslint verdict on any file.\n\n**Changeset:** the presence gate's own verdict is that none is owed (see the table). The\n`Changeset Declaration` required context is the job that runs exactly that script.\n\n## Governed surface — this PR waits for a human\n\n`AGENTS.md` is a governed surface. This PR stays **draft**: it is not flipped ready, not\nenqueued, has no auto-merge armed, and carries no seat approval. Review is requested from\nthe two authorised accounts and the human merge is the review record.\n\nThe one thing needed from the maintainer is **approval of the final wording** — the\njudgement itself needed no ruling, because the sentence was falsified by measurement twice.\n\n---\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01FhBNJcLRZLe8M87VcUgpKr\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01FhBNJcLRZLe8M87VcUgpKr)_"
+}

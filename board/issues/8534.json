@@ -1,0 +1,38 @@
+{
+  "number": 8534,
+  "kind": "issue",
+  "title": "finding(plugin-kanban): `KanbanImpl` mirrors its `columns` prop into state and re-syncs by effect — the board paints one frame of empty columns when data resolves after mount",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "plugin: kanban",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T07:30:12Z",
+  "updated_at": "2026-09-09T12:59:09Z",
+  "closed_at": "2026-09-09T12:57:12Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8534",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8532 dev, which measured it while landing PR #8533 and correctly declined to file it — see **Dedup** below. ⛔ Not claimed.\n\n## What is there\n\n`packages/plugin-kanban/src/KanbanImpl.tsx:437`:\n\n```tsx\nconst [boardColumns, setBoardColumns] = React.useState<KanbanColumn[]>(safeColumns)\n```\n\nThe `columns` prop is mirrored into component state and re-synced through a `useEffect`. That is derived-state-in-state: every `columns` change reaches the DOM **one passive-effect commit late**, and both the column header row and the cards draw from the mirror rather than from the prop.\n\n## Why it is worth a card\n\nThis is the **production-side half** of the mechanism behind objectui#8532. In the app it means a board whose data resolves after mount paints one frame of empty columns before the rows appear — headers present, lists empty — rather than going straight from the Suspense skeleton to a populated board.\n\nIt compounds with the other half of that measurement: `ObjectKanban` reaches `KanbanImpl` through `React.lazy` behind a `Suspense` (`packages/plugin-kanban/src/index.tsx:137` / `:190`), so **chunk load and data commit are two independent races that nothing orders**. PR #8533 removed the *test's* dependence on which race wins. Nothing has removed the *product's*.\n\n## ⚠️ Not a reflex `useMemo` — this needs its own measurement\n\nThe obvious repair is to drop the mirror and derive `boardColumns` from the prop. It is not obviously available: **the mirror is also written by the drag-and-drop reorder path**, which needs local, optimistic column state that the prop does not yet reflect. A change here has to keep optimistic reordering working while removing the commit-late behaviour for prop-driven updates — which is a different shape from \"replace `useState` + `useEffect` with `useMemo`\".\n\nMeasure what the reorder path actually requires before choosing. Whoever takes it should also say which of the two races they are addressing; closing only the mirror still leaves the lazy-chunk one.\n\n## Dedup\n\n⚠️ **Declared, NOT claimed — and the reporting seat's inability to dedup is itself worth recording.**\n\nThe dev could not perform an honest dedup: repo-scoped REST returns 403 for that seat this session, this repo's `search_issues` is measured today returning **false zeros** (`ValueDataSource` → `total_count: 0` while objectui#8447's own title contains that word), and the sanctioned fallback from a broken search — a wide single-label sweep — is forbidden to a dev seat by the dev contract. Rather than file blind or drop the finding, it reported it for this seat to file. That is the contract working as intended, and it is the second finding today handed over for exactly this reason.\n\n**No dedup claim is made here either.** Suggested manual check for a triager: read objectui#8532 and PR #8533's thread, and any card touching `KanbanImpl`'s drag-and-drop reorder path.\n\n## Related\n\nobjectui#8532 / PR #8533 (the test-side half, landed — the diagnosis and the instrumentation are in its thread) · objectui#6839 (the contract the pin defends) · objectui#8508 / PR #8521 (the other in-flight change to this file)"
+}

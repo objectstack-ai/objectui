@@ -1,0 +1,34 @@
+{
+  "number": 8513,
+  "kind": "issue",
+  "title": "A `provider: 'value'` list returns ZERO rows for any grouped filter — `filterGroupToMongo` emits `{ $or: [...] }` / `{ $and: [...] }` that `ValueDataSource`'s object dialect cannot express",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T04:49:48Z",
+  "updated_at": "2026-09-09T05:48:51Z",
+  "closed_at": "2026-09-09T05:48:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8513",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8447 dev, who measured it while landing PR #8512 and could not file it — **both** dedupe channels were down for that seat (`search_issues`: *\"API rate limit already exceeded for user ID 323634890\"*; repo-scoped REST: 403). It handed the measurement over fully specified rather than filing blind. ⛔ Not claimed.\n\n## The mismatch\n\n`packages/fields/src/widgets/FilterConditionField.tsx` — `filterGroupToMongo` **emits** grouped criteria in the `$` dialect:\n\n```\n{ $or: [ … ] }   /   { $and: [ … ] }\n```\n\n`ValueDataSource`'s object-dialect matcher cannot express a group. Before PR #8512 the two combinators reached the simple-equality arm (their value is an array, so the operator loop was skipped), compared `record['$or'] !== [...]`, and **excluded every row**. After #8512 they are explicitly refused, with the row excluded and the reason logged.\n\nEither way the user-visible result is the same and it is the worst one: **a filter the UI offers, on a `provider: 'value'` list, returns nothing.** Not \"too many rows\" — none.\n\nThis is pre-existing, not introduced by #8512. What #8512 changes is that it stops being silent: the refusal is now logged once per distinct reason per `find()`. That is the right direction and the reason this card is worth filing now rather than when the symptom was invisible.\n\n## Why it is a feature card, not a repair\n\nExecuting the combinators is not a switch arm. It needs two rulings that live upstream:\n\n- the **empty-group identities** — what `{ $or: [] }` and `{ $and: [] }` mean (objectstack#5322)\n- **`$not`'s NULL-safe rule** (objectstack#5146), which is not the same as negating each operator's own answer for a missing value\n\n⚠️ `$not` is a third case, not a variant of the first two. `@objectstack/spec` declares it as an **object**, not an array — see `packages/core/src/utils/filter-converter.ts:229-232`, which records that `$not` \"entered the operator loop with its OWN nested object's keys read as operator names.\" Before #8512 that meant `$not` matched **every** row while `$and`/`$or` matched none. Two opposite failure directions under one heading; do not let a fix flatten them.\n\n`packages/core/src/utils/filter-converter.ts:241` already throws for `$not` with a long, specific explanation of why the AST cannot carry it (`FILTER_ARRAY_LOGIC_KEYWORDS` is `['and','or']`; rewriting the negation inward is silently partial because `startswith` / `endswith` / `between` / `icontains` have no negated counterpart). Read that before designing anything.\n\n## Related\n\nobjectui#8447 / PR #8512 (where it was measured) · objectui#7349 · objectstack#5322 (empty-group identities) · objectstack#5146 (`$not` NULL-safe rule)\n\n## Dedup\n\n⚠️ **Declared, NOT claimed — and the reason is a measured tool defect, not laziness.**\n\nThis repo's issue search returns **false zeros**. Demonstrated: `search_issues` for `ValueDataSource` (single distinctive token, repo-scoped) returns **0 total_count**, while objectui#8447's own *title* contains that word. Recency is not the explanation — `InspectorSelectField` returns 3 including objectui#8450, filed more recently than #8447.\n\nSo a zero from this instrument is **not evidence of absence**, and a non-zero does not prove the index is current. `filterGroupToMongo` also returned 0 and that result is worth nothing. **No dedup claim is made.** Suggested manual check for a triager: read objectui#7349 and objectui#8447's comment thread."
+}

@@ -1,0 +1,40 @@
+{
+  "number": 8489,
+  "kind": "issue",
+  "title": "finding(plugin-kanban): the card's OWN picklist branch never reaches the cell renderer, so an empty array still paints an empty coloured badge pill",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "plugin",
+    "plugin: kanban",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T02:19:36Z",
+  "updated_at": "2026-09-09T02:19:03Z",
+  "closed_at": "2026-09-09T02:19:03Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8489",
+  "body": "Found while implementing objectui#8481 (teaching the shared `@object-ui/fields` renderers that an empty array is not a cell value). Filed unassigned, not claimed. Out of that card's fence: objectui#8481 fixes `SelectCellRenderer` / `LookupCellRenderer` / `UserCellRenderer`; this is a defect in `ObjectKanban`'s own card-field loop, which for one field shape **never dispatches to those renderers at all**.\n\nDOM shapes below are spelled out in words rather than written literally — tag-shaped fragments are eaten from GitHub bodies even inside backticks (AGENTS.md, \"六种已实测的改写\" ①).\n\n## What\n\n`packages/plugin-kanban/src/ObjectKanban.tsx:604` opens the explicit-card-field loop with\n\n```ts\nif (raw == null || raw === '') continue;\n```\n\n`[]` passes that guard — the same blindness objectui#8481 is about. Four lines later the loop **forks**:\n\n```ts\nconst isPicklist =\n  def?.type === 'picklist' ||\n  def?.type === 'multipicklist' ||\n  (Array.isArray(def?.options) && def!.options.length > 0);\nif (isPicklist) {\n  // ... cardBadges.push({ label: translatedLabel, colorClass, colorStyle })\n} else {\n  const CellRenderer = getCellRenderer(fieldType);   // the objectui#8481 path\n}\n```\n\n**Any field carrying declared `options` takes the badge branch, not the renderer branch.** For `[]`:\n\n- `String(raw)` is the empty string, so the option lookup misses,\n- `rawLabel` becomes the empty string,\n- and a badge is pushed with an **empty label**.\n\nThe card then renders a fully styled, fully coloured pill with nothing inside it.\n\n## Measured, by rendering\n\nRendering a real `ObjectKanban` board (one lane, two cards, `cardFields` of three multi-value fields) on `7cf6f38fb`, with objectui#8481's renderer fix applied:\n\n| card field | declared `options`? | branch taken | rendered for `[]` |\n|---|---|---|---|\n| `tags` (multiselect) | yes | the card's own picklist branch | an indigo pill, `inline-flex items-center whitespace-nowrap rounded-full border px-2.5 py-0.5 … bg-indigo-50 text-indigo-700 border-indigo-200`, **zero children, empty text** |\n| `topics` (multiselect) | no | `getCellRenderer` | the shared `No value` affordance |\n| `owners` (user) | n/a | `getCellRenderer` | the shared `No value` affordance |\n\nSo the same board, after objectui#8481, shows two correct placeholders and one empty coloured pill — and it is the **most commonly authored** of the three shapes that stays broken, because a picklist that declares its options is the normal case.\n\n## Why the shared renderer fix cannot reach it\n\nThe badge branch does not call a cell renderer. It reads `def.options`, resolves a label and a colour itself, and pushes a plain data object onto `cardBadges`. Nothing downstream of that has a value to test. Fixing it means the kanban's own guard learning what `SelectCellRenderer`'s did — or, better, the picklist branch declining to push a badge whose resolved label is empty.\n\n⚠️ Note the second half, which is independent of arrays: **any** value that resolves to an empty label (an option whose declared `label` is the empty string, a stored value that stringifies to nothing) produces the same empty pill. The array case is simply the one that is easy to hit.\n\n## Dedup\n\nREST is 403 from this dev container (`GitHub access is not enabled for this session`), so one targeted MCP `search_issues` was used instead — declared channel switch. The query returned objectui#8481, objectui#8474 and objectui#8475 as control hits, so the channel is live in this session. Nothing returned covers the kanban card's own badge branch: objectui#8308 is `cardTitle` fallback spelling, objectui#7664 is validator/renderer face disagreement, objectui#5183 is badge colour quantization.\n\nFiled by an ObjectUI dev agent working objectui#8481, session `session_01YBWFb5YgMU5dw8p2VKj16S`, from branch `claude/issue-8481-selectcellrenderer-empty-array`. (Attribution written as prose deliberately: a footer block is stripped from issue bodies on create.)\n"
+}

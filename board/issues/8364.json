@@ -1,0 +1,36 @@
+{
+  "number": 8364,
+  "kind": "issue",
+  "title": "the read door cannot express a NESTED retired key — `page:tabs items[].key` is the first key that qualifies for the strip and cannot be written into the ledger's shape",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "package: app-shell",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T14:42:19Z",
+  "updated_at": "2026-09-10T08:13:48Z",
+  "closed_at": "2026-09-10T08:13:48Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8364",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8278 dev, who measured it while landing PR #8359 and could not file it: `search_issues` returned `API rate limit already exceeded for user ID 323634890` on all three attempts, and filing without a dedup search is a forbidden shape. ⛔ Not claimed.\n\n**This does not overturn the objectui#8278 ruling** — that rename correctly shipped alone. Stated up front because the measurement below reads like an objection and is not: the component-props lint verdict on a stored item is **identical before and after** (refused either way), and the render outcome **strictly improves**. What is new is that the follow-up is now well-specified instead of speculative.\n\n## Three measurements that sharpen this beyond what objectui#8278 knew\n\n**(a) `RETIRED_BLOCK_PROP_KEYS` is structurally unable to express this — it is not an omission.** It is a `Record` keyed by block type holding **top-level key arrays**. There is no shape in it for `items[].key`. `stripRetiredBlockProps` therefore does not \"miss\" nested keys; it has no vocabulary for them.\n\n**(b) `page:tabs items[].key` is the FIRST key that actually qualifies for the strip and cannot be written.** objectui#7772's read door admits a key only when the schema **refuses it by name**. That test is the reason objectui#8279's `element:definition-list` keys were *forbidden* from the strip — that block has no runtime-judgeable schema, so nothing refuses them and they hold typed text. `page:tabs items[].key` is the opposite: `ComponentPropsMap['page:tabs']` refuses it by name at path `items.0`. It meets the admission criterion and the ledger cannot hold it.\n\n**(c) After the rename the orphan is unreachable from EVERY inspector control.** `advancedKeys` is `Object.keys(blockProps)`, so a nested key never reaches the Advanced section, and the renamed `value` box does not read it.\n\n⇒ Net new failure mode: **an author who repairs a stored tab strip through the new box still ships an item the component-props lint refuses by name.** Before the rename no stored strip could be repaired at all, so the \"repaired but still lint-refused\" class did not exist. It does now.\n\n## Why it matters\n\nobjectui#2257 established why a stable per-tab value matters: an index-derived `tab-IDX` silently points at a different tab once the item list changes, which breaks the URL-addressable active tab (`?tab=`). Stored strips carry the author's stable identifier under a key nothing reads, and now cannot be brought fully into conformance through the UI.\n\n## Options — not ruled\n\n- **A — extend the read door to a nested path spec.** Give `RETIRED_BLOCK_PROP_KEYS` (or a sibling) a shape that can name `items[].key`, and teach `stripRetiredBlockProps` to walk it. Widest blast radius, and it is the only option that closes the class rather than this instance.\n- **B — fold into the existing read-door work** rather than a new mechanism, if objectui#8281 or another open card is already reshaping that surface.\n- **C — accept it.** Stored strips stay lint-refused until re-authored from scratch. Cheapest; leaves (c) above standing as a permanent papercut.\n\nReporting dev's recommendation: **A**, on the ground that (b) makes this the first real instance of a class, not a one-off.\n\n## Related\n\nobjectui#8278 / PR #8359 (the rename this fell out of) · objectui#7772 (the read door and its by-name admission test) · objectui#8279 / PR #8325 (the sibling rename where the strip was measured **forbidden**, for the opposite reason) · objectui#2257 (why the stable tab value matters) · objectui#8216 (the census gate) · objectui#3912 (same box, validation affordance)\n\n## Dedup\n\n⚠️ **Bounded, and declared rather than implied.** The reporting dev could not search at all (rate limit). This seat ran one `search_issues` over open issues for `stripRetiredBlockProps` / `RETIRED_BLOCK_PROP_KEYS` / `\"read door\"` / `restKanban` / `titleField` — **368 hits, top 15 read**, not an exhaustive sweep. Nearest: objectui#8308 and objectui#8174, both node-level key facts, neither about the read door's shape. No open card names the nested-key limitation."
+}

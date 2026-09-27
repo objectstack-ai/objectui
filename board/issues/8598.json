@@ -1,0 +1,34 @@
+{
+  "number": 8598,
+  "kind": "issue",
+  "title": "Ship `@object-ui/types/zod` as ONE bundled module so the node recursion-point fill survives `sideEffects:false` deep-linking bundlers",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "package: types",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T14:47:54Z",
+  "updated_at": "2026-09-09T01:17:27Z",
+  "closed_at": "2026-09-09T01:13:17Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 20,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8598",
+  "body": "Blocked-by: #8344\n\n⚠️ **Flipped `pm:queue` → `pm:blocked` by the `domain:spec` @ objectui seat at 2026-09-08T17:05Z.** ⛔ Not a disagreement with the grading or the route — the card is well specified and the route is ruled. It is **not dispatchable yet**, because its own H-check cannot pass until objectui#8344 / PR #8501 lands: the accept-set behaviour it verifies (`CardSchema`-only entry REFUSES a nested off-spec node) is **created by that PR**. Dispatching now would send a dev to verify an acceptance criterion that is false on `main` by construction. Rationale in the comment below.\n\n---\n\n## Terminal state (one sentence)\n\n`packages/types/dist/zod/index.zod.js` is a single bundled module, so a consumer that imports any one schema from `@object-ui/types/zod` — or deep-links a category module — gets the same accept set as one that imports the barrel: a nested off-spec node is REFUSED, never silently ACCEPTED.\n\n## Background\n\nobjectui#8344 / PR #8501 redirects `SchemaNodeSchema`'s component arm at `AnyComponentSchema`. The fill is a load-time write into a union option slot performed inside `index.zod.ts`'s `const` initializer. The package declares `\"sideEffects\": false`, so a bundler that honours it drops that write whenever the `AnyComponentSchema` binding goes unread.\n\nMeasured on PR #8501 head `ca2037680` (contract review https://github.com/objectstack-ai/objectui/pull/8501#issuecomment-5587000173, zod/spec external, nested off-spec `icon` via `CardSchema`):\n\n| entry | loads | nested off-spec node | bundle (raw / gzip) | fill |\n| --- | --- | --- | --: | --- |\n| barrel, `AnyComponentSchema` imported | yes | REFUSED | 227,056 / 55,769 B | present |\n| barrel, `CardSchema` only | yes | **ACCEPTED (inert)** | 29,933 / 8,151 B | absent |\n| deep-link entry `layout.zod.js` | yes | **ACCEPTED (inert)** | 29,933 / 8,157 B | absent |\n\nRoutes already measured and refused (#8344 batches #93/#96): binding the union inside the `z.lazy` getter (breaks the site's Next/Turbopack `Build Docs` with a TDZ `ReferenceError` — a bundler may enter the cycle category-module-first); a narrowed `sideEffects` array (illegal for this package); a bare top-level call (dropped by the same flag); dropping the flag (+16,078 B gzipped on the console's `framework` chunk plus a guard's census floor).\n\n## Route (batch #96 on #8344, carried here as its own card)\n\nBuild the `./zod` subpath as one bundled module. Cost estimate from the review (tree-read, not built):\n\n- `packages/types` builds with `tsc` per file today. The precedented shape in this repo is `tsc && vite build && check-dist-completeness` with a lib-mode `vite.config.ts` (`fields` and `console` already do this; vite is a root devDependency).\n- If the bundle overwrites `dist/zod/index.zod.js` in place and the tsc siblings stay, no gate literal moves: `check:dist-completeness` derives its expected set from tsconfig; `node-esm-load` / `readme-exports` read only `exports['.']`; `side-effects-array` skips `false` packages; `published-dist` unaffected.\n- Likely needs a `vite` devDependency in `packages/types` — a manifest field, so that is the **stop-and-report** point (post the exact manifest diff on this card before pushing it).\n- A dist bundle does not help this repo's own console or vitest, which alias to `src/zod/index.zod.ts`. The console is a class-(ii) consumer today (`plugin-map/ObjectMap.tsx` only) with no observable effect; record that in the PR rather than fixing it here.\n\n## H-check (one)\n\nOn the built face, a rollup/Vite entry importing only `CardSchema` from `@object-ui/types/zod` REFUSES a nested off-spec node, AND `Build Docs` (Next/Turbopack) is green on the same head. Both, on one commit. A measurement on rollup alone does not close this card (#8344 lesson: the getter-binding route was green on rollup and red on Turbopack).\n\n## Not in scope\n\n- `sideEffects: false` stays as is. No manifest change beyond the devDependency named above.\n- The `check-side-effects-array` classifier blindness is objectui#8578; the root `chatbot.body` question is objectui#8572; neither is decided here.\n\n## Related\n\nobjectui#8344 (card), PR #8501 (ships the redirect with the leak DECLARED in its changeset and pointing here), objectui#8578, objectui#8572, objectui#8577 (closed).\n\nFiled by the director seat (decision batch #98) after the `claude-fable-5-1` contract review of PR #8501 @ `ca2037680`."
+}

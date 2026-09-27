@@ -1,0 +1,39 @@
+{
+  "number": 8443,
+  "kind": "issue",
+  "title": "finding(plugin-chatbot): the aiInitialMessages builder casts an authored `role: 'tool'` to the SDK's three roles, so in API mode a 'tool' role reaches the useChat store unfolded",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "plugin",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T23:43:24Z",
+  "updated_at": "2026-09-09T13:59:16Z",
+  "closed_at": "2026-09-09T13:57:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8443",
+  "body": "Found while measuring objectui#8426. Same `useMemo`, different suppression — objectui#8426 is about the `parts` array, this is about `role`. Out of that card's scope. ⛔ Not claimed.\n\n## What\n\n`packages/plugin-chatbot/src/useObjectChat.ts`, measured on `origin/main` @ `ca3942729`. Two casts inside the `aiInitialMessages` `useMemo` (`:545`):\n\n- `:551` — `role: (msg.role || 'user') as 'user' | 'assistant' | 'system'`\n- `:576` — `role: normalized.role as 'user' | 'assistant' | 'system'`\n\n`msg.role` is the authoring `ChatMessage['role']`, which is `'user' | 'assistant' | 'system' | 'tool'` (`packages/types/src/complex.ts`). `normalizeMessages` (`useObjectChat.ts:422`) deliberately does not narrow it — its own doc comment says so at `:417-420`: \"Roles are deliberately NOT narrowed here: an authored `'tool'` message keeps its authored role for the whole of the hook's surface and is folded to `'assistant'` only at the render seam.\"\n\nSo at runtime the object these two lines build carries `role: 'tool'` while declaring one of three roles it is not. In API mode that value is what seeds the AI SDK store (`:712`).\n\n## Why it matters\n\nThe package already owns one expression of this fold, by name and by decision: `chatMessageAdapter.toRuntimeRole` (`packages/plugin-chatbot/src/chatMessageAdapter.ts:186`), whose doc records it as \"the named decision (objectui#4399): an authored `'tool'` message renders as an assistant bubble\". The render seam applies it. This builder does not — it asserts the narrowing instead of performing it, which is the same defect class objectui#4424 and objectui#8342 each removed one instance of.\n\nReachability: `renderer.tsx` passes `schema.messages` straight through as `initialMessages` (`:79`, `:268`, `:406`), and the authoring `ChatMessage` accepts `role: 'tool'` — `packages/plugin-chatbot/src/__tests__/useObjectChat.honestMessages.test.tsx:157-167` authors exactly such a message today. That test runs in LOCAL mode, where the builder's output is never handed to `useChat`; the API-mode leg (`api` set plus an authored `'tool'` message) is the unexercised one.\n\nNot measured here: what the AI SDK store or the backend does with an out-of-union role. The finding is that the value is out of union and the compiler was told not to look.\n\n## Fix shape (not ruled)\n\nReplace both casts with `toRuntimeRole(...)`, which already returns exactly the three roles, and delete the assertions. That is a behaviour change on the API-mode leg (an authored `'tool'` message would seed the store as `'assistant'` rather than `'tool'`), which is why this is filed rather than folded into objectui#8426.\n\n## Dedup\n\n`search_issues` over this repo for the builder's casts and the authored role — 5 hits, all read, all closed: objectui#8342, objectui#8378, objectui#8214, objectui#4424, objectui#4437. None names these two `role` casts.\n\n## Related\n\nobjectui#8426 · objectui#8378 · objectui#4424 · objectui#4399"
+}

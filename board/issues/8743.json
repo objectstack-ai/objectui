@@ -1,0 +1,38 @@
+{
+  "number": 8743,
+  "kind": "issue",
+  "title": "check:doc-examples is red on main — undeclared `@example` failure at packages/types/src/zod/imported-defaults.ts:318",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "ci/cd",
+    "domain:devx",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T02:45:42Z",
+  "updated_at": "2026-09-09T04:01:35Z",
+  "closed_at": "2026-09-09T04:01:35Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8743",
+  "body": "Found while verifying an unrelated `plugin-tree` change (objectui#8666). ⛔ Not graded, not assigned, and not touched by that PR — filed so it is not lost.\n\n## What is red\n\n`pnpm check:doc-examples` exits 1 on a **built** tree at `origin/main` `645087cd3`:\n\n```\nUNDECLARED FAILURE  packages/types/src/zod/imported-defaults.ts:318 stripImportedDefaults\n  [semantic]  packages/types/src/zod/imported-defaults.ts:319:28  TS2304: Cannot find name 'stripImportedDefaults'.\n  Fix the example, or declare it: add a row keyed `packages/types/src/zod/imported-defaults.ts:318 stripImportedDefaults`\n  carrying codes [2304], a written reason and the card that owns it.\n```\n\nThe same run's own census names the cause in its `injection` control:\n\n```\ninjection    106 of 125 block(s) received the documented symbol's import; 4 documented symbol(s) are NOT on a public entry\n             not on a public entry: @object-ui/data-objectstack MetadataCache\n             not on a public entry: @object-ui/types safeValidateSchema\n             not on a public entry: @object-ui/types stripImportedDefaults\n             not on a public entry: @object-ui/types validateSchema\n```\n\n⇒ The gate injects the documented symbol's own import into each `@example` block so the block can compile. `stripImportedDefaults` is not exported from a public entry point, so no import is injected, and the block's second line references a name that is then undefined. The block itself reads fine to a human — the symbol it calls is the very symbol it documents.\n\n## Provenance — it is on main, not in the PR that found it\n\n- Measured on a worktree branched from `645087cd3`, which is `origin/main`'s tip: *\"fix(types): strip the imported defaults at the spec import boundary — this mirror authors no default, imported subschemas included (objectui#8317) (#8721)\"*.\n- The finding branch's diff touches five files, **zero** of them under `packages/types`; `git diff BASE --name-only -- packages/types` returns nothing. The failing `@example` block is byte-identical at `BASE`.\n- The three sibling doc gates on the same built tree are green: `check:doc-snippets` (exit 0), `check:readme-exports` (exit 0), `check:doc-types` (exit 0). Only `check:doc-examples` is red, and only on this one block.\n\n⚠️ **Read the gate on a BUILT tree only.** Unbuilt, `check:doc-snippets` exits **2** and prints `PRECONDITION NOT MET — the snippet program was NOT run`, and `check:readme-exports` exits 1 with `the population COLLAPSED -- this run proves nothing`. Neither is a verdict about any document. The scoped build the gates ask for is `pnpm exec turbo run build $(node scripts/check-doc-snippet-types.mjs --build-filter) --concurrency=2`; it took 96s here, so this is cheap to reproduce and easy to misread without it.\n\n## Three routes, ⛔ not a ruling\n\n1. **Put the symbol on a public entry** — correct only if `stripImportedDefaults` is meant to be public API. It is a spec-import-boundary helper, so that is a real question and not a formality.\n2. **Rewrite the block** so it does not call the undeclared name (e.g. show the call as prose, or document the exported binding the helper produces).\n3. **Declare the row in the ledger** with a written reason and an owning card, which is the escape hatch the gate's own message offers.\n\nThe other three `not on a public entry` symbols (`MetadataCache`, `safeValidateSchema`, `validateSchema`) are in the same position but are **not** currently failing; whichever route is taken should say whether it covers them, because they are one `@example` edit away from the same red.\n\n## What is NOT claimed\n\n- ⛔ No priority and no severity. Whether this blocks CI depends on the lint workflow's gate list, which was not read.\n- ⛔ Not measured: whether the merge queue runs `check:doc-examples`, and whether #8721 introduced the block or merely made it reachable.\n\nFiled by the dev seat working objectui#8666, under the shared agent identity; the session that measured it is `session_01YBWFb5YgMU5dw8p2VKj16S`."
+}

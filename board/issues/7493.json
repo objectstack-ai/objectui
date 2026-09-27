@@ -1,0 +1,35 @@
+{
+  "number": 7493,
+  "kind": "issue",
+  "title": "[finding] `ComponentInput.defaultValue?: any` (`packages/types/src/base.ts:550`) is why the marked plugin example in `skills/objectui` must carry a bare `any` — tighten the contract to `unknown` and the baseline row retires with the guide",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "domain:skills",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-03T09:55:42Z",
+  "updated_at": "2026-09-09T11:43:13Z",
+  "closed_at": "2026-09-09T10:50:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 27,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7493",
+  "body": "Filed by the skills lane seat (session `session_01LraLgQVGq8egUwfYZpbYt1`) from the #7463 flight (PR #7490, report comment 5523867580, out-of-scope finding 3). Unassigned, bare, for triage; landing surface `packages/types` (a published contract) plus one line in governed `skills/objectui/guides/plugin-development.md` and one row in `KNOWN_BARE_ANY_EXAMPLES` in `scripts/check-skill-examples.mjs`.\n\n## Measured by the flight at PR #7490's head `2df07b7`\n\n- `packages/types/src/base.ts:550` — `defaultValue?: any;` in the exported `ComponentInput` interface.\n- `skills/objectui/guides/plugin-development.md:92` — the marked example restates it as `defaultValue: any`. The bare-`any` assertion PR #7490 adds finds it, and it is declared verbatim as the baseline row `skills/objectui/guides/plugin-development.md:92 property defaultValue` — the one row of four whose guide is faithful prose rather than rot. Fixing the guide alone would make it lie about the contract it restates, which is why the flight left it declared instead of unmarking it.\n\n## Second site, same class (added 11:2xZ from the #7494 flight, PR #7496 report 5524854506, finding 2)\n\n- `packages/core/src/validation/schema-validator.ts:459` — `schema: any,` the first parameter of the exported `validateSchema`. The testing guide's Pattern 3 fence now passes `{}` with no cast at all (PR #7496) precisely because the parameter is `any`: the guide is honest, the contract is wide. The honest fix is `unknown` with the narrowing done inside the validator, never in the guide restating it. Fold both sites into one PR or split by package — the dev's call, stated in the PR body.\n\n## Scope\n\n1. Tighten `defaultValue?: any` to `defaultValue?: unknown`, or to the narrowest union the readers actually accept. Measure the read side first: the manifest serializer and every registry or renderer consumer of `defaultValue` (#5905 records that several `ComponentInput` keys have no reader at all, so \"who reads it\" is the fact to settle at source, not assume). Contract-first: a declared type that erases checking is exactly the class the new assertion exists to catch.\n2. Update the guide line to the new type and delete the baseline row in the same PR. The gate reports the row as STALE the moment the guide stops carrying the bare `any`, so leaving the row is a red, not an option.\n3. A consumer that breaks under `unknown` is either a real narrowing site (add the narrowing there) or evidence the field is written and never read (say so; that is #5905's class).\n4. Same treatment for `validateSchema(schema: any)`: `unknown` at the boundary, narrowing inside; the Pattern 3 fence needs no change (it already passes a plain `{}`).\n\nSize S. `Fixes` this card. Mixed surface: `packages/types` and `packages/core` owe changesets by their own gates; the guide line is governed `skills/objectui/**` (draft PR, human merge).\n\n## Verified\n\n- Dedup 2026-09-03T09:56Z (`search_issues` in objectui, 5 results read): #5905 (six `ComponentInput` keys with no reader — the read-side census this card leans on), #4631 (three declared surfaces of a component type disagree; on hold, `domain:spec`), #3832 and #5006 (closed; `ComponentInput.type` arms) — none carries `defaultValue`'s `any`.\n- The sites and the baseline row are the flights' own measurements at `2df07b7` / `383b87d`; re-measure at claim.\n\nRefs: #7463 · PR #7490 · #7494 · PR #7496 · #5905 · #4631."
+}

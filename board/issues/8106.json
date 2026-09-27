@@ -1,0 +1,35 @@
+{
+  "number": 8106,
+  "kind": "issue",
+  "title": "finding(plugin-list): `ListViewProps.onSortChange` / `onFilterChange` are declared `any`, so a documented callback example compiles without either parameter being checked",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "plugin",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T15:58:41Z",
+  "updated_at": "2026-09-10T12:13:39Z",
+  "closed_at": "2026-09-10T12:10:56Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8106",
+  "body": "Found while paying down `packages/plugin-list/README.md` for objectui#5174 (batch 24). Filed, not fixed: the fix touches `packages/**` source and moves a public type, which that batch's licence excludes.\n\nNotation: this body spells generic and JSX shapes out in words rather than in their angle-bracket form, because this repository has measured that GitHub's body sanitizer deletes tag-shaped fragments even inside backticks.\n\n## What was measured\n\n`packages/plugin-list/dist/ListView.d.ts` declares the four callbacks the README's \"With Callbacks\" example passes:\n\n```ts\nonViewChange?: (view: ViewType) => void;\nonFilterChange?: (filters: any) => void;\nonSortChange?: (sort: any) => void;\nonSearchChange?: (search: string) => void;\n```\n\nBefore batch 24 the README block raised TS7006 (implicit `any`) on all four parameters, because the block never imported `ListView` and so had no contextual type at all. Adding a real self-import binds the element to `ListViewProps` and all four TS7006 go away — but they go away for two different reasons, and only two of them become real checks.\n\nMeasured directly, by assigning each parameter to a `number` inside the block and running `pnpm check:doc-snippets`:\n\n| parameter | contextual type | assigning it to a number |\n|:--|:--|:--|\n| `view` | `ViewType` | TS2322 — **checked** |\n| `search` | `string` | TS2322 — **checked** |\n| `sort` | `any` | no diagnostic — **not checked** |\n| `filters` | `any` | no diagnostic — **not checked** |\n\nSo for `onSortChange` and `onFilterChange` the doc gate now reports green on a block whose parameters nothing constrains. That is honest about the gate (it compiles) and misleading as coverage (two of the four documented callbacks are unverifiable by construction).\n\n## Why this looks like an oversight rather than a decision\n\nThe `ListViewProps` doc comment in the same file is unusually explicit about exactly this hazard — it records objectui#4528, where a string index signature erased the whole interface and typed `onRowClick` as `any` while the interface went on declaring a real signature. The sweep that followed named each prop \"at the type each one actually lands on\". `dataSource?: any` carries its own written justification right there. `onSortChange` and `onFilterChange` carry none.\n\nThere is a plausible real type for each within the package: `parseSortConfig` returns `SortItem[]` (imported from `@object-ui/components`), and the filter side already has `FilterGroup` and the array/triplet filter AST that `normalizeFilters` and `buildEffectiveFilter` speak.\n\n## Why it is not decided here\n\nNarrowing either one is a public-type change with a consumer sweep (`ObjectView`, `StudioDesignSurface` and the app-shell hosts pass these), so it wants its own card and its own triage. Two questions for whoever takes it:\n\n1. Which shipped type is the right one for each — for `sort`, `SortItem[]` as `parseSortConfig` returns, or the raw declaration shape the schema carries; for `filters`, `FilterGroup` or the filter AST.\n2. Whether the callbacks fire with the normalized value or the raw one — the answer decides question 1 and is a read of `ListView`'s call sites, not of the declaration.\n\nRelated: objectui#4528 (the index-signature erasure this interface's comment documents), objectui#5174 (the ungated-docs burn-down this was found under).\n"
+}

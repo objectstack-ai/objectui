@@ -1,0 +1,36 @@
+{
+  "number": 8388,
+  "kind": "issue",
+  "title": "finding(i18n): 4 dead keys in metadata-admin `ENGINE_STRINGS`, and 1489 of its 1660 keys still have no retirement instrument",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "i18n",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-07T15:41:32Z",
+  "updated_at": "2026-09-09T01:22:48Z",
+  "closed_at": "2026-09-09T00:57:41Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8388",
+  "body": "Filed by the objectui#8368 dev (`session_01YBWFb5YgMU5dw8p2VKj16S`, PR #8387) — measured while building the retirement gate that card asked for. ⛔ Not claimed.\n\n## 1. Four keys that nothing reads\n\nEach of these occurs **nowhere in the repository except its own two definition lines** in `packages/app-shell/src/views/metadata-admin/i18n.ts` — no `t()` call site, no template head, no test, no doc:\n\n| key | en line | zh line |\n| --- | --- | --- |\n| `engine.directory.allPackages` | 197 | 2136 |\n| `engine.directory.packageFilter` | 198 | 2137 |\n| `engine.list.allPackages` | 252 | 2191 |\n| `engine.list.packageFilter` | 254 | 2192 |\n\nReproduce (one command per key):\n\n```\ngit grep -n 'engine.directory.allPackages' -- packages apps examples e2e content docs scripts\n```\n\n**Lit control on the same instrument** — a key known live returns readers, so the four empty readings are a measurement and not a broken grep:\n\n```\ngit grep -n 'engine.directory.quickFind' -- packages apps\n  packages/app-shell/src/views/metadata-admin/DirectoryPage.tsx\n  packages/app-shell/src/views/metadata-admin/StudioHomePage.tsx\n  packages/app-shell/src/views/metadata-admin/i18n.ts   (x2, the definitions)\n```\n\nBoth `DirectoryPage.tsx` and `ResourceListPage.tsx` do have a package filter UI, so the likely history is that these labels outlived a rewrite of it. **Deleting them is a separate call and is deliberately NOT made here** — PR #8387 left them untouched, per its dispatch.\n\n## 2. The instrument gap the four keys sit in\n\nPR #8387 closes the retirement direction for `engine.inspector.pageBlock.*` — 171 keys, where the reader set is exactly two members (`BLOCK_CONFIG` positional derivation plus a literal chrome scan) and deadness is therefore mechanically decidable. **The other 1489 keys of the table have no retirement instrument, and none of the repo-wide gates can grow one cheaply.**\n\nMeasured on `34c22ad39`:\n\n| measurement | value |\n| --- | --- |\n| `ENGINE_STRINGS_EN` keys | 1660 (`engine.` 1371, `designer.` 178, `perm.` 111) |\n| `ENGINE_STRINGS_ZH` keys | 1715 (55 zh-only, deliberate: `engine.flowNode.*` and the objectui#5416 `tOptional` help text) |\n| EN keys with **no** literal spelling in any non-test source | **226 (13.6%)** |\n| of those, inside `engine.inspector.pageBlock.*` | **0** |\n\nMost of the 226 are **live**, reached by template heads that exist today: `engine.studio.access.explain.OP` (`AccessExplainPanel.tsx`), `engine.diagnostics.severity.LEVEL` (`DiagnosticsPage.tsx`), `engine.layers.diff.STATUS` (`LayeredDiff.tsx`), `engine.list.col.KEY` and `engine.list.source.VALUE` (`ResourceListPage.tsx`), `engine.enum.FIELD.VALUE` (`i18n.ts` itself), `engine.flowNode.TYPE.label` (`translateNodeLabel`). A literal-footprint gate over that corpus would cry wolf 226 times on a clean tree — objectui#4658's own ruling for the pack-side sweep, and objectui#8068's argument against an over-claiming instrument.\n\n⇒ The honest options are not obvious, which is why this is a finding rather than a fix:\n\n1. **Report-only sweep**, the shape `scripts/check-i18n-dead-keys.mjs` already uses for the packs — extend its corpus to this table with a dynamic-head leg, accept a candidate list a human triages. Enforces nothing; the four keys above would have surfaced in it.\n2. **Per-namespace closed worlds**, the shape PR #8387 used — declare a reader set for one namespace at a time and gate that namespace exactly. High precision, one namespace per PR, most of the table never gets one.\n3. **Nothing**, and keep paying the hand-written pin per rename outside `pageBlock`.\n\n## Dedup\n\nTwo targeted `search_issues` calls were run and are declared rather than hidden: `metadata-admin ENGINE_STRINGS dead i18n keys retirement coverage beyond pageBlock namespace` and `dead unused engine.directory.allPackages packageFilter engine.list package filter i18n keys metadata-admin no reader`. Nearest neighbours are objectui#4730 and objectui#4746 (both the ten-pack corpus, not this table) and objectui#4662 (this table's locale coverage, not its dead keys). No duplicate found."
+}

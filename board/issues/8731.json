@@ -1,0 +1,34 @@
+{
+  "number": 8731,
+  "kind": "issue",
+  "title": "finding(plugin-grid): `object-grid` 的 `exportOptions` 注册描述只列了 4 个成员键,渲染器实际读 5 个 —— `streaming` 在唯一的作者面上不存在",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T01:41:46Z",
+  "updated_at": "2026-09-09T14:48:44Z",
+  "closed_at": "2026-09-09T14:46:18Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8731",
+  "body": "## 实测(`origin/main` @ `2f881a90`,objectui#8071 的成员 pin 工作中发现)\n\n`packages/plugin-grid/src/index.tsx` 的 `GRID_QUERY_INPUTS`(`object-grid` 与 `view:grid` 两个注册共用):\n\n```ts\n{ name: 'exportOptions', type: 'object', description: 'Export config, `{ formats, maxRecords, includeHeaders, fileNamePrefix }`. Needs `operations.export` to be reachable from the toolbar.' },\n```\n\n`packages/plugin-grid/src/ObjectGrid.tsx` 实际读取的成员键(源码扫描,注释与字符串已剔除):\n\n| 键 | 读点 |\n|:--|:--|\n| `formats` | `:2964` `:2973` |\n| `streaming` | `:2968` `:3011` |\n| `maxRecords` | `:2989` |\n| `includeHeaders` | `:2990` |\n| `fileNamePrefix` | `:2996` |\n\n⇒ **读 5 个,声明列 4 个,差的是 `streaming`。**\n\n`streaming` 不是装饰性的:`exportConfig?.streaming !== false` 决定这次导出是**服务端流式**还是\n**浏览器端组装**。这是导出行为的分叉开关,而作者读注册面读不到它的存在。\n\n## 为什么这是 objectstack#8010 的形状再来一次\n\n`packages/plugin-grid/src/__tests__/ObjectGrid.exportOptionsKeys.test.ts` 的开头就记着那次:\n*\"`streaming` was read here for releases while no schema declared it, so authoring it was refused by\nnothing and honoured by nobody, and the only way to discover the key was to read this renderer's source.\"*\n上游 objectstack#8010 把它加进了 `ListViewExportOptionsSchema`,objectui#4535 把本地 TS/zod 面对齐了。\n**注册面(`inputs[].description`)这一半没跟上**,而它才是写 JSON 视图的作者唯一会读的地方。\n\n⚠️ 注意 `ComponentPropsMap['object-grid'].exportOptions` 是 `z.unknown()`,描述文字为\n`Export config ({ formats, streaming })` —— 三处对成员键的说法互不相同,谁都不是权威。\n\n## 已有的探针\n\nobjectui#8071 给这个 key 写的成员 pin 把这个缺口**按名字**钉住了,`UNDOCUMENTED_BUT_READ = ['streaming']`,\n断言 `read − documented` 恰好等于这个集合:\n\n`packages/plugin-grid/src/__tests__/ObjectGrid.exportOptionsKeys.test.ts` →\n`object-grid \\`exportOptions\\` — members the BLOCK declares vs members the renderer reads (objectui#8071)`\n\n⇒ 第二个未声明的键混不进来;**修好这一条会让那行转红**,必须在同一笔里删掉这个常量。\n\n## 处置建议(需要维护者裁决,不是 dev 可以顺手改的)\n\n修复本身是一处描述文字,但它落在**已发布包的源码**里 ⇒ 需要 changeset,且它移动的是发布面上的\n作者文档。objectui#8071 的派发令明确围了\"只加 pin、不动已发布面\",所以这里只立卡不动手。\n\nRefs: objectui#8071(发现处)· objectui#8068(成员 pin 判据)· objectui#4535 · objectstack#8010\n"
+}

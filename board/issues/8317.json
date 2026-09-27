@@ -1,0 +1,35 @@
+{
+  "number": 8317,
+  "kind": "issue",
+  "title": "finding(types): 57 `ZodDefault` nodes still reachable from the published `@object-ui/types/zod` barrel after #7735 — batch #69's principle stops at the files it named, and the rest are imported by reference from `@objectstack/spec`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "finding",
+    "package: types",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-07T11:06:46Z",
+  "updated_at": "2026-09-09T02:26:54Z",
+  "closed_at": "2026-09-09T02:24:14Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8317",
+  "body": "Observation-class finding, measured by the objectui#7735 developer session and escalated by that PR's contract review. Filed unassigned, no labels — grading is the triage seat's. ⛔ This is a ruling question, not a defect with an obvious repair.\n\n## The claim\n\nDecision batch #69 (2026-09-07, maintainer 「其他同意」) ruled, on objectui#7735:\n\n> A validator validates; it does not write values into an author's document.\n\nPR #8299 delivers that for the 41 `.default()` call sites written **in this repo's own mirrors**. It does not — and under its ruling's named scope could not — reach the defaults this repo's published barrel re-exports from elsewhere.\n\n**After #8299, 57 `ZodDefault` nodes remain reachable from `@object-ui/types/zod`**, every one inside a subschema imported by reference from `@objectstack/spec`. So `safeValidateSchema` still substitutes values into a parsed document, on those keys, exactly as the ruling says a validator should not.\n\n## Reproducer\n\n```\nsafeValidateSchema({ type: 'object-view', objectName: 'account', navigation: {} })\n⇒ navigation: { mode: 'page', preventNavigation: false, openNewTab: false, size: 'auto' }\n```\n\nFour keys the author did not write, present in `result.data`. The affected families named by the measuring session: `app.active` / `isDefault` · `object-view.navigation.{mode, preventNavigation, openNewTab, size}` · `list-view.sharing.type` · `kanban.grouping.fields[].{order, collapsed}` · `page.interfaceConfig.*` · dashboard `chartConfig.*`.\n\n⇒ The \"one authored document, two shapes\" defect objectui#7735 was opened about **survives on these keys**. The graph delta is the same instrument that priced #8299: 98 `ZodDefault` nodes on its base, 57 on its head — the 41 it removed are exactly the difference.\n\n## ⭐ Why this is a ruling and not a port — two measurements that set the price\n\n**1. The upstream population is two orders of magnitude larger.** Measured on `objectstack-ai/objectstack` `origin/main` = `f2f6684`, real `.default()` call sites (docblock mentions excluded):\n\n| scope | real call sites |\n|---|---|\n| `packages/spec/src/**` (whole package) | **1546** |\n| `packages/spec/src/ui/**` only | **126** — `view.zod.ts` 41, `component.zod.ts` 38, `chart.zod.ts` 11, `app.zod.ts` 10, `page.zod.ts` 7, `dashboard.zod.ts` 6, `action.zod.ts` 5, `report.zod.ts` 4, `sharing.zod.ts` 2, `widget.zod.ts` 2 |\n\n⇒ Extending batch #69 to the spec face is a **1546-site** question with its own consumers, its own release train and its own authoring story — ⛔ not a 57-site follow-up, and ⛔ not something to infer from a ruling written about this repo's mirrors.\n\n**2. The cheap route already exists here and has been used once.** `packages/types/src/zod/objectql.zod.ts:452` on `origin/main` = `8f9d87a`:\n\n```ts\nconst ViewKindEnum = SpecListViewSchema.shape.type.removeDefault();\n```\n\n⇒ Stripping an imported default at this repo's boundary is an established local pattern, not an invention. Whether it should be applied to 57 more sites — and whether doing so silently diverges this repo's parse output from the upstream contract it mirrors — is the question.\n\n## The fork, stated so nobody has to reconstruct it\n\n- **(a) Strip at this repo's import boundary** (`.removeDefault()`, ×57). Cheap, local, keeps batch #69's principle whole for objectui consumers. ⚠️ Cost: this repo's parse output then differs from `@objectstack/spec`'s own, on keys it claims to mirror — a new divergence in a package whose whole job is not to diverge.\n- **(b) Raise it upstream** as a spec-side ruling. Principled and one answer for everyone. ⚠️ Cost: 1546 sites, another repo's release train, and a decision that is not this seat's to make.\n- **(c) Rule the boundary explicitly**: the mirror stops authoring defaults, imported subschemas keep theirs, and that asymmetry is written down rather than left to be rediscovered. ⚠️ Cost: `safeValidateSchema` keeps two behaviours and an author cannot tell which key is which without reading the import graph.\n\n⛔ This card picks none. ⚠️ What it argues is that **(c) by default and unstated** — which is what lands if nobody rules — is the one outcome with no defender, because it leaves batch #69's principle true of some keys and false of others with nothing saying where the line is.\n\n## Refs\n\n- objectui#7735 / PR #8299 — batch #69's ruling and the 41-site delivery; the review escalating this: https://github.com/objectstack-ai/objectui/issues/7735#issuecomment-5569648055\n- objectui#4631 — the standing \"three declared surfaces disagree\" card, `pm:on-hold`.\n- The measuring session recorded this as `noted, not filed` and deferred the decision to the seat, which was right: it is another repo's surface on one route and a contract divergence on the other.\n\nFiled by the `domain:spec @ objectui` PM seat, session `session_01QtGhnU3WnnWyiWeYQhw2aX`, 2026-09-07T11:15Z.\n\n---\n_Generated with [Claude Code](https://claude.com/claude-code)_\n\nhttps://claude.ai/code/session_01QtGhnU3WnnWyiWeYQhw2aX"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 8585,
+  "kind": "issue",
+  "title": "objectui#7528's chunk-count pin anchors per COMMENT BLOCK, not per paragraph — one backticked hash satisfies every count in a 300-line JSDoc",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T13:29:32Z",
+  "updated_at": "2026-09-09T18:44:02Z",
+  "closed_at": "2026-09-09T18:44:02Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8585",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8542 dev, which measured it by ablation while landing PR #8579 and was under an explicit instruction to be frugal with GitHub calls after a four-hour rate limit. ⛔ Not claimed. **Observation class — this may be exactly as designed.**\n\n## Measured, by an ablation that came back negative\n\nWhile landing a prose-only change to `scripts/check-eager-closure-budget.mjs`, the dev injected an **unanchored chunk count** into the new prose to test whether objectui#7528's pin reads that region.\n\nThe mutation reached disk — anchor line count 1 → 0, injected string 0 → 1, blob hash `1e108dfd…` → `7e07c1cc…` — and `scripts/__tests__/check-eager-closure-budget.test.ts` **still passed 104/104**.\n\n⇒ The pin anchors **per comment block**, not per paragraph. In a roughly 300-line JSDoc, one backticked commit hash anywhere in the block satisfies the anchor for **every** chunk count in it.\n\n## Why it is an observation and not a defect\n\nThe test's own comment says a blank comment line *\"carries an anchor into the paragraph after it\"* — which reads like the block-level behaviour is deliberate, or at least known. So the question is not \"is this broken\" but:\n\n1. **Is block-level anchoring what objectui#7528 intended?** If yes, the gap is documentation: a reader adding a count to a long block will reasonably believe it is pinned.\n2. **If it was meant to be paragraph-level**, then long JSDoc blocks in this file are effectively unguarded, and the two rotted counts objectui#8535 describes are the kind of thing that would slip through.\n\n⚠️ Do not \"tighten\" this without pricing it. A paragraph-level anchor would demand a hash next to every count in every long block in the file, which may be the right answer or may be churn — measure how many counts currently sit in anchored-but-not-adjacent positions before deciding.\n\n## Why it matters beyond the mechanism\n\nThe prose PR #8579 landed into this file is **defended by review only** — the dev established that by this ablation and said so plainly rather than hunting for a mutation that goes red. That is the honest label for a lot of narrative in gate scripts: a comment nobody can falsify. Whoever takes this should decide whether that is acceptable for a file whose comments are the stated justification for ratchet moves.\n\n## Related\n\nobjectui#7528 (the pin) · objectui#8542 / PR #8579 (where this was measured; the prose it guards or does not) · objectui#8535 (all three copies of the document-count pin read workflow headers, none reads a gate `.mjs` docblock — the adjacent gap) · objectui#8554 (the sensitivity leg has no floor, so it is silent on an exhausted ceiling — same file)\n\n## Dedup\n\n⚠️ **Declared, NOT claimed.** This repo's issue search returns **false zeros** — measured four separate times today, including `total_count: 0` for `ValueDataSource` while objectui#8447's own title carries that word, and `0` for `EmptyDescription` while objectui#8571's does. The zero-quota web issue-search channel was also measured dead in the dev containers by its own lit control. **No dedup claim is made.** Suggested manual check: objectui#7528, objectui#8535 and any card touching `scripts/__tests__/check-eager-closure-budget.test.ts`."
+}

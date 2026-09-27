@@ -1,0 +1,35 @@
+{
+  "number": 8786,
+  "kind": "issue",
+  "title": "bug(create-plugin): cancelling at the Author/Description prompt crashes the CLI and leaves an empty target directory; the documented non-TTY default never runs",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-bill",
+    "id": 324100929,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: create-plugin",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T07:09:24Z",
+  "updated_at": "2026-09-10T04:43:03Z",
+  "closed_at": "2026-09-10T00:49:44Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8786",
+  "body": "Filed by the director seat (summon #20, `session_01Tep4AYXZvyBA7jsvne5KZV`, `os-bill`) as the follow-up card owed by a **post-merge** contract review at `CONTRACT_REVIEW_TIER` that returned **CHANGES REQUIRED** on an already-merged head: https://github.com/objectstack-ai/objectui/pull/8779#issuecomment-5597713172 (objectui PR #8779 @ `a04441f7c9`, merged as `6cc48c4e4c` at 2026-09-09T06:42:59Z). Refs objectui#8041 (closed by that PR; its ruling — director batch #91, comment 5583986682, option **C** — is the standing ruling here, ⛔ not reopened).\n\n## What is wrong on `main` (measured by the review on the merged sources, driven through a real pty / pipe)\n\n1. **Cancel at the Author or Description prompt → `TypeError`, exit 1, an empty `packages/plugin-<name>/` left behind.** `packages/create-plugin/src/index.ts:83` calls `prompts([...])` with no `onCancel`; `prompts` returns the partial answers on abort, so `answers.author` is `undefined`; `fs.mkdirpSync(targetDir)` at `index.ts:116` has already run; the new `licenseCopyrightHolder` (`templates.ts:537`, `vars.author.trim()`) is the first code to dereference it, before any file is written (`index.ts:135`). The retry then fails at `index.ts:108` (\"Directory already exists\"). **Regression**: the base commit wrote 9 files and exited 0 on the same cancel. A cancel at the fourth (`License:`) prompt is fine (MIT + 10 files).\n2. **The non-TTY claim is false.** `packages/create-plugin/README.md:66-68` (published) and `.changeset/8041-create-plugin-licence-prompt.md` assert \"A non-interactive run (no TTY, or a cancelled prompt) takes MIT and still writes the text\". Measured: `</dev/null` → nothing written, exit 0, silent; piped `\n\n\n` → nothing written. The behaviour is pre-existing (base identical) but the claim is new and was never measured — every piece of evidence in the PR was pty-driven. Ruling C's fourth clause (\"non-interactive runs take the default and still write it\") is therefore **not met**.\n3. Non-blocking, same area: `templates.ts:551-556` says the MIT fallback keeps manifest and text in agreement, but `buildPackageJson` writes `vars.license` verbatim (`:148`) while `buildLicenseFile` (`:558`) emits MIT text, so `buildPluginFiles({license:'NOT-A-LICENCE'})` yields a manifest claiming `NOT-A-LICENCE` beside MIT text (internal-only: the package is `bin`-only). Nothing pins prompt order or the cancel / non-TTY CLI path; `index.ts` is unimportable (`program.parse()` at import, `index.ts:158`), which is exactly where item 1 lives.\n\n## What the fix must do (from the review, verbatim in substance)\n\n1. Handle `prompts` cancellation in `packages/create-plugin/src/index.ts`: an `onCancel` that exits non-zero **before** `fs.mkdirpSync` (nothing written, no leftover directory), or at minimum coalesce `answers.author ?? ''` / `answers.description ?? initial` so `licenseCopyrightHolder` cannot throw.\n2. Make the non-TTY claim true or remove it: either detect `!process.stdin.isTTY` and take every prompt's initial (MIT included, still writing `LICENSE`) — the ruling-conformant direction — or correct `README.md:66-68` and the changelog text to the measured behaviour.\n3. Add one test that drives the bundled CLI (or an extracted `createPlugin`) through cancel-at-Author and EOF stdin, so the emitted-file contract is pinned at the CLI level, not only at `buildPluginFiles`.\n4. Optional, same commit: make the `templates.ts:551-556` fallback throw (or fix the docblock) so manifest and text cannot disagree.\n\n## Acceptance\n\n- Cancel at any of the four prompts: no `TypeError`; either nothing is written and the exit is non-zero with a message, or (ruling direction) the defaults are taken and the full 10-file set is written — one behaviour, stated in the README.\n- `create-plugin </dev/null` and piped input: the README's sentence and the measured behaviour agree.\n- A CLI-level test pins both paths; `templates.test.ts:565`'s 10-key set and `licenses.test.ts` stay green.\n\n## Constraints\n\n- `Clause-②` at claim time: expect **`yes`** — the scaffolder's emitted file set and prompt behaviour are its published behaviour (the ruling's own words); draft PR + `needs:contract-review` on both carriers; a `CONTRACT_REVIEW_TIER` verdict on record before enqueue.\n- Changeset: `@object-ui/create-plugin` — `patch` if only the crash and the prose move; `minor` if the non-TTY default path is added (published behaviour grows). Never `major` (AGENTS.md).\n- ⛔ Do not reopen the licence-set question (four licences, no free text) — the maintainer's call, flagged on the PR body; objectui#8778 (copyright holder in the four emitted headers) stays separate.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

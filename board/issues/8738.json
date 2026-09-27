@@ -1,0 +1,33 @@
+{
+  "number": 8738,
+  "kind": "issue",
+  "title": "finding(plugin-form): `object-form` carries TWO surfaces spelled `fields` with different member vocabularies — the spec `FormFieldSchema` object is silently dropped by the top-level one",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T02:17:28Z",
+  "updated_at": "2026-09-09T16:27:48Z",
+  "closed_at": "2026-09-09T16:17:27Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8738",
+  "body": "## 实测(`origin/main` @ `2f881a90`,objectui#8071 的成员 pin 工作中发现)\n\n`object-form` 上有两个都叫 `fields` 的作者面,成员词汇**不一样**:\n\n| 面 | 成员 | 读点 |\n|:--|:--|:--|\n| `sections[].fields` | 三种形态:裸名字符串、**spec `FormFieldSchema` 对象(身份键 `field`,canonical)**、已构建的运行时 `FormField`(身份键 `name`) | `packages/plugin-form/src/sectionFields.ts` 的 `normalizeSectionField`,以及 `ObjectForm.tsx` 里 `(f as any).field ?? f.name` 的 section 过滤 |\n| **顶层 `fields`** | 裸名字符串;`{ name }` 对象被容忍 | `ObjectForm.tsx` 的 `SimpleObjectForm` 循环:`const name = typeof fieldName === 'string' ? fieldName : (fieldName as any).name;` |\n\n⇒ 顶层 `fields` 里写 spec 的 `{ field: 'note', colSpan: 2 }`,`name` 解析为 `undefined`,\n`if (!name) return;` **静默跳过** —— 无 throw、无 `console.warn`、无空态提示,那个字段就是不见了。\n`packages/plugin-form/src/flatFields.ts` 的 `buildFlatFields`(drawer / modal 走的那条)是同一个形态。\n\n## 为什么它不是\"作者写错了\"\n\n两边都没有任何东西会拒绝这个写法:\n\n- 注册声明是 `{ name: 'fields', type: 'array' }`,**没有 `of`、没有 description**;\n- spec 的 `ComponentPropsMap['object-form'].fields` 是 `z.array(z.unknown())`(description 只有一句\n  \"Limit/order the fields shown\");\n- JSON 视图上 `tsc` 看不见。\n\n而**同一个块上、同一个词**的另一个面把这个对象当 canonical。一个读过 `sections[].fields` 文档、\n把同样的条目挪到顶层 `fields` 的作者(或生成这份元数据的 AI),得到的是静默丢弃。\n\n## 已有的失败探针\n\nobjectui#8071 的成员 pin 把两个方向都钉住了,并且用同一条目在 section 里**确实渲染**作为活对照,\n所以这个负向不可能来自\"这个 object schema 本来就不渲染那个字段\":\n\n`packages/plugin-form/src/__tests__/objectFormFieldsMembers-8071.test.tsx` 第 4 与第 5 行。\n\n## 待裁\n\n两条路,都动已发布面,所以只立卡:\n\n1. **诊断**:顶层 `fields` 遇到解析不出名字的成员时,发一条具名 `console.warn`(与\n   `sectionFields.ts` 已有的 `warnOnMixedVocabulary` 同形),别静默。\n2. **收窄声明**:给注册面的 `fields` 补一条 description 说明成员是裸字段名、以及它与\n   `sections[].fields` 的区别 —— 这是作者唯一会读到的地方。\n\n⛔ **不要**做的:在顶层读点加一条 `?? f.field` 的宽容回退。那正是 AGENTS.md #0.1 禁止的第二方言,\n它会把\"一个词两套词汇\"固化成契约,而不是把它消掉。\n\nRefs: objectui#8071(发现处)· objectui#8068(成员 pin 判据)· objectui#3090(section field 的混合词汇 lint)\n"
+}

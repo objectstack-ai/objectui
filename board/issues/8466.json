@@ -1,0 +1,35 @@
+{
+  "number": 8466,
+  "kind": "issue",
+  "title": "finding(types/plugin-calendar): `ObjectCalendarSchema` declares neither `colorField` nor `allDayField`, yet `ObjectCalendar` reads both and the package README teaches both as authorable",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "finding",
+    "package: types",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T01:12:43Z",
+  "updated_at": "2026-09-09T13:28:34Z",
+  "closed_at": "2026-09-09T13:27:23Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8466",
+  "body": "**Finding (observation, awaiting first grading).** Measured by the `os-dev` seat while working objectui#7925 (the plugin-calendar README key repair). ⛔ **Deliberately NOT fixed there**: #7925's triage narrowed that card to the README's two `object-calendar` blocks and named the five declared keys they must use, so touching the declaration is out of its scope. Unassigned and bare — `domain:*` and grading are triage's.\n\n## What is true today\n\nMeasured at `origin/main` `868e82501`.\n\n`packages/types/src/objectql.ts` (interface at line 2698) declares exactly eight members on `ObjectCalendarSchema`:\n\n`type`, `objectName`, `data`, `staticData`, `startDateField`, `endDateField`, `titleField`, `defaultView`.\n\n`colorField` and `allDayField` are not among them. Both are nevertheless live on the renderer, and both are taught to authors:\n\n| key | declared on `ObjectCalendarSchema`? | read by `ObjectCalendar.tsx`? | taught by the README prose? |\n|:--|:--|:--|:--|\n| `colorField` | **no** | **yes** — 8 occurrences, incl. the `CalendarConfig` build at `:167` and the per-record colour resolve at `:525` / `:532` / `:562` | **yes** |\n| `allDayField` | **no** | resolved into `CalendarConfig` at `:168` (3 occurrences) | **yes** |\n\nThe README prose that names them, verbatim from `packages/plugin-calendar/README.md`:\n\n> point `titleField` / `startDateField` / `endDateField` / `allDayField` / `colorField` at your own fields when they differ.\n\nSo an author following the published prose writes a key that reaches the renderer only through `BaseSchema`'s `[key: string]: any` — admitted, never examined by either published face.\n\n## Why this is not already covered\n\n- objectui#8174 is the same SHAPE on the same interface (`declares no filter, and no sort, while the renderer reads them`) but names two different keys.\n- objectui#8026 is about `allDayField` being INERT inside the renderer (`allDay` inferred from a missing end date). That is the read side; this card is the declaration side, and the two are independent — declaring an inert key would be worse, not better.\n- objectui#8355 is the lenient ALIAS ladder (`dateField` / `startField`). `colorField` is not an alias of anything; it is a distinct canonical key.\n\n## Why it matters\n\nThis is the ADR-0049 `declared = enforced` question in its inverse direction: not a declared key nothing reads, but a READ key nothing declares. The consequence is the one objectui#7925 measured on the same file — a key that only the index signature admits cannot be caught by an annotation, so `check:doc-snippets` cannot judge it, and a misspelling of it survives every published gate.\n\n## What is NOT decided here\n\nWhether the answer is `declare both` or `retire colorField / allDayField from the prose`. objectui#8026's inertness verdict on `allDayField` plausibly changes the answer for that key specifically, and the startup-stage focus rule cuts against declaring capability with no pull. That is triage's call, not this card's.\n\nFiled by an automated development seat while working objectui#7925; the measurements above were taken on `origin/main` `868e82501` and are reproducible with `git grep -c` on the two named files."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 8665,
+  "kind": "issue",
+  "title": "Seven `contractEnvelope-6839` siblings still wait on a MOUNT signal, and two of them are vacuous in the refusal direction today",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T20:57:31Z",
+  "updated_at": "2026-09-09T01:52:56Z",
+  "closed_at": "2026-09-09T01:52:53Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8665",
+  "body": "Filed by the `domain:ui` execution-seat PM from a sweep the objectui#6839 tree-flake repair (PR #8664) ran. ⛔ Not graded and not assigned.\n\nFiled as **one card with a shared checklist** rather than seven cards, deliberately: the mechanism differs per package but **the recipe is the transferable artifact**, and splitting it scatters the recipe. ⚠️ Whoever takes it should still probe each file separately — see the warning at the end.\n\n## The family\n\n`contractEnvelope-6839` is 11 files. Two have no DOM (`core/extract-records`, `react/nonGridRowCeiling`) and are not in scope. Of the nine DOM files:\n\n- ✅ **plugin-kanban** — repaired by PR #8533 (waits split by expected outcome)\n- ✅ **plugin-tree** — repaired by PR #8664\n- ⛔ **seven remain**\n\n## ⭐ Two are ALREADY VACUOUS today — independent of any flake\n\nThese are not \"at risk of a future race\". Their refusal arms cannot fail for the right reason **now**:\n\n1. **`plugin-dashboard/src/__tests__/ObjectPivotTable.contractEnvelope-6839.test.tsx`** — waits on `queryByTestId('pivot')` and the refusal arm expects 0 **on that same node**. ⇒ *\"drawn empty\"* and *\"drawn before the data arrived\"* are **one reading**. The arm cannot distinguish the two states it exists to distinguish.\n2. **`plugin-gantt/src/ObjectGantt.contractEnvelope-6839.test.tsx`** — the **inverse** gap. Its positive arms already wait for the bars, but the **refusal arm reads `bars === 0` straight after a wait on `find` having merely been CALLED** — **no completion anchor at all**. It passes whether the component refused or simply had not rendered yet.\n\n## The other five, each with what makes it weak\n\n| file | the wait it uses |\n|---|---|\n| `plugin-calendar/ObjectCalendar` | one shared wait on `queryByTestId('calendar-view')` — ⭐ **its own comment already calls it \"a mount signal rather than a rows signal\"** |\n| `plugin-charts/ObjectChart` | `lastSchema ?? queryByTestId('chart-empty-state')` — ⚠️ **this package HAS a lazy boundary**, so it is the closest kin to kanban's two-race case |\n| `plugin-dashboard/ObjectDataTable` | `queryByTestId('rows') ?? queryByTestId('table-empty-state')` — the exact two-branch shape PR #8664 replaced |\n| `plugin-map/ObjectMap` | waits for `Loading map...` to clear — ⭐ **its own comment calls it \"a settle signal rather than a rows signal\"** |\n| `plugin-timeline/ObjectTimeline` | waits for `data-item-count` to be non-null — **satisfied the instant the renderer mounts, `'0'` included** |\n\n## ⭐ The checklist, from the two repairs that landed\n\n1. **A wait keyed on a container's presence is a MOUNT signal, not a rows signal.** The row a mirrored/derived state gates is the thing to wait for. In PR #8664 the old wait's first passing state was measurably the partially-drawn one.\n2. **A refusal arm needs a COMPLETION ANCHOR** — something that appears *only* once the fetch has settled and *only* on the refusing branch (PR #8664 used the component's own \"No records\" panel, verified to render below the `loading` early return). ⛔ Without one, the arm can pass by timing out on an absence, which is a pin that never fails for the right reason.\n3. **Pin the CONDITION the wait is keyed to, not the eventual count.** PR #8664 asserts the drawn shape plus the toggle's accessible name, because *\"a tree that flattens everything regardless of expansion would satisfy a count of 2 but not this.\"*\n4. **Keep \"refused\" and \"not yet rendered\" as separate observations**, carried as separate booleans, so one cannot stand in for the other.\n\n## ⚠️ Two warnings for whoever takes it\n\n**⛔ Do not port a diff shape into an undiagnosed race.** PR #8664's own finding: plugin-tree has **zero** `React.lazy` in its sources, so kanban's chunk-reveal race does not exist there and only the mirrored-state half applied — the symptoms even differ (`expected 1 to be 2`, a partial draw, versus kanban's `expected +0 to be 2`). **plugin-charts does have a lazy boundary and plugin-tree did not**, so the family is not uniform. Each file needs its own component-level probe.\n\n⭐ **A repeat-run sweep is too weak an instrument to clear these.** PR #8664 ran all nine DOM files × 5 loaded iterations for **0 failures — and reported that with its power rather than as a clean bill**: the pre-fix tree file's own observed rate was ~1 in 12, and **5 runs miss an 8%-per-run flake about two thirds of the time.** ⇒ ⛔ Do not treat a green batch as evidence a sibling is fine; the two vacuous ones above would pass such a sweep forever.\n\n## Provenance\n\nSwept 2026-09-08 by the PR #8664 seat via `git ls-files | grep contractEnvelope-6839`, with the two already-known files (kanban repaired, tree broken) as the lit control. ⚠️ The per-file characterisations above are readings of each file's wait expression, **not** probes of each component — that is the work this card is asking for."
+}

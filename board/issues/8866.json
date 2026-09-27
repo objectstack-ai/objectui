@@ -1,0 +1,33 @@
+{
+  "number": 8866,
+  "kind": "issue",
+  "title": "decision: does removing the `app` expression-scope root (PR #8164, batch #67) ship as a straight removal, or with a migration note / release-note line / deprecation window?",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T16:41:53Z",
+  "updated_at": "2026-09-10T08:13:39Z",
+  "closed_at": "2026-09-10T08:13:39Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8866",
+  "body": "**This card exists to put a fact and its cost in front of the maintainer. It does not propose a ruling and the seat filing it does not have one.** Refs: objectui#8155, objectui PR #8164 (merged), objectstack#16420 (closed `not_planned`), objectstack#17203.\n\n⚠️ **This card needs the `needs-user-decision` label to reach the decision inbox — the filing seat does not apply labels.** That is the whole of finding **F5** in the post-merge contract audit (objectui PR #8164 comment 5602158340): the consequence below was recorded in a comment on a card labelled `pm:queue` and in a changeset, and never became a decision-inbox item.\n\n## The decision\n\nobjectui PR #8164 removed the `app` expression-scope root (decision batch #67, option B, ruled 2026-09-07 on objectui#8155). It is **merged and unreleased**. The question for the maintainer is whether that removal ships as a straight removal, or with something in front of it:\n\n- **A — straight removal (today's state).** The changeset already states the breakage in the release notes. Nothing else is added.\n- **B — a migration note.** A written upgrade step telling deployments to grep saved metadata for `app.*` predicates before upgrading.\n- **C — a release-note line with the per-surface consequence table** (below), so the two opposite failure directions are visible without reading the changeset body.\n- **D — a deprecation window.** Keep binding `app` for one release while a console warning names each `app.*` predicate it evaluates, then remove.\n\n⛔ Option D would re-introduce a root the engine's `SCOPE_ROOTS` refuses, i.e. re-create the declared-but-refused state objectui#8155 was filed about, for the length of the window. That is a real cost of D, stated so the choice is informed — it is not an argument against it.\n\n## The fact the ruling did not have\n\nBatch #67 accepted \"breaking for out-of-tree metadata\" on the strength of a measured in-tree zero (re-measured during implementation: 0 `app.*` hits against a `record.` control of 484). **In-tree usage is zero; deployed metadata cannot be measured from this repository at all.** A saved predicate spelling `app.*` in a real deployment stops resolving on upgrade, and there is no replacement spelling — `app` was never in the protocol.\n\n## The cost, measured per surface\n\nThe consequence is **not** one shape. Measured on the merged head with a resolvable control predicate firing in the same run (`record.status == 'open'` returned `true` in every row):\n\n| Surface | Entry point | A stale `app.*` predicate now |\n|---|---|---|\n| Conditional-formatting `condition` | `resolveConditionalFormatting` -> `evalRowPredicate` (`fallback: false`) | **fails CLOSED** — rule silently stops matching, no style applied |\n| Row / header action `visible` / `disabled` | `evalRowPredicate` (`fallback: false`) | **fails CLOSED** — action hidden / left enabled |\n| Action `visible` on `action-button` / `action-menu` / `action-bar` | `useCondition(..., throwOnError)` | **fails CLOSED** — hidden, one-time console warning |\n| Action `visible` on `action-icon` / `action-group` | `useCondition` (default) | **fails OPEN** — action shown |\n| Field `visibleWhen` (form field rules) | `resolveFieldRuleState` -> `evalFieldPredicate` (fallback `true`) | **fails OPEN** — field shown |\n| Field `visibleWhen` (app-shell object field), nav / area `visible` | `isObjectFieldVisible` / `evaluateVisibility` | **fails OPEN** — shown, console diagnostic |\n| Field `readonlyWhen` / `requiredWhen` | `resolveFieldRuleState` (fallback `false`) | **fails CLOSED** — not readonly, not required |\n\n⚠️ **The two directions need opposite checks after an upgrade**, which is why they are listed apart rather than summarised as \"fails open\":\n\n- On the **fail-OPEN** surfaces a gate that used to hide something starts showing it. A `visibleWhen: app.tier == 'pro'` field becomes visible to everyone. It is a concealment gate, not an authorization boundary — the client already holds the record payload — but it is the direction that shows more, not less.\n- On the **fail-CLOSED** surfaces a rule that used to fire silently stops. A conditional-formatting rule keyed on `app.*` stops colouring rows and nothing on screen says so.\n\nEvery faulting predicate does warn on the console once. As of the objectui#8155 follow-up the app-shell diagnostic no longer names `app` among the bound roots, so that warning no longer sends the author back to the root that is the reason.\n\n## What is already done, so the decision is only about the release\n\n- The removal is merged (PR #8164) and pinned three-sidedly.\n- The changeset carries the breakage and now states the per-surface directions above rather than a blanket \"fails open\".\n- The published `@object-ui/react` diagnostic and every other in-tree statement that `app` is a bound root are corrected in the objectui#8155 follow-up PR.\n- The producer-side alternative (widen the engine vocabulary) is objectstack#16420, closed `not_planned` by the same ruling. A future need for a \"current app\" root is a fresh spec/engine widening, not a reopen.\n\n---\n\nFiled by an agent seat working objectui#8155 under Claude Code, session `session_01611D6ZaRaMmwTNQmSbk8MH`. It records evidence only and rules on nothing.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

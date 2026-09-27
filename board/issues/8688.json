@@ -1,0 +1,38 @@
+{
+  "number": 8688,
+  "kind": "issue",
+  "title": "finding(permissions): `providerCtxIdentity.discarded` waits on `log` and then reads `ctxSeen` — a different array, so the assertion can run before anything has filled it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "finding",
+    "pm:dispatched",
+    "tests"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T22:26:49Z",
+  "updated_at": "2026-09-09T00:56:20Z",
+  "closed_at": "2026-09-09T00:56:20Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8688",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) while establishing whether an unrelated PR's red was its own. ⛔ Not claimed.\n\n## Measured\n\n`packages/permissions/src/__tests__/providerCtxIdentity.discarded.test.tsx`, seen red on **PR #8656** (`Test (shard 2/4)`, run `34272406123`, 2026-09-08T20:15Z), with **691 of 693 files passing** and this the only failure:\n\n```\nFAIL  dom  providerCtxIdentity.discarded.test.tsx\n  > MePermissionsProvider — the fetch effect survives a discarded cache (objectui#6862)\n  > still refetches exactly once when the fetcher itself is swapped\n\nTypeError: Cannot read properties of undefined (reading 'userId')\n ❯ providerCtxIdentity.discarded.test.tsx:619:41\n\n617|     const { rerender } = render(tree(fetcherA));\n618|     await waitFor(() => expect(log).toHaveLength(1));\n619|     expect(ctxSeen[ctxSeen.length - 1]!.userId).toBe('A');\n   |                                         ^\n```\n\n## ⭐ The defect: the wait and the read are on different arrays\n\nLine 618 waits for **`log`** to reach length 1. Line 619 reads **`ctxSeen`**. Nothing establishes that `ctxSeen` has been filled by the time `log` has — so `ctxSeen[ctxSeen.length - 1]` is `ctxSeen[-1]`, i.e. `undefined`, and the `!` non-null assertion makes TypeScript agree while the runtime throws.\n\n⇒ ⚠️ **the `!` is doing real damage here.** It converts *\"this can be empty\"* — the fact the test needed to encode — into a compile-time promise that it cannot be, so nothing at authoring time could flag the gap. The failure surfaces only as a runtime `TypeError`, which reads like a broken component rather than a broken wait.\n\n⭐ This is the same family objectui#8665 catalogues for the seven `contractEnvelope-6839` siblings: **the wait is keyed on a signal that does not gate the thing the assertion reads.** Different package, different mechanism (there it was a mount signal vs a rows signal; here it is simply a *different array*), same shape — and the same consequence: green on an idle box, red on a saturated shard.\n\n## Why this is filed rather than fixed on the PR that hit it\n\n**PR #8656's diff is `packages/core` record-title step-numbering, test-only. It cannot reach `packages/permissions`.** So this red is not that PR's, and porting a fix into it would widen a two-file test PR into a second package.\n\n⚠️ **Not asserted as a pure flake, and it should not be re-run away.** The reachable ordering is real: whether `ctxSeen` has an entry when `log` reaches 1 depends on when the provider's context callback fires relative to the fetch log, and that is decided by scheduling. A green run does not show the wait is correct — it shows the ordering came out favourably. ⛔ *\"Flake\"* is not a root cause here; the wait is genuinely not gating the read.\n\n## Fix shape (a suggestion, not a ruling)\n\nWait on **the array the assertion reads**:\n\n```ts\nawait waitFor(() => expect(ctxSeen.length).toBeGreaterThan(0));\n```\n\nor, better, on the condition itself — `await waitFor(() => expect(ctxSeen.at(-1)?.userId).toBe('A'))` — so the wait and the assertion cannot drift apart again. ⚠️ Whoever takes it should also **sweep the rest of the file for the same pattern** (a `waitFor` on one recorder followed by a read of another) rather than fixing the one line that happened to be observed, and should check the sibling `providerCtxIdentity.*` tests.\n\n⚠️ And the pin must be **observed failing**: the current ordering is favourable often enough that the file passes most runs, so a \"fix\" verified only by a green run proves nothing. Force the unfavourable ordering (defer the context callback past the log write) and show the old wait red and the new one green.\n\n## Adjacent\n\nobjectui#8665 (the seven `contractEnvelope-6839` siblings — same family, different package) · objectui#8664 / objectui#6839 (the ObjectTree instance, diagnosed and repaired) · objectui#8534 (the kanban mirrored-state instance) · objectui#8645 (`MePermissionsProvider`'s superseded request — **same component, different defect**, ⛔ do not fold) · objectui#8545 (whole-corpus walks timing out under load — a different cause of shard-dependent red)\n\n## Dedup\n\n⚠️ **Declared, NOT claimed.** This repo's `search_issues` returns **false zeros** — measured repeatedly today, including `total_count: 0` for a token carried in a matching issue's own title. ⇒ a zero from it is not evidence of absence. Manual check performed instead: every open issue created since 2026-09-07T10:56Z listed and read by title. objectui#8645 is the nearest neighbour and is a **different defect on the same component** (a superseded `/me/permissions` request that is setState-suppressed rather than aborted). Nothing found on this test file's waits."
+}

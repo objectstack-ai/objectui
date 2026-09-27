@@ -1,0 +1,33 @@
+{
+  "number": 7357,
+  "kind": "issue",
+  "title": "Retire `BaseFieldMetadata.depends_on` — objectui's snake_case twin of the spec's field-level `dependsOn` (enforce-or-remove; objectui#6153 ruling A follow-up)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T13:13:32Z",
+  "updated_at": "2026-09-08T22:15:25Z",
+  "closed_at": "2026-09-08T21:53:15Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7357",
+  "body": "Blocked-by: objectstack-ai/objectui#6153\n\nFiled by the director seat (objectstack #12708, summon #8, session `session_01ShyhexkB2d1AeRZ85tgAAe`) as the retirement half of a maintainer ruling. Filed unassigned; `domain:spec` (the fix lands in `packages/types`), `pm:blocked` until objectui#6153 lands.\n\n## Ruling this follows\n\nProvenance: maintainer, live PM chat with the director seat, 2026-09-02, decision batch #8 item 4 on objectui#6153, recommendation A, verbatim 「同意」. Ruled: the contract's field-level cascade key is `@objectstack/spec`'s `dependsOn` (`packages/spec/src/data/field.zod.ts:1306`; the spec has no `depends_on`). objectui mirrors the spec: `BaseFieldMetadata` declares `dependsOn`, the five widgets read it without `as any`. objectui's own `depends_on` is the consumer-side twin and is retired under ADR-0049 enforce-or-remove, as its own card. This is that card.\n\n## What is retired\n\n- `packages/types/src/field-types.ts:128` — `BaseFieldMetadata.depends_on?: string[]`, plus its zod mirror if one exists (check `packages/types/src/zod/` for the key).\n- The `fieldMeta?.depends_on` read arm in `packages/fields/src/widgets/LookupField.tsx` (around line 300) — #6153 drops the undeclared arm of that line; this card removes the snake arm, leaving one read of `dependsOn`.\n- Any `depends_on` mention in `content/docs/fields/**` and in the field-metadata reference.\n\n## What stays\n\n`dependsOn` on `BaseFieldMetadata` (declared by #6153), `FormField.dependsOn` (`packages/types/src/form.ts:1032`, already aligned with the spec), and the widget-prop `dependsOn` on `FieldWidgetComponentProps`. One spelling, one concept.\n\n## Measured population before filing (objectui `origin/main` `ec0a7b84`, per the 2026-09-02 seat re-check on #6153)\n\nThe snake spelling has no framework-level producer: no bridge, no spec, no generated metadata writes it. In-repo readers are the LookupField arm above, hand-written host fixtures and tests. Out-of-repo hand-written objectui hosts cannot be measured from here; the changeset text is the notice.\n\n## Execution\n\n`domain:spec` lane, S. Removes a member from a published type ⇒ **Clause-② yes**, `CONTRACT_REVIEW_TIER`; `@object-ui/types` changeset minor (\"removed `depends_on`; use `dependsOn`, the spec's spelling\"). No grace window. Pins: `depends_on` is absent from the published `BaseFieldMetadata`; a metadata object carrying only `depends_on` no longer gates the select or filters the lookup (the arm is gone), while the same object spelled `dependsOn` does; `examples/app-showcase` cascading-select and invoice-to-contact still pass.\n\nUnblocks when objectui#6153 closes.\n\nRelated: objectui#6153 (the ruling), objectui#4631 (the wider camelCase-fallback family in LookupField, not this card), objectstack #12708 (director seat ledger)."
+}

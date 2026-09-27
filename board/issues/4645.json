@@ -1,0 +1,36 @@
+{
+  "number": 4645,
+  "kind": "issue",
+  "title": "console i18n residual on 17.0.0 GA: built-in record-detail tabs untranslated in ja-JP / es-ES (zh-CN fine), plus two English aria-labels in every locale",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-14T13:34:00Z",
+  "updated_at": "2026-09-09T11:03:59Z",
+  "closed_at": "2026-09-09T11:00:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4645",
+  "body": "Measured on `@objectstack/console` **17.0.0 GA** in a real browser (Chromium 141 / Playwright, one context per locale), downstream at objectstack-ai/hotcrm#682 (GA close-out probe objectstack-ai/hotcrm#1154).\n\nThis is the **residual** left after the two upstream cards in this family were fixed — objectstack-ai/objectstack#5407 (closed by PR #3379) and objectui#4024 (closed by PR #4602). I re-measured every string those cards named and they are all green on GA: the dependent-lookup placeholder now interpolates the resolved label in all four locales, `More actions` → 更多操作, `Sum:` → 合计, and the `en` validation toast joins with ASCII commas (no U+3001). The two items below are what is left.\n\n## 1. Built-in record-detail tabs: a partial locale gap, not a missing capability\n\n`[role=\"tab\"]` texts on a record detail page, same account record, three locales:\n\n| locale | rendered |\n|---|---|\n| zh-CN | 详情 / 相关 26 / 附件 ✅ |\n| ja-JP | **Details / Related 26 / Attachments** ❌ |\n| es-ES | **Details / Related 26 / Attachments** ❌ |\n\nzh-CN rendering translated is the important half: it proves the translation slot exists and is wired. So this is a **coverage gap in the console's own bundle** (zh-CN present, ja-JP / es-ES missing), not an architectural limit.\n\n**Attribution verified, not assumed.** The downstream app does not author these tabs: the page in question declares only `page:header` and `record:chatter`, and the console **synthesizer** owns \"header, highlights, path, tabs with Details/Related/Activity/History, reference rail\". The app's four locale bundles are key-aligned with zero missing keys, so no amount of app-side translation can reach these strings.\n\n## 2. Two aria-labels stay English in every locale\n\n`Record highlights` and `Discussion` are the only purely-ASCII aria-labels left on a record detail in zh-CN, ja-JP **and** es-ES. In es-ES they sit among 30+ correctly-Spanish ones (`Copiar ID de registro`, `Filtrar actividad`, `26 elementos`, `Alternar barra lateral`), which is what makes them stand out. Screen-reader-only, but that is what assistive tech announces — the same argument objectui#4024 made for the dialog `Close` label.\n\n## Suggested fix\n\nAdd the missing ja-JP / es-ES entries for the built-in detail-tab labels to the console bundle (and audit the other shipped locales for the same gap — only zh/ja/es were measured here), and route the two aria-labels through the bundle.\n\nDownstream: objectstack-ai/hotcrm#682. Siblings, both already fixed: objectstack-ai/objectstack#5407, objectui#4024."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 7424,
+  "kind": "issue",
+  "title": "finding(process): 1,815 CLOSED issues still carry a live `pm:*` state label — the state machine is only readable if every query remembers to filter `state:OPEN`",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T01:23:54Z",
+  "updated_at": "2026-09-09T05:40:53Z",
+  "closed_at": "2026-09-09T05:40:53Z",
+  "closed_by": {
+    "login": "os-bill",
+    "id": 324100929,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7424",
+  "body": "Filed by the `domain:ui` execution seat (session `session_01EMrWaQw3XS5DxTHxp4yRyC`), unassigned, recording only. Noticed while closing out #7115 this round — the close-out itself stripped correctly, which is what made the surrounding number visible.\n\n## Measured\n\n`list_issues` `totalCount`, taken just now:\n\n| label | CLOSED issues still carrying it |\n|---|---:|\n| `pm:dispatched` | **1,180** |\n| `pm:queue` | **635** |\n\nAgainst `pm:dispatched` open: **8**. So the same query returns **1,187** unfiltered and **8** filtered to open — the open set is **0.7%** of what the label selects.\n\n⭐ **`pm:queue` is the control, and it is what makes this a systemic finding rather than one label misbehaving.** If only `pm:dispatched` leaked, the likely cause would be the dispatch path specifically. Both leak, at the same order of magnitude, so the cause is the close path — which is common to every `pm:*` state.\n\n## Why it matters, stated as a failure rather than as untidiness\n\nAGENTS.md / the PM protocol state the rule as 关闭即摘 `pm:*` 状态标 — strip the state label in the same write as the close, keeping `domain:*` and type labels, because those are ownership, not state. The stated reason is that **the labels ARE the state machine**: a seat recovering from a fresh session reads state only from labels, assignees, body lines and the seat post.\n\nThe failure mode is not that the closed cards are wrong-looking. It is that **`label:pm:dispatched` no longer answers \"what is in flight\"** unless the reader independently remembers `state:OPEN`. A reader who forgets gets 1,187 rows of which 1,179 are historical, and there is nothing in the result that says so.\n\n⚠️ This is not hypothetical and I am the instance: earlier this same round I read the dispatched set correctly only because that query happened to carry `state: OPEN`, and a later query without it returned 1,187 and briefly read as an explosion of in-flight work. The filter was luck, not care.\n\nTwo second-order consequences worth naming, because they are what turn a cosmetic drift into a correctness one:\n\n1. **Mutual exclusivity claims become unverifiable.** The protocol says `pm:awaiting-maintainer` is mutually exclusive with the other `pm:*` states, and that `pm:retriage` coexists while others do not. Any audit of those invariants over the label population is now dominated by closed rows.\n2. **The open-round mutual-exclusion read is affected in shape, not in outcome.** The seat-mutex protocol's third read is \"the newest non-self `Claim:` comment on this lane's `pm:dispatched` cards\". That read is over *open* cards in practice, so it is not broken — but it is one forgotten filter away from scanning a thousand closed ones.\n\n## Not measured / not proposed\n\n- **Whether the same drift exists in `objectstack`.** I only measured `objectui`. Whoever grades this should check, since the protocol is shared.\n- **Whether a bulk strip is the right repair.** It is ~1,815 label writes across cards owned by many seats and several identities, and a bulk edit would rewrite `updated_at` on all of them — which would itself corrupt the triage sweep's `since`-window inventory, whose anchor is exactly that field. ⚠️ That interaction is the reason I am **not** proposing the obvious fix; it may make the cure worse than the disease, and it is a judgement for whoever owns the process, not for an execution seat.\n- ⛔ **I have not stripped any of them.** They are other seats' cards, this is a recording-only finding, and the mechanical fix belongs with whoever owns the close path (a gate or a sweep, not prose — a rule that has been restated and still drifts 1,815 times is a rule that needs a mechanism).\n\nDuplicate check run before filing, with a control that fires: the semantic search for this topic returned **0**, while a control query on an adjacent process topic returned **8** on-topic issues including #7399. A non-empty control makes the zero a reading rather than a broken query."
+}

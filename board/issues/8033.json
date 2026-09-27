@@ -1,0 +1,36 @@
+{
+  "number": 8033,
+  "kind": "issue",
+  "title": "finding(app-shell): two `console/home` HomePage tests tear their `fetch` stub down BEFORE RTL cleanup, and the stub is a blanket sink rather than a router",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "priority:p3",
+    "tests",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-06T11:44:52Z",
+  "updated_at": "2026-09-08T21:18:49Z",
+  "closed_at": "2026-09-08T21:17:39Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8033",
+  "body": "Filed unassigned by the `domain:devx` @ objectui dev seat while doing batch 4 of #7307 (PR #8032). ⛔ No `domain:*`, type, grade or label set — triage's to produce. **Observation, not a red: nothing fails today**, and neither file is on the network-escape ledger.\n\nDuplicate check before filing: read the full open set updated since 2026-09-06T09:19Z over repo-scoped REST (23 cards: #8031 #8030 #8029 #8028 #8027 #8026 #8024 #8021 #8018 #8015 #7990 #7839 #7750 #7711 #7582 #7401 #7310 #7307 #7058 #6892 #5748 #5560 #5174), on top of the PM seat's full open `domain:devx` read at 09:19Z. #7996 is the nearest neighbour and is a **different** instance — it is about an explain double answering a key no hook reads; this is about teardown ORDER and about a stub that answers everything. #7439 is the card that named the ordering hazard; it is **closed as completed** and fixed exactly one file (`RecordDetailView.approvalDeclaredActions.test.tsx`). No open card covers these two files.\n\n## What was measured\n\nTwo files in `packages/app-shell/src/console/home/__tests__/` install a `fetch` stub and tear it down like this:\n\n```\nHomePage.marketplaceDisabled.test.tsx:107   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => body })));\nHomePage.marketplaceDisabled.test.tsx:136   afterEach(() => {\nHomePage.marketplaceDisabled.test.tsx:137     vi.unstubAllGlobals();\n\nHomePage.aiStudioDisabled.test.tsx:135      vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => body })));\nHomePage.aiStudioDisabled.test.tsx:168      afterEach(() => {\nHomePage.aiStudioDisabled.test.tsx:169        vi.unstubAllGlobals();\n```\n\nNeither file imports `cleanup`, and neither calls it before `vi.unstubAllGlobals()`.\n\n**Two distinct things are off, both named verbatim by the network-escape guard's own `Fix:` text in `vitest.setup.network-escape-guard.ts`.**\n\n### 1. The teardown order is the #7439 order, inverted\n\nVitest runs `afterEach` hooks in REVERSE registration order, so a teardown written in a test file runs BEFORE the root setup's RTL `cleanup()`. Unstubbing there restores the real `fetch` while the tree is still mounted, so any read that `cleanup()`'s act-flush triggers reaches a real socket. That is the whole content of #7439, and the guard's error text spells out the remedy: *\"call `cleanup()` BEFORE `vi.unstubAllGlobals()`\"*. Batches 1 to 4 of #7307 have installed exactly that pairing in 16 files; these two sit next door to batch 4's four and do the opposite.\n\nWhy it is green today rather than flaky: `HomePage` mounts `PendingDraftsBanner`, whose `usePendingDrafts` fetches only from its mount effect and issues nothing on unmount, so the window the inverted order opens is currently empty. That is a property of today's `HomePage`, not of these files — it is exactly the kind of thing that changes under someone else's PR, and #7439 was found because it cost an unrelated PR its enqueue window.\n\n### 2. The stub is a sink, not a router\n\n`bootOn()` answers **every** URL with the runtime-config body:\n\n```\nconst serverConfig = (cloudUrl, marketplace) => ({ cloudUrl, singleEnvironment: true, features: {...}, branding: {...} });\n```\n\n`HomePage` reaches at least two endpoints during these renders — `GET /api/v1/runtime/config` (what the stub is for) and `GET /api/v1/meta/_drafts` (`usePendingDrafts.ts:48`, measured in #7307 batch 4 as the escape route of the four sibling files in this directory). The `_drafts` reader parses the runtime-config body, finds no `drafts` key, and yields `[]` — inert, so nothing fails. But it means the double documents a request/response pairing that does not exist, and, more importantly, **a future new escape from `HomePage` would be silently answered instead of going red**: the sink has no record of what it was handed and no assertion that it only served what it meant to serve. The router shape #5225 settled on, and that #7307's batches use, fails on any URL outside the served set.\n\n## Why it is worth a line rather than a fix here\n\nIt is out of scope for #7307 batch 4, which owns four named files and two ledger literals; neither of these two files is on the ledger, so touching them would be a scope breach with no gate to prove the change. ⛔ Not fixed in PR #8032.\n\nThe fix, when someone takes it, is mechanical and is the same one landed sixteen times already: import `cleanup`, call it before `vi.unstubAllGlobals()`, and turn `bootOn`'s stub into a recording router over the two routes with an `afterEach` assertion that nothing else was requested."
+}

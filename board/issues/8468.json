@@ -1,0 +1,35 @@
+{
+  "number": 8468,
+  "kind": "issue",
+  "title": "finding(docs): three package READMEs still author the live `dataSource` adapter as a schema key — the defect objectui#5098 fixed in plugin-form, in `react`, `plugin-dashboard` and `plugin-report`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T01:13:00Z",
+  "updated_at": "2026-09-09T16:13:50Z",
+  "closed_at": "2026-09-09T16:13:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8468",
+  "body": "**Finding (observation, awaiting first grading).** Measured by the `os-dev` seat while working objectui#7925, which repaired exactly this shape in `packages/plugin-calendar/README.md`. ⛔ **Deliberately NOT fixed there**: #7925 is scoped by triage to the two `object-calendar` blocks in one file. Unassigned and bare — `domain:*` and grading are triage's.\n\n## What is true today\n\nMeasured at `origin/main` `868e82501`. Three package READMEs place the adapter returned by `createObjectStackAdapter` inside the schema object literal, as a shorthand property:\n\n```\npackages/react/README.md:234\npackages/plugin-dashboard/README.md:284\npackages/plugin-report/README.md:523\n```\n\nEach reads, in shape:\n\n```typescript\nconst dataSource = createObjectStackAdapter({ ... });\n\nconst schema = {\n  type: 'SOME_TYPE',\n  dataSource,\n  ...\n};\n```\n\nThe adapter is not a schema key. AGENTS.md §5 #1 states the wiring — it is injected through `SchemaRendererProvider` — and the calendar renderer confirms it in code: `packages/plugin-calendar/src/index.tsx:250` reads it as `const { dataSource } = useSchemaContext() || {}`.\n\n⚠️ The name collision is real and is why this is worth stating rather than assuming: a `dataSource` key **on the schema node** is the spec's element data-source *binding*, a declarative reference resolved against the host, **not** an adapter instance. `packages/plugin-gantt/README.md` already carries that warning verbatim for its own node. So the blocks above are not merely redundant — they teach a live object into a slot whose declared meaning is a different thing.\n\n## This class has been repaired one file at a time\n\n- objectui#5098 (closed) fixed precisely this in `packages/plugin-form/README.md`.\n- `packages/plugin-gantt/README.md` and `packages/plugin-view/README.md` already carry the repaired wording (`The adapter is the dataSource **prop**, not part of the schema`), each with an annotated schema literal beside it.\n- objectui#7925 repairs `packages/plugin-calendar/README.md`.\n\nThree files remain. No open card names them, so the class is being closed by whoever happens to walk past it.\n\n## What this suggests, without prescribing it\n\nThe repaired files share one form worth copying: annotate the literal with its own schema type and state in prose where the adapter actually goes. Whether the remaining three are worth a card each, one card, or a gate that asserts no package README authors a `dataSource` shorthand inside a schema literal, is triage's call. ⚠️ A gate here would need care — objectui#7912 records that `SchemaRendererProvider`'s own `dataSource` prop is typed `any`, so the type system is not currently able to back such a rule.\n\nFiled by an automated development seat while working objectui#7925; the three coordinates above are reproducible with `grep -rn` for a `dataSource` shorthand line across `packages/*/README.md`."
+}

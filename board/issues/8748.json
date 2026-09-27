@@ -1,0 +1,37 @@
+{
+  "number": 8748,
+  "kind": "issue",
+  "title": "bug(core, fields): `ValueDataSource` answers `$icontains` with an empty comparand by returning EVERY row and evaluates a non-string comparand after `String()` coercion — and `FilterConditionField` emits the empty shape verbatim, so the fix is both sides in one change",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T03:07:27Z",
+  "updated_at": "2026-09-09T15:10:02Z",
+  "closed_at": "2026-09-09T15:10:02Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8748",
+  "body": "Filed by the director seat (summon #18, `session_017Js5kTpTtxieBjPyScgxJ3`, 2026-09-09) on the maintainer's question about objectui#8600 — 「8600 是明显的 bug 吗?为什么不处理」. objectui#8600 itself (enrolling this face in `@objectstack/spec`'s `FILTER_TEXT_CASES`) was closed as not planned by the maintainer's ruling (5595124589): the enrolment is test debt that cannot land until the published table carries the #14079 rows. The two **live wrong answers** the dev measured inside it are not test debt; this card carries them so they are handled as the bug they are, ⛔ without the decision-box ceremony.\n\n## Measured (objectui#8600 dev report 5593740951, `origin/main` `da5e4f69`, real `ValueDataSource` over `FILTER_TEXT_ROWS`, both dialects)\n\n| probe | today | control |\n|---|---|---|\n| `{ name: { $icontains: '' } }` | **all nine rows**, zero console lines — a predicate that constrains nothing | `{ name: { $icontains: 'acme' } }` → `[\"1\",\"2\"]` |\n| `['name','icontains','']` (AST door) | **all nine rows** | `['name','icontains','acme']` → `[\"1\",\"2\"]` |\n| `{ name: { $icontains: 42 } }` | `String(42)` → `'42'`, **evaluated**, returns `[]` — indistinguishable from 「evaluated, matched nothing」 | `{ name: { $icontains: '42' } }` → `[]` (same answer, which is why the coercion is invisible) |\n\nThe published conformance table (`packages/spec/src/data/filter-text-conformance.ts` in `../objectstack`) says both shapes are **refused** (`INVALID_FILTER`). The empty-comparand case is the same widening class this repo has ruled a bug twice: objectui#7349 (flat implicit-AND / `is_null` applied no filter) and objectui#8447 (unrecognised `$` operators waved through).\n\n**The producer that makes this two-sided:** `packages/fields/src/widgets/FilterConditionField.tsx` line ~166 emits `{ [field]: { $icontains: value } }` verbatim for `containsCaseInsensitive`; `condToMongo` drops a condition only when the **field** is missing and `filterGroupToMongo` drops only null fragments — there is no empty-value guard on that path. So a builder row with the operator chosen and the value box still empty produces exactly the shape the table refuses. Refusing it in the matcher alone flips that list from 「every row」 to 「no rows」, which this adapter's own `$exists` docblock names as the one outcome worse than the bug. The search-box path is **not** affected (`ListView` gates on `searchTerm` and emits `$search`).\n\n## What is asked — option C of objectui#8600 Q2, the PM seat's and the director's recommendation (frames at 5593781306 and 5593984631)\n\nOne change, both sides:\n1. **Producer:** `FilterConditionField` drops (does not emit) a text-operator condition whose comparand is empty, so no user-visible list flips to empty.\n2. **Matcher:** `ValueDataSource` refuses an empty or non-string `$icontains` / `icontains` comparand in both dialects, in this face's declared refusal shape (exclude the row + one console refusal naming the operator — objectui#7349's mechanism, ⛔ not a throw; the envelope question is objectui#8600 Q1 and stays closed with it).\n3. Pin both in `ValueDataSource.textOperatorCase.test.ts` / `nonStringStoredValue.test.ts` (keep them as lit controls), with a mutation leg per row; classify per test from vitest's JSON reporter (objectui#8593 / #8452 lesson).\n4. The `$options` short-circuit (the dollar-dialect loop returns on the first refused operator and never names `$options`) rides along only if it is on the same lines; otherwise it stays with objectui#8600's reopen note.\n\n⚠️ **The matcher half moves the accept set of a published adapter** ⇒ the PR carries `Clause-②: yes`, `needs:contract-review` at PR time, changeset `minor`. That is contract review's gate, ⛔ not a decision card — the maintainer's 2026-09-09 ruling on objectui#8318 / objectstack#17031 says a mismatch of this kind is queue work.\n\n## Not asked\n\n⛔ Enrolment in `FILTER_TEXT_CASES` (objectui#8600, closed; reopen when the installed `@objectstack/spec` carries ≥ 24 cases). ⛔ A throwing envelope (objectui#7349 stands). ⛔ Anything on the wire-side `data-objectstack` matcher, which already throws `MalformedFilterError`.\n\nDedupe: `search_issues` over this repo for 「ValueDataSource $icontains empty comparand returns all rows non-string comparand coerced FilterConditionField empty value guard」 → 7 hits, all **closed**: #7379, #8447, #7349, #8515 (adjacent `ValueDataSource` classes), #4023 / #4911 / #3567 (`FilterConditionField` authoring gaps). None carries the empty-comparand or coercion answer. ⚠️ This repo's issue search has measured false zeros (objectui#8600 body); the query above returned a non-zero population, so this reading is at least reachable.\n\nRelated: objectui#8600 (source; ruling 5595124589), objectstack#14079, objectui#7349, objectui#8447, objectui#8452 / PR #8599."
+}

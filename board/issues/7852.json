@@ -1,0 +1,35 @@
+{
+  "number": 7852,
+  "kind": "issue",
+  "title": "[ci] the half-state patrol has been red on all 50 scheduled runs since 2026-08-28 (no anchor configured), and ci-cd-pipeline.md documents a knob the workflow no longer sets",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "priority:p1",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T00:12:28Z",
+  "updated_at": "2026-09-09T12:08:12Z",
+  "closed_at": "2026-09-09T02:27:22Z",
+  "closed_by": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7852",
+  "body": "Filed unassigned and **unlabeled** by the `os-dev` seat working objectui#7010 (session `session_01KDq78vMMSzCGWGmhUYBabh`, branch `claude/issue-7010-merge-queue-head-patrol`). Found while reading `half-state-patrol.yml` as the nearest precedent for a scheduled patrol. ⛔ Out of scope for #7010 and deliberately not fixed there. ⛔ Routing, `domain:*`, `type` and grading are the triage seat's.\n\nTwo defects in one installation. They are filed together because they are the same workflow, the same install, and one sitting.\n\n## ① The standing half-state patrol has been RED on every scheduled run for eight days\n\nMeasured 2026-09-06T00:0xZ against `actions/workflows/half-state-patrol.yml/runs`:\n\n```\nruns listed        56\nfailures           50\nsuccesses           6\nnewest success     2026-08-28T15:25:43Z\n```\n\n⇒ **50 consecutive failures**, every scheduled run since 2026-08-28.\n\nThe step-level reading on the newest run (`33987749545`) says exactly where:\n\n```\n4  Run the live sweep                    -> success\n5  Resolve the anchor issue              -> FAILURE\n6  Update the pinned anchor issue        -> skipped\n7  Publish the rendered body to summary  -> success\n```\n\n⭐ **The sweep itself runs and passes. Its findings then land nowhere.** The workflow resolves its anchor as `vars.HALF_STATE_ANCHOR_ISSUE || (github.repository == 'objectstack-ai/objectstack' && '9857') || ''` — the literal fallback is guarded to the sibling repository, correctly, so in objectui the value is empty unless the repository variable is set. It is not set. The workflow then refuses to guess an issue number and fails, which is the behaviour its own header argues for and is the right call in isolation.\n\nThe consequences are two, and the second is the reason this is worth a card rather than a shrug:\n\n1. Thirteen predicates over this board's dispatch invariants have produced no delivered output for eight days. objectui#5791's own adoption note is the measurement of what that costs: a hand-run of one predicate over this repo's blocked inventory found **7 blocks whose blocker had already closed — 58% of the machine-readable blocks were false, one for a week** — and the stated difference from the sibling repo was never discipline, it was that one repo had a caller. This repo now has a caller that cannot deliver.\n2. A workflow that is red four times a day for eight days is red as a matter of course, and this repository has already ruled on that shape (objectui#6596: a check red on the healthy case trains everyone to ignore red).\n\n**The remedy is maintainer-only** and is written in the workflow's own header: open a `tracking`-labeled anchor issue in this repository and set the repository variable `HALF_STATE_ANCHOR_ISSUE` to its number (Settings, then Secrets and variables, then Actions, then Variables). No agent seat can set a repository variable. ⚠️ Triage may want the `needs-user-decision` label for that half; this seat applies no labels.\n\n## ② `ci-cd-pipeline.md` describes a configuration the workflow does not have\n\n`content/docs/guide/ci-cd-pipeline.md`, in its Half-State Patrol section:\n\n> The behavioural one: the sweeper's closed-card reader (`pm:*` labels left on cards that already closed) is switched **off** here via `PM_SWEEP_CLOSED_WINDOW_PAGES: '0'`.\n\n`.github/workflows/half-state-patrol.yml` does not set `PM_SWEEP_CLOSED_WINDOW_PAGES` at all. It sets:\n\n```yaml\nPM_SWEEP_CLOSED_FLOOR: '2026-08-28'\n```\n\nand its own header says the reader is **ON** with a dated floor, that it read the zeroed window \"until 2026-08-28\", and that the page window is now \"deliberately absent: it is back to the script's own upstream default of 4\".\n\n⇒ The page says a predicate is switched off. It is switched on, judging every card closed on or after the cutover. The page also still quotes the retired mechanism as the thing doing the switching, so a reader looking for the knob finds a variable nothing sets.\n\n⚠️ Scope of the reading: the page's surrounding claims were not re-verified one by one, only the sentence quoted above. The rest of the workflow inventory tracks `.github/workflows/` in both directions under `scripts/__tests__/ci-cd-pipeline-doc.test.ts`, but that pin reads headings and file names — it cannot see a false statement inside a section, which is why this one survived the divergence being changed.\n\n## Dedup, and its bound — stated rather than implied\n\nSearched before filing, and the search channel available to this seat is narrow enough to state exactly:\n\n- `GET /search/issues` is **403** here (\"sessions are bound to their configured repositories\"), and the MCP `search_issues` fallback answered `API rate limit already exceeded` on this container.\n- What was read instead: the repo-scoped listing of **open issues labeled `ci/cd`** — 3 of them, with a control confirming the read was real (#7010 carries that label and is present). Neither of the other two is this.\n- ⚠️ NOT read: the `finding`-labeled listing came back as a full page of 100 with the same control **absent**, i.e. page 1 of a paged listing, so that read is void and was not extended into a full-board scan.\n\n⇒ If a card for either half already exists under a label outside `ci/cd`, this is a duplicate — close it against the older one.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,31 @@
+{
+  "number": 10779,
+  "kind": "issue",
+  "title": "finding(docs/filter-ui): the Schema block's `type` union omits `multi-select`, which both published faces declare and `FilterUI` renders",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-27T13:30:56Z",
+  "updated_at": "2026-09-27T13:30:56Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10779",
+  "body": "## Finding\n\n`content/docs/components/complex/filter-ui.mdx`'s Schema block lists the `filters[]` entry's `type` union without `multi-select`. Both published faces declare it (`packages/types/src/views.ts` `FilterUISchema.filters[].type`, and the zod mirror in `packages/types/src/zod/views.zod.ts`), and `packages/plugin-view/src/FilterUI.tsx` picks a control for it. The page under-teaches: an author reading it does not learn that a multi-select filter exists. It invites no wrong metadata, which is why it was left out of objectui#10611.\n\n## Where it was found\n\nRecorded on PR objectui#10760 by the dev (「Observation, not filed … Carrier: none」) and carried by the contract-review records 5853796261 (③ b) and 5856250843, which asked for a carrier so the gap does not rot silently. This card is that carrier; nothing in objectui#10760 changes for it.\n\n## Fix\n\nAdd `multi-select` to the documented `type` union in the Schema block, matching the TS face member for member (re-read `views.ts` at the time of the fix; do not copy this card). Prose only, no code; the page's existing \"Retired\" paragraph about `operator` stays.\n\n## Acceptance\n\n- The Schema block's `type` union equals the `FilterUISchema.filters[].type` union on the TS face, member for member.\n- `pnpm check:doc-types` (Doc Component Type Check) green.\n- Changeset: none (docs page, not a package).\n\nClause-②: no"
+}

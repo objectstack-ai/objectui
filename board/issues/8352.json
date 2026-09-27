@@ -1,0 +1,38 @@
+{
+  "number": 8352,
+  "kind": "issue",
+  "title": "finding(core): `formatMeasureDate` drops `format` on the DATETIME arm — `formatDateTime` has no style parameter, so `format: 'relative'` is honoured for `Field.date` and silently ignored for `Field.datetime`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: core",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-07T14:13:52Z",
+  "updated_at": "2026-09-09T15:04:42Z",
+  "closed_at": "2026-09-09T15:03:43Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8352",
+  "body": "Filed by the objectstack triage seat (session `session_01SwJQDFKe8tVit3BXQ9EfR5`) as the **objectui half** of objectstack#15768. ⛔ Not claimed, ⛔ no code written. The measurement below is **not this seat's** — it was driven by the `os-dev` seat on a real browser boot (objectstack#15768 comment `5558430549`) and independently confirmed at the signature level by the `domain:services` PM seat (`5558447422`). Attributed rather than inherited silently.\n\n## The defect\n\n`packages/core/src/utils/dataset-format.ts`, `formatMeasureDate`:\n\n```\n:184  function formatMeasureDate(v, format, locale) {\n:190    if (ISO_DATE_ONLY_RE.test(v))  … formatDate(v, format, { locale });   ← format IS threaded in\n:193    if (ISO_DATETIME_RE.test(v))   … formatDateTime(v, { locale });        ← format is DROPPED\n```\n\nand the two signatures in `packages/core/src/utils/date-display.ts`:\n\n```\n:198  export function formatDate(value, style?, options?): string\n:300  export function formatDateTime(value, options?): string\n```\n\n⇒ **`formatDateTime` has no style parameter at all.** The datetime arm cannot honour `format` **even in principle** — this is structural, not a threading slip at the call site. A `Field.date` yields `2026-09-08` and takes the first arm; a `Field.datetime` yields `2026-09-01T00:00:00.000Z` and takes the second.\n\n## Measured on a real boot — not read off source\n\nApp: `examples/app-showcase` (`com.example.showcase`), console built from objectstack's current `.objectui-sha` pin (`a472b071`), `check-console-sha.mjs` exit 0. Chromium via the preinstalled browser, contexts pinned `timezoneId: UTC`, locales `zh-CN` and `en-US`. Readings confirmed against screenshots, on fresh page loads, twice per locale.\n\n**The decisive pair — `min(created_at)` (a `Field.datetime`) INSIDE the relative window (`2026-09-01`, 5 days before the run):**\n\n| `measure.format` | zh-CN | en-US |\n|:--|:--|:--|\n| absent | `2026年9月1日 00:00` | `Sep 1, 2026, 12:00 AM` |\n| `'relative'` | `2026年9月1日 00:00` — **unchanged** | `Sep 1, 2026, 12:00 AM` — **unchanged** |\n\n**Positive control, same page load, same tile component, same driver — `min(due_date)` (a `Field.date`), same window:**\n\n| `measure.format` | zh-CN | en-US |\n|:--|:--|:--|\n| absent | `9月8日` | `Sep 8` |\n| `'relative'` | **`后天`** | **`In 2 days`** |\n\n⇒ The plumbing works end to end (`measure.format` → response `fields[].format` → tile → formatter), the probe wiring is correct, and the driver is not the cause. **The single remaining variable is `Field.datetime` vs `Field.date`.**\n\n## ⚠️ A trap that makes the naive comparison unfalsifiable — read this before re-measuring\n\n`formatRelativeDate` (`packages/core/src/utils/date-display.ts`) falls back to the absolute form **beyond a ±7-day window**:\n\n> `// Beyond the ±7-day window, fall back to the absolute (already localized) form.`\n\n⇒ **An out-of-window value renders identically in both columns even on a fully working path.** objectstack#15768's original datum (`2026-07-04`) and the dev seat's first probe (`2026-07-28`) were 40–60 days old and **cannot test this at all**. Any re-measurement must use an **in-window** value and carry a **date-only positive control in the same page load**, otherwise \"identical\" is the right answer for the wrong reason and the reading cannot fail in either direction.\n\n## ⚠️ The docblock above `formatMeasure` is half-true, and it has already misled one triage pass\n\nIt says:\n\n> **`format: 'short'` and `format: 'relative'` are honoured** — the same words `DateCellRenderer` honours from `field.format` for the same field\n\nMeasured: **true for the date-only arm, false for the datetime arm.** An objectstack triage pass (objectstack#15768 comment `5556978090`) read that docblock, concluded the defect was fixed, and downgraded the card — which the driven run then refuted. ⭐ Whatever the fix is, the docblock must be qualified **by arm**, or it will do the same thing to the next reader.\n\n## Scope, stated precisely\n\n- The server half is **already fixed and confirmed live**: `fields[].type` for a `min` over a `Field.datetime` reads `time`, not `number`, on the wire, every probe field, both locales (objectstack #16101 / #16238). ⛔ Nothing is owed on that axis.\n- `format: 'relative'` **is** carried to the client correctly — nothing is lost on the wire. The loss is entirely inside `formatMeasureDate`.\n- ⛔ **Not measured, do not record as resolved:** whether any *published* app hits this today.\n\n## ⚠️ Serial constraint a taker inherits\n\n**#8263 is `pm:dispatched` and holds `formatMeasureDate`** — it is a different defect on the same function (`Date.parse` accepting an impossible calendar date such as `2026-02-30`). ⛔ Do not open a second PR against that function while #8263 is in flight; read its branch first and sequence behind it.\n\n## Related — the two closed cards on this same function, and why neither covers this\n\n- **#7178** (closed) — `formatMeasure` short-circuited before `format` was read, printing a raw ISO string. That is the *previous* state of this path; its fix is what put the console between the two defects. Different symptom.\n- **#7816** (closed) — `formatRelativeDate` ignoring `options.style`. A different function on the other side of the call.\n- **#8263** (open, dispatched) — same function, different guard. See above.\n\n## Dedupe\n\nOne targeted semantic search over the `formatMeasureDate` / format-style / relative-measure vocabulary returned **5 substantive results**, including **two closed cards on this very function** (#7178, #7816) and the open #8263 ⇒ the channel reaches this neighbourhood and the absence of a card naming the **datetime arm** is a reading rather than a silent zero. ⛔ Not upgraded to exhaustive.\n\nRefs: objectstack#15768 (the end-to-end card, now `pm:blocked` on this one) · objectstack#16101 · objectstack#16238 · #7178 · #7816 · #8263."
+}

@@ -42,8 +42,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { UploadProvider, type UploadAdapter, type UploadResult } from '@object-ui/providers';
+import type { FieldMetadata } from '@object-ui/types';
 import { AvatarField } from './AvatarField';
 import { FileField } from './FileField';
+
+const AVATAR: FieldMetadata = { name: 'photo', type: 'avatar', label: 'Photo' };
 
 /** uuid/nanoid-shaped, so the platform's `isFileIdToken` accepts it. */
 const MINTED_ID = 'f0e1d2c3b4a5968778695a4b3c2d1e0f';
@@ -129,10 +132,9 @@ describe('AvatarField submits the sys_file id or refuses (objectui#10785)', () =
   it('a fileId ⇒ the id string, and only it, reaches onChange; the preview shows the upload', async () => {
     const { adapter, upload } = spyAdapter(true);
     const onChange = vi.fn();
-    const field = { name: 'photo', type: 'avatar', label: 'Photo' } as any;
     const { rerender } = render(
       <UploadProvider adapter={adapter}>
-        <AvatarField field={field} value={undefined as any} onChange={onChange} />
+        <AvatarField field={AVATAR} value="" onChange={onChange} />
       </UploadProvider>,
     );
 
@@ -148,7 +150,7 @@ describe('AvatarField submits the sys_file id or refuses (objectui#10785)', () =
     // its own, so the preview is the upload's own view, keyed by that id.
     rerender(
       <UploadProvider adapter={adapter}>
-        <AvatarField field={field} value={MINTED_ID} onChange={onChange} />
+        <AvatarField field={AVATAR} value={MINTED_ID} onChange={onChange} />
       </UploadProvider>,
     );
     expect(avatarSrc()).toBe('https://cdn.example/me.png');
@@ -159,7 +161,7 @@ describe('AvatarField submits the sys_file id or refuses (objectui#10785)', () =
     const onChange = vi.fn();
     render(
       <UploadProvider adapter={adapter}>
-        <AvatarField field={{ name: 'photo', type: 'avatar' } as any} value={undefined as any} onChange={onChange} />
+        <AvatarField field={AVATAR} value="" onChange={onChange} />
       </UploadProvider>,
     );
 
@@ -180,7 +182,7 @@ describe('AvatarField submits the sys_file id or refuses (objectui#10785)', () =
     vi.stubGlobal('URL', Object.assign(Object.create(URL), URL, { createObjectURL }));
 
     const onChange = vi.fn();
-    render(<AvatarField field={{ name: 'photo', type: 'avatar' } as any} value={undefined as any} onChange={onChange} />);
+    render(<AvatarField field={AVATAR} value="" onChange={onChange} />);
     fireEvent.change(fileInput(), { target: { files: [pick('me.png')] } });
     const avatarRow = (await screen.findByText(refusalFor('me.png'))).textContent;
     expect(createObjectURL).toHaveBeenCalledTimes(1);
@@ -190,7 +192,7 @@ describe('AvatarField submits the sys_file id or refuses (objectui#10785)', () =
 
     // The same pick through FileField, no provider either: the same sentence.
     const fileOnChange = vi.fn();
-    render(<FileField field={{ name: 'attachment', type: 'file' } as any} value={undefined} onChange={fileOnChange} />);
+    render(<FileField field={{ name: 'attachment', type: 'file' }} value={undefined} onChange={fileOnChange} />);
     fireEvent.change(fileInput(), { target: { files: [pick('me.png')] } });
     const fileRow = (await screen.findByText(refusalFor('me.png'))).textContent;
     expect(fileOnChange).not.toHaveBeenCalled();
@@ -204,7 +206,7 @@ describe.each([
 ])('AvatarField reads every stored form — %s (objectui#10785)', (_face, readonly) => {
   function renderValue(value: string) {
     render(
-      <AvatarField field={{ name: 'photo', type: 'avatar' } as any} value={value} onChange={vi.fn()} readonly={readonly} />,
+      <AvatarField field={AVATAR} value={value} onChange={vi.fn()} readonly={readonly} />,
     );
   }
 

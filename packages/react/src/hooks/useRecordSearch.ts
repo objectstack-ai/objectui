@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { getRecordDisplayName as defaultDisplayName } from '@object-ui/core';
+import { getRecordDisplayName as defaultDisplayName, withoutDeniedFields } from '@object-ui/core';
 import { errorCodeIs } from '@object-ui/types';
 
 // ADR-0079: the global-search default display-name resolver is now the ONE
@@ -120,9 +120,10 @@ export interface UseRecordSearchOptions {
    * `getDisplayName` reads it, so a caller-supplied resolver is gated too. A
    * denied field then reads exactly as an absent one and the resolver falls
    * through to its next rung, the label a backend that strips denied fields
-   * (ObjectStack's `FieldMasker`) already yields. The record title
-   * (objectui#10434) and the lookup option label (objectui#10411) apply the
-   * same rule.
+   * (ObjectStack's `FieldMasker`) already yields. The rule is
+   * `withoutDeniedFields` from `@object-ui/core` (objectui#10594), the one the
+   * record title (objectui#10434) and the lookup option label (objectui#10411)
+   * call too.
    *
    * Omitted, or not loaded yet, the row is labelled as served. A title the
    * server computed (`searchAll`'s `hit.title`) is the server's answer and is
@@ -137,28 +138,6 @@ export interface UseRecordSearchOptions {
     isLoaded: boolean;
     checkField: (object: string, field: string, action: 'read') => boolean;
   };
-}
-
-/**
- * `record` as the viewer may READ it on `objectName`, for labelling a search
- * hit (objectui#10500). Every field the loaded `policy` denies is removed, `id`
- * and `_id` kept: the `Record #<id>` floor reads them, and the id is not a
- * field value the policy withholds. Before the policy loads, with no policy,
- * or with nothing withheld, the SAME object comes back.
- */
-function readableRow<T>(
-  record: T,
-  objectName: string,
-  policy: UseRecordSearchOptions['fieldReadPolicy'],
-): T {
-  if (!policy?.isLoaded || !objectName || !record || typeof record !== 'object') return record;
-  const shown: Record<string, unknown> = {};
-  let withheld = false;
-  for (const [key, value] of Object.entries(record)) {
-    if (key === 'id' || key === '_id' || policy.checkField(objectName, key, 'read')) shown[key] = value;
-    else withheld = true;
-  }
-  return withheld ? (shown as T) : record;
 }
 
 export interface UseRecordSearchResult {
@@ -361,7 +340,7 @@ export function useRecordSearch(opts: UseRecordSearchOptions): UseRecordSearchRe
                 title ||
                 getDisplayNameRef.current(
                   objDef,
-                  readableRow(h?.record ?? {}, objectName, fieldReadPolicyRef.current),
+                  withoutDeniedFields(h?.record ?? {}, fieldReadPolicyRef.current, objectName),
                 ) ||
                 `Record #${recordId}`;
               const snippet = typeof h?.snippet === 'string' ? h.snippet.trim() : '';
@@ -443,7 +422,7 @@ export function useRecordSearch(opts: UseRecordSearchOptions): UseRecordSearchRe
             if (recordId == null) continue;
             const display = getDisplayNameRef.current(
               obj,
-              readableRow(record, obj.name, fieldReadPolicyRef.current),
+              withoutDeniedFields(record, fieldReadPolicyRef.current, obj.name),
             );
             hits.push({
               objectName: obj.name,

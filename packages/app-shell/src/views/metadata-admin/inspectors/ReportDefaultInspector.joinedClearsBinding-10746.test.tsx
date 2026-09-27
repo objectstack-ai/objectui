@@ -116,7 +116,8 @@ async function switchType(draft: Record<string, unknown>, optionLabel: string): 
 }
 
 /**
- * The host's merge, as both hosts spell it — `ResourceEditPage` passes
+ * The host's merge, as all three hosts spell it (`ResourceEditPage`,
+ * `ReportConfigPanel`, `StudioDesignSurface`) — `ResourceEditPage` passes
  * `handleDraftChange((d) => ({ ...d, ...patch }))` and `ReportConfigPanel`'s
  * `handlePatch` computes `{ ...draftRef.current, ...patch }`: a shallow spread.
  */

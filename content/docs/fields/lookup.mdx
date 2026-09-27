@@ -73,7 +73,7 @@ control. `FieldSchema` routes a field's `options` through that schema, so
 authoring `description` on an option in an object document fails the **whole
 field** with a 422 — the key lives on the runtime read model the widget consumes
 and must never reach authored object metadata
-([objectui#7014](https://github.com/objectstack-ai/objectui/issues/7014)). The
+(`0e3b3be09`). The
 `dataSource` a host injects and the `onCreateNew` callback it passes are widget props,
 not metadata.
 

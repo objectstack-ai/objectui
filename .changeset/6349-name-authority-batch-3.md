@@ -33,3 +33,11 @@ exports the same name with the same shape.
 with) are deliberately NOT converged: their shapes disagree on `id`, `value` and on
 `operator`, and the only dependency-legal re-point would retype `operator` — the
 vocabulary objectui#7561 is asking a maintainer to rule on.
+
+Superseded in this release by objectui#9306: `FilterBuilderCondition` and
+`FilterGroup` ARE converged there, on the `@object-ui/types` declarations, after
+the maintainer ruled the vocabulary. `@object-ui/components` now derives both
+and restates only `operator` (its `FilterBuilderOperator`) and `value` on the
+row, and `conditions` on the group; the group's `id` is optional, as the
+authority declares it. The paragraph above describes the tree this entry was
+written against.

@@ -150,7 +150,7 @@ export * from './utils/normalize-list-view.js';
 // The ONE record-source ladder, both halves. `resolveRecordSourceConfig`
 // (objectui#7632) is the PRODUCER — the ruled `data` / `staticData` /
 // `objectName` ladder, hand-copied into five view plugins with no gate holding
-// them together. `resolveRecordSourceObjectName` (objectui#7627) is the READER
+// them together. `resolveRecordSourceObjectName` (`b041b9c0c`) is the READER
 // over its output: six view plugins each spelled "the object this block is
 // bound to — the resolved data config's object when it names one, else
 // `objectName`" locally, and had drifted. Both are deliberately SEPARATE from

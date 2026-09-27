@@ -399,7 +399,7 @@ export interface SelectSchema extends BaseSchema {
 
 /**
  * Select option — the SDUI FORM face of the one select-option contract
- * (objectui#7014). It extends {@link SelectOptionBase}, which derives the spec
+ * (`98d4108a2`). It extends {@link SelectOptionBase}, which derives the spec
  * keys (`label`, `color`, `default`) from `@objectstack/spec/data` by reference
  * and carries objectui's `visibleWhen` wire shape plus the two objectui-only
  * keys `disabled` and `icon`. This face restates none of them; the one key it

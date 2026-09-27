@@ -94,8 +94,8 @@ import { t, tFormat } from '../i18n.js';
  *     spreads an `Option`.
  *   • The three parts move TOGETHER. Widening this type without moving both
  *     `readOptions` and `patchOptions` would declare keys the editor still
- *     cannot carry — the declared-but-not-carried divergence objectui#7014
- *     exists to remove.
+ *     cannot carry — the declared-but-not-carried divergence the select-option
+ *     convergence (`98d4108a2`) set out to remove.
  */
 interface Option {
   value: string;
@@ -179,7 +179,7 @@ type OptionRow =
  * prior rulings in this file rather than oversights:
  *
  *   • A MISSING `label` is not malformed. `patchOptions` emits `label: ''` for
- *     it, which is the objectui#7014 Q2 ruling: `''` is what the Label box has
+ *     it, which is the ruling `f0f774b0d` landed: `''` is what the Label box has
  *     been showing the author all along, and the spec accepts it. A present but
  *     non-string `label` is a different fact — there are authored bytes being
  *     destroyed — and that one IS malformed.
@@ -746,7 +746,7 @@ export function ObjectFieldInspector({
       // out). A truthiness guard here therefore did the one thing an authoring
       // surface must never do: it rewrote a LEGAL document into an ILLEGAL one
       // the moment an author cleared the Label box, and the save came back 422
-      // with nothing on screen explaining why (objectui#7014 Q2).
+      // with nothing on screen explaining why (`f0f774b0d`).
       //
       // So emit what the author holds, empty string included. `??` rather than
       // `||` is load-bearing: `||` is the same truthiness bug spelled shorter.

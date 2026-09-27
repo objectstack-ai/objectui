@@ -12,7 +12,7 @@ import type { ViewData } from '@object-ui/types';
 
 /**
  * The object a view block is bound to, resolved ONCE for the whole renderer
- * (objectui#7627).
+ * (`b041b9c0c`).
  *
  * ## The question this answers, and the one it does not
  *
@@ -206,7 +206,7 @@ function authoredDataIsOnTheDeclaredArm(authored: unknown, arm: RecordSourceData
  * the zod `requireRecordSource` refinement is written against.
  *
  * This is the PRODUCER whose output {@link resolveRecordSourceObjectName} (the
- * objectui#7627 reader) consumes; that function's docblock describes the same
+ * reader `b041b9c0c` published) consumes; that function's docblock describes the same
  * ladder from the consuming end. Five plugins — calendar, gantt, grid, map and
  * tree — each carried a hand-copy of this ladder with no gate holding them
  * together, which is the AGENTS.md #0.1 drift class: a change to the ruled

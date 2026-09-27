@@ -269,7 +269,7 @@ export interface MarkdownFieldMetadata extends BaseFieldMetadata {
    * `text` field carrying `rows` still fails the whole field. Authored object
    * metadata may carry it on these four types and nowhere else.
    *
-   * ⛔ This reverses what this docblock asserted between objectui#7014 and
+   * ⛔ This reverses what this docblock asserted between `0e3b3be09` and
    * objectui#7635: at 17.2.0 the key WAS refused by name, and the sentence
    * saying so outlived the contract it described. Both directions, each behind
    * an accepting control, are re-derived by
@@ -294,7 +294,7 @@ export interface HtmlFieldMetadata extends BaseFieldMetadata {
    * docblock there): `RichTextField` reads it for all three registry keys it
    * serves. It is a DECLARED spec key on this type too, type-gated to the four
    * multiline editor types; see the measured reading in the docblock there
-   * (objectui#7014, corrected for the 17.3.0 boundary by objectui#7635).
+   * (`0e3b3be09`, corrected for the 17.3.0 boundary by objectui#7635).
    */
   rows?: number;
 }
@@ -512,7 +512,7 @@ import type { SelectOptionBase } from './select-option.js';
 
 /**
  * Select option — the OBJECT-METADATA face of the one select-option contract
- * (objectui#7014). It extends {@link SelectOptionBase}, which derives the spec
+ * (`98d4108a2`). It extends {@link SelectOptionBase}, which derives the spec
  * keys from `@objectstack/spec/data` by reference and carries objectui's
  * `visibleWhen` wire shape plus the two objectui-only keys `disabled` and
  * `icon`. This face restates none of them; it adds exactly the one key below
@@ -545,14 +545,14 @@ export interface SelectOptionMetadata extends SelectOptionBase {
    * the ruling — the key was consumed by `LookupField` long before the
    * authoring door admitted it.
    *
-   * ⛔ This reverses what this docblock asserted between objectui#7014 and
+   * ⛔ This reverses what this docblock asserted between `0e3b3be09` and
    * objectui#7635, when the key was refused by name and this comment said so.
    * The option keys that are STILL outside the vocabulary are `icon` and
    * `disabled` — declared on {@link SelectOptionBase} as objectui-only
    * extensions and refused by name — and they are what keeps "the schema still
    * refuses something" a live fact rather than an assumption. The verdict is
    * re-derived, both directions behind accepting controls, by
-   * `__tests__/select-option-spec-extension-7014.test.ts` (objectui#7014).
+   * `__tests__/select-option-spec-extension-7014.test.ts` (`0e3b3be09`).
    */
   description?: string;
 }

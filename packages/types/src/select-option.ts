@@ -24,7 +24,7 @@ import type { SelectOption as SpecSelectOption } from '@objectstack/spec/data';
 /**
  * The objectui select-option contract, DERIVED from the spec's own
  * `SelectOption` (`@objectstack/spec/data`), with every divergence written out
- * (objectui#7014).
+ * (`98d4108a2`).
  *
  * The spec's keys arrive BY REFERENCE through the `Omit`, so a key the spec
  * adds appears on both objectui faces with no edit here, and a key it removes

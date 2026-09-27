@@ -373,7 +373,7 @@ type ObjectCatalog = {
 
 /**
  * A refusal the SERVER returned for this document, held against the draft
- * slices its issue paths named (objectui#8057).
+ * slices its issue paths named (`9073cf018`).
  *
  * Not `issues`: that state is overwritten wholesale by the debounced live Zod
  * pass 200ms after any edit, so a server verdict parked there is gone by the
@@ -703,7 +703,7 @@ function MetadataResourceEditPageImpl({
   // `previewDiagnostics` — and left advisory; the server has the last word.
   // Pinned by `ResourceEditPage.schemaAdvisory.test.tsx`.
   //
-  // ⭐ THE BOUNDARY, stated so a later reader can apply it (objectui#8057).
+  // ⭐ THE BOUNDARY, stated so a later reader can apply it (`9073cf018`).
   // "Advisory" is about a verdict this client PREDICTS, and it is the whole of
   // what is advisory. It has never covered a verdict the server RETURNED:
   //
@@ -714,7 +714,7 @@ function MetadataResourceEditPageImpl({
   // than a promise: only a 422 arms the blocking half, and a draft the server
   // accepts does not produce one. So the dead-bolt this paragraph exists to
   // prevent — Save wedged shut on a draft the server would have taken — stays
-  // unreachable. What ended with objectui#8057 is only the client's habit of
+  // unreachable. What ended with `9073cf018` is only the client's habit of
   // re-sending a document the server had ALREADY refused, on every later edit,
   // while reporting nothing. ⛔ Do not read the blocking half as licence to
   // gate Save on the live Zod pass: that is the skew case, and it is still
@@ -757,7 +757,7 @@ function MetadataResourceEditPageImpl({
   // `ResourceEditPage.schemaAdvisory.test.tsx`.
   //
   // ⭐ Why it is DOCUMENT-scoped where `inspectorBlocking` is SELECTION-scoped.
-  // The measured wedge (objectui#8057) is an author who adds a Lookup field
+  // The measured wedge (`9073cf018`) is an author who adds a Lookup field
   // with an empty target, then selects an unrelated already-saved field and
   // renames it. `inspectorBlocking` above expires when the selection changes —
   // BY DESIGN, and that design is right for what it gates — so it is already
@@ -1590,7 +1590,7 @@ function MetadataResourceEditPageImpl({
         setIssues(mapped);
         // Hold the refusal against the draft slices the server named, so the
         // next auto-save cannot re-send the same refused document behind an
-        // unrelated edit (objectui#8057). Paths that do not localise are
+        // unrelated edit (`9073cf018`). Paths that do not localise are
         // DROPPED rather than kept as a wildcard: a refusal we cannot tie to a
         // slice must gate nothing at all.
         const probe = refusalProbeBody(draft);
@@ -1797,7 +1797,7 @@ function MetadataResourceEditPageImpl({
     // the timer publish the malformed definition a second later (objectui#4306).
     if (inspectorBlocking > 0) return;
     // Second validation term, and the one that survives a selection change.
-    // The timer is the door the objectui#8057 wedge actually came through: it
+    // The timer is the door the wedge (`9073cf018`) actually came through: it
     // re-sent the refused document on every later edit, silently, so the
     // designer showed the rename as applied while the server held none of it.
     if (refusalBlocking > 0) return;
@@ -2188,7 +2188,7 @@ function MetadataResourceEditPageImpl({
               (objectui#4306 / #6980);
             - `refusalBlocking` — a 422 the server DID return for this exact
               document, DOCUMENT-scoped so it survives a selection change
-              (objectui#8057).
+              (`9073cf018`).
           `issues` — the live client Zod pass — stays advisory, because the
           only failure the client can cause on its own is being STRICTER than
           the server. The reasoning, and the measurement behind all three, is

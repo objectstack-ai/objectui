@@ -111,7 +111,7 @@ export function resolveVisibleOptions<T extends OptionLike>(
 
 /**
  * The text an option widget SHOWS for one option: its `label`, or its `value`
- * when the label is blank (objectui#9230).
+ * when the label is blank (`20b507aff`).
  *
  * ## Why a blank label reaches a renderer at all — it is a LEGAL document
  *
@@ -128,7 +128,7 @@ export function resolveVisibleOptions<T extends OptionLike>(
  * `@object-ui/types` mirrors that reading in prose on `SelectOptionBase`:
  * "An empty string is a valid label; an ABSENT one is not." So the producer
  * is right to emit `label: ''` — the field designer's `patchOptions` does,
- * under the objectui#7014 Q2 ruling, and a pin
+ * under the ruling `f0f774b0d` landed, and a pin
  * (`ObjectFieldInspector.optionLabel.test.tsx`) fails if it ever invents
  * content to fill the hole instead. A document every layer calls legal has to
  * render as something a person can click.

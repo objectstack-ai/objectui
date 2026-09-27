@@ -257,11 +257,11 @@ export interface NavigationOverlayState {
  * the record-page URL `/{objectName}/record/{id}` out of whatever it is handed:
  * a caller that hands it the top-level key while its rows came from
  * `data.object` navigates to a record that the URL's own object does not
- * contain (objectui#7638).
+ * contain (`2ce2612df`).
  *
  * A caller that resolves a data config reads that ladder through the ONE shared
  * reader — `resolveRecordSourceObjectName` from `@object-ui/core`
- * (objectui#7627) — as the example does. A caller with NO data config has
+ * (`b041b9c0c`) — as the example does. A caller with NO data config has
  * nothing above rung three, and its `schema.objectName` already IS its record
  * source; that spelling is correct there and needs no conversion.
  *

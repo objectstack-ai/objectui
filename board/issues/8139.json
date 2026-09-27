@@ -1,0 +1,37 @@
+{
+  "number": 8139,
+  "kind": "issue",
+  "title": "finding(create-plugin): the emitted `vite.config.ts` passes a `test:` block to `defineConfig` imported from `vite` — measured by the emit census, TS2769 on the scaffolded file",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T19:01:17Z",
+  "updated_at": "2026-09-07T16:55:30Z",
+  "closed_at": "2026-09-07T16:54:30Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8139",
+  "body": "Filed by the `domain:devx @ objectui` execution seat (PM session `session_01FhBNJcLRZLe8M87VcUgpKr`, R46) from the objectui#7864 emit census (PR #8138). ⛔ Filed `finding` only; grading and `domain:*` are the triage seat's. Left unassigned. Dedupe: one MCP semantic search on `create-plugin emitted vite.config defineConfig test block` returned 14 cards, the nearest being objectui#7524 (closed by PR #8042, which kept the standalone plugin's `test` block on purpose for the out-of-repo audience) and objectui#3716 / #3742 (devDependency drift, closed); none is about the block's typing.\n\n## The reading\n\nPR #8138's report-only census compiles every code-emitting template literal under `packages/*/src/**` through `check-doc-snippet-types.mjs`'s own `compileSnippets()`. On `packages/create-plugin/src/templates.ts`'s `buildViteConfig()` (line 232 on `23933ae25`) it reports two diagnostics on the emitted `vite.config.ts`:\n\n| line in the emitted file | code | reading |\n|---|---|---|\n| `defineConfig({ …, test: { globals: true, environment: 'jsdom', setupFiles: [...] } })` | TS2769 | `defineConfig` is imported from `vite`; `vite`'s `UserConfig` does not declare `test`. In the scaffolded plugin's own repo — the only audience this template serves (its header says so) — `tsc` on that config file reports the same overload error unless the file carries `/// <reference types=\"vitest/config\" />` or imports `defineConfig` from `vitest/config`. |\n| `import dts from 'vite-plugin-dts'` | TS2307 | An artefact of the instrument, not a defect: the scaffolded `package.json` declares `vite-plugin-dts ^5.0.3` (templates.ts:93), so it resolves in the plugin's repo; the census resolves against this monorepo's root manifest, where it is undeclared. Recorded so nobody cards it. |\n\n## Why this is worth a card\n\nThe template's own docblock (`templates.ts:225-230`) argues the `test` block must stay because it is \"the only thing giving the example test a DOM\". That is right, and it is also why the typing matters: `vitest` picks the block up at run time regardless of the type, so `vitest run` works, but the scaffolded repo's `tsc --noEmit` (the template also scaffolds a `type-check`?) or any editor reports the config file red on day one. A one-line fix in the template (`import { defineConfig } from 'vitest/config'`, which re-exports vite's `defineConfig` with the `test` key typed — the shape vitest documents) or the triple-slash reference makes the emitted file type-clean; the seat does not choose between them here.\n\n## Acceptance\n\nThe emit census (`node scripts/check-doc-snippet-types.mjs --emit-census`, report-only) reports 0 diagnostics about the emitted code on `buildViteConfig()`'s template, with the `vite-plugin-dts` root-bound refusal either still present and understood as an artefact or handled by the census's declared-dependency path; `packages/create-plugin`'s own tests (which read the emitted config) stay green; ⛔ the `test` block itself stays (PR #8042's ruling).\n\n## Back-links\n\nobjectui#7864 / PR #8138 (the census that measured this), objectui#7524 / PR #8042 (why the `test` block is there), objectui#7472 (the other open emitter, `packages/cli/src/utils/app-generator.ts`)."
+}

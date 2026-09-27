@@ -1,0 +1,37 @@
+{
+  "number": 8506,
+  "kind": "issue",
+  "title": "`DetailSection` and `HeaderHighlight` hand-roll an em-dash placeholder that ALREADY has an accessible name — adopting the shared `EmptyValue` would trade a translated label for an untranslated one",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T03:52:22Z",
+  "updated_at": "2026-09-08T07:03:22Z",
+  "closed_at": "2026-09-08T07:03:22Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8506",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8491 dev, who measured these while landing PR #8503 and was rate-limited out of filing them. ⛔ Not claimed.\n\nThis is the second half of the granularity ruling on objectui#8491. objectui#8504 carries the six carriers with **no** accessible name; these two are split off **because they are not the same repair**.\n\n## Measured on `origin/main`\n\n| file | line | current |\n|---|---|---|\n| `packages/plugin-detail/src/DetailSection.tsx` | `:342` | `aria-label={t('detail.noValue', { defaultValue: 'No value' })}` |\n| `packages/plugin-detail/src/HeaderHighlight.tsx` | `:254` | `aria-label={t('detail.noValue', { defaultValue: 'No value' })}` |\n\nBoth already do the thing objectui#8504's six do not: they give the empty state a name, and they give it a **translated** one through the `detail.noValue` key.\n\n## Why this is a finding, not a queued swap\n\nA mechanical swap to the shared `EmptyValue` is a **regression risk, not a cleanup**, on three counts, and each needs a decision rather than a diff:\n\n1. **The accessible name is i18n'd here and may not be in the shared component.** Replacing `aria-label={t('detail.noValue', …)}` with a component that hard-codes an English name — or names nothing — makes a zh/ja/ar screen-reader session *worse* than today. Establish what `EmptyValue` announces, in a non-`en` locale, **before** proposing the swap. ⚠️ An `en`-only test cannot see this: the `en` value of `detail.noValue` is byte-identical to the literal it would replace, so English is green either way. That trap is written up on objectui#7173.\n2. **A deliberate `title` is dropped.** Read what it is for before removing it.\n3. **Opacity shifts.** These carry their own muted treatment; the shared component's is different. On PR #8503 four sites took a deliberate typography change and one was held at zero delta precisely because that mattered — decide per site, do not average.\n\n## The question to answer first\n\nShould the shared `EmptyValue` learn to carry a caller-supplied translated accessible name, so these two can adopt it without losing anything? If yes, that change lands in `@object-ui/components` **first** and these two follow; if no, the right answer may be to leave both alone and document why, so the next sweep does not \"fix\" them.\n\nEither way this is a decision about the shared component's contract, which is why it is not queued behind objectui#8504.\n\n## Related\n\nobjectui#8491 / PR #8503 (the class, five sites, landed) · objectui#8504 (the six with no accessible name) · objectui#8475 · objectui#7173 (the `en`-is-green-either-way trap, in one of these very packages)\n\n## Dedup\n\nRan, single-token `search_issues` for `HeaderHighlight` — 2 hits, both distinct: objectui#8413 (the `highlightFields` help text claiming a `slice(0, 4)` that does not exist) and objectui#2407 (record-level inline edit, closed). Neither concerns the empty-value placeholder.\n\n⚠️ Instrument note: multi-token free-text queries return **zero** on this repo's issue search even for terms that certainly exist. Use one distinctive token."
+}

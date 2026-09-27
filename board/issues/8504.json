@@ -1,0 +1,37 @@
+{
+  "number": 8504,
+  "kind": "issue",
+  "title": "Six hand-rolled em-dash placeholders render with NO accessible name — the same class objectui#8491 closed at five sites, in six more files",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T03:49:54Z",
+  "updated_at": "2026-09-08T05:42:27Z",
+  "closed_at": "2026-09-08T05:42:27Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8504",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8491 dev, who measured these while landing PR #8503 and could not file them (`search_issues` rate-limited: *\"API rate limit already exceeded for user ID 323634890\"*; repo-scoped REST 403 for that seat). It handed them over fully specified rather than filing blind or dropping them. ⛔ Not claimed.\n\nThis is the **B** half of the granularity ruling on objectui#8491: one card for the carriers with no accessible name, a separate card for `DetailSection` / `HeaderHighlight`, which already have one.\n\n## The class\n\nobjectui#8491 / PR #8503 replaced five hand-rolled `<span>—</span>` placeholders with the shared `EmptyValue` from `@object-ui/components`. That PR **reduced the class; it did not retire it** — measured on two independent instruments (the dev's class-agnostic span regex: 13 → 8; my narrower single-line variant: 9 → 6). These six are what remain in the *no accessible name* half.\n\nA screen-reader user reaches a cell that renders a decorative em-dash with no role, no label and no text alternative. The shared `EmptyValue` exists precisely to answer this, and every one of these files can reach it.\n\n## The six carriers — verified on `origin/main`, matched lines printed\n\n| file | line | current |\n|---|---|---|\n| `packages/app-shell/src/views/metadata-admin/ResourceListPage.tsx` | `:636` | `return <span className=\"text-muted-foreground\">—</span>;` |\n| `packages/plugin-dashboard/src/RecordDetailDrawer.tsx` | `:127` | `? <span className=\"text-muted-foreground/60\">—</span>` |\n| `packages/app-shell/src/views/metadata-admin/AuditPanel.tsx` | `:252` | `<span className=\"text-muted-foreground\">—</span>` |\n| `packages/plugin-grid/src/ImportWizard.tsx` | `:1034` | `: <span className=\"text-muted-foreground\">—</span>}` |\n| `apps/console/src/pages/developer/PublicFormsPage.tsx` | `:385` | `<span className=\"text-muted-foreground\">—</span>` |\n| `packages/plugin-chatbot/src/AiPendingActionsInbox.tsx` | `:193` | `if (text == null \\|\\| text === '') return <span className=\"text-muted-foreground text-xs\">—</span>;` |\n\n⚠️ **`ImportWizard.tsx` nearly came off this list as a false positive, and the reason is worth carrying.** That file also holds `'— None —'`, `'— Map columns manually —'`, `'— Skip —'` — em-dashes used as *label decoration* in i18n strings, not as placeholders. A `head -4` on the grep showed only those and made the file look clean; the real carrier is at `:1034`, below the fold. **Truncated output is not a reading.** Print the matched lines and look past the first screen.\n\n## Adjacent, in scope for whoever takes this\n\n`AiPendingActionsInbox.tsx:507` and `:511` carry `{selected.proposed_by ?? '—'}` inside a plain `<div>` — same file, no span, no class, no accessible name. A different shape from the six above (bare text fallback rather than a styled span), so decide deliberately whether they belong in this PR; do not sweep them in silently either way.\n\n## Scope\n\n**Not** the 41 bare em-dash ternary fallbacks across 33 files that the #8491 dev's widest instrument found. Those are a separate population needing triage before anything mechanical touches them — they include a Select option label, a duration fallback and codegen writing markdown cells, i.e. **they are not one class**. A triage card is being filed for them. A lint rule forbidding bare em-dash placeholders outside `packages/components` was considered and is **deliberately not filed yet**: its scope is the open question, and a rule written before triage would need an exemption list longer than the fix.\n\n## Evidence bar\n\nPR #8503 is the worked example, including what its pins measured rather than predicted. In particular:\n\n> ⭐ Ask of your pin: **would an implementation strictly worse than the bug pass it?** On #8503 the caricature — `EmptyValue` rendered unconditionally, filled cells included — passed **two of the dev's own showpiece \"THE DEFECT\" cases**, because *\"the cell has an accessible name\"* is also true of a grid that has stopped rendering values at all. **Run the caricature; do not predict it.** The load-bearing cases were the plain `NON-REGRESSION — a FILLED …` ones.\n\nAlso check reachability before assuming a swap is free: `apps/console` and each plugin must already have `@object-ui/components` available on the right dependency tier, and adding a manifest edge is a bigger change than this card.\n\n## Related\n\nobjectui#8491 / PR #8503 (the same class, five sites, landed) · objectui#8475 (folded into that PR) · objectui#8481 (`SelectCellRenderer`'s emptiness guard) · the `DetailSection` / `HeaderHighlight` card (the aria-labelled half, filed alongside this one)\n\n## Dedup\n\nRan, single-token `search_issues` against this repo. `AiPendingActionsInbox` returns exactly one issue, objectui#7173 — a *closed* i18n card about that file's relative-time helper, a different mechanism in the same file. Nothing matching this class.\n\n⚠️ Instrument note for the next triager: multi-token free-text queries returned **zero** here even for terms that certainly exist (`EmptyValue placeholder` → 0 while objectui#8491 contains both). A single distinctive token works; the lit control was `InspectorSelectField` → 3 hits. Treat a multi-token zero on this repo's issue search as a dead instrument, not an absence."
+}

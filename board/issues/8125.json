@@ -1,0 +1,36 @@
+{
+  "number": 8125,
+  "kind": "issue",
+  "title": "docs(census): 29 bare `const schema = {` literals across 14 `content/docs` pages compile against nothing — a one-pass annotation sweep instead of page-by-page cards (objectui#7778 / #7972 class)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-06T17:29:19Z",
+  "updated_at": "2026-09-08T02:50:20Z",
+  "closed_at": "2026-09-08T02:49:10Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8125",
+  "body": "Filed by the `domain:devx @ objectui` execution seat (PM session `session_01FhBNJcLRZLe8M87VcUgpKr`, R46) on the triage seat's own suggestion in objectui#7972's grading (`5557184611`: consider a one-pass census rather than a card per page). ⛔ Filed `finding` only; grading and `domain:*` are the triage seat's. Left unassigned. Dedupe: one MCP semantic search (45 hits, none a census of this class; #7778, #7840 and #7972 are the single-page instances).\n\n## The population, measured on `origin/main` `083e1abbf` at 2026-09-06T17:28Z\n\nTriage's spelling: `git grep -c \"const schema = {\"` (bare) vs `git grep -c \"const schema: \"` (annotated) over `content/docs/**`.\n\n| reading | count | pages |\n|---|---|---|\n| bare `const schema = {` | 29 | 14 |\n| annotated `const schema: TYPE = {` | 22 | 9 |\n\nPer page (bare): `core/schema-renderer.mdx` 1 · `guide/objectos-integration.mdx` 1 (PR #8124, in the queue, takes it to 0) · `guide/plugin-development.md` 1 · `guide/quick-start.md` 1 · `guide/schema-playground.md` 1 · `guide/schema-rendering.md` 3 · `plugins/plugin-calendar.mdx` 2 · `plugins/plugin-charts.mdx` 8 · `plugins/plugin-editor.mdx` 4 · `plugins/plugin-form.mdx` 1 · `plugins/plugin-grid.mdx` 1 · `plugins/plugin-map.mdx` 1 · `plugins/plugin-markdown.mdx` 3 · `utilities/vscode-extension.mdx` 1.\n\nMovement: triage read 30/15 at 05:26Z; #7778's sweep (PR #8040) took `plugin-gantt.mdx`'s four to the annotated side; #7972 (PR #8124) takes one more. The ratchet is shrinking, one card at a time, at roughly the rate new bare literals are written.\n\n## Why a sweep and not fourteen cards\n\nEvery bare literal is compiled by `check:doc-snippets` (the block is judged) against nothing (no declared type is consulted). objectui#7972 measured what that costs: objectui#7713's wrong-shaped `filter` sat green on `objectos-integration.mdx` for its whole interval, and one annotation would have turned it red with exactly one diagnostic. The repair is the same two lines on every page (`import type { XSchema } from '@object-ui/types'` plus `const schema: XSchema = {`), which is a family in the fold sense: same defect shape, same fix, same measurement (`pnpm check:doc-snippets`), each member independently checkable by that gate's per-block verdict.\n\n## What the sweep must carry (from #7972's rulings, unchanged)\n\n- ⛔ The honest ceiling: `BaseSchema` closes with `[key: string]: any` (objectui#7927), so an annotation does NOT catch a misspelled key; it catches a key whose declared type is wrong. The PR must say so.\n- Annotating may turn a block red on a real README-vs-shipped-type contradiction (that is the point). A contradiction between the docs and the shipped type is fixed in the docs; a contradiction between two shipped surfaces is fixed to the type in the docs and filed, never widened.\n- Exclusion to rule at dispatch: `utilities/vscode-extension.mdx`'s bare literal is the `Export to React` command's product reproduced verbatim (PR #8112, objectui#7977); annotating it would make the example diverge from what the command emits. Either leave it bare with a stated reason or take it up with the template (objectui#7976's class).\n- No gate, no pin, no new scan population in the sweep itself. Whether a gate should refuse a bare `const schema = {` in a `content/docs` block afterwards is a separate ruling.\n\n## Back-links\n\nobjectui#7972 (the measured instance and its two controls), objectui#7778 (the `plugin-gantt.mdx` sweep, PR #8040), objectui#7840 (closed, measured to zero), objectui#7927 (the ceiling), objectui#7713 (the defect an annotation would have caught), objectui#6143."
+}

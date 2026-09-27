@@ -1,0 +1,38 @@
+{
+  "number": 7925,
+  "kind": "issue",
+  "title": "finding(docs,plugin-calendar): the README's two `object-calendar` examples author six keys and the renderer reads none of them — `object` for `objectName`, `startField` for `startDateField`, plus `fields` / node-level `dataSource`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "domain:devx",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T03:26:53Z",
+  "updated_at": "2026-09-08T01:47:25Z",
+  "closed_at": "2026-09-08T01:44:45Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7925",
+  "body": "**Finding (observation, awaiting first grading).** Measured by the `os-dev` seat working objectui#5174 batch 13 (PR to follow, `packages/plugin-calendar/README.md` leaving `UNGATED_DOCS`). ⛔ **Deliberately NOT fixed there**: that batch's disposition is snippet coverage, every one of these blocks already COMPILES, and repairing them is an authoring decision plus a lenient-alias question, not a coverage one. Unassigned and bare — `domain:*` and grading are triage's.\n\n## What is true today (measured at `origin/main` `db2c20d08`)\n\n`packages/plugin-calendar/README.md` teaches the `object-calendar` node in two example blocks. Between them they author **six** keys. The renderer reads **none** of them as written.\n\n### Block 1 — \"With ObjectQL Integration\" (README line 262)\n\n```typescript\nconst schema = {\n  type: 'object-calendar',\n  object: 'events',\n  titleField: 'name',\n  startField: 'startDate',\n  endField: 'endDate',\n  colorField: 'category.color'\n};\n```\n\n| key taught | declared on `ObjectCalendarSchema`? | read by the renderer? |\n|:--|:--|:--|\n| `object` | **no** (it declares `objectName`) | **no** — `packages/plugin-calendar/src/ObjectCalendar.tsx` reads `schema.objectName` at 26 sites and `schema.object` at none |\n| `startField` | **no** | **no** — no read site anywhere in the package |\n| `endField` | no | only inside a branch this example never enters (below) |\n| `colorField` | no | same branch |\n| `titleField` | yes | same branch |\n\nThe branch is the decisive part. `getCalendarConfig` (`ObjectCalendar.tsx:119`) reaches the flat-property ladder only through this gate at `:131`:\n\n```\nif ((schema as any).startDateField || (schema as any).dateField) {\n```\n\nThe example supplies **`startField`** — neither of those two spellings — so the gate is false, `getCalendarConfig` returns `null`, and `titleField` / `endField` / `colorField` are never read even though two of them are spelled the way the ladder would accept. A reader who copies this block gets a calendar bound to no object and configured by nothing.\n\n### Block 2 — \"ObjectQL Integration\" (README line 314)\n\n```typescript\nconst schema = {\n  type: 'object-calendar',\n  dataSource,\n  object: 'calendar_events',\n  fields: { title: 'title', start: 'start_time', end: 'end_time', color: 'category_color' }\n};\n```\n\n`fields` is not declared on `ObjectCalendarSchema` and has no read site in `plugin-calendar` (the only `fields` read, `ObjectCalendar.tsx:484`, is the OBJECT definition's field map, not the node's). `dataSource` is not an authorable node key at all — AGENTS.md §5 #1 says it is injected as `<SchemaRendererProvider dataSource={...} />`. `object` is wrong here for the same reason as above.\n\nFor reference, `ObjectCalendarSchema` (`packages/types/src/objectql.ts:2672`) declares exactly: `type`, `objectName?`, `data?`, `staticData?`, `startDateField?`, `endDateField?`, `titleField?`, `defaultView?`.\n\n## Why no gate catches this, which is the part worth keeping\n\nThree gates are green on these two blocks right now, and each is green for its own stated reason:\n\n1. `check-doc-component-types` verifies the `type` literal `object-calendar`, which is correct.\n2. `check-doc-snippet-types` compiles the blocks, and they compile — the literals carry no annotation, so nothing is compared against `ObjectCalendarSchema`.\n3. Annotating them would **not** fix that. `ObjectCalendarSchema extends BaseSchema`, and `BaseSchema` closes with `[key: string]: any` (`packages/types/src/base.ts:467`), so every one of these six keys type-checks under the annotation too. Measured directly on the sibling `CalendarViewSchema` in batch 13's probe P5: renaming `titleField` to `titleFieldd` inside an annotated block leaves the gate at **exit 0**. Filed separately.\n\nThis is objectui#5138's shape 1 with a concrete instance, and the same sentence the snippet gate's own header uses for objectui#5174: *the gate looked at the one key that was correct.*\n\n## Scope, if this is graded for work\n\n1. Decide the intended authored form of an `object-calendar` node — `objectName` is the only spelling the renderer honours, so the README's `object` is simply wrong and mechanical to repair.\n2. `startField` has no read site; `endField` / `dateField` are lenient `(schema as any)` aliases read behind the `:131` gate. AGENTS.md §5 #0.1 says a fallback alias belongs at the producer, not the consumer — so the honest question is whether those aliases should be **removed** and the README pointed at `startDateField` / `endDateField`, not whether to teach the aliases.\n3. `fields` and node-level `dataSource` look like they predate the current DataSource injection contract; confirm before rewriting either block.\n4. Whatever lands, a pin is what keeps it: `packages/plugin-calendar/src/readme-calendar-view-schema.test.ts` already holds the `calendar-view` fence to `CalendarViewSchema` by parsing both sides from source. There is no equivalent for the `object-calendar` blocks, which is why these drifted silently.\n\nRelated: objectui#7780 (`ObjectKanbanSchema` — a declared/read mismatch on a sibling view schema), objectui#7711 and objectui#7311 (both on `plugin-calendar`'s config plumbing), objectui#7661 (`ObjectCalendar` among the three renderers that ignore a bare-array `data`), objectui#5138 (the shape).\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

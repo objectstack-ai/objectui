@@ -1,0 +1,36 @@
+{
+  "number": 7365,
+  "kind": "issue",
+  "title": "finding(plugin-timeline): a `null` gantt BAR (`items: [{ items: [null] }]`) is refused through `malformedDate` as \"startDate is undefined, which is not a valid date\" — the wrong fault, one level below #7164",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T13:20:29Z",
+  "updated_at": "2026-09-07T23:48:58Z",
+  "closed_at": "2026-09-07T23:47:57Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7365",
+  "body": "Found while implementing #7164. Not repaired there: the ruling named the ROW and `row.items` shapes (a row is an object; its `items`, when present, is an array) and the bars inside a row stay `z.any()` in the mirror. A bar that is not a bar is one level below that scope.\n\n## What is wrong\n\nMeasured in render through the real `TimelineRenderer`, on `a67abdc88` (main) and on the #7164 branch at `8e1dc8274` — identical:\n\n```\nitems: [{ label: 'R', items: [null] }]\n  -> NAMED  Unusable gantt date range — items[0].items[0].startDate is undefined, which is not a valid date. …\n```\n\nThe outcome is defined (no crash — `findUnusableGanttDate` reads `rowItems[0]?.startDate`, gets `undefined`, and refuses), but the copy names the WRONG fault: the bar is `null`, not an item whose `startDate` is missing. This is the same mis-naming class #7164 fixed for rows (\"items[0] is null, which is not a valid date\" named the wrong fault for a row that is not a row), one level down.\n\nAnd `validate` accepts it: `TimelineSchema.items[].items` is `z.array(z.any())`, so a `null` bar is green at authoring time.\n\n## Options\n\n- **A — both doors, as #7164 did for rows**: the mirror declares a bar as an object (`z.array(z.object({}).passthrough())` for `row.items` — a contract change, Clause ②), and `classifyGanttRows` names `items[0].items[0] is null` at render-time. The existing `malformedRow` copy says \"which is not a row shape\", which reads slightly off for a bar; either a fourth path level in the same sentence or a small copy adjustment across the ten packs would be needed, and that is a ruling.\n- **B — mirror only**: refuse the `null` bar at authoring; leave the render-time copy as the defined outcome it is today.\n- **C — leave it**: it is a defined, non-crashing outcome.\n\nRecommendation: at least B — an authored `null` bar is an error an AI-authored document should be told about at `validate`, not by a date diagnostic naming a key it never wrote.\n\nBlocked-by: #7164 (the mirror's row declaration and `classifyGanttRows` both land there)."
+}

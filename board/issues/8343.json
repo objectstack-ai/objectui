@@ -1,0 +1,35 @@
+{
+  "number": 8343,
+  "kind": "issue",
+  "title": "迭代轮确认死路：apply_blueprint 返回 awaiting_confirmation 时，方案卡被误标「已搭建」，界面上没有任何可点的确认控件",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "plugin",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-07T13:41:34Z",
+  "updated_at": "2026-09-08T09:27:29Z",
+  "closed_at": "2026-09-08T09:27:29Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8343",
+  "body": "在浏览器里走 AI 迭代流程时撞到：**AI 说「请确认下方方案卡片」，而界面上没有任何可以确认的东西。** 用户在这一轮被卡死，唯一出路是自己猜到要在输入框里打「确认」两个字。\n\n## 复现\n\n本地 prod-like 栈（cloud `4cff1edc`、framework `e581457baaaf`、objectui `7258eafbe614`），免费档 → `openai/gpt-5.6-luna`，全程界面操作：\n\n1. 首建一个应用，说「请**直接搭建**」→ 正常，两张卡：`设计应用方案 ✓已完成`、`搭建应用 ✓已完成`。\n2. 同一会话迭代：「再加一张疫苗接种记录表……**直接加**。」\n\n第 2 步后界面停在：\n\n```\n✓ 读取编写规范      已完成\n✓ 记录待办 ×3       已完成\n✓ 列出元数据        已完成\n🔧 设计应用方案   ✓ 已完成        ← 谎报：什么都没建\n🔧 搭建应用      ⏱ 等待确认       ← 展开后没有任何按钮\n\n我已准备好在现有「宠物医院管理」应用中新增「疫苗接种记录」表……\n请确认下方方案卡片后，系统即可执行创建。\n```\n\n把整棵 DOM 的 `<button>` 扫一遍，可点的只有 `复制` / `重新生成` / `发送`。**没有确认、开始搭建、批准、调整方案中的任何一个。**\n\n## 根因\n\n`packages/plugin-chatbot/src/ChatbotEnhanced.tsx` 的 `builtPlanIds`（约 1978 行）：\n\n```js\nif (tool.toolName === 'apply_blueprint') lastBuildOrder = order;\n```\n\n**只看工具名，不看这次调用是否真的建了东西。**\n\n本轮 `apply_blueprint` 的返回是（逐字取自 `ai_messages.content`）：\n\n```json\n{\"status\":\"awaiting_confirmation\",\n \"message\":\"A confirm card for this blueprint was just shown to the user — STOP and let them review it. …\"}\n```\n\n它明确地**没有建任何东西，自己也在等用户**。但因为它的 `toolName` 是 `apply_blueprint`，前面那张 `propose_blueprint` 方案卡的 `order < lastBuildOrder` 成立，于是被塞进 `builtPlanIds` → `resolveProposalCardState` 返回 `settled` → 卡片折叠成惰性的「已搭建」徽标，**它自己那颗「开始搭建」按钮随之消失**。\n\n于是两张卡各自失去了确认能力：方案卡以为已经建完了，搭建卡在等一个不存在的点击。\n\n同一个文件里紧挨着的 `confirmedChangeIds` 形状是**对的**——它只把「不再是 `changes_proposed` 预览」的后续调用算作提交：\n\n```js\nif (tool.proposedChanges && tool.toolCallId) proposals.push(…);\nelse if (tool.toolName) lastCommitByTool.set(tool.toolName, order);\n```\n\n`builtPlanIds` 缺的就是这一层判断。现成的谓词也已经在同文件里：`isProposalResult(tool.result)`。\n\n## 影响面：不是某一个界面的问题\n\n构建页 `AiChatPage` 和 Studio 右栏副驾嵌的是**同一个** `ChatbotEnhanced`，`builtPlanIds` 是共享的，所以两处都会这样。\n\n## 触发条件\n\n只有当 `apply_blueprint` 返回 `awaiting_confirmation` 时才发生——也就是用户**没有**说那句魔法短语的时候。工具返回里写着：\n\n> Skip this wait only if the user explicitly asked to build directly (直接搭建 / just build it).\n\n我第一轮说的是「请**直接搭建**」，匹配上了，直接建；第二轮说「**直接加**」，没匹配上，于是走确认闸，然后撞进这个死路。**说得越随意的用户越容易踩到。**\n\n## 修\n\n`builtPlanIds` 里那一行加上「这次 apply 真的落地了」的判断：\n\n```js\nif (tool.toolName === 'apply_blueprint' && !isProposalResult(tool.result)) lastBuildOrder = order;\n```\n\n回归测试建议直接照着上面的两轮时序写：`propose_blueprint(blueprint_proposed)` → `apply_blueprint(awaiting_confirmation)`，断言方案卡**仍然是 pending 且仍然渲染出它的建造按钮**。\n\n## 附带（同一轮里看到的，不在本卡范围）\n\nAI 的措辞是「请确认**下方**方案卡片」，而卡片在正文**上方**。就算按钮修好了，这句指路也是反的。\n"
+}

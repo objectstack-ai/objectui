@@ -1,0 +1,37 @@
+{
+  "number": 7646,
+  "kind": "issue",
+  "title": "finding(scripts,docs): 26 doc fences re-declare a published type instead of importing it, so check:skill-examples and check:doc-snippets judge a private copy — a deliberately wrong fence passes green",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-04T14:26:40Z",
+  "updated_at": "2026-09-07T13:56:22Z",
+  "closed_at": "2026-09-07T13:55:19Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7646",
+  "body": "Filed by the `domain:ui` execution seat from the objectui#7636 flight (part 2, which that card's PM ruling put explicitly out of scope for the fix PR and asked to be measured and filed on its own). Measured, not fixed. Back-link: objectui#7636.\n\n## The defect class\n\nA documentation fence can declare its **own local copy** of a type that a workspace package already exports, and then drift arbitrarily far from it while every gate stays green. The gate compiles the snippet as a self-contained program, so it judges whether the snippet is *internally consistent* — never whether it *agrees with the type it claims to document*.\n\nobjectui#7636 is one instance: `skills/objectui/guides/plugin-development.md` described five ADR-0049 retirement tombstones (`inputType` / `min` / `max` / `step` / `placeholder`) as ordinary writable optionals, and `pnpm check:skill-examples` was green on that fence for the entire time it was wrong.\n\n## The falsification, run on objectui#7636's branch\n\nA two-arm control on the corrected fence, both arms with the mutation confirmed on disk by anchored counts and restored via `git checkout HEAD -- PATH` (verified: `git diff HEAD` empty, blob hash identical to the HEAD blob):\n\n| arm | fence content | `check:skill-examples` |\n| --- | --- | --- |\n| A | the wrong text (five tombstones documented as writable) | **exit 0, green** — `Semantic phase: 13 of 13 ts fence(s) judged, 0 failed` |\n| corrected | the fix that landed | **exit 0, green** — same line |\n| B | deliberately false: `name: number` where the real required member is `name: string`; all five tombstones restored as writable; plus an invented member `frobnicate` that exists on no type at all | **exit 0, green** — same line |\n\nArm B is the finding. The gate judged the fence (it is inside the `13 of 13`, not skipped) and passed a snippet that is wrong about **every** member it names.\n\n⚠️ One recorded miss, because it is informative. A first attempt at arm B left the corrected `inputType?: never` in place *and* added `inputType?: string`, and that arm went **red** — `TS2300: Duplicate identifier 'inputType'` plus `TS2717`. That is the gate catching an **internally invalid** snippet, which is exactly its job, and says nothing about drift. The arm had to be rebuilt as an internally *consistent* lie before it measured the intended thing. Any future attempt to re-measure this should keep that distinction.\n\nNote this is a **different** defect from objectui#5465 (the doc-snippet scanner not covering `skills/` at all). Here the scanner reaches the file and judges the fence; the local re-declaration is what defeats it.\n\n## The population, measured\n\nCensus over every `ts` / `tsx` / `typescript` fence in `skills/`, `.claude/skills/` and `content/docs/`, matching each fence's local `type NAME` / `interface NAME` declarations against the 2275 exported type and interface names in the workspace packages' sources, and excluding any name the same fence also imports from an `@object-ui/*` specifier.\n\n- **598** fences in the corpus; **13** carry an `os:check` marker.\n- **26** fences re-declare a published type instead of importing it.\n- **3 of the 13** marked fences do — that is **23% of everything `check:skill-examples` judges**.\n- **26** distinct published type names are shadowed.\n\nLit control: the census's own count of `os:check`-marked fences (13) matches the number `check:skill-examples` prints for itself on the same tree, so the instrument was not blind.\n\nThe three marked ones are the sharpest, because each section is *titled after* the published type it then fails to import:\n\n| fence | shadows | exporting package |\n| --- | --- | --- |\n| `skills/objectui/guides/auth-permissions.md:59` (\"### AuthUser type\") | `AuthUser` | `@object-ui/auth` (`packages/auth/src/types.ts:63`) |\n| `skills/objectui/guides/data-integration.md:81` (\"### QueryResult\") | `QueryResult` | `@object-ui/types` (`packages/types/src/data.ts:139`) |\n| `skills/objectui/guides/plugin-development.md:92` | `ComponentInput`, `ComponentInputControlType` | `@object-ui/types` |\n\nThe remaining 23 split as 3 more under `skills/` and `.claude/skills/` without a marker, and 18 under `content/docs/` — and the `content/docs/` half matters just as much, because `check:doc-snippets` is **opt-out, not opt-in**: it reports `452 of 452 block(s) judged, 0 failed`, so those 18 are actively compiled and equally uncomparable. The blind spot spans both gates, which is why this is a class and not a guide bug.\n\nFull row list, including the shadowed-name frequency table, is in the objectui#7636 report.\n\n## Suggested disposition — for triage, not a prescription\n\nRough options, cheapest first:\n\n1. **Do nothing but record it.** The class is real but each instance is caught by a human reading the guide. Cost: recurrence, which is what just happened.\n2. **Assert on the marked population only.** Make an `os:check` fence that declares a name the workspace exports either import it or carry an explicit opt-out marker saying it is deliberately a simplified teaching copy. Smallest blast radius: 3 fences today.\n3. **Convert the fences to imports.** Turns drift into a compile error at the point it happens. But a guide's fence is often a deliberately *simplified* view of a large published type, so a blanket conversion would make several guides less readable — which is likely why they were written this way. This needs a per-fence judgement, not a sweep.\n\nOption 2 looks like the best ratio, but the choice is a gate-design decision and belongs to whoever owns `scripts/check-skill-examples.mjs`. ⚠️ Whichever is chosen, note that `skills/**` is a **governed surface** (agent drafts, human merges), so any fix PR parks for a human.\n\n## Reproduce\n\n```bash\npnpm exec turbo run build $(node scripts/check-skill-examples.mjs --build-filter) --concurrency=2\npnpm check:skill-examples   # prints its own marked-fence count\n```\n\nGenerated by Claude Code, session `session_01KbJQ1y1J12nZxYzFWhP8Q3`, from the objectui#7636 implementation run.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

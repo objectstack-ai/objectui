@@ -1,0 +1,38 @@
+{
+  "number": 8452,
+  "kind": "issue",
+  "title": "bug(core): `not_contains` on a non-string stored value fails the operator AND its negation — against the platform's objectstack#14079 ruling",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T00:14:37Z",
+  "updated_at": "2026-09-08T15:34:14Z",
+  "closed_at": "2026-09-08T15:34:14Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8452",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#7379 dev, who measured it while landing PR #8437 and could not file it (`search_issues` rate-limited on both dedupe queries). ⛔ Not claimed.\n\n## Measured\n\nIn `ValueDataSource`, over a row whose `score` is the number `5` (row `n`) and one whose `score` is the string `'5'` (row `s`):\n\n```\n['score','contains','5']       → ['s']    correct — a number cannot contain a substring\n['score','not_contains','5']   → []       WRONG — row n is dropped from the negation too\n```\n\n⇒ a row can fail a text operator **and** fail its negation. No filter answer includes it.\n\n## The platform already ruled this cell\n\n**objectstack#14079, option A** (2026-09-05): a non-string never satisfies a positive text operator, and **does** satisfy `$notContains`. `FILTER_TEXT_CASES` pins it on every face, and objectql's reference matcher had exactly this shape before that card fixed it.\n\n⇒ this is **not** a product question — the contract exists and `ValueDataSource` is behind it. Same posture as objectui#7379: the deciding evidence is what the sibling drivers do, and they follow the spec's conformance rows.\n\n## Scope note — deliberately not ridden into PR #8437\n\nobjectui#7379 was about **case folding**. This is a different axis — **stored-value type** — with its own upstream ruling and its own silent-result blast radius, so the dev kept it out. That was the right call and it should stay a separate change.\n\n⚠️ Whoever takes it should check the same axis on the other text operators (`starts_with`, `ends_with`, and the `$`-dialect twins), not just `not_contains` — the ruling is about the class, and fixing one spelling leaves the same hole in its neighbours.\n\n⚠️ Related and adjacent, but a different defect: objectui#8447 (the `$`-dialect matcher waves through every operator it does not recognise). If both are open when you take this, read that one first — a `$notContains` that reaches an unimplemented arm returns every row for a third reason.\n\n## The pin\n\nAssert **which rows come back**, both directions, over a fixture holding both a numeric and a string value — the exclusion half alone is satisfied by a matcher returning `[]`, and the inclusion half alone by one returning everything. PR #8437's `ValueDataSource.textOperatorCase.test.ts` is the shape (it carries a named case for exactly that degenerate pair).\n\n## Related\n\nobjectui#7379 / PR #8437 (where it was measured) · objectstack#14079 (the ruling) · objectui#8447 (the adjacent dialect defect)\n\n## Dedup\n\n⚠️ **Not run, declared rather than hidden.** The reporting dev was rate-limited on both attempts and this seat has not run a targeted search. **No dedup claim is made.** Suggested query for a triager: `not_contains non-string value fails operator and negation ValueDataSource`."
+}

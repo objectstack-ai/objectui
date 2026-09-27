@@ -1,0 +1,34 @@
+{
+  "number": 8001,
+  "kind": "issue",
+  "title": "finding(scripts): `vitest-invocation-guard.test.ts` declares `VITE_CONFIG_NAME` for the vite.config fallback and never sweeps for it — an assertion that was described but not written",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T07:57:42Z",
+  "updated_at": "2026-09-07T12:47:38Z",
+  "closed_at": "2026-09-07T12:47:38Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8001",
+  "body": "Noticed in passing while implementing objectui#7329 (unrelated defect class: `parseVitestArgv` losing repeated flags). Filed unassigned, `finding`, awaiting first grading. Not fixed there — different defect class, so it did not qualify for an in-place fix.\n\n## The observation\n\n`scripts/__tests__/vitest-invocation-guard.test.ts` declares two sibling regexes, one line apart, with a comment explaining what each is for:\n\n```ts\n/** `vitest.config.ts` / `.mts` / `.js` / … — every spelling Vitest will load. */\nconst CONFIG_NAME = /^vitest\\.config\\.(c|m)?[jt]s$/;\n/** The fallback Vitest uses when the directory has no `vitest.config.*`. */\nconst VITE_CONFIG_NAME = /^vite\\.config\\.(c|m)?[jt]s$/;\n```\n\n`CONFIG_NAME` is fed to the file sweep (`findFiles(match, dir)`) that drives the describe asserting every package config leads back to the root config. `VITE_CONFIG_NAME` is used **exactly once in the file — its own declaration**. Measured on `origin/main` `15789d5`:\n\n```\n$ grep -c 'VITE_CONFIG_NAME' scripts/__tests__/vitest-invocation-guard.test.ts\n1\n```\n\nIt is not dead by accident of refactoring so much as an assertion that got described and never written: the docblock states the case (a directory with no `vitest.config.*`, where Vitest falls back to `vite.config.*`) and nothing then sweeps for it.\n\n## Why that gap is the interesting half, not the unused variable\n\nThe unused binding itself is cosmetic — eslint already reports it, as one of `pnpm lint:root`'s 32 pre-existing warnings:\n\n```\nscripts/__tests__/vitest-invocation-guard.test.ts\n  307:9  warning  'VITE_CONFIG_NAME' is assigned a value but never used.\n                  Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars\n```\n\nWhat is worth grading is that the un-swept case is the exact mechanism of a defect this repo already paid for. objectui#3746 — pinned by the sibling file `scripts/__tests__/runner-package-test-entry-3746.test.ts` — was `packages/runner` having no vitest config of its own, so Vitest adopted the `vite.config.ts` sitting in that directory: a Vite *application* config with no `test` block, hence no DOM environment, hence four red tests from the package that were green from the root. The sweep that would have caught the shape generically is the one this regex was declared for. Related: objectui#7525 records two `examples/` vite.configs deliberately left outside the guard, which suggests the sweep, if written, needs a stated allowlist rather than a blanket assertion.\n\nSo the two candidate dispositions look quite different in value, and this card does not pick between them:\n\n- **Write the sweep** the declaration implies — find every `vite.config.*` whose directory has no `vitest.config.*`, and assert each is either covered by the guard or named in an explicit allowlist (objectui#7525's two `examples/` entries being the known members).\n- **Delete the binding** and the comment, conceding the case is covered specifically (by the #3746 pin) rather than generically.\n\nGrading should decide which; a maintainer reading only the unused-variable warning would reach for the second without seeing that the first is what the comment promised.\n\n## Scope\n\nOne file, `scripts/__tests__/vitest-invocation-guard.test.ts`, no production code. Nothing is wrong on the tree today: no assertion is passing under false pretenses, and the case is covered for the one package that hit it.\n\n## Dedupe\n\n`search_issues` reads in this session — the control query returned objectui#7329's own title with `total_count 12`, so a zero here is a real zero (contrast objectui#7185's zeroed-channel shape). Two targeted searches: the `VITE_CONFIG_NAME` / vite.config-fallback concept (12 results, read by title — objectui#7525, objectui#7328, objectui#3592, objectui#7524 and the closed #5406 / #5313 / #3384 are about config *coverage*, none about this dead declaration), and dead-or-unused regexes declared in a scripts test (1 result, objectui#6996, closed, about i18n gate fixtures). No duplicate found.\n\nRefs: objectui#7329 (the card this was noticed under) · objectui#3746 (the defect the un-swept case describes) · objectui#7525 (the deliberate `examples/` carve-outs an eventual sweep must account for)."
+}

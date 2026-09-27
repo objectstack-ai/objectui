@@ -1,0 +1,38 @@
+{
+  "number": 7964,
+  "kind": "issue",
+  "title": "finding(ci): the live-e2e lane's OTHER pin — `OBJECTSTACK_REF` — states a MUST that nothing can check, and it fails silently in the same way objectui#7689 did",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "finding",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T04:54:28Z",
+  "updated_at": "2026-09-07T09:38:35Z",
+  "closed_at": "2026-09-07T09:36:55Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7964",
+  "body": "Found while implementing objectui#7689 (align `OBJECTSTACK_VERSION` to the lockfile and pin the rule). Deliberately unassigned and unlabelled beyond `finding`, for triage. Not a rider on that PR: that card's scope fence names the version pin, and this is the file's other key.\n\n## The finding\n\n`e2e/live/ci/backend.env` carries two pins, and its header states a MUST for each:\n\n| pin | stated rule | who checks it |\n|---|---|---|\n| `OBJECTSTACK_VERSION` | must equal the `@objectstack/spec` version `pnpm-lock.yaml` resolves | `scripts/__tests__/ci-cd-pipeline-doc.test.ts`, as of objectui#7689 |\n| `OBJECTSTACK_REF` | \"Always the commit the release tag `@objectstack/cli@` + that version points at\" | nothing |\n\nThe second row is the state the first row was in for two minor versions.\n\n## Why it is the same defect, not a smaller one\n\n`start-backend.sh` sparse-checks `examples/app-showcase` out of objectstack-ai/objectstack at `OBJECTSTACK_REF`, then installs published `@objectstack/*` at `OBJECTSTACK_VERSION` and runs the app metadata from the first against the packages from the second. A `REF` that has drifted from its tag reproduces exactly the condition the file's own header calls proving nothing — showcase metadata from one tree, packages from another — except the two numbers no longer even look different, because one is a version and the other is a sha. A reader cannot spot this drift by eye the way `17.0.0-rc.2` next to `17.2.0` could eventually be spotted by a human census.\n\nMeasured while fixing objectui#7689: the pairing rule *was* being honoured, which is the good news and also why nobody would have noticed it stop. The tag `@objectstack/cli@17.0.0-rc.2` dereferences to commit `89d2a4eb3f3b6b8f8c0fbc4cb3953cbe8218dc66`, which is byte-for-byte the `OBJECTSTACK_REF` that had been sitting in the file since objectui#5602. The pin was internally consistent and jointly wrong — a matched pair of the wrong release.\n\n## Why objectui#7689's check stops where it does\n\nResolving `@objectstack/cli@` + a version to a commit needs the objectstack repository over the network. The unit lane has no network (`vitest.setup.network-escape-guard.ts` is the standing guard) and no objectstack checkout, so the assertion cannot live where the version assertion lives. What that PR did add is the shape half — `OBJECTSTACK_REF` must be a full 40-character object name, because `git fetch --depth 1 origin` refuses an abbreviated one and the lane only reports that 300 seconds in — plus prose in both the env file and the test saying in as many words that the commit itself is moved by hand and checked by nobody.\n\n## Routes, none picked here\n\n1. Check it in a lane that already has the network and a token — the live-e2e job itself, before `start-backend.sh` runs, resolving the tag through the API and comparing. Costs a step in a lane that is `informational`, so a red there stops nothing (which is its own open question, see below).\n2. Stop pinning a sha at all: derive the ref from the tag at boot, so the pair cannot disagree. Removes a pin rather than checking one, at the cost of a lane that is no longer reproducible from the file alone.\n3. Accept it as a documented manual pin. That is today's state, now written down rather than assumed.\n\nRoute 1 vs 2 is a real fork and wants the four-axis frame, so this card is filed rather than fixed.\n\n## Related\n\nobjectui#7689 (the version half, and this card's origin) · objectui#5602 (the last change to `backend.env`). Neither covers the ref half. The tier question the objectui#7689 triage cut out of scope — whether `informational` is right for a lane that can silently go meaningless — hangs over route 1 and is still nobody's card.\n\nFiled by the developer seat implementing objectui#7689, via Claude Code.\n"
+}

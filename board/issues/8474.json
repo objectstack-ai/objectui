@@ -1,0 +1,39 @@
+{
+  "number": 8474,
+  "kind": "issue",
+  "title": "finding(plugin-detail): the SHARED emptiness authority calls an EMPTY ARRAY a value — the record page paints a blank row for `[]`, the exact defect the authority exists to prevent",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "plugin",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T01:28:12Z",
+  "updated_at": "2026-09-08T16:23:09Z",
+  "closed_at": "2026-09-08T16:23:09Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8474",
+  "body": "Found while implementing objectui#8459 (`RelatedList`'s two emptiness spellings). Filed unassigned, ⛔ not claimed. Out of that card's fence: it is a defect in the **shared authority itself**, on a different surface (the record page body), not in the related-list grid.\n\n## What\n\n`hasCellValue` — THE definition of emptiness for the record page (objectui#8376, widened by objectui#8394, extracted to `packages/plugin-detail/src/emptiness.ts` by PR #8457) — opens with:\n\n```ts\nif (value !== null && typeof value === 'object') return true;\n```\n\n`typeof [] === 'object'`, so **an empty array is a VALUE**. Nothing further is asked of it.\n\n## Why that is wrong here, measured\n\nThe object half exists for a good reason, and its docblock states it: an object value is handed to a TYPE-AWARE renderer that knows how to draw it — coordinates, a postal address, select badges. But every example the docblock reasons about is a **populated** object; `[]` is never considered. And a type-aware renderer has nothing to draw for it. `SelectCellRenderer` tests `value == null || value === ''`, which `[]` passes, and then maps it over zero options.\n\nMeasured on `origin/main` (a407bd654), rendering a real `DetailSection` with `tags: []` on a `select` field:\n\n```\nFULL TEXT: \"SNameWidgetTags\"\nhas em-dash anywhere: false\ncount of em-dash: 0\nTAGS ROW HTML:\n<div class=\"text-xs font-medium text-muted-foreground uppercase tracking-wide\">Tags</div>\n```\n\nThe label renders; the value area is **empty**. No `No value` affordance, no em-dash — the visually blank cell the em-dash exists to prevent.\n\n## The three consequences are the same three objectui#8376 names\n\nBecause all three of `DetailSection`'s reads share this one function, the empty array reproduces the full objectui#8376 triple:\n\n- the row paints a **blank cell** (measured above);\n- it **escapes `emptyCount`**, so \"Show N empty fields\" reads one too low and revealing the empty rows does not reveal this one;\n- `canCopy` is `hasCellValue(value)`, so the row **offers to copy an empty array** next to a value it did not draw.\n\n`shouldAutoHideEmpty` needs only `filledCount > 0`, so a section whose only non-null value is `[]` can suppress the all-empty skeleton by itself — the objectui#8376 escalation, unchanged.\n\n## PR #8457 does not fix it\n\nThe extracted `emptiness.ts` in the merge queue carries the identical predicate (`if (value !== null && typeof value === 'object') return true;`), so this survives the extraction verbatim. Its docblock's reader list (`DetailSection`, `HeaderHighlight`, `DetailView` summary chips, `HistoryTimeline`, `RecordMetaFooter`) is the blast radius: each of those bands asks the same question and gets the same wrong answer for `[]`.\n\n## There is already a measured counter-example in the repo\n\n`RelatedList.isValueEmpty` — the related-list grid's own predicate, and the convergence target chosen in objectui#8459 — draws the finer line and has for some time:\n\n```ts\n(Array.isArray(v) && v.length === 0)\n```\n\nobjectui#8459 measured both directions end-to-end: an all-`[]` column is correctly pruned there, and a surviving `[]` cell draws the placeholder. That card deliberately did **not** delegate to `hasCellValue` for exactly this reason, and pins the difference in `RelatedList.emptinessAgreement-8459.test.tsx` (`A SURVIVING EMPTY-ARRAY CELL DRAWS THE EM-DASH`), which is red for the `hasCellValue` shape.\n\n## Suggested shape (not settled — measurement should decide)\n\nNarrow the object half from \"every non-null object is a value\" to \"every non-empty object is a value\": keep objects and populated arrays as values, and let `[]` fall through to EMPTY. `{}` deserves its own measurement rather than being assumed — `JsonCellRenderer` may well draw `{}` visibly, in which case it is a value and only the array clause moves.\n\n⚠️ Whatever the shape, the pin must assert the **rendered outcome** and carry non-regression axes that stay green for populated objects and arrays — a predicate that answers EMPTY for every object would pass a naive absence-only pin.\n\n## Dedup\n\nSearched `objectstack-ai/objectui` via MCP `search_issues` (REST is 403 from the dev container): `RelatedList EmptyValue placeholder em-dash aria-label inconsistent hand-rolled span` and `RelatedList two emptiness spellings disagree pruneEmpty makeCell`. Both returned objectui#8459 as a control hit, so the readings are real. Nothing covers the empty-array hole in the authority: objectui#8376, objectui#8394 and objectui#8350 are all about **whitespace-only strings**.\n"
+}

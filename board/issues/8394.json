@@ -1,0 +1,39 @@
+{
+  "number": 8394,
+  "kind": "issue",
+  "title": "Finding: after objectui#8376 four MORE un-trimmed spellings of emptiness remain in plugin-detail — the highlight strip and the H1 summary chips still paint a blank for a whitespace-only value",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "plugin",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T16:12:38Z",
+  "updated_at": "2026-09-08T01:01:22Z",
+  "closed_at": "2026-09-08T01:01:22Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8394",
+  "body": "Filed by the objectui#8376 dev (branch `claude/issue-8376-detailsection-emptiness-authority`) while converging `DetailSection`'s three spellings onto one. ⛔ Not claimed. Out of scope there: #8376's fence is `DetailSection.tsx`, and each site below is a different component with a different consumer and would need its own pins.\n\n## What\n\nobjectui#8350 fixed the `record:details` dedupe ladder. objectui#8376 fixed `DetailSection`'s three (`isEmptyValue`, the em-dash `isEmpty` branch, `canCopy`). A census of `packages/plugin-detail/src` on that branch finds **four more** raw `value === null || value === undefined || value === ''` tests, none of which trims, all on the same record-detail page:\n\n| site | what it decides | consequence of a whitespace-only value |\n|---|---|---|\n| `HeaderHighlight.tsx:171` | `isEmpty` for a chip in the ADR-0085 highlight strip | the strip paints a **blank chip** instead of the em-dash — the same defect #8376 fixed one band lower on the same screen |\n| `DetailView.tsx:979` | whether a `summaryFields` chip renders beside the H1 | a blank chip is rendered rather than skipped |\n| `RecordMetaFooter.tsx:82` | whether `created_by` / `updated_by` renders | a blank actor slot |\n| `HistoryTimeline.tsx:134` | the `'—'` placeholder for an audit value | a blank cell where the timeline means \"nothing\" |\n\nThe first two are the ones that reach a reader: they sit directly under / beside the page H1, whose own definition (`@object-ui/core`'s `recordDisplayValueAt`) calls that value **empty**. So on one screen the H1 says the field is empty, the body grid now says empty (#8376), and the strip between them says filled and paints nothing.\n\n## Fix shape (a suggestion, not a ruling)\n\n⚠️ #8376 measured that the answer is **not** \"delegate to `recordDisplayValueAt`\" wholesale. That function answers *does this resolve to a NAME*, so an object value runs through `displayNameOfEmbeddedObject` and is EMPTY when that yields nothing — right for a title, wrong for a CELL, where `{ latitude, longitude }` / `{ street, city, … }` / `['alpha','beta']` all render real content through a type-aware cell renderer and carry no name-ish key. #8376's `hasCellValue` is the shape that came out of that measurement: delegate the **scalar** half to the authority, keep objects as values.\n\nSo the likely move here is to lift `hasCellValue` out of `DetailSection.tsx` into a small shared module in this package and have these four read it. A taker should decide per site whether the cell question or the title question is the right one — `RecordMetaFooter`'s `UserRef` in particular is about a **reference**, which may genuinely want the title predicate.\n\nWhatever the ruling, the pin has to assert the RENDERED outcome (which chip shows the em-dash, which chip is absent), not the predicate in isolation, and needs a non-regression case for object-valued fields — #8376's ablation showed a wholesale delegation is green on every whitespace case and red only on that one.\n\n## Measured\n\nRead on branch `claude/issue-8376-detailsection-emptiness-authority` at `b6ed5cdaf`:\n\n```\n$ grep -rn \"=== null || value === undefined || value === ''\" packages/plugin-detail/src --include=*.tsx | grep -v __tests__\npackages/plugin-detail/src/HeaderHighlight.tsx:171\npackages/plugin-detail/src/RecordMetaFooter.tsx:82\npackages/plugin-detail/src/HistoryTimeline.tsx:134\n```\nplus `DetailView.tsx:979`, which spells the same test over a local named `val`.\n\n## Dedup\n\n`search_issues` once, self-validating (it returned the two cards that ARE about this family): the highlight-strip / whitespace / blank-em-dash wording returned objectui#8376, objectui#8350, objectui#4054 and objectui#8279. #4054 is chip **clipping** in `record:highlights`, #8279 is a designer key mismatch — neither names an emptiness predicate. None names these four.\n\n## Related\n\nobjectui#8376 (the same divergence in `DetailSection`, fixed) · objectui#8350 (the dedupe ladder, fixed) · ADR-0079 (`recordDisplayValueAt`, the title definition) · ADR-0085 (`highlightFields`, the strip's charter)\n"
+}

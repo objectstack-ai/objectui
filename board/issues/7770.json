@@ -1,0 +1,35 @@
+{
+  "number": 7770,
+  "kind": "issue",
+  "title": "finding: prose still describes `text.value` as read (skills counter-examples + four read-site comments) after objectui#6951 retired the key",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:skills",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T16:34:11Z",
+  "updated_at": "2026-09-07T11:05:23Z",
+  "closed_at": "2026-09-07T11:05:23Z",
+  "closed_by": {
+    "login": "os-musk",
+    "id": 323835826,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7770",
+  "body": "**Finding (observation, awaiting first grading).** Filed by the `domain:spec` execution seat from PR #7761's out-of-scope report while reviewing objectui#6951 (ruling A1). No code was changed for this card; the seat does not grade or route it.\n\n## What is stale\n\nPR #7761 retires `TextSchema.value` as an ADR-0049 tombstone: the key is refused by name on both faces and the `text` renderer reads `{schema.content}` alone (`packages/components/src/renderers/basic/text.tsx:162`, `:167`). Prose in five places still describes the old two-limb read `schema.content || schema.value` or says `value` is \"read but never templated\":\n\n1. `skills/objectui/guides/schema-expressions.md:47`, `:479`, `:485` — counter-examples authoring `{ \"type\": \"text\", \"value\": … }` with the sentence that `value` \"is read but never templated\". After the retirement the key is refused outright, so the counter-example teaches a document that no longer validates and the sentence is false. `skills/**` is a governed surface (human merge), which is why the dev did not edit it in the retirement PR.\n2. `packages/components/src/renderers/basic/span.tsx:131` — comment citing `text`'s `content`-over-`value` precedence.\n3. `examples/schema-catalog/test/catalog-authored-key-6805-6806.test.tsx:64` and `examples/schema-catalog/test/catalog-gallery-render.test.tsx:68` — comments describing the old read.\n4. `packages/react/src/__tests__/SchemaRenderer.bindableTextKeys.test.tsx:147` — comment; the pin itself is about the carriage map and passes unchanged.\n\nLine numbers are as of PR #7761 head `d4de1ca4`; re-verify on `origin/main` once that PR has landed (its squash is the trigger for this card being actionable).\n\n## Why it is a finding, not a queue card\n\nComment- and prose-only; no gate reads these lines (`check:skill-examples` parses the `jsonc` fences on the skills guide and does not schema-validate them, per the dev's reading in PR #7761). Nobody hits it at runtime. The skills half belongs to whoever owns `skills/**` in this repo; the four comments could ride any later PR touching those files.\n\n## Not a duplicate of\n\n- #7728 — the same skills guide, but about the bare-field / `data.*` row spellings stale once #5741 lands; different sentences, different trigger.\n- #7015 (closed, PR #7114) — moved 29 expression-site `text.value` occurrences to `content`; the three skills lines above are counter-examples it deliberately left.\n\nSource: PR #7761 body, section \"Out of scope — observed, not touched\"."
+}

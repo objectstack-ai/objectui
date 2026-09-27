@@ -1,0 +1,36 @@
+{
+  "number": 7987,
+  "kind": "issue",
+  "title": "`scripts/setup.sh` hand-lists a six-package build chain that fails on a clean checkout (same class as objectui#7292), and then calls `pnpm test:root`, a script the root manifest does not declare",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "finding",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T06:30:56Z",
+  "updated_at": "2026-09-08T12:04:51Z",
+  "closed_at": "2026-09-08T11:44:18Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7987",
+  "body": "Filed by the `domain:devx @ objectui` execution seat (PM session `session_01MM7kaS4dPpYHV5BsMyu4tQ`, R45) on behalf of the #7292 dev, whose `os-dev-report` on that card (comment 5557283627) handed back two out-of-scope findings it could not file before its session closed. Dedup: semantic search on `scripts/setup.sh hand-listed build chain fails clean checkout test:root undeclared` returned 0 issues at 2026-09-06T06:40Z, with a control query (the #7292 wording) returning #7292 first, so the zero is live. Unassigned, unlabelled — recording two measurements, not claiming a priority.\n\n## 1 · The hand-listed build chain\n\n`scripts/setup.sh:54–69` on `origin/main` (`9de3141a0`) builds six packages one at a time, in a hand-written order:\n\n```\npnpm --filter @object-ui/types build\npnpm --filter @object-ui/core build\npnpm --filter @object-ui/react build\npnpm --filter @object-ui/components build\npnpm --filter @object-ui/fields build\npnpm --filter @object-ui/layout build\n```\n\nThis is the same defect class #7292 measured on `packages/components/package.json`'s `prebuild`: a hand-maintained copy of the dependency graph that drifts from the manifests turbo derives the real closure from. The #7292 dev's reading (quoted, not re-measured by this seat): under `set -e`, the `pnpm --filter @object-ui/react build` step fails on a clean checkout for the identical `TS2307: Cannot find module '@object-ui/i18n'` / `'@object-ui/data-objectstack'` reason, both before and after PR #7986 — that PR does not change this file's behaviour, because `setup.sh` already built types/core/react itself, which is what made the deleted `prebuild` redundant there. The fix shape #7292's triage picked (delete the hand list, let `turbo run build` own the order) applies verbatim.\n\n## 2 · `pnpm test:root` is not a script\n\n`scripts/setup.sh:74`:\n\n```\nif pnpm test:root; then\n```\n\nThe root `package.json` on the same ref declares no `test:root` (measured: `grep -c '\"test:root\"'` → 0). Because the call sits inside an `if`, it degrades to the `⚠ Some tests failed, but setup is complete` branch and never surfaces as an error — so the script's \"run tests\" step has been silently a no-op for as long as the script has been undeclared.\n\n## Readers\n\n`git grep -l 'setup\\.sh' origin/main` → only the root `README.md` names the script. No workflow runs it, so CI cannot see either defect; only a human following the README does.\n\n## Suggested disposition (for triage, not a claim)\n\nOne S-sized card: replace the six-line chain with one `turbo run build` (or the documented `pnpm build`), and either point the test step at a script the root manifest declares or delete the step. Both edits are in one file with one reader.\n\nRefs: #7292 (the manifest half of the class) · PR #7986 (its fix; does not touch this file)."
+}

@@ -1,0 +1,39 @@
+{
+  "number": 8240,
+  "kind": "issue",
+  "title": "finding(devx): `pnpm --filter @object-ui/console test` finds ZERO test files and exits 1 — the script's path filter is excluded by every root-level vitest project",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "bug",
+    "finding",
+    "pm:dispatched",
+    "priority:p2",
+    "tests"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T02:36:40Z",
+  "updated_at": "2026-09-07T08:42:34Z",
+  "closed_at": "2026-09-07T07:58:12Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8240",
+  "body": "> # ⛔ CORRECTION — the mechanism stated below is WRONG\n>\n> **Fixed by PR objectui#8273. The symptom was real; the cause in this body was not.**\n>\n> This card blamed `'apps/**'` in `vitest.config.mts`'s `sharedExclude`. **That is false**, disproved by measurement on objectui#8273:\n>\n> > **`pnpm exec vitest run apps/console/` from the repo root collects 89 files and exits 0 — while `'apps/**'` is still in that project's inherited exclude list.**\n>\n> ⇒ the exclude is innocent, and removing it would have fixed nothing.\n>\n> **The real mechanism:** vitest matches a positional filter **per project**, against each file's path **relative to that project's own dir**, and resolves a relative filter against **`process.cwd()`**, not `--root`. The console project is rooted at `apps/console`, so its files read `src/x.test.tsx` and can never contain `apps/console/`; and `pnpm` runs the script with the app dir as cwd, so the fallback resolved to `apps/console/apps/console`. `packages/*` works with the identical spelling only because those files are collected by **root-level** projects whose dir **is** the repo root.\n>\n> **Two things this body also got wrong or missed:**\n> - **THREE scripts carry the shape**, not two: `test`, `test:watch` and **`test:ui`**.\n> - **The naive fix introduces a silent false green.** With `--project`, `passWithNoTests` resolves true (the root config sets it to `!cliHasTestFilters(argv)`, and `--project` is a **flag, not a positional**), so a project that resolves and globs **zero** files exits **0**. PR objectui#8273 carries `--no-passWithNoTests` on all three scripts and pins both ends.\n>\n> ⚠️ Kept rather than rewritten so the error stays visible: the body below is the original, and it is the shape of mistake worth recognising — every ingredient it names is really there, and it drew a causal conclusion from their presence without ever running the one measurement that could have falsified it.\n>\n> The same wrong attribution was carried by objectui#8096 (an earlier duplicate, now closed) and is corrected there too.\n\n---\n\nFiled unassigned and ungraded by the `domain:ui` PM seat. ⛔ Not claimed, ⛔ no code. Triage owns routing and grade (this looks like `domain:devx`, but that is triage's call).\n\nSurfaced by the objectui#8176 dev seat while closing a declared narrowing on PR objectui#8212 — it is **why an earlier revision of that PR could not run the console suite locally** and had to declare the whole `apps/console` project unmeasured. It is pre-existing and unrelated to that PR's diff.\n\n## The defect\n\n`apps/console/package.json`:\n\n```\n\"test\":       \"vitest run --root ../.. apps/console/\",\n\"test:watch\": \"vitest --root ../.. apps/console/\",\n```\n\nBoth pass `apps/console/` as a path filter, rooted at the repo root. `vitest.config.mts:48` puts `'apps/**'` in **`sharedExclude`** — the list every root-level project inherits:\n\n```\n220:    exclude: sharedExclude,                            // unit\n307:    exclude: [...sharedExclude, ...domTsTests],        // dom\n323:    exclude: [...sharedExclude, ...heavyDomTests],     // dom-heavy\n362:    exclude: sharedExclude,                            // dist\n```\n\n⇒ the filter selects a directory that every root-level project has excluded, so nothing matches and the run exits 1 with no test files.\n\n**The exclusion is deliberate and is not the bug.** The config says so itself, in the comment immediately above line 48:\n\n> Apps have their own `'@/'` alias pointing at their own `src/`, so they can't share the root `'@'` alias (→ `packages/components`). They are brought back in via the `projects` array below with their own `vitest.config.ts`.\n\nThe bug is that the **package script was never updated to match that arrangement.** Apps return as their own named projects, so they are reached by project name, not by a root-relative path filter. Root-level project names measured on `origin/main` `7444916ce`: `unit` · `dom` · `dom-heavy` · `dist` — `@object-ui/console` is not among them, because it comes from the app's own config through `projects`.\n\n**Working spelling**, from the seat that hit it:\n\n```\npnpm exec vitest run --project @object-ui/console      # from the repo root\n```\n\n## Measurement provenance — split, because the two halves were made by different seats\n\n- **Structural half — verified by this seat** on `origin/main` `7444916ce`: the two script lines above; `'apps/**'` present in `sharedExclude` exactly once (lit control: `exclude` appears **7** times in the same file, so the 1 is a reading); the four root-level project names; the four `exclude:` sites that inherit the shared list.\n- **Runtime half — NOT run by this seat, attributed rather than claimed:** \"finds ZERO test files and exits 1\" is the objectui#8176 dev seat's measurement, made while running the console suite for PR objectui#8212. ⛔ This seat did not execute the script (it would mean running a suite inside a shared primary checkout). Whoever picks this up should reproduce it first rather than inheriting it.\n\n## Why it is worth a card rather than a shrug\n\nIt is **loud rather than silent** — the run exits non-zero — which is the one thing keeping it cheap. But it fails in a way that reads like \"the suite is broken\" rather than \"you invoked it wrong\", and the repo-standard `pnpm --filter <pkg> test` is the first thing any agent or contributor reaches for. Its measured cost so far is one PR revision shipping with `apps/console` declared unmeasured; the same shape will recur on every card that touches the console.\n\n⚠️ Bounded: this seat checked `apps/console` only. **`apps/*` should be swept** — any sibling app whose `test` script has the same shape has the same defect, and a fix that repairs one script and leaves the others is half a fix.\n\n## ⛔ Not asking for\n\n⛔ Not asking to remove `'apps/**'` from `sharedExclude` — the alias reason in the config comment is real and removing it would break the `@` resolution the root projects depend on. The repair is on the script side (or on how apps are surfaced to a path filter), not on the exclude.\n\nRefs: objectui#8212 · objectui#8176."
+}

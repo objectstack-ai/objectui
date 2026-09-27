@@ -1,0 +1,35 @@
+{
+  "number": 8264,
+  "kind": "issue",
+  "title": "finding(tests): three `packages/types` pins assert BYTE-EXACT snapshots of OTHER packages' source text — a legitimate edit in `plugin-list` reddens a test in `types`, and the fix is always in the test",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "finding",
+    "package: types",
+    "pm:queue",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T06:32:11Z",
+  "updated_at": "2026-09-07T13:17:39Z",
+  "closed_at": "2026-09-07T13:17:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8264",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`). ⛔ Not claimed, ⛔ not graded, ⛔ no code. Raised as a **class**, not as the two instances that surfaced it — this repo's own guidance on partial-coverage gates says the class is the useful unit.\n\n⚠️ **Low priority, and the counter-argument is real** — it is stated in full at the bottom and a triager should weigh it before anything is changed. This is a maintenance-cost question, **not a correctness bug**: every one of these pins fails SAFE.\n\n## The mechanism\n\n`packages/types/src/__tests__/object-kanban-group-by-limit-7322.test.ts` asserts, through a local `readRepo()` helper, that another package's source file **contains a byte-exact substring**:\n\n```\nexpect(readRepo(file), `${file} no longer reads the view-level \\`groupField\\` alias as\n  \\`schema.kanban?.groupByField || schema.kanban?.groupField || schema.options?.kanban?.groupField\\``)\n```\n\nThe claim it is making — *this site still reads the view-level `groupField` alias* — is about **substance**. The instrument it uses is a **snapshot of another file's source text, indentation included**. Any legitimate reformat or widening of that expression reddens it, and the remedy is always in the test rather than in the code.\n\n## The population, measured on `origin/main`\n\nThe tight class is `readRepo()` — a hand-rolled helper, **independently redefined three times**, in three files that all live in `packages/types/src/__tests__/` and all assert **other packages'** sources:\n\n| pin (all in `packages/types`) | packages whose SOURCE TEXT it asserts |\n|---|---|\n| `object-kanban-group-by-limit-7322.test.ts` (`readRepo` at `:156`) | `plugin-kanban` · `plugin-list` · `plugin-view` · `core` |\n| `object-view-unmirrored-keys-7779.test.ts` (`:189`) | `plugin-view` (4 files) |\n| `schema-reference-named-list-view-keys-7923.test.ts` (`:82`) | `plugin-view` · `plugin-calendar` |\n\n⇒ **a `packages/types` test reddens because a `plugin-list` author reformatted an expression.** The asserting package does not depend on the packages it asserts, and nothing in either package's own suite tells its author this pin exists.\n\n⚠️ **Scope of the count, stated rather than implied.** The wider co-occurrence of `readFileSync` + `toContain` in test files is **202 files** — that is the outer bound and it is **not** a reading: most of those legitimately read their own package's build output or fixtures, which is fine. The three above are the ones measured to assert *another package's source text*. A triager should re-enumerate rather than trust either number; the 202 is offered only so nobody mistakes 3 for the whole search space.\n\n⚠️ Also worth noting because it is the same shape one level up: `readRepo` itself is **duplicated three times**. That is objectui#8203's point exactly — the one-authority gate matches **NAME**, and this duplication is of **SHAPE**, so the gate cannot see it.\n\n## What surfaced it — twice in one night, both on legitimate edits\n\n- **objectui#8227** (objectui#8193): a canonical `groupByField` rung was added to `ListView.tsx` — adding, removing nothing. `object-kanban-group-by-limit-7322.test.ts:364` went red because the pinned substring stopped occurring. The pin's substance still held (all the alias reads were intact, verified independently before the pin was touched); only its literal had moved. Fixed by re-deriving the literal.\n- **objectui#8212** (objectui#8176): the ledger entries went stale when objectui#8186 landed a declaration. Different file, different mechanism, same species — **a pin encoding a snapshot of somewhere else in the tree**.\n\nNeither was a regression. Both cost a CI cycle and a round trip.\n\n## ⭐ The counter-argument, which is not weak\n\n- **It fails SAFE.** These pins go RED, never silently green. A drifting snapshot is loud, which is the opposite of the failure mode this repo spends most of its effort on.\n- **Its verbatim-ness may be the point.** These specifically guard *tombstone-boundary* expressions — the ADR-0049 enforce-or-remove surface. Forcing a human to look at any edit to such an expression is arguably the whole design, and a looser instrument (a regex, an AST query, a behavioural assertion) would let exactly the edits the pin exists to catch slide past.\n- The `object-kanban-group-by-limit-7322` pin **anticipates its own maintenance**: it carries a conditional note telling the next reader what to do (`If a site stops reading groupField, … re-derive, do not widen the tombstone on the way past`). ⚠️ That conditional is easy to misread as an unconditional instruction if quoted out of context — it happened this session — so any change here should keep the antecedent prominent.\n\n## What a triager is being asked to decide\n\nWhether the substance claim (*this site still reads the alias*) is better instrumented **behaviourally** — import the module and assert the resolution, the way objectui#8212's new member pins do — or whether the source-text snapshot is the deliberate choice it appears to be. ⛔ **This card does not propose ripping them out**, and whoever takes it should be prepared to conclude \"leave them\".\n\n## Dedup\n\n⚠️ **Not deduped, and that is declared rather than hidden.** The `search_issues` channel was returning `API rate limit already exceeded for user ID 323634890` at both points where this would have been checked (a dev seat hit it, then this seat did). An uncontrolled zero carries no information, so no dedup claim is made here at all. The query a triager should run: `source text substring pin goes stale when an unrelated legitimate edit reformats the pinned expression`. Adjacent-but-distinct known card: objectui#8203 (one-authority gate matches names, not shapes).\n\nRefs: objectui#8227 · objectui#8212 · objectui#8203 · objectui#7322 · objectui#7779 · objectui#7923."
+}

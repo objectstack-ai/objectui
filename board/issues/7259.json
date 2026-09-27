@@ -1,0 +1,36 @@
+{
+  "number": 7259,
+  "kind": "issue",
+  "title": "finding(hooks): `guard-main-checkout.sh` reads any git-dir path containing `/worktrees/` as a linked worktree — a PRIMARY checkout under a dir named `worktrees` is unguarded, and by DEPTH",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T01:56:27Z",
+  "updated_at": "2026-09-07T09:38:08Z",
+  "closed_at": "2026-09-07T09:38:08Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7259",
+  "body": "Found while porting the sibling repo's self-test matrix for this hook (#6451). Out of scope for that card — that PR pins today's behaviour and says the hole out loud; it deliberately does not change the hook (`.claude/**` is governed surface, and the dispatch fence forbids weakening or \"fixing\" the guard in a matrix-only PR). Filed rather than fixed.\n\nThis is the objectui copy of `objectstack-ai/objectstack#11809`. The two hooks' executable lines are identical (their whole diff is 9 lines inside one comment block), so the defect is the same one, present here.\n\n## The line\n\n`.claude/hooks/guard-main-checkout.sh:42-44`\n\n```\ncase \"$gitdir\" in\n  */worktrees/*) exit 0 ;;\nesac\n```\n\nThat is a substring match on a path, not a test for a linked worktree. A **primary** checkout that merely lives under a directory named `worktrees` produces a git-dir matching the pattern, and the guard exits 0 — an unguarded edit into a shared primary checkout, which is the exact failure worktree-first exists to stop.\n\n## Measured, not argued — and it is depth-dependent\n\n`git rev-parse --git-dir` prints a RELATIVE git-dir (`.git`) at a repo's toplevel and an ABSOLUTE one from any subdirectory. Combined with the hook's nearest-existing-ancestor walk, the same unguarded checkout gets **opposite verdicts by depth**. With a fixture repo at `TMP/worktrees/oddrepo`:\n\n| payload `file_path` | ancestor handed to git | git-dir | verdict today |\n|---|---|---|---|\n| `ODD/README.md` | repo toplevel | `.git` (relative) | block — correct, but only by accident |\n| `ODD/brand/new/f.ts` | resolves up to toplevel | `.git` (relative) | block — ditto |\n| `ODD/pkg/x.ts` | a subdirectory | absolute, contains `/worktrees/` | **allow — WRONG** |\n| `ODD/pkg/brand/new/f.ts` | a subdirectory | absolute, contains `/worktrees/` | **allow — WRONG** |\n\nAll four are pinned as cases in the matrix landing on #6451, under a `KNOWN HOLE` banner that names this card and states they are a record of today's behaviour, not of intended behaviour. When this is fixed, the last two flip to `block` and that section of the matrix becomes a mechanical edit.\n\nNote the fixture path is not exotic: `git worktree add ../repo-task` is the prescribed recipe, and an operator who instead keeps trees under a `worktrees/` parent directory gets a silently unguarded primary checkout.\n\n## Shape of the fix (not asserted)\n\nThe real question git can answer is whether the git-dir is a linked worktree of some repo, e.g. comparing `--git-dir` against `--git-common-dir` (they differ exactly in a linked worktree), rather than pattern-matching the path. Whoever picks this up should decide; both repos should move together, and the matrix on #6451 gives the change a red/green.\n\nFiled unassigned; no `domain:*` or type label set."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 8428,
+  "kind": "issue",
+  "title": "plugin-kanban's card-body skip set reads NAME_FIELD_KEY, the most deprecated rung of the ADR-0079 ladder — so an AI-built board prints the record title twice",
+  "state": "closed",
+  "state_reason": "duplicate",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "plugin",
+    "plugin: kanban"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T22:36:58Z",
+  "updated_at": "2026-09-08T08:46:49Z",
+  "closed_at": "2026-09-08T08:46:49Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8428",
+  "body": "Routed from **objectstack-ai/cloud#2085** by the `repo:cloud` PM seat. The cloud half was measured and is legitimate; the defect is here, and the analysis below is the cloud seat's — ⚠️ **re-measure before acting on it**, it has not been re-established in this repo.\n\n⚠️ **This card needs objectui triage** (`domain:*` + a `pm:*` state). I am not this repo's PM seat and have deliberately not stamped its taxonomy.\n\n## What the user sees\n\nA pet-clinic app built by the cloud AI build flow renders each kanban card with its title printed twice:\n\n```\n小虎犬牙洁治评估        card title      (resolves to visit_title)\n小虎犬牙洁治评估        first body row  (visit_title is also in config.kanban.columns)\n可乐\n2026/9/7 上午9:30\n```\n\n## Why it is not the producer's fault\n\nThe originating cloud card first read this as lost `nameField` metadata. That was **measured and refuted**: the served object metadata **does** carry `nameField`, re-derived to exactly the field the blueprint author declared, on `getMetaItem` (draft and active), `getMetaItems` and `engine.registry.getObject`.\n\nAnd the producer emitting the title field among the card columns is correct behaviour: `viewBody` emits `config.kanban = { groupByField, columns }` where columns default to the object's fields. **The renderer is supposed to skip whichever field it just used as the card title, and it has the machinery to do it.**\n\n## The defect\n\n`packages/plugin-kanban/src/ObjectKanban.tsx`\n\n```ts\n:418   const nameFieldKey: string | undefined = objectDef?.NAME_FIELD_KEY;\n:542   const titleFieldsToSkip = new Set([\n         ...(explicitTitleField ? [explicitTitleField] : []),\n         ...(nameFieldKey ? [nameFieldKey] : []),\n         'name', 'full_name', 'title', 'subject', 'display_name',\n       ]);\n:568   for (const f of explicitCardFields) { if (titleFieldsToSkip.has(f)) continue; … }\n```\n\n`NAME_FIELD_KEY` is the **last and most deprecated rung** of this repo's own ADR-0079 ladder:\n\n```ts\n// packages/core/src/utils/record-title.ts:321\nreturn objectDef?.nameField ?? objectDef?.displayNameField ?? objectDef?.NAME_FIELD_KEY;\n```\n\nThe served metadata carries `nameField` and no `NAME_FIELD_KEY`, so `nameFieldKey` is `undefined`, the skip set collapses to the five hard-coded literals, none of which is `visit_title`, and the field renders again as a body row.\n\n⭐ **The same card gets its title right**, because that path calls `getRecordDisplayName`, which walks the whole ladder. **One reader was converted, the other was not** — which is precisely the hazard `resolveNameField`'s own docblock names:\n\n> One spelling, two readers — the value-space resolver and the name-space `resolveNameField`. Re-typing the `??` chain at the second reader is how the two would drift into disagreeing about which field titles an object.\n\n## The fix and its precedent\n\n`resolveNameField` is exported from `@object-ui/core` for exactly this (`record-title.ts:346`). `plugin-detail` already delegates to it (`synth/buildDefaultPageSchema.ts:431`, objectui#7287). `plugin-kanban`'s skip set is the reader that was missed.\n\n`ObjectCalendar` does **not** share the defect — it has no card-body skip set and uses `getRecordDisplayName` only. ⚠️ That is a claim from the cloud seat's reading; worth re-checking, along with whether any other plugin re-types the chain.\n\n## Suggested acceptance\n\nA kanban whose object declares `nameField` and whose view columns include that field renders the title **once**. ⚠️ And the negative control that matters: an object that genuinely has only the legacy `NAME_FIELD_KEY` spelling must keep working — the ladder exists because both spellings are still in the wild.\n\nOrigin: objectstack-ai/cloud#2085 (split from cloud#2073, where the `nameField` premise was measured and refuted).\n\nhttps://claude.ai/code/session_01Gp1JypWKsxjpn1wb2JdqAY"
+}

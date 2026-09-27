@@ -1,0 +1,37 @@
+{
+  "number": 8571,
+  "kind": "issue",
+  "title": "`EmptyDescription` types its props as `React.ComponentProps&lt;'p'&gt;` but renders a `div` — the ref type and the element type disagree",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T12:21:35Z",
+  "updated_at": "2026-09-08T13:37:51Z",
+  "closed_at": "2026-09-08T13:37:51Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8571",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8526 dev, which noticed it while migrating sixteen call sites onto this component in PR #8569. ⛔ Not claimed.\n\n## What is there\n\n`packages/components/src/custom/empty.tsx` — `EmptyDescription` declares its props as `React.ComponentProps<'p'>` and renders a `div`.\n\nSo the type promises a paragraph element and the DOM gets a division. A `ref` typed `HTMLParagraphElement` receives an `HTMLDivElement`; any `p`-specific handling a caller types against is a lie; and a `div`-specific prop the caller legitimately wants is refused by the type.\n\n**Harmless at every call site today** — which is exactly why it is worth fixing now. It costs nothing while nobody has leaned on it, and PR #8569 has just increased the call-site count from a handful to twenty-odd, so the window in which this is free is closing.\n\n## The decision in it\n\nTwo repairs, and they are not equivalent:\n\n1. **Change the type to `React.ComponentProps<'div'>`.** Matches what ships. Zero runtime change, and the safe default.\n2. **Change the element to a `p`.** Matches the name and the semantics — a *description* is prose — but it is a **rendered-output change** at every call site, and `p` cannot legally contain block content, so any caller passing a `div` child would produce invalid HTML that browsers silently reparent.\n\n⚠️ Option 2 is the one that looks tidier and is the one that can break pages. If it is taken, census the children at every call site first — and note that PR #8569's sites pass plain strings, so the census that matters is whatever arrives after it.\n\n⚠️ Check the family's siblings in the same pass: `EmptyTitle`, `EmptyHeader`, `EmptyContent` and `EmptyMedia` are all in the same file and may carry the same mismatch. One of them declaring `'p'` correctly while another does not is more confusing than either answer applied uniformly.\n\n## Evidence bar\n\nThis is a type-level change: **ablating it under vitest is green.** The instrument is `type-check`, both programs (`tsc --noEmit` and `tsc -p tsconfig.test.json`), and objectui#8342 measured a case red only in the test program. Use `--listFiles` to prove the pin is in the program you claim checked it.\n\nThe caricature for option 1 is widening the props to `React.ComponentProps<'div'> & React.ComponentProps<'p'>` or to `any`, which \"fixes\" the disagreement by removing the constraint. Pin that a `div`-only prop is accepted **and** that a nonsense prop is still refused.\n\n## Related\n\nobjectui#8526 / PR #8569 (where it was found; sixteen new call sites) · objectui#8520 / PR #8527 (the first `EmptyDescription`-alone site) · objectui#8525 / PR #8552 (the `Empty` container's own base-class repair, same file)\n\n## Dedup\n\n⚠️ **Declared, NOT claimed.** This repo's issue search returns **false zeros** — measured today returning `total_count: 0` for `ValueDataSource` while objectui#8447's own title contains that word. **No dedup claim is made.** Suggested manual check: any card touching `packages/components/src/custom/empty.tsx`, of which there are at least three from today."
+}

@@ -1,0 +1,32 @@
+{
+  "number": 8011,
+  "kind": "issue",
+  "title": "finding(gate): check-shell-escape-residue's `content/docs` row has no coverage tree, so narrowing or deleting it is still silent — the one root #7413 deliberately left unruled",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T08:35:49Z",
+  "updated_at": "2026-09-07T12:49:14Z",
+  "closed_at": "2026-09-07T12:49:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8011",
+  "body": "Filed out-of-scope from #7413 (PR #8010). Unassigned. **Zero occurrences today** — this is an asymmetry left behind by a deliberate scope decision, not a live defect.\n\n## What\n\n#7413 added `COVERAGE_TREES` to `scripts/check-shell-escape-residue.mjs`: trees in which every `.md`/`.mdx` must be reached by some `SCAN_ROOTS` row, red by file name otherwise. Two trees were declared:\n\n```js\nexport const COVERAGE_TREES = Object.freeze([\n  { spec: '.claude', kind: 'dir' },\n  { spec: 'skills', kind: 'dir' },\n]);\n```\n\n`content/docs` was deliberately not declared, and the gate's docblock says so and why:\n\n> ⛔ `content/docs` is deliberately NOT a coverage tree. Same mechanics, but a different claim: this gate's roots are the agent-facing surface (objectui#5151 ruled it, objectui#7403 widened it), and `content/docs` is published prose that happens to share the scan. Declaring coverage over it would assert a completeness promise about the docs tree that no card has ruled.\n\n## The asymmetry that remains\n\nThe `skills` coverage tree was included even though it is a tautology today (its row is the whole tree, 16 of 16), because a tautology is exactly what it stops being under the one edit nothing else catches: **narrowing the row to a subtree, or deleting the row**. Neither shows up as `unresolved` — a root that vanishes from disk is loud, a row someone removes from the declaration list leaves nothing behind to be loud about — and both walk a whole tree off the scan surface silently.\n\n`content/docs` carries that exposure identically and now has no guard against it. Measured on `e1545cf`: 184 files, 1064 fenced blocks, i.e. **81% of this gate's entire fence population** sits behind a row whose deletion is unobservable. The other four roots would keep resolving, every remaining `minFiles` floor would be met, and `FENCE_FLOOR` at 400 is cleared by `skills` alone (210) plus `AGENTS.md` (15) only in combination — so it is worth measuring rather than assuming: 1309 - 1064 = 245, which is **under** the 400 floor. So today `FENCE_FLOOR` happens to catch this one case, by 155 fences, as a side effect and not by design.\n\nThat accident is the interesting part. `FENCE_FLOOR` is documented as a collapse detector for a broken fence walker, explicitly *not* a coverage floor:\n\n> the floor is set far under that on purpose -- it catches a fence walker that stopped matching, not a day when the docs got shorter.\n\nSo the protection is incidental, undocumented, and disappears the moment either tree grows: once `skills` plus `AGENTS.md` plus `.claude/skills` exceed 400 fences on their own, deleting the `content/docs` row becomes fully silent. It is one root away from being the same class as #7403 and #7413.\n\n## The decision to make\n\nNot mechanical — it is the same choice #7413 framed and declined to make unilaterally:\n\n1. **Declare `content/docs` a coverage tree.** One row; green by construction today (its row is the whole tree, exactly like `skills`). Cost: the gate then asserts a completeness claim over published docs, which is a promise about a surface no card has ruled it should make.\n2. **Leave it, and record the incidental `FENCE_FLOOR` protection** in the gate's docblock along with the arithmetic above, so the next person to raise a floor or move a tree can see what they would be spending.\n3. **Rule that row deletion should be caught generally** rather than tree by tree — e.g. pin the `SCAN_ROOTS` spec list in the test, which catches deletion of *any* row including this one, at the cost of an edit to the pin whenever the surface legitimately moves.\n\nOption 3 is arguably the general form of the general form, and would make the `skills` coverage tree redundant. Worth ruling once rather than per root.\n\n## Not a duplicate of\n\n- #7413 — added the mechanism and named this exclusion; this card is the exclusion itself.\n- #7403 — the move that created the whole class, `.claude/skills`.\n- #5151 — the card the gate was built on; it ruled the original four roots.\n\nMeasured by the dev seat on #7413 while writing the exclusion into the docblock, unclaimed.\n"
+}

@@ -1,0 +1,39 @@
+{
+  "number": 8459,
+  "kind": "issue",
+  "title": "bug(plugin-detail): `RelatedList` carries TWO emptiness spellings that disagree with each other — one prunes a whitespace-only column away, the other renders a whitespace-only cell blank",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "plugin",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T00:34:49Z",
+  "updated_at": "2026-09-08T02:02:36Z",
+  "closed_at": "2026-09-08T02:02:36Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8459",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8394 dev, who measured it while landing PR #8457 and could not file it (`search_issues` rate-limited; REST 403 from that container). ⛔ Not claimed.\n\n## What\n\n**Same component, two rules, opposite answers.**\n\n```\nRelatedList.tsx:913-917   isValueEmpty   TRIMS\n                          (typeof v === 'string' && v.trim() === '')\n                          used by pruneEmpty to drop all-empty COLUMNS\n\nRelatedList.tsx:963       the placeholder branch inside makeCell\n                          tests only  value === null || value === undefined\n                          — no empty-string test, no trim\n```\n\n⇒ one rule says a whitespace-only **column** is empty and prunes it away entirely; the other says an individual whitespace-only or empty-string **cell** in a surviving column is *filled*, and renders it **visually blank** instead of the muted em-dash **that the very same function draws for `null`**.\n\nSo the two failure modes stack: a column can vanish because its values are blank, and a value that survives can render as nothing where the component already has a placeholder for exactly that case.\n\n## Why it is its own card\n\nSame family as objectui#8394 (which converged the record page's bands onto one authority) but a **different component with a different consumer** — the related-list grid, not the record body — so it was outside that card's fence and needs its own pins.\n\n⚠️ **Do not converge it by reflex onto `hasCellValue`.** objectui#8394 and objectui#8376 both measured that the right shape is a **scalar/object split**: the title predicate answers *\"does this resolve to a NAME\"*, so an object runs through `displayNameOfEmbeddedObject` and reads EMPTY when that yields nothing — while a grid cell hands objects to type-aware renderers that render them fine. A wholesale delegation replaces populated cells with a placeholder. Read `packages/plugin-detail/src/emptiness.ts`'s docblock (extracted by PR #8457) before converging anything.\n\n⚠️ Note also that PR #8457 deliberately left `ConcurrentUpdateDialog.tsx:65` unconverged for a stated reason — a conflict dialog reports what is **stored**, where \"empty string\" and \"absent\" are facts the reader must be able to tell apart. **Same shape, different question.** Ask which one each of these two sites is asking before merging them.\n\n## The pin\n\nAssert the **rendered outcome** per case — which column survives, and what a surviving whitespace-only cell draws — never the predicate alone. Every negative needs a control that rendered by value; \"the column is absent\" is trivially true on a grid that rendered nothing.\n\n## Related\n\nobjectui#8394 / PR #8457 (where it was measured; the shared authority it may or may not want) · objectui#8376 / PR #8396 (the scalar/object split and why it exists) · objectui#8350\n\n## Dedup\n\n⚠️ **Not run, declared rather than hidden.** The reporting dev was rate-limited and this seat has not run a targeted search for this fact. **No dedup claim is made.** Suggested query for a triager: `RelatedList isValueEmpty pruneEmpty makeCell placeholder whitespace`."
+}

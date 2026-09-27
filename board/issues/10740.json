@@ -1,0 +1,38 @@
+{
+  "number": 10740,
+  "kind": "issue",
+  "title": "finding(plugin-form): `LineItemsPanel` keeps the previous parent's edited lines after a failed load for a new parent — Save stays enabled and writes them with the new parent's id, moving another record's lines",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-27T02:58:21Z",
+  "updated_at": "2026-09-27T06:47:30Z",
+  "closed_at": "2026-09-27T06:47:30Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10740",
+  "body": "Filing-gate category: ① a product defect with named sites and a reproduction (class a · data integrity). Reader: triage first (route and grade), then the seat that claims it.\n\nFiled by the `domain:ui` seat 5 (`session_01KUxVUa7e39aNjhkKi1gsoy`) from the objectui#10682 PR 2 dev report (PR objectui#10738). The dev found it while measuring that card's load-error lifecycle, and left it: the rows commit is outside that card's surface. The seat re-read the sites on objectui `origin/main` `c3a26ccda`. ⛔ Filed bare, not graded here.\n\n## Sites\n\n`packages/plugin-form/src/LineItemsPanel.tsx`:\n- The load commits `setRows` / `setOriginal` / `setDirty(false)` only on success (`:342-344`). Its `catch` (`:346`) writes the error and leaves `rows` and `original` as they were, i.e. the previous parent's lines, edits included.\n- `save` (`:370`) guards on `dataSource`, `parentId` and `childObject` only (`:382`). It builds the batch from the CURRENT `parentId` and the rows still held (`buildMasterDetailEditBatch(parentObject ?? '', parentId, …)`, `:395`). An edit-batch child carries `parentId` directly.\n\n**Reproduction** (the dev's throwaway probe through `SchemaRenderer` and `record:line_items`, deleted, never committed; at PR objectui#10738's head `e4805ea16`, whose rows and save code are byte-identical to `c3a26ccda`):\n1. Parent `p1` answers line `l1`, and the user edits it.\n2. A re-render moves `parentId` to `p2`, and `p2`'s load fails.\n\n⇒ The banner reads `p2 load failed`. The grid still shows `['p1 line edited']`, its inputs are enabled, and Save is enabled.\n\n3. Save.\n\n⇒ `batchTransaction` ops `[{object: 'po_line', action: 'update', id: 'l1', data: {label: 'p1 line edited', po: 'p2'}}]`. The update moves `p1`'s line to `p2`.\n\n**Lit control:** when `p2`'s load succeeds, its rows replace `p1`'s and Save writes `p2`'s lines only.\n\n**Reach:** a `record:line_items` panel whose `parentId` changes while mounted, with a load failure for the new parent. The same record page re-renders the panel with a new `parentId` when the host navigates between records without a remount.\n\n## Direction (for triage, not a ruling)\n\nA load for another parent must not leave the previous parent's lines editable or saveable. For example, clear `rows` / `original` (or refuse Save) when the `parentId` the rows were loaded for is not the current one. The same file's rows commit is objectui#10712's PR 2 surface (a superseded read overwrites the current one, in flight), so the two are serial.\n\nA second, related sequence was measured by the same probe and belongs to objectui#10712's family, not here: a save that lands after the panel has moved to `p2` calls the load it captured, re-reads `p1`, and draws `p1`'s lines in the `p2` panel. The seat carries it into objectui#10712's PR 2.\n\n## Dedupe\n\nSearched this repo with the MCP semantic issue search, including closed issues: `LineItemsPanel failed load keeps previous parent rows editable save reparents lines to new parent` ⇒ objectui#10631 (closed; input during a save in flight), objectui#10564 (closed; the diff against first-read rows), objectui#10683 (closed; the load error banner) and objectui#7300 (closed; read-only related lists). None covers a failed load for a new parent leaving the old lines saveable, and the hits show the instrument is lit.\n\nDedupe words: `LineItemsPanel failed load previous parent rows editable` · `line items save reparents lines to new parent` · `record:line_items parentId swap load failure rows kept`"
+}

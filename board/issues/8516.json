@@ -1,0 +1,35 @@
+{
+  "number": 8516,
+  "kind": "issue",
+  "title": "types: the `grid` zod mirror still validates `columns` as an open `Record[string, number]` after objectui#8505 narrowed the TypeScript face to the six breakpoints",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "package: types",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-08T05:06:25Z",
+  "updated_at": "2026-09-08T14:41:51Z",
+  "closed_at": "2026-09-08T14:40:18Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8516",
+  "body": "Filed unassigned by the dev seat executing objectui#8505 (branch `claude/issue-8505-gridschema-columns-breakpoint-narrowing`). Measured on that branch's head; the base is `f08d1a86a`. Not claimed.\n\n⚠️ **Notation.** Generic type arguments are written with SQUARE brackets below — `Partial[Record[BreakpointName, number]]`, not the real spelling. AGENTS.md's \"GitHub 会改写你写进 issue/PR 正文的字节\" section records that tag-shaped fragments are silently deleted on save, backticks and fenced blocks included, and this card is entirely about the shape of a type.\n\n## What is open\n\nobjectui#8505 narrowed the TypeScript declaration `GridSchema.columns` (`packages/types/src/layout.ts`) from `number | Record[string, number]` to `number | Partial[Record[BreakpointName, number]]`, because the `grid` renderer reads exactly the six members of `BreakpointName` and nothing else.\n\nIts zod mirror was deliberately left alone. `packages/types/src/zod/layout.zod.ts`, `GridSchema`:\n\n```\n  columns: z.union([\n    z.number(),\n    z.record(z.string(), z.number()),\n  ]).optional().describe('Number of columns (responsive)'),\n```\n\nSo after objectui#8505 the two authoring faces disagree, in the direction objectui#7759 is the disposition lane for: the mirror ACCEPTS a spelling the declaration now refuses.\n\nMeasured on the branch head:\n\n```\nGridSchema.safeParse({ type: 'grid', columns: { xxl: 6 } })   ->  success: true\n```\n\nand the TypeScript face refuses the same node at compile time. The mirror is not decorative: `@object-ui/cli`'s `validate` and `check` commands (`packages/cli/src/commands/`) are its real consumers, so a JSON-authored grid — which is the primary authoring surface of a server-driven-UI product — still passes validation with a map keyed by a spelling no renderer reads, then renders at its `xs` count with no error and no warning. That is objectui#7097's defect, still live on the face that objectui#8505 did not touch.\n\n## Why objectui#8505 did not take it, and what that costs the fix\n\nNot a preference — a byte measurement. The console's `framework` chunk is `packages/(core|react|types)`, and `scripts/check-eager-closure-budget.mjs` holds it at a 71,000 gzip-byte ceiling. On objectui#8505's base it measures **70,999** — one byte of headroom (`apps/console/dist/eager-closure.json`, `gzipBytes` for `framework`). objectui#8485 had already spent that headroom down and explicitly refused to raise the ceiling.\n\nA zod narrowing here ships real runtime bytes (six member schemas, or a key enum, plus whatever refusal message it carries), so it turns `Bundle Analysis` red on its own PR and its own remedy becomes a byte-hunt through two other packages. That is a different card from a type narrowing that emits nothing, which is why it was reported rather than absorbed. **Whoever takes this should expect to budget bytes as part of it**, and should read objectui#8485's second commit for the precedent on how that was done last time without moving a ceiling.\n\n## Shape questions this needs ruled, not guessed\n\n1. **Refuse, or strip?** `BaseSchema` is `.passthrough()`, but `columns` is a declared member, so a narrowed member REFUSES rather than strips. A `z.object` of six optional numbers plus `.strict()` names the bad key with `unrecognized_keys`; `z.record` over an enum key has different zod-4 semantics around requiring every key and needs measuring before it is chosen.\n2. **Is this breaking for stored metadata?** objectui#8485's changeset led with \"Breaking for authored metadata\" at `minor`. The same grade probably applies, but the accept-set that actually exists in stored documents should be measured first.\n3. **Does the sibling `responsive-grid` mirror move with it?** `@object-ui/layout`'s `BreakpointColumnMap` already declares the six by hand.\n\n## Relationship to existing cards\n\n- objectui#7759 is the disposition lane for exactly this direction (mirror wider than declaration). Its census was measured on `e546222b` and reports 27 CONCRETE keys across 18 pairs; `layout.zod.ts#GridSchema` / `columns` was NOT in it, because on that tree both faces were equally wide. objectui#8505 makes this a new member of that population — **but it does not show up in the ledger**, for a structural reason filed separately as a finding on the guard itself.\n- objectui#7735 is the `columns` default tag that no renderer applied — same key, different defect.\n- objectui#7097 is the runtime half and its exhaustiveness pins.\n- objectui#8505 is the TypeScript half, already merged or in review.\n\n## Where the current reading is held visible\n\n`packages/types/src/__tests__/grid-columns-breakpoint-narrowing-8505.test.ts`, last block, asserts `success: true` for the `xxl` node with a lit control next to it. It is a handoff pin in the objectui#7070 sense, not an endorsement: when this card lands, that block flips to a refusal.\n\n## Dedup\n\nOne targeted semantic `search_issues` over this repo, phrased as a description of the defect. It returned 24 results and its own lit control — objectui#8505, the card this was found under, came back first — so the instrument was live rather than silently zeroed. Reviewed: objectui#7759 (the lane, open), objectui#6939, objectui#5927, objectui#6152, objectui#7762 / objectui#8485 (the same defect class on `ObjectGridSchema.exportOptions`, state closed). None is this key.\n\nFiled by the objectui#8505 dev seat, session `session_01YBWFb5YgMU5dw8p2VKj16S`, via Claude Code."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 8216,
+  "kind": "issue",
+  "title": "finding: nothing mechanically compares the page-block designer's `BLOCK_CONFIG` field names against the node schemas — measured cost on objectui#7772, where a REQUIRED key had no control for three months",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T01:41:25Z",
+  "updated_at": "2026-09-07T09:39:38Z",
+  "closed_at": "2026-09-07T09:39:37Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8216",
+  "body": "Found while landing objectui#7772 (branch `claude/issue-7772-page-block-kanban-groupby-control`). Filed unassigned and NOT touched there — objectui#7772's triage comment fenced this off explicitly (\"Whether that gate should cover block-config is its own card\"). Measured on `origin/main` `0c8dbc49`.\n\n## What\n\n`packages/app-shell/src/views/metadata-admin/previews/block-config.ts` (`BLOCK_CONFIG`) is the page-block inspector's field table: one entry per authorable property, and its own file header states the rule it lives by —\n\n> Keep each field `name` aligned with the property name the corresponding renderer reads.\n\nNothing mechanical checks that.\n\n- `scripts/check-designer-field-key-parity.mjs` judges `PAYLOAD_SHAPES` — the field / object / permission payloads. Ran it on this branch: exit 0, and its own output names what it covers. It never reads `BLOCK_CONFIG`.\n- `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` judges the REGISTRY `inputs` declarations (objectui#8067 / objectui#8068), a different table on a different face.\n- What does exist is per-block prose pins inside `previews/__tests__/block-config.test.ts`, written one at a time as defects were found: `page:header.icon` (objectui#3829), `page:accordion.title` + items `value` (objectui#5212), the `global_nav` option (objectstack#6888), and now `object-kanban` (objectui#7772).\n\nThat is the same VOLUNTARY shape objectui#8068 argued was not good enough for the registry inputs: three keys did it right, the fourth did not, and nothing noticed the fourth. Here the pins are also voluntary, and each one exists only because a human or an agent tripped over the defect first.\n\n## Why this is worth a card rather than a note — the measured cost\n\nobjectui#7772 is not a stale-key defect. `BLOCK_CONFIG['object-kanban']` offered four controls (`objectName` / `groupField` / `titleField` / `cardFields`) while `ObjectKanbanSchema` declared:\n\n- `groupBy` REQUIRED (`packages/types/src/objectql.ts:2765`, no `?`; `packages/types/src/zod/objectql.zod.ts:1001`, no `.optional()`) — with **no control at all**;\n- `groupField` a `retirementTombstone()` (`objectql.zod.ts:1002`) and `?: never` on the TS face since objectui#7322 — as the **only** control able to set grouping.\n\nMeasured, not inferred. `ObjectKanbanSchema.safeParse` on the node those four controls produce reports TWO issues:\n\n```\n{ code: 'invalid_type', path: ['groupBy'],    message: 'Invalid input: expected string, received undefined' }\n{ code: 'invalid_type', path: ['groupField'], message: 'RETIRED (objectui#7322) - ... author `groupBy`. ...' }\n```\n\nSo the panel could not author a valid `object-kanban` node however it was filled in. The control landed 2026-06-21 (objectui#1831, released in `@object-ui/app-shell@17.5.0` and every build after), and `groupBy` became REQUIRED with objectui#7322 — through all of it every derived check stayed green, because nothing in the repo reads this table against a schema.\n\n⚠️ The page face does not catch it either, and that is worth stating because it is the intuitive place to look. Measured against the pinned `@objectstack/spec`: `PageSchema.safeParse` does not descend into a block's `properties` at all — a page carrying `properties: { zzzTotallyBogusKey: 1 }` parses green, control run in the same script. The refusal lives only on the NODE face (`@object-ui/types/zod`), which the designer never invokes.\n\n## Suggested shape\n\n⚠️ **First step is a measurement, not a gate** — the same discipline objectui#8068 imposed on its own class. Answer first: across all `BLOCK_CONFIG` entries, how many field `name`s are not accepted keys of the node schema the block validates against?\n\nThe join is not free, and scoping it is most of the work:\n\n- `BLOCK_CONFIG` is keyed by DESIGNER block type (`object-kanban`, `page:header`, `element:button`, `record:details`, ...), which is not one vocabulary — some map to `@object-ui/types` node schemas (`ObjectKanbanSchema`), some to `@objectstack/spec/ui` props shapes (`PageHeaderProps`, `RecordDetailsProps`), and some to neither.\n- Blocks with no resolvable schema must be an EXPLICIT exemption with a reason and a card number, never a silent skip — `check-designer-field-key-parity.mjs` already has that idiom and it should be copied rather than reinvented.\n- The retired direction matters as much as the missing one: a tombstoned key is still a declared member, so an \"is it declared?\" check reads green while the parser refuses every value by name. `@object-ui/test-support`'s `isShapeKeyTombstoned` is the existing judge for that and `block-config.test.ts` already uses it.\n\nIf the count is small, close the gaps and turn the gate on. If it is large, use the self-deleting exemption idiom. Either way the number belongs in the report.\n\n⚠️ Whether the REQUIRED direction (a required schema key with no control) should also be gated is a real question and probably the more valuable half — that is the half that made objectui#7772 a `p2` rather than a `p3`. It is also the half most likely to need exemptions, since an inspector need not expose every declared key (objectui#7772's triage records that as a product decision, not a contract gap).\n\n⛔ Ablation is the acceptance criterion: break one block's alignment and the new gate must go red and name that block, with a positive control on the unmodified tree in the same run.\n\n## Related\n\nobjectui#7772 (the defect that measured this gap) · objectui#5761 (the same class one designer over — the FIELD designer; closed) · objectui#8067 / objectui#8068 (the same voluntary-pin argument for registry `inputs`; both closed) · objectui#3829, objectui#5212 (two earlier `BLOCK_CONFIG` keys that outlived their renderers, each found by hand)\n\nFiled by the dev of objectui#7772, session `session_01YBWFb5YgMU5dw8p2VKj16S`."
+}

@@ -1,0 +1,39 @@
+{
+  "number": 8491,
+  "kind": "issue",
+  "title": "finding(plugin-grid): ObjectGrid draws a hand-rolled em-dash at three cell sites instead of the shared EmptyValue, so those empty cells carry no aria-label",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "plugin",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T02:20:39Z",
+  "updated_at": "2026-09-08T04:01:25Z",
+  "closed_at": "2026-09-08T04:01:25Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8491",
+  "body": "Found while implementing objectui#8481. Filed unassigned, not claimed. This is the **same defect class as objectui#8475** (`RelatedList`'s hand-rolled em-dash), one package over — and a repo-wide grep says these two files are the only carriers, so the class can be closed completely.\n\nDOM shapes are spelled out in words rather than written literally — tag-shaped fragments are eaten from GitHub bodies even inside backticks (AGENTS.md, \"六种已实测的改写\" ①).\n\n## What\n\n`packages/plugin-grid/src/ObjectGrid.tsx` renders its empty-cell placeholder **two different ways**.\n\nThe no-renderer default path (line ~2539) uses the shared component:\n\n```ts\nvalue != null && value !== ''\n  ? <span>{String(value)}</span>\n  : <EmptyValue />\n```\n\nThree other sites spell it by hand instead — a span classed `text-muted-foreground/50 text-xs italic` containing a bare em-dash, at lines **2479**, **2497** and **2697**:\n\n```ts\nvalue != null && value !== '' ? String(value) : /* a hand-rolled muted em-dash span */\n```\n\n`EmptyValue` (`packages/components/src/custom/empty.tsx`) carries three things the hand-rolled span does not:\n\n- a `data-slot` of `empty-value`, which is how tests and tooling find placeholders;\n- an `aria-label` of `No value`, resolved through the i18n label hook — so a screen reader hears a name instead of a naked punctuation mark;\n- `select-none` / `no-underline` / `pointer-events-none`, so a missing value inside a link or button column never looks clickable or gets copied into a selection.\n\nThe hand-rolled spans also differ **visually** from the real one: they add `text-xs italic`, which the shared component does not. So the same grid can show two typographically different placeholders in two adjacent columns depending on which branch built the cell.\n\n## Blast radius, measured\n\nRepo-wide grep for the hand-rolled class string on `7cf6f38fb`:\n\n| file | sites |\n|---|---|\n| `packages/plugin-grid/src/ObjectGrid.tsx` | 3 |\n| `packages/plugin-detail/src/RelatedList.tsx` | 1 — already filed as objectui#8475 |\n\nNothing else in the workspace. Two files, four sites, and objectui#8475 already owns one of them; a fix here plus that one retires the pattern entirely.\n\n## Related, not the same\n\nobjectui#8481 taught three `@object-ui/fields` renderers that an empty array is not a cell value, so those cells now reach `EmptyValue`. That does **not** touch these three sites: they are ObjectGrid's own fallbacks for columns that resolve no cell renderer at all, and their guard (`value != null && value !== ''`) carries the same empty-array hole one branch over — measured and noted in objectui#8481's own body.\n\n⇒ Whoever takes this should decide whether to close both halves at once: swap the three spans for `EmptyValue`, **and** give their guard the array clause, so the fallback path agrees with the renderers it stands in for.\n\n## Dedup\n\nREST is 403 from this dev container (`GitHub access is not enabled for this session`), so one targeted MCP `search_issues` was used instead — declared channel switch. It returned objectui#8481, objectui#8474 and objectui#8475 as control hits, so the channel is live in this session. objectui#8475 covers `RelatedList` in `@object-ui/plugin-detail`; nothing returned covers `ObjectGrid`.\n\nFiled by an ObjectUI dev agent working objectui#8481, session `session_01YBWFb5YgMU5dw8p2VKj16S`, from branch `claude/issue-8481-selectcellrenderer-empty-array`. (Attribution written as prose deliberately: a footer block is stripped from issue bodies on create.)\n"
+}

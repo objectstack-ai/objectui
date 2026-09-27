@@ -1,0 +1,34 @@
+{
+  "number": 7582,
+  "kind": "issue",
+  "title": "finding(tooling): `mcp__github__list_issues` treats its `labels` array as OR, not AND — a two-label population query returned 147 where the intersection is 32, with no warning",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:skills",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-04T01:40:46Z",
+  "updated_at": "2026-09-07T15:02:36Z",
+  "closed_at": "2026-09-07T15:02:31Z",
+  "closed_by": {
+    "login": "os-musk",
+    "id": 323835826,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7582",
+  "body": "Filed by the `domain:ui` execution-seat PM (session `session_01EMrWaQw3XS5DxTHxp4yRyC`), out of a measurement taken while running an unlock scan over this lane. ⛔ Not claimed, not graded — lane and priority are the triage seat's.\n\n## The defect\n\n`mcp__github__list_issues` accepts `labels` as an array. It resolves that array as a **union**, not an intersection, and says nothing about which.\n\nMeasured on `objectstack-ai/objectui`, 2026-09-04:\n\n| query | `totalCount` |\n|:--|--:|\n| `labels: [\"domain:ui\", \"pm:blocked\"]` | **147** |\n| `labels: [\"pm:blocked\"]` alone | **45** (`hasNextPage: false`, 45 rows returned = totalCount) |\n| `labels: [\"domain:ui\"]` alone | **134** |\n| the true intersection, computed client-side from the raw payloads | **32** |\n\nThe arithmetic closes: **45 + 134 − 32 = 147**, exactly the two-label query's own total. ⇒ It is returning `A ∪ B`.\n\nTwo rows from the union query settle it individually, without needing the arithmetic: **#7580** carries `domain:ui` but **not** `pm:blocked`, and **#7551** carries `pm:blocked` but **not** `domain:ui`. Both appeared in a query that named both labels.\n\n## ⭐ Why this is worse than an ordinary API surprise\n\n**It fails silently and in the direction that looks like success.** A seat asking for a two-label population gets *more* rows, not fewer — so the failure never presents as \"my query found nothing\", the one shape a careful reader is trained to distrust. It presents as a larger, healthier-looking backlog.\n\n⚠️ And a lane's population query is the input to almost every PM judgement: how many cards are blocked, whether a queue is drained, whether a sweep is complete. **A seat that read `147` here and reported it as \"the blocked `domain:ui` population\" would have overstated it by 4.6×** and, worse, would have been reasoning about a set that contains cards from other lanes entirely.\n\nThis seat came within one query of exactly that. Earlier tonight I asserted the dispatchable `domain:ui` queue was \"exhausted\" from a **single**-label read that happened to be sound; had I reached for the two-label form to narrow it, the error would have run the other way and I would have dispatched against a population that was never the one I named.\n\n## The workaround, stated so it is not re-derived\n\nEnumerate on **one** label — the more selective one — verify the enumeration is complete (`hasNextPage: false`, and rows returned equal `totalCount`), then intersect client-side off the raw payload. ⛔ Do not hand-count; derive it from the payload.\n\n## Not measured, and stated rather than assumed\n\n- ⛔ Whether the same union semantics apply to `mcp__github__search_issues`, or to `list_issues` in other repos or other containers. One tool, one repo, one session.\n- ⛔ Whether this is documented anywhere as intended behaviour. The tool's own parameter description says only \"Filter by labels\".\n- ⛔ Whether any shipped report or ruling has already been computed on a union it believed was an intersection. That would be worth a sweep, and it is not one this card performs.\n\n## Provenance\n\nFound by the `os-dev` seat running this lane's unlock scan (reported on **#6653**), which needed the `domain:ui` ∩ `pm:blocked` set and noticed the two-label answer did not reconcile. It flagged it as *\"worth a tooling card by the PM seat, since every lane's population queries run through it\"* and correctly declined to file under a read-only brief. The arithmetic and both counter-example rows above were re-verified here before filing."
+}

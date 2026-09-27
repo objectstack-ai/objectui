@@ -1,0 +1,39 @@
+{
+  "number": 8283,
+  "kind": "issue",
+  "title": "The eager-closure budget's RESTORE CONDITION is void — objectstack#16063 was ruled accepted, so the note tells the next author to wait for something that will never happen",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "pm:dispatched",
+    "priority:p2",
+    "tests"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T08:14:39Z",
+  "updated_at": "2026-09-07T09:56:13Z",
+  "closed_at": "2026-09-07T09:56:13Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8283",
+  "body": "Filed and claimed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) as the recording half of a maintainer decision — see **Authorisation** below.\n\n## The defect\n\n`scripts/check-eager-closure-budget.mjs:328`, landed with objectui#7685 (`639114c4d`):\n\n> `objectstack#16063. RESTORE CONDITION: when that lands, re-measure and bring [ceiling and baseline back down together]`\n\n**That condition can never fire.** objectstack-ai/objectstack#16063 was ruled **「16063 c」** by the director seat (decision batch #59, recorded on objectui#7122 at 2026-09-06T15:02Z): the +292.2 KB gzip growth of `@objectstack/spec`'s browser dist at 17.3.0 is **accepted upstream permanently** — no prose stripping and no short-`describe` convention will land.\n\n⇒ two things are wrong with the note as it stands:\n\n1. It points the next author at an upstream fix that is **not coming**, so the numbers look like a temporary exception awaiting reversal.\n2. They are not temporary. They are the **standing baseline** — which is the whole content of the decision below.\n\n⚠️ `:559` carries a second, similarly-shaped sentence (`re-measure and lower both numbers together`). Whether it is the same note or a different one was **not** determined here — re-derive both rather than fixing only `:328`.\n\n## Authorisation — recorded, because a ceiling is a gate weakening\n\nThe maintainer was asked directly, with three options and the trade stated each way, and chose: **「A｜重设基线」** — re-baseline, restore headroom to 0.50x, **and record the cause**.\n\nThis card is that last clause. The re-baseline itself is **already done and needs nothing**: objectui#7685 landed carrying `MAX_EAGER_CLOSURE_GZIP_BYTES = 3_597_000` over `BASELINE.gzipBytes = 3_551_191`.\n\nVerified independently on `main` `fc32921aa` rather than taken from that PR:\n\n| | value |\n|---|---|\n| ceiling | 3,597,000 |\n| baseline | 3,551,191 |\n| headroom | **45,809** |\n| `REGRESSION_THIS_GATE_MUST_CATCH_BYTES` | 89 × 1024 = **91,136** |\n| sensitivity | **0.503x** |\n\nThe gate's own docblock at `:90` says **`H = REGRESSION / 2` is the only value**, so 0.50x is not a preference — it is the constraint, and the landed numbers satisfy it.\n\n⇒ what remains is only that the cause note describes those numbers correctly.\n\n## What the note has to say instead\n\n- The growth is `@objectstack/spec` 17.3.0's browser dist, **accepted upstream** (objectstack#16063, ruled 「c」), so this is the **standing baseline**, not an exception.\n- ⛔ **Do not** delete the cause. The gate's own header treats a re-baseline as a visible, justified decision, and the next bump must be measured against **this** number knowing why it moved.\n- Name the authorising decision so the next reader does not have to reconstruct it.\n\n## ⛔ Out of scope\n\n⛔ Do **not** move `MAX_EAGER_CLOSURE_GZIP_BYTES`, `BASELINE`, or any per-chunk ceiling. They are correct and maintainer-authorised. This card is **prose and provenance only** — if a number needs changing, that is a different card and a different authorisation.\n\n⛔ Do not touch `REGRESSION_THIS_GATE_MUST_CATCH_BYTES`. objectui#7685's own body records that it deliberately did not move.\n\n## Note for the dev\n\n`scripts/__tests__/check-eager-closure-budget.test.ts` pins constants from this file. A prose-only change should not move it — **verify that rather than assuming it**, and if a pin does read the note's text, say so and report what it asserts.\n\nRefs: objectui#7685 (`639114c4d`, where the note landed) · objectui#7122 (where the 「16063 c」 ruling is recorded) · objectstack#16063 · objectui#6776 (the original 0.50x sizing) · objectui#8272 (the PR whose red surfaced the exhausted headroom)."
+}

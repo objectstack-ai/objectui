@@ -1,0 +1,39 @@
+{
+  "number": 8481,
+  "kind": "issue",
+  "title": "finding(fields): `SelectCellRenderer`'s own emptiness guard is blind to `[]`, so every surface without an upstream pre-check paints a blank cell",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "package: fields",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T01:56:29Z",
+  "updated_at": "2026-09-08T03:09:43Z",
+  "closed_at": "2026-09-08T03:09:43Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8481",
+  "body": "Found while implementing objectui#8474 (the shared `hasCellValue` calling `[]` a value). Filed unassigned, not claimed. Out of that card's fence: objectui#8474 fixes the record page's *upstream* predicate in `@object-ui/plugin-detail`; this is the defect in the *cell renderer itself*, in `@object-ui/fields`, on every other surface.\n\nDOM shapes below are spelled out in words rather than written literally — tag-shaped fragments are eaten from GitHub bodies even inside backticks (AGENTS.md, \"六种已实测的改写\" ①).\n\n## What\n\n`SelectCellRenderer` (`packages/fields/src/index.tsx`, the renderer registered for `select`, `status`, `multiselect`, `radio`, `checkboxes` and `tags`) opens with:\n\n```ts\nif (value == null || value === '') return <EmptyValue />;\n```\n\n`[]` passes that guard. Execution then reaches the array branch:\n\n```ts\nif (Array.isArray(value)) {\n  return (\n    <div className={cn('flex flex-wrap', appearance === 'dot' ? 'gap-x-3 gap-y-1' : 'gap-1')}>\n      {value.map((val, idx) => renderOne(val, idx))}\n    </div>\n  );\n}\n```\n\n…which maps over zero entries. **The renderer's whole output for `[]` is a childless flex-wrap DIV** — measured directly on `main` at `c90395b20`, rendering the renderer on its own:\n\n```\nSelectCellRenderer([]) html: DIV with class \"flex flex-wrap gap-1\" and no children\n```\n\nNo `EmptyValue`, no em-dash, no `aria-label`. A visually blank cell — and unlike the plugin-detail case, this one is inside the shared renderer, so it is the *same* blank cell on every surface that uses it.\n\n## Why objectui#8474 does not close this\n\nobjectui#8474 narrows `hasCellValue` so the **record page** never hands `[]` to a cell renderer at all — the row takes the placeholder branch upstream. `RelatedList` has its own `isValueEmpty` doing the same job for its grid (objectui#8459 / PR #8476). Both are *upstream pre-checks in `@object-ui/plugin-detail`*. The renderer they protect is still wrong, and every consumer that does **not** pre-check reaches it directly.\n\n`ObjectGrid` is one such consumer, verified on `c90395b20`: `packages/plugin-grid/src/ObjectGrid.tsx` resolves a renderer through `getCellRenderer(...)` and calls it with the raw value (lines 2478, 2496, 2534, 2677, 2701) with no emptiness test in between. Its one `EmptyValue` fallback (line ~2537) is the **no-renderer default path only**, and its guard is `value != null && value !== ''` — the same hole, one branch over. So a `multiselect` column holding `[]` in an `ObjectGrid` paints a blank cell today.\n\nOther registered consumers of `getCellRenderer` worth checking in the same sweep: `packages/plugin-list` (`ObjectGallery`), `packages/plugin-kanban` (`ObjectKanban`), `packages/plugin-tree` (`ObjectTree`), `packages/plugin-dashboard` (`ObjectDataTable`, `DatasetWidget`). Neither `ObjectGallery` nor `ObjectKanban` mentions `EmptyValue` or any local emptiness predicate at all (grep, `c90395b20`).\n\n## Shape of a fix (not settled — this is a finding, not a plan)\n\nThe narrow version is one clause in `SelectCellRenderer`: treat an array with zero entries the same as `null`. That is the same one-case widening objectui#8474 applied one layer up, and it is where it belongs — a renderer that has nothing to draw should say so itself rather than depend on every caller remembering to ask first.\n\nA wider version would look at the other renderers' opening guards, several of which are spelled `value == null || value === ''` and share the blindness (`JsonCellRenderer` is the interesting counter-example: it draws the literal two-character text for `[]` and for the empty object, so it is *not* blank and should probably be left alone — objectui#8474 measured that).\n\nWhatever the shape: the pin has to assert the rendered outcome, and it needs a non-regression axis that stays green for a populated array, otherwise a renderer that draws the placeholder for every array would pass.\n\n## Dedup\n\nSearched `objectstack-ai/objectui` via MCP `search_issues` (REST is 403 from the dev container). Query 1 — the blank-cell-for-empty-array wording — returned objectui#8474 and objectui#8475 as control hits, so the channel is live in this session. Query 2, scoped to the `@object-ui/fields` guard wording, returned zero. Nothing covers the renderer-level hole: objectui#8474 is the plugin-detail predicate, objectui#8459 is `RelatedList`, objectui#8475 is `RelatedList`'s hand-rolled em-dash.\n\nFiled by an ObjectUI dev agent working objectui#8474, session `session_01YBWFb5YgMU5dw8p2VKj16S`, from branch `claude/issue-8474-hascellvalue-empty-array`. (Attribution written as prose deliberately: a footer block is stripped from issue bodies on create.)\n"
+}

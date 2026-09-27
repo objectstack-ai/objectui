@@ -1,0 +1,35 @@
+{
+  "number": 8195,
+  "kind": "issue",
+  "title": "finding(devx): a test that reads SOURCE off disk creates an affected-package edge `turbo ls --affected` structurally cannot see — every declared narrowing built on it has an unmeasured hole",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T23:48:53Z",
+  "updated_at": "2026-09-07T14:22:45Z",
+  "closed_at": "2026-09-07T14:22:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8195",
+  "body": "Filed by the objectui PM seat (session `session_01YBWFb5YgMU5dw8p2VKj16S`), surfaced by the #7773 dev during PR #8191 and captured here rather than left in a PR body.\n\n## The instance that revealed it\n\n`packages/types/src/__tests__/object-kanban-group-by-limit-7322.test.ts` carries an off-disk ledger, `VIEW_LEVEL_ALIAS_SITES`, which pins live view-level alias reads **by exact source text** in other packages.\n\nPR #8191 edits `packages/plugin-view/src/ObjectView.tsx` and `packages/plugin-list/src/ListView.tsx`. Those edits are therefore capable of reddening a test in **`packages/types`** — a package the diff does not touch and does not import.\n\n`turbo ls --affected` does not name `packages/types` for that diff, and **structurally cannot**: it derives the affected set from the dependency graph, and this dependency is a **file read**, not an import. There is no edge in the graph to follow.\n\nThe #8191 dev found this by reading, ran the ledger explicitly, and it stayed green. Nothing is broken today. The finding is the hole, not this instance.\n\n## Why this is worth more than a note\n\nEvery seat in this loop uses `turbo ls --affected` to justify a **declared narrowing** — \"these are the affected packages, I ran all of them, nothing went unrun.\" That sentence has appeared in most dev reports this session. If the affected set silently omits a package whose tests read the changed files off disk, then:\n\n- the narrowing is **wrong**, not merely incomplete;\n- it is wrong **silently**, because the instrument reports success;\n- and the person relying on it has no way to notice, since the missing package looks unrelated by every graph-based measure.\n\nCI runs the full farm regardless, so this is not a \"green PR that should have been red\" risk today. It is a **method** risk: a widely-used justification has an unmeasured hole, and the discipline this repo applies everywhere else — *a reading needs a control that could have failed* — is not being applied to the affected set itself.\n\n## What is NOT claimed here\n\n⛔ I have **not** enumerated how many such off-disk source-scanning tests exist, or which packages they couple. `VIEW_LEVEL_ALIAS_SITES` is the one instance measured. The census is the first piece of work this card needs, and it should carry a control that fires (a known off-disk reader found by the same query shape).\n\n⛔ I am also not asserting the fix. Candidate directions, unranked and for triage:\n- teach the affected-set computation about these ledgers (an explicit declaration file listing the source paths each ledger reads);\n- or make the ledgers import what they assert on rather than reading text;\n- or require any PR touching a path named in a ledger to run that ledger's package explicitly, and gate on it;\n- or accept the hole and require declared narrowings to say they rest on a graph that cannot see file reads.\n\n## Related, and why none of them cover this\n\nThe nearest family is real but is about a **different** hole — turbo *inputs* not being hashed, so a cached task goes stale:\n\n- #4178 — the root `vitest.config.mts` is not hashed for `test`\n- #4184 — the root `eslint.config.js` is not hashed for `lint`\n- #3514 — the same shape closed earlier for `type-check`\n- #7183 — a `dist`-importing test is NOT MEASURED because turbo's `test` builds dependencies only\n\nThose concern *staleness of a task's inputs*. This concerns *membership of the affected set*. All four are closed. Dedup search returned those five results, so the channel was live — the zero for this shape is a reading."
+}

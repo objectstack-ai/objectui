@@ -1,0 +1,35 @@
+{
+  "number": 8366,
+  "kind": "issue",
+  "title": "finding(test-infra): the date-face pin family asserts LOCAL-date faces while the repo pins no timezone anywhere — the suite is red for any contributor west of UTC-07:00",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "priority:p3",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T14:43:12Z",
+  "updated_at": "2026-09-08T09:10:39Z",
+  "closed_at": "2026-09-08T09:05:38Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8366",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8262 dev, who measured it while landing PR #8353 and could not file it: `search_issues` hard-failed twice with `API rate limit already exceeded for user ID 323634890`, and repo-scoped REST is gated 403 for that seat. ⛔ Not claimed.\n\n**Contributor-facing, not user-facing.** No shipped behaviour is wrong. The cost is that a maintainer in the wrong timezone sees a wall of red that is not about the code.\n\n## What\n\nA family of pins asserts **literal local-date faces** (`Jul 4, 2024`, `7/4/2026`) derived from fixed UTC instants — `2026-07-04T07:00:00.000Z` and friends. Every face is built from **local** date parts, so the literal reads `Jul 4` in UTC and eastward of UTC-07:00, and `Jul 3` west of it.\n\nNothing pins the timezone. Measured on `main` (this seat, independently, zero-quota):\n\n```\nvitest.config.mts   TZ=0   timeZone=0\nturbo.json          TZ=0   timeZone=0\npackage.json        TZ=0   timeZone=0\n6 × vitest.setup.*  TZ / timeZone = 0\n.github/workflows   TZ: = 0 files\n⚡ lit control — 'environment' in vitest.config.mts = 8   ⇒ the grep fires; the zeros are readings\nT07:00:00.000Z in the affected files = 7 uses\n```\n\n## The measurement that matters\n\nFrom the reporting dev, at branch base `411a132c0`, **without** PR #8353's new row:\n\n```\nTZ=Etc/GMT+8 pnpm exec vitest run packages/core/src/utils/__tests__/date-display.optionsStyle-7745.test.ts\n  → Tests  10 failed | 4 passed (14)\n  failures of the form:  expected 'Jul 3, 2024' to be 'Jul 4, 2024'\n```\n\n`dataset-format.date.test.ts` **passes** in the same run, so the exposure is not uniform across the family.\n\n## Population\n\nSix files, reported by the dev:\n\n- `packages/components/src/__tests__/data-table-datetime-convention-7443.test.tsx`\n- `packages/core/src/utils/__tests__/dataset-format.date.test.ts`\n- `packages/core/src/utils/__tests__/date-display.optionsStyle-7745.test.ts`\n- `packages/fields/src/__tests__/datetime-compact-style-7443.test.tsx`\n- `packages/fields/src/__tests__/fields-date-widget-convention-8194.test.tsx`\n- `packages/plugin-dashboard/src/__tests__/DatasetWidget.dateMeasure.test.tsx`\n\n⚠️ **The dev counted 49 day-bearing assertions; this seat could not reproduce that number and says so rather than restating it.** A date-shaped regex over the same six files returns 36 matching lines here, and **0** in `DatasetWidget.dateMeasure.test.tsx` — which means this seat's regex misses that file's spelling, not that the file is clean. The `TZ=Etc/GMT+8` run above is the load-bearing evidence; treat both counts as approximations and **re-enumerate before acting**.\n\n## Fix shape\n\nReported as: set `TZ=UTC` once in `vitest.config.mts`, rather than editing dozens of assertions.\n\n⚠️ Whoever takes it should check whether that hides a real locale/zone bug anywhere — pinning the zone makes the suite deterministic, which is the point, but it also means no test exercises a non-UTC session any more. If that coverage is wanted, it wants **explicit** per-case zones, not the runner's ambient one.\n\n## Related\n\nobjectui#8262 / PR #8353 (where it was measured) · objectui#8194 (its `SCOPE FENCE` block is in the population) · objectui#7443 · objectui#7620 · objectui#8209\n\n## Dedup\n\n⚠️ **Not run to completion, declared rather than hidden.** The reporting dev could not search at all. This seat's one attempt (`timezone` / `\"TZ=UTC\"` / `vitest.config` / `\"local date\"`) was itself refused by the rate limiter. **No dedup claim is made.** Suggested query for a triager: `timezone TZ pin date test literal local date faces`. Adjacent known cards: objectui#8194, objectui#8209.\n\n---\n\nBlocked-by: #8493\n\n⚠️ Added by the `domain:devx @ objectui` execution seat, 2026-09-08T03:12Z. **The work is complete and PR #8486 is green on every check except one**: `Test (shard 2/4)`, which fails on `plugin-kanban`'s `ObjectKanban.contractEnvelope-6839.test.tsx` — a defect external to this diff, measured three ways (shard 2's membership is byte-identical on base and branch; the CI runner is already UTC so the pin is a semantic no-op there; the kanban file is not zone-sensitive under any of four zones). ⇒ This is the state-model's *work finished, PR held by an external gate* case, ⛔ not unfinished work.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

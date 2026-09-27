@@ -1,0 +1,36 @@
+{
+  "number": 8458,
+  "kind": "issue",
+  "title": "finding(types): `zod-mirror-parity.test.ts`'s header says \"16 pairs\" where the ledger holds 18 — the one figure in that sentence no `headerFigures` pin covers, so it compiles and tests green while wrong",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:spec",
+    "finding",
+    "package: types",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T00:34:30Z",
+  "updated_at": "2026-09-08T14:41:02Z",
+  "closed_at": "2026-09-08T14:39:25Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8458",
+  "body": "**Finding (observation, awaiting first grading).** Filed unlabelled and unassigned — grading and `domain:*` belong to triage. Surfaced by the `CONTRACT_REVIEW_TIER` reviewer of PR #8354 as a **non-blocking** note (verdict PASS, card #7760 comment `5577240609`); ⛔ not fixed there, because that PR was already at its landing checks and this is prose in a region it does not otherwise touch.\n\n⚠️ **Provenance is split, and stated as such rather than blurred:** two halves below are this seat's own reading at `35f49ff1c`; the count of 18 is the contract reviewer's measurement and **this seat did not re-derive it**. It is recorded here to be verified by whoever takes the card, ⛔ not asserted as settled.\n\n## The sentence\n\n`packages/types/src/__tests__/zod-mirror-parity.test.ts`, header docblock, read at `35f49ff1c` (PR #8354's head) — verbatim:\n\n> ⛔ That repaired no mirror and no declaration: it made a face\n> READABLE that had been `unknown`. **19 keys across 16 pairs LEFT (13 entries\n> emptied)** because the reading they recorded was the annotation, and 3 keys\n> ENTERED …\n\n**Measured by the PR #8354 contract reviewer: 18 distinct pairs**, not 16 — 13 emptied plus **5 reduced**, the five named as `AppComponentSchema`, `DashboardComponentSchema`, `PageNodeSchema`, `ObjectViewSchema`, `DetailViewSchema`. ⇒ the sentence counts the *emptied* entries and the pairs inconsistently: a pair whose entry shrank but did not empty is still a pair the change moved.\n\n## Why it stays green — this seat's own reading\n\nThe file pins its header figures with `headerFigures(spelling: RegExp)` (`:3056`), which asserts the spelling occurs **exactly once** and returns its capture groups as numbers. Every call site pins an **entries/keys** spelling:\n\n```\n:3084  /\\*\\*SPEC-DERIVED \\((\\d+) entr(?:y|ies), (\\d+) keys?\\)\\*\\*/\n:3085  /\\*\\*LOCAL \\((\\d+) entr(?:y|ies), (\\d+) keys?\\)\\*\\*/\n:3086  /\\*\\*(\\d+) entries \\/ (\\d+) keys\\*\\* — (\\d+) \\/ (\\d+) spec-derived, (\\d+) \\/ (\\d+) local\\./\n:3089  /\\*\\*(\\d+) entries\\*\\* in `UnmirroredDeclared`, \\*\\*(\\d+) keys\\*\\* across them/\n```\n\n**No `headerFigures` regex matches a \"pairs\" figure.** ⇒ `19 keys across 16 pairs` is unpinned prose sitting inside a docblock whose *other* numbers are all machine-checked. It compiles, and `tsc -p tsconfig.test.json` and vitest are both green with it wrong.\n\n⭐ **That is the exact rot this header warns about in its own words**, three lines above the defect:\n\n> restate one without checking that the pin's spelling still reaches it.\n\nThe neighbouring figures (`23 entries` / `36 keys` / `47 arms`, and the `6 / 30 / 0 / 11` split) **are** covered and did move correctly with PR #8354. Only the pairs figure escaped.\n\n## Radius\n\n- The same \"16 pairs\" figure is repeated in **PR #8354's body**.\n- It is **not** carried by `.changeset/7760-lazy-mirror-input-type-args.md` ⇒ ⛔ **this does not reach `CHANGELOG.md` and is not published text.** That is what keeps it non-blocking, and it is why the reviewer did not ask for rework.\n- No consumer reads it; the cost is to the next person who trusts the header.\n\n## What this needs\n\n1. **Re-derive the pairs count** (⛔ do not adopt 18 from this card — that is the mistake this card is about) and correct the sentence, in the test file and in PR #8354's body if it has not merged.\n2. **Decide whether the figure should be pinned at all.** Two honest options, and the choice is the card's real content:\n   - add a `headerFigures` spelling for it, so it cannot rot again — but every pinned figure is a maintenance cost on every future ledger move; or\n   - **drop the pairs figure from the sentence**, keeping only the pinned entries/keys/arms. A number no instrument checks is a liability in a header whose whole authority rests on the others being checked.\n3. If it is pinned, state whether \"pairs\" means *entries that emptied* or *entries the change moved at all* — the ambiguity is what produced the discrepancy.\n\n## Not a duplicate of\n\n- **#7279** — that card corrected the `SPEC-DERIVED` / `LOCAL` split in the same header, and its figures **are** pinned (`:3084`–`:3086`). Same file, same docblock, different figure; the whole point here is that this one is *outside* the pinned set.\n- **#8252** — built the arm split (`6 / 30 / 0 / 11`), which is pinned and correct.\n- **#7760** / PR #8354 — the change that moved every figure in the sentence. Its own contract review passed; this is a residue it recorded rather than a defect in the ruled change.\n\nRefs: #7760 / PR #8354 (where it was found; reviewer's note in comment `5577240609`) · #7279 · #8252 · #7069 (the ledger's origin)."
+}

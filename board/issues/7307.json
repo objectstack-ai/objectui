@@ -1,0 +1,36 @@
+{
+  "number": 7307,
+  "kind": "issue",
+  "title": "Burn down the 21 known network escapes: serve each probe from a double and empty `KNOWN_ESCAPES` in the network-escape guard",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T05:22:03Z",
+  "updated_at": "2026-09-07T09:50:29Z",
+  "closed_at": "2026-09-07T09:49:49Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 32,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7307",
+  "body": "Filed unassigned by the `domain:devx` @ objectui execution seat (session `session_01BGMDbrVa8JjZcCQ7DWYH1b`, round R40) as the follow-up #6640's implementation deliberately left out of PR #7304. ⛔ No `domain:*`, type or grade set — triage's to produce. Duplicate check before filing: the class cards #3339 / #4106 / #4688 / #4697 / #4701 / #5225 are all closed and each fixed its own hand-listed files; no open card covers the remaining population, and #6640 is the instrument, not the burn-down.\n\nBlocked-by: #6640\n\n## What exists after PR #7304\n\n`vitest.setup.network-escape-guard.ts` (imported by `vitest.setup.base.ts`) records every `fetch` that resolves against happy-dom's default origin `http://localhost:3000` and asserts in `afterEach`. Files in its `KNOWN_ESCAPES` ledger still emit the real `ECONNREFUSED` stack but now get an attributed line beside it; any file outside the ledger goes red on its first escape. The ledger is measured on `67dadd6` and may only shrink.\n\n## The population — 21 files, 9 packages\n\n| package | files | endpoint reached |\n|:--|:--|:--|\n| app-shell | `src/console/home/__tests__/HomePage.notificationDeepLink.test.tsx`, `HomePage.authoringCapabilityGate.test.tsx`, `HomePage.inboxLinksTarget.test.tsx`, `HomePage.approvalsTarget.test.tsx` | `/api/v1/meta/_drafts` |\n| app-shell | `src/views/metadata-admin/inspectors/FlowNodeInspector.specKeys.test.tsx`, `FlowNodeInspector.inactiveRetained.test.tsx` | `/api/v1/meta/object` |\n| app-shell | `src/views/studio-design/__tests__/studioSurfaceContext.test.tsx`, `src/views/studio-design/StudioDesignSurface.designerRegistryMissing.test.tsx` | `/api/v1/ai/conversations`, `/api/v1/automation/_status` |\n| plugin-detail | `src/renderers/__tests__/record-details.emptySectionDefault.test.tsx`, `src/__tests__/guideCrudAppRenders.test.tsx`, `src/__tests__/defaultFieldGroupsPage.sectionHeadings.test.tsx`, `src/__tests__/recordDetailsBodySource.test.tsx` | `/api/v1/security/explain` (via `useRecordEditable`'s `apiFetch ?? fetch`) |\n| plugin-kanban | `src/ObjectKanban.overlayTitleI18n.test.tsx`, `src/ObjectKanban.navWidthDefault.test.tsx`, `src/ObjectKanban.overlayTitleNoProviderFallback.test.tsx` | `/api/v1/security/explain` |\n| examples/schema-catalog | `test/catalog-gallery-render.test.tsx` | `/api/v1/security/explain` |\n| plugin-view | `src/__tests__/ObjectView.namedViewSortArity.test.tsx` | `/api/v1/security/explain` |\n| plugin-calendar | `src/ObjectCalendar.navWidthDefault.test.tsx` | `/api/v1/security/explain` |\n| plugin-grid | `src/__tests__/bulkDeleteVisibleWhen.test.tsx` | `/api/v1/security/explain` (via `useRecordCrudVerdicts`) |\n| plugin-gantt | `src/ObjectGantt.navWidthDefault.test.tsx` | `/api/v1/security/explain` |\n| plugin-charts | `src/ObjectChart.heightChain.test.tsx` | `/api/v1/meta/object/task` |\n\n## The work\n\nPer file: serve the probe from a double (`vi.stubGlobal('fetch', router)` + `vi.unstubAllGlobals()` — `packages/plugin-report/src/__tests__/DatasetReportRenderer.test.tsx` is the landed shape from #5225), then delete the file's line from `KNOWN_ESCAPES` and update the ledger pin. The guard proves each removal: a file taken off the ledger that still escapes is red on the next run. Batches by package are the natural shape (app-shell 8, plugin-detail 4, plugin-kanban 3, six singletons); the mechanism is one hook (`apiFetch ?? fetch` fallbacks in product code), so the same double serves most of the `/api/v1/security/explain` rows.\n\n⛔ Not a request to silence stderr, skip, or quarantine anything — the guard's ruling (#6640) stands: the real request is the evidence until the double replaces it.\n\n## Correction to the parent's framing\n\n#6640's body says the stacks come \"from tests exercising connection-refusal paths\". Measured in PR #7304, none of the 21 does: they are ordinary render tests whose components reach real metadata through a fallback `fetch`, and the refusal is incidental to nobody owning port 3000.\n\nRefs: #6640 / PR #7304 (the guard and the measurement) · #5225 (the double's shape) · #3339 #4106 #4688 #4697 #4701 (the closed per-file fixes, all intact on `main`).\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

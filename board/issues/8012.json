@@ -1,0 +1,36 @@
+{
+  "number": 8012,
+  "kind": "issue",
+  "title": "check-shell-escape-residue.test.ts's docblock has an empty `## Fixture discipline` section — its body sits two sections below, under the wrong heading",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "finding",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-06T08:36:11Z",
+  "updated_at": "2026-09-08T18:32:00Z",
+  "closed_at": "2026-09-08T18:31:18Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8012",
+  "body": "Filed out-of-scope from #7413 (PR #8010). Unassigned. A one-paragraph docs defect in a test docblock; filed plainly rather than folded into that PR.\n\n## What\n\n`scripts/__tests__/check-shell-escape-residue.test.ts`'s header docblock, on `origin/main` at `e1545cf`:\n\n```\n * ## Fixture discipline\n *\n * ## The second skills root (objectui#7403)\n *\n * `SCAN_ROOTS` carries TWO skills trees: the published `skills/` and the\n * contributor tree `.claude/skills/`, ...\n```\n\n`## Fixture discipline` has **no body at all**. The paragraph that belongs under it is the last one in the docblock, sitting after the `objectui#7403` section with no heading of its own:\n\n```\n * `scripts/` is not in `SCAN_ROOTS`, so this file could carry the literal\n * plainly. It builds it from code points anyway — belt and braces against a\n * future widening of the scan surface turning this suite into the gate's own\n * first finding — and then PINS the constructed value against the shipped\n * `RESIDUE_PATTERNS` entry, so a typo in the source literal reddens here.\n```\n\nThat is fixture discipline, and it reads as a trailing note on the skills-root section instead.\n\n## Why it happened, and why it is worth a line\n\nThe `## The second skills root (objectui#7403)` section was inserted **between** a heading and its own body when #7403 widened the gate. The result is not merely cosmetic: an empty heading reads as a section someone meant to write and never did, so the next author is invited either to delete it (losing the pointer) or to write a second fixture-discipline paragraph under it while the original sits below (two answers to one fact). PR #8010 hit exactly that fork — its new `## Coverage` section was first placed at the same insertion point, deepening the split, and was moved to the end of the docblock instead, leaving the pre-existing arrangement untouched rather than fixing it in an unrelated PR.\n\n## Fix\n\nMove the `scripts/` is not in `SCAN_ROOTS` paragraph back under `## Fixture discipline`, above `## The second skills root`. No behaviour change; the docblock is not asserted by any pin.\n\nNot a duplicate of #6280 (stale coverage *claims* in a docblock — a falsified premise, not a displaced section).\n\nObserved by the dev seat on #7413 while editing this docblock, unclaimed.\n"
+}

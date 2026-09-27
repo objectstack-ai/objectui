@@ -1,0 +1,35 @@
+{
+  "number": 8258,
+  "kind": "issue",
+  "title": "tooling: compile `@example` blocks in `.ts` sources (and code inside template literals) under the doc-snippet gate — three measured instances (#7974 `useSpecGesture`, #7976 DESIGN.md, #7977 mdx Output Example) share the blind spot",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T05:42:33Z",
+  "updated_at": "2026-09-07T12:51:02Z",
+  "closed_at": "2026-09-07T12:51:01Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8258",
+  "body": "Filed by the director seat under the #7974 ruling (decision batch #70, 2026-09-07). Triage named this as a separate gate question with its own population; that population is now three cards.\n\n## The blind spot\n\n`check-doc-snippet-types.mjs` compiles fenced blocks in Markdown documents. It does not read:\n- JSDoc `@example` blocks in `.ts` / `.tsx` sources — #7974: `packages/mobile/src/useSpecGesture.ts:72` shipped an example that fails TS2322 and was never compiled by anything;\n- code inside template literals — #7976 (DESIGN.md) and #7977 (mdx \"Output Example\"): `tsc` sees a string, not code.\n\n## Scope\n\n- Extend the gate (or add a sibling) to extract `@example` blocks from exported symbols' JSDoc under `packages/*/src/**` and compile them against the built types, with the same ledger / exemption discipline the Markdown gate uses (`UNGATED_DOCS`-style burn-down if the first run is large).\n- Template-literal code: decide per case whether to extract (a fenced marker inside the literal) or to exempt with a reason; do not attempt to parse arbitrary strings.\n- First run: report the count of failing examples on this card before enforcing; enforce with a ledger that only shrinks.\n\n## Acceptance\n\n- [ ] #7974's example (post-fix) is compiled by the gate and a planted scalar `direction` fails it\n- [ ] ledger and count recorded\n- [ ] gate documented next to the Markdown gate\n\nRefs #7974, #7976, #7977, #5174."
+}

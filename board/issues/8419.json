@@ -1,0 +1,32 @@
+{
+  "number": 8419,
+  "kind": "pull_request",
+  "title": "test(scripts): hoist the doc-links corpus walk out of the timed window",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T21:27:37Z",
+  "updated_at": "2026-09-07T22:00:23Z",
+  "closed_at": "2026-09-07T21:59:48Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-09-07T21:59:48Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/8419",
+  "body": "Fixes #8062\n\n## What was measured, and on what box\n\nEvery run below went through the shared heavy-verify lock\n(`../objectstack/scripts/pm/os-verify-lock.sh`, the convention recorded as objectui#8403),\nand each one printed its own `VERDICT command-exit 0` line. **The lock was held for every\nnumber in this PR.** The lock excludes other locked runs, not unlocked sibling work, so\ntreat the absolutes as shared-box seconds and the ratios as the durable part.\n\nRe-derived first, before changing anything —\n`pnpm exec vitest run scripts/__tests__/check-doc-links.test.ts --reporter=verbose`:\n\n| test | before | after |\n| --- | ---: | ---: |\n| `agrees with the real renderers on every heading in the scan surface` | 3964 ms | 25 ms |\n| `has no setext headings, which the ATX-only scan would not see` | 3659 ms | 35 ms |\n| whole file, 121 tests | 10.32 s | 6.10 s |\n\nThe card's idle figures (4429 ms / 3792 ms) reproduced, so the premise still holds. Against\nvitest's 15000 ms default the headroom goes from **3.8x and 4.1x** to **600x and 428x**, and\nthe file as a whole gets 4.2 s faster because the walk is now paid once instead of twice.\n\n## Which of the two shapes this is: shape 2, with the split measured\n\nThe work had drifted into a bounded window; it does not belong there. A standalone profile of\nthe identical walk (plain node, no vitest, under the lock) splits the cost:\n\n```\nfiles 273 · bytes 2,550,739\ncollect            29 ms\nread               12 ms\ngetTableOfContents  pass 1 3138 ms · pass 2 2746 ms\nassertion work (github-slugger + headingAnchors)   27 ms\n```\n\nSo ~99% of each test's window was fumadocs' remark parse of the whole corpus, and **both\ntests parsed the same 273 files** — the hint in the card is right: it was shared work paid\ntwice over identical inputs. Everything the two tests actually assert adds up to 27 ms.\n\nNo timeout was raised. Nothing was skipped, quarantined or narrowed.\n\n## The repair\n\n`ANCHOR_CORPUS` is now built **once at module scope**: collect the `SCAN_ROOTS` files, read\neach one, strip frontmatter with the existing `documentBody()`, and hand it to fumadocs'\n`getTableOfContents` with `remark-mdx` for `.mdx` — byte for byte the same call the two tests\neach used to make. Each `it()` then measures only its own assertion.\n\nModule scope is the only home that qualifies, and AGENTS.md's test-discipline rule is the\nreason for both halves of that:\n\n- the cost lands in the **import phase**, which no `testTimeout` governs (vitest's own summary\n  moves it there: `import 225ms` before, `import 4.22s` after);\n- it is deliberately **not** a `beforeAll`, which would trade the 15 s `testTimeout` for the\n  narrower 10 s `hookTimeout` — moving the problem, not fixing it.\n\nThe two `loadToc` / `loadSlugger` / `loadMdx` helpers and `documentBody()` moved out of the\ndescribe body to module scope unchanged (a describe callback is synchronous, so the top-level\nawait could not live inside it). `loadSlugger()` is still awaited inside the tests that use it;\nthe github-slugger parity tests are untouched.\n\n## Proof that nothing asserted changed\n\n1. **Not one assertion line moved.** `git diff origin/main..HEAD -- scripts/__tests__/check-doc-links.test.ts | grep -E '^[-+].*expect\\('` prints **nothing** — no `expect(` line was added, removed or edited anywhere in the diff.\n2. **Both tests still go red on a real corpus change.** Ablation: append a setext H2 to `ROADMAP.md` (a genuinely scanned file), proven on disk by `git hash-object` moving `e022b5d1` to `ec9e1df5` and by a `grep -c` of the injected text. Result — both corpus tests **FAIL** (`Tests 2 failed | 119 passed (121)`), in 36 ms and 37 ms, so the fixture really does feed both assertions. Restore leg proven by state: hash back to `e022b5d1`, `git diff HEAD` empty.\n3. **The corpus is not narrower than it was.** A temporary assertion printed `ANCHOR_CORPUS.length 273 · docsFiles 184 · diskFiles 89`, identical to an independent walk of `SCAN_ROOTS` outside the test (`{\"total\":273,\"docs\":184,\"disk\":89}`). The file's own lit-instrument assertions (`docsFiles` over 150, `diskFiles` over 50) are unchanged and still pass. That mutation was restored the same way, hash and empty `git diff HEAD`.\n\n## Checks run, with real verdicts\n\n| command | result |\n| --- | --- |\n| `pnpm exec vitest run scripts/__tests__/check-doc-links.test.ts --reporter=verbose` | `Test Files 1 passed (1)` · `Tests 121 passed (121)` |\n| `pnpm exec vitest run scripts/` | `Test Files 121 passed (121)` · `Tests 3615 passed (3615)` · 93.34 s |\n| `pnpm lint` | `Tasks: 47 successful, 47 total`, exit 0 (0 errors; the warning counts are pre-existing) |\n| `pnpm type-check:scripts` | exit 0 — and `tsc --listFiles` confirms it really includes this test file, so that green is a measurement |\n| `node scripts/check-changeset-presence.mjs` | exit 0 — *\"No source or published contract of a released package changed in this range, so no changeset is owed.\"* Checked, not guessed; no changeset added. |\n| `pnpm check:control-bytes` | OK, 6661 tracked text files |\n| `pnpm check:lint-rule-coverage` · `check:vi-mock-specifiers` · `check:vi-mock-inherit` · `check:pre-install-import-graph` | all exit 0 |\n\nScope fences respected: the corpus, `SCAN_ROOTS`, the renderers and the github-slugger parity\ntest are all untouched. One file changed.\n\n---\n\nDrafted by an agent seat, session `session_01FhBNJcLRZLe8M87VcUgpKr`; stays in draft.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01FhBNJcLRZLe8M87VcUgpKr\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01FhBNJcLRZLe8M87VcUgpKr)_"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 5174,
+  "kind": "issue",
+  "title": "check-doc-snippet-types.mjs collects only `.mdx` under content/docs — 40 `.md` guides are uncovered with no UNGATED_DOCS entry, contradicting its own \"covered by default\" rule",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T08:58:53Z",
+  "updated_at": "2026-09-07T11:33:26Z",
+  "closed_at": "2026-09-07T11:33:26Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 167,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5174",
+  "body": "Found while adding a `tsx` snippet to `content/docs/guide/public-forms.md` for objectui#5112 (PR #5173). Filed unassigned and NOT fixed there — #5112 is scoped to `EmbeddableForm`'s thank-you redirect; this is a CI gate's scan surface.\n\n## What\n\n`scripts/check-doc-snippet-types.mjs` states its coverage rule in its own docblock:\n\n> A document is covered unless it is named in `UNGATED_DOCS` with a reason.\n\nand its fragment rule exists specifically so that a snippet is never skipped silently:\n\n> ## The rule for fragments: explicit marker, never a silent skip\n\nBut the collector picks documents by extension:\n\n```\nelse if (entry.endsWith('.mdx')) out.push(relative(root, p).split(sep).join('/'));\n```\n\nUnder `content/docs` that admits **143 `.mdx`** and excludes **40 `.md`**. None of the 40 appears in `UNGATED_DOCS`, so they are not \"ungated with a reason\" — they are invisible to the gate's own accounting, which is the silent skip the script is written to prevent. The summary line it prints (`Scanned N document(s): … ungated — declared in this script`) cannot mention them, so a reader has no signal that a third of the guide tree is unverified.\n\n## Measured\n\nOf those 40 `.md` files, at least 20 hold ts/tsx fences today (count = fences opened with ```` ```tsx ````/```` ```ts ````/```` ```typescript ````):\n\n```\n24 content/docs/guide/component-registry.md\n14 content/docs/guide/theming.md\n13 content/docs/guide/plugin-development.md\n12 content/docs/guide/plugins.md\n12 content/docs/guide/architecture.md\n11 content/docs/guide/schema-rendering.md\n11 content/docs/guide/building-crud-app.md\n 9 content/docs/guide/troubleshooting.md\n 9 content/docs/guide/layout.md\n 8 content/docs/guide/schema-overview.md\n 7 content/docs/rfcs/0001-clipboard-paste.md\n 7 content/docs/guide/public-forms.md\n 7 content/docs/guide/expressions.md\n 6 content/docs/guide/data-source.md\n 5 content/docs/guide/user-state-persistence.md\n 5 content/docs/guide/notifications.md\n 4 content/docs/guide/slotted-pages.md\n 4 content/docs/guide/metadata-diagnostics.md\n 3 content/docs/plugins/index.md\n 3 content/docs/guide/quick-start.md\n```\n\nThese are user-facing getting-started guides — the pages a reader copies from most — and they are exactly the class of document objectui#5160 found broken elsewhere (published READMEs importing symbols their packages do not export, 15 TS2305 against the built dist). READMEs *are* collected by this gate; the `.md` guides next to the `.mdx` ones are not.\n\n## Two readings, and why this is filed rather than fixed\n\n1. **Oversight.** The docblock's \"covered unless named in `UNGATED_DOCS`\" is the intended rule and the extension filter defeats it for 40 documents. Fix: collect `.md` too, then triage the resulting diagnostics — most will need `FRAGMENT_MARKER` (the `.md` marker spelling already exists in the script, which suggests `.md` was in scope at design time), some will be real defects, and any page whose snippets are genuinely uncompilable gets an `UNGATED_DOCS` entry with a reason.\n2. **Deliberate v1 scoping.** The gate landed very recently (`.github/workflows/doc-snippet-types.yml` is on `main` but not at c2dc47719), and its author may have scoped the first cut to `.mdx` on purpose, planning `.md` as a follow-up.\n\nI could not tell which from the code — the docblock argues for reading 1, the filter implements reading 2, and nothing in either says the other was considered. That is itself worth resolving: whichever is intended, the `.md` exclusion should be **stated** where the coverage rule is stated, so the next reader is not told \"covered by default\" by a script that covers by extension.\n\nTurning the filter on is not a one-line change in practice — a first local look at `public-forms.md` alone shows fences that are deliberate prose fragments (a bare `consent: { … }` object literal), so the work is the triage pass, not the collector edit.\n\n## Reachability, honestly\n\nNothing a user hits at runtime — this is CI coverage, not product behaviour. Its cost is the defects it does not catch: a broken snippet in one of the 20 files above ships to the docs site and is found by a reader instead of by the gate, which is precisely the failure objectui#5160 documents on the surfaces the gate *does* cover.\n\nRelated: objectui#5106 (the same shape in a different gate — `check-doc-component-types`'s scan surface stops at code fences), objectui#5160 (what uncovered doc snippets cost when they rot), objectui#4823 / #5138 (the gate's deferred second dimension)."
+}

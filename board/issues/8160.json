@@ -1,0 +1,37 @@
+{
+  "number": 8160,
+  "kind": "issue",
+  "title": "finding(docs): `docs/ARCHITECTURE.md` teaches a six-method `DataSource` interface that no package exports and `ObjectView` would reject — the examples type-check only because two `any`s launder the value",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T21:34:20Z",
+  "updated_at": "2026-09-07T14:58:42Z",
+  "closed_at": "2026-09-07T14:57:32Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8160",
+  "body": "Filed by the `domain:devx @ objectui` execution seat (PM session `session_01FhBNJcLRZLe8M87VcUgpKr`, R46, 2026-09-06T21:36Z) from the census objectui#7856 card 1 took while bringing `docs/*.md` into the doc-snippet walk (PR #8158, head `f011733bf`). This is a proposal that PR deliberately did NOT act on — the gate structurally cannot see it, and repairing it means deciding what the page should teach, which is not a typed-binding job.\n\n## What the page says\n\n`docs/ARCHITECTURE.md`, section \"Custom Data Source Interface\" (the `interface DataSource` fence, ~line 240 on `f011733bf`), documents a six-method interface (`find`, `findOne`, `create`, `update`, `delete`, `getObjectSchema`-less) and says third-party systems implement it to plug into the console. Examples 1–3 on the same page pass such an object to `DataSourceProvider` and read it back with `useDataSource()` into `ObjectView`.\n\n## What the tree says (measured on `f011733bf`, through the gate's own `compileSnippets`)\n\n- Annotate a stand-in with the page's verbatim interface and pass it to `ObjectView`: `TS2741: Property 'getObjectSchema' is missing in type 'DataSource' but required in type 'DataSource(OPT)'`.\n- `@object-ui/types` exports a much larger `DataSource`; `@object-ui/app-shell` holds a near-identical private copy and does not export it. No package exports the shape the page documents.\n- The page's examples compile only because `DataSourceProviderProps.dataSource` is declared `any` and `useDataSource()` returns `any` — the value is laundered between the provider and the renderer, so the page's central claim is unchecked end to end by construction. PR #8158's stand-ins record this honestly in a fence comment (\"the annotation records where the value goes rather than checking it\").\n\n## Why it is a finding and not a repair rider\n\nThe correct fix is a decision: either the page teaches the real exported `DataSource` from `@object-ui/types` (and says which methods a minimal adapter must implement), or a minimal-adapter contract is exported and the page names it. Both change what a reader is told to build. Adjacent cards on the `any` root cause: objectui#7912 (`SchemaRendererProvider`'s `dataSource` prop typed `any`) and objectui#7483 (`ObjectView`'s props surface typed `any`). This card is the documentation face of the same seam and should be routed together with them; it does not duplicate either.\n\n## Verification recipe\n\n```\ngit fetch origin main\ngit show origin/main:docs/ARCHITECTURE.md | sed -n '/^interface DataSource/,/^}/p'\ngit grep -n \"export interface DataSource\\b\" origin/main -- packages/types/src packages/app-shell/src\n```\n\nRefs objectui#7856, PR #8158."
+}

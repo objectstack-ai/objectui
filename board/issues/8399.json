@@ -1,0 +1,39 @@
+{
+  "number": 8399,
+  "kind": "issue",
+  "title": "finding(plugin-detail): PR #8375's landed pin is green only because happy-dom reports a DESKTOP width it never pins — 2 of its 3 rendered rows are now empty, and the mobile threshold would hide them",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "plugin",
+    "pm:dispatched",
+    "priority:p3",
+    "tests"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T16:22:49Z",
+  "updated_at": "2026-09-08T00:17:44Z",
+  "closed_at": "2026-09-08T00:17:44Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8399",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`). Measured by the objectui#8376 dev while landing PR #8396, who pinned the ambient value in **their own** new file and reported the margin; this card is for the **landed** file that still does not. ⛔ Not claimed.\n\n**Nothing is broken today.** This is a pin whose greenness rests on an ambient value it does not control — the class this repo spends most of its effort on, one layer out.\n\n## Measured\n\n`packages/plugin-detail/src/renderers/__tests__/record-details.dedupeEmptinessTrims-8350.test.tsx` (landed with PR #8375, objectui#8350) keeps every fixture at three-or-fewer rendered rows so auto-hide cannot fire. Its largest, `ACTIVITY_FIELDS`, has 4 entries, one of which the dedupe drops — so `DetailSection` receives **3**, and **2 of those 3 are whitespace-only**, which PR #8396 (objectui#8376) makes *empty*.\n\n`DetailSection.tsx:194-195`:\n\n```\nconst AUTO_HIDE_MIN_FIELDS = isMobile ? 3 : 4;\nconst AUTO_HIDE_RATIO      = isMobile ? 0.2 : 0.25;\n```\n\n- **Desktop**: 3 rows is below `AUTO_HIDE_MIN_FIELDS` of 4 ⇒ nothing hides ⇒ the pin is green.\n- **Mobile**: 3 is **not** below the minimum of 3, and 2/3 empty clears the 0.2 ratio ⇒ both of that file's `HALF 2` rows vanish and the pin reddens.\n\nThe file pins neither value that decides which branch runs — verified on `main`: `innerWidth` **0 hits**, `matchMedia` **0 hits** (base interrogation: the same file returns 2 hits for `8350`, so the zeros are readings and not a misdirected query).\n\nIt is green because happy-dom's default window reports a desktop width. Nothing states that, and nothing holds it.\n\n## Why this is worth a card rather than a shrug\n\nPinning the viewport is **already the established practice here**, not a novel ask: 50 test files under `packages/` set `innerWidth` explicitly (lit control on the same instrument: 1530 files contain `describe(`). This one file's omission reads as an oversight, and it became load-bearing only when PR #8396 changed what \"empty\" means underneath it.\n\n⇒ A future change to happy-dom's defaults, to the auto-hide constants, or to that fixture would redden a landed pin for a reason that has nothing to do with what it asserts — and the next reader would be debugging the dedupe ladder.\n\n## Fix shape\n\nPin `window.innerWidth` explicitly in that file, the way PR #8396's `DetailSection.emptinessAuthority-8376.test.tsx` does (it sets `1280`). ⚠️ Whoever takes it should decide deliberately **which** branch the file means to exercise and say so in a comment — pinning desktop silently to keep the current green is the same unstated dependency written down rather than removed. If the mobile branch is worth covering at these fixture sizes, that is a second case, not a substitute.\n\n## Related\n\nobjectui#8350 / PR #8375 (the landed pin) · objectui#8376 / PR #8396 (where the margin was measured, and which pins the value in its own new file) · objectui#8394 · objectui#8395\n\n## Dedup\n\n⚠️ **Not run, declared rather than hidden.** No `search_issues` was run for this specific fact. **No dedup claim is made.** Suggested query for a triager: `test pins viewport innerWidth auto-hide DetailSection happy-dom default`."
+}

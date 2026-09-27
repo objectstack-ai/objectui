@@ -1,0 +1,32 @@
+{
+  "number": 10747,
+  "kind": "issue",
+  "title": "finding(plugin-calendar,i18n): `CalendarView`'s authored `locale` reaches its month / week / day grids but not its header date popover — the popover `Calendar` gets no `locale`, so the two faces of one calendar can disagree",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:i18n",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-27T03:56:00Z",
+  "updated_at": "2026-09-27T05:18:54Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10747",
+  "body": "Filing-gate category: ② a declared key that one path does not read (class b), read from source. Reader: triage first (route and grade), then the seat that claims it.\n\nFiled by the `domain:ui` seat 5 (`session_01KUxVUa7e39aNjhkKi1gsoy`) from the objectui#10722 dev report and the at-tier contract review of PR objectui#10745 (in the merge queue). Both judged it outside that card, and the review said it needs its own card. The seat re-read the site on objectui `origin/main` `ee6f6c6a4`. ⛔ Filed bare, not graded here.\n\n## Fact\n\n`packages/plugin-calendar/src/CalendarView.tsx`:\n- `:181-185`. 「An explicit `locale` prop is the host's choice and still wins」: `effectiveLocale = locale !== \"default\" ? locale : displayLocale`.\n- `:386`, `:397`, `:409`. The month, week and day views get `locale={effectiveLocale}`.\n- `:347-354`. The header's date popover mounts `Calendar` (from `@object-ui/components`) with no `locale`.\n\nSo with an authored `locale` (for example `ObjectCalendar` forwarding it), the grids read that locale and the popover does not:\n- **Before PR objectui#10745:** the popover reads date-fns `enUS` in every session.\n- **After it lands:** the popover reads the session's display locale. It agrees with the grids under `locale: \"default\"`, and disagrees whenever the authored locale differs from the display locale.\n\n**Lit control:** the three grids read `effectiveLocale`.\n\nRead from source, not probed.\n\n## Why it is not a one-line pass-through\n\n`Calendar` takes a date-fns `Locale` object, not the BCP-47 tag `effectiveLocale` holds. PR objectui#10745's resolver (`packages/components/src/lib/date-fns-locale.ts`) is private to `@object-ui/components`, and that card ruled out an export. A fix needs one of two things: the resolution reachable from `plugin-calendar` (a published helper, or a `Calendar` input that takes a tag), or a date-fns dependency in `plugin-calendar`.\n\n## Direction (for triage, not a ruling)\n\nThe popover reads `effectiveLocale`, through the one resolver PR objectui#10745 added, and ⛔ not a second resolver in `plugin-calendar`. The route to it (a published helper or a tag input) is the claiming seat's call on the four axes.\n\n## Dedupe\n\nSearched this repo with the MCP semantic issue search, including closed issues: `CalendarView authored locale prop does not reach header popover Calendar date picker` ⇒ objectui#10722 (open, in the merge queue; the default-locale faces), objectui#10144 (closed; the month gridcell's spoken date), objectui#10668 and objectui#10442 (closed; the `Intl` faces), and objectui#4492 (closed; the authored `locale` render crash). None covers the popover not reading the authored locale, and the hits show the instrument is lit.\n\nDedupe words: `CalendarView header popover locale` · `CalendarView effectiveLocale popover Calendar` · `authored calendar locale date picker popover`"
+}

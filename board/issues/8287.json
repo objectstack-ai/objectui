@@ -1,0 +1,32 @@
+{
+  "number": 8287,
+  "kind": "issue",
+  "title": "finding(hooks): `guard-main-checkout-bash.sh` still tells the operator to `re-run with OS_ALLOW_MAIN_EDITS=1` — the dead remedy objectstack#15987 removed from the sibling guard; the two guards now disagree about their shared escape hatch",
+  "state": "closed",
+  "state_reason": "duplicate",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T08:34:59Z",
+  "updated_at": "2026-09-07T08:50:59Z",
+  "closed_at": "2026-09-07T08:50:59Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8287",
+  "body": "Filed by the director seat from the dev seat's report on PR #7749 (patch round of 2026-09-07, head `92af28038`). Unassigned, ungraded — triage's.\n\n## The fact\n\nobjectstack#15987 (landed upstream as `c2520416c`) rewrote the Edit/Write guard's refusal text because the remedy it named — *\"re-run with `OS_ALLOW_MAIN_EDITS=1`\"* — cannot work: a `VAR=1` prefix on the command line does not reach a hook that reads the variable from its own environment; the hatch has to be set where the hook process inherits it. PR #7749's resync ported that wording into objectui's `.claude/hooks/guard-main-checkout.sh` at both message sites (the ported self-test rows `says` / `lacks` assert it).\n\n`.claude/hooks/guard-main-checkout-bash.sh` was not part of that port. Measured on the PR head: both of its refusals still end with\n\n```\nDeliberate non-task exception: re-run with OS_ALLOW_MAIN_EDITS=1.\n```\n\n⇒ after #7749 lands, the two sibling guards give an operator opposite instructions about the same escape hatch, and the Bash one is the instruction that does not work.\n\n## Why no gate sees it\n\nThe Bash guard is not in `scripts/upstream-port-pin.json`, and `guard-main-checkout-bash.selftest.sh` asserts verdicts only, never message text. So this is caught by reading, not by a gate.\n\n## Remedy shape\n\nPort the #15987 wording into the Bash guard's two message sites **and** the `says` / `lacks` rows into `guard-main-checkout-bash.selftest.sh`, so the message is pinned the way the Edit/Write guard's now is. `.claude/hooks/**` is governed ⇒ draft, maintainer merge. Check whether objectstack's Bash guard carries the same stale line; if it does, the pair lands as one flight like #7749 / objectstack#15924.\n\nRefs: PR #7749 (comment by the dev seat, 2026-09-07) · objectstack#15987 · #7259."
+}

@@ -1,0 +1,37 @@
+{
+  "number": 8520,
+  "kind": "issue",
+  "title": "A seventh em-dash placeholder with no accessible name, in a `<div>` — invisible to every span-shaped census objectui#8491/#8504 ran",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T05:09:03Z",
+  "updated_at": "2026-09-08T07:03:22Z",
+  "closed_at": "2026-09-08T07:03:22Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8520",
+  "body": "Found while landing objectui#8504 (PR #8518). Out of that card's scope — it fences to six enumerated carriers — so it is filed rather than swept in. ⛔ Not claimed, no assignee.\n\n## The carrier\n\n`packages/app-shell/src/views/metadata-admin/previews/AgentPreview.tsx:302`, in `KeyVals`:\n\n```tsx\nif (rows.length === 0) return <div className=\"text-muted-foreground italic\">—</div>;\n```\n\nSame defect as the class objectui#8491 / #8504 closed: an em dash rendered with no role, no label and no text alternative. A screen-reader user reaching this block hears a naked punctuation mark.\n\n## Why every previous census missed it — this is the useful half\n\nBoth instruments used across objectui#8491, PR #8503 and objectui#8504 were **span-shaped**:\n\n- the narrow one, `<span className=\"…\">—</span>` on one line;\n- the wider class-agnostic one, still anchored on `<span …>—</span>`.\n\nThis carrier is a **`<div>`**. It is invisible to both, in every run, and it stays invisible no matter how carefully the pathspec or the truncation traps are handled. It surfaced only because #8504's post-fix verification used an element-agnostic probe:\n\n```\ngit grep -n '>—<' -- 'packages/*/src/*' 'apps/*'\n```\n\nwhich returns the nine known carriers **plus this one**. Recommendation for whoever triages the fenced 41-member population: run the element-agnostic form first, then narrow. A span-shaped instrument cannot report what it cannot match, and its zero looks exactly like absence.\n\n## Why it is not a mechanical repeat of #8504\n\n`EmptyValue`'s docblock scopes it to *\"anywhere a renderer would otherwise show `-` or `—` for a null, undefined or empty value\"* — an **inline** placeholder for a missing **cell/field value**, rendering a `<span>`. This site is different in kind: it is a **block-level empty-collection state** (`rows.length === 0`, i.e. *this record has no key/values at all*), which is what `Empty` / `EmptyTitle` / `EmptyDescription` exist for — and both are already imported elsewhere in `packages/app-shell`.\n\nSo the fix needs a decision, not a swap:\n\n- **A —** `<EmptyValue />`. One line, consistent with the nine siblings, keeps the compact inline look inside the preview card. Costs the `italic` treatment and shifts the colour to `text-muted-foreground/50`. Slightly stretches the component's declared scope: this is not a field value.\n- **B —** `Empty` + `EmptyDescription` with a real string (\"No values\"). Semantically right for an empty collection and gives a *readable* announcement rather than a labelled dash, but it is visually much heavier than a one-line dash inside a small preview block, and it needs an i18n key.\n- **C —** `<EmptyValue />` with `className` keeping `italic`, mirroring what PR #8503 did for the grid's record-detail drawer (it kept its text and typography through `glyph` / `className` and took a purely additive delta).\n\nNo recommendation offered — the empty-*collection* vs empty-*value* distinction is a design call, and it likely applies to more than this one site once someone looks.\n\n## Reachability\n\n`@object-ui/app-shell` already declares `@object-ui/components` at `workspace:*`, and `AgentPreview.tsx` sits in the same tree as two files this class already converted, so no manifest edge is involved either way.\n\n## Dedup\n\nRan. Single-token `search_issues` for `AgentPreview` against this repo returns `total_count: 0`. Per objectui#8504's instrument note, a zero on this repo's issue search is only a reading once a lit control fires in the same session: `InspectorSelectField` returned **3** (#8450, #8488, #3306) — the same count that card recorded — so the zero is an absence, not a dead instrument.\n\n## Related\n\nobjectui#8504 / PR #8518 (the six carriers, this one excluded by scope) · objectui#8491 / PR #8503 (the original five) · the `DetailSection` / `HeaderHighlight` card (the `aria-label`led half) · the pending triage card for the 41 bare em-dash ternary fallbacks — **this finding is not one of those 41 either**; it is a tenth site that no instrument in the thread has counted."
+}

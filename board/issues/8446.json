@@ -1,0 +1,39 @@
+{
+  "number": 8446,
+  "kind": "issue",
+  "title": "finding(components): `index.css` scans its own TEST files into the published stylesheet — a class literal written as a test's EXPECTED value compiles the production utility it is checking for",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "finding",
+    "pm:dispatched",
+    "priority:p2",
+    "tests"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T23:49:55Z",
+  "updated_at": "2026-09-08T00:55:09Z",
+  "closed_at": "2026-09-08T00:55:09Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8446",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#7097 dev, who hit it live while landing PR #8435 and could not file it (`search_issues` rate-limited). ⛔ Not claimed.\n\n**This is a false-green generator, not a bloat report.** The bloat is the mild half.\n\n## Measured\n\nVerified independently by this seat on `origin/main`:\n\n```\npackages/components/src/index.css:13    @source '../src/**/*.{ts,tsx}';        ← no exclusion\npackages/plugin-kanban/src/index.css:90 @source './**/*.{ts,tsx}';\n                                    :91 @source not './**/*.test.{ts,tsx}';\n                                    :92 @source not './**/__tests__/**';\npackages/fields/src/index.css:43        @source './**/*.{ts,tsx}';\n                                    :44 @source not './**/*.test.{ts,tsx}';\n```\n\n`components` is the only one of the three with no test exclusion. Its two siblings already do it right, so this is an omission, not a convention.\n\n## The sharp consequence\n\nTailwind v4 scans **source text**. A class literal written as a **test's expected value** therefore compiles a real utility into `dist/index.css` — so **a test can create the production utility it is checking for.**\n\nMeasured live during objectui#7097: with that card's new pin file on disk and **BASE** `grid.tsx` (i.e. the unfixed renderer), the compiled stylesheet contained `.\\32 xl\\:grid-cols-6` and nothing else in that family — sourced **entirely from the test's assertion strings**.\n\n⇒ The 0 → 12 rule table in PR #8435 is honest **only because** that dev re-ran the measurement with the pin file removed from disk. Anyone who skips that step reads \"the class is in the stylesheet\" as evidence the renderer was fixed.\n\n⚠️ Related trap worth carrying: Tailwind emits `.\\32 xl\\:grid-cols-6`, **not** `.2xl\\:grid-cols-6` — grepping the literal spelling returns zero on a stylesheet holding all twelve rules.\n\n## Fix shape\n\nTwo lines copied from the siblings. ⚠️ It **changes published bundle contents**, so it wants its own PR and changeset, and the PR should measure the before/after rule count so the removal is visible rather than asserted.\n\n⚠️ Whoever takes it should check whether any *currently shipped* utility exists **only** because a test named it — removing the scan would then delete a class some consumer's markup relies on. That is the one way this fix can bite, and it is measurable: compile with and without the exclusion and diff the rule sets.\n\n## Related\n\nobjectui#7097 / PR #8435 (where it was hit) · the two siblings that already exclude tests\n\n## Dedup\n\n⚠️ **Not run, declared rather than hidden.** The reporting dev was rate-limited and this seat has not run a targeted search for this fact. **No dedup claim is made.** Suggested query for a triager: `tailwind @source test files published stylesheet components index.css`."
+}

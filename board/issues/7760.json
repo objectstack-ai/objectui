@@ -1,0 +1,36 @@
+{
+  "number": 7760,
+  "kind": "issue",
+  "title": "finding(types): the recursion-breaking annotation on 10 zod mirrors erases their published input face to `unknown` — the single-or-list producer objectui#7069 named systematic is unauditable at the type level because of it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "enhancement",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-09-05T15:47:14Z",
+  "updated_at": "2026-09-08T00:49:49Z",
+  "closed_at": "2026-09-08T00:48:58Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 13,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7760",
+  "body": "Filed unassigned by the dev seat executing objectui#7069 (PR #7758). Recording only; ⛔ not proposing a mechanism, and ⛔ not asking for the annotation to be removed — it may be load-bearing.\n\n## The reading\n\n`packages/types/src/zod/base.zod.ts` declares the schema-node mirror as a `z.lazy`, and annotates the const with a `z.ZodType` whose type argument is `any` to break the recursion in its own initializer. zod 4 defaults such a schema's INPUT type parameter to `unknown`. So the const's published static input face is `unknown`, and every mirror slot spelled through it inherits that — directly, as an array element, or nested in an object property.\n\n⚠️ **This is not one const.** Measured on `origin/main` `e546222b`, the same annotation appears on **10** exported mirrors across **7** files under `packages/types/src/zod/`: the schema-node mirror plus the navigation-item, menu-item (twice, in two files), filter-condition, filter-group, action, tree-node, nav-link and navigation-menu-item mirrors. Three further lazy nodes are reachable from registered mirrors with no exported const to name them. Structurally, **304** of the registered mirrors' shape slots reach one of these nodes, because every component mirror inherits the base's two schema-node slots.\n\n## Why it matters — measured, not inferred\n\nTwo separate costs, and the first is the one objectui#7069 ran into head-on.\n\n**1. The producer that card called systematic cannot be judged at the type level.** The literal single-or-list spelling occurs at **61** sites across **12** files. Whether each TS twin spells the same union or only the array is exactly the question objectui#7069 exists to answer — and the answer is not derivable from the mirror's input face, because that face reads `unknown` there, which is wider than every declaration BY DEFINITION and silent about what the mirror accepts at runtime, where the lazy union does validate. PR #7758's operator therefore EXCLUDES that region and says so; the direction is watched everywhere else. ⇒ **The card's headline producer is the one place its new ledger cannot look.**\n\n**2. The published authoring face is uninformative wherever it appears.** `@object-ui/types/zod` is a published entry point, and an author or tool inferring the input type of a component mirror gets `unknown` for its body and children slots rather than the node union the declaration states. The runtime still validates; the static face does not help.\n\n## What is already pinned, so this card is not re-measuring\n\nPR #7758 added a runtime leg walking the zod internals from every registered mirror. It pins the SOURCES of the region in both directions: a new recursive mirror fails it, and a recorded one that stops being reachable fails it too. So the region cannot grow silently while this card is open. ⭐ That leg is also how the count above was found: its first spelling asserted the region had a single source, and the walk refuted that on its first run.\n\n## Directions, none chosen\n\n- Leave it. The annotation is the standard way to break a recursive zod inference cycle, and the runtime behaviour is correct. Cost: the single-or-list producer stays unauditable and the published input face stays uninformative.\n- Give the recursive mirrors an explicit INPUT type argument instead of letting it default, so the published face carries the node union. Needs checking that it does not reintroduce the inference cycle the annotation exists to break, and it is a published-type change on a governed surface.\n- Audit the 61 sites by source comparison — an AST walk over the mirror source against the declaration source — accepting that this is a second instrument with its own failure modes rather than an extension of the type-level one.\n\n⛔ This is a maintainer-facing trade-off between a published face and an inference cycle, not a dev-seat call.\n\n## Dedup\n\nOne targeted semantic search over the parity / mirror / zod-internals vocabulary, INCLUDING closed issues, returned 35 substantive results — a live instrument, not a silent zero. objectui#7069 records the direction's blindness, objectui#6058 the unmirrored one, objectui#6141 / objectui#7433 the population-count rot, objectui#7735 a runtime-default divergence in the layout mirror. **None names the recursion-breaking annotation or its effect on the published input face.** Channel note, declared: repo-scoped REST is refused for this seat (403 from the session permission layer), so the dedup ran on the semantic-search channel.\n\n## Related\n\n- objectui#7069 / PR #7758 — the ledger whose stated hole this is, and the audit that measured the region.\n- objectui#7759 — the per-key dispositions for the part of the direction that IS measurable."
+}

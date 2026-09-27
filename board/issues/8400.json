@@ -1,0 +1,30 @@
+{
+  "number": 8400,
+  "kind": "issue",
+  "title": "看板卡片重复渲染记录标题：跳过集读的是框架从不发出的废弃别名 NAME_FIELD_KEY，而不是本仓自己的 resolveNameField()",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T16:30:27Z",
+  "updated_at": "2026-09-07T23:31:54Z",
+  "closed_at": "2026-09-07T23:31:54Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8400",
+  "body": "看板卡片把记录标题印两遍：一次作为卡片标题，一次作为正文第一行。\n\n## 界面证据\n\n本地 prod-like 栈里用 AI 搭了个宠物医院应用，看板卡片长这样：\n\n```\n小虎犬牙洁治评估        ← 卡片标题\n小虎犬牙洁治评估        ← 正文第一行（同一个字段 visit_title）\n可乐\n2026/9/7 上午9:30\n口气较重，牙龈容易出血…\n周明轩\n```\n\n三张卡都这样，不是个例。\n\n## 一行的根因\n\n`packages/plugin-kanban/src/ObjectKanban.tsx:418`：\n\n```js\n// `nameFieldKey` is retained: it still feeds the description-field skip set\n// below so the title field's raw value isn't repeated in the card body.\nconst nameFieldKey: string | undefined = objectDef?.NAME_FIELD_KEY;\n```\n\n注释把这个变量的职责说得很清楚 —— **它就是用来防止标题在正文里重复的**。但它读的是 `NAME_FIELD_KEY`：\n\n1. **框架从不发这个键。** 在 `.objectstack-sha` 指向的框架树里 grep `NAME_FIELD_KEY`，源码 **0 处**命中。\n2. **本仓自己已经把它标为废弃别名。** `packages/core/src/utils/record-title.ts:32` 的文档写着「`objectDef.displayNameField`（别名 `NAME_FIELD_KEY`）— deprecated alias」，而本仓**已经有**共享解析器 `resolveNameField()`（`:346`），读的是 `nameField ?? displayNameField ?? NAME_FIELD_KEY`。\n\n所以 `nameFieldKey` 恒为 `undefined` → 跳过集恒为空 → 标题字段照常出现在正文里。\n\n## 为什么现有的兜底盖不住\n\n跳过集里还有一组硬编码的常见拼写（`name` / `title` / `subject` 之类）。AI 搭建出来的对象用的是 `visit_title` / `owner_name` / `vaccination_record_name` 这类**带前缀的**命名，一个都不在那组里。所以这个缺陷在 AI 搭建的应用上是**必现**的，在手工建的、字段就叫 `name` 的对象上反而看不见 —— 这大概就是它一直没被发现的原因。\n\n## 修法\n\n`nameFieldKey` 改用本仓自己的 `resolveNameField()`，别读那个没人发的废弃别名。\n\n回归测试建议直接照 AI 搭建的形状写：一个 `nameField: 'visit_title'` 的对象 + 一个把 `visit_title` 列进 `cardFields` 的看板视图，断言卡片正文里**不**出现标题的重复。\n\n## 上游背景（不是本卡要修的）\n\ncloud#2073 原本把这个现象归因为「`nameField` 没被存进 `sys_metadata`」。那条归因**是错的** —— 框架 `stripProvisionedPrimaryFrom` 只在存储值与派生结果**逐字相同**时才删该键，且每次加载都会重新派生，所有读出口（`getMetaItem` 活跃/草稿、`GET /meta/object/:name`、`GET /meta/objects`、内存注册表）返回的都是正确的 `nameField`。也就是说 **`objectDef` 上拿得到正确答案，只是这一行没去拿。**\n"
+}

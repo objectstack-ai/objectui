@@ -1,0 +1,32 @@
+{
+  "number": 8108,
+  "kind": "issue",
+  "title": "finding(scripts): three repo scripts emit ANSI unconditionally — no tty check, no NO_COLOR — and one of them is spawned and asserted on by a pin test",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T16:25:46Z",
+  "updated_at": "2026-09-07T13:25:23Z",
+  "closed_at": "2026-09-07T13:25:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8108",
+  "body": "Filed unassigned by the dev on objectui#7897 (PR #8107), as an out-of-scope finding surfaced by that card's census. ⛔ Grading and routing are the triage seat's; the `domain:*` label is deliberately absent.\n\n## What was measured\n\nobjectui#7897's split criterion is *\"asserting on a repo gate's own verdict line is **safe**, because those gates do not colour.\"* That premise was measured rather than assumed, on `01c27c431`:\n\n```\ngrep -rlE \"chalk|picocolors|kleur|ansi-colors|\\\\u001[bB]\\[|\\\\x1[bB]\\[|\\\\033\\[\" scripts/*.mjs scripts/*.js scripts/*.sh\nscripts/component-analysis.js\nscripts/shadcn-sync.js\nscripts/setup.sh\n```\n\n⭐ **The premise holds for `check-*.mjs` gates** — none of them colours, so objectui#7897's split criterion is sound as stated. It does **not** hold for `scripts/` as a whole.\n\nAll three colour **unconditionally**. `scripts/shadcn-sync.js` is the measured example (`scripts/shadcn-sync.js:73-86`): a hand-rolled `colors` table and\n\n```js\nfunction log(message, color = 'white') {\n  console.log(`${colors[color]}${message}${colors.reset}`);\n}\n```\n\n⛔ No `process.stdout.isTTY` check, ⛔ no `NO_COLOR`, ⛔ no `FORCE_COLOR`, ⛔ no `--no-color` flag. The escapes are emitted when the output is a pipe, a file, or a CI log, exactly as when it is a terminal.\n\n## Why it is worth a card rather than a shrug\n\n`scripts/shadcn-sync.js --list` is **spawned by a pin test** — `scripts/__tests__/shadcn-sync-fetch-cache.test.ts`, the case that stops the `invokedAsCli()` guard turning `pnpm shadcn:check` into a silent no-op. Its per-component line is\n\n```\n  • kbd                  ESC[2mCustom ObjectUI component - Keyboard key display ESC[0m\n```\n\n⇒ an escape sits **between** the component name and its description. The two assertions that stood there matched only the section headers, which `log()` happens to wrap whole, so they survived — by luck, not by design. Anything asserted across that boundary fails, and it fails on **every** machine, not only in CI: this is objectui#7897's defect shape with its usual \"green locally\" half removed.\n\nPR #8107 handles the test side (ANSI stripped, list reconciled against the manifest the printer reads). ⛔ It deliberately does **not** touch the script: objectui#7897's surface is test files only. So this half is still open.\n\n## ⛔ Not measured by this seat\n\n- Whether `component-analysis.js` and `setup.sh` have consumers that read their output through a pipe — only their colouring was measured, not their call sites.\n- Whether `NO_COLOR` support is wanted here at all, or whether a tty check alone is the right shape. That is a maintainer/triage call, not this seat's.\n- The other direction, which is a real cost of any change: `scripts/__tests__/shadcn-sync-fetch-cache.test.ts` now strips ANSI, so it is indifferent to whichever way this lands — but a `NO_COLOR` implementation with no test of its own would be a declaration nothing enforces.\n\n## Dedupe bound, declared\n\n`GET /repos/objectstack-ai/objectui/issues?state=all&since=2026-09-06T13:22:00Z&per_page=100&sort=updated` — 98 rows, title-matched against `colou?r|ansi|NO_COLOR|shadcn-sync|tty|escape sequence`. Control query hit objectui#7897 as expected, so the read is real rather than an empty channel. ⚠️ Bounded: **titles only**, and only cards created or updated since 13:22Z — the PM seat's own read of the lane's open queue at that timestamp is the base this increments."
+}

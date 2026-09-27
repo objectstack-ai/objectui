@@ -1,0 +1,35 @@
+{
+  "number": 7762,
+  "kind": "issue",
+  "title": "finding(plugin-grid/types): a bare `exportOptions` array on a directly-authored `object-grid` node passes the zod mirror unvalidated and silently degrades to the csv/json default",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T15:50:28Z",
+  "updated_at": "2026-09-08T03:29:05Z",
+  "closed_at": "2026-09-08T03:26:55Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 16,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7762",
+  "body": "Found while landing objectui#6956 (the ListView leg of the `exportOptions` reconciliation). Out of that card's surface — `packages/plugin-grid/**` was excluded by the dispatch — so it is filed with the measurement rather than fixed there. Refs #6956. Refs #4585 (closed by PR #4587, which covers the SpecBridge route only; this card is about what that fix does not reach).\n\nMeasured on `origin/main` = `83c77dc3` (2026-09-05), through the installed `@objectstack/spec@17.2.0`. Generic types below are written in words or with a space inside the brackets: the body sanitizer eats short tag-shaped fragments.\n\n## What happens\n\n`packages/plugin-grid/src/ObjectGrid.tsx:2956` reads the OBJECT form and only that:\n\n    const declared = schema.exportOptions?.formats || ['csv', 'json'];   // :2956\n    ... && schema.exportOptions?.streaming !== false                      // :2960\n\nA bare format array has no `.formats`, so the default wins. The `useEffect` at `:2964` that warns about dropped formats reads `.formats` too and returns early — no error, no warning, no console line. `!!schema.exportOptions` (`:4690`) is truthy for a non-empty array, so the export button still shows, offering csv and json regardless of what the author declared. The failure is silent rather than absent.\n\n## Which routes still hand the renderer the array\n\n- **SpecBridge** (`packages/react/src/spec-bridge/bridges/list-view.ts`) — CLOSED: #4585 / PR #4587 lift a bare array to `{ formats }` at the assignment site.\n- **A saved view** (`packages/app-shell/src/views/ObjectView.tsx:2266`) forwards `viewDef.exportOptions ?? listSchema.exportOptions` verbatim into a `list-view` node. `ListView` folds a bare array to `{ formats }` for its own toolbar (`ListView.tsx:1299` to `:1308`, measured load-bearing on #6956) and does NOT forward `exportOptions` to the `object-grid` node it renders (the `:2365` block carries zero `exportOptions` keys; the file's only `exportOptions` reads are the fold and `handleExport`). Not a route.\n- **A directly-authored `object-grid` node** — OPEN. Three readings:\n  1. TS face: `ObjectGridSchema['exportOptions']` is `ListViewExportOptions`, object only (`packages/types/src/objectql.ts:953`) — the array is a compile-time refusal for TS-authored metadata.\n  2. Zod mirror: `ObjectGridSchema` in `packages/types/src/zod/objectql.zod.ts` (`:111` to `:151`) declares NO `exportOptions` member at all — `'exportOptions' in ObjectGridSchema.shape` is `false`, and the key sits in the `objectql.zod.ts#ObjectGridSchema` LOCAL list of `zod-mirror-parity.test.ts` (declared in TS, absent from the mirror). `BaseSchema` is `.passthrough()` (`base.zod.ts:241`), so `ObjectGridSchema.safeParse({ type: 'object-grid', objectName: 'accounts', exportOptions: ['csv', 'xlsx'] })` succeeds with `data.exportOptions` equal to `[\"csv\",\"xlsx\"]`, verbatim. The same call with `{ formats: ['csv', 'pdf'], compression: 'gzip' }` also succeeds, verbatim — the retired `'pdf'` and a sixth key pass this mirror too, where the `list-view` mirror (after #6956) refuses both.\n  3. Render path: nothing parses; `SchemaRenderer` hands the node to `ObjectGridRenderer` as authored (no `parse` / `safeParse` in `plugin-grid/src/index.tsx` or `react/src/SchemaRenderer.tsx`).\n\n  So a JSON `object-grid` document — a stored page, a catalog entry, an AI-authored app, anything not typed through TS — that writes `exportOptions: ['csv', 'xlsx']` validates through `@object-ui/types` and renders an export menu offering csv and json. The two authoring faces disagree in the direction opposite to #6956's: TS refuses, zod admits.\n\nControls for the readings above: the `list-view` mirror on the same bare array lifts it to `{ formats: ['csv', 'xlsx'] }` (same session, same installed spec), and `'bulkActions' in ObjectGridSchema.shape` is `true` — the `in` reading distinguishes a declared key from an undeclared one.\n\n## Two candidate remedies (for triage, not a decision)\n\n**A. The same fold as ListView, at ObjectGrid's read site** — `Array.isArray(schema.exportOptions) ? { formats: schema.exportOptions } : schema.exportOptions`. Cheap and local. Against it: #4585's own direction rejected a consumer-side fallback as \"a second de-facto contract for one spec key\" (the shape objectstack#8010 was filed against), and it leaves the zod mirror admitting `'pdf'` and sixth keys on this node.\n\n**B. A named refusal on the `object-grid` zod mirror** — declare `exportOptions` there as the spec's strict five-key object and refuse the bare array by name (message along the lines of: a bare format array is the `list-view` spelling; `object-grid` reads the object form — write `{ formats: [...] }`). This keeps the TS face and the zod face agreeing (object only), turns the silent degrade into a loud refusal at validation, and closes the `'pdf'` / sixth-key gap on this node in the same move. Note the spec's object branch is not an exported symbol (measured in `export-options-spec-parity.test.ts`), so the declaration either restates the five keys (a copy, pinned by the existing key-set test) or unwraps the object arm of `ListViewSchema.shape.exportOptions` at module load.\n\nEither way: `packages/plugin-grid/src/index.tsx:248`, the designer description for `exportOptions`, lists four keys and omits `streaming` — worth correcting in the same PR.\n\n## Re-check commands\n\n    git grep -n \"exportOptions\" -- packages/plugin-grid/src/ObjectGrid.tsx | head -5\n    git grep -n \"exportOptions\" -- packages/types/src/zod/objectql.zod.ts      # no member between :111 and :151\n    # from packages/plugin-grid, after `pnpm --filter @object-ui/types build`:\n    node -e \"import('@object-ui/types/zod').then(m => console.log(m.ObjectGridSchema.safeParse({ type: 'object-grid', objectName: 'a', exportOptions: ['csv','xlsx'] })))\"\n\nFiled unlabelled and unassigned for triage. Written by the dev seat of `session_01BAZFhALsQsGqxui8sNqM8s`'s dispatch for objectui#6956."
+}

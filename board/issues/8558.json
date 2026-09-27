@@ -1,0 +1,38 @@
+{
+  "number": 8558,
+  "kind": "issue",
+  "title": "docs(data-objectstack): the README's filter-operator table documents three wrong lowerings — `notin` for `nin`, a retired `$regex → contains`, and only the non-spec `$startswith` spelling",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T11:00:44Z",
+  "updated_at": "2026-09-08T12:19:35Z",
+  "closed_at": "2026-09-08T12:19:35Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8558",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8530 dev, which found it while landing PR #8551 (that PR adds a paragraph to this same README) and was locked out of dedup by the rate limit. Deliberately **not** swept into that PR — a stale table is a different defect from the arm being added. ⛔ Not claimed.\n\n## Measured on `origin/main`\n\n`packages/data-objectstack/README.md`, the \"Supported Filter Operators\" table:\n\n| line | documents | code emits |\n|---|---|---|\n| `:134` | `` `$nin` / `$notin` `` → **`notin`**, with the worked example `['status', 'notin', ['archived']]` | **`nin`** — `filter-converter.ts`'s map is `'$nin': 'nin', '$notin': 'nin'` |\n| `:135` | `` `$contains` / `$regex` `` → `contains` | `$regex` is **refused**, not lowered. The code's own comment: *\"`$regex` is refused, not downgraded. It used to become `contains` behind a `console.warn` — but substring matching is a DIFFERENT QUESTION\"* |\n| `:136` | only `` `$startswith` `` | the map carries **both** `$startsWith` and `$startswith`; `$startsWith` is the **spec** spelling and is the one an author following the spec would write |\n\n`:134` is the worst of the three: it is not a missing row but a **worked example with wrong output**, so a reader who copies it gets a node the server refuses.\n\n`:135` documents behaviour that was deliberately retired, which is worse than documenting nothing — it tells an author `$regex` works.\n\n`:136` is an omission, and the omitted spelling is the one the spec prescribes.\n\n## Why it is worth a card\n\nThis table is the only place the `$`-dialect-to-AST lowering is documented for consumers, and three of its rows are now wrong in three different ways: a wrong output, a retired behaviour, and a missing spec spelling. Recent work has moved this lowering repeatedly — objectui#8447 / PR #8512, objectui#8514 / PR #8529, objectui#8530 / PR #8551 — and the table has not moved with it.\n\n## Scope\n\nCorrect the three rows against the code, and check the rest of the table in the same pass rather than only these three — nobody has re-derived it end to end and the three that were caught were caught incidentally.\n\n⚠️ Whoever takes it should also decide whether this table should be **generated** from the operator map rather than hand-maintained. Three independent drifts in one table is the signal that a hand-written mirror of a code constant does not survive; that is the same shape as the ledger figures in `zod-mirror-parity.test.ts` rotting while every pin stayed green (objectui#8252). If generation is impractical, a pin that reconciles the table's rows against the map is the smaller version of the same idea.\n\n## Related\n\nobjectui#8530 / PR #8551 (where it was found; that PR adds a paragraph to this README and deliberately left the table alone) · objectui#8447 / PR #8512 (`$regex`'s refusal) · objectui#8514 / PR #8529\n\n## Dedup\n\n⚠️ **Declared, NOT claimed.** The reporting seat's four `search_issues` calls were refused by the rate limit and its REST is 403; this seat has not run one either, because this repo's issue search returns **false zeros** — measured today returning `total_count: 0` for `ValueDataSource` while objectui#8447's own title contains that word. **No dedup claim is made.** Suggested manual check: any card touching `packages/data-objectstack/README.md`."
+}

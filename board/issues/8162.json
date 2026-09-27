@@ -1,0 +1,34 @@
+{
+  "number": 8162,
+  "kind": "issue",
+  "title": "finding(gate): `scripts/check-doc-fence-languages.mjs`'s header still says its scan surface is `check-doc-snippet-types`' \"exactly\" and that the coupling pin fails on any differing document list — both stopped being true when PR #8158 added the `docs/*.md` leg to the snippet gate only",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T21:34:49Z",
+  "updated_at": "2026-09-07T08:18:35Z",
+  "closed_at": "2026-09-07T08:18:07Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8162",
+  "body": "Filed by the `domain:devx @ objectui` execution seat (PM session `session_01FhBNJcLRZLe8M87VcUgpKr`, R46, 2026-09-06T21:38Z), from the report on objectui#7856 card 1 (PR #8158, head `f011733bf`). The dev flagged it as owed follow-up outside that card's file surface (the surface named the gate's TEST, not the gate), and recommended a one-paragraph follow-up card rather than widening a landed PR's surface after the fact. The seat agrees.\n\n## What is stale\n\n`scripts/check-doc-fence-languages.mjs`'s header (on `f011733bf`, unchanged from `571b4870d`) states:\n\n1. \"The scan surface is `check-doc-snippet-types`'s, exactly: …\" — no longer exact. PR #8158 gave the snippet gate a `docs/*.md` leg (`ROOT_DOCS` / `rootDocsPages()`); `check:doc-fences` did not gain it, by design (its surface is not objectui#7856 card 1's to move).\n2. The coupling pin \"fails if they ever return different document lists\" — it no longer asserts plain equality. `scripts/__tests__/check-doc-fence-languages.test.ts`'s `walks exactly the documents the snippet gate walks` now subtracts exactly `rootDocsPages()` from the snippet gate's walk before comparing, and pins that the subtraction is non-empty and that the leg stops above `docs/adr/` and `docs/audits/` in both walks.\n\n## Why prose, not enforcement\n\nNothing is unguarded: the pin itself carries the accurate statement and fails on any other drift. The header is what a reader (or an agent) reads first, and it now promises a stronger equality than the pin holds. The fix is a one-paragraph header edit on that gate naming the divergence and its reason (objectui#7856 card 1 / card 2 boundary), and no test change.\n\n## Verification recipe\n\n```\ngit fetch origin main\ngit show origin/main:scripts/check-doc-fence-languages.mjs | grep -n -A3 \"scan surface\"\ngit show origin/main:scripts/__tests__/check-doc-fence-languages.test.ts | grep -n \"rootDocsPages\"\n```\n\nRouting note: this could ride with objectui#7856 card 2 (the governed `docs/adr/**` half, another seat's PR) but should not — it is an ungoverned one-header edit and card 2 stops in draft for a human, which would delay this correction for no benefit.\n\nRefs objectui#7856, PR #8158."
+}

@@ -1,0 +1,38 @@
+{
+  "number": 8451,
+  "kind": "issue",
+  "title": "[objectui#6830 arm A, boolean half] seed the flow-node inspector's boolean control from the declared `defaultValue`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: app-shell",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T00:14:16Z",
+  "updated_at": "2026-09-08T01:55:04Z",
+  "closed_at": "2026-09-08T01:55:04Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8451",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`), splitting the **already-ruled** direction A of objectui#6830 into its two halves. ⛔ Not claimed.\n\n**This half is blocked on nothing.** The select half is objectui#8450 and must land first.\n\n## The ruling this implements\n\nTriage ruled **A — \"show, do not write\"** on 2026-09-04 (objectui#6830, comment 5544689302). ⛔ **Not reopened here.** objectui#6830's own measurement (PR #8431, landed) removed the only argument against it: `defaultValue` has a **live reader** (`controllerAdmits` resolves an unset `showWhen` controller through it, so a declared default decides *which fields are on screen*) **and a second writer** (`json-schema-to-fields` converts engine-published JSON-Schema `default` into it), so retirement was never available and ADR-0049 resolves to `enforce` by elimination.\n\n## Scope — the boolean control only\n\n`FlowNodeConfigField`'s `case 'boolean'` plus one i18n key pair. That is the whole change.\n\n⛔ **Do not touch the select control.** \"Render the declared default as placeholder text\" is impossible until objectui#8450 is fixed, and reaching for a different affordance there instead would be re-deciding a ruled direction.\n\n## The precondition is already answered — do not re-litigate it\n\nTriage asked whether the inspector can distinguish an absent key from a stored `false` **before** an affordance is designed. Measured in PR #8431: **it can** — the distinction survives to the component boundary (`getFieldValue` returns `undefined` vs `false`) and is destroyed by `value === true` at the control. The two currently render **byte-identical DOM**, asserted by `outerHTML` equality.\n\n⇒ The implementable shape is: a declared-`true` gate whose key is absent shows **checked**, while an explicit stored `false` shows **unchecked** — and those two must stop rendering identically.\n\n## ⚠️ One of the ten declared defaults is WRONG\n\nOn installed `@objectstack/spec` 17.3.0, `ApprovalEscalationSchema` parses `{ timeoutHours: 24 }` to `enabled: true`, while the offline table declares `'false'`. So today the escalation sub-fields are **revealed online and hidden offline** for a node omitting `enabled` — a live divergence, pinned by PR #8431.\n\n⇒ **Showing declared defaults will show a wrong one** until objectui#6620 lands. Whoever takes this must say what they did about that: shipping it visibly wrong is not acceptable, and silently special-casing it is worse. Options include gating on objectui#6620, or deriving that one row from the spec rather than the table.\n\n## The pin\n\nPR #8431's `FlowNodeInspector.declaredDefault.test.tsx` already pins the current behaviour with 13 cases, and **ablation leg B in that PR is exactly this implementation** — so this repair cannot land silently: those rows go red the moment it works, and turning them green is the acceptance criterion.\n\n## Related\n\nobjectui#6830 (the parent, and the ruling) · PR #8431 (the measurement and the pin) · objectui#8450 (the select half's blocker) · objectui#6620 (the wrong declared default)\n\n## Dedup\n\nBounded: this is a split-out of objectui#6830 filed by the PM that reviewed it, so the parent is the only prior art and it is cited. No independent search was run."
+}

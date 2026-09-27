@@ -1,0 +1,33 @@
+{
+  "number": 8005,
+  "kind": "issue",
+  "title": "finding(gate): nothing audits the repo-ROOT TypeScript sources for tsc-program coverage — the class has been closed by hand six times, one file family per card",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T08:13:43Z",
+  "updated_at": "2026-09-07T12:48:50Z",
+  "closed_at": "2026-09-07T12:48:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8005",
+  "body": "Filed unassigned by the `domain:devx` @ objectui dev seat working objectui#7328 (PR #8004). Observation class: **nothing is red today** — measured below, all 11 root TypeScript sources are in a program a CI job runs. What is missing is the gate that keeps that true.\n\n## What was measured\n\nOn the objectui#7328 branch, resolving all four root-reaching programs with TypeScript's own parser and asking which repo-root `*.ts` / `*.mts` / `*.tsx` sources land in each:\n\n```\ntsconfig.scripts.json        -> root-level files: (none)\ntsconfig.vitest-setup.json   -> vitest.setup.base.ts vitest.setup.i18n-global.ts\n                                vitest.setup.network-escape-guard.ts vitest.setup.dom-light.tsx\n                                vitest.setup.dom.tsx vitest.setup.tsx\ntsconfig.e2e.json            -> playwright.config.ts playwright.import-console.config.ts\n                                playwright.import-harness.config.ts playwright.live.config.ts\napps/console/tsconfig.node.json -> vitest.config.mts\n\nROOT TS SOURCES: 11\nUNCOVERED BY ALL FOUR PROGRAMS: (none)\n```\n\nEleven files, three families, three different programs, and — after objectui#7328 — zero uncovered. That is the good news and also the whole point: **the number is 11 only because six separate cards each noticed one family and closed it by hand.**\n\n## The class\n\nEvery one of these is the same finding about a different directory or a different filename glob:\n\n- objectui#3494 — `scripts/**/*.ts` was in no program; ten gate pin tests were compiled by nothing.\n- objectui#3476 — `apps/console/vitest.config.ts` was in no program, and its `include` carried a literal, glob-less `vitest.setup.ts` entry that matched no file on disk, which TypeScript ignores silently — coverage that was never there.\n- objectui#3515 — the repo-root `vitest.setup.*` files were in no program.\n- objectui#4471 / objectui#4477 — `e2e/` and then the four root `playwright*.config.ts`; #4477's own title reads \"the #4471 gap, one directory up\".\n- objectui#7328 — the root `vitest.config.mts` had a program but no runnable gate.\n\nSix instances. Each was found by a person reading unrelated code, or by a CI failure — never by a check.\n\n## Why the existing gates cannot see it\n\n`scripts/check-type-check-coverage.mjs` is the repo's coverage gate and its subject is workspace **packages**: it walks `pnpm-workspace.yaml`, and per package asks whether `type-check` reaches the package's sources and its tests. A repo-root file belongs to no package, so the gate neither covers it nor claims to — it is simply outside the population. Nothing else derives that population either.\n\nWhat exists instead is one hand-written pin test per family, each asserting only about its own glob: `scripts/__tests__/scripts-type-check.test.ts`, `vitest-setup-type-check.test.ts`, `e2e-type-check.test.ts`, and now `vitest-config-type-check.test.ts`. Each is correct and each is blind to a file the others do not name. A new root `*.ts` landing tomorrow under a name none of the four globs matches is invisible to all of them, and reads as maintained source that no compiler has ever looked at — objectui#3009's shape, which is the hazard every card above cites.\n\n## Shape of a fix, if graded in\n\nDerive the population instead of listing it: enumerate the repo-root TypeScript sources from disk, resolve every tsconfig that a root `package.json` script or a CI step actually runs, and fail when a root source is in none of them. That is the same instrument the four pin tests already use one family at a time (`ts.parseJsonConfigFileContent` over the config, then a set difference), lifted one level up so the population comes from the filesystem rather than from whoever wrote the last card.\n\nTwo things such a gate would have to get right, both already learned in this repo:\n\n- **Ask TypeScript, not a text search.** objectui#3476's failure was an `include` entry naming a file that does not exist; a spelling check passes it, a resolved program does not.\n- **A program is not a gate.** objectui#7328's failure was a file inside a correct program that no cheap command ran. The check has to be \"in a program some runnable script invokes\", not \"in some tsconfig on disk\".\n\nRatchet direction is tightening, not loosening, so this does not touch the manual floor. Conversely, a proposal to shrink the audited population to make a report look complete is the thing to refuse.\n\nRefs: objectui#7328 (PR #8004), objectui#3494, objectui#3476, objectui#3515, objectui#4471, objectui#4477.\n\nFiled by an agent seat during objectui#7328; the measurement above is reproducible with the four config paths named in it. Generated by Claude Code, session `session_01MM7kaS4dPpYHV5BsMyu4tQ`."
+}

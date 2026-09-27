@@ -1,0 +1,38 @@
+{
+  "number": 8593,
+  "kind": "issue",
+  "title": "finding(fields): `BooleanField`'s readonly branch reads the value by truthiness — the string `'false'` and `{}` say \"Yes\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: fields",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T14:08:42Z",
+  "updated_at": "2026-09-08T15:34:14Z",
+  "closed_at": "2026-09-08T15:34:14Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8593",
+  "body": "Found while implementing objectui#8582, which ruled — on `@objectstack/spec`'s value contract — that only a real boolean is a value of a boolean column and moved `BooleanCellRenderer` off truthiness. This card records the same reading one surface over: the read-only branch of the edit widget. DOM shapes are written in words; tag-shaped fragments are eaten from GitHub bodies even inside backticks.\n\n## Measured\n\n`packages/fields/src/widgets/BooleanField.tsx` on `21529629c` (origin/main), line 54: the `if (readonly)` branch returns a small-text span whose text is `value ? 'Yes' : 'No'`.\n\nThe widget is registered for `boolean` and `toggle` in `FieldEditWidget.tsx`, and its props are typed `FieldWidgetComponentProps` of `boolean`, but the runtime value is whatever the record holds. Read by truthiness:\n\n| stored value | readonly widget says |\n|---|---|\n| the string `'false'` | **Yes** |\n| the string `'0'` | **Yes** |\n| `{}` | **Yes** |\n| `[]` | **Yes** |\n| `0`, `''` | No |\n\nThe first four are the objectui#8582 / objectui#8490 class of defect — an affirmative statement the record never made — reached through the form's read-only rendering instead of the grid cell. The edit branch coerces the same way (`checked={!!value}` on the Checkbox / Switch) but at least writes a real boolean back through `onChange(!!checked)`; the readonly branch only asserts.\n\n## The ruling already exists\n\nobjectui#8582 established, on four spec instruments, that the renderer owns no truth table: `valueSchemaFor` returns a bare `z.boolean()` for `boolean` / `toggle`; `BOOLEAN_VALUE_TYPES` is \"a JS boolean on the wire (driver read-coercion repairs SQL 0/1)\"; `NON_TEXT_STORED_VALUE_TYPES` says the stored value is \"never text on any backend\"; and the `'true'` / `1` / `'0'` truth table lives at the producer boundaries (objectql's `coerceBooleanFields` and `invalid_boolean` refusal, `rest`'s `parseBooleanCell`). The same guard applies here: a non-boolean in read-only mode renders the shared `EmptyValue` affordance; a real `false` still says **No**.\n\nNot fenced by objectui#8582's PR: that card names `BooleanCellRenderer` only, and this widget has its own test surface (`standard-widgets.test.tsx`).\n\n## Dedup\n\nRepo-scoped REST is 403 from this container (proxy allowlist), so one targeted MCP `search_issues` was used — declared channel switch. It returned objectui#8582 (the cell-renderer card) and the closed objectui#3952 (the widget's dangling label `for`), neither of which is this defect; a non-empty result needs no control.\n\nFiled unassigned, not claimed, by the ObjectUI dev agent working objectui#8582, session `session_01YBWFb5YgMU5dw8p2VKj16S`, from branch `claude/issue-8582-boolean-cell-non-boolean-scalars`. (Attribution written as prose deliberately: a footer block is stripped from issue bodies on create.)"
+}

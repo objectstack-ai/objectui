@@ -1,0 +1,36 @@
+{
+  "number": 7990,
+  "kind": "issue",
+  "title": "ci(live-e2e): `Live E2E (informational)` is red on main and every branch since the backend pin moved to 17.2.0 — the published `plugin-auth` float (objectstack#16186), not an objectui diff",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "domain:devx",
+    "finding",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-06T07:04:01Z",
+  "updated_at": "2026-09-08T16:59:52Z",
+  "closed_at": "2026-09-08T16:59:52Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7990",
+  "body": "Filed by the `domain:devx @ objectui` execution seat (PM session `session_01MM7kaS4dPpYHV5BsMyu4tQ`, R45) as the consumer-side anchor for a red that is not this repository's to fix. Unassigned, unlabelled — a landing-ledger record, not a claim of priority. Dedup: semantic search for the lane's red / `better-auth` / `no such table: sys_user` returned 0 open objectui issues at 07:02Z (control queries this round return their targets).\n\nBlocked-by: objectstack-ai/objectstack#16186\n\n## What is red\n\nThe `Live E2E (informational)` check run fails on every objectui ref whose `e2e/live/ci/backend.env` reads `OBJECTSTACK_VERSION=17.2.0` / `OBJECTSTACK_REF=e7d2cc67f…` (landed by PR #7970 for #7689) — **including `main` itself**: the scheduled run `34017174769` on `9de3141a` at 06:41Z has job `101442890465` `completed: failure` at the step `Start ObjectStack backend (published packages)` (06:48:28Z). The workflow-level conclusion stays `success` because `.github/workflows/live-e2e.yml:60` sets `continue-on-error: true` on the job by design (\"INFORMATIONAL, NON-REQUIRED lane\"), but the job's check run reports `failure`, so a PM reading \"every check green\" sees a red on every PR.\n\nJob log signature (job `101436925890`, PR #7986 head `16aed838e`; identical on PR #7985 head `b520274` and on `main`):\n\n```\nWARN CORE: Core service missing, functionality may be degraded: auth\nWARN System started with degraded capabilities. Missing core services: auth\n[sql-driver] DATABASE_ERROR — the backend refused a read on 'sys_organization' … no such table: sys_organization\n[sql-driver] DATABASE_ERROR — the backend refused a read on 'sys_user' … no such table: sys_user\nProcess completed with exit code 1.\n```\n\n## Why it is not any objectui PR's\n\n- Run history of `live-e2e.yml`: `success` on branches based before PR #7970 merged (e.g. PR #7985 at `09f1d485`, 05:41Z), a failing job on every ref based after it, `main` included. Those diffs touch no backend pin and no `e2e/` path.\n- Cause measured upstream on objectstack#16186: published `@objectstack/plugin-auth` 17.1.0+ declares `@better-auth/core` as a caret range that now resolves to 1.7.3, which dropped `createLocalAccountIssuer`; a fresh `objectstack dev --seed-admin` never creates the system tables. That card's downstream note predicts this exactly: \"objectui's `Live E2E (informational)` lane will now go red against the matched pair, by design\".\n- #7689's triage forbids repairing the lane by reverting the pin (a failing matched pair carries more information than a green mismatched one), so there is no objectui-side fix to port.\n\n## What this card is for\n\n- The place standing-down comments point at (PR #7986 and PR #7985 today; every PR until the upstream fix publishes) instead of re-diagnosing the same red per PR.\n- The re-check trigger: when objectstack#16186 closes AND a fixed `@objectstack/*` version is published, the next `backend.env` pin move (via the #7689 shape, ⛔ not a manual edit — #7970's check pins the pair to the lockfile) is what turns the lane green again. Consumer-side install-surface probe: boot the published showcase at the new version and see the seeded sign-in answer.\n\nRefs: objectstack#16186 (cause, upstream) · #7689 / PR #7970 (the pin realignment that exposed it, by design) · #7964 (`needs-user-decision`, the lane's other pin)"
+}

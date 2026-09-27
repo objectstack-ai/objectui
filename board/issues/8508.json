@@ -1,0 +1,37 @@
+{
+  "number": 8508,
+  "kind": "issue",
+  "title": "Container-aware Kanban column sizing is wired to ONE call site — the swimlane layout never reads it and still paints the hard-coded `w-[85vw]` its own docblock says was replaced",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T03:53:34Z",
+  "updated_at": "2026-09-08T15:00:40Z",
+  "closed_at": "2026-09-08T15:00:40Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8508",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`). Measured on `origin/main`. ⛔ Not claimed.\n\n## The claim the code makes\n\n`packages/plugin-kanban/src/KanbanImpl.tsx:401-405`:\n\n> *\"Container-aware column sizing — **replaces hard-coded `w-[85vw] sm:w-80`** (viewport-relative) with a width derived from the board's own slot. That way an embedded Kanban (in a panel, drawer, or pop-out window) scales correctly without overflowing or wasting space.\"*\n\n## What is actually wired\n\n`columnInlineStyle` (computed at `:408`) is consumed at **exactly one** call site in the repository:\n\n```\n:655   {swimlanes ? (                      ← swimlane branch begins\n:687     header cells   w-[85vw] sm:w-80   hard-coded\n:721     lane cells     w-[85vw] sm:w-80   hard-coded\n:738   ) : (                               ← non-swimlane branch begins\n:751     columnStyle={columnInlineStyle}   ← the ONLY consumer\n```\n\nThe mechanism itself is correct where it is reached — `KanbanColumn` at `:289-293` does the two-way switch properly (`columnStyle.width != null ? \"shrink-0\" : \"w-[85vw] sm:w-80 shrink-0\"`, so the viewport classes step aside rather than fight the inline width).\n\nThe swimlane branch simply never reaches it. Its own docblock at `:661-664` explains why the wiring is not a one-liner:\n\n> *\"this layout has no column components at all — every lane paints its own row of plain column cells\"*\n\nSo an **embedded swimlane board — a panel, a drawer, a pop-out window, exactly the case the feature was built for — is still sized to the viewport.** The sentence \"replaces hard-coded `w-[85vw] sm:w-80`\" is true of one of the two layouts.\n\n## ⚠️ Correction to an earlier reading of this, recorded so it is not repeated\n\nAn earlier pass by this seat reported the defect as a *misalignment between the swimlane header row and its columns*. **That was wrong** and the table it produced should be ignored. The swimlane layout has no `KanbanColumnView` at all; its header cells (`:687`) and lane cells (`:721`) carry the identical hard-coded class, so they agree with each other. The defect is that the whole swimlane layout is viewport-sized, not that its parts disagree.\n\nThe mistake came from reading `:687`/`:721` without locating the ternary boundary at `:738`. Whoever takes this should confirm the boundary first.\n\n## Instrument — this one CAN go in CI\n\nThe width here is a **prop / inline style**, not a layout result, so it is readable without measuring pixels. Pin *\"the swimlane header cell and lane cell receive their width from the same source as a non-swimlane column does\"* rather than any rendered dimension.\n\nThat sidesteps the problem `swimlaneColumnHeaderRow-7303.test.tsx` documents at length: the `:665-681` docblock records that the original defect could only be caught in a real Chromium at 1600x1000 (row height 0, `elementFromPoint` returning the collapse button behind the title). **Do not try to re-measure heights in jsdom.**\n\n`useResizeObserver` yields no width in jsdom, so decide deliberately how the fixture supplies a board width — and note that a fixture with **no** width exercises the `if (!boardWidth) return {}` early-out, which is a third state, not a stand-in for either.\n\n## ⭐ Non-regression axis\n\nThe caricature is deleting the viewport classes outright, leaving swimlane cells with no width at all. It would pass any \"the swimlane cell no longer carries `w-[85vw]`\" assertion. Pin positively that a swimlane cell gets a real width from the container-derived source at each of the three `columnInlineStyle` tiers (`< 480` → `boardWidth - 32` floored at 220, `< 720` → 280, else 320), and that the non-swimlane layout is unchanged.\n\n## Related\n\nobjectui#7303 (the swimlane column-header row, where this code was last touched) · objectui#4254 (Kanban drop validation, closed — unrelated mechanism, same file)\n\n## Dedup\n\nRan, single-token `search_issues`. `swimlane` returns **0**, and the lit control for the same query shape is `KanbanImpl` → 1 hit (objectui#4254, closed, `requiredWhen` on drop — a different mechanism). So the zero is a real absence in a reachable index, not a dead instrument. Nothing filed about Kanban column sizing."
+}

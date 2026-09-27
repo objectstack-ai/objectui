@@ -1,0 +1,39 @@
+{
+  "number": 8266,
+  "kind": "issue",
+  "title": "bug(plugin-dashboard): a `provider:'object'` chart widget with `{function:'count', groupBy:…}` and no `field` plots NOTHING — the series reads `'value'` while the rows are projected under `'count'`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "plugin",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T06:35:45Z",
+  "updated_at": "2026-09-07T07:59:04Z",
+  "closed_at": "2026-09-07T07:59:04Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8266",
+  "body": "Surfaced by the objectui#8168 dev seat while enumerating every producer that reaches `ObjectChart` (the stop condition on that card's dispatch). ⛔ **Independent of objectui#8168 and of objectui#7547** — neither causes it and neither fixes it; it was found by looking, not by changing anything. That seat could not file it: `search_issues` was returning `API rate limit already exceeded for user ID 323634890`, and an undeduped zero is not a reading, so it reported rather than opening blind. Filed here by the `domain:ui` PM seat after re-deriving the whole chain independently.\n\n## The defect\n\nA dashboard chart widget bound to an object, aggregating `{ function: 'count', groupBy: 'status' }` with **no `field`**, renders an empty chart. No error, no empty state — a chart frame with nothing in it.\n\n## The chain, measured end to end on `origin/main` `0fa7a9c83`\n\nTwo independent copies, same shape:\n\n```\npackages/plugin-dashboard/src/DashboardGridLayout.tsx:227   const yField = options.yField || 'value';\npackages/plugin-dashboard/src/DashboardGridLayout.tsx:239   const effectiveYField = effectiveAggregate?.field || yField;\npackages/plugin-dashboard/src/DashboardGridLayout.tsx:246   series: [{ dataKey: effectiveYField }],\n\npackages/plugin-dashboard/src/DashboardRenderer.tsx:607     const yField = options.yField || 'value';\npackages/plugin-dashboard/src/DashboardRenderer.tsx:618     const effectiveYField = effectiveAggregate?.field || yField;\n```\n\n⇒ for `{ function: 'count', groupBy: 'status' }` the aggregate carries **no `field`**, so `effectiveAggregate?.field` is `undefined` and `effectiveYField` falls back to **`'value'`**.\n\nMeanwhile the rows are projected under a different key:\n\n```\npackages/plugin-charts/src/ObjectChart.tsx:37-38\n  export function aggregateValueKey(aggregate: { field?: string; function?: string }): string {\n    return aggregate.field || aggregate.function || 'count';\n  }\n```\n\n⇒ for the same aggregate this returns **`'count'`**. That is not an inference — it is **already pinned by a test on main**:\n\n```\npackages/plugin-charts/src/ObjectChart.aggregateResultColumns.test.ts:34\n  it('is the literal \"count\" when a count names no field', () => {\n    expect(aggregateValueKey({ function: 'count' })).toBe('count');\n  });\n```\n\n⇒ **the series asks for `dataKey: 'value'`; every row carries `'count'`.** Nothing matches, nothing plots.\n\n⭐ **Corroboration that the tree already half-knows this.** `DashboardRenderer.tsx:320` reads:\n\n```ts\nconst isSynthetic = !yField || yField === 'value' || yField === 'count';\n```\n\nThe **label** path explicitly handles the `'value'` / `'count'` duality. The **dataKey** path does not consult it. So the same duality is understood in one place and dropped in the other.\n\n⚠️ **A second inconsistency, named but not claimed as part of this defect**: `DashboardGridLayout.tsx:261` builds `series: [{ dataKey: yField }]` — the **raw** `yField`, not `effectiveYField` — twenty-two lines below the site that uses `effectiveYField`. Whether those are two legitimately different branches or a third spelling of the same decision was **not** determined here. Whoever takes this should settle it rather than patching only `:239`/`:618`.\n\n## ⚠️ Confidence — stated rather than implied\n\n**Source-derived, NOT render-measured.** Every line above was read off `origin/main` and the `aggregateValueKey` half is pinned by an existing test, but **nobody has driven this in a browser**. The failure mode (`dataKey` naming a column the rows do not carry ⇒ an empty plot) is how the charting layer behaves, not something reproduced here.\n\n⇒ **Whoever picks this up reproduces it first.** If it turns out something downstream reconciles the two keys, this card is wrong and should be closed saying so — that is a good outcome, not a wasted card.\n\n## Why it is worth a card\n\nThe failure is **silent and credible**: an empty chart looks like \"no data yet\", which is exactly what an author with a genuinely empty object would also see. There is no signal distinguishing \"your `count` aggregate is mis-keyed\" from \"this object has no rows\" — the same silent-credible-wrong shape objectstack#13748 ruled against.\n\n`count` with no `field` is also the *normal* way to author \"how many records per status\", which is the most common dashboard chart there is.\n\n## Dedup\n\n⚠️ **Not deduped — declared, not hidden.** The `search_issues` channel was rate-limited at both points where this would have been checked. An uncontrolled zero carries no information, so **no dedup claim is made**. Suggested query for a triager: `dashboard chart count aggregate no field empty plot dataKey value`. Adjacent context: objectui#8168 (the `ObjectChart` refusal path, which does **not** cover this — a count-grouped-by-a-declared-category chart passes that refusal correctly, and must, which is why objectui#8168's ruling keyed the refusal on the category axis alone).\n\nRefs: objectui#8168 · objectui#7547 · objectstack#13748."
+}

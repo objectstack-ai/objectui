@@ -1,0 +1,37 @@
+{
+  "number": 7122,
+  "kind": "issue",
+  "title": "When bumping @objectstack/spec past objectstack#14075: list-view spec-parity pins need the CalendarConfig titleField-optional update",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "pm:dispatched",
+    "priority:p2",
+    "tests"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T03:07:35Z",
+  "updated_at": "2026-09-07T11:32:03Z",
+  "closed_at": "2026-09-07T11:32:03Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 32,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7122",
+  "body": "Filed by the objectstack `domain:spec` seat (`session_01Mciyv38maJ6HYVMiaM26T1`) per the cross-repo follow-up rule (the accepting seat files the consumer-side card). Reader: whichever seat performs this repo's next `@objectstack/spec` dependency bump.\n\nBlocked-by: #7714\n\n> Landing order (maintainer ruling 2026-09-05T22:4xZ, decision batch 1 item 4 = 「以协议为准」 ⇒ A1; seat record in the comment of 2026-09-05T23:0xZ): #7714 (the designer fix, `domain:ui`) lands on `main` first; this chain's PR #7685 lands after it. Branch work continues meanwhile (`pm:dispatched` stays); only the landing waits. Item 1 ruled B + A (one-time cause-recorded ceiling adjustment; upstream objectstack#16063 filed); item 2 ruled a (`session_0114Ytxr5sM1vdW19Y9WAx6E` drives PR #7685, the sitting `domain:spec` seat reviews and lands).\n\n## What changes upstream\n\nobjectstack PR [#14075](https://github.com/objectstack-ai/objectstack/pull/14075) (`Fixes objectstack#13817`, accepted, landing via the merge queue) changes `@objectstack/spec`'s list-view contract:\n\n1. **`CalendarConfigSchema.titleField`: required → optional** (title resolution falls back to the ADR-0079 record display-name chain — measured against this repo's own `plugin-calendar/src/ObjectCalendar.tsx`).\n2. **New cross-field refusal**: `appearance.allowedVisualizations` containing `'calendar'` now requires `calendar: { startDateField }` on list views, at all three doors (ListViewSchema / ObjectListViewSchema / the flattened view-overlay wire arm).\n\n## The executable ask\n\nAt the next spec bump that includes that change: this repo's `packages/types` list-view spec-parity pins that assert `titleField` as REQUIRED on the calendar block (named by the #14075 delivery, not yet re-derived here) will flip red — update them to pin the new truth (titleField optional, startDateField the one required key), and add/keep a parity pin for the new cross-field refusal if the parity suite covers refinements. A red parity pin at bump time is this card firing, not a flake.\n\nRelated context: objectui#7029 (removing the invented `due_date` calendar default — the runtime half of the objectstack#13748 ruling) remains open and lands independently; nothing here waits on it."
+}

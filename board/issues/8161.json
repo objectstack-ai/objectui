@@ -1,0 +1,37 @@
+{
+  "number": 8161,
+  "kind": "issue",
+  "title": "finding(docs): `docs/ARCHITECTURE.md`'s Next.js example has no `'use client'` — `app/layout.tsx` and `app/[object]/page.tsx` are App Router server components as written and fail at runtime for a reader who copies them",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T21:34:33Z",
+  "updated_at": "2026-09-07T14:58:43Z",
+  "closed_at": "2026-09-07T14:57:32Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8161",
+  "body": "Filed by the `domain:devx @ objectui` execution seat (PM session `session_01FhBNJcLRZLe8M87VcUgpKr`, R46, 2026-09-06T21:37Z) from the census objectui#7856 card 1 took while bringing `docs/*.md` into the doc-snippet walk (PR #8158, head `f011733bf`). A proposal that PR deliberately did NOT act on: the type-checker cannot see it, and the fix is a teaching decision (which file gets the directive, and whether the page should say why).\n\n## What the page says\n\n`docs/ARCHITECTURE.md`, \"Example 2: Next.js Integration\" (two `tsx` fences after PR #8158's split, `app/layout.tsx` and `app/[object]/page.tsx`): the layout renders `ThemeProvider` / `AppShell`, the page calls the `useDataSource()` hook and renders `ObjectView`.\n\n## What the tree says (`f011733bf`)\n\n- The string `'use client'` appears nowhere on the page (`git grep -n \"use client\" origin/main -- docs/ARCHITECTURE.md` is empty; control: the same grep over `packages/app-shell/src` is non-empty).\n- Under the Next.js App Router every file under `app/` is a server component unless it carries the directive; a hook call (`useDataSource`) in a server component and a context provider rendered from one both fail at runtime. A reader copying the two fences literally gets that error.\n\n## Why it is a finding and not a repair rider\n\nThe doc-snippet gate compiles each fence as an isolated TSX module; a missing `'use client'` produces no diagnostic, so no gate can hold this line. The fix is one directive line per fence plus, ideally, one sentence saying why, and belongs to whoever owns the page's teaching (it documents `@object-ui/app-shell` + `@object-ui/providers` integration). Pair with objectui#8160, filed from the same census on the same page.\n\nRefs objectui#7856, PR #8158."
+}

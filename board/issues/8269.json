@@ -1,0 +1,39 @@
+{
+  "number": 8269,
+  "kind": "issue",
+  "title": "finding(plugin-dashboard): an object-bound chart that declares its category as `aggregate.groupBy` is refused for lacking a `name` column — both relays floor `xAxisKey` to `'name'` and never consult the aggregate",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "plugin",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T07:01:04Z",
+  "updated_at": "2026-09-07T10:06:11Z",
+  "closed_at": "2026-09-07T10:06:11Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8269",
+  "body": "Found while fixing objectui#8266 (the measure axis of the same relay gap) by the dev seat on branch `claude/issue-8266-dashboard-count-aggregate-datakey`. Filed separately rather than fixed there: it is the CATEGORY half, it changes what renders for a different authoring shape, and objectui#8266's own dispatch scoped that PR to the series binding. objectui#8266 is not addressed by this card and this card is not addressed by objectui#8266 — neither fixes the other.\n\n## The defect\n\nA dashboard chart widget bound to an object whose category is declared ONLY as `aggregate.groupBy` — with no `options.xField` — renders the category-axis refusal, naming a key the author never wrote:\n\n    This chart cannot plot its category axis: no row has a `name` field.\n\nThe author wrote `groupBy: 'status'`. Nothing on screen says `groupBy` is the key that was ignored, and `name` appears nowhere in their metadata.\n\n## The chain, on `origin/main` `0fa7a9c83`\n\nBoth dashboard relays floor the category binding on a literal, without ever looking at the aggregate that decides it:\n\n    packages/plugin-dashboard/src/DashboardGridLayout.tsx:226   const xAxisKey = options.xField || 'name';\n    packages/plugin-dashboard/src/DashboardRenderer.tsx:607     const xAxisKey = options.xField || 'name';\n\nThe rows an object-bound aggregate returns are keyed by the RAW `groupBy` field (`status`), so no row carries `name`, and `AdvancedChartImpl`'s `hasNoCategoryKey` guard (framework#4033) fires correctly on a binding that was wrong before it got there.\n\n⭐ The tree already holds the resolver this needs, in the component one layer down: `resolveChartCategoryField` in `packages/plugin-charts/src/ObjectChart.tsx` reads `aggregate.groupBy` FIRST, then `xAxisKey`, then `xAxis.field` — that is objectui#8168's anti-drift move. `ObjectChart` uses it to decide whether to REFUSE, and then still forwards `schema.xAxisKey` verbatim as the render binding. So the same component both knows the category is declared and passes on a key that is not it. The contract's own derivation is also published — `chartAggregateCategoryKey` in `@objectstack/spec/ui`, the sibling of the `chartAggregateValueKey` that objectui#8266's fix adopted for the measure axis.\n\n## Measurement, not inference\n\nRendered through `ChartRenderer` at 480x320 (`ResponsiveContainer` mocked, the only harness in this repo that can count marks), over the rows a fieldless count actually returns, `[{status:'open',count:2},{status:'paid',count:5}]`:\n\n| `xAxisKey` | `series[0].dataKey` | result |\n|---|---|---|\n| `status` | `value` | surface drawn, ticks open/paid, **0 marks**, no refusal — this is objectui#8266 |\n| `status` | `count` | **2 marks**, y ticks 0..8 — objectui#8266 fixed |\n| `name` | `value` | **refusal** `missing-category-key`, text naming `name` |\n| `name` | `count` | **refusal** `missing-category-key`, text naming `name` |\n\nThe last row is the point: objectui#8266's fix does NOT reach this shape. A widget that declares `aggregate.groupBy` and no `xField` is still refused after it.\n\n## Why it is worth a card\n\nUnlike objectui#8266 this one is LOUD, so it is a lesser harm — but the diagnostic is wrong-cause. It names a binding the author did not write and does not mention the one they did, so it points at the wrong layer. `groupBy` alone with no `xField` is a perfectly reasonable way to author a grouped chart, and the renderer already agrees it is a valid category declaration — it says so by not refusing at the `ObjectChart` level.\n\n## Scope note for whoever takes it\n\nThe fix shape is the mirror of objectui#8266's: have the relays resolve the category through one authority rather than a literal floor. Clause about moving pictures applies — a widget that renders a refusal today would start drawing, so it needs a render measurement, not only a seam assertion. Check also whether the label-resolution path (`resolveGroupByLabels`, which rewrites the groupBy column in place) leaves the resolved key still valid at the point the axis reads it.\n\n## Dedup\n\nRun on the `search_issues` channel from this session against `objectstack-ai/objectui`, phrased as a description of the defect. The result was NON-EMPTY (20 hits), so it is self-validating and no separate control was needed. Nearest neighbours, none of them this: objectui#7547 (the same literal-floor class, but at the ListView / plugin-view ObjectView / app-shell ObjectView faces, not the two dashboard relays), objectui#4695 (a cartesian chart handed no series binding at all), objectui#4683 and objectui#4507 (the series-axis and pivot halves of the `hasNoCategoryKey` doctrine), objectui#8168 (the `ObjectChart` refusal this card's diagnostic comes from).\n\nRefs: objectui#8266 · objectui#8168 · objectui#7547 · framework#4033.\n\nRecorded by the objectui#8266 dev seat, session `session_01YBWFb5YgMU5dw8p2VKj16S`, from a render measurement taken in that card's worktree. This paragraph is prose rather than a footer block because issue creation strips attribution footers (AGENTS.md, the body-bytes section)."
+}

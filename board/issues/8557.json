@@ -1,0 +1,37 @@
+{
+  "number": 8557,
+  "kind": "issue",
+  "title": "`viewFilterRuleToNode` passes an array value through verbatim on a SCALAR operator — a saved view's rule reaches the server as a node it refuses",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T11:00:21Z",
+  "updated_at": "2026-09-08T12:29:51Z",
+  "closed_at": "2026-09-08T12:29:51Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8557",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8530 dev, which measured it while landing PR #8551 and was locked out of dedup (four `search_issues` refused by the rate limit; repo-scoped REST 403). ⛔ Not claimed.\n\n## Measured\n\n`packages/core/src/utils/filter-converter.ts:371-378`:\n\n```ts\nfunction viewFilterRuleToNode(rule: ViewFilterRuleLike): FilterNode {\n  const operator = normalizeFilterOperator(rule.operator as string);\n  return (\n    rule.value === undefined\n      ? [rule.field, operator]\n      : [rule.field, operator, rule.value]\n  ) as FilterNode;\n}\n```\n\n`rule.value` is never inspected. So a stored view rule carrying an array on a **scalar** operator travels through unchanged:\n\n```\ntoFilterNode([{ field: 'tags', operator: 'equals', value: ['a'] }])\n  →  [['tags', 'equals', ['a']]]      isFilterAST: true\n  →  parseFilterAST  →  { tags: ['a'] }        (measured, spec 17.3.0)\n```\n\n— which the server then refuses two layers away, exactly as objectui#8530 described for the object arm.\n\n## Why it is its own card\n\nobjectui#8530 / PR #8551 added the array-comparand refusal to `convertFiltersToAST`'s **object** arm. This is the **stored-view** path, and that fix deliberately does not reach it: the two enter the lowering at different doors and only one of them was in scope.\n\nThe result is the asymmetry this repo keeps filing: a hand-authored `{ tags: ['a','b'] }` now fails fast with a message naming `$in`, while the same mistake **saved into a view** still travels silently to a 400 the author cannot attribute to their filter.\n\n## Direction\n\nThe same ruling applies — **refuse, and name `$in`** — for the same reason PR #8551 gives: the ObjectQL AST has no array-equality node, so the lowered node can never select anything, and silently rewriting `equals` into `in` would change the author's meaning.\n\n⚠️ But check the scalar/multi-value split first: `in` and `between` rules legitimately carry arrays through this same function, and the objectui#8530 dev verified that path never enters the object arm, so it has never been exercised against a refusal here. Whatever guard lands must key on the **operator's arity**, not on `Array.isArray(value)` alone.\n\n⚠️ Also decide where the refusal belongs. Throwing from `viewFilterRuleToNode` means a saved view with one bad rule throws at render rather than returning a narrower result — that may be right, but it is a different blast radius from a hand-authored filter, and a stored rule was authored long ago by someone who is not present. Say which you chose and why.\n\n## Related\n\nobjectui#8530 / PR #8551 (the object arm, landed; where this was measured) · objectui#8514 / PR #8529 (the matcher-side sibling) · objectui#3431 (the earlier defect in this same stored-view path, whose fix this function is)\n\n## Dedup\n\n⚠️ **Declared, NOT claimed.** The reporting seat's dedup channel was gone; this seat has not run one either, because this repo's issue search returns **false zeros** — measured today returning `total_count: 0` for `ValueDataSource` while objectui#8447's own title contains that word. **No dedup claim is made.** Suggested manual check: objectui#8530's thread and objectui#3431."
+}

@@ -1,0 +1,39 @@
+{
+  "number": 8313,
+  "kind": "issue",
+  "title": "[plugin-kanban] declare the four array/object-armed spec keys `object-kanban` reads — `data` · `cardFields` · `grouping` · `conditionalFormatting` (objectui#8201 slice 2a)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "plugin",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T10:27:24Z",
+  "updated_at": "2026-09-07T13:10:04Z",
+  "closed_at": "2026-09-07T13:10:04Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8313",
+  "body": "Slice 2a of objectui#8201, split by package under the PM ruling **Q2 = B** on that card. Filed by the `domain:ui` PM seat. ⛔ Not claimed.\n\n## Why this is its own card rather than the back half of one PR\n\nEach member pin has to be **measured at its own sink**, and objectui#8223 proved how easily a sink is assumed wrong: its `sort` pin could never have been an identity pin, because `convertSortToQueryParams` builds a new map — and objectui#8212's landed rider note had predicted the opposite. **Six sinks in one PR is exactly the size that invites an assumed identity pin.**\n\nSplitting by package also keeps each PR inside the plugin package's own `__tests__` dir, where all three worked precedents already live.\n\n## Scope — four keys, all array/object-armed\n\n`object-kanban` (both tags: `plugin-kanban:object-kanban` and `view:kanban`):\n\n| key | declared arm |\n|---|---|\n| `data` | array |\n| `cardFields` | array |\n| `grouping` | `z.unknown()` |\n| `conditionalFormatting` | `z.unknown()` |\n\nAll four were measured genuinely spec-declared in slice 1 — a control key drew `unrecognized_keys` on the same `safeParse` call shape while none of these was refused by name, so \"the spec declares it\" is a verdict here, not a vacuous read. ⛔ objectui#8172's `limit` trap does **not** apply to any of them.\n\n⛔ **Out of scope**: `object-kanban.quickAdd` — ruled a **premature carve-out** on objectui#8201 (Q1 = A), citing objectui#8285 as its owner. Its entry is rewritten, not deleted, and the ceiling drops accordingly. Whether that rides in this PR or its own is the dev's call; say which.\n\n## ⚠️ The three-part obligation each declaration owes\n\nSince objectui#8212 landed, declaring an array/object-armed key owes:\n\n1. the `inputs` entry;\n2. deletion of its `UNPUBLISHED_EXEMPTIONS` entry **in the same change** (the stale check reddens otherwise);\n3. a **`MEMBER_PINS`** entry — ⛔ **never** a member-pin exemption. `MEMBER_PIN_EXEMPTION_CEILING` stays **62**; an assertion pins four keys **by name** so a fifth cannot ride that headroom.\n\n⚠️ And **both halves** of the shrink-only backlog ceiling move (`toBeLessThanOrEqual` and `toBe`, same `it()`). Moving only `toBe` banks headroom the ratchet exists to refuse — objectui#8223 hit exactly that.\n\n## ⚠️ Measure each sink; do NOT assume the pin's shape\n\nThree worked precedents, all on `main`:\n\n- `packages/plugin-calendar/src/__tests__/ObjectCalendar.filterIsNotAConfigSlot-7711.test.tsx`\n- `packages/plugin-kanban/src/__tests__/ObjectKanban.filterMembersReachTheWire-8176.test.tsx`\n- `packages/plugin-calendar/src/__tests__/ObjectCalendar.sortMembersReachTheWire-8171.test.tsx`\n\nThe two `filter` pins assert the authored value reaches the wire **BY IDENTITY** (`toBe`). `sort` does not. ⚠️ A sharper version of the same trap cost a near-miss on objectui#8269: a resolver answering **which field** and one answering **which column the rows carry** (`alias ?? field`) coincide only when no alias is written. **Be explicit about which question each pin asserts.**\n\n⭐ Note carried from slice 1: the spec rows for `grouping` and `conditionalFormatting` are `z.unknown()` — exactly like `filter` and `sort`. So, as the two landed `MEMBER_PINS` entries already say, **the spec side cannot supply the member contract and the wire (or the read site) is the whole of it.**\n\n## Related\n\nobjectui#8201 (parent, slice 1 = PR #8309) · objectui#8212 (the gate that created the obligation) · objectui#8186 · objectui#8223 · objectui#8285 (`quickAdd`) · objectui#8308 (the `cardTitle`/`titleField` `||` vs `??` divergence slice 1 surfaced — **not** this card's, but it touches the same registration)."
+}

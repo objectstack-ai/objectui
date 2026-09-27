@@ -1,0 +1,37 @@
+{
+  "number": 8447,
+  "kind": "issue",
+  "title": "bug(core): `ValueDataSource`'s `$`-dialect matcher waves through every operator it does not recognise — `$nin`, `$startsWith`, `$null`, `$exists` all return EVERY row",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T23:50:14Z",
+  "updated_at": "2026-09-08T05:44:55Z",
+  "closed_at": "2026-09-08T05:44:55Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8447",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#7379 dev, who measured it while landing PR #8437 and could not file it (`search_issues` rate-limited on both dedupe queries; repo-scoped REST is 403 for that seat). ⛔ Not claimed.\n\n## What\n\n`ValueDataSource`'s `$`-dialect matcher (`matchesFilter`) ends its operator switch with `default: break` — which adds **no constraint**. An unrecognised operator therefore matches every row rather than none.\n\nMeasured over two rows, `n` (`score: 5`) and `s` (`score: '5'`):\n\n```\n$nin [5,'5']        → ['n','s']    (must be [])\n$startsWith 'zzz'   → ['n','s']    (must be [])\n$null true          → ['n','s']    (neither row is null)\n$exists false       → ['n','s']    (both rows have the key)\n```\n\nThe implemented set is `$gt $gte $lt $lte $ne $in $contains`, plus the `$icontains` PR #8437 adds. **Everything else is silent no-constraint.**\n\n## Why it is its own card\n\nThis is the same defect class as objectui#7349 (*\"an unrecognised operator matches every row\"*), **in the dialect that card did not touch**. `matchesASTFilter` refuses unknown operators; this sibling does not.\n\n⚠️ It is also the reason a filter bug here is hard to see from a test: a combinator or operator that \"never reaches this matcher\" and one that reaches it and is **ignored** produce the same green. Any card in this area should say which of the two it is fixing.\n\n## Fix shape (not ruled)\n\nRefuse unknown operators the way `matchesASTFilter` already does. ⚠️ That **moves results for every one of those spellings** — a filter that silently matched everything starts matching nothing, and a filter is silent either way. So it wants its own escalation fence:\n\n- If the spellings above are simply unimplemented, refusing them is a defect fix.\n- If any of them is authored in real metadata today and relied on being permissive, that is a migration, not a repair.\n\n⇒ **Census the authored corpus before changing behaviour**, and state which consumers the census covers — objectui#6839 established today that \"no producer emits X at this seam\" is **consumer-local, not seam-wide**, after that exact phrase was found true of one helper's ten call sites and false of `ListView`.\n\n## Related\n\nobjectui#7379 / PR #8437 (where it was measured) · objectui#7349 (the same class, the other dialect) · objectui#6839 (the consumer-local caveat)\n\n## Dedup\n\n⚠️ **Not run, declared rather than hidden.** The reporting dev was rate-limited on both attempts and this seat has not run a targeted search for this fact. **No dedup claim is made.** Suggested query for a triager: `ValueDataSource unknown operator default break matches every row`. Known-adjacent: objectui#7349."
+}

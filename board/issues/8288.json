@@ -1,0 +1,36 @@
+{
+  "number": 8288,
+  "kind": "issue",
+  "title": "finding(tooling): `upstream-port-pin.json` has ONE global `upstream.ref` but per-file digests — `--resync` of one file re-labels the other two with a ref their digests were not taken from",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-07T08:35:13Z",
+  "updated_at": "2026-09-07T16:07:04Z",
+  "closed_at": "2026-09-07T16:03:20Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8288",
+  "body": "Filed by the director seat from the dev seat's report on PR #7749 (patch round of 2026-09-07). Unassigned, ungraded — triage's.\n\n## The fact\n\n`scripts/check-upstream-port-parity.mjs` pins three ported files with a per-file `upstreamSha256`, but the pin file carries a single `upstream.ref`. `resync()` sets `pin.upstream.ref` unconditionally while updating only the re-synced entry's digest.\n\nPR #7749 re-synced `.claude/hooks/guard-main-checkout.selftest.sh` to objectstack `70e77ec3b`. The gate now prints, for all three files, *\"match objectstack-ai/objectstack@70e77ec3b modulo their declared divergences\"* — but:\n\n| ported file | pinned digest is the blob at | blob at `70e77ec3b` |\n| :-- | :-- | :-- |\n| `scripts/pm/check-half-states.mjs` | `bf10debd5` (`449a0aec…`) | `274bac47…` |\n| `scripts/invoked-as.mjs` | `bf10debd5` (`90f72bf4…`) | `6d99f65c…` |\n\nBoth stay GREEN — the digest is the assertion and the bytes are untouched — but the provenance line beside them is false. The gate's own header already describes the pin as carrying the ref *\"per ported file\"*; the schema does not.\n\n## Why it matters\n\nEvery single-file re-sync will reintroduce this as long as one ref covers three independently-moving files. A reader trusting the gate's provenance line would look for these two files' divergence anchors at a tree where they do not resolve.\n\n## Remedy shape (the dev seat's option D)\n\nGive the pin a per-file `ref` (keep the global one as a default or retire it), make `--resync` write only the re-synced entry's ref + digest, and make the gate print each file's own ref. Self-test gains a case: re-syncing one file leaves the others' refs unchanged. `scripts/check-upstream-port-parity.mjs` is not governed; ordinary queue.\n\n⛔ Not folded into #7749: it edits the gate, which that round was fenced from. Separately, `check-half-states.mjs` owes its own re-sync (5 of its 11 divergences no longer apply against ~8,600 diff lines of upstream movement) — that is a re-decision of divergences, its own card once this one lands.\n\nRefs: PR #7749 · `scripts/upstream-port-pin.json` · `scripts/__tests__/upstream-port-parity-wiring.test.ts`."
+}

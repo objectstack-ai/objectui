@@ -1,0 +1,32 @@
+{
+  "number": 8156,
+  "kind": "issue",
+  "title": "finding(app-shell/metadata-admin): `os` is bound by `buildExpressionScope` but unadvertised to row-predicate autocomplete — decide curation vs. omission",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T21:04:07Z",
+  "updated_at": "2026-09-07T09:04:42Z",
+  "closed_at": "2026-09-07T09:04:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8156",
+  "body": "Filed unassigned by the #7727 dev (PM loop R3, session `session_01YBWFb5YgMU5dw8p2VKj16S`) for PM triage. Observation, not a user-visible defect. ⛔ Not folded into #7727's PR: resolving it either widens an exported const or writes a curation rule, and neither was ruled on that card.\n\n## What\n\n`packages/app-shell/src/providers/ExpressionProvider.tsx:88` binds `os`:\n\n```ts\nreturn { current_user: user, user, ctx: { user }, os: { user }, app, data, features };\n```\n\n`ConditionalFormattingEditor.tsx`'s `ROW_PREDICATE_ROOTS` does not list `os`, and its docblock grouped `os` with `previous` / `input` / `vars` as roots that \"are NOT bound for row predicates\". Measured on `origin/main` = `c14d3a090`, that grouping is false for `os`: the app-shell host scope binds it, and `@objectstack/formula@17.2.0` accepts `os` in both the `record` and `flattened` scopes.\n\nBefore #7727 the pin at `ConditionalFormattingEditor.test.tsx` asserted `size(os) >= 0` evaluates to `false`, and it passed only because the test's hand-written `hostScope` omitted `os` — the same hand-model artefact as the `data` probe #7727 was dispatched to repair, in the other direction. #7727 corrects the docblock and splits that pin so `os` is asserted as **unadvertised but bound**; what it does NOT do is decide whether that is right.\n\n## The question\n\nIs `os` withheld from autocomplete deliberately (it is an alias bag — `os.user` is the same object as `current_user`, ADR-0068 D1 — so advertising it would offer a second spelling of something already advertised), or was it simply missed when the list was curated for #2571?\n\n- **A — deliberate curation.** Keep it unadvertised; the docblock now says so, and the pin holds the fact. Cost: nothing; this card closes as documentation.\n- **B — omission.** Add `os` to `ROW_PREDICATE_ROOTS`. Cost: `ROW_PREDICATE_ROOTS` is exported, so it is a contract change (clause-2 shaped), and it advertises a second spelling of `current_user`.\n\n## Dedup\n\n`search_issues` (REST is 403 from this seat class) returned zero hits for this; the control query in the same session returned #7727, so the search was live. Nearest related open card: #8155 (the `app` root, mirror-image shape)."
+}

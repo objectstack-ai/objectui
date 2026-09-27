@@ -1,0 +1,32 @@
+{
+  "number": 8074,
+  "kind": "issue",
+  "title": "finding(test-infra): `check-i18n-call-site-keys.test.ts`'s whole-corpus factory-drift test runs past the 15s default and times out under container load — a second instance of the class in #8062",
+  "state": "closed",
+  "state_reason": "duplicate",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T14:43:03Z",
+  "updated_at": "2026-09-07T13:30:18Z",
+  "closed_at": "2026-09-07T13:30:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8074",
+  "body": "Same class as #8062, one file over. Related: #8062 — fold these into one card if triage prefers that; this one is filed rather than dropped because it is a second measured instance, on a different file, of a class that #8062 names only for `check-doc-links.test.ts`.\n\nObserved while running the `scripts/__tests__/` directory as a gate for objectui#7850 (a change that touches neither this test nor anything it reads).\n\n## The test\n\n`scripts/__tests__/check-i18n-call-site-keys.test.ts`, in `a createSafeTranslation defaults row must repeat the en value too (objectui#7567)`:\n\n    it('main carries no factory drift, over a surface big enough for that to mean something', ...)\n\nIts own lead-in comment says what it walks: the whole `createSafeTranslation` corpus (the shipped measurement it records is 32 factories, hundreds of rows). It takes no `testTimeout` argument, so it runs against Vitest's 15000ms default.\n\n## Three readings, same day, same tree\n\n| Run | Load | Result |\n| --- | --- | --- |\n| `pnpm exec vitest run scripts/__tests__/` (112 files, 183.33s wall) | full directory in parallel | **timed out** — `Test timed out in 15000ms`, the case reported at 17450ms |\n| `pnpm exec vitest run scripts/__tests__/check-i18n-call-site-keys.test.ts` | file alone | exit 0, 130 passed, file duration 37.17s |\n| `pnpm exec vitest run scripts/__tests__/` (112 files, 124.70s wall) | full directory, lighter container | exit 0, 3344 passed |\n\nSo the case is not slow-and-broken and not fast-and-flaky: it sits close enough to the 15s line that whether it goes red is decided by how busy the box is when it runs. In a run where the whole directory takes 183s it is red; in one where the same directory takes 125s it is green. Nothing about the corpus changed between the two.\n\n## Why it is worth a card\n\nThe failure mode is a gate that reds for a reason unrelated to what it measures. It costs an agent or a CI run a diagnosis pass that ends in \"not mine\", and — the sharper half — it trains readers to discount a red from this file, which is exactly the credit a drift gate needs to keep.\n\nNot investigated here, and deliberately not prescribed: whether the remedy is a per-test `testTimeout`, a repo-wide default, splitting the corpus walk, or making the walk cheaper. #8062 raises the same question for its two cases, which is the main argument for one decision covering both.\n\nRecorded by an agent seat while working objectui#7850, session `session_01FhBNJcLRZLe8M87VcUgpKr`. No code change was made for this observation, and it is out of scope for that card's pull request."
+}

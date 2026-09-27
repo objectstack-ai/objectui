@@ -1,0 +1,33 @@
+{
+  "number": 8374,
+  "kind": "pull_request",
+  "title": "fix(plugin-chatbot): a confirm-gate preview is not the commit that settles the card before it (#8343)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T15:01:32Z",
+  "updated_at": "2026-09-07T22:44:20Z",
+  "closed_at": "2026-09-07T22:44:19Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-09-07T22:44:19Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/8374",
+  "body": "Refs #8343.\n\n## The dead end\n\n`builtPlanIds` decided a proposed plan had been built from the tool NAME alone:\n\n```js\nif (tool.toolName === 'apply_blueprint') lastBuildOrder = order;\n```\n\nOn an iteration turn where the user did not say the magic phrase (\"直接搭建\" / \"just build it\"), `apply_blueprint` hits its own confirm gate (cloud `blueprint-tools.ts`, `createApplyBlueprintHandler`) and returns:\n\n```json\n{\"status\":\"awaiting_confirmation\",\"message\":\"A confirm card for this blueprint was just shown to the user — STOP and let them review it. …\"}\n```\n\nIt built nothing and is itself waiting for the user. That still marked the earlier `propose_blueprint` card 已搭建, collapsing its \"Build it\" button into an inert badge — and the `apply_blueprint` card carries no button of its own. So the turn was left with **no confirm affordance at all** while the assistant's prose asked the user to confirm one. The only way forward was guessing \"确认\" into the composer.\n\n## The fix\n\nA build only counts when the invocation is not a confirm-gate preview — the same fact `getToolState` already reads to say \"Awaiting Approval\":\n\n```js\nif (tool.toolName === 'apply_blueprint' && !isProposalResult(tool.result)) { lastBuildOrder = order; }\n```\n\nA still-running `apply_blueprint` (no result yet) keeps counting, so the objectui#432 guard against a second \"Build it\" re-triggering an in-flight build is unchanged — pinned by its own test.\n\n### Also: `confirmedChangeIds` had the same defect (contrary to the issue)\n\nThe issue reported the sibling memo as already the right shape. Measured, it is not. It inferred \"this later call committed\" from the ABSENCE of a rich `proposedChanges` card, and `detectProposedChanges` additionally requires `status === 'changes_proposed'` **and ≥1 parseable change row**. So a later same-tool call that WAS a preview but produced no card (an empty `changes: []` — reachable from the cloud gate's `changes: describeEditOps(args)` path) silently settled the pending 确认修改 card. It reads the preview fact directly now too.\n\nBoth memos are now one condition apart from `resolveProposalCardState`'s stated principle: \"what actually happened\" over \"what was asked for\".\n\n## Tests\n\n`packages/plugin-chatbot/src/__tests__/ChatbotEnhanced.awaitingConfirmBuild-8343.test.tsx` — the real two-turn wire envelopes fed through the real mapper (`uiMessagesToChatMessages`), so the whole detector chain runs as it does in the console. Six cases: the two regressions, plus positive controls that the card still collapses to 已搭建 / 已确认 on a real commit and on an in-flight build.\n\n### Ablation (both conditions removed, then restored)\n\nRemoved:\n\n```\nTests  2 failed | 4 passed (6)\n\nFAIL  … > keeps the plan card pending, with a live Build it button\n  expected document not to contain element, found <span data-testid=\"proposed-plan-built\"> … Built </span>\n\nFAIL  … > keeps the 确认修改 card pending when the later same-tool call was itself a preview\n  expected document not to contain element, found <span data-testid=\"proposed-changes-confirmed\"> … Confirmed </span>\n```\n\nRestored:\n\n```\nTests  6 passed (6)\n```\n\nWhole package: `Test Files 40 passed (40) · Tests 467 passed (467)`. `packages/app-shell/`: `Test Files 647 passed (647) · Tests 6234 passed | 1 skipped`. `eslint` on the changed files: 0 errors.\n\n## Not in this PR\n\nThe issue's tail note — the assistant says \"请确认**下方**方案卡片\" while the card renders **above** the prose. Grepped both repos: no such literal exists in objectui, and none in cloud either. It is the model's own improvised direction word; the nearest instruction that shapes that sentence is `packages/service-ai-studio/src/skills/solution-design-skill.ts:26` (cloud), which prescribes the one-line lead-in but says nothing about direction. Fixing it means constraining that prompt in **cloud**, not this repo.\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

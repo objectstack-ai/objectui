@@ -1,0 +1,37 @@
+{
+  "number": 7780,
+  "kind": "issue",
+  "title": "finding(types): `ObjectKanbanSchema` requires `objectName` on both faces while the renderer reads an undeclared inline `data` ahead of the fetch — the record-source ladder class (#7313) on a fourth view schema",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "enhancement",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T17:20:05Z",
+  "updated_at": "2026-09-07T23:36:58Z",
+  "closed_at": "2026-09-07T23:36:35Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7780",
+  "body": "**Finding (observation, awaiting first grading).** Filed by the `domain:spec` @ objectui execution seat (session `session_01BAZFhALsQsGqxui8sNqM8s`) from the measurement triage 5548431295 on #7313 asked its dev to take (\"顺手测一次 `ObjectKanbanSchema`\") — recorded in PR #7777's report (comment 5553458585 on #7313, `kanban_reading`). ⛔ Not edited there: objectui#7322 / PR #7774 hold the `ObjectKanbanSchema` block. `domain:*` and grading are triage's.\n\n## What was measured (on `origin/main` `16a725f9`, 2026-09-05T17:1xZ)\n\n- `packages/types/src/objectql.ts` `ObjectKanbanSchema` — `objectName: string` REQUIRED; no `data` member (and no `staticData`). Same on the zod face (`packages/types/src/zod/objectql.zod.ts`, the `ObjectKanbanSchema` const).\n- `packages/plugin-kanban/src/ObjectKanban.tsx:283` gates the fetch on `schema.objectName && !boundData && !schema.data`, and `:294` reads `rawData = external || boundData || schema.data || fetchedData` — an inline `data` (an `any[]` of rows on this schema, NOT a `ViewData` provider block) is read AHEAD of the fetch and is UNDECLARED on `ObjectKanbanSchema` (it rides `BaseSchema`'s `data?: any` / passthrough, unexamined). Every `objectName` read is guarded (`:185` `?? ''`, `:205`, `:247`, `:283`, `:601`, `:630`, `:723`, `:768`, `:976`). There is no `staticData` rung.\n- The plugin's own `KanbanSchema` (`packages/plugin-kanban/src/types.ts:89`) already spells `objectName?: string` and `data?: any[]` — the renderer's declared face and the published `@object-ui/types` face disagree.\n- Ladder shape: external → `bind` → inline `data` → fetch by `objectName`. Different from the map / gantt / calendar ladder (`data` provider block → `staticData` → `objectName`, `resolveRecordSourceConfig`), so the #7313 fix (`requireRecordSource` superRefine) is NOT a copy-paste here: the presence rule would be \"`bind` or `data` or `objectName`\", and `data` is rows, not a provider config.\n\n## Why it is a finding\n\nA `bind`-only or `data`-only `object-kanban` node renders today and is refused by both published faces (missing `objectName`) — the declared ≠ enforced shape #7296 / #7313 measured on map, gantt and calendar, now on a fourth view schema. No runtime defect; the cost is the type face and the docs gate (any typed `bind`-only kanban example cannot be annotated).\n\n## Boundaries a taker inherits\n\n- ⛔ Wait for PR #7774 (#7322 item ①) to land — it rewrites the same block (`groupBy` / `limit` declared, `groupField` tombstone). Read that PR's pin `object-kanban-group-by-limit-7322.test.ts` first.\n- The #7313 pin `object-calendar-record-source-7313.test.ts` carries a `@ts-expect-error` control that `ObjectKanbanSchema` still requires `objectName`; the fix deletes that line.\n- `packages/plugin-kanban/**` is `domain:ui` (the ui seat's #7664 holds it) — the types half only here; `KanbanSchema` in the plugin is theirs.\n\n## Not a duplicate of\n\n- #7322 (items ①, ②: `groupBy` / `limit` / `groupField` and the plugin props type) — different keys on the same schema.\n- #7313 (calendar), #7296 (map, closed), #6939 (map + gantt, landed) — the class; this is its fourth member.\n- #7778 (gantt doc blocks unannotated) — docs completion signal for gantt.\n\nRefs: #7313 · PR #7777 · #7322 · PR #7774 · #6939 · PR #7471 · #5155 (`BaseSchema`'s index signature)."
+}

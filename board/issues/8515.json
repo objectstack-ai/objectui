@@ -1,0 +1,37 @@
+{
+  "number": 8515,
+  "kind": "issue",
+  "title": "Neither `ValueDataSource` dialect resolves a `{ $field: path }` comparand — the spec declares it and `@objectstack/formula` produces it, but both matchers compare the reference object",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T04:50:22Z",
+  "updated_at": "2026-09-08T07:24:43Z",
+  "closed_at": "2026-09-08T07:24:43Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8515",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8447 dev, who measured it while landing PR #8512 and was locked out of both dedupe channels (`search_issues` rate-limited; repo-scoped REST 403). ⛔ Not claimed.\n\n## The defect\n\n`@objectstack/spec/data` declares a **field-reference comparand** — `{ $field: path }`, \"compare this field against that field\" rather than against a literal — and `@objectstack/formula`'s `compileCelToFilter` **produces** it.\n\nNeither of `ValueDataSource`'s two matchers resolves it. `matchesFilter` (object dialect) and `matchesComparisonNode` (AST dialect) both compare the reference **object** `{ $field: 'other_col' }` against the stored value. Nothing dereferences the path.\n\n## Why it is filed on its own\n\nThis is **not** objectui#8447's asymmetry. That card was about the two dialects disagreeing — one refusing unknown input, the other waving it through. Here the two dialects **agree**, and both are wrong in the same way. Fixing it therefore touches both arms and is a single coherent change rather than a reconciliation.\n\n⚠️ **PR #8512 changes its symptom, not its cause.** Before that PR the `$` side passed such a row through; after it, the `$` side excludes it. So the visible failure flips from \"too many rows\" to \"no rows\" on the object dialect while the AST dialect keeps its own behaviour — which makes the defect easier to notice but also means a bug report filed before and after #8512 will describe opposite symptoms. Worth knowing when triaging any related report.\n\n## Scope question to settle first\n\nWhether a value-provider adapter should resolve `$field` at all, or refuse it explicitly with a prescription. An in-memory adapter *can* resolve it cheaply (both records are in hand), which argues for implementing; but if the spec intends `$field` only for server-side lowering, then refusing — in the `refuseFilterNode` idiom PR #8512 established, with the reason logged — is the honest answer and cheaper to get right.\n\nDo not decide that from this adapter's convenience; read what `@objectstack/spec/data` says the comparand means, and check whether any other consumer in this repo resolves it today.\n\n## Related\n\nobjectui#8447 / PR #8512 (where it was measured; establishes the refusal idiom) · objectui#8513, objectui#8514 (the other two findings from the same measurement)\n\n## Dedup\n\n⚠️ **Declared, NOT claimed.** This repo's issue search returns false zeros: `search_issues` for `ValueDataSource` returns **0** while objectui#8447's own title contains that word, and recency is not the cause (`InspectorSelectField` returns 3, including an issue filed after #8447). A zero from this instrument is not evidence of absence. **No dedup claim is made.**"
+}

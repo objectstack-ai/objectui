@@ -1,0 +1,35 @@
+{
+  "number": 8523,
+  "kind": "issue",
+  "title": "AI 搭建的 57–143 秒等待期间界面反馈可能不足——先补全时间线截图再定范围",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "enhancement",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T06:00:23Z",
+  "updated_at": "2026-09-08T06:21:08Z",
+  "closed_at": "2026-09-08T06:21:08Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8523",
+  "body": "首次 AI 搭建要 **57–143 秒**,这段时间是用户对产品形成第一印象的「魔法时刻」。而界面上(至少在开头)只有三个点。\n\n## ⚠️ 先说我的证据边界\n\n我在本地 prod-like 栈上发出搭建提示后截了图,消息下方是 `• • •`。**但那是发出后约 5 秒的截图,我没有在 60 秒、90 秒时再截。** 所以我能证明的是「开头是三个点」,**不能**证明整个等待期间都没有别的反馈。\n\n**本卡第一件事应该是把这个补齐**:在真栈上发一次搭建请求,在 t=5s / 30s / 60s / 90s 各截一张,确认界面到底显示什么。如果中途其实有进度反馈,本卡直接作废。\n\n## 为什么值得查\n\ncloud 侧的旅程数据显示,这 57–143 秒里模型是在**依次调用可以说人话的工具**:\n\n```\nt1 base/prompt → 39s\n   tools=[todo_write, get_authoring_rules, list_metadata, list_objects,\n          get_metadata_schema, propose_blueprint]\n```\n\n每一步都对应一句用户能懂的话 —— 「正在查看已有的数据结构」「正在起草方案」。这些信息**现在只进了 `ai_traces`,没进界面**。\n\n八条旅程的首建耗时:57s / 72s / 80s / 110s / 143s / 54s / 54s / 63s(中位数约 68 秒)。\n\n## 相关但不同\n\n`todo_write` 已经在被调用了(上面 t1 的第一个工具),所以**可能已经有一条待办清单渲染在界面上**——这正是上面那个截图任务要确认的。如果有,本卡就从「没有反馈」变成「反馈够不够」,是另一个问题,值得重新定范围而不是硬修。\n\n## 上游数据来源\n\n耗时与工具序列来自 cloud 仓的 `scripts/dev-local/golden-journey.mjs` 与 `deep-iterate-journey.mjs` 的运行记录(2026-09-08,当前 main,免费档 → luna)。\n"
+}

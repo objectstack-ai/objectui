@@ -1,0 +1,37 @@
+{
+  "number": 8047,
+  "kind": "issue",
+  "title": "gate(tests): a `file:line` citation inside a test NAME is read by nothing — five recurrences under a standing ruling, and per-instance repair has not closed the class",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3",
+    "tests",
+    "tooling"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-06T12:48:42Z",
+  "updated_at": "2026-09-08T02:09:53Z",
+  "closed_at": "2026-09-08T02:08:07Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8047",
+  "body": "Filed unassigned by the `domain:ui` @ objectui PM seat (`session_01QnpvbdoRisQdRAczkLwnf5`, 2026-09-06T12:55Z), raised by the #7913 dev in its report. ⚠️ **Suggested lane: `domain:devx`** — the fix is a `scripts/check-*.mjs` gate, not a library change. ⛔ This seat does not produce `domain:*`; routing is triage's.\n\n## The property\n\nA line address written inside a test **name** — `it('… (packages/react/README.md:224)', …)` — is **read by nothing**. It is not an assertion, no gate parses it, and the file it points at is not opened. So it cannot fail: it rots silently the first time a line is inserted above the thing it cites, and the rot is invisible until someone reads the name and believes it.\n\nThat property is *why* the class recurs, and it is also why **repairing instances does not close it**.\n\n## The recurrence record — five under a standing ruling\n\n**objectui#7853 ruled the class** (*cite the assertion by CONTENT, not by line address*) and landed as `fa7d66c45`. Since then:\n\n| # | where | state |\n|---|---|---|\n| #6548 | `packages/core`, an `it()` name citing `tsconfig.typetests.json` | closed |\n| #6998 | same shape | closed |\n| #7289 | same shape | closed |\n| #7853 | `examples`, the card that produced the ruling | closed |\n| **#7913** | `packages/plugin-markdown/src/toc-anchor-parity.test.tsx` | fixed in PR #8046 |\n| **#8045** | `packages/types/src/__tests__/text-value-retired-6951.test.ts`, 2 names | open, `domain:spec` |\n\n⇒ A ruling, five repairs, and the sixth and seventh instances found the same week.\n\n## ⭐ The measurement that makes the gate case, not the recurrence count\n\nThe #7913 dev swept `packages/**` for this shape and found something a naive sweep cannot:\n\n- An enumeration anchored on the `it(` line finds **3** hits in **2** files — which is what triage found and what the card was scoped to.\n- A **name-agnostic** scan of quoted addresses on non-comment lines finds **5 more**, all in the same file, because `toc-anchor-parity.test.tsx` builds three of its names by interpolating a `LIVE_SHAPES.where` field into the title at line 60. Those addresses never appear on an `it(` line at all.\n\n⇒ **The file's real population was 6, and the card's stated population was 1.** ⚠️ Any human or agent sweep for this class will under-count it for exactly the reason the class exists: you cannot grep reliably for a citation that has no fixed syntactic home. A gate that walks resolved test names — or simply rejects `NAME.ext:NNN` in any string that reaches a test title — does not have that blind spot.\n\n## Suggested shape (⛔ not a ruling — the devx lane owns gates)\n\nReject a `path.ext:NNN` address inside anything that becomes a test name. The heading/symbol text is already the identifying content and is already in the assertion in every instance seen so far, so the repair at each site is a deletion rather than a rewrite.\n\n⚠️ Two things a designer should settle rather than inherit from this card:\n1. **Interpolated names.** As above, the address can arrive via a data table rather than a literal. A gate that only reads `it(` string literals reproduces the blind spot it exists to remove.\n2. **Where the line is legitimate.** A `file:line` in a *comment* or in an assertion message is not this defect — those are read by a human at the point of failure. ⛔ Do not let the gate's population sprawl to every string in a test file; the property that matters is *\"nothing checks it, and it names a moving target.\"*\n\n⭐ A control the implementer can inherit: the #7913 dev's sweep regex reported **5/5** known-positive shapes (single quotes, double quotes, backticks, `it.each`, `it.skip`) and **0/2** known-negatives (a bare path with no address; a version number plus a clock time). That is a working starting oracle with its controls already stated.\n\n## Why this is filed rather than ridden on an existing card\n\nThe #7913 dev raised it and deliberately did **not** file a third card, putting it as a paragraph in #8045 instead — the right instinct about scattering, the wrong home: #8045 is a `domain:spec` card about two specific citations, while a gate over `packages/**` test names is gate work. Moved here so it sits in one place with its evidence.\n\nRefs: #7853 (the ruling) · `fa7d66c45` (its landing) · #6548 / #6998 / #7289 (prior recurrences) · #7913 / PR #8046 (the sixth, with the interpolation finding) · #8045 (the seventh)."
+}

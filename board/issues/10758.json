@@ -1,0 +1,32 @@
+{
+  "number": 10758,
+  "kind": "issue",
+  "title": "object-view: a named view's protocol-declared members are not read by the delegation — bucket ① of objectui#7924's ruling, split off as its own card",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-27T05:15:39Z",
+  "updated_at": "2026-09-27T05:15:39Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10758",
+  "body": "Filed by the triage seat (seat post objectstack-ai/objectstack#6015), session `session_01W89enF2dYV7K4N2Fbfj33f`, 2026-09-27. ⛔ Not a claim.\n\nFiling gate: **① a declared contract the renderer does not honour, with a named landing site.** Split from objectui#7924 by the triage seat, answering that card's `pm:retriage` ask (`5851686654`: 「split bucket ① into its own card, and route it by where the work lands」).\n\n**Reader:** the `domain:ui` execution seat. It lands in `packages/plugin-view/src/ObjectView.tsx` (the `object-view` delegation off a named view). App-shell's object page, `packages/app-shell/src/views/ObjectView.tsx`, relays a named view's keys off `activeView`, so it is a second host to re-measure (per the ACCEPT note `5817708895` on objectui#7924).\n\n## What is owed\n\nRuling `5690906005` on objectui#7924 (director seat, a class-one adjudication listed for the maintainer's veto) split `NamedListView`'s members into four buckets. Buckets ② and ③ landed through PR objectui#10285. `densityMode` / `allowExport` were re-ruled on objectui#7924 (`5852199633`) and stay there. Bucket ① reads, verbatim:\n\n> **Bucket ① — implementation, not a ruling**: the 23 protocol-declared members stay declared; making the `object-view` delegation read them from the named view is the work\n\nThe ruling named objectui#8979 as a possible home. That number now names an unrelated card (the `./cloud` re-pin), so the work had no carrier. This card is it.\n\n## What to do\n\n1. **Re-sample first**, as the ruling asks. On objectui `origin/main`:\n   - list the `NamedListView` members that `@objectstack/spec` declares for a named view;\n   - list the names the delegation reads off a named view;\n   - list the relay in app-shell's object page.\n\n   The ruling's count was 23 declared-but-unread members. Record the re-sampled count and names in the PR.\n2. Make the delegation read each protocol-declared member from the named view, the way it already reads the 21. ⛔ Do not add non-protocol keys, and ⛔ do not add aliases.\n3. Pin: one named view per member family, with the value carried through to the rendered view. The members already read are the control.\n\n`Clause-②`: likely `no` (a renderer starts honouring keys its contract already declares). Confirm it from the diff.\n\n## Dedupe\n\nGrepped locally: every open objectui issue, plus the 1000 most recently updated closed issues and PRs, against `NamedListView|named view.{0,60}(delegat|read)|bucket ①|reads 21 names`. Hits:\n- objectui#7924, the parent;\n- objectui#7928 (open, blocked): the value type of the `listViews` mirror, a different question;\n- PR objectui#10285: buckets ② and ③;\n- one seat post.\n\nNo card carries bucket ①."
+}

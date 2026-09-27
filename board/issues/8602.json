@@ -1,0 +1,33 @@
+{
+  "number": 8602,
+  "kind": "pull_request",
+  "title": "docs(types): record the #6150 ledger's blind spot — complete only for the un-cast spelling",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T15:27:12Z",
+  "updated_at": "2026-09-08T16:08:50Z",
+  "closed_at": "2026-09-08T16:08:49Z",
+  "closed_by": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "merged_at": "2026-09-08T16:08:49Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/8602",
+  "body": "Part of #8327\n\n⛔ That wording is deliberate: it is not one of the keywords that shuts a card on merge. This PR carries only the SECOND half of that card. The first half — the three-way classification of every cast read — is delivered as comment `5587605667` on the card itself, and the card also holds the follow-ups that measurement raised, each of which is a ruling to route rather than work to do. Whoever routes those decides when the card is done.\n\n## What changed\n\nOne docblock section in `packages/types/src/__tests__/undeclared-but-consumed-keys-6150.test.ts`, plus an empty-frontmatter changeset. No code, no assertions, no ledger rows.\n\nThat ledger opens by describing a census over the component docs pages and calling its result the 13 genuinely-read undeclared keys. Every read that census matched is spelled `schema.KEY`; it never looked for `(schema as any).KEY`. A reader who takes the paragraph at face value concludes the class has been swept — which is how #7105 stayed open as long as it did. The header now says so in its own words.\n\n## Why the numbers in it are what they are\n\nRe-measured for #8327 with the cast-aware `schemaReads` instrument the package already carries (`widget-schema-anchors-6576.test.ts:199`, from #6576 — ⛔ no second scanner), enumeration and reading both taken from one pinned ref:\n\n| | at `c842594`, the census card's own ref | that card states | at `154fe2a`, `main` today |\n| --- | --- | --- | --- |\n| production files in the population | 1596 | 1596 | 1598 |\n| raw text | 92 keys / 27 files | 92 keys / 27 files | 92 keys / 27 files |\n| comments and string literals stripped | **89 keys / 24 files** | **58 keys / 21 files** | **88 keys / 23 files / 112 reads** |\n\n⭐ The raw row reproduces exactly; the stripped row does not. `58/21` describes that card's own per-file table, and the table is a strict SUBSET of the real read set — `plugin-view/src/ObjectView.tsx` alone has **31 cast reads** and is absent from it. The header therefore quotes the re-measured figures, not the card's.\n\nAsked of the TypeScript checker rather than of a grep — because \"genuinely undeclared\" is an ABSENCE claim and #8410 is the standing card that grep-shaped absence claims are unsound — the 112 split: 29 undeclared on the type the renderer is handed, 8 declared on one arm of a union only, 38 declared (stale or forced casts), **31 already RULED non-author surface** (#5091, #5097) that must never be declared, 1 the same key as one of those rulings but unpinned at its site, and 5 unanswerable because the renderer is handed `any`. Full per-key table with evidence: comment `5587605667`.\n\n⚠️ The header states plainly that those 29 are **not** pending rows for this ledger: every row it carries is a published-type widening owing its own adjudication.\n\n## Non-vacuity control worth naming\n\nThe classifier was told nothing about `plugin-view`'s in-source `OBJECT_VIEW_HOST_COMPOSITION_KEYS`, and independently returned exactly those 27 keys as undeclared and exactly the 4 the file's docblock calls declared. Set difference in both directions: empty.\n\n## Verification\n\n- `pnpm --filter @object-ui/types type-check` — exit 0, all three legs (`tsc --noEmit`, `tsconfig.examples.json`, `tsconfig.test.json`). ⚠️ `vitest run` cannot judge a type-map ledger, so the third leg is the instrument; `tsc -p tsconfig.test.json --listFiles` confirms it compiles this very file (1 hit among 148 test files), so the green is not vacuous.\n- `pnpm --filter @object-ui/types lint` — exit 0 (265 pre-existing warnings, 0 errors). `eslint` on the changeset file — exit 0.\n- `node scripts/check-control-bytes.mjs` · `check-changeset-presence.mjs` · `check-changeset-no-major.mjs` · `check-changeset-fixed.mjs` · `check-changeset-overwrite.mjs` · `check-type-check-coverage.mjs` · `check-comment-mask-corpus.mjs` — all exit 0, each captured before any pipe.\n- `vitest run` on the edited file — 77 passed. Reported as a smoke check only, ⛔ not as evidence about the type map.\n- Dependency-closure build: none owed. `@object-ui/types` has no workspace dependencies, so its `^...` closure is empty.\n\n⛔ Draft, targets `main`, ⛔ not enqueued, ⛔ no auto-merge, ⛔ no self-approval.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01Jmxdo7bmeqCQHLSfmLVX9w\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01Jmxdo7bmeqCQHLSfmLVX9w)_"
+}

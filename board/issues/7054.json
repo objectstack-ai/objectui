@@ -1,0 +1,34 @@
+{
+  "number": 7054,
+  "kind": "pull_request",
+  "title": "chore(deps): Bump motion from 12.43.0 to 13.2.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "automated",
+    "dependencies",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T15:39:55Z",
+  "updated_at": "2026-09-07T12:20:48Z",
+  "closed_at": "2026-09-07T12:20:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-09-07T12:20:46Z",
+  "comments": 16,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/7054",
+  "body": "Bumps [motion](https://github.com/motiondivision/motion) from 12.43.0 to 13.2.0.\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/motiondivision/motion/blob/main/CHANGELOG.md\">motion's changelog</a>.</em></p>\n<blockquote>\n<h2>[13.2.0] 2026-unreleased</h2>\n<h3>Added</h3>\n<ul>\n<li><code>animate.addEffect()</code> for registering effects that lets <code>animate</code> drive non-DOM subjects alongside DOM elements.</li>\n<li><code>threeEffect</code> (<code>motion/three</code>) supporting Three.js objects, materials, shader uniforms, TSL uniform nodes and more.</li>\n<li><code>vgpuEffect</code> (<code>motion/vgpu</code>) supporting shared uniforms, <code>Effect</code>/<code>Draw</code>/<code>Compute</code> bindings (<code>&quot;params.time&quot;</code>), scene nodes, cameras, lights, materials, orbit controls, CSS colors and vector components.</li>\n<li><code>createEffect</code> now accepts <code>test</code>, <code>read</code> and <code>step</code> options and exposes bound motion values via <code>effect.get()</code>.</li>\n</ul>\n<h3>Changed</h3>\n<ul>\n<li>Reduced filesize and improved performance of <code>spring</code>.</li>\n</ul>\n<h2>[13.1.1] 2026-08-18</h2>\n<h3>Fixed</h3>\n<ul>\n<li>Guard animation <code>window</code> access in non-browser runtimes.</li>\n<li><code>AnimatePresence</code>: Improved compat with React 19 strict mode.</li>\n</ul>\n<h2>[13.1.0] 2026-08-10</h2>\n<h3>Added</h3>\n<ul>\n<li><code>Reorder</code>: Multidimensional reorder.</li>\n<li><code>Reorder</code>: Automatic axis detection.</li>\n<li><code>Reorder</code>: RTL support.</li>\n</ul>\n<h2>[13.0.0] 2026-08-05</h2>\n<h3>Changed</h3>\n<ul>\n<li>Removed optional <code>@emotion/is-prop-valid</code> dependency in favour of explicit <code>&lt;MotionConfig isValidProp={isPropValid}&gt;</code>.</li>\n</ul>\n<h3>Fixed</h3>\n<ul>\n<li>Hardware-accelerated SVG elements correctly apply final style on animation complete.</li>\n<li><code>AnimatePresence</code>: Ensure nodes are marked as safe to remove when rendering <code>propagate</code> with no <code>motion</code> children.</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/motiondivision/motion/commit/0f1c11975f8ccad99c6c42422a46de3e310169aa\"><code>0f1c119</code></a> v13.2.0</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/f73cbd7b11ebeee97640dbe586c6039fcf5eff45\"><code>f73cbd7</code></a> Latest</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/d743b79e59e4f24fb0390f19bfcb05371f6fe12a\"><code>d743b79</code></a> Latest</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/ce2719dfb620bf0df54c8b3e6c413252ab2f974e\"><code>ce2719d</code></a> Add WebGPURenderer TSL demo</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/b800e587136bdf1d8ab3c4080789ddcf01976c37\"><code>b800e58</code></a> Add TSL uniform node support to Three.js animate</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/d60a9563a59963175eb30dc362001d5224a2aa1f\"><code>d60a956</code></a> Merge pull request <a href=\"https://redirect.github.com/motiondivision/motion/issues/3800\">#3800</a> from motiondivision/add-uniform-effect</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/a2d3227bbe4e8cf52a35c5a7bfb675313ccd4af1\"><code>a2d3227</code></a> Merge pull request <a href=\"https://redirect.github.com/motiondivision/motion/issues/3799\">#3799</a> from motiondivision/generator-filesize-optimisations</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/55c8f8e51cfc5b2a682e0ae2a49d817ce151ebaf\"><code>55c8f8e</code></a> Remove redundant comment from inertia bounds check</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/84c2599c26c1b387c262e52386165b867b14d738\"><code>84c2599</code></a> Add GPU adapter preview examples</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/7b0ac88076af89180989676aa43bd63475e86f80\"><code>7b0ac88</code></a> Create adapter MotionValues lazily</li>\n<li>Additional commits viewable in <a href=\"https://github.com/motiondivision/motion/compare/v12.43.0...v13.2.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

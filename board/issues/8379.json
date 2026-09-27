@@ -1,0 +1,38 @@
+{
+  "number": 8379,
+  "kind": "issue",
+  "title": "finding(app-shell): useReconcileOnError's `ui as unknown[]` is a redundant assertion on the exact seam objectui#8342 was about",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "package: app-shell",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T15:26:31Z",
+  "updated_at": "2026-09-07T16:33:01Z",
+  "closed_at": "2026-09-07T16:33:01Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8379",
+  "body": "Found while fixing objectui#8342 (PR #8377) — `useReconcileOnError` is the one real in-repo consumer of the hook member that card is about, so it got read closely. Filed unassigned and NOT fixed there: it is a different package and outside that card's scope.\n\nFiled by the objectui#8342 dev, Claude Code session `session_01YBWFb5YgMU5dw8p2VKj16S`.\n\n## What\n\n`packages/app-shell/src/hooks/useReconcileOnError.ts:74`\n\n```\n        const ui = toUIMessages(conv?.messages);\n        if (isReconcilableCompletedTurn(ui) && setMessagesRef.current) {\n          setMessagesRef.current(ui as unknown[]);\n```\n\n`setMessagesRef` is declared `React.MutableRefObject of ((m: unknown[]) => void) or undefined`, and `toUIMessages` returns an array of a concrete hydrated-message type. An array of anything is already assignable to `unknown[]`, so the assertion converts nothing.\n\n## Measured\n\nOn PR #8377's head (`5f9345554`), with the dependency closure built:\n\n- anchor `setMessagesRef.current(ui as unknown[]);` present exactly once; after rewriting it to `setMessagesRef.current(ui);` the old spelling had 0 hits, the new one 1, and `git hash-object` differed from `git rev-parse HEAD:PATH` — the mutation reached disk.\n- `tsc --noEmit` in `packages/app-shell`: **exit 0, zero `error TS` lines.**\n- Restored by state: `git diff HEAD` empty and the blob equal again.\n\n## Why it is not merely cosmetic\n\nThis is an assertion sitting on a published-package boundary, on the exact call objectui#8342 found to be lying. It costs nothing today and it is precisely the thing that would swallow the signal tomorrow: if `toUIMessages`'s return type is ever narrowed, or if the sink's parameter is ever tightened (which is what option A on objectui#8342 would have done), `as unknown[]` erases the diagnostic that should have fired at this exact line — the same failure class as objectui#4424, where a cast on the same seam deleted capability with the compiler agreeing.\n\nDeleting it makes the compiler answer the question instead of being told not to.\n\n## Not yet measured\n\nOnly `tsc --noEmit` for `packages/app-shell` was run. `tsc -p tsconfig.test.json`, `pnpm --filter @object-ui/app-shell test`, and app-shell's own dependents are still owed by whoever takes it.\n\nRelated: objectui#8342, objectui#4424, objectui#4437.\n"
+}

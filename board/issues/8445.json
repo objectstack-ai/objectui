@@ -1,0 +1,33 @@
+{
+  "number": 8445,
+  "kind": "pull_request",
+  "title": "test(plugin-detail): pin the viewport in the #8350 dedupe pin, and cover the mobile branch",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T23:46:39Z",
+  "updated_at": "2026-09-08T00:17:44Z",
+  "closed_at": "2026-09-08T00:17:43Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": "2026-09-08T00:17:43Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/8445",
+  "body": "Fixes #8399\n\n`record-details.dedupeEmptinessTrims-8350.test.tsx` argued that a missing row could only be the dedupe's doing, because every fixture stayed below `DetailSection`'s auto-hide minimum. Both halves of that argument are viewport-dependent, and the file pinned neither value. It was green because happy-dom reports `innerWidth` **1024**.\n\n## The margin, recounted on this base (`ca3942729`), not taken from the card\n\nRendered rows after the dedupe, and how many of them are empty **today** (post-#8396), measured at a pinned 1280 by counting rows in the container and `No value` placeholders by title:\n\n| fixture | rendered rows | empty | mobile auto-hide fires? |\n|---|---|---|---|\n| `CONTRACT_FIELDS` | 2 | 1 | no — 2 is below the mobile minimum 3 |\n| `ACTIVITY_FIELDS` | **3** | **2** | **yes** — 3 meets the minimum, 0.67 clears 0.2 |\n| `PLAIN_FIELDS` | 2 | 1 | no |\n| `NON-REGRESSION` | 2 | 0 | no |\n\nThe card said \"3 rendered rows, 2 of them empty\" for the ACTIVITY fixture and that is confirmed. Two things the card did not say, both of which come out of the recount:\n\n- the **other three** fixtures render **2** rows, not 3. The file's own docblock said \"every fixture below renders 3 rows after the dedupe\" — that was never true of three of the four, and it is now corrected to the measured numbers.\n- the thresholds re-read on this base are unchanged from the card: `AUTO_HIDE_MIN_FIELDS = isMobile ? 3 : 4`, `AUTO_HIDE_RATIO = isMobile ? 0.2 : 0.25` (`DetailSection.tsx:258-260`).\n\n## The hazard is open — it is not a hypothetical, and it did not close\n\nAblation from the committed implementation, mutation proven on disk by `git hash-object` and restored by state (`git diff HEAD` empty **and** the hash back to `git rev-parse HEAD:PATH`), trap on `EXIT INT TERM` with absolute paths:\n\n**Leg 1 — pin the existing describe to the mobile branch (1280 to 375):**\n\n```\nTests  1 failed | 9 passed (10)\n × WHITESPACE AT THE DERIVATION RUNG — HALF 2: both blank rows survive\nTestingLibraryElementError: Unable to find an element with the text: contract_no\n```\n\nExactly the predicted failure, and note *what the message says*: nothing about auto-hide. That one line is the whole reason this card exists.\n\n**Leg 2 — pin the new mobile describe to desktop (375 to 1280):**\n\n```\nTests  2 failed | 8 passed (10)\n × MOBILE HALF 1 …\nAssertionError: mobile auto-hide must fire on this fixture (3 rendered rows meets AUTO_HIDE_MIN_FIELDS 3, 2/3 empty clears AUTO_HIDE_RATIO 0.2) — this row is absent because it was HIDDEN, not because the dedupe took it\n × MOBILE HALF 2 …\nAssertionError: without the reveal toggle there is nothing to reveal and this case measures nothing\n```\n\nThe new cases are not vacuous, and the contrast between the two legs is itself the argument for reading presence through `queryByText` into `expect(value, message)`.\n\n## What changed\n\n1. **The viewport is pinned, and the branch is chosen out loud.** `DESKTOP_WIDTH` for the existing describe, with a comment saying *why*: these cases assert which row the dedupe drops, and that reading is only clean while no second mechanism can remove a row — which at these fixture sizes is true only on the desktop branch. Pinning desktop is the decision, not the accident.\n2. **The docblock is corrected.** It claimed `DetailSection`'s emptiness test \"is raw — a whitespace-only value counts as FILLED there\". #8396 made that definition trim, which is precisely what turned this file's margin from comfortable into zero. The stale sentence is replaced by the measured table above and by the statement that the file now pins the viewport.\n3. **The mobile branch is covered as a SECOND describe, never a substitute.** It does not re-assert the same rows; it pins the **distinction** the desktop choice rests on. A deduped row and an auto-hidden row are both \"not on screen\", and only one comes back: `MOBILE HALF 1` shows both blank rows hidden with `DetailSection` offering `Show 2 empty fields`, `MOBILE HALF 2` clicks that toggle, gets both rows back, and asserts that `Acme Corporation` — the row the dedupe removed — does **not** come back.\n\n## Checks\n\n- `pnpm exec vitest run packages/plugin-detail/src/renderers/__tests__/record-details.dedupeEmptinessTrims-8350.test.tsx` — `Test Files 1 passed (1) / Tests 10 passed (10)` (was 8).\n- `pnpm --filter @object-ui/plugin-detail type-check` — exit 0. The test file is genuinely in that program: `tsc -p tsconfig.test.json --listFiles` lists it (1 hit, with `DetailSection.tsx` as the lit control).\n- `pnpm exec eslint .` in `packages/plugin-detail` — exit 0, 0 errors, 901 pre-existing warnings; the two on this file are the pre-existing `no-explicit-any` on `renderBody`.\n- Changeset — `node scripts/check-changeset-presence.mjs` verdict: `1 source file(s) of 1 released package(s) changed, and this change declares 1 changeset(s): .changeset/issue-8399-dedupe-pin-pins-viewport.md.` `Every one of them has an EMPTY frontmatter — declared as releasing nothing, which is the explicit exemption and a complete answer to this gate.` `check-changeset-no-major.mjs` also exit 0.\n- No control bytes in either changed file (`grep -naP` for the control ranges, zero hits, with a lit control that fires on a file containing one).\n\n## Out of scope, filed separately\n\n#8444 — forcing `useIsMobile` to answer \"mobile\" turns **21 of 137** test files in this package red (77 of 1233 tests). Same class, one layer out. Not touched here.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01YBWFb5YgMU5dw8p2VKj16S\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01YBWFb5YgMU5dw8p2VKj16S)_"
+}

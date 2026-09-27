@@ -1,0 +1,38 @@
+{
+  "number": 8213,
+  "kind": "issue",
+  "title": "finding(app-shell): the view-level `groupBy` ObjectView writes into `options.kanban` is a third lane spelling the spec's `KanbanConfigSchema` refuses by name",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: app-shell",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-07T01:38:11Z",
+  "updated_at": "2026-09-07T14:59:50Z",
+  "closed_at": "2026-09-07T14:59:50Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8213",
+  "body": "Split out of objectui#8193, which fixed the *other* half of the same expression (it emitted the deprecated `groupField` where the spec says `groupByField`). #8193 deliberately left this half alone — one atomic producer change per card — and its own boundary note asked whoever took it to **measure** whether `groupBy` is a legitimate key before folding it. That measurement is below; it says it is not.\n\nMeasured on `origin/main` `ecf8e726e`, against the `@objectstack/spec` version this repo resolves today (**17.2.0**). Note objectui#7685 is in flight to move that pin to 17.3.0 — the measurement should be re-read if it lands.\n\n## What\n\n`packages/app-shell/src/views/ObjectView.tsx` builds the view-level kanban config it hands to `list-view` and writes **three** spellings of one concept across the two producers in this repo: the spec's `groupByField`, the live legacy alias `groupField`, and `groupBy`. #8193 removed the alias write. `groupBy` remains:\n\n```\nreturn lane ? { groupBy: lane, groupByField: lane } : {};\n```\n\n## The measurement, with the control that fires\n\n`KanbanConfigSchema` from `@objectstack/spec/ui` is strict. Same schema, same call shape, four probes:\n\n```\ndeclared keys: groupByField, summarizeField, columns\n\nSUBJECT  { groupByField, groupBy }     -> unrecognized_keys: [\"groupBy\"]\nSUBJECT  { groupBy } alone             -> unrecognized_keys: [\"groupBy\"]\nCONTROL  { groupByField, zzzBogusKey } -> unrecognized_keys: [\"zzzBogusKey\"]\nCONTROL2 { groupByField } alone        -> NO unrecognized_keys (only the missing required `columns`)\n```\n\nCONTROL shows the schema is able to refuse an unknown key by name on this exact call, so the SUBJECT refusal carries information. CONTROL2 shows it is able to *accept* a key, so the refusal is about `groupBy` specifically and not about the probe shape. The key-recognition axis is measured on `unrecognized_keys`; the missing-required-`columns` issue is orthogonal noise present in every arm.\n\nBonus datum from the same run — the spec names the alias relationship itself. Probing `{ groupField }` returns:\n\n> Unrecognized key(s) on this kanban configuration: `groupField`. Did you mean `groupField` to `groupByField`?\n\nSo upstream already treats `groupField` as an alias of `groupByField`, and knows nothing at all about `groupBy`.\n\n## Who reads it\n\n- `plugin-list/src/ListView.tsx` — the two projection/expand collectors list `v.groupByField, v.groupField, v.groupBy` among their candidates, so `groupBy` does contribute a field name to the query projection. Any of the three spellings satisfies that.\n- The kanban **capability gate** does not read it.\n- The kanban **render branch** resolves the lane as `groupByField || groupField || detectStatusField(...)` — also not from `groupBy`.\n- ⚠️ It does still reach the generated `object-kanban` node: the branch writes `groupBy: laneField` and then spreads `...restKanban` **after** it, so a `groupBy` surviving in the bag overrides the explicit write. Today both hold the same value, so this is latent rather than active.\n\n## Why it was not folded in objectui#8193\n\nThat card is one atomic producer site, and its dispatch was explicit that if `groupBy` turned out to be a second alias it should be reported and filed rather than folded. Doing both in one PR would also have merged a *measured, mechanical* rename with a change that needs the decision below.\n\n## The decision this needs\n\nContract-first cuts both ways here, so this is not obviously a delete:\n\n- **A — drop the write.** If every producer that feeds those projection collectors already emits `groupByField` or `groupField`, the `v.groupBy` rung is covering nothing this repo writes and the key is pure drift. Cheapest, and it removes the latent `restKanban` override above.\n- **B — promote it upstream.** If `groupBy` is meant to be authorable at view level, it belongs in `KanbanConfigSchema` in `@objectstack/spec`, not riding through this repo's `.passthrough()` mirror undeclared.\n\nOption A needs a census of the collectors' real producers first; the `v.groupBy` rung must not be read as evidence that something writes it, since the same collector also lists node-level spellings.\n\n## Scope note\n\nThis is the **view-level** `KanbanConfig`. It is not objectui#7322 / objectui#8172 / objectui#7742 / objectui#7772, which all concern the **node-level** `ObjectKanbanSchema` and its retired `groupField`. Checked against those four and against objectui#8174; none covers this key at this level.\n\n## Dedup\n\nTwo semantic searches, both returning non-empty result sets (so self-validating), and the control query — a near-verbatim restatement of objectui#8193's own defect — returned objectui#8193 as its first hit. Neither surfaced a card for the view-level `groupBy`. Bounded reading: two targeted searches, not an exhaustive sweep.\n\nFiled unassigned by the dev of objectui#8193, session `session_01YBWFb5YgMU5dw8p2VKj16S`, generated with Claude Code.\n"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 6917,
+  "kind": "issue",
+  "title": "finding(fields,plugin-detail,plugin-list,app-shell): six more non-`QueryResult` `count`/`value` arms survive the seams #6840 repaired — and one of them reads `value` AHEAD of `data`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-30T15:48:47Z",
+  "updated_at": "2026-09-08T18:28:12Z",
+  "closed_at": "2026-09-08T18:28:12Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6917",
+  "body": "Found while implementing #6840 (out of that card's fence — it names\n`related-count-store.ts` and `plugin-view/ObjectView.tsx`, and only those two).\n\n#6840 ran a producer sweep for `count` and `value` at the `DataSource.find()` seam and\ndeleted both arms from its two modules on a measured zero. The same sweep incidentally\nenumerated **every** read site of those two keys above the adapter. Six more survive in\nfour packages this card does not fence, and they were left untouched.\n\n## The sites\n\n**`count` — the same arm #6840 removed, in two more modules**\n\n- `packages/plugin-detail/src/renderers/record-reference-rail.tsx:196` —\n  `: typeof res?.count === 'number'`\n- `packages/plugin-list/src/ListView.tsx:1816` —\n  `? ((results as any).total ?? (results as any).count)`\n\n**`value` — the same arm #6840 removed, in four more places**\n\n- `packages/fields/src/index.tsx:250` — `(result?.value || result?.data || [])`\n- `packages/app-shell/src/layout/AppHeader.tsx:182` — `: Array.isArray(result?.value)`\n- `apps/console/src/pages/developer/PublicFormsPage.tsx:134` — same shape\n- `apps/console/src/pages/developer/FlowRunsPage.tsx:155` — same shape\n\n## ⚠️ One of them is NOT dead — it is an active precedence inversion\n\nThe two arms #6840 removed were both dead: each sat *behind* the contract's own member.\n`packages/fields/src/index.tsx:250` does the opposite —\n\n```\n(result?.value || result?.data || [])\n```\n\n— it reads `value` **ahead of** `data`, the one rows member `QueryResult` declares. That\nis the precedence inversion #5945 and #6726 were filed about, still standing, on the key\nthose cards did not measure. A producer emitting both members with different contents is\nresolved the wrong way here, whereas in the modules #6840 fixed it merely failed to be\nreached. Worth grading separately from the other five.\n\n## What is NOT measured here\n\n⛔ **No producer sweep was run for these six sites.** #6840's zero is **seam-local** and\nmust not be carried over — it measured the seam its own two modules sit on, and each of\nthese sites sits on its own. #6840's PR demonstrates exactly why that distinction is not\npedantry: the very same `value` key returned **0** producers at `ObjectView`'s seam and\n**5** live producers at `extractRecords`' seam (#6839) in one and the same pass. Recording\na shape is not measuring the arm.\n\nWhat a repair owes, per module, is what #6840 was held to:\n\n1. does any producer emit `count` / `value` at *that* seam (repo-wide, with a control term\n   that must hit and does, sitting on the join rather than merely on the terms);\n2. only on a zero, delete the arm and pin the contract read, one pin per module;\n3. ⛔ do **not** widen `QueryResult` to bless `count` or `value` — a published-type change\n   and a maintainer decision, the same hard floor #6726 and #6840 both respected. If a\n   real producer turns up, the likely correct fix is to repair the producer.\n\nThe refusal-pin form to copy is the one #6840 set (see its PR): the header carries the\nmeasurement, the live arms stay pinned beside the dead one, and a precedence-inversion\ncase is written only where an inversion actually exists.\n\n## Two smaller observations from the same pass\n\n- `packages/core/src/data-scope/ViewDataProvider.ts:128` declares a **second, private**\n  `extractRecords` reading `records | data | items` — a different tolerance set from\n  `@object-ui/core`'s exported `extractRecords` (`records | data | value`), under the same\n  name. Two utilities, one name, disagreeing about which undeclared keys are acceptable.\n- `packages/plugin-grid/src/__tests__/columnIdentity.test.tsx:31` and\n  `recordIdFieldProjection.test.tsx:48` return `{ value: [], '@odata.count': 0 }` from\n  their `find` doubles, but `ObjectGrid` reads `result.data || []` only. The fixtures read\n  as though they supply rows and supply none. Inert today because the arrays are empty;\n  it would silently mislead the first person who puts a row in one.\n\n## Why it is worth recording\n\nAGENTS.md #0.1: a tolerant arm is where a non-conforming producer keeps working\nunrejected. This key family's own history is the argument for naming the residue rather\nthan leaving it for a fourth pass — `records`/`items` outlived #5458 and #5945 precisely\nbecause each pass fixed the spellings it had been asked about and said nothing about the\nones it had not. #6726 was the third pass, #6840 the fourth, and this is what the fourth\ncould see but was not fenced to touch.\n\nNo PR here; recording only.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

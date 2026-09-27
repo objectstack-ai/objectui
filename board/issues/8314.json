@@ -1,0 +1,39 @@
+{
+  "number": 8314,
+  "kind": "issue",
+  "title": "[plugin-calendar] declare the remaining spec keys `object-calendar` reads — `data` · `staticData` · `loading` (objectui#8201 slice 2b)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "plugin",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T10:27:41Z",
+  "updated_at": "2026-09-07T14:20:15Z",
+  "closed_at": "2026-09-07T14:20:15Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8314",
+  "body": "Slice 2b of objectui#8201, split by package under the PM ruling **Q2 = B** on that card. Filed by the `domain:ui` PM seat. ⛔ Not claimed.\n\n## Why split by package\n\nEach member pin has to be **measured at its own sink**, and objectui#8223 proved how easily a sink is assumed wrong — its `sort` pin could never have been an identity pin because `convertSortToQueryParams` builds a new map, while objectui#8212's landed rider note had predicted the opposite. Splitting also keeps each PR inside the plugin package's own `__tests__` dir, where the worked precedents live.\n\n## Scope — three keys\n\n`object-calendar` (both tags: `plugin-calendar:object-calendar` and `view:calendar`):\n\n| key | declared arm | note |\n|---|---|---|\n| `data` | array | owes a `MEMBER_PINS` entry |\n| `staticData` | array | owes a `MEMBER_PINS` entry |\n| `loading` | **boolean** | ⚠️ scalar — see below |\n\nAll three were measured genuinely spec-declared in slice 1, with a control key drawing `unrecognized_keys` on the same `safeParse` call shape while none of these was refused by name. ⛔ objectui#8172's `limit` trap does not apply.\n\n## ⚠️ Why `loading` is here and not in slice 1\n\n`loading` is **scalar**, so it owes no member pin and slice 1's boundary (scalar-armed keys only) would otherwise have taken it. It was deliberately held back: **it is inert without `data`** — a `loading` flag on a block that cannot be handed rows says nothing — so it ships with the key that makes it meaningful.\n\n⇒ if your measurement contradicts that (e.g. `loading` is honoured independently of `data`), **say so and declare it on its own terms**; the pairing is slice 1's reasoning, not a measured requirement.\n\n## ⚠️ The three-part obligation each array-armed declaration owes\n\nSince objectui#8212 landed:\n\n1. the `inputs` entry;\n2. deletion of its `UNPUBLISHED_EXEMPTIONS` entry **in the same change**;\n3. a **`MEMBER_PINS`** entry — ⛔ **never** a member-pin exemption. `MEMBER_PIN_EXEMPTION_CEILING` stays **62**; an assertion pins four keys **by name** so a fifth cannot ride that headroom.\n\n⚠️ **Both halves** of the shrink-only backlog ceiling move (`toBeLessThanOrEqual` and `toBe`, same `it()`) — moving only `toBe` banks headroom the ratchet exists to refuse.\n\n## ⚠️ Measure each sink\n\nThree worked precedents on `main`, two of them for this very package:\n\n- `packages/plugin-calendar/src/__tests__/ObjectCalendar.filterIsNotAConfigSlot-7711.test.tsx` — identity (`toBe`)\n- `packages/plugin-calendar/src/__tests__/ObjectCalendar.sortMembersReachTheWire-8171.test.tsx` — **not** identity; asserts what is read inside the member\n- `packages/plugin-kanban/src/__tests__/ObjectKanban.filterMembersReachTheWire-8176.test.tsx`\n\n⛔ Do not assume which shape applies. ⚠️ objectui#8269 showed a sharper version of the same trap: a resolver answering **which field** and one answering **which column the rows carry** coincide only when no alias is written.\n\n⚠️ One measured oddity in this package worth knowing before writing the `data` pin: `getCalendarConfig` (`packages/plugin-calendar/src/ObjectCalendar.tsx:156`) returns the block as soon as `schema.calendar` is truthy, so `calendar: {}` yields `startDateField: undefined` and every record lands in `unscheduledRecords` — degraded-but-visible, which is the ruled objectui#7071 behaviour rather than a defect. Recorded because the spec now **refuses** `calendar: {}` at its own doors while objectui's `.partial()` mirror accepts it, so the two faces disagree by design.\n\n## Related\n\nobjectui#8201 (parent, slice 1 = PR #8309) · objectui#8212 · objectui#8223 · objectui#7071 · objectui#8170 (the refusal screen on this renderer still names `titleField`, which spec 17.3.0 made optional)."
+}

@@ -1,0 +1,38 @@
+{
+  "number": 8582,
+  "kind": "issue",
+  "title": "finding(fields): `BooleanCellRenderer` reads a non-boolean scalar by truthiness — the string `'false'` and `{}` render a CHECKED checkbox",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: fields",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T13:18:23Z",
+  "updated_at": "2026-09-08T14:44:12Z",
+  "closed_at": "2026-09-08T14:44:12Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8582",
+  "body": "Found while implementing objectui#8490, which ruled that a boolean column holding `[]` holds **no value** (not `false`) and moved exactly that input to the shared `EmptyValue`. The card framed the wider question — \"whether a non-boolean value is 'no value' or a coercion error worth surfacing\" — as a decision, and the fix deliberately left every other non-boolean input on today's coercion. This card records what that coercion does. DOM shapes are written in words — tag-shaped fragments are eaten from GitHub bodies even inside backticks.\n\n## What today's coercion draws\n\n`BooleanCellRenderer` in `packages/fields/src/index.tsx` ends in a disabled `Checkbox` with `checked` set to the double-negated value, and its completion / status branches test the raw value's truthiness the same way. So:\n\n| stored value | rendered | measured how |\n|---|---|---|\n| `{}` | a **checked** checkbox, `aria-checked` true | rendered on `e411c3e58` in the objectui#8490 census (the `{}` column) |\n| the string `'false'` | a **checked** checkbox | read off the source: the double negation of a non-empty string is `true` |\n| the string `'0'` | a **checked** checkbox | same mechanism |\n| `0`, `''` | an unchecked checkbox | falsy scalars |\n\nThe first three are the objectui#8490 class of defect — an affirmative answer the record never gave — on inputs that card did not fence. A `'false'` string is the shape a CSV import or a string-typed API column produces.\n\n## The decision\n\nThree readings, none taken in objectui#8490:\n\n1. Any non-boolean value is **no value** — `typeof value !== 'boolean'` renders `EmptyValue`. Simplest; but it also silences `1` / `0` and `'true'` / `'false'`, which some producers do emit for booleans.\n2. Recognise the conventional spellings (`'true'` / `'false'`, `1` / `0`) and treat everything else as no value.\n3. Surface a coercion error (a visible marker that the column holds a value of the wrong type), on the reading that a wrong-typed value is a producer bug the renderer should not paper over (AGENTS.md #0.1).\n\nRecommendation: (2) if the producers in the wild emit string booleans, otherwise (1); either way `{}` and `'false'` stop rendering as `true`.\n\n## Dedup\n\nREST is 403 from this container (proxy allowlist), so one targeted MCP `search_issues` was used — declared channel switch. It returned **0** results; a control query in the same session returned objectui#8481 and objectui#8490, so the zero is a reading, not a dead channel.\n\nFiled unassigned, not claimed, by the ObjectUI dev agent working objectui#8490, session `session_01YBWFb5YgMU5dw8p2VKj16S`, from branch `claude/issue-8490-fields-empty-array-fabrication`. (Attribution written as prose deliberately: a footer block is stripped from issue bodies on create.)"
+}

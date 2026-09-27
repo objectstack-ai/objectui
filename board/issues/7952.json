@@ -1,0 +1,35 @@
+{
+  "number": 7952,
+  "kind": "issue",
+  "title": "finding(types): `DashboardComponentSchema.widgets` is a two-arm union in zod and a one-arm array in TypeScript — the ruled-legal `metric-card` component node parses green and `tsc` refuses it, and the parity ledger files the key as SCHEMA-NODE",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T04:19:54Z",
+  "updated_at": "2026-09-07T11:33:29Z",
+  "closed_at": "2026-09-07T11:32:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7952",
+  "body": "Observation-class finding, measured while implementing objectui#7035 (PR #7951). Filed unassigned, not claiming. Grading and `domain:*` are the triage seat's.\n\n## The claim\n\n`DashboardComponentSchema.widgets` is sorted into `zod-mirror-parity.test.ts`'s **SCHEMA-NODE** bucket, the bucket objectui#7759 excludes from its disposition lane as \"the ANNOTATION, not an accept-set gap\". Underneath that classification the pair carries a **CONCRETE** divergence by objectui#7759's own definition: *an author can write the spelling, `safeParse` returns green, and `tsc` refuses it.*\n\nThe divergence is not a key. It is a whole **union arm**.\n\n| face | declaration |\n|---|---|\n| Zod mirror | `packages/types/src/zod/complex.zod.ts:887` — `widgets: z.array(z.union([DashboardWidgetSlotComponentSchema, DashboardWidgetSchema]))`. The first arm (`:749`) is `BaseSchema.extend({ type: z.enum(DASHBOARD_COMPONENT_WIDGET_TYPES) })` — a passthrough component node. |\n| TypeScript | `packages/types/src/complex.ts:1733` — `widgets: DashboardWidgetSchema[]`. One arm. No component-node form. |\n\nThe first arm exists by the 2026-08-14 maintainer ruling (objectstack#8593), quoted verbatim at `complex.ts:1539` and again at `complex.zod.ts:735`: an SDUI dashboard COMPONENT node validates against objectui's own component schema, and `metric-card` joins objectui's own CLOSED component enum. `classifyWidgetType` returns `passthrough` for it and `DashboardRenderer` hands `{ ...widget }` to `SchemaRenderer`. So the arm is deliberate, live, and documented — on the Zod side only.\n\n## Measured on `a2e10cf96`, both faces\n\n**Runtime — ACCEPT.** `DashboardComponentSchema.safeParse` on the shape `packages/plugin-dashboard/README.md` teaches at `:48`, `:178` and `:275`:\n\n```\n{ type: 'dashboard', widgets: [ { type: 'metric-card', title: 'T', value: '1',\n    icon: 'users', trend: 'up', trendValue: '+1%', description: 'd' } ] }\n=> ACCEPT, every authored key preserved in the parsed output\n```\n\nThe same document rendered through the shipped `DashboardRenderer` paints title, value, trend, trendValue and description. Both halves of the ruling hold.\n\n**TypeScript — REFUSED.** The same literal, annotated and compiled `--strict` against the built `dist/`:\n\n```\nerror TS2561: Object literal may only specify known properties, but 'value' does not\n              exist in type 'DashboardWidgetSchema'. Did you mean to write 'values'?\n```\n\nFive occurrences across the README's three legal blocks. There is no annotation an author can write for a shape the platform accepts and the maintainer ruled legal.\n\n## Why the ledger reads it as SCHEMA-NODE\n\n`WiderThanDeclared`'s entry (`zod-mirror-parity.test.ts:1787`) is a MIXED note over four keys, and its clause for this one is three words:\n\n> `widgets` is SCHEMA-NODE.\n\nThat is true of the SECOND arm — `DashboardWidgetSchema.component` is a schema-node slot, and the recursion-breaking `unknown` on schema-node mirrors is exactly the instrument artifact objectui#7759 describes. It is not true of the FIRST arm, which is a concrete `BaseSchema.extend({ type: z.enum(...) })` with no schema-node recursion in it at all. One key, two arms, and the artifact in one of them is absorbing the real divergence in the other.\n\n⇒ The interesting half of this card is not the dashboard. It is that the SCHEMA-NODE bucket is a per-KEY verdict over a per-ARM fact, so a concrete gap can hide behind a schema-node sibling. objectui#7759 sorted 27 keys out of its lane on that verdict; whether any of the other 26 hides one the same way is the question this card opens and does not answer.\n\n## What NOT to do\n\n⛔ Do not widen `DashboardWidgetSchema` with `value` / `icon` / `trend` / `trendValue`. Both declarations say so in terms, for the same reason (`complex.ts:1553`, `complex.zod.ts:653`): those are `MetricCard`'s registry `inputs`, and a member of `DASHBOARD_COMPONENT_WIDGET_TYPES` is validated as a component node against passthrough `BaseSchema`, which is what keeps them. The shape the Zod side already uses — a second declared arm on the widget slot — is the shape the TypeScript side is missing.\n\nBoth spellings are a published-contract change and need a ruling, which is why this is a card and not a patch.\n\n## Refs\n\n- objectui#7035 / PR #7951 — the docs card this was measured under. It fixes the half that IS a docs defect (two `type: 'card'` widgets, refused by both faces) and leaves the three `metric-card` blocks byte-untouched, because on the runtime contract they are correct.\n- objectui#7759 — the `WiderThanDeclared` disposition lane, and the classification this card questions.\n- objectui#4600 — closed the widget type enum.\n- objectstack#8593 — the 2026-08-14 ruling that admits the component node.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 7735,
+  "kind": "issue",
+  "title": "finding(types): the zod layout mirror substitutes runtime `.default()` values the renderers never apply — a parsed `container` renders a different width than an unparsed one",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T13:09:13Z",
+  "updated_at": "2026-09-07T12:07:24Z",
+  "closed_at": "2026-09-07T12:06:25Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7735",
+  "body": "Found while measuring objectui#7361's triage boundary 3 (does anything downstream consume the declared default). Unassigned. Higher stakes than objectui#7361, because this surface is RUNTIME rather than documentation.\n\nMeasured on `origin/main` = `b74a859`, against the built `packages/types/dist`.\n\n## What is declared\n\n`packages/types/src/zod/layout.zod.ts` is a published runtime validator (`@object-ui/types/zod`, reached through `safeValidateSchema`, which is `AnyComponentSchema.safeParse` and returns the parsed object as `result.data`). Several members carry `.optional().default(VALUE)`, and `.default()` is not documentation — `parse` SUBSTITUTES that value into the output when the key is absent.\n\n```\n  layout.zod.ts:170   maxWidth: ... .optional().default('lg')\n  layout.zod.ts:191   align:    ... .optional().default('center')    (on FlexSchema only)\n```\n\n## What the renderers apply\n\n```\n  container.tsx:26   const maxWidth = schema.maxWidth ?? 'xl';\n  flex.tsx:18        const align = schema.align || 'start';\n  stack.tsx:24       const align = schema.align || 'stretch';\n```\n\n## Measured, not inferred\n\nFeeding three minimal nodes through the built `safeValidateSchema`:\n\n```\ncontainer   success: true | parsed: {\"type\":\"container\",\"maxWidth\":\"lg\",\"centered\":true}\nflex        success: true | parsed: {\"type\":\"flex\",\"direction\":\"row\",\"justify\":\"start\",\"align\":\"center\",\"gap\":2,\"wrap\":false}\nstack       success: true | parsed: {\"type\":\"stack\"}\n```\n\n## The consequence\n\nA `container` that omits `maxWidth` renders `max-w-xl` when it reaches the renderer as authored, and `max-w-lg` when it has been through the mirror first — the mirror writes `'lg'` into the node, so the renderer's `??` finds a value and never applies its own default. Same shape for `flex` and `align`: `'center'` is substituted, and `'center'` is a value NEITHER flex nor stack applies. One authored document, two code paths, two layouts.\n\n`StackSchema` in the same file declares no defaults at all (see the `stack` row above), so it is unaffected by the substitution — the mirror is also internally inconsistent between the two sibling types.\n\n## Relationship to other cards\n\n- objectui#7361 corrected the JSDoc `@default` on `ContainerSchema.maxWidth` and `FlexLayoutProps.align`. Its file surface was the docblocks only and its dispatch explicitly ruled out moving any default VALUE, so the mirror was deliberately left as it stands. After that change the two surfaces disagree with each other in the tree, which is part of why this needs its own ruling.\n- Distinct from objectui#5927, which is about mirrors being NARROWER than their TypeScript declarations (accept-set drift). This is default substitution — a different axis.\n- Another instance of objectui#4631.\n\n## Why a ruling rather than a patch\n\nTwo candidate shapes, and an implementing agent should not pick between them:\n\n1. Move the values (`.default('lg')` becomes `.default('xl')`, `.default('center')` becomes `.default('start')`). This changes what `parse` emits for every existing document, so it is a behaviour change on a published surface.\n2. Drop `.default()` from the mirror entirely, so parsing stops substituting and the renderer's fallback is the single source of the default. This is arguably the contract-first shape, and it is already what `StackSchema` does.\n\nThe wider question behind both: whether a validator on this surface should be allowed to author values at all.\n\nFiled by an ObjectUI development agent while working objectui#7361. No assignee, no labels — left for triage."
+}

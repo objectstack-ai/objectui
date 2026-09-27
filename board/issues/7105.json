@@ -1,0 +1,34 @@
+{
+  "number": 7105,
+  "kind": "issue",
+  "title": "finding(types): `EmptySchema.action` is read by the shipped renderer through an `as any` cast and declared by neither the type nor its mirror — a 14th key #6150's sweep missed",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T00:05:47Z",
+  "updated_at": "2026-09-07T14:05:37Z",
+  "closed_at": "2026-09-07T14:04:29Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7105",
+  "body": "Found while implementing #7082. Filed rather than folded in: #7082 is fenced to docs rows, and this key cannot be corrected on the page because there is no declaration for the page to follow.\n\nMeasured on `origin/main` `2c3cd1b7572a8aca2958da3551c990164186c9c1`.\n\n## The key\n\n`packages/components/src/renderers/feedback/empty.tsx` reads it, and says so in a comment:\n\n```ts\nconst actionSchema = (schema as any).action as ComponentSchema | undefined;\nconst actionNode = actionSchema && typeof actionSchema === 'object'\n  ? <SchemaRenderer schema={actionSchema as any} />\n  : undefined;\n```\n\nThe same file strips `action` out of the spread props with its own note that it is \"a child schema, not a DOM attribute or React node\". It is a real, working capability with a shipped demo — `content/docs/components/feedback/empty.mdx:18` renders `components-feedback-empty/with-action-button`.\n\n`EmptySchema` declares it nowhere:\n\n| surface | says |\n| --- | --- |\n| `packages/types/src/feedback.ts:210-224` | `type`, `title`, `description`, `icon` — **no `action`** |\n| `packages/types/src/zod/feedback.zod.ts:120-125` | the same four — **no `action`** |\n| `content/docs/components/feedback/empty.mdx:28` | `action?: ComponentSchema` — documented |\n\nThe `action?: { label, onClick }` at `feedback.ts:143` is `ToastSchema`'s, a different interface, and it is a different shape.\n\nThe cast is the tell: `(schema as any).action` is what a renderer writes when the key is not on the type it was handed.\n\n## Why #6150 did not catch it\n\n#6150 measured renderer-read-but-undeclared keys \"across all 76 `content/docs/components` pages\" and declared 13 of them; its ledger is `packages/types/src/__tests__/undeclared-but-consumed-keys-6150.test.ts`, which pins `text.content`, `carousel.opts`, `hover-card.align`, `context-menu.trigger` and the rest. `empty.action` is not in it. The sweep's own blind spot is plausibly the cast: a scan looking for `schema.KEY` reads finds `schema.action` nowhere, because this renderer spells it `(schema as any).action`.\n\n⚠️ That makes the cast worth a second look repo-wide, not just here — the census #6150 declared complete is complete only for the un-cast spelling.\n\n## Why it matters\n\n- An author writing against the published type cannot author the action at all: `action` is accepted only vacuously, through `BaseSchema`'s `[key: string]: any`, and no editor completes it.\n- The renderer requires `typeof actionSchema === 'object'`, so the slot is **narrower than `SchemaNode`** — a bare string node is silently dropped rather than rendered. Whatever is declared here should say so; this is the reason #7082 left the docs row alone rather than renaming it to `SchemaNode`, which would have swapped one false claim for another.\n- `registrationMeta.inputs` on the same renderer lists only `title`, `description`, `className` — so the designer surface cannot offer it either.\n\n## Options\n\n- **(a)** Declare `action?: SchemaNode` on `EmptySchema` and mirror it, then narrow the renderer's object-only guard or widen the renderer to render primitives too — one of the two, so declared equals enforced.\n- **(b)** Declare it at the object-only type the renderer actually requires (`BaseSchema`, not `SchemaNode`), which is the honest shape but a spelling no sibling slot uses.\n- **(c)** Retire the capability under ADR-0049 enforce-or-remove, and delete the row and the `with-action-button` demo.\n\n(a) or (b) look right — this is a working, demoed capability, so (c) would be a real removal. The choice between them is exactly \"should a node slot admit primitives\", which the sibling overlay slots answer with `SchemaNode`; matching them would mean relaxing the renderer's guard rather than narrowing the declaration. Either way the docs row and the designer `inputs` list are owed an update, and the `as any` cast should go with it.\n\nRefs: #7082 · #6150 · #7104."
+}

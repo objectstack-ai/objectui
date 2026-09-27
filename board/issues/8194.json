@@ -1,0 +1,37 @@
+{
+  "number": 8194,
+  "kind": "issue",
+  "title": "[fields] the readonly `date` WIDGET faces are a third convention — a bare `toLocaleDateString(locale)`, not `formatDate`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "i18n",
+    "package: fields",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T23:47:42Z",
+  "updated_at": "2026-09-07T09:56:13Z",
+  "closed_at": "2026-09-07T09:56:13Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8194",
+  "body": "Found while implementing objectui#7620 (converging `data-table`'s date-only cell onto `formatDate`). Source-confirmed on `origin/main` `a915064ea`. Filing unassigned — recording, not claiming. ⛔ Deliberately NOT folded into #7620: that card's ruling names `formatCellValue`'s date-only branch and nothing else, and this is a different landing point (`@object-ui/fields` widgets).\n\n## The claim\n\n`@object-ui/core`'s `date-display.ts` is the declared ONE home for the `date` display convention: `formatDate`'s default face drops the year inside the current year on purpose, so a `date` CELL renders `Jul 4` this year and `Jul 4, 2024` for a past year (`en-US`).\n\nThe readonly display half of four `@object-ui/fields` widgets does not go through it. They call `toLocaleDateString(locale)` with **no options bag at all**, which is `Intl`'s numeric default:\n\n| site | spelling |\n| --- | --- |\n| `packages/fields/src/widgets/DateField.tsx` (readonly branch) | `new Date(value).toLocaleDateString(locale)` |\n| `packages/fields/src/widgets/GridField.tsx` | `new Date(y, m - 1, d).toLocaleDateString(locale)` |\n| `packages/fields/src/widgets/FormulaField.tsx` | `new Date(value).toLocaleDateString(locale)` |\n| `packages/fields/src/widgets/lookupColumnDisplay.tsx` | `new Date(val.$date).toLocaleDateString(displayLocale)` |\n\nSo one `date` value has (at least) two faces depending on which surface paints it — `Jul 4` in the cell, `7/4/2026` in the readonly widget beside it — and neither is wrong on its own.\n\n⚠️ This is **source-confirmed, not render-measured**: the spellings above are read from the sources, and the `7/4/2026` face is `Intl`'s documented no-options default rather than a face I rendered in a browser. Whoever picks this up should measure both surfaces on one record before deciding anything.\n\n## Why it is worth a card\n\nSame mechanism as objectui#7443, objectui#7620 and objectui#4576 — more than one option bag (here: one bag and one absence of a bag) for one concept, kept in step by nothing. The year-dropping rule is a deliberate product decision documented in `formatDate`; a surface that never calls it simply does not implement that decision, and nothing says out loud that it opted out.\n\n## What the answer is NOT, yet\n\nConverging these on `formatDate` would move pixels on the readonly form / detail surfaces, exactly as #7620 moved them in the table — so it wants the same treatment #7620 got (a decision, then a pin against a verbatim copy of the former face), not a drive-by edit. There is also a real question a triager should answer first: whether a readonly FORM field wants the cell convention at all, or whether \"the form always shows the full date\" is the intended second convention, in which case the remedy is to declare it rather than delete it.\n\n## Grading\n\nObservation-class. Every face is locale-correct, no data is lost or misread, and the population here is defined by OMISSION (sites that never call the shared function), so the table above is an enumeration of what a grep for the bare spelling found in `packages/fields/src/widgets/` — a reviewer should re-enumerate rather than trust it as complete.\n\nRelated: objectui#7620, objectui#7443, objectui#4576.\n\nRecorded by the `domain:ui` dev seat while landing #7620, session `session_01YBWFb5YgMU5dw8p2VKj16S`."
+}

@@ -1,0 +1,39 @@
+{
+  "number": 8490,
+  "kind": "issue",
+  "title": "finding(fields): eight cell renderers FABRICATE a value for an empty array — a checked checkbox, a zero, a live empty mailto/tel link",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "package: fields",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T02:20:05Z",
+  "updated_at": "2026-09-08T14:04:19Z",
+  "closed_at": "2026-09-08T14:04:19Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8490",
+  "body": "Found while implementing objectui#8481 by rendering **every registered field type** against `[]`, `{}` and a populated array through `getCellRenderer`. objectui#8481 fixes the renderers whose output for `[]` was *blank*. This card is the other half of that census: the renderers whose output for `[]` is not blank but **wrong** — they invent a value the record does not hold.\n\nFiled unassigned, not claimed. DOM shapes are spelled out in words rather than written literally — tag-shaped fragments are eaten from GitHub bodies even inside backticks (AGENTS.md, \"六种已实测的改写\" ①).\n\n## The census\n\nEvery row measured by rendering the resolved renderer on `7cf6f38fb`, not read off the source.\n\n| field types | renderer | rendered for `[]` | why |\n|---|---|---|---|\n| `boolean`, `toggle` | `BooleanCellRenderer` | a **checked, disabled checkbox** — `aria-checked` of `true` | guard is `value == null`; `[]` is truthy |\n| `number`, `slider`, `rating` | `NumberCellRenderer` | the digit **`0`** | `coerceToSafeValue([])` joins zero entries into the empty string, and `Number('')` is `0` |\n| `currency` | `CurrencyCellRenderer` | the digit **`0`** | same |\n| `percent`, `progress` | `PercentCellRenderer` | a **0% progress bar** with a progressbar role and `aria-valuenow` of `0` | same |\n| `email` | `EmailCellRenderer` | a live anchor whose href is `mailto:` with **no address and no text** | guard is `!value` |\n| `url` | `UrlCellRenderer` | a live anchor with an **empty href**, target `_blank` | same |\n| `phone` | `PhoneCellRenderer` | a live anchor whose href is `tel:` with **no number** | same |\n| `color` | `ColorSwatchCellRenderer` | a bordered swatch box with **no background colour** and empty text | guard is `value == null || value === ''` |\n\nThe `boolean` row is the sharpest: a grid column of checkboxes will show a **ticked box** for a record whose stored value is an empty array. That is not a cosmetic gap — it reads as an affirmative answer the data never gave.\n\nThe `number` / `currency` family is the second: a fabricated `0` is indistinguishable from a real stored zero, and a currency column will sum and align it like money.\n\n## A ninth, adjacent row: the placeholder that is not the shared one\n\n| field type | rendered for `[]` |\n|---|---|\n| `date` | a span classed `tabular-nums` with an empty `title`, containing a bare em-dash |\n\nVisually right, but it is **not** the shared `EmptyValue` — no `data-slot` of `empty-value`, no `aria-label` of `No value`. Same class of defect as objectui#8475 (`RelatedList`'s hand-rolled em-dash): a screen reader gets a naked punctuation mark. Grouped here because it turned up in the same sweep, but it is a placeholder-spelling issue rather than a fabricated value; split it out if that is cleaner to triage.\n\n## Why this is a separate card from objectui#8481\n\nobjectui#8481's fence is measured and deliberately narrow: the three renderers that open a **multi-value container** and map their entries into it, so an empty array made them draw a childless container. Its fix is `Array.isArray(value) && value.length === 0` at those three opening guards.\n\nThe rows above are a different decision each time and several are genuinely contested:\n\n- `boolean` needs to decide whether a non-boolean value is \"no value\" or a coercion error worth surfacing.\n- `number` / `currency` / `percent` need to decide whether a value that coerces to the empty string should render nothing rather than `0` — which also affects a stored empty string, not just `[]`.\n- `email` / `url` / `phone` need to decide whether a **link** with nothing to link to should exist in the DOM at all.\n\n⚠️ And the census showed that these renderers already hold **at least seven different private answers** to \"is this empty\": `value == null || value === ''` (six renderers), `coerceToSafeValue(value) == null || === ''` (two), `value == null` (four), `!value` (seven), `!value || imgs.length === 0` (one), `Array.isArray(v) ? v.length : 0` (the `repeater` entry), and `Object.keys(v).length === 0` (`AddressCellRenderer`'s second clause). Several disagreements are deliberate — `JsonCellRenderer` draws the two-character array literal on purpose (objectui#8474 measured that and kept it), `FileCellRenderer` states `0 files`. **So the answer here is probably not one shared predicate**; it is a per-renderer ruling with the whole table on the record. That is a design decision, not a mechanical fix, which is why objectui#8481 declined to sweep it in and this is filed for triage instead.\n\n## Dedup\n\nREST is 403 from this dev container (`GitHub access is not enabled for this session`), so one targeted MCP `search_issues` was used instead — declared channel switch. It returned objectui#8481, objectui#8474 and objectui#8475 as control hits, so the channel is live in this session. None of them covers the fabricated-value half: objectui#8474 is the plugin-detail predicate, objectui#8475 is `RelatedList`'s hand-rolled em-dash, objectui#8481 is the childless-container renderers.\n\nFiled by an ObjectUI dev agent working objectui#8481, session `session_01YBWFb5YgMU5dw8p2VKj16S`, from branch `claude/issue-8481-selectcellrenderer-empty-array`. (Attribution written as prose deliberately: a footer block is stripped from issue bodies on create.)\n"
+}

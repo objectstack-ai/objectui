@@ -1,0 +1,38 @@
+{
+  "number": 8238,
+  "kind": "issue",
+  "title": "`live-e2e.yml` promises \"an uploaded Playwright report\" it can never produce — `playwright.live.config.ts` declares no HTML reporter",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "ci/cd",
+    "documentation",
+    "domain:devx",
+    "finding",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-07T02:35:22Z",
+  "updated_at": "2026-09-08T12:39:10Z",
+  "closed_at": "2026-09-08T12:20:38Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8238",
+  "body": "Found while measuring the acceptance criterion for objectui#8084's defect ①. ⛔ Not fixed there — filed rather than ridden, and deliberately left unassigned.\n\n## The claim, in two places\n\n`.github/workflows/live-e2e.yml`, header comment:\n\n> Failures still surface: red step + uploaded report + job summary.\n\n`content/docs/guide/ci-cd-pipeline.md`, Live E2E section:\n\n> Failures still surface as a red step plus an uploaded Playwright report and job summary.\n\nAnd the workflow's upload step names the path:\n\n```yaml\n      - name: Upload report and server logs\n        uses: actions/upload-artifact@v7\n        if: ${{ !cancelled() && failure() }}\n        with:\n          name: live-e2e-artifacts\n          path: |\n            playwright-report/\n            test-results/\n```\n\n## The measurement: that directory cannot exist\n\n`playwright.live.config.ts` declares `reporter: [['list']]` and nothing else. The `list` reporter writes to stdout; **no reporter in that config writes `playwright-report/`**, so the path in the upload glob matches nothing in every outcome — pass, fail, or crash.\n\nMeasured locally against a real backend, driving `pnpm test:e2e:live:ci`'s exact allowlist, twice:\n\n| run | Playwright outcome | `playwright-report/` | `test-results/` |\n|---|---|---|---|\n| browsers missing | 5 failed | **ABSENT** | 6 files |\n| browsers present | **5 passed** | **ABSENT** | 1 file (`.last-run.json`) |\n\nSo the artifact that does get uploaded on a failure is `test-results/` plus the two server logs. The promised Playwright report is not in it and never was.\n\n## Why this is worth a card rather than a wording tidy-up\n\nTwo independent readers acted on the promise and were wrong in a way that cost real work:\n\n1. **It shaped objectui#8084's acceptance criterion.** That dispatch defined \"the fix is real\" as *the uploaded artifact's file count goes above 1 and a `playwright-report/` appears*. The first half is sound; the second half is unreachable, so a correct fix could never satisfy the stated test. An acceptance criterion nobody can pass is the same hazard as a check nobody can fail, pointed the other way.\n2. **There is a second, sharper edge.** The upload step is gated `if: ${{ !cancelled() && failure() }}`. On a **green** lane it does not run at all — there is no artifact, so there is no file count to read. Any acceptance check phrased in terms of the artifact's contents is therefore only readable on a run that failed.\n\n⇒ the lane's only durable evidence of *what Playwright actually did* is the `Run live E2E allowlist` step's own stdout. That is fine, but it is not what two documents say.\n\n## Options, not a decision\n\n- **Make the promise true:** add `['html', { open: 'never' }]` to the live config's reporter list. Costs a directory per failing run; makes the upload glob mean what it says. Note `playwright.config.ts` (the non-live one) should be checked for the same question rather than assumed.\n- **Make the documents true:** drop `playwright-report/` from the upload path and reword both sentences to name what is really uploaded (`test-results/`, `backend.log`, `console-preview.log`).\n\n⚠️ Whichever is chosen, the two sentences and the workflow glob should move together — they are three spellings of one claim, and this card exists because they drifted from the config that decides it.\n\n## Not in scope here\n\n⛔ This says nothing about objectui#8084's defect ② (the workflow RUN reporting `success` while the JOB reports `failure`), which is a different mechanism and stays on that card."
+}

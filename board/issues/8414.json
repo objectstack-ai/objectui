@@ -1,0 +1,30 @@
+{
+  "number": 8414,
+  "kind": "pull_request",
+  "title": "test(scripts): cover `@object-ui/plugin-view` and `@object-ui/core` in the vi.mock inherit gate",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T19:32:39Z",
+  "updated_at": "2026-09-07T20:06:40Z",
+  "closed_at": "2026-09-07T20:05:38Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-09-07T20:05:38Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/8414",
+  "body": "Fixes #6892\n\nobjectui#6892 slices 15 + 16, folded into one PR: `@object-ui/plugin-view` and\n`@object-ui/core` join `COVERED_SPECIFIERS` in `scripts/check-vi-mock-inherit.mjs`,\nand the file's header records the slice in the shape slices 5-14 used.\n\n**No test file is edited.** Both specifiers were re-derived as already\nall-inheriting, so these are membership flips rather than sweeps.\n\n## Re-derivation (the gate's own `scan()`, local `covered` override)\n\nTaken on `d9788c141` -- the base of this branch -- never from the worklist's\ntable and never from slice 14's paragraph in the header:\n\n```\nscan(ROOT, { covered: ['@object-ui/plugin-view'], floors: {} })\n  -> 10 judged, 10 inheriting, 0 frozen, 0 unreadable\nscan(ROOT, { covered: ['@object-ui/core'], floors: {} })\n  ->  2 judged,  2 inheriting, 0 frozen, 0 unreadable\n```\n\nNothing frozen turned up, so no sweep was folded in.\n\n## Census, before and after\n\n| | judged | inherit | frozen | other workspace |\n|---|---|---|---|---|\n| before (19 members) | 648 | 648 | 0 | 12 |\n| after (21 members) | 660 | 660 | 0 | **0** |\n\nJudged rose by exactly 12 = 10 + 2, and `other workspace` fell by the same\nnumber. Diffed PER SITE -- verdict and reason string -- over all 1785 call\nsites the walk reports: exactly 12 rows changed, every one of them\n`workspace/unjudged` becoming `covered/inherits`, and the other 1773\nbyte-identical. No site moved the other way, so this lands as a ratchet.\n\n## Why the closing keyword is correct here, and was not on the fourteen earlier slices\n\n22 distinct `@object-ui/*` specifiers are named by some `vi.mock` / `vi.doMock`\ncall site in this tree. 19 were members; these 2 make 21 package roots, all\nmembers; the 22nd is `@object-ui/components/ui/sonner`, a SUBPATH of the member\nslice 6 swept, judged by reach since objectui#8141. So every specifier any call\nsite in this tree names is now judged and `other workspace` reaches 0 -- the\nworklist has no remaining slice. Confirmed on this branch's own tree rather than\ninherited from the dispatch.\n\n## The one specifier deliberately NOT added\n\n`@object-ui/components/ui/sonner`. It is already covered by reach, and the\nconstant names package ROOTS only -- the gate's test pins that mechanically\n(every member's `spec.split('/')` has length 2), so adding it would turn a green\npin red while changing no verdict. Refused on purpose; the header now says so.\n\n## No STEP 0 barrel walk is owed, and that is a property of the flip\n\nEvery earlier slice measured its barrel's module-scope effects because\nconverting a frozen factory makes the real barrel LOAD in each converted file.\nNothing converts here: all twelve factories already spread the real module, so\nboth barrels already load in exactly the files that load them today. This diff\ncannot change what a single test executes -- only what the gate judges.\n\n## Verification (real output)\n\n```\n$ node scripts/check-vi-mock-inherit.mjs        # EXIT=0\nOK (4458 tracked source file(s), 2724 test-named; 616 carry a mock; 660 call\nsite(s) on ... @object-ui/app-shell, @object-ui/plugin-view, @object-ui/core and\ntheir subpaths judged (660 inherit, 0 auto-mocked); 0 other workspace, 243\nexternal, 879 local, 0 non-static, 3 embedded in a string literal)\n\n$ pnpm exec vitest run scripts/__tests__/check-vi-mock-inherit.test.ts\nTest Files  1 passed (1)\n     Tests  84 passed (84)\n(through scripts/pm/os-verify-lock.sh: VERDICT command-exit 0, held the lock 19s)\n\n$ pnpm check:vi-mock-specifiers   # EXIT=0, sibling gate over the same population\n$ pnpm check:control-bytes        # EXIT=0\n$ pnpm check:entry-guard          # EXIT=0\n$ pnpm check:comment-mask-corpus  # EXIT=0\n$ pnpm check:doc-fences           # EXIT=0\n$ pnpm exec eslint scripts/check-vi-mock-inherit.mjs   # EXIT=0, no output\n```\n\nThe pin suite's 84 cases include the two this diff is exposed to: every member\nnames a real workspace package (`packages/plugin-view` and `packages/core` both\nmatch), and every member is a package root.\n\n## Changeset\n\nNot owed, and measured rather than guessed:\n\n```\n$ node scripts/check-changeset-presence.mjs   # EXIT=0\nCompared the working tree with d9788c141 (merge-base with origin/main): 1 file(s)\nchanged, 0 of them published source of a package the release covers ...\nNo source or published contract of a released package changed in this range, so\nno changeset is owed.\n```\n\nThe fourteen earlier slices each carried one because they edited test files under\na published package's `src/`; this one touches a single file under `scripts/`.\n\n## Not measured locally\n\n`pnpm check:readme-exports` exits 1 in this worktree with 532 lines of\n\"its type entry `./dist/index.d.ts` is not on disk -- run `pnpm build` first\".\nThat is an unbuilt-workspace prerequisite, independent of this diff (which\ntouches no README and no package); CI builds first. Recorded as NOT MEASURED\nrather than as a red gate.\n\nDraft on purpose: CI convergence and the ready flip are the PM's read.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01FhBNJcLRZLe8M87VcUgpKr)_"
+}

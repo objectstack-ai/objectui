@@ -1,0 +1,37 @@
+{
+  "number": 6829,
+  "kind": "issue",
+  "title": "finding(examples): seven catalog `badge` nodes author their text under `children`, which ui:badge never reads — three demos draw nothing at all",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-29T21:26:11Z",
+  "updated_at": "2026-09-08T16:48:12Z",
+  "closed_at": "2026-09-08T16:48:12Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6829",
+  "body": "Found while implementing #6805 + #6806 (the `scroll-area`/`badge` `content` pair), by censusing\nevery `badge` node in the catalog to size that PR's corpus sweep. Out of that PR's fence — it\nnames the two `badge` nodes authoring `content` in `sidebar-with-badges` — so it is filed\nrather than fixed.\n\n**Same defect class as #6773 / #6788 / #6805 / #6806, a different phantom key.** Those four are\nall `content`. This one is **`children`**, and that difference is why none of the existing\ninstruments see it.\n\n## Measured\n\n`packages/components/src/renderers/data-display/badge.tsx:32` renders\n`schema.label || renderChildren(schema.body)`. It reads **`label`** and **`body`**. It does\n**not** read `children` — unlike `card.tsx`, which reads `children || body`.\n\nSeven catalog `badge` nodes author `children` anyway. Census over all 431 fixtures, on\n`origin/main` `26896c689`:\n\n```text\nbadge nodes                    40   in 12 categories\n  keys authored on them:       type 40 · variant 36 · label 31 · className 8 ·\n                               children 7 · content 2\n```\n\nThe `content 2` are #6806, repaired in PR for #6805/#6806. The **`children 7`** are this card:\n\n```text\ncomponents-basic-span/default-badge                              children: [ text ]\ncomponents-basic-span/secondary-badge                            children: [ text ]\ncomponents-basic-span/status-badges          .children[0..2]     children: [ text ]   (3 nodes)\ncore-schema-renderer/nested-schema-example   ...children[0..1]   children: \"Nested\" /\n                                                                 children: \"Components\"\n```\n\nRendered through the real `SchemaRenderer` the way the docs gallery renders them:\n\n```text\nentry                                            elements   text\ncomponents-basic-span/default-badge                     2    \"\"\ncomponents-basic-span/secondary-badge                   2    \"\"\ncomponents-basic-span/status-badges                     5    \"\"\ncore-schema-renderer/nested-schema-example              13   \"Parent ComponentSibling Component\n                                                              All rendered from a single schema tree\"\n```\n\n**Three of those entries draw literally nothing** — the whole demo is one empty pill. The\nfourth renders its surrounding prose and silently drops both badges (`Nested` and\n`Components` are absent from its text).\n\n`components-basic-span` is a badge category: three of its entries are empty boxes on the\npublished page.\n\n## ⭐ Why every existing instrument is blind to this one\n\nThis is the part worth keeping. The `content` members of this class are caught, in principle,\nby two different signals. **This variant emits neither.**\n\n1. **No DOM leak.** The `content` members leak the authored string to the host element as\n   `content=\"...\"` — the #5574 signature, and what made #6773/#6788/#6805/#6806 findable by\n   attribute sweep. Measured here: `leaked[content] = 0` on all four entries. `children` is a\n   pipeline key the renderer machinery consumes, so it never reaches the DOM. **A leak sweep\n   cannot find this.**\n\n2. **`catalog-gallery-render.test.tsx` passes — via a THIRD escape route.** Its non-vacuity\n   control is `elements > WRAPPER_ELEMENTS || text`, with `WRAPPER_ELEMENTS = 2`. Measured in\n   that file's own harness:\n\n   ```text\n   components-basic-span/default-badge     elements=3  text=\"\"   drewSomething=true\n   components-basic-span/secondary-badge   elements=3  text=\"\"   drewSomething=true\n   components-basic-span/status-badges     elements=6  text=\"\"   drewSomething=true\n   ```\n\n   **The empty badge's own host element is the third element**, so a demo that draws nothing\n   but an empty pill clears the control on the pill. That is distinct from the two escapes\n   already recorded on #6805 (Radix's injected scrollbar stylesheet counting as text) and\n   #6806 (a large correct render hiding a small omission). ⇒ **three different holes in the\n   same control**, which strengthens the #6779-style argument that the instrument belongs\n   per-renderer rather than in a stricter global threshold.\n\n3. Neither zod nor tsc: `BaseSchema` is `.passthrough()` and carries `[key: string]: any`, and\n   `children` is *declared* on `BaseSchema` — so this is worse than the `content` case, where\n   at least a declared-key check would bite. **`children` is declared and unread**, which is\n   exactly the shape PR #6807's \"READ set is strictly stronger than the DECLARED set\" note\n   calls out, with `variant` as its example.\n\n## ⛔ Why this is filed, not fixed — the repair key is a genuine decision\n\nThe `content` members had one mechanical answer. This one has two, and they differ in kind:\n\n- **A. Re-author the seven fixtures to `label`.** Cheap, matches the 31 `badge` nodes that\n  already author `label`, converges the corpus on one spelling. But five of the seven author\n  `children: [ a text node ]`, so this flattens a node into a string, and it does not help the\n  next author who writes `children` on a badge because every other container renderer accepts\n  it.\n- **B. Teach `badge.tsx` to read `children || body`, the way `card.tsx` already does.** Makes\n  the renderer consistent with its siblings and fixes all seven fixtures without touching\n  them. But it widens a published renderer's read set, which AGENTS.md #0.1 governs, and\n  #6771 is *retiring* `body` as a `children` dialect — so the right spelling under B is\n  `children || body` today and `children` after #6771 lands.\n\n⇒ this needs a ruling, not a sweep. **Related to #6810** (the open `needs-user-decision` card\nasking whether this class gets a global instrument): this is the **fifth** rediscovery, the\nfirst one under a different key, and the first that the leak signature cannot find.\n\n## Related\n\n#6810 (the decision card for this class) · #6805 · #6806 · #6788 · #6773 · #6771 (retiring\n`body`) · #5574 (the DOM-leak class the `content` members belong to and this one does not)\n\n_Generated by [Claude Code](https://claude.ai/code)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

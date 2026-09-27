@@ -1,0 +1,37 @@
+{
+  "number": 8173,
+  "kind": "issue",
+  "title": "finding(test-infra): `@object-ui/app-shell` is the one specifier where objectui#6892 (inherit the real surface) and objectui#6580 (never pay the source-aliased barrel's ~10 s import in console tests) point opposite ways — 22 console files, 23 frozen factories, no cheap route",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2",
+    "tests",
+    "tooling"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-06T22:23:36Z",
+  "updated_at": "2026-09-07T16:38:44Z",
+  "closed_at": "2026-09-07T16:38:44Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8173",
+  "body": "Filed by the `domain:devx @ objectui` execution seat (PM session `session_01FhBNJcLRZLe8M87VcUgpKr`, R46, 2026-09-06T22:25Z) while selecting slice 9 of objectui#6892. Two standing rulings conflict on one specifier; the seat acted on the stricter (did not convert) and files the conflict here instead of deciding it. Dedup: an MCP issue search for the conflict returns nothing; the control query returns objectui#6580 itself.\n\n## The two rulings\n\n- **objectui#6892** (the vi-mock worklist, `pm:dispatched`, slices 1–8 landed): every `vi.mock` factory on a workspace specifier obtains the real module and spreads it first, so a renamed or removed export is caught by the test that mocks it instead of by a user. `scripts/check-vi-mock-inherit.mjs` enforces it for 13 covered specifiers as of PR #8163 (`310c0ab19`). `@object-ui/app-shell` is the largest uncovered one: **23 frozen factories in 22 files, all under `apps/console`**, zero already inheriting (slice-8 census on `571b4870d`; file count re-read by the seat on `9bfd61848`).\n- **objectui#6580** (closed 2026-09-02 by PR #7315, ACCEPTed by the `domain:devx` seat of R40): `importOriginal('@object-ui/app-shell')` in a console test costs **~10.0 s per file** because `apps/console/vite.config.ts:473` aliases the specifier to `packages/app-shell/src`, whose barrel (454 lines on `9bfd61848`, 13 bare side-effect imports: `./services/builtinComponents.js`, six console widgets, six view renderers, `./views/metadata-admin/register-builtins.js`) is transformed on demand. Its dispatch ruling chose lever (c) — remove `importOriginal` from the three console tests that had it — and explicitly stopped lever (b), touching the barrel's side-effect imports, because those are the published barrel's contract.\n\nConverting the 22 console files under #6892's rule is the exact shape #7315 removed, at roughly 10 s × 22 per CI run in the isolated `dom` projects (`isolate: true`, so each file re-transforms the graph). Neither card anticipated the other.\n\n## What a decision needs to weigh (not decided here)\n\n1. **Leave `@object-ui/app-shell` uncovered, recorded.** The gate gains a named exclusion with this card as its reason, so the remaining-population count stops carrying 23 sites nobody intends to convert. Cheapest; the console's 22 tests keep judging a frozen surface, which is the defect #6892 exists to remove — but only for this one specifier, and objectui#6580's measurement says the alternative is minutes of CI per run.\n2. **Convert with a cheaper obtain.** The console tests could inherit from a lighter entry (a `packages/app-shell/src/index.lite.ts` or a sub-path export without the 13 side-effect imports) — a new public sub-path is a contract change and belongs to a maintainer; or the console's vitest alias could point at built `dist` — objectui#6580's dev ruled that out by measurement (CI's test job runs no build, `dist` absent at test time).\n3. **Pay the cost.** Measure the real wall-clock delta on today's tree across the 4 test shards before assuming 10 s × 22; vitest's per-worker transform cache may amortise some of it. If the delta is small the conflict dissolves; if it is minutes, it is a maintainer's call.\n\nThe seat's reading, for whoever triages: (1) is the only route an execution seat can take without a ruling, and it should be the slice-9 shape only if a maintainer confirms; (3)'s measurement is the cheapest next step and could be an S-sized dispatch on this card. Slice 9 of objectui#6892 proceeds on `@object-ui/plugin-detail` meanwhile.\n\n## Verification recipe\n\n```\ngit fetch origin main\ngit grep -l \"vi.mock('@object-ui/app-shell'\" origin/main -- apps packages | wc -l     # 22\ngit show origin/main:packages/app-shell/src/index.ts | grep -c \"^import '\\./\"        # 13\ngit show origin/main:apps/console/vite.config.ts | sed -n '473p'                     # the source alias\n```\n\nRefs objectui#6892, objectui#6580, PR #7315, PR #8163."
+}

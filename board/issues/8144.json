@@ -1,0 +1,35 @@
+{
+  "number": 8144,
+  "kind": "pull_request",
+  "title": "chore(deps): bump mermaid from 11.17.1 to 11.17.2",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "automated",
+    "dependencies",
+    "plugin",
+    "plugin: markdown"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T19:28:41Z",
+  "updated_at": "2026-09-07T13:12:47Z",
+  "closed_at": "2026-09-07T13:12:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-09-07T13:12:46Z",
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/8144",
+  "body": "Bumps [mermaid](https://github.com/mermaid-js/mermaid) from 11.17.1 to 11.17.2.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/mermaid-js/mermaid/releases\">mermaid's releases</a>.</em></p>\n<blockquote>\n<h2>mermaid@11.17.2</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li><a href=\"https://redirect.github.com/mermaid-js/mermaid/pull/8125\">#8125</a> <a href=\"https://github.com/mermaid-js/mermaid/commit/178d7c79fcbafcf0662b822ec34ed989372ee5c2\"><code>178d7c7</code></a> Thanks <a href=\"https://github.com/knsv-bot\"><code>@​knsv-bot</code></a>! - fix: restore the <code>edgePaths</code> class on the edge group in rendered SVG, and point the flowchart, block and user journey stylesheets at it</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/mermaid-js/mermaid/commit/dcb694ddb58dc5ad3502e7e903cac05fd812eac3\"><code>dcb694d</code></a> Version Packages (<a href=\"https://redirect.github.com/mermaid-js/mermaid/issues/8130\">#8130</a>)</li>\n<li><a href=\"https://github.com/mermaid-js/mermaid/commit/178d7c79fcbafcf0662b822ec34ed989372ee5c2\"><code>178d7c7</code></a> fix: restore edgePaths class on the edge group (<a href=\"https://redirect.github.com/mermaid-js/mermaid/issues/8125\">#8125</a>)</li>\n<li>See full diff in <a href=\"https://github.com/mermaid-js/mermaid/compare/mermaid@11.17.1...mermaid@11.17.2\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

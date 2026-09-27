@@ -1,0 +1,36 @@
+{
+  "number": 8006,
+  "kind": "issue",
+  "title": "finding(docs): ci-cd-pipeline.md:551 still says check-skills-paths.mjs reads markdown under `skills/` only, missing the `.claude/skills/` root #7358 added",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T08:16:23Z",
+  "updated_at": "2026-09-07T21:32:18Z",
+  "closed_at": "2026-09-07T21:31:30Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8006",
+  "body": "Filed out-of-scope from #7362 (that card's file surface was `content/docs/guide/agent-skills.md` and, conditionally, `ci-cd-pipeline.md:581` only — this is a different line, a different sentence, unassigned).\n\n## What is stale\n\n`content/docs/guide/ci-cd-pipeline.md:551`, in the \"Skill Guide Paths (`skills-paths.yml`)\" section:\n\n> Runs `scripts/check-skills-paths.mjs`, which reads every markdown file under `skills/` and asks, of each in-repo path the prose states inside a backtick code span, whether it exists on disk.\n\nThis is evergreen present-tense prose describing the script's current scan surface (not a \"measured at commit X\" statement like the `main@6422aa891` sentence a few lines below, which #7965 already reviewed and ruled correct because it declares its measurement point). #7358 widened `SCAN_ROOTS` to `['skills', '.claude/skills']`, so the sentence has been incomplete since then — today's real reading (`node scripts/check-skills-paths.mjs`) is:\n\n```\n✅  check-skills-paths: OK (88/89 stated path(s) resolve across 20 guide file(s); 1 baselined).\n    skills/ — 28/28 resolve across 16 file(s)\n    .claude/skills/ — 60/61 resolve across 4 file(s)\n```\n\nA reader who takes \"reads every markdown file under `skills/`\" literally would conclude `.claude/skills/**` guides (including the very `console-development.md` / `no-touch-zones.md` pair #7251 moved there) are outside this gate's reach — the exact wrong conclusion #7358 exists to prevent, and the same failure mode #7404 fixed for `.github/workflows/skills-paths.yml`'s header comment. This is the same defect class, one file over, still open.\n\n## Why not fixed on the spot\n\n#7362's dispatch boundary was `content/docs/guide/agent-skills.md` plus `ci-cd-pipeline.md:581` \"ONLY as the re-measured baseline truth requires\" — this is a different sentence at a different line, so it's out of that claim's file surface.\n\n## Suggested fix\n\nName both roots, e.g. \"reads every markdown file under `skills/` and `.claude/skills/`\" — two words, no numeral to go stale. `scripts/__tests__/ci-cd-pipeline-doc.test.ts` does not appear to pin this sentence (grepped for the surrounding tokens with no hit), so a prose edit shouldn't move any pin.\n\n`finding`, no `pm:queue` — this is an observation for PM triage, not a defect I'm asking to be actioned on a timeline."
+}

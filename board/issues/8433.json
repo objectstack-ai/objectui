@@ -1,0 +1,34 @@
+{
+  "number": 8433,
+  "kind": "pull_request",
+  "title": "fix(plugin-kanban): the card title-dedupe skip set reads the shared name-field resolver, not a key nothing emits",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "plugin: kanban",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T22:59:21Z",
+  "updated_at": "2026-09-07T23:31:54Z",
+  "closed_at": "2026-09-07T23:31:52Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-09-07T23:31:52Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/8433",
+  "body": "Kanban cards printed the record title twice — once as the card heading, once as the first row of the card body.\n\n## Root cause\n\n`ObjectKanban` resolves each heading through ADR-0079's `getRecordDisplayName`, then builds `titleFieldsToSkip` so the title field's raw value is not rendered again as a card field. `packages/plugin-kanban/src/ObjectKanban.tsx:418` fed that set from `objectDef?.NAME_FIELD_KEY` — a key **nothing produces**, so the set collapsed to its five hard-coded literals and the title field flowed straight into the body.\n\n### The three premises, re-verified independently (not taken from the issue)\n\n| Claim | How it was checked | Result |\n|---|---|---|\n| The framework never emits `NAME_FIELD_KEY` | `git grep -i NAME_FIELD_KEY` in `objectstack` at the cloud pin `afbf2711` **and** at framework `main`; positive control `nameField` matches in both | **0 hits**, both trees |\n| Nor does the published package | `grep -ra` over `node_modules/@objectstack/spec@17.0.0` (dist + json-schema + api-surface) | **0 hits**; the zod object schema declares `nameField` and `displayNameField` |\n| The skip set is therefore always empty of the real name field | Read `ObjectKanban.tsx:418 → :542-549 → :568`; `titleFieldsToSkip` is consulted only in the explicit-`cardFields` branch, and its other members are `explicitTitleField` (unset unless the view declares `cardTitle`/`titleField`) plus 5 literals | **Chain holds** — no other fallback repairs it |\n\n`resolveNameField()` (`packages/core/src/utils/record-title.ts:346`) is this repo's shared name-space resolver, and it is correct: it delegates the declared ladder to `declaredNameField()` (`:320`, `nameField ?? displayNameField ?? NAME_FIELD_KEY` — the identical `??` chain `getRecordDisplayName` reads at `:551`) and then falls through to `deriveTitleField()`.\n\n## Blast radius: the repo-wide grep\n\n`NAME_FIELD_KEY` has exactly **two read sites** in source:\n\n- `packages/core/src/utils/record-title.ts:321` — the correct back-compat fallback. **Left alone.**\n- `packages/plugin-kanban/src/ObjectKanban.tsx:418` — the defect. **Fixed.**\n\nEvery other occurrence is prose (docblocks, changesets) or the `record-title` alias test. The only sibling of this dedupe, `record-details.tsx`, was already moved onto the shared resolver by objectui#8175, so no third site needs the same change.\n\n## Why one rung, not two\n\nobjectui#8175 unrolls the same ladder into **two** candidates — `resolveNameField()` *and* `deriveTitleField()` — so a declared-but-blank pointer still dedupes against the derivation its value-keyed header fell through to. That second rung is deliberately **not** copied here: `record-details` filters a *synthesized* field list, whereas this set filters an **author-declared** `cardFields`. Carrying the derivation alongside a declared pointer would drop a field the author explicitly asked for whenever the two disagree (`nameField: 'code'` titles the card while the derivation answers `owner_name`) — on a four-field card that is a worse failure than a repeated title. The fourth test pins that boundary and goes RED if the second rung is ever added.\n\n## Ablation (measured, both directions)\n\nNew file: `packages/plugin-kanban/src/__tests__/ObjectKanban.nameFieldSkipSet-8400.test.tsx`, written to the AI-built shape from the report — an object with `nameField: 'visit_title'` and a board listing `visit_title` in `cardFields`. Assertions **count occurrences** rather than asserting presence, because the defect is a duplicate and an absence assertion would bless the wrong fix.\n\nFix reverted (one token: `resolveNameField(objectDef)` → `objectDef?.NAME_FIELD_KEY`):\n\n```\n × a DECLARED `nameField` listed in `cardFields` renders once, as the heading only 45ms\n × a DERIVED name field (no `nameField` declared) is deduped too, and does not get worse 12ms\n × does NOT hide a card field that merely LOOKS name-ish while another field is declared 10ms\nAssertionError: expected 2 to be 1 // Object.is equality\nAssertionError: expected 2 to be 1 // Object.is equality\nAssertionError: expected 2 to be 1 // Object.is equality\n Test Files  1 failed (1)\n      Tests  3 failed | 1 passed (4)\n```\n\nFix restored:\n\n```\n Test Files  1 passed (1)\n      Tests  4 passed (4)\n```\n\nThe one test green in both runs is the positive control (`pet_name` / `visit_at` still render) — without it every count assertion would be satisfied by a board that dropped the body entirely.\n\n## Wider verification\n\n- `vitest run packages/plugin-kanban/` — **31 files / 208 tests, all pass**\n- `vitest run packages/core/src/utils packages/plugin-view packages/plugin-detail` — 224/225 files pass. The one failure is `core/src/utils/__tests__/date-display.optionsStyle-7745.test.ts` (2 assertions), **pre-existing and timezone-dependent**: it is green under `TZ=UTC` (15/15) and this diff does not touch that file.\n- `turbo run build --filter=@object-ui/plugin-kanban...` — 13/13 packages build (this is the real typecheck path; bare `tsc -p` in the package cannot resolve workspace `@object-ui/*` types without the build).\n- `eslint` on both changed files — 0 errors (only the file's pre-existing `no-explicit-any` warnings).\n\n## Note on the upstream attribution\n\ncloud#2073 attributed this to `nameField` not being persisted into `sys_metadata`. That attribution is **wrong and withdrawn** — `objectDef` carries the correct answer at this call site; this one line simply did not read it.\n\nCloses #8400\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

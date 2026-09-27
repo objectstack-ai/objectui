@@ -1,0 +1,32 @@
+{
+  "number": 8605,
+  "kind": "pull_request",
+  "title": "test(i18n-gate): pin the factory half's abstention counters on main, as the hand-rolled half already is",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T15:53:01Z",
+  "updated_at": "2026-09-08T16:28:00Z",
+  "closed_at": "2026-09-08T16:26:56Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-09-08T16:26:56Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/8605",
+  "body": "Fixes #8423\n\n## The asymmetry\n\n`scripts/check-i18n-call-site-keys.mjs` keeps two parallel halves of one class — the\nfactory walk (objectui#7567) and the declared hand-rolled registry (objectui#7877) — with\nparallel counters. Their MAIN-LINE pin cases were not parallel.\n\n| main-line case | pins |\n|:--|:--|\n| `and main is measured, not merely green` (hand-rolled) | `handRolledRowsNoEnKey` 0 · `handRolledUnjudgedRows` 0 · `handRolledUnreadableRows` 0 · `handRolledMatchingRows === handRolledComparedRows` |\n| `main carries no factory drift, over a surface big enough for that to mean something` (factory) | `factoryUnreadableTables` 0 · `factoryUnreadableRows` 0 — and **nothing else** |\n\n`factoryRowsNoEnKey`, `factoryUnjudgedRows` and the matching/compared equality were\nasserted by nothing on main. That is the wrong half to leave unpinned: the factory half\ntakes its population from the SOURCE, so it absorbs a new table without anybody choosing\nto. `factoryRowsNoEnKey` went 5 to 0 when objectui#7887 retired the `timeline.relative.*`\nrows and nothing in this repository failed — the only carriers of that number were\ncomments.\n\nThis adds the three missing lines to the factory case. The existing\n`factoryTables > 25` and `factoryComparedRows > 500` lower bounds are kept unchanged:\nwithout them a zero degrades from a reading into \"the scan found nothing\". No threshold\nlowered, no ratchet raised, no assertion removed, no test skipped.\n\n## What was measured before pinning\n\nTriage's fence was that the values must be READ on this tree, never copied from the\nhand-rolled half. Two independent instruments, both on `ce45a0306`:\n\n`analyze(repoRoot)` — the same call the pin case reads:\n\n```\nfactorySites = 32          factoryComparedRows  = 846\nfactoryTables = 32         factoryMatchingRows  = 846\nfactoryRows = 846          factoryRowsNoEnKey   = 0\nfactoryUnreadableTables=0  factoryUnjudgedRows  = 0\nfactoryUnreadableRows = 0  findings.length      = 0\nfactoryMatchingRows === factoryComparedRows -> true\n```\n\n`node scripts/check-i18n-call-site-keys.mjs` (exit 0), its own summary line:\n\n```\nFactory defaults tables: 32 createSafeTranslation site(s) over 32 distinct table(s)\n(0 unreadable) — 846 row(s) compared against their en value, 846 matching, 0 on a key\nen does not define, 0 with no single comparable en value, 0 unreadable.\n```\n\nAll three read clean, so nothing observed-non-zero was pinned to make a test green. The\nzeros are readings and not \"nothing was scanned\", because the same run reports 32 tables\nand 846 compared rows.\n\n## Reverse verification — the new pins can fail, and the old file could not\n\nEach leg mutates the GATE (not the test), proves the mutation reached disk by blob hash,\nruns the full test file, then restores with `git checkout HEAD --` and proves\n`git diff HEAD` empty.\n\n| leg | mutation | result |\n|:--|:--|:--|\n| M1 | one factory row forced down the `RowsNoEnKey` branch | **1 failed / 136 passed** — factory case red, `expected 1 to be +0`; hand-rolled case green |\n| M2 | one factory row forced down the `UnjudgedRows` branch | **1 failed / 136 passed** — `expected 1 to be +0` |\n| M3 | one compared factory row never counted as matching, and no finding pushed | **1 failed / 136 passed** — `expected 845 to be 846` |\n| M1 on the PRE-CHANGE test file | same mutation as M1 | **137 passed, exit 0** — the whole file green |\n\nThe last row is objectui#8423 itself, reproduced: the identical corruption that now fails\nloudly was invisible before this change. M3 is the case the equality earns its place on —\n`factoryDriftOf(repoRoot)).toEqual([])` passed in that run; a row counted as compared and\nsilently never counted as matching produces no finding at all.\n\n## Reviewer trap — please do not \"correct\" this back\n\n`factoryRowsNoEnKey` and `factoryUnjudgedRows` DO already appear under `expect(...)`\nelsewhere in this file, at `.toBe(1)`. Those two hits live in SYNTHETIC fixture cases —\n`leaves a key en does not define to class 1, and class 1 cannot see it either` and\n`counts rather than judges a plural family — there is no one form to compare`. They prove\nthe counters can move; they are not a reading on main. A grep that only asks \"is this\nsymbol ever expected?\" conflates them with the main-line case and concludes the card was\nalready fixed. The assertions added here are located by their enclosing `it(...)`, not by\nsymbol presence; a comment in the file says so, so the next reader does not have to\nrediscover it.\n\n## Checks run\n\n| check | outcome |\n|:--|:--|\n| `pnpm exec vitest run scripts/__tests__/check-i18n-call-site-keys.test.ts` | 137 passed / 137, exit 0 |\n| `pnpm lint:root` | exit 0, 0 errors (32 pre-existing warnings, none in the touched file) |\n| `pnpm type-check:scripts` | exit 0; the touched file is in that program, confirmed with `tsc --listFiles` |\n| `node scripts/check-i18n-call-site-keys.mjs` | exit 0 |\n| `node scripts/check-changeset-presence.mjs` | exit 0 |\n| `node scripts/check-changeset-no-major.mjs` | exit 0 |\n| `node scripts/check-governed-queue-guard.mjs --test` on the touched paths | NOT GOVERNED |\n\nThe changeset declares an empty frontmatter: this is test-only tooling, no package is\nreleased by it. Held in **draft** for the PM.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01FhBNJcLRZLe8M87VcUgpKr)_"
+}

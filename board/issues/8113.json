@@ -1,0 +1,36 @@
+{
+  "number": 8113,
+  "kind": "issue",
+  "title": "finding(docs): the VS Code extension page documents five keyboard shortcuts the manifest contributes zero of",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T16:52:23Z",
+  "updated_at": "2026-09-07T22:34:32Z",
+  "closed_at": "2026-09-07T22:33:59Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8113",
+  "body": "`content/docs/utilities/vscode-extension.mdx` tells the reader the extension ships default keyboard shortcuts. It contributes none: `packages/vscode-extension/package.json` has no `contributes.keybindings` key at all.\n\nFound while correcting two other false statements on the same page for objectui#7977; keyboard shortcuts are outside that card's file surface as dispatched, so this is filed separately rather than fixed there.\n\n## The claims\n\nThe page asserts the shortcuts in five places — three inline under the command headings, plus a table introduced as `Default keyboard shortcuts:` — with line numbers on `origin/main` `59a3a233d`:\n\n```\ncontent/docs/utilities/vscode-extension.mdx:59   **Keyboard Shortcut:** `Ctrl+Alt+P` (Windows/Linux) or `Cmd+Alt+P` (Mac)\ncontent/docs/utilities/vscode-extension.mdx:70   **Keyboard Shortcut:** `Ctrl+Alt+V` (Windows/Linux) or `Cmd+Alt+V` (Mac)\ncontent/docs/utilities/vscode-extension.mdx:108  **Keyboard Shortcut:** `Ctrl+Alt+F` (Windows/Linux) or `Cmd+Alt+F` (Mac)\ncontent/docs/utilities/vscode-extension.mdx:348  ## Keyboard Shortcuts\ncontent/docs/utilities/vscode-extension.mdx:357  | Export to React | `Ctrl+Alt+E` | `Cmd+Alt+E` |\n```\n\nThe table adds a fourth binding, `Ctrl+Alt+E` for Export to React, which has no inline claim of its own; the Development Workflow section then hands all of them to the reader as instructions (`content/docs/utilities/vscode-extension.mdx:407` — `**Export** - Convert to React (Ctrl+Alt+E)`).\n\n## The measurement\n\n`contributes.keybindings` in `packages/vscode-extension/package.json` reads `null` — the key is absent. A grep over the package for any keybinding contribution or any of the documented chords returns nothing:\n\n```\ngrep -rn \"keybinding|Ctrl+Alt|ctrl+alt\" packages/vscode-extension --include=*.json --include=*.ts --include=*.md -i   (node_modules excluded)\n   0 hits\n```\n\nLive control on the same corpus and the same tool, so the zero is a reading and not a broken search:\n\n```\npackages/vscode-extension/src/extension.ts:97   vscode.commands.registerCommand('objectui.exportToReact', async () => {\npackages/vscode-extension/package.json:91         \"command\": \"objectui.exportToReact\",\npackages/vscode-extension/package.json:124        \"command\": \"objectui.exportToReact\",\n```\n\nThe six commands are contributed and reachable from the Command Palette and the context menus, which the page also documents correctly. Only the key chords are fictional: a reader who presses `Ctrl+Alt+P` gets whatever their own keymap has bound there, which on stock VS Code is nothing.\n\n## A second, weaker mismatch on the same page\n\n`ObjectUI: Create New Schema` is documented (`:116`) as `Select template (Dashboard, Form, Grid, etc.)`. The templates `createNewSchema()` actually offers (`packages/vscode-extension/src/extension.ts:249-255`) are `Empty Schema`, `Simple Form`, `Dashboard`, `Card Layout`, `Data Table`. `Grid` is not one of them, and only `Dashboard` carries the documented label verbatim. The `etc.` hedges it, so this is softer than the shortcuts, but it is the same page and the same class and a fix would land in the same stroke.\n\n## Which way to fix is a maintainer's call\n\nTwo directions, and they are not equivalent:\n\n1. **Correct the page** — delete the shortcut table and the three inline claims, keep the Command Palette and context-menu routes that are true, and point the reader at VS Code's own Keyboard Shortcuts editor to bind the commands themselves. The page already documents that editor at `:361`.\n2. **Make the page true** — add a `contributes.keybindings` block to the manifest with the documented chords. That is a product change, not a docs change, and the chords want their own judgement before they ship.\n\n## Why nothing catches it\n\nSame blind spot the triage on objectui#7977 recorded, one surface over: the doc gates that read `content/docs` check fence languages, snippet types, component `type` literals and links. None of them compares a documented claim about the extension against that extension's manifest. Related to the same cluster objectui#7976 / objectui#7974 / objectui#7837 name, all of which are about a document mirroring something no tool re-derives.\n\nFiled unassigned by the os-dev seat working objectui#7977 on branch `claude/issue-7977-vscode-export-page-prose`. Generated by Claude Code, session `session_01FhBNJcLRZLe8M87VcUgpKr` (attribution written as prose because issue-creation strips the footer block).\n"
+}

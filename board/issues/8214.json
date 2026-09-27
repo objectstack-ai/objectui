@@ -1,0 +1,38 @@
+{
+  "number": 8214,
+  "kind": "issue",
+  "title": "finding(plugin-chatbot): uiMessagesToChatMessages' parameter type refuses @ai-sdk/react's UIMessage — the exact input it is exported for",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "plugin",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-07T01:40:40Z",
+  "updated_at": "2026-09-07T14:10:13Z",
+  "closed_at": "2026-09-07T14:10:13Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8214",
+  "body": "Found while compiling `packages/plugin-chatbot/README.md`'s snippets for objectui#5174 batch 30 (PR to follow). Filed unassigned and NOT fixed there — that batch may not touch `packages/plugin-chatbot/src/**`.\n\nNote on spelling: generic type arguments are written as WORDS below (`UIMessage of unknown, UIDataTypes, UITools`) because GitHub's body sanitizer eats tag-shaped fragments, backticks and code fences included, and this card is entirely about a generic type.\n\n## What\n\n`packages/plugin-chatbot/src/mapMessages.ts` exports `uiMessagesToChatMessages` / `uiMessageToChatMessage`. Its own docblock states the purpose:\n\n> Shared between `useObjectChat` (which composes `useChat` internally) and apps that drive `useChat` themselves (e.g. Studio, which needs a custom `prepareSendMessagesRequest` transport).\n\nand `packages/plugin-chatbot/README.md` documents the same use in prose: if you wire `@ai-sdk/react`'s `useChat()` directly and want to render its messages with `ChatbotEnhanced`, use the exported mappers instead of writing your own.\n\nThe declared parameter type does not accept that input.\n\n## Measured\n\nCompiling the README's mapper snippet against the built `packages/plugin-chatbot/dist/index.d.ts` and the installed `@ai-sdk/react@4.0.68` (its own declared dependency), with `scripts/check-doc-snippet-types.mjs`'s analyzer, produces exactly one diagnostic:\n\n```\nTS2345: Argument of type 'UIMessage[]' is not assignable to parameter of type 'AnyUIMessage[]'.\n  Types of property 'parts' are incompatible.\n    Type 'UIMessagePart[]' is not assignable to type 'AnyPart[]'.\n      Type 'TextUIPart' is not assignable to type 'AnyPart'.\n        Types of property 'state' are incompatible.\n          Type '\"done\" | \"streaming\" | undefined' is not assignable to type\n          '\"input-streaming\" | \"input-available\" | \"approval-requested\" |\n           \"approval-responded\" | \"output-available\" | \"output-error\" |\n           \"output-denied\" | undefined'.\n```\n\nThe mechanism, in one line: `mapMessages.ts:19` declares a deliberately loose local `AnyPart`, but types one of its members tightly —\n\n```ts\nstate?: ChatToolInvocation['state'];\n```\n\nThat union is the TOOL-invocation state set. A `TextUIPart` in the AI SDK's own `UIMessagePart` union carries `state` of `'streaming' | 'done'`, which is not a member of it. So `AnyPart` — the interface written to be permissive — is on that one property STRICTER than the union it is meant to absorb, and the whole `UIMessage` assignment fails on it.\n\n## Why nothing caught it\n\nThe package's own call site does not type-check this assignment. `packages/plugin-chatbot/src/useObjectChat.ts:683` destructures `chatResult as any`, so `aiMessages` reaches `uiMessagesToChatMessages(aiMessages, …)` at `:701` as `any`. The unit test `packages/plugin-chatbot/src/__tests__/mapMessages.test.ts:135` calls it as `uiMessagesToChatMessages(msgs as never, …)`. Both casts are load-bearing for the build being green: remove either and this diagnostic appears in `src/`.\n\nThe README snippet is the first place in the repository where a caller passes `useChat`'s real return value to this export with no cast, which is why the doc-snippet gate is where it surfaced.\n\n## Reachability, honestly\n\nNo runtime effect — the mapper duck-types on `p.type === 'text'` and works fine on these values; that is why the casts have never hurt anyone. The cost is on consumers: an app that follows the README (or the docblock) and drives `useChat` itself cannot call the exported mapper without an `as never` / `as any` of its own, i.e. the public API of a mapping helper is unusable as documented, and every consumer who works around it loses type checking on that seam for good.\n\n## Options\n\n- **A. Widen `AnyPart.state` to `string` (or to the union of both state sets) in `mapMessages.ts`.** Smallest change; keeps the interface's stated intent (permissive input, checked output). The reads in that file already branch on `p.type` before touching `state`.\n- **B. Type the parameter against the SDK's own `UIMessage` from `ai`.** Strictest; ties the exported mapper to the dependency's version, which is what the package already does internally.\n- **C. Leave it and document the cast.** Rejected on the contract-first rule (AGENTS.md #0.1): a documented cast is a tolerant fallback that fossilizes the wrong shape at every consumer.\n\nRecommendation: **A**, then delete the `doc-snippet: fragment` marker the objectui#5174 batch-30 PR has to put on that README block — the block is what a reader should write and compiles the day this lands. B is the long-term-correct direction but moves a published type against a pinned dependency version, which is a bigger decision than this defect needs.\n\nRelated: objectui#5174 (the gate that measured it), objectui#4424 (the `ObjectChatMessage` contract this mapper feeds), objectui#4399 (the previous `messages as any` on the same seam, which that card removed for the renderers).\n\nFiled by the `domain:devx @ objectui` execution seat's batch-30 dev, from Claude Code session `session_01FhBNJcLRZLe8M87VcUgpKr`."
+}

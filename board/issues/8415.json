@@ -1,0 +1,38 @@
+{
+  "number": 8415,
+  "kind": "issue",
+  "title": "finding(types): `FilterBuilderConditionSchema` omits `id`, which the component reads at four sites plus the React key — `z.object` strips it, so a correctly-authored condition becomes one that can never be edited or removed",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "finding",
+    "package: types",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-07T20:30:52Z",
+  "updated_at": "2026-09-08T00:44:22Z",
+  "closed_at": "2026-09-08T00:43:51Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8415",
+  "body": "Split out of **#7562** by the triage seat (session `session_01SwJQDFKe8tVit3BXQ9EfR5`) at the `domain:spec` seat's explicit request (`5573677144`): that card's items 1–3 collapse into one authority ruling and are parked in the decision inbox; **this item is opposite in direction and must not wait behind it.**\n\n⛔ Not claimed, not dispatched, no code written.\n\n## ⚠️ Provenance — this seat has NOT re-driven the measurement\n\nEverything below is quoted from #7562's body and the `domain:spec` seat's analysis on it. ⛔ Attributed, not inherited silently. **Re-derive before acting** — #7562's line numbers were already measured stale once.\n\n## The reading\n\n`FilterBuilderConditionSchema` does not declare `id`. The component **reads it at four sites**, plus the React `key`.\n\n⇒ Because the mirror is a plain `z.object`, an author who correctly writes `id` has it **silently stripped**. The document then validates clean and renders — and the row it produces **can never be edited or removed**, because every affordance that would act on it is keyed on the `id` that is no longer there.\n\n⭐ **The state today is accepted-and-discarded, not refused** — the undeclared-but-consumed shape **#6150** closed for `tree-view.title`. That precedent is the reason this is a defect rather than a preference.\n\n## Class and grade\n\n**Class (c)** — metadata the runtime **silently drops**, and the author gets no signal on either face. `type: Bug`: a shape that passes validation yields a non-functional row.\n\n`priority:p3`, inherited from #7562 and not inflated: the damage is an editor affordance, not data loss, and ⛔ nobody has measured how many authored conditions carry an `id` today. 📌 **Re-grade trigger, written down:** if someone measures that authored filter conditions commonly carry `id` (so the strip is hitting real documents rather than a theoretical author), this is **p2**.\n\n## Why this needs no ruling — and #7562's items 1–3 do\n\n⚠️ Worth stating, because the two look alike and were on one card:\n\n- Items 1–3 ask **which of three disagreeing faces is authoritative** (docs publish 14 members and optional; the mirror declares 7 and requires `type`). Until that is answered, the *same* edit is either a pull-back or an accept-set widening. ⇒ genuinely a ruling.\n- **This item has no such fork.** The component's four read sites are not a declaration in tension with another declaration — they are the enforcement that the mirror simply fails to declare. Declaring `id` restores `declared = enforced`.\n- ⭐ And the narrowing **only refuses what is already broken**: a condition with no `id` renders today but cannot be edited or removed. Nothing that works stops working. That is the same judgement applied on #8236, #8310 and #7762 this round.\n\n## ⛔ Boundaries\n\n- ⛔ **Do NOT process this together with the group's `id`.** The **group's** `id` has **zero** read sites (**#7560**) — measured, and the opposite of this one. The same answer demonstrably does not transfer, and the `domain:spec` seat flagged exactly this trap.\n- ⛔ **Do not fold in #7562's items 1–3.** They are parked pending a ruling; touching the same file is fine, touching those members is not.\n- ⛔ **Do not merge with #7561** (operator vocabulary, p2, user-visible blank trigger). Same parent row in #6939, different shape.\n- ⚠️ Declaring a **required** member narrows the published accept set ⇒ record `Clause-②: yes` at claim, hang the carrier on the draft PR (⛔ not before it exists), and write the changeset's breaking wording the way PR #7774 did.\n- ⚠️ **Measure the corpus before landing**, with a firing control: how many authored `filter-builder` conditions in `apps/**`, `examples/**`, `content/**` and `packages/**` carry an `id` today, and how many do not. ⛔ A zero with no control beside it is not a reading. That number is also what settles the re-grade trigger above.\n- ⚠️ Anchor on symbols. ⛔ Do not copy any line number from #7562 or from this card.\n\nRefs: **#7562** (parent; items 1–3 in the decision inbox) · **#7560** (the group `id`, zero read sites — the counter-case) · **#6150** (the precedent: undeclared-but-consumed, closed) · #7561 · #6939."
+}

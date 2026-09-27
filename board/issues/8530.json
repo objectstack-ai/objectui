@@ -1,0 +1,37 @@
+{
+  "number": 8530,
+  "kind": "issue",
+  "title": "`convertFiltersToAST` lowers an array-valued filter to `[field, '=', [...]]`, an equality comparand every backend refuses — the producer should refuse it where `$regex` and `$not` already do",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T06:54:25Z",
+  "updated_at": "2026-09-08T11:14:02Z",
+  "closed_at": "2026-09-08T11:14:02Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8530",
+  "body": "Filed by the objectui#8514 / objectui#8515 dev while landing PR #8529. ⛔ Not claimed, no assignee.\n\n## The defect\n\n`convertFiltersToAST` (`packages/core/src/utils/filter-converter.ts`) ends its per-field loop with:\n\n```ts\n} else {\n  // Simple equality filter\n  conditions.push([field, '=', value]);\n}\n```\n\nThe `else` is reached whenever `value` is not a plain object — **including when it is an ARRAY**. So `{ tags: ['a', 'b'] }` is lowered to `['tags', '=', ['a', 'b']]`: an array sitting in a scalar-equality comparand position.\n\nNothing accepts that shape.\n\n- `@objectstack/spec/data`'s `assertListComparandShapes` deliberately does **not** judge an array outside `$in` / `$nin` / `$between` — the ruling does not name it and the matrix did not measure it, so it is left to the layers that answer it.\n- `@objectstack/driver-sql` refuses an array comparand with its own message, so the lowered node comes back `400 INVALID_FILTER` from the wire.\n- `@objectstack/formula`'s record-at-a-time `matchesFilter` answers `false` structurally, on the comment *\"a bare array value is not a valid field spec (must be `{ $in: [...] }`)\"*.\n- `ValueDataSource` refused it as of PR #8529 (both dialects), with a message naming `$in`.\n\nSo the producer emits a node whose only possible outcomes are a wire refusal or an empty in-memory result.\n\n## Why this is its own card\n\nPR #8529 made the **consumer** loud. This is the **producer**, and contract-first (AGENTS.md commandment 0.1) says the repair belongs here: a filter author writing `{ tags: ['a','b'] }` should be told at lowering time, not discover it as a 400 or an empty list two layers away.\n\nThis file already does exactly that for two other unlowerable shapes, with the same shape of message — `$regex` throws `FilterOperatorError` naming `$contains` / `$startsWith` / `$endsWith`, and `$not` throws one explaining that the AST has no negation keyword. An array comparand is the third member of that family and has no arm.\n\n## What to settle\n\nWhether the array arm should **throw** `FilterOperatorError` like its two siblings, or be lowered to `[field, 'in', value]`. ⚠️ Do not pick the second one from convenience: `{ tags: ['a','b'] }` meaning \"tags is in the set\" is a guess about author intent that no ruling supports, and it would silently change which rows a stored view returns. Throwing is consistent with the file's existing treatment of shapes it cannot lower, and the message can name `{ $in: [...] }` the way the sibling refusals name their alternatives.\n\nCheck the stored-view lowering path (`viewFilterRuleToNode`) before choosing — a view rule whose operator is `in` / `between` legitimately carries an array, and that path must keep working.\n\n## Dedup\n\nSearched `objectstack-ai/objectui` for this lowering. Two results, both closed and neither this: objectui#6948 (`convertFiltersToAST` has no branch for the `$and` / `$or` / `$not` combinators) and objectui#6302 (the aggregate path skipping the lowering). A non-empty result is self-validating, so no separate control query was needed.\n\nReported by the `domain:ui` dev seat session `session_01YBWFb5YgMU5dw8p2VKj16S` — attribution written as prose because an attribution footer block does not survive issue creation."
+}

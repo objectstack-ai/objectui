@@ -1,0 +1,35 @@
+{
+  "number": 8556,
+  "kind": "issue",
+  "title": "`ReportComponentSchema.exportConfigs` — mirror accepts any string key, declaration is a partial record over `ReportExportFormat`: a live accept-set gap that has been invisible since 2026-08-30",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "package: types",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T11:00:04Z",
+  "updated_at": "2026-09-08T14:41:53Z",
+  "closed_at": "2026-09-08T14:40:19Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8556",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8517 dev, which surfaced it while landing PR #8553 and could not file it — its dedup `search_issues` was refused with *\"API rate limit already exceeded for user ID 323634890\"*. Handed over rather than filed blind. ⛔ Not claimed.\n\n## The divergence\n\n| face | shape |\n|---|---|\n| mirror — `reports.zod.ts` | `z.record(z.string(), ReportExportConfigSchema)` |\n| declaration | `Partial[Record[ReportExportFormat, ReportExportConfig]]` |\n\nMeasured at runtime:\n\n```\nsafeParse({ type: 'report', exportConfigs: { xml: { format: 'pdf' } } })   →   success: true\ntsc on the same document                                                  →   refused\n```\n\nThe two faces agree on **optionality** and differ on the **key set**. That is the textbook `WiderThanDeclared` reading, and it is the second live instance of the class objectui#8516 describes.\n\n⚠️ Notation: generic arguments use **square** brackets throughout, because GitHub deletes tag-shaped fragments on save.\n\n## ⚠️ Why nobody saw it — and why the ledger's history needs re-reading\n\nThis was invisible **by construction**, not by oversight. `zod-mirror-parity.test.ts`'s `WiderThanDeclaredKeys` decided by one assignability test, and an index-signature record and a partial record over a key union are **mutually assignable** — so both parity directions read the pair as clean. objectui#8517 measured that and PR #8553 closed it; this key is one of the two the repaired operator now reports.\n\nThe dating matters:\n\n- the declaration has been `Partial[Record[…]]` since **`ee851c32a` (2026-08-30)**, an ancestor of PR #8553's base\n- the mirror has been unchanged since **`a204bf0e7` (2026-01-30)**\n\nSo it was already diverging, and already invisible, at **every** ledger reading quoted in `zod-mirror-parity.test.ts`'s header — each of those figures is one CONCRETE key low. (Its sibling `GridSchema.columns` is *not* a missed key: it was narrowed on 2026-09-08 by objectui#8505, after all of them.) Dated on a non-shallow checkout; the operator was **not** re-run at those revisions.\n\n## Ruling: **A — narrow the mirror**\n\nContract-first puts the repair at the authoring boundary, and the mirror is it. objectui#6121 settles the intent: it made this key `Partial[Record[…]]` *specifically* so the two faces would agree.\n\n⛔ **Do NOT spell it `z.record(z.enum([…]), …)`.** Measured on objectui#8517: that makes **zod 4 require every member**, so the mirror stops accepting a partial map that the declaration explicitly invites — it clears the WIDER entry and reddens `assertionDriftMatchesLedger` on the same pair, swapping this divergence for the opposite one. The **partial** spelling is mandatory. The same hazard is recorded on objectui#8516.\n\nPin against the ledger reconciliation in `zod-mirror-parity.test.ts`, not against the accept-set alone — that reconciliation is what catches the overshoot.\n\n## Not the whole backlog\n\nPR #8553 **ledgers and pins** this key, so it cannot regress silently and the guard has a reachable green state. What it does not have is a disposition, which is what this card is. Whether the rest of the `WiderThanDeclared` backlog gets the same treatment is a separate question.\n\n## Related\n\nobjectui#8517 / PR #8553 (the operator repair that made this visible; the census delta and the dating) · objectui#8516 (the first instance, and the same zod-4 overshoot hazard) · objectui#6121 (which set the declaration's intent) · objectui#7759, objectui#8252 (ledger figures this key was silently absent from)\n\n## Dedup\n\n⚠️ **Declared, NOT claimed.** The reporting seat's search was rate-limited; this seat has not run one either, because this repo's issue search returns **false zeros** — measured today returning `total_count: 0` for `ValueDataSource` while objectui#8447's own title contains that word. A zero would prove nothing. **No dedup claim is made.** Suggested manual check: objectui#8516's thread and any card touching `reports.zod.ts`."
+}

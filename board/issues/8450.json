@@ -1,0 +1,38 @@
+{
+  "number": 8450,
+  "kind": "issue",
+  "title": "InspectorSelectField's placeholder is unreachable at all 45 call sites",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: app-shell",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T00:13:54Z",
+  "updated_at": "2026-09-08T11:51:36Z",
+  "closed_at": "2026-09-08T11:51:36Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8450",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#6830 dev, who measured it while producing PR #8431 and could not file it (`search_issues` rate-limited). ⛔ Not claimed.\n\n⚠️ **This blocks the select half of objectui#6830's ruled direction A.** That card's standing ruling is \"show the declared default, do not write it\"; showing it as placeholder text is impossible until this is fixed. Filed separately on purpose — a 61-call-site primitive change does not belong inside a flow-node card.\n\n## Measured\n\n`InspectorSelectField` (`packages/app-shell/src/views/metadata-admin/inspectors/_shared.tsx`) declares `placeholder = '—'` and passes it to `SelectValue placeholder={placeholder}` on the trigger. It can never show. It bridges the caller's value through `toInner(value ?? '')`, so empty/undefined becomes the sentinel `__inspector_select_none__` — **a controlled value matching no `SelectItem`**, which Radix renders as nothing. Radix shows a placeholder only for an *undefined* value.\n\nMeasured by rendering the primitive directly:\n\n```\nvalue undefined                          → trigger textContent ''        (not '—')\nvalue '' + explicit placeholder 'PICKME' → trigger textContent ''        (not 'PICKME')\nvalue matching an option                 → that option's label           ← the control: the field IS lit\n```\n\nBoth negatives are therefore real absences, not a dead render.\n\n**61 call sites** across the metadata-admin designer ⇒ every empty select renders blank instead of its hint.\n\n## Note on the existing test\n\n`_shared.select.test.tsx` case 3 asserts an explicit placeholder is absent and attributes it to the `''` option matching. **The assertion is correct; its stated reason is not the operative one.** Whoever fixes this should correct the reason rather than delete the case — the case becomes the ablation.\n\n## Fix shape (not ruled)\n\nThe mechanism is clear (a sentinel controlled value where Radix needs `undefined`), but the repair has a choice in it: pass `undefined` to Radix when there is no value and handle \"no selection\" some other way, or keep the sentinel and render the placeholder outside `SelectValue`. Both change what an empty select looks like across the whole designer, so the PR wants a before/after of a representative sample, not just the primitive's own test.\n\n⚠️ Same shape as objectui#6830 itself — a declared prop that reaches no rendered output — one level down in a shared primitive.\n\n## Related\n\nobjectui#6830 / PR #8431 (where it was measured; its ruled direction A depends on this) · objectui#3912 (the same box, validation affordance)\n\n## Dedup\n\n⚠️ **Not run, declared rather than hidden.** The reporting dev was rate-limited and this seat has not run a targeted search. **No dedup claim is made.** Suggested query for a triager: `InspectorSelectField placeholder SelectValue sentinel radix never renders`."
+}

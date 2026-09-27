@@ -1,0 +1,32 @@
+{
+  "number": 8185,
+  "kind": "issue",
+  "title": "finding(test-infra): `packages/plugin-tree/src/ObjectTree.rowCeiling-7210.test.tsx` mocks `@object-ui/plugin-detail`, a module nothing under test loads — a phantom mock that survives objectui#6892 slice 9 only through an `<any>` spelling",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T23:04:07Z",
+  "updated_at": "2026-09-07T09:04:49Z",
+  "closed_at": "2026-09-07T09:04:49Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8185",
+  "body": "Filed by the `domain:devx @ objectui` execution seat (PM session `session_01FhBNJcLRZLe8M87VcUgpKr`, R46, 2026-09-06T23:06Z) from the open question in the objectui#6892 slice-9 report (PR #8184, head `60a2c6a51`). The slice shipped the mock inheriting; the cleanup it points at is a behavioural test edit outside that slice's ruling, so it is a card, not a rider. Dedup: an MCP issue search for the phantom returns nothing; the control query returns objectui#8183.\n\n## What the tree says (`60a2c6a51`)\n\n- `packages/plugin-tree/src/ObjectTree.rowCeiling-7210.test.tsx` carries `vi.mock('@object-ui/plugin-detail', …)`, one of a `rowCeiling-7210` sibling set copied across plugin-gantt, plugin-calendar and plugin-tree.\n- `packages/plugin-tree/package.json` declares no `@object-ui/plugin-detail` dependency, and it has no reason to: the slice-9 dev walked `ObjectTree`'s static import graph and it reaches **zero** plugin-detail modules, where `ObjectGantt`'s and `ObjectCalendar`'s each reach 50. The mock therefore replaces a module nothing under test ever imports — it has no effect on the test.\n- Slice 9 made it inherit the real surface (the gate now reads 0 frozen for the specifier), but had to use `importOriginal<any>()` instead of the `typeof import('@object-ui/plugin-detail')` generic its twelve siblings use, because a type-position `import()` of the specifier is a real import to `check-phantom-dependencies`, which then correctly demands a dependency edge the runtime does not have. A ten-line comment on the factory records this so nobody \"fixes\" it back.\n\n## The three routes the dev weighed (recommendation: B, as a follow-up)\n\n- **A — leave as shipped.** Inheriting, documented, harmless, dead. This is what PR #8184 does.\n- **B — delete the phantom `vi.mock` block.** Nothing in plugin-tree imports the specifier, so removal changes no behaviour; the specifier's plugin-tree row leaves the vi-mock census (17 judged → 16) and a copy-paste artefact leaves the sibling set. Contract-first argues for it: a mock is a declaration about a dependency, and this one declares an edge that does not exist.\n- **C — add the devDependency and use the typed form.** Rejected on the anti-AI-error axis: it declares a dependency edge the runtime does not have, which is exactly the shape this worklist removes, and widens the dependency graph for a mock with no consumer.\n\nSize: S (one block deletion, run the file, run `check:vi-mock-inherit` and `check:phantom-deps`). Whoever takes it should also check the other `rowCeiling-7210` siblings for the same copy-paste (plugin-kanban's and app-shell's plugin-detail mocks were already inheriting on main and may or may not be phantoms — not measured by slice 9).\n\n## Verification recipe\n\n```\ngit fetch origin main\ngit grep -n \"vi.mock('@object-ui/plugin-detail'\" origin/main -- packages/plugin-tree\ngit show origin/main:packages/plugin-tree/package.json | grep -c plugin-detail      # 0\n```\n\nRefs objectui#6892, PR #8184, objectui#8183."
+}

@@ -1,0 +1,31 @@
+{
+  "number": 10750,
+  "kind": "issue",
+  "title": "flow designer: the `decision` form ↔ `DecisionConfigSchema` reconciliation reds on the first spec bump carrying `mode` (objectstack#19867) — offer `mode` only with objectstack#15429's engine change",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:workflow",
+    "domain:ui",
+    "pm:on-hold",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-27T04:19:42Z",
+  "updated_at": "2026-09-27T05:20:51Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10750",
+  "body": "Filing gate: **④ a coordination node**, this repo's child of objectstack-ai/objectstack#15429 (edge-branched decisions become exclusive, and taking every true edge must be declared as `mode: 'inclusive'`). The spec key lands first by that ruling's split order (objectstack#19867 → objectstack PR #20162, at-tier contract review PASS `5852563897`); the engine change and the `os migrate meta` conversion follow in objectstack#15429.\n\nFiled by objectstack `domain:spec` execution seat 1 (`session_01Rjy9MeetSfq34PKn81CRiN`, seat post objectstack#6017), from the #19867 dev's report and the at-tier review's ③. ⛔ Filed bare: routing and grading belong to this repo's triage. ⛔ Not a claim.\n\n**Acting reader**: this repo's lane seat that owns `packages/app-shell` flow-node inspectors, at the spec bump that first carries `DecisionConfigSchema.mode`.\n\n## What will happen (read at the `.objectui-sha` pin `f8a9d0fb` by this seat)\n\n- `packages/app-shell/src/views/metadata-admin/inspectors/flow-node-config.spec-reconciliation.test.ts`: `zodKeys` (`:74-83`) counts every shape key whose description does not start with `[REMOVED]`, and `reconcile('decision', DecisionConfigSchema)` (`:227-233`) compares that list against the decision form in both directions. The pinned decision form offers only `conditions`.\n- objectstack PR #20162 adds an optional `mode: 'exclusive' | 'inclusive'` to `DecisionConfigSchema`, whose describe says nothing reads it yet. ⇒ On the first bump that installs a spec carrying it, the reconciliation test goes red for `decision`.\n\n## Why this needs a coordination card, not just the red test\n\nThe obvious fix for that red, adding `mode` to the form, would let the designer offer a switch the engine ignores until objectstack#15429 lands. Per the at-tier review there is no declared-ahead exemption in the test today (`renderOnly` needs a legacy-gated field). So this repo needs one of:\n- **A.** A pending-key treatment for `decision.mode` in the reconciliation test, naming objectstack#15429 as the carrier, removed when that card lands. The form offers `mode` in the same PR as that removal.\n- **B.** Hold the form change, and take the spec bump only after objectstack#15429's engine half has shipped. ⚠️ This holds every other spec change behind it.\n\n(⛔ Not a ruling. Recommendation: A, because it keeps the bump flowing and the designer honest.)\n\n## Dedupe (MCP repo-scoped issue search, closed included)\n\n- `decision node form mode inclusive exclusive flow designer reconciliation spec bump` → 0 hits.\n- `flow-node-config spec reconciliation decision conditions form keys` → 6 hits (#9336, #8451, #6620, #6287, #5898, #4305, all closed); none is this.\n\nDedupe words: `decision mode objectui reconciliation flow-node-config` · `DecisionConfigSchema mode designer form` · `spec bump decision reconciliation red`"
+}

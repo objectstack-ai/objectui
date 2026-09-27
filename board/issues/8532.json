@@ -1,0 +1,37 @@
+{
+  "number": 8532,
+  "kind": "issue",
+  "title": "CI BLOCKER: `ObjectKanban.contractEnvelope-6839` is flaky by construction — it waits on a MOUNT signal and then reads ROWS, and it is currently red on main, stalling the whole merge queue",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T07:03:09Z",
+  "updated_at": "2026-09-08T07:58:30Z",
+  "closed_at": "2026-09-08T07:58:30Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8532",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) after diagnosing a stalled merge queue. ⛔ Not claimed at filing; dispatched immediately — see the `Claim:` below.\n\n## This is base-side, and it is blocking everything\n\n`Test (shard 2/4)` is failing on **at least two PRs whose diffs cannot reach `plugin-kanban`**, three hours apart, with a byte-identical failure:\n\n| PR | what it touches | shard 2 | run |\n|---|---|---|---|\n| #8494 | `app-shell/.../inspectors/_shared.tsx` | **failure** | 02:41 → 02:57 |\n| #8521 | `plugin-kanban/src/KanbanImpl.tsx` | **failure** | 05:33 → 05:48 |\n\n```\nFAIL packages/plugin-kanban/src/ObjectKanban.contractEnvelope-6839.test.tsx\n  > ObjectKanban — the find() envelope it reads (objectui#6839)\n  > still reads the contract's `data` member\nAssertionError: the declared rows member must still draw both cards: expected +0 to be 2\n  ❯ ObjectKanban.contractEnvelope-6839.test.tsx:134:81\n```\n\nFive PRs are queued behind it (#8494, #8521, #8527, #8528, #8529). No individual PR can fix this by re-running, and none of them caused it.\n\n## The mechanism — it is flaky by construction, not by accident\n\n`cardsThrough()` mounts the board, then:\n\n```ts\nawait find.mock.results[0].value;\n// The column header lands on every arm, refused or not, so it is a mount\n// signal rather than a rows signal — which is exactly what makes it the\n// right thing to wait on before reading the cards.\nawait waitFor(() => expect(screen.queryByText('Negotiation')).toBeTruthy());\nreturn cards();\n```\n\nThe docblock is explicit that `'Negotiation'` is a **mount** signal and deliberately **not** a rows signal — and then reads rows synchronously immediately after. That is only sound if rows land in the same tick as the mount. Under a loaded runner they do not: this shard ran 933s wall with 1785s cumulative import, and the case that loses the race is the **first `it` in the file**, which pays the module's first-render cost. The other three pass.\n\n`cards()` returns `[]` both when the list is absent and when it is empty, so an early read is indistinguishable from a refusal.\n\n## ⭐ The asymmetry that makes this a design fix, not a timeout bump\n\nThe file has four cases and they need **opposite** waits:\n\n| case | expects | needs |\n|---|---|---|\n| `data`, bare array, `value` | 2 cards | **wait for the rows signal** — `waitFor(() => expect(cards().length).toBe(2))` |\n| `records` (the refusal) | 0 cards | **a settled read** — you cannot wait for an absence |\n\nToday all four share one helper tuned for the refusal case, which is exactly what makes the three positive cases racy. Splitting the wait by expectation is the repair — probably by parameterising the helper with what the case expects, so the positive arms wait for rows and the refusal arm keeps a settle-then-read.\n\n⛔ **Do not raise a timeout, skip, or quarantine.** The pin is load-bearing (it is objectui#6839's contract pin) and a longer timeout leaves the same race with a wider window.\n\n⚠️ `cardsThrough` must still be called **once per case and never inside a `waitFor` predicate** — objectui#7802, recorded in its own docblock: `waitFor` re-runs on DOM mutations, so a predicate that renders feeds itself and leaks a container div per run. Whatever you change, that constraint survives.\n\n## Verify the diagnosis before repairing it\n\nThe above is a **hypothesis from logs**, not a reproduction. Confirm the mechanism — reproduce under load, or instrument the gap between the header appearing and the list populating — before changing anything. If it turns out to be test-file ordering or state leaked from an earlier file in the shard, that is a different repair and this card's analysis should be corrected on it rather than worked around.\n\n## Dedup\n\n⚠️ **Declared, NOT claimed.** `search_issues` for `contractEnvelope` returns 0, and this repo's issue search is known to return **false zeros** — measured today returning `total_count: 0` for `ValueDataSource` while objectui#8447's own title contains that word. A zero here is not evidence of absence. **No dedup claim is made.**\n\n## Related\n\nobjectui#6839 (the contract this pin defends) · objectui#7802 (the `waitFor`-that-renders leak the helper already guards) · blocked PRs: #8494, #8521, #8527, #8528, #8529"
+}

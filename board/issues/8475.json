@@ -1,0 +1,37 @@
+{
+  "number": 8475,
+  "kind": "issue",
+  "title": "finding(plugin-detail): `RelatedList` draws a hand-rolled em-dash instead of the shared `EmptyValue`, so half its empty cells carry no `aria-label`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "plugin",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T01:28:31Z",
+  "updated_at": "2026-09-08T04:01:25Z",
+  "closed_at": "2026-09-08T04:01:25Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8475",
+  "body": "Found while implementing objectui#8459. Filed unassigned, ⛔ not claimed. Out of that card's fence: that card converges the two **predicates** (when is a cell empty); this is about what the placeholder **is** once the predicate says yes.\n\n## What\n\n`@object-ui/components` exports `EmptyValue`, described in its own docblock as the \"universal inline placeholder for missing cell/field values — use this anywhere a renderer would otherwise show `-` or `—`\". It renders:\n\n```html\n<span data-slot=\"empty-value\" aria-label=\"<localized 'No value'>\"\n      class=\"select-none text-muted-foreground/50 no-underline pointer-events-none\">—</span>\n```\n\n`RelatedList.makeCell` does not use it. It builds its own:\n\n```ts\nReact.createElement('span', { className: 'text-muted-foreground/50 text-xs italic' }, '—')\n```\n\nCaptured from a real rendered grid (`origin/main` a407bd654):\n\n```html\n<div class=\"truncate w-full\"><span class=\"text-muted-foreground/50 text-xs italic\">—</span></div>\n```\n\nNo `data-slot`, no `aria-label`, no `select-none` / `pointer-events-none`, plus `text-xs italic` that the shared one does not have.\n\n## Why it matters\n\n**Both placeholders appear in the same grid, on the same screen.** `makeCell`'s branch runs first and intercepts the values it recognises; anything it passes through reaches a type-aware renderer that has its own empty branch and returns `EmptyValue`. Several of those branches are reachable with values `makeCell` does not classify as empty — e.g. `DateCellRenderer` returns `EmptyValue` for an unparseable date (`if (date === null || isNaN(date.getTime()))`), and `ImageCellRenderer` for `imgs.length === 0`.\n\nSo two cells in the same column can both read \"empty\" to a sighted user while only one of them is announced to a screen reader, and they are not visually identical either (italic + `text-xs` on one).\n\n`DetailSection` has the same split on the record page: its own em-dash branch is hand-rolled too, but *that* one at least carries `aria-label={t('detail.noValue')}` and a `title`. `RelatedList`'s carries neither — it is the only one of the three with no accessible name at all.\n\n## Suggested shape\n\nHave `RelatedList.makeCell` return `<EmptyValue />` (already a dependency — `@object-ui/components` is a peer). If the `text-xs italic` treatment is wanted in a dense grid, `EmptyValue` accepts `className`, so it can be kept without forking the component or losing the label.\n\n⚠️ Worth checking whether any pin asserts the current class string before changing it, and whether the localized `No value` label is the right announcement for a grid cell (`DetailSection` uses `detail.noValue`).\n\n## Evidence level\n\nThe `RelatedList` DOM above is **measured** (captured from a rendered grid). The claim that a renderer's own `EmptyValue` branch is reachable from a surviving related-list column is **read from source** (`packages/fields/src/index.tsx`), not driven end-to-end — worth one measurement before acting.\n\n## Dedup\n\nSearched `objectstack-ai/objectui` via MCP `search_issues` (REST is 403 from the dev container): `RelatedList EmptyValue placeholder em-dash aria-label inconsistent hand-rolled span`. Returned objectui#8459 (control hit — the readings are real), objectui#8279 and objectui#8394; none covers this.\n"
+}

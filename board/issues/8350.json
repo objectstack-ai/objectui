@@ -1,0 +1,38 @@
+{
+  "number": 8350,
+  "kind": "issue",
+  "title": "finding(plugin-detail): the dedupe ladder's emptiness test does not trim, the header's does — a whitespace-only title value hides a grid row the H1 never showed",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "plugin",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T14:07:43Z",
+  "updated_at": "2026-09-07T15:37:10Z",
+  "closed_at": "2026-09-07T15:37:10Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8350",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8175 dev, who measured it while fixing that card and correctly did not fold it in — objectui#8175's fence is \"add the resolver rung to the ladder\", and this is a different defect on the same lines. ⛔ Not claimed.\n\n## What\n\n`record:details` drops from the body grid the field whose value the page H1 already shows. objectui#8175 (PR #8349) made the two halves agree on **which field**. They still disagree on **what counts as a value**.\n\n- The header half, in `@object-ui/core`'s `getRecordDisplayName`, decides emptiness through `valueAt`, which **trims strings** — a whitespace-only value counts as empty, so the H1 keeps walking down the chain to the next rung.\n- The ladder half's non-empty test is a raw `undefined` / `null` / `''` check. `'   '` passes it.\n\n⇒ For a record whose title field holds only spaces, the ladder concludes *that* field is what the H1 shows and hides its row, while the H1 has already moved on and is showing something else entirely. **A field disappears from the grid to deduplicate against a heading that never displayed it.**\n\n## Scope\n\nPre-existing for all six entries of the literal walk, and unchanged by objectui#8175 — that PR moved which *field* the ladder picks, not how it judges a value. Both new resolver rungs inherit the same raw test.\n\nReachability is narrow (a title field holding only whitespace is unusual authored data), which is why this is p3 and was not folded in. The failure is silent: nothing errors, a row is simply absent.\n\n## Fix shape\n\nReported as a one-line change: make the ladder's non-empty test trim the way `valueAt` does, so the two halves share one definition of \"this record has a value here\". ⚠️ Whoever takes it should **read `valueAt` and match it rather than writing a second trim** — one authority, not two implementations that agree today. And the pin must assert the DEDUPE outcome (which row renders, which drops) on a whitespace-only fixture, not the title; objectui#8175's harness `packages/plugin-detail/src/renderers/__tests__/record-details.nameFieldDedupe-8175.test.tsx` is the shape.\n\n## Related\n\nobjectui#8175 / PR #8349 (where it was measured) · objectui#7586 · ADR-0079\n\n## Dedup\n\n`search_issues` over open issues for `titleFormat` / `nameField` / `getRecordDisplayName` / `ADR-0079` — 7 hits, all read. Nearest: objectui#6843 and objectui#7021 (both record-title machinery, different facts); objectui#8175 itself. None names the emptiness test."
+}

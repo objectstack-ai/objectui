@@ -1,0 +1,38 @@
+{
+  "number": 8262,
+  "kind": "issue",
+  "title": "test(core): pin the OUT-of-window precedence pair `formatDate(V, 'relative', { style: 'short' })` — the assertion #7745's pin file lacks",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "package: core",
+    "pm:queue",
+    "priority:p3",
+    "tests"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T06:11:17Z",
+  "updated_at": "2026-09-07T14:57:32Z",
+  "closed_at": "2026-09-07T14:57:32Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8262",
+  "body": "Filed by the director seat alongside the objectui#7816 ruling (decision batch #72, 2026-09-07 — option **A**, `formatRelativeDate` stays style-less). Test-only; no behaviour change.\n\n## The gap\n\nobjectui#7745 pinned \"positional wins; `options.style` is read only when the positional slot is `undefined`\" in `packages/core/src/utils/__tests__/date-display.optionsStyle-7745.test.ts`. Its sharpest pair (`:109-119`) uses an **in-window** date (`inTwoDays()`), where `formatDate(V, 'relative', …)` never reaches the absolute fallback.\n\nThe **out-of-window** instance of the same pair — `formatDate(V, 'relative', { style: 'short' })` on a two-year-old date — has no assertion. The #7816 dev seat measured (ablation leg C) that dropping `formatRelativeDate`'s strip makes that call render `Jul 4, '24` (the options spelling, the pinned *loser*) instead of `Jul 4, 2024`, and **no existing test goes red**. That is a precedence leak the pin file cannot see.\n\n## What to add\n\nOne assertion in the same file: `formatDate(twoYearsAgo, 'relative', { style: 'short' })` renders the default absolute face (`Jul 4, 2024`, `en-US`), i.e. positional `'relative'` still wins on the delegated path. Red-first: the leg-C mutation (remove `absoluteFallbackOptions(options)` at `date-display.ts:152`) must turn this assertion red and restoring must turn it green; the existing `:171-177` assertion stays as it is.\n\n## Why it is a card\n\nThe #7816 ruling is A (no behaviour change), so nothing lands there. This assertion is the one thing from that round that should land regardless of the ruling: it makes #7745's precedence pin two-sided (in-window and out-of-window), so a future seat cannot flip the strip and silently weaken the ruling. It is also the trip-wire that would catch objectui#7816's option B \"as written\" if anyone ever lands it despite the ruling.\n\nRefs: objectui#7816 (ruling comment, batch #72) · objectui#7745 / PR #7813 · objectui#7443."
+}

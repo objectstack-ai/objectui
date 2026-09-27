@@ -1,0 +1,37 @@
+{
+  "number": 8514,
+  "kind": "issue",
+  "title": "`ValueDataSource`'s equality arm compares an array comparand by REFERENCE — `{ tags: ['a','b'] }` excludes every row even when the stored array is deep-equal",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T04:50:03Z",
+  "updated_at": "2026-09-08T07:24:43Z",
+  "closed_at": "2026-09-08T07:24:43Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8514",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8447 dev, who measured it while landing PR #8512 and was locked out of both dedupe channels (`search_issues` rate-limited; repo-scoped REST 403). ⛔ Not claimed.\n\n## The defect\n\n`matchesFilter`'s simple-equality branch in `packages/core/src/adapters/ValueDataSource.ts` ends with:\n\n```ts\n} else {\n  // Simple equality\n  if (value !== condition) return false;\n}\n```\n\nAn array comparand takes this branch (the operator loop is guarded by `!Array.isArray(condition)`). `!==` on two arrays compares **references**, so `{ tags: ['a','b'] }` excludes every row — including rows whose stored `tags` is deep-equal to the comparand.\n\nSilent, and fail-**closed**: the list comes back empty with no error and no warning.\n\n## Why it is separate from objectui#8447\n\nThat card is about the operator switch's `default: break` arm — unknown operators adding **no** constraint and matching everything. This is the **equality** branch, and it fails in the opposite direction. PR #8512 deliberately did not touch it: same function, different arm, opposite sign.\n\n⚠️ Note the interaction before fixing: the guard `!Array.isArray(condition)` is what routes an array comparand here in the first place. Whatever repair is chosen must not accidentally let an array comparand fall into the operator loop, where its **indices** would be read as operator names — the same shape `$not` had (`filter-converter.ts:229-232`).\n\n## The decision in it\n\n\"Deep-equal\" is not the only defensible reading of `{ tags: ['a','b'] }` against a stored array. It could reasonably mean set-equality, contains-all, or contains-any, and `@objectstack/spec` should be the authority rather than this adapter inventing one. Establish what the spec says (and what `$in` / `$contains` already mean for array-valued fields) before writing the comparison.\n\n## ⭐ For whoever takes it\n\nThe caricature is deep-equality that returns **true** too readily — e.g. comparing `JSON.stringify` output, which makes `['a','b']` equal `['a','b']` but also makes key order and number formatting load-bearing. A pin asserting \"the deep-equal row is now returned\" passes for that too. The non-regression axis is the discriminating one: rows that should NOT match (different length, different order if order matters, a superset) must still be excluded, and every scalar equality case must be unchanged.\n\n## Related\n\nobjectui#8447 / PR #8512 (the sibling arm of the same function) · objectui#7349\n\n## Dedup\n\n⚠️ **Declared, NOT claimed.** This repo's issue search returns false zeros: `search_issues` for `ValueDataSource` returns **0**, while objectui#8447's own title contains that word (and recency is not the cause — `InspectorSelectField` returns 3, including an issue filed later than #8447). A zero from this instrument is not evidence of absence. **No dedup claim is made.**"
+}

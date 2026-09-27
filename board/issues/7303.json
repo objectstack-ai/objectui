@@ -1,0 +1,37 @@
+{
+  "number": 7303,
+  "kind": "issue",
+  "title": "Kanban swimlanes render the status column-header row at height 0 — the board loses its column labels",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T05:15:45Z",
+  "updated_at": "2026-09-07T23:38:55Z",
+  "closed_at": "2026-09-07T23:38:55Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7303",
+  "body": "Turning swimlanes on for an `object-kanban` removes the status column headers from the screen. They stay in the DOM, at the right coordinates, and paint nothing — so the board becomes a grid of cards with no way to tell Open from Done except by dragging one and watching where it lands.\n\nMeasured on `@objectstack/console` **17.2.0**, served by `@objectstack/cli` 17.2.0, in Chromium 1194 at 1600×1000, against a live `pnpm demo` of the `duly` app (`duly_task.board`, `groupByField: 'status'`).\n\n## Reproduce\n\nAuthor a kanban list view and give the **view** (not the `kanban` block) a `grouping`:\n\n```ts\nboard: {\n  type: 'kanban',\n  data: { provider: 'object', object: 'duly_task' },\n  columns: [{ field: 'subject' }, { field: 'due_date' }, { field: 'owner' }, { field: 'source' }],\n  kanban: { groupByField: 'status', columns: ['subject', 'due_date', 'owner', 'source'] },\n  grouping: { fields: [{ field: 'source' }] },   // ← swimlanes on\n}\n```\n\nThe relay derives the swimlane from `swimlaneField || grouping.fields[0].field`, so this is the authorable route (`KanbanConfigSchema` is strict and rejects `kanban.swimlaneField`, so it is the *only* one).\n\n## What happens\n\nLanes render correctly — `▼ CATALOG (19)` and siblings, cards inside them. The column headers do not.\n\nWith `grouping` **present**, the five titles are in the DOM but invisible:\n\n```\nOpen        top 233  left  581   <span>\nIn progress top 233  left  883   <span>\nDone        top 233  left 1248   <span>\nSkipped     top 233  left 1575   <span>\nCancelled   top 233  left 1899   <span>\n```\n\nTheir ancestors, from the title outwards:\n\n```\nspan   .text-xs.sm:text-sm.font-semibold.tracking-wider   height 16\ndiv    .w-[85vw].sm:w-80.shrink-0.text-center             height  0   ← collapsed\ndiv    .flex.gap-3.sm:gap-4.pl-36.sm:pl-44.overflow-x-auto height  0   ← collapsed\n```\n\n`document.elementFromPoint()` at a title's own centre returns the **lane collapse `<button>`** (`▶catalog(19)`) sitting behind it, and a screenshot cropped to that band shows blank space above the first lane. Computed style on the title is unremarkable — `color: oklab(0.403 -0.049 -0.039 / 0.9)`, `font-size: 14px`, `opacity: 1`, `visibility: visible` — so this is layout, not paint: the header row's flex container measures 0 high and its children collapse with it.\n\nWith `grouping` **absent** and nothing else changed, the same board renders the titles as real elements at the same band and they are visible:\n\n```\nOpen        top 243  left  273   <h3>\nIn progress top 243  left  609   <h3>\nDone        top 243  left  945   <h3>\nSkipped     top 243  left 1281   <h3>\nCancelled   top 243  left 1617   <h3>\n```\n\nNote the tag change — `<h3>` in the plain board, `<span>` inside the swimlane header row — so the two paths build the header row differently and only the swimlane one collapses.\n\n## Why it matters\n\nA kanban's columns *are* its semantics. Without the labels the swimlane board reads as an unordered card wall: the lane tells you the caliber of the work and nothing tells you its state. It also degrades silently — the view validates, the lanes look right, and the missing row is easy to read as a design choice rather than a bug.\n\nPractical effect downstream: `objectstack-ai/duly#108` asked for swimlanes by source on its board (a pre-sales demo screen). Swimlanes work and were dropped anyway, because a board with no column titles is worse than a board with no lanes; the card face carries `source` instead. The one-line re-enable is sitting in a comment in `src/views/task.view.ts` waiting on this.\n\n## Expected\n\nThe swimlane header row keeps its height and paints the column titles above the lanes, as the non-swimlane board does.\n"
+}

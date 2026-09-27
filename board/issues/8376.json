@@ -1,0 +1,39 @@
+{
+  "number": 8376,
+  "kind": "issue",
+  "title": "DetailSection has a THIRD, un-trimmed spelling of emptiness — a whitespace-only value counts as FILLED, so it renders a blank row, escapes the \"Show N empty fields\" counter, and can single-handedly arm auto-hide",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "finding",
+    "plugin",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T15:08:00Z",
+  "updated_at": "2026-09-07T16:46:16Z",
+  "closed_at": "2026-09-07T16:46:16Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8376",
+  "body": "Filed by the objectui#8350 dev (branch `claude/issue-8350-dedupe-emptiness-trims`, PR #8375) while fixing that card. ⛔ Not claimed. Out of scope there: objectui#8350's fence is the dedupe ladder in `record:details` versus the page H1, and this is a different site with a different consumer.\n\n## What\n\n`packages/plugin-detail/src/DetailSection.tsx` decides emptiness twice, both times with a raw `value === null || value === undefined || value === ''` test:\n\n- `isEmptyValue` (the row filter feeding `emptyCount` / the auto-hide heuristic / the reader's toggle);\n- the `isEmpty` branch inside `displayValue` (the one that draws the muted em-dash with the `No value` label).\n\nNeither trims. `@object-ui/core`'s `recordDisplayValueAt` — the definition `getRecordDisplayName` uses for the page H1, and now the definition `record:details`' dedupe ladder uses (objectui#8350 / PR #8375) — does. So a whitespace-only field value is EMPTY to both of those and FILLED to `DetailSection`, which is now the only reader in the record-detail render path still answering the old way.\n\n## Three consequences, all silent\n\n1. **A blank row instead of the affordance.** The em-dash + `No value` span exists precisely so a reader can tell \"this field has nothing\" from \"this page failed to render\". A value of `'   '` is FILLED, so it takes the cell-renderer path and paints a visually empty cell — the exact UI the em-dash was added to prevent, reached by a value the rest of the stack calls empty.\n2. **It escapes the counter.** `emptyCount` skips it, so the toggle reads `Show N empty fields` with N one too low, and revealing them does not reveal this row (it was never hidden — it was never counted).\n3. **It can arm auto-hide by itself.** `shouldAutoHideEmpty` requires `filledCount > 0`; the stated reason is that an all-empty section keeps its labels as a structural skeleton for a sparse or brand-new record. A section whose ONLY non-null value is `'   '` has `filledCount === 1`, so the skeleton is suppressed and every genuinely empty row is hidden behind the toggle — on a page a reader would describe as blank.\n\nReachability is the same narrow authored-data shape as objectui#8350 (a field holding only spaces), which is why that card was p3; consequence 3 is the one that reaches furthest, because one such value changes what happens to *every other row in the section*.\n\n## Fix shape (a suggestion, not a ruling)\n\nThe same move objectui#8350 made one layer up: call the shared definition rather than re-spell the test. `@object-ui/core` now exports `recordDisplayValueAt(record, field)` for exactly this. ⚠️ Two things a taker should decide rather than assume:\n\n- these two reads are about a RENDERED CELL, not about a title, so \"empty\" here may legitimately want to be a different predicate than the display-name one — that is the question to settle, and settling it is the value of this card;\n- the two reads may not deserve the same answer as each other: `isEmptyValue` feeds a layout heuristic, `isEmpty` feeds an affordance.\n\nWhatever the ruling, the pin has to assert the RENDERED outcome — which row shows the em-dash, what N the toggle says, whether auto-hide fired — not the predicate in isolation.\n\n## Measured\n\nRead on `origin/main` at `37149ec4f` while implementing PR #8375. `AUTO_HIDE_MIN_FIELDS` is 4 on desktop / 3 on mobile and `AUTO_HIDE_RATIO` 0.25 / 0.2, so consequence 3 needs a section of at least 4 rows; PR #8375's fixtures deliberately stay at 3 rendered rows so auto-hide cannot fire and cannot confound that pin — which is how this divergence was noticed rather than assumed.\n\n## Dedup\n\n`search_issues` twice, both non-empty (self-validating): the empty-section heuristic wording returned objectui#8350, objectui#7064 and objectui#7129 — the latter two are the `hideEmpty` DECLARED-KEY retirement, closed, and neither names the emptiness predicate; the whitespace-value wording returned objectui#7347, which is a grouping field NAME with surrounding whitespace in the kanban `$select` path, a different fact. None names this.\n\n## Related\n\nobjectui#8350 / PR #8375 (the same divergence one layer up, now closed there) · objectui#7129 (the heuristic's charter) · objectui#7064\n"
+}

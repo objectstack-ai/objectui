@@ -1,0 +1,37 @@
+{
+  "number": 8505,
+  "kind": "issue",
+  "title": "`GridSchema.columns` is typed `Record&lt;string, number&gt;` — the last copy of the declared-but-not-read bug objectui#7097 fixed at the value level",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T03:50:23Z",
+  "updated_at": "2026-09-08T05:42:27Z",
+  "closed_at": "2026-09-08T05:42:27Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8505",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`). Measured on `origin/main`. ⛔ Not claimed.\n\n## The declaration\n\n`packages/types/src/layout.ts:387`:\n\n```ts\ncolumns?: number | Record<string, number>;\n```\n\n## Why this is not \"tighten a type while we're here\"\n\nThe **runtime** vocabulary is already exactly `BreakpointName`'s six members, and `packages/components/src/__tests__/grid-breakpoint-columns-7097.test.tsx` already pins it **exhaustive in both directions** — forward (`Exclude<BreakpointName, (typeof ALL_BREAKPOINTS)[number]>` must be `never`, so a new `BreakpointName` member that `ALL_BREAKPOINTS` omits fails to compile) and reverse (a member listed there that is not a `BreakpointName` fails at the `expectedClassFor(bp, …)` call, whose parameter is typed `BreakpointName`).\n\nSo the renderer and its pins agree on six keys. Only the **type** still says \"any string\". That makes it the last surviving copy of the defect objectui#7097 fixed everywhere else — and that card's own docblock names the category:\n\n> `packages/components/src/renderers/layout/grid.tsx:29-30` — *\"and the grid rendered at its `xs` count on every screen. No error, no warning — the declared-but-not-read shape `skills/objectui/rules/protocol.md` warns about.\"*\n\nToday `{ xxl: 6 }`, `{ XL: 5 }` or `{ '2XL': 6 }` type-check, pass zod, and are **silently dropped at render**. The author gets a grid at its `xs` count with no diagnostic — the exact failure #7097 was filed for, reached through the type surface instead of the renderer.\n\n## The narrowing\n\n```ts\ncolumns?: number | Partial<Record<BreakpointName, number>>;\n```\n\n⚠️ `BreakpointName` lives in `@object-ui/types` and is already imported by the pin file; check the layering before assuming the same is true inside `layout.ts` itself.\n\n## ⚠️ Instrument — this is the part that most often goes wrong\n\n**Ablating a type-level change under vitest is green.** The instrument is `type-check`, and it must run **both** programs:\n\n- `tsc --noEmit` (the source program)\n- `tsc -p tsconfig.test.json` (the test program)\n\nobjectui#8342 measured a case that was red **only** in the test program. Confirm with `--listFiles` that your new pin is actually in the program you claim checked it, rather than assuming it.\n\n⚠️ Also note `grid-breakpoint-columns-7097.test.tsx:101` already records the trap next door: `const x: '2xl'[] = []` type-checks happily, so an empty-array assertion proves nothing about the element type.\n\n## ⭐ Non-regression axis — do not ship without it\n\nThe caricature here is narrowing to something that rejects **everything** (`Record<never, number>`, or dropping the bare-number arm). It would pass any \"a typo is now rejected\" assertion. The pin must therefore also hold, positively:\n\n- all six valid keys accepted: `{ xs, sm, md, lg, xl, '2xl' }`\n- the bare-number form still accepted: `columns: 4`\n- a partial map still accepted: `{ xs: 1, '2xl': 6 }` — the exact node objectui#7097 was reported with\n\n## Related\n\nobjectui#7097 (the runtime fix and its exhaustiveness pins) · objectui#7735 (the `columns` default tag that no renderer applied) · objectui#7361 (the same defect on `maxWidth`)\n\n## Dedup\n\nRan, single-token `search_issues` for `GridSchema` against this repo — 13 hits, all distinct: README identifier drift (objectui#5013, objectui#5065), default-column derivation (objectui#6677), `RadioGroupSchema.orientation` (objectui#6158), `SchemaRenderer` memo identity (objectui#6270). None concerns the `columns` key's type width. objectui#5013 independently confirms the symbol's location and that the name denotes the CSS-Grid layout schema.\n\n⚠️ Instrument note: multi-token free-text queries return **zero** on this repo's issue search even for terms that certainly exist. Use one distinctive token; the lit control here is that `GridSchema` returned 13."
+}

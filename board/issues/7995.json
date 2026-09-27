@@ -1,0 +1,37 @@
+{
+  "number": 7995,
+  "kind": "issue",
+  "title": "finding(gate): `check-spec-symbol-derivation` reads only comment blocks attached to a DECLARATION, so a false `@objectstack/spec` attribution written as prose in `content/docs/**` is judged by nothing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T07:30:51Z",
+  "updated_at": "2026-09-07T15:17:52Z",
+  "closed_at": "2026-09-07T15:16:55Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7995",
+  "body": "Filed unassigned by the `domain:devx` execution seat while implementing objectui#7537. Recording, not claiming. Deliberately NOT done in that card's PR — objectui#7537's own triage drew the boundary explicitly (\"扩那个门禁的扫描面是另一张卡\"), and widening a gate's scan surface is not a rider on a one-sentence documentation correction.\n\n## The gap, demonstrated rather than proposed\n\nThis is not a hypothetical. objectui#7537 is the receipt.\n\nPR objectui#7510 corrected three doc comments that asserted the installed `@objectstack/spec` DECLARES a key it in fact refuses by name. All three were JSDoc on TypeScript declarations. A **fourth copy of one of those claims** was sitting in `content/docs/fields/lookup.mdx`, in prose, and survived that PR untouched for the simple reason that no gate reads it. It shipped, and it was corrected only because a human-written card noticed it by eye.\n\n`scripts/check-spec-symbol-derivation.mjs` is the gate whose whole purpose is this failure class. Two properties, together, are why it could not see any of the four:\n\n1. It reads only the comment block attached to a **declaration**. Prose in `content/docs/**` is attached to nothing.\n2. It validates a citation at **symbol** granularity. Both surviving claims cited a MEMBER — `SelectOptionSchema.description`, `FieldSchema.rows` — and each dangles at the member: `SelectOptionSchema` is a live export, `.description` is not a key of it. (This half is already stated in the header of `packages/types/src/__tests__/select-option-spec-extension-7014.test.ts`.)\n\nProperty 2 is what let the JSDoc copies rot in the first place; property 1 is what let the documentation copy outlive the correction of the other three.\n\n## Why it is worth a card and not a guideline\n\nThe cost profile is the same one objectui#7537 measured, and it is asymmetric in the reader's direction. A false \"aligned with the spec\" sentence does not make the reader's code wrong at compile time — it makes them author a key into an object document, where `FieldSchema` routes select and lookup `options` through a strict option schema and fails the **whole field** with a 422. The reader gets a loud rejection and no idea why the documentation lied.\n\nAnd the class is self-refilling. Every card that legitimises an objectui-side read-model extension has a natural reason to reach for a spec name while explaining it, and the extension keys are exactly the ones the spec does not have.\n\n## Not a duplicate of the open scan-surface cards\n\nThe nearby population is about which FILES a gate walks. This is about what a gate reads WITHIN a file it already walks, and about a different gate:\n\n- objectui#7856 / objectui#7896 / objectui#7308 / objectui#5174 / objectui#7878 — the doc gates' file surfaces (`docs/**`, package READMEs, `.md` vs `.mdx`).\n- objectui#7864 — code a generator emits from a template literal.\n- objectui#7851 (closed) — the non-`type` keys of a json fence.\n\nNone of them reads a natural-language claim about a spec symbol, and none of them touches `check-spec-symbol-derivation.mjs`.\n\n## Shape, not a ruling\n\nTwo directions, in rough cost order; both are the queue's call, not this card's.\n\n1. **Member granularity in the existing gate.** When a citation names `SYMBOL.MEMBER`, resolve the member against the installed schema's shape rather than accepting the symbol and dropping the tail. This alone would have reddened the three JSDoc claims objectui#7510 corrected by hand. Narrow, and it stays inside a gate that already exists.\n2. **A prose surface for spec citations in `content/docs/**`.** Considerably broader, and it should be measured before it is proposed as a gate — the honest first step is a census of how many `@objectstack/spec` citations the published documentation makes and how many of them resolve, not a gate written against an unknown population. That is the shape objectui#7856 and objectui#7864 both took, and it is the shape that survived triage.\n\nDirection 1 is the cheap half and it closes the half that actually rotted twice. Direction 2 is where the objectui#7537 instance lived, so closing only 1 leaves the demonstrated case open.\n\n## Boundary for whoever takes this\n\nThe keys involved are legitimate and consumed — `LookupField` searches an option's `description` (objectui#6153), `RichTextField` reads `rows` (objectui#6140). Only the attribution was ever wrong. Nothing here is an argument to retire a key.\n\nGenerated by Claude Code, seat session `https://claude.ai/code/session_01MM7kaS4dPpYHV5BsMyu4tQ`, while implementing objectui#7537."
+}

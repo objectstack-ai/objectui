@@ -1,0 +1,37 @@
+{
+  "number": 6839,
+  "kind": "issue",
+  "title": "`extractRecords` reads `records` AHEAD of `data` on `DataSource.find()` answers — the shared-helper copy of the #5945/#6726 inversion, live in 9 renderers",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-29T22:50:18Z",
+  "updated_at": "2026-09-08T17:59:08Z",
+  "closed_at": "2026-09-07T23:54:44Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6839",
+  "body": "Found while implementing #6726 (out of that card's scope — it names exactly seven direct call sites and does not mention this helper).\n\n## The shape\n\n`packages/core/src/utils/extract-records.ts` is a shared normaliser:\n\n```ts\nexport function extractRecords(results: unknown): any[] {\n  if (Array.isArray(results)) return results;\n  if (results && typeof results === 'object') {\n    if (Array.isArray((results as any).records)) return (results as any).records;   // <- FIRST\n    if (Array.isArray((results as any).data))    return (results as any).data;      // <- second\n    if (Array.isArray((results as any).value))   return (results as any).value;\n  }\n  return [];\n}\n```\n\n`records` is tried **before** `data` — the same precedence inversion #5945 was filed about and #6726 repaired in seven modules by hand. `QueryResult` (`packages/types/src/data.ts`) declares `data`, `total`, `page`, `pageSize`, `hasMore`, `cursor`, `metadata`; `records` is not a member of it.\n\n## Why this is bigger than any one of #6726's seven\n\n#6726's sites each carry their own copy of the read. This one is a helper, and **nine renderers call it directly on a `DataSource.find()` answer**:\n\n| module | call site |\n| --- | --- |\n| `packages/plugin-charts/src/ObjectChart.tsx` | `:196`, on `dataSource.find(referenceTo, …)` |\n| `packages/plugin-kanban/src/ObjectKanban.tsx` | `:298` |\n| `packages/plugin-tree/src/ObjectTree.tsx` | `:456`, on `dataSource.find(dataObjectName, …)` |\n| `packages/plugin-map/src/ObjectMap.tsx` | `:714` |\n| `packages/plugin-timeline/src/ObjectTimeline.tsx` | `:213` |\n| `packages/plugin-gantt/src/ObjectGantt.tsx` | `:680`, `:1132` |\n| `packages/plugin-dashboard/src/ObjectDataTable.tsx` | `:680` |\n| `packages/plugin-dashboard/src/ObjectPivotTable.tsx` | `:157` |\n| `packages/plugin-calendar/src/ObjectCalendar.tsx` | `:357` |\n\nMeasured on `26896c689` (#6726's base) with a repo-wide sweep of every tracked file for an object-literal `records:` key: **no producer emits `records` at the `DataSource.find()` seam**. `ObjectStackAdapter.normalizeQueryResult` CONSUMES the server/SDK `records` envelope and returns `{ data, total, page, pageSize, hasMore }`; `ApiDataSource`, `ValueDataSource`, the runner and example mocks, and the `@object-ui/types` REST example all return `data` or a bare array. Control for that zero: the same sweep DOES find the legitimate `records` producers on other seams (`ViewDataProvider`'s `ResolvedData`, the raw Cloud HTTP payloads, the client-SDK doubles below `normalizeQueryResult`), so a producer at this seam would have been caught.\n\n## What makes this NOT a copy-paste of #6726's fix\n\n⚠️ The helper is **genuinely dual-seam**, and that is why it was left alone rather than repaired on #6726's PR:\n\n- `packages/core/src/data-scope/ViewDataProvider.ts` also calls it, and its own `ResolvedData` / `DataFetcher.fetchRecords` interfaces declare `records` **legitimately**. On that seam the `records` arm is load-bearing.\n- So the question is not \"delete the arm\" but \"does this helper serve one seam or two\". Two plausible answers, with different architectures:\n  - **A** — split it: a `QueryResult` reader for the nine `find()` callers (`data` + bare array only) and a `ResolvedData` reader for `ViewDataProvider`. Each seam then has one contract and no tolerance.\n  - **B** — keep one helper and have `ViewDataProvider` hand it the rows rather than the envelope.\n\nPer-module measurement is still owed before any deletion: each of the nine call sites needs its own producer check, and any pin has to be per module (a single \"nothing reads `records`\" assertion passes even if one module was repaired wrongly). The `value` arm is on the same footing and is recorded in the sibling finding.\n\n## Why it is worth recording\n\nAGENTS.md #0.1: every extra arm is a place a non-conforming producer keeps working unrejected. A helper multiplies that — nine renderers inherit a tolerance none of them chose, and the one place where the tolerance is correct is exactly what stops anyone deleting it.\n\nContext: #5945 (the original two call sites), #6726 (seven more, hand-fixed with per-module pins). No PR here; recording only.\n"
+}

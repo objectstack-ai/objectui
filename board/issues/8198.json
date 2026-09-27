@@ -1,0 +1,37 @@
+{
+  "number": 8198,
+  "kind": "issue",
+  "title": "finding(tooling): nothing gates a DECLARED-but-never-imported dependency — check:phantom-deps only judges the opposite direction",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T00:00:37Z",
+  "updated_at": "2026-09-07T09:54:06Z",
+  "closed_at": "2026-09-07T09:52:34Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8198",
+  "body": "Split out of objectui#7625 rather than fixed there — triage on that card flagged it explicitly as its own work, not that card's:\n\n> ⚠️ 顺带：**\"声明了但没人 import\"这个方向值得一个门禁**，尤其对 Atoms 包那条 zero-heavy-deps 约束 —— ⛔ 但那是另一张卡，别在本卡里做。\n\n## The gap\n\n`scripts/check-phantom-dependencies.mjs` (`pnpm check:phantom-deps`) judges **imports that are not declared**. Its own summary line names the direction:\n\n    Scanned 40 released package(s), 3970 source file(s), 20091 module specifier(s) ...\n    OK  Every in-scope import is declared by the package that publishes it.\n\nThe reverse direction — a package declaring a dependency **no file in it imports** — is judged by nothing in CI. Nothing goes red when a declaration outlives its last consumer, and, equally, nothing goes red if a declaration that IS needed gets removed. Both directions of that mistake are currently invisible to the farm.\n\n## The live instance this was found on\n\nobjectui#7625: `recharts` stayed declared in `packages/components/package.json` for the whole window after objectui#7397 deleted `packages/components/src/ui/chart.tsx`, its only consumer in that package. Measured on `0c8dbc492`, with the positive control the zero needs:\n\n    recharts under packages/components/src     0 files\n    lucide-react, same command shape          70 files   (control fires)\n\nThe declaration was removed by hand on objectui#7625. Nothing would have reported it, and nothing reports the next one.\n\n## Why it matters more for this repo than for a generic monorepo\n\nAGENTS.md section 3 constrains `@object-ui/components` — the Atoms package — to \"Shadcn primitives, zero heavy 3rd-party deps\", and routes heavy widget dependencies to `@object-ui/plugin-*`. That is a written layering constraint whose only enforcement today is that somebody notices. objectui#7625 is one instance of it being violated for a reason that had already disappeared; a gate is what makes the constraint mechanical rather than remembered.\n\nThe cost of an unused declaration is install-graph weight for every consumer of the package, not shipped bytes — `@object-ui/components`' Vite `external` predicate is path-based and never reads `dependencies`, so the built artifact is unaffected either way. That is what makes it easy to miss: no bundle budget moves, no test fails.\n\n## Design notes for whoever picks this up (not a spec)\n\n- The naive shape — \"every key in `dependencies` appears in some import specifier\" — has known false positives that need a decision before implementation, not during: CSS-only packages (`tailwindcss-animate`), packages consumed through a bundler alias or a config file rather than an import, type-only packages, and packages loaded by side effect. An allowlist with a stated reason per entry is the usual answer; `check-phantom-dependencies.mjs` already carries the scanning machinery and the released-package set to build on.\n- Worth deciding at the same time: whether the Atoms zero-heavy-deps constraint gets its own explicit assertion, rather than falling out of a generic unused-dependency scan.\n\nDedup: searched open and closed; the near neighbours are objectui#4394 (phantom dependency, the *opposite* direction), objectui#3943 (`sideEffects` consistency) and objectui#3663 (`files` entries exist on disk) — all closed, none covering this direction."
+}

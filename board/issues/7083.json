@@ -1,0 +1,36 @@
+{
+  "number": 7083,
+  "kind": "issue",
+  "title": "[finding] `richtext` registry key 在 @object-ui/types 无 FieldMetadata union 成员(markdown/html 有)——结构上被服务但不可声明",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T16:49:55Z",
+  "updated_at": "2026-09-07T23:51:15Z",
+  "closed_at": "2026-09-07T23:50:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7083",
+  "body": "Found during #6140-半边收口(dev 报告 #6140 comment 5481485473);filed unassigned 供分诊。\n\n## The shape\n\n`RichTextField` 服务三个 registry key:`markdown`/`html`/`richtext`(#5498)。前两者各有导出的 metadata 类型(`MarkdownFieldMetadata`/`HtmlFieldMetadata`,现均声明 `rows`);**`richtext` 没有自己的 union 成员**——运行时按结构匹配同样的读集,但作者无法用注解字面量合法书写一个 richtext 字段的 metadata。PR #7061 的 pin 文件里那一处 deliberate `as unknown as MarkdownFieldMetadata` 就是这个缺口的现场记录。\n\n## 待分诊判定\n\n是否值得一个 `RichtextFieldMetadata` 成员(小卡):加 = 三 key 对齐、字面量可写;不加 = 记录「richtext 是 markdown 面的注册别名」并在类型文档写明。两个方向都小,需要的是一次判定而非测量。\n\n## Refs\n\n#6140 / PR #7061(现场)· #5498(三 key 归一 widget 的来源)"
+}

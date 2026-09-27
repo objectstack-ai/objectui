@@ -1,0 +1,33 @@
+{
+  "number": 8471,
+  "kind": "issue",
+  "title": "finding(process): the harness attribution template and the os-dev dispatch ban on model identifiers contradict each other in every commit message",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T01:14:23Z",
+  "updated_at": "2026-09-08T07:40:31Z",
+  "closed_at": "2026-09-08T07:40:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8471",
+  "body": "Filed under the shift rule that a seat which hits two conflicting instructions acts on the stricter one and files a card rather than picking a side silently. This is the card; the conflict was acted on, not resolved.\n\n## The two instructions\n\n1. **The harness attribution template** injected into every Claude Code session in this container ends git commit messages with a `Co-Authored-By` trailer whose display name is a **model identifier** (the model name and version, spelled out), followed by a `Claude-Session` line.\n2. **The `os-dev` dispatch contract** carries, verbatim: *never put a model identifier in any pushed artifact.*\n\nA commit message is a pushed artifact. So on every single commit an `os-dev` seat makes, following instruction 1 literally violates instruction 2, and there is no wording that satisfies both.\n\n## What this seat did\n\nActed on the stricter one — instruction 2 — by keeping the trailer's shape and the session line while writing the co-author display name as the bare product name with no version or model designation. Both trailers are present, attribution is preserved, and no model identifier reaches the tree.\n\nCommit `8e75df1cd` on branch `claude/issue-8337-mts-lint-coverage` (PR #8467) is the worked example; every objectui `os-dev` commit under this dispatch contract has the same shape.\n\n## Why it is worth a card rather than a per-seat judgement call\n\n- ⚠️ The conflict is **structural and unavoidable**, not situational: it fires on every commit of every dispatch, so every seat resolves it independently, and they will not resolve it identically. Some will follow the template verbatim and push a model identifier; some will drop attribution entirely; some will do what this seat did.\n- ⚠️ The resulting `main` history is then **inconsistent in a machine-readable field**. Anything that ever groups commits by co-author gets three shapes for one author.\n- ⭐ The failure is silent in the dangerous direction: a seat that follows the template gets no error, and the ban it violated is in a dispatch brief nobody reads afterwards.\n\n## Not answered here\n\n- Which instruction should give way. Both have owners this seat is not.\n- Whether the ban is aimed at commit trailers at all, or only at product-visible artifacts such as PR bodies, issue text and shipped docs. If it is the latter, the fix is a sentence in the dispatch contract, not a change to anything in the tree.\n- Whether the sibling repositories' seats hit the same pair. Not measured here.\n\n⛔ No file in this repository is proposed for change by this card; the operating rules involved are governed-surface text and belong to a maintainer.\n\nObservation-class, unassigned, not claimed. Filed by an agent dev seat while implementing objectui#8337; the session reference is `session_01FhBNJcLRZLe8M87VcUgpKr`, and this attribution is written as prose deliberately.\n"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 6955,
+  "kind": "issue",
+  "title": "`detail-section` still offers `headerColor` as a free-form `string` input, so the SDUI authoring surface invites values the published validator now refuses",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-31T03:23:55Z",
+  "updated_at": "2026-09-08T18:32:11Z",
+  "closed_at": "2026-09-08T18:32:11Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6955",
+  "body": "Filed unassigned by the seat implementing #6594 (session `session_01PBjwYLS6BciTQW3c9xQiD2`). Out of that card's scope, which is the `@object-ui/types` mirror only. Recording it rather than repairing it on that branch — no assignee, left for triage.\n\n## What was observed\n\n`packages/plugin-detail/src/index.tsx:336`, in the `detail-section` registration:\n\n```ts\n{ name: 'headerColor', type: 'string', label: 'Header Color' },\n```\n\nThat declaration is unchanged since before the vocabulary was ruled. As of #6594 the key's contract is a **closed six-token enum** — `muted`, `muted/50`, `accent`, `primary/10`, `secondary/10`, `destructive/10` — on both `DetailViewSection.headerColor` and the `@object-ui/types/zod` mirror, matching `@objectstack/spec`'s strict `record:details` section schema (maintainer ruling A, 2026-08-26, objectstack#12126).\n\nSo the two ends now disagree about what an author may write: the registration says \"any string\", the validator says \"one of six\".\n\n## Why it is worth a card\n\n`inputs` is not documentation — `recordDetailsInputs.spec-parity.test.ts` in the same package spells out why: `gen-manifest.ts` serializes it into `sdui.manifest.json` (the save-gate and parser whitelist) and into `sdui-intrinsics.d.ts` (the JSX authoring surface). An author working through that surface is offered a free-text field for a key whose only valid values are six tokens, gets no completion and no rejection at authoring time, and finds out at parse time — or, for the values that used to render by accident, not at all.\n\nThis is the value-level twin of the key-level class `scripts/check-designer-field-key-parity.mjs` was built for (objectui#5761 / #6223): a designer offering something the spec refuses. That gate compares KEY SETS and covers the metadata designers, so neither half of it sees this instance.\n\n## Reproduction\n\n1. `git grep -n \"headerColor\" packages/plugin-detail/src/index.tsx` — one hit, `type: 'string'`.\n2. Compare against `packages/types/src/zod/views.zod.ts`, where `DetailViewSectionSchema.headerColor` is a `z.enum` of the six.\n3. Any value outside the six is refused at parse with `headerColor` named in the error path, while the manifest still accepts it as a valid `string`.\n\n## Notes for whoever picks this up\n\n- Check first whether `ComponentInput` can carry an option list at all, and whether the designer renders one — `packages/types/src/base.ts` is the declaration, and it was in flight on another card at the time of filing, so read it fresh rather than trusting this line.\n- The renderer's verbatim `bg-*` pass-through is deliberately **undeclared** (ruling A rejected declaring it, since whether the class renders depends on the host app's Tailwind build). Whatever the input offers, it must not turn that affordance into a promise.\n- Related, no dependency in either direction: #6594 narrowed the contract; #6178 is where the six tokens came from."
+}

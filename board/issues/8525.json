@@ -1,0 +1,37 @@
+{
+  "number": 8525,
+  "kind": "issue",
+  "title": "The shared `Empty` panel's base classes are not override-friendly: its dashed border never renders, and a tighter `className` silently loses to `md:p-12`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-08T06:14:19Z",
+  "updated_at": "2026-09-08T11:14:19Z",
+  "closed_at": "2026-09-08T11:14:19Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8525",
+  "body": "Found while landing objectui#8520 (the `AgentPreview` empty-collection card). Out of that card's scope — it fences to one call site in `packages/app-shell` — so it is filed rather than swept in. Not claimed, no assignee.\n\n## The two defects, both in one class string\n\n`packages/components/src/custom/empty.tsx`, the `Empty` container:\n\n```\n\"flex min-w-0 flex-1 flex-col items-center justify-center gap-6 rounded-lg border-dashed p-6 text-center text-balance md:p-12\"\n```\n\n### 1. `border-dashed` with no border width — the dashed frame is invisible at every call site\n\nTailwind's preflight sets `border-width: 0` on every element, so `border-dashed` sets only `border-style` and the border stays 0px wide. Measured in a real browser (Chromium, the console preview gallery, viewport 1440x900) on a rendered `Empty`:\n\n```\nborderStyle: \"dashed\"\nborderWidth: \"0px\"\n```\n\nEvery one of the roughly 28 `Empty` call sites in this repo draws an invisible dashed frame. Either the class is dead and should go, or the component is missing a `border` width utility and no empty state in the product has ever had the outline it was written to have.\n\n### 2. `md:p-12` survives an unprefixed padding override, so \"tighten this panel\" does nothing at desktop widths\n\n`cn()` is `tailwind-merge`, which resolves conflicts within a variant. An unprefixed `px-3 py-8` passed by a caller replaces the base `p-6` but does **not** touch `md:p-12`, which is a different variant — so at any viewport at or above 768px the panel is back to 48px of padding.\n\nMeasured side by side, in one page load, inside a 215px-wide content column:\n\n| rendered | height |\n|---|---|\n| `Empty` with a description, defaults | 118.8px |\n| the same with `className=\"px-3 py-8\"` | 118.8px — identical |\n\nTwo call sites intend a tighter panel and do not get one above 768px:\n\n- `packages/app-shell/src/console/ai/ConversationsSidebar.tsx:284` — `className=\"px-3 py-8\"`, in a sidebar\n- `packages/app-shell/src/views/metadata-admin/AuditPanel.tsx:189` and `:199` — `className=\"py-10\"`\n\nBoth read as deliberate tightening by their authors. Neither has any effect on a desktop viewport.\n\n## Why they are one card\n\nSame root cause: the base class string mixes a responsive variant and a style-without-width into a surface callers are expected to override through `className`. Whoever fixes one is looking at the other. The likely shapes are dropping `md:p-12` in favour of a variant callers can reach, and either adding `border` or dropping `border-dashed`; both are visual decisions across roughly 28 call sites, which is why this is filed rather than fixed inline.\n\n## Reachability\n\n`packages/components/src/custom/empty.tsx` is published source in a released package, so a fix here needs a changeset and a look at every consumer. `Empty` is a Shadcn-derived component living in `src/custom/`, not `src/ui/`, so the no-touch zone of coding standard #7 does not apply — it is ours to edit.\n\n## Dedup\n\nRan. A natural-language `search_issues` describing both halves against this repo returns `total_count: 0`. The zero is a reading and not a dead instrument: the control term `InspectorSelectField` returned 3 in the same session (#8450, #8488, #3306), the same count objectui#8520 and objectui#8504 recorded.\n\n## Related\n\nobjectui#8520 (the card that measured this, and that declined to use the `Empty` container on the strength of the 118.8px reading) · objectui#8504 / objectui#8491 (the em-dash placeholder class that led here)"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 8439,
+  "kind": "pull_request",
+  "title": "fix(i18n,app-shell): the maker's first sentence promises only what ADR-0112 v1 builds (#8329)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "package: app-shell",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T23:29:03Z",
+  "updated_at": "2026-09-08T00:04:03Z",
+  "closed_at": "2026-09-08T00:04:02Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-09-08T00:04:02Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/8439",
+  "body": "Closes #8329\n\n## What was wrong\n\nThe AI build surface's empty state — the **first sentence a new user reads on that page**, sitting above the start chips — opened with:\n\n> Describe an app **or workflow** in plain language — I draft the objects, screens and **automations**, then you review and publish.\n\nWorkflows and automations are exactly what ADR-0112 v1 refuses (no flows, actions or schedules), so a user who took the sentence at its word was turned down.\n\nThis is the last member of a family whose other three were already fixed:\n\n| Surface | Card | Status |\n|---|---|---|\n| Five from-scratch start chips | cloud#1984 / objectui#7710 | ✅ |\n| Four edit-mode start chips | objectui#7709 | ✅ |\n| Model's own closing suggestions | cloud#2020 / cloud#2022 | ✅ |\n| **The static line above all of them** | **this PR** | ⬅ |\n\n## What changed\n\nTwo strings, **both** on the build agent's surface (`agentEmptyState()` in `AiChatPage.tsx`):\n\n- `console.ai.empty.build.description` — \"an app **or workflow** … objects, screens and **automations**\" → \"an app … objects, screens and **sample data**\"\n- `console.ai.empty.editApp.description` — \"… view or **automation**\" → \"… view or **dashboard**\"\n\nThe second one is **not in the issue body** — I found it while tracing the render site. It is the same `isBuildAgent()` branch (edit mode, `?package=`), so it makes the same promise on the same surface.\n\n### ⚠️ All ten packs, not just en/zh\n\nThe issue says *\"只有 en 与 zh 有这条，其余 8 个语言包走回退\"*. That is **not** the case — **every one of the ten packs shipped its own translated violation** (ar/de/es/fr/ja/ko/pt/ru too). A two-language fix would have left eight languages reading the old promise.\n\nThe hardcoded `defaultValue` fallbacks in `AiChatPage.tsx` are updated alongside, since a stale fallback silently reinstates the sentence for any pack that loses the key.\n\n## Deliberately NOT changed\n\nThe boundary is **v1 AI authoring**, not the word \"automation\". The platform's manual automation paths are real and stay as they are:\n\n| String | Why it stays |\n|---|---|\n| `home.build.subtitle` (\"design objects, forms, automations and interfaces\") | Its card navigates to **`/studio`** — manual authoring, which genuinely does author flows |\n| `engine.studio.landing.description` | Studio's own landing copy, same manual path |\n| `dataImport.optRunAutomations` (\"Run automations & triggers\") | Import wizard running *existing* automations at runtime |\n| `packagedAutomation.*` | Setup › Packaged automation — operational surface for flows installed packages ship |\n| marketplace `automation` category | Taxonomy label |\n| approvals / `flowRunner.*` groups | Real runtime features |\n| `auth.layout.subhead` (\"…data management, workflows, and analytics\") | Login-page platform positioning |\n| `console.ai.*` `approv` hits (`toolAwaitingApproval`, `planApprove*`) | The **user** approving the AI's plan — not the AI building an approval |\n\n## Tests\n\nNew `packages/i18n/src/__tests__/makerEmptyState-v1-scope-8329.test.ts`, built on the 7709 suite's shape (54 tests):\n\n1. Every pack defines both descriptions and both titles, non-empty.\n2. Neither description in any pack hits that pack's **own** banned vocabulary — an English-only scan would have declared the five non-Latin packs clean without reading a character of them.\n3. **Non-vacuity control**: each pack's banned list is re-run against the two sentences that pack actually retired, and must flag both.\n4. A \"didn't revert to its own old string\" guard, and positive assertions that the replacement names v1 capabilities.\n\nVerified the guard actually bites: reinstating the old zh string fails 3 tests (`expected [ '自动', '流程' ] to deeply equal []`).\n\n## Verification\n\n- `packages/i18n/` — **1090 passed**\n- `packages/app-shell/` — **6261 passed**, 1 skipped (649 files)\n- `@object-ui/i18n type-check` clean; `app-shell` builds clean (`tsc` passes)\n- eslint on changed files: 0 errors\n- **End-to-end through the real i18n runtime**: resolved `console.ai.empty.{build,editApp}.description` via `createI18n({lng}) + changeLanguage()` for all ten locales and read back each translated string — not just a read of the pack objects.\n\n⚠️ **Not done: a browser screenshot.** The card's acceptance asks for one from a running environment; this seat verified through the i18n runtime and the component's unit tests instead. If the screenshot is required to close, it still needs to be taken.\n\n## Revert note\n\nWhen ADR-0112 v2 re-adds flows and actions, **both** sentences come back — same line of the roadmap as the chips. Recorded in the comment beside the keys in `en.ts` and in the test's `RETIRED` map (which holds every pack's original wording).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 8122,
+  "kind": "issue",
+  "title": "finding(scripts): the same drifted counts objectui#7965 fixed on the doc page also sit in a gate docblock and a workflow header, where no pin reads them",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T17:11:31Z",
+  "updated_at": "2026-09-08T01:47:23Z",
+  "closed_at": "2026-09-08T01:44:45Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8122",
+  "body": "Found while implementing objectui#7965 (three drifted file/document counts on `content/docs/guide/ci-cd-pipeline.md`). Not fixed there: that card's file surface is the one doc page, and both sites below are under `scripts/` and `.github/workflows/`, which the dispatch explicitly excluded. Filed rather than folded in.\n\n## Two more copies of the same numerals, outside `content/docs`\n\nBoth are prose comments. Both carry counts that were true when written and are wrong today, and neither has a declared measurement point — the same shape objectui#7965 was filed for.\n\n### 1. `scripts/check-shell-escape-residue.mjs:232` — \"203 of today's 207 files\"\n\n```\n * ⛔ `minFiles: 3` for that row -- PER ROOT, never a whole-surface floor, which\n * is the shape that failed: on a day this four-file root reads ZERO the other\n * four roots still return 203 of today's 207 files, so any total floor is green\n * through the whole outage.\n```\n\nThis is the gate's own docblock, and it is where the doc page's sentence was copied from (or the other way round — they are near-identical). The gate's own verdict line today, run on `main` `59a3a233d`:\n\n```\n✅  check-shell-escape-residue: OK (5/5 root(s) resolved -- AGENTS.md: 1 file(s), 15 fence(s); CLAUDE.md: 1 file(s), 0 fence(s); skills: 16 file(s), 210 fence(s); .claude/skills: 4 file(s), 20 fence(s); content/docs: 184 file(s), 1064 fence(s); 206 file(s) and 1309 fenced block(s) examined in total; ...)\n```\n\nSo 207 is 206 and the companion 203 is 202 — the script states a number about its own run that its own run contradicts. Worth noting for whoever takes it: the paragraph's argument is a RELATION (a per-root floor survives one root reading zero, a total floor does not), so the numerals buy nothing. objectui#7965's PR restated the doc-page twin of this paragraph with no numeral at all; the same rewrite fits here.\n\n### 2. `.github/workflows/changeset-release.yml:1035` — \"73 files / 1996 tests\"\n\n```\n      #     pnpm quick-reference:check   QUICK_REFERENCE.md          ~1 s\n      #     pnpm check:control-bytes     the 40 generated CHANGELOGs  ~4 s\n      #     pnpm test scripts/__tests__  73 files / 1996 tests       ~50 s\n```\n\nA full run of that suite on `main` `59a3a233d` reports `Test Files 112 passed (112)` and `Tests 3360 passed (3360)`. The population has moved twice in a week: the objectui#7965 card measured 107 test files, and it read 112 the same working day.\n\n## Why this is worth a card rather than a note\n\n**Nothing goes red on either.** Grepped: no test in `scripts/__tests__/` reads `1996`, `73 files`, `207 files` or `203` (`check-published-tsconfig-exclude`'s test carries an unrelated `73 files` in a comment about a different thing). The pin family objectui#7448 / objectui#7825 / objectui#7888 pins numerals in **workflow headers** — but not this header's numerals, so the copy at site 2 sits inside the surface that family covers while being uncovered by it. That gap is the finding: site 2 looks pinned and is not.\n\nBoth are also strictly worse than the doc-page instance in one respect: a gate's own docblock is what the next author of that gate reads before moving a floor, and the workflow header is the stated justification for the step list right below it.\n\n## Scope\n\nTwo files, comments only. No behaviour, no floor, no scan population moves. `minFiles: 3` at site 1 is a real floor and is **not** part of this — only the prose around it.\n\n## Back-links\n\nobjectui#7965 (the doc-page instance, and the rewrite that fits site 1), objectui#7966 (the coverage-expansion family for `content/docs`; these two sites are outside its surface, so this is not a duplicate of it), objectui#7901, objectui#7448, objectui#7825, objectui#7888.\n\nFiled by the objectui#7965 developer seat, session `https://claude.ai/code/session_01FhBNJcLRZLe8M87VcUgpKr`, left unassigned for PM triage."
+}

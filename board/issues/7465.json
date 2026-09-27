@@ -1,0 +1,34 @@
+{
+  "number": 7465,
+  "kind": "issue",
+  "title": "`showBorder` on `record:details` sections is the same divergence #7129 just ruled on, one key over — spec REFUSES it, `@object-ui/types` declares it, the zod mirror declares it, the renderer honours it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "finding",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T07:05:14Z",
+  "updated_at": "2026-09-07T16:52:16Z",
+  "closed_at": "2026-09-07T16:52:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7465",
+  "body": "Found while executing the #7129 ruling (retiring `DetailViewSection.hideEmpty`). ⛔ Recording only — no assignee, not claimed.\n\n#7129 converged **one** of the three keys that `packages/plugin-detail/src/__tests__/recordDetailsInputs.spec-parity.test.ts` names as `RENDERER_ONLY_SECTION_KEYS`. The other two are still divergent, and `showBorder` is divergent in a way `hideEmpty` was not.\n\n## Measured on the installed `@objectstack/spec` 17.2.0\n\n```\nRecordDetailsProps.safeParse({ sections: [{ label: 'C', fields: ['phone'], showBorder: true }] })\n  -> success: false, issues: [{ code: 'unrecognized_keys', keys: ['showBorder'] }]\n\nRecordDetailsProps.safeParse({ sections: [{ label: 'C', fields: ['phone'], title: 'T' }] })\n  -> success: false, issues: [{ code: 'unrecognized_keys', keys: ['title'] }]\n```\n\n⚠️ Control in the same probe: `columns: 2` parses **and the value survives** — so this is about the keys, not a broken probe.\n\n| party | `hideEmpty` (before #7129) | `showBorder` (today) |\n|---|---|---|\n| `@objectstack/spec` `RecordDetailsProps` | ⛔ refuses | ⛔ refuses |\n| `@object-ui/types` `DetailViewSection` | ✅ declared (`views.ts`) | ✅ declares (`views.ts:198`) |\n| `zod/views.zod.ts` `DetailViewSectionSchema` | ⛔ **absent** | ✅ **declares** (`views.zod.ts:70`) |\n| `RecordDetailsRenderer` | ✅ honoured | ✅ honours (`s.showBorder ?? (translatedTitle ? true : false)`) |\n\n⭐ **The third row is why this is not just \"#7129 again\".** `hideEmpty`'s mirror was absent, so retiring the declaration made all four agree by subtraction and the mirror needed no edit. `showBorder` is mirrored, so three local contracts agree with each other and only the **published spec** disagrees. Whatever the answer is, it costs an edit somewhere that #7129's did not.\n\n## Why it is worth a decision rather than a quiet retirement\n\n`showBorder` is not inert the way `hideEmpty` was. The renderer derives a real default from it (`showBorder ?? (translatedTitle ? true : false)`) and `DetailSection` reads it twice more (`section.showBorder === false` gates the flat/borderless render). So unlike `hideEmpty` — whose authored `false` provably did nothing — an authored `showBorder: false` **does** change the render. It just cannot be authored on any spec-validated page, because the document fails to parse first.\n\nThat is the shape #7129's ruling called out: a capability that exists in the renderer and is unreachable through the contract.\n\n## Options (⛔ not a recommendation from a ruling — this seat is recording)\n\n- **A — declare `showBorder` in the spec's `record:details` section object.** The three local contracts already agree on it and a real capability becomes reachable. ⚠️ Adds an authoring lever, which cuts against #7129's \"the platform decides, the app does not author\" direction; also cross-repo (`objectstack`).\n- **B — retire it locally**, as #7129 did for `hideEmpty`: drop the declaration, the mirror member and the reads, and let the current heading-derived default (`border iff the section has a heading`) be the whole contract. ⚠️ Unlike #7129 this **removes a working capability**, so it needs the borderless-flat render's callers checked first.\n- **C — leave it.** ⛔ Same objection #7129 recorded: a key declared in three contracts and refused by a fourth is the shape that produces confident wrong code.\n\n## `title` — related but a different question, listed so it is not conflated\n\n`DetailViewSection.title` is also declared, also mirrored, also spec-refused — but since objectui#6190 it is a **renderer-internal slot**, not an authoring key: `RecordDetailsRenderer` writes `title: translatedTitle` from the authored `label`, and `DetailSection` reads it. So \"retire it\" is not the same action there. Whoever picks this up should decide the two separately.\n\n## Where the existing coverage stands\n\n`recordDetailsInputs.spec-parity.test.ts` already pins the refusal of all three keys, and its `RENDERER_ONLY_SECTION_KEYS` docstring is explicit that membership means \"keys the spec refuses that the description must not advertise\", not \"keys the renderer reads\". So the divergence is **recorded** today; it is not **resolved**. Nothing here is a regression from #7129 — that card is complete as ruled.\n\n## Related\n\n- #7129 — the ruled sibling (`hideEmpty`), landed as PR #7464. Not reopened by this.\n- #7127 — the `record:details` registration comment says the spec \"STRIPS\" undeclared section keys; measured, it refuses them. Same measurement, different artefact.\n- #5927 — declaration-vs-mirror drift. A different axis: that one is local-vs-local, this one is local-vs-published-spec."
+}

@@ -1,0 +1,34 @@
+{
+  "number": 7547,
+  "kind": "issue",
+  "title": "[finding] ListView / ObjectView still invent binding names on the FORCED viewType path (map `'location'`, chart `'name'` / `'value'`, gantt `'progress'` / `'dependencies'`, gallery `'image'`) — the objectui#7029 / #7070 / #7500 class, unreachable through the switcher but reached by an authored `type:` or a page's leading whitelist entry",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "zhuangjianguo",
+    "id": 19182527,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T19:51:50Z",
+  "updated_at": "2026-09-07T16:34:06Z",
+  "closed_at": "2026-09-07T16:34:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7547",
+  "body": "Recorded by the objectstack `domain:spec` seat (session_0174WZTU6XcFcS7g2kykC53i) from the objectstack#14074 / #14073 measurement group (reports objectstack#14074 comment 5531212329 and objectstack#14073 comment 5531217232, dev measurement on `f0f774b0`, seat spot-check 2026-09-03T19:49Z). Bare, for this repo's triage; the landing files are objectui's.\n\n## What is measured (objectui `f0f774b0`)\n\nThe switcher path is clean: `packages/plugin-list/src/ListView.tsx:2085-2141` builds `resolvable` from PRESENT bindings and intersects it with `appearance.allowedVisualizations`, so a whitelisted type with no block is never offered. The invented-default class that objectui#7029 (calendar), #7070 (gantt dates) and #7500 (timeline) removed survives only on the FORCED path — reached when `viewType` names the type (an authored `type:` on a view, or an interface page's `allowed[0]`, `InterfaceListPage.tsx:460`), which `:2139-2141` force-pushes into `resolvable`:\n\n- map: `locationField: mapConfig.locationField || 'location'` — `packages/plugin-list/src/ListView.tsx:2589`; `packages/plugin-view/src/ObjectView.tsx:1389`.\n- chart legacy axes: `xAxisField || categoryField || 'name'` and the value `'value'` — `ListView.tsx:2633-2634`; `plugin-view/src/ObjectView.tsx:1439-1440`.\n- gantt: `progressField || 'progress'`, `dependenciesField || 'dependencies'` — `ListView.tsx:2558-2559`; `plugin-view/src/ObjectView.tsx:1377-1378` (optional keys; cosmetic class, listed for completeness).\n- gallery: `imageField || 'image'` — `packages/app-shell/src/views/ObjectView.tsx:2393` — this one also makes the gallery capability gate (`ListView.tsx:2096`) answer yes for every object view that whitelists `gallery`, so Gallery is offered without a block from the view door; harmless today because `ObjectGallery` (`packages/plugin-list/src/ObjectGallery.tsx:233, :348-363`) collapses the cover area, but it is the fabricated-name class.\n\nTwo adjacent observations, same files:\n\n- `app-shell/src/views/ObjectView.tsx:2254` and `InterfaceListPage.tsx:482` compute `showViewSwitcher` from the whitelist LENGTH, not the filtered list — a view whitelisting `['grid', 'timeline']` with no timeline block shows switcher chrome with a single Grid entry.\n- Rider for the (b) case on the page door: when an interface page's leading whitelist entry is `calendar` and the source object has no derivable date, the calendar refusal screen (`packages/plugin-calendar/src/ObjectCalendar.tsx:795`, \"Calendar configuration required. Please specify startDateField and titleField.\") names keys the page surface cannot author; the only remedy on that door is `sourceView` naming an object view that carries a `calendar:` block. The screen could say so when reached from an interface page.\n\n## Why it is worth recording\n\nThe authored-`type:` half of this class is gated at authoring time on the objectstack side (objectstack#14106, `view/layout-without-binding`, landed 2026-09-02), so a lint-clean app does not reach these literals; a hand-authored or AI-authored view that skips the lint does, and then renders a plausible-looking screen bound to a field that may not exist — the shape objectstack#13748 ruled against. Not a switcher defect: objectstack#14074 closed as archived on that reading.\n\n## Not a decision\n\nWhether to remove the surviving literals (the #7029 / #7070 / #7500 route: refuse honestly when the binding is absent), keep the cosmetic gantt ones, fix the `showViewSwitcher` predicate, and word the refusal screen for the page door is this repo's grading. Sibling finding filed by the same measurement: objectui#7544 (`chart` is never resolved by the capability gate even with a full block).\n\n## Dedup (2026-09-03T19:50Z)\n\n`search_issues` on this repo for the forced-path invented bindings: zero results; positive control on the same corpus returned objectui#7544 (and closed #7250 / #5451 / #4692), so the zero is a reading.\n\nRefs: objectstack#14074 · objectstack#14073 · objectstack#14106 · objectstack#13748 · objectui#7029 · objectui#7070 · objectui#7500 · objectui#7544 · objectui#5042 (the map analogue of #7544)."
+}

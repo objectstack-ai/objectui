@@ -1,0 +1,37 @@
+{
+  "number": 7379,
+  "kind": "issue",
+  "title": "core: `ValueDataSource`'s `contains` is case-INSENSITIVE, so it executes `icontains` semantics — the spec keeps the two operators deliberately distinct",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T15:12:49Z",
+  "updated_at": "2026-09-07T23:55:23Z",
+  "closed_at": "2026-09-07T23:55:23Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7379",
+  "body": "Found while repairing #7349 (PR #7377) on `origin/main` `d53e472`. Deliberately **not** changed there: #7349's defect class is \"an unrecognised operator matches every row\", and this is a recognised operator computing the wrong answer. Changing it would have moved rows for filters that work today, under cover of a card about filters that do not work at all. Dedupe: listed all 334 open issues via the repo-scoped REST endpoint and grepped titles for `icontains` / `case.sensit` / `case.insensit` — no hit; control term `7349` fired on the same listing.\n\n## The defect\n\n`packages/core/src/adapters/ValueDataSource.ts`, the `contains` arm of the in-memory matcher, unchanged in shape since before #7349:\n\n```ts\ncase 'contains': {\n  const lv = typeof value === 'string' ? value.toLowerCase() : '';\n  return typeof value === 'string' && lv.includes(String(target).toLowerCase());\n}\n```\n\nBoth sides are lowercased, so `contains` performs a **case-insensitive** substring match.\n\nThe spec treats these as two different questions, not two spellings of one. `AST_OPERATOR_MAP` (`@objectstack/spec/data`) lowers `contains` to `$contains` and `icontains` to `$icontains`, and the map's own comment records the ruling for the neighbouring pair: an operator \"must never be folded onto\" its case-variant sibling \"in either vocabulary, nor the reverse. That is a semantic boundary, not two spellings of one thing.\" `icontains` entered the view vocabulary in #5328 specifically because the case-insensitive capability was authorable from only one of the three dialects — which presupposes `contains` is the case-SENSITIVE one.\n\n## Consequence\n\nA `provider: 'value'` list filtered with `contains` returns strictly more rows than the same filter run against a real driver, which executes `$contains` case-sensitively. The two disagree on exactly the rows whose case differs — and both look plausible on screen. Same failure shape as #7349 (a silently wider in-memory answer), one layer down: the operator is recognised, it just answers a different question.\n\nPR #7377 preserved the existing behaviour deliberately and mapped `icontains` onto the same body, so today `contains` and `icontains` are executed identically. That is the state this card exists to resolve.\n\n## Why it needs a decision rather than an obvious patch\n\nMaking `contains` case-sensitive is the spec-correct direction, but it is a behaviour change for filters that work today: an author who wrote `contains: 'admin'` against rows holding `Admin` currently gets matches and would stop getting them. The alternatives are (a) make `contains` case-sensitive and let `icontains` keep the current body, (b) leave both case-insensitive and record the divergence from the wire as accepted, (c) something staged. This is a small enough surface that (a) is probably right, but it moves shipped results, so it should be someone's call rather than a passing fix.\n\n## Suggested acceptance criteria\n\n- `contains` and `icontains` no longer execute the same predicate in `ValueDataSource`.\n- A test pins each against a row set whose case differs, so the two cannot silently re-converge.\n- The chosen direction is stated where the operator arm lives."
+}

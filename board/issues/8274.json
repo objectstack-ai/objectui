@@ -1,0 +1,36 @@
+{
+  "number": 8274,
+  "kind": "issue",
+  "title": "finding(test-config): the `DIST_PINS_ENABLED` guard in `vitest.config.mts` justifies itself with a premise vitest 4 no longer has — an unresolvable `--project` throws, it does not exit green",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-07T07:27:51Z",
+  "updated_at": "2026-09-07T16:01:26Z",
+  "closed_at": "2026-09-07T15:59:46Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8274",
+  "body": "Filed unassigned and ungraded by the objectui#8240 dev seat, found while checking whether a `--project` invocation could go silently green (objectui#8240 moves `apps/console`'s test scripts onto one). ⛔ Not claimed. Not fixed in that PR — it is a different file and a different claim.\n\n## What the comment says\n\n`vitest.config.mts` throws early when `vitest --project dist` is requested while `OBJECTUI_DIST_PINS` is not `1`, and the throw's own message states the reason:\n\n```\n'vitest --project dist was requested, but OBJECTUI_DIST_PINS is not \"1\", so the',\n'`dist` project is NOT declared and this run would collect ZERO files and exit GREEN.',\n```\n\n## Measured, `origin/main` `0fa7a9c83`, vitest 4.1.10\n\nAn unresolvable `--project` name does **not** exit green. Vitest throws before collecting anything:\n\n```\n$ pnpm exec vitest run --project @object-ui/does-not-exist\nError: No projects matched the filter \"@object-ui/does-not-exist\".\nexit 1\n```\n\nThat is vitest's own behaviour, not something this repo adds — `if (!this.projects.length) { ... throw new Error(`No projects matched the filter \"${filter}\".`) }` in its project resolution. Exit code captured before any pipe.\n\n## Why it is worth recording rather than shrugging at\n\n⛔ **The guard itself is still worth keeping and this is not a request to delete it.** Its message is far better than vitest's generic one: it names the env var, explains that the `dist` lane needs a built package, and points at `pnpm test:dist`. That value is independent of the stale sentence.\n\nThe cost is that the sentence is load-bearing **as a fact about vitest**, and it is the fact an agent will reuse. This seat reached for it directly while deciding whether a `--project`-based package script needed its own empty-collection guard, and had to go measure it instead. Believing it leads somewhere specific and wrong: that vitest silently greens on a mistyped project name, so every `--project` call site needs a name-validity guard. It does not, and they do not — the real silent case is a project that **does** resolve and then globs zero files, which is a different mechanism with a different remedy (`--no-passWithNoTests`, as objectui#8240 uses).\n\nTwo claims are entangled in one sentence, and only one is stale:\n\n- ⛔ stale: \"an undeclared project name collects zero files and exits GREEN\";\n- ✅ still true: \"the `dist` project is not declared unless `OBJECTUI_DIST_PINS` is `1`\".\n\n## Suggested shape of a fix\n\nRe-word the throw's justification to say what the guard actually buys — a specific, actionable message in place of vitest's generic `No projects matched the filter` — and drop the exit-green claim. Whether the vitest-version dependency is worth pinning with a test is triage's call; a comment fix alone would close the misinformation.\n\nNot verified: which vitest version the sentence was true of. It may well have been correct when written; nothing here suggests it was wrong at the time.\n\nRefs: objectui#8240 (where this surfaced) · objectui#7183 (the `dist` lane)."
+}

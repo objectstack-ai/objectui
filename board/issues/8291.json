@@ -1,0 +1,37 @@
+{
+  "number": 8291,
+  "kind": "issue",
+  "title": "useWorkspaceAdminStatus grants workspace-admin UI from a NAME in positions[], which #15948 made tenant-writable",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2",
+    "security"
+  ],
+  "assignees": [
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T08:45:49Z",
+  "updated_at": "2026-09-07T22:58:54Z",
+  "closed_at": "2026-09-07T22:58:54Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8291",
+  "body": "`useWorkspaceAdminStatus` decides workspace adminship from three legs, and the third one scans the\nsession's `positions[]` array for an admin-sounding **name**:\n\n```ts\n// packages/auth/src/useWorkspaceAdminStatus.ts:119-121\nconst isAdmin =\n  isAdminRole(activeMember?.role) ||\n  isAdminRole(user?.role) ||\n  (Array.isArray(positions) && positions.some(isAdminRole));\n```\n\n`ADMIN_ROLES` contains `platform_admin` (alongside `owner`, `admin`, `super_admin`, `superadmin`,\n`system_admin`). So `positions` containing the string `platform_admin` makes this hook answer\n`isAdmin: true`.\n\n## Why that is now a defect and was not obviously one before\n\nFramework `8e0b29758` — `fix(plugin-auth)!: session payload positions[] is the security axis, not\nthe better-auth role scalar` (objectstack#15948, landed 2026-09-05, a declared BREAKING change) —\nchanged what that array **is**. It used to be the `sys_user.role` scalar split on commas. It is now\nbuilt by `resolveUserAuthzGrants` and carries ADR-0057 D4 `sys_user_position` assignments.\n\n`sys_user_position` is `apiEnabled` and its `position` values are unconstrained. The framework's own\nchangeset for the companion fix states the consequence plainly:\n\n> a tenant could mint a row spelling `platform_admin` for one of their own users:\n> `resolveUserAuthzGrants` pushed that name straight onto `grants.positions`, while `grants.posture`\n> — derived from the unscoped `admin_full_access` grant and nothing else — correctly stayed\n> `MEMBER`. Every reader of the name therefore answered `true` for a principal enforcement treats as\n> an ordinary member.\n\nThe framework treated this as a real defect and fixed **four** server-side sites\n(`plugin-sharing`, `plugin-approvals`, `plugin-security`, `runtime`), each now testing\n`posture === 'PLATFORM_ADMIN'` instead of the name. `resolve-authz-context.ts` states the rule at\n`hasPlatformAdminStanding`: *\"read the RUNG — never `positions.includes(...)`\"*.\n\nThis client site is the same defect on the other side of the wire, and it was not in that sweep.\n\n## Severity — stated honestly\n\n**This is not privilege escalation.** The server was fixed; `platform-admin-gate.ts` dropped its\npositions leg and `isPlatformAdmin` derives from the posture rung, so API calls from such a\nprincipal are still refused. What a tenant gets by minting the row is a **Console that paints\nplatform-administrator surfaces at one of their own users** — nav entries, marketplace access,\nwhatever else `useWorkspaceAdminStatus` gates — while every underlying call fails.\n\nThat is worth fixing on two grounds: it is misleading in the direction that reveals platform\nstructure to a tenant-controlled account, and it is the exact pattern the framework just banned by\nname. Rating it p2 rather than p0 for that reason; re-rate if any consumer of this hook does\nsomething more load-bearing than showing UI.\n\n## Why the obvious fix is wrong, and what the real one has to preserve\n\n⛔ Do not simply delete the third leg. Its docblock explains why it exists:\n\n> This is the ONLY leg that sees a platform administrator whose adminship comes from the\n> `admin_full_access` permission set: on a single-tenant deployment there is no member row to read\n> (leg 1), and the server deliberately no longer overwrites `user.role` (leg 2), so `positions`\n> carrying `platform_admin` is the whole signal.\n\nDeleting it blinds the Console to real platform administrators — that is objectui#5389 regressed.\n\nThe replacement signal is `user.isPlatformAdmin`. The docblock currently argues **against** reading\nit:\n\n> not alongside the derived `user.isPlatformAdmin` either — that flag is computed by the server as\n> `'platform_admin' in positions` from the same expression, so reading both would be two spellings\n> for one fact\n\n**That reasoning is now obsolete and it is the crux of this card.** After #15948 they are no longer\none expression: `isPlatformAdmin` is derived from the posture rung (the unscoped\n`admin_full_access` grant), while `positions` is a tenant-writable array. They can now disagree, and\nwhen they do, the rung is right. The comment must be rewritten, not just the code — a future reader\nwho finds the old justification will re-introduce the scan.\n\nNote also that `org_owner` / `org_admin` in `positions` are a separate question from\n`platform_admin`: a tenant minting those names is claiming authority **within their own tenant**,\nwhich is not the same exposure. Decide each name deliberately rather than swapping the whole set.\n\n## Acceptance\n\n- a session whose `positions` contains a tenant-minted `platform_admin`, with no\n  `admin_full_access` grant, does **not** get `isAdmin: true`\n- a genuine platform administrator on a single-tenant deployment (no member row, `user.role` not\n  overwritten) still **does** — the objectui#5389 case, still pinned by\n  `__tests__/workspaceAdminPositions-5389.test.tsx`\n- the `isResolved` semantics from objectui#5619 are unchanged\n\n## How this was found\n\nNot from a report — from a sweep. Framework #15948 arrived in cloud via a pin bump\n(objectstack-ai/cloud#2038) and the accompanying warning about `positions.includes('platform_admin')`\nprompted checking every consumer of the payload. `objectstack-ai/cloud` came back clean (zero\ngate-style reads of `positions`, counter-checked); the framework had already fixed its own four;\nthis is the one live site the sweep found.\n"
+}

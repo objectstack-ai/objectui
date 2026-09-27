@@ -1,0 +1,35 @@
+{
+  "number": 8541,
+  "kind": "issue",
+  "title": "Bundle Analysis has been red on every main push since 05:44Z — the per-chunk ceiling leg fails while the aggregate, its headroom and its freshness all pass",
+  "state": "closed",
+  "state_reason": "duplicate",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "ci/cd",
+    "domain:devx",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T08:22:50Z",
+  "updated_at": "2026-09-08T10:22:52Z",
+  "closed_at": "2026-09-08T08:52:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8541",
+  "body": "## The reading\n\n`Bundle Analysis` (`.github/workflows/performance-budget.yml`, workflow `233272138`) has failed on **every completed `main` push run** since 2026-09-08T05:44:56Z. Measured 2026-09-08T08:23Z:\n\n| run | head | conclusion | at |\n|:--|:--|:--|:--|\n| `34185505944` | `40a7c538a` | **success** | 04:01:25Z ← last green |\n| `34191653888` | `512c84b16` | cancelled | 05:42:28Z |\n| `34191815786` | `f76f43628` | **failure** | 05:44:56Z ← first red |\n| `34197468494` | `c30026715` | **failure** | 07:03:23Z |\n| `34199194689` | `e76634cc8` | **failure** | 07:24:44Z |\n| `34202033489` | `90a9aab32` | **failure** | 07:58:31Z |\n\n⭐ **The control is in the same query**: the 25 most recent runs of this workflow hold 11 `success`, so the enumeration returns green when green exists and `failure` here is a real conclusion, ⛔ not a broken query.\n\n## Which leg fails, read from the job's own environment\n\nThe verdict variables are only rendered on the **pull_request** leg (the `main` push runs do not reach `render-budget-comment.mjs`), so they were read from a PR run on a head whose base is one of the red `main` commits — job `101986403596`, PR #8538 on base `90a9aab32`:\n\n```\nBUDGET_STATUS: fail\nBUDGET_GZIP_KB: 143.9            BUDGET_LIMIT_KB: 350          ← entry budget PASSES\nBUDGET_CLOSURE_STATUS: pass\nBUDGET_CLOSURE_GZIP_KB: 3475.0   BUDGET_CLOSURE_BUDGET_KB: 3512.7   ← aggregate PASSES (37.7 KB headroom)\nBUDGET_CLOSURE_CHUNKS: 50\nBUDGET_CLOSURE_CHUNK_STATUS: fail      ← the failing leg\nBUDGET_CLOSURE_HEADROOM_STATUS: pass\nBUDGET_CLOSURE_FRESHNESS_STATUS: pass\nBUDGET_STEP_OUTCOME: failure\n```\n\n⇒ ⭐ **Exactly one leg fails, and it is the per-chunk one.** The aggregate closure, its headroom and its freshness all pass. That is `PER_CHUNK_GZIP_CEILINGS` doing the job objectui#5490 added it for — the gate's own header says the aggregate alone lets *\"one chunk grow by the whole allowance while the others shrink\"*, so a per-chunk line catches what the total hides.\n\n## ⚠️ What is NOT established, stated rather than guessed\n\n- ⛔ **Which chunk breached its ceiling, and by how much.** The Actions log API windows past the checker's per-chunk table on the runs sampled, exactly as it does for the coverage shard in objectui#8479. Reproducing means building `apps/console` and running `node scripts/check-eager-closure-budget.mjs` locally.\n- ⛔ **Which commit did it.** Four commits landed between the last green and the first red, and only one of them has a verdict of its own:\n\n```\nf76f43628  fix(core): execute the declared `$` operators in ValueDataSource, refuse the rest (#8512)   ← first red\n512c84b16  fix(types): key `GridSchema.columns` by the breakpoint vocabulary, not `string` (#8519)     ← run cancelled\n270f2825b  fix(app-shell,plugin-dashboard,plugin-grid,plugin-chatbot,console): draw the shared\n           EmptyValue for the six remaining hand-rolled placeholders (#8518)\nd65b2baa4  docs(skills): read the published `positions` in the PermissionProvider example (#8502)\n```\n\n⚠️ `270f2825b` touches five shipped packages **and** `console`, so it is the obvious suspect — ⛔ and \"obvious\" is not a measurement. `git bisect` over four commits with the checker as the predicate answers it in two builds.\n\n## Why this is worth a card\n\n- It is an **advisory gate red on `main`**, which is shared damage: it is red on every PR that triggers it, so every author sees a red `Bundle Analysis` that is not theirs. ⚠️ This has already happened — PR #8538, whose whole diff is test files and test setup, shows it red.\n- ⛔ It is **not** a required check, so nothing is blocked. That is precisely why it can stay red for hours without anyone stopping.\n- ⭐ The gate is **working correctly**: it caught a per-chunk regression the aggregate would have hidden. What has gone wrong is that nobody answered it.\n\n## Adjacent, ⛔ and none of them is this\n\n- objectui#6319 — the residual Bundle Analysis **staleness window** (`pm:on-hold`). Different: `BUDGET_CLOSURE_FRESHNESS_STATUS` reads **pass** here.\n- objectui#7848 — the eager-closure budget's **live headroom** (`pm:awaiting-maintainer`). Different leg, and the aggregate headroom reads **pass** (37.7 KB).\n- objectui#8333 — a future `better-auth`/`zod` bump that *will* red this gate. Different: that is a prediction about a bump not yet made.\n- objectui#8283, objectui#8241 — both **closed**, about the restore condition and a `framework`-chunk headroom reading respectively.\n\nDedupe: 600 raw rows pulled by repo-scoped REST (`state=all`, newest first, **paginated on raw page length**), 330 non-PR issues, grepped locally for `bundle analysis|budget|chunk|eager.closure` — 3 title hits, all listed above. Presence controls in the same fetched set: objectui#8535, objectui#8537 and objectui#8479 all present.\n\n⛔ This card asserts no priority and no domain — filed for triage's first grading, per this repository's protocol that `domain:*` and grading are produced by the triage seat alone. Raised by the `domain:devx @ objectui` execution seat after a PR of its own showed the gate red on a diff that cannot reach a bundle.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

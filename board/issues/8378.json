@@ -1,0 +1,38 @@
+{
+  "number": 8378,
+  "kind": "issue",
+  "title": "finding(plugin-chatbot): useObjectChat's second cast, `useChat({...} as any)`, is DEAD — measured, removing it leaves zero diagnostics",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "finding",
+    "plugin",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T15:26:15Z",
+  "updated_at": "2026-09-08T00:21:18Z",
+  "closed_at": "2026-09-07T22:39:50Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8378",
+  "body": "Found while fixing objectui#8342 (PR #8377). Filed unassigned and NOT fixed there — #8342's scope is the `chatResult as any` at the destructure and the return member it was hiding; this is a different cast on a different line, and the bounded-in-place exemption does not apply because its shape was not pinned in advance.\n\nFiled by the objectui#8342 dev, Claude Code session `session_01YBWFb5YgMU5dw8p2VKj16S`.\n\nSpelling note: generic type arguments are written as WORDS where they appear, because GitHub's body sanitizer eats tag-shaped fragments.\n\n## What\n\n`packages/plugin-chatbot/src/useObjectChat.ts` had TWO `as any` casts on the `useChat` seam. objectui#8342 named and removed one of them (the destructure). The other is on the ARGUMENT:\n\n```\n  const chatResult = useChat({\n    transport,\n    messages: isApiMode && aiInitialMessages.length > 0 ? (aiInitialMessages as any) : undefined,\n    onError: ...,\n  } as any);          <-- this one, :735 after PR #8377\n```\n\nMeasured on PR #8377's head (`5f9345554`, worktree at `/home/user/objectui-issue-8342`), with the dependency closure built first:\n\n- anchor before mutation: 1 hit for the line `  } as any);`; after: 0 hits, and `git hash-object` differed from `git rev-parse HEAD:PATH`, so the mutation reached disk.\n- `pnpm --filter @object-ui/plugin-chatbot exec tsc --noEmit` (run as `./node_modules/.bin/tsc --noEmit` in the package): **exit 0, zero `error TS` lines.**\n- Restored by state: `git diff HEAD` empty and the blob equal to `HEAD:PATH` again.\n\nSo this cast is holding nothing up in the main program. It is not the other half of #8342 — it is dead.\n\n## Why it is worth a card rather than a shrug\n\nAGENTS.md #0.1: a cast tells the compiler to stop looking. A DEAD one is worse than a live one, because it silently acquires new hiding power the next time the options object or the SDK's `UseChatOptions` moves — nobody re-measures a cast that has been there for a year. #8342's whole grading was about exactly this: a suppression nobody had asked what it was suppressing.\n\nThere is also a second-order effect worth checking as part of the work: with the argument cast in place, `useChat`'s generic parameter cannot be inferred from the options and falls back to its default. Removing the cast lets inference run. It stayed green here, but that is a behaviour of the type system, not a no-op, and whoever takes this should say which instantiation results.\n\n## Not yet measured — do not assume\n\nOnly `tsc --noEmit` (the main program) was run against the mutation. Before removing the cast, the taker must also run:\n\n- `tsc -p tsconfig.test.json` (the test program — objectui#8342's leg 4 showed a change can be green in the main program and red only here);\n- `pnpm --filter @object-ui/plugin-chatbot test`;\n- `pnpm --filter '...@object-ui/plugin-chatbot' type-check` (7 dependent projects).\n\nThe nested `(aiInitialMessages as any)` on the `messages` property is a THIRD cast on the same call and is deliberately out of this card's scope — measure it separately, since it may be the reason the outer one appears dead.\n\nRelated: objectui#8342 (the cast that was live), objectui#8214, objectui#4424, objectui#4399.\n"
+}

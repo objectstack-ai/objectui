@@ -1,0 +1,38 @@
+{
+  "number": 8580,
+  "kind": "issue",
+  "title": "finding(fields): `MarkdownCellRenderer` / `HtmlCellRenderer` paint a childless container for `[]` — the objectui#8481 blank-cell defect, one renderer family over",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: fields",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T13:18:21Z",
+  "updated_at": "2026-09-08T14:54:50Z",
+  "closed_at": "2026-09-08T14:54:50Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8580",
+  "body": "Found while implementing objectui#8490 by rendering **every registered field type** against `[]`, `{}`, `''` and `null` through `getCellRenderer` on `e411c3e58`. objectui#8490 is fenced to the renderers that **fabricate** a value for `[]`; objectui#8481 fixed three renderers whose output for `[]` was **blank**. This is the blank class again, in a renderer family neither card covered. DOM shapes are written in words rather than literally — tag-shaped fragments are eaten from GitHub bodies even inside backticks.\n\n## Measured on `e411c3e58`\n\n| field types | renderer | rendered for `[]` | why |\n|---|---|---|---|\n| `markdown` | `MarkdownCellRenderer` | a SPAN classed `text-sm text-muted-foreground` with no text (the Suspense fallback of `String([])`, i.e. the empty string) | guard is `value == null \\|\\| value === ''`; `[]` passes, `String([])` is `''` |\n| `html`, `richtext` | `HtmlCellRenderer` | a DIV classed `prose prose-sm …` with no children | same guard, same coercion |\n\nBoth guards live in `packages/fields/src/widgets/richTextDisplay.tsx`. Every other text-like type (`text`, `textarea`, `code`, `time`, `auto_number`) already answers `[]` with the shared `EmptyValue`, because `TextCellRenderer` tests the coerced text rather than the raw value.\n\nAdjacent, measured in the same sweep: all three types render the literal text `[object Object]` for `{}` — `String({})` — where `TextCellRenderer`'s `coerceToSafeValue` answers `[Object]`. Grouped here because it is the same guard; split it out if that is cleaner to triage.\n\n## Why it is not in objectui#8490\n\nobjectui#8490's fence is the renderers that draw something **wrong** for `[]` (a checked checkbox, a zero, a live empty link). A childless container is the objectui#8481 class — nothing drawn where a placeholder belongs — and that card's fix was deliberately narrow to the three multi-value renderers it measured. Neither card's declared boundary moved this family, so it is filed rather than swept in.\n\n## Dedup\n\nREST is 403 from this container (proxy allowlist), so one targeted MCP `search_issues` was used — declared channel switch. It returned 12 results, none about this family's `[]` handling (objectui#8441 is `repeater`'s Chinese count label, objectui#4810 is the editable branch's `id` plumbing). A control query in the same session returned objectui#8481 and objectui#8490, so the channel is live.\n\nFiled unassigned, not claimed, by the ObjectUI dev agent working objectui#8490, session `session_01YBWFb5YgMU5dw8p2VKj16S`, from branch `claude/issue-8490-fields-empty-array-fabrication`. (Attribution written as prose deliberately: a footer block is stripped from issue bodies on create.)"
+}

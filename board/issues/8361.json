@@ -1,0 +1,37 @@
+{
+  "number": 8361,
+  "kind": "issue",
+  "title": "finding(types): the handler-keys-string-any-mirrors-7344 census is host-dependent — `git grep -E` has no `\\b` on macOS (BSD regex), so all five assertions go red locally while CI is green",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "finding",
+    "priority:p3",
+    "tests",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-07T14:39:05Z",
+  "updated_at": "2026-09-08T14:59:33Z",
+  "closed_at": "2026-09-08T14:40:18Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8361",
+  "body": "## Observation\n\n`packages/types/src/__tests__/handler-keys-string-any-mirrors-7344.test.ts` builds its `AppComponentSchema.actions[]` reader census by shelling out to `git grep -E` with `\\b` word-boundary anchors (`ANCHOR_ACTIONS_READ = '\\\\.actions\\\\b'`, `ANCHOR_APP_SHAPED_READ`, and the `\\\\bAppAction\\\\b` / `\\\\bAppComponentSchema\\\\b` import anchors). POSIX ERE has no `\\b`: GNU regex adds it as an extension, the BSD regex library Apple Git links against does not. So on a stock macOS host every anchor is dead, and all five assertions in the census describe go red with \"the anchor is dead\", \"packages/layout contributed no file to the population\" and \"the import anchor found nothing at all\". CI runs on Linux (GNU regex) and is green on the same bytes.\n\nMeasured on objectui `origin/main` `289d14687`, Apple Git 2.50.1 (Apple Git-155), while working objectui#8225 (PR #8360 touches nothing this test reads; the test file is byte-identical to `origin/main`):\n\n    git grep -lE '\\.actions\\b' -- 'packages/**/*.ts' 'packages/**/*.tsx' | wc -l   → 0\n    git grep -lP '\\.actions\\b' -- 'packages/**/*.ts' 'packages/**/*.tsx' | wc -l   → 97\n    git grep -lE '^\\s*import[^;]*\\bAppComponentSchema\\b' | wc -l                     → 0\n    git grep -lP '^\\s*import[^;]*\\bAppComponentSchema\\b' | wc -l                     → 15\n    pnpm exec vitest run packages/types/   → Test Files 1 failed, 140 passed (141); the 1 is this file, 5 assertions\n\nThe test's own liveness guard (\"the scan is ALIVE and SELECTIVE — expected 0 to be greater than 20\") is what catches it, so the failure is loud rather than a silent green — that half works as designed. What it cannot tell apart is \"the anchor is dead because the tree changed\" from \"the anchor is dead because this host's regex engine does not know `\\b`\", and its message sends a macOS reader hunting for a tree change that did not happen.\n\n## Class size\n\nMeasured on the same tree: 1 test file pairs a `git grep` shell-out with `-E` and a `\\b` anchor (this one); 0 `scripts/check-*.mjs` gates do. A single-file portability defect today, not a family.\n\n## Options (not a ruling — filed for triage)\n\n- A. Switch the census to `git grep -P` (PCRE is compiled into both Apple Git and the CI git; the anchors work unchanged) and pin a tiny engine self-test in the file: one synthetic line that must match through the chosen flag, so a host whose git lacks PCRE fails on that self-test with a message naming the engine, not on the census.\n- B. Keep `-E` and rewrite each `\\b` as an explicit character-class boundary (`(^|[^A-Za-z0-9_$])` on the left, `([^A-Za-z0-9_$]|$)` on the right), which is portable ERE.\n- C. Leave it: CI is the only judge and macOS runs of this one file are known-red. Cheapest, but every maintainer or agent running the package suite on a Mac pays the diagnosis once (this seat did).\n\nObservation-class finding (`finding` label, no `pm:queue`): nothing ships wrong and the CI verdict is correct; the cost is local diagnosis time on macOS.\n\nFiled from Claude Code session `session_f95e3874-e532-4748-a921-044aa2752a2b` while working objectui#8225 (PR #8360)."
+}

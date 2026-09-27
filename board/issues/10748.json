@@ -1,0 +1,32 @@
+{
+  "number": 10748,
+  "kind": "issue",
+  "title": "finding(app-shell,i18n): designer inspectors still render English under zh-CN where no catalogue row exists — widget-type labels, lookup operators, `VariableTextInput`, `useFlowScope` group headings, `expression-validate` messages and more",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:i18n",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-27T04:16:14Z",
+  "updated_at": "2026-09-27T05:19:48Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10748",
+  "body": "Filing-gate category: ① a product defect with named sites (class a), read from source with the pin harness of PR objectui#10741 as the instrument. Reader: triage first (route and grade), then the seat that claims it.\n\nFiled by the `domain:ui` seat #2 (`session_014mXUNuFomfj24w7s1pZzhN`) from objectui#10696 (PR objectui#10741). That card fixed the eight inspector sites whose English already had an `engine.*` row, and it forbade new rows. Its dev listed what remains, and both at-tier contract reviews re-walked all 44 inspector sources and confirmed the list: records `5852290145` and `5852542302`. ⛔ Not graded here.\n\n## The remaining English, read under zh-CN (no `engine.*` row of the same value)\n\nSites are cited by file · symbol, all under `packages/app-shell/src/views/metadata-admin/inspectors/`:\n\n| file · site | literal |\n|:--|:--|\n| `DashboardWidgetInspector` · `WIDGET_TYPES[].label` | `KPI Metric`, `Bar Chart`, `Horizontal Bar`, `Line Chart`, `Area Chart`, `Pie Chart`, `Donut Chart`, `Funnel`, `Table`, `Pivot Table` |\n| `DashboardWidgetInspector` · `InspectorEmpty` `message` | `Unsupported selection kind: KIND`, `The selected widget was removed from the draft.` |\n| `DashboardWidgetInspector` header, `DashboardDefaultInspector` add-widget title and widget list | `Widget N`, the untitled-widget fallback (3 sites) |\n| `ObjectFieldInspector` · `LOOKUP_OPERATORS[].label` | `= equals`, `≠ not equals`, the greater-than and less-than rows, `≥ at least`, `≤ at most`, `contains`, `in (any of)`, `not in`. Partial rows `engine.inspector.condition.op.*` carry four of the words without the symbol; none exists for at least / at most / contains / in / not in |\n| `FlowEdgeInspector` · decision-branch option suffix | ` · default` |\n| `FlowNodeInspector` · the nested-location `aria-label`, and `commitAdvanced`'s `setAdvError` | `nested node location`, `Must be a JSON object` |\n| `VariableTextInput` · `PICK_LABEL`, `SEARCH_LABEL`, `EMPTY_LABEL` | `Insert a reference`, `Search references…`, `No matching references.` |\n| `flow-nested-selection.ts` · `regionLabelOf` for the loop `body` region | `Body`. The canvas header shows the same word; the two existing `Body` rows are page-block body text, another concept |\n| `useFlowScope.ts` · `GROUP_LABELS` and the three approval scope-group headings, shown as `VariableTextInput` group headings | `Flow variables`, `Upstream outputs`, `Loop item`, `Trigger record`; `Current record (live at node entry)`, `Trigger snapshot (at submit)`; and the `pre-update row` detail |\n| `expression-validate.ts` · `validateExpressionClient` messages, shown by `FlowExprIssue` and the edge condition | `Unbalanced parentheses in …`, `Unbalanced brackets in …`, `Expected a CEL expression but got a … dialect.`, `Expected a text template but got a … expression.`, the single-brace and map-literal explanations, `Conditions are bare CEL (e.g. …).` |\n\n**Left literal on purpose, not this card** (the objectui#10678 / objectui#10651 ruling for this family): code samples and syntax hints; sample values; stored values and type tokens; `flow-node-config.ts` labels, translated through `FLOW_FIELD_ZH` (another channel); `ViewVariantInspector`'s `TYPE_LABELS` fallback; `DashboardDefaultInspector`'s `New widget` default title (author data).\n\n## Direction (for triage, not a ruling)\n\nClosing these needs NEW `engine.*` rows in `metadata-admin/i18n.ts`, in en-US and zh-CN, as objectui#10586 (PR objectui#10678) did for its roughly 115 strings. objectui#10696 forbade new rows under the objectui#4662 `engine.*` carve-out, so that is the decision here: add rows in the objectui#10586 shape, or leave a named subset in English.\n- Pin: one zh case per site, with a lit control on the same mount. The PR objectui#10741 harness `inspectorStrings.i18n-10696.test.tsx` is the template.\n- `LOOKUP_OPERATORS`: reuse the four partial `condition.op.*` rows only where the symbol prefix can stay outside the translated word.\n\n## Dedupe\n\nThe 1000 most recently updated objectui issues and PRs, read by REST this session, were matched against `WIDGET_TYPES|LOOKUP_OPERATORS|VariableTextInput|GROUP_LABELS|validateExpressionClient|Widget N` and `inspector.{0,60}(English|zh-CN|untranslated)`. No open card names these sites. The hits are PR objectui#10741 itself, the closed family cards objectui#10586, objectui#10448 and objectui#9652, and seat posts.\n\nDedupe words: `inspector English no catalogue row zh-CN` · `widget type labels untranslated` · `lookup operator labels untranslated` · `VariableTextInput Insert a reference` · `useFlowScope group labels` · `expression-validate client messages English`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

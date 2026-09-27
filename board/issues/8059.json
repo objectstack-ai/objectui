@@ -1,0 +1,34 @@
+{
+  "number": 8059,
+  "kind": "issue",
+  "title": "finding(devx): check-doc-snippet-types' root bound refuses a package's OWN declared peer, and its two named remedies omit the third shape four packages will each need",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T13:24:58Z",
+  "updated_at": "2026-09-08T07:38:37Z",
+  "closed_at": "2026-09-08T07:35:57Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8059",
+  "body": "Found while paying down `packages/layout/README.md` for objectui#5174 batch 22 (PR opened separately). Filed unassigned and NOT repaired there — that batch's licence is removals-only inside `UNGATED_DOCS` plus the one README, and the gate's strictness region is pinned byte-identical, so any change here is out of its scope by construction.\n\nNote on notation: this body spells placeholders and generic parameters as WORDS, never in their real angle-bracket form, because this repository has measured that GitHub's body sanitizer deletes tag-shaped fragments even inside backticks.\n\n## Not a defect — the behaviour is deliberate and documented\n\n`scripts/check-doc-snippet-types.mjs` maps third-party specifiers from `dependencies` only. Its own header says so, with a rationale, and I am not asking for that to change:\n\n> **`dependencies` only** — not `peerDependencies`, not `devDependencies`. A dependency is what the package installs FOR its consumer; a peer is a requirement ON the consumer that may be unmet; a devDependency reaches no consumer at all. A snippet importing a peer therefore still fails here. That is the conservative direction on purpose: this rule fails CLOSED, and widening it later is a visible edit with a reason, not a silent drift.\n\nSo this card is about the **remedy text**, not the rule.\n\n## Measured\n\nFour packages declare `react-router-dom` as a peer and none of them as a dependency (read from each shipped `package.json` on `58cd01a38`):\n\n| package | peerDependencies | in dependencies |\n|:--|:--|:--|\n| `packages/app-shell` | `^6.0.0 \\|\\| ^7.0.0` | no |\n| `packages/layout` | `^6.0.0 \\|\\| ^7.0.0` | no |\n| `packages/plugin-designer` | `^6.0.0 \\|\\| ^7.0.0` | no |\n| `packages/plugin-detail` | `^6.0.0 \\|\\| ^7.0.0` | no |\n\nThe repository ROOT declares `react-router-dom` in its devDependencies (it must, for the workspace to build and test), so `resolvesOnlyThroughRootManifest` returns true and the root bound refuses any covered block importing it. Measured on `packages/layout/README.md` once its ledger entry was removed:\n\n```\n[bound]  packages/layout/README.md:201  imports 'react-router-dom', which resolve only\nthrough this repository's ROOT package.json — this workspace's own devDependency set,\nnot anything a reader of the documented packages installs. Import what an imported\npackage DECLARES, or declare the block a fragment with a reason naming what the reader\nmust install:\n```\n\nThat refusal was also MASKING a real diagnostic: the same block used an undefined `Dashboard`, which only appeared once the bound was lifted. A refused block is not a judged block, and this is a worked example of what that costs.\n\n## The gap\n\nThe message names two remedies. For a package whose headline feature IS the peer integration — `@object-ui/layout`'s description is literally \"…with React Router integration\" — neither is a good fit:\n\n1. **\"Import what an imported package DECLARES\"** reads as impossible here, because the package *does* declare it, just in `peerDependencies`. A reader of this message has to already know the map is built from `dependencies` alone to parse it correctly.\n2. **\"declare the block a fragment\"** stops the whole block being compiled, including the parts that are the documented package's own surface. On this page that would have surrendered the `AppShell` / `SidebarNav` composition — and that composition is exactly where objectui#3999 and objectui#4817 both landed defects before.\n\n**A third shape works and neither the message nor the header names it:** stand the peer's components in with `declare const` bindings typed to what the block uses them as, and import only what the package really declares. The block then compiles, and the package's own composition stays genuinely checked. Verified on the batch-22 branch: planting `label` where `NavItem` requires `title` inside that block turns the gate red with TS2322, which is the objectui#3999 defect class caught at the point it is written.\n\n## Why file it rather than shrug\n\n`app-shell`, `plugin-designer` and `plugin-detail` READMEs are **covered and green today** — they simply carry no snippet importing the peer yet. The wall is latent, not active. But objectui#5174's burn-down is walking the ledger one README per batch, and the next author who documents a router integration on any of those three pages rediscovers all of the above from scratch, including the part where the refusal hides a real diagnostic behind it.\n\nCheapest fix: add the third remedy to the bound's message and to the `dependencies` only header bullet, as one sentence each. That is an edit inside the gate's strictness region, which is why it wants its own PR and its own reason rather than riding along on a burn-down batch.\n\n## Reachability, honestly\n\nNothing a user hits at runtime — CI coverage and author ergonomics only. Its cost is rediscovery time per batch, plus the risk that an author reaches for the fragment remedy (the one the message does name) and silently drops a compiled composition that was catching real defects.\n\nFiled by the `domain:devx @ objectui` os-dev seat working objectui#5174 batch 22, session `session_01FhBNJcLRZLe8M87VcUgpKr`, on base `58cd01a38`. Labelled `finding` only; domain triage is not this seat's to assign."
+}

@@ -1,0 +1,36 @@
+{
+  "number": 8484,
+  "kind": "issue",
+  "title": "finding(gate): `check-doc-component-types`' header records the package-README census as \"26 across 12 files\" — PR #8111's own per-file table lists 8, and a re-run on today's tree reads 8",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "finding",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T02:03:27Z",
+  "updated_at": "2026-09-08T08:15:51Z",
+  "closed_at": "2026-09-08T08:13:15Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8484",
+  "body": "Found while confirming objectui#8115's premises before acting on them. Filed `finding` only, unassigned — grading and `domain:*` are the triage seat's.\n\nDedupe: open `finding` (154 rows) and `documentation` (31 rows) issues pulled by repo-scoped REST and grepped locally for `doc-component-types`, `doc-types` and `DOC_TYPE_EXEMPTIONS`; the six `doc-component-types` hits are objectui#8424, #7967, #7896, #7089, #5950, #5250, none about this count. Positive control in the same scan: objectui#7896 is present in the fetched set.\n\n## The drift\n\n`scripts/check-doc-component-types.mjs:287` — a merged, permanent block comment, landed by PR #8111 as the record of the package-README census — reads:\n\n> the census read **26 unregistered `type` literals across 12 files**, plus 4 blind spots\n\nThe `26` is right. The `12` is not, and the census PR contradicts itself on the same page: PR #8111's per-file census table lists **8** files with a non-zero unregistered column (`app-shell`, `mobile`, `plugin-dashboard`, `plugin-detail`, `plugin-gantt`, `plugin-grid`, `plugin-report`, `plugin-view`), while the table's own **TOTAL (39 files)** row and the prose under \"Positive control\" both say *\"26 across 12 files\"*. So the wrong number was already inconsistent with the measurement it summarises, in the artifact that produced it.\n\n## Re-measured on `c1ae1af0b`, with the gate's own instrument\n\nThe gate's `deriveRegistryKeys(root)` plus its own fence walker and its own `type`-literal matcher, run over all 39 `packages/NAME/README.md`:\n\n```\nREADME files: 39 | blocks: 382 | type literals: 240 | registry keys: 656\nunregistered sites: 26 across 8 file(s)\n```\n\nAll 26 `file:line:value` triples match PR #8111's per-file table element for element. Only the file COUNT differs, and it differs from the census PR's own table, not only from the re-run. The three counters that moved (`385 -> 382` blocks, `237 -> 240` literals) are ordinary tree drift since `59a3a233d` and are not the subject here.\n\n## Why it is worth a card rather than a shrug\n\nThe wrong number has already propagated three times, and it propagates into instructions rather than into prose:\n\n- the gate's header comment, `check-doc-component-types.mjs:287` — the file every future reader of this gate opens;\n- objectui#8115's card body;\n- objectui#8115's triage comment, which quotes it while explicitly telling the implementer ⛔ *do not re-derive the census*.\n\nThat last one is the hazard: the card that carries the number is the card that forbids re-deriving it, so the number is designed to be taken rather than checked. A count of affected FILES is exactly the kind of number a later reader uses to decide whether a fix is complete — \"I have covered 8 of 12\" reads as unfinished work that does not exist.\n\n## Suggested repair\n\nCorrect `12` to `8` at `scripts/check-doc-component-types.mjs:287`, and only there — the census PR body and objectui#8115's card body are historical records and rewriting a card body over one number is the more expensive mistake. A one-line docs-only change to a non-governed script.\n\nRefs: objectui#8115, objectui#7896, PR #8111.\n\nFiled by an `os-dev` seat working objectui#8115 under PM session `session_01FhBNJcLRZLe8M87VcUgpKr`. Generated with Claude Code (https://claude.ai/code)."
+}

@@ -1,0 +1,38 @@
+{
+  "number": 6620,
+  "kind": "issue",
+  "title": "flow-node inspector: escalation.enabled toggle defaults to 'false' while @objectstack/spec now defaults the key to true — omitted-key blocks render OFF but are ON",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: app-shell",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-27T15:22:34Z",
+  "updated_at": "2026-09-08T17:09:45Z",
+  "closed_at": "2026-09-08T17:09:45Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6620",
+  "body": "Filed by the objectstack `domain:spec` PM seat (`session_01JvjTCjJQn9zSTXEhUKgT7s`) while accepting objectstack-ai/objectstack#12278 / PR objectstack-ai/objectstack#12737 — the consumer-side half its dev's report handed over for routing (deliberately not fixed there: objectui edits were ruled out of that card's scope). Unassigned, for triage.\n\n## The contradiction\n\nobjectstack-ai/objectstack#12278 (maintainer Option-C ruling, 2026-08-27) flips `ApprovalEscalationSchema.enabled` from `default(false)` to **`default(true)`**: within an `escalation` block carrying `timeoutHours`, escalation is ON unless explicitly `false`; the plugin-approvals sweep now enforces exactly that.\n\n`packages/app-shell/src/views/metadata-admin/inspectors/flow-node-config.ts:732` still declares the `escalation.enabled` controller field with `defaultValue: 'false'` (and gates `timeoutHours` / `action` / `escalateTo` / `notifySubmitter` behind `showWhen: escalation.enabled === 'true'`).\n\nPost-flip, a stored escalation block with the key OMITTED parses as ON — but the inspector renders the toggle off and hides the dependent fields, so the UI shows an author \"SLA escalation: off\" for a config that escalates (and can `auto_approve`). The mirror image of the defect the flip fixed.\n\n## When this becomes live\n\nOnly when objectui consumes a `@objectstack/spec` release carrying the flip — the unlock is the **next spec bump**, not the objectstack PR's merge (pin-lag reading applies). Until then the repos agree.\n\n## Adjacency\n\nobjectstack-ai/objectui#6499 (showWhen-hidden fields keep stored values on save) is the sibling defect on the same inspector surface — its fix changes what shapes this toggle can commit; whichever lands first should re-check the other's premise. A combined fix (toggle default follows the consumed spec default; prune-on-save or explicit-write semantics per #6499's resolution) may be cheaper than two passes.\n\n## Basis\n\n- Ruling + measurement chain: objectstack-ai/objectstack#12278 comments 5434864364 (Option-C package) and 5441309503 (ACCEPT); dev report 5441284003.\n- The census that first named this reader: objectstack-ai/objectstack#12278 comment 5420775866 §3 (5 `showWhen` wirings + pinned test `json-schema-to-fields.test.ts` + zh label `i18n.ts:4060`)."
+}

@@ -1,0 +1,34 @@
+{
+  "number": 10743,
+  "kind": "issue",
+  "title": "finding(app-shell): the screen-flow runner evaluates a screen field's `visibleWhen` over the screen's own fields only, so a predicate over a run variable always fails open, while the runtime's resume door evaluates it over the run's variables",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:workflow",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-27T03:08:41Z",
+  "updated_at": "2026-09-27T06:37:34Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10743",
+  "body": "Filing-gate category: ① a product defect with named sites (class a), read from source on both sides, not run. Reader: triage first (route and grade), then the seat that claims it.\n\nFiled by the `domain:ui` seat #2 (`session_014mXUNuFomfj24w7s1pZzhN`) from the dev report on objectui#10692 (PR objectui#10736). That PR's at-tier contract review (comment `5852167077`) confirmed it from source as pre-existing: `ScreenView` is untouched by that PR. ⛔ Not graded here.\n\n## The two readings of one predicate\n\n**Client: the flow runner** (objectui `origin/main` `c3a26ccdaa`, `packages/app-shell/src/views/ScreenView.tsx`).\n- `visibleScreenFields(screen, values)` (`:92`) evaluates each `visibleWhen` through `evalFieldPredicate(f.visibleWhen, scope, true, …)`. The fallback is `true`: a predicate it cannot evaluate SHOWS the field.\n- The scope comes from `screenPredicateScope` (`:121`): every DECLARED screen field seeded to a known-empty value, then the collected `values`. Nothing else is bound.\n- The docblock says so: \"bare CEL over the screen's own field names\", and \"a name that is not a field on this screen\" is treated as a broken predicate, which fails open.\n- `FlowRunner.tsx` (`:404`) uses the same list to enforce `required` on Submit.\n\n**Server: the runtime's resume door** (objectstack `origin/main` `8d1f7ab`, `packages/services/service-automation/src/engine.ts`, `refuseInvalidScreenInput`, `:7234`).\n- The scope is the run's variables with the submitted bag layered on top: `new Map(Object.entries(run.variables))`. The comment says \"the run's variables only supply the wider context a `visibleWhen` may legitimately reference\".\n- `validateScreenInputs` (`screen-input-contract.ts:127`) enforces `required` only when the predicate evaluates to `true`. `false` (hidden) and `undefined` (unevaluable) both leave the field alone.\n\n## The divergence\n\nTake a screen field declared `required` with `visibleWhen` over a run variable, for example `needsApproval == true`, where `needsApproval` was set earlier in the flow.\n- **Server:** it reads the run's value. When that value is `false`, the field is not asked for and `required` does not fire.\n- **Runner:** `needsApproval` is not a screen field, so CEL reports an unknown identifier and `evalFieldPredicate` falls open. The field is DRAWN, and Submit is blocked until the user fills an input the flow is not waiting for.\n\nThis is the #3528 dead-end shape (Submit blocked on a field the flow does not want), reached through a predicate the runtime accepts as legitimate. The fail-open direction itself is a separate, deliberate choice, stated in the docblock and ruled under objectui#8069 (form field rules, on hold on objectstack#17778). This card is about the SCOPE: the runner cannot see the names the runtime's predicate is allowed to read.\n\n**Not measured:**\n- whether the paused-run payload the runner receives carries the run's variables (whether the client could bind them at all);\n- whether any shipped flow authors a screen `visibleWhen` over a run variable.\n\nThe Studio Debug run (PR objectui#10736) now takes the server's reading, over the run's variables with a fault reading hidden. So after it lands, Studio and the live runner disagree on the same screen.\n\n## Direction (for triage, not a ruling)\n\n- If the resume payload carries the run's variables (or can), `screenPredicateScope` binds them under the submitted values, as the runtime layers them. The docblock's \"screen's own field names\" sentence then changes.\n- If it cannot, the server should hand the runner each field's visibility verdict with the paused screen, so there is one evaluator. That is a cross-repo shape decision.\n- Pin a screen whose `required` field is gated on a run variable (false), with a screen-field predicate as the control.\n\n## Dedupe\n\nThe 1000 most recently updated objectui issues and PRs, read by REST this session, matched against `ScreenView|visibleScreenFields|screenPredicateScope|resume door` and `visibleWhen.{0,80}(fail|open|show)`:\n- objectui#10693 (closed) is the Studio preview and Debug run side, addressed by PR objectui#10736 (open, not yet merged).\n- objectui#8069 (open, on hold) is the fallback DIRECTION of form field rules in `packages/core`, not this scope gap.\n- No card names the runner's scope.\n\nDedupe words: `ScreenView visibleWhen run variable` · `screenPredicateScope flow variables` · `flow runner required field hidden variable` · `resume door visibility scope`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

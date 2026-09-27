@@ -1,0 +1,35 @@
+{
+  "number": 8018,
+  "kind": "issue",
+  "title": "finding(devx): `COVERED_SPECIFIERS` is documented GROW-ONLY but only `@object-ui/i18n` is pinned — dropping any other member retires that ratchet silently",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-06T10:19:28Z",
+  "updated_at": "2026-09-08T18:56:54Z",
+  "closed_at": "2026-09-08T18:55:33Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8018",
+  "body": "Surfaced while implementing objectui#6892 slice 1 (`@object-ui/plugin-markdown` / `@object-ui/data-objectstack` / `@object-ui/plugin-report`). Filed unassigned, **deliberately not fixed there** — that slice's file surface is the three converted test files plus the three lines in the constant, and generalising this pin is a decision about the ratchet's own pin rather than part of the sweep.\n\n## What was measured\n\n`scripts/check-vi-mock-inherit.mjs`'s header states the covered set is GROW-ONLY, and the ratchet's entire force rests on that: `findCallSites` classifies a call site as `covered` only when its specifier is in `COVERED_SPECIFIERS`, and everything else is `workspace` / `unjudged`. So **removing** a member does not redden anything — it makes that specifier's whole population invisible and the gate reports OK over a tree it no longer looks at. That is the one direction a ratchet must never be free to move, and the guard's own test says so in as many words at `scripts/__tests__/check-vi-mock-inherit.test.ts`:\n\n> The positive half of the pin this replaces. Without it the third step of objectui#7337 could be reverted in silence: dropping a member makes every i18n call site unjudged, so the gate stays GREEN over a population it no longer looks at — the one direction a ratchet must never be free to move.\n\nThat reasoning is correct and is enforced for **exactly one** member. Every membership assertion in the test file, read on `eeda78a780`:\n\n| assertion | what it holds |\n| --- | --- |\n| `expect(COVERED_SPECIFIERS.length).toBeGreaterThan(0)` | the list is not *empty* |\n| the loop under it | each member *names a real package* |\n| `expect(COVERED_SPECIFIERS).toContain(I18N)` | `@object-ui/i18n` cannot be dropped |\n| `const named = COVERED_SPECIFIERS.join(', ')` in the verdict-line case | derived from the list, so it *adapts* to any removal rather than resisting it |\n\n⇒ `@object-ui/react` — the founding member, **134 judged call sites** — has no membership pin at all. Deleting it from the list leaves `check:vi-mock-inherit` green, the guard's own suite green (`length > 0` still holds, i18n still present), and 134 sites unwatched. The three specifiers objectui#6892 slice 1 adds inherit the same gap.\n\n## Why it is not caught elsewhere\n\n- `FLOORS.covered = 50` is the nearest thing to a backstop, and it does not reach: with `@object-ui/react` removed the covered count is still 95 (i18n's 92 plus the three 1-site specifiers), comfortably above the floor. It only catches a collapse to *near-nothing*, which is the case it was written for.\n- Nothing else in the repo reads the constant: `git grep -l COVERED_SPECIFIERS` returns the gate, its test, one changeset and one workflow **comment**.\n\n## Suggested shape\n\nReplace the single-member `toContain(I18N)` with a pin over the swept set — every specifier a landed sweep has added, listed once, asserted present — so the assertion grows with the ratchet instead of naming one member. That keeps the existing case's rationale (quoted above) and makes it hold for all of them. The list is short and each entry is justified by a merged sweep PR, so it is a ledger of landed work rather than an exemption table.\n\nNot urgent: no member has ever been removed, and the gate is green today. It is filed because the protection currently reads as general and is not.\n"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 8555,
+  "kind": "issue",
+  "title": "`convertFiltersToAST` SILENTLY DROPS a Date-valued equality comparand when the field has siblings — the result set gets wider with no error",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T10:59:39Z",
+  "updated_at": "2026-09-08T12:29:51Z",
+  "closed_at": "2026-09-08T12:29:51Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8555",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8530 dev, which measured it while landing PR #8551 and could not file it — four `search_issues` calls were refused with *\"API rate limit already exceeded for user ID 323634890\"* and repo-scoped REST is 403 for that seat. Handed over rather than filed blind or dropped. ⛔ Not claimed.\n\n## Measured\n\n`packages/core/src/utils/filter-converter.ts:257`:\n\n```ts\n// Check if value is a complex operator object\nif (typeof value === 'object' && !Array.isArray(value)) {\n  for (const [operator, operatorValue] of Object.entries(value)) {\n```\n\nA `Date` passes **both** tests — `typeof new Date() === 'object'` and it is not an array — so it enters the operator loop. `Object.entries(someDate)` is `[]`, so the loop body never executes and **no condition is pushed for that field at all.**\n\nMeasured on `origin/main`:\n\n```\n{ status: 'a', created: new Date('2026-01-01') }   →   ['status', '=', 'a']\n```\n\nThe date constraint is gone. Not refused, not lowered wrongly — **absent**, which makes the result set **wider** than the author asked for, silently. (With the Date as the only field, the original object is returned untouched, so the failure needs a sibling to appear.)\n\nA filter that quietly returns *more* rows than requested is the worst shape this file has: nothing errors, nothing warns, and the caller sees plausible data.\n\n## ⭐ This is the second instance of one root cause, in two repos\n\n| where | shape | effect |\n|---|---|---|\n| here | `typeof value === 'object'` admits a `Date` into an operator loop | constraint silently **dropped** |\n| objectstack#16810 | `typeof condition !== 'object' \\|\\| … \\|\\| condition instanceof Date` routes a `Date` into `value == condition` | reference comparison, **never matches** |\n\nBoth are `typeof x === 'object'` guards written without `Date` in mind, in the two matcher/lowering layers that face each other across the wire. Worth fixing as a pair, or at least reading together — a repair here that leaves the other in place moves the failure rather than removing it.\n\n## Direction — not ruled\n\nBoth `refuse` and `lower` are defensible and the file has precedent for each:\n\n- **Refuse**, in the `FilterOperatorError` idiom PR #8551 just extended to array comparands (the third member of the `$regex` / `$not` family). Safe, and consistent with the file's answer to every other shape it cannot read.\n- **Lower it as an equality comparand** — a `Date` is a perfectly ordinary scalar to compare against, and refusing it would break authors who reasonably expect `{ created: someDate }` to work.\n\n⚠️ The second reading is probably right and that makes this **not** a mechanical repeat of PR #8551: the question is what wire form a `Date` takes (ISO string? epoch?) and whether the spec fixes it. **Read `@objectstack/spec/data` before choosing** — and note that objectui#8514 was resolved as a refusal precisely because the spec *declines* to rule on that shape; if it *does* rule on dates, the answer here is the opposite one.\n\n## Evidence bar\n\nThe caricature is a repair that handles `Date` while breaking the plain operator-object path that `Object.entries` was there for. The non-regression axis is that `{ age: { $gt: 26 } }` and every other operator object still lower unchanged, and that a `Date` **alone** (no siblings) behaves the same as a `Date` with siblings — the asymmetry is part of the bug and a fix that leaves it is not a fix.\n\n## Related\n\nobjectui#8530 / PR #8551 (where it was measured; the sibling array-comparand refusal) · objectstack#16810 (the same root cause, other side of the wire) · objectui#8514 / PR #8529 (the spec-declines-to-rule precedent)\n\n## Dedup\n\n⚠️ **Declared, NOT claimed.** The reporting seat's dedup channel was gone (rate limit + REST 403). This seat has not run a search either: this repo's issue search returns **false zeros** — measured today returning `total_count: 0` for `ValueDataSource` while objectui#8447's own title contains that word — so a zero would prove nothing. **No dedup claim is made.** Suggested manual check: read objectui#8530's thread and objectui#7349."
+}

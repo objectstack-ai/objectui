@@ -1,0 +1,30 @@
+{
+  "number": 8096,
+  "kind": "issue",
+  "title": "`pnpm --filter @object-ui/console test` collects ZERO test files and exits 1 — the console's own test script is inoperative",
+  "state": "closed",
+  "state_reason": "duplicate",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T15:21:25Z",
+  "updated_at": "2026-09-07T08:42:11Z",
+  "closed_at": "2026-09-07T08:42:11Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8096",
+  "body": "在 objectui#8068 的验证过程中实测到（`origin/main` @ `3686a44`，未改任何配置文件的树上）。\n\n## 实测\n\n```\n$ pnpm --filter @object-ui/console test\n> @object-ui/console@17.6.0 test\n> vitest run --root ../.. apps/console/\n\nNo test files found, exiting with code 1\nfilter: apps/console/\n...\n|@object-ui/console|\n  include: **/*.{test,spec}.?(c|m)[jt]s?(x)\n  exclude: **/node_modules/**, ..., apps/**\n\nERR_PNPM_RECURSIVE_RUN_FIRST_FAIL @object-ui/console@17.6.0 test: `vitest run --root ../.. apps/console/`\nExit status 1\n```\n\n同一棵树上，规范写法照常绿：\n\n```\n$ pnpm exec vitest run apps/console/ --maxWorkers=2     # 仓根\nTest Files  89 passed (89)\nTests       1018 passed (1018)\n```\n\n⇒ 89 个文件 / 1018 个测试 vs **0**。差别只在调用形式。\n\n## 成因（读自它自己打印的 project 清单）\n\n`apps/console/package.json` 的脚本是 `vitest run --root ../.. apps/console/`，形状与\nobjectui#3240 定的约定一致。但 `--root` 指回仓根之后：\n\n- 三个仓根 project（`unit` / `dom` / `dom-heavy`）的 `exclude` 都含 `apps/**`（`vitest.config.mts` 的 `sharedExclude`，注释写明 apps 由 `projects` 数组按绝对路径带回）；\n- `|@object-ui/console|` 这个 project 的 `include` 是 `**/*.{test,spec}...`，**相对它自己的 root（`apps/console`）**，而它继承来的 `exclude` 里同样有 `apps/**`。\n\n于是位置过滤 `apps/console/` 与该 project 的文件路径对不上，四个 project 一个都没收到文件 ⇒ 0 收集、退出 1。\n\n## 为什么值得一张卡\n\n失败是**响的**（exit 1），所以它不是假绿 —— 危害在别处：**它长得像「你把测试弄坏了」**。\n本席就是这样撞上的：改动只有一个测试文件，`pnpm --filter @object-ui/console test`\n回 exit 1，第一读是回归。真相是这个脚本在任何树上都这样。\n\n而且它意味着 `apps/console` 的包级 `test` 脚本是**死的**：CI 绿是因为仓根 `pnpm test`\n按绝对路径把 console 作为 project 带了回来，没有任何东西跑那条脚本。\n\n## 与既有卡的关系（⛔ 不是重复）\n\n同一族的三张已开卡讲的都是**别的**读数，本卡是第四种 —— 「跑出不同结论」之外的\n「**根本跑不了**」：\n\n- objectui#7800（`pm:awaiting-maintainer`）—— AGENTS.md 声称包级形式与 CI 同结论；反例是 cwd 依赖导致**结论不同**。本卡的 console 不是结论不同，是零收集。\n- objectui#7814 —— 给包级 `test` 追加路径**放宽**而不是收窄（filter 取并集）。本卡不追加任何路径。\n- objectui#7799 —— 16 个测试按 `process.cwd()` 拼路径。与本卡无关：console 一个文件都没跑到。\n\n⚠️ ⛔ 不要把本卡折进 #7800 —— 那张卡在等维护者裁决它的**文档句子**，本卡是一条可独立修的具体缺陷。⚠️ 但两者的修法可能同源：#7800 的选项 B（给包级脚本一个仓根 cwd / 去掉写死的过滤）落地后，本卡大概率一并消失，先读它再动手。\n\n## 附带记一条(同轮实测，写下以免重推)\n\n`apps/console/tsconfig.json` 的 `types` 是 `[\"vitest/globals\", \"@testing-library/jest-dom\"]`，\n没有 `node` ⇒ console 的测试里 `import ... from 'node:fs'` **在 Vitest 下跑得过、在\n`pnpm --filter @object-ui/console type-check` 下 TS2591 红**。仓内既有写法是走 Vite 的\n`?raw` / `import.meta.glob`（见 `apps/console/src/__tests__/insecure-origin-crypto.placement.test.ts`\n与 `src/__tests__/helpers/preview-page-sources.ts` 的注释）。这一条**不是缺陷**，是已被\n记录的约定；列在这里只是因为它与上面那条同属「console 的包级命令与仓根命令不等价」。\n\nRefs: objectui#7800 · objectui#7814 · objectui#7799 · objectui#3240（被引用的那次修复）· objectui#8068（撞见它的那轮）"
+}

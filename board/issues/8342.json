@@ -1,0 +1,38 @@
+{
+  "number": 8342,
+  "kind": "issue",
+  "title": "useObjectChat's returned setMessages is typed (messages: unknown[]) to void — contravariantly incompatible with the SDK's, and only the `chatResult as any` at :683 hides it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "plugin",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T13:38:46Z",
+  "updated_at": "2026-09-07T15:56:24Z",
+  "closed_at": "2026-09-07T15:56:24Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8342",
+  "body": "Found while widening `AnyPart.state` for objectui#8214. Filed unassigned and NOT fixed there — that card's ruling is a local widening in `mapMessages.ts` and explicitly says not to widen the PR to chase whatever the second cast is hiding.\n\nFiled by the objectui#8214 dev, Claude Code session `session_01YBWFb5YgMU5dw8p2VKj16S`. (Attribution is stated here in prose: the trailing rule-line footer block was stripped from this body by the platform on creation, so it is not a durable place to put it.)\n\nSpelling note: generic type arguments are written as WORDS below, because GitHub's body sanitizer eats tag-shaped fragments, backticks and fences included.\n\n## What\n\n`packages/plugin-chatbot/src/useObjectChat.ts:683` destructures the `useChat()` result through `chatResult as any`. objectui#8214 named that cast load-bearing and asked what it is actually holding up. Measured: with objectui#8214's widen applied, removing the cast leaves **exactly one** diagnostic, and it is not about the mapper at all.\n\n```\nsrc/useObjectChat.ts(803,7): error TS2322: Type '(messages: UIMessage of unknown, UIDataTypes, UITools array\n | ((messages: UIMessage array) to UIMessage array)) to void' is not assignable to type\n '(messages: unknown[]) to void'.\n  Types of parameters 'messages' and 'messages' are incompatible.\n    Type 'unknown[]' is not assignable to type 'UIMessage array | ((messages: UIMessage array) to UIMessage array)'.\n      Type 'unknown' is not assignable to type 'UIMessage of unknown, UIDataTypes, UITools'.\n```\n\n(Arrow spelled as the word \"to\" above for the same sanitizer reason.)\n\nThe hook returns `setMessages` declared as taking `messages: unknown[]`. Parameters are contravariant, so a function that accepts only `UIMessage[]` is **not** assignable to one advertised as accepting any `unknown[]`. The declared type promises callers something the underlying function cannot do.\n\n## Reachability\n\nNo runtime effect today: the value passed through is the SDK's own `setMessages` and every in-repo caller happens to hand it real messages. The cost is the same shape objectui#8214 was graded on — the published surface tells a consumer they may pass an arbitrary `unknown[]`, and the only reason nothing breaks is that nobody has taken the type at its word. A consumer who does gets a runtime failure the compiler said was fine.\n\n## Measured\n\n- Base commit: `dacb98f3b` plus objectui#8214's widen (PR #8341).\n- Instrument: `pnpm --filter @object-ui/plugin-chatbot type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`). Vitest cannot see this — it transpiles types away.\n- With the cast in place: exit 0. With `} = chatResult as any;` changed to `} = chatResult;`: exit 2, one diagnostic, the TS2322 above. The mutation was proved on disk and restored by state (`git diff HEAD` empty, `git hash-object` equal to `git rev-parse HEAD:PATH` again).\n\n## Options, not a ruling\n\n- **A.** Type the hook's returned `setMessages` against what it actually is (the SDK's signature, or a narrowed alias the package owns), and drop the cast. Strictest; ties one more return member to the pinned `@ai-sdk/react` version, which is the same decision objectui#8214 deliberately declined to make on its parameter type. Probably wants the same eye.\n- **B.** Keep the returned member deliberately loose but make it honest — accept `unknown[]` and validate/narrow inside the hook before handing it to the SDK, so the promise on the surface is one the implementation actually keeps.\n- **C.** Leave the cast and document it. Rejected by the same rule that rejected it on objectui#8214 (AGENTS.md #0.1): a documented cast fossilizes the wrong shape.\n\nWhoever takes this should re-measure before acting — the diagnostic count is measured on top of PR #8341 and may read differently once that lands or if the SDK moves.\n\nRelated: objectui#8214 (where the cast was named and this half was deliberately left alone), objectui#4424 (the previous cast removed from this same hook's return path), objectui#4399."
+}

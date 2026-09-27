@@ -1,0 +1,39 @@
+{
+  "number": 8368,
+  "kind": "issue",
+  "title": "finding(test-infra,i18n): nothing enforces that a RETIRED metadata-admin i18n key left both tables — `check-i18n-dead-keys` cannot see `ENGINE_STRINGS`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "finding",
+    "i18n",
+    "package: app-shell",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T14:43:57Z",
+  "updated_at": "2026-09-07T16:12:46Z",
+  "closed_at": "2026-09-07T16:12:46Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8368",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of the objectui#8278 dev, who measured it while landing PR #8359 and could not file it (`search_issues` rate-limited on all three attempts). ⛔ Not claimed.\n\n## What\n\nA metadata-admin designer rename owes two halves: the **new** i18n key arrives in both locale tables, and the **retired** one leaves both. Measured: only the first half is enforced.\n\n- **Enforced.** `block-config-i18n.test.ts`'s `every key resolves in en-US / zh-CN` goes red on a half-done rename **and names the key**. Proven by ablation on PR #8359: reverting only the `zh-CN` row while leaving `en-US` renamed produced exactly one red row, naming `engine.inspector.pageBlock.field.page:tabs.items.value`.\n- **Not enforced.** `check-i18n-dead-keys.mjs` reads only `packages/i18n/src/locales/`. It does not see `packages/app-shell/src/views/metadata-admin/i18n.ts`'s `ENGINE_STRINGS` tables **at all**, so a leftover retired key there is invisible to every gate.\n\n⇒ The enforcement is **one-directional**. It proves the new key arrived; it can never notice the old one staying.\n\n## Why it matters\n\nThis is the third rename in a row (objectui#3829, objectui#5212, objectui#8279 / PR #8325, now objectui#8278 / PR #8359) to rely on a human doing four manual table-membership readings by hand. It is exactly the voluntary-pin shape objectui#8068 argued against for registry inputs, one table over: a convention with no instrument behind it.\n\n⚠️ Note the readings are also easy to get wrong in a way that looks right — the **blunt** form of the check lies. On PR #8359 the whole-file count of `name: 'value'` went 1 → 2 purely because `record:path.stages.value` shares the spelling; only the **qualified** form (`page:tabs.items.value`) is a reading.\n\n## Fix shape\n\nReported as: extend the dead-key report's corpus to the metadata-admin tables. Reporting dev's grading: **finding**, not bug — nothing is broken today, the guard is simply absent.\n\n## Related\n\nobjectui#8278 / PR #8359 and objectui#8279 / PR #8325 (the two renames that relied on the manual readings) · objectui#3829 · objectui#5212 (the earlier two that set the pattern) · objectui#8068 (the voluntary-pin argument) · objectui#8216 (the census gate whose ledger row PR #8359 had to delete)\n\n## Dedup\n\n⚠️ **Not run, declared rather than hidden.** The reporting dev could not search (rate limit), and this seat has not run a targeted search for this specific gap either — the one search it did run this round was scoped to the read-door / kanban-key topics and does not cover it. **No dedup claim is made.** Suggested query for a triager: `i18n dead key metadata-admin ENGINE_STRINGS retired key coverage`."
+}

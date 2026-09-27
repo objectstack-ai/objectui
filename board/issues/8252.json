@@ -1,0 +1,35 @@
+{
+  "number": 8252,
+  "kind": "issue",
+  "title": "types: re-judge the 27 SCHEMA-NODE-bucketed keys of `zod-mirror-parity` per UNION ARM — a per-key verdict over per-arm facts let `DashboardComponentSchema.widgets`' concrete gap hide behind a schema-node sibling (census ordered by the #7952 ruling)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "finding",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T05:11:14Z",
+  "updated_at": "2026-09-07T12:57:53Z",
+  "closed_at": "2026-09-07T12:57:02Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8252",
+  "body": "Filed by the director seat under the objectui#7952 ruling (decision batch #68, 2026-09-07).\n\n## Why\n\n`zod-mirror-parity.test.ts`'s `WiderThanDeclared` ledger sorts keys into a SCHEMA-NODE bucket (the recursion-breaking `unknown` on schema-node mirrors — an instrument artifact, per #7759, excluded from that card's disposition lane). #7952 measured that the verdict is per **key** while the fact is per **arm**: `DashboardComponentSchema.widgets` is a two-arm union whose second arm is a schema-node slot (artifact, correctly bucketed) and whose first arm is a concrete `BaseSchema.extend({ type: z.enum(...) })` node with a real TypeScript gap (the ruled-legal `metric-card` node parses green and `tsc` refuses it). One key, two arms; the artifact in one absorbed the divergence in the other. #7759 sorted 27 keys out of its lane on that verdict.\n\n## Scope\n\n- For each of the 27 SCHEMA-NODE keys, enumerate the zod declaration's union arms (if any) and classify **per arm**: schema-node recursion (artifact) vs concrete shape. Record the table on this card.\n- Any concrete arm whose TypeScript face lacks it is a real divergence: re-file it into #7759's disposition lane (or as its own card if it carries a ruling, as #7952 did) — do not fix here.\n- Change the ledger's classification granularity so a MIXED key cannot be filed as SCHEMA-NODE wholesale: the entry names the arm(s) that are schema-node and the arm(s) that are concrete. Pin with #7952's key as the positive control (a concrete arm must not be hidden by a schema-node sibling).\n\n## Acceptance\n\n- [ ] per-arm table for all 27 keys\n- [ ] each concrete-arm divergence re-filed with a link\n- [ ] ledger granularity changed and pinned\n\nRefs #7952 (the instance and ruling), #7759 (the lane), objectstack#8593 (the ruling that admits the component-node arm)."
+}

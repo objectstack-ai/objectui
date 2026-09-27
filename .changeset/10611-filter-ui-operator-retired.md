@@ -11,12 +11,15 @@ validate, and a TypeScript literal typed as `FilterUISchema` that sets it no
 longer compiles.
 
 `filter-ui` never read a per-filter operator. Its renderer picks each control
-from `type` and emits `{ values }` only (to a host `onChange` function and to
-the authored window event), a field → value record with no operator in it, and
-it does no matching of its own. Yet both published faces declared the key (the
-mirror as a seven-member enum) and the docs page taught it, so
-`operator: 'gt'`, or a nonsense id, type-checked, parsed green through
-`objectui validate`, and changed nothing the component rendered or emitted.
+from `type` and reports a change as a field → value record with no operator in
+it: a host `onChange` function receives that bare record, and only the authored
+window event wraps it, as `detail: { values }`. It does no matching of its own.
+Yet both published faces declared the key (the mirror as a seven-member enum,
+the TypeScript face as the same union) and the docs page taught it. So
+`operator: 'gt'`, a member of that enum, type-checked and parsed green through
+`objectui validate`; a nonsense id was refused by the enum and did not
+type-check; and both rendered and emitted exactly what a filter without it
+does.
 
 The member is now a `?: never` tombstone on the TypeScript face and a
 `retirementTombstone()` on the zod mirror (ADR-0049). The `filters[]` entry is

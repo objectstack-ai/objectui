@@ -13,11 +13,15 @@
  * ## The failure this pin exists to prevent
  *
  * Both published faces declared a per-filter `operator` (a seven-member enum on
- * the mirror) and the docs page taught it, but `filter-ui`'s renderer never
- * read it: it picks each control from `type` and emits `{ values }` only, a
- * field → value record with no operator, and does no matching of its own. So
- * `operator: 'gt'` — or a nonsense id — type-checked, parsed green through
- * `objectui validate`, and changed nothing the component rendered or emitted.
+ * the mirror, the same union on the TS face) and the docs page taught it, but
+ * `filter-ui`'s renderer never read it: it picks each control from `type` and
+ * reports a change as a field → value record with no operator in it (a host
+ * `onChange` function receives that bare record; only the authored window
+ * event's `detail` is `{ values }`), and it does no matching of its own. So
+ * `operator: 'gt'`, a member of that enum, type-checked and parsed green
+ * through `objectui validate`; a nonsense id was refused by the enum and did
+ * not type-check; and both rendered and emitted exactly what a filter without
+ * it does.
  * The render reading and the producer census are recorded on the card's pull
  * request as a one-time measurement; this file is the instrument that keeps the
  * contract.
@@ -57,8 +61,9 @@ const node = (filters: Array<Record<string, unknown>>) => ({ type: 'filter-ui', 
 
 /**
  * Every member of the retired enum (so a partial re-widening shows up), plus a
- * spelling the enum never admitted and a nonsense id — the render reading gave
- * all of them the same output as no operator at all.
+ * spelling the enum never admitted and a nonsense id. The one-time render
+ * reading on the pull request sampled a subset of these (it lists which) and
+ * gave each sampled one the same output as no operator at all.
  */
 const AUTHORED = ['equals', 'contains', 'startsWith', 'gt', 'lt', 'between', 'in', 'greater_than', 'zz_nonsense_op'];
 

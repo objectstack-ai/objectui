@@ -299,12 +299,18 @@ describe('the retired population is measured off the shipped tree (objectui#7340
     // mover; what objectui#9342 supplied is the missing precondition, moving
     // `KanbanRenderer`'s read onto an explicit React prop so that
     // `check:handler-key-reads` would accept the tombstone at all.
+    //
+    // ⭐ 27 → 26, and `app.ts` leaves this census: objectui#7469 (maintainer
+    // ruling C) retired `AppAction` WHOLE, taking its `onClick?: never` out of
+    // the shipped tree — the #8802 kind of shrink, not a key dropped from a live
+    // interface. The array that held the type, the app node's `actions`, is
+    // itself a named refusal (`./app-actions-retired-7469.test.ts`), so an
+    // authored action with an `onClick` is refused before any member is read.
     const split: Record<string, number> = {};
     for (const m of RETIRED) split[m.file] = (split[m.file] ?? 0) + 1;
     expect({ total: RETIRED.length, split }).toEqual({
-      total: 27,
+      total: 26,
       split: {
-        'app.ts': 1,
         'complex.ts': 2,
         'crud.ts': 3,
         'data-display.ts': 4,

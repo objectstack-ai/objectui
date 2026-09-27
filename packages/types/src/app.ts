@@ -567,9 +567,30 @@ export interface AppComponentSchema extends BaseSchema, Omit<SpecApp, (typeof AP
   contextSelectors?: Array<z.input<typeof AppContextSelectorSchema>>;
 
   /**
-   * Global Actions (User Profile, Settings, etc)
+   * ⛔ RETIRED — REFUSED BY NAME (objectui#7469, maintainer ruling C, ADR-0049
+   * enforce-or-remove).
+   *
+   * `actions` was an objectui-only array of free-form header buttons and a user
+   * menu (`AppAction`, retired with it). The platform's `@objectstack/spec`
+   * `AppSchema` is strict and has no `actions` member, so a server-served app —
+   * the console's only source — could never carry one; only the standalone
+   * runner drew it, and its buttons declared no behaviour to run. The ruling
+   * keeps ONE channel for app-level actions: a {@link NavigationItem} of
+   * `type: 'action'` whose `actionDef.actionName` names a declared `action`
+   * (the console sidebar dispatches it), e.g.
+   * `navigation: [{ id: 'quick_create', type: 'action', label: 'Quick Create',
+   * actionDef: { actionName: 'quick_create' } }]`. The signed-in user's menu is
+   * the host's, not app metadata.
+   *
+   * A tombstone rather than a deletion: `BaseSchema`'s index signature and the
+   * mirror's `.passthrough()` would otherwise KEEP an authored array in silence.
+   * `?: never` is the twin of `zod/app.zod.ts`'s `retirementTombstone` arm; the
+   * pin is `__tests__/app-actions-retired-7469.test.ts`.
+   *
+   * @deprecated Not a key of this contract. Author `navigation` items of
+   * `type: 'action'`.
    */
-  actions?: AppAction[];
+  actions?: never;
 
   /**
    * Required permissions (ObjectStack Spec v2.0.1)
@@ -631,29 +652,19 @@ export interface AppMenuItem {
    * REFUSED (objectui#7719, director seat decision batch #70 of 2026-09-07,
    * maintainer verbatim 「同意」, in the objectui#6124 / ADR-0049 shape).
    *
-   * `shortcut` is not authorable on an app action ITEM. The ruling refused BOTH
-   * widening alternatives — growing this deprecated type a `shortcut` member
-   * (zero measured pull, and the type is being retired in favour of
-   * {@link NavigationItem}), and re-typing {@link AppAction.items} to the
-   * overlay `MenuItem`. What it changed is the DIAGNOSTIC: an authored value
-   * used to be stripped in silence by the zod mirror, and is now refused by
-   * name there, with this face's `never` refusing it at the authoring site
-   * before anything runs.
+   * `shortcut` is not authorable on this legacy menu item. The ruling refused
+   * growing this deprecated type a `shortcut` member (zero measured pull, and
+   * the type is being retired in favour of {@link NavigationItem}), and no
+   * renderer reads a shortcut here. What it changed is the DIAGNOSTIC: an
+   * authored value used to be stripped in silence by the zod mirror, and is now
+   * refused by name there, with this face's `never` refusing it at the
+   * authoring site before anything runs.
    *
-   * ⚠️ NOT the same key as {@link AppAction.shortcut}, which is declared,
-   * authorable and deliberately untouched — that one is the header BUTTON's own
-   * shortcut, one level up from these items. This file declares `shortcut` TWICE,
-   * on two different interfaces, and reading one as the other is how the widening
-   * the ruling refused looks like work already done. ⛔ Resolve which declaration
-   * OWNS a hit before acting on it; a `grep` reports positions, and a position is
-   * not an owner. (⚠️ This paragraph deliberately states no ORDER between the two:
-   * an ordering claim is falsified by the next insertion into this file — including
-   * the one that introduced this very docblock, which reversed the order a previous
-   * draft of this sentence asserted.)
-   *
-   * ⛔ No read was re-added in the standalone runner's `LayoutRenderer`; the
-   * objectui#6854 pin stands. Both halves of this refusal are pinned in
-   * `__tests__/app-menu-item-shortcut-refusal-7719.test.ts`.
+   * The ruling was taken on the app action ITEMS (`AppAction.items`), the other
+   * place this type was authored; objectui#7469 retired `AppAction` and its
+   * `actions` array, so {@link AppComponentSchema.menu} is where an author meets
+   * this refusal now. ⛔ The refusal itself is unchanged by that retirement.
+   * Pinned in `__tests__/app-menu-item-shortcut-refusal-7719.test.ts`.
    *
    * @deprecated Not part of this contract — author the menu as a
    * {@link NavigationItem} and put the shortcut capability there.
@@ -861,60 +872,4 @@ export function wizardDraftToAppSchema(draft: AppWizardDraft): AppComponentSchem
     layout: draft.layout,
     navigation: draft.navigation,
   };
-}
-
-// ============================================================================
-// Application Actions
-// ============================================================================
-
-/**
- * Application Header/Toolbar Action
- */
-export interface AppAction {
-  type: 'button' | 'dropdown' | 'user';
-  label?: string;
-  icon?: string;
-  /**
-   * RETIRED (objectui#7344; the objectui#6182 ruling of 2026-08-25 — the
-   * handler-expression string dialect is not a supported authoring form — in
-   * the objectui#6124 shape). No renderer reads THIS KEY, so no value here
-   * could ever run. The zod twin refuses the key by name; author behaviour as a
-   * node type (an `action:button` node with a declared action) instead.
-   *
-   * Re-measured at objectui#6854, which corrects the narrower claim this
-   * comment used to make. `AppComponentSchema.actions[]` IS read — the standalone
-   * runner's `LayoutRenderer` (`@object-ui/runner`) renders both the `'button'`
-   * and the `'user'` arm — so "nothing reads `actions[]`" was never the reason
-   * this key is inert. The reason is that no reader touches `onClick`: not on
-   * the action, and no longer on {@link AppAction.items}, where that renderer
-   * reached one through an `as any` cast until the maintainer ruling of
-   * 2026-09-05 (option B2) deleted it. Guarded from the renderer side by
-   * `packages/runner/src/__tests__/LayoutRenderer.appActionItems-6854.test.tsx`.
-   * @deprecated Not part of this contract — the value was inert.
-   */
-  onClick?: never;
-  /**
-   * User Avatar URL (for type='user')
-   */
-  avatar?: string;
-  /**
-   * Additional description (e.g. email for user)
-   */
-  description?: string;
-  /**
-   * Dropdown Menu Items (for type='dropdown' or 'user')
-   */
-  items?: AppMenuItem[];
-  /**
-   * Keyboard shortcut
-   */
-  shortcut?: string;
-  /**
-   * Button variant
-   */
-  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
-  /**
-   * Button size
-   */
-  size?: 'default' | 'sm' | 'lg' | 'icon';
 }

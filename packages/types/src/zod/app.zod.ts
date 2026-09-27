@@ -30,7 +30,7 @@ import {
   objectNavTargetExclusivity,
 } from '@objectstack/spec/ui';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
-import { handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { retirementTombstone } from './tombstone.zod.js';
 import type { AppMenuItem } from '../app.js';
 import { stripImportedDefaults } from './imported-defaults.js';
 
@@ -275,66 +275,28 @@ export const MenuItemSchema: z.ZodType<AppMenuItem, AppMenuItem> = z.lazy(() => 
   badge: z.union([z.string(), z.number()]).optional().describe('Badge or count'),
   hidden: z.union([z.boolean(), z.string()]).optional().describe('Visibility condition'),
   // REFUSED (objectui#7719, director seat decision batch #70 of 2026-09-07,
-  // maintainer verbatim 「同意」). The ruling refused both widening options — a
-  // `shortcut` member on this deprecated type, and re-typing `AppAction.items`
-  // to the overlay `MenuItem` — and changed the DIAGNOSTIC instead: an authored
-  // value used to be stripped here in silence, and is refused by name now.
+  // maintainer verbatim 「同意」). The ruling refused a `shortcut` member on this
+  // deprecated type and changed the DIAGNOSTIC instead: an authored value used
+  // to be stripped here in silence, and is refused by name now. It was taken on
+  // the app action items (`AppAction.items`); objectui#7469 retired that array,
+  // so `AppComponentSchema.menu` is where an author meets it now.
   //
-  // WHY `retirementTombstone` and not `handlerKeyRefusal`, which the sibling
-  // `AppActionSchema.onClick` uses in this same file: that helper's message
-  // says JSON has no function value, which is false of a string-valued key, and
-  // its `z.custom` primitive makes `z.toJSONSchema` THROW. Measured: this const
-  // is representable today and `AppActionSchema` is NOT, precisely because of
-  // that `onClick` arm. Nor `aliasKeyRefusal`, which would have to name a
-  // canonical sibling key; the remedy here is a different TYPE.
-  //
-  // ⛔ No read was re-added in the standalone runner's `LayoutRenderer`; the
-  // objectui#6854 pin stands. Pinned in
+  // WHY `retirementTombstone` and not `handlerKeyRefusal`: that helper's
+  // message says JSON has no function value, which is false of a string-valued
+  // key, and its `z.custom` primitive makes `z.toJSONSchema` THROW. Nor
+  // `aliasKeyRefusal`, which would have to name a canonical sibling key; the
+  // remedy here is a different TYPE. Pinned in
   // `../__tests__/app-menu-item-shortcut-refusal-7719.test.ts`.
   shortcut: retirementTombstone(
     'REFUSED (objectui#7719, director seat decision batch #70, 2026-09-07; ADR-0049) — `shortcut` '
-    + 'is not authorable on an app action ITEM. `AppAction.items` is this legacy `AppMenuItem` '
-    + 'face, deprecated in favour of `NavigationItem`, and no renderer reads a shortcut here: the '
-    + 'standalone runner renders an item\'s `label` and its `type: "separator"` and nothing else '
-    + '(objectui#6854). Until this refusal an authored value was STRIPPED in silence by this '
-    + 'mirror, which is the outcome the ruling closed; growing the deprecated type instead was '
-    + 'refused. NOT to be confused with `AppAction.shortcut`, which is declared, authorable and '
-    + 'unchanged — that is the header BUTTON\'s own shortcut, one level up from these items. '
-    + 'A keyboard shortcut on a navigation entry is a capability of the `NavigationItem` line: '
-    + 'author the menu as `NavigationItem`, and file the capability there if it is wanted.',
+    + 'is not authorable on a legacy `AppMenuItem` (an app\'s `menu` item), which is deprecated in '
+    + 'favour of `NavigationItem`, and no renderer reads a shortcut here. Until this refusal an '
+    + 'authored value was STRIPPED in silence by this mirror, which is the outcome the ruling '
+    + 'closed; growing the deprecated type instead was refused. A keyboard shortcut on a '
+    + 'navigation entry is a capability of the `NavigationItem` line: author the menu as '
+    + '`NavigationItem`, and file the capability there if it is wanted.',
   ),
 }));
-
-// ============================================================================
-// App Action Schema
-// ============================================================================
-
-/**
- * App Action Schema - Application header/toolbar action
- */
-export const AppActionSchema = z.object({
-  type: z.enum(['button', 'dropdown', 'user']).describe('Action type'),
-  label: z.string().optional().describe('Action label'),
-  icon: z.string().optional().describe('Icon name'),
-  // RETIRED (objectui#7344 — the objectui#6182 ruling: the handler-expression
-  // string dialect is not an authoring form; the objectui#6124 shape). The
-  // `'retired'` arm's message tells an author "no renderer reads this key, so
-  // nothing could ever run it"; objectui#6854 re-measured that sentence rather
-  // than restating it. `actions[]` itself IS read (`@object-ui/runner`'s
-  // `LayoutRenderer` renders the `'button'` and `'user'` arms) — the earlier
-  // "nothing reads `actions[]`" here was wrong — but no reader touches
-  // `onClick`, on the action or on `items[]`, since the maintainer ruling of
-  // 2026-09-05 (option B2) deleted the two `as any` reads that did. Text pinned
-  // in `__tests__/app-action-onclick-refusal-6854.test.ts`; the renderer side in
-  // `packages/runner/src/__tests__/LayoutRenderer.appActionItems-6854.test.tsx`.
-  onClick: handlerKeyRefusal('onClick', 'retired', 'Click handler'),
-  avatar: z.string().optional().describe('User avatar URL (for type="user")'),
-  description: z.string().optional().describe('Additional description (e.g., email for user)'),
-  items: z.array(MenuItemSchema).optional().describe('Dropdown menu items (for type="dropdown" or "user")'),
-  shortcut: z.string().optional().describe('Keyboard shortcut'),
-  variant: z.enum(['default', 'destructive', 'outline', 'secondary', 'ghost', 'link']).optional().describe('Button variant'),
-  size: z.enum(['default', 'sm', 'lg', 'icon']).optional().describe('Button size'),
-});
 
 // ============================================================================
 // App Schema
@@ -405,6 +367,28 @@ export const APP_SPEC_EXCLUDED = [
 const SpecAppFields = specFieldsExcept(stripImportedDefaults(SpecAppSchema).shape, APP_SPEC_EXCLUDED);
 
 /**
+ * The `actions` REFUSAL on the `app` node (objectui#7469, maintainer ruling C,
+ * ADR-0049 enforce-or-remove) — the free-form header-button / user-menu array
+ * and its `AppActionSchema` element are retired on both faces.
+ *
+ * Kept DECLARED and unwritable rather than deleted: `BaseSchema` is
+ * `.passthrough()`, so a deleted arm would KEEP an authored array in silence
+ * instead of refusing it. The platform's strict `@objectstack/spec` `AppSchema`
+ * has never declared the key and refuses it too (`unrecognized_keys`), so the
+ * two doors now give one answer. The remedy names the ONE channel the ruling
+ * keeps for app-level actions — a `navigation` item of `type: 'action'` — with
+ * a spec-valid spelling. The TS twin is `actions?: never` in `../app.ts`; the
+ * pin is `../__tests__/app-actions-retired-7469.test.ts`.
+ */
+const APP_ACTIONS_REFUSAL =
+  'RETIRED (objectui#7469, ADR-0049) — `actions` is not a key of the `app` node: the free-form '
+  + 'header-button and user-menu array (`AppAction`) is retired, and the platform\'s `AppSchema` '
+  + 'never declared it. App-level actions are `navigation` items of `type: \'action\'` that name a '
+  + 'declared action — `navigation: [{ id: \'quick_create\', type: \'action\', label: \'Quick Create\', '
+  + 'actionDef: { actionName: \'quick_create\' } }]`. The signed-in user\'s menu belongs to the host, '
+  + 'not to app metadata.';
+
+/**
  * App Schema — the objectui app-shell renderer node, derived from
  * `@objectstack/spec/ui` `AppSchema` (see {@link SpecAppFields}). The drift
  * guard is `__tests__/page-app-dashboard-spec-parity.test.ts`.
@@ -421,7 +405,7 @@ export const AppComponentSchema = BaseSchema.extend(SpecAppFields.shape).extend(
   navigation: z.array(NavigationItemSchema).optional().describe('Unified navigation tree'),
   areas: z.array(NavigationAreaSchema).optional().describe('Navigation areas (business-domain partitions)'),
   contextSelectors: z.array(AppContextSelectorSchema).optional().describe('App-level scope dropdowns injected into nav items as {<id>} vars'),
-  actions: z.array(AppActionSchema).optional().describe('Global actions (user profile, settings, etc.)'),
+  actions: retirementTombstone(APP_ACTIONS_REFUSAL),
 });
 
 /**
@@ -430,5 +414,4 @@ export const AppComponentSchema = BaseSchema.extend(SpecAppFields.shape).extend(
 export type NavigationItemSchemaType = z.infer<typeof NavigationItemSchema>;
 export type NavigationAreaSchemaType = z.infer<typeof NavigationAreaSchema>;
 export type MenuItemSchemaType = z.infer<typeof MenuItemSchema>;
-export type AppActionSchemaType = z.infer<typeof AppActionSchema>;
 export type AppSchemaType = z.infer<typeof AppComponentSchema>;

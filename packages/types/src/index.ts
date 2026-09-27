@@ -52,7 +52,6 @@
 // ============================================================================
 export type {
   AppComponentSchema,
-  AppAction,
   NavigationItem,
   NavigationItemType,
   NavigationArea,

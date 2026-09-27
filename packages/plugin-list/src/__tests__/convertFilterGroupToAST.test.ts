@@ -34,7 +34,9 @@ describe('convertFilterGroupToAST', () => {
     const group: FilterGroup = {
       logic: 'and',
       conditions: [{ field: 'x', operator: 'isEmpty', value: '' }],
-    } as FilterGroup;
+      // `isEmpty` is a deprecated stored spelling, not a builder id: since
+      // objectui#9306 the row type says so, hence the `unknown` hop.
+    } as unknown as FilterGroup;
     expect(convertFilterGroupToAST(group)).toEqual(['x', '=', null]);
   });
 
@@ -48,7 +50,9 @@ describe('convertFilterGroupToAST', () => {
     const group: FilterGroup = {
       logic: 'and',
       conditions: [{ field: 'closed_at', operator: 'isNull', value: '' }],
-    } as FilterGroup;
+      // `isNull` is a deprecated stored spelling, not a builder id: since
+      // objectui#9306 the row type says so, hence the `unknown` hop.
+    } as unknown as FilterGroup;
     expect(convertFilterGroupToAST(group)).toEqual(['closed_at', 'isnull', null]);
   });
 

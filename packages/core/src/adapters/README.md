@@ -84,8 +84,9 @@ const { data, total } = await dataSource.find('people', {
 });
 ```
 
-It implements `$filter` (both MongoDB-style objects and FilterNode AST arrays),
-`$search`, `$orderby`, `$skip`, `$top` and `$select` locally, plus `bulk()`,
+It implements `$filter` (MongoDB-style objects, FilterNode AST arrays, and the spec's
+`ViewFilterRule[]` — see below), `$search`, `$orderby`, `$skip`, `$top` and `$select`
+locally, plus `bulk()`,
 `aggregate()` and `onMutation()`. `getAll()` returns a cloned snapshot — the
 same `structuredClone` rule as the constructor — and `count` the current
 length.
@@ -95,6 +96,22 @@ length.
 `find()` picks a matcher on the SHAPE of `$filter` — a FilterNode **array** goes
 to the AST matcher, an **object** to the `$`-dialect matcher — and since
 objectui#8447 the two answer the same question and refuse in the same way.
+
+The array arm **lowers before it matches** (objectui#10767). A spec
+`ViewFilterRule[]` — `[{ field: 'status', operator: 'equals', value: 'open' }]`, the
+ONLY form the spec's converged `filter` doors accept (objectui#6206 B) — goes through
+`toFilterNode` (`../utils/filter-converter.ts`), the same sink the grid, the list and
+every other lowering caller use before a wire query, and arrives at the AST matcher as
+the comparison tuple its operator spells. So the operator vocabulary is the spec's own
+`VIEW_FILTER_OPERATORS`, folded through the spec's `normalizeFilterOperator`; no second
+table lives here. An AST array passes through the sink untouched, an empty array is
+"no filter" (as it is on the wire), and an operator the spec does not know passes
+through VERBATIM so the refusal below still names it. A rule the lowering itself
+refuses — an ARRAY on a single-valued operator (objectui#8557), an empty or non-string
+`icontains` comparand (objectui#9048) — is excluded and logged once like every other
+refusal here, never thrown from `find()`: the producers that call `toFilterNode` before
+a wire query throw because they are deciding whether to send a query at all; this
+matcher is deciding about rows.
 
 The object dialect executes one arm per member of the spec's `FILTER_OPERATORS`:
 

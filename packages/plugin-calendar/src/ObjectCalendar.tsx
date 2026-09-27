@@ -26,6 +26,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type { ObjectCalendarSchema, DataSource, CalendarConfig } from '@object-ui/types';
 import { CalendarView, type CalendarViewEvent } from './CalendarView';
 import { usePullToRefresh } from '@object-ui/mobile';
+import { useDisplayLocale } from '@object-ui/i18n';
 import {
   useNavigationOverlay,
   useSafeTranslate,
@@ -36,6 +37,8 @@ import {
   useSettledSchema,
   NonGridRowCeilingNote,
   useDataInvalidation,
+  useFilterScope,
+  useResolvedFilter,
 } from '@object-ui/react';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -345,6 +348,13 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // the provider-less fallback the same way (objectui#6219), so the label is
   // correct whether or not an `I18nProvider` is mounted.
   const { t } = useObjectTranslation();
+  // The locale the quick-create dialog formats its date and time with: the
+  // month grid's own rule (`CalendarView`'s `effectiveLocale`), so the dialog
+  // never disagrees with the cell it opened from. A set `locale` prop is the
+  // host's choice and still wins; unset (or the grid's `"default"` spelling),
+  // it is the DISPLAY locale, never the machine's (objectui#10668).
+  const displayLocale = useDisplayLocale();
+  const dialogLocale = locale !== undefined && locale !== 'default' ? locale : displayLocale;
   // When the parent (e.g. ObjectView) pre-fetches data and passes it via the `data` prop,
   // we must not trigger a second fetch. Detect external data by checking for an array.
   const hasExternalData = Array.isArray(externalData);
@@ -592,6 +602,18 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     !hasExternalData && dataProvider === 'object' ? schemaObjectName || undefined : undefined,
   );
 
+  // objectui#10666 — the node's own `filter`, with every context token
+  // (`{current_user_id}`, `{current_org_id}`, the date macros) resolved ONCE
+  // through `@object-ui/core`'s shared `resolveFilterPlaceholders`, against the
+  // session scope the host provides, and HELD by structure (`useResolvedFilter`
+  // in `@object-ui/react`). A directly authored calendar sent the literal token
+  // on `$filter` before. Both query paths below (the `object` fetch and the
+  // inline `ValueDataSource`) and the effect's dependency list read THIS, never
+  // the raw `schema.filter`, so a re-render that rebuilds an equal filter does
+  // not re-query.
+  const filterScope = useFilterScope();
+  const queryFilter = useResolvedFilter(schema.filter, filterScope);
+
   // Fetch data based on provider
   useEffect(() => {
     // Skip internal fetch when data is managed by a parent component
@@ -658,7 +680,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
           // `object` arm below resolves.
           const inlineSource = new ValueDataSource<any>({ items: (dataItems as any[]) ?? [] });
           const result = await inlineSource.find('', {
-            $filter: schema.filter,
+            $filter: queryFilter,
             $orderby: convertSortToQueryParams(schema.sort),
             // The same platform ceiling the `object` arm sends, on the same
             // probe-row convention (objectui#7210, ruling a′). The ruling's
@@ -741,7 +763,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
             ? expandable
             : expandable.filter((f) => perms.checkField(objectName, f, 'read'));
           const result = await dataSource.find(objectName, {
-            $filter: schema.filter,
+            $filter: queryFilter,
             $orderby: convertSortToQueryParams(schema.sort),
             // The platform ceiling (objectui#7210, ruling a′). A calendar
             // still fetches the whole FILTERED set — it cannot lay out a month
@@ -791,7 +813,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     fetchData();
     return () => { isMounted = false; };
   }, [hasExternalData, dataProvider, schemaObjectName, dataItems, dataSource, hasInlineData,
-      schema.filter, schema.sort, refreshKey, objectSchemaReady, objectSchema, perms, invalidationNonce]);
+      queryFilter, schema.sort, refreshKey, objectSchemaReady, objectSchema, perms, invalidationNonce]);
 
   // Transform data to calendar events, and separate out the records that have
   // no date to be placed on at all (objectui#7071 — see the early return in the
@@ -1443,9 +1465,9 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
             <DialogDescription>
               {quickCreate && (() => {
                 const hasRange = quickCreate.end && quickCreate.end.getTime() !== quickCreate.start.getTime();
-                const datePart = quickCreate.start.toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' });
+                const datePart = quickCreate.start.toLocaleDateString(dialogLocale, { year: 'numeric', month: 'long', day: 'numeric' });
                 if (hasRange) {
-                  const fmt = (d: Date) => d.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
+                  const fmt = (d: Date) => d.toLocaleTimeString(dialogLocale, { hour: 'numeric', minute: '2-digit' });
                   return <>{datePart} · {fmt(quickCreate.start)} – {fmt(quickCreate.end!)}</>;
                 }
                 return <>{t('calendar.onDate', { date: datePart, defaultValue: 'On {{date}}' })}</>;

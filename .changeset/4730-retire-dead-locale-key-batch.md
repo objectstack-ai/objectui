@@ -4,7 +4,7 @@
 
 Retire 25 confirmed-dead locale keys from all ten packs — 250 translated strings
 with no reader anywhere in the repo (objectui#4730's key-level trim round;
-`calendar.agenda` closes objectui#5783).
+`calendar.agenda` included).
 
 Every key was confirmed individually, not swept from a tool's output. The
 inventory comes from `scripts/check-i18n-dead-keys.mjs`, which stays report-only
@@ -22,7 +22,7 @@ The retirements fall into three shapes:
   `grid.empty` / `grid.yes` / `grid.no` / `grid.systemFields`. The twins had no
   reader on either side.
 - **Labels that outlived their control.** `calendar.agenda` labelled a view mode
-  objectui#5740 retired from `CalendarViewMode` (now `'month' | 'week' | 'day'`).
+  `b55a34647` retired from `CalendarViewMode` (now `'month' | 'week' | 'day'`).
   `home.quickActions.createApp*`, `layout.systemNav.createApp`,
   `actionDialog.defaultActionTitle` / `.ok` and `grid.bulk.selectPlaceholder`
   sit in namespaces whose consumers are live and wired but demonstrably read

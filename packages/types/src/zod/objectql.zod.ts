@@ -1177,8 +1177,8 @@ function checkNamedViewCalendarAliases(ctx: { value: unknown; issues: unknown[] 
 const CalendarConfig = stripImportedDefaults(SpecCalendarConfigSchema).partial().extend({
   // objectui-only: the calendar renderer's initial view mode. No spec counterpart —
   // promote it rather than growing this extension. `'agenda'` was retired
-  // (objectui#5784, following #5740): `CalendarView` renders no agenda view.
-  defaultView: z.enum(['month', 'week', 'day']).optional().describe("Initial calendar view mode — 'month' | 'week' | 'day' ('agenda' was retired: objectui#5784)"),
+  // (`ed8df3e50`, following `b55a34647`): `CalendarView` renders no agenda view.
+  defaultView: z.enum(['month', 'week', 'day']).optional().describe("Initial calendar view mode — 'month' | 'week' | 'day' ('agenda' was retired)"),
   // ⭐ The two named alias-refusal arms — objectui#8355. Declared above with the
   // whole reading; ⛔ do not re-spell either message here, each has ONE source.
   dateField: CalendarBlockDateAliasRefusals.dateField,
@@ -1827,7 +1827,7 @@ export const ObjectTreeSchema = BaseSchema.extend({
   filter: z.union([
     z.array(z.any()),
     z.record(z.string(), z.any()),
-  ]).optional().describe('Query filter, forwarded verbatim as $filter. FilterArray (the spec array sugar) OR the ObjectQL $filter object — the two arms of QueryParams[$filter]'),
+  ]).optional().describe('Query filter, forwarded as $filter with its context tokens ({current_user_id}, {current_org_id}, date macros) resolved first. FilterArray (the spec array sugar) OR the ObjectQL $filter object — the two arms of QueryParams[$filter]'),
   parentField: z.string().optional().describe('Single-parent pointer field (auto-detected when omitted)'),
   labelField: z.string().optional().describe('Field rendered indented in the first column'),
   fields: z.array(z.string()).optional().describe('Additional flat columns'),
@@ -1972,7 +1972,7 @@ export const ObjectGanttSchema = BaseSchema.extend({
   // `ObjectGridSchema` — what `ObjectGanttProps.schema` used to be typed as before
   // objectui#5903 retyped it to `ObjectGanttSchema` — so they need declaring here.
   staticData: z.array(z.any()).optional().describe('Inline records, wrapped into a { provider: value } data config — read SECOND by resolveRecordSourceConfig'),
-  filter: z.array(z.any()).optional().describe('Query filter, forwarded verbatim as $filter'),
+  filter: z.array(z.any()).optional().describe('Query filter, forwarded as $filter with its context tokens ({current_user_id}, {current_org_id}, date macros) resolved first'),
   sort: z.array(SortConfigSchema).optional().describe('Sort configuration, forwarded as $orderby (array only; the legacy string clause is retired — objectui#8221)'),
   // objectui#10250 — the full-text pair the record query carries, declared in
   // step with the twin in `../objectql.ts`. ListView's toolbar Search writes
@@ -2070,7 +2070,7 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // have shipped declared here, and absent from `inputs`, for releases.
   colorField: z.string().optional().describe('Field carrying the per-record event colour — a CSS colour or a semantic palette name'),
   allDayField: z.string().optional().describe("Field carrying the all-day flag — objectui-local: the spec's CalendarConfigSchema is a strict object of startDateField, endDateField, titleField and colorField, so it refuses this key as undeclared, exactly as it refuses any other. LOAD-BEARING since objectui#8026"),
-  defaultView: z.enum(['month', 'week', 'day']).optional().describe("Default view — 'month' | 'week' | 'day', the renderer's rendered set ('agenda' was retired: objectui#5784)"),
+  defaultView: z.enum(['month', 'week', 'day']).optional().describe("Default view — 'month' | 'week' | 'day', the renderer's rendered set ('agenda' was retired)"),
   // objectui#8174 — the two query keys `ObjectCalendar.tsx` lowers onto its own
   // `dataSource.find` (`$filter: schema.filter`,
   // `$orderby: convertSortToQueryParams(schema.sort)`). The spec declares both
@@ -2090,7 +2090,7 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // clause objectui#8221 retired, moves from "parses green here, then silently
   // dropped by `convertSortToQueryParams` at runtime" to "refused at authoring
   // time".
-  filter: z.array(z.any()).optional().describe('Query filter, forwarded verbatim as $filter'),
+  filter: z.array(z.any()).optional().describe('Query filter, forwarded as $filter with its context tokens ({current_user_id}, {current_org_id}, date macros) resolved first'),
   sort: z.array(SortConfigSchema).optional().describe('Sort configuration, forwarded as $orderby (array only; the legacy string clause is retired — objectui#8221)'),
 }).superRefine(requireRecordSource('object-calendar'));
 
@@ -2298,7 +2298,7 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   // top-level `sort`. `ObjectKanban.tsx` reads `schema.sort` only as the
   // `ElementDataSourceGate` carrier for the binding's `dataSource.sort`
   // (objectui#10068). Only `ObjectCalendarSchema` above carries both.
-  filter: z.array(z.any()).optional().describe('Query filter, forwarded verbatim as $filter'),
+  filter: z.array(z.any()).optional().describe('Query filter, forwarded as $filter with its context tokens ({current_user_id}, {current_org_id}, date macros) resolved first'),
   // objectui#9606 — the CANONICAL card-title spelling, declared beside the
   // legacy alias below exactly as `@objectstack/spec` declares the pair on
   // `ObjectKanbanPropsSchema` (`cardTitle` first, `titleField` as its fallback).
@@ -2501,7 +2501,7 @@ export const ObjectChartSchema = BaseSchema.extend({
   filter: z.union([
     z.array(z.any()),
     z.record(z.string(), z.any()),
-  ]).optional().describe('AUTHORABLE — query filter, forwarded verbatim as $filter on both query legs, then spread into the drill-down filter. FilterArray (the spec/react-blocks and registry-inputs spelling) OR the ObjectQL $filter object'),
+  ]).optional().describe('AUTHORABLE — query filter, forwarded as $filter on both query legs with its context tokens ({current_user_id}, {current_org_id}, date macros) resolved first, then spread into the drill-down filter. FilterArray (the spec/react-blocks and registry-inputs spelling) OR the ObjectQL $filter object'),
   // ⛔ `aggregate` is the SPEC's own schema, never a local near-copy. The first
   // cut of objectui#7946 spelled it as a local `z.object` with all three members
   // optional; zod 4 objects are STRIP-postured, so
@@ -2638,7 +2638,7 @@ export const ObjectGallerySchema = BaseSchema.extend({
   filter: z.union([
     z.array(z.any()),
     z.record(z.string(), z.any()),
-  ]).optional().describe('Query filter, forwarded verbatim as $filter. FilterArray (the spec array sugar) OR the ObjectQL $filter object — the two arms of QueryParams[$filter]'),
+  ]).optional().describe('Query filter, forwarded as $filter with its context tokens ({current_user_id}, {current_org_id}, date macros) resolved first. FilterArray (the spec array sugar) OR the ObjectQL $filter object — the two arms of QueryParams[$filter]'),
   data: z.array(z.record(z.string(), z.unknown())).optional().describe('Inline records'),
   gallery: stripImportedDefaults(SpecGalleryConfigSchema).optional().describe('Gallery configuration (@objectstack/spec GalleryConfig)'),
   navigation: stripImportedDefaults(SpecNavigationConfigSchema).optional().describe('Record navigation behaviour (drawer/dialog/page)'),

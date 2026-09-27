@@ -2,6 +2,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { FlowEdgeSchema } from '@objectstack/spec/automation';
+import { EVALUATED_EXPRESSION_SOURCE_REQUIRED } from '@objectstack/spec/shared';
 import { FlowSimulator } from '../flow-simulator';
 import { validateFlowDraft, findCycle } from '../flow-sim-validate';
 import type { SimEdge, SimNode } from '../flow-sim-types';
@@ -554,16 +555,23 @@ describe('decision guards in the spec expression envelope (#3216)', () => {
     expect(hiEval.error).toBeUndefined();
   });
 
-  it('still says "no condition" for an envelope with nothing readable to evaluate', () => {
-    // Spec phase M9.2 will emit `ast`-only envelopes. There is no CEL source to
-    // run, and the simulator's rule is to say so rather than fake a result —
-    // the fix widened the reader, it did not make every object a condition.
+  it('refuses an envelope with nothing readable to evaluate', () => {
+    // There is no CEL source to run, and the simulator's rule is to say so
+    // rather than fake a result — the fix widened the reader, it did not make
+    // every object a condition. It used to say "Branch has no condition." and
+    // take the default. The evaluated-slot rule objectstack main's edge schema
+    // applies (the installed 17.4.0 `FlowEdgeSchema`, which `specEdge` above
+    // uses, still admits this shape) (`EvaluatedExpressionSchema`, a non-blank
+    // `source`) refuses an `ast`-only envelope, so the runtime never registers
+    // the flow, and since
+    // objectui#10615 the Debug run stops on it too.
     const astOnly: SimEdge = { id: 'e_hi', source: 'd', target: 'hi', condition: { dialect: 'cel', ast: { op: 'gt' } } };
     const sim = run(NODES, [START, astOnly, { id: 'e_lo', source: 'd', target: 'lo', isDefault: true }], { amount: 20 });
 
     const hiEval = edgeEval(sim, 'hi');
-    expect(hiEval.error).toBe('Branch has no condition.');
-    expect(sim.state.visitedNodeIds).toContain('lo');
+    expect(hiEval.error).toContain(EVALUATED_EXPRESSION_SOURCE_REQUIRED);
+    expect(sim.state.status).toBe('error');
+    expect(sim.state.visitedNodeIds).not.toContain('lo');
   });
 
   it('reports a dead-ending envelope guard as false, not as an absent condition', () => {

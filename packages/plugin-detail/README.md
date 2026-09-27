@@ -453,6 +453,18 @@ in the opt-in filter box temporarily falls back to the full-fetch client
 pipeline (the contains-filter sweeps every field, which no generic server
 filter can express).
 
+A `password` / `secret` column draws `••••••`, and the list flags it
+`masked` on the table it renders (objectui#10657), so the table never copies it
+on Ctrl+C / Cmd+C, shows it as a tooltip, sorts by it from its header, or sizes
+it by its value. The rule is `isMaskedFieldType()` from `@object-ui/fields`,
+read over the column's authored `type` and the object's field type, so an
+authored `type: 'text'` over a `secret` field keeps the flag. While the object
+definition is still loading, or after its read failed, the list cannot tell
+which columns are masked and flags every one; in that window a masked field is
+still drawn as text. Not covered: the opt-in filter box matches against every
+field of a row, and the `list` card's sort buttons sort by any column, masked
+ones included.
+
 A list that authors `columns` sends a **`$select` projection** on its
 auto-fetch (`objectui#10186`), the one `ListView` and `ObjectGrid` already send
 (`objectui#6898`). It asks for the authored columns that pass the same gates the

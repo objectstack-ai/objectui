@@ -34,7 +34,7 @@ interface CommandGroup {
 interface CommandSchema {
   type: 'command';
   placeholder?: string;           // Search placeholder
-  groups: CommandGroup[];         // Command groups
+  groups?: CommandGroup[];        // Command groups (absent: only the empty text)
   emptyText?: string;             // Text when no results
   
   // Styling

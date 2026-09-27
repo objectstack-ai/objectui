@@ -289,6 +289,8 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
   // Mounted latch: results are applied while mounted regardless of which
   // effect run dispatched them, so a fetch that outlives a re-render isn't
   // dropped (and then never retried because of the sig guard below).
+  // objectui#10684 — but only while their run's signature is still the one
+  // dispatched: see `isCurrent` in the fetch effect.
   const mountedRef = React.useRef(true);
   React.useEffect(() => {
     mountedRef.current = true;
@@ -373,6 +375,14 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
     const sig = `${parentId}::${entriesSig}`;
     if (fetchedSigRef.current === sig) return;
     fetchedSigRef.current = sig;
+    // objectui#10684 — only the run whose signature is still the dispatched
+    // one commits. Navigating to another record (or changing the entries)
+    // while this run's reads are in flight dispatches a new signature, and an
+    // answer for the old parent that lands late is dropped on arrival instead
+    // of replacing the current parent's rows or clearing its skeleton. A
+    // re-run with the SAME signature returns above without touching the ref,
+    // so the mounted-latch promise stands: that run's answers still land.
+    const isCurrent = () => mountedRef.current && fetchedSigRef.current === sig;
     // Mark every entry as loading up front so the skeletons render.
     setStates((prev) => {
       const next = { ...prev };
@@ -398,7 +408,7 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
           $top: resolveRowLimit(entry.limit, DEFAULT_REFERENCE_RAIL_LIMIT),
           $count: true,
         });
-        if (!mountedRef.current) return;
+        if (!isCurrent()) return;
         const items = Array.isArray(res) ? res : res?.data || [];
         // `total` is the ONE count member `QueryResult` (`@object-ui/types`)
         // declares — the reason `$count: true` is sent above. A `count` arm
@@ -409,7 +419,7 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
         const total = typeof res?.total === 'number' ? res.total : items.length;
         setStates((prev) => ({ ...prev, [key]: { loading: false, total, items } }));
       } catch (err: any) {
-        if (!mountedRef.current) return;
+        if (!isCurrent()) return;
         setStates((prev) => ({
           ...prev,
           [key]: { loading: false, total: 0, items: [], error: String(err?.message || err) },
@@ -447,7 +457,7 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
           }),
         );
       }
-      if (!mountedRef.current) return;
+      if (!isCurrent()) return;
       setEntryFields(Object.fromEntries(fieldsFor));
       for (const entry of entries) {
         if (!isMultiValueRelationship(fieldsFor.get(entry.objectName), entry.relationshipField)) {

@@ -1008,7 +1008,14 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
       expect(kanban).not.toContain("'kanban.columns':");
       expect(typeof at(builtInLocales.en, 'kanban.noCards')).toBe('string');
       // gantt's wrapper is per-key rather than probe-based (see its own header).
-      expect(sourceOf(GANTT_VIEW)).toContain('const { t, language } = useGanttTranslation();');
+      // The same pattern as above, and for the same reason: what this suite
+      // depends on is that `t` comes out of `useGanttTranslation()`, not which
+      // siblings ride along. GanttView stopped taking `language` when its dates
+      // moved onto `useDisplayLocale()` (objectui#10668).
+      expect(
+        /const \{[^}]*\bt\b[^}]*\} = useGanttTranslation\(/.test(sourceOf(GANTT_VIEW)),
+        `${GANTT_VIEW} stopped destructuring t from useGanttTranslation()`,
+      ).toBe(true);
     });
 
     it.each(['en', 'zh'] as const)('%s resolves every sampled key from the pack', (lang) => {

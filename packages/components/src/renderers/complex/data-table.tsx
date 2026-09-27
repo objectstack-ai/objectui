@@ -13,7 +13,7 @@ import { resolveIcon } from '../action/resolve-icon';
 import { useGridFieldAuthoring } from '../../context/gridFieldAuthoring';
 import { describeIgnoredBind, describeNonArrayData } from './dataTableBindDiagnostic';
 import { ComponentRegistry, compareSortValues, evalRowPredicate, formatDate, formatDateTime, fromDateTimeInputValue, getSortValue, isImpossibleStoredDay, toDateInputValue, toDateTimeInputValue } from '@object-ui/core';
-import type { DataTableSchema, TableSortItem, TableColumnType } from '@object-ui/types';
+import type { DataTableSchema, TableColumn, TableSortItem, TableColumnType } from '@object-ui/types';
 import type { SortDirection } from '@objectstack/spec/shared';
 import { SchemaRenderer, toRenderableSchema, useCapabilityGate, useRowPredicate, usePredicateScope } from '@object-ui/react';
 import { createSafeTranslation, useDisplayLocale } from '@object-ui/i18n';
@@ -661,6 +661,24 @@ function columnsAreEquivalent(a: readonly unknown[], b: readonly unknown[]): boo
 }
 
 /**
+ * Is the column under `accessorKey` MASKED (objectui#10657)? The one reading
+ * of `TableColumn.masked` for the table's client search, its client sort and
+ * its sort controls. The producer decides the flag; this only reads it.
+ *
+ * It reads the columns the producer handed the table on THIS render, not the
+ * `columns` state. That state is re-seeded from them one commit later, and it
+ * drops a column the reader hid. So a flag the producer has just stamped
+ * counts at once, and a hidden column keeps its answer.
+ *
+ * Fail closed: a key that names none of those columns cannot be told apart
+ * from a masked one, so it answers `true`.
+ */
+function isMaskedColumnKey(columns: readonly TableColumn[], accessorKey: string): boolean {
+  const column = columns.find((col) => col?.accessorKey === accessorKey);
+  return !column || column.masked === true;
+}
+
+/**
  * Enterprise-level data table component with Airtable-like features.
  *
  * Provides comprehensive table functionality including:
@@ -924,6 +942,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       accessorKey: col.accessorKey,
       width: col.width,
       fitContent: col.fitContent,
+      masked: col.masked === true,
     }));
     for (const col of cols) {
       if (col.width) continue; // Skip columns with explicit widths
@@ -934,8 +953,12 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       if (col.fitContent) continue;
       const headerLen = (col.header || '').length;
       let maxLen = headerLen;
+      // A MASKED column never reads its values here (objectui#10657). Sized
+      // from them, its width grew with the credential's length. Its cells draw
+      // the producer's mask, which does not depend on the value, so the header
+      // alone sizes it, with the same floor as every other column.
       // Sample up to 50 rows for content width estimation
-      const sampleRows = data.slice(0, 50);
+      const sampleRows = col.masked ? [] : data.slice(0, 50);
       for (const row of sampleRows) {
         const val = row[col.accessorKey];
         const len = val != null ? String(val).length : 0;
@@ -1165,13 +1188,17 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     if (manualSearch) return data;
     if (!searchQuery) return data;
 
+    // A MASKED column is left out of the predicate (objectui#10657). A
+    // substring match on it answers "does the credential contain this?", which
+    // recovers the value one character at a time while its cell draws a mask.
+    const searchedColumns = columns.filter((col) => !isMaskedColumnKey(rawColumns, col.accessorKey));
     return data.filter((row) =>
-      columns.some((col) => {
+      searchedColumns.some((col) => {
         const value = row[col.accessorKey];
         return value?.toString().toLowerCase().includes(searchQuery.toLowerCase());
       })
     );
-  }, [data, searchQuery, columns, manualSearch]);
+  }, [data, searchQuery, columns, rawColumns, manualSearch]);
 
   // Sorting — client-side, over the rows this table was handed.
   //
@@ -1192,6 +1219,10 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const sortedData = useMemo(() => {
     if (manualSorting) return filteredData;
     if (!sortColumn || !sortDirection) return filteredData;
+    // A MASKED column orders nothing (objectui#10657), including a sort set
+    // before its producer stamped the flag. Rows ordered by a credential tell
+    // the reader how it compares with every other row's.
+    if (isMaskedColumnKey(rawColumns, sortColumn)) return filteredData;
 
     const keyed = filteredData.map((row) => ({ row, key: getSortValue(row[sortColumn]) }));
     // Array#sort is stable, so rows with equal keys keep their incoming order.
@@ -1200,7 +1231,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       return sortDirection === 'asc' ? comparison : -comparison;
     });
     return keyed.map((entry) => entry.row);
-  }, [filteredData, sortColumn, sortDirection, manualSorting]);
+  }, [filteredData, sortColumn, sortDirection, manualSorting, rawColumns]);
 
   // Pagination. Under manual (server-side) pagination the parent controls the
   // page and supplies the grand total via `rowCount`; `data` already IS the
@@ -1275,6 +1306,16 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // class of lie as a sort that only covers the current page.
   const sortingEnabled = sortable && (!manualSorting || !!onSortChange);
 
+  // Does this column's header sort? One answer for its cursor, its click and
+  // its indicator. A MASKED column's header is inert in both modes
+  // (objectui#10657): a client sort orders the rows by the credential, and a
+  // manual one asks the host to, so the order says how it compares with every
+  // other row's. Disabled rather than refused on click, for the reason
+  // `sortingEnabled` gives: a header that looks sortable and does nothing is a
+  // dead affordance.
+  const isColumnSortable = (col: TableColumn) =>
+    sortingEnabled && col.sortable !== false && !isMaskedColumnKey(rawColumns, col.accessorKey);
+
   // The term the search box displays.
   //
   // Under `manualSearch` this is the caller's prop and nothing else — the
@@ -1317,6 +1358,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
    * reads: a menu item that highlights, closes, and changes nothing.
    */
   const applySort = (columnKey: string, order: SortDirection) => {
+    // A MASKED column is never sorted by, whichever control asked
+    // (objectui#10657; see `isColumnSortable`).
+    if (isMaskedColumnKey(rawColumns, columnKey)) return;
     if (manualSorting) {
       onSortChange?.([{ field: columnKey, order }]);
       return;
@@ -1327,7 +1371,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
 
   // Handlers
   const handleSort = (columnKey: string) => {
-    if (!sortingEnabled) return;
+    if (!sortingEnabled || isMaskedColumnKey(rawColumns, columnKey)) return;
 
     if (manualSorting) {
       // Two states, not three. A header click REPLACES the order — the column
@@ -1416,10 +1460,15 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   };
 
   const handleExport = () => {
+    // A MASKED column is OMITTED from the export (objectui#10583), header and
+    // all: its cells draw a mask, so the file must not carry the raw value.
+    // Omitted rather than blanked — a column of empty strings would assert
+    // the records hold nothing, and a re-import of it would write that.
+    const exportColumns = columns.filter((col) => !col.masked);
     const csvContent = [
-      columns.map(col => col.header).join(','),
+      exportColumns.map(col => col.header).join(','),
       ...sortedData.map(row =>
-        columns.map(col => JSON.stringify(row[col.accessorKey] || '')).join(',')
+        exportColumns.map(col => JSON.stringify(row[col.accessorKey] || '')).join(',')
       )
     ].join('\n');
 
@@ -1571,6 +1620,12 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
 
     const column = columns.find(col => col.accessorKey === columnKey);
     if (column?.editable === false) return;
+    // A MASKED column never enters edit mode, on any trigger (objectui#10583):
+    // the editor is seeded with the RAW row value below, so every editor —
+    // the built-in inputs and a host's `renderCellEditor` alike — would draw
+    // the credential the cell's mask hides. This is the one door Enter, click
+    // and double-click all pass through.
+    if (column?.masked) return;
 
     editingCellRef.current = { rowIndex, columnKey };
     setEditingCell({ rowIndex, columnKey });
@@ -1799,6 +1854,14 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     // Copy cell value with Ctrl+C / Cmd+C
     if ((e.ctrlKey || e.metaKey) && e.key === 'c' && !editingCell) {
       e.preventDefault();
+      // A MASKED column copies NOTHING (objectui#10583) — the producer drew a
+      // mask, so the keyboard must not hand out what the cell hides. The
+      // detail page's house shape (objectui#8440, option A): no copy at all,
+      // ⛔ not the bullets — which is also why `preventDefault()` above stays:
+      // measured in Chromium, letting the default run copies a selected mask
+      // as `••••••`, the payload that ruling refused. Unmasked cells are
+      // untouched below.
+      if (columns.find((col) => col.accessorKey === columnKey)?.masked) return;
       const globalIdx = (effectivePage - 1) * pageSize + rowIndex;
       const row = sortedData[manualPagination ? rowIndex : globalIdx];
       if (row) {
@@ -2063,7 +2126,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                     key={col.accessorKey}
                     className={cn(
                       col.className,
-                      sortingEnabled && col.sortable !== false && 'cursor-pointer select-none',
+                      isColumnSortable(col) && 'cursor-pointer select-none',
                       isDragging && 'opacity-50',
                       isDragOver && 'border-l-2 border-primary',
                       col.align === 'right' && 'text-right',
@@ -2090,7 +2153,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                     onDragOver={(e) => handleColumnDragOver(e, index)}
                     onDrop={(e) => handleColumnDrop(e, index)}
                     onDragEnd={handleColumnDragEnd}
-                    onClick={() => sortingEnabled && col.sortable !== false && handleSort(col.accessorKey)}
+                    onClick={() => isColumnSortable(col) && handleSort(col.accessorKey)}
                     onContextMenu={(e) => handleColumnContextMenu(e, col.accessorKey)}
                   >
                     <div className={cn(
@@ -2105,7 +2168,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                           <span className="text-muted-foreground shrink-0">{col.headerIcon}</span>
                         )}
                         <span className="text-xs font-medium text-muted-foreground whitespace-nowrap truncate">{col.header}</span>
-                        {sortingEnabled && col.sortable !== false && getSortIcon(col.accessorKey)}
+                        {isColumnSortable(col) && getSortIcon(col.accessorKey)}
                         {editColumnEnabled && (
                           <button
                             type="button"
@@ -2412,7 +2475,11 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                         const hasPendingChange = rowChanges[col.accessorKey] !== undefined;
                         const cellValue = hasPendingChange ? rowChanges[col.accessorKey] : originalValue;
                         const isEditing = editingCell?.rowIndex === rowIndex && editingCell?.columnKey === col.accessorKey;
-                        const isEditable = editable && col.editable !== false;
+                        // A masked column reads as NOT editable here too
+                        // (objectui#10583), so its cell neither shows the
+                        // edit cursor nor swallows the row's click —
+                        // `startEdit` would refuse it anyway.
+                        const isEditable = editable && col.editable !== false && !col.masked;
                         const isFrozen = frozenColumns > 0 && colIndex < frozenColumns;
                         const frozenOffset = isFrozen
                           ? measuredStickyLefts?.[(selectable ? 1 : 0) + (showRowNumbers ? 1 : 0) + colIndex]
@@ -2677,7 +2744,10 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                       ? 'w-full whitespace-normal break-words'
                                       : 'truncate w-full'
                                 }
-                                title={!isFit && cellValue != null && typeof cellValue !== 'object' ? String(cellValue) : undefined}
+                                // No tooltip on a MASKED column (objectui#10583):
+                                // the title carried the raw value, so a hover
+                                // showed what the cell's mask hides.
+                                title={!isFit && !col.masked && cellValue != null && typeof cellValue !== 'object' ? String(cellValue) : undefined}
                               >
                                 {typeof col.cell === 'function'
                                   ? col.cell(cellValue, row)
@@ -2821,7 +2891,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
           data-testid="column-context-menu"
           onClick={(e) => e.stopPropagation()}
         >
-          {sortingEnabled && (
+          {/* No sort entries for a MASKED column (objectui#10657), the menu's
+              half of `isColumnSortable`. */}
+          {sortingEnabled && !isMaskedColumnKey(rawColumns, contextMenu.columnKey) && (
             <>
               <button
                 type="button"

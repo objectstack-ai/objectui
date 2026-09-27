@@ -5,21 +5,34 @@
  *
  * Validation runs BEFORE a simulation so the debugger refuses to "Run" a
  * structurally broken flow (which the real runtime would reject) instead of
- * producing misleading partial output. Condition evaluation deliberately does
- * NOT swallow errors the way the shared `evaluatePlainCondition` does — a
- * debugger must tell the author *why* a branch was false (parse error, missing
- * variable, type error), so we capture and surface the message.
+ * producing misleading partial output. Guard and value evaluation never
+ * swallow a failure: a debugger must tell the author *why* (parse error,
+ * missing variable, type error), so the message is returned to the caller,
+ * which fails the node the way the runtime does.
  */
 
 import { ExpressionEvaluator } from '@object-ui/core';
 import { ExpressionEngine, validateExpression } from '@objectstack/formula';
-import { ASSIGNMENT_VALUE_ENVELOPE_REFUSAL, type AssignmentExpressionValue } from '@objectstack/spec/automation';
+import {
+  ASSIGNMENT_VALUE_ENVELOPE_REFUSAL,
+  structuralConditionRefusal,
+  type AssignmentExpressionValue,
+} from '@objectstack/spec/automation';
+import { EVALUATED_EXPRESSION_SOURCE_REQUIRED, EvaluatedExpressionSchema } from '@objectstack/spec/shared';
 import type { Diagnostic, FlowValidation, SimEdge, SimNode } from './flow-sim-types.js';
 import { conditionText } from '../flow-canvas-layout.js';
 import { valueEnvelopeRefusal } from '../../inspectors/flow-value-envelope.js';
 import { t as tr, tFormat } from '../../i18n.js';
 
-/** Evaluate a CEL condition, capturing (not swallowing) any failure. */
+/**
+ * Evaluate a condition on `@object-ui/core`'s `ExpressionEvaluator`,
+ * capturing (not swallowing) any failure.
+ *
+ * This is not CEL, and it is not how the simulator evaluates an edge guard:
+ * guards go through {@link evalGuard} (objectui#10615). Its one caller is the
+ * screen preview's `visibleWhen` gate (`isFieldVisibleWhen` in
+ * `../screen-spec.ts`).
+ */
 export function evalCondition(
   expr: string,
   variables: Record<string, unknown>,
@@ -113,6 +126,86 @@ export function evalValueEnvelope(
     return { ok: true, value: result.value };
   } catch (err) {
     return { ok: false, error: (err as Error).message || 'Evaluation failed.' };
+  }
+}
+
+/** What {@link evalGuard} made of one edge guard. */
+export type GuardEvaluation =
+  /** No guard: the condition is omitted (`undefined`). */
+  | { kind: 'absent' }
+  /**
+   * Refused or failed. A refused guard never runs at runtime (`registerFlow`
+   * refuses the flow); a CEL fault on live values throws and fails the run.
+   */
+  | { kind: 'fault'; error: string }
+  /** Evaluated. `result` is the value's truthiness, as the runtime reads it. */
+  | { kind: 'value'; result: boolean };
+
+/**
+ * Evaluate an edge guard the way the runtime does (objectui#10615): on
+ * {@link evalValueEnvelope}'s engine and scope, `ExpressionEngine.evaluate`
+ * against {@link flowCelScope}. There is no second evaluator. The runtime's
+ * reading on objectstack main, in order: `FlowSchema.parse` (the edge's
+ * `condition` schema), `registerFlow`'s edge pass, then `evaluateCondition`
+ * in `AutomationEngine` (`@objectstack/service-automation`).
+ *
+ * 1. Absent: only an omitted guard (`undefined`). `FlowEdgeSchema.condition`
+ *    is `.optional()`, which admits a missing value and nothing else, so no
+ *    other value is read as "no condition".
+ * 2. Shape: the spec's `structuralConditionRefusal`, the first thing
+ *    `registerFlow`'s edge pass and `evaluateCondition` do. A boolean, number,
+ *    array or source-less object is refused.
+ * 3. Evaluated slot: the rule `FlowEdgeSchema.condition` applies on main
+ *    (`EvaluatedExpressionInputSchema`), from its two installed parts. A string
+ *    must be non-blank (main's `NON_BLANK_STRING`), so `''` and `'   '` are
+ *    refused with the spec's `EVALUATED_EXPRESSION_SOURCE_REQUIRED`. Anything
+ *    else must satisfy `EvaluatedExpressionSchema`: an envelope with a
+ *    `dialect` (`ExpressionSchema` requires one, so `{ source: 'n == 2' }` is
+ *    refused) and a non-blank `source` (so `{ dialect: 'cel', source: '' }`
+ *    and an `ast`-only envelope are refused). `null` is not an envelope and is
+ *    refused here too.
+ * 4. CEL: `validateExpression('predicate', …)`, the parse `registerFlow`
+ *    refuses a flow with. A dialect other than `cel` is refused, and so is a
+ *    `{var}` or `${…}` template, which is not CEL.
+ * 5. Value: `ExpressionEngine.evaluate`. A CEL error is a fault. A value is
+ *    read as `Boolean(value)`, as `evaluateCondition` reads it.
+ *
+ * Steps 2 to 4 are refusals the runtime makes before any node runs; step 5's
+ * fault is the one it throws mid-run. The simulator reports both on the
+ * decision and stops there.
+ *
+ * A bare string is CEL. The runtime's legacy `{var}` template dialect is never
+ * reached for an edge: `FlowEdgeSchema` turns every bare string into a
+ * `{ dialect: 'cel', source }` envelope, and `registerFlow` refuses a
+ * `template` envelope at step 4. So this has no template branch to mirror.
+ */
+export function evalGuard(condition: unknown, variables: Record<string, unknown>): GuardEvaluation {
+  try {
+    if (condition === undefined) return { kind: 'absent' };
+    const shape = structuralConditionRefusal(condition);
+    if (shape) return { kind: 'fault', error: shape.message };
+    if (typeof condition === 'string') {
+      if (!condition.trim()) return { kind: 'fault', error: EVALUATED_EXPRESSION_SOURCE_REQUIRED };
+    } else {
+      const envelope = EvaluatedExpressionSchema.safeParse(condition);
+      if (!envelope.success) {
+        return {
+          kind: 'fault',
+          error: envelope.error.issues.map((i) => (i.path.length ? `${i.path.join('.')}: ${i.message}` : i.message)).join(' '),
+        };
+      }
+    }
+    const input = condition as SimEdge['condition'];
+    const source = conditionText(input) ?? '';
+    const parsed = validateExpression('predicate', input as string | { dialect?: string; source?: string });
+    if (parsed.errors.length > 0) {
+      return { kind: 'fault', error: parsed.errors.map((e) => e.message).join(' ') };
+    }
+    const result = ExpressionEngine.evaluate({ dialect: 'cel', source }, flowCelScope(variables));
+    if (!result.ok) return { kind: 'fault', error: `condition failed to evaluate as CEL: ${result.error.message}` };
+    return { kind: 'value', result: Boolean(result.value) };
+  } catch (err) {
+    return { kind: 'fault', error: (err as Error).message || 'Evaluation failed.' };
   }
 }
 

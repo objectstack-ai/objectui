@@ -31,8 +31,10 @@ import { publishHealthFromResponse, type PublishHealth } from '@object-ui/plugin
 import { useMetadataClient } from '../views/metadata-admin/useMetadata.js';
 import { emitMetadataRefresh } from '../assistant/assistantBus.js';
 import { lintDraftCapabilityReferences } from './capabilityLint.js';
-
-type TranslateFn = (key: string, opts?: Record<string, unknown>) => string;
+// The one authority for the narrowed `t` (objectui#8261) — imported, not
+// re-declared. The local copy this replaces differed only in its parameter's
+// NAME (`opts`), which TypeScript does not compare, so no caller's contract moves.
+import type { TranslateFn } from '@object-ui/i18n';
 
 export interface PublishAllResult {
   ok: boolean;

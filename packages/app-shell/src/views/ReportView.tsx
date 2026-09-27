@@ -259,6 +259,17 @@ export function ReportView({ dataSource }: { dataSource?: DataSource }) {
       return;
     }
 
+    // objectui#10684 — only the CURRENT run commits rows. The report, its
+    // binding, filters or limit can change while a read is in flight (a
+    // config-panel edit, a metadata refresh, another report on the same
+    // route), and an earlier answer that lands after the current one would
+    // otherwise replace its rows. Set by this run's cleanup, which React runs
+    // before the next run starts.
+    let cancelled = false;
+    const cancel = () => {
+      cancelled = true;
+    };
+
     // If report has inline data, use it directly
     if (dataFetchSource.data && Array.isArray(dataFetchSource.data)) {
       setReportRuntimeData(dataFetchSource.data);
@@ -286,15 +297,15 @@ export function ReportView({ dataSource }: { dataSource?: DataSource }) {
             $top: dataFetchSource.dataSource.limit,
           });
 
-          setReportRuntimeData(result.data || []);
+          if (!cancelled) setReportRuntimeData(result.data || []);
         } catch (error) {
           console.error('ReportView: Failed to load data from dataSource', error);
-          setReportRuntimeData([]);
+          if (!cancelled) setReportRuntimeData([]);
         }
       };
 
       fetchDataFromSource();
-      return;
+      return cancel;
     }
 
     // If report has an objectName, fetch data from that object
@@ -307,15 +318,15 @@ export function ReportView({ dataSource }: { dataSource?: DataSource }) {
             $top: dataFetchSource.limit || 100, // Default limit to avoid fetching too much data
           });
 
-          setReportRuntimeData(result.data || []);
+          if (!cancelled) setReportRuntimeData(result.data || []);
         } catch (error) {
           console.error('ReportView: Failed to load data from objectName', error);
-          setReportRuntimeData([]);
+          if (!cancelled) setReportRuntimeData([]);
         }
       };
 
       fetchDataFromObject();
-      return;
+      return cancel;
     }
 
     // No data source configured

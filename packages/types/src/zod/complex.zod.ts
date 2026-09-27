@@ -193,7 +193,7 @@ export const RetiredKanbanNodeSchema = retiredNodeType(
 /**
  * Calendar View Mode — the registered renderer's rendered set.
  *
- * `'agenda'` was retired (objectui#5740): no view ever rendered it, and no
+ * `'agenda'` was retired (`b55a34647`): no view ever rendered it, and no
  * measured app authors it. `view` is a DECLARED key, so this retirement is a
  * new rejection — see the accept-set note on {@link CalendarViewSchema}.
  */
@@ -227,7 +227,7 @@ export const CalendarEventSchema = z.object({
  * — they are simply no longer declared or type-checked. The material accept
  * change is that `events` is no longer required.
  *
- * Value-level residue (objectui#5740): `'agenda'` left
+ * Value-level residue (`b55a34647`): `'agenda'` left
  * `CalendarViewModeSchema`. Unlike the key retirements above, this IS a new
  * rejection — `view` is a declared key, and declared keys are validated even
  * under `.passthrough()` — so `view: 'agenda'`, which parsed green before,
@@ -253,7 +253,7 @@ export const CalendarViewSchema = BaseSchema.extend({
   allDayField: z.string().optional().describe("Record field for the all-day flag (default 'allDay')"),
   colorField: z.string().optional().describe("Record field for the event color (default 'color')"),
   view: CalendarViewModeSchema.optional().describe(
-    "View mode — 'month' | 'week' | 'day', the renderer's rendered set ('agenda' was retired: objectui#5740)",
+    "View mode — 'month' | 'week' | 'day', the renderer's rendered set ('agenda' was retired)",
   ),
   currentDate: z
     .union([z.string(), z.date()])

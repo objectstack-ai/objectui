@@ -18,6 +18,8 @@ import {
   declaredUserMessage,
   useSettledSchema,
   useDataInvalidation,
+  useFilterScope,
+  useResolvedFilter,
 } from '@object-ui/react';
 import {
   NavigationOverlay,
@@ -561,6 +563,17 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
   // below re-keys on what it says, never on which array it is.
   const sortKey = JSON.stringify(schema.sort ?? null);
 
+  // objectui#10666 — the node's own `filter`, with every context token
+  // (`{current_user_id}`, `{current_org_id}`, the date macros) resolved ONCE
+  // through `@object-ui/core`'s shared `resolveFilterPlaceholders`, against the
+  // session scope the host provides, and HELD by structure (`useResolvedFilter`
+  // in `@object-ui/react`). A directly authored board sent the literal token on
+  // `$filter` before. The fetch below and its dependency list read THIS, never
+  // the raw `schema.filter`, so a re-render that rebuilds an equal filter does
+  // not re-query.
+  const filterScope = useFilterScope();
+  const queryFilter = useResolvedFilter(schema.filter, filterScope);
+
   // objectui#10572 — the data-invalidation bus (`notifyDataChanged` from
   // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
   // write to the object this board QUERIES is declared, and the fetch effect
@@ -690,7 +703,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
             // expression below; the pinned fact — `schema.limit` lowered into
             // the query's top-level `$top` — is the same one it always held.
             const query = {
-                $filter: schema.filter,
+                $filter: queryFilter,
                 // objectui#10068 — the binding's `dataSource.sort` (or its
                 // view's), delivered here by `ElementDataSourceGate`. Lanes
                 // bucket records in fetch order, so this is also the in-lane
@@ -749,7 +762,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
     // `ObjectTimeline` spelling: an array rebuilt with the same members must not
     // refetch the board.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `schema.sort` is tracked by CONTENT (sortKey) on purpose; see above
-  }, [schema.objectName, schemaKey, dataSource, boundData, schema.data, schema.filter, sortKey, schema.limit, hasExternalData, objectDefReady, objectDef, refreshKey, perms, invalidationNonce]);
+  }, [schema.objectName, schemaKey, dataSource, boundData, schema.data, queryFilter, sortKey, schema.limit, hasExternalData, objectDefReady, objectDef, refreshKey, perms, invalidationNonce]);
 
   // Determine which data to use: external -> bound -> inline -> fetched
   const rawData = (hasExternalData ? externalData : undefined) || boundData || schema.data || fetchedData;

@@ -26,7 +26,7 @@ import type {
   SimStep,
   SimStepStatus,
 } from './flow-sim-types.js';
-import { evalCondition, evalValueEnvelope, validateFlowDraft } from './flow-sim-validate.js';
+import { evalGuard, evalValueEnvelope, validateFlowDraft } from './flow-sim-validate.js';
 import { conditionText } from '../flow-canvas-layout.js';
 import { isValueEnvelopeSlot } from '../../inspectors/flow-value-envelope.js';
 
@@ -47,6 +47,32 @@ const UNSUPPORTED = new Set(['join_gateway', 'subflow', 'boundary_event', 'paral
 
 const edgeId = (e: SimEdge, i: number): string => e.id || `${e.source}->${e.target}#${i}`;
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined);
+
+/** A variable path the runtime's `resolveToken` looks up: `a`, `a.b`, `list.0`. */
+const VARIABLE_PATH = /^[A-Za-z_$][\w$]*(?:\.(?:[A-Za-z_$][\w$]*|\d+))*$/;
+
+/** The runtime's `resolvePath`: walk `path`, `undefined` past a non-object. */
+function resolvePath(base: unknown, path: string[]): unknown {
+  let cur: unknown = base;
+  for (const seg of path) {
+    if (cur == null || typeof cur !== 'object') return undefined;
+    cur = (cur as Record<string, unknown>)[seg];
+  }
+  return cur;
+}
+
+/** The runtime's `stringifyForTemplate`: a token's text inside a longer string. */
+function stringifyForTemplate(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+  return String(value);
+}
 
 export class FlowSimulator {
   private nodes = new Map<string, SimNode>();
@@ -275,7 +301,6 @@ export class FlowSimulator {
       .filter((x) => x.e.source === node.id);
     const evals: SimEdgeEval[] = [];
     let chosen: { e: SimEdge; i: number } | undefined;
-    let firstError: string | undefined;
 
     // Evaluate conditional edges in declared order; first truthy wins.
     // The guard is read through `conditionText` — the ONE reader every consumer
@@ -283,18 +308,31 @@ export class FlowSimulator {
     // here exactly as the engine evaluates them (objectui#3216). Reading only
     // the bare string used to report a spec-canonical `{ dialect, source }`
     // envelope as "no condition" and skip a branch the runtime would take.
+    //
+    // `evalGuard` evaluates it as the runtime does, on the runtime's CEL engine
+    // and scope (objectui#10615). A guard that is refused or fails to evaluate
+    // stops the run on this decision, and no branch, the default included, is
+    // taken. A CEL fault on live values throws at this point in the runtime; a
+    // refused guard is refused earlier, at `registerFlow`, so the runtime never
+    // starts the run.
     for (const { e, i } of out) {
       if (e.isDefault) continue;
       const cond = conditionText(e.condition);
-      if (!cond) {
+      const g = evalGuard(e.condition, this.state.variables);
+      if (g.kind === 'absent') {
         evals.push({ edgeId: edgeId(e, i), target: e.target, result: false, selected: false, error: 'Branch has no condition.' });
         continue;
       }
-      const r = evalCondition(cond, this.state.variables);
-      if (r.error && !firstError) firstError = `${cond}: ${r.error}`;
-      const selected = r.result && !chosen;
+      if (g.kind === 'fault') {
+        evals.push({ edgeId: edgeId(e, i), target: e.target, condition: cond, result: false, error: g.error, selected: false });
+        return this.record(node.id, 'decision', node.label, 'error', {
+          edges: evals,
+          error: cond ? `${cond}: ${g.error}` : g.error,
+        });
+      }
+      const selected = g.result && !chosen;
       if (selected) chosen = { e, i };
-      evals.push({ edgeId: edgeId(e, i), target: e.target, condition: cond, result: r.result, error: r.error, selected });
+      evals.push({ edgeId: edgeId(e, i), target: e.target, condition: cond, result: g.result, selected });
     }
 
     // Fall back to the default branch when no condition matched.
@@ -311,7 +349,7 @@ export class FlowSimulator {
 
     return this.record(node.id, 'decision', node.label, chosen ? 'ok' : 'error', {
       edges: evals,
-      error: chosen ? undefined : firstError ?? 'No branch matched and there is no default branch.',
+      error: chosen ? undefined : 'No branch matched and there is no default branch.',
       note: multiMatch ? 'Multiple conditions matched; the first declared branch was taken.' : undefined,
     });
   }
@@ -382,18 +420,65 @@ export class FlowSimulator {
     });
   }
 
-  /** Resolve `{var}` templates in an assignment value against live variables. */
+  /**
+   * Resolve `{var}` templates in an assignment value against live variables,
+   * following the runtime's `interpolate` (`builtin/template.ts` in
+   * `@objectstack/service-automation`) rule for rule (objectui#10615):
+   *
+   * - An array or a plain object is walked into a new one: every element and
+   *   every property value is interpolated. Keys are not.
+   * - Any other non-string (number, boolean, `null`) is returned unchanged.
+   * - A string with no `{` is returned unchanged.
+   * - A string that is one whole token (`'{n}'`) takes the token's value, type
+   *   kept. A token naming nothing gives `undefined`.
+   * - Tokens inside a longer string become text: `null` and `undefined` give
+   *   `''`, and an object or array gives its JSON.
+   *
+   * A token is resolved by {@link resolveToken}, which models the runtime's
+   * variable-path lookup only.
+   */
   private interpolateValue(value: unknown): unknown {
-    if (typeof value !== 'string') return value;
-    const whole = value.match(/^\{([^}]+)\}$/);
-    if (whole) {
-      const v = this.state.variables[whole[1].trim()];
-      return v !== undefined ? v : value;
+    if (typeof value === 'string') return this.interpolateString(value);
+    if (Array.isArray(value)) return value.map((v) => this.interpolateValue(v));
+    if (value && typeof value === 'object') {
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = this.interpolateValue(v);
+      return out;
     }
-    return value.replace(/\{([^}]+)\}/g, (_m, k) => {
-      const v = this.state.variables[String(k).trim()];
-      return v === undefined || v === null ? '' : String(v);
+    return value;
+  }
+
+  private interpolateString(input: string): unknown {
+    if (!input.includes('{')) return input;
+    const whole = /^\{([^{}]+)\}$/.exec(input);
+    if (whole) {
+      const token = this.resolveToken(whole[1]);
+      // Not modelled here: kept as written, so the author sees it unresolved.
+      return token.modelled ? token.value : input;
+    }
+    return input.replace(/\{([^{}]+)\}/g, (_m, expr: string) => {
+      const token = this.resolveToken(expr);
+      return token.modelled ? stringifyForTemplate(token.value) : '';
     });
+  }
+
+  /**
+   * Resolve one `{…}` token the way the runtime's `resolveToken` resolves a
+   * variable path: `a.b.0` reads variable `a`, then walks `b` and index `0`;
+   * with no variable `a`, it reads a variable whose key is the whole dotted
+   * text. A path that reaches nothing is `undefined`.
+   *
+   * The runtime's other token forms are not modelled: `NOW()` / `TODAY()`,
+   * `$User.*`, function calls and arithmetic. They come back unmodelled.
+   */
+  private resolveToken(token: string): { modelled: true; value: unknown } | { modelled: false } {
+    const trimmed = token.trim();
+    if (!trimmed) return { modelled: true, value: undefined };
+    if (trimmed.startsWith('$User.') || !VARIABLE_PATH.test(trimmed)) return { modelled: false };
+    const vars = this.state.variables;
+    const [head, ...path] = trimmed.split('.');
+    if (Object.prototype.hasOwnProperty.call(vars, head)) return { modelled: true, value: resolvePath(vars[head], path) };
+    return { modelled: true, value: Object.prototype.hasOwnProperty.call(vars, trimmed) ? vars[trimmed] : undefined };
   }
 
   private executeLoop(node: SimNode): SimStep {

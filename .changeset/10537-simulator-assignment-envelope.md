@@ -18,7 +18,14 @@ object where the runtime gives `4`.
 - An envelope that fails (a CEL error, a dialect other than `cel`, a missing or blank
   `source`) is not written. The step shows the error and the run stops on that node,
   as it fails at runtime.
-- Unchanged: `{token}` strings still interpolate, numbers and plain objects are still
-  written as they are, and an envelope-shaped object in the legacy
+- Unchanged at this change: `{token}` strings still interpolate, numbers and plain
+  objects are still written as they are, and an envelope-shaped object in the legacy
   `assignments: [{ variable, value }]` array or in a bare config is still the literal
   object, as it is at runtime.
+
+⚠️ **Dated note, 2026-09-25 — a plain object is no longer always written as it is —
+objectui#10615.** Later in this same release the Debug run walks a plain object or
+array value the way the runtime's `interpolate` does, so a `{token}` string inside it is
+interpolated; a token-free object is still written unchanged. The rest of this entry is
+kept as the reading of this change; the objectui#10615 entry states what the Debug run
+now does.

@@ -53,8 +53,8 @@ describe('assignment value envelopes are evaluated as CEL (objectui#10537)', () 
   });
 
   it("runs on the runtime's CEL engine: the stdlib and macros compute", () => {
-    // The spec's own example for this slot. The legacy expression evaluator
-    // the decision path uses has neither `joinNonEmpty` nor the `map` macro.
+    // The spec's own example for this slot. `@object-ui/core`'s legacy
+    // expression evaluator has neither `joinNonEmpty` nor the `map` macro.
     const { sim, step } = runAssignment(
       { assignments: { digest: cel('joinNonEmpty(rows.map(r, r.subject), ", ")') } },
       { rows: [{ subject: 'a' }, { subject: '' }, { subject: 'b' }] },

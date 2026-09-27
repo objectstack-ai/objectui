@@ -690,7 +690,7 @@ export const ComboboxSchema = BaseSchema.extend({
   name: z.string().optional().describe('Field name for form submission'),
   label: z.string().optional().describe('Combobox label'),
   placeholder: z.string().optional().describe('Placeholder text'),
-  options: z.array(ComboboxOptionSchema).describe('Combobox options'),
+  options: z.array(ComboboxOptionSchema).optional().describe('Combobox options'),
   defaultValue: retirementTombstone(
     'Default value — RETIRED (objectui#8140, ADR-0049). Write `value` instead. `combobox` is a ' +
       'standalone node type only: it is not a built-in form field type and no `field:combobox` ' +
@@ -757,7 +757,7 @@ export const CommandSchema = BaseSchema.extend({
   type: z.literal('command'),
   placeholder: z.string().optional().describe('Search placeholder'),
   emptyText: z.string().optional().describe('Empty state text'),
-  groups: z.array(CommandGroupSchema).describe('Command groups'),
+  groups: z.array(CommandGroupSchema).optional().describe('Command groups'),
   onChange: handlerKeyRefusal('onChange', 'retired', 'Change handler'),
   body: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `command` reads NEITHER content channel: measured with the '

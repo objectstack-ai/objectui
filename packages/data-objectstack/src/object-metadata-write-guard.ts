@@ -162,7 +162,7 @@ export function assertObjectMetadataWritable(type: unknown, item: unknown, write
         `\`${String(def.type)}\` and carries ${describeTarget(def.reference)}, so it names no object ` +
         'to link to. `@objectstack/spec` refuses the same document at the server with a 422 on ' +
         `\`fields.${name}.reference\`, and that refusal blocks every later save of this object for ` +
-        'as long as the half-filled field rides along in the draft (objectui#7714, objectui#8057). ' +
+        'as long as the half-filled field rides along in the draft (objectui#7714). ' +
         'Pick the target object, or change the field to a non-relationship type.',
     );
   }

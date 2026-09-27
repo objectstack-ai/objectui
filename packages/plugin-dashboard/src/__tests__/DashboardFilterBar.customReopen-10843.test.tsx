@@ -150,6 +150,22 @@ describe('DashboardFilterBar — "Custom…" opens the range calendar (objectui#
     expect(seen).toEqual([]);
   });
 
+  it('control: a space typed as type-ahead on "Custom…" picks nothing, so a later Escape opens no calendar', async () => {
+    const user = userEvent.setup();
+    const { trigger } = renderBar(STORED);
+    trigger.focus();
+    await user.keyboard('{Enter}');
+    const custom = await screen.findByRole('option', { name: 'Custom…' });
+    // "c" starts a type-ahead search that lands on "Custom…"; the space that
+    // follows extends the search instead of picking the item.
+    await user.keyboard('c ');
+    expect(document.activeElement).toBe(custom);
+    expect(screen.getByRole('listbox')).toBeTruthy();
+    await user.keyboard('{Escape}');
+    await settle();
+    expect(seen).toEqual([]);
+  });
+
   it('control: picking a preset over a stored range commits the preset and opens no calendar', async () => {
     const user = userEvent.setup();
     const { trigger, onChange } = renderBar(STORED);

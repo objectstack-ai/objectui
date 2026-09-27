@@ -25,7 +25,7 @@ import { toRuntimeMessages } from './chatMessageAdapter';
  * - Uses @ai-sdk/react for SSE streaming, tool-calling, and production-grade chat
  * - Connects to service-ai backend (e.g., /api/v1/ai/chat)
  * - Supports streaming, stop, reload, clear actions
- * - Schema fields: api, conversationId, systemPrompt, model, streamingEnabled, headers, requestBody, maxToolRoundtrips
+ * - Schema fields: api, conversationId, systemPrompt, model, streamingEnabled, headers, requestBody
  * 
  * **Legacy Mode** (when `api` is not set):
  * - Local auto-response for demo/playground use
@@ -89,7 +89,6 @@ ComponentRegistry.register('chatbot',
       streamingEnabled: schema.streamingEnabled,
       headers: schema.headers,
       body: schema.requestBody,
-      maxToolRoundtrips: schema.maxToolRoundtrips,
       onError: schema.onError,
       showTimestamp: schema.showTimestamp,
       autoResponse: schema.autoResponse,
@@ -278,7 +277,6 @@ ComponentRegistry.register('chatbot-enhanced',
       streamingEnabled: schema.streamingEnabled,
       headers: schema.headers,
       body: schema.requestBody,
-      maxToolRoundtrips: schema.maxToolRoundtrips,
       onError: schema.onError,
       showTimestamp: schema.showTimestamp,
       autoResponse: schema.autoResponse,
@@ -416,7 +414,6 @@ ComponentRegistry.register('chatbot-floating',
       streamingEnabled: schema.streamingEnabled,
       headers: schema.headers,
       body: schema.requestBody,
-      maxToolRoundtrips: schema.maxToolRoundtrips,
       onError: schema.onError,
       showTimestamp: schema.showTimestamp,
       autoResponse: schema.autoResponse,

@@ -1347,24 +1347,25 @@ export interface ChatbotSchema extends BaseSchema {
    */
   requestBody?: Record<string, unknown>;
   /**
-   * Maximum number of tool-calling round-trips per user message.
+   * ADR-0049 RETIREMENT TOMBSTONE — `maxToolRoundtrips` (objectui#5605). Picked
+   * by name onto {@link ChatbotEnhancedSchema} and {@link ChatbotFloatingSchema},
+   * so all three chat nodes refuse it with this one declaration.
    *
-   * @deprecated objectui#5605 — INERT, and not fixable from here. The renderer
-   * really does thread this value into `useObjectChat`, which then drops it:
-   * the installed chat runtime (`@ai-sdk/react`'s `useChat`) exposes no
-   * client-side round-trip cap — the numeric knob was removed from `useChat`,
-   * and its successor step cap (`stopWhen` / `stepCountIs`) exists only on the
-   * server-side call functions. ObjectUI is backend-agnostic, so it does not
-   * own a server loop to cap either. Setting this has never limited anything.
+   * ENFORCE was measured and is not reachable from a chat node: the tool loop
+   * runs on the server agent inside ONE streamed response (the chat runtime,
+   * `@ai-sdk/react`'s `useChat`, is given no client tool loop), `useChat` has no
+   * numeric round-trip cap, and neither chat request schema in
+   * `@objectstack/spec` carries a cap field. The value used to be threaded from
+   * the document into the chat hook and dropped there, so setting it never
+   * limited anything.
    *
    * Cap tool-calling loops on the agent instead — `planning.maxIterations`,
-   * which the platform spec declares and enforces.
+   * which the platform spec declares (default 10).
    *
-   * Still declared and still accepted so documents that already author it keep
-   * parsing; authoring it now logs a one-time notice from the chatbot plugin.
-   * Slated for removal in a future major (ADR-0049 enforce-or-remove, staged).
+   * @deprecated Not part of this contract — the value was never honoured.
+   * Delete the key; cap tool loops on the agent (`planning.maxIterations`).
    */
-  maxToolRoundtrips?: number;
+  maxToolRoundtrips?: never;
   /**
    * Callback when an error occurs during streaming or API calls.
    *
@@ -1594,7 +1595,7 @@ export interface ChatbotSchema extends BaseSchema {
    * this declaration carries none. What the renderer DOES read off this node:
    * `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`,
    * `autoResponseDelay`, `autoResponseText`, `conversationId`, `headers`,
-   * `maxHeight`, `maxToolRoundtrips`, `messages`, `model`, `onError`, `onSend`,
+   * `maxHeight`, `messages`, `model`, `onError`, `onSend`,
    * `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`,
    * `systemPrompt`, `userAvatarFallback`, `userAvatarUrl` (in
    * `packages/plugin-chatbot/src/renderer.tsx`).
@@ -1644,7 +1645,6 @@ export type ChatbotSharedKey =
   | 'streamingEnabled'
   | 'headers'
   | 'requestBody'
-  | 'maxToolRoundtrips'
   | 'onError'
   | 'showTimestamp'
   | 'userAvatarUrl'
@@ -1672,7 +1672,9 @@ export type ChatbotSharedKey =
  * What is declared here is what THIS registration reads — censused per key on
  * the PR's base, not copied off `ChatbotSchema`:
  *
- *   - the twenty {@link ChatbotSharedKey} members every registration reads;
+ *   - the nineteen {@link ChatbotSharedKey} members every registration reads;
+ *   - the `maxToolRoundtrips` retirement tombstone (objectui#5605), picked off
+ *     {@link ChatbotSchema} so all three chat nodes refuse it with one declaration;
  *   - `maxHeight` and `processVisibility`, which `chatbot-enhanced` forwards to
  *     `<ChatbotEnhanced>` by name and `chatbot-floating` has no named read for
  *     (its panel is sized by `floatingConfig.panelHeight`; for the second,
@@ -1690,7 +1692,7 @@ export type ChatbotSharedKey =
  */
 export interface ChatbotEnhancedSchema
   extends BaseSchema,
-    Pick<ChatbotSchema, ChatbotSharedKey | 'maxHeight' | 'processVisibility'> {
+    Pick<ChatbotSchema, ChatbotSharedKey | 'maxToolRoundtrips' | 'maxHeight' | 'processVisibility'> {
   type: 'chatbot-enhanced';
   /**
    * Render assistant messages as markdown. Forwarded to `<ChatbotEnhanced>`'s
@@ -1745,7 +1747,7 @@ export interface ChatbotEnhancedSchema
    * `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`,
    * `autoResponseDelay`, `autoResponseText`, `conversationId`,
    * `enableFileUpload`, `enableMarkdown`, `headers`, `maxHeight`,
-   * `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, `onSend`,
+   * `messages`, `model`, `onClear`, `onError`, `onSend`,
    * `placeholder`, `processVisibility`, `requestBody`, `showTimestamp`,
    * `streamingEnabled`, `surface`, `systemPrompt`, `userAvatarFallback`,
    * `userAvatarUrl` (in `packages/plugin-chatbot/src/renderer.tsx`).
@@ -1774,7 +1776,8 @@ export interface ChatbotEnhancedSchema
  * Declared here is what THIS registration reads by name (`schema.KEY`),
  * censused per key on the PR's base:
  *
- *   - the twenty {@link ChatbotSharedKey} members;
+ *   - the nineteen {@link ChatbotSharedKey} members;
+ *   - the `maxToolRoundtrips` retirement tombstone (objectui#5605);
  *   - `enableMarkdown`, `enableFileUpload` and the `onClear` runtime slot,
  *     forwarded into the panel's `<ChatbotEnhanced>`;
  *   - `floatingConfig`, the trigger and panel geometry
@@ -1803,7 +1806,7 @@ export interface ChatbotEnhancedSchema
  */
 export interface ChatbotFloatingSchema
   extends BaseSchema,
-    Pick<ChatbotSchema, ChatbotSharedKey> {
+    Pick<ChatbotSchema, ChatbotSharedKey | 'maxToolRoundtrips'> {
   type: 'chatbot-floating';
   /**
    * Render assistant messages as markdown inside the panel. Forwarded to the
@@ -1861,7 +1864,7 @@ export interface ChatbotFloatingSchema
    * `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`,
    * `autoResponseDelay`, `autoResponseText`, `conversationId`,
    * `enableFileUpload`, `enableMarkdown`, `floatingConfig`, `headers`,
-   * `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, `onSend`,
+   * `messages`, `model`, `onClear`, `onError`, `onSend`,
    * `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`,
    * `systemPrompt`, `userAvatarFallback`, `userAvatarUrl` (in
    * `packages/plugin-chatbot/src/renderer.tsx`).

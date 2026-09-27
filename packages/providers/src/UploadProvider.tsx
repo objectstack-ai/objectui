@@ -11,9 +11,9 @@
  * - `UploadProvider` exposes an `upload(file, opts)` function via context.
  * - Apps inject an adapter (`createS3Adapter`, `createAzureBlobAdapter`, or any
  *   custom one implementing `UploadAdapter`).
- * - The default adapter (`createObjectUrlAdapter`) preserves the legacy
- *   "blob: URL" behaviour so the field widgets keep working when no provider
- *   is mounted.
+ * - The default adapter (`createObjectUrlAdapter`) mints a tab-local `blob:`
+ *   URL and no `sys_file` id; it keeps the field widgets from crashing when no
+ *   provider is mounted, and they refuse every pick through it (objectui#7699).
  * - Upload progress and resumable retries are first-class concerns: each
  *   adapter implementation can chunk + resume; the public API surfaces
  *   `onProgress` and an `abortSignal`.
@@ -65,9 +65,10 @@ interface UploadContextValue {
 const UploadContext = createContext<UploadContextValue | null>(null);
 
 /**
- * Default adapter — wraps the file in an object URL. Identical to the legacy
- * field-widget behaviour; safe fallback when the app hasn't configured a real
- * upload destination yet.
+ * Default adapter — wraps the file in an object URL. It persists nothing and
+ * returns no `meta.fileId`, so the `@object-ui/fields` file and image widgets
+ * refuse its result (`UploadIncompleteError`); it is a no-crash default, not
+ * an upload destination.
  */
 export function createObjectUrlAdapter(): UploadAdapter {
   return {

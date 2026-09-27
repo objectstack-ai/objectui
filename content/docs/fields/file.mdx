@@ -100,28 +100,7 @@ import { FileCellRenderer } from '@object-ui/fields';
 
 ## Integration Notes
 
-This component creates object URLs for file preview. Actual file upload requires backend integration:
-
-```plaintext
-// Frontend creates preview
-const fileData = {
-  name: 'document.pdf',
-  size: 1024000,
-  mime_type: 'application/pdf',
-  url: URL.createObjectURL(file)
-};
-
-// Backend handles actual upload
-const uploadToServer = async (file) => {
-  const formData = new FormData();
-  formData.append('file', file);
-  const response = await fetch('/api/upload', {
-    method: 'POST',
-    body: formData
-  });
-  return response.json();
-};
-```
+The widget uploads through the ambient `UploadProvider` from `@object-ui/providers` and stores the `sys_file` id its adapter returns in `meta.fileId`; `createObjectStackUploadAdapter` (ObjectStack's presigned flow) returns one. With no provider mounted, `useUpload()` falls back to an object-URL adapter that persists nothing and returns no id, so every pick is refused with "did not complete" and the field is not changed.
 
 ## Use Cases
 

@@ -461,7 +461,8 @@ const ABSENCES: Record<string, Absence> = {
   showHideFields: { kind: 'legacy-alias', canonical: 'userActions', mentions: 'normalizeListViewSchema', reason: 'Legacy toolbar flag, folded into `userActions` by the same rung.' },
   showGroup: { kind: 'legacy-alias', canonical: 'userActions', mentions: 'normalizeListViewSchema', reason: 'Legacy toolbar flag, folded into `userActions` by the same rung.' },
   showColor: { kind: 'legacy-alias', canonical: 'userActions', mentions: 'normalizeListViewSchema', reason: 'Legacy toolbar flag, folded into `userActions` by the same rung.' },
-  showDensity: { kind: 'legacy-alias', canonical: 'userActions', mentions: 'normalizeListViewSchema', reason: 'Legacy toolbar flag, folded into `userActions` by the same rung; the density VALUE has its own `densityMode` / `rowHeight` rungs.' },
+  showDensity: { kind: 'legacy-alias', canonical: 'userActions', mentions: 'normalizeListViewSchema', reason: 'Legacy toolbar flag, folded into `userActions` by the same rung; the density VALUE has its own `rowHeight` rung, which reads through the same fold.' },
+  densityMode: { kind: 'legacy-alias', canonical: 'rowHeight', mentions: 'normalizeListViewSchema', reason: "Legacy spelling of the density VALUE, retired on `NamedListView` (objectui#7924, ruling A′). The `rowHeight` rung runs the view through `normalizeListViewSchema` and relays its `rowHeight`, so a stored view's `densityMode` arrives folded and this relay never names the retired key." },
 
   // ── Declared on the type, consumed by nobody on this path ─────────────────
   // A rung for one of these would relay a value into a void, and the void is

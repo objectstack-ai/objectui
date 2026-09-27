@@ -2291,10 +2291,12 @@ export interface NamedListView {
    * Allow data export @default undefined
    *
    * ⚠️ objectui-only (the protocol declares no `allowExport` on a view), but
-   * ⛔ NOT retired with its bucket-③ neighbours: it is READ. `app-shell`'s
-   * object page relays it off the active named view into the `list-view` node,
-   * and `ListView` gates its export control on `schema.allowExport !== false`.
-   * Reported on objectui#7924 rather than tombstoned.
+   * ⛔ NOT retired with its bucket-③ neighbours: it is READ. BOTH relays carry
+   * it off the active view into the `list-view` node — `plugin-view`'s
+   * `ObjectView` in its `renderListView` composition, and `app-shell`'s object
+   * page in its own relay over that composition — and `ListView` gates its
+   * export control on `schema.allowExport !== false`. Kept declared by ruling A
+   * on objectui#7924.
    */
   allowExport?: boolean;
 
@@ -2355,16 +2357,16 @@ export interface NamedListView {
   resizable?: boolean;
 
   /**
-   * Density mode for controlling row/item spacing
-   *
-   * ⚠️ objectui-only (the protocol's name for this is `rowHeight`), but ⛔ NOT
-   * retired with its bucket-③ neighbours: it is READ. `normalizeListViewSchema`
-   * (`@object-ui/core`) folds it onto `rowHeight` at the `ListView` boundary, so
-   * it is a legacy SPELLING with a runtime fold — the bucket-② shape, whose
-   * canonical key is top-level `rowHeight` (⛔ not `userActions.rowHeight`, the
-   * boolean toolbar toggle). Reported on objectui#7924 rather than tombstoned.
+   * @deprecated RETIRED (objectui#7924) — author top-level `rowHeight` instead.
+   * Not a protocol key on a view: the protocol's name for row density is
+   * `rowHeight`, and `densityMode` was objectui's legacy spelling of it.
+   * ⚠️ Not `userActions.rowHeight`: that is the boolean toggle for the
+   * toolbar's density control. A stored view that still carries this key keeps
+   * rendering: `normalizeListViewSchema` (`@object-ui/core`) folds it onto
+   * `rowHeight` through `DENSITY_MODE_TO_ROW_HEIGHT`, and both relays of a
+   * named view read the density through that fold rather than by this name.
    */
-  densityMode?: 'compact' | 'comfortable' | 'spacious';
+  densityMode?: never;
 
   /**
    * Row height for list/grid view rows.
@@ -2480,8 +2482,9 @@ export interface NamedListView {
    *
    * The 19 legacy spellings this interface declared BEYOND the protocol were
    * objectui#7924's remedy (ruling item 4) — ⛔ not touched by that card. It
-   * retired sixteen of them as tombstones; `options`, `allowExport` and
-   * `densityMode` stay declared because each is read.
+   * retired seventeen of them as tombstones, `densityMode` last (ruling A′,
+   * once both of its relays read through the fold); `options` and
+   * `allowExport` stay declared because each is read.
    */
 
   /**

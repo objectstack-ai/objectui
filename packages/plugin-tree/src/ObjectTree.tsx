@@ -49,6 +49,7 @@ import {
   NonGridRowCeilingNote,
   useFilterScope,
   useResolvedFilter,
+  useDataInvalidation,
 } from '@object-ui/react';
 import {
   NavigationOverlay,
@@ -670,7 +671,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
    * the component rather than one effect of two.
    */
   const dataProvider = dataConfig?.provider;
-  // NOT a delegation site for `resolveRecordSourceObjectName` (objectui#7627):
+  // NOT a delegation site for `resolveRecordSourceObjectName` (`b041b9c0c`):
   // this is the data config's OWN object, deliberately `undefined` for every
   // other provider so an `api`/`value` tree's `objectName` changing cannot move
   // this dependency. The shared reader's second rung would put `objectName`
@@ -696,6 +697,29 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
   // re-query.
   const filterScope = useFilterScope();
   const queryFilter = useResolvedFilter(schema.filter, filterScope);
+
+  // objectui#10778 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10623 way: the nonce moves when a
+  // write to the object this tree QUERIES is declared, and the record effect
+  // below names it, so the rows are re-read in place. Without it a page action
+  // over raw HTTP left the tree stale unless the page was remounted.
+  //
+  // The object is `dataObjectName` — the `object` provider's own object,
+  // whether the node spelled it `objectName` or `data: { provider: 'object' }`
+  // — and it is subscribed exactly when the `object` arm below queries: inline
+  // rows (a `data` array, the `value` provider) name no object and query no
+  // adapter, so they do not subscribe.
+  //
+  // ⚠️ Rows a HOST hands down as the `data` prop (ListView's tree) do NOT
+  // exempt the tree: the `object` arm runs its own full query ahead of them,
+  // so its freshness must not rest on the host's rows moving. The host fetches
+  // only its display columns (usually not the parent pointer), and a host that
+  // hands an equal re-read down as the SAME array — what AGENTS.md #10 asks of
+  // a provider — would never move the `data` dependency below for a write its
+  // projection does not show, such as a re-parented record. Today's ListView
+  // hands down a fresh array on every re-read, so a list-view tree runs its
+  // query twice after such an event: once on this nonce, once on those rows.
+  const invalidationNonce = useDataInvalidation(dataSource ? dataObjectName : undefined);
 
   // Fetch records.
   useEffect(() => {
@@ -884,7 +908,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [dataProvider, dataObjectName, dataItems, dataSource, queryFilter, objectSchema, schemaSettled, (rest as any).data, perms]);
+  }, [dataProvider, dataObjectName, dataItems, dataSource, queryFilter, objectSchema, schemaSettled, (rest as any).data, perms, invalidationNonce]);
 
   const config = useMemo(() => getTreeConfig(schema), [schema]);
   const parentField = useMemo(
@@ -985,7 +1009,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
     // read untouched.
     navigation: (schema as any).navigation,
     // The record-page URL names the object the ROWS came from, not the block's
-    // bare top-level key (objectui#7638). objectui#6939 published `objectName`
+    // bare top-level key (`2ce2612df`). objectui#6939 published `objectName`
     // as the THIRD RUNG of ONE record-source ladder (`data`, then `staticData`,
     // then `objectName`) rather than as a parallel "page object" concept, so a
     // block has exactly one record source. A row fetched through

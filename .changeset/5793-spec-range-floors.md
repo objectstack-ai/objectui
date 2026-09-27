@@ -4,7 +4,7 @@
 
 `@object-ui/plugin-detail` now declares `"@objectstack/spec": "^17.1.0"` rather than
 `^17.0.0`, which is the lowest published spec that carries the symbol its own build
-output re-exports (objectui#5793).
+output re-exports.
 
 `dist/renderers/record-reference-rail.d.ts` reads
 `export type { ReferenceRailEntry } from '@objectstack/spec/ui'`, and

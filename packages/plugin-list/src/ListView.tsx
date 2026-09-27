@@ -2071,12 +2071,12 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // The withholding is kept anyway: it is unreachable, not wrong, and it stops
   // being unreachable the moment that wrapper forwards host props — whether a
   // non-grid view may fetch unbounded at all is an open maintainer decision
-  // (objectui#7210, half 2). `ObjectGantt.reload` takes its `rest.data`
-  // short-circuit on `data && Array.isArray(data)`, and `[]` satisfies both,
-  // while this view's rows array is never filled (the fetch effect below
-  // returns early for it). Forwarding it would therefore replace the endpoint's
-  // tree with an EMPTY chart — not with the stale object rows the old comment
-  // warned about.
+  // (objectui#7210, half 2). This view's rows array is not the endpoint's
+  // answer (the fetch effect below returns early for it), and `ObjectGantt`
+  // adopts any NON-EMPTY host `data` array as its rows. An EMPTY one no longer
+  // blanks the chart: it reads as "no host rows yet" and the chart still
+  // queries its endpoint (objectui#7333). So the withholding guards against
+  // this array ever being adopted in the endpoint's place.
   const ganttOwnsData =
     currentView === 'gantt' &&
     !!schema.data &&

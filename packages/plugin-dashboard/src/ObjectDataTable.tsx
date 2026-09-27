@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect, useContext, useMemo, useCallback } from 'react';
-import { useDataScope, SchemaRendererContext, SchemaRenderer, useFilterScope, useSettledSchema } from '@object-ui/react';
+import { useDataScope, SchemaRendererContext, SchemaRenderer, useFilterScope, useSettledSchema, useDataInvalidation } from '@object-ui/react';
 import {
   extractRecords,
   isDrillEnabled,
@@ -688,6 +688,20 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
   // on the columns, so a relabelled column is not a change.
   const lookupExpandKey = computeLookupExpand(schema, objectSchema).join(',');
 
+  // objectui#10778 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10623 way: the nonce moves when a
+  // write to the object this table QUERIES is declared, and the fetch effect
+  // below names it, so the rows are re-read in place (the skeleton is drawn
+  // only while there are no rows yet; a re-read shows the refresh bar). Without
+  // it a page action over raw HTTP left the table stale unless the page was
+  // remounted. The same component lists a `dashboard` block's object-bound table
+  // widget and every drill-down drawer's records, so those re-read with it.
+  // Subscribed only when this effect queries: bound rows and authored `data`
+  // rows are not its query.
+  const fetchesForItself =
+    !!dataSource && !!schema.objectName && !boundData && (!schema.data || schema.data.length === 0);
+  const invalidationNonce = useDataInvalidation(fetchesForItself ? schema.objectName : undefined);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -787,7 +801,7 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
     return () => { isMounted = false; };
     // `schema.columns` is read through `lookupExpandKey`, by content; see above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema.objectName, dataSource, boundData, schema.data, schema.filter, objectSchemaReady, objectSchema, lookupExpandKey, filterScope, perms]);
+  }, [schema.objectName, dataSource, boundData, schema.data, schema.filter, objectSchemaReady, objectSchema, lookupExpandKey, filterScope, perms, invalidationNonce]);
 
   // Resolve data: bound data > static schema data > fetched data
   const rawData = boundData || schema.data || fetchedData;

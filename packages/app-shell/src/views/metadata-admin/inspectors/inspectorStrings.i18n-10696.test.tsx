@@ -392,8 +392,8 @@ describe('FlowEdgeInspector — the decision-branch picker’s option labels (ob
 // `regionLabelOf` (flow-nested-selection.ts) bakes the English structural
 // fallbacks `Try` / `Catch` / `Branch N`, as the canvas layout does; the crumb
 // now translates them through the canvas header's own `displayRegionLabel`, so
-// the canvas and the inspector show one word. `Body` (no same-concept row) and
-// an authored branch name pass through.
+// the canvas and the inspector show one word. An authored branch name passes
+// through; `Body` gained its own row later (objectui#10748, pinned there).
 
 /** A try_catch and a parallel container; the parallel's second branch is unnamed. */
 const NESTED_DRAFT = {
@@ -437,7 +437,8 @@ function regionCrumb(lang: Lang, path: { containerId: string; regionKey: string;
       locale={LOCALE[lang]}
     />
   ));
-  const crumb = document.body.querySelector('[aria-label="nested node location"]');
+  // The crumb's own accessible name reads a row since objectui#10748.
+  const crumb = document.body.querySelector(`[aria-label="${t('engine.inspector.flowNode.nestedLocation', LOCALE[lang])}"]`);
   expect(crumb, 'the nested-node breadcrumb').toBeTruthy();
   // container › region › node — three text segments; the separators are aria-hidden.
   const segments = Array.from(crumb!.querySelectorAll('span:not([aria-hidden])'));

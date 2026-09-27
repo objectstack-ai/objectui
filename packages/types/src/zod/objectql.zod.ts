@@ -589,12 +589,15 @@ export const ObjectViewSchema = BaseSchema.extend({
   // and a different supplier. Judged separately for that reason.
   onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'Record navigation handler'),
 })
-  // ⭐ objectui#8355 — the ONE thing this object judges about a named view, and
-  // ⛔ NOT a mirror of `listViews`. Declared and explained at
-  // `checkNamedViewCalendarAliases` below (a hoisted function declaration, so
-  // the forward reference resolves at module init and the body runs at parse
-  // time, long after the refusal arms it reads are built).
-  .check(checkNamedViewCalendarAliases);
+  // ⭐ objectui#8355 / objectui#10321 — the only things this object judges
+  // about a named view: the named alias refusals, two sibling checks on this
+  // one door (the calendar spellings, and the kanban twin's stray `groupBy`),
+  // and ⛔ NOT a mirror of `listViews`. Declared and explained at
+  // `checkNamedViewCalendarAliases` and `checkNamedViewKanbanStrayGroupBy`
+  // below (hoisted function declarations, so the forward references resolve at
+  // module init and the bodies run at parse time, long after the refusal arms
+  // they read are built).
+  .check(checkNamedViewCalendarAliases, checkNamedViewKanbanStrayGroupBy);
 
 /**
  * User Filters — field-level filter option
@@ -864,7 +867,7 @@ const KanbanStrayGroupByRefusal = aliasKeyRefusal(
 );
 
 /**
- * WHERE THIS ARM IS INSTALLED — TWO NESTINGS, ONE STRING.
+ * WHERE THIS ARM IS INSTALLED — TWO ROUTES, TWO NESTINGS EACH, ONE STRING.
  *
  * `ListView` merges `{ ...schema.options?.kanban, ...schema.kanban }` before it
  * reads anything, so a stored view can carry the stray key under EITHER. The
@@ -874,14 +877,22 @@ const KanbanStrayGroupByRefusal = aliasKeyRefusal(
  * member at all, so it takes the SAME guidance as a check (`custom` at
  * `options.kanban.groupBy`) — see `ListViewSchema.options` below.
  *
+ * The second route is a named view on an `object-view` document, whose
+ * `listViews` is unmirrored: nothing `ListViewSchema` declares reaches it, and
+ * `generateViewSchema` merges the same two nestings. It takes the SAME guidance
+ * through the named-view door (`custom` at `listViews.KEY.kanban.groupBy` and
+ * `listViews.KEY.options.kanban.groupBy`, objectui#10321) — see
+ * `checkNamedViewKanbanStrayGroupBy` below.
+ *
  * ⚠️ Covering the legacy nesting is not optional politeness: the retired
  * producer (`app-shell`'s `kanbanViewOptions`, objectui#8213) wrote into
  * `options.kanban`, so that is where the stored views this ruling is ABOUT carry
  * the key. Refusing only the declared nesting would leave exactly that
  * population re-grouped in silence — option A, which the ruling did not take.
  *
- * ⛔ The two channels take ONE string, read off this arm's own `.description`,
- * so the message an author meets cannot depend on which nesting they wrote.
+ * ⛔ Every channel takes ONE string, read off this arm's own `.description`,
+ * so the message an author meets cannot depend on which route or nesting they
+ * wrote.
  */
 
 const KanbanConfig = stripImportedDefaults(SpecKanbanConfigSchema).partial().extend({
@@ -1082,6 +1093,44 @@ const CalendarNodeDateAliasRefusals = {
 };
 
 /**
+ * A plain JSON object — the only shape a view-kind block or a named view can
+ * take. Arrays and `null` are not blocks.
+ */
+function isPlainBlock(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === 'object' && !Array.isArray(v);
+}
+
+/**
+ * Every place a named view on an `object-view` document can carry one view-kind
+ * block, with the path an issue is reported at: for each named view, the
+ * canonical `KIND` block and then the legacy `options.KIND` bag. Those are the
+ * two nestings `generateViewSchema` merges, in its own order — the canonical
+ * block wins key-by-key over the legacy bag, and the file's own note says that
+ * bag "is where the legacy field aliases … `dateField` live" (and the retired
+ * kanban producer, objectui#8213, wrote there too). Refusing only one of them
+ * would leave exactly the stored population silent.
+ *
+ * Shared by the named-view checks below so they walk `listViews` identically;
+ * it judges nothing itself.
+ */
+function namedViewKindBlocks(
+  value: unknown,
+  kind: 'calendar' | 'kanban',
+): Array<[Record<string, unknown>, string[]]> {
+  const named = (value as { listViews?: unknown } | undefined)?.listViews;
+  if (!isPlainBlock(named)) return [];
+  const blocks: Array<[Record<string, unknown>, string[]]> = [];
+  for (const [viewKey, view] of Object.entries(named)) {
+    if (!isPlainBlock(view)) continue;
+    const canonical = view[kind];
+    if (isPlainBlock(canonical)) blocks.push([canonical, ['listViews', viewKey, kind]]);
+    const legacy = isPlainBlock(view.options) ? view.options[kind] : undefined;
+    if (isPlainBlock(legacy)) blocks.push([legacy, ['listViews', viewKey, 'options', kind]]);
+  }
+  return blocks;
+}
+
+/**
  * THE SECOND ROUTE'S READ DOOR — `ObjectViewSchema`'s named views (objectui#8355).
  *
  * `plugin-view`'s `generateViewSchema` is, in its own words, "the SECOND route
@@ -1116,61 +1165,83 @@ const CalendarNodeDateAliasRefusals = {
  * (objectui#8365) and this card's two calendar spellings by name.
  *
  * ⚠️ A PREMISE THAT DIED ON CONTACT, recorded because it changes what this
- * check is for. The gap here is NOT specific to the calendar and was NOT opened
- * by this card: measured on the same instrument, a named view carrying the
- * objectui#8365 stray `kanban.groupBy` is ACCEPTED, while the identical key on a
- * `list-view` document is refused. Until this check, no alias refusal this
- * module declares reached inside `listViews`. This check is the only door in,
- * and it judges the two calendar spellings only, at both nestings (so
- * `listViews.KEY.calendar.dateField` IS refused); a search for `listViews` in
- * this file re-derives that. What this card regressed on the object-view route
- * is the BEHAVIOUR — a document that drew at the merge-base goes mute once the
- * ladder is gone — and this check is what makes that failure loud. ⛔ It is not
- * a general repair of the unmirrored key, and the kanban twin is still silent
- * here (no pin re-derives that silence); that belongs to objectui#8365's own
- * text, not to this card.
+ * check is for. The gap here was NOT specific to the calendar and was NOT
+ * opened by this card: measured on the same instrument, a named view carrying
+ * the objectui#8365 stray `kanban.groupBy` was ACCEPTED, while the identical key
+ * on a `list-view` document was refused. Until this check, no alias refusal this
+ * module declares reached inside `listViews`. This check was the only door in
+ * until objectui#10321 added its kanban sibling below, and it judges the two
+ * calendar spellings only, at both nestings (so `listViews.KEY.calendar.dateField`
+ * IS refused); a search for `listViews` in this file re-derives that. What this
+ * card regressed on the object-view route is the BEHAVIOUR — a document that
+ * drew at the merge-base goes mute once the ladder is gone — and this check is
+ * what makes that failure loud. ⛔ It is not a general repair of the unmirrored
+ * key, and the kanban twin is not judged here: that is
+ * `checkNamedViewKanbanStrayGroupBy`, below.
  *
  * ⛔ Scoped to the TWO keys under `calendar`: `timeline.dateField` on a named
  * view stays accepted (the timeline alias is live by ruling), and nothing else
- * about a named view is judged.
+ * about a named view is judged here.
  */
 function checkNamedViewCalendarAliases(ctx: { value: unknown; issues: unknown[] }): void {
-  const doc = ctx.value as { listViews?: Record<string, unknown> } | undefined;
-  const named = doc?.listViews;
-  if (!named || typeof named !== 'object' || Array.isArray(named)) return;
-  const isBlock = (v: unknown): v is Record<string, unknown> =>
-    !!v && typeof v === 'object' && !Array.isArray(v);
-  for (const [viewKey, view] of Object.entries(named)) {
-    if (!isBlock(view)) continue;
-    // The two nestings `generateViewSchema` merges, in its own order: the
-    // canonical block wins key-by-key over the legacy `options` bag, and the
-    // file's own note says that bag "is where the legacy field aliases …
-    // `dateField` live". Refusing only one of them would leave exactly the
-    // stored population silent.
-    const nestings: Array<[Record<string, unknown> | undefined, string[]]> = [
-      [isBlock(view.calendar) ? view.calendar : undefined, ['listViews', viewKey, 'calendar']],
-      [
-        isBlock(view.options) && isBlock((view.options as Record<string, unknown>).calendar)
-          ? ((view.options as Record<string, unknown>).calendar as Record<string, unknown>)
-          : undefined,
-        ['listViews', viewKey, 'options', 'calendar'],
-      ],
-    ];
-    for (const [block, path] of nestings) {
-      if (!block) continue;
-      for (const alias of ['dateField', 'endField'] as const) {
-        const written = block[alias];
-        if (written === undefined) continue;
-        // ⛔ One string, read off the arm's own `.description`, so this door and
-        // the four declared ones cannot answer an author differently.
-        ctx.issues.push({
-          code: 'custom',
-          message: CalendarBlockDateAliasRefusals[alias].description as string,
-          input: written,
-          path: [...path, alias],
-        });
-      }
+  for (const [block, path] of namedViewKindBlocks(ctx.value, 'calendar')) {
+    for (const alias of ['dateField', 'endField'] as const) {
+      const written = block[alias];
+      if (written === undefined) continue;
+      // ⛔ One string, read off the arm's own `.description`, so this door and
+      // the four declared ones cannot answer an author differently.
+      ctx.issues.push({
+        code: 'custom',
+        message: CalendarBlockDateAliasRefusals[alias].description as string,
+        input: written,
+        path: [...path, alias],
+      });
     }
+  }
+}
+
+/**
+ * THE SECOND ROUTE'S KANBAN TWIN — a named view's stray `kanban.groupBy`
+ * (objectui#10321, under the objectui#8365 ruling B, verbatim 「8365 同意」).
+ *
+ * `generateViewSchema`'s kanban branch had the calendar branch's shape: a stray
+ * `groupBy` in `viewOptions.kanban` rode `...restKanban` onto the node and
+ * overrode the lane the branch had resolved from `groupByField` (objectui#9242
+ * now drops it). The ruling refuses that key loudly 「at the read door of the
+ * view, visible to the author of the view」, and a named view's
+ * `listViews.KEY.kanban.groupBy` is a stored view authoring the same key. So it
+ * takes the same refusal, as a sibling of the calendar check above on the same
+ * `ObjectViewSchema` door, with the ONE string `KanbanStrayGroupByRefusal`
+ * carries on the `list-view` route (`custom` here, at either nesting).
+ *
+ * The protocol agrees on this route too: `@objectstack/spec`'s `ViewSchema`
+ * refuses `listViews.KEY.kanban.groupBy` as an unrecognized key exactly as its
+ * `ListViewSchema` refuses `kanban.groupBy`. Measured when this landed, on
+ * `@objectstack/spec` 17.4.0, with a dark control (`groupByField` and `columns`
+ * alone, accepted) on both routes. The spec refuses a named view's `options` bag
+ * outright, as it does a `list-view`'s, so refusing `options.kanban.groupBy` here
+ * is no stricter than the protocol.
+ *
+ * ⛔ A sibling, not a widening of the calendar check: two pending changesets
+ * describe that check as judging the two calendar spellings only, and it still
+ * does. ⛔ Not a mirror of `listViews` either, for every reason the calendar
+ * check's docblock gives: it judges ONE key, at the two nestings, and refuses
+ * neither an undeclared sibling in the block (`swimlaneField`, say) nor a block
+ * without `columns` nor the legacy bag itself. The SCOPE CONTROLS in
+ * `named-view-kanban-stray-group-by-10321.test.ts` assert each of those.
+ */
+function checkNamedViewKanbanStrayGroupBy(ctx: { value: unknown; issues: unknown[] }): void {
+  for (const [block, path] of namedViewKindBlocks(ctx.value, 'kanban')) {
+    const written = block.groupBy;
+    if (written === undefined) continue;
+    // ⛔ One string, read off the arm's own `.description`, so the named-view
+    // door and the `list-view` route cannot answer an author differently.
+    ctx.issues.push({
+      code: 'custom',
+      message: KanbanStrayGroupByRefusal.description as string,
+      input: written,
+      path: [...path, 'groupBy'],
+    });
   }
 }
 

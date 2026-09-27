@@ -1775,12 +1775,15 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // ⛔ Do not "align" the two by swapping in the detector: that is a
         // behaviour change on stored views and belongs on its own card.
         //
-        // The contract half is NOT here and must not be duplicated here: the
-        // view-level `KanbanConfig` mirror (`@object-ui/types`,
-        // `zod/objectql.zod.ts`) already declares `groupBy` as a named alias
-        // refusal pointing at `groupByField`, and it covers BOTH routes. What
-        // this line closes is the residual BEHAVIOUR gap — a stored document
-        // that never passed through a validator.
+        // The contract half is NOT here and must not be duplicated here. It
+        // lives in `@object-ui/types` (`zod/objectql.zod.ts`), one string
+        // (`KanbanStrayGroupByRefusal`) on two routes: the `list-view` route
+        // takes it through the view-level `KanbanConfig` mirror, and a named
+        // view's `listViews.KEY.kanban.groupBy` (what this branch serves)
+        // through `ObjectViewSchema`'s named-view door,
+        // `checkNamedViewKanbanStrayGroupBy`, in both nestings (objectui#10321).
+        // What this line closes is the BEHAVIOUR half: a document that reaches
+        // this branch carrying the key, whether or not it passed a validator.
         // ⚠️ NODE-LOCAL vs VIEW-LEVEL, as everywhere in this branch: the
         // `kanbanCfg.groupField` alias read above is LIVE and untouched, and
         // `groupBy` on the RETURNED node is the canonical lane key

@@ -42,10 +42,11 @@
  * draws has a test that states it.
  *
  * The surface-scoping cases carry the maintainer ruling of 2026-08-10
- * (objectui#4000). `div` is deprecated on the JSON authoring surface and is at
- * the same time permanent, first-class vocabulary of the `kind:'html'` tier,
- * where our own parser compiles the plain tag straight through and no other
- * spelling exists to migrate to. A boolean would have made the declaration
+ * (objectui#4000). `span` is deprecated on the JSON authoring surface and is at
+ * the same time vocabulary of the `kind:'html'` tier, where our own parser
+ * compiles the plain tag straight through and no other spelling exists to
+ * migrate to (`div` was too, until objectui#10757 declared it deprecated on
+ * both surfaces). A boolean would have made the declaration
  * false for one of its two readers; `deprecationFor` makes every caller name
  * the surface it is asking about, so no gate re-derives that exemption locally.
  *
@@ -119,8 +120,8 @@ describe('Registry.deprecationFor — the reader (objectui#6674)', () => {
     const registry = fresh();
     registry.register('boxy', NOOP, { namespace: 'probe', deprecated: DIV_LIKE });
 
-    // This is the whole reason the declaration carries surfaces. `div` is
-    // deprecated for JSON-authored pages and is permanent vocabulary of the
+    // This is the whole reason the declaration carries surfaces. `span` is
+    // deprecated for JSON-authored pages and is vocabulary of the
     // `kind:'html'` tier, where the parser maps the plain tag straight through.
     // A gate sweeping html-tier sources must get "not deprecated" here without
     // knowing that ruling.

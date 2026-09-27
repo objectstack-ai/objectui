@@ -16,7 +16,7 @@ import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, useGlobalUndo, useDataInvalidation, notifyDataChanged, useRowPredicate } from '@object-ui/react';
-import { buildExpandFields, resolveRecordIdParamSeed, userActionPredicates } from '@object-ui/core';
+import { buildExpandFields, resolveRecordIdParamSeed, userActionPredicates, withoutDeniedFields } from '@object-ui/core';
 import { toast } from 'sonner';
 import { useRecordPresence, PresenceAvatars } from '@object-ui/collaboration';
 import { Database, ChevronLeft } from 'lucide-react';
@@ -235,44 +235,19 @@ export function resolveRecordHeaderActionGates(
   return { edit: affordances.edit, delete: affordances.delete };
 }
 
-/**
- * `record` without the fields the loaded permission policy denies on
- * `objectName`, for building the record's TITLE (objectui#10434) and for the
- * row the record page's blocks read, `page:header`'s H1 among them
- * (objectui#10499). What is
- * left is the row ObjectStack's `FieldMasker` already serves. `id` and `_id`
- * are never judged: the resolver's `Record #<id>` floor reads them. Before a
- * policy loads (also the answer with no provider mounted) the record comes
- * back as is, and when nothing is withheld the same object comes back.
- *
- * `@object-ui/plugin-detail` applies the same rule to `DetailView`'s header
- * and `record:details`' title dedupe; neither copy is a package export, which
- * is why this package spells its own.
- */
-function withoutDeniedFields<T>(
-  record: T,
-  perms: Pick<ReturnType<typeof usePermissions>, 'isLoaded' | 'checkField'>,
-  objectName: string | undefined,
-): T {
-  if (!perms?.isLoaded || !objectName || !record || typeof record !== 'object') return record;
-  const shown: Record<string, unknown> = {};
-  let withheld = false;
-  for (const [key, value] of Object.entries(record)) {
-    if (key === 'id' || key === '_id' || perms.checkField(objectName, key, 'read')) shown[key] = value;
-    else withheld = true;
-  }
-  return withheld ? (shown as T) : record;
-}
-
 /** Gated copies of served rows, keyed on the served row object itself. */
 const READABLE_ROWS = new WeakMap<object, { kept: string; row: unknown }>();
 
 /**
- * `withoutDeniedFields`, but the SAME gated object for the same served row and
- * the same kept keys (objectui#10499). The record page hands this row to every
- * block through `RecordContext`, so a new object on every render would reach
- * every consumer as a changed record. The cache lives on the served row, a
- * payload object, not on a memoised identity (AGENTS.md #10).
+ * `withoutDeniedFields` from `@object-ui/core` (objectui#10594) — the record
+ * without the fields the loaded permission policy denies on `objectName`, for
+ * building the record's TITLE (objectui#10434) and for the row the record
+ * page's blocks read, `page:header`'s H1 among them (objectui#10499) — but the
+ * SAME gated object for the same served row and the same kept keys
+ * (objectui#10499). The record page hands this row to every block through
+ * `RecordContext`, so a new object on every render would reach every consumer
+ * as a changed record. The cache lives on the served row, a payload object,
+ * not on a memoised identity (AGENTS.md #10).
  */
 function readableRow<T>(
   record: T,

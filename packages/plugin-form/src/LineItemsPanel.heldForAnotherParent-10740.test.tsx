@@ -33,7 +33,11 @@
  *     saves that parent's lines only;
  *   - a RE-load of the SAME parent that fails (a transient failure on a refresh)
  *     keeps the author's unsaved edits drawn, editable and saveable — under
- *     that parent — exactly as it did before this card.
+ *     that parent — exactly as it did before this card. Since objectui#10712
+ *     the same-parent re-read that can run while edits are held is the
+ *     post-save reload (a sort, limit or filter change is held while the
+ *     panel has unsaved edits, pinned in `LineItemsPanel.dirtyReloadHold-10712`),
+ *     so that row's trigger is a save whose reload fails.
  *
  * The owner is written wherever the rows are written. A grid offered with no
  * adapter (the load declines before any fetch) holds rows nobody loaded; a line
@@ -322,11 +326,18 @@ describe('what the rule leaves alone (objectui#10740 controls)', () => {
   });
 
   it('a RE-load of the SAME parent that fails keeps the held edits: the edited line is drawn editable, Save is on, and the save carries l1 under p1', async () => {
-    const { lineReads, saves, view } = await mountP1Edited();
+    const { lineReads, saves } = await mountP1Edited();
 
-    // A load input other than the parent moves (the row cap), so the panel
-    // re-reads p1's lines while p1's edit is held; that read fails.
-    view.rerender(linesBlock({ limit: 200 }));
+    // The same-parent re-read that can still run while p1's edit is held is
+    // the post-save reload: since objectui#10712 a change to a load input other
+    // than the parent (the row cap, say) is HELD while the panel has unsaved
+    // edits for the current parent, so it issues no read. The property this
+    // row keeps is unchanged: a same-parent re-read that fails leaves the
+    // author's lines drawn, editable and saveable under that parent. So Save
+    // is pressed, its batch lands, and the reload that follows fails.
+    await clickSave();
+    const landed = await nth(saves, 1);
+    await settle(() => landed.resolve({ results: [] }));
     const reload = await nth(lineReads, 2);
     expect(reload.parentId).toBe('p1');
     await fail(reload, 'p1 reload failed');
@@ -338,7 +349,7 @@ describe('what the rule leaves alone (objectui#10740 controls)', () => {
     expect(saveButton()?.disabled).toBe(false);
 
     await clickSave();
-    const save = await nth(saves, 1);
+    const save = await nth(saves, 2);
     expect(save.ops).toEqual([
       { object: 'po_line', action: 'update', id: 'l1', data: { label: 'p1 line edited', po: 'p1' } },
     ]);

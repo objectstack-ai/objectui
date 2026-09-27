@@ -220,6 +220,34 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
   const [rowsHeldFor, setRowsHeldFor] = useState<string | undefined>(undefined);
   const heldForAnotherParent = rowsHeldFor !== undefined && rowsHeldFor !== parentId;
 
+  // objectui#10712 (R3) — the same rule the default form applies to its own
+  // background re-read (`ObjectForm.tsx`, `formDirtyRef` / `heldChangeRef`:
+  // unsaved input holds the re-read, and one is replayed when the form is
+  // pristine again or its save lands). A change to a load input other than the
+  // parent (sort, limit, filter) is HELD while this panel holds unsaved edits
+  // for the CURRENT parent: `dirty`, the rows held for `parentId`, and the last
+  // run's parent, adapter, child object and relationship field equal to the
+  // current ones. Before this card the re-read committed over the author's
+  // lines with no signal. What `load` reads to decide this lives in refs, so
+  // an edit does not move `load` and re-run the fetch effect. `heldEditsRef`
+  // mirrors `dirty` / `rowsHeldFor` from an effect declared ahead of `load`;
+  // `lastRunRef` is written where a run is numbered; `heldReloadRef` is the
+  // pending held change, and `heldReplay` replays it once when a same-parent
+  // read that was in flight at the hold commits (the fetch effect is keyed on
+  // it, and the panel is clean after that commit, so the replay is not held).
+  const heldEditsRef = useRef({ dirty: false, rowsHeldFor: undefined as string | undefined });
+  useEffect(() => {
+    heldEditsRef.current = { dirty, rowsHeldFor };
+  }, [dirty, rowsHeldFor]);
+  const lastRunRef = useRef<{
+    parentId: string | null | undefined;
+    dataSource: unknown;
+    childObject: string | undefined;
+    relationshipField: string | undefined;
+  } | null>(null);
+  const heldReloadRef = useRef(false);
+  const [heldReplay, setHeldReplay] = useState(0);
+
   // Child object schema — used to strip computed / read-only columns from each
   // row before persisting (parity with the parent form's sanitize). Rows are
   // loaded from a full read, so an edit would otherwise round-trip formula /
@@ -306,11 +334,46 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
     [sortKey],
   );
 
-  const load = useCallback(async () => {
+  /**
+   * `origin` says who asked for the read: `'inputs'` is the fetch effect (a
+   * load input moved, or a held change is replayed), `'save'` the post-save
+   * reload. Only an `'inputs'` read can be HELD (objectui#10712 R3, above): the
+   * post-save reload reads the panel's current inputs, which is what replays a
+   * held change, so it is never held itself.
+   */
+  const load = useCallback(async (origin: 'inputs' | 'save' = 'save') => {
+    if (origin === 'inputs') {
+      const held = heldEditsRef.current;
+      const last = lastRunRef.current;
+      const editsHeldForCurrentParent =
+        held.dirty && held.rowsHeldFor !== undefined && held.rowsHeldFor === parentId;
+      const sameRowsAsLastRun =
+        last !== null
+        && last.parentId === parentId
+        && last.dataSource === dataSource
+        && last.childObject === schema.childObject
+        && last.relationshipField === schema.relationshipField;
+      if (editsHeldForCurrentParent && sameRowsAsLastRun) {
+        // Held, and NOT numbered: a held change is not a run, so it supersedes
+        // nothing. A same-parent read still in flight commits, and its commit
+        // replays this change (the panel is clean then).
+        heldReloadRef.current = true;
+        return;
+      }
+    }
+    // Every run reads the panel's current inputs, so whatever change was held
+    // is carried by this one.
+    heldReloadRef.current = false;
     // Numbered before any early return, so a run that declines still
     // supersedes one in flight.
     const seq = ++loadSeqRef.current;
     const isCurrent = () => loadSeqRef.current === seq;
+    lastRunRef.current = {
+      parentId,
+      dataSource,
+      childObject: schema.childObject,
+      relationshipField: schema.relationshipField,
+    };
     if (!dataSource || !parentId) {
       setLoading(false);
       return;
@@ -387,6 +450,13 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
       // and not a failed save, whose edits these rows replace (objectui#10682,
       // the objectui#10578 rule: cleared on a commit, never when a load starts).
       setError(null);
+      // A change held while THIS read was in flight is replayed once, now that
+      // the panel is clean (objectui#10712 R3): this read was issued before the
+      // change, so its answer is for the inputs it was issued with.
+      if (heldReloadRef.current) {
+        heldReloadRef.current = false;
+        setHeldReplay((n) => n + 1);
+      }
     } catch (e: any) {
       if (isCurrent()) {
         setError(e?.message || 'Failed to load line items');
@@ -425,9 +495,11 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
     latestLoadRef.current = { load, parentId };
   }, [load, parentId]);
 
+  // A load input moved, or a held change is replayed (`heldReplay`): the read
+  // the panel's inputs ask for, which `load` may hold (objectui#10712 R3).
   useEffect(() => {
-    void load();
-  }, [load]);
+    void load('inputs');
+  }, [load, heldReplay]);
 
   const onChange = useCallback((next: Record<string, any>[]) => {
     setRows(next);
@@ -512,7 +584,7 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
       // directly (no $ref), so slicing off the parent op shifts no references.
       if (!canRollup) ops = ops.slice(1);
       if (ops.length) await runBatchTransaction(dataSource, ops);
-      if (parentStillShown()) await latestLoadRef.current.load();
+      if (parentStillShown()) await latestLoadRef.current.load('save');
     } catch (e: any) {
       if (parentStillShown()) setError(e?.message || 'Failed to save line items');
     } finally {

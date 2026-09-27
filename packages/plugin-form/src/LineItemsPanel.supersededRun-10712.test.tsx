@@ -359,18 +359,18 @@ describe('LineItemsPanel’s save commits only to the parent it was issued for (
   });
 
   it('the reload after a save reads the panel’s CURRENT inputs, not the ones captured at the click', async () => {
-    const { lineReads, view, save } = await mountP1Saving();
+    const { dataSource, lineReads, view, save } = await mountP1Saving();
 
     // A load input other than the parent moves while the batch is in flight
-    // (the row cap); the panel re-reads p1 with it at once.
+    // (the row cap). The panel holds unsaved edits for p1, so the change is
+    // HELD (objectui#10712 R3, `LineItemsPanel.dirtyReloadHold-10712`): no read
+    // is issued for it, and the post-save reload is what carries it.
     view.rerender(linesBlock({ limit: 200 }));
-    const reload = await nth(lineReads, 2);
-    expect(reload.parentId).toBe('p1');
-    expect(reload.top).toBe(200);
-    await answerLines(reload, { id: 'l1', label: 'p1 line' });
+    await settle(() => {});
+    expect(dataSource.find).toHaveBeenCalledTimes(1);
 
     await landSave(save);
-    const afterSave = await nth(lineReads, 3);
+    const afterSave = await nth(lineReads, 2);
     expect(afterSave.parentId).toBe('p1');
     expect(afterSave.top, 'the save reloaded with the row cap captured at the click').toBe(200);
 

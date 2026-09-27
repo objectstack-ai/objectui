@@ -17,8 +17,10 @@ The Image Field component provides an image upload interface with thumbnail prev
 
 An image field is authored as `ImageFieldMetadata` (`@object-ui/types`), which is the
 source of truth for the key set: it extends `BaseFieldMetadata` with the upload limits
-and the two pixel bounds. A stored image is `UploadedFileMetadata`, the same value
-shape the file field stores.
+and the two pixel bounds. A stored image is the bare `sys_file` id the upload adapter
+minted, the same value shape the file field stores: see the
+[File Field](/docs/fields/file) for the refusal when no id comes back, and for
+`UploadedFileMetadata`, the legacy inline shape an older record may still hold.
 
 ```ts
 import type { ImageFieldMetadata } from '@object-ui/types';

@@ -17,7 +17,7 @@ to whether an unrelated request happened to succeed.
 The guard now sits ahead of both branches, and `getMarketplacePackage` and
 `getCloudInstallationInfo` are gated on `isAdmin` as well, so the page stops issuing
 requests on behalf of a viewer it has already decided to turn away. That is the
-discipline objectui#5533 established on this same page for `features.marketplace`,
+discipline `2573ff434` established on this same page for `features.marketplace`,
 applied to the other predicate that decides the same thing. It is also the ordering
 `MarketplacePage` carries after objectui#5557, so the two sibling pages now answer one
 runtime the same way for every viewer. The server remains the authority on what a

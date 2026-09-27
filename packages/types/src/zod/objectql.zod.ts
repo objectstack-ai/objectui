@@ -90,7 +90,7 @@ import { stripImportedDefaults } from './imported-defaults.js';
  * 17.0.0-rc.5 (objectstack#5832) to stop it colliding with the 7-value
  * `HttpMethod` in the published JSON Schema. The runtime domain is unchanged,
  * so this repo keeps exporting it under the `HttpMethodSchema` name — following
- * the rename WITHOUT changing cross-package semantics (objectui#3499).
+ * the rename WITHOUT changing cross-package semantics (`48132f7e6`).
  */
 export const HttpMethodSchema = stripImportedDefaults(SpecHttpMethodSubsetSchema);
 

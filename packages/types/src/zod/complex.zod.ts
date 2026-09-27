@@ -1421,7 +1421,7 @@ export const DashboardWidgetConfigSchema = z.object({
  *
  * Validates the unified dashboard configuration used by create/edit workflows.
  *
- * The `aria` member is an ADR-0049 retirement tombstone (objectui#5852),
+ * The `aria` member is an ADR-0049 retirement tombstone (`e7957ab87`),
  * following this package's convention (`data-display.zod.ts`
  * `StaticTableColumnSchema`, the set `crud.zod.ts` `confirm` established):
  * `z.never().optional()` REFUSES an authored value at parse time with the key

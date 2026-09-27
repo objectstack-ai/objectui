@@ -181,7 +181,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ schema, onChartCli
     //   - `categories` was never a foreign spelling at all. It is a declared
     //     member of the published `ChartSchema` and of its zod mirror,
     //     documented in the schema reference as an ALTERNATIVE SERIES LIST, and
-    //     ruled LIVE by objectui#6896 (maintainer ruling 2026-08-31, prose
+    //     ruled LIVE by the maintainer ruling of 2026-08-31 (prose
     //     follows machine). `normalizeChartSchema` -- the ONE translation point
     //     (objectui#2880 S1) -- already consumes it, so `spec.series` above is
     //     populated before the old branch could be reached. That branch was a

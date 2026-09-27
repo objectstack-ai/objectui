@@ -3525,7 +3525,7 @@ const ja = {
       detailChangedKeys: 'その他の変更：',
       confirmNote: '公開すると、このパッケージの保留中ドラフト {{count}} 件がまとめて（アトミックに）公開されます。',
       publishConfirm: 'すべて公開',
-      // [objectui#5418] Pre-publish security-posture findings, shown next to
+      // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.
       securityBlockTitle: '公開は拒否されます — {{count}} 件の項目に先に決定が必要です',

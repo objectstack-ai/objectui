@@ -4,7 +4,7 @@
 
 `ObjectTrigger` and `ObjectRelationship` are removed from `@object-ui/types` — two
 hand-written interfaces orphaned by the `ObjectSchemaMetadata` derivation
-(objectui#5859, triage adjudication 2026-08-24; the derivation itself was
+(triage adjudication 2026-08-24; the derivation itself was
 objectui#5362).
 
 **Breaking for anyone importing either name.** The two symbols are, verbatim:

@@ -5,7 +5,7 @@
 ---
 
 The record page's approval band offers its **Recall** button to the approval's submitter
-only (objectui#6464).
+only.
 
 Field report on `@objectstack/*@17.2.0`: user A submits a record into a 4-level approval;
 user B — not the submitter, read access, not an admin — opens the record and the band still

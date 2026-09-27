@@ -176,7 +176,7 @@ export const KIND_TO_RECORD_LOOKUP: Partial<Record<ReferenceKind, RecordLookupBi
  * `delegated_admin` to `sys_member.role`: the picker offered a quarter less
  * than the column stores, and a legitimately-saved `delegated_admin` approver
  * rendered as `delegated_admin (invalid)` — a spec-valid, runtime-resolvable
- * value labelled invalid to the author's face (objectui#5309).
+ * value labelled invalid to the author's face (`c7a74c80d`).
  *
  * It now reads `BUILTIN_MEMBERSHIP_ROLE_OPTIONS`, which the spec publishes as
  * the complete option list for `sys_member.role` and calls "the picker's
@@ -705,7 +705,7 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
   // Closed enum → strict select, never free text: `sales_manager` typed into
   // a membership-tier box matches nobody at runtime. The vocabulary comes from
   // the SERVER when it publishes one and from the spec-derived fallback
-  // otherwise — never from a list hand-spelled here (objectui#5309). A stored
+  // otherwise — never from a list hand-spelled here (`c7a74c80d`). A stored
   // value outside the enum (legacy dirty data) still renders, flagged, so
   // editing an old row never silently blanks it — mirroring the repeater's
   // select cells.

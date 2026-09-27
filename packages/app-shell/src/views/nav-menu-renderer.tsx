@@ -8,7 +8,7 @@
 
 /**
  * `nav:menu` — the app's navigation tree as PAGE CONTENT, addressable from a
- * page schema (objectui#6661).
+ * page schema (`969ba84f4`).
  *
  * ## Why this exists
  *
@@ -94,7 +94,7 @@
  * placeholder registration put it, and this registration keeps it there.
  *
  * Registered in app-shell rather than `@object-ui/components` for the same
- * reason `global:search` is (objectui#6757): the providers are here.
+ * reason `global:search` is (`f99932a42`): the providers are here.
  * `@object-ui/components` depends on neither `@object-ui/layout` (the resolvers)
  * nor `@object-ui/permissions` nor `react-router-dom` — measured against its
  * `package.json` on `592acafbe`. The eager palette placeholder in

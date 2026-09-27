@@ -8,7 +8,7 @@ Warn at typing time when a record-scope CEL predicate is rooted on `data`.
 `visibleWhen` / `readonlyWhen` / `requiredWhen`, a formula `expression` or a
 conditional-formatting `condition` written as `data.status == 'x'` used to lint
 green and then fault at runtime with `Unknown variable: data`, because the row
-is bound as `record.*` and nothing else (objectui#5741, objectui#8166). The
+is bound as `record.*` and nothing else (`83fe6e741`, objectui#8166). The
 metadata editors now surface `@object-ui/core`'s `detectNonCanonicalRowSpelling`
 as an inline warning naming `record` as the fix.
 

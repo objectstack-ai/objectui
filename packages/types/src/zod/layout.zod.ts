@@ -110,8 +110,8 @@ export const TextSpanSchema = BaseSchema.extend({
 export const TextSchema = BaseSchema.extend({
   type: z.literal('text'),
   content: z.string().optional()
-    .describe('Text content — the one content spelling `text` reads (declared by objectui#6150; its `value` fallback spelling was retired by objectui#6951)'),
-  // ADR-0049 RETIREMENT TOMBSTONE (objectui#6951 / objectui#7016, maintainer
+    .describe('Text content — the one content spelling `text` reads (declared by objectui#6150; its `value` fallback spelling was retired)'),
+  // ADR-0049 RETIREMENT TOMBSTONE (`5ad86ddee` / objectui#7016, maintainer
   // ruling A1 of 2026-09-04). `value` was the second spelling of the one
   // content slot; the renderer now reads `content` alone, so a plain deletion
   // here would let an authored `value` ride `BaseSchema.passthrough()` into a

@@ -3,8 +3,8 @@
 '@object-ui/components': minor
 ---
 
-**Breaking for authored metadata:** `TreeViewSchema.data` is RETIRED (objectui#6951,
-maintainer ruling B1 of 2026-09-04; ADR-0049 enforce-or-remove). A `tree-view`
+**Breaking for authored metadata:** `TreeViewSchema.data` is RETIRED
+(maintainer ruling B1 of 2026-09-04; ADR-0049 enforce-or-remove). A `tree-view`
 node that authors `data` no longer validates: the parse fails loudly on the
 `data` path with the explanation in the message, the TS member is a `?: never`
 tombstone so the same document is refused at compile time, and the renderer no

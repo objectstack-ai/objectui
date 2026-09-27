@@ -33,7 +33,7 @@ import { z } from 'zod';
  *      names WHICH key is wrong (via the issue path) but says nothing about why
  *      it was retired or what to write instead — so half of the loud refusal's
  *      payload was being dropped (objectui#6105). `DashboardConfigSchema.aria`
- *      (`complex.zod.ts`, objectui#5852) landed the spelling by hand first;
+ *      (`complex.zod.ts`, `e7957ab87`) landed the spelling by hand first;
  *      this is that spelling as one shared mechanism.
  *
  * ONE argument feeding TWO channels is the point: the message an author reads

@@ -2423,7 +2423,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.data.noObjects': 'No objects yet — create one below to start',
   'engine.studio.data.labelPlaceholder': 'Display name (e.g. Repair Ticket)',
   'engine.studio.data.idPlaceholder': 'Identifier (e.g. repair_ticket)',
-  // [objectui#5418] The create dialog's third field. `新建对象` used to ask for
+  // [`7a90afdf9`] The create dialog's third field. `新建对象` used to ask for
   // exactly two things and produce an object the publish door refuses.
   'engine.studio.data.owdLabel': 'Record sharing (OWD) — who can see records another user owns',
   'engine.studio.data.owdHint':
@@ -3601,7 +3601,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowNode.try_catch.hint': '用错误处理与重试保护步骤',
   'engine.flowNode.approval.label': '审批',
   'engine.flowNode.approval.hint': '暂停等待人工决策',
-  // objectui#5416 — `approval_revise` was the ONE palette entry with no zh
+  // `add10d8f9` — `approval_revise` was the ONE palette entry with no zh
   // row, so it alone rendered the server descriptor: an English name and the
   // descriptor's three-line English paragraph in a list where every other node
   // is a Chinese name and a short Chinese phrase.
@@ -4044,7 +4044,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.packages.form.scope': '范围',
   'engine.packages.form.dependencies': '依赖',
 
-  // objectui#5416 — help text for the package manifest form.
+  // `add10d8f9` — help text for the package manifest form.
   //
   // The LABELS above have always been translated while the help line under
   // each one stayed English, so `新建软件包` rendered 显示名称 over
@@ -4787,7 +4787,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.data.noObjects': '还没有对象 — 在下方新建一个开始',
   'engine.studio.data.labelPlaceholder': '显示名(如:报修工单)',
   'engine.studio.data.idPlaceholder': '标识符(如:repair_ticket)',
-  // [objectui#5418] 新建对象对话框的第三项。此前只问两项,产出的对象会被发布门拒绝。
+  // [`7a90afdf9`] 新建对象对话框的第三项。此前只问两项,产出的对象会被发布门拒绝。
   'engine.studio.data.owdLabel': '记录共享模型(OWD)—— 谁能看到他人拥有的记录',
   'engine.studio.data.owdHint':
     '发布必填,之后可在“设置 → 记录共享模型”中修改。Private 与未设置时运行时的实际行为一致。',
@@ -5620,7 +5620,7 @@ export function t(key: string, locale?: SupportedLocale | string): string {
  * Like {@link t}, but returns `undefined` when the active locale's table has
  * no entry — instead of echoing the key back as if it were a translation.
  *
- * For strings this console does not OWN (objectui#5416). The package form's
+ * For strings this console does not OWN (`add10d8f9`). The package form's
  * help text is `@objectstack/spec`'s `ManifestSchema` `.describe()`, produced
  * in the framework repo and already reaching the form through the
  * spec-derived JSONSchema; only the zh rendering lives here. A caller uses

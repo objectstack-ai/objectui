@@ -40,7 +40,7 @@ draws no toolbar button per `'button'` entry and no avatar menu per `'user'`
 entry. The notification Bell is now always drawn. Before, it was hidden when a
 `'button'` action was authored.
 
-Changeset entries from objectui#6854, objectui#7344, objectui#7719 and
+Changeset entries from `adb2a86db`, objectui#7344, objectui#7719 and
 objectui#7721 describe `AppAction` as it stood before this retirement. The
 `shortcut` refusal from objectui#7719 still applies to the legacy `menu` items. Pinned in `packages/types/src/__tests__/app-actions-retired-7469.test.ts`
 and `packages/runner/src/__tests__/LayoutRenderer.chrome-7469.test.tsx`.

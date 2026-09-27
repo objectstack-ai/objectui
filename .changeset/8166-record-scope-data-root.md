@@ -14,7 +14,7 @@ lives in `@objectstack/formula`'s `SCOPE_ROOTS`, which still contains `data`, an
 scope is the producer-side half and is not this repo's to make. What changes is what
 the runtime does with such a predicate once it is saved.
 
-**What was wrong.** objectui#5741 (Phase 2 of the objectui#5330 canon) retired `data.*`
+**What was wrong.** `83fe6e741` (Phase 2 of the objectui#5330 canon) retired `data.*`
 on runtime record surfaces — the row is bound as `record.*` and nothing else. But
 `@object-ui/app-shell`'s `buildExpressionScope` kept binding an ambient `data`, so a
 predicate the linter had waved through also *resolved* at runtime, against that bag
@@ -44,7 +44,7 @@ question, not this change's). So a record form renders exactly as before except 
 console now names the root. Nothing throws.
 
 **Migration.** Rewrite `data.foo` as `record.foo` on any runtime record surface — the
-canonical spelling since objectui#5741, and the only one that reaches the row. The
+canonical spelling since `83fe6e741`, and the only one that reaches the row. The
 metadata-admin designer is unaffected: its `data` is the DRAFT under edit (ADR-0089 D3,
 `CANONICAL_ROOT_BY_LAYER` = `{ runtime: 'record', metadata: 'data' }`), bound by
 `views/metadata-admin/predicate.ts` through its own builder, which takes only the

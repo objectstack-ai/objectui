@@ -10,7 +10,7 @@ independently instructed declaring these two keys, so they land as one change).
 
 ⚠️ Shipped as `minor`, not `patch`, because two document classes that validated before now
 REFUSE. The 2026-09-02 ruling grades this class "patch where the accept set only widens toward what
-already renders"; this change is not a pure widening, so it takes the level objectui#6896
+already renders"; this change is not a pure widening, so it takes the level `b0d308da9`
 set for the same transition in this same file — the mirror starting to refuse — and for the
 same reason: this repository's `major` is a cross-repo pin to `@objectstack`'s major rather
 than a severity dial, so the break is announced here, which is the channel that carries it.
@@ -96,7 +96,7 @@ would discard them.
 ## Not done, deliberately
 
 The 2026-09-02 ruling's `chart` row also says "`series[].data` stops being required". On this base
-it already is not: objectui#6896 replaced it with `retirementTombstone(...)` —
+it already is not: `b0d308da9` replaced it with `retirementTombstone(...)` —
 `z.never({ error }).optional()` — which is optional AND refuses any authored value by name.
 Implementing the clause literally would re-widen a retired key and reverse a landed ruling,
 so it is not done.

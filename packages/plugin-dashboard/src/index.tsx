@@ -61,7 +61,7 @@ export {
 // `PUBLIC_BLOCKS`), and it used to publish only `columns`/`gap`/`className`
 // while `DashboardRenderer` honoured far more, so `validateTree` warned
 // authors off keys that work — `widgets` included, the very key the
-// objectui#5709 unconsumed-options warning descends into. The keys below are
+// `8d58f46b4` unconsumed-options warning descends into. The keys below are
 // the per-key triage (#4668 / #5091 class), each declared because BOTH hold:
 // the renderer reads it AND `@objectstack/spec`'s strict `DashboardSchema`
 // accepts it, so the manifest never offers a key the save gate refuses.

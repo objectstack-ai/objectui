@@ -649,7 +649,7 @@ export function normalizeChartSchema(
   // is resolved separately, from `xAxisKey` / `xAxis` above.
   //
   // `@object-ui/types` documented this key as "X-axis labels/categories" until
-  // objectui#6896; the declaration was corrected to this reading rather than
+  // `b0d308da9`; the declaration was corrected to this reading rather than
   // this reading to the declaration (maintainer ruling 2026-08-31 — prose
   // follows machine). Pinned in `normalizeChartSchema.test.ts`; if you change
   // what `categories` means here, that docblock is the other half of the edit.

@@ -324,13 +324,13 @@ function loadRowCanon(): Promise<RowCanonModule | null> {
  *
  * `@objectstack/formula`'s `SCOPE_ROOTS` carries `data`, so at `scope: 'record'`
  * the engine lint ACCEPTS `data.status == 'x'` with zero findings (measured on
- * `@objectstack/formula@17.4.0`). objectui#5741 retired that spelling on runtime
+ * `@objectstack/formula@17.4.0`). `83fe6e741` retired that spelling on runtime
  * record surfaces and objectui#8166 stopped this tier binding an ambient `data`,
  * so the predicate now faults at runtime with `Unknown variable: data` — but the
  * author still gets a GREEN lint while typing it. That gap is the whole card:
  * the diagnostic arrives at misbehaviour time instead of at typing time.
  *
- * ## Why this is not a re-run of the warning objectui#5741 deleted
+ * ## Why this is not a re-run of the warning Phase 2 (`83fe6e741`) deleted
  *
  * That ruling removed the Phase-1 warning from the runtime hot path and kept
  * the export, in its own words, "as the offline instrument". `listConditional.ts`
@@ -459,7 +459,7 @@ async function rowCanonAdvisory(source: string, slot: string | undefined): Promi
     severity: 'warning',
     message:
       `\`${finding.identifier}\` is not the row on this surface: a row predicate binds the ` +
-      `record as \`${finding.canonical}\` and nothing else (objectui#5741). The CEL scope ` +
+      `record as \`${finding.canonical}\` and nothing else. The CEL scope ` +
       `vocabulary still accepts \`${finding.identifier}\`, so nothing here blocks the save, but ` +
       `at runtime the expression faults with \`Unknown variable: ${finding.identifier}\` and the ` +
       `rule never fires. Re-root the reference on \`${finding.canonical}\`.`,

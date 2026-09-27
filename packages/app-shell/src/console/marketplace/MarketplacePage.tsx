@@ -211,7 +211,7 @@ export function MarketplacePage() {
   // misdirected. Telling an unprivileged member they lack PERMISSION for a
   // surface that exists for nobody sends them to ask an administrator for a
   // grant that would not help them. This is the ordering
-  // `MarketplacePackagePage` landed under objectui#5533; the sibling pages now
+  // `MarketplacePackagePage` landed in `2573ff434`; the sibling pages now
   // answer one runtime the same way.
   if (!marketplaceEnabled) return <MarketplaceDisabled />;
 
@@ -223,7 +223,7 @@ export function MarketplacePage() {
   // read. The verdict has a third state ("not resolved yet") and this guard is
   // the reason it exists. Ordered AFTER `!marketplaceEnabled` deliberately —
   // that answer is true of every viewer on this runtime and needs no verdict,
-  // so the ordering objectui#5557/#5533 established is untouched — and BEFORE
+  // so the ordering objectui#5557 and `2573ff434` established is untouched — and BEFORE
   // `!isAdmin`, which is the branch that must not fire on a guess.
   //
   // This is NOT the incidental skeleton objectui#5621 removed: that one hid the

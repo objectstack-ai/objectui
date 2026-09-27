@@ -4,8 +4,8 @@
 '@object-ui/plugin-dashboard': patch
 ---
 
-**Breaking for authored metadata:** `TextSchema.value` is RETIRED (objectui#6951,
-maintainer ruling A1 of 2026-09-04; objectui#7016; ADR-0049 enforce-or-remove).
+**Breaking for authored metadata:** `TextSchema.value` is RETIRED
+(maintainer ruling A1 of 2026-09-04; objectui#7016; ADR-0049 enforce-or-remove).
 A `text` node that authors `value` no longer validates: the parse fails loudly on
 the `value` path with the explanation in the message, the TS member is a
 `?: never` tombstone so the same document is refused at compile time, and the

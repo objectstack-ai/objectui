@@ -451,7 +451,7 @@ export interface BulkActionParam {
    * author especially) trusts the type absolutely (objectui#3309).
    *
    * Structurally identical to `@object-ui/core`'s `ActionParamOption`
-   * (objectui#3559), deliberately restated inline rather than imported: this
+   * (`fbc23e094`), deliberately restated inline rather than imported: this
    * package is the protocol layer and takes no workspace dependency.
    *
    * Naming the two keys this layer itself uses and passing the rest through is

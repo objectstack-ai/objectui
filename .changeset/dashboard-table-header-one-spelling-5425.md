@@ -22,7 +22,7 @@ static `data-table`, no columns          Close Date    Needs Analysis
 ```
 
 One dashboard can hold all three widgets over one object, so a single field key
-rendered under two spellings — the defect class objectui#5425 rules out. The odd
+rendered under two spellings — the defect class this change rules out. The odd
 path adopts the shared convention rather than the convention gaining a fourth
 dialect. camelCase keys are unaffected (`unitPrice` read `Unit Price` before and
 after — the coincidence that kept the snake_case divergence unnoticed), and a

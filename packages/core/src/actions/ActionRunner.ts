@@ -636,7 +636,7 @@ export type ResultDialogHandler = (
  * `visibleWhen` (the CEL predicate `resolveVisibleOptions()` filters on —
  * ADR-0058 / #2284), `color`, `icon`, `disabled`.
  *
- * The catch-all is deliberate rather than a closed key list (objectui#3559).
+ * The catch-all is deliberate rather than a closed key list (`fbc23e094`).
  * A field's option vocabulary is owned by the field metadata (`@objectstack/spec`'s
  * `SelectOptionSchema`) and read by the option widgets; a param's option list is
  * only a CONDUIT between the two. When this type restated that vocabulary as
@@ -1412,7 +1412,7 @@ export class ActionRunner {
 
     // ── ActionSchema.onSuccess — post-success navigation ────────────────────
     //
-    // objectui#5221, the console half of objectstack#9566/#9474. The spec
+    // `053fdc8f9`, the console half of objectstack#9566/#9474. The spec
     // declares `onSuccess` as a CLOSED STRICT object
     // `{ navigate: string, openIn: 'self' | 'newTab' }`, refine-scoped to
     // `type: 'api'` and `type: 'script'` — the two types whose success event

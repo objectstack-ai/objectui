@@ -355,7 +355,7 @@ function specShapeSelectorReasons(params: any): string[] {
  * Analytics-branch params — `filter`, `field`, `function` — that reached
  * `aggregate()`'s SPEC-SHAPE branch, which reads none of them.
  *
- * WHY A REFUSAL AND NOT A DROP (objectui#6864). This applies the maintainer
+ * WHY A REFUSAL AND NOT A DROP (`503cd8b89`). This applies the maintainer
  * ruling of 2026-08-30 on objectui#6825 — option A, REFUSE at the producer — to
  * the rest of the same branch. That ruling's reason was that a shape the spec's
  * own gate would reject is off-contract at the PRODUCER, so the adapter says no
@@ -6027,7 +6027,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
         assertSpecShapeWhereIsFilterAst(params.where, resource);
         queryAst.where = params.where;
       }
-      // The other half of the same ruling — objectui#6864. `where` above is the
+      // The other half of the same ruling — `503cd8b89`. `where` above is the
       // key this branch DOES read and refuses when unlowered; `filter`, `field`
       // and `function` are the analytics branch's keys, which this branch reads
       // not at all and used to drop without a word. Same disposition, applied to

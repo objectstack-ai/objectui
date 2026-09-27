@@ -15,7 +15,7 @@ rendered — what the omission did was make `validateTree` warn `not-a-container
 on a child list it then rendered, on the tier built to accept AI-authored pages.
 A warning that lies trains authors to discount the true ones.
 
-Same reasoning as objectui#3900 (`page-header`) and objectui#6740 (`flex`):
+Same reasoning as objectui#3900 (`page-header`) and `7c9b044f4` (`flex`):
 `children` is a base property of every node in the JSON protocol, not a
 per-component authoring key, so the flag widens no spec surface.
 

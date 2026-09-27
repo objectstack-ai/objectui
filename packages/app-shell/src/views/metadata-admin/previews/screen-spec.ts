@@ -95,7 +95,7 @@ export function unevaluableVisibleWhen(
  * Coerce the authored `config.fields` rows into runtime `ScreenFieldSpec`s,
  * dropping any that {@link fieldVisibility} reads as hidden against
  * `variables`. (The runtime `screen` executor sends `visibleWhen` to the
- * client raw; this preview decides it up front, with the runtime's reading.)
+ * client raw; this preview decides it up front, with the runtime's resume-door reading.)
  */
 function toScreenFields(raw: unknown, variables: Record<string, unknown> | undefined): ScreenFieldSpec[] {
   if (!Array.isArray(raw)) return [];

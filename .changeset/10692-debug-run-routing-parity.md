@@ -2,7 +2,7 @@
 '@object-ui/app-shell': patch
 ---
 
-fix(app-shell): the flow designer's Debug run leaves every node, gates screen fields and renders template tokens the way the runtime does
+fix(app-shell): the flow designer's Debug run leaves every node and gates screen fields the way the runtime does, and keeps unmodelled template tokens as written
 
 **Routing.** The Debug run chose a node's successors by its own rules: a decision took
 its first true guard or its default and never an edge with no condition, and every other

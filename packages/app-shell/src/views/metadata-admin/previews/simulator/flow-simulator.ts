@@ -315,14 +315,14 @@ export class FlowSimulator {
       if (shouldPause) {
         this.state.status = 'paused';
         this.state.pausedReason = 'screen';
-        // A field whose `visibleWhen` cannot be evaluated is hidden, as the
-        // runtime reads it (`fieldVisibility` in `../screen-spec.ts`); say which.
+        // A field whose `visibleWhen` cannot be evaluated is hidden, as the runtime's
+        // resume door reads it (`fieldVisibility` in `../screen-spec.ts`); say which.
         const unevaluable = unevaluableVisibleWhen(node, this.state.variables);
         return this.record(node.id, type, node.label, 'paused', {
           note: joinNotes(
             'Screen reached — provide inputs, then continue.',
             unevaluable.length
-              ? `Hidden because its visibleWhen could not be evaluated, as the runtime treats such a field: ${unevaluable
+              ? `Hidden because its visibleWhen could not be evaluated, as the runtime's resume door treats such a field (the flow runner's own ScreenView still shows it): ${unevaluable
                   .map((u) => `"${u.name}" (${u.error.split('\n')[0]})`)
                   .join('; ')}.`
               : undefined,

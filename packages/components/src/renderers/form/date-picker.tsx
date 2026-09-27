@@ -12,10 +12,16 @@ import { Calendar, Button, Popover, PopoverTrigger, PopoverContent, Label } from
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '../../lib/utils';
+import { useDisplayDateLocale } from '../../lib/date-fns-locale';
 import { toFormControlDomProps } from '../../lib/form-control-dom-props';
 
 ComponentRegistry.register('date-picker', 
   ({ schema, className, value, onChange, ...props }: { schema: DatePickerSchema; className?: string; value?: Date; onChange?: (date: Date | undefined) => void; [key: string]: any }) => {
+    // `schema.format` is a date-fns pattern, and it is spelled in the display
+    // locale: `PPP` and the textual tokens name months and weekdays in the
+    // session's language (objectui#10722).
+    const locale = useDisplayDateLocale();
+
     const handleSelect = (date: Date | undefined) => {
       if (onChange) {
         onChange(date);
@@ -51,7 +57,7 @@ ComponentRegistry.register('date-picker',
               {...toFormControlDomProps(triggerProps)}
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {value ? format(value, schema.format || 'PPP') : <span>{schema.placeholder || 'Pick a date'}</span>}
+              {value ? format(value, schema.format || 'PPP', { locale }) : <span>{schema.placeholder || 'Pick a date'}</span>}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0">

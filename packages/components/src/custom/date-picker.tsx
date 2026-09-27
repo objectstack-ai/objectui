@@ -13,6 +13,7 @@ import { CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
 
 import { cn } from "../lib/utils"
+import { useDisplayDateLocale } from "../lib/date-fns-locale"
 import { Button } from "../ui/button"
 import { Calendar } from "../ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover"
@@ -32,6 +33,9 @@ export function DatePicker({
   className,
   disabled,
 }: DatePickerProps) {
+  // The label is spelled in the display locale, the one the Calendar below
+  // reads too (objectui#10722).
+  const locale = useDisplayDateLocale()
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -45,7 +49,7 @@ export function DatePicker({
           disabled={disabled}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(date, "PPP") : <span>{placeholder}</span>}
+          {date ? format(date, "PPP", { locale }) : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0">

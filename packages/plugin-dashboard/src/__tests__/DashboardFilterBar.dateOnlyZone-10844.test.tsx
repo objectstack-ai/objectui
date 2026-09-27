@@ -120,6 +120,18 @@ describe('DashboardFilterBar custom range, in the suite zone (objectui#10844)', 
     expect(face({ from: '2026-09-15', to: '2026-09-15' })).toEqual(SEPT_15);
     expect(face({ from: '2026-10-01', to: '2026-10-03' })).toEqual(OCT_1_TO_3);
   });
+
+  it('a bound naming a day its month does not have selects no day, and nothing throws', () => {
+    enter();
+    // The shared step refuses `2026-02-30` (objectui#10026) where the engine
+    // rolled it into March; a refused `from` opens on today, as an
+    // unparseable one already did.
+    expect(face({ from: '2026-02-30', to: '2026-02-30' })).toEqual({
+      selected: [],
+      months: ['September 2026', 'October 2026'],
+    });
+    expect(() => face({ from: '2026-09-15', to: '2026-02-30' })).not.toThrow();
+  });
 });
 
 describe.runIf(DRIVEN)('DashboardFilterBar custom range west of UTC (objectui#10844)', () => {

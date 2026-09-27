@@ -212,12 +212,14 @@ describe('DashboardPreview — the selected-widget strip (objectui#10835)', () =
       mountDashboard(lang, { widgets: [BAR], selected: 'w1' });
       await flush();
       expect(addWidgetTrigger(lang)).toBeTruthy();
-      const s = strip();
-      expect(s.chip).toBe(row(lang, 'engine.dashboardPreview.selected'));
-      expect(s.tooltip).toBe(row(lang, 'engine.dashboardPreview.clickToRename'));
-      expect(s.labels).toEqual(STRIP_KEYS.map((k) => row(lang, k)));
-      // Stored author data: the title reads the same in every locale.
-      expect(s.title).toBe('New bar chart');
+      const { chip, tooltip, labels, title } = strip();
+      expect({ chip, tooltip, labels, title }).toEqual({
+        chip: row(lang, 'engine.dashboardPreview.selected'),
+        tooltip: row(lang, 'engine.dashboardPreview.clickToRename'),
+        labels: STRIP_KEYS.map((k) => row(lang, k)),
+        // Stored author data: the title reads the same in every locale.
+        title: 'New bar chart',
+      });
       if (lang === 'zh') {
         for (const k of ['engine.dashboardPreview.selected', 'engine.dashboardPreview.clickToRename', ...STRIP_KEYS]) zhRow(k);
       }
@@ -465,16 +467,16 @@ describe('the Debug run — the other step records (objectui#10835)', () => {
     });
 
     it(`${lang}: an approval pauses with approvalReached and resumes with decisionTaken`, () => {
-      runFlow(lang, APPROVAL_FLOW);
-      expect(timeline(lang)[1].note).toBe(note(lang, 'engine.flowSim.note.approvalReached'));
+      const paused = runFlow(lang, APPROVAL_FLOW)[1].note;
       // The branch button names the out-edge's label: author data.
       fireEvent.click(screen.getByRole('button', { name: 'approve' }));
-      const steps = timeline(lang);
-      expect(steps[2]).toMatchObject({
-        label: 'Ask',
-        status: statusChip(lang, 'ok'),
-        note: note(lang, 'engine.flowSim.note.decisionTaken', { decision: 'approve', taken: 'end' }),
-      });
+      const resumed = timeline(lang)[2];
+      expect([paused, resumed.label, resumed.status, resumed.note]).toEqual([
+        note(lang, 'engine.flowSim.note.approvalReached'),
+        'Ask',
+        statusChip(lang, 'ok'),
+        note(lang, 'engine.flowSim.note.decisionTaken', { decision: 'approve', taken: 'end' }),
+      ]);
       if (lang === 'zh') for (const k of ['engine.flowSim.note.approvalReached', 'engine.flowSim.note.decisionTaken']) zhRow(k);
     });
 

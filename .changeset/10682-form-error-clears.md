@@ -10,8 +10,10 @@ schema and then the record before it draws, and shows its error screen ahead of
 the form whenever a load error is set. Both reads wrote that one error and
 nothing ever cleared it. After one failed read, a later read that succeeded
 still wrote its values, but the form stayed on the error screen until it
-remounted. Since objectui#10572 the default layout also re-reads its record on
-every data-invalidation event, so one failed background re-read was enough.
+remounted. Since objectui#10572 the default layout also re-reads its record in
+place when the data-invalidation bus reports a change to that record, to its
+object as a whole, or to everything, and holds that re-read while the form has
+unsaved input. So one failed background re-read was enough.
 
 Each form now keeps the failure of each read apart and shows the error screen
 while either is set. A read's failure is cleared when a later run of the same
@@ -26,3 +28,10 @@ commits.
 A failed background re-read is still reported: no form has a silent mode, so it
 shows the error screen rather than keeping the last good values, and the next
 re-read that succeeds takes the screen back.
+
+The `record:line_items` panel (`LineItemsPanel`) had the same defect on its one
+banner (objectui#10683): a failed load kept its message over the rows a later
+load drew. Now only the current load writes that banner. When it commits rows it
+clears the banner, a failed load's message or a failed save's alike, since those
+rows replace the edits the save was about. A load that another has superseded
+neither raises the banner nor clears it.

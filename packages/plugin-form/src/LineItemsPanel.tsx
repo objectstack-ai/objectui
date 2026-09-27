@@ -17,7 +17,7 @@
  * SchemaRenderer context.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button,
   Card,
@@ -196,6 +196,11 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // objectui#10682 — the number of the latest `load` run (objectui#10683). Only
+  // the current run writes `error`: its commit clears the banner, its failure
+  // raises it, and a run a newer one has superseded (another `parentId`, say,
+  // while it was in flight) does neither. Held in a ref: nothing renders from it.
+  const loadSeqRef = useRef(0);
 
   // Child object schema — used to strip computed / read-only columns from each
   // row before persisting (parity with the parent form's sanitize). Rows are
@@ -284,6 +289,10 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
   );
 
   const load = useCallback(async () => {
+    // Numbered before any early return, so a run that declines still
+    // supersedes one in flight.
+    const seq = ++loadSeqRef.current;
+    const isCurrent = () => loadSeqRef.current === seq;
     if (!dataSource || !parentId) {
       setLoading(false);
       return;
@@ -342,8 +351,13 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
       setRows(data.map((r) => ({ ...r })));
       setOriginal(data.map((r) => ({ ...r })));
       setDirty(false);
+      // Once the CURRENT run commits, the rows on screen answer what the panel
+      // asks for now, so no earlier failure describes it: not a failed load,
+      // and not a failed save, whose edits these rows replace (objectui#10682,
+      // the objectui#10578 rule: cleared on a commit, never when a load starts).
+      if (isCurrent()) setError(null);
     } catch (e: any) {
-      setError(e?.message || 'Failed to load line items');
+      if (isCurrent()) setError(e?.message || 'Failed to load line items');
     } finally {
       setLoading(false);
     }

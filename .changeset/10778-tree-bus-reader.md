@@ -13,5 +13,6 @@ after such a write only when its host remounted it, and `PageView` is about to
 stop doing that (objectui#10519).
 
 Inline rows (a `data` array, the `value` provider) name no object and do not
-subscribe; rows a host hands down as the `data` prop (the `list-view` tree) stay
-the host's to refresh, as before.
+subscribe. A tree whose host hands down rows (the `list-view` tree) subscribes
+too: it runs its own full query ahead of those rows, and a host re-read that
+comes back equal does not move them.

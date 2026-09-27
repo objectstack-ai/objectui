@@ -705,14 +705,19 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
   // over raw HTTP left the tree stale unless the page was remounted.
   //
   // The object is `dataObjectName` — the `object` provider's own object,
-  // whether the node spelled it `objectName` or `data: { provider: 'object' }`.
-  // Subscribed only when the `object` arm is the one that queries: inline rows
-  // (a `data` array, the `value` provider) name no object, and rows a HOST hands
-  // down as the `data` prop (ListView) are refreshed by that host, which reads
-  // the bus itself and hands down fresh rows this effect already keys on.
-  const invalidationNonce = useDataInvalidation(
-    dataSource && !Array.isArray((rest as any).data) ? dataObjectName : undefined,
-  );
+  // whether the node spelled it `objectName` or `data: { provider: 'object' }`
+  // — and it is subscribed exactly when the `object` arm below queries: inline
+  // rows (a `data` array, the `value` provider) name no object and query no
+  // adapter, so they do not subscribe.
+  //
+  // ⚠️ Rows a HOST hands down as the `data` prop (ListView's tree) do NOT
+  // exempt the tree: the `object` arm runs its own full query ahead of them,
+  // and the host's re-read cannot stand in for it. The host fetches only its
+  // display columns (usually not the parent pointer), and a re-read that comes
+  // back equal is handed down as the SAME array (AGENTS.md #10), so a write the
+  // host's projection does not show — a re-parented record — would never move
+  // the `data` dependency below.
+  const invalidationNonce = useDataInvalidation(dataSource ? dataObjectName : undefined);
 
   // Fetch records.
   useEffect(() => {

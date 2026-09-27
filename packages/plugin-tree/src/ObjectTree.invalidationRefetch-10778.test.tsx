@@ -23,9 +23,10 @@
  *    config's own `object` is the one `find` names);
  *  - inline rows (a `data` array, or `{ provider: 'value', items }`) name no
  *    object and are not a query of the adapter: nothing to subscribe to;
- *  - rows a HOST hands down as the `data` prop (the `list-view` seat): the host
- *    owns the refresh — it reads the bus and hands down fresh rows, which the
- *    effect already keys on — so the tree does not subscribe a second time.
+ *  - rows a HOST hands down as the `data` prop (the `list-view` seat) do not
+ *    exempt it: the `object` arm runs its own full query ahead of them, and a
+ *    host re-read that comes back equal hands down the same array, so the
+ *    host's `data` moving cannot stand in for the tree's own re-read.
  *
  * Rendered through the real `SchemaRenderer` and this package's own
  * registration, over a fake data source that counts reads. The bare
@@ -196,9 +197,11 @@ describe('object-tree re-reads on the data-invalidation bus (objectui#10778)', (
     expect(inlineFind.mock.calls.length, 'the inline tree re-ran its query on an invalidation').toBe(inlineReadsOnMount);
   });
 
-  it('a tree whose host hands down rows leaves the refresh to the host', async () => {
+  it('a tree whose host hands down rows still re-reads its own query', async () => {
     const ds = makeDataSource();
-    const hostRows = [{ id: '9', name: 'Host row', parent_id: null }];
+    // The host's rows do not move: a host re-read that comes back equal hands
+    // down the same array, and its projection need not carry what changed.
+    const hostRows = [{ id: '9', name: 'Host row' }];
     renderBlock(BLOCK, ds, { data: hostRows });
     await waitFor(() => expect(ds.find).toHaveBeenCalledTimes(1));
     await settle();
@@ -209,8 +212,6 @@ describe('object-tree re-reads on the data-invalidation bus (objectui#10778)', (
     await settle();
 
     expect(screen.getByTestId('bus-control').textContent).toBe('1');
-    // The host (ListView) reads the bus itself and hands down fresh rows, which
-    // re-run this effect; a second subscription here would read twice.
-    expect(ds.find, 'the host-fed tree read a second time on its own').toHaveBeenCalledTimes(1);
+    expect(ds.find, 'the host-fed tree never re-ran its own query').toHaveBeenCalledTimes(2);
   });
 });

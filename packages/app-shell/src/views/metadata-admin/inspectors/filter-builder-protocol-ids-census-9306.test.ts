@@ -25,6 +25,14 @@
  * it to `$icontains`, the token `FilterConditionField` has always written for
  * it. A new row, not a changed one.
  *
+ * A second, later exception is deliberate and is a CHANGED predicate: the
+ * `mongo` cells for `is_empty` / `is_not_empty` (objectui#10790). They stored
+ * `{ f: { $in: [null, ''] } }` / `{ f: { $nin: [null, ''] } }`, and a `null`
+ * list member is refused by every objectstack filter face, so those rows now
+ * store the spelling that refusal prescribes — same meaning, "no value OR the
+ * empty string" and its complement. "Is empty" is an `$or` entry rather than a
+ * field entry, and `kvToCondition` reads that entry back as the one row.
+ *
  *   - `mongo` / `readBack` — `@object-ui/fields`' sharing-rule criteria
  *     (`condToMongo`, then `kvToCondition` on what it wrote).
  *   - `dataset` / `datasetReadBack` — `app-shell`'s `dataset.filter` bridge
@@ -69,8 +77,9 @@ const CENSUS: ReadonlyArray<{
   // The named exception in the `dataset` column — see the file header.
   { legacy: 'containsCaseInsensitive', id: 'icontains', value: 'x', mongo: { f: { $icontains: 'x' } }, readBack: 'icontains', dataset: { f: { $icontains: 'x' } }, datasetReadBack: 'icontains' },
   { legacy: 'notContains', id: 'not_contains', value: 'x', mongo: { f: { $notContains: 'x' } }, readBack: 'not_contains', dataset: { f: { $notContains: 'x' } }, datasetReadBack: 'not_contains' },
-  { legacy: 'isEmpty', id: 'is_empty', value: '', mongo: { f: { $in: [null, ''] } }, readBack: 'is_empty', dataset: { f: { $exists: false } }, datasetReadBack: 'is_empty' },
-  { legacy: 'isNotEmpty', id: 'is_not_empty', value: '', mongo: { f: { $nin: [null, ''] } }, readBack: 'is_not_empty', dataset: { f: { $exists: true } }, datasetReadBack: 'is_not_empty' },
+  // The named exception in the `mongo` column since objectui#10790 — see the file header.
+  { legacy: 'isEmpty', id: 'is_empty', value: '', mongo: { $or: [{ f: { $in: [''] } }, { f: { $null: true } }] }, readBack: 'is_empty', dataset: { f: { $exists: false } }, datasetReadBack: 'is_empty' },
+  { legacy: 'isNotEmpty', id: 'is_not_empty', value: '', mongo: { f: { $nin: [''], $null: false } }, readBack: 'is_not_empty', dataset: { f: { $exists: true } }, datasetReadBack: 'is_not_empty' },
   { legacy: 'greaterThan', id: 'greater_than', value: 5, mongo: { f: { $gt: 5 } }, readBack: 'greater_than', dataset: { f: { $gt: 5 } }, datasetReadBack: 'greater_than' },
   { legacy: 'lessThan', id: 'less_than', value: 5, mongo: { f: { $lt: 5 } }, readBack: 'less_than', dataset: { f: { $lt: 5 } }, datasetReadBack: 'less_than' },
   { legacy: 'greaterOrEqual', id: 'greater_than_or_equal', value: 5, mongo: { f: { $gte: 5 } }, readBack: 'greater_than_or_equal', dataset: { f: { $gte: 5 } }, datasetReadBack: 'greater_than_or_equal' },

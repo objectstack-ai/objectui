@@ -201,6 +201,53 @@ function toArray(value: any): any[] {
 }
 
 /**
+ * "Is empty" as stored (objectui#10790): the field has NO value, OR its value
+ * is the empty string.
+ *
+ * This used to be `{ [field]: { $in: [null, ''] } }`, and `null` is not a list
+ * member any objectstack filter face accepts: the shared comparand-shape face
+ * (`assertListComparandShapes`) refuses it with `INVALID_FILTER` / 400 in every
+ * position (ruled 2026-08-31), so every related list, roll-up and sharing rule
+ * authored with this operator failed when it was evaluated. The spelling here
+ * is the one that refusal prescribes for "one of […] OR has no value" —
+ * `$or: [{ FIELD: { $in: […] } }, { FIELD: { $null: true } }]` — with the one
+ * non-null member the old list carried. The meaning is unchanged: `''` still
+ * counts as empty, which is what separates this operator from `is_null`.
+ *
+ * ONE stored entry per builder row, like every other arm: its key is `$or`
+ * rather than the field, so it merges into an AND group beside field keys and
+ * {@link kvToCondition} reads it back as one row. Two such rows collide on
+ * `$or` and fall to the `$and` form, as any two rows on one key already do.
+ */
+function isEmptyEntry(field: string): Record<string, any> {
+  return { $or: [{ [field]: { $in: [''] } }, { [field]: { $null: true } }] };
+}
+
+/**
+ * The FIELD of a stored {@link isEmptyEntry}, or `null` when `v` (the value
+ * under an `$or` key) is anything else — including an `$or` that means the same
+ * thing in another order or spelling, which reads back as the ordinary OR group
+ * it is rather than being folded into this row.
+ */
+function isEmptyEntryField(v: any): string | null {
+  if (!Array.isArray(v) || v.length !== 2) return null;
+  const [inFrag, nullFrag] = v;
+  const single = (frag: any): [string, any] | null => {
+    if (!frag || typeof frag !== 'object' || Array.isArray(frag)) return null;
+    const entries = Object.entries(frag);
+    return entries.length === 1 && !entries[0][0].startsWith('$') ? entries[0] : null;
+  };
+  const a = single(inFrag);
+  const b = single(nullFrag);
+  if (!a || !b || a[0] !== b[0]) return null;
+  const opsA = a[1];
+  const opsB = b[1];
+  if (!opsA || typeof opsA !== 'object' || Object.keys(opsA).length !== 1) return null;
+  if (!opsB || typeof opsB !== 'object' || Object.keys(opsB).length !== 1) return null;
+  return arraysEqual(opsA.$in, ['']) && opsB.$null === true ? a[0] : null;
+}
+
+/**
  * Builder condition → `$`-operator criteria. Exported for tests: this is the
  * chokepoint where a builder token becomes a spec `FieldOperatorsSchema` key,
  * and a wrong spelling here is rejected downstream by `convertFiltersToAST`
@@ -254,8 +301,12 @@ export function condToMongo(c: BuilderCondition, typeOf: (f: string) => string |
     // builder UI even though FieldOperatorsSchema accepts them (#2942).
     case 'starts_with': return { [field]: { $startsWith: value } };
     case 'ends_with': return { [field]: { $endsWith: value } };
-    case 'is_empty': return { [field]: { $in: [null, ''] } };
-    case 'is_not_empty': return { [field]: { $nin: [null, ''] } };
+    // objectui#10790 — no `null` list member: see {@link isEmptyEntry}.
+    // "Is not empty" is its exact complement — has a value (`$null: false`,
+    // the refusal's own "has a value" half) AND that value is not `''` — on one
+    // field key, so it reads back through the ordinary two-operator arm.
+    case 'is_empty': return isEmptyEntry(field);
+    case 'is_not_empty': return { [field]: { $nin: [''], $null: false } };
     // Null / existence spec operators. Distinct from is_empty/is_not_empty,
     // which also treat '' as empty.
     case 'is_null': return { [field]: { $null: true } };
@@ -367,6 +418,15 @@ function criteriaKey(mongo: any): string {
  * @internal
  */
 export function kvToCondition(field: string, v: any, idx: number): BuilderCondition | null {
+  // A `$` key is a logical operator, not a field. The one such entry a builder
+  // row stores is "is empty"'s `$or` (objectui#10790, {@link isEmptyEntry});
+  // every other one is a criteria the builder cannot draw as a row.
+  if (field.startsWith('$')) {
+    const target = field === '$or' ? isEmptyEntryField(v) : null;
+    return target === null
+      ? null
+      : { id: `c_${idx}_${target}`, field: target, operator: 'is_empty', value: '' };
+  }
   const id = `c_${idx}_${field}`;
   if (v === null || typeof v !== 'object' || Array.isArray(v)) {
     return { id, field, operator: 'equals', value: v };
@@ -395,6 +455,11 @@ export function kvToCondition(field: string, v: any, idx: number): BuilderCondit
       case '$endsWith': return { id, field, operator: 'ends_with', value: val };
       case '$null': return { id, field, operator: val === false ? 'is_not_null' : 'is_null', value: '' };
       case '$exists': return { id, field, operator: val === false ? 'notExists' : 'exists', value: '' };
+      // `[null, '']` is the pre-objectui#10790 spelling of "is empty" /
+      // "is not empty", which every objectstack filter face refuses. Rules
+      // saved before the fix still carry it, so it keeps opening as the same
+      // row — and the builder writes the accepted spelling the next time the
+      // criteria is edited. Reading alone rewrites nothing.
       case '$in':
         return arraysEqual(val, [null, ''])
           ? { id, field, operator: 'is_empty', value: '' }
@@ -409,6 +474,10 @@ export function kvToCondition(field: string, v: any, idx: number): BuilderCondit
   if (opKeys.length === 2 && '$gte' in v && '$lte' in v) {
     return { id, field, operator: 'between', value: [v.$gte, v.$lte] };
   }
+  // "Is not empty" as `condToMongo` writes it since objectui#10790.
+  if (opKeys.length === 2 && '$nin' in v && '$null' in v && arraysEqual(v.$nin, ['']) && v.$null === false) {
+    return { id, field, operator: 'is_not_empty', value: '' };
+  }
   return null;
 }
 
@@ -418,7 +487,9 @@ function mongoToFilterGroup(mongo: any): BuilderGroup | null {
   if (typeof mongo !== 'object' || Array.isArray(mongo)) return null;
   const entries = Object.entries(mongo);
   if (entries.length === 0) return { ...EMPTY_GROUP, conditions: [] };
-  if (entries.length === 1 && (mongo.$or || mongo.$and)) {
+  // A lone "is empty" row stores a lone `$or` (objectui#10790); it is ONE row,
+  // not an OR group of its two halves. Read it as the flat entry it is, below.
+  if (entries.length === 1 && (mongo.$or || mongo.$and) && !kvToCondition(entries[0][0], entries[0][1], 0)) {
     const logic: 'and' | 'or' = mongo.$or ? 'or' : 'and';
     const arr = mongo.$or || mongo.$and;
     if (!Array.isArray(arr)) return null;
@@ -427,7 +498,8 @@ function mongoToFilterGroup(mongo: any): BuilderGroup | null {
       const frag = arr[i];
       if (!frag || typeof frag !== 'object' || Object.keys(frag).length !== 1) return null;
       const field = Object.keys(frag)[0];
-      if (field.startsWith('$')) return null;
+      // A `$` key reads only as "is empty"'s entry; `kvToCondition` answers
+      // `null` for every other one.
       const c = kvToCondition(field, frag[field], i);
       if (!c) return null;
       conditions.push(c);
@@ -437,7 +509,9 @@ function mongoToFilterGroup(mongo: any): BuilderGroup | null {
   const conditions: BuilderCondition[] = [];
   let i = 0;
   for (const [field, v] of entries) {
-    if (field.startsWith('$')) return null; // mixed logical + field → raw
+    // Mixed logical + field → raw, except "is empty"'s `$or` entry, which an
+    // AND group merges beside field keys (`kvToCondition` answers `null` for
+    // every other `$` key).
     const c = kvToCondition(field, v, i++);
     if (!c) return null;
     conditions.push(c);

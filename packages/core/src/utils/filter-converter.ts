@@ -1326,6 +1326,10 @@ export function toFilterNode(source: unknown): FilterNode | Record<string, any> 
  * from a RENDER-time `useMemo` (`plugin-detail`'s `RelatedList`,
  * `plugin-form`'s `LineItemsPanel`, `plugin-grid`'s `ObjectGrid`), where a
  * throw is a render error and there is no `classifyLoadError` in the path.
+ * A fourth is an ADAPTER rather than a renderer: `ValueDataSource.find` lowers
+ * an array `$filter` through this before matching it in memory
+ * (objectui#10767), and a `find` that never threw on a bad filter must not
+ * start to — it re-seats `refusal` as its own excluded-and-logged refusal.
  *
  * ## Why the return type is a UNION and not `node | undefined`
  *

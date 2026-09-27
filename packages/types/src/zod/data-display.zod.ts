@@ -1016,7 +1016,15 @@ export const ChartSchema = BaseSchema.extend({
 }).overwrite(foldChartXAxisAlias);
 
 /**
- * Timeline Event Schema
+ * Timeline Event Schema — mirrors `TimelineEvent` in `../data-display.ts`, the
+ * element type of the RETIRED `TimelineSchema.events` (objectui#6170, ADR-0049
+ * stage 2).
+ *
+ * `TimelineSchema` below no longer references it: `events` is a
+ * `retirementTombstone()`. It stays exported and paired in
+ * `../__tests__/zod-mirror-parity.test.ts` because retiring a published name is
+ * a separate break that ruling did not name. ⛔ Not a timeline element shape —
+ * an authored feed entry is `TimelineFeedItemSchema` below.
  */
 export const TimelineEventSchema = z.object({
   id: z.string().optional().describe('Event ID'),
@@ -1259,15 +1267,12 @@ const timelineItemsFitVariant = (
  * declared there and absent here is `UnmirroredDeclaredKeys` and reddens the
  * pair, so the nine presentational keys below are not optional to carry.
  *
- * `events` / `orientation` / `position` stay declared and stay mirrored: they
- * have zero read points, but removing them is a breaking narrowing routed
- * through ADR-0049 rather than done here. `events` follows the declaration from
- * required to OPTIONAL — strictly more input parses than before.
- *
- * `timeScale` is RETIRED (objectui#6355) and carries the
- * `retirementTombstone()` spelling below (objectui#6931) — still mirrored,
- * deliberately, because the parity ratchet compares key SETS and because a
- * tombstone must be present on both halves to be audible.
+ * `timeScale` is RETIRED (objectui#6355), and `events` / `orientation` /
+ * `position` are RETIRED (objectui#6170, ADR-0049 stage 2 — no renderer ever
+ * read any of the three). All four carry the `retirementTombstone()` spelling
+ * below (objectui#6931), each message naming what to author instead — still
+ * mirrored, deliberately, because the parity ratchet compares key SETS and
+ * because a tombstone must be present on both halves to be audible.
  *
  * ## The node-level refinement (objectui#6356)
  *
@@ -1301,9 +1306,16 @@ export const TimelineSchema = BaseSchema.extend({
   rowLabel: z.string().optional().describe('Header label above the gantt row-label gutter'),
   minDate: z.string().optional().describe('Override the auto-calculated gantt axis start (YYYY-MM-DD)'),
   maxDate: z.string().optional().describe('Override the auto-calculated gantt axis end (YYYY-MM-DD)'),
-  events: z.array(TimelineEventSchema).optional().describe('DEPRECATED — zero read points; renders an empty rail. Use items'),
-  orientation: z.enum(['vertical', 'horizontal']).optional().describe('DEPRECATED — zero read points. Use variant'),
-  position: z.enum(['left', 'right', 'alternate']).optional().describe('DEPRECATED — zero read points'),
+  // RETIRED (objectui#6170, ruling 2026-08-25 — ADR-0049 enforce-or-remove,
+  // route REMOVE). No renderer ever read these three: an authored `events`
+  // drew an EMPTY rail, `orientation` lost to `variant`, and `position` did
+  // nothing at all. The TS twin (`../data-display.ts`) types each `?: never`;
+  // here any authored value is a loud parse rejection (absent stays valid).
+  // NOT deletable, for the reason `timeScale` above gives: `BaseSchema` is
+  // `.passthrough()`, so a dropped key would parse green and still do nothing.
+  events: retirementTombstone('RETIRED (objectui#6170) — nothing ever read it; author items instead, each entry { time, title, … }'),
+  orientation: retirementTombstone('RETIRED (objectui#6170) — nothing ever read it; author variant instead'),
+  position: retirementTombstone('RETIRED (objectui#6170) — nothing ever read it and nothing replaces it: the vertical rail is always drawn on the left'),
   body: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `timeline` reads NEITHER content channel, on EITHER of its '
     + 'two readers: measured with the TypeScript type checker over one program built from the repo-root '

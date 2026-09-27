@@ -2671,7 +2671,13 @@ export interface PivotTableSchema extends BaseSchema {
 }
 
 /**
- * Timeline event
+ * Timeline event — the element type of the RETIRED `TimelineSchema.events`
+ * (objectui#6170, ADR-0049 stage 2).
+ *
+ * `TimelineSchema.events`, the member that named it, is now a `?: never`
+ * tombstone, and no renderer ever read it. It stays exported because retiring
+ * a published type NAME is a separate break that ruling did not name. ⛔ Not a timeline element shape — an authored feed entry is a
+ * {@link TimelineFeedItem} (its date key is `time`, not `date`).
  */
 export interface TimelineEvent {
   /**
@@ -2959,46 +2965,60 @@ export interface TimelineSchema extends BaseSchema {
    */
   maxDate?: string;
   /**
-   * Timeline events.
+   * RETIRED (objectui#6170, ADR-0049 stage 2) — author {@link
+   * TimelineSchema.items} instead, each entry a {@link TimelineFeedItem}
+   * (`{ time, title, … }`).
    *
-   * ⚠️ ZERO read points — `packages/plugin-timeline` never reads this key, so a
-   * timeline authored with `events` renders an EMPTY rail. It was `required`
-   * until objectui#6170, which is why the docs page's own TypeScript example
-   * did not compile; it is OPTIONAL now so that documented authoring form
-   * type-checks, and that widening is the whole of the change made here.
+   * No renderer ever read this key: a timeline authored with `events` drew an
+   * EMPTY rail, with no error and no warning. objectui#6170's maintainer ruling
+   * (2026-08-25, 「同意」) sent it, {@link TimelineSchema.orientation} and
+   * {@link TimelineSchema.position} down the ADR-0049 enforce-or-remove route,
+   * and the producer census recorded on objectui#6170 (a dated reading, not
+   * re-derived here) found no author of any of the three that expected it to
+   * render — so the route is REMOVE, not enforce.
    *
-   * Its RETIREMENT is routed, not done: objectui#6170's maintainer ruling
-   * (2026-08-25) sends this key, {@link TimelineSchema.orientation} and
-   * {@link TimelineSchema.position} down the ADR-0049 enforce-or-remove route.
-   * That is a breaking removal from a published type and therefore its own
-   * change; the house form for it is the `?: never` tombstone convention on
-   * {@link StaticTableColumn} above (objectui#5474).
+   * `?: never` is this package's tombstone convention (see
+   * {@link TimelineSchema.timeScale} directly above, {@link StaticTableColumn}
+   * objectui#5474), and it is load-bearing rather than decorative.
+   * {@link BaseSchema} carries `[key: string]: any`, so DELETING this member
+   * would let the retired key type-check green and keep drawing an empty rail
+   * — the silent no-op this retirement exists to make audible. Keeping it
+   * declared as `never` is what turns it into a compile error.
    *
-   * @deprecated Never read by any renderer. Use `items` — see
-   * `content/docs/plugins/plugin-timeline.mdx`.
+   * Lockstep with the Zod twin (`zod/data-display.zod.ts`,
+   * `retirementTombstone()`): both halves or neither, since either half alone
+   * leaves the other surface silently accepting the retired key. Absent stays
+   * valid on both. The element type it used to name, {@link TimelineEvent},
+   * stays exported; this member no longer references it.
+   *
+   * @deprecated RETIRED (objectui#6170) — author `items` instead.
    */
-  events?: TimelineEvent[];
+  events?: never;
   /**
-   * Timeline orientation.
+   * RETIRED (objectui#6170, ADR-0049 stage 2) — author {@link
+   * TimelineSchema.variant} instead (`'vertical'`, `'horizontal'` or
+   * `'gantt'`).
    *
-   * ⚠️ ZERO read points — the renderer discriminates on
-   * {@link TimelineSchema.variant}, not on this key. Retirement routed via
-   * ADR-0049; see {@link TimelineSchema.events}.
+   * No renderer ever read this key: the layout is chosen by `variant`, so an
+   * authored `orientation: 'horizontal'` drew the default vertical rail in
+   * silence. Tombstoned `?: never` rather than deleted, for the reason
+   * {@link TimelineSchema.events} gives; lockstep with the Zod twin.
    *
-   * @deprecated Never read by any renderer. Use `variant`.
-   * @default 'vertical'
+   * @deprecated RETIRED (objectui#6170) — author `variant` instead.
    */
-  orientation?: 'vertical' | 'horizontal';
+  orientation?: never;
   /**
-   * Timeline position (for vertical).
+   * RETIRED (objectui#6170, ADR-0049 stage 2) — and NOTHING replaces it.
    *
-   * ⚠️ ZERO read points. Retirement routed via ADR-0049; see
-   * {@link TimelineSchema.events}.
+   * It promised to put the vertical rail's entries on the `left`, `right` or
+   * both sides (`alternate`). No renderer ever read it, and no key does that
+   * job today: the vertical rail is always drawn on the left edge. Tombstoned
+   * `?: never` rather than deleted, for the reason {@link TimelineSchema.events}
+   * gives; lockstep with the Zod twin.
    *
-   * @deprecated Never read by any renderer.
-   * @default 'left'
+   * @deprecated RETIRED (objectui#6170) — no replacement; the vertical rail is always on the left.
    */
-  position?: 'left' | 'right' | 'alternate';
+  position?: never;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `timeline` reads NEITHER
    * content channel: no renderer read consumes `body` or `children` for this

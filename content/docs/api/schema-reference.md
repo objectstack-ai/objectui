@@ -698,7 +698,7 @@ A single-record detail view with grouped fields, actions, and tabs.
     {
       "key": "history",
       "label": "History",
-      "content": { "type": "timeline", "events": [] }
+      "content": { "type": "timeline", "items": [] }
     }
   ]
 }
@@ -1145,7 +1145,7 @@ An enhanced detail view for a single record with sections, tabs and navigation.
       "label": "Activities",
       "icon": "Activity",
       "badge": 5,
-      "content": { "type": "timeline", "events": [] }
+      "content": { "type": "timeline", "items": [] }
     }
   ],
   "actions": [

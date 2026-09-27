@@ -163,9 +163,13 @@ than a chart that quietly falls back to the `month` default. Rename the key to
 </Callout>
 
 <Callout type="warn">
-`events`, `orientation` and `position` are also declared on `TimelineSchema`
-and are **read by nothing**. A timeline authored with `events` renders an empty
-rail — use `items`. They are deprecated and scheduled for removal.
+`events`, `orientation` and `position` are **retired** (objectui#6170). Nothing
+ever read them — a timeline authored with `events` rendered an empty rail — and
+they are no longer authorable: each is tombstoned on `TimelineSchema`, so
+writing one is a type error and a validation failure. Write `items` instead of
+`events` (each entry `{ time, title, … }`; the date goes in `time`, not
+`date`) and `variant` instead of `orientation`. `position` has no replacement:
+the vertical rail is always drawn on the left.
 </Callout>
 
 ## Variants

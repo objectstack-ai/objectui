@@ -39,6 +39,15 @@ import '@object-ui/components';
 import '@object-ui/plugin-charts';
 import './index';
 import { DashboardRenderer } from './DashboardRenderer';
+import type { DashboardComponentSchema, DataSource } from '@object-ui/types';
+
+/**
+ * The fakes implement only what these cases read (`queryDataset`, or `find`
+ * for the incapable control), so they are handed over as the adapter the
+ * provider declares, and the node as the stored metadata it represents.
+ */
+type StoredNode = Parameters<typeof SchemaRenderer>[0]['schema'];
+const asAdapter = (fake: object) => fake as unknown as DataSource;
 
 beforeEach(() => {
   // The dimension-label metadata probe (`useDatasetDimensionMeta`) falls back
@@ -87,8 +96,8 @@ describe('a `dashboard` block on the page path reads the ambient adapter (object
   it('its dataset widgets query the provider’s adapter and paint the answer, with no host prop', async () => {
     const ambient = makeDatasetSource();
     render(
-      <SchemaRendererProvider dataSource={ambient as any}>
-        <SchemaRenderer schema={DASHBOARD as any} />
+      <SchemaRendererProvider dataSource={asAdapter(ambient)}>
+        <SchemaRenderer schema={DASHBOARD as unknown as StoredNode} />
       </SchemaRendererProvider>,
     );
 
@@ -104,7 +113,7 @@ describe('a `dashboard` block on the page path reads the ambient adapter (object
   });
 
   it('control: with no adapter anywhere, every dataset widget still shows the visible alert', async () => {
-    render(<SchemaRenderer schema={DASHBOARD as any} />);
+    render(<SchemaRenderer schema={DASHBOARD as unknown as StoredNode} />);
     await waitFor(() => expect(screen.getAllByText(UNSUPPORTED)).toHaveLength(3));
     for (const message of screen.getAllByText(UNSUPPORTED)) {
       expect(message.closest('[role="alert"]')).not.toBeNull();
@@ -114,7 +123,7 @@ describe('a `dashboard` block on the page path reads the ambient adapter (object
   it('control: a provider that binds no adapter (`null`) still shows the alert', async () => {
     render(
       <SchemaRendererProvider dataSource={null}>
-        <SchemaRenderer schema={DASHBOARD as any} />
+        <SchemaRenderer schema={DASHBOARD as unknown as StoredNode} />
       </SchemaRendererProvider>,
     );
     await waitFor(() => expect(screen.getAllByText(UNSUPPORTED)).toHaveLength(3));
@@ -123,8 +132,8 @@ describe('a `dashboard` block on the page path reads the ambient adapter (object
   it('control: an ambient adapter without `queryDataset` is not a capable one, and the alert stays', async () => {
     const find = vi.fn(async () => ({ data: [], total: 0 }));
     render(
-      <SchemaRendererProvider dataSource={{ find } as any}>
-        <SchemaRenderer schema={DASHBOARD as any} />
+      <SchemaRendererProvider dataSource={asAdapter({ find })}>
+        <SchemaRenderer schema={DASHBOARD as unknown as StoredNode} />
       </SchemaRendererProvider>,
     );
     await waitFor(() => expect(screen.getAllByText(UNSUPPORTED)).toHaveLength(3));
@@ -134,8 +143,8 @@ describe('a `dashboard` block on the page path reads the ambient adapter (object
     const ambient = makeDatasetSource('Ambient');
     const explicit = makeDatasetSource('Explicit');
     render(
-      <SchemaRendererProvider dataSource={ambient as any}>
-        <DashboardRenderer schema={DASHBOARD as any} dataSource={explicit} />
+      <SchemaRendererProvider dataSource={asAdapter(ambient)}>
+        <DashboardRenderer schema={DASHBOARD as unknown as DashboardComponentSchema} dataSource={explicit} />
       </SchemaRendererProvider>,
     );
     await waitFor(() => expect(datasetCalls(explicit)).toBe(3));
@@ -149,8 +158,8 @@ describe('a `dashboard` block on the page path reads the ambient adapter (object
     const ambient = makeDatasetSource('Ambient');
     const explicit = makeDatasetSource('Explicit');
     render(
-      <SchemaRendererProvider dataSource={ambient as any}>
-        <SchemaRenderer schema={DASHBOARD as any} dataSource={explicit} />
+      <SchemaRendererProvider dataSource={asAdapter(ambient)}>
+        <SchemaRenderer schema={DASHBOARD as unknown as StoredNode} dataSource={explicit} />
       </SchemaRendererProvider>,
     );
     await waitFor(() => expect(datasetCalls(explicit)).toBe(3));

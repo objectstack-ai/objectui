@@ -30,11 +30,20 @@
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, act, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, act, cleanup } from '@testing-library/react';
 import { SchemaRenderer, SchemaRendererProvider, notifyDataChanged, useDataInvalidation } from '@object-ui/react';
 // Side-effect imports at MODULE scope (AGENTS.md's flaky-test rule).
 import '@object-ui/components';
 import './index';
+import type { DataSource } from '@object-ui/types';
+
+/**
+ * The fakes implement only what these cases read, so they are handed over as
+ * the adapter the provider declares, and the node as the stored metadata it
+ * represents.
+ */
+type StoredNode = Parameters<typeof SchemaRenderer>[0]['schema'];
+const asAdapter = (fake: object) => fake as unknown as DataSource;
 
 beforeEach(() => {
   // The dimension-label metadata probe falls back to the global fetch when the
@@ -99,9 +108,9 @@ const dashboard = (type = 'dashboard') => ({ type, widgets: [TABLE_WIDGET] });
 
 const renderOnPage = (schema: Record<string, unknown>, ds: ReturnType<typeof makeDatasetSource>) =>
   render(
-    <SchemaRendererProvider dataSource={ds as any}>
+    <SchemaRendererProvider dataSource={asAdapter(ds)}>
       <BusControl />
-      <SchemaRenderer schema={schema as any} />
+      <SchemaRenderer schema={schema as unknown as StoredNode} />
     </SchemaRendererProvider>,
   );
 
@@ -180,7 +189,7 @@ describe('a dataset-bound dashboard widget re-reads on the data-invalidation bus
     render(
       <>
         <BusControl />
-        <SchemaRenderer schema={dashboard('dashboard-grid') as any} dataSource={ds} />
+        <SchemaRenderer schema={dashboard('dashboard-grid') as unknown as StoredNode} dataSource={ds} />
       </>,
     );
     await screen.findByText('Won');
@@ -197,9 +206,9 @@ describe('a dataset-bound dashboard widget re-reads on the data-invalidation bus
   it('a widget whose adapter cannot run dataset queries subscribes to nothing and keeps its alert', async () => {
     const find = vi.fn(async () => ({ data: [], total: 0 }));
     const { getByTestId } = render(
-      <SchemaRendererProvider dataSource={{ find } as any}>
+      <SchemaRendererProvider dataSource={asAdapter({ find })}>
         <BusControl />
-        <SchemaRenderer schema={dashboard() as any} />
+        <SchemaRenderer schema={dashboard() as unknown as StoredNode} />
       </SchemaRendererProvider>,
     );
     expect(await screen.findByText('This data source does not support dataset queries.')).toBeInTheDocument();

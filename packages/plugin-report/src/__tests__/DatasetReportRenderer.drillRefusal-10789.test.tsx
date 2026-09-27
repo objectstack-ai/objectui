@@ -55,7 +55,7 @@ afterEach(() => {
 });
 
 const refusalWarnings = () =>
-  warn.mock.calls.map((c) => String(c[0])).filter((m) => m.includes('drill-down refused'));
+  warn.mock.calls.map((c: unknown[]) => String(c[0])).filter((m: string) => m.includes('drill-down refused'));
 
 describe('DatasetReportRenderer — a refused runtimeFilter drills nothing (objectui#10789)', () => {
   it('the grouped-row drill logs the refusal and emits no drill', async () => {

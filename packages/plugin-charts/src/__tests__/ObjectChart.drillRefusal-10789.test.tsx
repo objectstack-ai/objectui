@@ -79,7 +79,7 @@ function renderChart(filter: ObjectChartSchema['filter'], target: 'drawer' | 'na
 }
 
 const refusalWarnings = () =>
-  warn.mock.calls.map((c) => String(c[0])).filter((m) => m.includes('drill-down refused'));
+  warn.mock.calls.map((c: unknown[]) => String(c[0])).filter((m: string) => m.includes('drill-down refused'));
 
 /** `$not` — declared by the spec, refused by this layer's converter. */
 const REFUSED = { $not: { region: 'apac' } } as unknown as ObjectChartSchema['filter'];

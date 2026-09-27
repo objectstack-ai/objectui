@@ -66,7 +66,7 @@ afterEach(() => {
 });
 
 const refusalWarnings = () =>
-  warn.mock.calls.map((c) => String(c[0])).filter((m) => m.includes('drill-down refused'));
+  warn.mock.calls.map((c: unknown[]) => String(c[0])).filter((m: string) => m.includes('drill-down refused'));
 
 const ROWS = [
   { id: 'a', stage: 'won', source: 'web', region: 'emea', amount: 10 },

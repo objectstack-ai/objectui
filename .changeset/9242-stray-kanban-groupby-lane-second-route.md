@@ -25,20 +25,20 @@ or — with no declared key at all — this branch's floor. That re-pointing is 
 ruled intent, not a side effect, but it is a real change to what an existing
 board displays and is stated here for that reason.
 
-The reach of the contract half was measured rather than assumed, and on this
-route it does not narrow the affected population: the contract half landed with
-PR objectui#9236 and covers the **`list-view`** route only — the view-level
+The reach of the contract half was measured rather than assumed. PR
+objectui#9236 landed it on the **`list-view`** route — the view-level
 `KanbanConfig` mirror declares `groupBy` as a named alias refusal pointing at
 `groupByField`, so a `list-view` document carrying the key, under `kanban` or
 under the legacy `options.kanban` bag, is refused by `safeValidateSchema`. A
-named view's `listViews.KEY.kanban.groupBy`, the route this change repairs, gets
-no validating door from the contract half today: `safeValidateSchema` accepts it
-in either nesting and keeps the key. `tsc` refuses the declared `kanban.groupBy`
-at the authoring site on both routes (a named view's `kanban` is typed as the
-`list-view`'s), but not the key inside the untyped `options.kanban` bag on
-either. What this change repairs is therefore a pure **behaviour** gap, on any
-document that reaches this branch carrying the key, whether or not it passed
-through a validator.
+named view's `listViews.KEY.kanban.groupBy`, the route this change repairs, is
+not reached by that arm; it gets its own door separately (objectui#10321), which
+refuses the key in either nesting with the same message. `tsc` refuses the
+declared `kanban.groupBy` at the authoring site on both routes (a named view's
+`kanban` is typed as the `list-view`'s), but not the key inside the untyped
+`options.kanban` bag on either. A door reaches neither a document already in
+storage nor one that never passes through a validator, so what this change
+repairs is a pure **behaviour** gap, on any document that reaches this branch
+carrying the key.
 
 Maintainer ruling of 2026-09-12 (decision batch #117 item 5, verbatim
 「8365 同意」) — option B. Option A (strip the key and silently re-group) was not
@@ -60,13 +60,15 @@ Level justified by measurement, not intuition:
   keeps rendering, with a different (correct) lane.
 - **Nothing stops type-checking** — the type face (`groupBy?: never` on the
   inferred authoring surface) already landed with PR objectui#9236.
-- **What an author can author today is unchanged** — this change touches no
-  schema: a `list-view` document carrying the key is still refused, and a named
-  view carrying it still validates green. On that route it is this branch, which
-  now drops the key, that keeps the lane canonical.
+- **What an author can author is unchanged by this change** — it touches no
+  schema: a `list-view` document carrying the key is refused, and a named view
+  carrying it is refused by the door objectui#10321 adds separately. For a
+  document that carries the key anyway, it is this branch, which now drops the
+  key, that keeps the lane canonical.
 
-Untouched, deliberately: the contract half (which covers the `list-view` route
-only), the **live** legacy alias `kanban.groupField`, `groupBy` on the generated
-`object-kanban` node (the canonical lane key `ObjectKanban` reads), and
+Untouched, deliberately: the contract half (both routes' doors live in
+`@object-ui/types`), the **live** legacy alias `kanban.groupField`, `groupBy`
+on the generated `object-kanban` node (the canonical lane key `ObjectKanban`
+reads), and
 `ListView` itself. The `restKanban` passthrough is kept — an undeclared sibling
 key still rides through onto the node, pinned as a control.

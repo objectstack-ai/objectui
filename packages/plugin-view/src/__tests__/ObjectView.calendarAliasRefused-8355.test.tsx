@@ -41,8 +41,10 @@
  *
  * ⚠️ AND ONE PREMISE DIED ON CONTACT. The read-door gap is NOT this PR's doing
  * and is NOT specific to the calendar: measured in the same pass, a named view
- * carrying the objectui#8365 stray `kanban.groupBy` is ACCEPTED here too, while
- * the identical key on a `list-view` document is refused. `ObjectViewSchema`'s
+ * carrying the objectui#8365 stray `kanban.groupBy` was ACCEPTED here too, while
+ * the identical key on a `list-view` document was refused (objectui#10321 has
+ * since added that key to this door; the reading below is the one taken
+ * then). `ObjectViewSchema`'s
  * `listViews` is unmirrored by ruling and rides `.passthrough()`, so NOTHING
  * that lands on a view-kind block reaches a named view. ⇒ what this card
  * regressed on this route is the BEHAVIOUR (drew → mute); the silence at the
@@ -57,7 +59,8 @@
  * members, so the key waits for the maintainer to decide that type, and ⛔ not
  * `z.any()`. A `.check()` on the `object-view` object decides none of that: it
  * declares no value, puts no key in `.shape`, enforces none of the 43, and
- * judges exactly the two spellings this card retires. The in-module precedent
+ * judges exactly the two spellings this card retires (plus, since
+ * objectui#10321, the kanban twin's stray `groupBy`). The in-module precedent
  * is `ListViewSchema.options`, an untyped bag whose own `.check()` refuses
  * `kanban.groupBy` and this card's two calendar spellings by name.
  */
@@ -231,11 +234,12 @@ describe('objectui#8355 · second route, half 2 — the document is REFUSED at t
     expect(r.success, r.success ? '' : JSON.stringify(r.error.issues)).toBe(true);
   });
 
-  it('SCOPE CONTROL: `listViews` is still UNMIRRORED — nothing else about a named view is judged', () => {
+  it('SCOPE CONTROL: `listViews` is still UNMIRRORED — nothing beyond the named alias refusals is judged', () => {
     // ⭐ THE ARM THAT PROVES THIS IS NOT A MIRROR. The unmirrored ruling waits
     // on the key's VALUE TYPE; a check that declared one would refuse an
     // undeclared member, require `columns`, or reject the legacy `options` bag.
-    // None of that happens: only the two retired spellings are judged.
+    // None of that happens: only the named alias refusals are judged (here, the
+    // two retired calendar spellings).
     const undeclared = safeValidateSchema(objectViewDoc({ calendar: { zzqxNoSuchField: 'x' } }));
     expect(undeclared.success, 'an undeclared key inside a named view is now refused — that is a mirror, not a check').toBe(true);
     const noColumns = safeValidateSchema(objectViewDoc({ calendar: { startDateField: 'kickoff' } }));

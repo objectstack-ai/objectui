@@ -72,8 +72,12 @@
  *     `packages/plugin-list/src/__tests__/ListView.strayGroupByRefused-8365.test.tsx`
  *     (runtime face) and
  *     `packages/types/src/__tests__/kanban-stray-group-by-refusal-8365.test.ts`
- *     (type face). ⛔ It does NOT cover both routes, and this note used to say
- *     it did (objectui#9655).
+ *     (type face). ⛔ That arm alone does NOT cover both routes, and this note
+ *     used to say it did (objectui#9655). This route's door is a second install
+ *     site of the same string, added by objectui#10321: `ObjectViewSchema`'s
+ *     named-view check refuses `listViews.KEY.kanban.groupBy` in both nestings,
+ *     pinned in
+ *     `packages/types/src/__tests__/named-view-kanban-stray-group-by-10321.test.ts`.
  *
  *     ⭐ READ THE REACH, ⛔ DO NOT TRUST A COUNT WRITTEN DOWN HERE — a count in
  *     prose is derived once and re-derived never, and the one that stood here
@@ -86,15 +90,17 @@
  *     The declaration line is that run's own positive control — a run that does
  *     not print it found nothing at all, rather than finding no install sites.
  *     Read which object each hit hangs off; the arm's own "WHERE THIS ARM IS
- *     INSTALLED" note in that file states the nestings it was written for. Both
- *     pins above build `list-view` fixtures, which is the same reading taken
- *     from the other side.
+ *     INSTALLED" note in that file states the routes and nestings it was
+ *     written for. The first two pins above build `list-view` fixtures and the
+ *     third `object-view` ones, which is the same reading taken from the other
+ *     side.
  *
  *     ⚠️ THE MODEL ERROR, NOT JUST THE SENTENCE. The claim that made the wrong
  *     one feel safe to write was the tail of this item: that what remains on
  *     this route is "a document that never went through a validator". ⛔ FALSE.
- *     `safeValidateSchema` DOES judge an `object-view` document — it ACCEPTS
- *     this one. The instrument is next door in this directory:
+ *     `safeValidateSchema` DOES judge an `object-view` document — it ACCEPTED
+ *     this one until objectui#10321, and refuses it now. The instrument is next
+ *     door in this directory:
  *     `ObjectView.calendarAliasRefused-8355.test.tsx`'s "REFUSED at the read
  *     door" half drives a named view under `listViews` through
  *     `safeValidateSchema` and gets a refusal — same door, same document shape,
@@ -106,11 +112,12 @@
  *     objectui#8355's calendar stem, where a contract review caught the clause
  *     before it landed (objectui#9648).
  *
- *     ⛔ Still not re-pinned here: what remains on this route is a BEHAVIOUR
- *     gap. ⚠️ And NOTHING re-derives the kanban key's silence at that door
- *     today — said here rather than left to read as live. Whether a named view
- *     should be judged at all is objectui#7928's question, and this card ⛔ does
- *     not answer it.
+ *     ⛔ Still not re-pinned here: this file pins the BEHAVIOUR half, which
+ *     holds for any document that reaches the branch carrying the key, whether
+ *     or not it passed a validator. The door is pinned where it is declared (the
+ *     `types` file above). Which value type `listViews` itself should enforce is
+ *     objectui#7928's question, and neither this card nor objectui#10321
+ *     answers it.
  *  2. THE LIVE LEGACY ALIAS `kanban.groupField`, a legacy spelling of the spec's
  *     `groupByField`. Still read, still resolves the lane — CONTROL below.
  *  3. `groupBy` ON THE GENERATED NODE. That is the canonical lane key

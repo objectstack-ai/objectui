@@ -36,8 +36,9 @@ fallback and was **not** taken):
    now carries `groupBy?: never`). The legacy `options.kanban` nesting — where the
    retired producer wrote, and so where stored views carry the key — takes the
    identical message through a check on that untyped bag. A named view's
-   `listViews.KEY.kanban.groupBy` on an `object-view` document still validates
-   green, in either nesting.
+   `listViews.KEY.kanban.groupBy` on an `object-view` document is not reached by
+   this arm; objectui#10321 gives that route its own door, which refuses the key
+   in either nesting with the same message.
 
 **Breaking, in the sense worth stating explicitly** (shipped `minor`: this repo
 never declares `major`, and `.changeset/config.json` puts every package in one

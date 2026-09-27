@@ -1,7 +1,7 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 
 // Capture the schema ObjectForm receives so object-form mode can be asserted
 // without standing up the real plugin-form runtime.
@@ -30,7 +30,7 @@ vi.mock('../../../providers/MetadataProvider', () => ({
 }));
 
 import { ScreenPreview } from './ScreenPreview';
-import { buildScreenSpec, isFieldVisibleWhen, hiddenFieldCount } from './screen-spec';
+import { buildScreenSpec, hiddenFieldCount, unevaluableVisibleWhen } from './screen-spec';
 
 afterEach(() => {
   cleanup();
@@ -134,65 +134,118 @@ describe('ScreenPreview — object-form mode', () => {
   });
 });
 
-describe('ScreenPreview — visibleWhen field gating', () => {
+describe('ScreenPreview — visibleWhen is decided live by the screen renderer (objectui#10743)', () => {
+  // The docs' lead-conversion shape (`createOpportunity == true`), plus a
+  // control field that declares no predicate. The preview used to judge the
+  // predicate once against `variables`, drop the field and strip the predicate,
+  // so no tick ever brought it back.
   const node = {
     id: 's1',
     config: {
       fields: [
         { name: 'createOpp', label: 'Create Opportunity?', type: 'boolean' },
-        // Bare CEL: this slot is declared bare CEL, and a `{createOpp}` brace is
-        // the brace trap `registerFlow` refuses (objectui#10692).
         { name: 'oppName', label: 'Opportunity Name', type: 'text', visibleWhen: 'createOpp == true' },
+        { name: 'plain', label: 'Plain', type: 'text' },
       ],
     },
   };
 
-  it('hides a conditional field when its visibleWhen is false, with a hint', () => {
-    render(<ScreenPreview node={node} variables={{ createOpp: false }} />);
+  it('a sibling-field predicate hides its field until the sibling is ticked, then shows it; the hint follows; the control is drawn throughout', () => {
+    const { container } = render(<ScreenPreview node={node} variables={{}} />);
     expect(screen.getByText('Create Opportunity?')).toBeInTheDocument();
     expect(screen.queryByText('Opportunity Name')).not.toBeInTheDocument();
+    expect(screen.getByText('Plain')).toBeInTheDocument();
     expect(screen.getByText(/hidden by .*visible when/i)).toBeInTheDocument();
-  });
 
-  it('shows the conditional field when its visibleWhen is true (no hint)', () => {
-    render(<ScreenPreview node={node} variables={{ createOpp: true }} />);
+    fireEvent.click(container.querySelector('#ff-createOpp')!);
     expect(screen.getByText('Opportunity Name')).toBeInTheDocument();
+    expect(screen.getByText('Plain')).toBeInTheDocument();
     expect(screen.queryByText(/hidden by .*visible when/i)).not.toBeInTheDocument();
   });
 
-  // Re-judged in objectui#10692: this used to expect the field shown (fail-open).
-  // A predicate that cannot be evaluated is read as the runtime reads it on
-  // resume: hidden (`validateScreenInputs`), and counted in the hint.
-  it('an undecidable condition (the variable is not set) hides the field, with a hint', () => {
-    render(<ScreenPreview node={node} variables={{}} />);
+  it('the variables handed in for {var} interpolation do not decide a sibling-field predicate: a flow variable of the same name, false, used to freeze the field hidden', () => {
+    const { container } = render(<ScreenPreview node={node} variables={{ createOpp: false }} />);
     expect(screen.queryByText('Opportunity Name')).not.toBeInTheDocument();
-    expect(screen.getByText(/hidden by .*visible when/i)).toBeInTheDocument();
+    fireEvent.click(container.querySelector('#ff-createOpp')!);
+    expect(screen.getByText('Opportunity Name')).toBeInTheDocument();
+  });
+
+  it('a numeric sibling predicate follows what is typed (the console sample: note, visibleWhen discount > 0)', () => {
+    const sample = {
+      id: 'review',
+      config: {
+        fields: [
+          { name: 'discount', label: 'Discount %', type: 'number' },
+          { name: 'note', label: 'Note', type: 'text', required: true, visibleWhen: 'discount > 0' },
+          { name: 'comment', label: 'Comment', type: 'text' },
+        ],
+      },
+    };
+    const { container } = render(<ScreenPreview node={sample} variables={{}} />);
+    const discount = container.querySelector('#ff-discount')!;
+    fireEvent.change(discount, { target: { value: '5' } });
+    expect(screen.getByText('Note')).toBeInTheDocument();
+    expect(screen.getByText('Comment')).toBeInTheDocument();
+    fireEvent.change(discount, { target: { value: '0' } });
+    expect(screen.queryByText('Note')).not.toBeInTheDocument();
+    expect(screen.getByText('Comment')).toBeInTheDocument();
+  });
+
+  it('a predicate over a run variable is not read from the run variables: the render is the same whether it holds true or false', () => {
+    const gated = {
+      id: 'g',
+      config: {
+        fields: [
+          { name: 'reason', label: 'Reason', type: 'text', visibleWhen: 'needsApproval == true' },
+          { name: 'plain', label: 'Plain', type: 'text' },
+        ],
+      },
+    };
+    const withTrue = render(<ScreenPreview node={gated} variables={{ needsApproval: true }} />);
+    const reasonWithTrue = withTrue.queryByText('Reason') !== null;
+    expect(withTrue.getByText('Plain')).toBeInTheDocument();
+    withTrue.unmount();
+    const withFalse = render(<ScreenPreview node={gated} variables={{ needsApproval: false }} />);
+    const reasonWithFalse = withFalse.queryByText('Reason') !== null;
+    expect(withFalse.getByText('Plain')).toBeInTheDocument();
+    // Whether the renderer shows or hides a predicate it cannot evaluate is its
+    // own fallback (objectui#8069); this pin reads the SCOPE only.
+    expect(reasonWithFalse).toBe(reasonWithTrue);
   });
 });
 
-describe('isFieldVisibleWhen', () => {
-  it('shows when there is no condition or no variables', () => {
-    expect(isFieldVisibleWhen(undefined, { x: 1 })).toBe(true);
-    expect(isFieldVisibleWhen('', { x: 1 })).toBe(true);
-    expect(isFieldVisibleWhen('discount > 0', undefined)).toBe(true);
+describe('unevaluableVisibleWhen — the names a screen predicate may reference (objectui#10743)', () => {
+  const withPredicate = (visibleWhen: unknown) => ({
+    id: 's',
+    config: { fields: [{ name: 'discount', type: 'number' }, { name: 'note', visibleWhen }, { name: 'plain' }] },
   });
 
-  // Re-judged in objectui#10692: the `{createOpp}` spelling used to be
-  // normalised to a bare name. It is the brace trap `registerFlow` refuses in
-  // this bare-CEL slot, so the field is hidden; the bare spelling evaluates.
-  it('evaluates bare CEL conditions against the variables; a {var} brace is refused', () => {
-    expect(isFieldVisibleWhen('createOpp == true', { createOpp: true })).toBe(true);
-    expect(isFieldVisibleWhen('createOpp == true', { createOpp: false })).toBe(false);
-    expect(isFieldVisibleWhen('{createOpp} == true', { createOpp: true })).toBe(false);
-    expect(isFieldVisibleWhen('stage == "review"', { stage: 'review' })).toBe(true);
-    expect(isFieldVisibleWhen('stage == "review"', { stage: 'draft' })).toBe(false);
-    expect(isFieldVisibleWhen('discount > 0', { discount: 5 })).toBe(true);
-    expect(isFieldVisibleWhen('discount > 0', { discount: 0 })).toBe(false);
+  it.each([
+    ['a sibling field', 'discount > 0'],
+    ['a sibling field under the record namespace the renderer binds', 'record.discount > 0'],
+    ['two sibling fields', 'discount > 0 && plain != ""'],
+    ['control: no predicate', undefined],
+    ['control: a blank predicate', '  '],
+  ])('%s is not reported', (_name, visibleWhen) => {
+    expect(unevaluableVisibleWhen(withPredicate(visibleWhen))).toEqual([]);
   });
 
-  // Re-judged in objectui#10692: this used to expect `true` (fail-open).
-  it('hides the field when a referenced variable is not set (the runtime reading of a fault)', () => {
-    expect(isFieldVisibleWhen('createOpp == true', {})).toBe(false);
+  it.each([
+    ['a run variable', 'needsApproval == true', /needsApproval/],
+    ['a run variable behind a stdlib call', 'size(tags) > 0', /tags/],
+    ["the runtime's vars root, which the renderer does not bind", 'vars.discount > 0', /vars/],
+    ['a {var} brace, the brace trap in a bare-CEL slot', '{discount} > 0', /./],
+    ['a non-string', true, /./],
+  ])('%s is reported on the field, by name', (_name, visibleWhen, reason) => {
+    const out = unevaluableVisibleWhen(withPredicate(visibleWhen));
+    expect(out.map((u) => u.name)).toEqual(['note']);
+    expect(out[0].error).toMatch(reason);
+  });
+
+  it('names the nearest declared field for a typo', () => {
+    const [only] = unevaluableVisibleWhen(withPredicate('dicount > 0'));
+    expect(only.name).toBe('note');
+    expect(only.error).toMatch(/discount/);
   });
 });
 
@@ -220,7 +273,7 @@ describe('buildScreenSpec', () => {
     expect(spec.mode).toBe('create');
   });
 
-  it('gates fields by visibleWhen against the supplied variables', () => {
+  it('keeps every field and carries its visibleWhen raw; the renderer decides visibility', () => {
     const cfg = {
       id: 'n1',
       config: {
@@ -230,11 +283,13 @@ describe('buildScreenSpec', () => {
         ],
       },
     };
-    expect(buildScreenSpec(cfg, { createOpp: true }).fields.map((f) => f.name)).toEqual(['createOpp', 'oppName']);
-    expect(buildScreenSpec(cfg, { createOpp: false }).fields.map((f) => f.name)).toEqual(['createOpp']);
-    // No variables → keep every field (design preview never hides on missing data).
-    expect(buildScreenSpec(cfg).fields.map((f) => f.name)).toEqual(['createOpp', 'oppName']);
-    expect(hiddenFieldCount(cfg, { createOpp: false })).toBe(1);
-    expect(hiddenFieldCount(cfg, { createOpp: true })).toBe(0);
+    const spec = buildScreenSpec(cfg);
+    expect(spec.fields).toEqual([
+      { name: 'createOpp', label: 'Create?', type: 'boolean', required: false },
+      { name: 'oppName', label: 'Name', type: 'text', required: false, visibleWhen: 'createOpp == true' },
+    ]);
+    // The hint's count is the renderer's own verdict for the values collected so far.
+    expect(hiddenFieldCount(spec, {})).toBe(1);
+    expect(hiddenFieldCount(spec, { createOpp: true })).toBe(0);
   });
 });

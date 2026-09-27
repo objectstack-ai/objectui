@@ -46,6 +46,18 @@ so the field is hidden. A non-string `visibleWhen` is refused the same way. A bl
 as `false`: that is the installed spec 17.4.0 reading. objectstack main refuses both at
 `registerFlow`, so such a flow never runs there.
 
+⚠️ **Dated note, 2026-09-27 — the Studio no longer decides a screen field's visibility up
+front — objectui#10743.** Later in this same release the screen preview and the Debug run's
+screen pause hand `visibleWhen` to `ScreenView` raw, and the flow runner's own renderer
+decides it live over the screen's declared fields and the values being collected — the
+spec's scope, "evaluated by the CLIENT against the screen's live collected values". A
+predicate that cannot be evaluated is no longer read as hidden by the Studio: one that
+references a name that is not a field on this screen is an error on the screen step, and
+whether the renderer shows or hides its field is `ScreenView`'s fallback (objectui#8069).
+The rest of this entry is kept as the reading of this change; the objectui#10743 entry
+states what the Studio now does, and that the runtime's resume door still reads the run's
+variables until objectstack-ai/objectstack#20178 lands.
+
 **Template tokens.** A `NOW()`, `$User.*`, function or arithmetic token inside a longer
 string rendered as `''`, so `'at {NOW()}'` became `'at '` where the runtime writes the
 time. The Debug run still does not model these tokens; it now keeps them as written,

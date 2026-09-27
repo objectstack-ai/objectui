@@ -603,10 +603,13 @@ be faithfully modelled is surfaced loudly instead of faked.
   registration (objectui#10615); an assignment interpolates `{var}` tokens
   inside nested objects and arrays too, as the runtime's `interpolate` does,
   and a token it does not model (`NOW()`, `$User.*`, arithmetic) is kept as
-  written and named on the step; a paused screen gates each field's
-  `visibleWhen` with the same CEL call, and one that cannot be evaluated hides
-  the field, as the runtime's resume door reads it (the flow runner's own
-  `ScreenView` still shows it);
+  written and named on the step; a paused screen renders through the flow
+  runner's own `ScreenView`, which decides each field's `visibleWhen` live over
+  the screen's declared fields and the values being typed (one client
+  evaluator, objectui#10743), and the screen step names as an error a predicate
+  that references a name that is not a field on this screen or a shape
+  `registerFlow` refuses — the runtime's resume door still evaluates over the
+  run's variables until objectstack#20178 lands;
   side-effect nodes write their mock to `outputVariable` (the legacy script
   `outputVariables[]` list is ignored — the engine never binds those names,
   framework#4278);

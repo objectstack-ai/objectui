@@ -315,18 +315,22 @@ export class FlowSimulator {
       if (shouldPause) {
         this.state.status = 'paused';
         this.state.pausedReason = 'screen';
-        // A field whose `visibleWhen` cannot be evaluated is hidden, as the runtime's
-        // resume door reads it (`fieldVisibility` in `../screen-spec.ts`); say which.
-        const unevaluable = unevaluableVisibleWhen(node, this.state.variables);
+        // The screen renderer decides each field's `visibleWhen` live, over the
+        // screen's declared fields and the values being collected (`ScreenView`,
+        // objectui#10743); the Debug run does not decide it here. What it judges
+        // is the SCOPE: a predicate that names something the renderer cannot
+        // bind — an identifier that is not a field on this screen, or a shape
+        // `registerFlow` refuses — is an error on the step, per field. Whether
+        // the renderer then shows or hides that field is its own fallback
+        // (objectui#8069), not a reading the Debug run makes.
+        const unevaluable = unevaluableVisibleWhen(node);
         return this.record(node.id, type, node.label, 'paused', {
-          note: joinNotes(
-            'Screen reached — provide inputs, then continue.',
-            unevaluable.length
-              ? `Hidden because its visibleWhen could not be evaluated, as the runtime's resume door treats such a field (the flow runner's own ScreenView still shows it): ${unevaluable
-                  .map((u) => `"${u.name}" (${u.error.split('\n')[0]})`)
-                  .join('; ')}.`
-              : undefined,
-          ),
+          note: 'Screen reached — provide inputs, then continue.',
+          error: unevaluable.length
+            ? `A screen field's visibleWhen may reference only the fields declared on this screen; the screen cannot evaluate ${unevaluable
+                .map((u) => `"${u.name}" (${u.error.split('\n')[0]})`)
+                .join('; ')}.`
+            : undefined,
         });
       }
       return this.proceed(node, 'ok', { note: 'Screen has no input — passed through (matches runtime).' });

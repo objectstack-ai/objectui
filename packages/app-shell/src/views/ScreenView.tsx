@@ -117,8 +117,13 @@ export function visibleScreenFields(
  * Fail-open is still the behaviour we want for a genuinely broken predicate —
  * a syntax error, or a name that is not a field on this screen. Seeding only
  * the declared names keeps that split intact.
+ *
+ * Exported for the Studio's screen diagnostics
+ * (`metadata-admin/previews/screen-spec.ts`), which read its keys as the names
+ * a predicate may reference (objectui#10743); the evaluation itself stays in
+ * {@link visibleScreenFields}.
  */
-function screenPredicateScope(
+export function screenPredicateScope(
   screen: ScreenSpec,
   values: Record<string, unknown>,
 ): Record<string, unknown> {

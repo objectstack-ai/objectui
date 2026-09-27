@@ -180,10 +180,12 @@ export function evalGuard(condition: unknown, variables: Record<string, unknown>
 }
 
 /**
- * The one CEL call every predicate in the simulator goes through: an edge
- * guard ({@link evalGuard}), a screen field's `visibleWhen`
- * ({@link evalVisibleWhen}) and a decision branch's `expression`
+ * The one CEL call every predicate the simulator evaluates goes through: an
+ * edge guard ({@link evalGuard}) and a decision branch's `expression`
  * ({@link evalBranchPredicate}). There is no second evaluator (objectui#10692).
+ * A screen field's `visibleWhen` is not evaluated by the simulator at all: the
+ * screen renderer decides it live over the screen's declared fields
+ * (`ScreenView`, objectui#10743), and `screen-spec.ts` judges only its scope.
  *
  * 1. `validateExpression('predicate', …)`, the parse `registerFlow` refuses a
  *    flow with. A `{var}` or `${…}` template is not CEL and is refused here,
@@ -208,33 +210,6 @@ function evalCelPredicate(
   } catch (err) {
     return { kind: 'fault', error: (err as Error).message || 'Evaluation failed.' };
   }
-}
-
-/**
- * Evaluate a screen field's `visibleWhen` the way the runtime evaluates it
- * when a screen is resumed (`refuseInvalidScreenInput` in `AutomationEngine`,
- * which calls `evaluateCondition` over the run's variables), through
- * {@link evalCelPredicate} (objectui#10692).
- *
- * 1. Absent: `undefined`, `null` or a blank string. This is the runtime's own
- *    test for "declares a predicate" (`validateScreenInputs`), and the field is
- *    then always shown. objectstack main refuses a blank string at
- *    `registerFlow`; the installed 17.4.0 admits it.
- * 2. Shape: the spec's `predicateSlotRefusal`. The slot is declared bare CEL
- *    text, so an envelope, a boolean or any other non-string is refused, as
- *    `registerFlow` refuses it.
- * 3. The CEL call: a `{var}` brace is refused (it is the brace trap in a
- *    bare-CEL slot, and `registerFlow` refuses it), and a CEL error is a fault.
- *
- * What a fault means is the caller's to state: the screen preview reads it as
- * hidden (see `isFieldVisibleWhen`).
- */
-export function evalVisibleWhen(visibleWhen: unknown, variables: Record<string, unknown>): GuardEvaluation {
-  if (visibleWhen === undefined || visibleWhen === null) return { kind: 'absent' };
-  if (typeof visibleWhen === 'string' && !visibleWhen.trim()) return { kind: 'absent' };
-  const shape = predicateSlotRefusal(visibleWhen);
-  if (shape) return { kind: 'fault', error: shape.message };
-  return evalCelPredicate(visibleWhen as string, visibleWhen as string, variables);
 }
 
 /**

@@ -72,7 +72,6 @@ import {
   SheetTitle,
 } from '@object-ui/components';
 import { useAdapter, useAction, useMetadata, useActionTextLocalizer } from '@object-ui/react';
-import type { ActionDef } from '@object-ui/core';
 import { CapabilityMultiSelectField, parseCapabilityNames } from '@object-ui/fields';
 import { PageShell } from './PageShell.js';
 import { HistoryPanel } from './ResourceHistoryPage.js';
@@ -80,7 +79,11 @@ import { useMetadataClient, useMetadataTypes, type RichMetadataTypeEntry } from 
 import { t as translate, tFormat, useMetadataLocale } from './i18n.js';
 import { PermissionAdvancedFacets } from './PermissionAdvancedFacets.js';
 import { errorCodeIs } from '@object-ui/types';
-import type { ConsoleActionDispatch } from '../../consoleActionDispatch.js';
+import {
+  PERMISSION_SET_OBJECT,
+  buildCloneDispatch,
+  findCloneAction,
+} from './permission-set-clone-dispatch.js';
 import {
   mergePermissionSlice,
   scopePermissionSet,
@@ -178,22 +181,6 @@ function isArtifactBackedLayer(
     layered?.provenance !== 'org'
   );
 }
-
-/**
- * "Clone to customize" (objectui#5987) — the record object a permission set is
- * projected onto, and the record action the server PUBLISHES on it. The
- * server's own `403 not_overridable` refusal names that action as the remedy
- * (maintainer ruling on objectstack#11513: lock the base, clone to customize),
- * so the editor runs THAT action — resolved by name off the object definition
- * the console already holds, dispatched through the console's shared action
- * runner exactly as a `record_header` button would be — and never hand-rolls a
- * copy out of create/update calls: the action's `params` list IS the payload
- * (which facets a clone carries is decided where the action is declared), and
- * a second spelling of it here would be the silent-grant-loss shape
- * objectstack#11703 closed.
- */
-const PERMISSION_SET_OBJECT = 'sys_permission_set';
-const CLONE_PERMISSION_SET_ACTION = 'clone_permission_set';
 
 /** Localized short label for an OWD value; falls back to the raw value. */
 function owdLabel(t: (k: string) => string, value: string): string {
@@ -304,7 +291,8 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // (where the `sys_permission_set` object definition, and with it the
   // published `clone_permission_set` action, is read from), and the
   // `_actions.<name>` bundle localizer every declared-action surface uses for
-  // the dialog title. See {@link PERMISSION_SET_OBJECT}.
+  // the dialog title. Resolution and dispatch shape live in
+  // `permission-set-clone-dispatch.ts` — see its header for why.
   const { execute: executeAction } = useAction();
   const metadataStore = useMetadata();
   const localizeActionTexts = useActionTextLocalizer();
@@ -935,15 +923,14 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
    *
    * Every step is the same one a `record_header` "Clone" button on the
    * `sys_permission_set` record page takes — resolve the action off the object
-   * definition, stash the row under `params._rowRecord` (what the runner's
-   * param dialog seeds `defaultFromRow` params from and what the api handler
-   * reads for `{id}` / record-id injection), surface the declared `params`
-   * ARRAY as `actionParams`, and `execute` — so the clone's payload, dialog,
-   * refusal toasts and success toast are the published action's, not this
-   * editor's. What this editor adds is only where the clone OPENS: on the
-   * routed metadata admin it navigates to the clone, which loads with no code
-   * layer and is therefore writable; an embedded host has no route, so the
-   * clone is announced by name instead.
+   * definition (`findCloneAction`), shape the dispatch (`buildCloneDispatch`:
+   * the row under `params._rowRecord`, the declared `params` ARRAY as
+   * `actionParams`), and `execute` — so the clone's payload, dialog, refusal
+   * toasts and success toast are the published action's, not this editor's.
+   * What this editor adds is only where the clone OPENS: on the routed
+   * metadata admin it navigates to the clone, which loads with no code layer
+   * and is therefore writable; an embedded host has no route, so the clone is
+   * announced by name instead.
    *
    * Two refusals, no fallbacks (AGENTS.md #0.1): an object that publishes no
    * such action, or a set with no `sys_permission_set` row, ends here with a
@@ -956,14 +943,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     setError(null);
     setCloneNotice(null);
     try {
-      const objectDefs = await metadataStore.ensureType('object');
-      const setObject = (Array.isArray(objectDefs) ? objectDefs : []).find(
-        (o: { name?: unknown }) => o?.name === PERMISSION_SET_OBJECT,
-      ) as { actions?: unknown } | undefined;
-      const declaredActions = Array.isArray(setObject?.actions) ? setObject.actions : [];
-      const cloneAction = declaredActions.find(
-        (a: { name?: unknown }) => a?.name === CLONE_PERMISSION_SET_ACTION,
-      ) as (ActionDef & { params?: unknown }) | undefined;
+      const cloneAction = findCloneAction(await metadataStore.ensureType('object'));
       if (!cloneAction) throw new Error(t('perm.clone.actionMissing'));
 
       // The row the action runs against — `AssignedUsersSection` resolves the
@@ -973,16 +953,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
       const row = (found?.data ?? [])[0] as Record<string, unknown> | undefined;
       if (!row) throw new Error(tFormat('perm.clone.rowMissing', locale, { name }));
 
-      const { params: declaredParams, ...rest } = cloneAction;
-      const dispatch: ConsoleActionDispatch = {
-        ...localizeActionTexts(PERMISSION_SET_OBJECT, rest as Record<string, unknown>),
-        objectName: PERMISSION_SET_OBJECT,
-        params: { _rowRecord: row },
-      };
-      if (Array.isArray(declaredParams) && declaredParams.length > 0) {
-        dispatch.actionParams = declaredParams as ConsoleActionDispatch['actionParams'];
-      }
-      const result = await executeAction(dispatch);
+      const result = await executeAction(buildCloneDispatch(cloneAction, row, localizeActionTexts));
       // A cancelled dialog and a refused POST both come back `success: false`;
       // the runner has already toasted a refusal, and a cancel needs nothing.
       if (!result.success) return;

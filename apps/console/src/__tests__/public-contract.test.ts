@@ -554,17 +554,20 @@ const SECTIONING_TAG_REFUSED =
   'HTML sectioning tags the single loop factory in `renderers/layout/semantic.tsx` registers with ' +
   '`category: layout` and `isContainer: true`. No real application authors any of the seven as a ' +
   "JSON block: the objectstack showcase and examples, hotcrm, and this repository's examples outside " +
-  'the schema catalogue carry none, with `box` / `flex` / `card` lit by the same grep; the ' +
-  "catalogue's own semantic fixtures are the renderer documenting itself, as `aspect-ratio`'s are. " +
+  "the schema catalogue carry none, while the same grep shape finds each corpus's ordinary layout " +
+  "blocks; the catalogue's own semantic fixtures are the renderer documenting itself, as " +
+  "`aspect-ratio`'s are. " +
   'They are HTML elements, and HTML elements live on the html tier: all seven are in ' +
   "`HTML_TIER_INTRINSICS` and reach `sdui.manifest.json` stamped `tier: 'html'` (objectui#10735), " +
   'which the census pin "none of the eight is in the curated public contract" holds, and a ' +
   "`kind:'html'` page renders them. The curated tier already carries the landmarks an app page " +
   'needs, one spelling each: `page:section`, `page:header`, `page:footer` and `page:sidebar`, all ' +
   'four in `EXPECTED_COVERED` above, render a `section`, `header`, `footer` and `aside` element. ' +
-  'Curating any of the seven beside them would add a near-synonym pair an AI author cannot tell ' +
-  'apart: `section` and `page:section` render the same element, and two spellings of one block is ' +
-  'the ambiguity `record:chatter` is ledgered for. The seven still ship, render and validate on the ' +
+  'Curating any of the seven would add a near-synonym pair an AI author cannot tell apart: each is a ' +
+  'neutral wrapper that passes `className` through verbatim exactly as the curated `box` does, ' +
+  'differing only in the element it emits, and four of them also emit the same element as a curated ' +
+  '`page:*` block (`section` and `page:section` both render a `section`). Two spellings of one block ' +
+  'is the ambiguity `record:chatter` is ledgered for. The seven still ship, render and validate on the ' +
   'JSON surface, as `aspect-ratio` does; they are simply not taught, and the published page-builder ' +
   'guide stopped teaching `section` in the same change. The pull, render and validate readings were ' +
   'taken once for objectui#8775 and live on its pull request; nothing in this file re-derives them. ' +

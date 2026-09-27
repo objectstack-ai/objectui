@@ -941,7 +941,7 @@ export const SemanticElementSchema = BaseSchema.extend({
 export const HtmlElementSchema = BaseSchema.extend({
   type: z.enum([
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-    'p', 'a', 'blockquote', 'pre',
+    'p', 'a', 'blockquote', 'pre', 'code',
     'strong', 'em', 'b', 'i', 'u', 'small', 'mark', 'sub', 'sup', 'del', 'ins', 'abbr',
     'ul', 'ol', 'li', 'dl', 'dt', 'dd',
     'figure', 'figcaption', 'img', 'hr', 'br', 'time', 'address', 'cite', 'q',

@@ -80,11 +80,6 @@ const EXCLUDED_HTML_NAMED: Record<string, string> = {
     'published contract by the objectstack#20112 ruling A: the gate that reads the manifest refuses `<div>` on ' +
     'an html page. The renderer still registers it with a `json`-only deprecation (objectui#4000); reconciling ' +
     'that runtime exemption with this contract is a separate card, not a roster edit.',
-  code:
-    'the bare fallback key of the `field:code` widget (namespace `field`, no declared inputs, no child slot) — a ' +
-    'code editor reading `value`, not an html element renderer. The ruling listed `code` as "registered elsewhere"; ' +
-    'measured, there is no element registration to declare, and declaring the widget would teach a tag whose ' +
-    'children the runtime drops.',
   summary: 'the bare fallback key of the `field:summary` widget — a field, not an element renderer.',
   object: 'the bare fallback key of the `field:object` widget — a field, not an element renderer.',
   view: 'the bare `view` registration of `@object-ui/plugin-view`, which happens to share its name with the SVG element.',
@@ -176,12 +171,27 @@ describe('the manifest carries the html tier exactly as the registry declares it
     }
   });
 
-  it('leaves `div` out, and the two ledgered look-alikes `code` and `kbd` with it', () => {
-    for (const tag of ['div', 'code', 'kbd']) {
+  it('leaves `div` out, and the ledgered look-alike `kbd` with it', () => {
+    for (const tag of ['div', 'kbd']) {
       // Registered — the tier resolves them at runtime — and deliberately undeclared.
       expect(ComponentRegistry.getKnownTypes(), `\`${tag}\` is no longer registered; re-read its ledger entry`).toContain(tag);
       expect(published.components[tag], `\`${tag}\` reached the manifest`).toBeUndefined();
     }
+  });
+
+  it('declares `code` — the element passthrough, not the `field:code` widget the bare key used to fall back to (objectui#10756)', () => {
+    // The ledger held `code` while the only bare registration was the field
+    // widget's namespace fallback. `html-elements.tsx` now registers it from
+    // `TAGS` and the widget stands down from the bare key, so the manifest
+    // carries the passthrough's own declaration: `ui`, a className, a child slot.
+    const comp = published.components.code;
+    expect(comp).toBeDefined();
+    expect(comp.tier).toBe('html');
+    expect(comp.namespace).toBe('ui');
+    expect(comp.inputs.map((i) => `${i.name}:${i.type}`)).toEqual(['className:string', 'children:slot']);
+    // The registration behind it is the passthrough, and the widget is still its own key.
+    expect(ComponentRegistry.getConfig('code')?.type).toBe('ui:code');
+    expect(ComponentRegistry.getConfig('field:code')?.type).toBe('field:code');
   });
 });
 
@@ -269,8 +279,10 @@ describe('what an html-tier author gets from the gate that reads this manifest (
     expect(compile('<main><div>hi</div></main>', published).ok).toBe(false);
   });
 
-  it('refuses `<code>` — the ledgered field-widget fallback is not declared', () => {
-    expect(codes('<p><code>x</code></p>')).toContain('forbidden-tag:code');
+  it('accepts `<code>` with text — declared with its child slot, so neither `forbidden-tag` nor `not-a-container` fires (objectui#10756)', () => {
+    expect(errors('<p>Read <code className="k">inline</code> here.</p>')).toEqual([]);
+    expect(codes('<p><code>x</code></p>')).not.toContain('forbidden-tag:code');
+    expect(codes('<p><code>x</code></p>')).not.toContain('not-a-container:code');
   });
 
   it('judges a `label` authored with children by its registration — `text` is required and there is no slot', () => {

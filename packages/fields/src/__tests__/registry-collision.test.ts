@@ -10,12 +10,14 @@
  * Registry collision guard.
  *
  * `@object-ui/components` registers display widgets (`text`, `image`,
- * `avatar`, `html`, `grid`) under their bare names. `@object-ui/fields`
+ * `avatar`, `html`, `grid`) under their bare names, and the html tier's
+ * inline `code` element passthrough (objectui#10756). `@object-ui/fields`
  * registers form-input widgets that — by name — collide with those.
  *
- * The fix: field registrations for these 5 types pass `skipFallback: true`,
- * so the bare lookup keeps returning the display widget while the field
- * input is still reachable via the `field:<type>` namespace.
+ * The fix: field registrations for these types pass `skipFallback: true`,
+ * so the bare lookup keeps returning the display widget (or, for `code`, the
+ * element passthrough) while the field input is still reachable via the
+ * `field:<type>` namespace.
  *
  * Regression contract:
  *   1. `FIELD_TYPES_SKIP_FALLBACK` must contain every colliding name.
@@ -35,7 +37,7 @@ import { ComponentRegistry } from '@object-ui/core';
 import '@object-ui/components';
 import { registerAllFields } from '../index';
 
-const COLLIDING_TYPES = ['text', 'html', 'image', 'avatar', 'grid'] as const;
+const COLLIDING_TYPES = ['text', 'html', 'image', 'avatar', 'grid', 'code'] as const;
 
 describe('registry collision (fields ↔ components)', () => {
   beforeAll(() => {

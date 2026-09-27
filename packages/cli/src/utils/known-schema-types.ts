@@ -528,6 +528,7 @@ export const KNOWN_SCHEMA_TYPES: readonly string[] = [
   'ui:carousel',
   'ui:checkbox',
   'ui:cite',
+  'ui:code',
   'ui:collapsible',
   'ui:combobox',
   'ui:command',

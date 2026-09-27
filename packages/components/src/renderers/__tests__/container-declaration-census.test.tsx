@@ -173,10 +173,10 @@ describe('the declaration is confined to what was measured (objectui#6764)', () 
 
   it.each(['img', 'hr', 'br'])('leaves the void tag `%s` alone', async (type) => {
     // The second half of the same control, inside a LOOP FACTORY. `img`/`hr`/
-    // `br` come out of the same `basic/html-elements.tsx` loop as 34 tags that
+    // `br` come out of the same `basic/html-elements.tsx` loop as 35 tags that
     // DO render children, and the factory skips `renderChildren` for them by
     // design (`VOID_TAGS`). A census that worked at file granularity — the
-    // granularity a static reader can reach — would have declared all 37
+    // granularity a static reader can reach — would have declared all 38
     // together and told authors that `<br>` accepts children.
     expect(await rendersChildren(type)).toBe(false);
     expect(diagnose(withChildren(type)).map((d) => d.code)).toContain(CONTAINMENT);

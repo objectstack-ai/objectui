@@ -239,6 +239,23 @@ function Page() {
     expect(await findByText('React page error')).toBeTruthy();
     await waitFor(() => expect(container.textContent).toContain('Img is not defined'));
   });
+
+  it('`code` joined the roster without a `Code` wrapper — stamped `tier: html`, skipped by the scope (objectui#10756)', async () => {
+    // `code` is a leaf like `img`; without the stamp the container branch would
+    // inject a `<Code>` wrapper the moment the passthrough was registered.
+    const cfg = ComponentRegistry.getPublicConfigs().find((c) => c.type === 'code');
+    expect(cfg).toBeTruthy();
+    expect(cfg!.tier).toBe('html');
+    expect(cfg!.isContainer).toBeFalsy();
+
+    const source = `
+function Page() {
+  return <Code>inline</Code>;
+}`;
+    const { container, findByText } = renderReactPage(source);
+    expect(await findByText('React page error')).toBeTruthy();
+    await waitFor(() => expect(container.textContent).toContain('Code is not defined'));
+  });
 });
 
 // ---------------------------------------------------------------------------

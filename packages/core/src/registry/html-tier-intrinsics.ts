@@ -52,11 +52,6 @@
  *     page. The renderer still registers it and its declared deprecation still
  *     names only the `json` surface (objectui#4000); reconciling that runtime
  *     exemption with this contract is a separate card, not a roster edit.
- *   - `code` — the ruling's list names it as "registered elsewhere", but the
- *     bare `code` key the registry holds is the `field:code` widget's
- *     namespace fallback (a code editor / `pre` block reading `value`, with no
- *     declared `inputs` and no child slot), not an html element renderer.
- *     Declaring it would teach a tag whose children the runtime drops.
  *   - `kbd` — a `ui` component under an HTML tag name (renders `keys` /
  *     `label`), not named by the ruling. Admitting it is additive and cheap on
  *     a named need; retracting a declared tag is a narrowing.
@@ -67,6 +62,15 @@
  *     list) and none of the rest is an element passthrough.
  *   - `button`, `text`, `image`, `html` — HTML tag names that are ALREADY
  *     curated in `PUBLIC_BLOCKS`; they reach the manifest from there, unmarked.
+ *
+ * `code` was on that list when the roster landed: the ruling named it
+ * "registered elsewhere", but the only bare `code` registration was the
+ * `field:code` widget's namespace fallback — a code editor reading `value`, no
+ * child slot — so an html author's `<code>inline</code>` drew the editor and lost
+ * its text. objectui#10756 registers `code` as a sanitised passthrough in
+ * `html-elements.tsx`'s `TAGS` and has the widget stand down from the bare key
+ * (`FIELD_TYPES_SKIP_FALLBACK` in `@object-ui/fields`; it stays `field:code`),
+ * so the tag is declared here exactly as its siblings are.
  *
  * The console's `html-tier-manifest` test derives the population of
  * HTML-named registrations from `@types/react`'s `IntrinsicElements` and
@@ -83,7 +87,7 @@
 export const HTML_TIER_INTRINSICS: readonly string[] = [
   // ── `renderers/basic/html-elements.tsx` `TAGS` — the safe flow/inline set ──
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-  'p', 'a', 'blockquote', 'pre',
+  'p', 'a', 'blockquote', 'pre', 'code',
   'strong', 'em', 'b', 'i', 'u', 'small', 'mark', 'sub', 'sup', 'del', 'ins', 'abbr',
   'ul', 'ol', 'li', 'dl', 'dt', 'dd',
   'figure', 'figcaption', 'img', 'hr', 'br', 'time', 'address', 'cite', 'q',

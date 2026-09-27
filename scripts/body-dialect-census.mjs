@@ -153,7 +153,7 @@ export const BODY_ONLY_UNRULED = ['tooltip'];
 const SEMANTIC_TAGS = ['aside', 'main', 'header', 'nav', 'footer', 'section', 'article'];
 const HTML_ELEMENT_TAGS = [
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-  'p', 'a', 'blockquote', 'pre',
+  'p', 'a', 'blockquote', 'pre', 'code',
   'strong', 'em', 'b', 'i', 'u', 'small', 'mark', 'sub', 'sup', 'del', 'ins', 'abbr',
   'ul', 'ol', 'li', 'dl', 'dt', 'dd',
   'figure', 'figcaption', 'time', 'address', 'cite', 'q',

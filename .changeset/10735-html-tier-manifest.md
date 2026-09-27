@@ -43,6 +43,8 @@ the `field:code` widget's namespace fallback, not an element renderer — nor is
 `kbd`; both are recorded, with reasons, in the console's exclusion ledger.
 No registration changes; `html-elements.tsx` is untouched.
 
+⚠️ **Dated note, 2026-09-27 — `code` has since joined the roster — objectui#10756.** At this change the roster held 47 tags and `code` was undeclared because the bare key was the `field:code` widget's fallback; `html-elements.tsx` now registers `code` as a sanitised passthrough (`ui:code`), `@object-ui/fields` registers the widget with `skipFallback` so it keeps only `field:code`, and the manifest declares `code` with `tier: 'html'` — 48 html-tier entries. `div` and `kbd` are still out. The rest of this entry is kept as the reading of this change.
+
 The manifest the framework ships regenerates from objectui's built tree at the
 pin (its `gen-sdui-manifest-node.mjs`); its lockstep copy of `manifestFromConfigs`
 must take this port for the stamp to reach that file — until then the tags are

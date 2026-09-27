@@ -181,7 +181,8 @@ describe('objectui#8499 — the controls that keep the acceptances honest', () =
       ...literalsOf(InputShorthandSchema),
       ...literalsOf(UiCalendarSchema),
     ];
-    expect(added.length).toBe(7 + 37 + 2 + 1);
+    // 38 flow/inline tags: the 37 this card armed plus `code` (objectui#10756).
+    expect(added.length).toBe(7 + 38 + 2 + 1);
     expect(new Set(added).size).toBe(added.length);
     const all = literalsOf(AnyComponentSchema);
     expect(new Set(all).size).toBe(all.length);
@@ -209,7 +210,7 @@ describe('objectui#8499 — the family arms are compared against their registrat
 
   it('`HtmlElementSchema` names exactly the tags `html-elements.tsx` registers', () => {
     const tags = sourceArray(read(HTML_RENDERER), 'const TAGS = ');
-    expect(tags.length, 'the source read went vacuous — check the declaration name').toBe(37);
+    expect(tags.length, 'the source read went vacuous — check the declaration name').toBe(38);
     expect([...literalsOf(HtmlElementSchema)].sort()).toEqual([...tags].sort());
   });
 
@@ -220,11 +221,11 @@ describe('objectui#8499 — the family arms are compared against their registrat
     // touching a registration. Both halves below run the REAL instrument.
     //
     // A real mismatch, from a real registration site: `html-elements.tsx`
-    // registers 37 tags and `SemanticElementSchema` arms none of them, so the
+    // registers 38 tags and `SemanticElementSchema` arms none of them, so the
     // equality the two legs above perform must come out false here.
     const htmlTags = sourceArray(read(HTML_RENDERER), 'const TAGS = ');
     const semanticArmed = [...literalsOf(SemanticElementSchema)].sort();
-    expect(htmlTags.length, 'the registration read went vacuous').toBe(37);
+    expect(htmlTags.length, 'the registration read went vacuous').toBe(38);
     expect(semanticArmed.length, 'the arm read went vacuous').toBe(7);
     expect(semanticArmed).not.toEqual([...htmlTags].sort());
 
@@ -232,7 +233,8 @@ describe('objectui#8499 — the family arms are compared against their registrat
     // pass — which is what makes the `toBe(7)` / `toBe(37)` guards above real
     // guards. A declaration name that is not in the file throws rather than
     // quietly yielding [], so the non-vacuity checks cannot be satisfied by a
-    // reader that has stopped reading.
+    // reader that has stopped reading. (The `toBe(38)` guards count `code`,
+    // admitted to `TAGS` and to this arm together by objectui#10756.)
     expect(() => sourceArray(read(SEMANTIC_RENDERER), 'const notADeclaration = ')).toThrow(
       /declaration not found/,
     );

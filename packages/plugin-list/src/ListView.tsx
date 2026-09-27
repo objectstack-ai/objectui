@@ -4027,9 +4027,6 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         .map((f: any) => columnIdentity(f))
         .filter(Boolean) as string[];
 
-      // The same three filter sources as the data fetch, from the same function.
-      const finalFilter = buildEffectiveFilter(authoredFilter, appliedFilters, appliedUserFilterConditions);
-
       const sort = currentSort.length > 0
         ? currentSort
             .filter(item => item.field)
@@ -4040,6 +4037,14 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       setExportBusy(true);
       void (async () => {
         try {
+          // The same three filter sources as the data fetch, from the same
+          // function — built INSIDE this `try` (objectui#10789). The lowering
+          // refuses a malformed filter with a `FilterOperatorError`, and built
+          // before it, the refusal threw out of the Export click uncaught: no
+          // file, no message. Here it lands in the catch below, which names it
+          // in the toolbar the way the data fetch's own `try` names it in the
+          // load-error panel — and nothing is exported unfiltered.
+          const finalFilter = buildEffectiveFilter(authoredFilter, appliedFilters, appliedUserFilterConditions);
           const blob = await dataSource!.exportDownload!(schema.objectName!, {
             format: format as 'csv' | 'xlsx' | 'json',
             fields: fields.length ? fields : undefined,

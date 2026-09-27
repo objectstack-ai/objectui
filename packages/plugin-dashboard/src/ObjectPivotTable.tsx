@@ -6,10 +6,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { useDataScope, SchemaRendererContext, useFilterScope, useDataInvalidation } from '@object-ui/react';
 import { useSafeFieldLabel } from '@object-ui/i18n';
-import { extractRecords, computeDrillFilter, composeDrillFilter, isDrillEnabled, resolveDrillTitle, type DrillEvent } from '@object-ui/core';
+import { extractRecords, computeDrillFilter, composeDrillFilter, FilterOperatorError, isDrillEnabled, resolveDrillTitle, type DrillEvent } from '@object-ui/core';
 import { Skeleton, cn } from '@object-ui/components';
 import { PivotTable } from './PivotTable';
 import { DrillDownDrawer } from './DrillDownDrawer';
@@ -250,6 +250,46 @@ export const ObjectPivotTable: React.FC<ObjectPivotTableProps> = ({ schema, data
     return () => { isMounted = false; };
   }, [schema.objectName, dataSource, boundData, schema.data, schema.filter, filterScope, invalidationNonce]);
 
+  // --- Drill-down composition --------------------------------------------
+  // The filter the drilled list is scoped by: this pivot's own filter narrowed
+  // by the clicked cell (see `renderDrillDrawer` below for why it is composed
+  // and never spread). Computed HERE, above the early returns, so the refusal
+  // below can be reported from an effect rather than from render.
+  //
+  // ⚠️ The composition lowers both filters through the throwing converter
+  // form — objectui#10789. It ran inside `renderDrillDrawer`, i.e. during
+  // RENDER after a click, so a pivot filter this layer refuses (one that drew
+  // the pivot from inline or bound rows, which nothing lowers here) threw into
+  // the error boundary and took the pivot with it. The refusal is kept as a
+  // VALUE: no drawer opens and nothing is navigated to (never with "no
+  // filter", which would list every record the pivot is scoped to exclude),
+  // and it is logged, naming the operator — the channel a failed drill already
+  // reports on (`ReportView`'s drill handler). Only a `FilterOperatorError` is
+  // caught, the rule `toFilterNodeSafely` states.
+  const drillComposition = useMemo(():
+    | { ok: true; filter: Record<string, unknown> | undefined }
+    | { ok: false; refusal: FilterOperatorError }
+    | undefined => {
+    if (!drillEvent) return undefined;
+    try {
+      const clicked = computeDrillFilter(schema.drillDown, drillEvent, {
+        rowField: schema.rowField,
+        columnField: schema.columnField,
+      });
+      return { ok: true, filter: composeDrillFilter(schema.filter, clicked) };
+    } catch (error) {
+      if (!(error instanceof FilterOperatorError)) throw error;
+      return { ok: false, refusal: error };
+    }
+  }, [drillEvent, schema.drillDown, schema.rowField, schema.columnField, schema.filter]);
+  // Keyed on the MESSAGE, a primitive: one warning per refused declaration.
+  const drillRefusalMessage = drillComposition?.ok === false ? drillComposition.refusal.message : undefined;
+  useEffect(() => {
+    if (drillRefusalMessage) {
+      console.warn(`[ObjectPivotTable] drill-down refused — the drilled list cannot be scoped: ${drillRefusalMessage}`);
+    }
+  }, [drillRefusalMessage]);
+
   // Resolve data: bound data > static schema data > fetched data
   const rawData = boundData || schema.data || fetchedData;
   const finalData = Array.isArray(rawData) ? rawData : EMPTY_ROWS;
@@ -332,11 +372,8 @@ export const ObjectPivotTable: React.FC<ObjectPivotTableProps> = ({ schema, data
     : undefined;
 
   const renderDrillDrawer = () => {
-    if (!drillEvent || !schema.objectName) return null;
-    const baseFilter = computeDrillFilter(drillDown, drillEvent, {
-      rowField: schema.rowField,
-      columnField: schema.columnField,
-    });
+    // A refused composition opens nothing (objectui#10789, above).
+    if (!drillEvent || !schema.objectName || !drillComposition?.ok) return null;
     // ⛔ Composed through `composeDrillFilter`, NOT by spreading this pivot's
     // own filter into an object literal. `schema.filter` reaches this component
     // in BOTH dialects and a spread is only correct for the second:
@@ -360,7 +397,7 @@ export const ObjectPivotTable: React.FC<ObjectPivotTableProps> = ({ schema, data
     // names the composition rule (`widget.filter ∧ drill.filter`, via the
     // repo's single filter sink `mergeFilterNodes`); it is not decided here.
     // `ObjectChart` was routed through the same seam by objectui#8944.
-    const merged = composeDrillFilter(schema.filter, baseFilter);
+    const merged = drillComposition.filter;
     const title = resolveDrillTitle(drillDown, drillEvent, schema.title || 'Details');
     return (
       <DrillDownDrawer

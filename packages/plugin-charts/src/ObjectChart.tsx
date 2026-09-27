@@ -3,7 +3,7 @@ import React, { useState, useEffect, useContext, useCallback, useMemo } from 're
 import { useDataScope, SchemaRendererContext, SchemaRenderer, useDrillNavigation, useFilterScope, ElementDataSourceGate, useDataInvalidation, type ElementDataSourceMapping } from '@object-ui/react';
 import { ChartRenderer } from './ChartRenderer';
 import { normalizeChartSchema } from './normalizeChartSchema';
-import { ComponentRegistry, chartMeasureKey, isStructuredGroupBy, objectAggregateSpecQuery, humanizeLabel, extractRecords, computeDrillFilter, composeDrillFilter, isDrillEnabled, resolveDrillTitle, resolveFilterPlaceholders, resolveContextTokens, shiftFilterByCompareTo, compareToTrendLabelKey, chartTypeIgnoresCompareTo, buildChartSeries, buildOptionColorMap, deriveDimensionLabelMaps, dimensionOptionTranslator, loadDimensionFieldMeta, relabelDimensions, localizeFieldOptions, elementDataSourceBlock, type DimensionFieldMeta, type CompareToConfig, type DrillEvent, type ChartResultField, type ChartSegmentClickEvent } from '@object-ui/core';
+import { ComponentRegistry, chartMeasureKey, isStructuredGroupBy, objectAggregateSpecQuery, humanizeLabel, extractRecords, computeDrillFilter, composeDrillFilter, FilterOperatorError, isDrillEnabled, resolveDrillTitle, resolveFilterPlaceholders, resolveContextTokens, shiftFilterByCompareTo, compareToTrendLabelKey, chartTypeIgnoresCompareTo, buildChartSeries, buildOptionColorMap, deriveDimensionLabelMaps, dimensionOptionTranslator, loadDimensionFieldMeta, relabelDimensions, localizeFieldOptions, elementDataSourceBlock, type DimensionFieldMeta, type CompareToConfig, type DrillEvent, type ChartResultField, type ChartSegmentClickEvent } from '@object-ui/core';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, Dialog, DialogContent, DialogHeader, DialogTitle, RefreshIndicator, Button, ChartSkeleton, DataEmptyState } from '@object-ui/components';
 import { AlertCircle, ArrowUpRight, Inbox } from 'lucide-react';
 import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
@@ -1083,14 +1083,47 @@ export const ObjectChart = (props: ObjectChartProps) => {
   // this chart is scoped to exclude (objectui#8944). The seam's docblock names
   // the composition rule (`widget.filter ∧ drill.filter`, via the repo's single
   // filter sink `mergeFilterNodes`); it is not decided here.
-  const drillFilter = useMemo(() => {
+  //
+  // ⚠️ The composition lowers both filters through the throwing converter
+  // form, inside this RENDER-time `useMemo` — objectui#10789. A widget filter
+  // this layer refuses can still have drawn the chart (the ObjectStack
+  // adapter's aggregate route hands an OBJECT filter to the server without
+  // lowering it here), and the click then threw out of render into the error
+  // boundary, taking the chart with it. The refusal is kept as a VALUE: no drawer opens and nothing is
+  // navigated to (never with "no filter", which would list every record the
+  // chart is scoped to exclude), and it is logged, naming the operator — the
+  // channel a failed drill already reports on (`ReportView`'s drill handler)
+  // and the one `ValueDataSource` logs a refused filter on. Only a
+  // `FilterOperatorError` is caught, the rule `toFilterNodeSafely` states.
+  const drillComposition = useMemo(():
+    | { ok: true; filter: Record<string, unknown> | undefined }
+    | { ok: false; refusal: FilterOperatorError }
+    | undefined => {
     if (!drillEvent) return undefined;
-    return composeDrillFilter(
-      schema.filter,
-      computeDrillFilter(drillDown, drillEvent, { groupByField }),
-    );
+    try {
+      return {
+        ok: true,
+        filter: composeDrillFilter(
+          schema.filter,
+          computeDrillFilter(drillDown, drillEvent, { groupByField }),
+        ),
+      };
+    } catch (error) {
+      if (!(error instanceof FilterOperatorError)) throw error;
+      return { ok: false, refusal: error };
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drillEvent, drillDown, groupByField, filterKey]);
+  const drillFilter = drillComposition?.ok ? drillComposition.filter : undefined;
+  const drillRefused = drillComposition?.ok === false;
+  // Keyed on the MESSAGE, a primitive: one warning per refused declaration,
+  // from an effect rather than from render.
+  const drillRefusalMessage = drillComposition?.ok === false ? drillComposition.refusal.message : undefined;
+  useEffect(() => {
+    if (drillRefusalMessage) {
+      console.warn(`[ObjectChart] drill-down refused — the drilled list cannot be scoped: ${drillRefusalMessage}`);
+    }
+  }, [drillRefusalMessage]);
 
   // `target: 'navigate'` — skip the in-place peek and send the user straight to
   // the object's full list page, scoped by the same filter (objectui#3354).
@@ -1109,6 +1142,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
   const navigateOnly =
     !onSegmentClick &&
     !!drillEvent &&
+    !drillRefused &&
     !!schema.objectName &&
     drillDown?.target === 'navigate' &&
     !!openRecordList;
@@ -1486,7 +1520,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
 
   // `navigateOnly` renders nothing: the effect above has already handed the
   // drill to the host's list page, so the in-place drawer must not flash.
-  const drillDrawer = !onSegmentClick && drillEvent && schema.objectName && !navigateOnly ? (() => {
+  const drillDrawer = !onSegmentClick && drillEvent && !drillRefused && schema.objectName && !navigateOnly ? (() => {
     const merged = drillFilter ?? {};
     // `schema.title` is the drill drawer's heading FALLBACK, and it is not a
     // plain string: `@objectstack/spec`'s `ChartConfigSchema.title` is

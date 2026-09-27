@@ -47,6 +47,7 @@ import {
   formatDimensionValue,
   buildDatasetFieldHelpers,
   buildDatasetDrillFilter,
+  FilterOperatorError,
   // The pivot key encoders now live in `@object-ui/core` so this widget and the
   // report renderer's cross-tab share ONE implementation — each having written
   // its own is why the same collision had to be fixed twice (objectstack#5473,
@@ -919,7 +920,22 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   const canDrill = !!drillObject && (drillDims.length > 0 || !!drillRanges?.length);
   const openDrill = (index: number, title: string) => {
     if (!drillObject) return;
-    const merged = buildDrillFilter(drillRawRows?.[index], drillDims, dimensionFields ?? {}, runtimeFilter, drillRanges?.[index]);
+    // objectui#10789 — composing the widget's filter with the clicked bucket
+    // lowers both through the throwing converter form. A widget filter the
+    // dataset query carried to the server can still be one this layer refuses
+    // (a spec `$not`), and the click then threw out of this handler uncaught.
+    // The refusal opens no drawer (never with "no filter", which would list
+    // every record the widget is scoped to exclude) and is logged, naming the
+    // operator — the channel a failed drill already reports on (`ReportView`'s
+    // drill handler). Only a `FilterOperatorError` is caught.
+    let merged: Record<string, unknown>;
+    try {
+      merged = buildDrillFilter(drillRawRows?.[index], drillDims, dimensionFields ?? {}, runtimeFilter, drillRanges?.[index]);
+    } catch (error) {
+      if (!(error instanceof FilterOperatorError)) throw error;
+      console.warn(`[DatasetWidget] drill-down refused — the drilled list cannot be scoped: ${error.message}`);
+      return;
+    }
     setDrill({ filter: merged, title: title || String(widget?.title ?? '') });
   };
   const drillDrawer = drill && drillObject ? (

@@ -236,6 +236,13 @@ function lowerLogicalGroup(
   }
 
   const children: FilterNode[] = [];
+  // Set when an `$or` member is the TRUE identity. Recorded, not returned
+  // on the spot (objectui#10789): the members AFTER it still have to be read,
+  // or a malformed one is refused only when it happens to come FIRST —
+  // `{ $or: [{ a: {} }, {}] }` refused while `{ $or: [{}, { a: {} }] }`
+  // answered TRUE, the same two members with two fates. The absorption itself
+  // is unchanged; it is decided after the loop, once every member was judged.
+  let absorbed = false;
   for (const child of value) {
     if (child === null || typeof child !== 'object' || Array.isArray(child)) {
       throw new FilterOperatorError(
@@ -261,11 +268,14 @@ function lowerLogicalGroup(
       // child either way: an object in AST child position makes `isFilterAST`
       // false (measured), and the wire face answers `400 INVALID_FILTER` for
       // the whole filter.
-      if (keyword === 'or') return undefined;
+      if (keyword === 'or') absorbed = true;
       continue;
     }
     children.push(lowered as FilterNode);
   }
+
+  // A TRUE disjunct absorbs its `$or` (#5322) — now that every member was read.
+  if (absorbed) return undefined;
 
   // Every conjunct reduced to TRUE, so the `$and` constrains nothing.
   if (children.length === 0) return undefined;

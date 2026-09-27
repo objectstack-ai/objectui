@@ -8,7 +8,7 @@
 
 import * as React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
-import type { TimelineSchema } from '@object-ui/types';
+import type { TimelineRenderSchema } from './renderHandoff';
 import {
   Timeline,
   TimelineItem,
@@ -1232,7 +1232,14 @@ function groupAdjacent<T extends { group?: string | null }>(items: T[]): Array<{
   return out;
 }
 
-export const TimelineRenderer = ({ schema, className, ...props }: { schema: TimelineSchema; className?: string; [key: string]: any }) => {
+/**
+ * `schema` is the renderer-internal handoff shape (`./renderHandoff`), not the
+ * authored `TimelineSchema`: every authored timeline is one, and so is the
+ * composed schema `ObjectTimeline` hands down, whose feed items carry the keys
+ * objectui#6356 ruled renderer-internal (`color`, `group`, `meta`,
+ * `startDate`, `endDate`, `_data`).
+ */
+export const TimelineRenderer = ({ schema, className, ...props }: { schema: TimelineRenderSchema; className?: string; [key: string]: any }) => {
     const {
       variant = 'vertical',
       items = [],

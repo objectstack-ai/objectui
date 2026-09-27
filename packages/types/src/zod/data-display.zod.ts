@@ -24,7 +24,7 @@ import {
 } from '@objectstack/spec/ui';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 import { aliasKeyRefusal, handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
-import { TABLE_COLUMN_TYPES, type TreeNode } from '../data-display.js';
+import { TABLE_COLUMN_TYPES, type TreeNode, type TimelineFeedItem, type TimelineGanttItem } from '../data-display.js';
 import { stripImportedDefaults } from './imported-defaults.js';
 
 /**
@@ -1041,74 +1041,214 @@ export const TimelineEventSchema = z.object({
 const TimelineScaleSchema = z.enum(['hour', 'day', 'week', 'month', 'quarter', 'year']);
 
 /**
- * One element of `TimelineSchema.items` — a feed item, or a gantt ROW when
- * `variant` is `gantt` (objectui#7164, maintainer ruling 2026-09-02 A+;
- * BAR level added by objectui#7365, director seat decision batch #71,
- * 2026-09-07, option B).
+ * The five colours an authored timeline element names — a feed item's marker,
+ * or a gantt bar (objectui#6356). Mirrors `TimelineItemVariant` in
+ * `../data-display.ts`, and is exactly the documented "Marker Variants" list.
  *
- * ## What this refuses, and why it is declared at all
- *
- * The mirror used to declare `items: z.array(z.any())`, which accepted a `null`
- * element and any element value. `TimelineRenderer`'s gantt branch then read
- * `row.items` bare, so `items: [null]` and `items: [{ items: 5 }]` — ordinary
- * JSON, green through `validate` — crashed the render with a `TypeError`. The
- * ruling put a door at both ends: the renderer refuses those shapes through
- * `timeline.gantt.unusableRange.malformedRow`, and this schema refuses them
- * HERE, before a renderer is ever reached:
- *
- *   - an element that is not an object — `null`, a number, a string, an array —
- *     is refused (`z.object` refuses every one of those);
- *   - `items` on a row, when present, has to be an array. `.optional()` is
- *     deliberate: a row with no bars yet is the same ordinary empty state
- *     objectui#6750 ruled for `items: []`, and the renderer draws it;
- *   - every BAR in that array is an object. A `null` bar is refused by its own
- *     name, at `items[i].items[j]`.
- *
- * ## The bar level, and why it is no longer a declared STOP (objectui#7365)
- *
- * objectui#7164 narrowed the ROW and stopped there DELIBERATELY, and this
- * docblock recorded the stop: the bars stayed `z.any()`. That stop is
- * SUPERSEDED KNOWINGLY. An authored `null` bar was green through `validate`
- * and then reached the render-time date diagnostic, which named
- * `items[0].items[0].startDate is undefined` — a key the author never wrote.
- * The ruling: a bar that is not a bar is refused at `validate`, by its own
- * name. So `z.object({}).passthrough()` — the same shallow, keys-open shape
- * the ROW carries, one level down.
- *
- * ⛔ Option A is REFUSED, not deferred: the render-time
- * `timeline.gantt.unusableRange.malformedRow` copy is UNCHANGED, no fourth
- * path level was added to that sentence, and the ten language packs are
- * untouched. The date diagnostic remains the defined outcome for anything that
- * still reaches it — the renderer is only ever more lenient than `validate`.
- *
- * Nothing beyond the bar's OBJECT-ness is narrowed. The two element shapes
- * (`{ time, title, … }` for a feed, `{ label, items: [{ title, startDate,
- * endDate }] }` for a gantt row) are discriminated by `variant` and read
- * dynamically by the renderer, so the element and the bar both stay
- * `.passthrough()` — a feed item carries no `items` key and parses green here
- * unchanged, and a bar's own keys (`title` / `startDate` / `endDate` /
- * `variant?`) are not declared. Measured before the ROW narrowing: every
- * in-repo `type: 'timeline'` fixture (the three schema-catalog documents, the
- * docs page's examples, `examples/data-display-examples.json`) parses green on
- * both sides of it. Measured again before the BAR narrowing (objectui#7365, on
- * `289d146`, re-measured unchanged on `c4b3750`): FIVE authored bars across
- * `apps/` · `examples/` · `content/` · `packages/types/examples/`, ALL
- * well-formed objects, ZERO `null` and ZERO
- * non-object — a positive-controlled reading, not an empty search.
- *
- * Deliberately NOT exported, for the reason `TimelineScaleSchema` above gives:
- * every exported const here has to be registered in `zod-mirror-parity.test.ts`,
- * and the TS twin declares no separate row interface to pair it with — its
- * `items` docblock carries both shapes in prose and its own type states the
- * two levels this schema states. Pinned by
- * `../__tests__/timeline-items-row-shape-7164.test.ts` (row level) and
- * `../__tests__/timeline-items-bar-shape-7365.test.ts` (bar level).
+ * Deliberately NOT exported, for the reason `TimelineScaleSchema` above gives.
  */
-const TimelineRowSchema = z
+const TimelineItemVariantSchema = z.enum(['default', 'success', 'warning', 'danger', 'info']);
+
+/**
+ * A gantt bar date: the renderer's own date rule (objectui#6781, ruling
+ * 2026-08-30, option A) — a string, a FINITE number (epoch milliseconds), or a
+ * `Date`. `z.number()` refuses `Infinity` and `NaN`, which is the "finite" half.
+ */
+const TimelineGanttDateSchema = z.union([z.string(), z.number(), z.date()]);
+
+/**
+ * One gantt BAR — mirrors `TimelineGanttItemBar` in `../data-display.ts`, and
+ * is registered as that pair in `../__tests__/zod-mirror-parity.test.ts`.
+ *
+ * objectui#7365 (director seat decision batch #71, 2026-09-07, option B)
+ * declared the bar's OBJECT-ness and nothing else, so a `null` bar is refused
+ * by its own name at `items[i].items[j]`. objectui#6356 declares its four keys.
+ * Every one of them is OPTIONAL: that ruling made the row's `label` required
+ * and named nothing on the bar, and a bar with no usable dates still reaches
+ * the render-time `timeline.gantt.unusableRange` diagnostic, which stays the
+ * defined outcome for it. `.passthrough()` stays too — an undeclared bar key
+ * is refused by the strict authoring face (objectui#8345), not by this
+ * tolerant one.
+ */
+export const TimelineGanttItemBarSchema = z
   .object({
-    items: z.array(z.object({}).passthrough()).optional().describe('A gantt row\'s bars — an array of objects when present'),
+    title: z.string().optional().describe('Bar label'),
+    startDate: TimelineGanttDateSchema.optional().describe('Bar start — a string, a finite number (epoch ms) or a Date'),
+    endDate: TimelineGanttDateSchema.optional().describe('Bar end — a string, a finite number (epoch ms) or a Date'),
+    variant: TimelineItemVariantSchema.optional().describe('Bar colour'),
   })
   .passthrough();
+
+/**
+ * The FEED arm (`variant` `vertical`, the default, or `horizontal`) — mirrors
+ * `TimelineFeedItem` in `../data-display.ts`: the seven documented keys, with
+ * `title` REQUIRED (objectui#6356, ruling Q1 = A, Q2 = C).
+ *
+ * Exported and registered as a pair in `../__tests__/zod-mirror-parity.test.ts`
+ * — as are the gantt arm and the bar. Until objectui#6356 the element was
+ * deliberately unexported because its TypeScript twin declared no separate
+ * interface to pair it with; it does now, and the pairing is what keeps this
+ * arm's keys and the declaration's from drifting apart. `.passthrough()`: an
+ * undeclared key is refused by the strict authoring face, not by this one.
+ *
+ * ⛔ `color`, `group`, `meta`, `startDate`, `endDate` and `_data` are NOT
+ * here. `ObjectTimeline` composes them onto the items it maps from records and
+ * hands them to `TimelineRenderer` through a handoff type internal to
+ * `packages/plugin-timeline`; the ruling made them renderer-internal, so the
+ * strict authoring face refuses them when authored.
+ */
+export const TimelineFeedItemSchema = z.object({
+  time: z.string().optional().describe('When it happened (ISO 8601 date string)'),
+  title: z.string().describe('Entry heading — required on a feed item'),
+  description: z.string().optional().describe('Secondary line under the title'),
+  variant: TimelineItemVariantSchema.optional().describe('Marker colour'),
+  icon: z.string().optional().describe('Emoji or short text drawn inside the marker'),
+  content: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Extra content below the description'),
+  className: z.string().optional().describe('Tailwind classes for the entry'),
+}).passthrough();
+
+/**
+ * The GANTT arm (`variant: 'gantt'`) — mirrors `TimelineGanttItem` in
+ * `../data-display.ts`: `label` REQUIRED (objectui#6356, ruling Q2 = C), and
+ * `items` optional, since a row with no bars yet is an ordinary empty state
+ * (objectui#6750). `items`, when present, is an ARRAY (objectui#7164) of bars.
+ */
+export const TimelineGanttItemSchema = z.object({
+  label: z.string().describe('Row label — required on a gantt row'),
+  items: z.array(TimelineGanttItemBarSchema).optional().describe('A gantt row\'s bars — an array of objects when present'),
+}).passthrough();
+
+/**
+ * One element of `TimelineSchema.items`, as the node's SHAPE declares it:
+ * every key of BOTH arms above, each optional, `.passthrough()`.
+ *
+ * ## Why the shape does not choose the arm
+ *
+ * Which arm an element must match is decided by `variant`, a key of the
+ * PARENT, so it is judged where the parent is visible — the node-level
+ * refinement `timelineItemsFitVariant` below (objectui#6356, ruling Q2 = C).
+ * The shape's job is the part that does not depend on `variant`:
+ *
+ *   - every element is an OBJECT, and a `null` row, a number, a string or an
+ *     array is refused at `items[i]` (objectui#7164);
+ *   - every declared key has its declared TYPE, and a `null` bar is refused by
+ *     its own name at `items[i].items[j]` with `invalid_type` (objectui#7365);
+ *   - the strict authoring face (objectui#8345) closes this object to exactly
+ *     the declared vocabulary, so an authored `meta` or `group` is refused as
+ *     `unrecognized_keys` NAMING the key, at `items[i]`.
+ *
+ * ⛔ Not `z.union([feed arm, gantt arm])`. Measured on zod 4.4.3 while
+ * implementing objectui#6356: when neither arm accepts an element, the union
+ * reports one `invalid_union` at `items[i]` and folds each arm's own issues
+ * beneath it — so the two refusals above that are pinned BY PATH
+ * (`items[0].items`, `items[0].items[0]`) would surface at `items[0]` instead,
+ * and an unknown key on the strict face would be named twice, once per arm.
+ *
+ * ## The type assertion, and what it does NOT promise
+ *
+ * The static type is asserted to the declaration's union
+ * (`TimelineFeedItem | TimelineGanttItem`) because that is the NODE's accept
+ * set: `TimelineSchema` refuses every element the refinement finds outside its
+ * arm, so nothing parses green through the node that is not one of the two.
+ * Without the assertion, `z.input` reads every key of both arms as optional
+ * and `zod-mirror-parity.test.ts` would record `items` as WIDER than its
+ * declaration — true of this shape, false of the published node. The same
+ * spelling states the recursion point's type (`nodeUnion` in `./base.zod.ts`).
+ *
+ * ⚠️ So `TimelineSchema.shape.items` parsed ON ITS OWN judges no arm: an
+ * element with neither `title` nor `label` parses green there. Validate a
+ * timeline through `TimelineSchema` (or the component union), never through
+ * the bare slot.
+ *
+ * Deliberately NOT exported, for the reason `TimelineScaleSchema` above gives:
+ * it is a shape artefact with no declaration of its own — the declaration's
+ * element is the union, and each arm above is paired with its own interface.
+ * Pinned by `../__tests__/timeline-item-element-6356.test.ts`, and the two
+ * levels objectui#7164 and objectui#7365 introduced keep their own pin files
+ * (`../__tests__/timeline-items-row-shape-7164.test.ts`,
+ * `../__tests__/timeline-items-bar-shape-7365.test.ts`).
+ */
+const TimelineItemSchema = z
+  .object({ ...TimelineFeedItemSchema.shape, ...TimelineGanttItemSchema.shape })
+  .partial()
+  .passthrough() as unknown as z.ZodType<TimelineFeedItem | TimelineGanttItem, TimelineFeedItem | TimelineGanttItem>;
+
+/**
+ * The two arms as the refinement reads them: the key that is required on the
+ * arm, and the arm's declared keys — derived from the shapes above, never
+ * restated, so a key added to an arm is judged the moment it is declared.
+ */
+const TIMELINE_ITEM_ARMS = {
+  feed: {
+    name: 'feed item',
+    plural: 'feed items',
+    variants: "`variant: 'vertical'` or `'horizontal'`",
+    required: 'title',
+    keys: Object.keys(TimelineFeedItemSchema.shape),
+  },
+  gantt: {
+    name: 'gantt row',
+    plural: 'gantt rows',
+    variants: "`variant: 'gantt'`",
+    required: 'label',
+    keys: Object.keys(TimelineGanttItemSchema.shape),
+  },
+} as const;
+
+/**
+ * objectui#6356 (ruling Q2 = C) — each element must be the arm `variant`
+ * selects (absent ⇒ `vertical`).
+ *
+ * Before this, a feed item under `variant: 'gantt'` and a gantt row under a
+ * feed variant both parsed green and drew an EMPTY entry — no title, no label,
+ * no diagnostic — because each branch of `TimelineRenderer` reads only its own
+ * arm's keys. The pairing spans two keys, so it is a refinement on the node
+ * rather than a type on either key, the house form for such a rule
+ * (`calendarSelectionFitsMode` in `./form.zod.ts`).
+ *
+ * Two refusals per element, each at the key it names:
+ *
+ *   - the arm's REQUIRED key is absent (`title` on a feed item, `label` on a
+ *     gantt row) — which is what tells the two arms apart;
+ *   - a key the OTHER arm declares is present (`label` / `items` on a feed
+ *     item; any feed key on a gantt row). An undeclared key is left to the
+ *     strict authoring face, as everywhere on this tolerant one.
+ *
+ * It runs only once the shape has accepted every element (zod skips a check
+ * after an aborting issue), so an element reaching it is an object with
+ * correctly typed keys. The object guard below is for `.safeExtend()`
+ * rebuilds, which keep this refinement while replacing the element schema.
+ */
+const timelineItemsFitVariant = (
+  node: { variant?: string; items?: readonly unknown[] },
+  ctx: z.RefinementCtx,
+): void => {
+  if (!Array.isArray(node.items)) return;
+  const variant = node.variant ?? 'vertical';
+  const [arm, other] = variant === 'gantt'
+    ? [TIMELINE_ITEM_ARMS.gantt, TIMELINE_ITEM_ARMS.feed]
+    : [TIMELINE_ITEM_ARMS.feed, TIMELINE_ITEM_ARMS.gantt];
+  const draws = `\`variant: '${variant}'\`${node.variant === undefined ? ' (the default)' : ''} draws ${arm.plural} \`{ ${arm.keys.join(', ')} }\``;
+  node.items.forEach((element, index) => {
+    if (element === null || typeof element !== 'object' || Array.isArray(element)) return;
+    const item = element as Record<string, unknown>;
+    if (item[arm.required] === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['items', index, arm.required],
+        message: `\`${arm.required}\` is required on a ${arm.name}: ${draws} (objectui#6356)`,
+      });
+    }
+    for (const key of other.keys) {
+      if (arm.keys.includes(key) || item[key] === undefined) continue;
+      ctx.addIssue({
+        code: 'custom',
+        path: ['items', index, key],
+        message: `\`${key}\` is a ${other.name} key, and ${draws}; author ${other.plural} under ${other.variants} (objectui#6356)`,
+      });
+    }
+  });
+};
 
 /**
  * Timeline Schema - Timeline component
@@ -1128,11 +1268,25 @@ const TimelineRowSchema = z
  * `retirementTombstone()` spelling below (objectui#6931) — still mirrored,
  * deliberately, because the parity ratchet compares key SETS and because a
  * tombstone must be present on both halves to be audible.
+ *
+ * ## The node-level refinement (objectui#6356)
+ *
+ * The node ends in `.superRefine(timelineItemsFitVariant)`, which judges each
+ * element of `items` against the arm `variant` selects. It is still a
+ * `ZodObject` — a check does not change the class — so `.shape`, the
+ * `DataDisplaySchema` discriminated union and the parity ratchet read it as
+ * before, and the tombstones above refuse exactly what they refused.
+ *
+ * ⚠️ One authoring consequence for anyone deriving from it: zod 4 refuses to
+ * `.extend()` a refined object when the extension OVERWRITES a key ("Cannot
+ * overwrite keys on object schemas containing refinements"). Derive with
+ * `.safeExtend()`, which keeps the refinement — the refinement guards its own
+ * element reads, so a rebuilt `items` slot cannot make it throw.
  */
 export const TimelineSchema = BaseSchema.extend({
   type: z.literal('timeline'),
   variant: z.enum(['vertical', 'horizontal', 'gantt']).optional().describe('Layout variant'),
-  items: z.array(TimelineRowSchema).optional().describe('Rows to draw — feed items, or gantt rows when variant is gantt; every element an object, and a gantt row\'s own `items` an array when present'),
+  items: z.array(TimelineItemSchema).optional().describe('Rows to draw — feed items { time, title, … } for vertical / horizontal, gantt rows { label, items } for gantt; each element is judged against the arm variant selects'),
   dateFormat: z.enum(['short', 'long', 'iso']).optional().describe('How item dates are rendered'),
   scale: TimelineScaleSchema.optional().describe('Gantt axis bucket size (canonical spelling — the spec key)'),
   // RETIRED (objectui#6355, ruling 2026-08-27): the pre-spec alias for `scale`.
@@ -1170,7 +1324,7 @@ export const TimelineSchema = BaseSchema.extend({
     + '`view:timeline` is the measured owner of the bare `timeline` key (`plugin-timeline:timeline` passes '
     + '`skipFallback: true`); re-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
   ),
-});
+}).superRefine(timelineItemsFitVariant);
 
 /**
  * Keyboard Key Schema - Keyboard key display

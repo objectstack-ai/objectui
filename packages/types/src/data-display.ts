@@ -2715,6 +2715,107 @@ export interface TimelineEvent {
 export type TimelineScale = 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year';
 
 /**
+ * The colour an authored timeline element names — a feed item's marker, or a
+ * gantt bar. Exactly the five `content/docs/plugins/plugin-timeline.mdx`
+ * documents under "Marker Variants" (objectui#6356, ruling Q2 = C).
+ *
+ * The marker primitive paints three more (`todo`, `in-progress`, `done`).
+ * Those are reached only by `ObjectTimeline`, which composes a record's own
+ * value into this slot through the renderer-internal handoff type in
+ * `packages/plugin-timeline` — they are not an authoring vocabulary, and the
+ * gantt bar paints none of them.
+ */
+export type TimelineItemVariant = 'default' | 'success' | 'warning' | 'danger' | 'info';
+
+/**
+ * One authored element of a FEED timeline — `variant` `vertical` (the default)
+ * or `horizontal` (objectui#6356).
+ *
+ * ## The seven keys, and why there are no more
+ *
+ * Maintainer ruling on objectui#6356, Q1 = A: the authored feed element
+ * declares the seven keys the docs page documents and every authored corpus
+ * writes — and nothing else. `ObjectTimeline` composes five further keys onto
+ * each record it maps (`color`, `group`, `meta`, `startDate`, `endDate`, plus
+ * the `_data` record handle), and `TimelineRenderer`'s vertical branch reads
+ * them; the horizontal branch reads none of them. They are RENDERER-INTERNAL:
+ * typed by the handoff type inside `packages/plugin-timeline`, never declared
+ * here, and refused when authored on the strict authoring face.
+ *
+ * This interface is closed on purpose. An object literal typed
+ * {@link TimelineSchema} that carries a key no arm of the element declares is
+ * an excess-property error, and the zod mirror's strict authoring face refuses
+ * the same key by name.
+ */
+export interface TimelineFeedItem {
+  /** When it happened — an ISO 8601 date string, formatted by `dateFormat`. */
+  time?: string;
+  /**
+   * The entry's heading. REQUIRED (objectui#6356, ruling Q2 = C): it is the
+   * key that tells a feed item from a gantt row, and the zod mirror judges
+   * each element against the arm `variant` selects by it.
+   */
+  title: string;
+  /** Secondary line under the title. */
+  description?: string;
+  /** Marker colour. */
+  variant?: TimelineItemVariant;
+  /** Emoji or short text drawn inside the marker. */
+  icon?: string;
+  /** Extra content rendered below the description. */
+  content?: SchemaNode | SchemaNode[];
+  /** Tailwind classes for the entry. */
+  className?: string;
+}
+
+/**
+ * One bar inside a {@link TimelineGanttItem} (objectui#6356).
+ *
+ * Every key is optional, and that is the ruling's scope rather than an
+ * omission: objectui#6356 made the ROW's `label` required and named nothing on
+ * the bar. A bar with no usable dates is not a validation failure — it reaches
+ * the render-time `timeline.gantt.unusableRange` diagnostic, which stays the
+ * defined outcome for it (objectui#6759, objectui#6770).
+ *
+ * ⚠️ A `type` alias and not an `interface`, on purpose. It sits one level down
+ * inside {@link TimelineGanttItem}, whose zod twin's bar is `.passthrough()`,
+ * so the twin's input type carries a string index signature there. An
+ * interface has no IMPLICIT index signature and is not assignable to one; an
+ * object type literal is. As an interface, `TimelineGanttItem.items` read as
+ * narrower-than-declared in `zod-mirror-parity.test.ts` for that reason alone,
+ * though both faces accept the same bars. A literal typed with it is still
+ * checked for excess properties exactly as an interface is.
+ */
+export type TimelineGanttItemBar = {
+  /** Bar label, drawn inside the bar and in its tooltip. */
+  title?: string;
+  /**
+   * Bar start. The accept set is the renderer's own date rule (objectui#6781,
+   * ruling 2026-08-30, option A): a string, a FINITE number (epoch
+   * milliseconds), or a `Date`.
+   */
+  startDate?: string | number | Date;
+  /** Bar end — same accept set as {@link TimelineGanttItemBar.startDate}. */
+  endDate?: string | number | Date;
+  /** Bar colour. */
+  variant?: TimelineItemVariant;
+};
+
+/**
+ * One authored ROW of a gantt timeline — `variant: 'gantt'` (objectui#6356).
+ *
+ * `label` is REQUIRED (ruling Q2 = C) for the reason `title` is on
+ * {@link TimelineFeedItem}: it tells a row from a feed item. `items` stays
+ * optional — a row with no bars yet is an ordinary empty state (objectui#6750).
+ */
+export interface TimelineGanttItem {
+  /** Row label, drawn in the row-label gutter. */
+  label: string;
+  /** The row's bars. */
+  items?: TimelineGanttItemBar[];
+}
+
+/**
  * Timeline component (`type: 'timeline'`).
  *
  * ## The members below are the set `TimelineRenderer` actually reads
@@ -2765,59 +2866,47 @@ export interface TimelineSchema extends BaseSchema {
    */
   variant?: 'vertical' | 'horizontal' | 'gantt';
   /**
-   * The rows to draw.
+   * The rows to draw — feed items, or gantt rows when `variant` is `gantt`.
    *
-   * TWO element shapes, discriminated by `variant`, both read dynamically by
-   * the renderer (`items.map((item: any) => …)`), so NEITHER shape's own keys
-   * are declared here — what is declared is what the two SHARE:
+   * ## The element is declared: two arms, and `variant` picks one
    *
-   * - `vertical` / `horizontal` — a feed item:
-   *   `{ time, title, description?, variant?, icon?, color?, content?, className?, meta?, group? }`
-   * - `gantt` — a row:
-   *   `{ label, items: [{ title, startDate, endDate, variant? }] }`
+   * objectui#6356 (maintainer ruling 2026-09-27, Q1 = A, Q2 = C) declares the
+   * element as the union of its two authored shapes:
    *
-   * `content/docs/plugins/plugin-timeline.mdx` carries both in full.
+   * - `vertical` (the default) / `horizontal` — a {@link TimelineFeedItem},
+   *   the seven documented keys with `title` required;
+   * - `gantt` — a {@link TimelineGanttItem}, `{ label, items? }` with `label`
+   *   required, each bar a {@link TimelineGanttItemBar}.
    *
-   * ## This type states the shared shape; it no longer describes it in prose
+   * Both arms are CLOSED, so a literal carrying a key neither arm declares is
+   * an excess-property error here. ⚠️ Which arm an element must match depends
+   * on `variant`, a key of the PARENT, and TypeScript cannot see that: a gantt
+   * row on a feed timeline type-checks. That cross-shape case is refused at the
+   * validation door instead — the zod mirror (`./zod/data-display.zod.ts`)
+   * judges each element against the arm `variant` selects, in a node-level
+   * refinement, because before this ruling it parsed green and drew an empty,
+   * unlabelled entry with no diagnostic.
    *
-   * The zod mirror (`./zod/data-display.zod.ts`) and this declaration state the
-   * SAME two levels, and the type below is the TypeScript spelling of the
-   * mirror's `z.object({}).passthrough()` at each of them:
+   * The five keys `ObjectTimeline` composes onto a record-mapped feed item
+   * (`color`, `group`, `meta`, `startDate`, `endDate`) and its `_data` handle
+   * are renderer-internal and are NOT part of this element — see
+   * {@link TimelineFeedItem}.
    *
-   * - every element is an OBJECT — a `null` row, a number, a string, an array
-   *   are all refused (objectui#7164);
-   * - a gantt row's own `items`, when present, is an ARRAY — of OBJECTS. A
-   *   `null` bar is refused by its own name, at `items[i].items[j]`
-   *   (objectui#7365, director seat decision batch #71, 2026-09-07, option B).
+   * ## What objectui#7164 and objectui#7365 pinned still holds
    *
-   * ⭐ objectui#7164 narrowed the ROW and stopped at the bar level
-   * DELIBERATELY, and this docblock recorded the stop in prose. That stop is
-   * SUPERSEDED KNOWINGLY, so the prose describing it is gone rather than
-   * qualified: the next reader should not re-derive a gap that has been closed.
+   * Every element is an OBJECT (objectui#7164), a gantt row's own `items`, when
+   * present, is an ARRAY of OBJECTS, and a `null` bar is refused by its own
+   * name, at `items[i].items[j]` (objectui#7365, director seat decision batch
+   * #71, 2026-09-07, option B). Those refusals keep their own paths: the mirror
+   * judges the arm in a refinement that runs AFTER them, not by an element-level
+   * union that would fold them into one nested `invalid_union`.
    *
-   * ⛔ The render-time diagnostic is UNCHANGED by that ruling
+   * ⛔ The render-time diagnostic is UNCHANGED
    * (`timeline.gantt.unusableRange.malformedRow` and the ten language packs are
    * untouched) — the renderer stays only ever MORE lenient than `validate`, and
    * the date diagnostic remains the defined outcome for anything reaching it.
    */
-  items?: Array<{
-    /**
-     * A gantt row's bars — an ARRAY OF OBJECTS when present. Optional is
-     * deliberate: a row with no bars yet is an ordinary empty state
-     * (objectui#6750) and the renderer draws it. A feed item carries no
-     * `items` key at all and satisfies this element unchanged.
-     *
-     * The bar's OWN keys (`title` / `startDate` / `endDate` / `variant?`) are
-     * NOT declared, for the reason the element's are not: they are read
-     * dynamically and the mirror leaves them open too.
-     */
-    items?: Record<string, unknown>[];
-    /**
-     * The element's own keys, undeclared and open — the TypeScript spelling of
-     * the mirror's `.passthrough()`. Both shapes above pass through here.
-     */
-    [key: string]: unknown;
-  }>;
+  items?: Array<TimelineFeedItem | TimelineGanttItem>;
   /**
    * How item dates are rendered.
    * @default 'short'

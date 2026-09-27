@@ -433,10 +433,11 @@ describe('objectui#9256 — CONTROLS: the node itself, and the held-out channel,
 
   it('LIVE CONTROL — the ITEM-level channel is untouched: a `tabs` item still parses `content`', () => {
     // `tabs.tsx` renders each item's `content` — an ITEM key, filed under
-    // `TabItem` and not under `TabsSchema` (its item-level `body` fallback was
-    // retired by objectui#9590). An instrument that
-    // attributed that read to the NODE would have made `tabs` a body reader and
-    // this whole row a mistake, so the item channel is pinned as still live.
+    // `TabItem` and not under `TabsSchema`, and `content` is neither of the two
+    // node channels the row above refuses. Until objectui#9590 that read fell
+    // back to an item-level `body`; an instrument that attributed THAT read to
+    // the NODE would have made `tabs` a body reader and this whole row a
+    // mistake, so the item channel is pinned as still live.
     expect(issues(TabsMirror as unknown as Mirror, {
       type: 'tabs',
       items: [{ value: 't1', label: 'One', content: CONTENT }],
@@ -444,13 +445,14 @@ describe('objectui#9256 — CONTROLS: the node itself, and the held-out channel,
   });
 
   it('LIVE CONTROL — `list`\'s ITEM channel is untouched: an item still parses `content`', () => {
-    // `list.tsx` draws each entry from its `content` (`renderChildren(item.content)`;
-    // the item-level `body` fallback was retired by objectui#9590) — an ITEM
-    // read, filed under `ListItem` and NOT under `ListSchema`. An
-    // instrument that attributed it to the NODE would have made `list` a `body`
-    // reader and the row above a mistake, so the item channel is pinned as still
-    // live. `content` is the key `ListItemSchema` declares; the row above is
-    // about the node's own two keys and touches neither.
+    // `list.tsx` draws each entry from its `content` (`renderChildren(item.content)`)
+    // — an ITEM read, filed under `ListItem` and NOT under `ListSchema`, and
+    // `content` is neither of the two node channels the row above refuses.
+    // Until objectui#9590 that read fell back to an item-level `body`; an
+    // instrument that attributed THAT read to the NODE would have made `list` a
+    // `body` reader and the row above a mistake, so the item channel is pinned
+    // as still live. `content` is the key `ListItemSchema` declares; the row
+    // above is about the node's own two keys and touches neither.
     expect(issues(ListMirror as unknown as Mirror, {
       type: 'list',
       items: [{ label: 'One', content: CONTENT }],

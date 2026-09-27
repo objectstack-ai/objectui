@@ -327,10 +327,11 @@ export interface ListSchema extends BaseSchema {
    *
    * ⭐ THE ITEM CHANNEL IS A DIFFERENT KEY AND STAYS LIVE. That renderer draws
    * each entry from its `content` (`renderChildren(item.content)`) — a read filed
-   * under {@link ListItem}, NOT under this node. An instrument that attributed
-   * it here would have made `list` a `body` reader and this tombstone a
-   * mistake, so the item channel is pinned as still live in
-   * `__tests__/content-channel-family-d-9256.test.ts`.
+   * under {@link ListItem}, NOT under this node, and `content` is neither of the
+   * two node channels refused here. Until objectui#9590 that read fell back to an
+   * item-level `body`; an instrument that attributed THAT read here would have
+   * made `list` a `body` reader and this tombstone a mistake, so the item channel
+   * is pinned as still live in `__tests__/content-channel-family-d-9256.test.ts`.
    *
    * ⭐ WHY THIS NAME WAS HELD OUT OF objectui#9544, AND WHAT CHANGED. It was
    * held for a SERIAL constraint, ⛔ never a verdict: this file was being
@@ -372,10 +373,11 @@ export interface ListSchema extends BaseSchema {
    *
    * ⭐ THE ITEM CHANNEL IS A DIFFERENT KEY AND STAYS LIVE. That renderer draws
    * each entry from its `content` (`renderChildren(item.content)`) — a read filed
-   * under {@link ListItem}, NOT under this node. An instrument that attributed
-   * it here would have made `list` a `body` reader and this tombstone a
-   * mistake, so the item channel is pinned as still live in
-   * `__tests__/content-channel-family-d-9256.test.ts`.
+   * under {@link ListItem}, NOT under this node, and `content` is neither of the
+   * two node channels refused here. Until objectui#9590 that read fell back to an
+   * item-level `body`; an instrument that attributed THAT read here would have
+   * made `list` a `body` reader and this tombstone a mistake, so the item channel
+   * is pinned as still live in `__tests__/content-channel-family-d-9256.test.ts`.
    *
    * ⭐ WHY THIS NAME WAS HELD OUT OF objectui#9544, AND WHAT CHANGED. It was
    * held for a SERIAL constraint, ⛔ never a verdict: this file was being

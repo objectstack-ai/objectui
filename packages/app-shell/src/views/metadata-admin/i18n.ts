@@ -1651,8 +1651,36 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // because a code package ships it and overwriting a packaged item is an
   // overlay — which `permission` has not opted into.
   'perm.readOnly.artifact': 'Read-only (this set is provided by a code package)',
+  // objectui#5987 — the ruled path comes FIRST (maintainer ruling on
+  // objectstack#11513: lock the base, clone to customize). The remedies that
+  // used to lead ("edit the source artifact and redeploy", a new runtime set,
+  // the operator hatch) stay, as the secondary routes they are.
   'perm.readOnly.artifact.hint':
-    'A code package ships this permission set, so an environment-scope edit would overlay a packaged item — and the metadata-type registry declares allowOrgOverride false for permission (ADR-0005 forbids per-org overlay of a packaged set: silent privilege drift). The server refuses the write with 403 not_overridable. Edit the source artifact and redeploy, create a new runtime set instead, or ask an operator for the documented OS_METADATA_WRITABLE escape hatch.',
+    'A code package ships this permission set, so it is locked here: an environment-scope edit would overlay a packaged item, and the metadata-type registry declares allowOrgOverride false for permission (ADR-0005 forbids per-org overlay of a packaged set: silent privilege drift). The server refuses the write with 403 not_overridable. Clone to customize: the clone is an ordinary set owned by your organization that you edit here, and upgrades keep flowing to this base. Other routes: edit the source artifact and redeploy, create a new runtime set, or ask an operator for the documented OS_METADATA_WRITABLE escape hatch.',
+  // objectui#5987 — "Clone to customize", the locked editor's primary action.
+  // It runs the `clone_permission_set` record action the server publishes on
+  // `sys_permission_set` (the action the 403 refusal itself names as the
+  // remedy) through the console's own action runner, never a hand-rolled copy.
+  'perm.clone.action': 'Clone to customize',
+  'perm.clone.hint':
+    'Creates an organization-owned copy of this set through the published clone_permission_set action; the copy is editable here, and upgrades keep flowing to the package-provided base.',
+  'perm.clone.guidance':
+    'Locked: a code package provides this permission set, so it cannot be edited in place here (upgrades keep flowing to it). Clone to customize — the clone is an ordinary set owned by your organization, editable here.',
+  // Refusals, not fallbacks: when the published action or the record is not
+  // there, the editor says so instead of cloning by other means.
+  'perm.clone.actionMissing':
+    'Clone is unavailable: the sys_permission_set object on this server publishes no clone_permission_set action.',
+  'perm.clone.rowMissing':
+    'Clone is unavailable: no sys_permission_set record named {name} was found.',
+  'perm.clone.noName':
+    'The clone was created, but the server\'s answer did not name it. Open it from the permission-set list.',
+  // Embedded hosts have no route to navigate to, so the clone is announced.
+  'perm.clone.done': 'Cloned as {name}. Open it from the permission-set list to edit.',
+  // A save that still reached the server and was refused as a packaged set:
+  // the same guidance as the lock, keyed on the refusal's code (never its
+  // prose), instead of the transport's generic message.
+  'perm.save.locked':
+    'Save refused (403 not_overridable): a code package provides this permission set, so the server does not accept an in-place edit. Clone to customize instead — the clone is your organization\'s own set, and upgrades keep flowing to this base.',
   // Designer wrapper
   'designer.unsavedChanges': 'Unsaved changes',
   'designer.editingOverlay': 'Editing overlay',
@@ -3922,8 +3950,22 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   // 与上面的「类型没有写入通道」是两回事：该类型有运行时写入通道，被锁的是「这一个」
   // 由代码包提供的权限集。
   'perm.readOnly.artifact': '只读（该权限集由代码包提供）',
+  // objectui#5987 — 见 EN 表同键注释：裁定的路径（克隆后自定义）放在最前。
   'perm.readOnly.artifact.hint':
-    '该权限集由代码包提供，因此在环境作用域下编辑它属于覆盖（overlay）已打包的条目；而元数据类型注册表对 permission 声明 allowOrgOverride 为 false（ADR-0005 禁止对已打包权限集做按组织覆盖：会造成权限静默漂移）。服务端会以 403 not_overridable 拒绝该写入。请修改源工件后重新部署，或改为新建一个运行时权限集，或由运维启用有文档记载的 OS_METADATA_WRITABLE 逃生阀。',
+    '该权限集由代码包提供，因此在此处被锁定：在环境作用域下编辑它属于覆盖（overlay）已打包的条目，而元数据类型注册表对 permission 声明 allowOrgOverride 为 false（ADR-0005 禁止对已打包权限集做按组织覆盖：会造成权限静默漂移）。服务端会以 403 not_overridable 拒绝该写入。请「克隆后自定义」：克隆出的权限集归本组织所有、可在此编辑，升级会继续流向这个基线。其他途径：修改源工件后重新部署、新建一个运行时权限集，或由运维启用有文档记载的 OS_METADATA_WRITABLE 逃生阀。',
+  // objectui#5987 — 见 EN 表同键注释。
+  'perm.clone.action': '克隆后自定义',
+  'perm.clone.hint':
+    '通过已发布的 clone_permission_set 动作，创建一份归本组织所有的副本；副本可在此编辑，升级会继续流向由包提供的基线。',
+  'perm.clone.guidance':
+    '已锁定：该权限集由代码包提供，不能在此处原地编辑（升级会继续流向它）。请「克隆后自定义」—— 克隆出的权限集是归本组织所有的普通权限集，可在此编辑。',
+  'perm.clone.actionMissing':
+    '无法克隆：当前服务端的 sys_permission_set 对象未发布 clone_permission_set 动作。',
+  'perm.clone.rowMissing': '无法克隆：未找到名为 {name} 的 sys_permission_set 记录。',
+  'perm.clone.noName': '克隆已创建，但服务端的响应未给出其名称。请从权限集列表中打开它。',
+  'perm.clone.done': '已克隆为 {name}。请从权限集列表中打开它进行编辑。',
+  'perm.save.locked':
+    '保存被拒绝（403 not_overridable）：该权限集由代码包提供，服务端不接受原地编辑。请改为「克隆后自定义」—— 克隆出的权限集归本组织所有，升级会继续流向这个基线。',
   // Designer wrapper
   'designer.unsavedChanges': '未保存的修改',
   'designer.editingOverlay': '编辑覆盖层',

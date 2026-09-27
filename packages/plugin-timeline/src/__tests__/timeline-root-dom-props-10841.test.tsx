@@ -12,8 +12,8 @@
  *
  * ## The defect
  *
- * `SchemaRenderer` hands a registered renderer every non-metadata key of the
- * node as a React prop. `TimelineRenderer` collected every prop it did not name
+ * `SchemaRenderer` hands a registered renderer, as React props, every node key
+ * its metadata strip leaves. `TimelineRenderer` collected every prop it did not name
  * and spread the lot onto the root element of each variant, so the authored
  * schema ended up in the DOM: `items="[object Object]"`, `variant="vertical"`,
  * `dateformat="long"`, `rowlabel`, `mindate`, `maxdate`, plus a React
@@ -28,12 +28,16 @@
  *
  * - no attribute named after a schema key the node authors (`items` and
  *   `variant` by name, as the triage asked, and every other key of the node);
- * - every attribute on the root is `class` or one of the DOM attributes the
- *   renderer names (`id`, `style`, `role`, `data-*`, `aria-*`);
- * - the CONTROL: the attributes `SchemaRenderer` mints for the DOM still land.
- *   `data-testid` from the authored `testId`, `data-obj-id` / `data-obj-type`,
- *   `id`, and on the vertical case `aria-label` / `role` / `style`. A fix that
- *   dropped the bag outright would pass every absence above and fail here.
+ * - every attribute on the root is `class`, `style`, or one the SDUI widget
+ *   contract forwards: a key of `SDUI_DOM_PASS_THROUGH_KEYS` or the open
+ *   `data-*` / `aria-*` families. The set is IMPORTED from `@object-ui/core`,
+ *   the one place it is declared, so this pin cannot become a third copy;
+ * - the CONTROL: what the contract forwards still lands. `data-testid` from the
+ *   authored `testId`, `data-obj-id` / `data-obj-type`, `id`, `tabindex` from
+ *   an authored `tabIndex` (a contract key a private allowlist once dropped),
+ *   and on the vertical case `aria-label` / `role` / `style`. A fix that dropped
+ *   the bag outright, or filtered it through a narrower list than the contract,
+ *   would pass every absence above and fail here.
  * - no React unknown-prop / invalid-ARIA warning during the render.
  *
  * The grouped vertical branch runs when the items carry a `group` key.
@@ -47,6 +51,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup, waitFor } from '@testing-library/react';
 import React from 'react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import { SDUI_DOM_PASS_THROUGH_KEYS } from '@object-ui/core';
 // Registers `plugin-timeline:timeline` and `view:timeline`, as a host does.
 import '../index';
 
@@ -58,17 +63,28 @@ afterEach(() => {
 /** The DOM-side spellings React warns with when a prop is not a DOM attribute. */
 const DOM_PROP_WARNING = /React does not recognize|Invalid ARIA attribute|Unknown event handler property|for a non-boolean attribute/;
 
-/** Attributes the root may carry: `class`, the named set, and the two prefix families. */
+/**
+ * The attribute names the contract's named keys become on an element. Event
+ * handlers (`on*`) never become attributes, so an `onclick` attribute would be
+ * a leak, not a forward; `className` lands as `class`.
+ */
+const CONTRACT_ATTRIBUTES = new Set(
+  SDUI_DOM_PASS_THROUGH_KEYS.filter((key) => !key.startsWith('on')).map((key) =>
+    key === 'className' ? 'class' : key.toLowerCase(),
+  ),
+);
+
+/** Attributes the root may carry: the contract's, `style` by name, and the two open families. */
 const isAllowedRootAttribute = (name: string) =>
-  name === 'class' || name === 'id' || name === 'style' || name === 'role' || name.startsWith('data-') || name.startsWith('aria-');
+  CONTRACT_ATTRIBUTES.has(name) || name === 'style' || name.startsWith('data-') || name.startsWith('aria-');
 
 /**
  * Authored keys whose job IS to reach the DOM, so their spelling on the root is
- * not a leak: `id` / `style` / `role` land verbatim, `className` becomes
- * `class`, and `testId` / `ariaLabel` are re-emitted by `SchemaRenderer` as
- * `data-testid` / `aria-label`.
+ * not a leak: the contract's named keys and `style` land as themselves, and
+ * `testId` / `ariaLabel` are re-emitted by `SchemaRenderer` as `data-testid` /
+ * `aria-label`.
  */
-const DOM_INTENT_KEYS = new Set(['type', 'id', 'style', 'role', 'className', 'testId', 'ariaLabel']);
+const DOM_INTENT_KEYS = new Set<string>(['type', 'style', 'testId', 'ariaLabel', ...SDUI_DOM_PASS_THROUGH_KEYS]);
 
 function renderNode(node: Record<string, unknown>) {
   const warnings: string[] = [];
@@ -94,19 +110,21 @@ function expectNoSchemaKeyAttributes(root: HTMLElement, node: Record<string, unk
   expect(stray, 'the root carries attributes outside the forwarded DOM set').toEqual([]);
 }
 
-function expectLocatorsLand(root: HTMLElement, node: { id: string; testId: string }) {
+function expectLocatorsLand(root: HTMLElement, node: { id: string; testId: string; tabIndex: number }) {
   expect(root.getAttribute('data-testid'), 'the authored `testId` no longer reaches the root').toBe(node.testId);
+  expect(root.getAttribute('tabindex'), 'the contract key `tabIndex` no longer reaches the root').toBe(String(node.tabIndex));
   expect(root.getAttribute('id')).toBe(node.id);
   expect(root.getAttribute('data-obj-id')).toBe(node.id);
   expect(root.getAttribute('data-obj-type')).toBe('plugin-timeline:timeline');
 }
 
 describe('TimelineRenderer root element carries no authored schema key (objectui#10841)', () => {
-  it('vertical, flat: no schema-key attribute; id, style, role, aria-label and data-* still land', () => {
+  it('vertical, flat: no schema-key attribute; id, style, role, tabindex, aria-label and data-* still land', () => {
     const node = {
       type: 'plugin-timeline:timeline',
       id: 'rail-vertical',
       testId: 'rail-vertical-tid',
+      tabIndex: 0,
       ariaLabel: 'Project history',
       role: 'region',
       style: { padding: 2 },
@@ -128,11 +146,12 @@ describe('TimelineRenderer root element carries no authored schema key (objectui
     expect(domWarnings, 'React warned about a prop spread onto the DOM').toEqual([]);
   });
 
-  it('vertical, grouped: no schema-key attribute; data-testid still lands', () => {
+  it('vertical, grouped: no schema-key attribute; data-testid and tabindex still land', () => {
     const node = {
       type: 'plugin-timeline:timeline',
       id: 'rail-grouped',
       testId: 'rail-grouped-tid',
+      tabIndex: 0,
       variant: 'vertical',
       dateFormat: 'short',
       items: [{ time: '2024-01-15', title: 'Kickoff', group: 'January' }],
@@ -148,11 +167,12 @@ describe('TimelineRenderer root element carries no authored schema key (objectui
     expect(domWarnings, 'React warned about a prop spread onto the DOM').toEqual([]);
   });
 
-  it('horizontal: no schema-key attribute; data-testid still lands', () => {
+  it('horizontal: no schema-key attribute; data-testid and tabindex still land', () => {
     const node = {
       type: 'plugin-timeline:timeline',
       id: 'rail-horizontal',
       testId: 'rail-horizontal-tid',
+      tabIndex: 0,
       variant: 'horizontal',
       dateFormat: 'short',
       items: [{ time: '2024-01-15', title: 'Q1' }],
@@ -167,11 +187,12 @@ describe('TimelineRenderer root element carries no authored schema key (objectui
     expect(domWarnings, 'React warned about a prop spread onto the DOM').toEqual([]);
   });
 
-  it('gantt: no schema-key attribute (scale, rowLabel, minDate, maxDate included); data-testid still lands', () => {
+  it('gantt: no schema-key attribute (scale, rowLabel, minDate, maxDate included); data-testid and tabindex still land', () => {
     const node = {
       type: 'plugin-timeline:timeline',
       id: 'rail-gantt',
       testId: 'rail-gantt-tid',
+      tabIndex: 0,
       variant: 'gantt',
       dateFormat: 'short',
       scale: 'month',

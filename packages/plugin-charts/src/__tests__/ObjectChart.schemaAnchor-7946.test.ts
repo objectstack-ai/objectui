@@ -89,7 +89,8 @@ describe('ObjectChartProps.schema — anchored to ObjectChartSchema (objectui#79
       series: vals.map((v) => ({ dataKey: v, label: v })),
       className: 'h-[400px] w-full',
     };
-    expect(node.series?.[0]?.dataKey).toBe('amount');
+    const first = node.series?.[0];
+    expect(first && 'dataKey' in first ? first.dataKey : undefined).toBe('amount');
   });
 
   it('accepts the legacy inline-aggregate shape, both filter arms', () => {
@@ -123,8 +124,8 @@ describe('ObjectChartProps.schema — anchored to ObjectChartSchema (objectui#79
     const badX: ObjectChartProps['schema'] = { type: 'object-chart', chartType: 'bar', xAxisKey: 0 };
     // @ts-expect-error — `series` is an array of `{ dataKey }` entries, not a bare column name.
     const badSeries: ObjectChartProps['schema'] = { type: 'object-chart', chartType: 'bar', series: 'amount' };
-    // @ts-expect-error — the series entry's binding key is `dataKey` (the renderer's internal arm); the spec's author-facing `name` arm is a different shape and is translated by `normalizeChartSchema`.
-    const badSeriesEntry: ObjectChartProps['schema'] = { type: 'object-chart', chartType: 'bar', series: [{ name: 'amount' }] };
+    // @ts-expect-error — a series entry names its column: `dataKey` (the renderer's internal arm) or, since objectui#10770, the spec's author-facing `name` arm. An entry with neither matches no arm.
+    const badSeriesEntry: ObjectChartProps['schema'] = { type: 'object-chart', chartType: 'bar', series: [{ label: 'amount' }] };
     // @ts-expect-error — `aggregate.function` is the declared vocabulary; `avg` is spelled `avg`.
     const badFn: ObjectChartProps['schema'] = { type: 'object-chart', chartType: 'bar', aggregate: { function: 'average', groupBy: 'stage' } };
     // @ts-expect-error — `dateGranularity` lives INSIDE the structured `groupBy` node, not beside it (the spec's own guidance for this shape).

@@ -94,6 +94,7 @@ import {
   type DatasetDrillRange,
 } from '@object-ui/core';
 import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useDisplayLocale, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
+import { useDataInvalidation } from '@object-ui/react';
 import { mergeFilters } from './mergeFilters';
 import { useDatasetDimensionLabels, useDatasetDimensionMeta } from './useDatasetDimensionLabels';
 
@@ -389,18 +390,45 @@ function useDatasetRows(
   // exactly the sort significance that must invalidate the cache.
   const orderKey = JSON.stringify(scopedOrder ?? null);
   const signature = `${dataset}|${dimensions.join(',')}|${measures.join(',')}|${rfKey}|${totalsKey}|${orderKey}`;
+
+  // objectui#10814 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10623 way: the nonce moves when a
+  // write to the object this selection QUERIES is declared, and the fetch effect
+  // below names it, so the report re-reads in place. Without it a page action
+  // over raw HTTP left the report stale unless its host remounted it, and
+  // `PageView` is to stop doing that (objectui#10519).
+  //
+  // A dataset selection names no object of its own: the object is the dataset's
+  // base object, which only the query's ANSWER names (`state.object`), the key
+  // `ObjectChart`'s dataset arm reads (objectui#10035). So nothing subscribes
+  // until an answer has named it, and a selection that queries nothing (idle,
+  // or an error) has no object and does not subscribe. Every presentation (the
+  // table, the matrix, the embedded chart, each joined block) funnels through
+  // this hook, and so does a `drillDown.report` a drill-down drawer renders.
+  const invalidationNonce = useDataInvalidation(state.object);
+  // The signature whose query last ran. A run for the SAME signature is a
+  // re-read of the rows already on screen (the nonce moved), so it keeps them
+  // and swaps them for the answer when it lands; it does not blank the block
+  // back to "Running report…". A new signature is another selection, whose
+  // previous rows would be wrong under it, so it still starts from loading.
+  const lastQueriedSignatureRef = React.useRef<string | null>(null);
+
   React.useEffect(() => {
     const src = dataSource as DatasetCapableSource | undefined;
     if (!src || typeof src.queryDataset !== 'function') {
+      lastQueriedSignatureRef.current = null;
       setState({ status: 'error', rows: [], error: 'This data source does not support dataset queries.' });
       return;
     }
     if (!dataset || measures.length === 0) {
+      lastQueriedSignatureRef.current = null;
       setState({ status: 'idle', rows: [] });
       return;
     }
     let cancelled = false;
-    setState({ status: 'loading', rows: [] });
+    const inPlace = lastQueriedSignatureRef.current === signature;
+    lastQueriedSignatureRef.current = signature;
+    if (!inPlace) setState({ status: 'loading', rows: [] });
     src
       .queryDataset(dataset, {
         dimensions,
@@ -430,7 +458,7 @@ function useDatasetRows(
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signature]);
+  }, [signature, invalidationNonce]);
 
   return state;
 }
@@ -727,8 +755,9 @@ export function planReportChart(t: unknown): ReportChartPlan {
  * via `registerLazy`, so a plain `ComponentRegistry.get` returns undefined
  * until the plugin-charts chunk loads — this hook kicks off `loadLazy` and
  * subscribes so the chart appears as soon as the chunk resolves. Kept decoupled
- * (no static import of plugin-charts / @object-ui/react) so plugin-report stays
- * dependency-light and its test module graph doesn't duplicate React.
+ * (no static import of plugin-charts, and no `SchemaRenderer` dispatch through
+ * @object-ui/react) so plugin-report stays dependency-light and its test module
+ * graph doesn't duplicate React.
  */
 function useRegistryComponent(
   type: string,

@@ -1014,7 +1014,10 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
       ? (pickLocalized(options.description, language) || undefined)
       : (subCaption || undefined);
     return (
-      <div className="relative flex h-full w-full flex-col items-start justify-center gap-1 p-2">
+      // Positioned only while a re-read is in flight, for the refresh bar: the
+      // idle tile's markup is pinned byte-for-byte (`DatasetWidget.colorVariant`,
+      // `.subCaption`, `.unrenderedMeasures-8894` tests), and it moves by nothing.
+      <div className={cn('flex h-full w-full flex-col items-start justify-center gap-1 p-2', state.refreshing && 'relative')}>
         {refreshBar}
         <span className={cn('text-2xl font-semibold tabular-nums', accentClass)}>{formatMeasure(value, f?.format, f?.currency, f?.percentScale, displayLocale)}</span>
         {delta && (

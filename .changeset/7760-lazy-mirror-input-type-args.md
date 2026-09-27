@@ -62,8 +62,9 @@ arm. Those three are recorded on the card, with the exact refusal, and stay in t
 excluded region the parity ledger bounds at runtime.
 
 ⚠️ **Dated note, 2026-09-27 — `FilterBuilderConditionSchema` has since left the runtime ledger — objectui#10825.**
-Later in this same release `FilterBuilderSchema.value` stopped naming it (its bare-condition arm was
-retired), so no registered mirror slot reaches it any more except through `FilterGroupSchema`'s getter,
+Later in this same release neither `FilterBuilderSchema.value` nor `defaultValue` names it any more (the
+bare-condition arm was retired, and `defaultValue` became a tombstone), so no registered mirror slot
+reaches it any more except through `FilterGroupSchema`'s getter,
 which the parity ledger's walk does not enter; its row left the list of recursion-breaking sources that
 ledger bounds at runtime. It keeps its annotation, and the other two of the three stay in that list. The
 rest of this entry still holds.

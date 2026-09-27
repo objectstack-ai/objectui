@@ -5189,8 +5189,9 @@ function measureReachableLazyNodes(): Map<unknown, string> {
  * an annotation is not. ⇒ A future card that fills the remaining two ⛔ still may not
  * shorten this list: it would stop being able to detect the tenth. (The list held ten
  * until objectui#10825: `complex.zod.ts#FilterBuilderConditionSchema` LEFT it with its
- * annotation still standing. `FilterBuilderSchema.value` stopped naming it when that
- * card retired the bare-condition arm, and the only path left to it runs through
+ * annotation still standing. Neither `FilterBuilderSchema.value` nor `defaultValue`
+ * names it any more (the bare-condition arm was retired, and `defaultValue` became a
+ * tombstone), and the only path left to it runs through
  * `FilterGroupSchema`'s getter, which the walk does not enter — so it is no longer a
  * source by this leg's definition, and the no-dead-entries case below removed the row.
  * That is a change in what is REACHABLE, not a filled annotation.) At the type

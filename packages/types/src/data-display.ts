@@ -306,7 +306,7 @@ export interface ListSchema extends BaseSchema {
    * READ SITE: `packages/components/src/renderers/data-display/list.tsx:27` —
    * `cn("space-y-2", schema.wrapperClass)`. Undeclared until
    * objectui#7722, surviving only on `BaseSchema`'s index signature: the same
-   * key, on the same class of read, that `CheckboxSchema` (objectui#6938),
+   * key, on the same class of read, that `CheckboxSchema` (`b74a8598d`),
    * `FileUploadSchema` and `FilterBuilderSchema` (objectui#6150) declare.
    * Distinct from `className`, which the renderer hands to the `ul` / `ol`.
    */
@@ -461,7 +461,7 @@ export interface TableSortItem {
 
 /**
  * Every `type` spelling a `TableColumn` may carry — the canonical value set for
- * this key (objectui#5853, maintainer ruling 2026-08-25, Option B: the 8-literal
+ * this key (`fc62bb490`, maintainer ruling 2026-08-25, Option B: the 8-literal
  * interface union is canonical).
  *
  * This tuple is the SINGLE declaration of that vocabulary. `TableColumnSchema`
@@ -479,7 +479,7 @@ export type TableColumnType = (typeof TABLE_COLUMN_TYPES)[number];
 
 /**
  * Undeclared `type` spellings the data-table renderer used to read, folded onto
- * the canonical spelling they mean (objectui#5853).
+ * the canonical spelling they mean (`fc62bb490`).
  *
  * These are NOT part of the published vocabulary and deliberately do not appear
  * in {@link TABLE_COLUMN_TYPES}: the ruling rejected alias proliferation, so the
@@ -503,7 +503,7 @@ const TABLE_COLUMN_TYPE_ALIASES: Readonly<Record<string, TableColumnType>> = {
 
 /**
  * Fold an inferred column type onto the canonical {@link TableColumnType}
- * vocabulary, for use at a producer's emit seam (objectui#5853).
+ * vocabulary, for use at a producer's emit seam (`fc62bb490`).
  *
  * Column inference reads an OBJECT SCHEMA's field type, whose vocabulary is
  * `@objectstack/spec`'s `FieldType` — 49 values, only 7 of which are members of
@@ -1785,7 +1785,7 @@ export interface TreeViewSchema extends BaseSchema {
    * tree-view (`{ type: 'tree-view', bind: 'treeNodes' }`) is a legal,
    * rendering document because `bind` is the FIRST source the renderer reads.
    *
-   * History: REQUIRED until objectui#6939 / PR #7533 made it optional (it had
+   * History: REQUIRED until `777e5c6f4` (PR #7533) made it optional (it had
    * refused four catalog entries the renderer draws correctly). That PR kept
    * it DECLARED because {@link BaseSchema} declares `data?: any` (zod twin
    * `z.any().optional()`), so deleting the member would ADMIT the key
@@ -1808,7 +1808,7 @@ export interface TreeViewSchema extends BaseSchema {
    *
    * Declared by objectui#6150, which deliberately stopped at the declaration:
    * `{ type: 'tree-view', nodes }` only became a LEGAL document at
-   * objectui#6939 (PR #7533), the accept-set change that relaxed the then
+   * `777e5c6f4` (PR #7533), the accept-set change that relaxed the then
    * required `data`; objectui#6951 retired that `data` spelling outright (the
    * tombstone above). The registration's own `inputs` and `defaultProps`
    * spell it `nodes`, and the four catalog entries ARE those `defaultProps`.
@@ -1984,7 +1984,7 @@ export interface ChartDataSeries {
    * Series name — also selects this series' column within each chart-level
    * `data` row when {@link dataKey} is absent.
    *
-   * ⚠️ OPTIONAL since objectui#6939 (maintainer ruling 2026-09-02, the `chart`
+   * ⚠️ OPTIONAL since `5f789538d` (maintainer ruling 2026-09-02, the `chart`
    * row): `normalizeSeries` reads `str(raw.dataKey) ?? str(raw.name)`, so
    * `dataKey` alone is a complete binding and the required flag refused a
    * document the renderer draws. At least one of the two must still be present

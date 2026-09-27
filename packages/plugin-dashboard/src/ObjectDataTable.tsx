@@ -118,7 +118,7 @@ interface NormalizedColumn {
  * another road? — is part of the rule, not an aside: a key with no second road
  * is not inert, and retiring it would change behaviour.
  *
- * `type` is not adjudicated here. objectui#5853 already settled it at this
+ * `type` is not adjudicated here. `fc62bb490` already settled it at this
  * seam, and its fold (`normalizeTableColumnType`) stands unchanged.
  *
  * `name` is HELD, not retired, and not adjudicated here either: it is
@@ -336,7 +336,7 @@ export interface ObjectDataTableColumnHolds {}
  * The candidate keys this seam refuses — DERIVED from the override vocabulary,
  * never hand-listed, so a future `FieldMeta` member has to be adjudicated onto
  * {@link ObjectDataTableColumnHolds} to escape. Keys `TableColumn` declares
- * leave the pool by declaration: `type` (objectui#5853 owns its VALUE set,
+ * leave the pool by declaration: `type` (its VALUE set is `fc62bb490`'s,
  * folded below by `normalizeTableColumnType`) and, since objectui#6425's
  * ruling, `format` / `options` / `currency`.
  *
@@ -932,7 +932,7 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
       const inferredAlign = (col as any).align
         ?? (isNumericFieldMeta(fieldMeta) ? 'right' : undefined);
 
-      // ⭐ THE SECOND EMIT SEAM (objectui#5853). `buildFieldMeta` returns
+      // ⭐ THE SECOND EMIT SEAM (`fc62bb490`). `buildFieldMeta` returns
       // `type: overrides.type ?? meta?.type` — the OBJECT SCHEMA's field type —
       // which the `...fieldMeta` spread that used to stand here wrote straight
       // into the column's `type`, the same verbatim forwarding `ObjectGrid` does

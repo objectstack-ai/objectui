@@ -75,7 +75,7 @@ import {
  */
 // Column types that should edit as a numeric `<Input type="number">`.
 //
-// `int` / `integer` / `float` / `double` USED to be members (objectui#5853).
+// `int` / `integer` / `float` / `double` USED to be members (`fc62bb490`).
 // They were never declared by `TableColumn.type` — they arrived because
 // column-inference producers forwarded an object schema's field type verbatim,
 // which is also why this key had to be read through an `as any` below. Those
@@ -2553,7 +2553,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                 // Type-aware inline editor. `col.type` is forwarded
                                 // from a producer's column inference, folded onto the
                                 // DECLARED vocabulary at that producer's emit seam
-                                // (objectui#5853). This used to be
+                                // (`fc62bb490`). This used to be
                                 // `(col as any).type as string | undefined` — a cast that
                                 // existed only because the values arriving were not the
                                 // values `TableColumn` declares. They are now, so the read

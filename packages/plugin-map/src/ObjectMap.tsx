@@ -149,8 +149,8 @@ const FLAT_MAP_CONFIG_KEYS = (Object.keys(ObjectMapConfigSchema.shape) as (keyof
  *
  * The ruled three-rung ladder itself (`data`, then `staticData`, then
  * `objectName`) is `resolveRecordSourceConfig` in `@object-ui/core` — ONE
- * implementation of a contract published on both faces (objectui#6939), which
- * this file used to hand-copy (objectui#7632).
+ * implementation of a contract published on both faces (`77cb489b4`), which
+ * this file used to hand-copy (`ce2aaefe1`).
  *
  * What used to stay here was the head above it: the array shorthand, which
  * lifted `data: [...]` to `{ provider: 'value', items }`.
@@ -445,7 +445,7 @@ function getMapConfig(schema: MapConfigSource): ObjectMapConfig {
   // record". The premise held; the ruling reverses its conclusion — that is
   // exactly why the answer is a REFUSAL rather than a guess. Bindings are
   // never fabricated; an unbound surface refuses. The same principle as
-  // 「日期轴永不虚构」 behind objectui#7070 (date axes) and
+  // 「日期轴永不虚构」 behind the 2026-09-01 ruling (date axes, 总监批 #28) and
   // objectui#8168 (the chart category axis), generalised one field over.
   //
   // What the guesses actually shipped was the silent-credible-wrong shape
@@ -764,7 +764,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
   /**
    * The object this map is BOUND to — the resolved record source's object when
    * it names one, else the schema's own `objectName` (`b041b9c0c`, the
-   * objectui#6939 ladder). Hoisted to render scope so the definition read below
+   * ladder `77cb489b4` declared). Hoisted to render scope so the definition read below
    * keys on one named value instead of re-deriving the ladder inline.
    */
   const recordSourceObjectName = resolveRecordSourceObjectName(schema, dataConfig);

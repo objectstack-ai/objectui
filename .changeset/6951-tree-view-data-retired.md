@@ -15,7 +15,7 @@ unchanged and still read first.
 spellings for its one inline-nodes slot — `nodes` (read second) and `data` (read
 third: `boundData || schema.nodes || schema.data || []` at
 `renderers/data-display/tree-view.tsx:105`), both declared by objectui#6150.
-`data` had been REQUIRED until objectui#6939 / PR #7533 made it optional, so
+`data` had been REQUIRED until `777e5c6f4` (PR #7533) made it optional, so
 this retirement starts from a declared-and-optional member on both faces. The
 in-repo corpus at the retirement: seven `tree-view` nodes under
 `examples/schema-catalog` and `packages/types/examples` plus one `content/docs`

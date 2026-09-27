@@ -6,7 +6,7 @@
 ---
 
 `TableColumn.type` now has ONE canonical value set across all three ends that disagreed
-(objectui#5853, maintainer ruling 2026-08-25, Option B: the 8-literal interface union is
+(maintainer ruling 2026-08-25, Option B: the 8-literal interface union is
 canonical). The interface declared `'text' | 'number' | 'date' | 'datetime' | 'currency' |
 'percent' | 'boolean' | 'action'`; the zod mirror declared `z.string()` and accepted
 anything; the renderer branched on a third set and could only read the key through an

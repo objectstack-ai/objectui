@@ -169,7 +169,7 @@ function substituteFilterTokens(filter: any, scope: FilterTokenScope): any {
  * no legal object metadata could ever reach it (objectui#6531 established the
  * measurement, and dropped the twin read inside `getRecordDisplayName`).
  *
- * ⚠️ WHAT THE SIBLING BRANCHES BELOW ACTUALLY DO (objectui#7070). The sentence
+ * ⚠️ WHAT THE SIBLING BRANCHES BELOW ACTUALLY DO (`5f4514f7b`). The sentence
  * above used to end "— the same two-rung shape the calendar and gantt branches
  * below already use", and for gantt that was FALSE the whole time it stood: the
  * gantt branch floored `startDateField` / `endDateField` at `'start_date'` /
@@ -182,7 +182,7 @@ function substituteFilterTokens(filter: any, scope: FilterTokenScope): any {
  *     `calendar` key at all; it never floors a date axis (objectui#7029).
  *   - `ganttViewOptions` below — forwards the declared block, title floored at
  *     `'name'`, and invents neither date field. Its `'start_date'` / `'end_date'`
- *     floors were deleted by objectui#7070; that is what makes `ObjectGantt`'s
+ *     floors were deleted by `5f4514f7b`; that is what makes `ObjectGantt`'s
  *     own "Gantt configuration required" screen reachable from this route.
  *   - the TIMELINE axis at the two SIBLING FACES — `plugin-list/ListView.tsx`
  *     and `plugin-view/ObjectView.tsx`. Both floored `startDateField` at
@@ -190,7 +190,7 @@ function substituteFilterTokens(filter: any, scope: FilterTokenScope): any {
  *     `ListView` carried it as a stated DECISION ("`created_at` stays the last
  *     resort for a view that declares no date axis anywhere") — two faces
  *     holding documented and OPPOSITE postures on one field name. That is what
- *     objectui#7070 routed to a single ruling instead of settling per-face, and
+ *     `5f4514f7b` routed to a single ruling instead of settling per-face, and
  *     the ruling (2026-09-01, 总监批 #28) answered it as house posture:
  *     日期轴永不虚构 — a date axis is never fabricated. Its step ③ deleted both
  *     floors, so all three faces now forward a declared axis or none, and
@@ -257,7 +257,7 @@ export function calendarViewOptions(viewDef: any): Record<string, unknown> | und
 /**
  * The `options.gantt` config this page hands to `ListView`.
  *
- * objectui#7070 — the same class objectui#7029 removed from the calendar branch,
+ * `5f4514f7b` — the same class objectui#7029 removed from the calendar branch,
  * reported separately by PR #7062 rather than fixed alongside it. This face used
  * to floor `startDateField` at `'start_date'` and `endDateField` at `'end_date'`
  * for EVERY object view, declared or not — field names no view had written and
@@ -296,7 +296,7 @@ export function ganttViewOptions(viewDef: any): Record<string, unknown> {
 /**
  * The `options.gallery` config this page hands to `ListView`.
  *
- * objectui#7547 — the last surviving member of the objectui#7029 / #7070 /
+ * objectui#7547 — the last surviving member of the objectui#7029 / `5f4514f7b` /
  * #7500 class on this face. It floored `imageField` at `'image'` for EVERY
  * object view, declared or not: a cover binding no view had written, on a field
  * name most objects do not carry.
@@ -313,10 +313,10 @@ export function ganttViewOptions(viewDef: any): Record<string, unknown> {
  * name this file wrote rather than one the author did. Gallery was offered
  * without a block, and stayed watchable only because the renderer happens to
  * degrade politely. That is a coincidence, not a design, and it is the same
- * second-order effect objectui#7029 measured for `calendar` and objectui#7070
+ * second-order effect objectui#7029 measured for `calendar` and `5f4514f7b`
  * for `gantt`.
  *
- * ⚠️ MEASURED BEFORE THE DELETION, the discipline objectui#7070 wrote down:
+ * ⚠️ MEASURED BEFORE THE DELETION, the discipline `5f4514f7b` wrote down:
  * #7029's mechanic — delete the literal, let the read site answer — is only
  * correct where the read site's answer is honest. `ObjectGallery` floors its
  * own `coverField` at `'image'` too, and that rung STAYS: it is the component's
@@ -2965,7 +2965,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 // See `galleryViewOptions`.
                 gallery: galleryViewOptions(viewDef),
                 // The gantt config the view DECLARED, title floored at 'name' —
-                // never an invented date field (objectui#7070). With no date
+                // never an invented date field (`5f4514f7b`). With no date
                 // binding to forward, ListView's capability gate stops offering
                 // the Gantt toggle to a view that configured none, and a view
                 // forced onto the gantt renderer reaches its refusal screen.

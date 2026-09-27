@@ -6,7 +6,7 @@
 Gantt views no longer hand the renderer invented `progress` / `dependencies`
 field names (objectui#7499).
 
-Flavour 3 of objectui#7070 — the half its 2026-09-01 ruling ordered carded
+Flavour 3 of the card whose date-axis half landed as `5f4514f7b` — the half its 2026-09-01 ruling ordered carded
 separately and judged on its own terms, ⛔ explicitly forbidding the date-axis
 conclusion from being imported. Two faces floored the pair, and app-shell
 carries neither key (measured: `|| 'progress'` counts 0 there; the control that

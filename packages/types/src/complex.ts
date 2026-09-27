@@ -131,11 +131,11 @@ export interface KanbanColumn {
    *
    * Named `cards` because that is what the board reads and every authored
    * document writes: `KanbanImpl` and `bucketCardsIntoColumns` read
-   * `column.cards` (measured at objectui#6939: 12 lines in `KanbanImpl`, and 8
+   * `column.cards` (measured at `240b80f31`: 12 lines in `KanbanImpl`, and 8
    * in `KanbanEnhanced` until objectui#8932 deleted it), and the two catalog
    * entries, the plugin docs and `content/docs/api/schema-reference.md` all
    * author it. The retired declarative face spelled this `items` until
-   * objectui#6939 — a spelling with zero read sites, which made every authored
+   * `240b80f31` — a spelling with zero read sites, which made every authored
    * board fail `safeValidateSchema` while rendering correctly (objectui#6318's
    * bucket).
    */
@@ -539,7 +539,7 @@ export interface FilterBuilderCondition {
 }
 
 /**
- * Filter group — the shape `FilterBuilder` reads (objectui#6939, the
+ * Filter group — the shape `FilterBuilder` reads (`d4493fdbc`, the
  * `filter-builder` group; maintainer ruling 2026-09-02, director seat summon
  * #8, verbatim 「同意」).
  *
@@ -704,7 +704,7 @@ export interface FilterBuilderSchema extends BaseSchema {
 
 /**
  * Filter field definition — one entry of `FilterBuilderSchema.fields`
- * (objectui#6939, same ruling).
+ * (`d4493fdbc`, same ruling).
  *
  * Renamed from `name` to `value`: every read site matches on `value`
  * (`fields.find((f) => f.value === …)` in `getOperatorsForField`,
@@ -740,7 +740,7 @@ export interface FilterField {
    *
    * `string` is still absent and is the contrast that makes the rest read: it
    * is named nowhere in the renderer and reaches the text control only by the
-   * unrecognised-word fallthrough, so it is a phantom (objectui#6939). `text`
+   * unrecognised-word fallthrough, so it is a phantom (`d4493fdbc`). `text`
    * shares that fallthrough but IS named — line 408 is where an absent `type`
    * acquires it — which is why one is declared and the other is not.
    */
@@ -1507,7 +1507,7 @@ export interface ChatbotSchema extends BaseSchema {
    * (`GridField`, `MasterDetailForm`); the same pass over `floatingConfig`, a
    * key that IS read, returned 79 lines, so the instrument was not blind. The
    * control and the seed are removed in the same change; the restatement of
-   * that control is this tombstone plus the release note (objectui#7070: a
+   * that control is this tombstone plus the release note (`5f4514f7b`: a
    * control is restated, never deleted into a vacuum).
    *
    * ## Why a tombstone — discriminator prong 2 — and why it is loud-vs-silent here

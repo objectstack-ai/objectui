@@ -27,10 +27,10 @@
  *   (Option B) was explicitly not taken.
  *
  * - The theme COMPONENT kinds: `ThemeComponentSchema` (`type: 'theme'`)
- *   RETIRED in objectui#5489 under the 2026-08-21 maintainer ruling on
+ *   RETIRED in `78cbdb530` under the 2026-08-21 maintainer ruling on
  *   objectstack#10485 (option B); then `ThemeSwitcherSchema`
  *   (`type: 'theme-switcher'`), `ThemePreviewSchema` (`type: 'theme-preview'`)
- *   and `ThemeUnionSchema` — which after objectui#5489 held only those two
+ *   and `ThemeUnionSchema` — which after `78cbdb530` held only those two
  *   members — RETIRED in objectui#5647, by inheritance of the same ruling on
  *   identical evidence. No renderer ever registered any of the three literals:
  *   absent from every `ComponentRegistry.register(...)` / `registerLazy(...)`

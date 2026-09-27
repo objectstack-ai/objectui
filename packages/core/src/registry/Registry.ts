@@ -16,7 +16,7 @@ import type { ComponentMeta as CanonicalComponentMeta } from '@object-ui/types';
 import type { ComponentConfig } from '@object-ui/types';
 // A THIRD `import type` from the same module, for the same reason as the
 // second: the line above is the shape objectui#6298's pin reads, so the name
-// the splice below is typed with (objectui#6950) gets its own line.
+// the splice below is typed with (`9e37d9b39`) gets its own line.
 import type { InjectedComponentInput } from '@object-ui/types';
 import {
   ELEMENT_DATA_SOURCE_INPUT,
@@ -424,7 +424,7 @@ function lazyStubFullType(type: string, entry: LazyEntry): string {
  * the same component, which the registry allows and tests do constantly, is
  * likewise a no-op rather than a growing `inputs` array.
  *
- * ## Typed end to end — the cast is gone (objectui#6950)
+ * ## Typed end to end — the cast is gone (`9e37d9b39`)
  *
  * The spliced element is an `InjectedComponentInput` (`@object-ui/types`): a
  * `ComponentInput` plus the framework-set `binding` marker, so it is a plain

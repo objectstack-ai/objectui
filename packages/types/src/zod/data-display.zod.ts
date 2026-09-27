@@ -219,7 +219,7 @@ export const TableColumnSchema = z.object({
   align: z.enum(['left', 'center', 'right']).optional().describe('Column alignment'),
   fixed: z.enum(['left', 'right']).optional().describe('Fixed column position'),
   // The canonical value set, built from the ONE declaration in
-  // `../data-display.ts` rather than restated here (objectui#5853, maintainer
+  // `../data-display.ts` rather than restated here (`fc62bb490`, maintainer
   // ruling 2026-08-25, Option B). This key was `z.string()`: every typo passed
   // — `type: 'money'` validated green, matched no renderer branch, and the
   // column silently fell through to plain text rendering. That is the lenient
@@ -658,7 +658,7 @@ export const ChartTypeSchema = stripImportedDefaults(SpecChartTypeSchema);
  * dataset-bound one, and neither carries values.
  */
 export const ChartDataSeriesSchema = z.object({
-  // BOTH BINDING DIALECTS (objectui#6939, maintainer ruling 2026-09-02 — the
+  // BOTH BINDING DIALECTS (`5f789538d`, maintainer ruling 2026-09-02 — the
   // `chart` row, verbatim 「同意」). `normalizeSeries` reads
   // `str(raw.dataKey) ?? str(raw.name)` (`plugin-charts/src/normalizeChartSchema.ts:239`),
   // so the two spellings are interchangeable at the renderer. This mirror

@@ -16,7 +16,7 @@ renderer does NOT drop: the normalizer keeps that renderer-internal spelling and
 `primary`, but it is not a member of the published pair, so it now refuses at `variant` (below).
 Such a document draws a chart today — the normalizer ignores the bad value, or honours `current`
 — so this is a narrowing away from something that renders, which is the
-distinction objectui#6939's grading language turns on, and it takes the level objectui#6896 and
+distinction the 2026-09-02 ruling's grading language turns on, and it takes the level objectui#6896 and
 objectui#7113 set for the same transition in this same file. This repository's `major` is a
 cross-repo pin to `@objectstack`'s major, not a severity dial; the change is announced here.
 
@@ -79,7 +79,7 @@ is unchanged; objectui#7682 owns that decision.
 The object stays non-strict — a truly undeclared key is still stripped, exactly as
 `chart-inline-data-retired.test.ts` pins; this change declares what is read, it does not close
 the object. The `data` tombstone (objectui#6896) and the at-least-one-binding refinement
-(objectui#6939 / #7113) are untouched. No reader changed.
+(`5f789538d`, objectui#7113) are untouched. No reader changed.
 
 Pinned in `packages/types/src/__tests__/chart-series-keys-7546.test.ts` — the card's fixture
 surviving byte-for-byte, each key on the mirror's own `.shape`, each value domain refusing at its

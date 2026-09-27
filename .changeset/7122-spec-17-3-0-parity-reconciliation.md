@@ -80,10 +80,10 @@ and `@object-ui/plugin-detail` `^17.1.0`, so a floor above the family minimum is
 this repo's normal state, not an exception.
 
 ⚠️ **Measured on both sides, because it is bump-caused rather than pre-existing
-and objectui#7688 records the opposite.** The gate is a scheduled / push-to-main
+and the card that filed the `[floor-too-low]` finding recorded the opposite.** The gate is a scheduled / push-to-main
 workflow that cannot red a pull request, and `main` is green on it — the last
 eight runs, most recently at `c2e3cee2c`. On this branch's built tree it exits 1
 with CI's own `--cross-check` invocation, and exits 0 with this raise, judging
 278 (subpath, symbol) pairs across 19 published packages either way. Its blocking
 copy runs on the publish path, so leaving it would have surfaced as a cancelled
-release rather than as a red check. The correction is recorded on objectui#7688.
+release rather than as a red check. The correction is recorded in `639114c4d`, the commit that landed this entry.

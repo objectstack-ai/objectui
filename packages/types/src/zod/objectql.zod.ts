@@ -1783,7 +1783,7 @@ export const ObjectMapConfigSchema = z.object({
 });
 
 /**
- * objectui#6939 — the record-source refinement `ObjectMapSchema`,
+ * `77cb489b4` — the record-source refinement `ObjectMapSchema`,
  * `ObjectGanttSchema` and `ObjectCalendarSchema` below share.
  *
  * Those renderers resolve their records from ONE of three keys, in this order:
@@ -1794,7 +1794,7 @@ export const ObjectMapConfigSchema = z.object({
  * wrapper and `plugin-gantt/src/ObjectGantt.tsx` calls directly: `data`, then
  * `staticData`, then `objectName`, else `null`. Both mirrors
  * used to REQUIRE `objectName` alone, so a document authored on `staticData`
- * (6 of the 20 catalog entries objectui#6939 measured) drew correctly and was
+ * (6 of the 20 catalog entries measured for the 2026-09-02 ruling) drew correctly and was
  * refused by `safeValidateSchema` — `declared !== enforced`, with the corpus
  * on the right side. `objectName` is optional on both members now, and this
  * refinement carries the requirement the renderers actually have: with none of
@@ -1864,7 +1864,7 @@ function requireRecordSource(type: 'object-map' | 'object-gantt' | 'object-calen
  * ruling and stay for compatibility.
  *
  * `objectName` is OPTIONAL and the member ends in `requireRecordSource`
- * (objectui#6939): `getDataConfig` reads `data`, then `staticData`, then
+ * (`77cb489b4`): `getDataConfig` reads `data`, then `staticData`, then
  * `objectName`, so a map authored on inline rows never reads the object name —
  * three catalog entries drew correctly and were refused here. Requiredness
  * moved to the refinement above, which is where the renderer actually has it.
@@ -1909,7 +1909,7 @@ export const ObjectTreeSchema = BaseSchema.extend({
  * ObjectGantt Schema
  *
  * `objectName` is OPTIONAL and the member ends in `requireRecordSource`
- * (objectui#6939): the shared record-source ladder `resolveRecordSourceConfig`
+ * (`77cb489b4`): the shared record-source ladder `resolveRecordSourceConfig`
  * (`@object-ui/core`, called by `plugin-gantt/src/ObjectGantt.tsx`) reads
  * `data`, then `staticData`, then `objectName`, so a gantt authored on inline
  * rows never reads the object name — three catalog entries drew correctly and
@@ -2056,7 +2056,7 @@ export const ObjectGanttSchema = BaseSchema.extend({
  * ObjectCalendar Schema
  *
  * `objectName` is OPTIONAL and the member ends in `requireRecordSource`
- * (objectui#7313, the objectui#6939 shape): the renderer resolves its records
+ * (objectui#7313, the `77cb489b4` shape): the renderer resolves its records
  * through the shared ladder (`resolveRecordSourceConfig` in
  * `@object-ui/core`, `plugin-calendar/src/ObjectCalendar.tsx`) — `data`, then
  * `staticData`, then `objectName` — so a calendar authored on inline rows never
@@ -2300,7 +2300,7 @@ export const KanbanConditionalFormattingRuleSchema = z.union([
  *
  * `cards` reuses `KanbanCardSchema` (`./complex.zod.ts`) rather than restating
  * it: the card vocabulary has one authority, and reaching it is what restores
- * objectui#6939's judging — a lane card with no `title` is refused again.
+ * the judging `240b80f31` established — a lane card with no `title` is refused again.
  */
 const ObjectKanbanLaneSchema = z.object({
   id: z.string().describe('Lane id — matched against the groupBy value. STRING only, and the narrowing stands on its own: until objectui#8993 the bucketer built knownIds from the raw col.id and compared it with Object.keys(groups), which are strings, so a numeric id bucketed every card TWICE; the sweep now keys membership the way the injection always did'),

@@ -44,7 +44,7 @@ picklist, and this repository's own typed board fixtures.
 carrying `cards`, `limit`, `className` and `collapsed` — exactly the members the
 two board implementations read at this change. When a lane carries `cards`, each
 card is judged by the one card authority (`KanbanCardSchema`), which is what
-restores objectui#6939's finding: **a card with no `title` is refused again**.
+restores what the kanban repair `240b80f31` established: **a card with no `title` is refused again**.
 
 ⚠️ **Dated note, 2026-09-25 — one board implementation remains —
 objectui#8932.** Later in this same release `KanbanEnhanced`, the second of the

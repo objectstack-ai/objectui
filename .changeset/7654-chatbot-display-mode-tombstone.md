@@ -45,7 +45,7 @@ FROM → TO:
 - `chatbot-floating` `defaultProps`: `displayMode: 'floating'` is no longer written into
   designer-created nodes.
 
-A control is restated, never deleted into a vacuum (objectui#7070): the restatement of
+A control is restated, never deleted into a vacuum (`5f4514f7b`): the restatement of
 the removed control is the tombstone's guidance plus this note.
 
 **Migration.** Delete `displayMode` from any TypeScript literal typed as `ChatbotSchema`

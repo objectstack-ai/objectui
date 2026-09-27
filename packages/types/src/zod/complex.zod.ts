@@ -426,7 +426,7 @@ export const FilterBuilderConditionSchema: z.ZodType<any> = z.lazy(() => FilterB
 
 /**
  * Filter Group Schema — the shape `FilterBuilder` actually reads
- * (objectui#6939, the `filter-builder` group; maintainer ruling 2026-09-02,
+ * (`d4493fdbc`, the `filter-builder` group; maintainer ruling 2026-09-02,
  * director seat summon #8, verbatim 「同意」).
  *
  * The gate is `isValidGroup` in `packages/components/src/custom/filter-builder.tsx`:
@@ -445,8 +445,8 @@ export const FilterBuilderConditionSchema: z.ZodType<any> = z.lazy(() => FilterB
  * never consults it and nothing else reads `filterGroup.id`; measured, deleting
  * `id` from an authored group renders BYTE-IDENTICALLY (76 elements, same text,
  * same SHA-256). Requiring it would refuse a document the renderer draws
- * perfectly — a fresh instance of the exact class objectui#6939 exists to
- * close. Declared rather than dropped because the component's exported
+ * perfectly — a fresh instance of the exact class that ruling's eight groups
+ * exist to close. Declared rather than dropped because the component's exported
  * `FilterGroup` carries it, `EMPTY_GROUP` emits it, every catalog entry authors
  * it, and it round-trips out through `onChange`; declaring it buys the type
  * check (`id: 42` now refuses) that an undeclared key would not get, since a
@@ -508,7 +508,7 @@ export const FilterGroupSchema: z.ZodType<any> = z.lazy(() => FilterGroupObject)
 
 /**
  * Filter Field Schema — one entry of `FilterBuilderSchema.fields`
- * (objectui#6939, same ruling).
+ * (`d4493fdbc`, same ruling).
  *
  * ## `value`, not `name`
  *
@@ -572,7 +572,7 @@ export const FilterGroupSchema: z.ZodType<any> = z.lazy(() => FilterGroupObject)
  *
  * `string` stays OUT, and that is the contrast the paragraph above turns on:
  * it is named NOWHERE in the renderer, so it reaches the text control only by
- * the fallthrough. A phantom, removed by objectui#6939 and not restored here;
+ * the fallthrough. A phantom, removed by `d4493fdbc` and not restored here;
  * the published doc does not offer it either, so the two faces agree.
  */
 export const FilterFieldSchema = z.object({

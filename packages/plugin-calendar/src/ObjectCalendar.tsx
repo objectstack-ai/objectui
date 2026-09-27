@@ -319,7 +319,7 @@ function getCalendarConfig(schema: ObjectCalendarSchema): ObjectCalendarConfig |
 /**
  * A record the calendar cannot place: the field declared as `startDateField`
  * carries no value on it, so there is no date to draw and none is invented
- * (objectui#7071). Deliberately just an id and a display title — the ruled
+ * (`bc5870c9f`). Deliberately just an id and a display title — the ruled
  * affordance is a count and a list, so nothing here feeds a scheduling gesture.
  */
 interface UnscheduledRecord {
@@ -370,7 +370,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
    */
   const [rowCeiling, setRowCeiling] = useState<NonGridCeilingResult | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
-  // Disclosure state of the "unscheduled" area (objectui#7071). Collapsed by
+  // Disclosure state of the "unscheduled" area (`bc5870c9f`). Collapsed by
   // default, as ruled: the count is always on screen, the list is opt-in.
   // Component state is the right home per AGENTS.md §5 #8 — nobody would share
   // or bookmark it — and it survives a data refresh because a refetch re-renders
@@ -438,7 +438,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // itself as reading, so the call site cannot come to depend on a key the
   // ladder does not read.
   //
-  // ⭐ THE CAST HERE IS GONE (objectui#9473), and its absence is the assertion.
+  // ⭐ THE CAST HERE IS GONE (`ab856ed30`), and its absence is the assertion.
   // `data` used to be spelled `schema.data as ViewData | undefined` because the
   // shared resolver's PARAMETER declared a flat `data?: ViewData` while its own
   // `dataArm` contract — and its `authoredDataIsOnTheDeclaredArm` predicate,
@@ -816,7 +816,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
       queryFilter, schema.sort, refreshKey, objectSchemaReady, objectSchema, perms, invalidationNonce]);
 
   // Transform data to calendar events, and separate out the records that have
-  // no date to be placed on at all (objectui#7071 — see the early return in the
+  // no date to be placed on at all (`bc5870c9f` — see the early return in the
   // loop below). ONE pass, so the two lists are always answers about the same
   // dataset and the count under the calendar can never disagree with the grid.
   const { events, unscheduledRecords } = useMemo(() => {
@@ -866,7 +866,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
       const id = record.id || record._id || `event-${index}`;
 
       // NO VALUE in the declared start field means the record has no date —
-      // full stop (objectui#7071, ruled 2026-09-01, re-confirmed 2026-09-02).
+      // full stop (`bc5870c9f`, ruled 2026-09-01, re-confirmed 2026-09-02).
       // This line used to read `startDate ? new Date(startDate) : new Date()`,
       // so a record missing its date was handed THE CURRENT MOMENT and drawn on
       // today's cell as an ordinary event. The `isNaN` guard below could not
@@ -925,7 +925,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
         // this card's own defect inverted. UNDECLARED means nothing changes —
         // every calendar that never authored the key renders as it did before.
         //
-        // The `!endDate` arm keeps its objectui#7071 reading unchanged: only a
+        // The `!endDate` arm keeps its `bc5870c9f` reading unchanged: only a
         // record that HAS a start reaches this line, so one absent field can no
         // longer set two rendered properties. A record without a start is
         // unscheduled, not all-day.
@@ -994,7 +994,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     // `schemaObjectName` resolved above, which already keys this calendar's
     // record query and which the detail drawer at the bottom of this file
     // resolves the same way. Before this it read the bare `schema.objectName`,
-    // so ONE click resolved the drawer through the objectui#6939 ladder and the
+    // so ONE click resolved the drawer through the record-source ladder (`77cb489b4`) and the
     // navigation URL through the top-level key — two receivers, one gesture,
     // two different objects.
     //
@@ -1409,7 +1409,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
           otherwise. Placement follows objectui#7148's chart footnote. */}
       {rowCeiling && <NonGridRowCeilingNote result={rowCeiling} />}
 
-      {/* The "unscheduled" containment area (objectui#7071, ruled 2026-09-01 and
+      {/* The "unscheduled" containment area (`bc5870c9f`, ruled 2026-09-01 and
           re-confirmed 2026-09-02). Records with no value in the declared start
           field are no longer given a fabricated date, so they are not on the
           grid above — they are counted here and listed on demand, which is what

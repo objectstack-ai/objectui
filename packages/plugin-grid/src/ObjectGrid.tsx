@@ -701,8 +701,8 @@ export interface ObjectGridComponentProps extends ObjectGridExternalPaginationPr
  *
  * The ruled three-rung ladder itself (`data`, then `staticData`, then
  * `objectName`) is `resolveRecordSourceConfig` in `@object-ui/core` — ONE
- * implementation of a contract published on both faces (objectui#6939), which
- * this file used to hand-copy (objectui#7632).
+ * implementation of a contract published on both faces (`77cb489b4`), which
+ * this file used to hand-copy (`ce2aaefe1`).
  *
  * What used to stay here was the head above it: the bare-array `data`
  * shorthand, which lifted `data: [...]` to `{ provider: 'value', items }`.
@@ -912,8 +912,8 @@ function normalizeColumns(
  *     consumer reads it, which is the same test that retired it when the
  *     consumer did not exist.
  *   - `options` — RETIRED (see the enrichment pass below).
- *   - `type` — not adjudicated here; objectui#5853 owns its VALUE set and its
- *     fold still stands. It is the one member whose vocabulary differs between
+ *   - `type` — not adjudicated here; its VALUE set was settled by `fc62bb490`,
+ *     whose fold still stands. It is the one member whose vocabulary differs between
  *     the two types below.
  *   - `name` — not emitted by this producer at all, so objectui#5120's alias
  *     never needed a hold here. Tombstoned only in the sense that nothing writes
@@ -987,7 +987,7 @@ export interface ObjectGridColumnHolds {
  * still the producer's raw inference vocabulary (`@objectstack/spec`'s
  * `FieldType`, 49 values) rather than the EIGHT-literal union `TableColumn`
  * declares (`TABLE_COLUMN_TYPES`: `text`, `number`, `date`, `datetime`,
- * `currency`, `percent`, `boolean`, `action`). objectui#5853 folds it
+ * `currency`, `percent`, `boolean`, `action`). `fc62bb490` folds it
  * downstream, in a pass that is deliberately separate from the enrichment map —
  * so the pre-fold shape needs a name, and this is it.
  *
@@ -3940,7 +3940,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     }
     return next;
   })
-    // ⭐ THE EMIT SEAM (objectui#5853, maintainer ruling 2026-08-25, Option B).
+    // ⭐ THE EMIT SEAM (`fc62bb490`, maintainer ruling 2026-08-25, Option B).
     //
     // Every column this component hands to `data-table` passes through here, so
     // it is the one place that can guarantee `TableColumn.type` only ever holds

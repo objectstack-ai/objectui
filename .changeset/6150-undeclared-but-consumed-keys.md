@@ -86,7 +86,7 @@ decisions publish in this same release.** This paragraph used to end "Declaring
 `data` stays required on both faces." Neither half of that is true any more, on
 either face:
 
-- **A `nodes`-only `tree-view` document IS legal.** objectui#6939 made `data`
+- **A `nodes`-only `tree-view` document IS legal.** `777e5c6f4` made `data`
   optional, so the `nodes` spelling the renderer reads FIRST stands on its own
   (`6939-tree-view-nodes-mirror.md`, published beside this note). `bind` is read
   before either and is unchanged.
@@ -95,7 +95,7 @@ either face:
   and the zod arm is a `retirementTombstone(...)` whose guidance points the author
   at `nodes` (`6951-tree-view-data-retired.md`, also published beside this note).
   `nodes` is `z.array(TreeNodeSchema).optional()`, and its own describe text
-  records that a `nodes`-only document became legal at objectui#6939.
+  records that a `nodes`-only document became legal (at `777e5c6f4`).
 
 ⛔ Nothing on the branch carrying this amendment falsified that sentence: it was
 already untrue at that branch's base, and both cards that made it untrue are

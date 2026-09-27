@@ -481,7 +481,7 @@ ComponentRegistry.register('chatbot-floating',
     // selector of presentation, and `<FloatingChatbot>` below renders
     // unconditionally — while `defaultProps` wrote `'floating'` into every
     // designer-created node. The control is restated, not deleted into a
-    // vacuum (objectui#7070): the restatement is the `?: never` tombstone on
+    // vacuum (`5f4514f7b`): the restatement is the `?: never` tombstone on
     // `ChatbotSchema` / `ChatbotFloatingSchema` in `@object-ui/types` and the
     // release note. Stored documents carrying the key are unaffected — it has
     // no Zod arm and `BaseSchema` is `.passthrough()`, so they parse exactly

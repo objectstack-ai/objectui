@@ -5,7 +5,7 @@
 Retire the `binding: 'field'` arm on the manifest READER and PRODUCER faces, so
 `@object-ui/sdui-parser` states one vocabulary instead of two (objectui#8315).
 
-The 2026-09-07 maintainer ruling on objectui#6950 (director decision batch #69)
+The 2026-09-07 maintainer ruling that `9e37d9b39` landed (director decision batch #69)
 retired the zero-writer `'field'` arm under ADR-0049 enforce-or-remove, naming
 **one** coordinate: `RegistryConfigLike.inputs[].binding`, the serializer's input
 boundary, which PR #8297 narrowed. Two declarations in `types.ts` kept the arm, so

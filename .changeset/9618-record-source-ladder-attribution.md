@@ -9,7 +9,7 @@ the function their renderers actually call (objectui#9618).
 Their zod `.describe` strings and TS docs said the `data` → `staticData` →
 `objectName` ladder is resolved by `getDataConfig`. Neither renderer has had a
 function by that name since the ladder moved into `@object-ui/core`'s shared
-`resolveRecordSourceConfig` (objectui#7632), so the text now names that
+`resolveRecordSourceConfig` (`ce2aaefe1`), so the text now names that
 function. The ladder order is unchanged, and so is every accepted document.
 The `ObjectMapSchema` text still says `getDataConfig`, which is true:
 `ObjectMap.tsx` keeps a local wrapper by that name that delegates to the shared

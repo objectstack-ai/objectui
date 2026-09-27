@@ -2837,7 +2837,7 @@ export interface ObjectMapSchema extends BaseSchema {
    * after {@link ObjectMapSchema.data} and {@link ObjectMapSchema.staticData}
    * (`plugin-map/src/ObjectMap.tsx`).
    *
-   * Optional since objectui#6939: a map authored on inline rows never reads
+   * Optional since `77cb489b4`: a map authored on inline rows never reads
    * this key, and requiring it refused three catalog entries that draw
    * correctly. The requirement the renderer really has — at least one of
    * `data`, `staticData`, `objectName` present — lives on the mirror as a
@@ -2960,7 +2960,7 @@ export interface ObjectGanttSchema extends BaseSchema {
    * (`@object-ui/core`) resolves, after {@link ObjectGanttSchema.data} and
    * {@link ObjectGanttSchema.staticData} (called by `plugin-gantt/src/ObjectGantt.tsx`).
    *
-   * Optional since objectui#6939: a gantt authored on inline rows never reads
+   * Optional since `77cb489b4`: a gantt authored on inline rows never reads
    * this key, and requiring it refused three catalog entries that draw
    * correctly. The requirement the renderer really has — at least one of
    * `data`, `staticData`, `objectName` present — lives on the mirror as a
@@ -2973,7 +2973,7 @@ export interface ObjectGanttSchema extends BaseSchema {
    * (`@object-ui/core`), which returns it verbatim when it is on the block's
    * declared arm — ahead of `staticData` / `objectName`.
    *
-   * Declared by objectui#6939, in the same stroke as the mirror's `data`: until
+   * Declared by `77cb489b4`, in the same stroke as the mirror's `data`: until
    * then the read landed on `BaseSchema`'s index signature on this side and
    * on `.passthrough()` on the mirror's, so the record source the resolver
    * prefers was the one neither face named. Same type as
@@ -3296,7 +3296,7 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * (`@object-ui/core`) resolves, after {@link ObjectCalendarSchema.data} and
    * {@link ObjectCalendarSchema.staticData} (called by `plugin-calendar/src/ObjectCalendar.tsx`).
    *
-   * Optional since objectui#7313 (the objectui#6939 shape): a calendar authored
+   * Optional since objectui#7313 (the `77cb489b4` shape): a calendar authored
    * on inline rows never reads this key, and requiring it refused the two
    * documented static-data examples that draw correctly. The requirement the
    * renderer really has — at least one of

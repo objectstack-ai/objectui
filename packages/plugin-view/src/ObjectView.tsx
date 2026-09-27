@@ -1909,7 +1909,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           ...(viewOptions.gallery || {}),
         };
       case 'timeline': {
-        // objectui#7070 step ③: the SECOND route to `ObjectTimeline`, fixed the
+        // `04a67b9dc` (step ③): the SECOND route to `ObjectTimeline`, fixed the
         // same way objectui#7029 fixed the calendar branch above.
         // `generateViewSchema` runs precisely when no host supplied
         // `renderListView` — the authored `object-view` element — so it never
@@ -1938,7 +1938,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         };
       }
       case 'gantt':
-        // objectui#7070: only ever restate a binding the view actually DECLARED
+        // `5f4514f7b`: only ever restate a binding the view actually DECLARED
         // — the same correction objectui#7029 made to the calendar branch above.
         // `startDateField` / `endDateField` used to be floored at 'start_date' /
         // 'end_date', field names no view had written and most objects do not
@@ -1949,7 +1949,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // `plugin-gantt/src/ObjectGantt.unconfiguredRefusal-7070.test.tsx`.
         //
         // `progressField` / `dependenciesField` are NOT floored either, as of
-        // objectui#7499 — the flavour-3 card #7070 scoped out and left pinned
+        // objectui#7499 — the flavour-3 card `5f4514f7b` scoped out and left pinned
         // here so that whoever retired them had a place to declare it. OMIT,
         // not refuse: "no progress" and "no dependencies" are legitimate and
         // common states (unlike an absent date axis), so refusing would break

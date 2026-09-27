@@ -1,7 +1,7 @@
 ---
 ---
 
-Corpus + test-only (objectui#6939): the three `components-complex-filter-builder`
+Corpus + test-only: the three `components-complex-filter-builder`
 schema-catalog entries now spell `conditions[].operator` with the members
 `FilterOperatorSchema` declares (`equals` / `less_than` / `greater_than`) instead
 of the spec's alias table (`eq` / `lt` / `gt`), so they pass

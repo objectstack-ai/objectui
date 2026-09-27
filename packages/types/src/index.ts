@@ -101,7 +101,7 @@ export type {
   SchemaNode,
   ComponentRendererProps,
   ComponentInput,
-  // The input the FRAMEWORK injects (`binding: 'object'`, objectui#6950) —
+  // The input the FRAMEWORK injects (`binding: 'object'`, `9e37d9b39`) —
   // `ComponentInput` plus the marker no registration may author.
   InjectedComponentInput,
   // The arm vocabulary of `ComponentInput.type`, exported because that field
@@ -269,7 +269,7 @@ export type {
 } from './data-display.js';
 
 // The canonical `TableColumn.type` vocabulary and the producer-seam fold that
-// keeps undeclared inference values out of that slot (objectui#5853).
+// keeps undeclared inference values out of that slot (`fc62bb490`).
 export { TABLE_COLUMN_TYPES, normalizeTableColumnType } from './data-display.js';
 
 // ============================================================================
@@ -806,7 +806,7 @@ export type {
   // `ThemeDefinition` were DELETED under the same ruling's zero-reader rider
   // (the first three live on as inline members of `Theme`).
   Theme,
-  // `ThemeComponentSchema` RETIRED in objectui#5489 — the `type: 'theme'`
+  // `ThemeComponentSchema` RETIRED in `78cbdb530` — the `type: 'theme'`
   // component kind no renderer implemented. See `./theme` for the tombstone.
   ThemeMode,
   ColorPalette,

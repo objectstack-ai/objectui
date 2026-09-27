@@ -3,7 +3,7 @@
 ---
 
 A readonly `markdown` / `html` / `richtext` form field now renders its content
-FORMATTED instead of showing the user its markup source (objectui#5498).
+FORMATTED instead of showing the user its markup source.
 
 `RichTextField`'s readonly early return rendered `{value}` as a React text child,
 so a readonly field of any of those three types displayed the stored markup as

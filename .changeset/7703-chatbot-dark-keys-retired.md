@@ -112,6 +112,6 @@ cannot rot into prose.
 ## Docs
 
 `content/docs/plugins/plugin-chatbot.mdx` gains the restatement of the six removed keys
-with their replacements (objectui#7070: a control is restated, never deleted into a
+with their replacements (`5f4514f7b`: a control is restated, never deleted into a
 vacuum), and its three present-tense claims that the `chatbot-floating` props spread is
 still unfiltered are corrected to what PR #8077 actually left behind.

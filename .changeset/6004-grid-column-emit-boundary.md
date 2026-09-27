@@ -26,6 +26,6 @@ Key verdicts: `headerIcon`, `pinned` and `wrap` are HELD and now declared at the
 seam; `options` is RETIRED — nothing on either side of the seam read it, and
 every value it carried still reaches its consumer through the field metadata the
 cell closure captures and the object schema the inline editor reads. `type` stays
-objectui#5853's and `name` is not emitted here at all.
+under `fc62bb490`'s fold and `name` is not emitted here at all.
 
 No rendering change.

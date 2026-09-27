@@ -153,7 +153,7 @@ export * from './utils/predicate-fields.js';
 export * from './utils/grouping-fields.js';
 export * from './utils/normalize-list-view.js';
 // The ONE record-source ladder, both halves. `resolveRecordSourceConfig`
-// (objectui#7632) is the PRODUCER — the ruled `data` / `staticData` /
+// (`ce2aaefe1`) is the PRODUCER — the ruled `data` / `staticData` /
 // `objectName` ladder, hand-copied into five view plugins with no gate holding
 // them together. `resolveRecordSourceObjectName` (`b041b9c0c`) is the READER
 // over its output: six view plugins each spelled "the object this block is
@@ -161,7 +161,7 @@ export * from './utils/normalize-list-view.js';
 // `objectName`" locally, and had drifted. Both are deliberately SEPARATE from
 // the `normalizeListViewSchema` gap-fill above: that one answers how
 // `objectName` gets POPULATED when absent (#7477 ruling B), these answer which
-// object a block RESOLVES (the objectui#6939 three-rung ladder). Merging them
+// object a block RESOLVES (the three-rung ladder `77cb489b4` declared). Merging them
 // would override one standing ruling or the other.
 // A THIRD reading ships beside them since objectui#9571:
 // `recordSourceDataArmForType` answers which `data` arm a registered block TYPE

@@ -11,8 +11,9 @@ carried, a pointer to an objectui issue that answers 404: `CheckboxSchema.wrappe
 `ContextMenuSchema.triggerClassName` / `contentClassName` / `modal`. A reader of a zod
 `description` has no repository to resolve a commit against, so each dead pointer is dropped
 rather than replaced (objectui#10803). On `ObjectGanttSchema.data` the clause that carried it,
-"undeclared on either face until" that issue, goes with it, which leaves the same text its
-`ObjectMapSchema.data` twin already carries.
+"undeclared on either face until" that issue, goes with it, leaving
+"Data source configuration — read FIRST by resolveRecordSourceConfig": the same shape as its
+`ObjectMapSchema.data` twin, which names `getDataConfig`.
 
 Nothing else in any string moves, and no key, path, accept set or refusal changes: every
 document that parsed before parses the same way.

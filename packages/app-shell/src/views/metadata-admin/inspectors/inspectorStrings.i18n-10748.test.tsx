@@ -197,22 +197,22 @@ describe('DashboardWidgetInspector — the empty states and the untitled fallbac
   for (const lang of ['zh', 'en'] as const) {
     it(`${lang}: a selection of another kind reads engine.inspector.widget.unsupportedSelection; the Close button beside it is the lit control`, () => {
       mountWidget(lang, { widgets: [] }, { kind: 'field', id: 'x' });
+      expect(closeButton(lang)).toBeTruthy();
       if (lang === 'zh') zhRow('engine.inspector.widget.unsupportedSelection');
       expect(emptyMessage()).toBe(tFormat('engine.inspector.widget.unsupportedSelection', LOCALE[lang], { kind: 'field' }));
-      expect(closeButton(lang)).toBeTruthy();
     });
 
     it(`${lang}: a widget no longer in the draft reads engine.inspector.widget.removed; the Close button beside it is the lit control`, () => {
       mountWidget(lang, { widgets: [] }, { kind: 'widget', id: 'gone' });
-      expect(emptyMessage()).toBe(row(lang, 'engine.inspector.widget.removed'));
       expect(closeButton(lang)).toBeTruthy();
+      expect(emptyMessage()).toBe(row(lang, 'engine.inspector.widget.removed'));
     });
 
     it(`${lang}: an untitled widget is named by engine.inspector.widget.untitledN; the kind caption above it is the lit control`, () => {
       mountWidget(lang, { widgets: [{ id: 'w9', type: 'bar' }] }, { kind: 'widget', id: 'w9' });
+      expect(screen.getByText(row(lang, 'engine.inspector.widget.kind'))).toBeTruthy();
       if (lang === 'zh') zhRow('engine.inspector.widget.untitledN');
       expect(widgetHeaderTitle()).toBe(tFormat('engine.inspector.widget.untitledN', LOCALE[lang], { n: 1 }));
-      expect(screen.getByText(row(lang, 'engine.inspector.widget.kind'))).toBeTruthy();
     });
   }
 });
@@ -241,10 +241,11 @@ describe('DashboardDefaultInspector — an untitled widget in the list (objectui
   for (const lang of ['zh', 'en'] as const) {
     it(`${lang}: a widget with no title and no id is named by engine.inspector.widget.untitledN; its remove button is the lit control`, () => {
       mountDashboard(lang);
-      if (lang === 'zh') zhRow('engine.inspector.widget.untitledN');
-      const name = tFormat('engine.inspector.widget.untitledN', LOCALE[lang], { n: 1 });
-      expect(screen.getAllByRole('button').some((b) => b.textContent === name), name).toBe(true);
       expect(screen.getAllByRole('button', { name: row(lang, 'engine.inspector.dashboard.removeWidget') })).toHaveLength(1);
+      if (lang === 'zh') zhRow('engine.inspector.widget.untitledN');
+      // The row's select button: the one beside the (lit) remove button.
+      const selectButton = screen.getAllByRole('button').find((b) => b.classList.contains('text-left'));
+      expect(selectButton?.textContent).toBe(tFormat('engine.inspector.widget.untitledN', LOCALE[lang], { n: 1 }));
     });
   }
 });
@@ -418,10 +419,14 @@ function mountNode(lang: Lang, selection: { kind: string; id: string }) {
 
 const BODY_NODE = { kind: NESTED_NODE_KIND, id: encodeNestedNodeId({ containerId: 'each', regionKey: 'body', nodeId: 'call' }) };
 
-/** The breadcrumb, found by its accessible name in `lang`. */
-function crumb(lang: Lang): Element {
-  const el = document.body.querySelector(`[aria-label="${row(lang, 'engine.inspector.flowNode.nestedLocation')}"]`);
-  expect(el, 'the nested-node breadcrumb, by its accessible name').toBeTruthy();
+/**
+ * The breadcrumb, found by its container crumb (author data, the same in every
+ * locale) so each case below reads one site without leaning on the other.
+ */
+function crumb(): Element {
+  const el = screen.getByText('For each').parentElement;
+  // container › region › node — the separators are aria-hidden.
+  expect(el?.querySelectorAll('span:not([aria-hidden])'), 'three crumb segments').toHaveLength(3);
   return el!;
 }
 
@@ -429,13 +434,12 @@ describe('FlowNodeInspector — the nested-node breadcrumb (objectui#10748)', ()
   for (const lang of ['zh', 'en'] as const) {
     it(`${lang}: the breadcrumb is named by engine.inspector.flowNode.nestedLocation`, () => {
       mountNode(lang, BODY_NODE);
-      expect(crumb(lang)).toBeTruthy();
+      expect(crumb().getAttribute('aria-label')).toBe(row(lang, 'engine.inspector.flowNode.nestedLocation'));
     });
 
     it(`${lang}: a loop body’s region crumb reads engine.flowRegion.body`, () => {
       mountNode(lang, BODY_NODE);
-      // container › region › node — the separators are aria-hidden.
-      const segments = Array.from(crumb(lang).querySelectorAll('span:not([aria-hidden])'));
+      const segments = Array.from(crumb().querySelectorAll('span:not([aria-hidden])'));
       expect(segments.map((s) => s.textContent)).toEqual(['For each', row(lang, 'engine.flowRegion.body'), 'Call']);
     });
   }
@@ -505,10 +509,22 @@ function mountScopedEdge(lang: Lang) {
   ));
 }
 
+/**
+ * The data-picker buttons on the mount, found by structure — the popover
+ * trigger that sits beside the value input — so a case about the popover's
+ * contents does not lean on the button's own name.
+ */
+function pickerButtons(): HTMLButtonElement[] {
+  const found = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button[aria-haspopup="dialog"]')).filter(
+    (b) => b.previousElementSibling?.matches('input, textarea'),
+  );
+  expect(found.length, 'a data-picker button').toBeGreaterThan(0);
+  return found;
+}
+
 /** Open the (only, or the last) picker on the mount; return its popover. */
-async function openPicker(lang: Lang): Promise<HTMLElement> {
-  const buttons = screen.getAllByRole('button', { name: row(lang, 'engine.flowScope.picker.insert') });
-  fireEvent.click(buttons.at(-1)!);
+async function openPicker(): Promise<HTMLElement> {
+  fireEvent.click(pickerButtons().at(-1)!);
   await flush();
   const list = document.body.querySelector<HTMLElement>('[cmdk-root]');
   expect(list, 'the picker popover').toBeTruthy();
@@ -530,12 +546,24 @@ function details(root: HTMLElement): Map<string, string | null> {
 
 describe('the variable data-picker — its own words (objectui#10748)', () => {
   for (const lang of ['zh', 'en'] as const) {
-    it(`${lang}: the button is named by engine.flowScope.picker.insert, the search box and the empty text read their rows`, async () => {
+    it(`${lang}: the button is named, and titled, by engine.flowScope.picker.insert`, () => {
       mountScopedEdge(lang);
-      const root = await openPicker(lang);
-      const search = root.querySelector<HTMLInputElement>('[cmdk-input]')!;
-      expect(search.getAttribute('placeholder')).toBe(row(lang, 'engine.flowScope.picker.search'));
-      fireEvent.change(search, { target: { value: 'zzzz-no-such-reference' } });
+      const button = pickerButtons().at(-1)!;
+      expect(button.getAttribute('aria-label')).toBe(row(lang, 'engine.flowScope.picker.insert'));
+      expect(button.getAttribute('title')).toBe(row(lang, 'engine.flowScope.picker.insert'));
+    });
+
+    it(`${lang}: the search box reads engine.flowScope.picker.search`, async () => {
+      mountScopedEdge(lang);
+      const search = (await openPicker()).querySelector<HTMLInputElement>('[cmdk-input]');
+      expect(search, 'the picker search box').toBeTruthy();
+      expect(search!.getAttribute('placeholder')).toBe(row(lang, 'engine.flowScope.picker.search'));
+    });
+
+    it(`${lang}: a search that matches nothing reads engine.flowScope.picker.empty`, async () => {
+      mountScopedEdge(lang);
+      const root = await openPicker();
+      fireEvent.change(root.querySelector<HTMLInputElement>('[cmdk-input]')!, { target: { value: 'zzzz-no-such-reference' } });
       await flush();
       expect(root.querySelector('[cmdk-empty]')?.textContent).toBe(row(lang, 'engine.flowScope.picker.empty'));
     });
@@ -551,7 +579,8 @@ describe('the variable data-picker — section headings and reference details (o
   for (const lang of ['zh', 'en'] as const) {
     it(`${lang}: the four flow-scope headings read engine.flowScope.group.*`, async () => {
       mountScopedEdge(lang);
-      const root = await openPicker(lang);
+      expect(screen.getByText(row(lang, 'engine.inspector.flowEdge.condition'))).toBeTruthy();
+      const root = await openPicker();
       expect(headings(root)).toEqual(
         ['variables', 'outputs', 'loop', 'trigger'].map((g) => row(lang, `engine.flowScope.group.${g}`)),
       );
@@ -559,7 +588,8 @@ describe('the variable data-picker — section headings and reference details (o
 
     it(`${lang}: a reference’s detail reads engine.flowScope.detail.*; tokens, type and object names stay as they are`, async () => {
       mountScopedEdge(lang);
-      const d = details(await openPicker(lang));
+      expect(screen.getByText(row(lang, 'engine.inspector.flowEdge.condition'))).toBeTruthy();
+      const d = details(await openPicker());
       const L = LOCALE[lang];
       if (lang === 'zh') {
         for (const k of ['variable', 'variableTyped', 'triggerRecord', 'previousRecord', 'priorOf', 'priorValue']) zhRow(`engine.flowScope.detail.${k}`);
@@ -593,7 +623,8 @@ describe('the approval expression picker — its headings and the pre-update det
         />
       ));
       await flush();
-      const root = await openPicker(lang);
+      expect(screen.getAllByText(row(lang, 'engine.inspector.flowNode.kind')).length).toBeGreaterThan(0);
+      const root = await openPicker();
       expect(headings(root)).toEqual(
         ['approvalCurrent', 'approvalTrigger', 'variables'].map((g) => row(lang, `engine.flowScope.group.${g}`)),
       );
@@ -640,13 +671,14 @@ describe('the client-side expression shape errors (objectui#10748)', () => {
 
     it(`${lang}: the edge condition — a brace inside CEL reads engine.flowExpr.braceInCondition, beside its lit Condition label`, () => {
       mountConditionEdge(lang, '{record.rating} >= 4');
+      expect(screen.getByText(row(lang, 'engine.inspector.flowEdge.condition'))).toBeTruthy();
       if (lang === 'zh') zhRow('engine.flowExpr.braceInCondition');
       expect(alerts()).toEqual([tFormat('engine.flowExpr.braceInCondition', L, { ref: 'record.rating' })]);
-      expect(screen.getByText(row(lang, 'engine.inspector.flowEdge.condition'))).toBeTruthy();
     });
 
     it(`${lang}: the edge condition — a non-CEL envelope reads engine.flowExpr.celDialect`, () => {
       mountConditionEdge(lang, { dialect: 'template', source: 'Hi {x}' });
+      expect(screen.getByText(row(lang, 'engine.inspector.flowEdge.condition'))).toBeTruthy();
       if (lang === 'zh') zhRow('engine.flowExpr.celDialect');
       expect(alerts()).toEqual([tFormat('engine.flowExpr.celDialect', L, { dialect: 'template' })]);
     });
@@ -664,6 +696,7 @@ describe('the client-side expression shape errors (objectui#10748)', () => {
           locale={L}
         />
       ));
+      expect(screen.getAllByText(row(lang, 'engine.inspector.flowNode.kind')).length).toBeGreaterThan(0);
       if (lang === 'zh') zhRow('engine.flowExpr.unbalancedParens');
       expect(alerts()).toContain(tFormat('engine.flowExpr.unbalancedParens', L, { source: '(record.a > 1' }));
     });
@@ -681,6 +714,7 @@ describe('the client-side expression shape errors (objectui#10748)', () => {
           locale={L}
         />
       ));
+      expect(screen.getAllByText(row(lang, 'engine.inspector.flowNode.kind')).length).toBeGreaterThan(0);
       if (lang === 'zh') zhRow('engine.flowExpr.unbalancedBrackets');
       expect(alerts()).toContain(tFormat('engine.flowExpr.unbalancedBrackets', L, { source: 'record.tags[0' }));
     });

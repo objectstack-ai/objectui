@@ -219,8 +219,23 @@ function toArray(value: any): any[] {
  * {@link kvToCondition} reads it back as one row. Two such rows collide on
  * `$or` and fall to the `$and` form, as any two rows on one key already do.
  */
-function isEmptyEntry(field: string): Record<string, any> {
+function isEmptyEntry(field: string): Record<string, unknown> {
   return { $or: [{ [field]: { $in: [''] } }, { [field]: { $null: true } }] };
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return v !== null && typeof v === 'object' && !Array.isArray(v);
+}
+
+/** `{ FIELD: { OP: comparand } }` — exactly one field and one operator — as `[FIELD, OP, comparand]`. */
+function soleFieldOperator(frag: unknown): [string, string, unknown] | null {
+  if (!isPlainObject(frag)) return null;
+  const entries = Object.entries(frag);
+  if (entries.length !== 1 || entries[0][0].startsWith('$')) return null;
+  const [field, ops] = entries[0];
+  if (!isPlainObject(ops)) return null;
+  const opEntries = Object.entries(ops);
+  return opEntries.length === 1 ? [field, opEntries[0][0], opEntries[0][1]] : null;
 }
 
 /**
@@ -229,22 +244,15 @@ function isEmptyEntry(field: string): Record<string, any> {
  * thing in another order or spelling, which reads back as the ordinary OR group
  * it is rather than being folded into this row.
  */
-function isEmptyEntryField(v: any): string | null {
+function isEmptyEntryField(v: unknown): string | null {
   if (!Array.isArray(v) || v.length !== 2) return null;
-  const [inFrag, nullFrag] = v;
-  const single = (frag: any): [string, any] | null => {
-    if (!frag || typeof frag !== 'object' || Array.isArray(frag)) return null;
-    const entries = Object.entries(frag);
-    return entries.length === 1 && !entries[0][0].startsWith('$') ? entries[0] : null;
-  };
-  const a = single(inFrag);
-  const b = single(nullFrag);
-  if (!a || !b || a[0] !== b[0]) return null;
-  const opsA = a[1];
-  const opsB = b[1];
-  if (!opsA || typeof opsA !== 'object' || Object.keys(opsA).length !== 1) return null;
-  if (!opsB || typeof opsB !== 'object' || Object.keys(opsB).length !== 1) return null;
-  return arraysEqual(opsA.$in, ['']) && opsB.$null === true ? a[0] : null;
+  const inHalf = soleFieldOperator(v[0]);
+  const nullHalf = soleFieldOperator(v[1]);
+  if (!inHalf || !nullHalf || inHalf[0] !== nullHalf[0]) return null;
+  const [field, inOp, members] = inHalf;
+  return inOp === '$in' && arraysEqual(members, ['']) && nullHalf[1] === '$null' && nullHalf[2] === true
+    ? field
+    : null;
 }
 
 /**

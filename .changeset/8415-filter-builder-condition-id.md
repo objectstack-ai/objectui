@@ -128,3 +128,14 @@ breaking for any author who wrote a condition without an identity. It is not
 `major` per this repo's fixed-group convention (objectui's own breaking changes
 ship as `minor`; the group's major tracks `@objectstack` — AGENTS.md 版本号策略,
 mechanically enforced by `scripts/check-changeset-no-major.mjs`).
+
+Superseded in this release by objectui#9306, on two points. (1) The chain an id-less
+condition is reported through is one union shorter: a filter group's `conditions`
+is now flat rows (a nested sub-group is retired and refused by name), so there is
+no union at `["conditions", 0]` any more. The document-level result is still the
+single `invalid_union` at `path: ["value"]`; inside it, arm 1 (`FilterGroupSchema`)
+now reports `invalid_type` at `["conditions", 0, "id"]` directly. (2) The
+component no longer declares its own `FilterBuilderCondition`: it derives the row
+from the `@object-ui/types` declaration, so the required `id: string` it carries is
+that declaration's. The chain described above is the tree this entry was written
+against.

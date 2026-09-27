@@ -49,7 +49,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { FILTER_LOGIC_ROWS, isFilterAST, parseFilterAST } from '@objectstack/spec/data';
-import { convertFiltersToAST, toFilterNode, mergeFilterNodes } from '../filter-converter';
+import { convertFiltersToAST, toFilterNode, mergeFilterNodes, FilterOperatorError } from '../filter-converter';
 import { ValueDataSource } from '../../adapters/ValueDataSource';
 
 const ALL_IDS = FILTER_LOGIC_ROWS.map((r) => String(r.id));
@@ -224,8 +224,12 @@ describe('objectui#8770 — the non-combinator tail is untouched', () => {
     expect(convertFiltersToAST({ a: null, b: undefined })).toBeUndefined();
   });
 
-  it('an empty operator map still returns the original object', () => {
-    expect(convertFiltersToAST({ a: {} })).toEqual({ a: {} });
+  it('an empty operator map is not folded — refused since objectui#9164', () => {
+    // ⚠️ UPDATED. This used to pin the original object coming back. It is not
+    // a TRUE identity and this fold still does not claim it; objectui#9164
+    // refuses it instead (envelope pinned in
+    // filter-empty-operator-map-9164.test.ts).
+    expect(() => convertFiltersToAST({ a: {} })).toThrow(FilterOperatorError);
   });
 
   it('an identity group beside a SKIPPED key folds — answered by objectui#9030', () => {
@@ -248,15 +252,20 @@ describe('objectui#8770 — the non-combinator tail is untouched', () => {
     expect(convertFiltersToAST({ $and: [], b: undefined })).toBeUndefined();
   });
 
-  it('⭐ an identity group beside an EMPTY OPERATOR MAP still returns the object', () => {
+  it('⭐ an identity group beside an EMPTY OPERATOR MAP is not folded', () => {
     // The control for "the two folds were told apart", restated on the boundary
     // objectui#9030 did not move. `{ a: {} }` is a key the loop ENTERED — the
     // operator loop simply ran zero times — so it is neither an identity group
-    // nor a skipped key, it stays in the denominator, and no arm claims it. A
+    // nor a skipped key, it stays in the denominator, and no fold claims it. A
     // repair that had folded on "no conditions were produced" would swallow
     // this; the one that landed cannot.
-    expect(convertFiltersToAST({ $and: [], a: {} })).toEqual({ $and: [], a: {} });
-    expect(convertFiltersToAST({ a: {}, b: undefined })).toEqual({ a: {}, b: undefined });
+    //
+    // ⚠️ UPDATED. These used to pin the original object coming back; since
+    // objectui#9164 they are refused (envelope pinned in
+    // filter-empty-operator-map-9164.test.ts). A fold would answer `undefined`
+    // rather than throw, so this is still the control it was.
+    expect(() => convertFiltersToAST({ $and: [], a: {} })).toThrow(FilterOperatorError);
+    expect(() => convertFiltersToAST({ a: {}, b: undefined })).toThrow(FilterOperatorError);
   });
 
   it('an identity group beside a key that DOES lower is unchanged', async () => {

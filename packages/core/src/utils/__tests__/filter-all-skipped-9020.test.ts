@@ -40,7 +40,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { isFilterAST } from '@objectstack/spec/data';
-import { convertFiltersToAST, toFilterNode, mergeFilterNodes } from '../filter-converter';
+import { convertFiltersToAST, toFilterNode, mergeFilterNodes, FilterOperatorError } from '../filter-converter';
 import { ValueDataSource } from '../../adapters/ValueDataSource';
 
 const ROWS = [
@@ -136,11 +136,16 @@ describe('objectui#9020 — controls', () => {
     expect(await selectedIds(node)).toEqual([]);
   });
 
-  it('an empty operator map still returns the original object', () => {
+  it('an empty operator map is claimed by neither guard — refused since objectui#9164', () => {
     // A third "no condition was produced" shape, and NOT this card's: no key was
     // skipped, so neither guard fires. objectui#8770 measured this boundary and
     // objectui#9020 did not move it.
-    expect(convertFiltersToAST({ a: {} })).toEqual({ a: {} });
+    //
+    // ⚠️ UPDATED. This used to pin the original object coming back. objectui#9164
+    // refuses it instead; the envelope is pinned in
+    // filter-empty-operator-map-9164.test.ts. It is still NOT folded, which is
+    // what this case is here to say.
+    expect(() => convertFiltersToAST({ a: {} })).toThrow(FilterOperatorError);
   });
 
   it('an empty filter still returns the original object', () => {
@@ -177,11 +182,16 @@ describe('objectui#9020 — the boundary that proves the two folds were told apa
   it('⭐ a PROCESSED key that produced nothing still satisfies neither guard', () => {
     // Where the arms are still told apart. `{ a: {} }` is entered by the loop
     // and pushes no condition; it is neither an identity group nor a skipped
-    // key, so it stays in the denominator and the object comes back. A repair
+    // key, so it stays in the denominator and no fold claims it. A repair
     // that had keyed the fold on "no conditions were produced" would swallow
     // these — which is the accidental merge this card was fenced against.
-    expect(convertFiltersToAST({ a: {}, b: undefined })).toEqual({ a: {}, b: undefined });
-    expect(convertFiltersToAST({ $and: [], a: {} })).toEqual({ $and: [], a: {} });
+    //
+    // ⚠️ UPDATED. These used to pin the original object coming back; since
+    // objectui#9164 they are refused (envelope pinned in
+    // filter-empty-operator-map-9164.test.ts). A merged fold would answer
+    // `undefined` instead of throwing, so the fence still holds.
+    expect(() => convertFiltersToAST({ a: {}, b: undefined })).toThrow(FilterOperatorError);
+    expect(() => convertFiltersToAST({ $and: [], a: {} })).toThrow(FilterOperatorError);
   });
 
   it('a nested all-skipped child was already handled and is unchanged', async () => {

@@ -37,3 +37,11 @@ a null-prototype bag and a cross-realm plain object are still read as operator
 maps; `Date` comparands still lower (objectui#8555); operator objects, `$in` /
 `$nin` / `$between` members, `$null` / `$exists`, `$and` / `$or` groups and the
 `$regex` / `$not` / bare-array refusals are all exactly as they were.
+
+⚠️ **Dated note, 2026-09-27 — an empty operator object ALONE is now refused — objectui#9164.**
+Later in this same release an empty operator map that is all a filter says
+(`{ created: {} }`) is refused with a `FilterOperatorError` rather than returned as the
+object. Beside a key that lowers it still constrains nothing — the case this entry's
+control pins — and it is still never read as an exotic comparand. The rest of this entry
+is kept as the reading of this change; the objectui#9164 entry states what that input now
+answers.

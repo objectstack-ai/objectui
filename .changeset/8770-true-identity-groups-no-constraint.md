@@ -51,3 +51,12 @@ about one filter.
 filter when it is absent — the same handling `toFilterNode` has always needed. At
 runtime, a filter that is nothing but TRUE-identity combinators now returns every row
 (what objectstack#5322 rules) instead of failing the request.
+
+⚠️ **Dated note, 2026-09-27 — an empty operator map no longer keeps the object — objectui#9164.**
+Later in this same release `convertFiltersToAST` refuses an empty operator map that is all
+a filter says (`{ a: {} }`, `{ a: {}, b: undefined }`, `{ $and: [], a: {} }`) with a
+`FilterOperatorError` instead of returning the object, so the sentence above that it
+"keeps the object" no longer holds for it; an all-null filter had already moved to
+`undefined` with objectui#9020. Only `{}` still comes back as itself. The rest of this
+entry is kept as the reading of this change; the objectui#9164 entry states what an empty
+operator map now answers.

@@ -398,6 +398,15 @@ export const ADJUDICATED = new Map([
     'packages/plugin-markdown/src/toc-anchor-parity.test.tsx',
     { reads: ['content/docs/utilities/runner.mdx'] },
   ],
+  // objectui#10824. Extracts this package's OWN README "Schema-Driven Usage"
+  // block and runs it through `safeValidateSchema`, so an edit to that README
+  // IS an edit to this test's input. The scanner also resolves the relative
+  // `'../../README.md'` literal against an ancestor and offers the root README;
+  // the path is anchored on the test file, so only the package README is read.
+  [
+    'packages/plugin-timeline/src/__tests__/readme-schema-driven-example-10824.test.ts',
+    { reads: ['packages/plugin-timeline/README.md'], notRead: ['README.md'] },
+  ],
   [
     'packages/types/src/__tests__/action-callback-retired-7068.test.ts',
     {

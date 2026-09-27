@@ -22,9 +22,16 @@
  * drawer's report arm takes: a report carrying a `columns` array), under a
  * provider whose adapter counts `queryDataset` calls. The bare
  * `useDataInvalidation` reader beside it is the positive control.
+ *
+ * Every `queryDataset` returns a promise the test settles INSIDE `act`, so the
+ * answer's render and its effects (the report's bus subscription among them)
+ * are flushed before the test emits the next change. An adapter that answered
+ * on its own resolved outside `act`: the DOM could show the report while the
+ * subscription effect was still pending, and an event emitted in that window
+ * was missed, which read as "never re-read" under load.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, act, cleanup, waitFor } from '@testing-library/react';
+import { render, act, cleanup } from '@testing-library/react';
 import { SchemaRendererProvider, notifyDataChanged, useDataInvalidation } from '@object-ui/react';
 import { DrillDownDrawer } from '@object-ui/plugin-dashboard';
 // Registers `spec-report`, the type the drawer's report arm renders.
@@ -42,13 +49,23 @@ afterEach(() => {
 });
 
 function makeDataSource() {
-  let amount = 100;
+  const pending: Array<(value: unknown) => void> = [];
   return {
-    setAmount(next: number) {
-      amount = next;
-    },
+    pending,
     find: vi.fn(async () => ({ data: [], total: 0 })),
-    queryDataset: vi.fn(async () => ({
+    queryDataset: vi.fn(
+      () =>
+        new Promise((resolve) => {
+          pending.push(resolve);
+        }),
+    ),
+  };
+}
+
+/** Answer the `n`-th query (1-based) inside `act`, and let the answer's render and effects flush. */
+async function answer(ds: ReturnType<typeof makeDataSource>, n: number, amount: number) {
+  await act(async () => {
+    ds.pending[n - 1]({
       rows: [{ stage: 'Won', owner: 'Ada', amount_sum: amount }],
       fields: [
         { name: 'stage', type: 'string', label: 'Stage' },
@@ -56,8 +73,9 @@ function makeDataSource() {
         { name: 'amount_sum', type: 'number', label: 'Amount' },
       ],
       object: 'deal',
-    })),
-  };
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
 }
 
 function BusControl() {
@@ -93,22 +111,23 @@ describe('a drill-down drawer’s `drillDown.report` re-reads on the data-invali
   it('re-reads after "*" and after its own object, not after another object, in place', async () => {
     const ds = makeDataSource();
     const { getByTestId } = renderDrawer(ds);
-    await waitFor(() => expect(document.querySelector('[data-testid="dataset-matrix"]')).not.toBeNull());
     expect(ds.queryDataset).toHaveBeenCalledTimes(1);
-    expect(ds.find, 'the drawer drew its record list instead of the report').not.toHaveBeenCalled();
+    await answer(ds, 1, 100);
     const matrix = document.querySelector('[data-testid="dataset-matrix"]');
+    expect(matrix, 'the drawer drew no report').not.toBeNull();
+    expect(ds.find, 'the drawer drew its record list instead of the report').not.toHaveBeenCalled();
 
-    ds.setAmount(250);
     await emit({ objectName: '*' });
     expect(getByTestId('bus-control').textContent, 'control: the event never reached a subscriber').toBe('1');
-    await waitFor(() => expect(ds.queryDataset, 'the drill report never re-read').toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(document.querySelector('[data-testid="dataset-matrix"]')?.textContent).toContain('250'));
+    expect(ds.queryDataset, 'the drill report never re-read').toHaveBeenCalledTimes(2);
+    await answer(ds, 2, 250);
+    expect(document.querySelector('[data-testid="dataset-matrix"]')?.textContent).toContain('250');
     expect(document.querySelector('[data-testid="dataset-matrix"]'), 'the re-read remounted the report').toBe(matrix);
 
     await emit({ objectName: 'some_other_object' });
     expect(ds.queryDataset, 'a change to another object re-read the drill report').toHaveBeenCalledTimes(2);
 
     await emit({ objectName: 'deal' });
-    await waitFor(() => expect(ds.queryDataset).toHaveBeenCalledTimes(3));
+    expect(ds.queryDataset).toHaveBeenCalledTimes(3);
   });
 });

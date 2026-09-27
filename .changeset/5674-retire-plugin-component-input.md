@@ -5,10 +5,12 @@
 Retire the published alias `PluginComponentInput` — use `ComponentInput` (objectui#5674).
 
 Stage 2 of 2 of a maintainer-ruled retirement (2026-08-22, item 13 = A: deprecate for a
-release, then delete). Stage 1 (this same package, a prior `patch` release) marked
-`ComponentInput as PluginComponentInput` `@deprecated`, pointing at `ComponentInput`,
-without removing it. This change removes it: `@object-ui/types`' entry point no longer
-exports `PluginComponentInput` at all.
+release, then delete). Stage 1 marked `ComponentInput as PluginComponentInput`
+`@deprecated`, pointing at `ComponentInput`, without removing it. That code merged and
+reached users in the published `17.6.0` tarball, but no CHANGELOG entry records it: its
+own changeset (`plugin-component-input-deprecate-5674.md`) is still pending and releases
+alongside this one, not as a prior release of its own. This change removes the alias:
+`@object-ui/types`' entry point no longer exports `PluginComponentInput` at all.
 
 **Why now, and why a `minor` rather than waiting further.** The deprecation window exists
 to warn a consumer outside this repository, unmeasurable from here, before a published

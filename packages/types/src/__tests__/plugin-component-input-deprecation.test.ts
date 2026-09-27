@@ -13,10 +13,10 @@
  * ## Sequencing
  *
  * Maintainer ruling, 2026-08-22 (item 13 = A): deprecate for a release, then
- * delete. Stage 1 (PR #5897) added the `@deprecated` tag pinned by this same
- * file, then named `plugin-component-input-deprecation.test.ts`; nothing was
- * removed there. Stage 2 was filed as a follow-up (#5892) gated on "a release
- * actually shipping the deprecation" — but #5892 was later closed as a
+ * delete. Stage 1 (PR #5897) added the `@deprecated` tag and created this file
+ * as `plugin-component-input-deprecation.test.ts`; nothing was removed there.
+ * Stage 2 was filed as a follow-up (#5892) gated on "a release actually
+ * shipping the deprecation" — but #5892 was later closed as a
  * duplicate into a release-batch carrier (objectui#10060) that now answers
  * 404, so the deletion had no carrier and the card sat on hold with no
  * `Restart-when:`. Execution ruling, 2026-09-27 (triage comment 5857459542,

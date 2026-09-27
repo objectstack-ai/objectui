@@ -173,7 +173,7 @@ describe('WRITER — a number and a date column get no `\'\'` member (objectui#1
     { type: 'date', field: 'due_on', label: 'Due on' },
   ];
   describe.each(TYPED)('$type column', ({ field, label }) => {
-    it.each(OPERATORS)('"$label" writes the $null half alone', async ({ id, label: op }) => {
+    it.each(OPERATORS)('"$label" writes the null half alone', async ({ id, label: op }) => {
       const { onChange } = await freshRowOn(label);
       await pickFrom(1, op);
       const stored = lastEmitted(onChange);

@@ -21,8 +21,8 @@ authoring boundary:
 
 **What to write instead:**
 
-- `events` → `items`. Each entry is a timeline item `{ time, title, description?, variant?,
-  icon?, content?, className? }` — the date goes in `time`, not `date`, and a marker colour is
+- `events` → `items`. Each entry is a timeline item `{ time?, title, description?, variant?,
+  icon?, content?, className? }` (`title` required) — the date goes in `time`, not `date`, and a marker colour is
   `variant` (`default` / `success` / `warning` / `danger` / `info`), not `color`.
 - `orientation` → `variant` (`'vertical'`, `'horizontal'` or `'gantt'`) — the same values for
   the two layouts it named.
@@ -30,8 +30,9 @@ authoring boundary:
   left. Delete the key.
 
 **What still type-checks and still parses:** a timeline that never wrote the three — absent
-stays valid on both halves, and every key the renderer reads (`variant`, `items`, `dateFormat`,
-`scale`, `rowLabel`, `minDate`, `maxDate`, `className`) is unchanged. The `TimelineEvent`
+stays valid on both halves, and every declared key the renderer reads (`variant`, `items`,
+`dateFormat`, `scale`, `rowLabel`, `minDate`, `maxDate`, `className`) is unchanged, as is the
+undeclared `onItemClick` runtime slot that `ObjectTimeline` installs. The `TimelineEvent`
 interface and its Zod mirror `TimelineEventSchema` stay exported, so an import of either still
 compiles; nothing in `TimelineSchema` references them any more.
 

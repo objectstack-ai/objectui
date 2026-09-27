@@ -2978,7 +2978,7 @@ export interface TimelineSchema extends BaseSchema {
    * render — so the route is REMOVE, not enforce.
    *
    * `?: never` is this package's tombstone convention (see
-   * {@link TimelineSchema.timeScale} directly above, {@link StaticTableColumn}
+   * {@link TimelineSchema.timeScale} a few members above, {@link StaticTableColumn}
    * objectui#5474), and it is load-bearing rather than decorative.
    * {@link BaseSchema} carries `[key: string]: any`, so DELETING this member
    * would let the retired key type-check green and keep drawing an empty rail

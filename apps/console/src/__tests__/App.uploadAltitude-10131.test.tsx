@@ -211,6 +211,9 @@ afterEach(() => {
   uploadSpy.mockClear();
   adapterOptions.length = 0;
   vi.restoreAllMocks();
+  // The no-provider counter-probe stubs `URL`; undone here, not inline, so a
+  // failing assertion cannot leak the stub into the next test.
+  vi.unstubAllGlobals();
 });
 
 describe('console upload destination — altitude (objectui#10131)', () => {
@@ -255,7 +258,6 @@ describe('console upload destination — altitude (objectui#10131)', () => {
     expect(createObjectURL).toHaveBeenCalledTimes(1);
     expect(uploadSpy).not.toHaveBeenCalled();
     expect(onValue).not.toHaveBeenCalled();
-    vi.unstubAllGlobals();
   });
 
   it('leaves a form with no file field alone', async () => {

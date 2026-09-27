@@ -103,6 +103,9 @@ function fileInput(): HTMLInputElement {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  // The no-provider arm stubs `URL`; undone here, not inline, so a failing
+  // assertion cannot leak the stub into the next test.
+  vi.unstubAllGlobals();
 });
 
 describe('FileField submits the sys_file id or refuses (objectui#7699)', () => {
@@ -213,7 +216,6 @@ describe('FileField submits the sys_file id or refuses (objectui#7699)', () => {
     expect(createObjectURL).toHaveBeenCalledTimes(1);
     expect(onChange).not.toHaveBeenCalled();
     expect(everythingHandedOver(onChange)).not.toMatch(/blob:|url|mime_type/);
-    vi.unstubAllGlobals();
   });
 });
 

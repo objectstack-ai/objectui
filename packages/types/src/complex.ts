@@ -247,11 +247,12 @@ export interface KanbanColumn {
  * renders through the surviving spelling and this retirement moves zero stored
  * documents.
  *
- * {@link KanbanCard}, {@link KanbanColumn}, {@link CardTemplate} and
- * {@link ColumnWidthConfig} are NOT retired — the renderer and the
- * `CardTemplates` component still consume the first three. The one
- * `plugin-kanban` reader of {@link ColumnWidthConfig} was removed by
- * objectui#8522, whose ruling did not reach the type itself.
+ * {@link KanbanCard}, {@link KanbanColumn} and {@link CardTemplate} are NOT
+ * retired — the renderer and the `CardTemplates` component still consume
+ * them. `ColumnWidthConfig`, which this arm also carried, lost its one
+ * `plugin-kanban` reader to objectui#8522 and was then deleted, with its Zod
+ * mirror, by objectui#10582 (pinned in
+ * `./__tests__/column-width-config-retired-10582.test.ts`).
  *
  * Pinned in `./__tests__/bare-kanban-node-key-retired-8802.test.ts`.
  */
@@ -268,20 +269,6 @@ export interface CardTemplate {
   icon?: string;
   /** Pre-filled field values */
   values: Record<string, any>;
-}
-
-/**
- * Configuration for custom column widths.
- */
-export interface ColumnWidthConfig {
-  /** Default column width in pixels */
-  defaultWidth?: number;
-  /** Minimum column width in pixels */
-  minWidth?: number;
-  /** Maximum column width in pixels */
-  maxWidth?: number;
-  /** Per-column width overrides keyed by column ID */
-  overrides?: Record<string, number>;
 }
 
 /**

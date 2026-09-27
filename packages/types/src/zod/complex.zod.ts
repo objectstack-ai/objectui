@@ -150,16 +150,6 @@ export const CardTemplateSchema = z.object({
 });
 
 /**
- * Column Width Config Schema — mirrors {@link ColumnWidthConfig} in `../complex.ts`.
- */
-export const ColumnWidthConfigSchema = z.object({
-  defaultWidth: z.number().optional().describe('Default column width in pixels'),
-  minWidth: z.number().optional().describe('Minimum column width in pixels'),
-  maxWidth: z.number().optional().describe('Maximum column width in pixels'),
-  overrides: z.record(z.string(), z.number()).optional().describe('Per-column width overrides keyed by column ID'),
-});
-
-/**
  * ⛔ The `'kanban'` arm is RETIRED (objectui#8802, maintainer ruling 2026-09-09)
  * — this is its NAMED REFUSAL, the half a deletion would not have given.
  *

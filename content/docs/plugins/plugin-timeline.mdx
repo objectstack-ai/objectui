@@ -70,7 +70,7 @@ const schema: TimelineSchema = {
 {
   type: 'timeline',
   variant?: 'vertical' | 'horizontal' | 'gantt',
-  items?: TimelineItem[],
+  items?: (TimelineFeedItem | TimelineGanttItem)[],
   dateFormat?: 'short' | 'long' | 'iso',
   // Gantt-specific
   scale?: 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year',
@@ -83,31 +83,58 @@ const schema: TimelineSchema = {
 
 ### Timeline Item (Vertical/Horizontal)
 
+Exported as `TimelineFeedItem`. These seven keys are the whole item — `title`
+is required.
+
 ```plaintext
 {
-  time: string,              // ISO date string
+  time?: string,             // ISO date string
   title: string,
   description?: string,
   variant?: 'default' | 'success' | 'warning' | 'danger' | 'info',
-  icon?: string,            // Emoji or text
-  content?: SchemaNode,     // Custom React content
+  icon?: string,             // Emoji or text
+  content?: SchemaNode | SchemaNode[],  // Custom content below the description
   className?: string
 }
 ```
 
 ### Gantt Item
 
+Exported as `TimelineGanttItem` (a row) and `TimelineGanttItemBar` (one bar).
+`label` is required; a row with no bars yet may omit `items`.
+
 ```plaintext
 {
-  label: string,            // Row label
-  items: Array<{
-    title: string,
-    startDate: string,      // ISO date string
-    endDate: string,        // ISO date string
+  label: string,             // Row label
+  items?: Array<{
+    title?: string,
+    startDate?: string | number | Date,  // ISO date string, or epoch milliseconds
+    endDate?: string | number | Date,
     variant?: 'default' | 'success' | 'warning' | 'danger' | 'info'
   }>
 }
 ```
+
+A bar whose dates cannot be drawn is not a validation failure: the chart shows
+its "unusable date range" message for it instead.
+
+<Callout type="warn">
+`variant` decides which of the two shapes `items` holds — `vertical` (the
+default) and `horizontal` draw timeline items, `gantt` draws gantt rows.
+Validation judges every item against the shape its `variant` selects, so a
+gantt row on a vertical timeline, or a timeline item on a gantt timeline, is
+refused instead of drawing an empty entry. TypeScript cannot see this pairing
+(it spans the parent's `variant`), so it is caught when the schema is
+validated rather than at compile time.
+</Callout>
+
+<Callout type="info">
+Items composed by an object-bound timeline also carry colour, group, status
+chips and a start/end range. Those are internal to the renderer, not item keys
+you author: `TimelineFeedItem` does not declare them, and the strict authoring
+schema in `@object-ui/types/zod` refuses them by name. Put a date in `time`,
+not `date`.
+</Callout>
 
 ## Properties
 

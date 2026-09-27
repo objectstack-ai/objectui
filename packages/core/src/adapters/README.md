@@ -174,15 +174,22 @@ anything else below.
 #### An empty operator map refuses the whole filter
 
 `{ field: {} }` names a field and no operator; `@objectstack/spec` ruled it REJECTED
-wherever it appears (objectstack#5240). It is judged BEFORE any row is matched
-(objectui#10817): the object arm walks the filter's field entries and the members of
+wherever the matcher executes (objectstack#5240). On this face it is judged BEFORE
+any row is matched wherever the matcher executes (objectui#10817) — under `$not`,
+which is refused per node, the walk does not look: the object arm walks the filter's
+field entries and the members of
 `$and` / `$or`, and hands each field whose condition is an object with no own keys to
-`toFilterNodeSafely`, so the converter decides, in its own wording, exactly as it does
-before a wire query. A refusal answers the whole filter with no rows and logs the
+`toFilterNodeSafely`, so the converter decides what that condition is, in its own
+wording. The field is judged alone, as `{ [field]: condition }`, not inside the whole
+filter: `{ status: ['a'], created: {} }` names `created` here and `status` before a
+wire query, and until objectui#10789 lands the converter still lowers
+`{ $or: [{}, { created: {} }] }` to no constraint while this face refuses it. A
+refusal answers the whole filter with no rows and logs the
 converter's reason once — the way the array arm answers a rule its lowering refuses —
 so `{ $or: [{ status: 'b' }, { created: {} }] }` answers no rows, not the `'b'` rows.
 A `RegExp`, `Map` or `Set` comparand has no own keys either and gets the converter's
-exotic-comparand refusal (objectui#8567); a `Date` lowers, so it is matched as before.
+exotic-comparand refusal (objectui#8567); a `Date` lowers, so it reaches the matcher
+as before, where its constraint still vanishes (objectui#10829).
 
 Anything else is **refused**: the row is excluded and the reason is logged once per
 distinct refusal per `find()` — never passed through as "no constraint", which is

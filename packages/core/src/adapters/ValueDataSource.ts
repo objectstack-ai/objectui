@@ -1009,8 +1009,8 @@ function matchesFilter(
  * `{ status: 'a', created: {} }` answered the same rows as `{ status: 'a' }`,
  * and `{ created: {} }` answered every row, with no console line. The same
  * authored filter is refused on the ObjectStack path: `@objectstack/spec` ruled
- * `{ field: {} }` REJECTED wherever it appears (objectstack#5240, recorded on
- * `FilterConditionSchema`), and `convertFiltersToAST` refuses it alone
+ * `{ field: {} }` REJECTED wherever the matcher executes (objectstack#5240,
+ * recorded on `FilterConditionSchema`), and `convertFiltersToAST` refuses it alone
  * (objectui#9164) and beside a key that lowers (objectui#10788). One filter,
  * two fates, and the value face took the widening one.
  *
@@ -1029,7 +1029,9 @@ function matchesFilter(
  * converter refuses it as an exotic comparand (objectui#8567), so this face now
  * refuses it too instead of dropping the constraint. A `Date` has no own keys
  * either, but the converter LOWERS it, so it reaches the matcher exactly as
- * before. A `null` / `undefined` condition is not an object and is not routed.
+ * before — where its constraint still vanishes, exactly as before
+ * (objectui#10829). A `null` / `undefined` condition is not an object and is
+ * not routed.
  *
  * ## Why up front, and why the whole filter
  *

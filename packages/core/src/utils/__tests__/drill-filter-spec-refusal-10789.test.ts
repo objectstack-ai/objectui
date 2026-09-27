@@ -25,26 +25,9 @@
  * - §3 — CONTROL: a well-formed pair still composes.
  */
 
-import { describe, it, expect, vi, afterEach } from 'vitest';
-
-/** Set by §2 to make the spec's lowering throw a non-refusal error. */
-let parseOverride: (() => never) | null = null;
-
-vi.mock('@objectstack/spec/data', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@objectstack/spec/data')>();
-  return {
-    ...actual,
-    parseFilterAST: ((...args: Parameters<typeof actual.parseFilterAST>) =>
-      parseOverride ? parseOverride() : actual.parseFilterAST(...args)) as typeof actual.parseFilterAST,
-  };
-});
-
+import { describe, it, expect, vi } from 'vitest';
 import { composeDrillFilter } from '../drill-down';
 import { FilterOperatorError } from '../filter-converter';
-
-afterEach(() => {
-  parseOverride = null;
-});
 
 function refusalOf(call: () => unknown): unknown {
   try {
@@ -71,12 +54,29 @@ describe('objectui#10789 — the spec’s refusal leaves the drill seam as a Fil
 });
 
 describe('objectui#10789 — only INVALID_FILTER is re-raised', () => {
-  it('any other error from the spec passes through untouched', () => {
+  it('any other error from the spec passes through untouched', async () => {
+    // A FRESH module graph with the spec's lowering replaced, undone in
+    // `finally`: the `unit` project runs with `isolate: false`, so a
+    // module-scope `vi.mock` would depend on whether an earlier file in the
+    // worker had already loaded this seam — and would leak into later files.
     const defect = new TypeError('not a refusal');
-    parseOverride = () => {
-      throw defect;
-    };
-    expect(refusalOf(() => composeDrillFilter({ region: 'emea' }, { stage: 'won' }))).toBe(defect);
+    vi.resetModules();
+    vi.doMock('@objectstack/spec/data', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('@objectstack/spec/data')>();
+      return {
+        ...actual,
+        parseFilterAST: (() => {
+          throw defect;
+        }) as typeof actual.parseFilterAST,
+      };
+    });
+    try {
+      const fresh = await import('../drill-down');
+      expect(refusalOf(() => fresh.composeDrillFilter({ region: 'emea' }, { stage: 'won' }))).toBe(defect);
+    } finally {
+      vi.doUnmock('@objectstack/spec/data');
+      vi.resetModules();
+    }
   });
 });
 

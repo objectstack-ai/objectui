@@ -1871,7 +1871,7 @@ function requireRecordSource(type: 'object-map' | 'object-gantt' | 'object-calen
  */
 export const ObjectMapSchema = BaseSchema.extend({
   type: z.literal('object-map'),
-  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source getDataConfig resolves, after data and staticData; one of the three must be present (objectui#6939)'),
+  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source getDataConfig resolves, after data and staticData; one of the three must be present'),
   data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by getDataConfig'),
   staticData: z.array(z.any()).optional().describe('Inline records — read SECOND by getDataConfig, wrapped into a { provider: value } config'),
   filter: z.array(z.any()).optional().describe('Query filter, forwarded as $filter'),
@@ -1922,8 +1922,8 @@ export const ObjectTreeSchema = BaseSchema.extend({
  */
 export const ObjectGanttSchema = BaseSchema.extend({
   type: z.literal('object-gantt'),
-  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source resolveRecordSourceConfig resolves, after data and staticData; one of the three must be present (objectui#6939)'),
-  data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by resolveRecordSourceConfig; undeclared on either face until objectui#6939'),
+  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source resolveRecordSourceConfig resolves, after data and staticData; one of the three must be present'),
+  data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by resolveRecordSourceConfig'),
   startDateField: z.string().optional().describe('Start date field'),
   endDateField: z.string().optional().describe('End date field'),
   titleField: z.string().optional().describe('Title field'),

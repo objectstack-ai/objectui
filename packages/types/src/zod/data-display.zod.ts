@@ -572,7 +572,7 @@ export const TreeViewSchema = BaseSchema.extend({
     + 'authored `data` would render an empty tree. Rename the key; the array is unchanged.',
   ),
   nodes: z.array(TreeNodeSchema).optional()
-    .describe('Inline tree nodes — the one inline spelling, read as the second limb of `boundData || schema.nodes || []` (a `bind`-resolved value wins, so this stays optional and no presence rule exists — objectui#6951 B1). Declared by objectui#6150; a `nodes`-only document became LEGAL at objectui#6939; the `data` fallback spelling was retired by objectui#6951 (the registration\'s own `inputs` and `defaultProps` spell it `nodes`, and the four catalog entries ARE those `defaultProps`)'),
+    .describe('Inline tree nodes — the one inline spelling, read as the second limb of `boundData || schema.nodes || []` (a `bind`-resolved value wins, so this stays optional and no presence rule exists — objectui#6951 B1). Declared by objectui#6150; a `nodes`-only document became LEGAL; the `data` fallback spelling was retired by objectui#6951 (the registration\'s own `inputs` and `defaultProps` spell it `nodes`, and the four catalog entries ARE those `defaultProps`)'),
   title: z.string().optional()
     .describe('Heading above the tree — renders only when set (objectui#6150)'),
   defaultExpandedIds: z.array(z.string()).optional().describe('Default expanded node IDs'),

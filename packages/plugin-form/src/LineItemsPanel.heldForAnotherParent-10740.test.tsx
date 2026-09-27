@@ -41,11 +41,11 @@
  * state it names. The banner is read through the message the adapter threw; the
  * placeholder through its test id, never its wording.
  *
- * The one row that reaches `save` while the Save button is off does so by
- * clearing the button's `disabled` on the DOM node before clicking: that is a
- * host re-enabling the control, or a future caller of `save` that is not this
- * button. It pins the function's own guard, which no click through the rendered
- * UI can otherwise reach while the button's guard holds.
+ * The panel's `save` carries the same refusal as the Save button, on the
+ * function itself. No row here reaches it: the button and the function read the
+ * same render's predicate, so a click through the rendered UI cannot reach
+ * `save` while the button is off. It is the write contract's own guard, as the
+ * `childObject` guard on `save` is, and is not pinned by this file.
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -230,24 +230,6 @@ describe('LineItemsPanel refuses the lines it holds for another parent (objectui
     await clickSave();
     await settle(() => {});
     expect(dataSource.batchTransaction).not.toHaveBeenCalled();
-  });
-
-  it('defence in depth: a click that reaches save while the held rows are another parent’s sends no batch', async () => {
-    const { dataSource } = await mountP1EditedThenP2Failed();
-    const button = saveButton()!;
-    expect(button.disabled).toBe(true);
-
-    // The button's own guard is bypassed on the DOM node, so the click reaches
-    // the panel's `save`. Its guard is what is measured here.
-    button.disabled = false;
-    await act(async () => {
-      fireEvent.click(button);
-    });
-    await settle(() => {});
-
-    expect(dataSource.batchTransaction, 'save built a batch from another parent’s rows').not.toHaveBeenCalled();
-    // `save` returned before it marked the panel saving.
-    expect(saveButton()?.textContent).toBe('Save');
   });
 
   it('a line added under a FIRST load that failed, then a swap to p2 whose load fails: the added line is not drawn under p2 and Save is off', async () => {

@@ -41,7 +41,7 @@ import { ModalForm } from './ModalForm';
 import { DrawerForm } from './DrawerForm';
 import { TabbedForm } from './TabbedForm';
 import { SplitForm } from './SplitForm';
-import { WizardForm } from './WizardForm';
+import { WizardForm, type WizardFormSchema } from './WizardForm';
 
 registerAllFields();
 
@@ -248,17 +248,16 @@ describe('create mode is unaffected', () => {
   // objectui#10726 — the wizard's swap loading sits after its create branch.
   it('never takes a create wizard back to loading, including when its record effect re-runs', async () => {
     const { ds } = deferredDataSource();
-    const createWizard = () =>
-      ({
-        type: 'object-form',
-        formType: 'wizard',
-        objectName: 'task',
-        mode: 'create',
-        sections: SECTIONS,
-        // Rebuilt on every render, as callers commonly do: each rerender
-        // re-runs the record effect through its create branch.
-        initialValues: {},
-      }) as any;
+    const createWizard = (): WizardFormSchema => ({
+      type: 'object-form',
+      formType: 'wizard',
+      objectName: 'task',
+      mode: 'create',
+      sections: SECTIONS,
+      // Rebuilt on every render, as callers commonly do: each rerender
+      // re-runs the record effect through its create branch.
+      initialValues: {},
+    });
     const { rerender } = render(<WizardForm schema={createWizard()} dataSource={ds} />);
 
     await waitFor(() => expect(titleInput()).not.toBeNull());
@@ -275,9 +274,10 @@ describe('create mode is unaffected', () => {
 });
 
 /**
- * objectui#10726 — the wizard goes back to loading on a change of RECORD only.
- * A re-read of the record already on screen (a caller rebuilding
- * `initialValues`) keeps the step form mounted, as it does on the other rows.
+ * objectui#10726 — the wizard goes back to loading on a change of RECORD only,
+ * which is why its swap is keyed on the record it last loaded. A re-read of the
+ * record already on screen (a caller rebuilding `initialValues`) keeps the step
+ * form mounted.
  */
 describe('WizardForm — a re-run for the same record', () => {
   it('keeps the step form mounted while the same record is read again', async () => {

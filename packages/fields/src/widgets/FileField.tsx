@@ -9,6 +9,7 @@ import { toHostGroupProps } from './toHostGroupProps.js';
 import { useUploadingSignal } from './useUploadingSignal.js';
 import { useUploadingScopeHold } from './uploadingScope.js';
 import { maxSizeError, type TranslateFn } from './file-size-guard.js';
+import { uploadErrorMessage } from './upload-error-message.js';
 import {
   fileValueForSubmit,
   readFileValues,
@@ -28,12 +29,13 @@ import { FileValueAffordance } from './file-affordance.js';
  * the full-size FileField and the compact grid-cell {@link FileCell} stay
  * behaviourally identical (same value shape, same error handling).
  *
- * Stores the **reference form** — a bare `sys_file` id — when the upload
- * adapter surfaced one, and the legacy inline blob when it did not, so the same
- * build works against a backend that has adopted file-as-reference and one that
- * has not (see `file-value`). Because a bare id carries no name or URL, each
- * completed upload's display details are kept in `recent`, keyed by id, so the
- * file renders immediately instead of as a bare token until a read enriches it.
+ * Stores the **reference form** — the bare `sys_file` id the upload adapter
+ * surfaced — and nothing else: an upload that surfaced no id is refused per
+ * pick through `fileValueForSubmit` and reported in the error row, so ⛔ no
+ * inline blob ever reaches `onChange` (objectui#7699; see `file-value`'s
+ * "Submitting"). Because a bare id carries no name or URL, each completed
+ * upload's display details are kept in `recent`, keyed by id, so the file
+ * renders immediately instead of as a bare token until a read enriches it.
  */
 function useFileUploads(opts: {
   files: any[];
@@ -88,18 +90,23 @@ function useFileUploads(opts: {
               onProgress: (ratio) =>
                 setUploadProgress((prev) => ({ ...prev, [file.name]: ratio })),
             });
-            return { result, originalName: file.name };
+            // Throws when the adapter surfaced no `sys_file` id, so the
+            // refusal is reported per pick like a transport failure and the
+            // pick is not added (objectui#7699).
+            const value = fileValueForSubmit(result, file.name);
+            return { result, originalName: file.name, value };
           } catch (err) {
-            newErrors.push(t('fields.file.uploadFailed', {
-              defaultValue: `Failed to upload "${file.name}": ${(err as Error).message}`,
-              name: file.name, error: (err as Error).message,
-            }));
+            newErrors.push(uploadErrorMessage(t as TranslateFn, file.name, err));
             setErrors([...newErrors]);
             return null;
           }
         }),
       );
-      const successful = uploaded.filter(Boolean) as Array<{ result: any; originalName: string }>;
+      const successful = uploaded.filter(Boolean) as Array<{
+        result: any;
+        originalName: string;
+        value: string;
+      }>;
       if (successful.length === 0) return;
 
       // Remember what each new id looks like so it can render before the next
@@ -111,9 +118,7 @@ function useFileUploads(opts: {
       }
       if (Object.keys(views).length > 0) setRecent((prev) => ({ ...prev, ...views }));
 
-      const nextValues = successful.map(({ result, originalName }) =>
-        fileValueForSubmit(result, originalName),
-      );
+      const nextValues = successful.map(({ value }) => value);
       if (multiple) {
         onChange([...files, ...nextValues]);
       } else {

@@ -58,3 +58,7 @@ validation dependencies, a different concept), the object-schema documents the
 metadata designer and `resolveActionParams` read (their snake legs read STORED
 pre-strict documents — objectui#7642's census verdict), and plugin-gantt's
 `dependenciesField: 'depends_on'`, which names a record data field, not this key.
+
+⚠️ **Dated note, 2026-09-27 — `AdvancedValidationRule` is removed from
+`@object-ui/types` by a later change, so its `depends_on` no longer exists —
+objectui#10719.**

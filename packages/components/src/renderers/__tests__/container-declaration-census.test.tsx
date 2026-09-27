@@ -173,10 +173,10 @@ describe('the declaration is confined to what was measured (objectui#6764)', () 
 
   it.each(['img', 'hr', 'br'])('leaves the void tag `%s` alone', async (type) => {
     // The second half of the same control, inside a LOOP FACTORY. `img`/`hr`/
-    // `br` come out of the same `basic/html-elements.tsx` loop as 34 tags that
+    // `br` come out of the same `basic/html-elements.tsx` loop as 35 tags that
     // DO render children, and the factory skips `renderChildren` for them by
     // design (`VOID_TAGS`). A census that worked at file granularity — the
-    // granularity a static reader can reach — would have declared all 37
+    // granularity a static reader can reach — would have declared all 38
     // together and told authors that `<br>` accepts children.
     expect(await rendersChildren(type)).toBe(false);
     expect(diagnose(withChildren(type)).map((d) => d.code)).toContain(CONTAINMENT);
@@ -208,8 +208,8 @@ describe('the declaration is confined to what was measured (objectui#6764)', () 
 describe('the premise that made this change safe on the SECOND consumer (objectui#6764)', () => {
   it('none of the eight is in the curated public contract', () => {
     // `renderers/layout/react-page.tsx` builds the JSX scope of every
-    // `kind:'react'` page with `if (!tag || cfg.isContainer) continue;`, so each
-    // declaration also REMOVES that tag as an injected identifier — the
+    // `kind:'react'` page with `if (!tag || cfg.isContainer || cfg.tier === 'html') continue;`,
+    // so each declaration also REMOVES that tag as an injected identifier — the
     // consequence objectui#6764 recorded as unmeasured. It reads
     // `getPublicConfigs()`, not the whole registry, and none of these eight is
     // in it: there is no `<Aside>` / `<Main>` / `<AspectRatio>` wrapper for the
@@ -219,17 +219,33 @@ describe('the premise that made this change safe on the SECOND consumer (objectu
     // Pinned rather than left as a comment so that promoting one of these into
     // `PUBLIC_BLOCKS` re-opens the question HERE, instead of silently dropping a
     // tag from every react page.
-    const publicTags = new Set(
-      (ComponentRegistry.getPublicConfigs() as Array<{ type: string }>).map((c) => c.type),
-    );
+    //
+    // objectui#10735 re-opened it, deliberately, and answered it: the seven
+    // sectioning tags now ride `getPublicConfigs()` — the published manifest
+    // must whitelist them for `kind:'html'` pages — but as HTML-TIER entries,
+    // stamped `tier: 'html'`, never as curated blocks. `react-page.tsx` skips
+    // them on that stamp as well as on the container flag, so the premise this
+    // pin guards ("no injected wrapper exists for the flag to delete") holds,
+    // and the CURATED contract is read here as the unstamped entries.
+    const contract = ComponentRegistry.getPublicConfigs() as Array<{ type: string; tier?: string }>;
+    const curatedTags = new Set(contract.filter((c) => c.tier !== 'html').map((c) => c.type));
+    const htmlTierTags = new Set(contract.filter((c) => c.tier === 'html').map((c) => c.type));
 
     // Direction control first. Without it, "none of the eight is public" is
     // indistinguishable from "the public tier is empty / this reader broke",
     // and the assertion below would be green for nothing.
-    expect(publicTags.size).toBeGreaterThan(0);
-    expect(publicTags.has('flex')).toBe(true);
-    expect(publicTags.has('button')).toBe(true);
+    expect(curatedTags.size).toBeGreaterThan(0);
+    expect(curatedTags.has('flex')).toBe(true);
+    expect(curatedTags.has('button')).toBe(true);
 
-    expect(DECLARED_HERE.filter((t) => publicTags.has(t))).toEqual([]);
+    expect(DECLARED_HERE.filter((t) => curatedTags.has(t))).toEqual([]);
+
+    // The seven sectioning tags are declared for the html tier and nowhere
+    // else; `aspect-ratio` is on neither roster (refused on stated merits,
+    // objectui#8628).
+    expect(DECLARED_HERE.filter((t) => htmlTierTags.has(t)).sort()).toEqual(
+      ['article', 'aside', 'footer', 'header', 'main', 'nav', 'section'],
+    );
+    expect(htmlTierTags.has('aspect-ratio')).toBe(false);
   });
 });

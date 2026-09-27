@@ -154,7 +154,12 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **46 entries** in `KnownDrift`, **86 keys** across them — 48 / 88 until
+ *   - **46 entries** in `KnownDrift`, **84 keys** across them — 46 / 86 until
+ *     objectui#7759 group A settled `complex.zod.ts#DashboardComponentSchema`'s
+ *     `header` and `globalFilters` by the spec (ruling 5617465269, principle 1): the
+ *     declaration inherits the spec's `header` and the mirror's `GlobalFilterSchema`
+ *     IS the spec's, so both keys measure clean and the entry SHRANK to `widgets` —
+ *     the key total fell by two and the entry count did not. It was 48 / 88 until
  *     objectui#6033 settled the last two keys of its own ruling (C7 / C8): two
  *     WHOLE entries left (`form.zod.ts#ComboboxSchema`, whose one key was `options`,
  *     and `form.zod.ts#CommandSchema`, whose one key was `groups`). Both were
@@ -433,8 +438,13 @@
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
  *     restate one without checking that the pin's spelling still reaches it.
- *   - **7 entries** in `WiderThanDeclared`, **9 keys** across them, and **9 arms**
- *     under those keys — split **5** SCHEMA-NODE, **4** CONCRETE, **0** MIXED, **0** unions.
+ *   - **6 entries** in `WiderThanDeclared`, **7 keys** across them, and **7 arms**
+ *     under those keys — split **5** SCHEMA-NODE, **2** CONCRETE, **0** MIXED, **0** unions.
+ *     It read 7 / 9 / 9 — 5 / 4 / 0 / 0 — until objectui#7759 group A settled
+ *     `complex.zod.ts#DashboardComponentSchema`'s `header` and `globalFilters`: both keys
+ *     are spec-declared, so both faces now state the spec's member, and the entry, its
+ *     two keys and their two CONCRETE arms LEFT together (both keys also left
+ *     `KnownDrift` — they were DISJOINT).
  *     It read 8 / 10 / 11 — 5 / 5 / 0 / 1 — until objectui#10387 RETIRED
  *     `navigation.zod.ts#HeaderBarSchema::logo` on both faces: the `header-bar` renderer
  *     reads no `logo`, so the entry, its one key and BOTH its arms left together. It was
@@ -675,9 +685,9 @@ import { dirname, join } from 'node:path';
 import ts from 'typescript';
 import type { z } from 'zod';
 
-import { AppActionSchema, AppComponentSchema, MenuItemSchema as AppMenuItemSchema, NavigationAreaSchema, NavigationItemSchema } from '../zod/app.zod.js';
+import { AppComponentSchema, MenuItemSchema as AppMenuItemSchema, NavigationAreaSchema, NavigationItemSchema } from '../zod/app.zod.js';
 import { BaseSchema, ComponentConfigSchema, ComponentInputSchema, ComponentMetaSchema, KeyedI18nLabelSchema, SchemaNodeSchema } from '../zod/base.zod.js';
-import { CalendarEventSchema, CalendarViewSchema, CarouselItemSchema, CarouselSchema, ChatbotSchema, ChatbotEnhancedSchema, ChatbotFloatingSchema, ChatMessageSchema, ChatMessageSourceSchema, ChatToolInvocationSchema, DashboardComponentSchema, DashboardConfigSchema, DashboardWidgetConfigSchema, DashboardWidgetLayoutSchema, DashboardWidgetSchema, FilterBuilderSchema, FilterFieldSchema, KanbanCardSchema, KanbanColumnSchema, CardTemplateSchema, ColumnWidthConfigSchema, FilterBuilderConditionSchema, FilterGroupSchema } from '../zod/complex.zod.js';
+import { CalendarEventSchema, CalendarViewSchema, CarouselItemSchema, CarouselSchema, ChatbotSchema, ChatbotEnhancedSchema, ChatbotFloatingSchema, ChatMessageSchema, ChatMessageSourceSchema, ChatToolInvocationSchema, DashboardComponentSchema, DashboardConfigSchema, DashboardWidgetConfigSchema, DashboardWidgetLayoutSchema, DashboardWidgetSchema, FilterBuilderSchema, FilterFieldSchema, KanbanCardSchema, KanbanColumnSchema, CardTemplateSchema, FilterBuilderConditionSchema, FilterGroupSchema } from '../zod/complex.zod.js';
 import { ActionSchema, CRUDDialogSchema, DetailSchema } from '../zod/crud.zod.js';
 import { AlertSchema, AvatarSchema, BadgeSchema, BarChartSchema, ChartDataSeriesSchema, ChartSchema, DataTableSchema, DrillDownConfigSchema, HtmlSchema, KbdSchema, ListItemSchema, ListSchema, MarkdownSchema, StaticTableColumnSchema, StatisticSchema, TableColumnSchema, TableSchema, TimelineEventSchema, TimelineSchema, TreeNodeSchema, TreeViewSchema } from '../zod/data-display.zod.js';
 import { AccordionItemSchema, AccordionSchema, CollapsibleSchema, ToggleGroupItemSchema, ToggleGroupSchema } from '../zod/disclosure.zod.js';
@@ -690,9 +700,9 @@ import { AlertDialogSchema, ContextMenuSchema, DialogSchema, DrawerSchema, Dropd
 import { ReportBuilderSchema, ReportComponentSchema, ReportExportConfigSchema, ReportFieldSchema, ReportFilterSchema, ReportGroupBySchema, ReportSectionSchema, ReportViewerSchema } from '../zod/reports.zod.js';
 import { DetailViewFieldSchema, DetailViewSchema, DetailViewSectionSchema, DetailViewTabSchema, FilterUISchema, SortUISchema, ViewSwitcherSchema } from '../zod/views.zod.js';
 
-import type { AppAction as Ts_AppAction, AppComponentSchema as Ts_AppComponentSchema, NavigationArea as Ts_NavigationArea } from '../app';
+import type { AppComponentSchema as Ts_AppComponentSchema, NavigationArea as Ts_NavigationArea } from '../app';
 import type { BaseSchema as Ts_BaseSchema, ComponentConfig as Ts_ComponentConfig, ComponentInput as Ts_ComponentInput, ComponentMeta as Ts_ComponentMeta, KeyedI18nLabel as Ts_KeyedI18nLabel } from '../base';
-import type { CalendarEvent as Ts_CalendarEvent, CalendarViewSchema as Ts_CalendarViewSchema, CarouselItem as Ts_CarouselItem, CarouselSchema as Ts_CarouselSchema, ChatbotSchema as Ts_ChatbotSchema, ChatbotEnhancedSchema as Ts_ChatbotEnhancedSchema, ChatbotFloatingSchema as Ts_ChatbotFloatingSchema, ChatMessage as Ts_ChatMessage, ChatMessageSource as Ts_ChatMessageSource, ChatToolInvocation as Ts_ChatToolInvocation, DashboardComponentSchema as Ts_DashboardComponentSchema, DashboardWidgetLayout as Ts_DashboardWidgetLayout, DashboardWidgetSchema as Ts_DashboardWidgetSchema, FilterBuilderSchema as Ts_FilterBuilderSchema, FilterField as Ts_FilterField, KanbanCard as Ts_KanbanCard, KanbanColumn as Ts_KanbanColumn, CardTemplate as Ts_CardTemplate, ColumnWidthConfig as Ts_ColumnWidthConfig } from '../complex';
+import type { CalendarEvent as Ts_CalendarEvent, CalendarViewSchema as Ts_CalendarViewSchema, CarouselItem as Ts_CarouselItem, CarouselSchema as Ts_CarouselSchema, ChatbotSchema as Ts_ChatbotSchema, ChatbotEnhancedSchema as Ts_ChatbotEnhancedSchema, ChatbotFloatingSchema as Ts_ChatbotFloatingSchema, ChatMessage as Ts_ChatMessage, ChatMessageSource as Ts_ChatMessageSource, ChatToolInvocation as Ts_ChatToolInvocation, DashboardComponentSchema as Ts_DashboardComponentSchema, DashboardWidgetLayout as Ts_DashboardWidgetLayout, DashboardWidgetSchema as Ts_DashboardWidgetSchema, FilterBuilderSchema as Ts_FilterBuilderSchema, FilterField as Ts_FilterField, KanbanCard as Ts_KanbanCard, KanbanColumn as Ts_KanbanColumn, CardTemplate as Ts_CardTemplate } from '../complex';
 import type { DashboardConfig as Ts_DashboardConfig, DashboardWidgetConfig as Ts_DashboardWidgetConfig } from '../designer';
 import type { CRUDDialogSchema as Ts_CRUDDialogSchema, DetailSchema as Ts_DetailSchema } from '../crud';
 import type { AlertSchema as Ts_AlertSchema, AvatarSchema as Ts_AvatarSchema, BadgeSchema as Ts_BadgeSchema, BarChartSchema as Ts_BarChartSchema, ChartDataSeries as Ts_ChartDataSeries, ChartSchema as Ts_ChartSchema, DataTableSchema as Ts_DataTableSchema, DrillDownConfig as Ts_DrillDownConfig, HtmlSchema as Ts_HtmlSchema, KbdSchema as Ts_KbdSchema, ListItem as Ts_ListItem, ListSchema as Ts_ListSchema, MarkdownSchema as Ts_MarkdownSchema, StaticTableColumn as Ts_StaticTableColumn, StatisticSchema as Ts_StatisticSchema, TableColumn as Ts_TableColumn, TableSchema as Ts_TableSchema, TimelineEvent as Ts_TimelineEvent, TimelineSchema as Ts_TimelineSchema, TreeViewSchema as Ts_TreeViewSchema, BreadcrumbItem as Ts_BreadcrumbItem, BreadcrumbSchema as Ts_BreadcrumbSchema } from '../data-display';
@@ -1507,7 +1517,6 @@ export type assertionNarrowerOperatorIsBlindToAMirroredOnlyKey =
 
 /** Mirror VALUES, keyed `<file>#<export>`. Runtime, so the census below can read the keys. */
 const MIRRORS = {
-  'app.zod.ts#AppActionSchema': AppActionSchema,
   'app.zod.ts#AppComponentSchema': AppComponentSchema,
   'app.zod.ts#NavigationAreaSchema': NavigationAreaSchema,
   'base.zod.ts#BaseSchema': BaseSchema,
@@ -1535,7 +1544,6 @@ const MIRRORS = {
   'complex.zod.ts#KanbanCardSchema': KanbanCardSchema,
   'complex.zod.ts#KanbanColumnSchema': KanbanColumnSchema,
   'complex.zod.ts#CardTemplateSchema': CardTemplateSchema,
-  'complex.zod.ts#ColumnWidthConfigSchema': ColumnWidthConfigSchema,
   'crud.zod.ts#CRUDDialogSchema': CRUDDialogSchema,
   'crud.zod.ts#DetailSchema': DetailSchema,
   'data-display.zod.ts#AlertSchema': AlertSchema,
@@ -1672,7 +1680,6 @@ const MIRRORS = {
 
 /** The declaration each mirror restates. Same keys as `MIRRORS` — pinned below. */
 interface Declared {
-  'app.zod.ts#AppActionSchema': Ts_AppAction;
   'app.zod.ts#AppComponentSchema': Ts_AppComponentSchema;
   'app.zod.ts#NavigationAreaSchema': Ts_NavigationArea;
   'base.zod.ts#BaseSchema': Ts_BaseSchema;
@@ -1700,7 +1707,6 @@ interface Declared {
   'complex.zod.ts#KanbanCardSchema': Ts_KanbanCard;
   'complex.zod.ts#KanbanColumnSchema': Ts_KanbanColumn;
   'complex.zod.ts#CardTemplateSchema': Ts_CardTemplate;
-  'complex.zod.ts#ColumnWidthConfigSchema': Ts_ColumnWidthConfig;
   'crud.zod.ts#CRUDDialogSchema': Ts_CRUDDialogSchema;
   'crud.zod.ts#DetailSchema': Ts_DetailSchema;
   'data-display.zod.ts#AlertSchema': Ts_AlertSchema;
@@ -1908,16 +1914,27 @@ interface KnownDrift {
   /** The same three slots on the same channel — see `ChatbotEnhancedSchema` above. */
   'complex.zod.ts#ChatbotFloatingSchema': 'onClear' | 'onError' | 'onSend';
   /**
-   * spec-derived shape (`SpecDashboardFields`) measured against a hand-written
-   * local declaration. Needs the spec-unification triage of #2231 rather than a
-   * local widening.
+   * `widgets` — the objectui widget element (`DashboardWidgetSchema`, carrying the
+   * legacy `component` envelope the spec has no room for) against the declaration's
+   * two-arm slot; see that element's own entry below.
+   *
+   * `header` and `globalFilters` LEFT under objectui#7759 group A. Both are declared
+   * by the spec's `DashboardSchema`, so under that card's ruling (5617465269,
+   * principle 1) both faces now follow the spec, both ways: the declaration dropped
+   * its hand-written `header` (whose `actions[].actionUrl` was optional and
+   * `actions[].actionType` an open string, both of which the mirror refused) and
+   * inherits the spec's; the mirror's `GlobalFilterSchema` dropped its local
+   * `options` restatement (whose `label` was `z.string()`, refusing the inline
+   * per-locale map the declaration admits) and IS the spec's schema. Each key was
+   * also in `WiderThanDeclared` — each face refused something the other accepted —
+   * and left that ledger in the same change.
    *
    * `aria` was a FOURTH drifted key here until objectui#5855 retired
    * `DashboardComponentSchema.aria` from the declaration as spec-tombstoned and
    * renderer-dead. Dropping it from the declaration dropped it from the
    * comparison, and this entry going stale is precisely what surfaced that.
    */
-  'complex.zod.ts#DashboardComponentSchema': 'header' | 'widgets' | 'globalFilters';
+  'complex.zod.ts#DashboardComponentSchema': 'widgets';
   /**
    * `options` — TS declares `unknown`; the mirror declares a structured options object.
    * The mirror is the STRICTER side here — narrowing the check would be wrong, widening
@@ -3151,25 +3168,20 @@ interface WiderThanDeclared {
   // nothing the declaration refuses and the entry is GONE, per clause 4 of this ledger's
   // "when it fires" note. The pair keeps its `KnownDrift` entry above, which records the
   // ruling beside the two runtime slots that remain.
-  /**
-   * CONCRETE. `header` and `globalFilters` carry the inline-locale widening one level
-   * down (a nested `label`). Both also carry a `KnownDrift` entry. `dateRange` was a
-   * third key until objectui#10334 — its `defaultRange` was a bare string on the mirror
-   * against the spec's closed preset set on the declaration; both faces now take the
-   * spec's authoring member by reference, so the pair measures clean on that key.
-   *
-   * ⚠️ `widgets` was the fourth key and made this entry MIXED — the only MIXED key
-   * this ledger has held. Its verdict read "`widgets` is SCHEMA-NODE" until
-   * objectui#8252, and the three words were the whole verdict on a two-arm union: true
-   * of the widget-envelope arm, false of the component-node arm, which is concrete and
-   * whose TypeScript face was missing outright (objectui#7952, declared by PR #8296 as
-   * `c842594`). That arm was repaired there; the schema-node arm stopped reading wider
-   * under objectui#7760, when `SchemaNodeSchema` gained its input type argument — so
-   * the key measures clean and its row is gone. ⇒ The verdict that governs is still
-   * `WIDER_ARMS` below, which names one per arm; this docblock is the prose beside it
-   * and ⛔ may not be the only place a split is recorded again.
-   */
-  'complex.zod.ts#DashboardComponentSchema': 'header' | 'globalFilters';
+  // `complex.zod.ts#DashboardComponentSchema` LEFT this ledger WHOLE under objectui#7759
+  // group A. Its last two keys were `header` and `globalFilters`, both CONCRETE and both
+  // DISJOINT (each also had a `KnownDrift` entry). This entry's docblock called them "the
+  // inline-locale widening one level down"; measured, that was true of `header` alone.
+  // `header`'s mirror (the spec's, by reference) took an inline per-locale action label
+  // the hand-written declaration refused. `globalFilters` read wider for a different
+  // reason: the mirror's local `options` / `optionsFrom` restatement took the bare-string
+  // option shorthand, an option with no `label` and an `optionsFrom` with no
+  // `labelField`, all of which the spec (and so the declaration) refuses; its locale arm
+  // ran the OTHER way, on the `KnownDrift` side. Both keys are spec-declared, so both
+  // faces now state the spec's member (ruling 5617465269, principle 1) and the pair
+  // measures clean in this direction. Before them, `dateRange` left under objectui#10334,
+  // and `widgets` — the only MIXED key this ledger ever held — under objectui#8252 and
+  // objectui#7760.
   // `complex.zod.ts#FilterBuilderSchema` (`fields`) and `complex.zod.ts#FilterFieldSchema`
   // (`operators`) LEFT under objectui#10286: the second was the operator vocabulary, each
   // face refusing a spelling the other accepted, and the first inherited it through the
@@ -3365,8 +3377,6 @@ const WIDER_ARM_ROW_SEPARATOR = '::';
 
 const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
   'app.zod.ts#AppComponentSchema::areas': ['SCHEMA-NODE'],
-  'complex.zod.ts#DashboardComponentSchema::header': ['CONCRETE'],
-  'complex.zod.ts#DashboardComponentSchema::globalFilters': ['CONCRETE'],
   'form.zod.ts#FormSchema::layout': ['CONCRETE'],
   'layout.zod.ts#PageNodeSchema::slots': ['SCHEMA-NODE'],
   'views.zod.ts#DetailViewFieldSchema::options': ['CONCRETE'],
@@ -3684,8 +3694,9 @@ interface MirroredUndeclared {
   // `protection`, and the tombstones `aria` / `refreshInterval` / `performance`) —
   // deleted by objectui#9736 for the reason the App note above gives: the twin
   // extends `Omit< Dashboard, … >` over `DASHBOARD_SPEC_EXCLUDED`. Its `header`
-  // member is withheld from that projection on the TypeScript face only, and stays
-  // in `KnownDrift` / `WiderThanDeclared` where it was.
+  // member was withheld from that projection on the TypeScript face only until
+  // objectui#7759 group A, which dropped the withholding: the twin inherits the
+  // spec's `header`, and the key left `KnownDrift` / `WiderThanDeclared` with it.
 
 
   /**
@@ -4224,7 +4235,7 @@ const ZOD_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'zod');
  * MINUEND under it had moved. Nothing failed on any of those days, because nothing
  * compared the registry to a number. objectui#7433 is that absence, not the digits.
  */
-const EXPECTED_MIRROR_PAIRS = 161;
+const EXPECTED_MIRROR_PAIRS = 159;
 
 /**
  * A ledger this file can size from its own AST. `WiderThanDeclared` joined at

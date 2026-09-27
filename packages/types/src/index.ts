@@ -52,7 +52,6 @@
 // ============================================================================
 export type {
   AppComponentSchema,
-  AppAction,
   NavigationItem,
   NavigationItemType,
   NavigationArea,
@@ -252,6 +251,8 @@ export type {
   PivotTableSchema,
   DrillDownConfig,
   ObjectMetricDrillDownConfig,
+  ObjectPivotDrillDownConfig,
+  ObjectDataTableDrillDownConfig,
   TimelineEvent,
   TimelineScale,
   TimelineSchema,
@@ -340,7 +341,6 @@ export type {
   // (objectui#8802, maintainer ruling 2026-09-09) — `ObjectKanbanSchema` below
   // is the surviving kanban face.
   CardTemplate,
-  ColumnWidthConfig,
   CalendarViewMode,
   CalendarEvent,
   CalendarViewSchema,
@@ -603,15 +603,6 @@ export type {
   FilterBuilderDateRangePreset,
   FilterBuilderConfig,
   FilterFieldConfig,
-  // Validation Schema (Phase 3.5)
-  AdvancedValidationSchema,
-  AdvancedValidationRule,
-  ValidationRuleType,
-  ValidationFunction,
-  AsyncValidationFunction,
-  ValidationContext,
-  AdvancedValidationResult,
-  AdvancedValidationError,
   // Object-level validation rules. The five spec-named variants are derived from
   // `@objectstack/spec/data`; the other three are @deprecated objectui-local
   // variants the spec's union rejects. See data-protocol.ts.

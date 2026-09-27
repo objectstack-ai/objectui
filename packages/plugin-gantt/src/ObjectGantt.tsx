@@ -37,6 +37,8 @@ import {
   SchemaRendererContext,
   NonGridRowCeilingNote,
   useDataInvalidation,
+  useFilterScope,
+  useResolvedFilter,
 } from '@object-ui/react';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 import {
@@ -797,6 +799,16 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   // Concurrent reloads are sequenced: only the newest request may commit its
   // result, so a slow earlier response can't clobber a fresher one.
   const [refreshing, setRefreshing] = useState(false);
+  // objectui#10666 — the node's own `filter`, with every context token
+  // (`{current_user_id}`, `{current_org_id}`, the date macros) resolved ONCE
+  // through `@object-ui/core`'s shared `resolveFilterPlaceholders`, against the
+  // session scope the host provides, and HELD by structure (`useResolvedFilter`
+  // in `@object-ui/react`). A directly authored gantt sent the literal token on
+  // `$filter` before. `reload` and both of its dependency lists read THIS,
+  // never the raw `schema.filter`, so a re-render that rebuilds an equal filter
+  // does not re-query.
+  const filterScope = useFilterScope();
+  const queryFilter = useResolvedFilter(schema.filter, filterScope);
   const reloadSeqRef = useRef(0);
   /**
    * Has any reload committed rows yet? (objectui#7237, ruling A′)
@@ -908,7 +920,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         ? expandable
         : expandable.filter((f) => perms.checkField(resource, f, 'read'));
       const result = await adapter.find(resource, {
-        $filter: schema.filter,
+        $filter: queryFilter,
         $orderby: convertSortToQueryParams(schema.sort),
         // The platform ceiling (objectui#7210, ruling a′). The gantt still
         // fetches the whole FILTERED result set — a truthful
@@ -992,7 +1004,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
     // `ObjectGantt.discardedReloadIdentity-10036.test.tsx` hold the two in
     // parity by exercising each entry.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- (rest as any).data intentionally untracked, matching the original effect
-  }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, schema.filter, schema.sort, searchTerm, searchFieldsKey, objectSchema, perms]);
+  }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, queryFilter, schema.sort, searchTerm, searchFieldsKey, objectSchema, perms]);
 
   /**
    * Does the query this effect is about to issue DERIVE anything from the
@@ -1052,7 +1064,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   useEffect(() => {
     if (recordQueryDerivesExpand && !objectSchemaReady) return;
     reloadRef.current(loadedOnceRef.current ? { inPlace: true } : {});
-  }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, schema.filter, schema.sort, searchTerm, searchFieldsKey, objectSchema, perms, recordQueryDerivesExpand, objectSchemaReady]);
+  }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, queryFilter, schema.sort, searchTerm, searchFieldsKey, objectSchema, perms, recordQueryDerivesExpand, objectSchemaReady]);
 
   /**
    * objectui#10035 — the refresh input this gantt had none of, so a host could

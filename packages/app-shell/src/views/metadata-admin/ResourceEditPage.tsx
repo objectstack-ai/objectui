@@ -1044,16 +1044,16 @@ function MetadataResourceEditPageImpl({
         // Prefer the pending draft as the editing baseline — the
         // operator is mid-flight on this item and should see their
         // own in-progress state, not the last published version.
-        // A pending draft overlay can carry only the edited fields, so using
-        // it wholesale would drop inherited fields that were never touched —
-        // notably `type`, which section-level `visibleOn` predicates depend on
-        // (ADR-0047 hides Data Context / Layout when `data.type == 'list'`).
-        // Merge the draft over the effective baseline so those fields survive;
-        // the draft still wins for anything it does carry.
+        // A served draft is the WHOLE document (objectui#10765): the server
+        // stores a `?mode=draft` body raw and its `?state=draft` read returns
+        // that row raw, and every writer of a draft sends a full document —
+        // so `type` and every other inherited field are already inside it.
+        // ⛔ Never spread the draft over `effective`: a spread cannot express
+        // deletion, so a key the author cleared came back from the PUBLISHED
+        // layer on every reload and the next save sent it again. The
+        // baseline is only for an item that has no pending draft at all.
         const baseline = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
-        const rawInitial: Record<string, unknown> = draftReal
-          ? { ...baseline, ...(draftReal as Record<string, unknown>) }
-          : baseline;
+        const rawInitial: Record<string, unknown> = draftReal ?? baseline;
         // Normalise the wire shape into the editor's draft shape (e.g.
         // `view` unwraps an expanded ViewItem's `config` into a
         // `{ list | form }` family key). No-op for types without a hook.
@@ -1513,12 +1513,14 @@ function MetadataResourceEditPageImpl({
       setLayered(lay);
       const draftReal = extractDraftBody(draftResp);
       setHasDraft(!!draftReal);
-      // Merge the draft over the effective baseline (see the load effect):
-      // a partial draft overlay must not drop inherited fields like `type`.
+      // The served draft is the whole document the save just stored (see the
+      // load effect, objectui#10765): take it as-is. ⛔ Not spread over
+      // `effective` — that is the PUBLISHED layer, and a spread would bring a
+      // key this save deleted straight back into the editor, invisibly, for
+      // the next save to send. The baseline is only for a save that left no
+      // draft row to read back.
       const freshBaseline = (lay.effective ?? itemToSave) as Record<string, unknown>;
-      const rawFresh: Record<string, unknown> = draftReal
-        ? { ...freshBaseline, ...(draftReal as Record<string, unknown>) }
-        : freshBaseline;
+      const rawFresh: Record<string, unknown> = draftReal ?? freshBaseline;
       // Re-normalise the refreshed wire shape so the editor keeps showing
       // the canonical draft shape after a save (e.g. the backend re-expands
       // a view into the ViewItem `config` wrapper).
@@ -1690,13 +1692,15 @@ function MetadataResourceEditPageImpl({
       setLayered(lay);
       const draftReal = extractDraftBody(draftResp);
       setHasDraft(!!draftReal);
-      // Merge the draft over the effective baseline so a partial draft overlay
-      // doesn't drop inherited fields like `type` (section visibleOn depends
-      // on it — ADR-0047).
+      // After a publish the promoted body IS `effective` and the draft row is
+      // normally gone; a draft that does remain is a whole document and is
+      // taken as-is (objectui#10765). ⛔ Not spread over `effective`: the
+      // spread cannot express deletion and would resurrect a published key
+      // the draft had cleared.
       const freshBaseline = (lay.effective ?? draft) as Record<string, unknown>;
-      const fresh: Record<string, unknown> = draftReal
-        ? { ...freshBaseline, ...(draftReal as Record<string, unknown>) }
-        : freshBaseline;
+      const rawFresh: Record<string, unknown> = draftReal ?? freshBaseline;
+      // Same wire-to-editor normalisation the load and save refreshes apply.
+      const fresh = config.toDraft ? config.toDraft(rawFresh) : rawFresh;
       setDraft(fresh);
       draftSnapshotRef.current = fresh;
     } catch (err: any) {

@@ -21,12 +21,23 @@
  *
  * ## Submitting
  *
- * When the upload adapter surfaced a `fileId`, the widget submits the **bare
- * id** — the reference form. When it did not (the object-URL fallback adapter,
- * an older backend), it submits the legacy blob unchanged. So the same build
- * works against a backend that has adopted references and one that has not.
- * Action params already POST a bare fileId; this brings record field values
- * onto the same contract.
+ * A completed upload is submitted as the **bare `sys_file` id** the adapter
+ * surfaced in `meta.fileId` — the reference form, and the only form the stored
+ * contract admits (`valueSchemaFor(field, 'stored')` is the id-only
+ * `FileReferenceIdValueSchema` since spec `17.0.0`; ADR-0104's 2026-09-05
+ * addendum fixes the physical column to a string column holding that bare id).
+ * When no `fileId` came back — the object-URL default `useUpload()` falls open
+ * to, an S3/Azure-style adapter that mints no `sys_file` row, a custom adapter
+ * that dropped it — the submit is **refused** with {@link UploadIncompleteError}
+ * and ⛔ no inline blob is sent: the legacy `{ name, original_name, size,
+ * mime_type, url }` object is a shape no deployment's stored contract accepts
+ * (admitted warn-first only on a deployment that has not yet verified its
+ * file-as-reference migration, rejected with `invalid_type` everywhere else),
+ * so sending it turned an upload into a save refused by the backend
+ * (objectui#7699). ADR-0104's dual-read window is a READ rule: a legacy blob
+ * already on a record still renders through `readFileValue`; nothing here
+ * writes a new one. Action params already POST a bare fileId; record field
+ * values are on the same contract.
  */
 
 import { isFileIdToken } from '@objectstack/spec/data';
@@ -67,9 +78,8 @@ export interface FileValueView {
  * Why it matters that this one is shared rather than duplicated: the regex is a
  * WIRE decision. Widening it server-side (say, ids grow past 64 chars) while a
  * copy here keeps the old bound turns every new id into "not a reference", and
- * the widget then submits the legacy inline blob against a backend that expects
- * a reference. That failure surfaces as a broken thumbnail, nowhere near a
- * regex.
+ * `fileValueForSubmit` then refuses every upload as incomplete — loud, but
+ * pointing at the adapter while the cause is a regex two packages away.
  */
 export { isFileIdToken };
 
@@ -208,25 +218,50 @@ export interface UploadResultLike {
 }
 
 /**
- * What to store in the field for a completed upload.
+ * A completed upload that surfaced no `sys_file` id, refused at the point of
+ * submit (objectui#7699).
  *
- * Returns the bare `sys_file` id when the adapter surfaced one — the reference
- * form — and the legacy inline blob when it did not, so a deployment whose
- * upload adapter or backend predates file-as-reference keeps working unchanged.
+ * The adapter reported success, so this is not a transport failure and the
+ * widgets do not quote an adapter message for it: what the user needs to know
+ * is that the field was NOT changed. Named — `name` and `code` — so a caller
+ * can tell it from a thrown network error without reading the message, and
+ * carrying the file's name so a host that reports it can say which pick.
  */
-export function fileValueForSubmit(
-  result: UploadResultLike,
-  originalName?: string,
-): string | Record<string, unknown> {
+export class UploadIncompleteError extends Error {
+  readonly code = 'UPLOAD_INCOMPLETE' as const;
+  /** The pick's own name when the caller knew it, else the adapter's stored object name. */
+  readonly fileName: string;
+
+  constructor(fileName: string) {
+    super(
+      `upload of "${fileName}" did not complete: the upload adapter returned no sys_file id ` +
+        '(meta.fileId), so nothing was submitted',
+    );
+    this.name = 'UploadIncompleteError';
+    this.fileName = fileName;
+  }
+}
+
+/**
+ * What to store in the field for a completed upload: the bare `sys_file` id
+ * the adapter surfaced in `meta.fileId` — the reference form, the only form
+ * the stored contract admits.
+ *
+ * Throws {@link UploadIncompleteError} when the adapter surfaced no id-shaped
+ * `fileId`. ⛔ There is no fallback: the inline blob this function used to
+ * build in that case (`{ name, original_name, size, mime_type, url }`) is a
+ * shape no deployment's stored contract accepts, and a client that sent it
+ * turned a successful-looking upload into a save the backend refused (see the
+ * module header's "Submitting"). The callers catch the refusal per pick and
+ * render it in the same error row a transport failure lands in.
+ *
+ * @param originalName the pick's own file name, used to name the refusal;
+ *   the adapter's stored object name stands in when the caller has none.
+ */
+export function fileValueForSubmit(result: UploadResultLike, originalName?: string): string {
   const fileId = (result.meta as { fileId?: unknown } | undefined)?.fileId;
   if (isFileIdToken(fileId)) return fileId;
-  return {
-    name: result.name,
-    original_name: originalName ?? result.name,
-    size: result.size,
-    mime_type: result.mimeType,
-    url: result.url,
-  };
+  throw new UploadIncompleteError(originalName ?? result.name);
 }
 
 /**

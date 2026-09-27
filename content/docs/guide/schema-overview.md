@@ -23,7 +23,7 @@ ObjectUI includes enterprise-grade capabilities to build production-ready applic
 #### [App Schema](/docs/core/app-schema)
 Define your entire application structure with navigation, branding, and global settings.
 
-<!-- doc-snippet: fragment — a shape excerpt: `menu` and `actions` are written as a literal `[...]` ellipsis because the section is about the app schema's top-level keys, not about a menu -->
+<!-- doc-snippet: fragment — a shape excerpt: `menu` and `navigation` are written as a literal `[...]` ellipsis because the section is about the app schema's top-level keys, not about a menu -->
 
 ```typescript
 const app: AppComponentSchema = {
@@ -31,7 +31,7 @@ const app: AppComponentSchema = {
   title: 'My Application',
   layout: 'sidebar',
   menu: [...],
-  actions: [...]
+  navigation: [...]
 };
 ```
 
@@ -232,17 +232,6 @@ const app: AppComponentSchema = {
         { type: 'item', label: 'Deals', path: '/deals' }
       ]
     }
-  ],
-  
-  actions: [
-    {
-      type: 'user',
-      label: 'User Name',
-      items: [
-        { type: 'item', label: 'Profile', path: '/profile' },
-        { type: 'item', label: 'Logout', path: '/logout' }
-      ]
-    }
   ]
 };
 ```
@@ -250,7 +239,6 @@ const app: AppComponentSchema = {
 This creates a professional-looking CRM application with:
 - A sidebar layout with navigation menu
 - Sales section with leads and deals
-- User menu with profile and logout options
 
 Theming is configured separately, as a theme document handed to `ThemeProvider` —
 see [Theme Schema](/docs/core/theme-schema).

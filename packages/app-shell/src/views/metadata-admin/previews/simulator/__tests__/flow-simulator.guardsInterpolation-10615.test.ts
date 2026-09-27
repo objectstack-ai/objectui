@@ -186,9 +186,15 @@ describe('guard controls: answers that do not change (objectui#10615)', () => {
     expect(off.sim.state.visitedNodeIds).toContain('no');
   });
 
-  it('an edge with no condition is still reported as such, and not taken', () => {
+  // Re-judged in objectui#10692: this used to expect "Branch has no condition."
+  // and the edge not taken. The runtime's `traverseNext` puts an edge with no
+  // condition and no `isDefault` in its unconditional bucket and always takes
+  // it; the default edge is taken too, because no guard was true.
+  it('an edge with no condition is unguarded and always taken', () => {
     const { sim, guard } = runGuard(undefined);
-    expect(guard?.error).toBe('Branch has no condition.');
+    expect(guard?.error).toBeUndefined();
+    expect(guard?.selected).toBe(true);
+    expect(sim.state.visitedNodeIds).toContain('yes');
     expect(sim.state.visitedNodeIds).toContain('no');
   });
 });

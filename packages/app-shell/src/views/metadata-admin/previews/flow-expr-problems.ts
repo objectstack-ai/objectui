@@ -18,12 +18,27 @@
  * single braces legally and are left to the inline check. An `expression` field
  * flagged `refMode: 'template'` (e.g. a loop/map collection like `{leadList}`) is
  * such a template surface and is likewise skipped here.
+ *
+ * ## A screen field's `visibleWhen` is not a flow-scope slot (objectui#10743)
+ *
+ * The `screen` node's `fields[].visibleWhen` column binds the screen's OWN
+ * declared fields plus `record`, never the flow scope: the renderer evaluates
+ * it over the values being collected (spec `ScreenFieldSpec.visibleWhen`). So
+ * that column is judged by `screenVisibleWhenScopeError` (`./screen-spec.ts`),
+ * the same rule the Debug run's screen step applies — a sibling-field predicate
+ * (`discount > 0`) is clean, and a run variable (`needsApproval == true`) is
+ * the unknown reference, however rich the flow scope is. Reported at
+ * `warning`, this panel's level for a reference nothing binds: the runtime
+ * accepts such a flow today (the `registerFlow` refusal is objectstack#20178)
+ * and the runner falls back on it. Every other `expression` slot keeps the
+ * flow scope.
  */
 
 import { fieldsForNodeType, getFieldValue } from '../inspectors/flow-node-config.js';
 import { resolveFlowScope } from '../inspectors/flow-scope.js';
 import { scopeRoots, findUnknownRefs, describeUnknownRefs } from '../inspectors/flow-ref-check.js';
 import { validateExpressionClient } from '../inspectors/expression-validate.js';
+import { screenVisibleWhenScopeError, type ScreenPreviewNode } from './screen-spec.js';
 import type { DiagnosticLevel } from './simulator/flow-sim-types.js';
 
 export interface ExprProblem {
@@ -54,6 +69,23 @@ function checkCel(value: unknown, roots: Set<string> | null, locale?: string): {
 }
 
 /**
+ * Brace error (error) else an undeclared screen-field root (warning) for one
+ * screen field's `visibleWhen` — the declared screen scope, shared with the
+ * Debug run's screen step (objectui#10743), never the flow scope.
+ */
+function checkScreenVisibleWhen(value: unknown, node: ScreenPreviewNode): { level: DiagnosticLevel; message: string } | null {
+  const issue = validateExpressionClient('predicate', value);
+  if (issue) return { level: 'error', message: issue.message };
+  const scope = screenVisibleWhenScopeError(value, node);
+  return scope ? { level: 'warning', message: scope } : null;
+}
+
+/** The `screen` node's `fields[].visibleWhen` column — the one `objectList` expression cell that is not a flow-scope slot. */
+function isScreenVisibleWhenColumn(type: string, fieldId: string, colKey: string): boolean {
+  return type === 'screen' && fieldId === 'fields' && colKey === 'visibleWhen';
+}
+
+/**
  * Scan a flow draft for expression problems, resolved onto node / edge targets.
  * Pure: no network — the trigger object's fields are not expanded (root-only
  * scope), which is why the start node is excluded from the ref check.
@@ -79,11 +111,14 @@ export function flowExpressionProblems(draft: Record<string, unknown>, locale?: 
       } else if (field.kind === 'objectList' && field.columns) {
         const exprCols = field.columns.filter((c) => c.kind === 'expression');
         if (exprCols.length === 0) continue;
+        const screenNode: ScreenPreviewNode = { id: nodeId, config: asRecord(node.config) };
         for (const row of asArray(getFieldValue(node, field))) {
           const r = asRecord(row);
           const rowLabel = str(r.label);
           for (const col of exprCols) {
-            const hit = checkCel(r[col.key], roots, locale);
+            const hit = isScreenVisibleWhenColumn(type, field.id, col.key)
+              ? checkScreenVisibleWhen(r[col.key], screenNode)
+              : checkCel(r[col.key], roots, locale);
             if (hit) {
               const prefix = rowLabel || col.label;
               out.push({ target: { kind: 'node', nodeId }, level: hit.level, message: prefix ? `${prefix}: ${hit.message}` : hit.message });

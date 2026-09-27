@@ -30,9 +30,9 @@ defined while `data.n` was.
   to be evaluated and take its branch. The installed spec 17.4.0 admits an `ast`-only
   envelope and a whitespace-only guard at parse; objectstack main refuses both, and the
   Debug run follows main.
-- Unchanged: an edge whose condition is omitted is still reported as "Branch has no
-  condition." and not taken, and when several guards are true the Debug run still takes
-  the first.
+- Unchanged at this change: an edge whose condition is omitted is still reported as
+  "Branch has no condition." and not taken, and when several guards are true the Debug
+  run still takes the first.
 
 **Assignments.** A `{token}` inside a nested object or array value of an `assignments`
 map was left as written. The Debug run now interpolates values the way the runtime's
@@ -45,5 +45,15 @@ map was left as written. The Debug run now interpolates values the way the runti
 - `{order.amount}` walks into an object variable and `{list.1}` indexes an array.
 
 The runtime's `NOW()` / `TODAY()`, `$User.*`, function and arithmetic tokens are not
-modelled; a whole-token string holding one is kept as written. Inside a longer string
-such a token renders as `''`, as it did before; the runtime renders its value.
+modelled; a whole-token string holding one is kept as written. At this change, inside a
+longer string such a token renders as `''`, as it did before; the runtime renders its
+value.
+
+⚠️ **Dated note, 2026-09-25 — an edge with no condition is taken, and an embedded
+unmodelled token is kept — objectui#10692.** Later in this same release the Debug run
+leaves every node the way the runtime's `traverseNext` does: an out-edge with no
+condition and no `isDefault` is always taken (it is no longer reported as "Branch has
+no condition."), and several true guards still take the first. An unmodelled token
+inside a longer string is kept as written, as a whole-token one is, and the step names
+it. The rest of this entry is kept as the reading of this change; the objectui#10692
+entry states what the Debug run now does.

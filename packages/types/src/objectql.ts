@@ -23,9 +23,9 @@ import type { BaseSchema } from './base.js';
 // and read here by `ObjectKanbanSchema.columns` (objectui#8913) so the two
 // kanban faces judge a card the same way. Type-only: no runtime edge.
 import type { KanbanCard } from './complex.js';
-import type { DrillDownConfig } from './data-display.js';
+import type { ObjectDataTableDrillDownConfig } from './data-display.js';
 // `QueryParams` is the destination `ObjectGallerySchema.filter`'s own docblock
-// names — the value is forwarded verbatim into that slot — so the declaration
+// names — the value is forwarded into that slot, context tokens resolved — so the declaration
 // is an INDEXED ACCESS on it rather than a copy of its arms (objectui#9309).
 // Type-only: no runtime edge, and `./data.ts` imports nothing from here, so
 // this adds no cycle in either direction.
@@ -2852,7 +2852,10 @@ export interface ObjectMapSchema extends BaseSchema {
   data?: ViewData;
   /** Inline records, wrapped into a `{ provider: 'value' }` data config; read SECOND */
   staticData?: any[];
-  /** Query filter, forwarded verbatim as `$filter` */
+  /**
+   * Query filter, forwarded as `$filter` with its
+   * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666).
+   */
   filter?: any[];
   /** Sort configuration, forwarded as `$orderby`. Array only — the legacy string clause is retired (objectui#8221). */
   sort?: SortConfig[];
@@ -2911,14 +2914,15 @@ export interface ObjectTreeSchema extends BaseSchema {
   /** ObjectQL object name */
   objectName: string;
   /**
-   * Query filter, forwarded verbatim as `$filter` on the tree's own fetch.
+   * Query filter, forwarded as `$filter` on the tree's own fetch, with its
+   * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666).
    *
    * Typed as that DESTINATION by an indexed access on {@link QueryParams}, the
    * shape objectui#9309 settled for {@link ObjectGallerySchema.filter}, so the
    * declaration cannot drift away from the slot it is forwarded into
    * (objectui#9549). The key was already delivered and read before it was
    * declared: `ListView` puts `filter` on the `baseProps` every child view
-   * receives, and `ObjectTree` sends `$filter: schema.filter`. Until this
+   * receives, and `ObjectTree` sends it as `$filter`. Until this
    * declaration the value survived only on `BaseSchema`'s index signature, so
    * declaring it NARROWS: `filter: 'stage=won'` and `filter: 42` are compile
    * errors now.
@@ -3259,7 +3263,10 @@ export interface ObjectGanttSchema extends BaseSchema {
   // and `sort` as the two keys the element data-source binding maps onto.
   /** Inline records, wrapped into a `{ provider: 'value' }` config by `resolveRecordSourceConfig`. */
   staticData?: any[];
-  /** Query filter (JSON Rules format), forwarded verbatim as `$filter`. */
+  /**
+   * Query filter (JSON Rules format), forwarded as `$filter` with its
+   * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666).
+   */
   filter?: any[];
   /** Sort configuration, forwarded as `$orderby` via `convertSortToQueryParams`. Array only — the legacy string clause is retired (objectui#8221). */
   sort?: SortConfig[];
@@ -3472,10 +3479,12 @@ export interface ObjectCalendarSchema extends BaseSchema {
    */
   defaultView?: 'month' | 'week' | 'day';
   /**
-   * Query filter (JSON Rules format), forwarded verbatim as `$filter` on the
-   * calendar's own fetch — `plugin-calendar/src/ObjectCalendar.tsx` reads
-   * `schema.filter` at the `dataSource.find` call and again in that effect's
-   * dependency list.
+   * Query filter (JSON Rules format), forwarded as `$filter` on the
+   * calendar's own fetch — `plugin-calendar/src/ObjectCalendar.tsx` holds it
+   * through `useResolvedFilter` (`@object-ui/react`), with its
+   * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666),
+   * and reads the held value at the `dataSource.find` call and again in that
+   * effect's dependency list.
    *
    * Undeclared here until objectui#8174, so an authored value reached the
    * renderer only through {@link BaseSchema}'s `[key: string]: any` — admitted,
@@ -3858,10 +3867,12 @@ export interface ObjectKanbanSchema extends BaseSchema {
    */
   limit?: number;
   /**
-   * Query filter (JSON Rules format), forwarded verbatim as `$filter` on the
-   * board's own fetch — `plugin-kanban/src/ObjectKanban.tsx` reads
-   * `schema.filter` at the `dataSource.find` call, alongside the `$top` that
-   * {@link limit} feeds, and again in that effect's dependency list.
+   * Query filter (JSON Rules format), forwarded as `$filter` on the board's
+   * own fetch — `plugin-kanban/src/ObjectKanban.tsx` holds it through
+   * `useResolvedFilter` (`@object-ui/react`), with its
+   * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666),
+   * and reads the held value at the `dataSource.find` call, alongside the
+   * `$top` that {@link limit} feeds, and again in that effect's dependency list.
    *
    * Undeclared here until objectui#8174, so an authored value reached the
    * renderer only through {@link BaseSchema}'s `[key: string]: any` — admitted,
@@ -4191,10 +4202,11 @@ export type KanbanConditionalFormattingRule =
  *     `FilterArray` in its react-blocks prop table, and this component's
  *     registry `inputs` advertises `{ name: 'filter', type: 'array' }`.
  *   - `xAxisKey` — INTERNAL (relay-composed). `ChartRendererProps` calls it
- *     "Internal binding. Authors write the spec `xAxis: { field }`"; the
- *     author-facing spelling ON THIS NODE is `xAxisField` above. All five
- *     producers COMPUTE it (`dims[0]`, `chartCategoryKey(...)`), none forwards
- *     an authored value, and it is absent from the registry `inputs`.
+ *     "Internal binding. Authors write the spec `xAxis: { field }`", and that
+ *     spec object ({@link ObjectChartSchema.xAxis}) is the author-facing
+ *     spelling ON THIS NODE. All five producers COMPUTE it (`dims[0]`,
+ *     `chartCategoryKey(...)`), none forwards an authored value, and it is
+ *     absent from the registry `inputs`.
  *   - `series` — INTERNAL (relay-composed). The `{ dataKey }` shape below is
  *     the renderer's internal contract; the spec's author-facing
  *     `ChartSeriesSchema` REFUSES `dataKey` by name (`dataKey` → `name`
@@ -4261,6 +4273,22 @@ export type KanbanConditionalFormattingRule =
  * them — as reads or as exceptions — and neither was moved. Their pin is
  * `__tests__/object-chart-axis-config-10518.test.ts`; the render path was
  * measured once with a real registry probe, recorded on the card's PR.
+ *
+ * ## Three list-view spellings, RETIRED on this node (objectui#10608, ADR-0049)
+ *
+ * `xAxisField`, `yAxisFields` and `aggregation` are the LIST-VIEW chart
+ * block's vocabulary (`chart.xAxisField` and its siblings on a `chart` list
+ * view). The list-view relays translate that block into `aggregate` /
+ * `xAxisKey` / `series` before they compose this node, so on this node the
+ * three were declared and read by nothing: a node written with them drew no
+ * category axis and no series. Each is now a `?: never` tombstone whose zod
+ * twin refuses it by name with the spec spelling as the remedy — `xAxis:
+ * { field }`, `yAxis: [{ field }]`, `aggregate: { field, function, groupBy }`.
+ * The measurement and the producer census are on the card's PR; the pin is
+ * `__tests__/object-chart-legacy-axis-keys-retired-10608.test.ts`.
+ *
+ * ⛔ The LIST-VIEW carriers keep these names: they are a different node, they
+ * read them, and nothing here touches them.
  */
 export interface ObjectChartSchema extends BaseSchema {
   type: 'object-chart';
@@ -4269,12 +4297,39 @@ export interface ObjectChartSchema extends BaseSchema {
   /** Chart type. Includes donut / horizontal-bar / column — all rendered by
    *  AdvancedChartImpl (previously only reachable by passing an untyped string). */
   chartType: 'bar' | 'column' | 'horizontal-bar' | 'line' | 'area' | 'pie' | 'donut' | 'scatter';
-  /** Field for X axis (categories) — legacy inline path */
-  xAxisField?: string;
-  /** Fields for Y axis (values) — legacy */
-  yAxisFields?: string[];
-  /** Aggregation function — legacy */
-  aggregation?: 'cardinality' | 'sum' | 'avg' | 'min' | 'max';
+  /**
+   * RETIRED (objectui#10608, ADR-0049) — the list-view chart block's spelling,
+   * read by no `object-chart` reader. Write the spec's {@link xAxis} object,
+   * `xAxis: { field: 'status' }`; on the inline `objectName` path the category
+   * is `aggregate.groupBy`.
+   *
+   * A tombstone rather than a deletion: `BaseSchema`'s index signature and the
+   * mirror's `.passthrough()` would otherwise KEEP an authored value in silence.
+   *
+   * @deprecated Not a key this node reads. Write `xAxis: { field }`.
+   */
+  xAxisField?: never;
+  /**
+   * RETIRED (objectui#10608, ADR-0049) — the list-view chart block's spelling,
+   * read by no `object-chart` reader. Write the spec's {@link yAxis} list,
+   * `yAxis: [{ field: 'amount' }]` — one entry per value axis, and each entry's
+   * `field` is a plotted column when no `series` is written. On the inline
+   * `objectName` path the measure is `aggregate.field`; a dataset-bound chart
+   * selects {@link values} by name.
+   *
+   * @deprecated Not a key this node reads. Write `yAxis: [{ field }]`.
+   */
+  yAxisFields?: never;
+  /**
+   * RETIRED (objectui#10608, ADR-0049) — the list-view chart block's spelling,
+   * read by no `object-chart` reader. Write the spec's {@link aggregate},
+   * `aggregate: { field, function, groupBy }`, whose `function` is the spec's
+   * own vocabulary; a dataset-bound chart takes its aggregation from the
+   * dataset's measures.
+   *
+   * @deprecated Not a key this node reads. Write `aggregate: { field, function, groupBy }`.
+   */
+  aggregation?: never;
   /** Semantic-layer dataset name (ADR-0021, #1890) */
   dataset?: string;
   /** Dataset dimension names */
@@ -4282,8 +4337,10 @@ export interface ObjectChartSchema extends BaseSchema {
   /** Dataset measure names */
   values?: string[];
   /**
-   * AUTHORABLE — query filter, forwarded verbatim as `$filter` on both query
-   * legs (`ds.aggregate` and `ds.find`), and conjoined with the click context
+   * AUTHORABLE — query filter, forwarded as `$filter` on both query legs
+   * (`ds.aggregate` and `ds.find`) with its context tokens (`{current_user_id}`,
+   * `{current_org_id}`, the date macros) resolved first through
+   * `@object-ui/core`'s `resolveFilterPlaceholders`, and conjoined with the click context
    * to scope a drill-down.
    *
    * ⚠️ BOTH shapes, and the union is measured rather than tidied. The array arm
@@ -4294,7 +4351,7 @@ export interface ObjectChartSchema extends BaseSchema {
    * {@link ObjectKanbanSchema.filter} carry. The RECORD arm is what the reads
    * require: the in-repo corpus authors the ObjectQL object form
    * (`{ close_date: { $gte, $lte } }`) against fakes that read it that way, and
-   * both arms travel verbatim to `ds.aggregate` / `ds.find` as `$filter`.
+   * both arms travel to `ds.aggregate` / `ds.find` as `$filter`, resolved.
    * Declaring only the array arm would have refused live, working charts.
    *
    * ⚠️ Narrowing to ONE arm is a decision LOCAL TO THIS NODE, not a
@@ -4376,9 +4433,9 @@ export interface ObjectChartSchema extends BaseSchema {
   aggregate?: ChartAggregate;
   /**
    * INTERNAL (relay-composed) — the category column the renderer binds the x
-   * axis to. Authors write `xAxisField` above (or the spec's {@link xAxis}
-   * object below, whose `field` `normalizeChartSchema` resolves); the five
-   * producers of an `object-chart` node compute this key.
+   * axis to. Authors write the spec's {@link xAxis} object below, whose `field`
+   * `normalizeChartSchema` resolves (the retired {@link xAxisField} above is
+   * refused); the five producers of an `object-chart` node compute this key.
    *
    * Typed `string` from `ChartRendererProps.schema.xAxisKey`, the read this
    * value ends at.
@@ -4390,9 +4447,22 @@ export interface ObjectChartSchema extends BaseSchema {
    *
    * The element type is `ChartRendererProps.schema.series`' internal arm —
    * that is the read this value ends at, and the ruling on objectui#7946 asked
-   * for the reads rather than a copy of any producer's literal — every member
-   * of it except `type`, which that arm gained under objectui#8086 and this
-   * copy has not taken up. The spec's AUTHOR-facing `ChartSeriesSchema` is the other arm
+   * for the reads rather than a copy of any producer's literal — with every
+   * member of it EXCEPT the per-series `type` that arm gained under
+   * objectui#8086.
+   *
+   * ⛔ The omission is deliberate, not a lag (objectui#10584). Taking `type`
+   * up widens a published accept set, and that waits for a named producer
+   * that writes `type` on an `object-chart` node; none was named. Until one
+   * is, the per-series family override on this node is `chartType` — the
+   * renderer-internal spelling of `type`, which wins when an entry writes
+   * both. A `type` written here anyway is an excess property on a literal
+   * typed by this interface, and the zod mirror's element is a plain
+   * `z.object`, which strips it: it parses clean and is dropped. The mirror's
+   * `.describe()` says the same, because that string is what an author-facing
+   * tool renders.
+   *
+   * The spec's AUTHOR-facing `ChartSeriesSchema` is the other arm
    * (`{ name }`), and it refuses `dataKey` by name; `normalizeChartSchema` is
    * the one translation between them.
    */
@@ -4551,9 +4621,8 @@ export interface ObjectChartSchema extends BaseSchema {
    * single axis object or a bare column name, which the normalizer tolerates,
    * is refused by the mirror and does not compile here.
    *
-   * ⚠️ Declared beside {@link yAxisFields} above, a separate legacy
-   * vocabulary. Whether that key is live on this node is reported on
-   * objectui#10518 for its own ruling; this member settles nothing about it.
+   * The list-view spelling {@link yAxisFields} above is RETIRED on this node
+   * (objectui#10608): this list is the one author-facing value-axis spelling.
    */
   yAxis?: SpecChartAxis[];
 }
@@ -4579,7 +4648,8 @@ export interface ObjectGallerySchema extends BaseSchema {
   /** ObjectQL object name; omitted when the records arrive through `bind` or `data` */
   objectName?: string;
   /**
-   * Query filter, forwarded verbatim as `$filter`.
+   * Query filter, forwarded as `$filter` with its
+   * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666).
    *
    * Typed as the DESTINATION the sentence above names, by an indexed access on
    * {@link QueryParams} rather than a copy of its arms, so the declaration
@@ -4767,8 +4837,15 @@ export interface ObjectDataTableSchema extends BaseSchema {
   /**
    * Drill-to-record: clicking a row opens that record in a detail drawer.
    * `DashboardRenderer` defaults object-backed table widgets to `{ enabled: true }`.
+   *
+   * This block's own drill shape, not the shared `DrillDownConfig`
+   * (objectui#10685): `filter`, `maxRows` and `report` are refused by name,
+   * because a row drills to the one record it already is and there is no
+   * drilled list for them to act on, and `target` is `'drawer'` or `'dialog'`,
+   * because `'navigate'` opens the object's list page. The zod mirror's
+   * `drillDown` refuses the same members.
    */
-  drillDown?: DrillDownConfig;
+  drillDown?: ObjectDataTableDrillDownConfig;
   /**
    * Row click handler — a RUNTIME SLOT a React host supplies through this
    * interface, never through authored JSON (objectui#6124; the zod mirror

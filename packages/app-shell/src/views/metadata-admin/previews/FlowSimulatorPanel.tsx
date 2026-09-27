@@ -424,7 +424,8 @@ export function FlowSimulatorPanel({ nodes, edges, variables, locale, onRunState
                         <li key={ed.edgeId} className="space-y-0.5">
                           <div className={cn('flex items-center gap-1 font-mono text-[10px]', ed.selected ? 'text-sky-700' : 'text-muted-foreground')}>
                             <span>{ed.selected ? '▶' : '·'}</span>
-                            <span className="truncate">{ed.isDefault ? 'else' : ed.condition}</span>
+                            {/* An unguarded out-edge has no condition text: name it by its target (objectui#10692). */}
+                            <span className="truncate">{ed.isDefault ? 'else' : (ed.condition ?? `→ ${ed.target}`)}</span>
                             <span className={cn('ml-auto', ed.error && 'text-rose-600')}>{ed.error ? 'error' : ed.result ? 'true' : 'false'}</span>
                           </div>
                           {ed.error && <div className="pl-3 text-[10px] text-rose-600">{ed.error}</div>}

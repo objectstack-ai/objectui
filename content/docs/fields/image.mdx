@@ -17,8 +17,10 @@ The Image Field component provides an image upload interface with thumbnail prev
 
 An image field is authored as `ImageFieldMetadata` (`@object-ui/types`), which is the
 source of truth for the key set: it extends `BaseFieldMetadata` with the upload limits
-and the two pixel bounds. A stored image is `UploadedFileMetadata`, the same value
-shape the file field stores.
+and the two pixel bounds. A stored image is the bare `sys_file` id the upload adapter
+minted, the same value shape the file field stores: see the
+[File Field](/docs/fields/file) for the refusal when no id comes back, and for
+`UploadedFileMetadata`, the legacy inline shape an older record may still hold.
 
 ```ts
 import type { ImageFieldMetadata } from '@object-ui/types';
@@ -87,32 +89,7 @@ For best results, consider:
 
 ## Integration Notes
 
-This component creates object URLs for preview. For production use, implement server-side upload:
-
-```plaintext
-const uploadImage = async (file: File) => {
-  // Validate dimensions
-  const img = new Image();
-  img.src = URL.createObjectURL(file);
-  await new Promise((resolve) => {
-    img.onload = resolve;
-  });
-  
-  if (img.width > maxWidth || img.height > maxHeight) {
-    throw new Error('Image dimensions too large');
-  }
-  
-  // Upload to server
-  const formData = new FormData();
-  formData.append('image', file);
-  const response = await fetch('/api/images', {
-    method: 'POST',
-    body: formData
-  });
-  
-  return response.json();
-};
-```
+Uploads go through the ambient `UploadProvider`, exactly as for the [File Field](/docs/fields/file): the stored value is the `sys_file` id the adapter returns, and a pick whose adapter returns none is refused with "did not complete".
 
 ## Use Cases
 

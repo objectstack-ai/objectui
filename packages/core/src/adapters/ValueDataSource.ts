@@ -29,6 +29,7 @@ import {
   isRefusedTextComparand,
   textComparandRefusalReason,
 } from '../utils/text-comparand.js';
+import { toFilterNodeSafely, type FilterOperatorError } from '../utils/filter-converter.js';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -70,6 +71,26 @@ function getRecordId(record: any, idField?: string): string | number | undefined
 function refuseFilterNode(refusals: Set<string>, reason: string): false {
   refusals.add(`[ObjectUI] ValueDataSource: ${reason}. Rows are excluded rather than passed through.`);
   return false;
+}
+
+/**
+ * A refusal the LOWERING raised, re-seated in this adapter's own sentence
+ * (objectui#10767).
+ *
+ * `toFilterNode` throws a {@link FilterOperatorError} for a stored view rule it
+ * will not lower — an ARRAY on a single-valued operator (objectui#8557), an
+ * empty or non-string `icontains` comparand (objectui#9048). For the producers
+ * that call it before a WIRE query, a throw is right: they are deciding whether
+ * to send a query at all. `find()` is deciding about rows, so here the same
+ * refusal takes the shape every refusal takes in this file — the rows are
+ * excluded and the reason is logged once — rather than surfacing as a throw
+ * from a `find` that never threw on a bad filter before. The converter's own
+ * `[ObjectUI]` prefix and closing period are taken off so the sentence reads
+ * once, not twice; the reasoning and the prescription are its own, verbatim.
+ */
+function loweringRefusalReason(refusal: FilterOperatorError): string {
+  const body = refusal.message.replace(/^\[ObjectUI\]\s*/, '').replace(/\.\s*$/, '');
+  return `filter rule refused as it is lowered: ${body}`;
 }
 
 /**
@@ -560,6 +581,12 @@ function matchesComparisonNode(
  *
  * Anything else is refused rather than passed. An empty array stays "no
  * filter" — the spec says the same, and `find()` never calls with one.
+ *
+ * A spec `ViewFilterRule[]` never reaches this function as rule objects:
+ * `find()` lowers the array through `toFilterNode` first (objectui#10767), so a
+ * rule arrives here as the comparison tuple its operator spells. A rule object
+ * that DOES arrive is one the lowering left alone — no string `field` — and is
+ * refused below like any other unreadable node.
  */
 function matchesASTFilter(record: any, filterNode: any, refusals: Set<string>): boolean {
   if (!Array.isArray(filterNode)) {
@@ -1097,9 +1124,50 @@ export class ValueDataSource<T = any> implements DataSource<T> {
       // was exactly the asymmetry of one arm refusing loudly while the other
       // waved everything through in silence.
       const refusals = new Set<string>();
-      if (Array.isArray(params.$filter) && params.$filter.length > 0) {
-        result = result.filter((r) => matchesASTFilter(r, params.$filter as any[], refusals));
-      } else if (!Array.isArray(params.$filter) && Object.keys(params.$filter).length > 0) {
+      if (Array.isArray(params.$filter)) {
+        // objectui#10767 — THE ARRAY ARM LOWERS BEFORE IT MATCHES.
+        //
+        // An array `$filter` is one of three things: an AST node, a legacy flat
+        // list of nodes, or a spec `ViewFilterRule[]` (`[{ field, operator,
+        // value }, …]`) — the ONLY form the spec's converged `filter` doors
+        // accept (objectui#6206 B), and therefore the form a spec-conformant
+        // page carries. `matchesASTFilter` reads the first two; a rule OBJECT
+        // is none of its shapes, so it used to refuse every row of a
+        // spec-conformant filter with one warning, and the four blocks whose
+        // rows can be inline (`object-map` / `object-tree` / `object-calendar`
+        // / `object-gantt`) rendered NOTHING for the one filter an author is
+        // allowed to write.
+        //
+        // The lowering is the repo's ONE sink, `toFilterNode` — the same
+        // function the grid, the list and every other lowering caller already
+        // use before a wire query — so this adapter grows no second lowering
+        // and no second operator table: the rule's operator goes through the
+        // spec's own `normalizeFilterOperator` there, and arrives here as the
+        // AST spelling the arm below already executes (`equals`,
+        // `greater_than`, …). `QueryParams.$filter` (`@object-ui/types`) has
+        // declared the array form legal for every DataSource and named the wire
+        // adapter's `translateFilterToAST` as the accept set; this was the one
+        // face in the family that did not read the rule array, so
+        // `resolveDataSource` answered `provider: 'value'` with an adapter that
+        // read FEWER filter shapes than `provider: 'object'` got.
+        //
+        // The matcher itself is NOT relaxed. `toFilterNode` returns an AST
+        // array untouched (no rule objects, nothing to lower), `undefined` for
+        // an empty array (no filter — what the object-bound arm answers too),
+        // and passes an operator the spec does not know through VERBATIM, so a
+        // node that is genuinely unreadable still reaches the refusals below
+        // unchanged and still excludes the row with the same sentence. A rule
+        // the lowering itself refuses is excluded and logged once through
+        // `loweringRefusalReason` — never thrown from `find`.
+        const lowered = toFilterNodeSafely(params.$filter);
+        if (!lowered.ok) {
+          refuseFilterNode(refusals, loweringRefusalReason(lowered.refusal));
+          result = [];
+        } else if (Array.isArray(lowered.node) && lowered.node.length > 0) {
+          const node = lowered.node;
+          result = result.filter((r) => matchesASTFilter(r, node, refusals));
+        }
+      } else if (Object.keys(params.$filter).length > 0) {
         result = result.filter(
           (r) => matchesFilter(r, params.$filter as Record<string, any>, refusals),
         );
@@ -1180,7 +1248,9 @@ export class ValueDataSource<T = any> implements DataSource<T> {
       throw new Error(`ValueDataSource: Record with id "${id}" not found`);
     }
     this.items[index] = { ...this.items[index], ...data };
-    this.emitMutation({ type: 'update', resource: _resource, id, record: { ...this.items[index] } });
+    // The event carries the protocol's string id (objectui#10078): an inline
+    // item may hold a numeric key, and this adapter is where it converts.
+    this.emitMutation({ type: 'update', resource: _resource, id: String(id), record: { ...this.items[index] } });
     return { ...this.items[index] };
   }
 
@@ -1190,7 +1260,7 @@ export class ValueDataSource<T = any> implements DataSource<T> {
     );
     if (index === -1) return false;
     this.items.splice(index, 1);
-    this.emitMutation({ type: 'delete', resource: _resource, id });
+    this.emitMutation({ type: 'delete', resource: _resource, id: String(id) });
     return true;
   }
 

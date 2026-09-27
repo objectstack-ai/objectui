@@ -392,12 +392,14 @@ describe('objectui#9001 — what the guard must NOT touch', () => {
     // PROCESSED, so a mixed filter folds too. Neither touched what this control
     // measures: a refusal that THROWS adds no `continue`, skips no key, and so
     // moves neither the numerator nor the denominator. The empty-operator-map
-    // case below is the one that still reaches the object tail, and it is what
-    // keeps this control able to see a perturbation at all.
+    // case below is the one no fold claims, and it is what keeps this control
+    // able to see a perturbation at all — ⚠️ UPDATED: since objectui#9164 it is
+    // refused rather than handed back as the object, and a fold that swallowed
+    // it would answer `undefined` instead of throwing.
     expect(convertFiltersToAST({ $and: [] })).toBeUndefined();
     expect(convertFiltersToAST({ $or: [{}] })).toBeUndefined();
     expect(convertFiltersToAST({ $and: [], a: null })).toBeUndefined();
-    expect(convertFiltersToAST({ $and: [], a: {} })).toEqual({ $and: [], a: {} });
+    expect(() => convertFiltersToAST({ $and: [], a: {} })).toThrow(FilterOperatorError);
     expect(convertFiltersToAST({})).toEqual({});
     expect(convertFiltersToAST({ a: null })).toBeUndefined();
     expect(convertFiltersToAST({ $and: [], name: { $icontains: 'x' } })).toEqual([

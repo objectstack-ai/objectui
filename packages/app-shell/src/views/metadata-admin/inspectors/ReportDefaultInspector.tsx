@@ -72,6 +72,33 @@ const REPORT_CURATED_FIELDS = new Set([
 ]);
 
 /**
+ * Top-level keys dropped from the container in the same patch that commits
+ * `type: 'joined'` (objectui#10746). A joined report selects per block — each
+ * block binds its own `dataset` and picks its own `rows` / `columns` /
+ * `values` — so `ReportSchema`'s joined arm refuses the four selection keys on
+ * the container ("a `joined` report selects per block — move `KEY` onto
+ * `blocks[]`, or delete it", objectstack PR #20160) and has always refused a
+ * container `order` ("a `joined` report orders per block"). `chart` is inert
+ * on a joined container (objectstack#20161) and is hidden by the same switch.
+ *
+ * Why CLEAR rather than un-hide: the moment the type becomes `joined` this
+ * inspector hides its dataset / values / rows / columns / chart controls
+ * (`datasetBound` below) and the spec's own `reportForm` hides its whole
+ * "Dataset binding" section — `order` included — through
+ * `visibleWhen: "data.type != 'joined'"`. A report that was bound first and
+ * switched second kept those keys INVISIBLY, and its save was then refused at
+ * a path no control on the Properties tab could reach.
+ *
+ * The clear is an `undefined`-valued key in the shallow patch — the spelling
+ * `commitChart` below and the sibling inspectors already clear with. The host
+ * spreads the patch over the draft, so the key becomes an own property holding
+ * `undefined`, which `JSON.stringify` omits on the wire and which the spec's
+ * refinement skips. `runtimeFilter` and `drilldown` are deliberately NOT here:
+ * the joined branch reads both.
+ */
+const JOINED_CONTAINER_CLEARED_KEYS = ['dataset', 'values', 'rows', 'columns', 'chart', 'order'] as const;
+
+/**
  * Chart types offered in the curated Chart panel. A dataset-bound report plots
  * one measure (yAxis) across one dimension (xAxis), so we surface the families
  * that fit that shape; the renderer maps the rest. (`''` = no chart / table-only.)
@@ -327,6 +354,23 @@ export function ReportDefaultInspector({
   // the spec form's repeater) — the top-level binding only applies otherwise.
   const datasetBound = reportType !== 'joined';
 
+  // objectui#10746 — see `JOINED_CONTAINER_CLEARED_KEYS`. Only keys the draft
+  // carries are named, so a host that mirrors each patched key to a live
+  // preview (`ReportConfigPanel`'s `onFieldChange`) sees no phantom clears and
+  // an unbound report's switch stays the one-key patch it always was.
+  // Switching AWAY from `joined` restores nothing: the binding was dropped when
+  // the type left, `onPatch` has no undo stack behind it, and the author
+  // re-binds. `blocks` is never touched in either direction.
+  const commitType = (nextType: string) => {
+    const patch: Record<string, unknown> = { type: nextType };
+    if (nextType === 'joined') {
+      for (const key of JOINED_CONTAINER_CLEARED_KEYS) {
+        if (draft[key] !== undefined) patch[key] = undefined;
+      }
+    }
+    onPatch(patch);
+  };
+
   // Graft any server-only top-level fields onto the bundled-spec form so they
   // are directly editable here even when the bundled `@objectstack/spec` lags
   // the running server (skew root-cure).
@@ -388,7 +432,7 @@ export function ReportDefaultInspector({
         label={tr('engine.inspector.report.type')}
         value={reportType}
         options={typeOptions}
-        onCommit={(v) => onPatch({ type: v })}
+        onCommit={commitType}
         disabled={readOnly}
       />
 

@@ -71,7 +71,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { isFilterAST } from '@objectstack/spec/data';
-import { convertFiltersToAST, toFilterNode, mergeFilterNodes } from '../filter-converter';
+import { convertFiltersToAST, toFilterNode, mergeFilterNodes, FilterOperatorError } from '../filter-converter';
 import { ValueDataSource } from '../../adapters/ValueDataSource';
 
 const ROWS = [
@@ -230,23 +230,31 @@ describe('objectui#9030 — controls', () => {
     expect(convertFiltersToAST({ $and: [], $or: [] })).toEqual(['$or', '=', []]);
   });
 
-  it('⛔ an empty operator map still returns the original object', () => {
+  it('⛔ an empty operator map is not a member — refused since objectui#9164', () => {
     // NOT a member. Its key was PROCESSED — the loop entered it and the operator
-    // loop ran zero times — so it is counted in the denominator and no arm
+    // loop ran zero times — so it is counted in the denominator and no fold
     // claims it. objectui#8770 measured this boundary and this card does not
     // move it.
-    expect(convertFiltersToAST({ a: {} })).toEqual({ a: {} });
+    //
+    // ⚠️ UPDATED. This used to pin the original object coming back; since
+    // objectui#9164 it is refused (envelope pinned in
+    // filter-empty-operator-map-9164.test.ts).
+    expect(() => convertFiltersToAST({ a: {} })).toThrow(FilterOperatorError);
   });
 
-  it('⛔ an empty operator map beside a SKIPPED key still returns the original object', () => {
+  it('⛔ an empty operator map beside a SKIPPED key is not folded', () => {
     // ⭐ The sharpest boundary case, and the one that says what "processed"
     // means: subtracting the skipped key leaves one processed key that produced
-    // no condition and is not an identity group, so neither arm fires. A repair
+    // no condition and is not an identity group, so neither fold fires. A repair
     // that had folded on "no conditions were produced" instead would swallow
     // this.
-    const filter = { a: {}, b: undefined };
-    expect(convertFiltersToAST(filter)).toEqual(filter);
-    expect(convertFiltersToAST({ $and: [], a: {} })).toEqual({ $and: [], a: {} });
+    //
+    // ⚠️ UPDATED. These used to pin the original object coming back; since
+    // objectui#9164 they are refused (envelope pinned in
+    // filter-empty-operator-map-9164.test.ts). A fold would answer `undefined`
+    // rather than throw, so the fence still holds.
+    expect(() => convertFiltersToAST({ a: {}, b: undefined })).toThrow(FilterOperatorError);
+    expect(() => convertFiltersToAST({ $and: [], a: {} })).toThrow(FilterOperatorError);
   });
 
   it('⛔ an empty filter still returns the original object', () => {

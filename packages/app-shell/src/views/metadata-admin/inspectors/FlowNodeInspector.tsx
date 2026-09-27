@@ -56,6 +56,7 @@ import { FlowNodeConfigField } from './FlowNodeConfigField.js';
 import { useFlowScope } from './useFlowScope.js';
 import { nodeOutputRefs, type ScopeRef } from './flow-scope.js';
 import { NESTED_NODE_KIND, parseNestedNodeId, locateFlowNode, type InspectorFlowNode } from './flow-nested-selection.js';
+import { displayRegionLabel } from '../previews/flow-region-label.js';
 import type { FlowDesignerEdge } from '../previews/flow-canvas-layout.js';
 import { ScreenPreview } from '../previews/ScreenPreview.js';
 
@@ -388,7 +389,12 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
         <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground" aria-label="nested node location">
           <span className="max-w-[45%] truncate font-medium">{loc?.container?.label || loc?.container?.id}</span>
           <span aria-hidden>›</span>
-          <span className="truncate">{loc?.regionLabel}</span>
+          {/* The region's English structural fallback (`Try` / `Catch` / `Branch N`)
+              reads the same catalogue rows the canvas header above it reads;
+              `Body` and an authored branch name pass through (objectui#10696). */}
+          <span className="truncate">
+            {loc?.regionKey ? displayRegionLabel({ key: loc.regionKey, label: loc.regionLabel }, locale) : loc?.regionLabel}
+          </span>
           <span aria-hidden>›</span>
           <span className="max-w-[45%] truncate font-medium text-foreground">{node.label || node.id}</span>
         </div>

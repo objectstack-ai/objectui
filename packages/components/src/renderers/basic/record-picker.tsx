@@ -39,6 +39,8 @@ import {
   useAdapter,
   useElementDataSource,
   usePageVariableBinding,
+  useFilterScope,
+  useResolvedFilter,
 } from '@object-ui/react';
 import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import type { I18nLabel } from '@objectstack/spec/ui';
@@ -105,7 +107,15 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
   // status panel instead.
   const unresolved = dataBinding.status === 'loading' || dataBinding.status === 'missing';
   const object = unresolved ? undefined : (composed?.object ?? props.object);
-  const filter = composed?.filter ?? props.filter;
+  // objectui#10666 — whichever filter wins (the binding's, or the node's own),
+  // with every context token (`{current_user_id}`, `{current_org_id}`, the date
+  // macros) resolved ONCE through `@object-ui/core`'s shared
+  // `resolveFilterPlaceholders`, against the session scope the host provides,
+  // and HELD by structure (`useResolvedFilter` in `@object-ui/react`). The
+  // picker sent the literal token on `$filter` before; the query and its
+  // content key read this value.
+  const filterScope = useFilterScope();
+  const filter = useResolvedFilter(composed?.filter ?? props.filter, filterScope);
   const sort = composed?.sort ?? props.sort;
   const limit = composed?.limit ?? props.limit ?? 50;
   const labelField = props.labelField ?? 'name';

@@ -439,7 +439,7 @@ export function DashboardWidgetInspector({
                         onCommit={(v) => setBinding(v ? v : undefined)}
                         options={fieldComboOptions}
                         placeholder={tFormat('engine.inspector.widget.filterBindingDefault', locale, { field: def.field })}
-                        searchPlaceholder="Search fields…"
+                        searchPlaceholder={t('engine.form.searchFields', locale)}
                         disabled={readOnly}
                         mono
                       />

@@ -22,7 +22,9 @@ import type { DataSource, QueryParams } from '@object-ui/types';
  *   (`{ data, total }`, tolerating a bare array),
  * - owns `records`/`loading`/`error`/`total` plus the `page`/`search`/`sort`
  *   controls, with a debounced search path,
- * - clears itself when `enabled` goes false (e.g. a dialog closing).
+ * - clears itself when it can no longer query — `enabled` false (e.g. a dialog
+ *   closing), or no data source or object name — superseding any read still in
+ *   flight, so that read's answer commits nothing (objectui#10712).
  *
  * The caller keeps ownership of *selection* state and of record→option mapping;
  * this hook only answers "what records match the current query". It is the
@@ -146,8 +148,16 @@ export function useRecordQuery(options: UseRecordQueryOptions): UseRecordQueryRe
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // objectui#10712 (objectui#10713) — the number of the latest `runQuery` call
-  // that issued a read. Held in a ref: nothing renders from it.
+  // that issued a read. Held in a ref: nothing renders from it. The reset
+  // below moves it too, so a read in flight at the reset is superseded.
   const runSeqRef = useRef(0);
+
+  const clearDebounce = useCallback(() => {
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+      debounceTimer.current = null;
+    }
+  }, []);
 
   // Stable signatures for object/array inputs so the fetch effect keys on their
   // *value*, not a fresh reference every render.
@@ -229,36 +239,57 @@ export function useRecordQuery(options: UseRecordQueryOptions): UseRecordQueryRe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canQuery, page, sort, runQuery]);
 
-  // Reset query state when disabled — separate from the fetch effect so resets
-  // don't re-trigger a fetch (React #185).
-  useEffect(() => {
-    if (!enabled) {
-      setRecords([]);
-      setError(null);
-      setSearchState('');
-      setPageState(1);
-      setSortState(null);
-    }
-  }, [enabled]);
+  // Clear the query state, superseding any read in flight (objectui#10712).
+  // The run number moves, so that read's answer commits nothing: it was the
+  // latest run, and before this card it committed over the cleared state.
+  // `loading` is ended here, since that run no longer may end it, and a pending
+  // debounced search is dropped, since it would query what the hook is
+  // clearing. This is both the consumer's `reset()` and the reset the effect
+  // below applies when the hook can no longer query.
+  const reset = useCallback(() => {
+    runSeqRef.current += 1;
+    clearDebounce();
+    setLoading(false);
+    setRecords([]);
+    setError(null);
+    setSearchState('');
+    setPageState(1);
+    setSortState(null);
+  }, [clearDebounce]);
 
-  // Clean up the debounce timer on unmount.
-  useEffect(
-    () => () => {
-      if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    },
-    [],
-  );
+  // Reset query state when the hook can no longer query — separate from the
+  // fetch effect so resets don't re-trigger a fetch (React #185). Keyed on
+  // `canQuery`, not `enabled` alone (objectui#10712): `objectName` or
+  // `dataSource` going null had no reset, so the previous object's records
+  // stayed and a read in flight committed.
+  useEffect(() => {
+    if (!canQuery) reset();
+  }, [canQuery, reset]);
+
+  // Drop a pending debounced search whenever the fetch effect above is about to
+  // run a query, and on unmount (objectui#10712). Keyed on what that effect is
+  // keyed on: `runQuery` (a filter, object, data-source, page-size or `enabled`
+  // change moves it) AND `page` and `sort`, which move without moving
+  // `runQuery`. Any of these inside the debounce window re-runs the query
+  // through the fetch effect with the current `search`; the armed timer would
+  // then run as a call numbered latest, either the OLDER closure (the previous
+  // filter, object or data source) or the current closure with the OLDER page
+  // or sort (`setSearch` arms it with page 1 and the sort in scope), and its
+  // answer would replace the one the fetch effect asked for. React runs this
+  // cleanup before that effect's body in the same commit, so the timer is gone
+  // before the new query is numbered.
+  useEffect(() => () => clearDebounce(), [runQuery, page, sort, clearDebounce]);
 
   const setSearch = useCallback(
     (query: string) => {
       setSearchState(query);
       setPageState(1);
-      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      clearDebounce();
       debounceTimer.current = setTimeout(() => {
         runQuery(query, 1, sort);
       }, debounceMs);
     },
-    [runQuery, sort, debounceMs],
+    [runQuery, sort, debounceMs, clearDebounce],
   );
 
   const setPage = useCallback((next: number) => {
@@ -277,15 +308,6 @@ export function useRecordQuery(options: UseRecordQueryOptions): UseRecordQueryRe
   const setSort = useCallback((next: RecordQuerySort | null) => {
     setSortState(next);
     setPageState(1);
-  }, []);
-
-  const reset = useCallback(() => {
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    setRecords([]);
-    setError(null);
-    setSearchState('');
-    setPageState(1);
-    setSortState(null);
   }, []);
 
   const refetch = useCallback(() => {

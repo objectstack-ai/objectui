@@ -9,6 +9,9 @@
 export * from './useExpression.js';
 // Session scope for filter placeholders ({current_user_id}/{current_org_id}).
 export * from './useFilterScope.js';
+// The ONE hold a data node resolves its own authored `filter` through
+// (objectui#10666), fed by `useFilterScope()`.
+export * from './useResolvedFilter.js';
 export * from './useActionRunner.js';
 export * from './useNavigationOverlay.js';
 export * from './usePageVariables.js';

@@ -9,6 +9,14 @@ import { ImageLightbox } from './ImageLightbox.js';
 import { useUploadingSignal } from './useUploadingSignal.js';
 import { useUploadingScopeHold } from './uploadingScope.js';
 import { maxSizeError, type TranslateFn } from './file-size-guard.js';
+// The error row for a failed OR incomplete upload — the same translated keys,
+// arguments and fallbacks FileField renders for the same outcomes through the
+// same `useUpload()` transport (objectui#10226, objectui#7699). Both upload
+// paths in `ImageField` are invoked fire-and-forget (React ignores the promise
+// an `onChange` handler returns; the cropper does not await `onConfirm`), so a
+// failure not caught there is reported nowhere — it escapes as an unhandled
+// rejection.
+import { uploadErrorMessage } from './upload-error-message.js';
 import {
   fileValueForSubmit,
   readFileValues,
@@ -22,22 +30,6 @@ import {
 const ImageCropperDialog = lazy(() =>
   import('./ImageCropperDialog.js').then((m) => ({ default: m.ImageCropperDialog })),
 );
-
-/**
- * The message for a failed upload — the same translated key, arguments and
- * fallback FileField renders for the same failure through the same
- * `useUpload()` transport (objectui#10226). Both upload paths in `ImageField`
- * are invoked fire-and-forget (React ignores the promise an `onChange` handler
- * returns; the cropper does not await `onConfirm`), so a failure not caught
- * there is reported nowhere — it escapes as an unhandled rejection.
- */
-function uploadFailedMessage(t: TranslateFn, name: string, err: unknown): string {
-  return t('fields.file.uploadFailed', {
-    defaultValue: `Failed to upload "${name}": ${(err as Error).message}`,
-    name,
-    error: (err as Error).message,
-  });
-}
 
 /**
  * ImageField - Image upload widget with preview thumbnails
@@ -115,8 +107,11 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
       setUploading(true);
       try {
         const result = await upload(blob);
-        remember(result, name);
+        // Throws when the adapter surfaced no `sys_file` id (objectui#7699),
+        // so the catch below reports it and the crop is not written; the
+        // preview is remembered only once there is an id to key it by.
         const next = fileValueForSubmit(result, name);
+        remember(result, name);
         if (multiple) {
           const updated = [...images];
           updated[cropTarget.index] = next;
@@ -127,7 +122,7 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
       } catch (err) {
         // The original image stays in place; the dialog closes in `finally`,
         // so the message lands in the field's error row, not behind it.
-        setErrors([uploadFailedMessage(t as TranslateFn, name, err)]);
+        setErrors([uploadErrorMessage(t as TranslateFn, name, err)]);
       } finally {
         releaseScope();
         setUploading(false);
@@ -220,22 +215,26 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
         validFiles.map(async (file) => {
           try {
             const result = await upload(file);
+            // Throws when the adapter surfaced no `sys_file` id (objectui#7699):
+            // reported below like a transport failure, and the pick is not
+            // added. The preview is remembered only once there is an id.
+            const next = fileValueForSubmit(result, file.name);
             remember(result, file.name);
-            return fileValueForSubmit(result, file.name);
+            return next;
           } catch (err) {
-            failures.push(uploadFailedMessage(t as TranslateFn, file.name, err));
+            failures.push(uploadErrorMessage(t as TranslateFn, file.name, err));
             return null;
           }
         }),
       );
       if (failures.length > 0) setErrors([...rejections, ...failures]);
-      const imageObjects = uploaded.filter((v) => v !== null);
-      if (imageObjects.length === 0) return;
+      const imageIds = uploaded.filter((v) => v !== null);
+      if (imageIds.length === 0) return;
 
       if (multiple) {
-        onChange([...images, ...imageObjects]);
+        onChange([...images, ...imageIds]);
       } else {
-        onChange(imageObjects[0]);
+        onChange(imageIds[0]);
       }
     } finally {
       releaseScope();

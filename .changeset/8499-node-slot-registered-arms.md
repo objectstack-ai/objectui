@@ -37,6 +37,9 @@ from 107 to 154:
   `renderers/basic/html-elements.tsx` registers (`h1`…`h6`, `p`, `a`, `ul`, `img`, …),
   plus the per-tag keys that module forwards to the DOM (`href`, `target`, `rel`,
   `title`, `src`, `alt`, `width`, `height`, `dateTime`, `cite`).
+  ⚠️ **Dated note, 2026-09-27 — that set has since gained `code` — objectui#10756.**
+  At this change `TAGS` and this arm both named 37 tags; both now name 38, and the
+  parity pin counts 38. The rest of this entry is kept as the reading of this change.
 - `InputShorthandSchema` (`zod/form.zod.ts`) — `email` / `password`, the two aliases
   `renderers/form/input.tsx` registers onto the `input` renderer with `inputType`
   pinned. `inputType` is deliberately NOT declared on this arm: the wrapper spreads

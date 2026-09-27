@@ -43,7 +43,12 @@ npm install @object-ui/plugin-dashboard
   header?: {                        // Header block — strict: exactly these keys
     showTitle?: boolean,
     showDescription?: boolean,
-    actions?: { label, actionUrl?, actionType?, icon? }[]
+    actions?: {
+      label: string | LocaleMap,    // button text; a map resolves to the active language
+      actionUrl: string,            // required: the URL, or the target the action runner dispatches
+      actionType?: 'url' | 'script' | 'modal' | 'flow' | 'api' | 'form',
+      icon?: string                 // Lucide icon name
+    }[]
   },
   globalFilters?: GlobalFilter[],   // Dashboard-level filter bar — see "Dashboard-level filters"
   dateRange?: {                     // Built-in date-range filter — see "Dashboard-level filters"

@@ -40,6 +40,17 @@
  * `groupBy`-only widget, AFTER objectui#8266's fix had already corrected the
  * measure. It is the one the second block below shows changing.
  *
+ * ## Re-decided on purpose by objectui#10396 — the FIRST row now refuses
+ *
+ * The table above is the baseline as measured then, kept as history. Since
+ * objectui#10396 (triage option B), `status` + `value` no longer draws a silent
+ * frame: a series key NO row carries gets its own refusal,
+ * `missing-series-key`, naming the column. The `status/value` case below was
+ * rewritten for that, on purpose. The `name/value` case did NOT change, and
+ * that is now a precedence pin as well: with BOTH keys missing,
+ * `missing-category-key` wins, because a chart with no category axis is the
+ * more fundamental failure.
+ *
  * ⚠️ Mark counts are harness-bound (`ResponsiveContainer` is fixed at 480x320
  * here); they are re-derived in this file and never carried in from another.
  */
@@ -147,14 +158,21 @@ describe('the cardized baseline: which (xAxisKey, dataKey) pairs draw (objectui#
     expect(drawn.ticks).toEqual(expect.arrayContaining(['open', 'paid', '0', '2', '4']));
   });
 
-  it('status/value — objectui#8266: a frame with the categories on it and nothing in it', async () => {
+  it('status/value — objectui#8266: nothing drawn, and since objectui#10396 the missing column is named', async () => {
+    // Was a silent frame with the categories on it (ticks open/paid, no
+    // refusal); re-decided by objectui#10396, see the file header.
     const drawn = await drawWith('status', MEASURE_FLOOR);
-    expect(drawn.ticks).toEqual(['open', 'paid']);
     expect(drawn.marks).toBe(0);
-    expect(drawn.refusal).toBeNull();
+    expect(drawn.refusal).toBe('missing-series-key');
+    expect(drawn.refusalText).toContain(`no row has a ${MEASURE_FLOOR} field`);
+    // The category key IS carried, so the category refusal must not claim it.
+    expect(drawn.refusalText).not.toContain('status');
+    expect(drawn.ticks).toEqual([]);
     expect(drawn.emptyState).toBe(false);
   });
 
+  // With `value` both keys are missing: `missing-category-key` wins over
+  // objectui#10396's `missing-series-key` (precedence, see the file header).
   it.each([MEASURE_FLOOR, 'count'])(
     'name/%s — refused, and the message names the key the author never wrote',
     async (dataKey) => {

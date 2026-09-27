@@ -37,5 +37,13 @@ Accept-set change on the published validator, stated plainly:
 
 `DrillDownConfigSchema` is deliberately NOT `@objectstack/spec/ui`'s
 `ChartDrillDownSchema`: that object models the chart-only subset strictly and
-refuses `mode` and `report` by name, both of which are live keys on the table /
-pivot / metric widgets that share `DrillDownConfig`.
+refuses `mode` and `report` by name, both of which were, at this change, keys
+`DrillDownConfig` declared for the table / pivot / metric widgets that share it.
+
+⚠️ **Dated note, 2026-09-25 — `mode` is read by the table alone — objectui#10685.**
+The blocks now take per-block drill shapes. `mode` is read only by
+`object-data-table`, on its row click, and is refused by name on `object-pivot`
+(`ObjectPivotDrillDownConfig`, objectui#10685) and on `object-metric`
+(`ObjectMetricDrillDownConfig`, objectui#9002), whose click points are always
+aggregates. `report` is read by `object-pivot` and `object-metric`, through the
+drawer they open. The rest of this entry is kept as the reading of this change.

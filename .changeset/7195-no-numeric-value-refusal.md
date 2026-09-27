@@ -41,3 +41,5 @@ as before. A bound series key that is not a plain property of any row (a dotted 
 silent: the refusal fires only when every bound key is read from the rows directly. Rows with no placeable pair still get scatter's
 `no-plottable-points`, a multi-series scatter still gets `scatter-multi-series`, and
 `missing-category-key` / `no-plottable-series` still take precedence over this one.
+
+⚠️ **Dated note, 2026-09-27 — a column no row carries is now refused when every bound key is one — objectui#10396.** Later in this same release, a bar / column / horizontal-bar / line / area / combo chart whose every bound series key names a column no row carries renders its own refusal, `missing-series-key` ("no row has a `KEY` field"), instead of staying silent. A dotted path, and a column no row carries beside a key the rows do carry, still keep the chart silent. The rest of this entry is kept as the reading of this change; the objectui#10396 entry states what that shape now renders.

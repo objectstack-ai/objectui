@@ -128,7 +128,7 @@ describe('the declaration reaches the consumers that read it (objectui#6740)', (
   it.each(LAYOUT_CONTAINERS)('`%s` reports as a container on the public tier', (type) => {
     // The flag's consumer, and the reason it is pinned rather than left
     // implicit: `renderers/layout/react-page.tsx` builds the JSX scope of
-    // every `kind:'react'` page with `if (!tag || cfg.isContainer) continue;`,
+    // every `kind:'react'` page with `if (!tag || cfg.isContainer || cfg.tier === 'html') continue;`,
     // reading THIS predicate off `getPublicConfigs()` — not off `getMeta()`.
     // Since objectui#9910 this is the flag's ONE meaning — layout containment —
     // so this block is about the react-page scope, not about `validateTree`.

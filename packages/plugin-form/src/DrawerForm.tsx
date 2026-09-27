@@ -71,6 +71,7 @@ import {
   type LoadRunSeq,
 } from './loadFailure';
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
+import { useRecordInvalidation } from './recordInvalidation';
 
 // Localized strings for the unsaved-changes guard. Falls back to English when
 // no i18n provider is mounted (createSafeTranslation handles that).
@@ -316,6 +317,17 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
   // after a save would reseed the one and move the other. Set by the `findOne`
   // below and nowhere else, so a caller-supplied record is never a baseline.
   const loadedRecordRef = useRef<LoadedRecordSnapshot | null>(null);
+  // objectui#10715 — the data-invalidation bus, read the way the default arm
+  // reads it (the rule is stated once in `recordInvalidation.ts`): a change to
+  // this record, to its object or to `'*'` re-reads the record IN PLACE through
+  // the effect below while the form is pristine, and is held while it is dirty.
+  // `isDirty` stays this drawer's close guard; the bus hears the same channel.
+  const { refetch: recordRefetch, onDirtyChange: onBusDirtyChange, saved: recordSaved } =
+    useRecordInvalidation(schema.objectName, schema.recordId, !!schema.recordId && schema.mode !== 'create');
+  const handleDirtyChange = useCallback((dirty: boolean) => {
+    setIsDirty(dirty);
+    onBusDirtyChange(dirty);
+  }, [onBusDirtyChange]);
 
   // Fetch initial data
   useEffect(() => {
@@ -383,11 +395,15 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       }
     };
 
+    // A bus re-read (objectui#10715, `recordRefetch` below) re-runs this
+    // effect for the record already on screen: it lands IN PLACE, since the
+    // loading branch above is keyed on a change of record, and a re-read a
+    // later run has superseded commits nothing, as above.
     if (objectSchema || !dataSource) {
       fetchData();
     }
     return () => { cancelled = true; };
-  }, [objectSchema, schema.mode, schema.recordId, schema.initialData, schema.initialValues, dataSource, schema.objectName]);
+  }, [objectSchema, schema.mode, schema.recordId, schema.initialData, schema.initialValues, dataSource, schema.objectName, recordRefetch]);
 
   // Build form fields from section config
   const buildSectionFields = useCallback(
@@ -563,6 +579,10 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       // The write landed: a save from this still-open drawer diffs against the
       // record as it now stands, not as first read.
       loadedRecordRef.current = advanceLoadedRecord(loadedRecordRef.current, schema, writePayload);
+      // objectui#10715 — and what the form shows is what the server holds: a
+      // bus change held while it was dirty (its own write's echo included) is
+      // replayed now rather than behind input that is no longer unsaved.
+      recordSaved();
       if (schema.onSuccess) {
         await schema.onSuccess(result);
       }
@@ -577,7 +597,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [schema, dataSource, objectSchema, saveWithOcc, formData, perms, uploadGate.uploading, uploadGate.reason]);
+  }, [schema, dataSource, objectSchema, saveWithOcc, formData, perms, uploadGate.uploading, uploadGate.reason, recordSaved]);
 
   // Actually close the drawer, firing onCancel only when the close originated
   // from the explicit Cancel button.
@@ -662,7 +682,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     showCancel,
     onSubmit: handleSubmit,
     onCancel: handleCancel,
-    onDirtyChange: setIsDirty, // Feed unsaved-changes state up to the close guard
+    onDirtyChange: handleDirtyChange, // Feed unsaved-changes state up to the close guard and the bus gate
     showActions: false, // Actions render in the drawer footer instead
     id: formId,         // Link the footer's submit button via the form attribute
   };

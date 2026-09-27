@@ -18,16 +18,6 @@ import {
   Sun,
 } from 'lucide-react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  Avatar,
-  AvatarImage,
-  AvatarFallback,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -236,102 +226,21 @@ export const LayoutRenderer = ({ app, children, currentPath, onNavigate }: Layou
                {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
              </button>
 
-             {/* Global Actions */}
-             {app.actions?.filter(a => a.type === 'button').map((action, i) => {
-                 const Icon = action.icon ? getIcon(action.icon) : null;
-                 return (
-                    <button type="button" 
-                        key={i}
-                        className={action.variant === 'ghost' ? "relative p-2 text-muted-foreground hover:text-foreground transition-colors hover:bg-muted rounded-md" : "p-2"}
-                        title={action.label}
-                    >
-                        {Icon && <Icon className="h-5 w-5" />}
-                        {action.label && !action.icon && <span>{action.label}</span>}
-                    </button>
-                 );
-             })}
-
-             {/* Fallback Bell if no actions defined, or keep it as specific logic? 
-                 The original code hardcoded a Bell button. 
-                 The app.json defines a 'Bell' button action. 
-                 So I should iterate app.actions for buttons as well. 
-             */}
-             
-             {/* Original Bell Logic (Hardcoded in user request? No, it was hardcoded in my previous edit, but app.json has it too) 
-                 Let's check app.json. It has:
-                 { "type": "button", "variant": "ghost", "size": "icon", "icon": "Bell" }
-                 
-                 If I render actions generically, I don't need the hardcoded Bell.
-             */}
-
-             {(!app.actions || !app.actions.some(a => a.type === 'button')) && (
-                 <button type="button" className="relative p-2 text-muted-foreground hover:text-foreground transition-colors">
-                    <Bell className="h-5 w-5" />
-                    <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-600 rounded-full border-2 border-background"></span>
-                 </button>
-             )}
-             
-             {app.actions?.filter(a => a.type === 'user').map((userAction, i) => (
-                 <DropdownMenu key={i}>
-                    <DropdownMenuTrigger asChild>
-                        <button type="button" className="relative h-8 w-8 rounded-full border bg-muted overflow-hidden focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 hover:opacity-90 transition-opacity">
-                            <Avatar className="h-full w-full">
-                                <AvatarImage 
-                                    src={userAction.avatar} 
-                                    alt={userAction.label || 'User'} 
-                                />
-                                <AvatarFallback>
-                                    {userAction.label?.substring(0, 2).toUpperCase() || 'JD'}
-                                </AvatarFallback>
-                            </Avatar>
-                        </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-56" align="end" forceMount>
-                        <DropdownMenuLabel className="font-normal">
-                            <div className="flex flex-col space-y-1">
-                                <p className="text-sm font-medium leading-none">{userAction.label || 'User'}</p>
-                                <p className="text-xs leading-none text-muted-foreground">
-                                    {userAction.description || 'user@example.com'}
-                                </p>
-                            </div>
-                        </DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuGroup>
-                            {/*
-                              * Renders `AppAction.items` from its DECLARED type and nothing else
-                              * (objectui#6854, maintainer ruling of 2026-09-05, option B2).
-                              *
-                              * `items` is `AppMenuItem[]` (`@object-ui/types` `app.ts`), and the zod
-                              * mirror parses it with the legacy `MenuItemSchema`. Neither makes
-                              * `onClick` or `shortcut` AUTHORABLE; this map used to reach both
-                              * through `as any`, i.e. past the type it was handed. The `onClick` read
-                              * is also what made the retirement refusal's own sentence — "no renderer
-                              * reads this key, so nothing could ever run it" — false. `type` and
-                              * `label` ARE declared on `AppMenuItem` and stay.
-                              *
-                              * `shortcut` is SETTLED, and the answer left this map alone
-                              * (objectui#7719, director seat decision batch #70 of 2026-09-07): it
-                              * does not become authorable on `AppAction.items`. What changed is the
-                              * DIAGNOSTIC on the types side — `shortcut?: never` on `AppMenuItem`
-                              * and a named refusal on `MenuItemSchema`, so an authored value is
-                              * refused instead of stripped in silence. A keyboard shortcut on a
-                              * navigation entry is a capability of the `NavigationItem` line.
-                              * ⛔ No read is re-added here; that is the ruling, not an open question.
-                              */}
-                            {userAction.items?.map((item, idx) => {
-                                if (item.type === 'separator') {
-                                    return <DropdownMenuSeparator key={idx} />;
-                                }
-                                return (
-                                    <DropdownMenuItem key={idx}>
-                                        {item.label}
-                                    </DropdownMenuItem>
-                                );
-                            })}
-                        </DropdownMenuGroup>
-                    </DropdownMenuContent>
-                 </DropdownMenu>
-             ))}
+             {/*
+               * The Bell is unconditional (objectui#7469, maintainer ruling C). It used
+               * to be a fallback drawn only when the app's `actions` array authored no
+               * `'button'` entry; that free-form array and its `'user'` avatar menu are
+               * retired on both faces of `@object-ui/types`, so this chrome reads no
+               * app metadata here any more and keeps one rule. The contract's one
+               * channel for app-level actions is a `navigation` item of
+               * `type: 'action'`, which the console sidebar dispatches; this runner
+               * draws the legacy `menu` only and renders no `navigation` item. Pinned
+               * in `__tests__/LayoutRenderer.chrome-7469.test.tsx`.
+               */}
+             <button type="button" className="relative p-2 text-muted-foreground hover:text-foreground transition-colors">
+                <Bell className="h-5 w-5" />
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-600 rounded-full border-2 border-background"></span>
+             </button>
            </div>
         </header>
 

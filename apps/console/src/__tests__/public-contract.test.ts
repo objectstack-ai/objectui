@@ -404,7 +404,7 @@ describe('PUBLIC_BLOCKS ↔ console coverage (reverse direction)', () => {
  * Scope, stated plainly: this covers the CONTAINER half of the layout
  * vocabulary. The non-container arms (`span`, `separator`, `scroll-area`,
  * `resizable`, `page`, the deprecated `div`, and — since objectui#8499 armed
- * them — the 37 flow/inline HTML tags of `HtmlElementSchema`, not one of which
+ * them — the 38 flow/inline HTML tags of `HtmlElementSchema`, not one of which
  * declares containment) are outside it because curating any of them is an
  * unruled question of its own, and a ledger is a forcing function, not a place
  * to park four of those at once.
@@ -456,7 +456,7 @@ describe('PUBLIC_BLOCKS ↔ console coverage (reverse direction)', () => {
  * the first is what objectui#8499 broke here. A `z.literal` arm carries one
  * spelling on `.value`; a `z.enum` arm carries a whole registered family on
  * `.options` — `SemanticElementSchema`'s seven sectioning tags, and
- * `HtmlElementSchema`'s 37 flow/inline tags. A `.value`-only read resolved
+ * `HtmlElementSchema`'s 38 flow/inline tags. A `.value`-only read resolved
  * neither, and the anti-vacuity case below reported it as 19 arms yielding 17
  * literals, which is precisely the job that case exists to do.
  *
@@ -525,13 +525,16 @@ const specCarried = (type: string): boolean =>
  *
  * ⚠️ What an entry here COSTS, stated once so no entry has to re-argue it, and
  * corrected because objectui#8499 first shipped it wrong. Curating a ledgered
- * container widens the AI-authoring vocabulary, `sdui.manifest.json` and the
- * generated intrinsics, and turns the census pin in
+ * container widens the curated AI-authoring vocabulary (and, for a container
+ * the html tier does not already declare through `HTML_TIER_INTRINSICS`,
+ * `sdui.manifest.json` and the generated intrinsics too — the seven sectioning
+ * tags are already there as html-tier entries since objectui#10735), and turns
+ * the census pin in
  * `renderers/__tests__/container-declaration-census.test.tsx` red BY DESIGN — a
  * deliberate re-opening, which is the whole point of pinning it. It does ⛔ NOT
  * remove the tag from any `kind:'react'` page. `renderers/layout/react-page.tsx`
- * builds that scope with `if (!tag || cfg.isContainer) continue;`, so it skips
- * EVERY container config; a ledgered container already carries the flag, so
+ * builds that scope with `if (!tag || cfg.isContainer || cfg.tier === 'html') continue;`,
+ * so it skips EVERY container config; a ledgered container already carries the flag, so
  * promotion changes which list the config comes from and nothing about whether
  * the loop keeps it. Measured on `main`: 46 injected identifiers today, 46 with
  * `main` promoted, `Main` absent from both. The deletion reading is real but
@@ -552,12 +555,16 @@ const SECTIONING_TAG_UNRULED =
   '`SemanticElementSchema`, which is what first brought already-declared containers into the ' +
   'population this file derives — none of them is newly a container, and none is newly ' +
   'authorable. What curating one WOULD move, measured rather than reasoned: it widens the ' +
-  'AI-authoring vocabulary, `sdui.manifest.json` and the generated intrinsics, and it turns the ' +
+  'curated AI-authoring vocabulary and it turns the ' +
   '"none of the eight is in the curated public contract" pin in ' +
   '`container-declaration-census.test.tsx` RED BY DESIGN — which is precisely what ' +
-  '`semantic.tsx` means by re-opening the question THERE. ⛔ It does NOT delete the tag from ' +
+  '`semantic.tsx` means by re-opening the question THERE. (Since objectui#10735 the seven are ' +
+  'ALREADY in `sdui.manifest.json` and the generated intrinsics, as html-tier entries stamped ' +
+  '`tier: \'html\'` from `HTML_TIER_INTRINSICS`, so a `kind:\'html\'` page may author them; ' +
+  'curating one would move it onto the curated tier, unstamped — a different fact from ' +
+  'declaring it.) ⛔ It does NOT delete the tag from ' +
   'any react page, and an earlier revision of this entry said it did: `react-page.tsx` skips ' +
-  'EVERY container config (`if (!tag || cfg.isContainer) continue;`) and these seven already ' +
+  "EVERY container config (`if (!tag || cfg.isContainer || cfg.tier === 'html') continue;`) and these seven already " +
   'carry `isContainer: true`, so a promoted config is skipped on exactly the same line an ' +
   'unlisted one never reaches — measured at 46 injected identifiers before and 46 after ' +
   'simulating the promotion of `main`, with `Main` absent from both. A lowercase `main` in a ' +
@@ -595,7 +602,7 @@ describe('PUBLIC_BLOCKS ↔ the declared layout containers (derived, objectui#68
     //
     // ⚠️ Counting literals against arms — what this line did before
     // objectui#8499 — is NOT the same assertion and cannot be restored: a single
-    // enum arm contributes 37 spellings, so the two numbers are no longer meant
+    // enum arm contributes 38 spellings, so the two numbers are no longer meant
     // to match. What still holds one-for-one is that no arm contributes ZERO.
     expect(LAYOUT_UNION_ARMS.length).toBeGreaterThan(0);
     expect(LAYOUT_ARM_LITERALS.filter((literals) => literals.length > 0)).toHaveLength(

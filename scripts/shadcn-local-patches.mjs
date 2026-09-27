@@ -371,6 +371,59 @@ const sheetHideOverlayPatches = [
 ];
 
 /**
+ * The calendar display-locale patch (objectui#10722).
+ *
+ * `Calendar` mounts react-day-picker's `DayPicker`, which spells its month
+ * caption and weekday heads, and picks the first day of the week, from a
+ * date-fns `Locale` OBJECT. Upstream passes none, so every `Calendar` read
+ * date-fns `enUS` under every display locale and every UI language: the
+ * form calendar, both date pickers, `CalendarView`'s header popover and
+ * `DashboardFilterBar` alike. `useDisplayLocale()` hands out a BCP-47 TAG,
+ * and nothing turned one into the other.
+ *
+ * As with the families above, the payload stays OUT of `src/ui/`: resolving the
+ * tag to a `Locale`, and loading it lazily, live in
+ * `packages/components/src/lib/date-fns-locale.ts`. The primitive gets an
+ * import and a two-line default. The default is placed BEFORE the `{...props}`
+ * spread, so a `locale` a caller passes still wins.
+ *
+ * Both `find` strings were written from the vendored registry bytes in
+ * `scripts/__tests__/fixtures/shadcn-registry/calendar.registry.txt`.
+ *
+ * @type {LocalPatch[]}
+ */
+const calendarDisplayLocalePatches = [
+  {
+    id: 'calendar-display-locale-import',
+    issue: 'objectui#10722',
+    reason:
+      'Imports the hook that turns the display locale into the date-fns `Locale` ' +
+      'DayPicker reads. Anchored on the `cn` import, which every Shadcn component carries.',
+    find: 'import { cn } from "../lib/utils"',
+    replace:
+      'import { cn } from "../lib/utils"\nimport { useDisplayDateLocale } from "../lib/date-fns-locale"',
+    marker: 'from "../lib/date-fns-locale"',
+    occurrences: 1,
+  },
+  {
+    id: 'calendar-display-locale-default',
+    issue: 'objectui#10722',
+    reason:
+      "Gives DayPicker the display locale's date-fns `Locale`, so its caption, weekday " +
+      'heads and week start follow the session instead of `enUS`. It is the first ' +
+      'attribute and `{...props}` is spread last, so a `locale` the caller passes wins. ' +
+      "Anchored on the Calendar body's return, which CalendarDayButton does not share.",
+    find: '  const defaultClassNames = getDefaultClassNames()\n\n  return (\n    <DayPicker\n',
+    replace:
+      '  const defaultClassNames = getDefaultClassNames()\n' +
+      '  const displayDateLocale = useDisplayDateLocale()\n\n' +
+      '  return (\n    <DayPicker\n      locale={displayDateLocale}\n',
+    marker: 'locale={displayDateLocale}',
+    occurrences: 1,
+  },
+];
+
+/**
  * Component name (as tracked in `shadcn-components.json`) → patches it needs.
  *
  * @type {Record<string, LocalPatch[]>}
@@ -380,6 +433,7 @@ export const LOCAL_PATCHES = {
   dialog: i18nCloseLabelPatches('Dialog'),
   sidebar: sidebarCookieReadPatches,
   slider: sliderThumbPassThroughPatches,
+  calendar: calendarDisplayLocalePatches,
 };
 
 /** Components that carry at least one declared patch. */

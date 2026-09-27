@@ -17,7 +17,7 @@
  * SchemaRenderer context.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button,
   Card,
@@ -28,7 +28,7 @@ import {
 } from '@object-ui/components';
 import { LineItemsField, type GridColumn } from '@object-ui/fields';
 import { createSafeTranslation } from '@object-ui/i18n';
-import { useSchemaContext, useRecordContext } from '@object-ui/react';
+import { useSchemaContext, useRecordContext, useFilterScope, useResolvedFilter } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import { buildMasterDetailEditBatch, sumRows } from './masterDetailTx';
 import { applyColumnPermissions } from './fieldWriteGate';
@@ -196,6 +196,57 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // objectui#10682 — the number of the latest `load` run (objectui#10683). Only
+  // the current run writes `error`: its commit clears the banner, its failure
+  // raises it, and a run a newer one has superseded (another `parentId`, say,
+  // while it was in flight) does neither. Held in a ref: nothing renders from it.
+  const loadSeqRef = useRef(0);
+  // objectui#10740 — the parent the held `rows` / `original` belong to. Written
+  // wherever the rows are written: beside a load's commit (that run's parent),
+  // and beside an edit made while nothing is held yet (a grid offered with no
+  // adapter, so no load has settled: the parent on screen). The CURRENT load
+  // that fails while nothing is held adopts its parent too, since the empty
+  // rows it leaves on screen are that parent's. A load for ANOTHER parent that
+  // fails or declines leaves it where it was, so the rows and this value keep
+  // agreeing after `parentId` has moved on. That disagreement is
+  // `heldForAnotherParent`: the grid is not drawn from those rows, the Save
+  // button is off, and `save` sends nothing. Before this card the failed load
+  // left the previous parent's edited lines drawn, editable and saveable, and
+  // Save wrote them under the CURRENT `parentId` (an edit batch's child rows
+  // carry it directly), moving another record's lines. The guard rather than a
+  // clear in the load's `catch`, because a load that DECLINES for the new parent
+  // (a refused filter, say) never reaches that `catch` and left the same Save
+  // enabled over the same held rows.
+  const [rowsHeldFor, setRowsHeldFor] = useState<string | undefined>(undefined);
+  const heldForAnotherParent = rowsHeldFor !== undefined && rowsHeldFor !== parentId;
+
+  // objectui#10712 (R3) — the same rule the default form applies to its own
+  // background re-read (`ObjectForm.tsx`, `formDirtyRef` / `heldChangeRef`:
+  // unsaved input holds the re-read, and one is replayed when the form is
+  // pristine again or its save lands). A change to a load input other than the
+  // parent (sort, limit, filter) is HELD while this panel holds unsaved edits
+  // for the CURRENT parent: `dirty`, the rows held for `parentId`, and the last
+  // run's parent, adapter, child object and relationship field equal to the
+  // current ones. Before this card the re-read committed over the author's
+  // lines with no signal. What `load` reads to decide this lives in refs, so
+  // an edit does not move `load` and re-run the fetch effect. `heldEditsRef`
+  // mirrors `dirty` / `rowsHeldFor` from an effect declared ahead of `load`;
+  // `lastRunRef` is written where a run is numbered; `heldReloadRef` is the
+  // pending held change, and `heldReplay` replays it once when a same-parent
+  // read that was in flight at the hold commits (the fetch effect is keyed on
+  // it, and the panel is clean after that commit, so the replay is not held).
+  const heldEditsRef = useRef({ dirty: false, rowsHeldFor: undefined as string | undefined });
+  useEffect(() => {
+    heldEditsRef.current = { dirty, rowsHeldFor };
+  }, [dirty, rowsHeldFor]);
+  const lastRunRef = useRef<{
+    parentId: string | null | undefined;
+    dataSource: unknown;
+    childObject: string | undefined;
+    relationshipField: string | undefined;
+  } | null>(null);
+  const heldReloadRef = useRef(false);
+  const [heldReplay, setHeldReplay] = useState(0);
 
   // Child object schema — used to strip computed / read-only columns from each
   // row before persisting (parity with the parent form's sanitize). Rows are
@@ -257,10 +308,21 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
   // refusal is kept as a VALUE and rendered below; collapsing it to
   // `undefined` would mean "no filter" and load this panel's rows
   // unconstrained, the silent widening objectui#9001 closed.
-  const filterKey = JSON.stringify(schema.filter ?? null);
+  //
+  // objectui#10666 — the panel's own `filter` is lowered AFTER every context
+  // token in it (`{current_user_id}`, `{current_org_id}`, the date macros) is
+  // resolved ONCE through `@object-ui/core`'s shared
+  // `resolveFilterPlaceholders`, against the session scope the host provides,
+  // and HELD by structure (`useResolvedFilter` in `@object-ui/react`). The
+  // panel merged the literal token into the parent scope before. The content
+  // key is taken over the held value, so a new signed-in user moves it and
+  // reloads, and a date macro such as `{now}` does not move it every render.
+  const filterScope = useFilterScope();
+  const scopeFilter = useResolvedFilter(schema.filter, filterScope);
+  const filterKey = JSON.stringify(scopeFilter ?? null);
   const sortKey = JSON.stringify(schema.sort ?? null);
   const listFilterResult = useMemo(
-    () => toFilterNodeSafely(schema.filter),
+    () => toFilterNodeSafely(scopeFilter),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on CONTENT, see above
     [filterKey],
   );
@@ -272,7 +334,46 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
     [sortKey],
   );
 
-  const load = useCallback(async () => {
+  /**
+   * `origin` says who asked for the read: `'inputs'` is the fetch effect (a
+   * load input moved, or a held change is replayed), `'save'` the post-save
+   * reload. Only an `'inputs'` read can be HELD (objectui#10712 R3, above): the
+   * post-save reload reads the panel's current inputs, which is what replays a
+   * held change, so it is never held itself.
+   */
+  const load = useCallback(async (origin: 'inputs' | 'save' = 'save') => {
+    if (origin === 'inputs') {
+      const held = heldEditsRef.current;
+      const last = lastRunRef.current;
+      const editsHeldForCurrentParent =
+        held.dirty && held.rowsHeldFor !== undefined && held.rowsHeldFor === parentId;
+      const sameRowsAsLastRun =
+        last !== null
+        && last.parentId === parentId
+        && last.dataSource === dataSource
+        && last.childObject === schema.childObject
+        && last.relationshipField === schema.relationshipField;
+      if (editsHeldForCurrentParent && sameRowsAsLastRun) {
+        // Held, and NOT numbered: a held change is not a run, so it supersedes
+        // nothing. A same-parent read still in flight commits, and its commit
+        // replays this change (the panel is clean then).
+        heldReloadRef.current = true;
+        return;
+      }
+    }
+    // Every run reads the panel's current inputs, so whatever change was held
+    // is carried by this one.
+    heldReloadRef.current = false;
+    // Numbered before any early return, so a run that declines still
+    // supersedes one in flight.
+    const seq = ++loadSeqRef.current;
+    const isCurrent = () => loadSeqRef.current === seq;
+    lastRunRef.current = {
+      parentId,
+      dataSource,
+      childObject: schema.childObject,
+      relationshipField: schema.relationshipField,
+    };
     if (!dataSource || !parentId) {
       setLoading(false);
       return;
@@ -327,14 +428,50 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
         ...(orderBy ? { $orderby: orderBy } : {}),
         $top: resolveRowLimit(schema.limit, DEFAULT_LINE_ITEMS_LIMIT),
       });
+      // objectui#10712 — a run a newer one has superseded (another `parentId`,
+      // say, while this read was in flight) commits nothing: not the rows, not
+      // their owner, not the banner, and not the end of the loading state the
+      // current run is still in (the `finally` below reads the same run
+      // number). Before this card the answer landed either way: last, it
+      // replaced the current parent's lines (since objectui#10740 the rows it
+      // brought were refused as another parent's, the current lines gone all
+      // the same); first, it ended the loading state and drew the grid while
+      // the current read was pending.
+      if (!isCurrent()) return;
       const data = (res?.data ?? []) as Record<string, any>[];
       setRows(data.map((r) => ({ ...r })));
       setOriginal(data.map((r) => ({ ...r })));
       setDirty(false);
+      // The rows just committed are this run's parent's (objectui#10740). Same
+      // commit as the rows, so the two never disagree about whose they are.
+      setRowsHeldFor(parentId);
+      // Once the CURRENT run commits, the rows on screen answer what the panel
+      // asks for now, so no earlier failure describes it: not a failed load,
+      // and not a failed save, whose edits these rows replace (objectui#10682,
+      // the objectui#10578 rule: cleared on a commit, never when a load starts).
+      setError(null);
+      // A change held while THIS read was in flight is replayed once, now that
+      // the panel is clean (objectui#10712 R3): this read was issued before the
+      // change, so its answer is for the inputs it was issued with.
+      if (heldReloadRef.current) {
+        heldReloadRef.current = false;
+        setHeldReplay((n) => n + 1);
+      }
     } catch (e: any) {
-      setError(e?.message || 'Failed to load line items');
+      if (isCurrent()) {
+        setError(e?.message || 'Failed to load line items');
+        // Nothing held yet: the empty rows on screen are this parent's from
+        // here on, so a line added under this failure is saved to it and to no
+        // parent the panel moves to later (objectui#10740). Rows already held
+        // for another parent stay that parent's: this failure adopts nothing.
+        setRowsHeldFor((held) => held ?? parentId);
+      }
     } finally {
-      setLoading(false);
+      // Only the current run ends the loading state (objectui#10712): a
+      // superseded run's release would draw the grid over the empty rows while
+      // the current read is still pending. Every decline above releases it
+      // before any await, so a run that returns early is never superseded here.
+      if (isCurrent()) setLoading(false);
     }
   }, [
     dataSource,
@@ -347,14 +484,45 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
     orderBy,
   ]);
 
+  // objectui#10712 — the panel's latest `load` and the parent it reads, for the
+  // save's continuation. `save` closes over the render it was clicked in, and
+  // its batch lands after any number of renders. The reload that follows is the
+  // PANEL's read, not the click's: it reads the inputs on screen then (sort,
+  // limit, filter), and it does not run at all once the panel has moved to
+  // another parent. Written from an effect, never during render.
+  const latestLoadRef = useRef({ load, parentId });
   useEffect(() => {
-    void load();
-  }, [load]);
+    latestLoadRef.current = { load, parentId };
+  }, [load, parentId]);
+
+  // A load input moved, or a held change is replayed (`heldReplay`): the read
+  // the panel's inputs ask for, which `load` may hold (objectui#10712 R3).
+  useEffect(() => {
+    void load('inputs');
+  }, [load, heldReplay]);
 
   const onChange = useCallback((next: Record<string, any>[]) => {
     setRows(next);
     setDirty(true);
-  }, []);
+    // An edit made while nothing is held yet gives the rows their owner, the
+    // parent on screen (objectui#10740). The grid this was found on is the one
+    // drawn when the load declined for want of an adapter; a line typed into it
+    // stayed ownerless, and the first parent whose load later failed adopted it
+    // and could save it as its own. Written in the same
+    // handler as the rows rather than in that decline, so that no other way of
+    // offering the grid before a settle (a superseded run releasing `loading`,
+    // objectui#10712's surface) can leave an edited row without an owner. Rows
+    // already held keep their parent. `parentId` is narrowed to a string before
+    // the updater closes over it: the setter's state is `string | undefined`,
+    // and `parentId` is `string | null | undefined` here (there is no `load`
+    // guard above this handler to narrow it), so a bare `held ?? parentId`
+    // would widen the updater's result to include `null`. A grid is only
+    // offered with a parent bound anyway (the `!parentId` branch draws no grid).
+    if (parentId) {
+      const owner = parentId;
+      setRowsHeldFor((held) => held ?? owner);
+    }
+  }, [parentId]);
 
   const save = useCallback(async () => {
     // `childObject` joins this guard for the same reason both reads decline
@@ -369,6 +537,26 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
     // write contract is not the render tree's to keep: this is the same one-line
     // guard `load` takes, on the component's other data-layer entry point.
     if (!dataSource || !parentId || !schema.childObject) return;
+    // The held rows are another parent's (objectui#10740): the batch below
+    // would carry them under THIS `parentId` and move that parent's lines here.
+    // The Save button is off in this state; this is the write contract's own
+    // guard, on the function every caller of it reaches.
+    if (heldForAnotherParent) return;
+    // objectui#10712 — the parent this save is for. Its batch may land after
+    // the host has moved the panel to another parent, whose own load has by
+    // then committed (or failed) over these rows. The save's reload and its
+    // failure belong to the parent it saved. While that parent is still on
+    // screen, the reload is the panel's current read (`latestLoadRef`), not
+    // the `load` captured at the click, which would re-read with that render's
+    // inputs. Once it is not, the save commits nothing: no re-read of the old
+    // parent into the new parent's panel, and no banner about lines that are
+    // no longer on screen. Before this card the captured `load` ran as a new
+    // run numbered latest, so it committed the OLD parent's lines into the new
+    // parent's panel (refused there as another parent's since objectui#10740,
+    // its commit clearing the new parent's own failure all the same), and the
+    // save's failure was written wherever the panel had moved.
+    const savedParent = parentId;
+    const parentStillShown = () => latestLoadRef.current.parentId === savedParent;
     setSaving(true);
     setError(null);
     try {
@@ -396,13 +584,13 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
       // directly (no $ref), so slicing off the parent op shifts no references.
       if (!canRollup) ops = ops.slice(1);
       if (ops.length) await runBatchTransaction(dataSource, ops);
-      await load();
+      if (parentStillShown()) await latestLoadRef.current.load('save');
     } catch (e: any) {
-      setError(e?.message || 'Failed to save line items');
+      if (parentStillShown()) setError(e?.message || 'Failed to save line items');
     } finally {
       setSaving(false);
     }
-  }, [dataSource, parentId, rows, original, schema, parentObject, load, childSchema]);
+  }, [dataSource, parentId, heldForAnotherParent, rows, original, schema, parentObject, childSchema]);
 
   const gridField = useMemo(
     () =>
@@ -431,7 +619,7 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
             type="button"
             size="sm"
             onClick={save}
-            disabled={saving || loading || !dirty || !parentId}
+            disabled={saving || loading || !dirty || !parentId || heldForAnotherParent}
           >
             {saving ? 'Saving…' : 'Save'}
           </Button>
@@ -489,8 +677,29 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
           <p className="py-6 text-center text-sm text-muted-foreground">
             Save the record first to add line items.
           </p>
+        ) : heldForAnotherParent ? (
+          /* The held rows were loaded for, or edited under, another parent
+             (objectui#10740): this parent's load failed or declined. They are
+             not drawn as this record's lines, editable or otherwise, and Save
+             is off above. The banner above this branch carries the failure;
+             a load for this parent that commits takes the grid back. */
+          <p
+            className="py-6 text-center text-sm text-muted-foreground"
+            data-testid="line-items-held-for-another-parent"
+          >
+            This record’s line items have not been loaded.
+          </p>
         ) : (
-          <LineItemsField value={rows} onChange={onChange} field={gridField} readonly={schema.readonly} />
+          <LineItemsField
+            value={rows}
+            onChange={onChange}
+            field={gridField}
+            readonly={schema.readonly}
+            // No input while the save is in flight (objectui#10631): `save`
+            // reloads the rows once the batch lands, so a line edited in the
+            // meantime was overwritten by that reload and the panel read clean.
+            disabled={saving}
+          />
         )}
       </CardContent>
     </Card>

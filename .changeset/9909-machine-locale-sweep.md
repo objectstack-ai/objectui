@@ -81,6 +81,11 @@ does) avoids the notice.
   `@object-ui/core` by a later change; `ValidationContext.locale` stays declared in
   `@object-ui/types`, and at that change nothing in `@object-ui/core` reads it —
   objectui#7659.**
+
+  ⚠️ **Dated note, 2026-09-27 — `ValidationContext` itself is removed from
+  `@object-ui/types` by a later change, with the rest of the Phase 3.5
+  validation types it belonged to, so the `locale` member this entry adds no
+  longer exists — objectui#10719.**
 - `@object-ui/plugin-report`: `exportReport`, `exportAsHTML` and `exportAsPDF`
   take a trailing optional `locale` for the exported file's "Generated:" time,
   and `LiveExportOptions` gains an optional `locale` that `exportWithLiveData`

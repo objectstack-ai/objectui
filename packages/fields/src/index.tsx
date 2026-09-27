@@ -4137,6 +4137,11 @@ const FIELD_TYPES_SKIP_FALLBACK = new Set([
   'slider',
   // Display renderer owned by `plugin-markdown:markdown`.
   'markdown',
+  // The html tier's inline `code` element passthrough, owned by `ui:code` in
+  // `renderers/basic/html-elements.tsx` (objectui#10756). Before this line the
+  // bare `code` key was THIS widget's fallback, so `<code>inline</code>` on a
+  // `kind:'html'` page drew a code editor and dropped its text.
+  'code',
   // No other package owns the bare `time`/`address` key, but `registerField`
   // wraps each call in a fresh `React.lazy(...)`, so re-registration (HMR,
   // re-import) fails the registry's identity check every time and logs the

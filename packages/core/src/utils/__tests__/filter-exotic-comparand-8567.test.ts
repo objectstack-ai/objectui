@@ -105,6 +105,7 @@ import {
   convertFiltersToAST,
   toFilterNode,
   mergeFilterNodes,
+  FilterOperatorError,
 } from '../filter-converter';
 
 const D = new Date('2026-01-01T00:00:00.000Z');
@@ -283,11 +284,15 @@ describe('objectui#8567 — the envelope is shared, the idiom is not', () => {
 // ---------------------------------------------------------------------------
 
 describe('objectui#8567 — the identity and the operator path are untouched', () => {
-  it('an EMPTY operator object still constrains nothing — the TRUE identity', () => {
+  it('an EMPTY operator object is never read as an exotic comparand', () => {
     // The control for every ablation leg: `{}` is entry-less exactly like `/x/`,
-    // and a fix gated on the key COUNT would sweep it up. It must not move.
+    // and a fix gated on the key COUNT would sweep it up. It must not move:
+    // beside a key that lowers it still constrains nothing.
     expect(convertFiltersToAST({ status: 'a', created: {} })).toEqual(['status', '=', 'a']);
-    expect(convertFiltersToAST({ created: {} })).toEqual({ created: {} });
+    // ⚠️ UPDATED. Alone it used to come back as the original object; since
+    // objectui#9164 it is refused as an EMPTY OPERATOR MAP — the tail's arm,
+    // not this file's (envelope pinned in filter-empty-operator-map-9164.test.ts).
+    expect(() => convertFiltersToAST({ created: {} })).toThrow(FilterOperatorError);
   });
 
   it('a null-prototype bag is still an operator map, not an exotic value', () => {

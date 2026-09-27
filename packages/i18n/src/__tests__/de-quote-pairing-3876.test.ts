@@ -292,7 +292,10 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // the stored value („{{value}}“) — one interpolated span, runtime data.
     // 65 once objectui#10567 added its date-only sibling `fields.date.impossibleDay`,
     // which quotes the same stored value — one more interpolated span.
-    expect(okSpans, 'correctly paired spans').toBe(65);
+    // 66 once objectui#7699 added `fields.file.uploadIncomplete`, the refusal of
+    // an upload that returned no file id, which quotes the pick's name
+    // („{{name}}“) — one interpolated span, runtime data.
+    expect(okSpans, 'correctly paired spans').toBe(66);
   });
 
   it('keeps the count identity that replaces the card’s count(„) === count(“)', () => {
@@ -324,7 +327,9 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // more matched pair. 64 / 64 / 0 after objectui#10474 added
     // `fields.dateTime.impossibleDay`, one more matched pair. 65 / 65 / 0 after
     // objectui#10567 added `fields.date.impossibleDay`, one more matched pair.
-    expect({ open, close, rdq }).toEqual({ open: 65, close: 65, rdq: 0 });
+    // 66 / 66 / 0 after objectui#7699 added `fields.file.uploadIncomplete`, one
+    // more matched pair.
+    expect({ open, close, rdq }).toEqual({ open: 66, close: 66, rdq: 0 });
     // The durable shape: every „ closed by a “, every surplus “ an English
     // opener answered by a ”. Survived translating the two English values.
     expect(close).toBe(open + rdq);

@@ -8,7 +8,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import type { DataSource, TimelineSchema, ListViewTimelineConfig } from '@object-ui/types';
-import { useDataScope, useNavigationOverlay, useSafeFieldLabel, useSettledSchema, useDataInvalidation } from '@object-ui/react';
+import { useDataScope, useNavigationOverlay, useSafeFieldLabel, useSettledSchema, useDataInvalidation, useFilterScope, useResolvedFilter } from '@object-ui/react';
 import { NavigationOverlay } from '@object-ui/components';
 import { extractRecords, buildExpandFields, convertSortToQueryParams, createFieldColorResolver, recordDisplayValueAt } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
@@ -349,7 +349,18 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
   // (objectstack#7137), and an inline array on a schema node is a NEW object every
   // render — depending on identity would refetch the whole object on every render.
   // Same reason `RelatedList` keys its own scope filter on content.
-  const filterKey = JSON.stringify(schema.filter ?? null);
+  //
+  // objectui#10666 — the key is taken over the node's own `filter` with every
+  // context token (`{current_user_id}`, `{current_org_id}`, the date macros)
+  // resolved ONCE through `@object-ui/core`'s shared `resolveFilterPlaceholders`,
+  // against the session scope the host provides, and HELD by structure
+  // (`useResolvedFilter` in `@object-ui/react`). A directly authored timeline
+  // sent the literal token on `$filter` before. The query below reads the held
+  // value, so a new signed-in user moves the key and re-queries, and a date
+  // macro such as `{now}` does not move it on every render.
+  const filterScope = useFilterScope();
+  const queryFilter = useResolvedFilter(schema.filter, filterScope);
+  const filterKey = JSON.stringify(queryFilter ?? null);
   const sortKey = JSON.stringify(schema.sort ?? null);
 
   // objectui#10623 — the data-invalidation bus (`notifyDataChanged` from
@@ -426,7 +437,7 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
             // the view it named. `filter` arrives already AND-composed by
             // `ElementDataSourceGate`, so there is nothing to merge here.
             const results = await dataSource.find(schema.objectName, {
-                $filter: schema.filter,
+                $filter: queryFilter,
                 $orderby: convertSortToQueryParams(schema.sort),
                 $top: resolveRowLimit(schema.limit, DEFAULT_TIMELINE_LIMIT),
                 ...(expand.length > 0 ? { $expand: expand } : {}),
@@ -486,7 +497,7 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
         // Have inline / bound items — won't fetch; clear loading.
         setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `schema.filter`/`schema.sort` are tracked by CONTENT (filterKey/sortKey) on purpose; see above
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `queryFilter`/`schema.sort` are tracked by CONTENT (filterKey/sortKey) on purpose; see above
   }, [schema.objectName, dataSource, boundData, schema.items, (props as any).data, refreshKey, objectDefReady, objectDef, filterKey, sortKey, schema.limit, perms, invalidationNonce]);
 
   const rawData = (props as any).data || boundData || fetchedData;

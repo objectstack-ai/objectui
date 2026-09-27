@@ -236,6 +236,7 @@ const fr = {
       remove: 'Supprimer {{name}}',
       exceedsMaxSize: '« {{name}} » dépasse la taille maximale ({{max}} Mo)',
       uploadFailed: 'Échec du téléversement de « {{name}} » : {{error}}',
+      uploadIncomplete: 'Le téléversement de « {{name}} » n’a pas abouti : aucun identifiant de fichier n’a été renvoyé, rien n’a été enregistré',
     },
     richText: {
       format: "Format : {{format}}",

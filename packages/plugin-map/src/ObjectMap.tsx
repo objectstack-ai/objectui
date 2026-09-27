@@ -28,6 +28,8 @@ import {
   NonGridRowCeilingNote,
   useDataInvalidation,
   useSettledSchema,
+  useFilterScope,
+  useResolvedFilter,
 } from '@object-ui/react';
 import { NavigationOverlay, cn, useIsMobile } from '@object-ui/components';
 import { usePermissions } from '@object-ui/permissions';
@@ -843,6 +845,18 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
    */
   const fetchSeqRef = useRef(0);
 
+  // objectui#10666 — the node's own `filter`, with every context token
+  // (`{current_user_id}`, `{current_org_id}`, the date macros) resolved ONCE
+  // through `@object-ui/core`'s shared `resolveFilterPlaceholders`, against the
+  // session scope the host provides, and HELD by structure (`useResolvedFilter`
+  // in `@object-ui/react`). A directly authored map sent the literal token on
+  // `$filter` before. Both query paths below (the `object` fetch and the inline
+  // `ValueDataSource`), the committed-query key and the effect's dependency
+  // list read THIS, never the raw `schema.filter`, so a re-render that
+  // rebuilds an equal filter does not re-query.
+  const filterScope = useFilterScope();
+  const queryFilter = useResolvedFilter(schema.filter, filterScope);
+
   // Fetch data based on provider
   useEffect(() => {
     // ⭐ objectui#10664: the object definition GATES the object query; it does
@@ -867,7 +881,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
     // nonce, the readiness flag and `fetchesForItself` (a function of two
     // members already in it). Compared value for value (`Object.is`), the way
     // React compares the list itself.
-    const query = [dataProp, dataProvider, dataObjectName, dataItems, dataSource, hasInlineData, schema.filter, schema.sort, objectSchema, perms] as const;
+    const query = [dataProp, dataProvider, dataObjectName, dataItems, dataSource, hasInlineData, queryFilter, schema.sort, objectSchema, perms] as const;
     const committed = committedQueryRef.current;
     const answersShownQuery = committed !== null && committed.length === query.length && query.every((v, i) => Object.is(v, committed[i]));
     const nonceMoved = invalidationNonce !== answeredInvalidationRef.current;
@@ -935,7 +949,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
           // `object` arm below resolves.
           const inlineSource = new ValueDataSource<any>({ items: (dataItems as any[]) ?? [] });
           const result = await inlineSource.find('', {
-            $filter: schema.filter,
+            $filter: queryFilter,
             $orderby: convertSortToQueryParams(schema.sort),
             // The same platform ceiling the `object` arm sends, on the same
             // probe-row convention (objectui#7210, ruling a′). The ruling's
@@ -1014,7 +1028,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
             ? expandable
             : expandable.filter((f) => perms.checkField(objectName, f, 'read'));
           const result = await dataSource.find(objectName, {
-            $filter: schema.filter,
+            $filter: queryFilter,
             $orderby: convertSortToQueryParams(schema.sort),
             // The platform ceiling (objectui#7210, ruling a′). A map still
             // fetches the whole FILTERED set — the camera fit is computed from
@@ -1055,7 +1069,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
     return () => {
       fetchSeqRef.current += 1;
     };
-  }, [dataProp, dataProvider, dataObjectName, dataItems, dataSource, hasInlineData, schema.filter, schema.sort, objectSchemaReady, objectSchema, perms, invalidationNonce, fetchesForItself]);
+  }, [dataProp, dataProvider, dataObjectName, dataItems, dataSource, hasInlineData, queryFilter, schema.sort, objectSchemaReady, objectSchema, perms, invalidationNonce, fetchesForItself]);
 
   // Transform data to map markers
   const { markers, invalidCount } = useMemo(() => {

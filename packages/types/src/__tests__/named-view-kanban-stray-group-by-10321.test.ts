@@ -31,13 +31,14 @@
  *   sibling in the kanban block is kept, a kanban block without the spec's
  *   required `columns` is accepted, and so is the legacy `options.kanban` bag
  *   without the stray key.
- * - SIBLING CONTROL: the calendar arm on the same door still fires, so an
- *   ablation of the kanban row reddens the kanban pins alone.
+ * - SIBLING CONTROL: the calendar check on the same door still fires, so an
+ *   ablation of the kanban check reddens the kanban pins alone.
  *
- * REVERSE VERIFICATION, direction predicted before running: remove the `kanban`
- * row from `NAMED_VIEW_ALIAS_REFUSALS` ⇒ every REFUSED arm goes red (the
- * document parses green), while the dark, scope and sibling controls stay green.
- * The run is recorded on the pull request, not kept as a test.
+ * REVERSE VERIFICATION, direction predicted before running: unwire
+ * `checkNamedViewKanbanStrayGroupBy` from `ObjectViewSchema` ⇒ every REFUSED arm
+ * goes red (the document parses green), while the dark, scope and sibling
+ * controls stay green. The run is recorded on the pull request, not kept as a
+ * test.
  */
 
 import { describe, it, expect } from 'vitest';

@@ -59,8 +59,7 @@
  * members, so the key waits for the maintainer to decide that type, and ⛔ not
  * `z.any()`. A `.check()` on the `object-view` object decides none of that: it
  * declares no value, puts no key in `.shape`, enforces none of the 43, and
- * judges exactly the two spellings this card retires (plus, since
- * objectui#10321, the kanban twin's stray `groupBy`). The in-module precedent
+ * judges exactly the two spellings this card retires. The in-module precedent
  * is `ListViewSchema.options`, an untyped bag whose own `.check()` refuses
  * `kanban.groupBy` and this card's two calendar spellings by name.
  */

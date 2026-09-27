@@ -1781,7 +1781,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // takes it through the view-level `KanbanConfig` mirror, and a named
         // view's `listViews.KEY.kanban.groupBy` (what this branch serves)
         // through `ObjectViewSchema`'s named-view door,
-        // `checkNamedViewAliasRefusals`, in both nestings (objectui#10321).
+        // `checkNamedViewKanbanStrayGroupBy`, in both nestings (objectui#10321).
         // What this line closes is the BEHAVIOUR half: a document that reaches
         // this branch carrying the key, whether or not it passed a validator.
         // ⚠️ NODE-LOCAL vs VIEW-LEVEL, as everywhere in this branch: the

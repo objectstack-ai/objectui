@@ -12,21 +12,21 @@ unmirrored, so nothing `ListViewSchema` declares reaches it, and
 `safeValidateSchema` accepted `listViews.KEY.kanban.groupBy` green in either
 nesting and kept the key.
 
-`ObjectViewSchema`'s named-view door, which already refused the two retired
-calendar spellings (objectui#8355), now also refuses `groupBy` in a named view's
-`kanban` block and in its legacy `options.kanban` bag. The issue is `custom` at
-`listViews.KEY.kanban.groupBy` or `listViews.KEY.options.kanban.groupBy`, and its
-message is the same string the `list-view` route gives: "Unrecognized key(s) on
-this kanban configuration: `groupBy`. Did you mean `groupBy` → `groupByField`?",
-followed by the same explanation. Write `groupByField` (or the deprecated
-`groupField`).
+`ObjectViewSchema` gains a second named-view check on the same door, beside the
+one that refuses the two retired calendar spellings (objectui#8355). It refuses
+`groupBy` in a named view's `kanban` block and in its legacy `options.kanban`
+bag. The issue is `custom` at `listViews.KEY.kanban.groupBy` or
+`listViews.KEY.options.kanban.groupBy`, and its message is the same string the
+`list-view` route gives: "Unrecognized key(s) on this kanban configuration:
+`groupBy`. Did you mean `groupBy` → `groupByField`?", followed by the same
+explanation. Write `groupByField` (or the deprecated `groupField`).
 
-The protocol agrees on this route too. On the pinned `@objectstack/spec` 17.4.0,
-`ViewSchema` refuses `listViews.KEY.kanban.groupBy` as an unrecognized key
-exactly as `ListViewSchema` refuses `kanban.groupBy`, with a dark control
-(`groupByField` and `columns` alone) accepted on both. The spec refuses a named
-view's `options` bag outright, as it does a `list-view`'s, so refusing
-`options.kanban.groupBy` here is no stricter than the protocol.
+The protocol agrees on this route too. Measured on `@objectstack/spec` 17.4.0
+when this change was made, `ViewSchema` refuses `listViews.KEY.kanban.groupBy`
+as an unrecognized key exactly as `ListViewSchema` refuses `kanban.groupBy`,
+with a dark control (`groupByField` and `columns` alone) accepted on both. The
+spec refuses a named view's `options` bag outright, as it does a `list-view`'s,
+so refusing `options.kanban.groupBy` here is no stricter than the protocol.
 
 **Breaking, in the sense worth stating explicitly** (shipped `minor`: this repo
 never declares `major`, and every package sits in one `fixed` group). An

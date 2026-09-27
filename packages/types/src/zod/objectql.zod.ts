@@ -2537,6 +2537,13 @@ export const ObjectChartSchema = BaseSchema.extend({
   aggregate: stripImportedDefaults(SpecChartAggregateSchema).optional()
     .describe('AUTHORABLE — inline aggregation for the legacy objectName path. @objectstack/spec ChartAggregateSchema ({ field?, function, groupBy }), the same schema the react-page publish gate parses: function and groupBy are REQUIRED, field is optional because only count counts rows rather than a column, and unknown keys are refused rather than dropped'),
   xAxisKey: z.string().optional().describe('INTERNAL (relay-composed) — the category column the renderer binds the x axis to. Authors write the spec xAxis: { field }; all five producers compute this key'),
+  // `series` copies the `{ dataKey }` arm of `ChartRendererProps.schema.series`
+  // WITHOUT that arm's per-series `type` (objectui#8086), deliberately
+  // (objectui#10584): widening a published accept set waits for a named
+  // producer that writes `type` on this node. The `.describe()` says so and
+  // names `chartType` as this copy's override, because that string is what an
+  // author-facing tool renders. The TS twin in `../objectql.ts` carries the
+  // ground.
   series: z.array(z.object({
     dataKey: z.string().describe('Result column this series plots'),
     label: z.string().optional().describe('Series display label'),
@@ -2547,7 +2554,7 @@ export const ObjectChartSchema = BaseSchema.extend({
     stack: z.string().optional().describe('Stack identifier to group series'),
     yAxis: z.enum(['left', 'right']).optional().describe('Bind to a specific Y axis'),
     color: z.string().optional().describe('Series color (hex/rgb/token)'),
-  })).optional().describe("INTERNAL (relay-composed) — plotted series in the renderer's internal { dataKey } contract, the arm ChartRendererProps declares. The spec's author-facing ChartSeriesSchema is the { name } arm and refuses dataKey by name; normalizeChartSchema is the one translation"),
+  })).optional().describe("INTERNAL (relay-composed) — plotted series in the renderer's internal { dataKey } contract: the { dataKey } arm ChartRendererProps declares, minus that arm's per-series type, which this copy does not declare. The per-series family override here is chartType (bar | line | area). The spec's author-facing ChartSeriesSchema is the { name } arm and refuses dataKey by name; normalizeChartSchema is the one translation"),
   // Colors are overloaded kanban-style: a string[] is the positional palette
   // (applied per category in order; fallback only), while a Record<value,color>
   // is an explicit value→color map. A select/lookup dimension's option colors —

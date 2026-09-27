@@ -4447,9 +4447,22 @@ export interface ObjectChartSchema extends BaseSchema {
    *
    * The element type is `ChartRendererProps.schema.series`' internal arm —
    * that is the read this value ends at, and the ruling on objectui#7946 asked
-   * for the reads rather than a copy of any producer's literal — every member
-   * of it except `type`, which that arm gained under objectui#8086 and this
-   * copy has not taken up. The spec's AUTHOR-facing `ChartSeriesSchema` is the other arm
+   * for the reads rather than a copy of any producer's literal — with every
+   * member of it EXCEPT the per-series `type` that arm gained under
+   * objectui#8086.
+   *
+   * ⛔ The omission is deliberate, not a lag (objectui#10584). Taking `type`
+   * up widens a published accept set, and that waits for a named producer
+   * that writes `type` on an `object-chart` node; none was named. Until one
+   * is, the per-series family override on this node is `chartType` — the
+   * renderer-internal spelling of `type`, which wins when an entry writes
+   * both. A `type` written here anyway is an excess property on a literal
+   * typed by this interface, and the zod mirror's element is a plain
+   * `z.object`, which strips it: it parses clean and is dropped. The mirror's
+   * `.describe()` says the same, because that string is what an author-facing
+   * tool renders.
+   *
+   * The spec's AUTHOR-facing `ChartSeriesSchema` is the other arm
    * (`{ name }`), and it refuses `dataKey` by name; `normalizeChartSchema` is
    * the one translation between them.
    */

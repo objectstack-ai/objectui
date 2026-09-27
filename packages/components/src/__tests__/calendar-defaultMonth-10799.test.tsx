@@ -79,6 +79,11 @@ describe('ui:calendar opens on its first selected day (objectui#10799)', () => {
     expect(captions()).toEqual(['March 2020']);
   });
 
+  it('multiple: an entry that is not a date is skipped, so it opens on the first VALID listed day', () => {
+    renderCalendar({ mode: 'multiple', value: ['not-a-date', '2021-07-15'] });
+    expect(captions()).toEqual(['July 2021']);
+  });
+
   it('range: opens on `from`', () => {
     renderCalendar({ mode: 'range', value: { from: '2020-03-04', to: '2020-03-06' } });
     expect(captions()).toEqual(['March 2020']);

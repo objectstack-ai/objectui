@@ -354,11 +354,15 @@ function CalendarView({
                 react-day-picker opens on `month`, else `defaultMonth`, else
                 today, and `selected` does not move it. The content unmounts
                 when the popover closes, so every open reads the current date.
+                A host may hand an invalid `Date` (the view renderer passes a
+                `Date` instance through untouched): that names no month, and
+                react-day-picker throws on an invalid `defaultMonth`, so it
+                opens on today instead, as it always did.
               */}
               <Calendar
                 localeTag={effectiveLocale}
                 mode="single"
-                defaultMonth={selectedDate}
+                defaultMonth={Number.isNaN(selectedDate.getTime()) ? undefined : selectedDate}
                 selected={selectedDate}
                 onSelect={handleDateSelect}
                 autoFocus

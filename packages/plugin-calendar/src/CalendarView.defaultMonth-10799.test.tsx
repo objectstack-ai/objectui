@@ -126,6 +126,20 @@ describe('CalendarView — the header popover opens on the selected month (objec
     expect(await openPopover()).toBe('March 2020')
   })
 
+  it('an invalid `Date` from a host opens the popover on today, and the click does not throw', async () => {
+    // The view renderer passes a host's `Date` instance through untouched,
+    // invalid ones included; the header prints it as it always has. The
+    // popover must not hand react-day-picker that value as `defaultMonth`,
+    // on which it throws `RangeError: Invalid time value`.
+    pinClock()
+    render(session(<CalendarView events={[]} currentDate={new Date(NaN)} view="month" />))
+    expect(headerMonth()).toBe('Invalid Date')
+    expect(headerTrigger().getAttribute('aria-label')).toBe('Current date: Invalid Date')
+
+    expect(await openPopover()).toBe('September 2026')
+    expect(selectedDays()).toEqual([])
+  })
+
   it('control: no date opens the popover on today, the month the header names', async () => {
     render(session(<CalendarView events={[]} view="month" />))
     const today = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })

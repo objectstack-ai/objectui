@@ -670,7 +670,7 @@ re-exporting, so import it from there:
 | Import from `@object-ui/types` | What it types |
 | --- | --- |
 | `ObjectViewSchema` | the whole `type: 'object-view'` node — `objectName` (required), `title`, `description`, `layout`, `defaultViewType`, `listViews`, `defaultListView`, `navigation`, `table`, `form`, `searchableFields`, `filterableFields`, `show*`, `operations`, `onNavigate`, `allowCreateView`, `viewActions` (`viewTabBar` is retired — objectui#7779 — and refused by name) |
-| `NamedListView` | one entry of `listViews` |
+| `NamedListView` | the former type of a `listViews` entry, still exported. Since objectui#7928 an entry is `@objectstack/spec`'s `ObjectListViewSchema` — `NonNullable<ObjectViewSchema['listViews']>[string]` |
 | `ViewNavigationConfig` | `navigation` — row/item click behaviour |
 | `ViewTabBarConfig` | the `config` prop of `ViewTabBar` — tab-bar UX (inline add, overflow, indicators), composed by the host; not an `object-view` node key |
 

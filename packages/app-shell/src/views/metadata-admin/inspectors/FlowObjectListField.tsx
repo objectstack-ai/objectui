@@ -73,10 +73,14 @@ function screenVisibleWhenNode(
   return { id: node.id, config };
 }
 
-/** The picker section for a screen `visibleWhen` cell: exactly the roots `screenPredicateRoots` admits. */
-function screenScopeGroups(node: ScreenPreviewNode): ScopeGroup[] {
+/**
+ * The picker section for a screen `visibleWhen` cell: exactly the roots
+ * `screenPredicateRoots` admits, under a heading in the designer `locale`
+ * beside the flow-scope headings (`engine.flowScope.group.*`, objectui#10804).
+ */
+function screenScopeGroups(node: ScreenPreviewNode, locale: string): ScopeGroup[] {
   const refs = [...screenPredicateRoots(node)].map((token) => ({ token, label: token, group: 'screen_fields' as const }));
-  return [{ id: 'screen_fields', label: 'Screen fields', refs }];
+  return [{ id: 'screen_fields', label: t('engine.flowScope.group.screenFields', locale), refs }];
 }
 
 function toRows(list: Array<Record<string, unknown>>, columns: FlowConfigColumn[]): Row[] {
@@ -456,7 +460,7 @@ export function FlowObjectListField({
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                             }}
-                            groups={screenNode ? screenScopeGroups(screenNode) : (scopeGroups ?? [])}
+                            groups={screenNode ? screenScopeGroups(screenNode, locale) : (scopeGroups ?? [])}
                             placeholder={col.placeholder}
                             disabled={disabled}
                           />

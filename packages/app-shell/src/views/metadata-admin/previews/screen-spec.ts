@@ -48,6 +48,7 @@
 
 import { collectCelRootIdentifiers, nearestName, parseCelToAst, validateExpression } from '@objectstack/formula';
 import { predicateSlotRefusal } from '@objectstack/spec/automation';
+import { tFormat } from '../i18n.js';
 import {
   screenFields,
   screenPredicateScope,
@@ -193,8 +194,19 @@ function predicateRoots(source: string): { ok: true; roots: string[] } | { ok: f
  * (`dicount` → `discount`). A predicate over a sibling field (`discount > 0`,
  * `record.discount > 0`) is fine; one over a name the renderer never binds — a
  * run variable such as `needsApproval`, the runtime's `vars` root — is not.
+ *
+ * The undeclared-root sentence reads the designer catalogue
+ * (`engine.flowRef.notAScreenField*`) in the `locale` the caller passes, as
+ * `describeUnknownRefs` does; an absent locale reads the en rows, which carry
+ * the English this function wrote before (objectui#10804). The shape and parse
+ * refusals are `@objectstack/spec`'s and `@objectstack/formula`'s own words and
+ * pass through as they are, in every locale.
  */
-export function screenVisibleWhenScopeError(visibleWhen: unknown, node: ScreenPreviewNode): string | undefined {
+export function screenVisibleWhenScopeError(
+  visibleWhen: unknown,
+  node: ScreenPreviewNode,
+  locale?: string,
+): string | undefined {
   if (visibleWhen === undefined || visibleWhen === null) return undefined;
   if (typeof visibleWhen === 'string' && !visibleWhen.trim()) return undefined;
   const shape = predicateSlotRefusal(visibleWhen);
@@ -211,7 +223,9 @@ export function screenVisibleWhenScopeError(visibleWhen: unknown, node: ScreenPr
   return undeclared
     .map((r) => {
       const near = nearestName(r, declared);
-      return `\`${r}\` is not a field on this screen${near ? ` (did you mean \`${near}\`?)` : ''}`;
+      return near
+        ? tFormat('engine.flowRef.notAScreenFieldWithSuggestion', locale, { token: r, suggestion: near })
+        : tFormat('engine.flowRef.notAScreenField', locale, { token: r });
     })
     .join('; ');
 }

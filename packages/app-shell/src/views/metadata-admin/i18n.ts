@@ -397,6 +397,27 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.widget.untitledN': 'Widget {n}',
   'engine.inspector.widget.unsupportedSelection': 'Unsupported selection kind: {kind}',
   'engine.inspector.widget.removed': 'The selected widget was removed from the draft.',
+  // objectui#10804 (objectui#10805 folded in) — the dashboard add-widget picker
+  // (`AddWidgetPicker`): its search box, empty text, category headings and the
+  // type names it lists (`WIDGET_TYPE_META[].labelKey`). Display only: the new
+  // widget's default `New TYPE` title is stored author data and keeps writing
+  // `WIDGET_TYPE_META[].label`, the same English as these en rows.
+  'engine.widgetPicker.search': 'Search widgets…',
+  'engine.widgetPicker.noMatches': 'No matches.',
+  'engine.widgetPicker.category.kpi': 'Single value',
+  'engine.widgetPicker.category.chart': 'Charts',
+  'engine.widgetPicker.category.data': 'Tabular',
+  'engine.widgetPicker.type.metric': 'Metric (KPI)',
+  'engine.widgetPicker.type.bar': 'Bar chart',
+  'engine.widgetPicker.type.horizontalBar': 'Horizontal bar',
+  'engine.widgetPicker.type.line': 'Line chart',
+  'engine.widgetPicker.type.area': 'Area chart',
+  'engine.widgetPicker.type.pie': 'Pie chart',
+  'engine.widgetPicker.type.donut': 'Donut chart',
+  'engine.widgetPicker.type.scatter': 'Scatter plot',
+  'engine.widgetPicker.type.funnel': 'Funnel',
+  'engine.widgetPicker.type.table': 'Data table',
+  'engine.widgetPicker.type.pivot': 'Pivot table',
   // Flow node inspector
   'engine.inspector.flowNode.kind': 'Node',
   'engine.inspector.flowNode.close': 'Close node',
@@ -1218,6 +1239,13 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowRef.unknownWithSuggestion': 'Unknown reference `{token}` — did you mean `{suggestion}`?',
   'engine.flowRef.notInScope': '`{token}` is not a reference in scope at this step.',
   'engine.flowRef.notInScopeMulti': 'Not in scope: {tokens}.',
+  // objectui#10804 — a screen field's `visibleWhen` names a root that is not a
+  // field declared on the same screen (`screenVisibleWhenScopeError`,
+  // screen-spec): the inline cell's note and the Problems panel. The parse and
+  // shape refusals beside it are `@objectstack/formula`'s and
+  // `@objectstack/spec`'s own words and pass through as they are.
+  'engine.flowRef.notAScreenField': '`{token}` is not a field on this screen',
+  'engine.flowRef.notAScreenFieldWithSuggestion': '`{token}` is not a field on this screen (did you mean `{suggestion}`?)',
   // objectui#10748 — the author-time expression shape errors
   // (`validateExpressionClient`, expression-validate), rendered inline under an
   // expression field, a repeater cell and the edge condition. The code spans
@@ -1242,6 +1270,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowScope.group.trigger': 'Trigger record',
   'engine.flowScope.group.approvalCurrent': 'Current record (live at node entry)',
   'engine.flowScope.group.approvalTrigger': 'Trigger snapshot (at submit)',
+  // objectui#10804 — the one section of a screen field's `visibleWhen` picker.
+  'engine.flowScope.group.screenFields': 'Screen fields',
   'engine.flowScope.detail.variable': 'variable',
   'engine.flowScope.detail.variableTyped': 'variable · {type}',
   'engine.flowScope.detail.triggerRecord': 'trigger record · {object}',
@@ -2761,6 +2791,22 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.widget.untitledN': '组件 {n}',
   'engine.inspector.widget.unsupportedSelection': '不支持的选择类型：{kind}',
   'engine.inspector.widget.removed': '所选组件已从草稿中移除。',
+  'engine.widgetPicker.search': '搜索组件…',
+  'engine.widgetPicker.noMatches': '没有匹配项。',
+  'engine.widgetPicker.category.kpi': '单值',
+  'engine.widgetPicker.category.chart': '图表',
+  'engine.widgetPicker.category.data': '表格',
+  'engine.widgetPicker.type.metric': '指标 (KPI)',
+  'engine.widgetPicker.type.bar': '柱状图',
+  'engine.widgetPicker.type.horizontalBar': '条形图',
+  'engine.widgetPicker.type.line': '折线图',
+  'engine.widgetPicker.type.area': '面积图',
+  'engine.widgetPicker.type.pie': '饼图',
+  'engine.widgetPicker.type.donut': '环形图',
+  'engine.widgetPicker.type.scatter': '散点图',
+  'engine.widgetPicker.type.funnel': '漏斗图',
+  'engine.widgetPicker.type.table': '数据表格',
+  'engine.widgetPicker.type.pivot': '透视表',
   // Flow node inspector
   'engine.inspector.flowNode.kind': '节点',
   'engine.inspector.flowNode.close': '关闭节点',
@@ -3597,6 +3643,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowRef.unknownWithSuggestion': '未知引用 `{token}` —— 是否想用 `{suggestion}`?',
   'engine.flowRef.notInScope': '`{token}` 在当前步骤的作用域中不是有效引用。',
   'engine.flowRef.notInScopeMulti': '不在作用域内:{tokens}。',
+  'engine.flowRef.notAScreenField': '`{token}` 不是此页面上的字段',
+  'engine.flowRef.notAScreenFieldWithSuggestion': '`{token}` 不是此页面上的字段(是否想用 `{suggestion}`?)',
   'engine.flowExpr.templateDialect': '此处应为文本模板，但得到的是 `{dialect}` 表达式。',
   'engine.flowExpr.singleBraceTemplate': '单花括号 `{{ref}}` 不是有效的模板占位 —— 请使用双花括号：`{{ {ref} }}`。',
   'engine.flowExpr.celDialect': '此处应为 CEL 表达式，但得到的是 `{dialect}` 方言。',
@@ -3613,6 +3661,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowScope.group.trigger': '触发记录',
   'engine.flowScope.group.approvalCurrent': '当前记录（进入节点时的实时值）',
   'engine.flowScope.group.approvalTrigger': '触发快照（提交时）',
+  'engine.flowScope.group.screenFields': '页面字段',
   'engine.flowScope.detail.variable': '变量',
   'engine.flowScope.detail.variableTyped': '变量 · {type}',
   'engine.flowScope.detail.triggerRecord': '触发记录 · {object}',

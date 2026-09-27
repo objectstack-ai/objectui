@@ -224,7 +224,7 @@ A responsive grid layout. Columns can be a fixed number or responsive breakpoint
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `columns` | `number \| Record<string, number>` | Number of columns, or responsive map (e.g. `{ sm: 1, md: 2, lg: 3 }`). |
+| `columns` | `number \| Partial<Record<BreakpointName, number>>` | Number of columns, or a responsive map keyed by breakpoint (`xs`, `sm`, `md`, `lg`, `xl`, `2xl`), e.g. `{ sm: 1, md: 2, lg: 3 }`. |
 | `gap` | `number` | Gap between grid items (Tailwind spacing scale). |
 | `children` | `SchemaNode \| SchemaNode[]` | Grid items. |
 

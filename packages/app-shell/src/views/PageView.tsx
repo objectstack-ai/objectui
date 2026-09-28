@@ -21,6 +21,7 @@ import { useMetadata } from '../providers/MetadataProvider.js';
 import { useExpressionContext } from '../providers/ExpressionProvider.js';
 import { preferLocal } from '../utils/preferLocal.js';
 import { ConsoleActionRuntimeProvider } from '../hooks/useConsoleActionRuntime.js';
+import { useCanAuthorMetadata } from '../hooks/useCanAuthorMetadata.js';
 import { InterfaceListPage } from './InterfaceListPage.js';
 
 export function PageView() {
@@ -31,8 +32,15 @@ export function PageView() {
   const navigate = useNavigate();
   const location = useLocation();
   // Editing a page mutates the shared metadata definition, so the entry point
-  // is admin-only (mirrors the view/report/dashboard runtime editors).
+  // is admin-only (mirrors the view/report/dashboard runtime editors) — AND
+  // requires the metadata-authoring capability the SERVER reports
+  // (`manage_metadata`, ADR-0066). The role alone is not that answer: an
+  // organization owner is a workspace admin while `organization_admin`
+  // deliberately withholds `manage_metadata`, so on the cloud control plane a
+  // signed-up customer was offered the platform's own page editor
+  // (objectui#10899). Same doctrine as HomePage's builder CTAs.
   const { isAdmin } = useWorkspaceAdminStatus();
+  const canAuthorMetadata = useCanAuthorMetadata();
 
   const { pages, objects, getTypeStatus } = useMetadata();
   // ADR-0048 Phase 2 — prefer the page owned by the current app's package so
@@ -80,7 +88,7 @@ export function PageView() {
   // Resolve the app slug from the path (`/apps/:app/page/:name`) so the deep
   // link survives whatever Router basename the host mounts under.
   const appName = location.pathname.match(/\/apps\/([^/]+)/)?.[1];
-  const canEditInStudio = isAdmin && !!appName && !!pageName;
+  const canEditInStudio = isAdmin && canAuthorMetadata && !!appName && !!pageName;
   const openInStudio = () => {
     if (!canEditInStudio) return;
     navigate(`/apps/${appName}/metadata/page/${encodeURIComponent(pageName!)}`);

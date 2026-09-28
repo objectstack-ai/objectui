@@ -112,6 +112,78 @@ function generateNavFromObjects(objects: ObjectSelection[]): NavigationItem[] {
     }));
 }
 
+/**
+ * The objects a navigation tree has an object entry for, wherever the entry
+ * sits: at the top level or inside a group (objectui#10894).
+ */
+export function navObjectNames(items: readonly NavigationItem[]): Set<string> {
+  const names = new Set<string>();
+  const walk = (list: readonly NavigationItem[]) => {
+    for (const item of list) {
+      if (item.type === 'object' && item.objectName) names.add(item.objectName);
+      else if (item.type === 'group' && item.children) walk(item.children);
+    }
+  };
+  walk(items);
+  return names;
+}
+
+/**
+ * `items` without the object entries of a `deselected` object, top level and
+ * inside groups. A group keeps its place and its other children, even when
+ * that leaves it with none. Returns `items` itself when nothing was dropped.
+ */
+function dropDeselectedObjectEntries(
+  items: NavigationItem[],
+  deselected: ReadonlySet<string>,
+): NavigationItem[] {
+  let changed = false;
+  const kept: NavigationItem[] = [];
+  for (const item of items) {
+    if (item.type === 'object' && item.objectName && deselected.has(item.objectName)) {
+      changed = true;
+      continue;
+    }
+    if (item.type === 'group' && item.children) {
+      const children = dropDeselectedObjectEntries(item.children, deselected);
+      if (children !== item.children) {
+        changed = true;
+        kept.push({ ...item, children });
+        continue;
+      }
+    }
+    kept.push(item);
+  }
+  return changed ? kept : items;
+}
+
+/**
+ * The navigation the wizard carries out of the Objects step (objectui#10894).
+ *
+ * It never replaces what the draft holds. An EMPTY navigation (the create
+ * path) is filled with one object entry per selected object. A non-empty one
+ * (an edit, or a create the author already shaped) is merged:
+ * - the object entries of an object the Objects step lists as deselected are
+ *   dropped, wherever they sit;
+ * - a selected object with no object entry anywhere in the tree gets one,
+ *   appended at the end;
+ * - every other entry is kept as it is, in its position: separators, groups
+ *   and their children, `url` / `dashboard` / `page` / `report` /
+ *   `component` / `action` entries, each object entry's authored label, icon
+ *   and order, and an object entry for an object the Objects step does not
+ *   list (nothing deselected it).
+ */
+function mergeNavWithObjects(
+  navigation: NavigationItem[],
+  objects: ObjectSelection[],
+): NavigationItem[] {
+  const deselected = new Set(objects.filter((o) => !o.selected).map((o) => o.name));
+  const kept = dropDeselectedObjectEntries(navigation, deselected);
+  const present = navObjectNames(kept);
+  const added = generateNavFromObjects(objects.filter((o) => !present.has(o.name)));
+  return added.length === 0 ? kept : [...kept, ...added];
+}
+
 let navItemCounter = 0;
 
 function createNavId(prefix: string): string {
@@ -781,11 +853,12 @@ export function AppCreationWizard({
 
   const handleNext = useCallback(() => {
     if (isLastStep) return;
-    // Auto-generate navigation when moving from objects → navigation
+    // Leaving objects → navigation: fill an empty navigation from the selected
+    // objects, or merge the selection into the one the draft holds.
     if (currentStep === 1) {
       setDraft((prev) => ({
         ...prev,
-        navigation: generateNavFromObjects(prev.objects),
+        navigation: mergeNavWithObjects(prev.navigation, prev.objects),
       }));
     }
     setCurrentStep((s) => s + 1);
@@ -824,11 +897,11 @@ export function AppCreationWizard({
       if (index <= currentStep) {
         setCurrentStep(index);
       } else if (index === currentStep + 1 && canProceed) {
-        // Auto-generate navigation when jumping from objects → navigation
+        // Jumping objects → navigation: the same fill-or-merge as `handleNext`.
         if (currentStep === 1 && index === 2) {
           setDraft((prev) => ({
             ...prev,
-            navigation: generateNavFromObjects(prev.objects),
+            navigation: mergeNavWithObjects(prev.navigation, prev.objects),
           }));
         }
         setCurrentStep(index);

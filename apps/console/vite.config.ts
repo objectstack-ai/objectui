@@ -16,7 +16,7 @@ import zlib from 'node:zlib';
 // `native` becomes the default loader (objectui#3384).
 import { viteCryptoStub } from '../../scripts/vite-crypto-stub.ts';
 import { viteMaplibreWorker } from '../../scripts/vite-maplibre-worker.ts';
-import { resolveClientDistInjection } from '../../scripts/vite-objectstack-client-dist.ts';
+import { resolveClientDistInjection, widenVendorChunkTestForClient } from '../../scripts/vite-objectstack-client-dist.ts';
 import { formatConditionReport, resolveSpecDistInjection } from '../../scripts/vite-objectstack-spec-dist.ts';
 import { viteIneffectiveDynamicImports } from '../../scripts/vite-ineffective-dynamic-imports.ts';
 import { viteDeclaredLazyViews } from '../../scripts/vite-declared-lazy-views.ts';
@@ -667,15 +667,24 @@ if (clientDistInjection) workspaceAliases['@objectstack/client'] = clientDistInj
 const clientFsAllow: string[] = clientDistInjection ? clientDistInjection.fsAllow : [];
 
 // Deps pre-bundled for the dev server. Build-time pre-bundling was removed in
-// Vite 5.1, so this list is read by `pnpm dev` only, never by `vite build`.
+// Vite 5.1, so this list is read by `pnpm dev` only, never by `vite build` —
+// which is why no build or E2E job can see a bad entry here.
+//
+// Vite resolves every entry from THIS directory (the dev root), under the dev
+// conditions, before the server listens (objectui#10865). An entry naming a
+// subpath the installed package does not export aborts the start: a bare
+// `react-map-gl` did, since react-map-gl 8 exports no `.`. An entry naming a
+// package this app does not depend on is skipped with a warning and pre-bundles
+// nothing: `maplibre-gl` was one, and needs no entry of its own, because the
+// `react-map-gl/maplibre` pre-bundle already carries it. The console-config
+// cases in `scripts/__tests__/vite-objectstack-spec-dist.test.ts` resolve every
+// entry the way the dev server does.
 const OPTIMIZE_DEPS_INCLUDE = [
   '@objectstack/spec',
   '@objectstack/spec/data',
   '@objectstack/spec/system',
   '@objectstack/spec/ui',
-  'react-map-gl',
-  'react-map-gl/maplibre',
-  'maplibre-gl'
+  'react-map-gl/maplibre'
 ];
 
 // Baseline `vendor-objectstack` grouping: the installed spec/client, reached
@@ -767,10 +776,14 @@ const optimizeDepsInclude = specDistInjection
 // stops matching it and the biggest vendor surface in the bundle (spec is
 // imported by 29 packages here) would scatter into its importers' chunks. The
 // injected build should differ from a released one in spec CONTENT, not in
-// chunk layout, so the override's location joins the group's test.
-const vendorObjectstackTest = specDistInjection
-  ? specDistInjection.vendorChunkTest
-  : VENDOR_OBJECTSTACK_TEST;
+// chunk layout, so the override's location joins the group's test. The same
+// holds for an injected CLIENT, and there the layout is not cosmetic: left out
+// of this group it lands in `framework`, closing a framework ↔ data-adapter
+// import cycle that kills the console at boot (see the helper's docblock).
+const vendorObjectstackTest = widenVendorChunkTestForClient(
+  specDistInjection ? specDistInjection.vendorChunkTest : VENDOR_OBJECTSTACK_TEST,
+  clientDistInjection,
+);
 
 // The chunk grouping is not the only consumer of "where does the spec live".
 // `assertLazyLinterStaysLazy`'s counter-probe asks the same question about the

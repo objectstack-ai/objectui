@@ -3107,6 +3107,17 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                   !reasoningVisible &&
                   !buildProgress &&
                   !blueprintProgress; // a streaming design/build shows its panel, not the dots
+                // objectui#10899 — does this turn already SHOW its activity (a
+                // tool row, a build/design panel)? Then the quiet 执行过程 note
+                // a hydrated tool-call placeholder turn falls back to says
+                // nothing the row above it does not, and a reloaded multi-step
+                // build printed it under every step. The note stays for a
+                // placeholder turn with nothing else on screen (#772).
+                const showsActivity =
+                  summaryTools.length > 0 ||
+                  detailedTools.length > 0 ||
+                  Boolean(buildProgress) ||
+                  Boolean(blueprintProgress);
                 return (
                   <Message key={message.id} from={formatMessageProps(message.role)}>
                     <div
@@ -3196,7 +3207,7 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                         <ThinkingDots />
                       ) : hasVisibleProse ? (
                         <MessageResponse>{message.content}</MessageResponse>
-                      ) : !message.streaming && isToolCallPlaceholder(message.content) ? (
+                      ) : !message.streaming && !showsActivity && isToolCallPlaceholder(message.content) ? (
                         // #772: a re-hydrated tool-call-only turn is persisted with
                         // an internal placeholder ("(called todo_write,
                         // propose_blueprint)"); render a quiet localized activity
@@ -3268,7 +3279,14 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                         <div className="text-[10px] opacity-70 mt-1">{message.timestamp}</div>
                       ) : null}
                     </MessageContent>
-                    {!isUser && !isEmptyAssistantStreaming ? (
+                    {/* objectui#10899 — the copy / regenerate bar acts on this
+                        turn's PROSE. A prose-less turn (a hydrated tool step
+                        whose only text is the "(called …)" placeholder) has
+                        nothing to copy — Copy would hand the user the internal
+                        placeholder — and the invisible bar still took its full
+                        height, which is the blank gap a reloaded build showed
+                        under every step. */}
+                    {!isUser && !isEmptyAssistantStreaming && hasVisibleProse ? (
                       <MessageActions className="opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
                         <MessageAction
                           label={copiedId === message.id ? L.copied : L.copy}

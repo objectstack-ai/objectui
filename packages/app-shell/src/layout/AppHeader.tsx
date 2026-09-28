@@ -77,6 +77,7 @@ import { useCommandPalette } from '../context/CommandPaletteProvider.js';
 import { useUrlOverlay } from '../hooks/useUrlOverlay.js';
 import { KEYBOARD_SHORTCUTS_PARAM, RECORD_TRAIL_PARAM, decodeRecordTrail, buildRecordTrailHref } from '../urlParams.js';
 import { useAiSurfaceEnabled } from '../hooks/useAiSurface.js';
+import { useCanAuthorMetadata } from '../hooks/useCanAuthorMetadata.js';
 import { useSharedActivityFeed } from '../hooks/sharedUserFeeds.js';
 import { useInboxBell } from '../hooks/useInboxBell.js';
 import { useHomePath } from '../hooks/useHomePath.js';
@@ -156,8 +157,11 @@ export function AppHeader({
   // Same signal as the FAB and the `/ai` route guard.
   const { enabled: aiEnabled } = useAiSurfaceEnabled();
   // Design entry points mutate shared package metadata, so the app → Studio
-  // bridge below is admin-only (mirrors the runtime view/page editors).
+  // bridge below is admin-only (mirrors the runtime view/page editors) AND
+  // needs the server-reported metadata-authoring capability — see
+  // `canDesignInStudio` below (objectui#10899).
   const { isAdmin: isWorkspaceAdmin } = useWorkspaceAdminStatus();
+  const canAuthorMetadata = useCanAuthorMetadata();
   const { t } = useObjectTranslation();
   const { objectLabel, dashboardLabel, pageLabel, reportLabel, viewLabel, appLabel } = useObjectLabel();
   const { apps: metadataApps, dashboards: metadataDashboards, pages: metadataPages, reports: metadataReports } = useMetadata();
@@ -320,8 +324,16 @@ export function AppHeader({
   // type doubles as the surface type and `pathParts[3]` is the surface name
   // (absent on the interface list routes, which fall back to the Data tab); the
   // mapping lives in `appStudioRoutePath`.
+  //
+  // Who may cross the bridge is the SERVER's answer, not the role's: an
+  // organization owner is a workspace admin, yet `organization_admin`
+  // deliberately withholds `manage_metadata` (ADR-0066), and on the cloud
+  // control plane the hammer opened the platform's own metadata to a
+  // signed-up customer (objectui#10899). Same doctrine as HomePage's builder
+  // CTAs; the server still refuses the write either way.
+  const canDesignInStudio = isWorkspaceAdmin && canAuthorMetadata;
   const studioDesignPath = isApp
-    ? appStudioRoutePath(currentApp, isWorkspaceAdmin, { type: routeType, name: pathParts[3] })
+    ? appStudioRoutePath(currentApp, canDesignInStudio, { type: routeType, name: pathParts[3] })
     : null;
 
   const objectSiblings = appObjects.map((o: any) => ({

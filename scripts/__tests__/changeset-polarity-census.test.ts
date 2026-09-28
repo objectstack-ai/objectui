@@ -25,6 +25,7 @@ import {
   keyHead,
   matchesPopulation,
   readClaim,
+  readCorpus,
   readPolarity,
   readWindow,
   resolutionRootsFor,
@@ -86,10 +87,16 @@ import {
  *     tree is gone, refuse every name the tree does not declare and the ROTTED
  *     claim -- the instrument's entire purpose -- is gone with it.
  *
- * Every pin except 6 and 7 runs against FIXTURES, deliberately. The live
- * `packages/types/src` moves whenever a card declares a member -- which is the
- * event the census exists to notice -- so a pin read from it would go red for
- * the tree's reasons rather than the instrument's.
+ * Every pin reads a FIXTURE CORPUS, deliberately, except pin 7's boundary run --
+ * and that run asserts nothing about what the live corpus HOLDS. The live
+ * `.changeset/` is emptied by every release (`changeset version` consumes it),
+ * and the live `packages/types/src` moves whenever a card declares a member --
+ * which is the event the census exists to notice -- so a pin that asserted on
+ * either one's content would go red for the tree's reasons rather than the
+ * instrument's. objectui#10010 is that happening: three pins asserted exit 0 on
+ * the live corpus, and the scheduled release lane, which runs this suite on the
+ * post-version tree, went red on them from its first fire after objectui#9727
+ * landed.
  */
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -333,6 +340,36 @@ describe('objectui#9727 pin 6 -- the controls, and what makes a zero mean anythi
     }
   });
 
+  it('an EMPTY corpus -- the post-version tree -- exits 2, and the lit control is what says so (objectui#10010)', () => {
+    /**
+     * `changeset version` consumes every pending entry, so this is the corpus
+     * `changeset-release.yml` validates on every scheduled run, and the one
+     * `main` carries right after a release merges. A corpus that holds nothing
+     * and a reader that read nothing are the same reading to this instrument,
+     * so the run is void -- ⛔ an empty corpus is NOT special-cased to exit 0.
+     * The member index and the resolution roots here are the live tree's, and
+     * they must still pass: the lit control is the ONE that goes dark.
+     */
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'polarity-empty-corpus-'));
+    try {
+      // What the version step leaves behind: the config, and no entry.
+      fs.writeFileSync(path.join(dir, 'config.json'), '{}\n');
+      const { status, payload } = runJson(['--corpus', dir]);
+      const { controls, result } = payload;
+      expect(status, 'an empty corpus must NOT exit 0').toBe(2);
+      expect(result.entriesScanned).toBe(0);
+      expect(controls.ok).toBe(false);
+      expect(controls.corpusLit.reading).toBe(0);
+      expect(controls.corpusAbsent.reading).toBe(0);
+      expect(controls.memberLit.reading).toBe(1);
+      expect(controls.memberAbsent.reading).toBe(0);
+      expect(controls.resolutionLit.reading).toBe(Number(controls.resolutionLit.expect));
+      expect(controls.resolutionAbsent.reading).toBe(0);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('an unreadable input exits 1 -- "measured nothing" is not "measured zero"', () => {
     const outcome = run(['--corpus', path.join(os.tmpdir(), 'no-such-corpus-9727')]);
     expect(outcome.status).toBe(1);
@@ -361,18 +398,47 @@ describe('objectui#9727 -- every fixture in the corpus is exercised', () => {
 });
 
 describe('objectui#9727 pin 7 -- the probe does not answer about itself', () => {
+  /**
+   * ⭐ objectui#10010. This is the ONE run against the live `.changeset/`, and it
+   * asserts nothing about what that corpus HOLDS. It used to assert exit 0 and a
+   * floor on the entry count -- facts about the tree's release phase, not about
+   * the instrument: `changeset version` empties the corpus, the lit control then
+   * reads 0 and the run exits 2, correctly. That held the scheduled release lane
+   * red, because it runs this suite on the post-version tree, and it would have
+   * held `main` red after the next release merged. What is true in EVERY phase
+   * is pinned here instead: which directory is the corpus, that it is read
+   * whole and nothing else is, that the status is the controls' verdict, and
+   * that only the lit control -- the one that reads the corpus's content -- may
+   * void it. Exit 0 is pinned on the fixture corpus below, and exit 2 on an
+   * empty one in pin 6.
+   */
   it('the default corpus is `.changeset/` and the script is not inside it', () => {
-    const outcome = run([]);
-    expect(outcome.status, outcome.stderr).toBe(0);
-    expect(outcome.stdout).toContain('Controls PASS');
+    const pending = path.join(REPO_ROOT, '.changeset');
+    const { status, payload } = runJson([]);
+    const { controls, result } = payload;
+    expect(result.corpusDir).toBe(pending);
+    // Exactly the pending entries: a tree-wide scan reads far more, an empty
+    // reader reads fewer.
+    expect(result.entriesScanned).toBe(readCorpus(pending).length);
+    expect(status, JSON.stringify(controls)).toBe(controls.ok ? 0 : 2);
+    // Every control that does not read the corpus's content holds in every phase.
+    expect(controls.corpusAbsent.reading).toBe(0);
+    expect(controls.memberLit.reading).toBe(1);
+    expect(controls.memberAbsent.reading).toBe(0);
+    expect(controls.resolutionLit.reading).toBe(Number(controls.resolutionLit.expect));
+    expect(controls.resolutionAbsent.reading).toBe(0);
+    expect(controls.ok, JSON.stringify(controls)).toBe(controls.corpusLit.reading > 0);
+
     // Every reported entry is a pending changeset. A tree-wide scan would match
     // this script's own docstring -- which names schemas and declaration verbs
     // in every paragraph -- and these fixtures, and report itself.
+    const outcome = run([]);
+    expect(outcome.stdout).toContain('Corpus: .changeset\n');
     for (const line of outcome.stdout.split('\n')) {
       if (!line.startsWith('- ')) continue;
       const entry = line.slice(2).split(' ')[0];
       expect(
-        fs.existsSync(path.join(REPO_ROOT, '.changeset', entry)),
+        fs.existsSync(path.join(pending, entry)),
         `${entry} is not a pending changeset -- the corpus boundary leaked`,
       ).toBe(true);
     }
@@ -381,11 +447,13 @@ describe('objectui#9727 pin 7 -- the probe does not answer about itself', () => 
   it('runs from a clean checkout: no build, no workspace state, plain node', () => {
     // The card's stated defect in the instrument it replaces was that it could
     // not be re-run at all. This asserts the replacement has no such dependency.
-    const outcome = run(['--json']);
-    expect(outcome.status).toBe(0);
-    const payload = JSON.parse(outcome.stdout);
+    // The corpus is the fixture one (objectui#10010): the live one does not
+    // light the lit control in every release phase, and this pin is about the
+    // instrument's own dependencies, not about what is pending today.
+    const { status, payload } = runJson(['--corpus', FIXTURE_CORPUS]);
+    expect(status, JSON.stringify(payload.controls)).toBe(0);
     expect(payload.controls.ok).toBe(true);
-    expect(payload.result.entriesScanned).toBeGreaterThan(300);
+    expect(payload.result.entriesScanned).toBe(fixtureRun.entriesScanned);
   });
 });
 
@@ -400,6 +468,38 @@ function run(args: string[]) {
   } catch (error) {
     const e = error as { status?: number; stdout?: string; stderr?: string };
     return { status: e.status ?? -1, stdout: e.stdout ?? '', stderr: e.stderr ?? '' };
+  }
+}
+
+interface ControlRow {
+  probe: string;
+  reading: number;
+  expect: string;
+}
+
+interface CensusJson {
+  controls: {
+    corpusLit: ControlRow;
+    corpusAbsent: ControlRow;
+    memberLit: ControlRow;
+    memberAbsent: ControlRow;
+    resolutionLit: ControlRow;
+    resolutionAbsent: ControlRow;
+    ok: boolean;
+  };
+  result: { corpusDir: string; entriesScanned: number };
+}
+
+/**
+ * `run` with `--json`, parsed. A process that died printed no JSON, so the parse
+ * failure carries its exit status and stderr rather than a bare SyntaxError.
+ */
+function runJson(args: string[]): { status: number; payload: CensusJson } {
+  const outcome = run(['--json', ...args]);
+  try {
+    return { status: outcome.status, payload: JSON.parse(outcome.stdout) as CensusJson };
+  } catch {
+    throw new Error(`the census printed no JSON (exit ${outcome.status}): ${outcome.stderr}`);
   }
 }
 
@@ -987,8 +1087,11 @@ describe('objectui#9767 pin 11 -- the corpus boundary is not a schema that is go
   });
 
   it('the REPORT prints the two named lines, and the merged heading is gone', () => {
-    const outcome = run([]);
-    expect(outcome.status, outcome.stderr).toBe(0);
+    // The fixture corpus, over the live member index and the live resolution
+    // roots: the lines are the instrument's, and the live corpus does not light
+    // the lit control in every release phase (objectui#10010).
+    const outcome = run(['--corpus', FIXTURE_CORPUS]);
+    expect(outcome.status, outcome.stderr || outcome.stdout).toBe(0);
     expect(outcome.stdout).toContain('Controls PASS');
     expect(outcome.stdout).toContain('whose symbol RESOLVES outside it');
     expect(outcome.stdout).toContain('resolves NOWHERE this run can reach');

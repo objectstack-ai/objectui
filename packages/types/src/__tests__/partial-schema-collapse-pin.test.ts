@@ -47,11 +47,20 @@
  *   - Retiring the alias is a REMOVAL OF A PUBLISHED EXPORT of
  *     `@object-ui/types` — a breaking removal of published capability, which
  *     sits on the human floor. Not a dev's call, and not this file's business.
- *   - Repairing it in place is not available: `T` is generic, so there is no
- *     literal key list to `Pick` (the escape #6269 used for its two concrete
- *     schemas), and every generic re-spelling —
+ *   - Repairing it in place was read as not available: `T` is generic, so there
+ *     is no literal key list to `Pick` (the escape #6269 used for its two
+ *     concrete schemas), and the triage held that every generic re-spelling —
  *     `{ [K in keyof T as K extends 'type' ? never : K]?: T[K] }` included —
  *     collapses for the same `keyof T` reason.
+ *     ⚠️ That last reading is FALSE. A
+ *     key-remapping mapped type iterates the named members and the index
+ *     signature separately, so it keeps the named members; `OmitDeclared` in
+ *     `../form.ts` is that spelling, and objectui#9256's E3 slice repaired two
+ *     published faces with it (pinned in
+ *     `content-channel-e3-residual-9256.test.ts`). `PartialSchema`'s own
+ *     docblock in `../index.ts` records why the alias is still left as
+ *     written; this file's assertions are about the alias as written and do
+ *     not move.
  *   - Once objectui#5155 removes the root index signature, the alias starts
  *     working AS WRITTEN with no edit at all, and the removal question
  *     dissolves.

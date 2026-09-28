@@ -497,6 +497,18 @@ const schema: ObjectViewSchema = {
 };
 ```
 
+**On the registered renderer.** An authored `object-view` node, and the Studio's
+view preview, draws a grid named view through `ObjectGrid`. Ten grid members the
+protocol declares under the same name on a named view and on `object-grid` —
+`pagination`, `selection`, `rowHeight`, `resizable`, `searchableFields`,
+`conditionalFormatting`, `rowActions`, `bulkActions`, `bulkActionDefs` and
+`exportOptions` — come from the active named view first; `pagination` and
+`selection` still fall back to `table` (objectui#10885). `label`, `data` and
+`navigation`, also declared on both, are not read off the named view on this
+path. A named view's `hiddenFields` removes those fields from the columns the
+grid draws, when a column list is declared.
+`src/__tests__/ObjectView.routeTwoNamedGridMembers-10885.test.tsx` pins each member.
+
 **On a host's `renderListView`.** A host that composes `ObjectView` with both
 `listViews` and its own `renderListView` receives a `list-view` node for the
 active view. For the list members the protocol declares on a named view — list

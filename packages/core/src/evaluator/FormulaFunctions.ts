@@ -122,6 +122,24 @@ export class FormulaFunctions {
   // ==========================================================================
 
   private registerDateFunctions(): void {
+    /**
+     * `TODAY()` — the current calendar day, as a date-only `YYYY-MM-DD` string.
+     *
+     * Which day that is, is ruled (objectui#10903, ruling A): a client-evaluated
+     * `TODAY()` names the same reference day the server resolves for that
+     * user, on the compute-tz axis of objectstack ADR-0053
+     * (`docs/adr/0053-date-and-datetime-semantics.md`, Phase 2 items 5 and 6),
+     * and the UTC day while no reference timezone reaches the client. The aim
+     * is one "today" per execution context: a client preview and the server's
+     * `today()` naming the same day.
+     *
+     * This implementation reads no timezone, so it answers the UTC day
+     * (`toISOString()`), which is the ruled fallback. It is deliberately not
+     * the viewer's local day. Until the reference timezone reaches the client
+     * (a later card), a server that resolves a reference timezone other than
+     * UTC can name a different day for part of every day. Once the timezone
+     * reaches the client, `TODAY()` names that timezone's calendar day instead.
+     */
     this.register('TODAY', (): string => {
       const now = new Date();
       return now.toISOString().split('T')[0];

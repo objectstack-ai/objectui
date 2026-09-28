@@ -1865,6 +1865,27 @@ export type ListViewInferred = z.input<typeof ListViewSchema>;
  * so the declared authoring face and the validation the renderer performs are
  * ONE schema rather than two that can drift (objectui#5018). `ObjectMap`
  * imports this exact object; it no longer declares its own.
+ *
+ * ## `.strict()` — an undeclared key is REFUSED, not stripped (objectui#5157)
+ *
+ * The TypeScript twin `ObjectMapConfig` is a closed interface, so a misspelled
+ * key (`latitudeFieId`) was a compile error for a typed author and nothing at
+ * all for untyped metadata: this object stripped it, parsed clean, and the map
+ * rendered empty with no diagnostic. Closing the block makes all three faces
+ * one accept set, as ruled on objectui#5157 (letter A, carrying the earlier
+ * "the `map` block only" ruling):
+ *
+ *  - runtime: `ObjectMap`'s `safeParse` of the block now fails, so the
+ *    component still renders and `console.warn`s the issue, which names the key;
+ *  - validate: `ObjectMapSchema.map` is this object, so `safeValidateSchema`
+ *    (and `objectui validate` with it) refuses the node with an
+ *    `unrecognized_keys` issue at `map`;
+ *  - `.shape` is untouched, so `ObjectMap`'s `FLAT_MAP_CONFIG_KEYS` (derived
+ *    from it) and the view flatten whitelists (hand-listed, pinned against it)
+ *    see the same keys as before.
+ *
+ * ⛔ The map block ONLY. Whether other component sub-block schemas close the
+ * same way is a separate decision the ruling kept out of this card.
  */
 export const ObjectMapConfigSchema = z.object({
   latitudeField: z.string().optional().describe('Field containing latitude'),
@@ -1875,7 +1896,7 @@ export const ObjectMapConfigSchema = z.object({
   zoom: z.number().optional().describe('Zoom level (1-20); declaring it opts out of the auto-fit'),
   center: z.tuple([z.number(), z.number()]).optional().describe('Center [lat, lng]; declaring it opts out of the auto-fit'),
   style: z.string().optional().describe('MapLibre style URL/spec (overrides the public demo default)'),
-});
+}).strict();
 
 /**
  * `77cb489b4` — the record-source refinement `ObjectMapSchema`,

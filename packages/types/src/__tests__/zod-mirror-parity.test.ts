@@ -4025,6 +4025,56 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     'a RETIRED node type refusal arm (objectui#8802), not a mirror — its only member is the `type` literal it refuses on, and the TS half of that retirement is the ABSENCE of an arm in `ComplexSchema`',
   'ai.zod.ts#AIComponentSchema':
     "a union OVER the mirrors, not an object of its own — its members are checked individually above",
+  // objectui#10872 — the ADR-0080 public-block arms. Each is `BaseSchema` plus a
+  // `type` literal plus ONE member, `properties`, which is the block's
+  // `@objectstack/spec` `ComponentPropsMap` row by reference (through the
+  // objectui#8317 boundary). No TS declaration in this package restates any of
+  // these nodes — the spec's row types are re-exported under `Spec…` names by
+  // `../index.ts`, which is the spec's declaration, not a second one — so there
+  // is no pair to register, and the arm-to-row agreement is measured against
+  // the installed spec by `./public-block-arms-10872.test.ts` instead.
+  'public-blocks.zod.ts#PageHeaderBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `page:header` literal + `properties`, which IS `ComponentPropsMap['page:header']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#PageTabsBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `page:tabs` literal + `properties`, which IS `ComponentPropsMap['page:tabs']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#PageCardBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `page:card` literal + `properties`, which IS `ComponentPropsMap['page:card']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#PageAccordionBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `page:accordion` literal + `properties`, which IS `ComponentPropsMap['page:accordion']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#PageSectionBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `page:section` literal + `properties`, which IS `ComponentPropsMap['page:section']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#PageFooterBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `page:footer` literal + `properties`, which IS `ComponentPropsMap['page:footer']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#PageSidebarBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `page:sidebar` literal + `properties`, which IS `ComponentPropsMap['page:sidebar']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#RecordDetailsBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:details` literal + `properties`, which IS `ComponentPropsMap['record:details']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#RecordHighlightsBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:highlights` literal + `properties`, which IS `ComponentPropsMap['record:highlights']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#RecordRelatedListBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:related_list` literal + `properties`, which IS `ComponentPropsMap['record:related_list']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#RecordPathBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:path` literal + `properties`, which IS `ComponentPropsMap['record:path']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#RecordActivityBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:activity` literal + `properties`, which IS `ComponentPropsMap['record:activity']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#RecordDiscussionBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:discussion` literal + `properties`, which IS `ComponentPropsMap['record:discussion']` (the spec's shared `record:chatter` row); no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#RecordHistoryBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:history` literal + `properties`, which IS `ComponentPropsMap['record:history']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#RecordQuickActionsBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:quick_actions` literal + `properties`, which IS `ComponentPropsMap['record:quick_actions']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#RecordReferenceRailBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:reference_rail` literal + `properties`, which IS `ComponentPropsMap['record:reference_rail']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#RecordAlertBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:alert` literal + `properties`, which IS `ComponentPropsMap['record:alert']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#ElementTextBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `element:text` literal + `properties`, which IS `ComponentPropsMap['element:text']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#ElementButtonBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `element:button` literal + `properties`, which IS `ComponentPropsMap['element:button']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#ElementDividerBlockSchema':
+    "spec-owned, RESTATED — `BaseSchema` + the `element:divider` literal + a member-less strict `properties`, because `@objectstack/spec/ui` exports `ComponentPropsMap['element:divider']` under no name to read by reference; its key set and accept set are pinned to the row's in `./public-block-arms-10872.test.ts`, and no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#PublicBlockComponentSchema':
+    "a union OVER the public-block arms, not an object of its own — its members are accounted for individually above",
   // Renamed from `StylePropsSchema` by objectui#5928. Under the old name the
   // like-named `StyleProps` (../base.ts) — the Tailwind-scale vocabulary, sharing
   // ZERO keys with this `{ className, style }` object — read as its declaration, and

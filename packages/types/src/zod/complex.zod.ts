@@ -30,8 +30,10 @@ import { DASHBOARD_COLOR_VARIANTS, DASHBOARD_WIDGET_TYPES } from '../designer.js
 import {
   DASHBOARD_COMPONENT_WIDGET_TYPES,
   DASHBOARD_WIDGET_TYPE_EXTENSIONS,
+  type DashboardComponentWidgetType,
 } from '../complex.js';
 import { stripImportedDefaults } from './imported-defaults.js';
+import { declareRegisteredInputs } from './node-derivation.js';
 
 /**
  * ⭐ THE IMPORT BOUNDARY (objectui#8317, decision batch #90, 2026-09-08).
@@ -1256,6 +1258,31 @@ const METRIC_CARD_NEITHER_CHANNEL =
   + '`trend` / `trendValue` and `description`.';
 
 /**
+ * objectui#11022: the keys each widget-slot component type's REGISTRATION
+ * declares as `inputs` — the props {@link DashboardWidgetSlotComponentSchema}'s
+ * passthrough admits on this face, recorded so the strict authoring face admits
+ * them too instead of closing them out with the catchall.
+ *
+ * One row per member of the closed `DASHBOARD_COMPONENT_WIDGET_TYPES`, and the
+ * `satisfies` makes that a compile error rather than a convention: a member
+ * added without its row does not build. Names only — the strict face judges
+ * each one by the arm's catchall, exactly as the tolerant face does, so a row
+ * moves which keys are admitted and never how a value is judged.
+ *
+ * ⚠️ Transcribed from the registration, which lives in the registering package
+ * (`@object-ui/plugin-dashboard`; this package depends on no registry). Its
+ * parity is MEASURED there, against the live `ComponentRegistry`, in both
+ * directions — every registered input admitted, and no admitted key that no
+ * registration declares: `metricCardRegisteredInputsStrictFace-11022.test.ts`
+ * in that package's `__tests__`. ⛔ Do not add a key here that the
+ * registration does not declare, and do not hand-edit this row without the
+ * registration moving first.
+ */
+const DASHBOARD_WIDGET_SLOT_REGISTERED_INPUTS = {
+  'metric-card': ['title', 'value', 'icon', 'trend', 'trendValue', 'description'],
+} as const satisfies Record<DashboardComponentWidgetType, readonly string[]>;
+
+/**
  * A COMPONENT node sitting directly in a dashboard's widget slot — the
  * `metric-card` extension the 2026-08-14 ruling (objectstack#8593) admits:
  *
@@ -1282,15 +1309,23 @@ const METRIC_CARD_NEITHER_CHANNEL =
  * unrecognized, and the author gets one `invalid_union` at the widget's path
  * with each arm's issues under `errors` — this arm's message among them, which
  * `objectui validate` prints as one arm of two.
+ *
+ * The strict authoring face (objectui#11022): the passthrough that admits the
+ * registry `inputs` here is exactly what that face closes, so this arm RECORDS
+ * the input names ({@link DASHBOARD_WIDGET_SLOT_REGISTERED_INPUTS}, through
+ * `declareRegisteredInputs`) and the strict walker admits them — each judged by
+ * the catchall, as on this face — while still refusing any key no registration
+ * declares. The record is a side table keyed by this node: this arm's shape,
+ * catchall and accept set are what they were.
  */
-const DashboardWidgetSlotComponentSchema = BaseSchema.extend({
+const DashboardWidgetSlotComponentSchema = declareRegisteredInputs(BaseSchema.extend({
   type: z.enum(DASHBOARD_COMPONENT_WIDGET_TYPES)
     .describe('objectui component type legal in a widget slot (closed set)'),
   // objectui#9256: `MetricCard` reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER, as on the TypeScript twin.
   body: retirementTombstone(METRIC_CARD_NEITHER_CHANNEL),
   children: retirementTombstone(METRIC_CARD_NEITHER_CHANNEL),
-});
+}), Object.values(DASHBOARD_WIDGET_SLOT_REGISTERED_INPUTS).flat());
 
 /**
  * Global Filter Schema — a dashboard-level filter definition: `@objectstack/spec/ui`'s

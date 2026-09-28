@@ -70,6 +70,20 @@
  * tolerant `BaseSchemaCore.shape.body`. That direction is conservative: such a
  * check can only ADD refusals, never accept something the strict shape refused.
  *
+ * ## Registered inputs: where "declared" is the registration, not the shape
+ *
+ * One node on the face spells its props with its CATCHALL rather than its
+ * shape, by ruling: the widget-slot component node (`metric-card`,
+ * objectstack#8593) is `BaseSchema` plus a closed `type`, and its props are the
+ * component's registered `inputs`, admitted by `.passthrough()`. Closing that
+ * catchall alone refused the node's own inputs — every `metric-card` carrying
+ * `value` (objectui#11022). Such a node records its registered input names
+ * through `declareRegisteredInputs` (`./zod/node-derivation.ts`), and the
+ * `object` arm below admits exactly those names, each judged by the node's own
+ * catchall, before closing the object. So on this face a key is "declared" when
+ * the shape declares it OR the node's registration does; any other key is
+ * refused by name, as everywhere else. The tolerant node is not touched.
+ *
  * ## The recursion point, and why this card waited for it
  *
  * A child slot is `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])`, and
@@ -93,7 +107,14 @@ import { SchemaNodeSchema } from './zod/base.zod.js';
 // recursion-point fill is installed. The pin file asserts that end state from
 // the published barrel rather than trusting this paragraph.
 import { AnyComponentSchema } from './zod/index.zod.js';
-import { carryRegistryMeta, cloneWithDef, internals, isZodType, type WalkableDef } from './zod/node-derivation.js';
+import {
+  carryRegistryMeta,
+  cloneWithDef,
+  internals,
+  isZodType,
+  registeredInputsOf,
+  type WalkableDef,
+} from './zod/node-derivation.js';
 
 /**
  * One shape the strict walker could not close, reported as it is met.
@@ -205,6 +226,19 @@ function createStrictWalker(options: DeriveStrictAuthoringOptions = {}): <T exte
         const shape: Record<string, z.ZodType> = {};
         for (const [key, value] of Object.entries(def.shape ?? {})) {
           shape[key] = walk(value, `${path}/shape/${key}`);
+        }
+        // objectui#11022: a passthrough node whose props are its component's
+        // REGISTERED inputs (the widget-slot `metric-card`) admits exactly those
+        // keys, each judged by the node's own catchall — the judgment the
+        // tolerant face gave it — and is closed below like every other object,
+        // so a key no registration declares is still refused by name. A name
+        // the shape already declares keeps its declared member.
+        const registered = registeredInputsOf(schema);
+        if (registered && def.catchall) {
+          const judged = walk(def.catchall, `${path}/catchall`);
+          for (const name of registered) {
+            if (!Object.prototype.hasOwnProperty.call(shape, name)) shape[name] = z.optional(judged);
+          }
         }
         // `catchall: z.never()` IS `.strict()` — spelled through the def so the
         // clone keeps this object's own checks. `.strict()` would too, but only
@@ -322,7 +356,9 @@ function createStrictWalker(options: DeriveStrictAuthoringOptions = {}): <T exte
  * Every reachable object gains `catchall: z.never()`, reached through unions,
  * discriminated unions, arrays, tuples, records, sets, maps, intersections,
  * optionals, nullables, defaults, prefaults, promises, pipes and `z.lazy`
- * (memoised, so the self-referential node face terminates). A schema-bearing
+ * (memoised, so the self-referential node face terminates). An object that
+ * records its registration's inputs admits those keys before it is closed (see
+ * "Registered inputs" above). A schema-bearing
  * wrapper with no arm here is reported through `onOpaqueShape`, never skipped. The returned schema has the same TypeScript type as
  * the input and shares no mutable state with it — the input is left exactly as
  * it was, which is what keeps the rendering face untouched.
@@ -349,7 +385,9 @@ const faceWalker = createStrictWalker();
  *
  * Same accept set as `AnyComponentSchema` minus every undeclared key, at every
  * depth. Undeclared keys are reported as `unrecognized_keys` issues naming the
- * offending keys.
+ * offending keys. A registered input of a node that records its registration's
+ * inputs (the widget-slot `metric-card`, objectui#11022) counts as declared —
+ * see "Registered inputs" in the module docblock.
  *
  * Typed by its input and output rather than by its runtime class: the walk is
  * deferred behind `z.lazy` (see the import comment above for why it must be),

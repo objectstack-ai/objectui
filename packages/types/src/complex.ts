@@ -2088,7 +2088,11 @@ export interface FloatingChatbotConfig {
  * retired `type` would keep validating. Adding a member is a deliberate act
  * with a registration behind it — `examples/schema-catalog/test/
  * plugin-dashboard-component-schema.test.ts` is the standing gate, and
- * `__tests__/report-chart-query-spec-parity.test.ts` pins the closure.
+ * `__tests__/report-chart-query-spec-parity.test.ts` pins the closure. The
+ * member also needs its row of registered input names in the zod slot arm's
+ * `DASHBOARD_WIDGET_SLOT_REGISTERED_INPUTS` (`zod/complex.zod.ts`), or the
+ * strict authoring face refuses its props (objectui#11022); `tsc` refuses the
+ * build without the row.
  */
 export const DASHBOARD_COMPONENT_WIDGET_TYPES = ['metric-card'] as const;
 

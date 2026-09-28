@@ -1178,6 +1178,8 @@ const ar = {
     refreshing: "جارٍ التحديث…",
     pickMeasures: "اختر المقاييس (القيم) لأداة مجموعة البيانات هذه.",
     datasetUnsupported: "مصدر البيانات هذا لا يدعم استعلامات مجموعات البيانات.",
+    widgetForbiddenTitle: "لا تملك صلاحية الوصول",
+    widgetForbiddenMessage: "ليست لديك صلاحية لعرض البيانات الخاصة بهذه الأداة.",
     details: "التفاصيل",
     exportCsv: "تصدير CSV",
     openInList: "فتح في القائمة",

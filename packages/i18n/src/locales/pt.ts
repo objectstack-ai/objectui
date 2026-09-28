@@ -1157,6 +1157,8 @@ const pt = {
     refreshing: "Atualizando…",
     pickMeasures: "Escolha medidas (valores) para este widget de dataset.",
     datasetUnsupported: "Esta fonte de dados não oferece suporte a consultas de dataset.",
+    widgetForbiddenTitle: "Sem acesso",
+    widgetForbiddenMessage: "Você não tem permissão para ver os dados deste widget.",
     details: "Detalhes",
     exportCsv: "Exportar CSV",
     openInList: "Abrir na lista",

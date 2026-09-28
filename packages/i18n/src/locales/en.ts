@@ -1423,6 +1423,8 @@ const en = {
     refreshing: 'Refreshing…',
     pickMeasures: 'Pick measures (values) for this dataset widget.',
     datasetUnsupported: 'This data source does not support dataset queries.',
+    widgetForbiddenTitle: 'You don’t have access',
+    widgetForbiddenMessage: 'You don’t have permission to view the data behind this widget.',
     details: 'Details',
     exportCsv: 'Export CSV',
     openInList: 'Open in list',

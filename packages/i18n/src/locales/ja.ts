@@ -1158,6 +1158,8 @@ const ja = {
     refreshing: "更新中…",
     pickMeasures: "このデータセットウィジェットの指標（値）を選択してください。",
     datasetUnsupported: "このデータソースはデータセットクエリに対応していません。",
+    widgetForbiddenTitle: "アクセス権がありません",
+    widgetForbiddenMessage: "このウィジェットのデータを表示する権限がありません。",
     details: "詳細",
     exportCsv: "CSV で書き出す",
     openInList: "リストで開く",

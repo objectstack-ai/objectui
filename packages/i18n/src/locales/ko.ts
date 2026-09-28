@@ -1158,6 +1158,8 @@ const ko = {
     refreshing: "새로고침 중…",
     pickMeasures: "이 데이터셋 위젯의 측정값(값)을 선택하세요.",
     datasetUnsupported: "이 데이터 소스는 데이터셋 쿼리를 지원하지 않습니다.",
+    widgetForbiddenTitle: "접근 권한 없음",
+    widgetForbiddenMessage: "이 위젯의 데이터를 볼 수 있는 권한이 없습니다.",
     details: "세부 정보",
     exportCsv: "CSV 내보내기",
     openInList: "목록에서 열기",

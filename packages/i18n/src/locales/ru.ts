@@ -1178,6 +1178,8 @@ const ru = {
     refreshing: "Обновление…",
     pickMeasures: "Выберите меры (значения) для этого виджета набора данных.",
     datasetUnsupported: "Этот источник данных не поддерживает запросы к наборам данных.",
+    widgetForbiddenTitle: "Нет доступа",
+    widgetForbiddenMessage: "У вас нет прав на просмотр данных этого виджета.",
     details: "Подробности",
     exportCsv: "Экспорт в CSV",
     openInList: "Открыть в списке",

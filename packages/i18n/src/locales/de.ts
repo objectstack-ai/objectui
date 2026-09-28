@@ -1158,6 +1158,8 @@ const de = {
     refreshing: "Wird aktualisiert…",
     pickMeasures: "Wählen Sie Kennzahlen (Werte) für dieses Dataset-Widget.",
     datasetUnsupported: "Diese Datenquelle unterstützt keine Dataset-Abfragen.",
+    widgetForbiddenTitle: "Kein Zugriff",
+    widgetForbiddenMessage: "Sie haben keine Berechtigung, die Daten dieses Widgets anzuzeigen.",
     details: "Details",
     exportCsv: "CSV exportieren",
     openInList: "In Liste öffnen",

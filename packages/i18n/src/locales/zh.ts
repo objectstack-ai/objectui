@@ -1229,6 +1229,8 @@ const zh = {
     refreshing: '刷新中…',
     pickMeasures: '请为该数据集组件选择度量（值）。',
     datasetUnsupported: '当前数据源不支持数据集查询。',
+    widgetForbiddenTitle: '无权访问',
+    widgetForbiddenMessage: '你没有查看该组件数据的权限。',
     details: '明细',
     exportCsv: '导出 CSV',
     openInList: '在列表中打开',

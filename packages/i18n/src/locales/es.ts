@@ -1162,6 +1162,8 @@ const es = {
     refreshing: "Actualizando…",
     pickMeasures: "Elija medidas (valores) para este widget de dataset.",
     datasetUnsupported: "Esta fuente de datos no admite consultas de dataset.",
+    widgetForbiddenTitle: "Sin acceso",
+    widgetForbiddenMessage: "No tienes permiso para ver los datos de este widget.",
     details: "Detalles",
     exportCsv: "Exportar CSV",
     openInList: "Abrir en la lista",

@@ -70,7 +70,7 @@ function Page() {
 const SCHEMA = { type: 'home', kind: 'react', name: 'invalidation_page', source: SOURCE };
 
 let find: ReturnType<typeof vi.fn>;
-let adapter: any;
+let adapter: { find: typeof find };
 
 beforeEach(() => {
   // Each answer names the read that produced it, so a re-read is visible on
@@ -90,7 +90,7 @@ function BusProbe({ objectName }: { objectName: string }) {
 
 function Host() {
   return (
-    <AdapterCtx.Provider value={adapter}>
+    <AdapterCtx.Provider value={adapter as unknown as React.ContextType<typeof AdapterCtx>}>
       <BusProbe objectName="showcase_invoice" />
       <SchemaRenderer schema={SCHEMA} />
     </AdapterCtx.Provider>

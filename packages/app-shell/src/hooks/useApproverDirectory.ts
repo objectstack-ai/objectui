@@ -9,7 +9,7 @@
 /**
  * useApproverDirectory — resolve `<kind>:<value>` approver references against
  * the system directory objects, for the surfaces that must NAME an approver
- * (objectui#5414).
+ * (`77f846a8b`).
  *
  * ## Server-first, and inert by default
  *
@@ -27,7 +27,7 @@
  *     values — the label leg;
  *   - for `position` refs only, `sys_user_position` -> `sys_user` — the staffing
  *     leg, which answers "who actually sits in this seat" and, when it comes
- *     back empty, the unstaffed state objectui#5414 asks to surface.
+ *     back empty, the unstaffed state `77f846a8b` surfaces.
  *
  * The two legs fail INDEPENDENTLY. A business-app reader may hold list access to
  * `sys_position` and none to `sys_user_position`; `find` rejects that with

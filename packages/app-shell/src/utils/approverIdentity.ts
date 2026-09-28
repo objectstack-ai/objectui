@@ -8,7 +8,7 @@
 
 /**
  * approverIdentity — the ONE place the console turns an approver REFERENCE
- * into something a person can read (objectui#5414).
+ * into something a person can read (`77f846a8b`).
  *
  * ## The defect this closes
  *
@@ -173,11 +173,11 @@ export function prettifyMachineName(raw: string | null | undefined): string {
  * binding commits a machine NAME prettified, and opaque 16+ char ids
  * middle-truncated.
  *
- * Moved here from `RecordApprovalsPanel` in objectui#5414 so the panel, the
+ * Moved here from `RecordApprovalsPanel` in `77f846a8b` so the panel, the
  * timeline and the admin-override dialog cannot format one identifier three
  * ways. The truncation arm is deliberately kept for the id-valued kinds: a raw
  * UUID wall is what objectui#3461 complained about, and a UUID has no prose to
- * recover. What #5414 adds is the arm above it — `position:sales_manager`
+ * recover. What `77f846a8b` adds is the arm above it — `position:sales_manager`
  * carries a machine name, so it never had to be truncated in the first place.
  */
 export function formatIdentity(id: string | null | undefined): string {
@@ -270,7 +270,7 @@ export const MAX_INLINE_HOLDERS = 3;
  * `sales_manager` prettifies into real prose. The id-valued kinds
  * (`user`/`team`/`department`) carry opaque row ids that prettify into
  * nonsense — those keep the caller's existing formatting, which is the right
- * treatment for an id and is not what objectui#5414 reports.
+ * treatment for an id and is not what `77f846a8b` fixes.
  */
 export function approverDisplay(
   raw: string,

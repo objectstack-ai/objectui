@@ -30,7 +30,7 @@ type Op = '==' | '!=' | '>' | '<' | '>=' | '<=' | 'truthy' | 'falsy';
 
 /** The quote character a string literal was authored with. Remembered per row
  *  so the builder re-emits the author's own spelling instead of normalising it
- *  (objectui#6296) — see {@link fmtValue}. */
+ *  (`88b15fddc`) — see {@link fmtValue}. */
 type Quote = '"' | "'";
 
 interface Row { subject: string; op: Op; value: string; quote?: Quote }
@@ -101,7 +101,7 @@ const CONTEXT_SUBJECTS = [
 const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
 
 /**
- * The subject vocabulary a mount site binds (objectui#6296).
+ * The subject vocabulary a mount site binds (`88b15fddc`).
  *
  * The builder used to hardcode one: `record.` + field name, plus `record.id` /
  * `user.*` / `org.*`. That is right for every RECORD-scoped site — which is
@@ -178,7 +178,7 @@ export interface ConditionSubjectVocabulary {
  * a plausible literal, and `data` IS bound, so reading it as a reference would
  * produce another silently-false predicate instead of a loud one. Which roots
  * a mounting surface actually binds is caller-supplied vocabulary
- * (objectui#6296) and is that card's to declare, not this one's to guess.
+ * (`88b15fddc`), the caller's to declare, not this list's to guess.
  */
 export const REFERENCE_ROOTS = ['record', 'previous', 'parent', 'user', 'current_user', 'org'] as const;
 
@@ -450,7 +450,7 @@ function fmtValue(v: string, quote: Quote = "'"): string {
   if (REFERENCE_RE.test(t)) return t;
   // `quote` defaults to the single quote this function has always emitted, so
   // a row the author built here — and every row parsed from single-quoted CEL
-  // — is byte-for-byte what it was before objectui#6296. Only a row parsed
+  // — is byte-for-byte what it was before `88b15fddc`. Only a row parsed
   // from a DOUBLE-quoted literal carries `"`, and those did not reach row mode
   // at all until this change.
   const esc = quote === "'" ? t.replace(/'/g, "\\'") : t.replace(/"/g, '\\"');
@@ -469,7 +469,7 @@ function unfmtValue(raw: string): { value: string; quote?: Quote } {
   // Double-quoted literals are the spelling every shipped flow-entry condition
   // uses, and the field's own placeholder teaches. Stripping only single
   // quotes while re-emitting only single quotes meant they could never
-  // round-trip, so they were handed to the raw editor (objectui#6296).
+  // round-trip, so they were handed to the raw editor (`88b15fddc`).
   const dq = /^"(.*)"$/.exec(t);
   if (dq) return { value: dq[1].replace(/\\"/g, '"'), quote: '"' };
   return { value: t };
@@ -542,7 +542,7 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
    */
   onBlockingIssuesChange?: (count: number) => void;
   /**
-   * What this mount site's subjects are called (objectui#6296). Omit for the
+   * What this mount site's subjects are called (`88b15fddc`). Omit for the
    * record-scoped default every existing consumer relies on.
    */
   subjects?: ConditionSubjectVocabulary;
@@ -557,7 +557,7 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
    * spelling is `hint.scope ?? 'flattened'`, and no caller could say otherwise
    * — so a bare `status == 'done'` typed into an action's **Visible when**
    * linted CLEAN. It never matches: `usePredicateRecordContext` binds `record`
-   * and nothing else, and objectui#5741 Phase 2 retired the bare shorthand on
+   * and nothing else, and Phase 2 (`83fe6e741`) retired the bare shorthand on
    * runtime record surfaces. The row-predicate canon in `@object-ui/core`
    * (`rowPredicateCanon.ts`) names an action renderer's `visible` / `disabled`
    * as such a surface in its own words. That is objectui#7727's defect, at a

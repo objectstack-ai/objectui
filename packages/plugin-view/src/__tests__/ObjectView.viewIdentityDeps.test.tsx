@@ -255,10 +255,13 @@ describe('ObjectView non-grid fetch does not churn on an inline `views` array (o
         schema={{
           ...SCHEMA,
           listViews: {
+            // objectui#7928: the protocol's named view — `columns`, and
+            // `filter` as rule objects rather than the ObjectQL tuple dialect.
             named: {
               label: 'Named',
               type: 'calendar',
-              filter: [['status', '=', 'named-wins']],
+              columns: ['name'],
+              filter: [{ field: 'status', operator: 'equals', value: 'named-wins' }],
               sort: [{ field: 'created', order: 'desc' }],
             },
           },

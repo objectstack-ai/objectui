@@ -2712,9 +2712,14 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
              * Same two-rung shape as `label` above.
              */
             description: viewDef.description ?? listSchema.description,
-            // Propagate appearance/view-config properties for live preview
-            rowHeight: viewDef.rowHeight ?? listSchema.rowHeight,
-            densityMode: viewDef.densityMode ?? listSchema.densityMode,
+            // Propagate appearance/view-config properties for live preview.
+            // objectui#7924 (ruling A′): the view's density is read THROUGH the
+            // fold, view over list, the same route as the `userActions` rung
+            // below. A stored view that still spells it `densityMode` arrives
+            // here as `rowHeight`, and this relay never names the retired key.
+            rowHeight:
+                (normalizeListViewSchema(viewDef ?? {}) as Pick<ListViewSchema, 'rowHeight'>).rowHeight
+                ?? listSchema.rowHeight,
             // Hydrate the persisted view settings so they survive reload
             // (Airtable-style toolbar config — objectstack#7494's ruling:
             // ORG-WIDE shared, not a per-user preference; a true per-user

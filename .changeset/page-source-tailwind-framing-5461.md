@@ -7,7 +7,7 @@
 This is a published type surface: the TSDoc ships in `@object-ui/types`'s built
 `.d.ts` and is what an author reads on hover over `kind`. It said a `kind:'html'`
 page is "constrained JSX/HTML + Tailwind" — and it links
-`content/docs/guide/react-pages.md`, which objectui#5413 has already corrected to
+`content/docs/guide/react-pages.md`, which `688cb93ad` has already corrected to
 say the opposite. Shipped type documentation was contradicting the guide it points
 readers to.
 

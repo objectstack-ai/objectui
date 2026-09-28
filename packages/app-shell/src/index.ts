@@ -323,7 +323,7 @@ import './views/record-attachments-renderer.js';
 import './views/record-approvals-renderer.js';
 // `global:search` / `global:notifications` — the two spec `PageComponentType`
 // members the 2026-08-26 ruling on objectstack#12183 kept declared because both
-// data sources shipped (objectui#6757). Registered here, not in
+// data sources shipped (`f99932a42`). Registered here, not in
 // `@object-ui/components`, because they read this package's providers and feeds;
 // without these two imports an authored page draws the "Component Placeholder"
 // scaffold for `global:search` and a red unknown-type panel for
@@ -331,7 +331,7 @@ import './views/record-approvals-renderer.js';
 import './views/global-search-renderer.js';
 import './views/global-notifications-renderer.js';
 // `app:launcher` / `nav:menu` — Phase 1 of that same 2026-08-26 ruling
-// (objectui#6661): the two `PageComponentType` members that are purely
+// (`969ba84f4`): the two `PageComponentType` members that are purely
 // metadata-driven, so nothing had to ship before their renderers could.
 // Registered here, not in `@object-ui/components`, because they read this
 // package's providers (the metadata app registry, the expression / permission /

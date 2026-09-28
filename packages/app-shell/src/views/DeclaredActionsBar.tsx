@@ -199,7 +199,7 @@ const DeclaredActionButton: React.FC<{
    * (the unstaffed-position rescue the override path exists for) gets its own
    * wording rather than an empty list.
    *
-   * objectui#5414 — and those names must be NAMES. `bypassedApproverNames`
+   * `77f846a8b` — and those names must be NAMES. `bypassedApproverNames`
    * defaults its formatter to identity, so an engine reference reached this
    * dialog raw: a paragraph of plain governance prose ending
    * `—— position:sales_manager`. Resolution is gated on `isOverride`, so an

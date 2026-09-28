@@ -3553,7 +3553,7 @@ const ru = {
       detailChangedKeys: 'Также изменено:',
       confirmNote: 'Публикация атомарно выпускает все {{count}} ожидающих черновиков этого пакета.',
       publishConfirm: 'Опубликовать всё',
-      // [objectui#5418] Pre-publish security-posture findings, shown next to
+      // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.
       securityBlockTitle: 'Публикация будет отклонена — {{count}} элемент(ов) требуют решения',

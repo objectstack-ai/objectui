@@ -9,7 +9,7 @@
 /**
  * The row-predicate spelling CANON: on a runtime record surface the row is bound
  * as `record.*` and nothing else (objectui#5330, maintainer ruling 2026-08-20,
- * option B; Phase 2 executed by objectui#5741).
+ * option B; Phase 2 executed by `83fe6e741`).
  *
  * ## The canon
  *
@@ -21,7 +21,7 @@
  * deciding which of them was CONTRACT). The ruling decided it, in two phases:
  *
  * > **The canon is `record.*`.** Phase 1 (PR #5737) declared it and warned
- * > once, in dev, on the two other spellings. Phase 2 (objectui#5741, ruled
+ * > once, in dev, on the two other spellings. Phase 2 (`83fe6e741`, ruled
  * > 2026-09-02 and amended 2026-09-05) retired them: the bare shorthand and
  * > `data.*` are no longer bound on runtime record surfaces, and the Phase-1
  * > warning went with them. No stored-metadata survey was run (「不考虑存量」);
@@ -72,8 +72,8 @@
  *
  * {@link detectNonCanonicalRowSpelling} is the OFFLINE instrument: it classifies
  * an authored predicate's spelling against a row without evaluating it, so a
- * sweep over stored or in-repo metadata (the objectui#5738 corpus sweep,
- * PR #5758's recipe) can find the documents that still need rewriting. It is
+ * sweep over stored or in-repo metadata (the `702c48a62` corpus sweep's
+ * recipe) can find the documents that still need rewriting. It is
  * exported for that purpose and nothing on the hot path calls it — the runtime
  * warning half Phase 1 built on it (`warnNonCanonicalRowSpelling`,
  * `resetRowPredicateCanonWarnings`) was removed with the bindings.
@@ -144,7 +144,7 @@ export type NonCanonicalRowSpelling =
  * @param source       The predicate's CEL text. A legacy `${…}`-dialect string
  *                     is not CEL and returns `null` here (unparseable); classify
  *                     it by its own dialect's rules — on a runtime record surface
- *                     it retired with the CEL spellings (objectui#5741), while on
+ *                     it retired with the CEL spellings (`83fe6e741`), while on
  *                     the schema/widget tier `data` is a different scope entirely.
  * @param row          The row the predicate is bound against.
  * @param dataNamesRow Whether `data` is bound to that same row on this surface.

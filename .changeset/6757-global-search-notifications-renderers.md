@@ -2,8 +2,8 @@
 '@object-ui/app-shell': minor
 ---
 
-Renderers for the `global:search` and `global:notifications` page blocks
-(objectui#6757). A page that declared either member drew the literal "Component
+Renderers for the `global:search` and `global:notifications` page blocks.
+A page that declared either member drew the literal "Component
 Placeholder" scaffold: both are first-class `PageComponentType` members that the
 2026-08-26 maintainer ruling on objectstack#12183 kept declared once the
 readiness read in objectstack#13117 evidenced both data sources shipped, and

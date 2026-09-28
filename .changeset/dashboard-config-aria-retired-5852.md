@@ -2,7 +2,7 @@
 '@object-ui/types': minor
 ---
 
-**Retired the designer-surface dashboard `aria` pair — `DashboardConfig.aria` and `DashboardConfigSchema.aria`** (objectui#5852).
+**Retired the designer-surface dashboard `aria` pair — `DashboardConfig.aria` and `DashboardConfigSchema.aria`**.
 
 Both spellings are named verbatim above so a host can grep its own sources: the
 retired member is `aria`, on the TypeScript interface `DashboardConfig`

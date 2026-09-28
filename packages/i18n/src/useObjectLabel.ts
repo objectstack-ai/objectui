@@ -370,7 +370,7 @@ export function useObjectLabel() {
      * reaches this client — so nav labels arrive already localized. One
      * owner, not two. To translate a sidebar group, translate it there.
      *
-     * History (objectui#5197): until then this docstring promised
+     * History (`9c60144b5`): until then this docstring promised
      * `"Sales" → "销售"` for sidebar groups, and `NavigationRenderer`
      * accepted `resolveGroupLabel`/`resolveItemLabel` to wire it up. Those
      * props could never fire — the renderer's `isCustomized` guard compared a

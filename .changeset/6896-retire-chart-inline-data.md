@@ -3,7 +3,7 @@
 ---
 
 Retire `ChartDataSeries.data`, and correct `ChartSchema.categories`' prose to the read it
-has always had (objectui#6896, ADR-0049 enforce-or-remove; maintainer ruling 2026-08-31).
+has always had (ADR-0049 enforce-or-remove; maintainer ruling 2026-08-31).
 
 ⚠️ **BREAKING for anyone authoring a static `ChartSchema` node**, shipped as `minor`
 because this repository's `major` is a cross-repo pin to `@objectstack`'s major rather than

@@ -15,7 +15,7 @@ non-admin. The runtime check now answers first, because "this deployment has no
 marketplace" is true regardless of who is asking.
 
 This restores the sibling-page invariant for the one class of viewer it still
-failed for: `MarketplacePackagePage` was reordered the same way in objectui#5533,
+failed for: `MarketplacePackagePage` was reordered the same way in `2573ff434`,
 so on a marketplace-off runtime the catalog page and the package detail page now
 give a non-admin the same kind of answer.
 

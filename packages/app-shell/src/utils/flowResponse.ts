@@ -43,7 +43,7 @@
  * where React expects a child and crashes the page (React #31) — the same trap
  * `actionErrorDetail` exists for.
  *
- * ## A failed run does NOT always arrive as HTTP 200 (objectui#4784)
+ * ## A failed run does NOT always arrive as HTTP 200 (`833c90047`)
  *
  * The three shapes above describe the route as it answers today. objectstack#8684
  * unifies the resume route onto real status codes — inheriting the #3962 ruling
@@ -186,7 +186,7 @@ export type FlowResponseOutcome<S = unknown> =
          * runner must not offer one.
          *
          * What a runner DOES with that is the runner's own decision, and it is
-         * not "close" (objectui#5417): `FlowRunner` keeps the dialog up so the
+         * not "close" (`c40f3b8ca`): `FlowRunner` keeps the dialog up so the
          * refusal stays beside the input that caused it, and withdraws the
          * submit affordance instead. This flag says the run is gone, nothing
          * more.

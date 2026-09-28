@@ -1277,7 +1277,7 @@ const _warnedHeaderPredicates = new Set<string>();
  * that is present-but-null does NOT trigger this (legitimately empty field).
  * Skipped while the record is empty/loading to avoid false positives.
  *
- * ⛔ Do NOT re-attribute this to `hidden: true` (objectui#5399). `hidden` is a
+ * ⛔ Do NOT re-attribute this to `hidden: true` (`5a07e67d9`). `hidden` is a
  * UI concern ("Hidden from default UI"), not a projection rule: the framework's
  * read path drops `internal: true` columns and the `__search` companion, and
  * nothing else. This surface knows only WHICH keys the bound payload lacks; it

@@ -6,7 +6,7 @@ API Console's endpoint catalog is keyed by the canonical `storage` service slot,
 only that slot (objectui#5291, framework#9683).
 
 `useApiDiscovery`'s `SERVICE_ENDPOINT_CATALOG` looks its keys up directly in `/discovery`'s
-`services` map, and that lookup is deliberately fail-closed (ADR-0076 D12). objectui#5286
+`services` map, and that lookup is deliberately fail-closed (ADR-0076 D12). `38ba3ddf3`
 had kept the Storage entry keyed by the deprecated `file-storage` spelling, with a small
 alias table that read `services.storage` first and fell back to `services['file-storage']`,
 because the installed `@objectstack/spec` did not list `storage` in `CoreServiceName` yet.

@@ -72,7 +72,7 @@ export type RawActionParamOption = {
   value: string;
   /**
    * Everything else an option declares (`visibleWhen` / `color` / `icon` /
-   * `disabled`), preserved verbatim — objectui#3559.
+   * `disabled`), preserved verbatim — `fbc23e094`.
    */
   [key: string]: unknown;
 };
@@ -106,7 +106,7 @@ export interface RawActionParam {
    * Option list authored inline on the param. Speaks the same vocabulary as the
    * resolved side ({@link ActionParamOption}): the two keys this resolver reads
    * plus a catch-all for whatever else an option declares (`visibleWhen`,
-   * `color`, `icon`, `disabled`) — objectui#3559.
+   * `color`, `icon`, `disabled`) — `fbc23e094`.
    *
    * One key differs, and it is the same rc.6 widening as {@link
    * RawActionParam.label} one level down: an option's `label` is authored as
@@ -177,7 +177,7 @@ function paramName(param: RawActionParam): string | undefined {
  * rc.6's inline per-locale map — to the single string the dialog renders.
  *
  * Everything else is preserved by spread, for the same reason
- * {@link normaliseOptions} preserves it (objectui#3559): rebuilding a fresh
+ * {@link normaliseOptions} preserves it (`fbc23e094`): rebuilding a fresh
  * `{ label, value }` silently drops `visibleWhen` / `color` / `icon` /
  * `disabled`. A label that resolves to nothing falls back to `value`, which is
  * what a bare-string option already means (`{ label: s, value: s }`).
@@ -188,7 +188,7 @@ function resolveOptionLabels(
 ): ActionParamOption[] | undefined {
   if (!options) return undefined;
   // Identity-preserving fast path, and it is load-bearing rather than an
-  // optimisation: objectui#3559 pins that an INLINE option list reaches the
+  // optimisation: `fbc23e094` pins that an INLINE option list reaches the
   // dialog *verbatim* — `toBe`, not `toEqual` — because the bug it closed was a
   // rebuild that dropped `visibleWhen`. A list with nothing to resolve is
   // therefore returned untouched, so that pin stays true as written; only a
@@ -403,7 +403,7 @@ export interface ResolveActionParamsContext {
  * `{ label, value }` and translate each label through `fieldOptionLabel`.
  *
  * Those are the only two jobs. Everything else the option declares is
- * PRESERVED, not rebuilt (objectui#3559): this used to return a fresh
+ * PRESERVED, not rebuilt (`fbc23e094`): this used to return a fresh
  * `{ label, value }` per entry, which silently dropped a field's per-option
  * `visibleWhen` — so a select field whose options narrow by predicate in the
  * object form (`resolveVisibleOptions()` in `@object-ui/core`, ADR-0058 /

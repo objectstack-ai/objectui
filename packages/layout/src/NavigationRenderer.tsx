@@ -197,7 +197,7 @@ export interface NavigationRendererProps {
    */
   resolveViewLabel?: (objectName: string, viewName: string, fallbackLabel: string) => string;
 
-  // RETIRED (objectui#5197): `resolveGroupLabel` / `resolveItemLabel`, the two
+  // RETIRED (`9c60144b5`): `resolveGroupLabel` / `resolveItemLabel`, the two
   // id-keyed label resolvers. They were unreachable by construction — see the
   // note on `resolveNavItemLabel` below — and app-navigation localization is
   // owned solely by the server-side `/meta` boundary. Do not re-add them; a
@@ -277,7 +277,7 @@ export function resolveLabel(
  *    have it silently overridden by an `objects.<name>.label` translation.
  *
  * Deliberately NOT here: id-keyed resolution for `group` items and for
- * url/page/report/custom leaves. Those two hooks existed until objectui#5197
+ * url/page/report/custom leaves. Those two hooks existed until `9c60144b5`
  * and could never fire: the `isCustomized` guard below compares the authored
  * label against the branch's comparison target, and on an id-keyed branch
  * that target is the node's own `id` (`grp_workspace`) while the label is its
@@ -291,7 +291,7 @@ export function resolveLabel(
  * id before the metadata reaches this renderer, so `base` is already
  * localized when it arrives. One owner, not two — localize nav labels there.
  *
- * EXPORTED since objectui#6661, for the same reason {@link resolveHref} is: a
+ * EXPORTED since `969ba84f4`, for the same reason {@link resolveHref} is: a
  * second surface now renders the same `NavigationItem[]`. `nav:menu` is the
  * app's navigation tree as PAGE CONTENT (`app-shell/src/views/nav-menu-renderer.tsx`),
  * and it cannot mount `NavigationRenderer` itself — that renders through

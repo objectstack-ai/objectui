@@ -76,7 +76,7 @@ export function getPackageSchema(): JsonSchema | undefined {
  * only persists `name` / `description` / `version`. `name` / `version` /
  * `description` stay editable in every non-view mode.
  *
- * ## Help text (objectui#5416)
+ * ## Help text (`add10d8f9`)
  *
  * Each field's `helpText` comes from the SAME i18n bundle as its `label`, via
  * {@link tOptional} — which returns `undefined` when the locale has no entry.

@@ -3553,7 +3553,7 @@ const ar = {
       detailChangedKeys: 'تغييرات أخرى:',
       confirmNote: 'النشر يُصدر كل المسودات المعلقة ({{count}}) لهذه الحزمة دفعة واحدة.',
       publishConfirm: 'نشر الكل',
-      // [objectui#5418] Pre-publish security-posture findings, shown next to
+      // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.
       securityBlockTitle: 'سيتم رفض النشر — {{count}} عنصر (عناصر) بحاجة إلى قرار أولاً',

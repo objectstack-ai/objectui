@@ -2688,7 +2688,7 @@ const zh = {
       detailChangedKeys: '其他变更：',
       confirmNote: '发布将一次性（原子地）发布此包全部 {{count}} 个待发布草稿。',
       publishConfirm: '全部发布',
-      // [objectui#5418] Pre-publish security-posture findings, shown next to
+      // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.
       securityBlockTitle: '发布会被拒绝 —— 有 {{count}} 项需要先做出决定',

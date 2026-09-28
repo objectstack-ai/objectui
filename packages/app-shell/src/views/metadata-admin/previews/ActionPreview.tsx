@@ -46,6 +46,7 @@ import { EmptyDescription, resolveIcon } from '@object-ui/components';
 import type { ActionParam } from '@object-ui/types';
 import { paramDegradesWithoutTarget, resolveParamWidgetType } from '../../../utils/paramToField.js';
 import type { MetadataPreviewProps } from '../preview-registry.js';
+import { t as tr, tFormat } from '../i18n.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
 
 /*
@@ -126,29 +127,47 @@ function variantClasses(variant?: string): string {
   }
 }
 
-function describeHandler(type: string, target?: string, hasBody?: boolean): string {
-  if (!target && !hasBody) return 'No handler bound yet.';
+/**
+ * The "On click" sentence, in the designer `locale` (objectui#10862). The
+ * target is author data and shows as written; `String(target)` keeps the text
+ * a template literal gave for a body-only action with no target.
+ */
+function describeHandler(type: string, target: string | undefined, hasBody: boolean, locale?: string): string {
+  if (!target && !hasBody) return tr('engine.actionPreview.handler.none', locale);
+  const vars = { target: String(target) };
   switch (type) {
     case 'url':
-      return `Navigate to ${target}`;
+      return tFormat('engine.actionPreview.handler.url', locale, vars);
     case 'flow':
-      return `Run flow ${target}`;
+      return tFormat('engine.actionPreview.handler.flow', locale, vars);
     case 'modal':
-      return `Open modal ${target}`;
+      return tFormat('engine.actionPreview.handler.modal', locale, vars);
     case 'api':
-      return `Call API endpoint ${target}`;
+      return tFormat('engine.actionPreview.handler.api', locale, vars);
     case 'form':
-      return `Open form view ${target} (/console/forms/${target ?? '?'})`;
+      return tFormat('engine.actionPreview.handler.form', locale, { ...vars, path: target ?? '?' });
     case 'script':
       return hasBody
-        ? 'Run inline script body (L1 expression or L2 sandboxed JS).'
-        : `Run named script ${target}`;
+        ? tr('engine.actionPreview.handler.scriptBody', locale)
+        : tFormat('engine.actionPreview.handler.scriptNamed', locale, vars);
     default:
-      return `Invoke ${target}`;
+      return tFormat('engine.actionPreview.handler.invoke', locale, vars);
   }
 }
 
-export function ActionPreview({ name, draft }: MetadataPreviewProps) {
+/**
+ * Render a row whose `{token}` holes carry a node rather than text (a
+ * monospace capability list, a `reference` code span), keeping the sentence
+ * order of the row in every locale.
+ */
+function withNodes(template: string, nodes: Record<string, React.ReactNode>): React.ReactNode[] {
+  return template.split(/(\{\w+\})/).map((part, i) => {
+    const hole = /^\{(\w+)\}$/.exec(part);
+    return <React.Fragment key={i}>{hole && hole[1] in nodes ? nodes[hole[1]] : part}</React.Fragment>;
+  });
+}
+
+export function ActionPreview({ name, draft, locale }: MetadataPreviewProps) {
   const d = draft as Record<string, unknown>;
   const actionName = String(d.name ?? name ?? '');
   const label = localize(d.label) || actionName;
@@ -196,7 +215,7 @@ export function ActionPreview({ name, draft }: MetadataPreviewProps) {
   if (!actionName && !label) {
     return (
       <PreviewShell hint="action">
-        <PreviewMessage>Set name and label to see the action preview.</PreviewMessage>
+        <PreviewMessage>{tr('engine.actionPreview.empty', locale)}</PreviewMessage>
       </PreviewShell>
     );
   }
@@ -217,17 +236,21 @@ export function ActionPreview({ name, draft }: MetadataPreviewProps) {
               <span className="font-mono text-[10px] text-muted-foreground">{actionName}</span>
             </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
-              <Pill icon={TypeIcon} label={`type: ${type}`} />
-              {objectName && <Pill icon={Square} label={`object: ${objectName}`} mono />}
-              {variant && <Pill label={`variant: ${variant}`} />}
+              <Pill icon={TypeIcon} label={tFormat('engine.actionPreview.pill.type', locale, { type })} />
+              {objectName && (
+                <Pill icon={Square} label={tFormat('engine.actionPreview.pill.object', locale, { object: objectName })} mono />
+              )}
+              {variant && <Pill label={tFormat('engine.actionPreview.pill.variant', locale, { variant })} />}
               {component && <Pill icon={MoreHorizontal} label={component} />}
-              {refreshAfter && <Pill icon={RefreshCw} label="refresh after" />}
-              {aiExposed === false && <Pill icon={Bot} label="AI: opted out" tone="amber" />}
-              {aiExposed === true && <Pill icon={Sparkles} label="AI: exposed" />}
+              {refreshAfter && <Pill icon={RefreshCw} label={tr('engine.actionPreview.pill.refreshAfter', locale)} />}
+              {aiExposed === false && (
+                <Pill icon={Bot} label={tr('engine.actionPreview.pill.aiOptedOut', locale)} tone="amber" />
+              )}
+              {aiExposed === true && <Pill icon={Sparkles} label={tr('engine.actionPreview.pill.aiExposed', locale)} />}
             </div>
             {locations.length > 0 && (
               <div className="flex flex-wrap items-center gap-1 pt-1">
-                <span className="text-muted-foreground">Locations:</span>
+                <span className="text-muted-foreground">{tr('engine.actionPreview.locations', locale)}</span>
                 {locations.map((l) => (
                   <span key={l} className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono">
                     {l}
@@ -241,7 +264,7 @@ export function ActionPreview({ name, draft }: MetadataPreviewProps) {
                 data-testid="action-preview-required-permissions"
               >
                 <Lock className="h-3 w-3 text-amber-700" />
-                <span className="text-muted-foreground">Requires:</span>
+                <span className="text-muted-foreground">{tr('engine.actionPreview.requires', locale)}</span>
                 {requiredPermissions.map((c) => (
                   <span key={c} className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono">
                     {c}
@@ -250,10 +273,10 @@ export function ActionPreview({ name, draft }: MetadataPreviewProps) {
               </div>
             )}
             {Boolean(typeof visible === 'string' || (visible && typeof visible === 'object')) && (
-              <ConditionLine label="Visible when" value={visible} icon={Eye} />
+              <ConditionLine label={tr('engine.actionPreview.visibleWhen', locale)} value={visible} icon={Eye} />
             )}
             {disabled != null && typeof disabled !== 'boolean' && (
-              <ConditionLine label="Disabled when" value={disabled} icon={Lock} />
+              <ConditionLine label={tr('engine.actionPreview.disabledWhen', locale)} value={disabled} icon={Lock} />
             )}
           </div>
 
@@ -261,62 +284,72 @@ export function ActionPreview({ name, draft }: MetadataPreviewProps) {
           <div className="rounded border border-blue-200 bg-blue-50 p-2.5 text-xs">
             <div className="flex items-center gap-1.5 font-medium text-blue-900 mb-0.5">
               {/* eslint-disable-next-line react-hooks/static-components -- typeIcon returns a stable icon component from a static registry, not one created during render */}
-              <TypeIcon className="h-3.5 w-3.5" /> On click
+              <TypeIcon className="h-3.5 w-3.5" /> {tr('engine.actionPreview.onClick', locale)}
             </div>
             <div className="text-blue-950 font-mono break-all">
-              {describeHandler(type, target, !!body?.source)}
+              {describeHandler(type, target, !!body?.source, locale)}
             </div>
             {confirmText && (
               <div className="mt-1.5 flex items-start gap-1.5 text-amber-900">
                 <AlertTriangle className="h-3 w-3 mt-0.5" />
-                <span>First asks: <em>{confirmText}</em></span>
+                <span>{tr('engine.actionPreview.firstAsks', locale)} <em>{confirmText}</em></span>
               </div>
             )}
             {successMessage && (
               <div className="mt-1.5 text-blue-950">
-                On success: <em>{successMessage}</em>
+                {tr('engine.actionPreview.onSuccess', locale)} <em>{successMessage}</em>
               </div>
             )}
           </div>
 
           {/* Placement simulation — where this action surfaces */}
           {locations.length > 0 && (
-            <Section title="Where it appears">
+            <Section title={tr('engine.actionPreview.section.placement', locale)}>
               {requiredPermissions.length > 0 && (
                 <div className="text-[11px] text-amber-700" data-testid="action-preview-capability-gate-note">
-                  Hidden from anyone who does not hold{' '}
-                  <span className="font-mono">{requiredPermissions.join(' + ')}</span> — the frames
-                  below show the placement, not who can see it.
+                  {withNodes(tr('engine.actionPreview.capabilityGateNote', locale), {
+                    capabilities: <span className="font-mono">{requiredPermissions.join(' + ')}</span>,
+                  })}
                 </div>
               )}
-              <PlacementPreview locations={locations} label={label} icon={icon} variant={variant} iconOnly={iconOnly} />
+              <PlacementPreview
+                locations={locations}
+                label={label}
+                icon={icon}
+                variant={variant}
+                iconOnly={iconOnly}
+                locale={locale}
+              />
             </Section>
           )}
 
           {/* Test request — api type */}
           {type === 'api' && !!target && (
-            <Section title="Test request" icon={Globe}>
-              <ApiTestPanel target={target} method={method} bodyExtra={bodyExtra} params={params} />
+            <Section title={tr('engine.actionPreview.section.testRequest', locale)} icon={Globe}>
+              <ApiTestPanel target={target} method={method} bodyExtra={bodyExtra} params={params} locale={locale} />
             </Section>
           )}
 
           {/* Param dialog mock */}
           {params.length > 0 && (
-            <Section title="Input Dialog" count={params.length}>
-              <DialogMock title={label} params={params} variant={variant} />
+            <Section title={tr('engine.actionPreview.section.inputDialog', locale)} count={params.length}>
+              <DialogMock title={label} params={params} variant={variant} locale={locale} />
             </Section>
           )}
 
           {/* Result dialog mock */}
           {resultDialog && (
-            <Section title="Result Dialog" icon={Eye}>
-              <ResultDialogMock dialog={resultDialog} />
+            <Section title={tr('engine.actionPreview.section.resultDialog', locale)} icon={Eye}>
+              <ResultDialogMock dialog={resultDialog} locale={locale} />
             </Section>
           )}
 
           {/* Body excerpt (script type) */}
           {body?.source && (
-            <Section title={`Script Body (${body.language ?? 'expression'})`} icon={Code2}>
+            <Section
+              title={tFormat('engine.actionPreview.section.scriptBody', locale, { language: body.language ?? 'expression' })}
+              icon={Code2}
+            >
               <pre className="m-0 rounded border bg-background p-2.5 text-xs font-mono whitespace-pre-wrap max-h-[200px] overflow-auto">
                 {body.source}
               </pre>
@@ -383,7 +416,17 @@ function IconHint({ name }: { name: string }) {
   );
 }
 
-function DialogMock({ title, params, variant }: { title: string; params: ActionParam[]; variant?: string }) {
+function DialogMock({
+  title,
+  params,
+  variant,
+  locale,
+}: {
+  title: string;
+  params: ActionParam[];
+  variant?: string;
+  locale?: string;
+}) {
   return (
     <div className="rounded border bg-background shadow-sm">
       <div className="border-b bg-muted/30 px-3 py-2 text-xs font-medium">{title}</div>
@@ -399,15 +442,23 @@ function DialogMock({ title, params, variant }: { title: string; params: ActionP
                 <span className="ml-1 font-mono text-[9px] text-muted-foreground">{fieldName}</span>
                 {p.type && <span className="font-mono text-[9px] text-muted-foreground">{p.type}</span>}
               </label>
-              {renderFieldMock(p, fieldLabel)}
+              {renderFieldMock(p, fieldLabel, locale)}
               {p.helpText && <div className="text-[10px] text-muted-foreground">{p.helpText}</div>}
             </div>
           );
         })}
       </div>
       <div className="flex items-center justify-end gap-2 border-t bg-muted/20 px-3 py-2">
-        <button type="button" disabled className="text-xs px-2.5 py-1 rounded border bg-background pointer-events-none">Cancel</button>
-        <button type="button" disabled className={`text-xs px-2.5 py-1 rounded pointer-events-none ${variantClasses(variant || 'primary')}`}>OK</button>
+        <button type="button" disabled className="text-xs px-2.5 py-1 rounded border bg-background pointer-events-none">
+          {tr('engine.cancel', locale)}
+        </button>
+        <button
+          type="button"
+          disabled
+          className={`text-xs px-2.5 py-1 rounded pointer-events-none ${variantClasses(variant || 'primary')}`}
+        >
+          {tr('engine.actionPreview.dialog.ok', locale)}
+        </button>
       </div>
     </div>
   );
@@ -485,7 +536,7 @@ function runtimeWidgetFor(p: ActionParam): { widget: string | undefined; degrade
  * Passing it also makes the mock's placeholders name the param the way the
  * visible label right above them does, instead of by a near-copy of it.
  */
-function renderFieldMock(p: ActionParam, fieldLabel: string): React.ReactElement {
+function renderFieldMock(p: ActionParam, fieldLabel: string, locale?: string): React.ReactElement {
   const cls = 'w-full text-xs px-2 py-1 border rounded bg-background pointer-events-none';
   // A declared carry-over (objectui#6246) is not collected: `ActionParamDialog`
   // builds NO widget for it and shows a collapsed read-only summary of the row
@@ -495,11 +546,11 @@ function renderFieldMock(p: ActionParam, fieldLabel: string): React.ReactElement
     return (
       <div className={`${cls} flex items-center gap-1.5 text-muted-foreground`} data-testid="action-preview-carry-over">
         <Lock className="h-3 w-3 shrink-0" aria-hidden />
-        <span className="truncate">Carried over from the selected row (read-only)</span>
+        <span className="truncate">{tr('engine.actionPreview.param.carryOver', locale)}</span>
       </div>
     );
   }
-  const placeholder = p.placeholder || (p.defaultFromRow ? '(from selected row)' : '');
+  const placeholder = p.placeholder || (p.defaultFromRow ? tr('engine.actionPreview.param.fromRow', locale) : '');
   const def = p.defaultValue;
   const value = def != null ? String(def) : '';
   const options = Array.isArray(p.options) ? p.options : [];
@@ -510,7 +561,7 @@ function renderFieldMock(p: ActionParam, fieldLabel: string): React.ReactElement
   );
   const selectMock = (
     <select className={cls} disabled value="">
-      <option value="">{placeholder || `Select ${fieldLabel}`}</option>
+      <option value="">{placeholder || tFormat('engine.actionPreview.param.selectPlaceholder', locale, { label: fieldLabel })}</option>
       {options.map((o, i) => (
         <option key={i} value={o.value}>
           {localize(o.label)}
@@ -535,12 +586,17 @@ function renderFieldMock(p: ActionParam, fieldLabel: string): React.ReactElement
   if (degraded) {
     return (
       <div className="space-y-0.5">
-        <input type="text" className={cls} placeholder={placeholder || `Record id for ${fieldLabel}`} value={value} readOnly />
+        <input
+          type="text"
+          className={cls}
+          placeholder={placeholder || tFormat('engine.actionPreview.param.recordIdPlaceholder', locale, { label: fieldLabel })}
+          value={value}
+          readOnly
+        />
         {note(
-          <>
-            No <code className="font-mono">reference</code> object is configured, so the record picker is
-            unavailable and the dialog asks for a record id.
-          </>,
+          withNodes(tr('engine.actionPreview.param.noReference', locale), {
+            reference: <code className="font-mono">reference</code>,
+          }),
         )}
       </div>
     );
@@ -550,7 +606,7 @@ function renderFieldMock(p: ActionParam, fieldLabel: string): React.ReactElement
     case 'boolean':
       return (
         <label className="inline-flex items-center gap-1.5 text-xs">
-          <input type="checkbox" disabled className="pointer-events-none" /> Toggle
+          <input type="checkbox" disabled className="pointer-events-none" /> {tr('engine.actionPreview.param.toggle', locale)}
         </label>
       );
     // `html` is NOT one of the eight spellings `PARAM_TYPE_OPTS` offers, and
@@ -579,7 +635,7 @@ function renderFieldMock(p: ActionParam, fieldLabel: string): React.ReactElement
       ) : (
         <div className="space-y-0.5">
           {selectMock}
-          {note('No choices authored yet — the dialog opens an empty picker.')}
+          {note(tr('engine.actionPreview.param.noChoices', locale))}
         </div>
       );
     case 'number':
@@ -602,7 +658,12 @@ function renderFieldMock(p: ActionParam, fieldLabel: string): React.ReactElement
           className={`${cls} flex items-center gap-1.5 text-left text-muted-foreground`}
         >
           <Search className="h-3 w-3 shrink-0" aria-hidden />
-          <span className="truncate">{placeholder || `Search ${p.reference ?? 'records'}…`}</span>
+          <span className="truncate">
+            {placeholder ||
+              (p.reference != null
+                ? tFormat('engine.actionPreview.param.searchObject', locale, { object: p.reference })
+                : tr('engine.actionPreview.param.searchRecords', locale))}
+          </span>
         </button>
       );
     default:
@@ -614,10 +675,10 @@ function renderFieldMock(p: ActionParam, fieldLabel: string): React.ReactElement
   }
 }
 
-function ResultDialogMock({ dialog }: { dialog: ResultDialog }) {
-  const title = localize(dialog.title) || 'Result';
+function ResultDialogMock({ dialog, locale }: { dialog: ResultDialog; locale?: string }) {
+  const title = localize(dialog.title) || tr('engine.actionPreview.result.title', locale);
   const description = localize(dialog.description);
-  const acknowledge = localize(dialog.acknowledge) || 'I have saved this';
+  const acknowledge = localize(dialog.acknowledge) || tr('engine.actionPreview.result.acknowledge', locale);
   const fields = dialog.fields ?? [];
   return (
     <div className="rounded border bg-background shadow-sm">
@@ -625,7 +686,7 @@ function ResultDialogMock({ dialog }: { dialog: ResultDialog }) {
       <div className="p-3 space-y-2 text-xs">
         {description && <div className="text-muted-foreground">{description}</div>}
         {fields.length === 0 ? (
-          <EmptyDescription className="text-xs italic">Renders full JSON response.</EmptyDescription>
+          <EmptyDescription className="text-xs italic">{tr('engine.actionPreview.result.fullJson', locale)}</EmptyDescription>
         ) : (
           <ul className="space-y-1.5">
             {fields.map((f, i) => (
@@ -722,8 +783,8 @@ function Frame({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function PlacementPreview({ locations, label, icon, variant, iconOnly }: {
-  locations: string[]; label: string; icon?: string; variant?: string; iconOnly?: boolean;
+function PlacementPreview({ locations, label, icon, variant, iconOnly, locale }: {
+  locations: string[]; label: string; icon?: string; variant?: string; iconOnly?: boolean; locale?: string;
 }) {
   const btn = <FauxButton label={label} icon={icon} variant={variant} iconOnly={iconOnly} />;
   return (
@@ -735,13 +796,13 @@ function PlacementPreview({ locations, label, icon, variant, iconOnly }: {
               <div className="flex items-center gap-2">
                 <div className="h-6 w-6 rounded bg-muted" />
                 <div>
-                  <div className="text-xs font-medium">Sample record</div>
-                  <div className="text-[10px] text-muted-foreground">Record detail</div>
+                  <div className="text-xs font-medium">{tr('engine.actionPreview.placement.sampleRecord', locale)}</div>
+                  <div className="text-[10px] text-muted-foreground">{tr('engine.actionPreview.placement.recordDetail', locale)}</div>
                 </div>
               </div>
               <div className="flex items-center gap-1.5">{btn}</div>
             </div>
-            <div className="p-3 text-[10px] text-muted-foreground">…record body…</div>
+            <div className="p-3 text-[10px] text-muted-foreground">{tr('engine.actionPreview.placement.recordBody', locale)}</div>
           </div>
         </Frame>
       )}
@@ -749,10 +810,10 @@ function PlacementPreview({ locations, label, icon, variant, iconOnly }: {
         <Frame label="list_toolbar">
           <div className="rounded border bg-background">
             <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
-              <div className="text-xs font-medium">Records</div>
+              <div className="text-xs font-medium">{tr('engine.actionPreview.placement.records', locale)}</div>
               <div className="flex items-center gap-1.5">{btn}</div>
             </div>
-            <div className="px-3 py-2 text-[10px] text-muted-foreground">row 1 · row 2 · row 3</div>
+            <div className="px-3 py-2 text-[10px] text-muted-foreground">{tr('engine.actionPreview.placement.rows', locale)}</div>
           </div>
         </Frame>
       )}
@@ -761,7 +822,7 @@ function PlacementPreview({ locations, label, icon, variant, iconOnly }: {
           <div className="divide-y rounded border bg-background">
             {[0, 1].map((i) => (
               <div key={i} className="flex items-center justify-between gap-2 px-3 py-1.5">
-                <span className="text-[11px]">Row {i + 1}</span>
+                <span className="text-[11px]">{tFormat('engine.actionPreview.placement.row', locale, { n: i + 1 })}</span>
                 <div className="origin-right scale-90">{btn}</div>
               </div>
             ))}
@@ -772,10 +833,10 @@ function PlacementPreview({ locations, label, icon, variant, iconOnly }: {
         <Frame label={locations.includes('record_related') ? 'record_related' : 'record_section'}>
           <div className="rounded border bg-background">
             <div className="flex items-center justify-between border-b px-3 py-2">
-              <span className="text-xs font-medium">Section</span>
+              <span className="text-xs font-medium">{tr('engine.actionPreview.placement.section', locale)}</span>
               {btn}
             </div>
-            <div className="p-3 text-[10px] text-muted-foreground">…section content…</div>
+            <div className="p-3 text-[10px] text-muted-foreground">{tr('engine.actionPreview.placement.sectionBody', locale)}</div>
           </div>
         </Frame>
       )}
@@ -783,7 +844,7 @@ function PlacementPreview({ locations, label, icon, variant, iconOnly }: {
         <Frame label="record_more">
           <div className="w-52 rounded border bg-background">
             <div className="flex items-center gap-1.5 border-b px-3 py-1.5 text-[11px] text-muted-foreground">
-              <MoreHorizontal className="h-3.5 w-3.5" /> More
+              <MoreHorizontal className="h-3.5 w-3.5" /> {tr('engine.actionPreview.placement.more', locale)}
             </div>
             <div className="px-2 py-1.5 text-xs"><div className="rounded px-1 py-0.5 hover:bg-accent">{label}</div></div>
           </div>
@@ -807,8 +868,8 @@ function PlacementPreview({ locations, label, icon, variant, iconOnly }: {
 
 /* ─────────────── Test request runner (api type) ─────────────── */
 
-function ApiTestPanel({ target, method, bodyExtra, params }: {
-  target: string; method?: string; bodyExtra?: unknown; params: ActionParam[];
+function ApiTestPanel({ target, method, bodyExtra, params, locale }: {
+  target: string; method?: string; bodyExtra?: unknown; params: ActionParam[]; locale?: string;
 }) {
   const m = (method || 'POST').toUpperCase();
   const [resp, setResp] = React.useState<{ status: number; ok: boolean; body?: unknown; error?: string } | null>(null);
@@ -845,21 +906,28 @@ function ApiTestPanel({ target, method, bodyExtra, params }: {
         <pre className="m-0 rounded border bg-muted/30 p-2 text-[10px] font-mono whitespace-pre-wrap">{JSON.stringify(reqBody, null, 2)}</pre>
       )}
       {params.length > 0 && (
-        <div className="text-[10px] text-muted-foreground">+ {params.length} user-supplied param{params.length > 1 ? 's' : ''} collected at runtime</div>
+        <div className="text-[10px] text-muted-foreground">
+          {tFormat(params.length > 1 ? 'engine.actionPreview.api.paramsOther' : 'engine.actionPreview.api.paramsOne', locale, {
+            count: params.length,
+          })}
+        </div>
       )}
       {m !== 'GET' && (
         <div className="flex items-start gap-1.5 text-[10px] text-amber-700">
           <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-          <span>Sends a real {m} request to the live backend — may modify data.</span>
+          <span>{tFormat('engine.actionPreview.api.liveWarning', locale, { method: m })}</span>
         </div>
       )}
       <button type="button" onClick={run} disabled={loading}
         className="inline-flex items-center gap-1.5 rounded border bg-background px-2.5 py-1 text-xs font-medium hover:bg-accent disabled:opacity-50">
-        <Globe className="h-3.5 w-3.5" /> {loading ? 'Sending…' : 'Send test request'}
+        <Globe className="h-3.5 w-3.5" />{' '}
+        {loading ? tr('engine.actionPreview.api.sending', locale) : tr('engine.actionPreview.api.send', locale)}
       </button>
       {resp && (
         <div className={'rounded border p-2 ' + (resp.ok ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50')}>
-          <div className="mb-1 text-[11px] font-medium">{resp.error ? 'Network error' : ('HTTP ' + resp.status + (resp.ok ? ' OK' : ''))}</div>
+          <div className="mb-1 text-[11px] font-medium">
+            {resp.error ? tr('engine.actionPreview.api.networkError', locale) : 'HTTP ' + resp.status + (resp.ok ? ' OK' : '')}
+          </div>
           <pre className="m-0 max-h-[200px] overflow-auto text-[10px] font-mono whitespace-pre-wrap">{resp.error ?? (typeof resp.body === 'string' ? resp.body : JSON.stringify(resp.body, null, 2))}</pre>
         </div>
       )}

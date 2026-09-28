@@ -68,7 +68,7 @@ const ROOT = resolve(__dirname, '../../../..');
  * on: the retired key, and the two spellings that still work.
  */
 const GUIDANCE =
-  'RETIRED (objectui#6951) — `data` is no longer part of TreeViewSchema; write `nodes` (or bind the tree with '
+  'RETIRED (ADR-0049) — `data` is no longer part of TreeViewSchema; write `nodes` (or bind the tree with '
   + '`bind`). It was the second spelling of the one inline-nodes slot, read only as the last limb of '
   + '`boundData || schema.nodes || schema.data || []`, and was retired under ADR-0049 enforce-or-remove with no '
   + 'deprecation window (maintainer ruling B1, 2026-09-04). The renderer reads `bind` then `nodes` now, so an '
@@ -163,7 +163,7 @@ describe('TreeViewSchema.data is RETIRED — the Zod half of the tombstone (obje
       Object.keys(TreeViewSchema.shape),
       'data left the mirror — an authored array now rides BaseSchema.data unvalidated',
     ).toContain('data');
-    expect(describeOf(TreeViewSchema, 'data')).toContain('RETIRED (objectui#6951)');
+    expect(describeOf(TreeViewSchema, 'data')).toContain('RETIRED (ADR-0049)');
   });
 });
 

@@ -914,7 +914,7 @@ A complete object management interface combining grid, form, search, filters, an
 | `objectName` | `string` | **Required.** ObjectQL object API name. |
 | `title` | `string` | View title. |
 | `defaultViewType` | `string` | Initial view: `"grid"`, `"kanban"`, `"gallery"`, `"calendar"`, `"timeline"`, `"gantt"`, `"map"`. |
-| `listViews` | `Record<string, NamedListView>` | Named list views with filters and sort. |
+| `listViews` | `Record<string, …>` | Named list views with filters and sort. Each entry is `@objectstack/spec`'s `ObjectListViewSchema`: it needs `columns`, takes `filter` as `{ field, operator, value }` rules, and puts view-kind config in the top-level block of that kind (`kanban`, `calendar`, …). A legacy `options` bag is refused. |
 | `defaultListView` | `string` | Key of the default list view. |
 | `table` | `Partial<ObjectGridSchema>` | Grid configuration overrides. |
 | `form` | `Partial<ObjectFormSchema>` | Form configuration overrides. |

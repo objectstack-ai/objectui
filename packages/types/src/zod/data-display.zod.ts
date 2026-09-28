@@ -554,7 +554,7 @@ export const TreeNodeSchema: z.ZodType<TreeNode, TreeNode> = z.lazy(() =>
  */
 export const TreeViewSchema = BaseSchema.extend({
   type: z.literal('tree-view'),
-  // ADR-0049 RETIREMENT TOMBSTONE (objectui#6951, maintainer ruling B1 of
+  // ADR-0049 RETIREMENT TOMBSTONE (`16a725f96`, maintainer ruling B1 of
   // 2026-09-04). `data` was the second spelling of the one inline-nodes slot,
   // read only as the last limb of `boundData || schema.nodes || schema.data || []`;
   // the renderer now reads `bind` then `nodes`. A plain deletion here would NOT
@@ -565,14 +565,14 @@ export const TreeViewSchema = BaseSchema.extend({
   // `./tombstone.zod.ts`; the base-vs-extended contrast is pinned in
   // `../__tests__/tree-view-data-retired-6951.test.ts`.
   data: retirementTombstone(
-    'RETIRED (objectui#6951) — `data` is no longer part of TreeViewSchema; write `nodes` (or bind the tree with '
+    'RETIRED (ADR-0049) — `data` is no longer part of TreeViewSchema; write `nodes` (or bind the tree with '
     + '`bind`). It was the second spelling of the one inline-nodes slot, read only as the last limb of '
     + '`boundData || schema.nodes || schema.data || []`, and was retired under ADR-0049 enforce-or-remove with no '
     + 'deprecation window (maintainer ruling B1, 2026-09-04). The renderer reads `bind` then `nodes` now, so an '
     + 'authored `data` would render an empty tree. Rename the key; the array is unchanged.',
   ),
   nodes: z.array(TreeNodeSchema).optional()
-    .describe('Inline tree nodes — the one inline spelling, read as the second limb of `boundData || schema.nodes || []` (a `bind`-resolved value wins, so this stays optional and no presence rule exists — objectui#6951 B1). Declared by objectui#6150; a `nodes`-only document became LEGAL; the `data` fallback spelling was retired by objectui#6951 (the registration\'s own `inputs` and `defaultProps` spell it `nodes`, and the four catalog entries ARE those `defaultProps`)'),
+    .describe('Inline tree nodes — the one inline spelling, read as the second limb of `boundData || schema.nodes || []` (a `bind`-resolved value wins, so this stays optional and no presence rule exists). Declared by objectui#6150; a `nodes`-only document became LEGAL; the `data` fallback spelling was retired (the registration\'s own `inputs` and `defaultProps` spell it `nodes`, and the four catalog entries ARE those `defaultProps`)'),
   title: z.string().optional()
     .describe('Heading above the tree — renders only when set (objectui#6150)'),
   defaultExpandedIds: z.array(z.string()).optional().describe('Default expanded node IDs'),
@@ -652,7 +652,7 @@ export const ChartTypeSchema = stripImportedDefaults(SpecChartTypeSchema);
  * consumer importing `ChartSeriesSchema` from `@object-ui/types` could not tell
  * which contract they had.
  *
- * ⚠️ Since objectui#6896 this twin carries no inline numbers either: `data` is a
+ * ⚠️ Since `b0d308da9` this twin carries no inline numbers either: `data` is a
  * retirement tombstone. The distinction the rename drew is now one of ROLE, not
  * of payload — this is the STATIC SDUI node's series, the spec's is the
  * dataset-bound one, and neither carries values.
@@ -672,13 +672,13 @@ export const ChartDataSeriesSchema = z.object({
   dataKey: z.string().optional().describe(
     'Column this series plots within each chart-level `data` row — the internal spelling of `name`, and the one the renderer takes when both are written',
   ),
-  // ADR-0049 RETIREMENT TOMBSTONE (objectui#6896). Deleting the member was the
+  // ADR-0049 RETIREMENT TOMBSTONE (`b0d308da9`). Deleting the member was the
   // option NOT taken: `ChartDataSeriesSchema` is a non-strict `z.object`, which
   // STRIPS an undeclared key in silence — the same silent no-op the retirement
   // exists to end. Kept declared and unwritable, so an authored value is a
   // NAMED refusal carrying its own remedy.
   data: retirementTombstone(
-    'RETIRED (objectui#6896) — `ChartDataSeries.data` was never read: '
+    'RETIRED (ADR-0049) — `ChartDataSeries.data` was never read: '
     + '`normalizeChartSchema` takes rows from the chart node\'s chart-level `data` and picks a '
     + 'column with the series\' `name`/`dataKey`, so an authored array was dropped in silence. '
     + 'Delete the key; put the rows on the chart-level `data` and the category axis on `xAxisKey`.',
@@ -936,7 +936,7 @@ export const ChartSchema = BaseSchema.extend({
   title: z.string().optional().describe('Chart title'),
   description: z.string().optional().describe('Chart description'),
   // NOT axis labels — `normalizeChartSchema` reads `categories` as an
-  // ALTERNATIVE SERIES LIST, used only when `series` is absent (objectui#6896).
+  // ALTERNATIVE SERIES LIST, used only when `series` is absent (`b0d308da9`).
   categories: z
     .array(z.string())
     .optional()

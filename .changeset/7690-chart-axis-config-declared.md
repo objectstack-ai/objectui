@@ -18,7 +18,7 @@ TS side — instead of letting both ride `BaseSchema`'s passthrough unchecked (o
   `Did you mean grid → showGridLines?`) instead of a bare `Invalid input`.
 
 ⚠️ Shipped as `minor`, not `patch`: documents that validated before now **refuse**, and each of them
-draws a chart today — a narrowing away from something that renders, the transition objectui#6896,
+draws a chart today — a narrowing away from something that renders, the transition `b0d308da9`,
 objectui#7113 and objectui#7546 graded `minor` in this same file.
 
 - An axis object with a malformed value (`min: 'zero'`, `position: 'middle'`), an undeclared key

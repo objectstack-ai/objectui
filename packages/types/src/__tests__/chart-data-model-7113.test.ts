@@ -251,7 +251,7 @@ describe('objectui#6939 `chart` — the mirror accepts both binding dialects', (
   it('CONTROL — the `series[].data` tombstone still refuses, with its migration note', () => {
     const r = ChartDataSeriesSchema.safeParse({ name: 'r', data: [1, 2, 3] });
     expect(r.success).toBe(false);
-    if (!r.success) expect(r.error.issues[0]?.message).toMatch(/RETIRED \(objectui#6896\)/);
+    if (!r.success) expect(r.error.issues[0]?.message).toMatch(/RETIRED \(ADR-0049\)/);
   });
 });
 

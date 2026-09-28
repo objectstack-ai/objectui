@@ -90,7 +90,7 @@ either face:
   optional, so the `nodes` spelling the renderer reads FIRST stands on its own
   (`6939-tree-view-nodes-mirror.md`, published beside this note). `bind` is read
   before either and is unchanged.
-- **`data` is not required — it is REFUSED BY NAME.** objectui#6951 retired it
+- **`data` is not required — it is REFUSED BY NAME.** `16a725f96` retired it
   under ADR-0049 on both faces: the TypeScript member is a `?: never` tombstone
   and the zod arm is a `retirementTombstone(...)` whose guidance points the author
   at `nodes` (`6951-tree-view-data-retired.md`, also published beside this note).

@@ -110,15 +110,15 @@ export const TextSpanSchema = BaseSchema.extend({
 export const TextSchema = BaseSchema.extend({
   type: z.literal('text'),
   content: z.string().optional()
-    .describe('Text content — the one content spelling `text` reads (declared by objectui#6150; its `value` fallback spelling was retired by objectui#6951)'),
-  // ADR-0049 RETIREMENT TOMBSTONE (objectui#6951 / objectui#7016, maintainer
+    .describe('Text content — the one content spelling `text` reads (declared by objectui#6150; its `value` fallback spelling was retired)'),
+  // ADR-0049 RETIREMENT TOMBSTONE (`5ad86ddee` / objectui#7016, maintainer
   // ruling A1 of 2026-09-04). `value` was the second spelling of the one
   // content slot; the renderer now reads `content` alone, so a plain deletion
   // here would let an authored `value` ride `BaseSchema.passthrough()` into a
   // silent blank. The tombstone refuses it BY NAME instead — one string, both
   // channels (parse-time message and `.describe()`), see `./tombstone.zod.ts`.
   value: retirementTombstone(
-    'RETIRED (objectui#6951) — `value` is no longer part of TextSchema; write `content`. It was a second '
+    'RETIRED (ADR-0049) — `value` is no longer part of TextSchema; write `content`. It was a second '
     + 'spelling of the one content slot, read only as the fallback limb of `schema.content || schema.value`, '
     + 'and was retired under ADR-0049 enforce-or-remove with no deprecation window (maintainer ruling A1, '
     + '2026-09-04). The renderer reads `content` alone now, so an authored `value` would render nothing. '

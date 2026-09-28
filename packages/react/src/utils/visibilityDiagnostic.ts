@@ -589,8 +589,8 @@ const DATA_ROOT_PATH_RE =
  *   * "a `data.*` read the bound object does not answer" — this one. On the
  *     card's repro (`data.status` against the adapter) it fires; on
  *     `${data.total}` against `{ total: 99 }` it does not; and it is
- *     STRUCTURALLY incapable of firing on the `record.*` bucket (objectui#5401
- *     → #5454), which is the adjacent card with a different correct fix.
+ *     STRUCTURALLY incapable of firing on the `record.*` bucket
+ *     (objectui#5454), which is the adjacent card with a different correct fix.
  *
  * Residue, stated rather than hidden: deliberate absence idioms
  * (`data.status == null`, `!data.status`) are reported. They are not really

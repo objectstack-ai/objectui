@@ -42,7 +42,7 @@ import type { CelLintIssue } from './celAuthoring.js';
  * ## What changed, and why this list lost a member (objectui#7727)
  *
  * It used to bind the row THREE ways: bare fields, `record.*` and `data.*`.
- * Phase 2 of the objectui#5330 canon (objectui#5741, ruled 2026-09-02, amended
+ * Phase 2 of the objectui#5330 canon (`83fe6e741`, ruled 2026-09-02, amended
  * 2026-09-05) RETIRED the other two — see `@object-ui/core`'s
  * `evaluator/rowPredicateCanon.ts`. Neither `status` nor `data.status` names
  * this row any more; both fault as unknown variables, exactly as they always
@@ -378,7 +378,7 @@ export function ConditionalFormattingEditor({
             objectName={objectName}
             fieldNames={fieldNames}
             // Row predicates bind the row as `record.*` and nothing else at
-            // runtime — objectui#5741 (Phase 2 of the objectui#5330 canon)
+            // runtime — `83fe6e741` (Phase 2 of the objectui#5330 canon)
             // retired the bare shorthand and `data.*`. So this lints in the
             // RECORD scope, the same one the field conditional rules
             // `visibleWhen` / `readonlyWhen` / `requiredWhen` use: a bare

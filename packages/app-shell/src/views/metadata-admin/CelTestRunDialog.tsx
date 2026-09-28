@@ -18,6 +18,11 @@
  * The bind recipe (record namespace + flattened fields + verbatim
  * `current_user`) lives in {@link file://./celAuthoring.ts}; this component is
  * just the form + result surface.
+ *
+ * Its words read the `t` its host binds to the designer locale. That includes
+ * the two sentences the dry-run writes itself (the empty-predicate result, the
+ * no-message fallback): `testRunCelPredicate` hands them back as catalogue
+ * keys and the banner reads them through the same `t` (objectui#10862).
  */
 
 import * as React from 'react';
@@ -107,9 +112,9 @@ export function CelTestRunDialog({
   async function run() {
     setOutcome(null);
     setJsonError(null);
-    const record = parseObject(recordJson, t('perm.cel.test.record'));
+    const record = parseObject(recordJson, t('perm.cel.test.record'), t);
     if (!record.ok) return setJsonError(record.error);
-    const currentUser = parseObject(userJson, t('perm.cel.test.user'));
+    const currentUser = parseObject(userJson, t('perm.cel.test.user'), t);
     if (!currentUser.ok) return setJsonError(currentUser.error);
     setRunning(true);
     try {
@@ -228,8 +233,12 @@ type ParsedObject =
   | { ok: true; value: Record<string, unknown> }
   | { ok: false; error: string };
 
-/** Parse a JSON object textarea into a friendly, located result (never throws). */
-function parseObject(raw: string, label: string): ParsedObject {
+/**
+ * Parse a JSON object textarea into a friendly, located result (never throws).
+ * The parser's own message passes through as written; the not-an-object
+ * refusal reads `engine.celTest.notObject` (objectui#10862).
+ */
+function parseObject(raw: string, label: string, t: (k: string) => string): ParsedObject {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw || '{}');
@@ -237,7 +246,7 @@ function parseObject(raw: string, label: string): ParsedObject {
     return { ok: false, error: `${label}: ${(e as Error).message}` };
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return { ok: false, error: `${label}: expected a JSON object.` };
+    return { ok: false, error: `${label}: ${t('engine.celTest.notObject')}` };
   }
   return { ok: true, value: parsed as Record<string, unknown> };
 }
@@ -273,7 +282,9 @@ function OutcomeBanner({ outcome, t }: { outcome: CelTestOutcome; t: (k: string)
   }
   return (
     <Banner tone="error" icon={<AlertCircle className="h-4 w-4 shrink-0" />} title={t('perm.cel.test.error')}>
-      <code className="block whitespace-pre-wrap break-words font-mono text-[11px]">{outcome.message}</code>
+      <code className="block whitespace-pre-wrap break-words font-mono text-[11px]">
+        {outcome.messageKey ? t(outcome.messageKey) : outcome.message}
+      </code>
     </Banner>
   );
 }

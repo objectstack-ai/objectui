@@ -120,7 +120,7 @@ export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = ({
       // that upper-cased only the first word, so one key rendered as
       // `Close Date` in the column the user clicked and `Close date` in the
       // field this drawer opened — one key, two spellings, one uninterrupted
-      // interaction (objectui#9055; the class objectui#5425 ruled out).
+      // interaction (objectui#9055; the class `56f4e34c0` ruled out).
       //
       // The KEY prefixer stays distinct from `humanizeLabel`, the VALUE
       // prefixer in `@object-ui/core` — see `utils/humanize-label.ts`, whose

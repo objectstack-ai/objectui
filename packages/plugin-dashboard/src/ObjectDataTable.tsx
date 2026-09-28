@@ -870,13 +870,13 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
     // This line used to carry a THIRD, inline spelling that split camelCase but
     // never turned `_` into a space, so one field key rendered under two
     // spellings on one dashboard — measured, as headers over the same
-    // `crm_opportunity` columns (objectui#5425):
+    // `crm_opportunity` columns (`56f4e34c0`):
     //
     //   auto-derived (here)                 Close_date · Needs_analysis
     //   declared `columns: ['close_date']`  Close Date · Needs Analysis
     //   static `data-table`, no columns     Close Date · Needs Analysis
     //
-    // That is the defect class objectui#5425 rules out — "a value cannot appear
+    // That is the defect class `56f4e34c0` rules out — "a value cannot appear
     // twice under two spellings" — so the odd one out adopts the convention
     // rather than the convention gaining a fourth dialect. The i18n wrapper is
     // unchanged: a bundle entry still wins, and this is only its fallback.

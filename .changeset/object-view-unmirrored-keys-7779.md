@@ -76,10 +76,12 @@ objectui#8255. So "`listViews` stays unmirrored", "The declaration's value is th
 `NamedListView`", the key "stays in the parity ledger … until the maintainer decides its
 value type" and the table's "still unmirrored" above no longer hold: the
 `ObjectViewSchema` entry has left `UnmirroredDeclared`. `NamedListView` stays exported
-with its 64 declared members. The renderer now reads 20 of them off a named view and
-leaves 44 unread, where this entry counted 21 and 43, because objectui#7928 stopped
-reading the `options` bag, which the record refuses; the census in
-`object-view-unmirrored-keys-7779.test.ts` pins both figures.
+with its 64 declared members. The renderer reads some of them off a named view and
+leaves the rest unread, and the split is no longer the 21 and 43 this entry counted:
+objectui#7928 stopped reading the `options` bag, which the record refuses, and
+objectui#10758 made the host delegation read a named view's remaining protocol members
+off the named view. The census in `object-view-unmirrored-keys-7779.test.ts` pins the
+current figures.
 `.changeset/7928-listviews-by-reference-fold.md` (PR objectui#10821) states what ships;
 the text above is kept as the reading of this change.
 

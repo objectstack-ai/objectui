@@ -6,7 +6,7 @@
 
 Wizard view v1, the objectui half (Card R, objectui#6985) — alignment + pins for the
 ruled `type: 'wizard'` tightening (objectstack#13622 D1–D8, maintainer ruling
-2026-08-31; spec half objectstack PR #13733).
+2026-08-31; spec half PR objectstack#13733).
 
 The renderer was already aligned: `WizardStepConfig` carries no predicate/collapse
 keys (objectui#6237's ruled split), the wizard route drops-and-reports an authored
@@ -42,5 +42,5 @@ exemption since #2959. This card lands the residue:
   half records the 17.2.x accept-set it measured. `steps:` is pinned refused on
   every spec line.
 
-No teaching material — the #13337/#13086 fence lifts only after both halves land;
+No teaching material — the objectstack#13337 / objectstack#13267 fence lifts only after both halves land;
 docs changes here are TSDoc/comments only.

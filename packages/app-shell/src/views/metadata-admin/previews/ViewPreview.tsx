@@ -69,7 +69,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
  * refuses `options`, and `plugin-view` no longer reads it off a named view. So
  * the bag is folded here, before the node is built: each `options.KIND` block
  * becomes the top-level `KIND` block, and where both spell a key the TOP-LEVEL
- * value wins — the same per-key merge the #20051 door describes and the one
+ * value wins — the same per-key merge the objectstack#20051 door describes and the one
  * `ObjectView` applied while it still read the bag. `options` itself is not
  * relayed; the renderer read nothing from it but these blocks.
  *

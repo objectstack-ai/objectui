@@ -8,7 +8,7 @@
 
 /**
  * 「May this caller edit this field?」 — asked once, of the resolver that owns
- * the answer (objectui#10120).
+ * the answer (`80c54122e`).
  *
  * ## The one answer, and where it lives
  *

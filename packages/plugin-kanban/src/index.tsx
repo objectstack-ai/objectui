@@ -247,7 +247,7 @@ export interface KanbanRendererProps {
     conditionalFormatting?: KanbanConditionalFormattingRule[];
     /**
      * The lane counts below are counts of a fetched WINDOW, not of the group
-     * (objectui#8307). Injected by `ObjectKanban`, the only entry point that
+     * (`5591f03bd`). Injected by `ObjectKanban`, the only entry point that
      * issues the windowed `$top` query and can therefore know the answer;
      * `ObjectKanban` supplies nothing on the schema-only `kanban-ui` entry,
      * whose `data` arrives whole from its author and whose counts are complete

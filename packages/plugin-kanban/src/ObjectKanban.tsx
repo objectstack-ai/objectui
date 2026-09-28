@@ -403,7 +403,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
   const [fetchedData, setFetchedData] = useState<any[]>([]);
   /**
    * Did the last fetch come back SATURATED — as many rows as the window
-   * allowed (objectui#8307)?
+   * allowed (`5591f03bd`)?
    *
    * The fetch below is windowed at a real `$top` (objectui#4025). The board
    * then groups WHAT CAME BACK into lanes client-side, so every lane header
@@ -685,13 +685,13 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
             // or a bound view's `pagination.pageSize`) can set it.
             //
             // The query is a NAMED OBJECT rather than an inline literal so that
-            // the saturation reading below (objectui#8307) compares the row
+            // the saturation reading below (`5591f03bd`) compares the row
             // count against `query.$top` — the very number this request
             // carried. One spelling of the window, read back from the request
             // itself: a second `resolveRowLimit(schema.limit, …)` kept in a
             // local for the comparison could drift from the one on the wire,
             // and a marker computed against a window the server was never asked
-            // for is exactly the silent wrongness objectui#8307 is about. That
+            // for is exactly the silent wrongness `5591f03bd` fixed. That
             // reasoning is why objectui#9925's refusal was put INSIDE this
             // named object rather than beside it: the resolver runs once, and
             // the saturation reading keeps reading the number that left.
@@ -719,7 +719,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
 
             if (isMounted) {
                 setFetchedData(data);
-                // objectui#8307 — see `fetchWindowSaturated`. Recorded HERE,
+                // `5591f03bd` — see `fetchWindowSaturated`. Recorded HERE,
                 // against the window THIS request carried, because that is the
                 // only point where the two numbers are both in hand.
                 setFetchWindowSaturated(data.length >= query.$top);
@@ -768,7 +768,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
   const rawData = (hasExternalData ? externalData : undefined) || boundData || schema.data || fetchedData;
 
   /**
-   * Are the lane counts about to be drawn counts of a WINDOW (objectui#8307)?
+   * Are the lane counts about to be drawn counts of a WINDOW (`5591f03bd`)?
    *
    * Only when the rows on screen are the ones this component fetched. External,
    * bound and inline data arrive whole from whoever owns them; this board
@@ -1612,7 +1612,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
         onCardMove={handleCardMove}
         schema={{
           ...effectiveSchema,
-          // objectui#8307 — the lane headers count rows that came back, so when
+          // `5591f03bd` — the lane headers count rows that came back, so when
           // the fetch saturated its window they must say `77+`, not `77`.
           countsAreWindowed,
           // ⛔ Calls `handleClick` and NOTHING ELSE. An authored `onCardClick`

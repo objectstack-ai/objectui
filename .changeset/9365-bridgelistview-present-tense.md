@@ -3,7 +3,7 @@
 ---
 
 Date the dead `bridgeListView` producer evidence in `BaseSchema` instead of
-letting it read as live (objectui#9365).
+letting it read as live.
 
 `base.ts` stated the factual basis of objectui#4580's revised Q1 ruling in the
 PRESENT tense — "that is what a spec producer already writes into this slot:

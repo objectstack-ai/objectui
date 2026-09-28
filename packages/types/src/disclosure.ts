@@ -210,7 +210,7 @@ export interface CollapsibleSchema extends BaseSchema {
    * then hands control back to the user, which is a different capability.
    *
    * ⚠️ Retiring this declaration does NOT by itself stop the takeover — the
-   * render path runs no `safeParse` (objectui#9585 measured NOT GATED), so a
+   * render path runs no `safeParse` (`ee70287e4`'s pin measures it NOT GATED), so a
    * refused key still rides the spread. The renderer-side named exclusion
    * landed FIRST, in the same change, for exactly that reason; ⛔ do not remove
    * it on the strength of this tombstone.

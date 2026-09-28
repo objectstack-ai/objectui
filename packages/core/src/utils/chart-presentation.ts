@@ -87,7 +87,7 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
  * a string.
  *
  * ⚠️ Its one remaining caller is {@link seriesPresentation}'s `label`. The axis
- * `title` read this too until objectui#10132 and no longer does — a slot whose
+ * `title` read this too until `061f5e829` and no longer does — a slot whose
  * value reaches the DOM unchanged cannot be served by a pick, and that one had
  * no overriding caller (see {@link axisPresentation}).
  *
@@ -110,7 +110,7 @@ function labelText(v: unknown): string | undefined {
 /**
  * An authored `I18nLabel` that travels to the renderer **unresolved** — the
  * chart's own `title` / `subtitle` / `description` (objectui#9038), and an
- * axis's `title` (objectui#10132, which moved that one arm off
+ * axis's `title` (`061f5e829`, which moved that one arm off
  * {@link labelText}; see {@link axisPresentation} for why it was never covered
  * by the ledger the pick rests on).
  *
@@ -225,7 +225,7 @@ export function seriesPresentation(raw: Record<string, unknown>): AuthoredSeries
 export function axisPresentation(raw: unknown): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (!isRecord(raw)) return out;
-  // `title` is FORWARDED, not picked (objectui#10132). `ChartAxisSchema.title`
+  // `title` is FORWARDED, not picked (`061f5e829`). `ChartAxisSchema.title`
   // is the spec's `I18nLabel`, and collapsing it here with `labelText` handed
   // the axis whichever limb the author happened to type FIRST — measured both
   // ways round on one map: English to a `zh-CN` viewer, Chinese to an `en` one.

@@ -77,7 +77,7 @@ const REPORT_CURATED_FIELDS = new Set([
  * block binds its own `dataset` and picks its own `rows` / `columns` /
  * `values` — so `ReportSchema`'s joined arm refuses the four selection keys on
  * the container ("a `joined` report selects per block — move `KEY` onto
- * `blocks[]`, or delete it", objectstack PR #20160) and has always refused a
+ * `blocks[]`, or delete it", PR objectstack#20160) and has always refused a
  * container `order` ("a `joined` report orders per block"). `chart` is inert
  * on a joined container (objectstack#20161) and is hidden by the same switch.
  *

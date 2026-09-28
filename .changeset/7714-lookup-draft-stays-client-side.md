@@ -31,7 +31,7 @@ objectstack#4001 closed.
 
 **The whitespace row follows the contract; it is not a local opinion.** The predicate
 is `typeof reference === 'string' && reference.trim() !== ''`. It was a declared
-divergence when written — 17.3.0's #13632 refinement spelled its emptiness test as an
+divergence when written — 17.3.0's objectstack#13632 refinement spelled its emptiness test as an
 equality against `''`, so the spec accepted `reference: '   '` while these writers
 refused it. objectstack#16920 applies that test to the TRIMMED value, so the spec now
 refuses the identical shape under the same `custom` issue at the same `reference`

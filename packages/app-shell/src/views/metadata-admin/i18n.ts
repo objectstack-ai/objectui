@@ -2351,7 +2351,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.cancel': 'Cancel',
   'engine.studio.create': 'Create',
   'engine.studio.creating': 'Creating…',
-  // objectui#9231 — this is the CONFIRM control of the shared create dialog.
+  // `383502b23` — this is the CONFIRM control of the shared create dialog.
   // Never give it a name that shares a leading run with the affordance that
   // OPENS that dialog (`engine.studio.app.create`, `Create app` — and the
   // dialog itself is titled after it, which is correct). It used to read
@@ -5003,7 +5003,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.cancel': '取消',
   'engine.studio.create': '创建',
   'engine.studio.creating': '创建中…',
-  // objectui#9231 — see the English entry. This value must share no leading
+  // `383502b23` — see the English entry. This value must share no leading
   // run with `engine.studio.app.create`, which opens the same dialog.
   'engine.studio.createDraft': '存为草稿',
   'engine.studio.saveDraft': '保存草稿',

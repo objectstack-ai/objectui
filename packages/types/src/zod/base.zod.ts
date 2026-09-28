@@ -788,7 +788,7 @@ export const HTMLAttributesSchema = z.record(z.string(), z.any()).describe('HTML
  * nothing reads `schema.events`: whatever a document writes under that key,
  * no renderer runs it. `BaseSchemaCore` is `.passthrough()`, so such a node is
  * KEPT, judged by nothing and run by nothing. ⛔ Do not send an author there.
- * ⛔ No count of authored `events` keys is stated here — objectui#9553 carries
+ * ⛔ No count of authored `events` keys is stated here — a separate card carried
  * that census. A census answer frozen into a comment is the defect AGENTS.md
  * commandment #9 forbids, and this note shipped one once already: the first
  * version of this paragraph named a total that was wrong on the day it was
@@ -801,7 +801,7 @@ export const HTMLAttributesSchema = z.record(z.string(), z.any()).describe('HTML
  * exempts index signatures by design ("no keys to compare"). This note, not a
  * gate, is what records the absence.
  *
- * Precedent of the same shape: objectstack#12009 / PR #13413.
+ * Precedent of the same shape: objectstack#12009 / objectstack `89448a52b`.
  */
 
 /**

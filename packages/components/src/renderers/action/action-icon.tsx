@@ -180,7 +180,7 @@ const ActionIconRenderer = forwardRef<
           // OAuth secret). Without it the runner falls back to the success
           // toast and the value the user was meant to copy is gone. The READ is
           // uncast since objectui#8648; the write-side narrowing that stood
-          // here went with objectui#9542, which made `ResultDialogSpec` derive
+          // here went with `43c0d1710`, which made `ResultDialogSpec` derive
           // its label members from the contract. ⛔ Never widen either end back
           // to `as any`.
           resultDialog: schema.resultDialog,

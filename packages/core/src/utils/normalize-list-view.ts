@@ -140,7 +140,7 @@ const ARIA_KEY_ALIASES: Record<string, string> = {
  * A visualization `ListView` actually draws — one member per `case` in its
  * `viewComponentSchema` switch (`packages/plugin-list/src/ListView.tsx`).
  *
- * DERIVED from {@link ViewType} (objectui#8127), which is itself derived from
+ * DERIVED from {@link ViewType} (`ca3942729`), which is itself derived from
  * `@objectstack/spec/ui` `ListView['type']`. Spelled as an `Exclude` of the
  * members this renderer does not draw rather than as the spec's own
  * `VisualizationType`, deliberately: `Exclude` leaves the SPEC's list as the
@@ -153,7 +153,7 @@ const ARIA_KEY_ALIASES: Record<string, string> = {
  * ⭐ What it subtracts is {@link UndrawableViewKind} — the keys of
  * {@link UNDRAWABLE_VIEW_KINDS} the current `ViewType` still carries — and
  * never a literal list of kinds (objectui#9880). A literal list is a second
- * hand-written copy of the vocabulary, the failure class objectui#8127 removed
+ * hand-written copy of the vocabulary, the failure class `ca3942729` removed
  * from `ViewType` itself, and it rots in the direction the spec actually moved:
  * `Exclude<ViewType, 'list' | 'detail' | 'page'>` kept subtracting `'page'`
  * after objectstack RETIRED it, where `Exclude` of a non-member is a silent
@@ -174,7 +174,7 @@ export type ListViewVisualization = Exclude<ViewType, UndrawableViewKind>;
  * union fails the build HERE instead of silently staying unreadable authored
  * input.
  *
- * ⚠️ That promise was FALSE between `@objectstack/spec@17.3.0` and objectui#8127.
+ * ⚠️ That promise was FALSE between `@objectstack/spec@17.3.0` and `ca3942729`.
  * `ViewType` was a hand-written copy of the spec's list, so this map was total
  * over the copy and compiled green while the spec's `page` had nowhere to land.
  * Both faces are derived now, and the two totality structures below close the
@@ -261,7 +261,7 @@ const warnedUndrawableKinds = new Set<string>();
  * Fail-open is **loud**, not silent — the convention this repo already applies
  * to unevaluable predicates (`../evaluator/fieldRules.ts`, objectstack#5149).
  *
- * The bug objectui#8127 records is not only that `type: 'page'` degrades to a
+ * The bug `ca3942729` records is not only that `type: 'page'` degrades to a
  * grid; it is that it degrades IDENTICALLY to a typo. Measured on `5505aec`,
  * `specType: 'page'` and `specType: 'nonsense'` both left `viewType: 'grid'`
  * with no error, no warning and no console line — and `@object-ui/types`'
@@ -292,7 +292,7 @@ function warnUndrawableViewKind(kind: string): void {
  * Exported so a read site cannot restate the membership question as its own
  * literal array: the gate and the seam must answer one question, which is the
  * rule this file's own `availableViews` notes already argue for (objectui#5042,
- * objectui#7544, and now objectui#8127).
+ * objectui#7544, and now `ca3942729`).
  */
 export function isListViewVisualization(value: unknown): value is ListViewVisualization {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(LIST_VIEW_KINDS, value);

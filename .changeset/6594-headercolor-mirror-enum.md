@@ -8,7 +8,7 @@ the contract — the TypeScript declaration and the `@object-ui/types/zod` mirro
 objectstack#12126). The six are `muted`, `muted/50`, `accent`, `primary/10`, `secondary/10`
 and `destructive/10`: exactly what `@object-ui/plugin-detail`'s `HEADER_COLOR_CLASSES`
 resolves (objectui#6178) and exactly what `@objectstack/spec` declares on its strict
-`record:details` section schema (objectstack PR #12616).
+`record:details` section schema (PR objectstack#12616).
 
 ## ⚠️ Accept-set narrowing — these spellings stop validating
 

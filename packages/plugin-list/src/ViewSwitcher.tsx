@@ -27,11 +27,11 @@ import {
 /**
  * The visualizations this switcher offers.
  *
- * DERIVED from `@object-ui/core`'s {@link ListViewVisualization} (objectui#8127),
+ * DERIVED from `@object-ui/core`'s {@link ListViewVisualization} (`ca3942729`),
  * which derives from `@objectstack/spec/ui` through `@object-ui/types`' `ViewType`.
  *
  * This nine-arm union was written out by hand here, and that is a THIRD
- * re-declaration of one vocabulary — objectui#8127 was filed against the two in
+ * re-declaration of one vocabulary — the card behind `ca3942729` was filed against the two in
  * `@object-ui/types`, and the maps below were described there as total over the
  * shared union when they were in fact total over this private copy. A map that
  * is total over a copy is exactly as incomplete as the copy, so the two

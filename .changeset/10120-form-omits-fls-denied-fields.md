@@ -3,7 +3,7 @@
 '@object-ui/fields': patch
 ---
 
-A form no longer submits — nor offers — a field the CALLER may read but not edit (objectui#10120).
+A form no longer submits — nor offers — a field the CALLER may read but not edit.
 
 **Clause-②: no** — no exported symbol is added, removed, renamed or retyped, no key on a published payload moves, and no accept set is relaxed. `sanitizeFormData` gains an optional third argument and `fieldWriteGate` / `applyFieldPermissions` are new, but `@object-ui/plugin-form` publishes `.` only, from `index.tsx`, which re-exports neither module — measured on the built `dist/index.d.ts`, where neither name appears. `LookupField`'s props are unchanged. What moves is what the client PUTS on the wire and which controls it draws.
 

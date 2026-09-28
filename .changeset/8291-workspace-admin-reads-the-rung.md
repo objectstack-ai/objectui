@@ -29,7 +29,7 @@ the two scalar legs, where they are the raw membership role and the stored `user
 
 The docblock that argued AGAINST reading `user.isPlatformAdmin` — on the grounds that the server
 computed it as `'platform_admin' in positions`, "two spellings for one fact" — is rewritten rather
-than left standing. After #15948 the flag derives from the unscoped `admin_full_access` grant and
+than left standing. After objectstack#15948 the flag derives from the unscoped `admin_full_access` grant and
 the array does not, so they can disagree and the rung is right.
 
 No behaviour changes for a genuine administrator: a platform administrator on a single-tenant

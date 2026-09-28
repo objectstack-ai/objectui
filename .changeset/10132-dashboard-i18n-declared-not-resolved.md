@@ -3,7 +3,7 @@
 '@object-ui/plugin-dashboard': patch
 ---
 
-fix(dashboard,charts): two dashboard surfaces the spec types as translatable now resolve (objectui#10132)
+fix(dashboard,charts): two dashboard surfaces the spec types as translatable now resolve
 
 `@objectstack/spec` declares both of these translatable and the Console resolved neither, so
 an author could set a key the contract documents and nothing happened. They turned out to be

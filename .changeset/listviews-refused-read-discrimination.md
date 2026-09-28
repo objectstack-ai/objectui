@@ -46,5 +46,5 @@ down to its wording.
   `console.savedViews*` keys ship in all ten locale packs; the `console.importMappings*`
   copy is untouched.
 
-This applies framework #13906 decision 1 option A — *a thing that could not be READ is not
+This applies framework objectstack#13906 decision 1 option A — *a thing that could not be READ is not
 a thing that is ABSENT* — at the second seam that needed it.

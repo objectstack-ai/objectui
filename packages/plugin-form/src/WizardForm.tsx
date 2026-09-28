@@ -673,7 +673,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
       });
       // The ONE field-gate step every layout draws through (`gateFormFields`,
       // objectui#10612), applied to the RESOLVED fields. Its field-level half
-      // (objectui#10120): `ObjectForm` gates a section's field OBJECTS before
+      // (`80c54122e`): `ObjectForm` gates a section's field OBJECTS before
       // routing here, but a field named by a bare string has no `name` to ask
       // about until it is resolved just above. Without this pass a field the
       // caller may read but not edit rendered as a live input, and with the

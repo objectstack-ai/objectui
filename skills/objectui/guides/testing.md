@@ -134,6 +134,7 @@ Expression roots are the keys of the `scope` a host publishes through `Predicate
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { PredicateScopeProvider, SchemaRenderer } from '@object-ui/react';
+import '@object-ui/components';
 
 describe('SchemaRenderer', () => {
   const scope = {

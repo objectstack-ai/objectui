@@ -53,8 +53,10 @@ import { retirementTombstone } from './tombstone.zod.js';
 const CLOUD_PLAN_STATUS_NEITHER_CHANNEL =
   'REFUSED (objectui#10919) — `cloud:plan-status` reads NEITHER content channel: its registration hands '
   + 'the node to `CloudPlanStatus`, which reads only `properties.plan` and `className`, and '
-  + '`SchemaRenderer` strips both channels out of the props bag it spreads, so an authored value would '
-  + 'render nothing. What it renders instead: a "Current plan" badge when `properties.plan` is the '
+  + '`SchemaRenderer` strips both channels out of the props bag it spreads. An authored value would '
+  + 'render NOTHING — no render-time error or warning and no element; only the parser tier\'s '
+  + '`not-a-container` warning (objectui#9910) noticed it, because the registration declares no '
+  + '`children` input. What it renders instead: a "Current plan" badge when `properties.plan` is the '
   + 'organization\'s plan, and nothing otherwise.';
 
 /**

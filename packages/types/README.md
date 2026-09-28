@@ -167,6 +167,8 @@ and still refuses any other key by name (objectui#11022; the names are held to
 the live registration by a test in `@object-ui/plugin-dashboard`):
 
 ```typescript
+import { StrictAnyComponentSchema } from '@object-ui/types/zod';
+
 const card = (widget: object) => ({ type: 'dashboard', widgets: [widget] });
 
 StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', value: 42 })).success; // true

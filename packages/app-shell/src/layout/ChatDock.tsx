@@ -391,7 +391,8 @@ export interface ChatDockPanelProps {
   onMaximize?: (boundPackageId?: string) => void;
   /**
    * Body override. Default mounts {@link ChatDockConversation} (the console's
-   * ambient ask thread). The Studio dock passes its own package-scoped build
+   * own thread — app-bound for `build` inside an authorable app, product-only
+   * otherwise). The Studio dock passes its own package-scoped build
    * conversation instead — note the empty-catalog gate then lives in the
    * caller, because the default body's self-gate is bypassed.
    */

@@ -36,6 +36,7 @@ import {
   useResizeObserver,
 } from "@object-ui/components"
 import { toast } from "sonner"
+import { isRealCalendarDate, toDisplayDate } from "@object-ui/core"
 import { useDisplayLocale } from "@object-ui/i18n"
 import { computeCriticalPath, computeProjectRescheduleDetailed, wouldCreateDependencyCycle, type WorkingCalendar, type RescheduleChange, type RescheduleOptions } from "./scheduling"
 import { shiftDayStart, type NormShiftSegments } from "./shifts"
@@ -872,7 +873,15 @@ export function GanttView({
   );
   const markers = React.useMemo(() => {
     if (!markersProp || tzShift.delta === 0) return markersProp;
-    return markersProp.map((m) => ({ ...m, date: tzShift.to(new Date(m.date)) }));
+    // A date-only marker names a DAY of the chart's own calendar, so it stands
+    // at that day's display-local midnight and is NOT re-based like an instant:
+    // re-basing moved it to another hour, and for some zones another day
+    // (objectui#10866). A `Date` or a date-time string is an instant and is.
+    return markersProp.map((m) =>
+      typeof m.date === 'string' && isRealCalendarDate(m.date)
+        ? { ...m, date: toDisplayDate(m.date) }
+        : { ...m, date: tzShift.to(toDisplayDate(m.date)) },
+    );
   }, [markersProp, tzShift]);
 
   const { t } = useGanttTranslation();
@@ -2319,7 +2328,10 @@ export function GanttView({
   const resolvedMarkers = React.useMemo(() => {
     return (markers ?? [])
       .map((m, i) => {
-        const date = m.date instanceof Date ? m.date : new Date(m.date);
+        // `toDisplayDate` reads a date-only string at LOCAL midnight of its
+        // day; the engine's own parse read UTC midnight, which stood the line
+        // on the previous day west of UTC (objectui#10866). A `Date` passes.
+        const date = toDisplayDate(m.date);
         return {
           index: i,
           label: m.label,
@@ -3863,8 +3875,13 @@ export function GanttView({
                             task,
                             changes: {
                               title: editValues.title,
-                              start: new Date(editValues.start),
-                              end: new Date(editValues.end),
+                              // The date inputs hold the LOCAL day they were
+                              // seeded with; `toDisplayDate` reads it back at
+                              // local midnight, where the engine's parse read
+                              // UTC midnight and moved an untouched bar to the
+                              // day before west of UTC (objectui#10866).
+                              start: toDisplayDate(editValues.start),
+                              end: toDisplayDate(editValues.end),
                               progress: Number(editValues.progress) || 0,
                             },
                           }]);

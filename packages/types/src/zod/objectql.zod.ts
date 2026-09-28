@@ -1983,7 +1983,7 @@ export const ObjectGanttSchema = BaseSchema.extend({
   // through (objectui#5155's structural ceiling), but a DECLARED key is now
   // type-validated — `readOnly: 'yes'` is refused where it used to parse green.
   skipWeekends: z.boolean().optional().describe('Skip weekends in duration / auto-schedule math (working calendar)'),
-  holidays: z.array(z.string()).optional().describe("Non-working dates for the working calendar, ISO 'yyyy-mm-dd' (UTC)"),
+  holidays: z.array(z.string()).optional().describe("Non-working dates for the working calendar, ISO 'yyyy-mm-dd' calendar days read on the chart's own calendar"),
   persistLayout: z.boolean().optional().describe('Opt OUT of layout persistence — only an explicit false disables it'),
   viewName: z.string().optional().describe("Layout-persistence scope; storage key is `objectName:viewName` (default 'default')"),
   navigation: stripImportedDefaults(SpecNavigationConfigSchema).optional().describe('Record navigation behaviour on task click (drawer/dialog/page)'),

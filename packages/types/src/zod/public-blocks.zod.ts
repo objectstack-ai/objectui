@@ -78,7 +78,11 @@
  * in two halves, both by reference: the bag is the row with `object` alone made
  * optional (`ElementNumberPropsBag`), and a node refinement puts the
  * requiredness back wherever the waiver does not apply
- * (`elementNumberObjectIsSupplied`). The node also declares `dataSource`, as the
+ * (`elementNumberObjectIsSupplied`). The waiver covers an OMITTED `object`, as
+ * the gate's own docblock states it ("the one prop whose absence this rule does
+ * NOT report"); the gate's code matches the issue by path alone and so also
+ * passes a wrong-typed `object` beside a binding, which this arm leaves to the
+ * row to refuse. The node also declares `dataSource`, as the
  * spec's `ElementDataSourceSchema` read by reference — the same schema
  * `PageComponentSchema.dataSource` is.
  *

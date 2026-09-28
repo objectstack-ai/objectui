@@ -63,13 +63,30 @@ vi.mock('@object-ui/components/ui/sonner', async (importOriginal) => {
 
 import { I18nProvider } from '@object-ui/i18n';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
-import type { BaseSchema, DataSource } from '@object-ui/types';
+import type { BaseSchema, DataSource, I18nLabel } from '@object-ui/types';
 import { safeValidateSchema } from '@object-ui/types/zod';
 import { registerAllFields } from '@object-ui/fields';
 // Registers `object-master-detail-form` — the block under test.
 import './index';
+import type { MasterDetailFormSchema } from './MasterDetailForm';
 
 registerAllFields();
+
+/**
+ * The type half, checked by this package's `tsconfig.test.json` and erased at
+ * runtime: the renderer's own schema type carries the row's `I18nLabel` for all
+ * three members, so a host that builds the node in TypeScript can hand over a
+ * map too. The tuple fails to compile if any member is narrowed back to
+ * `string`, or widened past `I18nLabel`.
+ */
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Expect<T extends true> = T;
+export type assertionLabelMembersAreI18nLabel = [
+  Expect<Equal<MasterDetailFormSchema['title'], I18nLabel | undefined>>,
+  Expect<Equal<MasterDetailFormSchema['submitText'], I18nLabel | undefined>>,
+  Expect<Equal<MasterDetailFormSchema['cancelText'], I18nLabel | undefined>>,
+];
 
 const PO_SCHEMA = { name: 'po', fields: { ref: { type: 'text', label: 'Ref' } } };
 const LINE_SCHEMA = {

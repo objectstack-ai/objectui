@@ -152,12 +152,12 @@ const en = {
     printDialogHint: 'Opens your browser’s print dialog (not a PDF export)',
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: 'Showing the first {{shown}} of {{total}} records. Narrow the filter.',
     rowCeilingNoteUnknownTotal: 'Showing the first {{shown}} records. Narrow the filter.',
   },
@@ -175,6 +175,10 @@ const en = {
     // `visible` gate outranks (objectui#4191) — the deep link or host asked
     // for it, but the author hid it on this surface.
     notAvailableHere: '"{{action}}" is not available on the current page.',
+    // The success toast the action runner shows when an action declares no
+    // `successMessage` and the server returned no message — the one toast
+    // text the runner writes itself (objectui#10900).
+    completedSuccessfully: 'Action completed successfully',
   },
   validation: {
     required: '{{field}} is required',
@@ -201,7 +205,7 @@ const en = {
     uploadInFlight: 'Wait for the upload to finish before saving.',
     // The notice the record form raises when a field's own `visibleWhen` turns
     // it invisible and the form clears the value it held (objectui#8070 names
-    // the objectui#6958 clear). `{{fields}}` is the cleared fields' labels joined
+    // the `6a449fc49` clear). `{{fields}}` is the cleared fields' labels joined
     // with `validation.formInvalidJoiner`. A list after a colon, so no word has
     // to agree with how many fields were cleared.
     clearedOnHide: 'Cleared — no longer applicable given the current values: {{fields}}',
@@ -510,19 +514,15 @@ const en = {
     yes: 'Yes',
     no: 'No',
     systemFields: 'System',
-    // objectui#7189 — the grouped grid says, where the group counts are, that
-    // it grouped a PAGE. `useGroupedData` buckets only the rows the browser
-    // holds, so a group beyond the page boundary is absent entirely and every
-    // count is a page slice. The paging footer is not a statement about what
-    // was grouped, and it demonstrably did not prevent the wrong reading.
-    // Two sentences because two conditions: a known total states the fact
-    // with both numbers; a full window with no total can only say "may".
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: 'Partial',
-      partialNotice:
-        'Grouped over the first {{loaded}} of {{total}} records. Group counts are page-scoped, and a group whose records all fall beyond the loaded rows is missing here.',
-      partialNoticeUnknownTotal:
-        'Grouped over the {{loaded}} records loaded. More may match this view, so group counts may be partial and a group may be missing here.',
+      needsHeaderQuery:
+        'This view is grouped, but its data source does not implement queryGroupHeaders, so the groups cannot be counted. Remove the grouping to show the records.',
+      needsWholeRows:
+        'Grouping needs every record, but this grid was handed one page of them, so the groups cannot be counted. Hand in every record, or let the grid fetch them from a data source that implements queryGroupHeaders.',
     },
     // Column-footer aggregate prefixes, keyed by the spec's `ColumnSummary`
     // vocabulary (objectui#4024). The footer already formatted its NUMBER
@@ -1120,6 +1120,8 @@ const en = {
     pathStageLostUpcoming: '{{stage}}, closed lost, not reached',
     pathStageWonUpcoming: '{{stage}}, goal stage, not reached',
     linkCopied: 'Link copied to clipboard',
+    commentFailed: 'Your comment was not posted. Nothing was saved — please try again.',
+    reactionFailed: 'Your reaction was not saved. Please try again.',
     linkCopyFailed: 'Failed to copy link',
     cancel: 'Cancel',
     cancelEdit: 'Discard changes',
@@ -1426,6 +1428,8 @@ const en = {
     refreshing: 'Refreshing…',
     pickMeasures: 'Pick measures (values) for this dataset widget.',
     datasetUnsupported: 'This data source does not support dataset queries.',
+    widgetForbiddenTitle: 'You don’t have access',
+    widgetForbiddenMessage: 'You don’t have permission to view the data behind this widget.',
     details: 'Details',
     exportCsv: 'Export CSV',
     openInList: 'Open in list',
@@ -1572,10 +1576,6 @@ const en = {
     appDescription: 'Description',
     appIcon: 'Icon',
     template: 'Template',
-    layout: 'Layout',
-    layoutSidebar: 'Sidebar',
-    layoutHeader: 'Header',
-    layoutEmpty: 'Empty',
     selectObjects: 'Select Objects',
     searchObjects: 'Search objects…',
     selectAll: 'Select All',
@@ -1610,7 +1610,7 @@ const en = {
     appearance: 'Appearance',
     rowHeight: 'Row Height',
     livePreview: 'Live Preview',
-    stepBasicDesc: 'Name, title, and layout',
+    stepBasicDesc: 'Name, title, and icon',
     stepObjectsDesc: 'Select business objects',
     stepNavigationDesc: 'Build navigation tree',
     stepBrandingDesc: 'Logo, colors, and favicon',
@@ -1771,6 +1771,8 @@ const en = {
       pages: 'Pages',
       reports: 'Reports',
       system: 'System',
+      // The Setup system page segment after `System` (objectui#10900).
+      marketplace: 'Marketplace',
     },
     nav: {
       pinItem: 'Pin {{name}}',
@@ -1950,6 +1952,10 @@ const en = {
         ctaUpgrade: 'Upgrade to keep going',
         ctaTopUp: 'Add credits to continue',
         ariaLabel: 'AI usage: {{status}}',
+        // objectui#8524 — heading over the pool's read-only split (`breakdown`:
+        // app-building vs data Q&A) in the popover. The rows reuse `meterBuild` /
+        // `meterAsk`; each is a share of the ONE pool, never a second budget.
+        breakdownTitle: 'Used so far',
       },
       workspaceTitle: 'AI Workspace',
       workspaceSubtitle: 'Ask, inspect, and resume conversations',
@@ -1959,6 +1965,12 @@ const en = {
       share: 'Share',
       shareTitle: 'Share this conversation',
       shareDisabledTitle: 'Start chatting to enable sharing',
+      // The build conversation's Build Doctor button (its accessible name,
+      // and its tooltip enabled / before the first message) and the drawer
+      // title it opens (objectui#10900).
+      buildDoctor: 'Build Doctor',
+      buildDoctorTitle: 'Build Doctor — what actually landed?',
+      buildDoctorDisabledTitle: 'Send a message first',
       newChat: 'New',
       searchChats: 'Search chats…',
       noChatsYet: 'No chats yet',
@@ -2211,6 +2223,17 @@ const en = {
       noWritesTitle: 'Reads with no writes at all in this environment',
       noWrites: 'Rows are being read while none at all are being written, so the read rate has no upper bound. This is the most severe reading. The platform flags anything above {{threshold}}. Nothing is limited or blocked; this is a report so the read pattern can be reviewed.',
     },
+    // objectui#10439 — the environment admin's storage-capacity banner (cloud#2135).
+    // Raised by the tenant runtime's own verdict on `/api/v1/usage/storage`: `warn`
+    // (80% and up) or `blocked` (uploads and bulk imports refused). `{{used}}` and
+    // `{{limit}}` are that response's `usedMb` / `limitMb`, already formatted.
+    storageUsage: {
+      warningTitle: 'Storage is filling up',
+      warning: '{{used}} MB of {{limit}} MB used. Uploads and imports pause once storage is full.',
+      blockedTitle: 'Storage is full: uploads and imports are paused',
+      blocked: '{{used}} MB of {{limit}} MB used. Existing data is untouched, and reading, exporting and editing single records still work.',
+      upgrade: 'Upgrade to continue',
+    },
     errors: {
       somethingWentWrong: 'Something went wrong',
       unexpectedError: 'An unexpected error occurred while rendering this view.',
@@ -2375,7 +2398,7 @@ const en = {
       signingIn: 'Signing you in…',
       ssoHandoff: 'Continue to {{target}}',
       // Phone/OTP sign-in labels. `LoginForm` interpolates `{seconds}` with a
-      // literal `.replace()` of its own (packages/auth/src/LoginForm.tsx:429),
+      // literal `.replace('{seconds}', …)` of its own (in `LoginForm`),
       // so those SINGLE braces must survive translation — i18next never sees
       // them.
       emailOrPhoneLabel: 'Email or phone number',
@@ -2388,6 +2411,13 @@ const en = {
       resendOtpCountdownText: 'Resend in {seconds}s',
       usePhoneOtpText: 'Sign in with verification code',
       usePasswordSignInText: 'Sign in with password instead',
+      // The social provider buttons and the divider under them
+      // (`SocialSignInButtons`, fed through `LoginForm`'s labels).
+      // `{provider}` is the component's own single-brace hole, filled by a
+      // literal `.replace()` with the provider's name as the server reports
+      // it — the same convention as `{seconds}` above (objectui#10900).
+      socialButton: 'Continue with {provider}',
+      orText: 'or continue with email',
       devAdminHint: {
         title: 'Development instance',
         body: 'Sign in with the seeded dev admin:',
@@ -2416,6 +2446,9 @@ const en = {
       submittingButton: 'Creating account…',
       hasAccountText: 'Already have an account?',
       signInText: 'Sign in',
+      // Same pair as `auth.login.socialButton` / `orText`, for sign-up.
+      socialButton: 'Sign up with {provider}',
+      orText: 'or continue with email',
       errors: {
         userExists: 'An account with this email already exists. Try signing in instead.',
       },
@@ -3364,6 +3397,10 @@ const en = {
     openProduction: 'Open Production',
     manageEnvironments: 'Manage environments',
   },
+  // `cloud:plan-status` — the Cloud pricing page's current-plan marker (objectui#10919).
+  cloudPlanStatus: {
+    current: 'Current plan',
+  },
   // `@object-ui/plugin-ai` — the `nl-query`, `ai-form-assist` and
   // `ai-recommendations` components (objectui#10232). The `*One` rows are this
   // repo's two-key plural convention (see `search.itemsAvailableOne`): the
@@ -4284,6 +4321,14 @@ const en = {
     actionsEmptyBody:
       'No installed package declares an action on this deployment. Actions you author yourself live in Studio.',
     actionsLoadFailed: 'Could not load packaged actions.',
+  },
+  element: {
+    // objectui#10951 — `element:number` authored with an aggregate and no
+    // object (neither `object` nor `dataSource.object`). Kept terse: this pack
+    // is eager, and the console closure budget weighs it.
+    number: {
+      noObject: 'No object named: set object or dataSource.object.',
+    },
   },
 } as const;
 

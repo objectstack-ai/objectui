@@ -260,7 +260,7 @@ export const CalendarViewSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `calendar-view` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `allDayField`, `colorField`, `data`, `endDateField`, `startDateField`, '
     + '`titleField`.',
   ),
@@ -268,7 +268,7 @@ export const CalendarViewSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `calendar-view` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `allDayField`, `colorField`, `data`, `endDateField`, `startDateField`, '
     + '`titleField`.',
   ),
@@ -704,14 +704,14 @@ export const FilterBuilderSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `filter-builder` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `fields`, `label`, `name`, `value`, `wrapperClass`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `filter-builder` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `fields`, `label`, `name`, `value`, `wrapperClass`.',
   ),
 });
@@ -747,14 +747,14 @@ export const CarouselSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `carousel` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `itemClassName`, `items`, `opts`, `orientation`, `showArrows`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `carousel` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `itemClassName`, `items`, `opts`, `orientation`, `showArrows`.',
   ),
 });
@@ -832,7 +832,7 @@ export const ChatbotSchema = BaseSchema.extend({
   type: z.literal('chatbot'),
   messages: z.array(ChatMessageSchema).describe('Chat messages'),
   placeholder: z.string().optional().describe('Input placeholder'),
-  // --- ADR-0049 retirement tombstones (objectui#7703) ---------------------
+  // --- ADR-0049 retirement tombstones (`a4611b3e2`) -----------------------
   //
   // Six keys this twin mirrored and no `plugin-chatbot` registration read —
   // `loading`, `showAvatars`, `userAvatar`, `assistantAvatar`, `markdown` and
@@ -846,37 +846,37 @@ export const ChatbotSchema = BaseSchema.extend({
   // `BaseSchema` is `.passthrough()`, so an undeclared key is not refused, it
   // is KEPT — the same silent acceptance the retirement exists to close.
   loading: retirementTombstone(
-    'RETIRED (objectui#7703, ADR-0049) — never read: chat progress is runtime state the chat runtime owns '
+    'RETIRED (ADR-0049) — never read: chat progress is runtime state the chat runtime owns '
     + '(the registration derives it from `useObjectChat` as `isLoading`), and `<Chatbot>` declares no `loading` '
     + 'prop for an authored value to land on. There is no authored spelling that sets it; delete the key.',
   ),
   onSendMessage: handlerKeyRefusal('onSendMessage', 'retired', 'Send message handler'),
   showAvatars: retirementTombstone(
-    'RETIRED (objectui#7703, ADR-0049) — no registration reads or forwards this key by name, and a `chatbot` '
+    'RETIRED (ADR-0049) — no registration reads or forwards this key by name, and a `chatbot` '
     + 'node renders `<Chatbot>`, which has no `showAvatars` prop; the one channel that did deliver it — the '
-    + "`chatbot-floating` registration's unfiltered props spread — was fenced by objectui#7708. Delete the key: "
+    + "`chatbot-floating` registration's unfiltered props spread — was fenced. Delete the key: "
     + 'a `chatbot` node already renders an avatar beside every message, and the images are `userAvatarUrl` / '
     + '`assistantAvatarUrl` with their `userAvatarFallback` / `assistantAvatarFallback` siblings.',
   ),
   userAvatar: retirementTombstone(
-    'RETIRED (objectui#7703, ADR-0049) — never read: this spelling has zero hits anywhere in '
+    'RETIRED (ADR-0049) — never read: this spelling has zero hits anywhere in '
     + '`packages/plugin-chatbot`. Write `userAvatarUrl` instead (with `userAvatarFallback` for the text shown '
     + 'while the image loads or fails), the key all three chatbot registrations read.',
   ),
   assistantAvatar: retirementTombstone(
-    'RETIRED (objectui#7703, ADR-0049) — never read: this spelling has zero hits anywhere in '
+    'RETIRED (ADR-0049) — never read: this spelling has zero hits anywhere in '
     + '`packages/plugin-chatbot`. Write `assistantAvatarUrl` instead (with `assistantAvatarFallback` for the '
     + 'text shown while the image loads or fails), the key all three chatbot registrations read.',
   ),
   markdown: retirementTombstone(
-    'RETIRED (objectui#7703, ADR-0049) — never read: a `chatbot` node renders `<Chatbot>`, which prints message '
+    'RETIRED (ADR-0049) — never read: a `chatbot` node renders `<Chatbot>`, which prints message '
     + 'content as text and has no markdown path for this switch to reach. Author `type: "chatbot-enhanced"` '
     + '(or `"chatbot-floating"`) with `enableMarkdown` instead — markdown is those nodes\' capability, and '
     + '`enableMarkdown` is the key their registrations read.',
   ),
   processVisibility: z.enum(['hidden', 'summary', 'debug']).optional().describe('How much agent reasoning/tool detail to show'),
   height: retirementTombstone(
-    'RETIRED (objectui#7703, ADR-0049) — never read: `<Chatbot>` has no `height` prop. Write `maxHeight` '
+    'RETIRED (ADR-0049) — never read: `<Chatbot>` has no `height` prop. Write `maxHeight` '
     + 'instead (a CSS length string, default "500px"), the key the `chatbot` and `chatbot-enhanced` '
     + 'registrations forward; size a `chatbot-floating` panel with `floatingConfig.panelHeight`, a number of '
     + 'pixels, which is what that panel reads.',
@@ -925,7 +925,7 @@ export const ChatbotSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `chatbot` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
     + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `headers`, `maxHeight`, '
     + '`messages`, `model`, `onError`, `onSend`, `placeholder`, `requestBody`, '
@@ -1016,7 +1016,7 @@ export const ChatbotEnhancedSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `chatbot-enhanced` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'The chat API body params go on `requestBody`, which the registration forwards to the chat runtime. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
     + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
@@ -1028,7 +1028,7 @@ export const ChatbotEnhancedSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `chatbot-enhanced` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
     + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
     + '`headers`, `maxHeight`, `messages`, `model`, `onClear`, `onError`, '
@@ -1081,7 +1081,7 @@ export const ChatbotFloatingSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `chatbot-floating` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'The chat API body params go on `requestBody`, which the registration forwards to the chat runtime. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
     + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
@@ -1093,7 +1093,7 @@ export const ChatbotFloatingSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `chatbot-floating` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
     + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
     + '`floatingConfig`, `headers`, `messages`, `model`, `onClear`, `onError`, '
@@ -1238,6 +1238,24 @@ export const DashboardWidgetSchema = specFieldsExcept(stripImportedDefaults(Spec
 }).strict();
 
 /**
+ * objectui#9256 (public-block slice): ONE refusal string for both content channels of the
+ * widget-slot `metric-card` node. Its own string rather than `neitherContentChannelGuidance`, because
+ * that builder says the parser tier's `not-a-container` warning noticed the key, and in a widget slot
+ * it does not: that tier walks `children`, never `widgets`.
+ */
+const METRIC_CARD_NEITHER_CHANNEL =
+  'REFUSED (objectui#9256, ADR-0049) — `metric-card` reads NEITHER content channel: measured with the '
+  + 'TypeScript type checker over one program per workspace package on a BUILT tree, no renderer read consumes '
+  + '`body` or `children` for this node — `DashboardRenderer` hands a `metric-card` widget to `SchemaRenderer` '
+  + 'as the widget\'s own keys, and the registration (`plugin-dashboard:metric-card`) renders `MetricCard`, '
+  + 'which reads named props and forwards the rest to its `Card` as DOM attributes — and `SchemaRenderer` '
+  + 'strips both out of the props bag it spreads. An '
+  + 'authored value therefore rendered NOTHING — no render-time error or warning and no element — and in a '
+  + 'widget slot nothing else noticed it: the parser tier\'s `not-a-container` warning (objectui#9910) walks '
+  + '`children`, never `widgets`. What it renders instead: one KPI card — `title`, `value`, `icon`, '
+  + '`trend` / `trendValue` and `description`.';
+
+/**
  * A COMPONENT node sitting directly in a dashboard's widget slot — the
  * `metric-card` extension the 2026-08-14 ruling (objectstack#8593) admits:
  *
@@ -1255,10 +1273,23 @@ export const DashboardWidgetSchema = specFieldsExcept(stripImportedDefaults(Spec
  * cannot become a passthrough hatch around #6002's refusal. Deliberately NOT
  * exported: the routing is an internal property of the widget slot, not new
  * authoring surface.
+ *
+ * `children` and `body` are refused by name (objectui#9256): `MetricCard`
+ * reads neither content channel, as its TypeScript twin's `?: never` pair
+ * states. ⚠️ A refusal here does not surface on its own: this is the first arm
+ * of the slot's `z.union`, so a document it refuses falls through to the
+ * strict {@link DashboardWidgetSchema}, which refuses the same key as
+ * unrecognized, and the author gets one `invalid_union` at the widget's path
+ * with each arm's issues under `errors` — this arm's message among them, which
+ * `objectui validate` prints as one arm of two.
  */
 const DashboardWidgetSlotComponentSchema = BaseSchema.extend({
   type: z.enum(DASHBOARD_COMPONENT_WIDGET_TYPES)
     .describe('objectui component type legal in a widget slot (closed set)'),
+  // objectui#9256: `MetricCard` reads NEITHER content channel, so both are refused by name, each
+  // kept a MEMBER, as on the TypeScript twin.
+  body: retirementTombstone(METRIC_CARD_NEITHER_CHANNEL),
+  children: retirementTombstone(METRIC_CARD_NEITHER_CHANNEL),
 });
 
 /**
@@ -1383,7 +1414,7 @@ export const DashboardComponentSchema = BaseSchema.extend(SpecDashboardFields.sh
     'REFUSED (objectui#9256, ADR-0049) — `dashboard` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `columns`, `dateRange`, `description`, `gap`, `globalFilters`, '
     + '`header`, `label`, `name`, `refreshIntervalSeconds`, `type`, `widgets`.',
   ),
@@ -1391,7 +1422,7 @@ export const DashboardComponentSchema = BaseSchema.extend(SpecDashboardFields.sh
     'REFUSED (objectui#9256, ADR-0049) — `dashboard` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `columns`, `dateRange`, `description`, `gap`, `globalFilters`, '
     + '`header`, `label`, `name`, `refreshIntervalSeconds`, `type`, `widgets`.',
   ),

@@ -128,12 +128,12 @@ const ko = {
     printDialogHint: "브라우저의 인쇄 대화 상자를 엽니다（PDF 내보내기가 아닙니다）",
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: "전체 {{total}}개 중 처음 {{shown}}개를 표시합니다. 필터를 좁히세요.",
     rowCeilingNoteUnknownTotal: "처음 {{shown}}개를 표시합니다. 필터를 좁히세요.",
   },
@@ -148,6 +148,7 @@ const ko = {
       copyAll: '모두 복사',
     },
     notAvailableHere: '"{{action}}"은(는) 현재 페이지에서 사용할 수 없습니다.',
+    completedSuccessfully: '작업이 완료되었습니다',
   },
   validation: {
     required: "{{field}}은(는) 필수입니다",
@@ -398,13 +399,15 @@ const ko = {
     yes: "예",
     no: "아니요",
     systemFields: "시스템",
-    // objectui#7189 — partial-grouping disclosure for the grouped grid.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: "일부",
-      partialNotice:
-        "전체 {{total}}개 중 불러온 처음 {{loaded}}개 레코드만으로 그룹화했습니다. 그룹 개수는 불러온 페이지 기준이며, 레코드가 모두 불러온 행 밖에 있는 그룹은 여기에 표시되지 않습니다.",
-      partialNoticeUnknownTotal:
-        "불러온 {{loaded}}개 레코드만으로 그룹화했습니다. 이 뷰에 해당하는 레코드가 더 있을 수 있으므로 그룹 개수가 일부일 수 있고 일부 그룹이 표시되지 않을 수 있습니다.",
+      needsHeaderQuery:
+        "이 뷰는 그룹화되어 있지만 데이터 소스가 queryGroupHeaders를 구현하지 않아 그룹 개수를 셀 수 없습니다. 레코드를 표시하려면 그룹화를 제거하세요.",
+      needsWholeRows:
+        "그룹화에는 모든 레코드가 필요하지만 이 그리드에는 한 페이지만 전달되어 그룹 개수를 셀 수 없습니다. 모든 레코드를 전달하거나 queryGroupHeaders를 구현하는 데이터 소스에서 그리드가 불러오도록 하세요.",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this
@@ -1074,6 +1077,8 @@ const ko = {
     pathStageLostUpcoming: '{{stage}}, 실패, 도달하지 않음',
     pathStageWonUpcoming: '{{stage}}, 목표 단계, 도달하지 않음',
     linkCopied: "링크가 클립보드에 복사됨",
+    commentFailed: "댓글이 게시되지 않았습니다. 아무것도 저장되지 않았습니다. 다시 시도해 주세요.",
+    reactionFailed: "반응이 저장되지 않았습니다. 다시 시도해 주세요.",
     linkCopyFailed: "링크 복사 실패",
     cancel: "취소",
     cancelEdit: "변경 사항 취소",
@@ -1155,6 +1160,8 @@ const ko = {
     refreshing: "새로고침 중…",
     pickMeasures: "이 데이터셋 위젯의 측정값(값)을 선택하세요.",
     datasetUnsupported: "이 데이터 소스는 데이터셋 쿼리를 지원하지 않습니다.",
+    widgetForbiddenTitle: "접근 권한 없음",
+    widgetForbiddenMessage: "이 위젯의 데이터를 볼 수 있는 권한이 없습니다.",
     details: "세부 정보",
     exportCsv: "CSV 내보내기",
     openInList: "목록에서 열기",
@@ -1307,10 +1314,6 @@ const ko = {
     appDescription: "설명",
     appIcon: "아이콘",
     template: "템플릿",
-    layout: "레이아웃",
-    layoutSidebar: "사이드바",
-    layoutHeader: "헤더",
-    layoutEmpty: "비어 있음",
     selectObjects: "오브젝트 선택",
     searchObjects: "오브젝트 검색…",
     selectAll: "모두 선택",
@@ -1345,7 +1348,7 @@ const ko = {
     appearance: "외관",
     rowHeight: "행 높이",
     livePreview: "실시간 미리보기",
-    stepBasicDesc: "이름, 제목 및 레이아웃",
+    stepBasicDesc: "이름, 제목 및 아이콘",
     stepObjectsDesc: "비즈니스 객체 선택",
     stepNavigationDesc: "네비게이션 트리 구성",
     stepBrandingDesc: "로고, 색상 및 파비콘",
@@ -1564,6 +1567,7 @@ const ko = {
         ctaUpgrade: "업그레이드하고 계속하기",
         ctaTopUp: "크레딧을 추가하고 계속하기",
         ariaLabel: "AI 사용량: {{status}}",
+        breakdownTitle: "지금까지 사용 내역",
       },
       workspaceTitle: "AI 워크스페이스",
       workspaceSubtitle: "질문하고, 살펴보고, 대화를 이어가세요",
@@ -1573,6 +1577,9 @@ const ko = {
       share: "공유",
       shareTitle: "이 대화 공유",
       shareDisabledTitle: "공유하려면 먼저 대화를 시작하세요",
+      buildDoctor: "빌드 진단",
+      buildDoctorTitle: "빌드 진단 — 실제로 반영된 내용은?",
+      buildDoctorDisabledTitle: "먼저 메시지를 보내세요",
       newChat: "새로 만들기",
       searchChats: "채팅 검색…",
       noChatsYet: "아직 채팅이 없습니다",
@@ -1780,6 +1787,7 @@ const ko = {
       pages: "페이지",
       reports: "보고서",
       system: "시스템",
+      marketplace: "마켓플레이스",
     },
     // objectui#4024 — the single-namespace settings screen. Its sibling
     // `settingsHub` above already resolved through this pack; the view was the
@@ -1877,6 +1885,14 @@ const ko = {
       ratio: '쓰기 1행당 {{ratio}}행을 읽고 있습니다. 플랫폼은 {{threshold}} 초과 비율을 표시합니다. 제한하거나 차단하는 것은 없습니다. 읽기 패턴을 검토할 수 있도록 알리는 보고입니다.',
       noWritesTitle: '이 환경은 읽기만 있고 쓰기가 전혀 없습니다',
       noWrites: '행을 읽고 있지만 쓰기가 전혀 없어 읽기 비율에 상한이 없습니다. 가장 심각한 수치입니다. 플랫폼은 {{threshold}} 초과 비율을 표시합니다. 제한하거나 차단하는 것은 없습니다. 읽기 패턴을 검토할 수 있도록 알리는 보고입니다.',
+    },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: '저장 공간이 거의 가득 찼습니다',
+      warning: '{{limit}} MB 중 {{used}} MB 사용 중입니다. 저장 공간이 가득 차면 업로드와 가져오기가 일시 중지됩니다.',
+      blockedTitle: '저장 공간이 가득 찼습니다: 업로드와 가져오기가 일시 중지되었습니다',
+      blocked: '{{limit}} MB 중 {{used}} MB 사용 중입니다. 기존 데이터는 그대로 유지되며, 읽기, 내보내기, 개별 레코드 편집은 계속 사용할 수 있습니다.',
+      upgrade: '업그레이드하고 계속하기',
     },
     errors: {
       somethingWentWrong: "문제가 발생했습니다",
@@ -2057,6 +2073,8 @@ const ko = {
       resendOtpCountdownText: "{seconds}초 후 재전송",
       usePhoneOtpText: "인증 코드로 로그인",
       usePasswordSignInText: "비밀번호로 로그인하기",
+      socialButton: "{provider} 계정으로 계속",
+      orText: "또는 이메일로 계속",
     },
     register: {
       title: "계정 만들기",
@@ -2075,6 +2093,8 @@ const ko = {
       submittingButton: "계정 생성 중…",
       hasAccountText: "이미 계정이 있으신가요?",
       signInText: "로그인",
+      socialButton: "{provider} 계정으로 가입",
+      orText: "또는 이메일로 계속",
       errors: {
         userExists: "해당 이메일로 이미 계정이 존재합니다. 로그인해 보세요.",
       },
@@ -2900,6 +2920,9 @@ const ko = {
     createEnvironment: "환경 만들기",
     openProduction: "프로덕션 열기",
     manageEnvironments: "환경 관리",
+  },
+  cloudPlanStatus: {
+    current: "현재 요금제",
   },
   ai: {
     nlQuery: {
@@ -3743,6 +3766,11 @@ const ko = {
     actionsEmptyTitle: "패키지 액션 없음",
     actionsEmptyBody: "이 배포에는 액션을 선언하는 설치된 패키지가 없습니다. 직접 작성한 액션은 Studio에 있습니다.",
     actionsLoadFailed: "패키지 액션을 불러오지 못했습니다.",
+  },
+  element: {
+    number: {
+      noObject: "개체가 지정되지 않았습니다. object 또는 dataSource.object를 설정하세요.",
+    },
   },
 };
 

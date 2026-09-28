@@ -26,24 +26,34 @@ const baseSchema: any = {
 };
 
 describe('PivotTable drill-down', () => {
-  it('does not render interactive cells when drillDown is omitted', () => {
+  it('does not render interactive cells without a host `onDrillDown`', () => {
     render(<PivotTable schema={baseSchema} />);
     // No element with role="button"
     expect(screen.queryAllByRole('button').length).toBe(0);
   });
 
-  it('does not call onDrillDown when drillDown.enabled !== true', () => {
-    const onDrillDown = vi.fn();
-    render(<PivotTable schema={baseSchema} onDrillDown={onDrillDown} />);
+  // objectui#10932: `drillDown` on a `pivot` node is a retirement tombstone,
+  // and `PivotTable` reads nothing off the node for its drill. The host's
+  // `onDrillDown` is the only switch (`ObjectPivotTable` passes it exactly when
+  // its `object-pivot` drill is enabled). Both directions are pinned: the node
+  // key can neither turn the drill on nor turn it off.
+  it('the node\'s `drillDown` cannot turn the drill on: no handler, no interactive cells (objectui#10932)', () => {
+    render(<PivotTable schema={{ ...baseSchema, drillDown: { enabled: true } }} />);
     expect(screen.queryAllByRole('button').length).toBe(0);
-    expect(onDrillDown).not.toHaveBeenCalled();
+  });
+
+  it('the node\'s `drillDown` cannot turn the drill off: the host handler is the switch (objectui#10932)', () => {
+    const onDrillDown = vi.fn();
+    render(<PivotTable schema={{ ...baseSchema, drillDown: { enabled: false } }} onDrillDown={onDrillDown} />);
+    fireEvent.click(screen.getByLabelText('Drill into stage=won, source=web'));
+    expect(onDrillDown).toHaveBeenCalledTimes(1);
   });
 
   it('emits cell payload with rowKey/colKey/value/scope on click', () => {
     const onDrillDown = vi.fn();
     render(
       <PivotTable
-        schema={{ ...baseSchema, drillDown: { enabled: true } }}
+        schema={baseSchema}
         onDrillDown={onDrillDown}
       />,
     );
@@ -62,7 +72,7 @@ describe('PivotTable drill-down', () => {
     const onDrillDown = vi.fn();
     render(
       <PivotTable
-        schema={{ ...baseSchema, drillDown: { enabled: true } }}
+        schema={baseSchema}
         onDrillDown={onDrillDown}
       />,
     );
@@ -74,7 +84,7 @@ describe('PivotTable drill-down', () => {
     const onDrillDown = vi.fn();
     render(
       <PivotTable
-        schema={{ ...baseSchema, drillDown: { enabled: true } }}
+        schema={baseSchema}
         onDrillDown={onDrillDown}
       />,
     );
@@ -86,7 +96,7 @@ describe('PivotTable drill-down', () => {
     const onDrillDown = vi.fn();
     render(
       <PivotTable
-        schema={{ ...baseSchema, drillDown: { enabled: true } }}
+        schema={baseSchema}
         onDrillDown={onDrillDown}
       />,
     );
@@ -100,7 +110,7 @@ describe('PivotTable drill-down', () => {
     const onDrillDown = vi.fn();
     render(
       <PivotTable
-        schema={{ ...baseSchema, drillDown: { enabled: true } }}
+        schema={baseSchema}
         rowLabels={{ won: 'Won', lost: 'Lost' }}
         columnLabels={{ web: 'Web', event: 'Event' }}
         onDrillDown={onDrillDown}

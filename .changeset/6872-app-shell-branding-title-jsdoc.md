@@ -2,7 +2,7 @@
 '@object-ui/layout': patch
 ---
 
-Correct the `AppShellBranding.title` doc comment (objectui#6872). It read "Page title
+Correct the `AppShellBranding.title` doc comment. It read "Page title
 suffix (sets document.title)" while `useAppShellBranding` assigns `document.title = title`
 wholesale — nothing is appended; the caller composes the whole string (the console passes
 `"App label — Product name"`). That comment ships in `dist/index.d.ts` and is the only

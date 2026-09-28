@@ -30,7 +30,7 @@ hit that pushes the keys it protects back into NEEDS-REVIEW.
 **Bounded on purpose.** The leg feeds reachability only; it does not enrol its
 heads in the call-site gate's dynamic-family registry, so `check:i18n-keys` gains
 no `undeclared-dynamic-family` finding and its behaviour is unchanged. The two
-further sub-shapes objectui#7844 records — a template in a same-module resolver's
+further sub-shapes recorded on their own card — a template in a same-module resolver's
 ARGUMENT, and a template as an ELEMENT of a returned array — stay dark, and are
 now written into the script's own "What CONFIRMED does NOT guarantee" class 2
 rather than left silent.

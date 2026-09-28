@@ -21,8 +21,8 @@ declared-surface-with-no-consumption-path shape as `MobileComponentConfig`
 itself and `MobileOverrides` (objectui#4919) before it, one level down.
 
 Removed outright rather than kept as `?: never` tombstones, measured against
-this package's retire-vs-remove discriminator, in the form objectui#7678
-amended it to. That rule is cited here and not restated: it is stated once, and
+this package's retire-vs-remove discriminator, in its amended form
+(`5f8190c8c`). That rule is cited here and not restated: it is stated once, and
 a second copy carried in a release note could only drift out of agreement with
 it. The per-prong measurement it asks for is kept as the record. Prong 1:
 neither has a replacement key — the behaviour they named lives in hooks, and

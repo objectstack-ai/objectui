@@ -238,10 +238,10 @@ Control page content width:
 {
   "type": "page",
   "title": "Settings",
-  "maxWidth": "lg",  // Centered content with max width
+  "maxWidth": "lg",
   "children": {
     "type": "form",
-    "fields": [...]
+    "fields": []
   }
 }
 ```
@@ -515,17 +515,17 @@ Omit `sidebar` and the content fills the width under the top bar.
       {
         "label": "General",
         "value": "general",
-        "content": { "type": "form", "fields": [...] }
+        "content": { "type": "form", "fields": [] }
       },
       {
         "label": "Security", 
         "value": "security",
-        "content": { "type": "form", "fields": [...] }
+        "content": { "type": "form", "fields": [] }
       },
       {
         "label": "Notifications",
         "value": "notifications", 
-        "content": { "type": "form", "fields": [...] }
+        "content": { "type": "form", "fields": [] }
       }
     ]
   }
@@ -660,11 +660,11 @@ Control page content padding:
 ```json
 {
   "type": "page",
-  "padding": false,  // Remove default padding
+  "padding": false,
   "children": {
     "type": "container",
-    "className": "p-8",  // Custom padding
-    "children": [...]
+    "className": "p-8",
+    "children": []
   }
 }
 ```
@@ -743,10 +743,10 @@ Use constrained width for forms and reading content:
 ```json
 {
   "type": "page",
-  "maxWidth": "lg",  // Better for forms
+  "maxWidth": "lg",
   "children": {
     "type": "form",
-    "fields": [...]
+    "fields": []
   }
 }
 ```

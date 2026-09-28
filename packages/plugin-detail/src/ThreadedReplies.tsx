@@ -18,7 +18,7 @@ export interface ThreadedRepliesProps {
   parentItem: FeedItem;
   /** Reply feed items (children) */
   replies: FeedItem[];
-  /** Called when a reply is submitted */
+  /** Called when a reply is submitted. A rejection means it was not written: the draft is kept. */
   onAddReply?: (parentId: string | number, text: string) => void | Promise<void>;
   /** Whether to show the reply input */
   showReplyInput?: boolean;
@@ -75,6 +75,9 @@ export const ThreadedReplies: React.FC<ThreadedRepliesProps> = ({
     try {
       await onAddReply(parentItem.id, text);
       setReplyText('');
+    } catch {
+      // A rejection means the reply was NOT written (objectui#10899): keep the
+      // draft; the host reports why.
     } finally {
       setIsSubmitting(false);
     }

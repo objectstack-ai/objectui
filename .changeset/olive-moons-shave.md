@@ -1,7 +1,7 @@
 ---
 ---
 
-Internal test-support change, no user-visible behaviour (objectui#6924).
+Internal test-support change, no user-visible behaviour.
 
 The 17 hand-written `(Schema as { options?: readonly string[] }).options` casts
 across 16 spec-parity test files converge onto `@object-ui/test-support`'s

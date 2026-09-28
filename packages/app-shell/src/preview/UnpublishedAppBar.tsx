@@ -15,7 +15,7 @@
  * (`_unpublished: false`) — instant and reversible, per ADR-0045.
  *
  * ## Why `_unpublished` and not `hidden` (objectstack#4829 A1, framework PR
- * #6942)
+ * objectstack#6942)
  *
  * These were one flag and are now two, with disjoint meanings:
  *

@@ -16,7 +16,7 @@ import zlib from 'node:zlib';
 // `native` becomes the default loader (objectui#3384).
 import { viteCryptoStub } from '../../scripts/vite-crypto-stub.ts';
 import { viteMaplibreWorker } from '../../scripts/vite-maplibre-worker.ts';
-import { resolveClientDistInjection } from '../../scripts/vite-objectstack-client-dist.ts';
+import { resolveClientDistInjection, widenVendorChunkTestForClient } from '../../scripts/vite-objectstack-client-dist.ts';
 import { formatConditionReport, resolveSpecDistInjection } from '../../scripts/vite-objectstack-spec-dist.ts';
 import { viteIneffectiveDynamicImports } from '../../scripts/vite-ineffective-dynamic-imports.ts';
 import { viteDeclaredLazyViews } from '../../scripts/vite-declared-lazy-views.ts';
@@ -667,15 +667,24 @@ if (clientDistInjection) workspaceAliases['@objectstack/client'] = clientDistInj
 const clientFsAllow: string[] = clientDistInjection ? clientDistInjection.fsAllow : [];
 
 // Deps pre-bundled for the dev server. Build-time pre-bundling was removed in
-// Vite 5.1, so this list is read by `pnpm dev` only, never by `vite build`.
+// Vite 5.1, so this list is read by `pnpm dev` only, never by `vite build` —
+// which is why no build or E2E job can see a bad entry here.
+//
+// Vite resolves every entry from THIS directory (the dev root), under the dev
+// conditions, before the server listens (objectui#10865). An entry naming a
+// subpath the installed package does not export aborts the start: a bare
+// `react-map-gl` did, since react-map-gl 8 exports no `.`. An entry naming a
+// package this app does not depend on is skipped with a warning and pre-bundles
+// nothing: `maplibre-gl` was one, and needs no entry of its own, because the
+// `react-map-gl/maplibre` pre-bundle already carries it. The console-config
+// cases in `scripts/__tests__/vite-objectstack-spec-dist.test.ts` resolve every
+// entry the way the dev server does.
 const OPTIMIZE_DEPS_INCLUDE = [
   '@objectstack/spec',
   '@objectstack/spec/data',
   '@objectstack/spec/system',
   '@objectstack/spec/ui',
-  'react-map-gl',
-  'react-map-gl/maplibre',
-  'maplibre-gl'
+  'react-map-gl/maplibre'
 ];
 
 // Baseline `vendor-objectstack` grouping: the installed spec/client, reached
@@ -767,10 +776,14 @@ const optimizeDepsInclude = specDistInjection
 // stops matching it and the biggest vendor surface in the bundle (spec is
 // imported by 29 packages here) would scatter into its importers' chunks. The
 // injected build should differ from a released one in spec CONTENT, not in
-// chunk layout, so the override's location joins the group's test.
-const vendorObjectstackTest = specDistInjection
-  ? specDistInjection.vendorChunkTest
-  : VENDOR_OBJECTSTACK_TEST;
+// chunk layout, so the override's location joins the group's test. The same
+// holds for an injected CLIENT, and there the layout is not cosmetic: left out
+// of this group it lands in `framework`, closing a framework ↔ data-adapter
+// import cycle that kills the console at boot (see the helper's docblock).
+const vendorObjectstackTest = widenVendorChunkTestForClient(
+  specDistInjection ? specDistInjection.vendorChunkTest : VENDOR_OBJECTSTACK_TEST,
+  clientDistInjection,
+);
 
 // The chunk grouping is not the only consumer of "where does the spec live".
 // `assertLazyLinterStaysLazy`'s counter-probe asks the same question about the
@@ -1059,7 +1072,38 @@ export default defineConfig({
             { name: 'i18n-locale-pt', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]pt\.ts$/, priority: 84 },
             { name: 'i18n-locale-ru', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]ru\.ts$/, priority: 84 },
             { name: 'i18n-locale-ar', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]ar\.ts$/, priority: 84 },
-            { name: 'i18n-runtime', test: /[\\/]packages[\\/]i18n[\\/]/, priority: 83 },
+            //
+            // ⛔ `i18n-runtime` takes `includeDependenciesRecursively: false`
+            // for the reason `data-adapter` below does (objectui#9345, read out
+            // there in full): it outranks `framework` (83 over 80), and since
+            // objectui#10866 `packages/i18n` imports `@object-ui/core` at
+            // runtime (its date helpers read a value through `toDisplayDate`).
+            // With rolldown's default the group followed that import and took
+            // `framework`'s declared members. Measured on the console build of
+            // `8559187c4`, before the flag: 54 of `packages/core`'s 81 modules
+            // and 2 of `packages/types/src` written into `i18n-runtime`, and the
+            // membership half of `scripts/check-eager-closure-budget.mjs` red.
+            // With the flag the group holds what its `test` matches, and that
+            // half is green on the same tree.
+            //
+            // The circular-chunk caveat the `data-adapter` paragraph asks a new
+            // taker to re-check, re-checked on those builds rather than
+            // inherited (historical readings, ⛔ not re-derived by anything):
+            //   - the flag adds no cycle. `framework` and `i18n-runtime` import
+            //     each other with or without it; the cycle came with the new
+            //     import (`@object-ui/react` imports the i18n runtime, which now
+            //     imports `@object-ui/core`), and it is the shape `data-adapter`
+            //     and `framework` already had on `9f0c84a44`, where
+            //     `i18n-runtime` imported no `framework` chunk;
+            //   - the build emits the same chunk population as `9f0c84a44`;
+            //   - the `i18n-runtime` chunk reads its one `framework` binding
+            //     inside a function body, never at module evaluation, and this
+            //     build and the `9f0c84a44` one each loaded the console's sign-in
+            //     page in Chromium with no page error.
+            // ⚠️ That last property is what keeps the cycle harmless, and
+            // nothing re-derives it: a `packages/i18n` module that reads a
+            // `core` value at module scope would need the order re-checked.
+            { name: 'i18n-runtime', test: /[\\/]packages[\\/]i18n[\\/]/, priority: 83, includeDependenciesRecursively: false },
             //
             // ## `includeDependenciesRecursively: false` — the rule that decides
             // ## membership here, named (objectui#9345)

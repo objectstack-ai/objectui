@@ -23,7 +23,7 @@ export const TIMELINE_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'timeline.bucket.later': 'Later',
   'timeline.bucket.noDate': 'No date',
   'timeline.bucket.unassigned': 'Unassigned',
-  // objectui#7874 — the five `timeline.relative.*` rows are retired as residue.
+  // `d9580f464` — the five `timeline.relative.*` rows are retired as residue.
   // They had no `en` leaf and no call site anywhere in the tree, so `fallbackT`
   // could never be asked for one: they rendered for nobody. Day-granularity
   // relative phrases are produced by `formatRelativeDate` (`@object-ui/core`)

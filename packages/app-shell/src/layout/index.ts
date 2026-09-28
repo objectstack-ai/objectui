@@ -2,6 +2,7 @@ export { ConsoleLayout } from './ConsoleLayout.js';
 export { ConsoleNotificationBanners } from './ConsoleNotificationBanners.js';
 export { ImpersonationBanner } from './ImpersonationBanner.js';
 export { ReadRateBanner, type ReadRateBannerProps } from './ReadRateBanner.js';
+export { StorageUsageBanner, type StorageUsageBannerProps } from './StorageUsageBanner.js';
 export { AppHeader } from './AppHeader.js';
 export { UnifiedSidebar } from './UnifiedSidebar.js';
 export { AppSwitcher } from './AppSwitcher.js';

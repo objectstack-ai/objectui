@@ -7,7 +7,7 @@
  */
 
 import * as React from 'react';
-import { ComponentRegistry, toDomProps } from '@object-ui/core';
+import { ComponentRegistry, isRealCalendarDate, toDateInputValue, toDisplayDate, toDomProps } from '@object-ui/core';
 import type { TimelineRenderSchema } from './renderHandoff';
 import {
   Timeline,
@@ -74,6 +74,38 @@ export function resolveTimelineScale(schema: { scale?: unknown }): string {
 }
 
 /**
+ * THE ONE READ of a gantt date: every stop on the gantt branch takes it — the
+ * validity gate, the computed extent, the min-over-max guard, the axis headers
+ * and the bar geometry (objectui#10866, slice 3).
+ *
+ * A string goes through the shared step, `toDisplayDate` (`@object-ui/core`,
+ * the objectui#10183 convention), which the bar tooltip's `formatDate` already
+ * takes: a date-only `2026-10-05` is local midnight of the day it names, and a
+ * value with a time part keeps its instant. The engine's own parse read the
+ * date-only value as UTC midnight, and the headers walk and print with LOCAL
+ * setters and getters, so west of UTC the axis read the day before while the
+ * tooltip under it named the stored day. A day its month does not have
+ * (`2026-02-30`) is refused here as the shared step refuses it (objectui#10026),
+ * where the engine rolled it into March.
+ *
+ * A number (epoch milliseconds) or a `Date` is an instant and is read by
+ * `new Date(value)` exactly as before. For a `Date` that is a fresh copy built
+ * from its own time slot, so no method the authored object carries is called
+ * afterwards; `toDisplayDate` would hand the object itself back, and the
+ * gate's `getTime()` would then be the object's own (objectui#7027, `isDate`
+ * below).
+ *
+ * ⛔ The stops must all read through here. They are one invariant read from
+ * several ends: a date the gate lets through must be one the extent can
+ * reduce, and a range the guard calls ordered must be one the headers can
+ * walk. A stop that kept the engine parse would disagree with the others by
+ * the viewer's UTC offset.
+ */
+function readGanttDate(value: string | number | Date): Date {
+  return typeof value === 'string' ? toDisplayDate(value) : new Date(value);
+}
+
+/**
  * Gantt header labels for one scale across [minDate, maxDate]. Every spec
  * scale produces a non-empty header row — `hour` / `quarter` / `year` used to
  * fall through the month/week/day chain and return `[]`, blanking the axis
@@ -131,6 +163,14 @@ export function resolveTimelineScale(schema: { scale?: unknown }): string {
  * it is the reason the caller's guard is allowed to be the only one: an axis
  * that silently drew nothing is what let the row loop below it keep running, so
  * the two guards are one invariant read from both ends, not a duplicate.
+ *
+ * ## The two ends are read as days (objectui#10866, slice 3)
+ *
+ * Both ends are read by `readGanttDate`, so a date-only end is local midnight
+ * of the day it names and the walk below, which moves and prints with LOCAL
+ * setters and getters, starts on that day in every zone. A value with a time
+ * part keeps its instant, and the walk starts at that instant's local time, as
+ * it always did.
  */
 export function generateTimeScaleHeaders(
   scale: string,
@@ -140,8 +180,8 @@ export function generateTimeScaleHeaders(
   t: TimelineTranslate = translateTimelineDefault,
 ): string[] {
   const headers: string[] = [];
-  const start = new Date(minDate);
-  const end = new Date(maxDate);
+  const start = readGanttDate(minDate);
+  const end = readGanttDate(maxDate);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return headers;
   const current = new Date(start);
   switch (scale) {
@@ -225,6 +265,13 @@ export function generateTimeScaleHeaders(
  * on every scale, so the axis is valid and non-empty, and the grid below it has
  * zero rows.
  *
+ * "Today" is the VIEWER's calendar day, printed from local getters, because
+ * the axis reads this `YYYY-MM-DD` as local midnight of that day
+ * (`readGanttDate`). It used to be the UTC day, `toISOString()`'s date part,
+ * which is tomorrow for a viewer west of UTC in the evening and yesterday for
+ * one east of UTC after midnight (objectui#10866, slice 3). The object
+ * timeline's "Today" bucket is the same local day.
+ *
  * ## What this deliberately does NOT do
  *
  * It does not reach the caller when the author pinned a range. The gantt branch
@@ -234,7 +281,7 @@ export function generateTimeScaleHeaders(
  * `./__tests__/timeline-gantt-empty-items.test.tsx`.
  */
 function emptyGanttDateRange(): { minDate: string; maxDate: string } {
-  const today = new Date().toISOString().split('T')[0];
+  const today = toDateInputValue(new Date());
   return { minDate: today, maxDate: today };
 }
 
@@ -411,12 +458,19 @@ function calculateDateRange(rows: readonly GanttRow[]): { minDate: string; maxDa
   // sentinel substituted for a value the author got wrong is the consumer-side
   // tolerance both #6750 and #6759 rejected — see `findUnusableGanttDate`.
 
-  const minTimestamp = Math.min(...allDates.map((d: string) => new Date(d).getTime()));
-  const maxTimestamp = Math.max(...allDates.map((d: string) => new Date(d).getTime()));
+  // objectui#10866, slice 3 — each date is read by `readGanttDate`, the read
+  // the gate above already made, and each end is printed as the VIEWER's
+  // calendar day, from local getters (`toDateInputValue` of a `Date`), because
+  // the headers and the bar geometry read it back as local midnight of that
+  // day. `toISOString()`'s date part named the UTC day: of a date-only value
+  // read as local midnight, that is the day before east of UTC, and of an
+  // instant it can be a day the viewer's axis does not start on.
+  const minTimestamp = Math.min(...allDates.map((d) => readGanttDate(d).getTime()));
+  const maxTimestamp = Math.max(...allDates.map((d) => readGanttDate(d).getTime()));
 
   return {
-    minDate: new Date(minTimestamp).toISOString().split('T')[0],
-    maxDate: new Date(maxTimestamp).toISOString().split('T')[0],
+    minDate: toDateInputValue(new Date(minTimestamp)),
+    maxDate: toDateInputValue(new Date(maxTimestamp)),
   };
 }
 
@@ -443,7 +497,7 @@ function calculateDateRange(rows: readonly GanttRow[]): { minDate: string; maxDa
  * reached `Date.prototype[Symbol.toPrimitive]`, reached
  * `Date.prototype.toString` on a receiver with no slot, and took the render
  * down with it. That is a blank screen where a named diagnostic belongs, which
- * is the exact failure mode #6781 put the type gate here to remove and #6907
+ * is the exact failure mode #6781 put the type gate here to remove and `7fc5c3c12`
  * removed one function downstream.
  *
  * `instanceof` is not even total on its own terms: it walks
@@ -455,7 +509,7 @@ function calculateDateRange(rows: readonly GanttRow[]): { minDate: string; maxDa
  * - `Object.prototype.toString.call(value) === '[object Date]'` performs
  *   `Get(O, @@toStringTag)` UNCONDITIONALLY (ES2015 19.1.3.6 step 16), even
  *   once the builtin tag is decided. A `@@toStringTag` getter that throws is
- *   an authored value, and #6907 measured that exact input crashing the
+ *   an authored value, and `7fc5c3c12` measured that exact input crashing the
  *   speller. It trades an impostor crash for a getter crash.
  * - `Number.isFinite(value.getTime())` calls the AUTHOR'S `getTime`. A
  *   `class X extends Date` that overrides it is a REAL Date — `super()` gave
@@ -492,7 +546,7 @@ const isDate = (value: unknown): value is Date => {
 
 /**
  * How a gantt date value is SPELLED inside a diagnostic (objectui#6759,
- * ruled into a rule by objectui#6907).
+ * ruled into a rule by `7fc5c3c12`).
  *
  * ## THE RULE
  *
@@ -512,7 +566,7 @@ const isDate = (value: unknown): value is Date => {
  * ## Why the old `String` fallback had to go — three faults, all measured
  *
  * The fallback was written by #6759 when nothing but `[object Object]`-shaped
- * values could reach it. #6905 (the #6781 type rule) routes the whole
+ * values could reach it. `85f6a6097` (the #6781 type rule) routes the whole
  * non-date type space through it. Measured on this card's base b458300ca, one
  * row item and a throwaway probe (`startDate: '2024-01-01'`, `endDate` varied):
  *
@@ -539,7 +593,7 @@ const isDate = (value: unknown): value is Date => {
  *    no hint that the wrapper is the fault.
  * 3. It THROWS. The last three rows are live crashes on `main`, and they are
  *    the reason this is not a cosmetic card. #6759 declared this helper "total
- *    by construction" and #6905 made that property load-bearing by putting the
+ *    by construction" and `85f6a6097` made that property load-bearing by putting the
  *    type gate BEFORE `new Date`. But the gate only stopped `new Date` from
  *    throwing; `String(value)` still handed control to author code one line
  *    later, so the crash class did not go away — it moved from
@@ -581,7 +635,7 @@ const isDate = (value: unknown): value is Date => {
  * - `undefined` / `null` -> themselves (#6759 / #6770's pins; how an author
  *   reads a key they forgot to write versus one they wrote as empty).
  * - `symbol` -> `Symbol(desc)` via `Symbol.prototype.toString`, which no
- *   instance can override. `String(aSymbol)` THROWS; #6905's type-first
+ *   instance can override. `String(aSymbol)` THROWS; `85f6a6097`'s type-first
  *   ordering is what finally made this branch reachable.
  * - `bigint` -> the LITERAL, with its `n`. `String(0n)` is `"0"`, which is
  *   fault 2; `${value}n` is what the author typed and is unmistakable.
@@ -606,7 +660,7 @@ const isDate = (value: unknown): value is Date => {
  *   more informative spelling is the non-total one. `Array.isArray` reads no
  *   property and is STILL not total — on a revoked `Proxy` it throws. That is
  *   the one exclusion this docblock claims, and it is stated and exercised
- *   rather than repaired: see the objectui#7036 note below.
+ *   rather than repaired: see the `869b876c8` note below.
  *
  * All eight `typeof` results are covered and no branch falls through to author
  * code. The single reflective operation it performs is the Date test, which is
@@ -622,9 +676,9 @@ const isDate = (value: unknown): value is Date => {
  * operation adds no throw site because it HAS none — not because the gate
  * absorbed it first.
  *
- * ⚠️ objectui#7036 — READ THE TWO PARAGRAPHS ABOVE AS A SEQUENCE, NOT AS A
+ * ⚠️ `869b876c8` — READ THE TWO PARAGRAPHS ABOVE AS A SEQUENCE, NOT AS A
  * CONCLUSION. Each was written as the settled answer and the next card's
- * measurement moved it (#6759 -> #6905 -> #6907 -> #7027). This is the fifth
+ * measurement moved it (#6759 -> `85f6a6097` -> `7fc5c3c12` -> #7027). This is the fifth
  * entry and it is deliberately NOT a fifth claim of totality. The sentence it
  * falsifies is the one directly above the #7027 note: this function DOES add
  * a throw site the accept gate does not have, and it is `Array.isArray`.
@@ -938,7 +992,7 @@ type UnusableGanttDate = { path: string; value: unknown };
  * `timeline-gantt-date-brand-7027.test.tsx`.
  *
  * ⛔ That is the fourth totality claim in this code path and the third to be
- * falsified by the next card's measurement (#6759 -> #6905 -> #6907 -> this).
+ * falsified by the next card's measurement (#6759 -> `85f6a6097` -> `7fc5c3c12` -> this).
  * The pattern is the lesson: totality asserted in prose is a hypothesis, and
  * the only thing that has ever settled it here is an exercised input set. Do
  * not answer a future gap with a fifth sentence — add the row to that file.
@@ -957,12 +1011,12 @@ const isGanttDateType = (value: unknown): value is string | number | Date =>
 
 /**
  * WHAT THE ROW WALK BELOW READS, AND WHERE THAT READING IS NOT TOTAL —
- * objectui#7153, the enumeration objectui#7036's docblock pointed at.
+ * objectui#7153, the enumeration `869b876c8`'s docblock pointed at.
  *
  * ## Read this as a BOUNDED READING, not as a totality claim
  *
  * Five cards before this one made a totality claim about this code path
- * (#6759 -> #6905 -> #6907 -> #7027 -> #7036) and FOUR were falsified by the
+ * (#6759 -> `85f6a6097` -> `7fc5c3c12` -> #7027 -> `869b876c8`) and FOUR were falsified by the
  * next card's measurement. #7153 is the fourth falsification: it measured that
  * `spellGanttDateValue`'s `Array.isArray` is not "the last non-total operation
  * on the gantt date path", only the last one inside that function.
@@ -991,7 +1045,7 @@ const isGanttDateType = (value: unknown): value is string | number | Date =>
  *                                           the item has a throwing date getter
  *
  * SIX here, and THREE more in `calculateDateRange` (see that function). NINE
- * measured, where #7153's card said five and #7036's docblock repeated it. The
+ * measured, where #7153's card said five and `869b876c8`'s docblock repeated it. The
  * count was never the point, but it is the evidence that prose counting on
  * this path is a hypothesis: both numbers were written after a real
  * measurement, and both were short.
@@ -1034,9 +1088,9 @@ const isGanttDateType = (value: unknown): value is string | number | Date =>
  *    true of the six and was false of the three, and collapsing the two is how
  *    this docblock would start overclaiming again.
  *
- * ## WHY A `catch` IS NOT PUT HERE — re-tested, not inherited from #7036
+ * ## WHY A `catch` IS NOT PUT HERE — re-tested, not inherited from `869b876c8`
  *
- * #7036 refused a `catch` at the speller because it would SUBSTITUTE `an
+ * `869b876c8` refused a `catch` at the speller because it would SUBSTITUTE `an
  * object` for a failure rather than read anything, the opposite of `isDate`'s
  * `catch` (which IS the read, because the language exposes `[[DateValue]]`
  * only by throwing). #7153's dispatch required that argument to be re-tested
@@ -1055,18 +1109,18 @@ const isGanttDateType = (value: unknown): value is string | number | Date =>
  * in the `{value}` hole of `timeline.gantt.unusableRange.malformedDate`. There
  * is no true spelling for a value that cannot be touched, so a real repair
  * needs a value-less diagnostic, which is a new i18n key across ten locale
- * packs: the file surface #7036 deferred as a separate decision.
+ * packs: the file surface the card behind `869b876c8` deferred as a separate decision.
  *
- * And the coverage is the same shape of error #7036's triage caught. That
+ * And the coverage is the same shape of error the triage of the card behind `869b876c8` caught. That
  * `catch` converted THREE of the nine measured sites (U5, U6, and the
  * throwing-getter item) and left the other six throwing — U1 through U4 are
  * upstream of it, and `calculateDateRange`'s three are downstream. The PASSING
  * control held either way: an ordinary row drew 1 bar over a 3-cell axis
  * before and after. One `catch` here would buy 3 of 9 while a docblock went on
- * implying the walk was safe, which is exactly the "1 of 6" trade #7036 was
- * stopped from making.
+ * implying the walk was safe, which is exactly the "1 of 6" trade the card behind
+ * `869b876c8` was stopped from making.
  *
- * ## So this is STATED AND EXERCISED, on #7036's terms
+ * ## So this is STATED AND EXERCISED, on `869b876c8`'s terms
  *
  * The rows are in `./__tests__/timeline-gantt-date-brand-7027.test.tsx`, pin
  * 5, asserting each throw's own MESSAGE so the pin fails if a site MOVES as
@@ -1088,14 +1142,18 @@ function findUnusableGanttDate(
    *    `new Date` would otherwise coerce into a silent 1970 axis.
    * 2. It is the right TYPE but does not parse — #6759's original question,
    *    still asked, and still the only thing that separates `'2024-01-01'` from
-   *    `'not-a-date'` or a valid `Date` from `new Date(NaN)`.
+   *    `'not-a-date'` or a valid `Date` from `new Date(NaN)`. It is asked of
+   *    `readGanttDate`, the read every later stop makes, so a day its month
+   *    does not have (`'2026-02-30'`) is refused here too (objectui#10866,
+   *    slice 3): the shared step refuses it, where the engine rolled it into
+   *    March and drew the bar there.
    *
    * The type gate must come first: `new Date` THROWS on a `bigint` or a
    * `symbol`, so asking "does it parse?" of an unjudged value crashes the guard
    * (measured — see `isGanttDateType`).
    */
   const isUnusable = (value: unknown) =>
-    !isGanttDateType(value) || Number.isNaN(new Date(value).getTime());
+    !isGanttDateType(value) || Number.isNaN(readGanttDate(value).getTime());
 
   for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
     // `rows` is the normalized array `classifyGanttRows` built, so this loop
@@ -1123,17 +1181,28 @@ function findUnusableGanttDate(
   return undefined;
 }
 
-// Helper function to calculate bar position and width based on dates
+/**
+ * A bar's position and width, as percentages of the axis [minDate, maxDate].
+ *
+ * All four ends are read by `readGanttDate` (objectui#10866, slice 3), the
+ * read the headers above the bars make: a date-only day is local midnight of
+ * that day, so a bar starting on October 6th sits under the "Oct 6" header in
+ * every zone, and an instant keeps its instant, so it sits at its local hour
+ * in the viewer's day. Across a DST change two local midnights are 23 or 25
+ * hours apart, so a bar's edge can sit up to an hour's share of the axis off
+ * the header column's edge; the header columns are equal widths and were
+ * never an exact scale.
+ */
 function calculateBarDimensions(
   startDate: string,
   endDate: string,
   minDate: string,
   maxDate: string
 ): { start: number; width: number } {
-  const start = new Date(startDate).getTime();
-  const end = new Date(endDate).getTime();
-  const min = new Date(minDate).getTime();
-  const max = new Date(maxDate).getTime();
+  const start = readGanttDate(startDate).getTime();
+  const end = readGanttDate(endDate).getTime();
+  const min = readGanttDate(minDate).getTime();
+  const max = readGanttDate(maxDate).getTime();
 
   const totalDuration = max - min;
   const startOffset = start - min;
@@ -1179,9 +1248,21 @@ function calculateBarDimensions(
  * nothing to do with the user — while `'long'` passed a literal `'en-US'`. A
  * required parameter is what keeps a future branch from quietly reintroducing
  * either. `'iso'` is a machine format by definition and stays locale-free.
+ *
+ * The value is read through the shared step, `toDisplayDate`
+ * (`@object-ui/core`, objectui#10866), as `ObjectTimeline`'s bucket and sort
+ * read it. The engine's own parse read a date-only `2026-10-06` as UTC
+ * midnight, so the `short` and `long` faces printed October 5th west of UTC.
+ * The shared step tells the two shapes apart by the value: a date-only string
+ * is local midnight of the day it names, and a value with a time part keeps
+ * its instant. So the ISO face prints a date-only value from LOCAL getters
+ * (its `toISOString()` would name the day before east of UTC), and keeps an
+ * instant's UTC day. A value the shared step refuses (unparsable, or a day
+ * its month does not have, objectui#10026) prints as written on the ISO face,
+ * where `toISOString()` would throw.
  */
 function formatDate(dateString: string, format: string | undefined, locale: string): string {
-  const date = new Date(dateString);
+  const date = toDisplayDate(dateString);
   if (format === 'short') {
     return date.toLocaleDateString(locale);
   }
@@ -1192,6 +1273,8 @@ function formatDate(dateString: string, format: string | undefined, locale: stri
       day: 'numeric',
     });
   }
+  if (Number.isNaN(date.getTime())) return String(dateString);
+  if (isRealCalendarDate(dateString)) return toDateInputValue(date);
   return date.toISOString().split('T')[0];
 }
 
@@ -1540,8 +1623,13 @@ export const TimelineRenderer = ({ schema, className, style, ...hostProps }: { s
        *
        *     CASE-2 minDate 2030-01-01 / maxDate 2026-03-15
        *            -> axis: [] bars: ["left: 157.9250720461095%; width: -4.322766570605188%;"]
+       *
+       * Both ends are read by `readGanttDate`, as the headers read them
+       * (objectui#10866, slice 3), so the two tests stay one test: a pinned
+       * date-only start and a pinned instant end can be in order east of UTC
+       * and inverted west of it, and both readers must agree on which.
        */
-      if (new Date(minDate).getTime() > new Date(maxDate).getTime()) {
+      if (readGanttDate(minDate).getTime() > readGanttDate(maxDate).getTime()) {
         return (
           <div className="p-4 text-destructive" data-testid="timeline-unusable-date-range" role="alert">
             {t('timeline.gantt.unusableRange.inverted', {

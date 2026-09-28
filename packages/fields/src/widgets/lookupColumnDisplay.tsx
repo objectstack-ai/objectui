@@ -225,8 +225,8 @@ export function renderLookupColumnValue(
     if (val.$numberDecimal) return String(Number(val.$numberDecimal));
     if (val.$oid) return String(val.$oid);
     // `formatDate`'s DEFAULT style — the one home for the `date` display
-    // convention (objectui#8194, following the maintainer's ruling A on
-    // objectui#7620). This fallback used to call `toLocaleDateString` with NO
+    // convention (objectui#8194, following the maintainer's ruling A behind
+    // `c15d7eca6`). This fallback used to call `toLocaleDateString` with NO
     // options bag, i.e. `Intl`'s numeric default (`7/4/2026`), which made the
     // split visible INSIDE this one function: a column that HAS a descriptor
     // goes through `cellRenderer` above -> `DateCellRenderer` -> `formatDate`

@@ -11,7 +11,7 @@
  *
  * Multi-step wizard for creating applications following the Airtable
  * Interface Designer UX pattern. Steps:
- * 1. Basic Info (name, title, description, icon, template, layout)
+ * 1. Basic Info (name, title, description, icon, template)
  * 2. Object Selection (select business objects to include)
  * 3. Navigation Builder (build navigation tree from selected objects)
  * 4. Branding (logo, primary color, favicon)
@@ -34,9 +34,6 @@ import {
   ChevronDown,
   Search,
   Trash2,
-  Layout,
-  PanelLeft,
-  LayoutTemplate,
   FolderOpen,
   Link,
   Minus,
@@ -88,7 +85,6 @@ const DEFAULT_DRAFT: AppWizardDraft = {
   description: '',
   icon: '',
   template: '',
-  layout: 'sidebar',
   objects: [],
   navigation: [],
   branding: {
@@ -114,6 +110,78 @@ function generateNavFromObjects(objects: ObjectSelection[]): NavigationItem[] {
       icon: o.icon,
       objectName: o.name,
     }));
+}
+
+/**
+ * The objects a navigation tree has an object entry for, wherever the entry
+ * sits: at the top level or inside a group (objectui#10894).
+ */
+export function navObjectNames(items: readonly NavigationItem[]): Set<string> {
+  const names = new Set<string>();
+  const walk = (list: readonly NavigationItem[]) => {
+    for (const item of list) {
+      if (item.type === 'object' && item.objectName) names.add(item.objectName);
+      else if (item.type === 'group' && item.children) walk(item.children);
+    }
+  };
+  walk(items);
+  return names;
+}
+
+/**
+ * `items` without the object entries of a `deselected` object, top level and
+ * inside groups. A group keeps its place and its other children, even when
+ * that leaves it with none. Returns `items` itself when nothing was dropped.
+ */
+function dropDeselectedObjectEntries(
+  items: NavigationItem[],
+  deselected: ReadonlySet<string>,
+): NavigationItem[] {
+  let changed = false;
+  const kept: NavigationItem[] = [];
+  for (const item of items) {
+    if (item.type === 'object' && item.objectName && deselected.has(item.objectName)) {
+      changed = true;
+      continue;
+    }
+    if (item.type === 'group' && item.children) {
+      const children = dropDeselectedObjectEntries(item.children, deselected);
+      if (children !== item.children) {
+        changed = true;
+        kept.push({ ...item, children });
+        continue;
+      }
+    }
+    kept.push(item);
+  }
+  return changed ? kept : items;
+}
+
+/**
+ * The navigation the wizard carries out of the Objects step (objectui#10894).
+ *
+ * It never replaces what the draft holds. An EMPTY navigation (the create
+ * path) is filled with one object entry per selected object. A non-empty one
+ * (an edit, or a create the author already shaped) is merged:
+ * - the object entries of an object the Objects step lists as deselected are
+ *   dropped, wherever they sit;
+ * - a selected object with no object entry anywhere in the tree gets one,
+ *   appended at the end;
+ * - every other entry is kept as it is, in its position: separators, groups
+ *   and their children, `url` / `dashboard` / `page` / `report` /
+ *   `component` / `action` entries, each object entry's authored label, icon
+ *   and order, and an object entry for an object the Objects step does not
+ *   list (nothing deselected it).
+ */
+function mergeNavWithObjects(
+  navigation: NavigationItem[],
+  objects: ObjectSelection[],
+): NavigationItem[] {
+  const deselected = new Set(objects.filter((o) => !o.selected).map((o) => o.name));
+  const kept = dropDeselectedObjectEntries(navigation, deselected);
+  const present = navObjectNames(kept);
+  const added = generateNavFromObjects(objects.filter((o) => !present.has(o.name)));
+  return added.length === 0 ? kept : [...kept, ...added];
 }
 
 let navItemCounter = 0;
@@ -310,42 +378,6 @@ function BasicInfoStep({ draft, templates, readOnly, onChange, t }: BasicInfoSte
           </select>
         </div>
       )}
-
-      {/* Layout */}
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-gray-700">{t('appDesigner.layout')}</legend>
-        <div className="flex gap-3">
-          {([
-            { value: 'sidebar', labelKey: 'appDesigner.layoutSidebar', Icon: PanelLeft },
-            { value: 'header', labelKey: 'appDesigner.layoutHeader', Icon: Layout },
-            { value: 'empty', labelKey: 'appDesigner.layoutEmpty', Icon: LayoutTemplate },
-          ] as const).map(({ value, labelKey, Icon }) => (
-            <label
-              key={value}
-              data-testid={`app-layout-${value}`}
-              className={cn(
-                'flex flex-1 cursor-pointer flex-col items-center gap-1.5 rounded-lg border-2 p-3 transition-colors',
-                draft.layout === value
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:border-gray-300',
-                readOnly && 'pointer-events-none opacity-60'
-              )}
-            >
-              <Icon className="h-5 w-5 text-gray-600" />
-              <span className="text-xs font-medium text-gray-700">{t(labelKey)}</span>
-              <input
-                type="radio"
-                name="layout"
-                value={value}
-                checked={draft.layout === value}
-                onChange={() => onChange({ layout: value })}
-                disabled={readOnly}
-                className="sr-only"
-              />
-            </label>
-          ))}
-        </div>
-      </fieldset>
     </div>
   );
 }
@@ -786,13 +818,14 @@ export function AppCreationWizard({
   }, []);
 
   const addNavItem = useCallback((type: 'group' | 'url' | 'separator') => {
-    const newItem: NavigationItem = {
-      id: createNavId(type),
-      type,
-      label: type === 'separator' ? '' : type === 'group' ? 'New Group' : 'New Link',
-      ...(type === 'group' ? { children: [] } : {}),
-      ...(type === 'url' ? { url: '' } : {}),
-    };
+    // A separator carries only `type` and `id`: the spec's separator branch
+    // declares no `label`, and the save door refuses one (objectui#10867).
+    const newItem: NavigationItem =
+      type === 'separator'
+        ? { id: createNavId(type), type }
+        : type === 'group'
+          ? { id: createNavId(type), type, label: 'New Group', children: [] }
+          : { id: createNavId(type), type, label: 'New Link', url: '' };
     setDraft((prev) => ({
       ...prev,
       navigation: [...prev.navigation, newItem],
@@ -820,11 +853,12 @@ export function AppCreationWizard({
 
   const handleNext = useCallback(() => {
     if (isLastStep) return;
-    // Auto-generate navigation when moving from objects → navigation
+    // Leaving objects → navigation: fill an empty navigation from the selected
+    // objects, or merge the selection into the one the draft holds.
     if (currentStep === 1) {
       setDraft((prev) => ({
         ...prev,
-        navigation: generateNavFromObjects(prev.objects),
+        navigation: mergeNavWithObjects(prev.navigation, prev.objects),
       }));
     }
     setCurrentStep((s) => s + 1);
@@ -863,11 +897,11 @@ export function AppCreationWizard({
       if (index <= currentStep) {
         setCurrentStep(index);
       } else if (index === currentStep + 1 && canProceed) {
-        // Auto-generate navigation when jumping from objects → navigation
+        // Jumping objects → navigation: the same fill-or-merge as `handleNext`.
         if (currentStep === 1 && index === 2) {
           setDraft((prev) => ({
             ...prev,
-            navigation: generateNavFromObjects(prev.objects),
+            navigation: mergeNavWithObjects(prev.navigation, prev.objects),
           }));
         }
         setCurrentStep(index);

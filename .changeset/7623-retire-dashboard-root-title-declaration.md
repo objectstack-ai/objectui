@@ -3,7 +3,7 @@
 ---
 
 **Published TS surface narrowed:** `DashboardComponentSchema` no longer declares the
-dashboard-root `title` member (objectui#7623).
+dashboard-root `title` member.
 
 Its doc comment said "Dashboard title displayed in the header", and that stopped being
 true one release earlier: objectui#7509 retired all five dashboard-root `title` read

@@ -418,7 +418,13 @@ const schema: ObjectViewSchema = {
 
 Without an `onNavigate` handler, `page` mode has nowhere to send the user, so
 keep the two together. `navigation: { mode: 'none' }` (or `preventNavigation`)
-makes rows inert.
+makes rows inert. An active named view (`listViews`, under Read/List) that
+declares its own `navigation` replaces this one, as a whole, while it is shown.
+Under `split` or `popover`, which open only beside a record the user picked, the
+New button's create form opens on the `layout` surface instead: the modal for
+`layout: 'modal'`, the drawer otherwise, whether the mode is this node's or an
+active named view's. A `page` layout with `onNavigate` still hands New to your
+router.
 
 With no host `onRowClick`, a Cmd/Ctrl-click or middle-click on a row opens the
 record as a full page in a new browser tab. Inert rows stay inert: `mode: 'none'`,
@@ -496,6 +502,47 @@ const schema: ObjectViewSchema = {
   defaultListView: 'all',
 };
 ```
+
+**On the registered renderer.** An authored `object-view` node, and the Studio's
+view preview, draws a grid named view through `ObjectGrid`. Ten grid members the
+protocol declares under the same name on a named view and on `object-grid` —
+`pagination`, `selection`, `rowHeight`, `resizable`, `searchableFields`,
+`conditionalFormatting`, `rowActions`, `bulkActions`, `bulkActionDefs` and
+`exportOptions` — come from the active named view first; `pagination` and
+`selection` still fall back to `table` (objectui#10885). A named view's
+`hiddenFields` removes those fields from the columns the grid draws, when a
+column list is declared, and its `fieldOrder` then orders the columns that
+remain, the way `ListView` orders them on a host's `renderListView`. Its
+`inlineEdit` turns on in-cell editing, and only where the object grants inline
+edit to the user. Its `navigation` replaces the node's `navigation` as a whole:
+the row click, and the surface and width of the record, create and edit forms,
+follow the active named view, on this path, and on a host's `renderListView`
+when the host wires the `onRowClick` it is handed and passes `ObjectView` no
+`onRowClick` of its own. Under a named `split` or `popover`, the create form
+opens on the `layout` surface, as under Opening a record. `label` and `data`,
+also declared on both, are not
+handed to the grid on this path: the named view's `label` is already the tab's
+text, and `data` waits on objectui#10971, because `ListView` and `ObjectGrid`
+pick different objects for it.
+`src/__tests__/ObjectView.routeTwoNamedGridMembers-10885.test.tsx` pins the ten
+grid members and `hiddenFields`; `ObjectView.namedViewNavigation-10885.test.tsx`
+and `ObjectView.namedViewInlineEdit-10885.test.tsx` pin `navigation` and
+`inlineEdit`, and `@object-ui/app-shell`'s
+`objectViewRouteParity.fieldOrder-10885.test.tsx` pins `fieldOrder` against
+`ListView`.
+
+**On a host's `renderListView`.** A host that composes `ObjectView` with both
+`listViews` and its own `renderListView` receives a `list-view` node for the
+active view. For the list members the protocol declares on a named view — list
+chrome (`description`, `compactToolbar`, `allowPrinting`, `showRecordCount`,
+`sharing`, `aria`, `emptyState`), record actions (`addRecord`, `inlineEdit`,
+`rowActions`, `bulkActions`, `bulkActionDefs`, `exportOptions`), grid
+presentation (`rowHeight`, `pagination`, `selection`, `resizable`,
+`hiddenFields`, `conditionalFormatting`), and search, filter and navigation
+(`searchableFields`, `filterableFields`, `userFilters`, `navigation`) — that
+node takes the value from the active named view first, ahead of the host's
+`views` entry (objectui#10758).
+`src/__tests__/ObjectView.namedViewProtocolKeys-8980.test.tsx` pins each family.
 
 ### Update
 

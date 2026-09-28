@@ -142,7 +142,7 @@ ComponentRegistry.register('flex',
       // eight lines from the top of this file never applies (`schema.align ||
       // 'start'`). A designer-made node therefore laid out differently from a
       // hand-authored one that simply omitted the key: one component, two
-      // answers (objectui#8229, folded into objectui#7735's ruling).
+      // answers (the finding `8b7ea3945` reconciled, folded into objectui#7735's ruling).
       //
       // The renderer fallback is the single authoritative default under that
       // ruling — the zod mirror stopped authoring `align` in the same change,

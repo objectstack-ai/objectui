@@ -202,11 +202,11 @@ function validateComponent(config: unknown) {
 - `InputOTPSchema`, `ComboboxSchema`, `LabelSchema`
 - `CommandSchema`, `FormSchema`
 
-### Data Display Components (14)
+### Data Display Components (15)
 - `AlertSchema`, `BadgeSchema`, `AvatarSchema`
 - `ListSchema`, `TableSchema`, `DataTableSchema`
 - `MarkdownSchema`, `TreeViewSchema`, `ChartSchema`
-- `TimelineSchema`, `BreadcrumbSchema`
+- `TimelineSchema`, `BreadcrumbSchema`, `PivotTableSchema`
 - `KbdSchema`, `HtmlSchema`, `StatisticSchema`
 
 ### Feedback Components (8)
@@ -231,8 +231,26 @@ function validateComponent(config: unknown) {
 - `KanbanSchema`, `CalendarViewSchema`
 - `FilterBuilderSchema`, `CarouselSchema`, `ChatbotSchema`
 
+### ObjectQL Public Blocks (2)
+The ADR-0080 public blocks `object-metric` and `object-master-detail-form`: each arm's `properties` is the block's `@objectstack/spec` `ComponentPropsMap` row, by reference. Neither renderer reads a content channel, so both arms refuse `children` and `body` by name (objectui#9256).
+- `ObjectMetricBlockSchema`, `ObjectMasterDetailFormBlockSchema`
+
 ### AI Components (3)
 - `AIFormAssistSchema`, `AIRecommendationsSchema`, `NLQuerySchema`
+
+### ADR-0080 Public Blocks (21)
+Each arm's `properties` is the block's `@objectstack/spec` `ComponentPropsMap` row, by reference. `ElementNumberBlockSchema` also declares the spec's `dataSource` binding, and mirrors the spec gate's one waiver: its bag may omit `object` when `dataSource.object` names the object.
+Every arm except the four `page:` containers (`page:card`, `page:section`, `page:footer`, `page:sidebar`) refuses `children` and `body` by name, because its renderer reads neither content channel (objectui#9256). Two carve-outs: `record:alert` refuses `children` only, since its `body` is the message text; and `page:tabs` / `page:accordion` refuse the node's own `children` while each item's `children` in `items` stays live.
+- `PageHeaderBlockSchema`, `PageTabsBlockSchema`, `PageCardBlockSchema`, `PageAccordionBlockSchema`
+- `PageSectionBlockSchema`, `PageFooterBlockSchema`, `PageSidebarBlockSchema`
+- `RecordDetailsBlockSchema`, `RecordHighlightsBlockSchema`, `RecordRelatedListBlockSchema`
+- `RecordPathBlockSchema`, `RecordActivityBlockSchema`, `RecordDiscussionBlockSchema`
+- `RecordHistoryBlockSchema`, `RecordQuickActionsBlockSchema`, `RecordReferenceRailBlockSchema`
+- `RecordAlertBlockSchema`, `ElementTextBlockSchema`, `ElementNumberBlockSchema`, `ElementButtonBlockSchema`, `ElementDividerBlockSchema`
+
+### Cloud Widgets (1)
+`@object-ui/app-shell`'s `cloud:` SDUI widgets. `@objectstack/spec` has no `ComponentPropsMap` row for them, so each arm is declared here from the keys its widget reads.
+- `CloudPlanStatusSchema` — `cloud:plan-status`, the pricing page's "current plan" marker: `properties` must be exactly `{ plan }`, a non-empty plan code.
 
 ## Schema Structure
 

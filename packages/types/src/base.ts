@@ -347,7 +347,7 @@ export interface BaseSchema {
    * When false, the component is NOT RENDERED: `SchemaRenderer` returns `null`
    * for the node. Nothing emits `display: none` — the element never reaches the
    * DOM at all, and `hidden: true` one slot below takes this exact same path
-   * (objectui#7088).
+   * (`c1fe272ad`).
    *
    * Accepts a PREDICATE STRING as well as a boolean (objectui#4581): the
    * renderer does not read this key as a boolean, it evaluates it —
@@ -398,7 +398,7 @@ export interface BaseSchema {
    * `visibility: hidden`.
    *
    * ⚠️ `hidden` and `visible` are DELIBERATELY SYNONYMOUS — one hide path, not
-   * two behaviours (objectui#7088, ruled 2026-09-01). This comment used to
+   * two behaviours (`c1fe272ad`, ruled 2026-09-01). This comment used to
    * promise "rendered but not visible (visibility: hidden)", which the renderer
    * has never done: `_hidden` has exactly one consumer, the `return null` in
    * `SchemaRenderer.tsx`, and by the time it is read the key that set it is no

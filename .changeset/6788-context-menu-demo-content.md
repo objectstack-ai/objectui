@@ -18,4 +18,11 @@ dialect, and objectui#6773 authored `children` in the four sibling
 `aspect-ratio` card demos. The renderer was NOT widened to read `content` —
 that would add a second dialect for one slot to a published surface.
 
+⚠️ **Dated note, 2026-09-28 — `card` reads `children` alone — objectui#6771.** Since this
+change, objectui#6771 retired `body` as a child-list spelling: the `children || body` read
+above is now `children` alone, `CardSchema` declares `body` as `never` and its zod mirror
+refuses it by name, and `BaseSchema.body` is `never` rather than a legacy member. So the
+demo's `children` is the one spelling that renders, not the preferred one of two. The rest
+of this entry is kept as the reading of this change.
+
 No package source changed, so this declares no release.

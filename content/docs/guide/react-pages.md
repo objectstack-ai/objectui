@@ -83,6 +83,7 @@ Nothing is imported. These identifiers are injected as closure variables:
 | The public data blocks | Every public non-container block, as a PascalCase tag *on this tier* — but *what resolves* and *what you author against* are two different sets, below. |
 | `Block` | Escape hatch for anything not injected. |
 | `useAdapter` | The live data source — query/create/update. |
+| `useDataInvalidation` | The data-invalidation bus reader: `useDataInvalidation('object')` returns a number that moves when a write to that object is reported. Name it in the dependencies of an effect that reads through `useAdapter` — see *Live data*, below. |
 | `data`, `variables`, `page` | The page's own data, local variables, and schema. |
 
 #### Two tiers: what resolves, and what you author against
@@ -238,19 +239,26 @@ Any registered component, including ones outside the public contract:
 ```jsx
 function Page() {
   const adapter = useAdapter();
+  const changed = useDataInvalidation('showcase_project');
   const [rows, setRows] = React.useState([]);
 
   React.useEffect(() => {
     adapter
       .find('showcase_project', { $filter: ['status', '=', 'open'] })
       .then((res) => setRows(res.data ?? []));
-  }, [adapter]);
+  }, [adapter, changed]);
 
   return <ul>{rows.map((r) => <li key={r._id}>{r.name}</li>)}</ul>;
 }
 ```
 
-Two things in that call are easy to get wrong, and neither one errors:
+`changed` is in the dependency array so the page's own read follows the data:
+the nonce moves each time the data-invalidation bus reports a write to
+`showcase_project` (the same bus `<ListView>` refreshes from), and the effect
+reads again in place, without remounting the page, so the page keeps its own
+state.
+
+Two things in the `find` call are easy to get wrong, and neither one errors:
 
 **The `$` prefixes are load-bearing.** Every query key starts with `$` —
 `$select`, `$filter`, `$orderby`, `$skip`, `$top`, `$expand`, `$search`,

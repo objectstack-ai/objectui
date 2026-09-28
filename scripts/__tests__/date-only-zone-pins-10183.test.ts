@@ -23,8 +23,13 @@ import { fileURLToPath } from 'node:url';
  * primitive's selected date, which the renderer now coerces through the same
  * shared step. objectui#10844, the family's closure card, added the dashboard
  * filter's custom range bounds, the `date-picker` renderer's value and the
- * report cell's date face; a later date-only read site registers here the
- * same way.
+ * report cell's date face. objectui#10866, its successor, added the calendar
+ * and the gantt, whose pins also hold the written payload of a `date` field,
+ * then the timeline, a chart's date axis and `@object-ui/i18n`'s published
+ * date helpers, then the timeline's gantt axis and core's formula date
+ * arithmetic, then the calendar's day moves across a DST change and the pins
+ * for the calendar's end-date write, its no-schema fallback and the gantt's
+ * no-schema path; a later date-only read site registers here the same way.
  *
  * ## Why a driver, and why the forks pool
  *
@@ -74,6 +79,32 @@ const PINS = [
   'packages/plugin-dashboard/src/__tests__/DashboardFilterBar.dateOnlyZone-10844.test.tsx',
   'packages/components/src/renderers/form/__tests__/date-picker.dateValueZone-10844.test.tsx',
   'packages/plugin-report/src/__tests__/formatValue.dateOnlyZone-10844.test.ts',
+  // objectui#10866, the family's successor closure card, slice 1: the
+  // calendar's and the gantt's reads, each with the write of a `date` field
+  // pinned beside it, and the gantt's working-calendar day math.
+  'packages/plugin-calendar/src/__tests__/ObjectCalendar.dateOnlyZone-10866.test.tsx',
+  'packages/plugin-calendar/src/__tests__/calendarViewRenderer.dateOnlyZone-10866.test.tsx',
+  'packages/plugin-gantt/src/__tests__/ObjectGantt.dateOnlyZone-10866.test.tsx',
+  'packages/plugin-gantt/src/__tests__/GanttView.dateOnlyZone-10866.test.tsx',
+  'packages/plugin-gantt/src/__tests__/scheduling.dateOnlyZone-10866.test.ts',
+  // objectui#10866, slice 2: the timeline's date bucket, sort and item date,
+  // the chart's date-only axis tick, and `@object-ui/i18n`'s published date
+  // helpers.
+  'packages/plugin-timeline/src/__tests__/ObjectTimeline.dateOnlyZone-10866.test.tsx',
+  'packages/plugin-timeline/src/__tests__/TimelineRenderer.dateOnlyZone-10866.test.tsx',
+  'packages/plugin-charts/src/__tests__/AdvancedChartImpl.dateOnlyZone-10866.test.tsx',
+  'packages/i18n/src/__tests__/formatting.dateOnlyZone-10866.test.ts',
+  // objectui#10866, slice 3: the timeline renderer's gantt variant (its axis
+  // headers, extent, bar geometry, validity gate, min-over-max guard and the
+  // empty plan's today) and core `FormulaFunctions`' day arithmetic.
+  'packages/plugin-timeline/src/__tests__/TimelineGantt.dateOnlyZone-10866.test.tsx',
+  'packages/core/src/evaluator/__tests__/FormulaFunctions.dateOnlyZone-10866.test.ts',
+  // objectui#10866, slice 4: the calendar's day moves across a DST change,
+  // and the paths slice 1 repaired that no zone pin covered: the calendar's
+  // end-date write and no-schema fallback, and the gantt's no-schema path.
+  'packages/plugin-calendar/src/__tests__/ObjectCalendar.dstDayMove-10866.test.tsx',
+  'packages/plugin-calendar/src/__tests__/ObjectCalendar.endDateNoSchemaZone-10866.test.tsx',
+  'packages/plugin-gantt/src/__tests__/ObjectGantt.noSchemaZone-10866.test.tsx',
 ] as const;
 
 /** The vitest CLI entry, resolved rather than assumed at a `node_modules` path. */

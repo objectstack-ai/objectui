@@ -138,12 +138,12 @@ const ru = {
     printDialogHint: "Открывает диалог печати браузера (это не экспорт в PDF)",
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: "Показаны первые {{shown}} из {{total}} записей. Сузьте фильтр.",
     rowCeilingNoteUnknownTotal: "Показаны первые {{shown}} записей. Сузьте фильтр.",
   },
@@ -158,6 +158,7 @@ const ru = {
       copyAll: 'Копировать всё',
     },
     notAvailableHere: '«{{action}}» недоступно на текущей странице.',
+    completedSuccessfully: 'Действие успешно выполнено',
   },
   validation: {
     required: "Поле {{field}} обязательно для заполнения",
@@ -408,13 +409,15 @@ const ru = {
     yes: "Да",
     no: "Нет",
     systemFields: "Система",
-    // objectui#7189 — partial-grouping disclosure for the grouped grid.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: "Частично",
-      partialNotice:
-        "Группировка выполнена по первым {{loaded}} из {{total}} записей. Счётчики групп относятся только к загруженной странице, а группа, все записи которой находятся за пределами загруженных строк, здесь отсутствует.",
-      partialNoticeUnknownTotal:
-        "Группировка выполнена по {{loaded}} загруженным записям. Этому представлению могут соответствовать и другие записи, поэтому счётчики групп могут быть неполными, а какая-либо группа может здесь отсутствовать.",
+      needsHeaderQuery:
+        "Это представление сгруппировано, но его источник данных не реализует queryGroupHeaders, поэтому группы невозможно подсчитать. Уберите группировку, чтобы показать записи.",
+      needsWholeRows:
+        "Для группировки нужны все записи, но этой таблице передана только одна их страница, поэтому группы невозможно подсчитать. Передайте все записи или позвольте таблице загрузить их из источника данных, который реализует queryGroupHeaders.",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this
@@ -1104,6 +1107,8 @@ const ru = {
     pathStageLostUpcoming: '{{stage}}, проигран, не достигнут',
     pathStageWonUpcoming: '{{stage}}, целевой этап, не достигнут',
     linkCopied: "Ссылка скопирована в буфер обмена",
+    commentFailed: "Комментарий не опубликован. Ничего не сохранено — попробуйте ещё раз.",
+    reactionFailed: "Реакция не сохранена. Попробуйте ещё раз.",
     linkCopyFailed: "Не удалось скопировать ссылку",
     cancel: "Отмена",
     cancelEdit: "Отменить изменения",
@@ -1175,6 +1180,8 @@ const ru = {
     refreshing: "Обновление…",
     pickMeasures: "Выберите меры (значения) для этого виджета набора данных.",
     datasetUnsupported: "Этот источник данных не поддерживает запросы к наборам данных.",
+    widgetForbiddenTitle: "Нет доступа",
+    widgetForbiddenMessage: "У вас нет прав на просмотр данных этого виджета.",
     details: "Подробности",
     exportCsv: "Экспорт в CSV",
     openInList: "Открыть в списке",
@@ -1327,10 +1334,6 @@ const ru = {
     appDescription: "Описание",
     appIcon: "Значок",
     template: "Шаблон",
-    layout: "Макет",
-    layoutSidebar: "Боковая панель",
-    layoutHeader: "Заголовок",
-    layoutEmpty: "Пусто",
     selectObjects: "Выбрать объекты",
     searchObjects: "Поиск объектов…",
     selectAll: "Выбрать все",
@@ -1365,7 +1368,7 @@ const ru = {
     appearance: "Внешний вид",
     rowHeight: "Высота строки",
     livePreview: "Предпросмотр в реальном времени",
-    stepBasicDesc: "Имя, заголовок и макет",
+    stepBasicDesc: "Имя, заголовок и значок",
     stepObjectsDesc: "Выбрать бизнес-объекты",
     stepNavigationDesc: "Построить дерево навигации",
     stepBrandingDesc: "Логотип, цвета и фавикон",
@@ -1586,6 +1589,7 @@ const ru = {
         ctaUpgrade: "Повысьте тариф, чтобы продолжить",
         ctaTopUp: "Добавьте кредиты, чтобы продолжить",
         ariaLabel: "Использование ИИ: {{status}}",
+        breakdownTitle: "Использовано на данный момент",
       },
       workspaceTitle: "Рабочее пространство ИИ",
       workspaceSubtitle: "Задавайте вопросы, изучайте и возвращайтесь к диалогам",
@@ -1595,6 +1599,9 @@ const ru = {
       share: "Поделиться",
       shareTitle: "Поделиться этим диалогом",
       shareDisabledTitle: "Начните диалог, чтобы включить публикацию",
+      buildDoctor: "Диагностика сборки",
+      buildDoctorTitle: "Диагностика сборки — что на самом деле применено?",
+      buildDoctorDisabledTitle: "Сначала отправьте сообщение",
       newChat: "Создать",
       searchChats: "Поиск по чатам…",
       noChatsYet: "Чатов пока нет",
@@ -1802,6 +1809,7 @@ const ru = {
       pages: "Страницы",
       reports: "Отчёты",
       system: "Система",
+      marketplace: "Маркетплейс",
     },
     // objectui#4024 — the single-namespace settings screen. Its sibling
     // `settingsHub` above already resolved through this pack; the view was the
@@ -1899,6 +1907,14 @@ const ru = {
       ratio: 'На каждую записанную строку читается {{ratio}} строк. Платформа отмечает всё, что выше {{threshold}}. Ничто не ограничивается и не блокируется; это отчёт, чтобы можно было проверить схему чтения.',
       noWritesTitle: 'Чтение вообще без записи в этой среде',
       noWrites: 'Строки читаются, но не записывается ни одной, поэтому у скорости чтения нет верхней границы. Это самый серьёзный показатель. Платформа отмечает всё, что выше {{threshold}}. Ничто не ограничивается и не блокируется; это отчёт, чтобы можно было проверить схему чтения.',
+    },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: 'Хранилище почти заполнено',
+      warning: 'Использовано {{used}} МБ из {{limit}} МБ. Когда хранилище заполнится, загрузка файлов и импорт будут приостановлены.',
+      blockedTitle: 'Хранилище заполнено: загрузка файлов и импорт приостановлены',
+      blocked: 'Использовано {{used}} МБ из {{limit}} МБ. Существующие данные не затронуты; чтение, экспорт и редактирование отдельных записей по-прежнему работают.',
+      upgrade: 'Повысьте тариф, чтобы продолжить',
     },
     errors: {
       somethingWentWrong: "Что-то пошло не так",
@@ -2082,6 +2098,8 @@ const ru = {
       resendOtpCountdownText: "Отправить снова через {seconds} с",
       usePhoneOtpText: "Войти по коду подтверждения",
       usePasswordSignInText: "Войти с паролем",
+      socialButton: "Продолжить через {provider}",
+      orText: "или продолжите с электронной почтой",
     },
     register: {
       title: "Создать аккаунт",
@@ -2100,6 +2118,8 @@ const ru = {
       submittingButton: "Создание аккаунта…",
       hasAccountText: "Уже есть аккаунт?",
       signInText: "Войти",
+      socialButton: "Зарегистрироваться через {provider}",
+      orText: "или продолжите с электронной почтой",
       errors: {
         userExists: "Аккаунт с таким email уже существует. Попробуйте войти.",
       },
@@ -2931,6 +2951,9 @@ const ru = {
     createEnvironment: "Создать окружение",
     openProduction: "Открыть продакшн",
     manageEnvironments: "Управление окружениями",
+  },
+  cloudPlanStatus: {
+    current: "Текущий тариф",
   },
   ai: {
     nlQuery: {
@@ -3775,6 +3798,11 @@ const ru = {
     actionsEmptyTitle: "Нет действий из пакетов",
     actionsEmptyBody: "В этой установке ни один установленный пакет не объявляет действие. Действия, которые вы создаёте сами, находятся в Studio.",
     actionsLoadFailed: "Не удалось загрузить действия из пакетов.",
+  },
+  element: {
+    number: {
+      noObject: "Объект не указан: задайте object или dataSource.object.",
+    },
   },
 };
 

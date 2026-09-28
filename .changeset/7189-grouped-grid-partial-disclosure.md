@@ -48,3 +48,34 @@ toward it or changes the fetch.
 ten locale packs; `GroupRow` gains two optional props (`partialLabel`,
 `partialTitle`) and is otherwise unchanged. No metadata schema key was added:
 the condition is derived from data the grid already has.
+
+⚠️ **Dated note, 2026-09-28 — grid grouping is now server-side where the data
+source can answer the group header query — objectui#7189, PR objectui#10878.**
+The paragraphs above describe this change as it was written. Later in this same
+release three of their sentences stopped describing the grid: that
+`useGroupedData` buckets the rows the browser already holds, so the set of
+groups and every header number are properties of the fetched page; that
+client-side grouping is **unchanged** here; and that server-side grouping is not
+part of this, is still open on objectui#5560, and that nothing here builds
+toward it or changes the fetch. Maintainer ruling A on objectui#7189 settled that
+question. On a data source that declares `queryGroupHeaders`, a grouped grid
+that fetches its own rows now takes its groups, every group count and every
+per-group aggregation from the query, and pages each group's rows on the
+server; its counts are the query's own, so the `Partial` marker and the notice
+described above never render there. On a data source without
+`queryGroupHeaders`, the grid still groups the page it fetched in the browser,
+as described above, and the marker and the notice are kept there. The rest of
+this entry is kept as the reading of this change; the
+`7189-server-side-grid-grouping` entry states what a grouped grid does now.
+
+⚠️ **Dated note, 2026-09-28 — the `Partial` marker is retired before release —
+objectui#10881.** Later in this same release the marker and the notice described
+above were retired, with the three `grid.grouping.partial*` strings and
+`GroupRow`'s `partialLabel` / `partialTitle` props that carried them (maintainer
+ruling F). A grouped grid that fetches its own rows over a data source that
+declares no `queryGroupHeaders` no longer groups the page it fetched: it
+refuses grouping with an error naming that member. So the last sentences of the
+note above — that on such a source the grid still groups the page it fetched,
+and that the marker and the notice are kept there — no longer describe the
+grid. The rest of this entry is kept as the reading of this change; the
+`10881-grouping-needs-header-query` entry states what ships.

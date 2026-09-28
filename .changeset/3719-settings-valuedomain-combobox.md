@@ -24,7 +24,7 @@ exists.
 **Undeclared → the closed dropdown is untouched**, which is half the change rather than a
 caveat. Those `options` are still exhaustive under objectstack#5131 (the sms/mail provider
 selects), and `localization.locale` had its domain declaration deliberately **rejected** in
-objectstack#6515 because its options *are* the shipped catalogs. Widening those to free
+objectstack `2fdb36eb9` because its options *are* the shipped catalogs. Widening those to free
 input would be a regression wearing this fix's clothes, so the two branches are pinned
 against each other from the specifier data rather than from a list of key names — a key
 that gains a domain server-side joins the right side of the pin with no edit here.

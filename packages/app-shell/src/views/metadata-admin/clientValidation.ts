@@ -564,7 +564,7 @@ function expandViewIssues(
  * draft is waved through; one door has a client gate and the other keeps the
  * server's.
  *
- * ── The ingress condition was MET, and the answer was still no (objectui#7612) ──
+ * ── The ingress condition was MET, and the answer was still no (the 2026-09-20 ruling) ──
  *
  * This block used to end on a plan: switch the edit gate on once the
  * `_diagnostics` ingress is closed where the draft is assembled (not here —
@@ -578,7 +578,7 @@ function expandViewIssues(
  * measured it, not as it stands; for the live answer read
  * `ResourceEditPage.readDecorationStrip.test.tsx`, not this paragraph.
  *
- * The switch was then put to the maintainer on objectui#7612, with the met
+ * The switch was then put to the maintainer on its own card, with the met
  * condition measured on that card and a finished implementation beside it
  * (PR objectui#10054). The maintainer ruled option A on 2026-09-20 (restated on
  * objectui#10150), verbatim 「7612 只需要服务端校验」 ("7612 needs server-side
@@ -668,7 +668,7 @@ const LOADERS: Record<string, SchemaLoader> = {
   action: async () => (await import('@objectstack/spec/ui')).ActionSchema as unknown as ZodLikeSchema,
   // `theme` is intentionally absent. It was never a registered metadata type,
   // so metadata-admin never asks for it — and the spec retired the whole
-  // `ui/theme.zod.ts` module (objectstack#10485 / PR objectstack#10695), so the
+  // `ui/theme.zod.ts` module (objectstack `35ad101bc`), so the
   // `ThemeSchema` the old entry read off this subpath is gone upstream. Nothing
   // here ever went red because objectui's own `@objectstack/spec` pin (17.1.0)
   // still publishes that symbol: the entry type-checked and resolved, and would

@@ -408,9 +408,9 @@ function PackageSwitcher({
        * ⭐ `userMessage` OUTRANKS `message`, and the order is the contract's,
        * not a preference (objectui#7938).
        *
-       * `error.userMessage` is the producer's #9934 channel, and the envelope
-       * writer's own words are the rule this line implements: "the text a
-       * producer marked, AT THROW TIME, as addressed to the END USER.
+       * `error.userMessage` is the producer's channel (objectstack `79c46da90`),
+       * and the envelope writer's own words are the rule this line implements:
+       * "the text a producer marked, AT THROW TIME, as addressed to the END USER.
        * Presence IS the marking — a consumer that sees the field renders it
        * verbatim and keeps its generic substitution for everything unmarked"
        * (`sendError`, `@objectstack/types` `response-envelope.ts`). This
@@ -890,7 +890,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
       // seam that reports them: one advisory event per advised item, into the
       // same sink, renderer and wording every other write door on this surface
       // uses. A bare fetch had nothing to report THROUGH. Same move
-      // objectui#6965 / PR objectui#10038 made for the two sibling call sites.
+      // PR objectui#10038 made for the two sibling call sites.
       const payload = (await shellClient.publishPackageDrafts(packageId)) as {
         success?: boolean;
         error?: { message?: string; details?: { issues?: unknown } };
@@ -2171,7 +2171,7 @@ export function InterfacesPillar({
         ) : isSourcePage ? (
           // Source pages have no block tree — the canvas shows only the live
           // preview; the code editor lives in the inspector's Source tab.
-          <SourcePageEditor mode="preview" draft={draft} readOnly />
+          <SourcePageEditor mode="preview" draft={draft} readOnly locale={locale} />
         ) : Preview ? (
           <Preview
             type={current.type}
@@ -2326,7 +2326,7 @@ export function InterfacesPillar({
         // Properties tab body IS the code editor (its Props pane was only an
         // empty state pointing back at Source).
         <div className="mt-2 min-h-0 flex-1 border-t">
-          <SourcePageEditor mode="editor" draft={draft} onPatch={onPatch} />
+          <SourcePageEditor mode="editor" draft={draft} onPatch={onPatch} locale={locale} />
         </div>
       ) : (
       <Tabs
@@ -2343,7 +2343,7 @@ export function InterfacesPillar({
           </TabsTrigger>
         </TabsList>
         <TabsContent value="source" className="mt-2 min-h-0 flex-1 border-t">
-          <SourcePageEditor mode="editor" draft={draft} onPatch={onPatch} />
+          <SourcePageEditor mode="editor" draft={draft} onPatch={onPatch} locale={locale} />
         </TabsContent>
         <TabsContent value="props" className="mt-0 min-h-0 flex-1 overflow-auto p-3">
           <div className="flex flex-col items-center gap-2 px-2 py-10 text-center text-xs text-muted-foreground">

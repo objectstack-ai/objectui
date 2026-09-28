@@ -37,7 +37,6 @@ const DRAFT: AppWizardDraft = {
   title: 'Acme CRM',
   description: 'Accounts and deals',
   icon: 'Briefcase',
-  layout: 'header',
   objects: [{ name: 'account', label: 'Account', pluralLabel: 'Accounts', icon: 'Building', selected: true }],
   navigation: [
     { id: 'account', type: 'object', label: 'Accounts', icon: 'Building', objectName: 'account' },

@@ -128,12 +128,12 @@ const fr = {
     printDialogHint: "Ouvre la boîte de dialogue d'impression de votre navigateur (ce n'est pas un export PDF)",
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: "Affichage des {{shown}} premiers enregistrements sur {{total}}. Affinez le filtre.",
     rowCeilingNoteUnknownTotal: "Affichage des {{shown}} premiers enregistrements. Affinez le filtre.",
   },
@@ -148,6 +148,7 @@ const fr = {
       copyAll: 'Tout copier',
     },
     notAvailableHere: '« {{action}} » n\'est pas disponible sur la page actuelle.',
+    completedSuccessfully: 'Action effectuée avec succès',
   },
   validation: {
     required: "{{field}} est obligatoire",
@@ -398,13 +399,15 @@ const fr = {
     yes: "Oui",
     no: "Non",
     systemFields: "Système",
-    // objectui#7189 — partial-grouping disclosure for the grouped grid.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: "Partiel",
-      partialNotice:
-        "Regroupement effectué sur les {{loaded}} premiers enregistrements sur {{total}}. Les décomptes par groupe ne portent que sur la page chargée, et un groupe dont tous les enregistrements se trouvent au-delà des lignes chargées est absent ici.",
-      partialNoticeUnknownTotal:
-        "Regroupement effectué sur les {{loaded}} enregistrements chargés. D'autres enregistrements peuvent correspondre à cette vue : les décomptes par groupe peuvent donc être partiels et un groupe peut manquer ici.",
+      needsHeaderQuery:
+        "Cette vue est groupée, mais sa source de données n'implémente pas queryGroupHeaders : les groupes ne peuvent donc pas être comptés. Supprimez le regroupement pour afficher les enregistrements.",
+      needsWholeRows:
+        "Le regroupement a besoin de tous les enregistrements, mais cette grille n'en a reçu qu'une page : les groupes ne peuvent donc pas être comptés. Fournissez tous les enregistrements, ou laissez la grille les charger depuis une source de données qui implémente queryGroupHeaders.",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this
@@ -1076,6 +1079,8 @@ const fr = {
     pathStageLostUpcoming: '{{stage}}, perdue, non atteinte',
     pathStageWonUpcoming: '{{stage}}, étape objectif, non atteinte',
     linkCopied: "Lien copié dans le presse-papiers",
+    commentFailed: "Votre commentaire n'a pas été publié. Rien n'a été enregistré — veuillez réessayer.",
+    reactionFailed: "Votre réaction n'a pas été enregistrée. Veuillez réessayer.",
     linkCopyFailed: "Impossible de copier le lien",
     cancel: "Annuler",
     cancelEdit: "Abandonner les modifications",
@@ -1157,6 +1162,8 @@ const fr = {
     refreshing: "Actualisation…",
     pickMeasures: "Choisissez des mesures (valeurs) pour ce widget de dataset.",
     datasetUnsupported: "Cette source de données ne prend pas en charge les requêtes de dataset.",
+    widgetForbiddenTitle: "Accès refusé",
+    widgetForbiddenMessage: "Vous n’avez pas l’autorisation de voir les données de ce widget.",
     details: "Détails",
     exportCsv: "Exporter en CSV",
     openInList: "Ouvrir dans la liste",
@@ -1309,10 +1316,6 @@ const fr = {
     appDescription: "Description",
     appIcon: "Icône",
     template: "Modèle",
-    layout: "Disposition",
-    layoutSidebar: "Barre latérale",
-    layoutHeader: "En-tête",
-    layoutEmpty: "Vide",
     selectObjects: "Sélectionner des objets",
     searchObjects: "Rechercher des objets…",
     selectAll: "Tout sélectionner",
@@ -1347,7 +1350,7 @@ const fr = {
     appearance: "Apparence",
     rowHeight: "Hauteur de ligne",
     livePreview: "Aperçu en direct",
-    stepBasicDesc: "Nom, titre et mise en page",
+    stepBasicDesc: "Nom, titre et icône",
     stepObjectsDesc: "Sélectionner les objets métier",
     stepNavigationDesc: "Construire l'arbre de navigation",
     stepBrandingDesc: "Logo, couleurs et favicon",
@@ -1566,6 +1569,7 @@ const fr = {
         ctaUpgrade: "Passer à l'offre supérieure pour continuer",
         ctaTopUp: "Ajouter des crédits pour continuer",
         ariaLabel: "Utilisation de l'IA : {{status}}",
+        breakdownTitle: "Utilisé jusqu'à présent",
       },
       workspaceTitle: "Espace de travail IA",
       workspaceSubtitle: "Posez des questions, inspectez et reprenez vos conversations",
@@ -1575,6 +1579,9 @@ const fr = {
       share: "Partager",
       shareTitle: "Partager cette conversation",
       shareDisabledTitle: "Commencez à discuter pour activer le partage",
+      buildDoctor: "Diagnostic de build",
+      buildDoctorTitle: "Diagnostic de build — qu'est-ce qui a réellement été appliqué ?",
+      buildDoctorDisabledTitle: "Envoyez d'abord un message",
       newChat: "Nouveau",
       searchChats: "Rechercher des discussions…",
       noChatsYet: "Aucune discussion pour l'instant",
@@ -1782,6 +1789,7 @@ const fr = {
       pages: "Pages",
       reports: "Rapports",
       system: "Système",
+      marketplace: "Marketplace",
     },
     // objectui#4024 — the single-namespace settings screen. Its sibling
     // `settingsHub` above already resolved through this pack; the view was the
@@ -1879,6 +1887,14 @@ const fr = {
       ratio: '{{ratio}} lignes sont lues pour chaque ligne écrite. La plateforme signale tout ce qui dépasse {{threshold}}. Rien n’est limité ni bloqué ; il s’agit d’un rapport permettant d’examiner le schéma de lecture.',
       noWritesTitle: 'Lectures sans aucune écriture dans cet environnement',
       noWrites: 'Des lignes sont lues alors qu’aucune n’est écrite, de sorte que le taux de lecture n’a aucune limite supérieure. C’est la mesure la plus grave. La plateforme signale tout ce qui dépasse {{threshold}}. Rien n’est limité ni bloqué ; il s’agit d’un rapport permettant d’examiner le schéma de lecture.',
+    },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: 'Le stockage est presque plein',
+      warning: '{{used}} Mo sur {{limit}} Mo utilisés. Les envois et les importations sont suspendus dès que le stockage est plein.',
+      blockedTitle: 'Stockage plein : les envois et les importations sont suspendus',
+      blocked: "{{used}} Mo sur {{limit}} Mo utilisés. Les données existantes ne sont pas modifiées, et la lecture, l'export et la modification d'enregistrements individuels fonctionnent toujours.",
+      upgrade: "Passer à l'offre supérieure pour continuer",
     },
     errors: {
       somethingWentWrong: "Quelque chose s'est mal passé",
@@ -2059,6 +2075,8 @@ const fr = {
       resendOtpCountdownText: "Renvoyer dans {seconds} s",
       usePhoneOtpText: "Se connecter avec un code de vérification",
       usePasswordSignInText: "Se connecter avec un mot de passe à la place",
+      socialButton: "Continuer avec {provider}",
+      orText: "ou continuer avec l'e-mail",
     },
     register: {
       title: "Créer un compte",
@@ -2077,6 +2095,8 @@ const fr = {
       submittingButton: "Création du compte…",
       hasAccountText: "Vous avez déjà un compte ?",
       signInText: "Se connecter",
+      socialButton: "S'inscrire avec {provider}",
+      orText: "ou continuer avec l'e-mail",
       errors: {
         userExists: "Un compte avec cet e-mail existe déjà. Essayez de vous connecter.",
       },
@@ -2903,6 +2923,9 @@ const fr = {
     createEnvironment: "Créer votre environnement",
     openProduction: "Ouvrir la production",
     manageEnvironments: "Gérer les environnements",
+  },
+  cloudPlanStatus: {
+    current: "Offre actuelle",
   },
   ai: {
     nlQuery: {
@@ -3747,6 +3770,11 @@ const fr = {
     actionsEmptyTitle: "Aucune action de package",
     actionsEmptyBody: "Aucun package installé ne déclare d'action sur ce déploiement. Les actions que vous créez vous-même se trouvent dans Studio.",
     actionsLoadFailed: "Impossible de charger les actions des packages.",
+  },
+  element: {
+    number: {
+      noObject: "Aucun objet indiqué : définissez object ou dataSource.object.",
+    },
   },
 };
 

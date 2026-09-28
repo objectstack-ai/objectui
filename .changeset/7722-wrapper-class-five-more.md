@@ -43,6 +43,6 @@ admitted unexamined on all five mirrors, pinned per mirror with a control key
 the renderer does not read. `InputSchema.wrapperClass`, declared on the TS face
 only, was a recorded row of the parity ledger (`UnmirroredDeclared`) and this
 card left it there; the new sweep pin carried it as a self-expiring exemption.
-objectui#8072 has since mirrored that key, so the row and the exemption are both
+`c974edf14` has since mirrored that key, so the row and the exemption are both
 gone — the exemption expired exactly as designed, and the sweep now judges all
 nine readers alike.

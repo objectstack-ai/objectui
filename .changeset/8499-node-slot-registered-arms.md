@@ -44,6 +44,13 @@ from 107 to 154:
   `renderers/form/input.tsx` registers onto the `input` renderer with `inputType`
   pinned. `inputType` is deliberately NOT declared on this arm: the wrapper spreads
   its own value last, so an authored one is overwritten.
+  ⚠️ **Dated note, 2026-09-28 — `inputType` is now declared on this arm, as a refusal —
+  objectui#8762.** Later in this same release the arm declares `inputType` on both faces
+  and refuses it by name (`?: never` on the TypeScript face, a `retirementTombstone` on
+  the zod mirror, at path `inputType`), with guidance pointing at
+  `{ "type": "input", "inputType": "email" }`. So "`inputType` is deliberately NOT declared
+  on this arm" no longer holds; the reason does, since the wrapper still spreads its own
+  value last. The rest of this entry is kept as the reading of this change.
 - `UiCalendarSchema` (`zod/form.zod.ts`) — `ui:calendar`, the date-picker primitive
   `renderers/form/calendar.tsx` registers under exactly that key (`skipFallback`,
   because bare `calendar` belongs to the plugin-calendar view).

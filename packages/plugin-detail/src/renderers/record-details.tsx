@@ -747,7 +747,7 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
         // objection was to the AUTHORING
         // SHAPE — every application hand-writing `hideEmpty: false` per section
         // as per-app tax — and it was made KNOWING the key was declared
-        // upstream (objectstack PR #11662); the deliverable was a sparse record
+        // upstream (PR objectstack#11662); the deliverable was a sparse record
         // keeping a full structural skeleton with zero app-side authoring. The
         // spec-refusal reading came later, out of that card's own execution,
         // and was routed to objectui#7129; ⛔ it was not this ruling's ground.
@@ -800,7 +800,7 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // source of truth — formerly a hand-mirrored `NON_EDITABLE_BUCKETS` set kept
   // in lockstep by hand because plugin-detail can't depend on app-shell.
   // Authors can still force-disable with `inlineEdit: false`.
-  // [#3546] Also AND inline-editability with the server's effective API
+  // [objectstack#3546] Also AND inline-editability with the server's effective API
   // operation set for this object (`/me/permissions` `apiOperations`) — the
   // record body must not offer double-click/pencil editing the server would
   // 405. `undefined` (unrestricted / old backend) leaves the bucket affordance

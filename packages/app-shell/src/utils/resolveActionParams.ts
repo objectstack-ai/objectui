@@ -517,7 +517,7 @@ export function resolveActionParam(
     // resolution: a field-backed `{ field: 'contract_type' }` param declaring no
     // inline `type` becomes a `text` param here, which is how a lookup param
     // reached the user as an unannotated empty box with no dropdown and no
-    // request for the referenced object on the wire (objectui#10129).
+    // request for the referenced object on the wire (`6cc910b6d`).
     //
     // ⭐ That shape stays — a partially-cached environment must not crash — but
     // it no longer travels ANONYMOUSLY. `unresolvedField` names the pair that
@@ -708,7 +708,7 @@ export function resolveActionParam(
  * Union the objects a CALLER holds with the ones the console's metadata store
  * holds, caller first — the object list `resolveActionParams()` should be given.
  *
- * ## Why a union and not simply the store (objectui#10129)
+ * ## Why a union and not simply the store (`6cc910b6d`)
  *
  * The two lists answer different questions and neither contains the other.
  * The caller's list is the world that caller is rendering: `ObjectView` passes

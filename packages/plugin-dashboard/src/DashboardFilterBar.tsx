@@ -33,6 +33,7 @@ import {
 } from '@object-ui/components';
 import { CalendarIcon, RotateCcw } from 'lucide-react';
 import { useSafeTranslate, useObjectTranslation, useSafeFieldLabel, pickLocalized } from '@object-ui/i18n';
+import { useDataInvalidation } from '@object-ui/react';
 import {
   DATE_RANGE_PRESETS,
   toDisplayDate,
@@ -64,7 +65,7 @@ import {
  * TRANSLATED "Date range", the others to the raw `def.name`. Folding those
  * together here would have made an unlabelled date filter read `dateRange`.
  *
- * ## The translation-bundle rung (objectui#10132)
+ * ## The translation-bundle rung (`061f5e829`)
  *
  * `GlobalFilterSchema.object` names the object whose bundle entry keys this
  * filter's labels — the spec's describe text for it reads "Object whose
@@ -397,6 +398,22 @@ function SelectFilter({ def, value, onChange, dataSource }: { def: DashboardFilt
   // it, by CONTENT: an equal filter in a fresh object is not a change
   // (AGENTS.md #10).
   const optionsFilterKey = JSON.stringify(from?.filter ?? null);
+  // objectui#10887 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10853 way (the record picker's
+  // options): the nonce moves when the bus reports a change to the object the
+  // options are read from (or `'*'`), and the effect below names it, so the
+  // options are re-read. Before, a page action over raw HTTP left them stale
+  // unless `PageView` remounted the page, and objectui#10519 removes that
+  // remount. The re-read is in place: the options on screen stay until the
+  // answer swaps them (nothing here resets `dynamicOptions`), and the selected
+  // value is the dashboard variable's, which this effect never writes.
+  // Subscribed exactly when the effect below can read (an `optionsFrom` and an
+  // adapter that serves either read).
+  const invalidationNonce = useDataInvalidation(
+    from && dataSource && (typeof dataSource.queryDataset === 'function' || typeof dataSource.find === 'function')
+      ? from.object || undefined
+      : undefined,
+  );
   useEffect(() => {
     if (!from || !dataSource) return;
     let cancelled = false;
@@ -473,7 +490,7 @@ function SelectFilter({ def, value, onChange, dataSource }: { def: DashboardFilt
     }
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from?.object, from?.valueField, from?.labelField, optionsFilterKey, dataSource]);
+  }, [from?.object, from?.valueField, from?.labelField, optionsFilterKey, dataSource, invalidationNonce]);
 
   const localizedOptions = useMemo(() => {
     // `def.options` is already normalized to `{ value, label }` PAIRS by
@@ -486,7 +503,7 @@ function SelectFilter({ def, value, onChange, dataSource }: { def: DashboardFilt
     return authored.map((o) => ({ value: o.value, label: pickLocalized(o.label, language) || o.value }));
   }, [def.options, dynamicOptions, language]);
 
-  // The second half of `GlobalFilterSchema.object` (objectui#10132): the spec
+  // The second half of `GlobalFilterSchema.object` (`061f5e829`): the spec
   // gives that key BOTH the field label and the option labels, and
   // `translateOptions` is the same convention's option resolver — the one lists
   // and forms call, keyed by option VALUE under the field this filter reads.

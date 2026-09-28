@@ -15,8 +15,8 @@ and in neither `PROTOCOL_COMPONENTS` nor `PALETTE_PLACEHOLDER_BLOCKS`
 (`packages/components/src/renderers/placeholders.tsx`), so it did not even
 resolve to a placeholder — a page declaring one got the registry's "Unknown
 component type" panel (OBJUI-001) instead of a theme manager. Declared-but-
-unenforced, removed under the maintainer ruling of 2026-08-21 on
-objectstack#10485 (option B).
+unenforced, removed under the maintainer ruling of 2026-08-21
+(option B, executed upstream by objectstack `35ad101bc`).
 
 Removed from the published surface: the `ThemeComponentSchema` type
 (`@object-ui/types`), the `ThemeComponentSchema` Zod object

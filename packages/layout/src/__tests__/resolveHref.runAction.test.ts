@@ -24,12 +24,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { NavigationItem } from '@object-ui/types';
+import type { NavigationItem, NavigationEntryItem } from '@object-ui/types';
 import { resolveHref, resolveActiveNavItem, NAV_RUN_ACTION_PARAM } from '../NavigationRenderer';
 
 const BASE = '/apps/cloud_control';
 
-function objectItem(extra: Partial<NavigationItem> = {}): NavigationItem {
+function objectItem(extra: Partial<NavigationEntryItem> = {}): NavigationItem {
   return { id: 'nav_env', type: 'object', label: 'Environments', objectName: 'sys_environment', ...extra };
 }
 

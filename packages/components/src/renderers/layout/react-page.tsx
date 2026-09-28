@@ -25,6 +25,10 @@
  *     expressed in HTML are injected.
  *   - `Block`                — escape hatch: `<Block type="object-grid" .../>`.
  *   - `useAdapter`            — live data hook: query/create/update objects.
+ *   - `useDataInvalidation`   — the data-invalidation bus reader: a nonce that
+ *     moves when a write to the named object is reported on the bus. A page
+ *     names it in the effect that reads through `useAdapter`, so that read
+ *     re-runs in place (objectui#10887).
  *   - `data` / `variables`   — page data + local variables, for convenience.
  *
  * Styling — page source is metadata, not build input. A react page styles with
@@ -40,7 +44,7 @@
 
 import * as React from 'react';
 import { ComponentRegistry, isCapabilityEnabled, CAP_REACT_PAGES } from '@object-ui/core';
-import { SchemaRenderer, SchemaRendererProvider, useAdapter } from '@object-ui/react';
+import { SchemaRenderer, SchemaRendererProvider, useAdapter, useDataInvalidation } from '@object-ui/react';
 
 type RuntimeModule = typeof import('@object-ui/react-runtime');
 
@@ -186,6 +190,14 @@ export const ReactKindPage: React.FC<{ schema: any }> = ({ schema }) => {
       // adapter.find('object', {...}) / .create / .update. Hooks injected as
       // closure vars; the page calls them from its own component body.
       useAdapter,
+      // The data-invalidation bus reader (objectui#10887), the same hook
+      // `ListView` reads to refresh its rows. `useDataInvalidation('object')`
+      // returns a nonce that moves when the bus reports a write to that object
+      // (or `'*'`); a page names it in the dependency list of the effect that
+      // reads through `useAdapter`, and the read re-runs in place, with no
+      // remount. A module-level function, so it leaves the scope's identity
+      // exactly as stable as before.
+      useDataInvalidation,
       data: schema?.data ?? schema?.variables ?? {},
       variables: schema?.variables ?? {},
       page: schema ?? {},

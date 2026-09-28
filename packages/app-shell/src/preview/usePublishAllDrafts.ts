@@ -17,7 +17,7 @@
  * blind "Published!". Package-less drafts fall back to by-reference publish
  * (structure first, seeds last) so they never dead-end.
  *
- * Both halves of that call now run through `MetadataClient` (objectui#6965):
+ * Both halves of that call now run through `MetadataClient` (`ce986aafc`):
  * the batch one so the runtime authoring gate's per-draft advisories reach the
  * console's advisory toast, the by-reference one because it always did. The
  * asymmetry this closes was inside this very function — its own client-side
@@ -83,7 +83,7 @@ export function usePublishAllDrafts(t: TranslateFn) {
       };
 
       for (const packageId of packageIds) {
-        // objectui#6965 — through `MetadataClient`, not a bare `fetch`. The
+        // `ce986aafc` — through `MetadataClient`, not a bare `fetch`. The
         // route now answers the runtime authoring gate's per-draft advisories
         // on each `published[]` element (objectstack#9343), and the client is
         // the seam that reports them: it emits one advisory event per advised

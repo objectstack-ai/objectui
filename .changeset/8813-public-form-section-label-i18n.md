@@ -3,7 +3,7 @@
 ---
 
 Public form `/f/:slug` now translates its section headings and field labels
-(objectui#8813, seam 2 of objectui#8408).
+(objectui#8813, seam 2 of the card behind `8241a4400`).
 
 A visitor arriving in `zh-CN` was greeted by the strings the author typed while
 building the form — "Your application" — even when the app bundle carried

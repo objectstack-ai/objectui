@@ -7,7 +7,7 @@
  */
 
 /**
- * Arm selection for a failing union (objectui#7004, arm-selection half).
+ * Arm selection for a failing union (`a5d55472b`).
  *
  * ## What this exists for
  *
@@ -223,7 +223,7 @@ function editDistance(a: string, b: string): number {
  * deliberately case-only under a DIFFERENT ruling (objectui#5247) for a
  * DIFFERENT surface (`objectui check`) over a DIFFERENT candidate set
  * (`KNOWN_SCHEMA_TYPES`, the registry's keys). This surface's candidates are the
- * schema union's arms, and the 2026-09-02 ruling on objectui#7004 asks for the
+ * schema union's arms, and the 2026-09-02 ruling `a5d55472b` implements asks for the
  * "nearest" ones by name — so proximity is granted here and is not a widening
  * of that one.
  */

@@ -23,7 +23,7 @@ import {
   I18nLabelSchema,
 } from '@objectstack/spec/ui';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
-import { aliasKeyRefusal, handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { aliasKeyRefusal, handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
 import { TABLE_COLUMN_TYPES, type TreeNode, type TimelineFeedItem, type TimelineGanttItem } from '../data-display.js';
 import { stripImportedDefaults } from './imported-defaults.js';
 
@@ -77,8 +77,8 @@ export const AlertSchema = BaseSchema.extend({
     'children',
     'this alert node',
     '`alert` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/data-display/alert.tsx`). '
-    + '`body` was this node\'s only child-list key until objectui#6771 retired the spelling; an authored `body` now parses green through '
-    + '`.passthrough()` and renders an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` was this node\'s only child-list key until objectui#6771 retired the spelling — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -96,14 +96,14 @@ export const StatisticSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `statistic` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `description`, `icon`, `label`, `trend`, `value`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `statistic` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `description`, `icon`, `label`, `trend`, `value`.',
   ),
 });
@@ -124,8 +124,8 @@ export const BadgeSchema = BaseSchema.extend({
     'children',
     'this badge node',
     '`badge` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/data-display/badge.tsx`). '
-    + '`body` was this node\'s only child-list key until objectui#6771 retired the spelling; an authored `body` now parses green through '
-    + '`.passthrough()` and renders an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` was this node\'s only child-list key until objectui#6771 retired the spelling — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -143,14 +143,14 @@ export const AvatarSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `avatar` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `alt`, `fallback`, `src`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `avatar` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `alt`, `fallback`, `src`.',
   ),
 });
@@ -167,6 +167,17 @@ export const ListItemSchema = z.object({
   disabled: z.boolean().optional().describe('Whether item is disabled'),
   onClick: handlerKeyRefusal('onClick', 'retired', 'Click handler'),
   content: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Custom content'),
+  // RETIRED (objectui#9590) — mirrors `ListItem.body: never` (`../data-display.ts`).
+  // This object STRIPS undeclared keys, so leaving `body` undeclared would keep
+  // dropping it in silence; the refusal names `content` instead.
+  body: aliasKeyRefusal(
+    'body',
+    'content',
+    'this list item',
+    '`list` draws each item from `content` — a string as-is, a node or node array through '
+    + '`SchemaRenderer` (`packages/components/src/renderers/data-display/list.tsx`). The item-level '
+    + '`body` fallback was retired by objectui#9590.',
+  ),
 });
 
 /**
@@ -184,11 +195,11 @@ export const ListSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `list` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker over one program built from the repo-root tsconfig on a BUILT tree, no '
     + 'renderer read consumes `body` or `children` for this node, and `SchemaRenderer` strips both out '
-    + 'of the props bag it spreads. An authored value therefore rendered NOTHING — no error, no '
-    + 'warning, no element. '
+    + 'of the props bag it spreads. An authored value therefore rendered NOTHING — no render-time error or '
+    + 'warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `bind`, `items`, `ordered`, `title`, `wrapperClass`. '
-    + 'The ITEM channel is a different key and stays live: each entry is drawn as '
-    + '`item.content || renderChildren(item.body)`, a read filed under ListItem and not under this node. '
+    + 'The ITEM channel is a different key and stays live: each entry is drawn from its `content` '
+    + '(`renderChildren(item.content)`), a read filed under ListItem and not under this node. '
     + '`ui:list` is the measured SOLE owner of the bare `list` key (`view:list` passes `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
   ),
@@ -196,11 +207,11 @@ export const ListSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `list` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker over one program built from the repo-root tsconfig on a BUILT tree, no '
     + 'renderer read consumes `body` or `children` for this node, and `SchemaRenderer` strips both out '
-    + 'of the props bag it spreads. An authored value therefore rendered NOTHING — no error, no '
-    + 'warning, no element. '
+    + 'of the props bag it spreads. An authored value therefore rendered NOTHING — no render-time error or '
+    + 'warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `bind`, `items`, `ordered`, `title`, `wrapperClass`. '
-    + 'The ITEM channel is a different key and stays live: each entry is drawn as '
-    + '`item.content || renderChildren(item.body)`, a read filed under ListItem and not under this node. '
+    + 'The ITEM channel is a different key and stays live: each entry is drawn from its `content` '
+    + '(`renderChildren(item.content)`), a read filed under ListItem and not under this node. '
     + '`ui:list` is the measured SOLE owner of the bare `list` key (`view:list` passes `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
   ),
@@ -320,7 +331,7 @@ export const TableColumnSchema = z.object({
  * The later arrivals below (`headerIcon` / `fitContent`, objectui#6424;
  * `format` / `options` / `currency`, objectui#6425; `wrap`, objectui#6650;
  * `masked`, objectui#10583) were outside #6105's reviewed scope; the first
- * five carried the bare spelling until objectui#6931 converted them here
+ * five carried the bare spelling until `8063bcbdc` converted them here
  * (`wrap` and `masked` were born converted). That
  * mattered because a half-converted shape teaches worse than a uniform one:
  * an author reading guidance on nine keys and zod's generic on five learns the
@@ -359,7 +370,7 @@ export const StaticTableColumnSchema = z.object({
  * reference-page teaching describing behaviour that did not exist. An
  * authored value now fails parse loudly rather than doing nothing silently,
  * and the refusal carries its own remediation text through
- * `retirementTombstone()` (objectui#6931) rather than zod's generic
+ * `retirementTombstone()` (`8063bcbdc`) rather than zod's generic
  * `expected never`.
  */
 export const TableSchema = BaseSchema.extend({
@@ -374,14 +385,14 @@ export const TableSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `table` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `caption`, `columns`, `data`, `footer`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `table` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `caption`, `columns`, `data`, `footer`.',
   ),
 });
@@ -403,7 +414,7 @@ export const DataTableSchema = BaseSchema.extend({
   selectable: z.union([z.boolean(), z.enum(['single', 'multiple'])]).optional().describe('Enable row selection — `true`/`multiple` = multi-select, `single` = replace-on-select with no select-all'),
   sortable: z.boolean().optional().describe('Enable sorting'),
   exportable: z.boolean().optional().describe('Enable data export'),
-  rowActions: z.boolean().optional().describe('Show the row actions column (edit/delete) — mirrors the boolean the renderer truthiness-tests (objectui#6940)'),
+  rowActions: z.boolean().optional().describe('Show the row actions column (edit/delete) — mirrors the boolean the renderer truthiness-tests'),
   resizableColumns: z.boolean().optional().describe('Allow column resizing'),
   reorderableColumns: z.boolean().optional().describe('Allow column reordering'),
   onRowEdit: handlerKeyRefusal('onRowEdit', 'runtime-slot', 'Row edit handler'),
@@ -418,7 +429,7 @@ export const DataTableSchema = BaseSchema.extend({
   }).optional().describe('Per-record CEL predicates for the built-in row Delete item (objectui#2614)'),
   onSelectionChange: handlerKeyRefusal('onSelectionChange', 'runtime-slot', 'Selection change handler'),
   onColumnsReorder: handlerKeyRefusal('onColumnsReorder', 'runtime-slot', 'Column reorder handler'),
-  // ⭐ objectui#7804 — seven keys the REGISTERED `data-table` renderer reads off
+  // ⭐ `75fca9669` — seven keys the REGISTERED `data-table` renderer reads off
   // the authored document while this arm declared none of them. `BaseSchema` is
   // `.passthrough()`, so an undeclared key is NOT refused: it stops being judged
   // and the value is KEPT. `{ "type": "data-table", "onRowClick": { "action":
@@ -463,7 +474,7 @@ export const DataTableSchema = BaseSchema.extend({
   onRowActionDef: handlerKeyRefusal('onRowActionDef', 'runtime-slot', 'Row action handler'),
   onRowClick: handlerKeyRefusal('onRowClick', 'runtime-slot', 'Row click handler'),
   onRowSave: handlerKeyRefusal('onRowSave', 'runtime-slot', 'Row save handler'),
-  cellClassName: z.string().optional().describe('Extra classes folded into the utility body cells only — the selection, row-number and row-actions cells; data cells fold the per-column `cellClassName` instead, so row density has to be set on both (objectui#6882)'),
+  cellClassName: z.string().optional().describe('Extra classes folded into the utility body cells only — the selection, row-number and row-actions cells; data cells fold the per-column `cellClassName` instead, so row density has to be set on both'),
   // RUNTIME SLOT (objectui#7759 group E, the objectui#6124 shape): `data-table`
   // reads `schema.renderCellEditor` and calls it with the edit context; its
   // supplier is `ObjectGrid` (`@object-ui/plugin-grid`). The context's shape —
@@ -477,7 +488,7 @@ export const DataTableSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `data-table` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `emptyAction`, `onAddRecord`, `onBatchSave`, `onCellChange`, '
     + '`onColumnResize`, `onColumnsReorder`, `onRowActionDef`, `onRowClick`, `onRowDelete`, '
     + '`onRowEdit`, `onRowSave`, `onSelectionChange`, `renderCellEditor`, `rowActionDefs`, '
@@ -487,13 +498,21 @@ export const DataTableSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `data-table` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `emptyAction`, `onAddRecord`, `onBatchSave`, `onCellChange`, '
     + '`onColumnResize`, `onColumnsReorder`, `onRowActionDef`, `onRowClick`, `onRowDelete`, '
     + '`onRowEdit`, `onRowSave`, `onSelectionChange`, `renderCellEditor`, `rowActionDefs`, '
     + '`rowDeletePredicates`, `rowEditPredicates`.',
   ),
 });
+
+/** objectui#9256 (family-D re-measure): ONE refusal string for both content channels of `MarkdownSchema`. */
+const MARKDOWN_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'markdown',
+  'its registration (`plugin-markdown:markdown`) reads the node through an inline props type and forwards '
+    + 'only `content` and `className` to the Markdown implementation',
+  '`content`, rendered as sanitized Markdown',
+);
 
 /**
  * Markdown Schema - Markdown content renderer
@@ -506,8 +525,9 @@ export const DataTableSchema = BaseSchema.extend({
  * and the key retired. `components` was a `Record<string, any>` of React
  * overrides nothing read — not a JSON-authorable value, and no host path
  * consumes such a map either, so there is no runtime slot to keep. Both
- * refuse BY NAME through `retirementTombstone()` (objectui#6931), with the
- * remedy in the message, rather than parsing green and doing nothing. The TS
+ * refuse BY NAME through `retirementTombstone()`, the spelling `8063bcbdc`
+ * made uniform, with the remedy in the message, rather than parsing green and
+ * doing nothing. The TS
  * twins are `?: never` in `../data-display.ts`; both published faces carry the
  * refusal (`@object-ui/types`, and `@object-ui/plugin-markdown`'s re-export of
  * the same authority — objectui#6172).
@@ -525,6 +545,10 @@ export const MarkdownSchema = BaseSchema.extend({
     + 'and a map of React component overrides is not a JSON-authorable value. Delete the key; the fenced '
     + 'mermaid / metadata block overrides are the renderer\'s own fixed map, not an authoring surface.',
   ),
+  // objectui#9256 (family-D re-measure): the renderer reads NEITHER content channel, so both are
+  // refused by name here as on the TypeScript twin, each kept a MEMBER.
+  body: retirementTombstone(MARKDOWN_NEITHER_CHANNEL),
+  children: retirementTombstone(MARKDOWN_NEITHER_CHANNEL),
 });
 
 /**
@@ -581,7 +605,7 @@ export const TreeViewSchema = BaseSchema.extend({
   selectedIds: z.array(z.string()).optional().describe('Controlled selected node IDs'),
   multiSelect: z.boolean().optional().describe('Allow multiple selection'),
   showLines: z.boolean().optional().describe('Show connecting lines'),
-  // objectui#7804 — RUNTIME SLOT (objectui#6124), the ledger row this slice
+  // `604476d97` — RUNTIME SLOT (objectui#6124), the ledger row this slice
   // drains. `BaseSchema` is `.passthrough()`, so a key no arm declares is not
   // refused: it stops being judged and the value is KEPT. `onNodeClick` sat in
   // exactly that state while the registered renderer INVOKED it, so an authored
@@ -620,14 +644,14 @@ export const TreeViewSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `tree-view` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `bind`, `nodes`, `onNodeClick`, `title`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `tree-view` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `bind`, `nodes`, `onNodeClick`, `title`.',
   ),
 });
@@ -688,7 +712,7 @@ export const ChartDataSeriesSchema = z.object({
   // the TS declaration for the read this narrowness is taken from.
   type: z.enum(['bar', 'line', 'area']).optional().describe('Per-series chart family override (combo charts)'),
   // ALIAS REFUSAL (objectui#7694 — option A of the `domain:ui` PM ruling on
-  // objectui#7546 / the contract review of PR #7684). `chartType` is the
+  // objectui#7546 / the contract review of `8fe8e5c16`'s pull request). `chartType` is the
   // renderer's INTERNAL spelling of `type` above — the first limb of
   // `normalizeSeries`' `str(raw.chartType) ?? str(raw.type)`
   // (`normalizeChartSchema.ts:244`) — written by the internal-shape producers
@@ -736,7 +760,7 @@ export const ChartDataSeriesSchema = z.object({
     'Legend / tooltip name for this series — a plain string or an inline locale map; defaults to the column key',
   ),
   variant: z.enum(['primary', 'comparison']).optional().describe(
-    'Visual role — `comparison` draws the muted period-over-period overlay; `primary` (the default) is the normal treatment. The spec pair: the renderer-internal `current` spelling is not a member (objectui#7682)',
+    'Visual role — `comparison` draws the muted period-over-period overlay; `primary` (the default) is the normal treatment. The spec pair: the renderer-internal `current` spelling is not a member',
   ),
   opacity: z.number().optional().describe('Stroke and fill opacity override — any finite number, the read\'s own domain; the spec bounds it to 0–1'),
   dashArray: z.string().optional().describe('SVG stroke-dasharray override, e.g. "4 4" for a dashed line'),
@@ -860,9 +884,10 @@ const CHART_Y_AXIS_IS_A_LIST_GUIDANCE =
  *
  * Shared by the declarations that carry `drillDown`: `ChartSchema` below and
  * `ObjectDataTableSchema` (`objectql.zod.ts`) reference it. `PivotTableSchema`
- * declares the key too but has no mirror of its own, so it sits in no ledger;
- * this is the home that key uses whenever the pivot pair is mirrored. Until
- * this mirror existed neither declaring mirror had heard of the key, so under
+ * below referenced it from objectui#10859 (batch 2) until objectui#10932
+ * retired the key on the `pivot` node, which nothing drills; `object-pivot`,
+ * the block that does drill, has no zod mirror. Until this mirror existed
+ * neither declaring mirror had heard of the key, so under
  * `BaseSchema`'s `.passthrough()` a `drillDown: { enabled: 'yes' }` parsed green
  * and reached a widget that reads `enabled` as truthy — `declared !== enforced`,
  * ledgered in `zod-mirror-parity.test.ts` (`UnmirroredDeclared`) by
@@ -918,6 +943,14 @@ export const DrillDownConfigSchema = z.object({
   columns: z.array(z.string()).optional().describe('Column whitelist for the inline drill list'),
   maxRows: z.number().optional().describe('Hard cap on rows fetched'),
 });
+
+/** objectui#9256 (family-D re-measure): ONE refusal string for both content channels of `ChartSchema`. */
+const CHART_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'chart',
+  'its registration (`plugin-charts:chart`, and the `chart:bar` alias) reads the node through '
+    + '`ChartRenderer`\'s inline props type',
+  'a chart of the `data` rows, drawn by `chartType` and `series`',
+);
 
 /**
  * Chart Schema - Chart/graph component
@@ -1013,7 +1046,76 @@ export const ChartSchema = BaseSchema.extend({
   animate: z.boolean().optional().describe('Enable animations'),
   config: z.record(z.string(), z.any()).optional().describe('Additional chart configuration'),
   drillDown: DrillDownConfigSchema.optional().describe('Drill-down: clicking a chart segment opens a filtered list view (drawer / dialog)'),
+  // objectui#9256 (family-D re-measure): the renderer reads NEITHER content channel, so both are
+  // refused by name here as on the TypeScript twin, each kept a MEMBER.
+  body: retirementTombstone(CHART_NEITHER_CHANNEL),
+  children: retirementTombstone(CHART_NEITHER_CHANNEL),
 }).overwrite(foldChartXAxisAlias);
+
+/** objectui#9256 (family D): ONE refusal string for both content channels of `PivotTableSchema`. */
+const PIVOT_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'pivot',
+  'its registration hands the node to `PivotTable`, which reads it as `PivotTableSchema` and destructures only the members below',
+  'a cross-tab of `data` — `rowField` down, `columnField` across, `valueField` aggregated by `aggregation` — '
+    + 'with `title`, `showRowTotals`, `showColumnTotals`, `format` and `columnColors`',
+);
+
+/**
+ * objectui#10932: the refusal for `drillDown` on a `pivot` node, one string
+ * feeding the parse-time message and `.describe()` (`retirementTombstone`).
+ * Nothing drills a `pivot` node: `PivotTable` fires a drill only when its host
+ * passes `onDrillDown`, and the one host that does renders `object-pivot`.
+ */
+const PIVOT_DRILL_DOWN_RETIRED =
+  'RETIRED (objectui#10932, ADR-0049) — nothing drills a `pivot` node: `PivotTable` fires a drill only when '
+  + 'its host passes an `onDrillDown` handler, and the `pivot` registration passes none, so an authored '
+  + '`drillDown` validated and did nothing. A pivot over inline `data` has no object to list records from. '
+  + 'For a pivot whose cells open the records behind a value, author an `object-pivot` (`objectName` + the '
+  + 'same `rowField` / `columnField` / `valueField`) and put `drillDown` there.';
+
+/**
+ * Pivot Table Schema — mirrors `PivotTableSchema` in `../data-display.ts`,
+ * member for member (objectui#10859, batch 2).
+ *
+ * `pivot` is registered by `@object-ui/plugin-dashboard` (`PivotTable`) and
+ * declared on the published TypeScript face, and until this arm
+ * `AnyComponentSchema` carried none for it — so `safeValidateSchema`, and
+ * `objectui validate`, refused every document naming it with `invalid_union` at
+ * `type`. The count of registered types still refused there is ratcheted by
+ * `packages/cli/src/__tests__/registered-types-validate-ratchet-10859.test.ts`.
+ *
+ * Requiredness is the declaration's: `rowField`, `columnField`, `valueField`
+ * and `data` are required there, so they are required here. `drillDown` is a
+ * retirement tombstone, as the declaration's `?: never` member is
+ * (objectui#10932): it rode this arm as the shared `DrillDownConfigSchema` from
+ * objectui#10859 until then, accepted and read by nothing. Both content
+ * channels are refused by name, as the declaration's `?: never` members refuse
+ * them (objectui#9256). The pins are
+ * `../__tests__/registered-type-arms-10859-b2.test.ts` and, for `drillDown`,
+ * `../__tests__/pivot-drilldown-retired-10932.test.ts`.
+ */
+export const PivotTableSchema = BaseSchema.extend({
+  type: z.literal('pivot'),
+  title: z.string().optional().describe('Pivot table title'),
+  rowField: z.string().describe('Field used for row headers'),
+  columnField: z.string().describe('Field used for column headers'),
+  valueField: z.string().describe('Field whose values are aggregated in cells'),
+  aggregation: z
+    .enum(['sum', 'count', 'avg', 'min', 'max'])
+    .optional()
+    .describe('Aggregation function applied to valueField — one of sum, count, avg, min, max (the renderer treats an absent value as sum)'),
+  data: z.array(z.record(z.string(), z.unknown())).describe('Source data rows — one object per row, keyed by field name'),
+  showRowTotals: z.boolean().optional().describe('Show a totals column on the right'),
+  showColumnTotals: z.boolean().optional().describe('Show a totals row at the bottom'),
+  format: z.string().optional().describe('Numeric format string (e.g. "$,.2f") — applied via simple prefix/suffix/decimals'),
+  columnColors: z
+    .record(z.string(), z.string())
+    .optional()
+    .describe('Mapping of column header values to Tailwind text-color classes'),
+  drillDown: retirementTombstone(PIVOT_DRILL_DOWN_RETIRED),
+  body: retirementTombstone(PIVOT_NEITHER_CHANNEL),
+  children: retirementTombstone(PIVOT_NEITHER_CHANNEL),
+});
 
 /**
  * Timeline Event Schema — mirrors `TimelineEvent` in `../data-display.ts`, the
@@ -1270,7 +1372,7 @@ const timelineItemsFitVariant = (
  * `timeScale` is RETIRED (objectui#6355), and `events` / `orientation` /
  * `position` are RETIRED (objectui#6170, ADR-0049 stage 2 — no renderer ever
  * read any of the three). All four carry the `retirementTombstone()` spelling
- * below (objectui#6931), each message naming what to author instead — still
+ * below (`8063bcbdc`), each message naming what to author instead — still
  * mirrored, deliberately, because the parity ratchet compares key SETS and
  * because a tombstone must be present on both halves to be audible.
  *
@@ -1321,7 +1423,7 @@ export const TimelineSchema = BaseSchema.extend({
     + 'two readers: measured with the TypeScript type checker over one program built from the repo-root '
     + 'tsconfig on a BUILT tree, and `packages/plugin-timeline` contains no `body` / `children` read of '
     + 'any kind, on any receiver. `SchemaRenderer` strips both out of the props bag it spreads, so an '
-    + 'authored value rendered NOTHING — no error, no warning, no element. '
+    + 'authored value rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `variant`, `items`, `dateFormat`, `scale`, `rowLabel`, `minDate`, `maxDate`. '
     + '`view:timeline` is the measured owner of the bare `timeline` key (`plugin-timeline:timeline` passes '
     + '`skipFallback: true`); re-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
@@ -1331,7 +1433,7 @@ export const TimelineSchema = BaseSchema.extend({
     + 'two readers: measured with the TypeScript type checker over one program built from the repo-root '
     + 'tsconfig on a BUILT tree, and `packages/plugin-timeline` contains no `body` / `children` read of '
     + 'any kind, on any receiver. `SchemaRenderer` strips both out of the props bag it spreads, so an '
-    + 'authored value rendered NOTHING — no error, no warning, no element. '
+    + 'authored value rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `variant`, `items`, `dateFormat`, `scale`, `rowLabel`, `minDate`, `maxDate`. '
     + '`view:timeline` is the measured owner of the bare `timeline` key (`plugin-timeline:timeline` passes '
     + '`skipFallback: true`); re-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
@@ -1349,14 +1451,14 @@ export const KbdSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `kbd` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `keys`, `label`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `kbd` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `keys`, `label`.',
   ),
 });
@@ -1371,17 +1473,25 @@ export const HtmlSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `html` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `html`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `html` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `html`.',
   ),
 });
+
+/** objectui#9256 (family-D re-measure): ONE refusal string for both content channels of `BarChartSchema`. */
+const BAR_CHART_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'bar-chart',
+  'its registration (`plugin-charts:bar-chart`) reads the node through `ChartBarRenderer`\'s inline props '
+    + 'type, which forwards `data`, `dataKey`, `xAxisKey`, `height`, `className` and `color`',
+  'one bar per `data` row, its value from `dataKey` and its category from `xAxisKey`',
+);
 
 /**
  * Data Display Schema Union - All data display component schemas
@@ -1410,6 +1520,10 @@ export const BarChartSchema = BaseSchema.extend({
   xAxisKey: z.string().optional().describe('Row key holding the bar category (x axis)'),
   height: z.number().optional().describe('Chart height in pixels'),
   color: z.string().optional().describe('Bar fill colour'),
+  // objectui#9256 (family-D re-measure): the renderer reads NEITHER content channel, so both are
+  // refused by name here as on the TypeScript twin, each kept a MEMBER.
+  body: retirementTombstone(BAR_CHART_NEITHER_CHANNEL),
+  children: retirementTombstone(BAR_CHART_NEITHER_CHANNEL),
 });
 
 export const DataDisplaySchema = z.discriminatedUnion('type', [
@@ -1423,6 +1537,7 @@ export const DataDisplaySchema = z.discriminatedUnion('type', [
   MarkdownSchema,
   TreeViewSchema,
   ChartSchema,
+  PivotTableSchema,
   TimelineSchema,
   KbdSchema,
   HtmlSchema,

@@ -3,7 +3,7 @@
 ---
 
 `SchemaRegistry` names all three `plugin-chatbot` registrations, so the published
-`ComponentType` union does too (objectui#7704).
+`ComponentType` union does too.
 
 `packages/plugin-chatbot/src/renderer.tsx` registers three components — `chatbot`,
 `chatbot-enhanced` and `chatbot-floating` — and `SchemaRegistry` mapped one of them.

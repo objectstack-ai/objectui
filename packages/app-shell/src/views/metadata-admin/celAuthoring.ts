@@ -94,12 +94,34 @@ export interface CelSchemaHint {
   role?: 'predicate' | 'value';
 }
 
-/** A single lint finding surfaced inline under the editor. */
-export interface CelLintIssue {
-  /** `error` blocks save (parse fault); `warning` is advisory (typo / blast-radius). */
-  severity: 'error' | 'warning';
-  message: string;
-}
+/**
+ * The two advisories {@link lintCelPredicate} words itself, as keys of the
+ * designer catalogue (objectui#10862): the wrong-layer root advisory's local
+ * sentence (see `rowCanonAdvisory`) and the non-pushdown-able read filter.
+ * They are handed back as keys plus their values, not text, and
+ * `CelPredicateField` reads them through the `t` its host binds to the
+ * designer locale — so this module stays free of any import at load, the same
+ * seam as {@link CelTestMessageKey}.
+ */
+export type CelLintMessageKey = 'engine.celLint.notTheRow' | 'engine.celLint.notPushdownable';
+
+/**
+ * A single lint finding surfaced inline under the editor. `error` blocks save
+ * (parse fault); `warning` is advisory (typo / blast-radius).
+ *
+ * Every error, and every advisory the engine or `@objectstack/lint` words,
+ * carries that producer's `message` as written. An advisory this module words
+ * itself carries a {@link CelLintMessageKey} and the values its `{token}`
+ * holes take instead; it is only ever a `warning`, so a caller that keeps the
+ * errors alone (`clientValidation`) never meets one.
+ */
+export type CelLintIssue =
+  | { severity: 'error'; message: string; messageKey?: never; messageVars?: never }
+  | { severity: 'warning'; message: string; messageKey?: never; messageVars?: never }
+  | { severity: 'warning'; messageKey: CelLintMessageKey; messageVars: Record<string, string>; message?: never };
+
+/** The advisory half of {@link CelLintIssue}: either wording, never blocking. */
+type CelLintWarning = Extract<CelLintIssue, { severity: 'warning' }>;
 
 /** The in-scope identifiers an author may reference — the autocomplete catalog. */
 export interface CelScopeInfo {
@@ -455,7 +477,7 @@ function loadRowCanon(): Promise<RowCanonModule | null> {
  *
  * Severity is the one thing that stays objectui's: `warning`, never `error`.
  */
-async function rowCanonAdvisory(source: string, slot: string | undefined): Promise<CelLintIssue | null> {
+async function rowCanonAdvisory(source: string, slot: string | undefined): Promise<CelLintWarning | null> {
   if (slot !== undefined && FIELD_RULE_VERDICT_SLOTS.includes(slot)) {
     const fieldRuleRootIssue = await loadFieldRuleVerdict();
     if (fieldRuleRootIssue) {
@@ -471,14 +493,13 @@ async function rowCanonAdvisory(source: string, slot: string | undefined): Promi
   const canon = await loadRowCanon();
   const finding = canon?.detectNonCanonicalRowSpelling?.(source, null, true);
   if (!finding || finding.kind !== 'metadata-layer-root') return null;
+  // objectui's own sentence, as a catalogue key the editor reads in the
+  // designer locale (objectui#10862); `Unknown variable: …` inside it is the
+  // runtime's fault text and stays as written in every locale.
   return {
     severity: 'warning',
-    message:
-      `\`${finding.identifier}\` is not the row on this surface: a row predicate binds the ` +
-      `record as \`${finding.canonical}\` and nothing else. The CEL scope ` +
-      `vocabulary still accepts \`${finding.identifier}\`, so nothing here blocks the save, but ` +
-      `at runtime the expression faults with \`Unknown variable: ${finding.identifier}\` and the ` +
-      `rule never fires. Re-root the reference on \`${finding.canonical}\`.`,
+    messageKey: 'engine.celLint.notTheRow',
+    messageVars: { identifier: finding.identifier, canonical: finding.canonical },
   };
 }
 
@@ -538,13 +559,12 @@ export async function lintCelPredicate(
           variableRoots: PUSHDOWN_VARIABLE_ROOTS,
         });
         if (pd && pd.ok === false && pd.reason !== 'parse-error') {
+          // objectui's own sentence, as a catalogue key (objectui#10862); the
+          // engine's `detail` fills its hole as written.
           issues.push({
             severity: 'warning',
-            message:
-              `This read filter isn't a simple field comparison (${pd.detail}), so the ` +
-              `server may be unable to push it down to the query — depending on the ` +
-              `evaluation path it can be dropped and WIDEN access. Prefer a ` +
-              `pushdown-able predicate (field vs. value or scope variable).`,
+            messageKey: 'engine.celLint.notPushdownable',
+            messageVars: { detail: pd.detail },
           });
         }
       } catch {

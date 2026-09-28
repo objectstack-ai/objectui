@@ -292,7 +292,7 @@ export function interpretFlowResponse<S = unknown>(
         return { kind: 'paused', runId: data.runId, screen: data.screen as S, data };
     }
 
-    // The run reached an `end` node declaring `outcome: 'refused'` (#14945):
+    // The run reached an `end` node declaring `outcome: 'refused'` (objectstack#14945):
     // a successful evaluation that said NO. Terminal exactly like `completed`
     // and deliberately distinct from `failed` — nothing threw, so classifying
     // it as a failure would be the opposite error — which is why it is checked

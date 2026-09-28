@@ -23,12 +23,13 @@ import { Database, Loader2 } from 'lucide-react';
 import { useAdapter } from '../../../providers/AdapterProvider.js';
 import type { MetadataPreviewProps } from '../preview-registry.js';
 import { PreviewShell, PreviewErrorBoundary, PreviewEmptyState } from './PreviewShell.js';
+import { t as tr } from '../i18n.js';
 
 const ReportRenderer = React.lazy(() =>
   import('@object-ui/plugin-report').then((m) => ({ default: m.ReportRenderer })),
 );
 
-export function ReportPreview({ draft }: MetadataPreviewProps) {
+export function ReportPreview({ draft, locale }: MetadataPreviewProps) {
   const adapter = useAdapter();
   const d = draft as any;
 
@@ -51,11 +52,11 @@ export function ReportPreview({ draft }: MetadataPreviewProps) {
       : `report · dataset "${d.dataset}"${rows.length ? ' · by ' + rows.join(', ') : ''}`;
     return (
       <PreviewShell hint={hint}>
-        <PreviewErrorBoundary fallbackHint="The Report references a dataset/measure that doesn't resolve, or its config is incomplete.">
+        <PreviewErrorBoundary fallbackHint={tr('engine.reportPreview.renderFailed', locale)}>
           <React.Suspense
             fallback={
               <div className="flex items-center gap-2 p-4 text-xs text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Loading report renderer…
+                <Loader2 className="h-4 w-4 animate-spin" /> {tr('engine.reportPreview.loading', locale)}
               </div>
             }
           >
@@ -76,12 +77,8 @@ export function ReportPreview({ draft }: MetadataPreviewProps) {
     <PreviewShell>
       <PreviewEmptyState
         icon={<Database className="h-8 w-8" />}
-        title={joined ? 'Add a block to preview this joined report' : 'Bind a dataset to preview this report'}
-        description={
-          joined
-            ? 'A joined report stacks dataset-bound blocks. Add a block and bind its dataset + measures in the right panel to start designing.'
-            : "Since the 9.0 single-form cutover a report renders its dataset's measures (values) grouped by dimensions (rows). Choose a Dataset in the right panel to start designing."
-        }
+        title={tr(joined ? 'engine.reportPreview.joinedEmpty' : 'engine.reportPreview.empty', locale)}
+        description={tr(joined ? 'engine.reportPreview.joinedEmptyHint' : 'engine.reportPreview.emptyHint', locale)}
       />
     </PreviewShell>
   );

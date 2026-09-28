@@ -5,8 +5,7 @@
 ---
 
 A field-backed action param reaches its record picker, and a param whose backing
-field cannot be read is refused instead of rendered as an empty text box
-(objectui#10129).
+field cannot be read is refused instead of rendered as an empty text box.
 
 An action declaring a `params` entry backed by a `lookup` field rendered as a bare
 text input: no options, no typeahead, and no request for the referenced object on

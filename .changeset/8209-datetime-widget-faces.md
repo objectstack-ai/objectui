@@ -33,7 +33,7 @@ local):
 here so the table stays readable.)
 
 **The year is not dropped.** The year-drop is `formatDate`'s date-only cell
-rule (objectui#7620); the verbose default face carries the year in every year,
+rule (`c15d7eca6`); the verbose default face carries the year in every year,
 and nothing here extends the drop to `datetime`.
 
 **No new authorable key.** The sub-grid selects `'compact'` as a literal rather

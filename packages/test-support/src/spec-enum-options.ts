@@ -8,7 +8,7 @@
 
 /**
  * SPEC ENUM VOCABULARY — one reader for every parity gate that asks
- * "which names does this contract accept?" (objectui#5872, objectui#6924).
+ * "which names does this contract accept?" (objectui#5872, `78e98bf44`).
  *
  * Two exports, ONE walk. `enumOptions(node)` reads the vocabulary at each level
  * of that walk; `shapeEnumOptions` is the same reader entered through a shape
@@ -64,7 +64,7 @@
  * installed pin (`@objectstack/spec@17.2.0`, `zod@4.4.3`) it returns the
  * identical array, in the identical order, for all four (schema, key) pairs.
  *
- * ## Two entry points, one walk (objectui#6924)
+ * ## Two entry points, one walk (`78e98bf44`)
  *
  * A SECOND, larger family — 16 call sites across 11 packages — asked the same
  * question of a node that IS the enum: a top-level `z.enum` imported straight
@@ -102,7 +102,7 @@ import { firstInWrapperChain } from './spec-zod-wrappers';
  * `.nullable()` — `[]` when it cannot be read.
  *
  * Takes the node itself, so it answers for a top-level `z.enum` imported from
- * `@objectstack/spec` (objectui#6924's family) and for a shape member the
+ * `@objectstack/spec` (`78e98bf44`'s family) and for a shape member the
  * caller already holds. `shapeEnumOptions` is this same walk entered through
  * `resolvePropsShape`.
  *

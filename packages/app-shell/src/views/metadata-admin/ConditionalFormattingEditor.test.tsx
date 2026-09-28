@@ -194,8 +194,11 @@ describe('ConditionalFormattingEditor · CEL authoring scope (#2571 follow-up)',
     // pinned in the contract suite below, where the same predicate against the
     // same host bag evaluates to FALSE.
     render(<Harness initial={[{ condition: "data.status == 'overdue'", style: {} }]} />);
+    // The advisory is objectui's own sentence ("… Re-root the reference on
+    // `record`."), read through the editor's `t` (objectui#10862); this
+    // harness's `t` echoes the key, as it does for `perm.cel.valid`.
     expect(
-      await screen.findByText(/Re-root the reference on/, {}, { timeout: 3000 }),
+      await screen.findByText('engine.celLint.notTheRow', {}, { timeout: 3000 }),
     ).toBeTruthy();
     // ACCEPT SET UNCHANGED — the falsifiable half. Promoting the advisory to
     // an error reddens both of these.

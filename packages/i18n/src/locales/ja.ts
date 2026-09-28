@@ -128,12 +128,12 @@ const ja = {
     printDialogHint: "ブラウザーの印刷ダイアログを開きます（PDF エクスポートではありません）",
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: "{{total}} 件中、最初の {{shown}} 件を表示しています。フィルターを絞り込んでください。",
     rowCeilingNoteUnknownTotal: "最初の {{shown}} 件を表示しています。フィルターを絞り込んでください。",
   },
@@ -148,6 +148,7 @@ const ja = {
       copyAll: 'すべてコピー',
     },
     notAvailableHere: '「{{action}}」は現在のページでは利用できません。',
+    completedSuccessfully: '操作が正常に完了しました',
   },
   validation: {
     required: "{{field}}は必須です",
@@ -398,13 +399,15 @@ const ja = {
     yes: "はい",
     no: "いいえ",
     systemFields: "システム",
-    // objectui#7189 — partial-grouping disclosure for the grouped grid.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: "一部",
-      partialNotice:
-        "{{total}} 件中、読み込み済みの先頭 {{loaded}} 件のみでグループ化しています。グループの件数は読み込み済みのページだけの集計で、レコードがすべて読み込み範囲の外にあるグループはここに表示されません。",
-      partialNoticeUnknownTotal:
-        "読み込み済みの {{loaded}} 件のみでグループ化しています。このビューに該当するレコードはさらに存在する可能性があるため、グループの件数が不完全であったり、グループが表示されないことがあります。",
+      needsHeaderQuery:
+        "このビューはグループ化されていますが、データソースが queryGroupHeaders を実装していないため、グループの件数を数えられません。レコードを表示するにはグループ化を解除してください。",
+      needsWholeRows:
+        "グループ化にはすべてのレコードが必要ですが、このグリッドにはその一部のページしか渡されていないため、グループの件数を数えられません。すべてのレコードを渡すか、queryGroupHeaders を実装したデータソースからグリッドに読み込ませてください。",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this
@@ -1086,6 +1089,8 @@ const ja = {
     pathStageLostUpcoming: '{{stage}}、失注、未到達',
     pathStageWonUpcoming: '{{stage}}、目標ステージ、未到達',
     linkCopied: "リンクをクリップボードにコピーしました",
+    commentFailed: "コメントを投稿できませんでした。何も保存されていません。もう一度お試しください。",
+    reactionFailed: "リアクションが保存されませんでした。もう一度お試しください。",
     linkCopyFailed: "リンクのコピーに失敗しました",
     cancel: "キャンセル",
     cancelEdit: "変更を破棄",
@@ -1155,6 +1160,8 @@ const ja = {
     refreshing: "更新中…",
     pickMeasures: "このデータセットウィジェットの指標（値）を選択してください。",
     datasetUnsupported: "このデータソースはデータセットクエリに対応していません。",
+    widgetForbiddenTitle: "アクセス権がありません",
+    widgetForbiddenMessage: "このウィジェットのデータを表示する権限がありません。",
     details: "詳細",
     exportCsv: "CSV で書き出す",
     openInList: "リストで開く",
@@ -1307,10 +1314,6 @@ const ja = {
     appDescription: "説明",
     appIcon: "アイコン",
     template: "テンプレート",
-    layout: "レイアウト",
-    layoutSidebar: "サイドバー",
-    layoutHeader: "ヘッダー",
-    layoutEmpty: "空",
     selectObjects: "オブジェクトを選択",
     searchObjects: "オブジェクトを検索…",
     selectAll: "すべて選択",
@@ -1345,7 +1348,7 @@ const ja = {
     appearance: "外観",
     rowHeight: "行高さ",
     livePreview: "リアルタイムプレビュー",
-    stepBasicDesc: "名前、タイトル、レイアウト",
+    stepBasicDesc: "名前、タイトル、アイコン",
     stepObjectsDesc: "ビジネスオブジェクトを選択",
     stepNavigationDesc: "ナビゲーションツリーを構築",
     stepBrandingDesc: "ロゴ、色、ファビコン",
@@ -1566,6 +1569,7 @@ const ja = {
         ctaUpgrade: "アップグレードして続行",
         ctaTopUp: "クレジットを追加して続行",
         ariaLabel: "AI 使用状況: {{status}}",
+        breakdownTitle: "これまでの使用内訳",
       },
       workspaceTitle: "AI ワークスペース",
       workspaceSubtitle: "質問し、確認し、会話を再開します",
@@ -1575,6 +1579,9 @@ const ja = {
       share: "共有",
       shareTitle: "この会話を共有",
       shareDisabledTitle: "共有するにはチャットを開始してください",
+      buildDoctor: "ビルド診断",
+      buildDoctorTitle: "ビルド診断 — 実際に反映された内容は？",
+      buildDoctorDisabledTitle: "先にメッセージを送信してください",
       newChat: "新規",
       searchChats: "チャットを検索…",
       noChatsYet: "チャットはまだありません",
@@ -1782,6 +1789,7 @@ const ja = {
       pages: "ページ",
       reports: "レポート",
       system: "システム",
+      marketplace: "マーケットプレイス",
     },
     // objectui#4024 — the single-namespace settings screen. Its sibling
     // `settingsHub` above already resolved through this pack; the view was the
@@ -1879,6 +1887,14 @@ const ja = {
       ratio: '書き込み 1 行あたり {{ratio}} 行を読み取っています。プラットフォームは {{threshold}} を超える比率を検出対象とします。制限やブロックは一切行われていません。読み取りパターンを確認するための報告です。',
       noWritesTitle: 'この環境は読み取りのみで書き込みがまったくありません',
       noWrites: '行の読み取りはある一方で書き込みがまったくないため、読み取り比率に上限がありません。これは最も深刻な読み取り値です。プラットフォームは {{threshold}} を超える比率を検出対象とします。制限やブロックは一切行われていません。読み取りパターンを確認するための報告です。',
+    },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: 'ストレージの空き容量が少なくなっています',
+      warning: '{{limit}} MB 中 {{used}} MB を使用しています。ストレージが満杯になると、アップロードとインポートは一時停止されます。',
+      blockedTitle: 'ストレージが満杯です：アップロードとインポートは一時停止中です',
+      blocked: '{{limit}} MB 中 {{used}} MB を使用しています。既存のデータはそのままで、読み取り、エクスポート、個々のレコードの編集は引き続き利用できます。',
+      upgrade: 'アップグレードして続行',
     },
     errors: {
       somethingWentWrong: "問題が発生しました",
@@ -2059,6 +2075,8 @@ const ja = {
       resendOtpCountdownText: "{seconds} 秒後に再送信",
       usePhoneOtpText: "確認コードでサインイン",
       usePasswordSignInText: "パスワードでサインインする",
+      socialButton: "{provider} で続行",
+      orText: "またはメールアドレスで続行",
     },
     register: {
       title: "アカウントを作成",
@@ -2077,6 +2095,8 @@ const ja = {
       submittingButton: "アカウント作成中…",
       hasAccountText: "すでにアカウントをお持ちですか？",
       signInText: "サインイン",
+      socialButton: "{provider} で新規登録",
+      orText: "またはメールアドレスで続行",
       errors: {
         userExists: "このメールアドレスのアカウントはすでに存在します。代わりにサインインしてください。",
       },
@@ -2903,6 +2923,9 @@ const ja = {
     createEnvironment: "環境を作成",
     openProduction: "本番環境を開く",
     manageEnvironments: "環境を管理",
+  },
+  cloudPlanStatus: {
+    current: "現在のプラン",
   },
   ai: {
     nlQuery: {
@@ -3746,6 +3769,11 @@ const ja = {
     actionsEmptyTitle: "パッケージアクションはありません",
     actionsEmptyBody: "このデプロイには、アクションを宣言するインストール済みパッケージがありません。自分で作成したアクションは Studio にあります。",
     actionsLoadFailed: "パッケージアクションを読み込めませんでした。",
+  },
+  element: {
+    number: {
+      noObject: "オブジェクトが指定されていません。object または dataSource.object を設定してください。",
+    },
   },
 };
 

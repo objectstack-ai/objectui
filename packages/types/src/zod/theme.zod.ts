@@ -18,8 +18,8 @@
  * - The six `@objectstack/spec/ui` theme-schema re-exports
  *   (`ColorPaletteSchema`, `TypographySchema`, `BorderRadiusSchema`,
  *   `ShadowSchema`, `ThemeModeSchema`, `ThemeDefinitionSchema` — the spec's
- *   `ThemeSchema`): objectstack#10485 (ADR-0049 enforce-or-remove, PR
- *   objectstack#10695) deleted the spec's whole `ui/theme.zod.ts` module —
+ *   `ThemeSchema`): objectstack `35ad101bc` (ADR-0049 enforce-or-remove)
+ *   deleted the spec's whole `ui/theme.zod.ts` module —
  *   values AND types, `AnimationSchema`/`ZIndexSchema` having gone earlier in
  *   17.0.0-rc.3 (objectstack#5021) — and the maintainer's ruling on
  *   objectstack#10856 (2026-08-22, Options A + C) had objectui REMOVE these
@@ -27,8 +27,8 @@
  *   (Option B) was explicitly not taken.
  *
  * - The theme COMPONENT kinds: `ThemeComponentSchema` (`type: 'theme'`)
- *   RETIRED in `78cbdb530` under the 2026-08-21 maintainer ruling on
- *   objectstack#10485 (option B); then `ThemeSwitcherSchema`
+ *   RETIRED in `78cbdb530` under the 2026-08-21 maintainer ruling
+ *   (option B, executed upstream by objectstack `35ad101bc`); then `ThemeSwitcherSchema`
  *   (`type: 'theme-switcher'`), `ThemePreviewSchema` (`type: 'theme-preview'`)
  *   and `ThemeUnionSchema` — which after `78cbdb530` held only those two
  *   members — RETIRED in objectui#5647, by inheritance of the same ruling on

@@ -312,10 +312,31 @@ describe('ObjectGrid — a masked field is refused as a grouping key (objectui#1
   ];
   const groupRows = () => Array.from(document.querySelectorAll('[data-testid^="group-row-"]'));
 
+  // objectui#10881: a grouped grid that fetches its own rows groups only over
+  // a data source that answers the group header query (a find-only one is
+  // refused), so this one answers it by counting ROWS under the query's own
+  // `groupBy`. A masked key never reaches that query: it is dropped from the
+  // grouping before the header query is asked.
+  const groupedDataSource = () => ({
+    ...makeDataSource(ROWS, FIELDS),
+    queryGroupHeaders: vi.fn(async (_object: string, query: { groupBy?: string[] }) => {
+      const by = query.groupBy ?? [];
+      const counts = new Map<string, number>();
+      for (const row of ROWS as Array<Record<string, unknown>>) {
+        const key = JSON.stringify(by.map((field) => row[field] ?? null));
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+      return [...counts].map(([key, count]) => {
+        const values = JSON.parse(key) as unknown[];
+        return { ...Object.fromEntries(by.map((field, i) => [field, values[i]])), count };
+      });
+    }),
+  });
+
   function renderGrouped(fields: Array<{ field: string }>) {
     renderGrid(
       { objectName: 'masked_group_probe', columns: COLUMNS, grouping: { fields } },
-      makeDataSource(ROWS, FIELDS),
+      groupedDataSource(),
     );
   }
 

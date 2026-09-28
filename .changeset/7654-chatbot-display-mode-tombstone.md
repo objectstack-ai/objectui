@@ -65,7 +65,7 @@ That is deliberate, and it is why this tombstone has **no `retirementTombstone()
 half**: minting a mirror arm to refuse the key would be the declared-but-unmirrored axis
 (objectui#6152), a different defect, and a parse outcome the ruling did not ask for.
 `packages/types/src/__tests__/chatbot-display-mode-retired.test.ts` pins both twins'
-shapes as a **tripwire** — the same shape objectui#7669 gave `triggerIcon` — so that if
+shapes as a **tripwire** — the same shape `a3eb5d07a` gave `triggerIcon` — so that if
 objectui#6152 ever mints an arm for `displayMode`, the pin goes red and whoever lands the
 mirror adds the `retirementTombstone()` half at that time, flipping the control rather
 than deleting it.
@@ -87,7 +87,7 @@ control carrier (`FloatingChatbotConfig`) lit in the same run:
 Deleted, the member reads as `any` and even a wrong-typed value goes quiet. Tombstoned,
 **presence with any value** is a compile error — a channel deletion cannot produce on
 this carrier at all. On a `BaseSchema` carrier the two routes are loud-vs-silent, not
-louder-vs-quieter (the discriminator's carrier branch as corrected on objectui#7678).
+louder-vs-quieter (the discriminator's carrier branch in its amended form, `5f8190c8c`).
 Prong 2 of that discriminator licenses the tombstone: the key was advertised in the
 3.3.0 release record (`CHANGELOG.md:578`) and its published comment taught it as the
 presentation switch. The deleted row is pinned in the test file as a live control — an

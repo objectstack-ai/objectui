@@ -331,8 +331,9 @@ describe('MasterDetailForm — showSubmit gate (Studio screen preview)', () => {
     expect(screen.queryByRole('button', { name: /create|save/i })).not.toBeInTheDocument();
   });
 
-  it('uses the host-supplied cancelText (i18n is the host\'s job)', async () => {
-    // The plugin is locale-agnostic — the console passes a localized label down.
+  it('uses the host-supplied cancelText string', async () => {
+    // A host may pass an already-localized string down. A per-locale map is
+    // resolved by the form itself: `MasterDetailForm.i18nLabels.test.tsx`.
     render(
       <MasterDetailForm
         schema={{ ...base, cancelText: '取消', onCancel: vi.fn() }}

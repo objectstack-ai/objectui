@@ -64,7 +64,7 @@ const TabsRenderer = ({ schema, className, onChange, value, ...props }: { schema
           value={item.value}
           className={cn("mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2", isVertical && "mt-0 flex-1")}
         >
-          {renderChildren(item.content || (item as any).body)}
+          {renderChildren(item.content)}
         </TabsContent>
       ))}
     </Tabs>

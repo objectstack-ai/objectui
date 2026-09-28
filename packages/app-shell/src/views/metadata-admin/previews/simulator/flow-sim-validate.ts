@@ -235,7 +235,7 @@ function evalCelPredicate(
  *
  * - A blank `expression` is read as `false`, as `evaluateCondition` reads an
  *   empty source; objectstack main refuses it at `registerFlow`
- *   (`predicateSlotRefusal`, #17493) and the installed 17.4.0 admits it — a
+ *   (`predicateSlotRefusal`, objectstack#17493) and the installed 17.4.0 admits it — a
  *   declared divergence.
  * - A non-string `expression` is refused with the spec's
  *   `predicateSlotRefusal`, the refusal `registerFlow` applies to this slot.

@@ -19,7 +19,7 @@ actually set it:
   last, so `type="api"` replaced the component discriminator and the node stopped resolving
   to a component at all. `validate.ts` cannot report that: `type` is in `BASE_PROPS`, so it
   is skipped before the declared-input check runs. Two mechanisms, one outcome, no
-  diagnostic. objectstack PR #14274 landed a refusal on this tier whose prescription
+  diagnostic. PR objectstack#14274 landed a refusal on this tier whose prescription
   ("write the tag you meant") is wrong for exactly these two components.
 - **react-page tier** — the wrapper stamps `type: tag` last and parks the author's value
   under `specType` (objectui#2880), which neither action renderer reads.

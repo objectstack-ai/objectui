@@ -20,7 +20,7 @@
  * renderers all three ways to restore consistency, deliberately without
  * deciding which of them was CONTRACT). The ruling decided it, in two phases:
  *
- * > **The canon is `record.*`.** Phase 1 (PR #5737) declared it and warned
+ * > **The canon is `record.*`.** Phase 1 (`d1ab06f0f`) declared it and warned
  * > once, in dev, on the two other spellings. Phase 2 (`83fe6e741`, ruled
  * > 2026-09-02 and amended 2026-09-05) retired them: the bare shorthand and
  * > `data.*` are no longer bound on runtime record surfaces, and the Phase-1

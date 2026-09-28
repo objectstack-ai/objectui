@@ -146,6 +146,15 @@ to `onMarkerClick` is not `===` the authored object.
 }
 ```
 
+The block is closed (objectui#5157). A key it does not declare — a typo such as
+`latitudeFieId` — is refused by `objectui validate` with an `unrecognized_keys`
+issue at `map` that names the key (on a root node; a nested node reports under
+`invalid_union` at `children`, with the key in the arm detail). At runtime
+`ObjectMap` does not throw: it renders from the declared keys, and the console
+warns `[ObjectMap] Invalid map configuration`, naming the same key. A typo that
+leaves the block with no coordinate binding, as `latitudeFieId` does, draws the
+refusal described under "An unconfigured map refuses" rather than a map.
+
 ## Configuration
 
 ### An unconfigured map refuses

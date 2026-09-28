@@ -608,11 +608,12 @@ const ALLOW = {
       "Precise upstream, still not bindable — guard header case 2c. objectstack#4171 landed and " +
       "the spec's NavigationItem is neither `any` nor `unknown` any more, so `no longer any` is " +
       "settled and is NOT a licence to bind. The spec models navigation as a nine-variant " +
-      "discriminated union; objectui keeps one flat shape carrying `visible: boolean` (the spec " +
+      "discriminated union; objectui keeps a flat entry shape carrying `visible: boolean` (the spec " +
       "takes a CEL string / Expression envelope, and `menuItemToNavigationItem` MANUFACTURES a " +
       "boolean when it inverts legacy `MenuItem.hidden`), plus `pinned` (`useNavPins` + " +
-      "`FavoritesProvider`) and `defaultOpen`, neither of which the spec declares at either tier, " +
-      "plus a separator carrying `label`. Each blocker is pinned one-per-line in " +
+      "`FavoritesProvider`) and `defaultOpen`, neither of which the spec declares at either tier. " +
+      "Its separator arm agrees with the spec's since objectui#10867, which removed the " +
+      "separator `label`. Each remaining blocker is pinned one-per-line in " +
       "packages/types/src/__tests__/spec-derived-unions.test.ts, written to stop compiling the day " +
       "that specific blocker lifts. What IS derivable is already derived (`NavigationItemType` and " +
       "the per-branch keys come off the spec).",
@@ -626,24 +627,29 @@ const ALLOW = {
       "reason (`the spec's is z.ZodType<any> and would validate nothing`) is spent. The live " +
       "blocker is RUNTIME shape, invisible to every type-level probe: this schema has a published " +
       "consumer in `objectui validate`, and referencing the spec's would make it REJECT metadata " +
-      "objectui accepts today — `pinned`, `defaultOpen` and a separator `label` all fail " +
+      "objectui accepts today — `pinned` and `defaultOpen` fail " +
       "`unrecognized_keys` against the spec's `.strict()` branches, `visible: boolean` fails " +
-      "`invalid_union`, and a one-character `id` fails `too_small`. All five are pinned, behind two " +
-      "positive controls, in packages/types/src/__tests__/navigation-spec-parity.test.ts. " +
+      "`invalid_union`, and a one-character `id` fails `too_small`. All four are pinned, behind two " +
+      "positive controls, in packages/types/src/__tests__/navigation-spec-parity.test.ts; a separator " +
+      "`label` was a fifth until objectui#10867 made this mirror refuse it too. " +
       "Converging on the union is a breaking change tracked separately.",
     issue: 4115,
   },
   "@object-ui/types:JoinedReportBlock": {
     reason:
-      "Guard header case 2b, and still live: the spec declares `JoinedReportBlockSchema` as a bare " +
-      "`z.ZodTypeAny`, so its exported type resolves to `unknown`. Re-exporting would replace this " +
-      "package's precise block interface (`name`/`columns`/`groupingsDown`/`groupingsAcross`/" +
-      "`filter`/`chart`) with nothing at all. ⚠️ objectstack#4171 is CLOSED and this is STILL " +
-      "erased — that issue typed the RECURSIVE schemas and never touched this one, whose erasure " +
-      "has a different cause. Re-measured at spec 17.2.0: `IsUnknown` is still `true`. Pinned in " +
-      "packages/types/src/__tests__/report-chart-query-spec-parity.test.ts, which fails the day the " +
-      "spec types the schema — that pin, not the state of any upstream issue, is the release " +
-      "condition.",
+      "Two specs, two cases (objectui#10916). The INSTALLED spec, the published 17.4.0, is guard " +
+      "header case 2b: it declares `JoinedReportBlockSchema` as a bare `z.ZodTypeAny`, so its " +
+      "exported type resolves to `unknown`, and re-exporting would replace this package's block " +
+      "interface with nothing at all. objectstack `main` typed it in objectstack#20369, and there it " +
+      "is case 2c: precise, but a DIFFERENT shape — the ADR-0021 dataset-bound block (`dataset`/" +
+      "`rows`/`columns` as names/`values`/`runtimeFilter`/`order`) in a closed schema, against this " +
+      "package's legacy inline-query block (`objectName`/`columns` as objects/`groupingsDown`/" +
+      "`groupingsAcross`/`filter`/`chart`), all five of whose local-only keys the spec refuses. The " +
+      "burn-down is owed at the first spec bump past 17.4.0, and it REPLACES the published " +
+      "interface with the spec's type in its own slice (a published type changes); before that bump " +
+      "the derived type would be `unknown`. packages/types/src/__tests__/report-chart-query-spec-parity.test.ts " +
+      "pins each divergence at compile time and carries the test-time tripwire that fails at that " +
+      "bump — that tripwire, not the state of any upstream issue, is the release condition.",
     issue: 4115,
   },
   "@object-ui/types:SelectOption": {
@@ -848,8 +854,10 @@ const ALLOW = {
 //      Both sets live in `spec-derived-unions.test.ts` /
 //      `validation-rule-spec-parity.test.ts`, written to fail the day the
 //      blocker they name lifts.
-//   2b. The SPEC export resolves to `unknown` (`JoinedReportBlock`, whose
-//      `JoinedReportBlockSchema` the spec declares as `z.ZodTypeAny`). Just as
+//   2b. The SPEC export resolves to `unknown` (`JoinedReportBlock` in the
+//      published 17.4.0, whose `JoinedReportBlockSchema` that release declares
+//      as `z.ZodTypeAny`; objectstack `main` typed it in objectstack#20369,
+//      which moves it to case 2c there — see its ALLOW entry). Just as
 //      empty as case 2 and just as unburnable, but the `any` probe reports
 //      `false` for it, so a triage that only screens for `any` waves it through
 //      as "safely derivable". Detect: `[unknown] extends [Spec]`. Pinned in

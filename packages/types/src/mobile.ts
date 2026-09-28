@@ -26,7 +26,7 @@
 // its own per-retirement argument — WHICH prong holds here and why, which no
 // shared statement can carry — and CITES the rule itself instead of writing
 // it out. The statement they cite is the `ChatbotSchema` JSDoc in
-// `complex.ts`, in the form objectui#7678 amended it to (objectui#5941 /
+// `complex.ts`, in its amended form, `5f8190c8c` (objectui#5941 /
 // #7526 are the precedent changesets it is quoted from).
 //
 // ⛔ That is the statement this file cites; it is NOT the only one in the
@@ -41,7 +41,7 @@
 // sites by hand, and the drift is SILENT — the sites do not reference each
 // other, so nothing goes red when one is missed. Measured on this branch's
 // base: eight statements of the rule across the two files, two of them still
-// without the precondition objectui#7678 added, and both of those two in this
+// without the precondition the amendment added, and both of those two in this
 // file. Neither was named by the finding that measured the drift
 // (objectui#9684), whose probe enumerated the population by literal phrase.
 //
@@ -176,7 +176,7 @@ export type ResponsiveValue<T> = T | Partial<Record<BreakpointName, T>>;
 // Removed outright rather than tombstoned, measured against this package's
 // retire-vs-remove discriminator — cited, not restated (see this file's
 // `RETIRE-VS-REMOVE DISCRIMINATOR` preamble; the rule is stated on
-// `ChatbotSchema` in `complex.ts`, in the form objectui#7678 amended it to,
+// `ChatbotSchema` in `complex.ts`, in its amended form (`5f8190c8c`),
 // from the precedent changesets objectui#5941 / #7526).
 // `MobileResponsiveConfig` is a whole exported type name, so it has no
 // carrier to host a `?: never` member at all and the surviving-carrier
@@ -222,8 +222,8 @@ export type ResponsiveValue<T> = T | Partial<Record<BreakpointName, T>>;
 // three values were three spellings of the same no-op. Removal rather than a
 // `?: never` tombstone follows this package's retire-vs-remove discriminator
 // — cited, not restated (see this file's `RETIRE-VS-REMOVE DISCRIMINATOR`
-// preamble; the rule is stated on `ChatbotSchema` in `complex.ts`, in the
-// form objectui#7678 amended it to).
+// preamble; the rule is stated on `ChatbotSchema` in `complex.ts`, in its
+// amended form, `5f8190c8c`).
 //
 // Neither branch reaches this retirement. The surviving-carrier precondition
 // settles it first: an exported type name that goes whole has no carrier to
@@ -396,8 +396,8 @@ export type GestureType ='tap' | 'double-tap' | 'long-press' | 'swipe-left' | 's
 // `action` was a string nothing dispatched.
 //
 // Removed outright rather than tombstoned, measured against the discriminator
-// the precedent changesets state (objectui#5941, #7526), in the form
-// objectui#7678 amended it to — cited, not restated (see this file's
+// the precedent changesets state (objectui#5941, #7526), in its amended
+// form (`5f8190c8c`) — cited, not restated (see this file's
 // `RETIRE-VS-REMOVE DISCRIMINATOR` preamble; the rule is stated on
 // `ChatbotSchema` in `complex.ts`). `GestureConfig` is a whole exported type
 // name, so it has no carrier to host a `?: never` member at all and the

@@ -135,12 +135,12 @@ const zh = {
     printDialogHint: '打开浏览器打印对话框（不是导出 PDF）',
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: '仅显示 {{total}} 条记录中的前 {{shown}} 条。请缩小筛选范围。',
     rowCeilingNoteUnknownTotal: '仅显示前 {{shown}} 条记录。请缩小筛选范围。',
   },
@@ -155,6 +155,7 @@ const zh = {
       copyAll: '全部复制',
     },
     notAvailableHere: '「{{action}}」在当前页面不可用。',
+    completedSuccessfully: '操作已成功完成',
   },
   validation: {
     required: '{{field}}不能为空',
@@ -384,13 +385,15 @@ const zh = {
     yes: '是',
     no: '否',
     systemFields: '系统字段',
-    // objectui#7189 — partial-grouping disclosure for the grouped grid.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: '部分',
-      partialNotice:
-        '仅按已加载的前 {{loaded}} 条(共 {{total}} 条)记录分组。分组计数只统计当前页,记录全部落在已加载行之外的分组不会出现在这里。',
-      partialNoticeUnknownTotal:
-        '仅按已加载的 {{loaded}} 条记录分组。可能还有更多记录符合此视图,因此分组计数可能不完整,某个分组也可能不会出现在这里。',
+      needsHeaderQuery:
+        '此视图已分组，但其数据源未实现 queryGroupHeaders，因此无法统计分组。移除分组即可显示记录。',
+      needsWholeRows:
+        '分组需要全部记录，但此表格只收到其中一页，因此无法统计分组。请传入全部记录，或让表格从实现了 queryGroupHeaders 的数据源获取记录。',
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this
@@ -980,6 +983,8 @@ const zh = {
     pathStageLostUpcoming: '{{stage}}，已失败，未到达',
     pathStageWonUpcoming: '{{stage}}，目标阶段，未到达',
     linkCopied: '链接已复制到剪贴板',
+    commentFailed: '评论未发布，内容没有保存，请重试。',
+    reactionFailed: '表情回应未保存，请重试。',
     linkCopyFailed: '复制链接失败',
     cancel: '取消',
     cancelEdit: '放弃更改',
@@ -1226,6 +1231,8 @@ const zh = {
     refreshing: '刷新中…',
     pickMeasures: '请为该数据集组件选择度量（值）。',
     datasetUnsupported: '当前数据源不支持数据集查询。',
+    widgetForbiddenTitle: '无权访问',
+    widgetForbiddenMessage: '你没有查看该组件数据的权限。',
     details: '明细',
     exportCsv: '导出 CSV',
     openInList: '在列表中打开',
@@ -1372,10 +1379,6 @@ const zh = {
     appDescription: '描述',
     appIcon: '图标',
     template: '模板',
-    layout: '布局',
-    layoutSidebar: '侧边栏',
-    layoutHeader: '顶部导航',
-    layoutEmpty: '空白',
     selectObjects: '选择对象',
     searchObjects: '搜索对象…',
     selectAll: '全选',
@@ -1410,7 +1413,7 @@ const zh = {
     appearance: '外观',
     rowHeight: '行高',
     livePreview: '实时预览',
-    stepBasicDesc: '名称、标题和布局',
+    stepBasicDesc: '名称、标题和图标',
     stepObjectsDesc: '选择业务对象',
     stepNavigationDesc: '构建导航树',
     stepBrandingDesc: 'Logo、颜色和图标',
@@ -1580,6 +1583,7 @@ const zh = {
       // restore 报告 without a new ruling.
       reports: '报表',
       system: '系统',
+      marketplace: '应用市场',
     },
     nav: {
       pinItem: '固定 {{name}}',
@@ -1724,6 +1728,7 @@ const zh = {
         ctaUpgrade: '升级以继续使用',
         ctaTopUp: '购买额度包以继续',
         ariaLabel: 'AI 用量：{{status}}',
+        breakdownTitle: '已用额度构成',
       },
       workspaceTitle: 'AI 工作区',
       workspaceSubtitle: '提问、查看并继续历史对话',
@@ -1733,6 +1738,9 @@ const zh = {
       share: '分享',
       shareTitle: '分享此对话',
       shareDisabledTitle: '开始对话后即可分享',
+      buildDoctor: '构建诊断',
+      buildDoctorTitle: '构建诊断 — 实际生效了哪些变更？',
+      buildDoctorDisabledTitle: '请先发送一条消息',
       newChat: '新对话',
       searchChats: '搜索对话…',
       noChatsYet: '暂无对话',
@@ -1951,6 +1959,14 @@ const zh = {
       noWritesTitle: '本环境只有读取、完全没有写入',
       noWrites: '有行被读取,却完全没有任何写入,因此读取比率没有上限。这是最严重的读数。平台会标记高于 {{threshold}} 的比率。没有任何东西被限制或阻断;这只是一份报告,便于检查读取方式。',
     },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: '存储空间即将用满',
+      warning: '已用 {{used}} MB / {{limit}} MB。存储用满后，上传与导入将暂停。',
+      blockedTitle: '存储已满，上传与导入已暂停',
+      blocked: '已用 {{used}} MB / {{limit}} MB。现有数据不受影响，读取、导出与单条记录编辑照常。',
+      upgrade: '升级以继续',
+    },
     errors: {
       somethingWentWrong: '出错了',
       unexpectedError: '渲染此视图时发生意外错误。',
@@ -2133,6 +2149,8 @@ const zh = {
       resendOtpCountdownText: '{seconds} 秒后可重新发送',
       usePhoneOtpText: '使用验证码登录',
       usePasswordSignInText: '改用密码登录',
+      socialButton: '使用 {provider} 继续',
+      orText: '或使用邮箱继续',
     },
     register: {
       title: '创建账户',
@@ -2151,6 +2169,8 @@ const zh = {
       submittingButton: '创建中…',
       hasAccountText: '已有账户？',
       signInText: '登录',
+      socialButton: '使用 {provider} 注册',
+      orText: '或使用邮箱继续',
       errors: {
         userExists: '该邮箱已被注册，请直接登录或更换邮箱。',
       },
@@ -3039,6 +3059,9 @@ const zh = {
     openProduction: '打开生产环境',
     manageEnvironments: '管理环境',
   },
+  cloudPlanStatus: {
+    current: '当前套餐',
+  },
   ai: {
     nlQuery: {
       placeholder: '就您的数据提问…',
@@ -3295,7 +3318,7 @@ const zh = {
   marketplace: {
       title: '应用市场',
       subtitle: '浏览已通过审核、发布到 ObjectStack 目录中的应用。点击应用查看详情并安装到你的某个环境中。',
-      searchPlaceholder: '按名称或 manifest ID 搜索应用…',
+      searchPlaceholder: '按名称或标识搜索应用…',
       searchAria: '搜索市场应用',
       installed: '已安装',
       installedCount: '已安装（{{count}}）',
@@ -3815,6 +3838,11 @@ const zh = {
     actionsEmptyTitle: '没有打包动作',
     actionsEmptyBody: '本部署中没有任何已安装软件包声明动作。你自己编写的动作在 Studio 中。',
     actionsLoadFailed: '无法加载打包动作。',
+  },
+  element: {
+    number: {
+      noObject: '未指定对象：请设置 object 或 dataSource.object。',
+    },
   },
 } as const;
 

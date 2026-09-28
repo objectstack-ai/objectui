@@ -405,7 +405,7 @@ export function ObjectDataPage({ dataSource, objects }: any) {
   // `better-auth` objects (whose bucket resolves `create: false`) were still
   // offered a "New" that navigates to `../new`, an object-level
   // `userActions: { create: false }` opt-out did not close the button, and the
-  // #3391 effective-API-operation intersection was absent, so the toolbar could
+  // objectstack#3391 effective-API-operation intersection was absent, so the toolbar could
   // offer a create the server would 405.
   //
   // Resolved exactly as `ObjectView` does: the spec's bucket/`userActions`
@@ -439,7 +439,7 @@ export function ObjectDataPage({ dataSource, objects }: any) {
    *
    * LAYERING: surfaced only when the object-level verdict already passed. A
    * predicate may not RE-OPEN what the bucket, the effective API operations
-   * (#3391) or the principal's grant have closed; it only narrows further. The
+   * (objectstack#3391) or the principal's grant have closed; it only narrows further. The
    * pre-existing `can(...)` gate is not removed, it is one conjunct of this.
    *
    * ONE RENDER POINT here, unlike `ObjectView`: this page has no phone FAB —
@@ -524,7 +524,7 @@ export function ObjectDataPage({ dataSource, objects }: any) {
           actions={
             <>
               {/* [#5164] `objectCanCreate && createVisible` — the bucket +
-                  object-level `userActions` + #3391 effective-operations
+                  object-level `userActions` + objectstack#3391 effective-operations
                   verdict (all folded into `affordances.create`) AND the
                   principal's grant, then the toolbar-scope `visibleWhen` layer
                   on top of it. Greyed, not gone, is the `disabledWhen` case. */}

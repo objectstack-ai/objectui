@@ -104,7 +104,7 @@ export async function validate(schemaPath: string) {
       // undefined and this loop threw a TypeError that the catch below
       // reported as "Error reading or parsing schema file", hiding the very
       // errors this command exists to print.
-      // Every issue gets a Path line, INCLUDING a root-level one (objectui#7004).
+      // Every issue gets a Path line, INCLUDING a root-level one (`85b495795`).
       //
       // The guard here used to be `issue.path.length > 0`, which dropped the
       // line entirely for `path: []` — silent in exactly the case a reader
@@ -124,7 +124,7 @@ export async function validate(schemaPath: string) {
       // `(root)` is parenthesised so it cannot be read as a real key literally
       // named `root` — a genuine path to one would print as `root`.
       //
-      // The ARM-SELECTION half of objectui#7004 landed on the 2026-09-02
+      // The ARM-SELECTION half (`a5d55472b`) landed on the 2026-09-02
       // maintainer ruling (option B): print the issues of the arm the authored
       // `type` selects, and nothing from the others. Since objectui#8498 ZOD
       // does that selecting — a matched discriminator yields the arm's issues

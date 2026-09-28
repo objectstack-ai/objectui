@@ -60,7 +60,7 @@
  * `update`. That is not a missing decision, it is a WRONG one stated out loud:
  * a `scheduled` meeting and an author's `contract_countersigned` both rendered
  * as "somebody updated this record". `sys_activity.type` is author-extensible
- * (objectstack#11507 direction 4, ruled 2026-08-24 — the column's fields are
+ * (objectstack `88b9d749a`, direction 4, ruled 2026-08-24 — the column's fields are
  * `readonly: true` so objectql never validates them on write, and ADR-0052
  * §5b.2 forwards `activityMilestones[].type` into it verbatim), so unrecognised
  * values are not mistakes to be papered over; they are real activity nobody has
@@ -184,7 +184,7 @@ function warnUnmappedActivityType(type: string): void {
   console.warn(
     `[app-shell] rendered a sys_activity row with type "${type}" through the generic `
       + `"${UNMAPPED_ACTIVITY_ITEM_TYPE}" presentation: no activity item type is mapped `
-      + 'for it. `sys_activity.type` is author-extensible (objectstack#11507, ruled '
+      + 'for it. `sys_activity.type` is author-extensible (ruled '
       + '2026-08-24) and is not validated on write, so a producer can store a value the '
       + 'platform never declared — the row is shown rather than dropped, and it no longer '
       + 'claims to be an update. Map it in ACTIVITY_TYPE_TO_ACTIVITY_ITEM_TYPE '

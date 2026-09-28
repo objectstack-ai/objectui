@@ -24,7 +24,7 @@ import type { BaseSchema, SchemaNode } from './base.js';
 export type ActionExecutionMode = 'sequential' | 'parallel';
 
 // `ActionCallback` — the Phase-2 callback object the legacy `ActionSchema.onSuccess` /
-// `onFailure` keys carried — was DELETED by objectui#7068 (the objectui#7664 route for
+// `onFailure` keys carried — was DELETED by `6bca0e4e8` (the objectui#7664 route for
 // a standalone retired type: name gone from both faces and from the barrels, absence
 // pinned). The two keys below stay declared as `?: never` tombstones so an authored
 // callback is a `tsc` error at the site instead of a silent index-signature admit;
@@ -144,7 +144,7 @@ export interface ActionSchema extends BaseSchema {
    */
   errorMessage?: string;
   /**
-   * RETIRED (objectui#7068, ADR-0049 enforce-or-remove) — the Phase-2 success
+   * RETIRED (`6bca0e4e8`, ADR-0049 enforce-or-remove) — the Phase-2 success
    * callback, an `ActionCallback` object (`{ type: 'toast' | 'message' | 'redirect'
    * | 'reload' | 'custom' | 'ajax' | 'dialog', message?, url?, api?, method?,
    * dialog?, handler? }`). Measured before the retirement: zero producers outside
@@ -166,7 +166,7 @@ export interface ActionSchema extends BaseSchema {
    */
   onSuccess?: never;
   /**
-   * RETIRED (objectui#7068, ADR-0049 enforce-or-remove) — the Phase-2 failure
+   * RETIRED (`6bca0e4e8`, ADR-0049 enforce-or-remove) — the Phase-2 failure
    * callback, the same `ActionCallback` object shape {@link ActionSchema.onSuccess}
    * carried. Zero producers, zero runtime readers (measured, see `onSuccess`), and
    * `@objectstack/spec`'s `ActionSchema` declares no `onFailure` at all — an
@@ -323,7 +323,7 @@ export interface DetailSchema extends BaseSchema {
    */
   onBack?: () => void;
   /**
-   * SPA navigation callback — RUNTIME SLOT (objectui#7804, the objectui#6124
+   * SPA navigation callback — RUNTIME SLOT (`7ca6ddd4b`, the objectui#6124
    * shape): a host-supplied function, NOT authorable metadata. `'detail'` is
    * registered to `DetailView` RAW, so an authored value reaches
    * `schema.onNavigate` by identity and `handleBack` / `handleEdit` / the
@@ -340,7 +340,7 @@ export interface DetailSchema extends BaseSchema {
    */
   onNavigate?: (url: string, options?: { replace?: boolean; newTab?: boolean }) => void;
   /**
-   * New comment callback — RUNTIME SLOT (objectui#7804), reaching the renderer
+   * New comment callback — RUNTIME SLOT (`7ca6ddd4b`), reaching the renderer
    * on a DIFFERENT channel from {@link DetailSchema.onNavigate}: `DetailView`
    * does not call it, it forwards it as a prop into `<RecordComments>`, whose
    * submit handler awaits it. Measured per key rather than per prefix, as the
@@ -364,6 +364,40 @@ export interface DetailSchema extends BaseSchema {
    * @default false
    */
   loading?: boolean;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `detail` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its
+   * refusal names `children` as the remedy, which this node does not read
+   * either. The member is restated here so the refusal points at what the
+   * node renders instead.
+   *
+   * @deprecated Not a channel `detail` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `detail` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep, over one program per
+   * workspace package on a built tree (the family-D re-measure). The bare
+   * `detail` key is owned by `view:detail` (`@object-ui/plugin-detail`),
+   * which hands the node to `DetailView`; `DetailView` reads it as
+   * `DetailViewSchema`, and no `body` or `children` read is filed under that
+   * type. `SchemaRenderer` strips `body` and `children` out of the props bag
+   * it spreads, so neither reaches the component by another route, and the
+   * registration declares no `children` slot (objectui#9910).
+   *
+   * What it renders instead: the record named by `objectName` and
+   * `resourceId`, laid out by `DetailView` from `fields`, `sections` and
+   * `tabs`.
+   *
+   * @deprecated Not a channel `detail` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**

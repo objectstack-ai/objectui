@@ -86,6 +86,7 @@ export const KNOWN_SCHEMA_TYPES: readonly string[] = [
   'cloud-connection:panel',
   'cloud:ai-model-status',
   'cloud:onboarding-next',
+  'cloud:plan-status',
   'code',
   'code-editor',
   'collapsible',

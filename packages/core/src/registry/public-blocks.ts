@@ -133,7 +133,7 @@ export const PUBLIC_BLOCKS: readonly string[] = [
   // It landed on every other declaration face — interface, zod mirror,
   // `SchemaRegistry`, registration, docs page, and 27 catalog fixtures — and
   // this list was the one face it missed, so the vocabulary taught a type the
-  // contract did not carry (objectui#6879).
+  // contract did not carry (`3619792bf`).
   //
   // MEASURED before it was added, because "add it and see" is how a gate
   // discovers a new population at merge time. `registry-inputs-spec-parity`

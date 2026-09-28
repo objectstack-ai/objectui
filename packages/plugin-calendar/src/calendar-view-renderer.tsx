@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { ComponentRegistry } from '@object-ui/core';
+import { ComponentRegistry, toDisplayDate } from '@object-ui/core';
 import type { CalendarViewSchema } from '@object-ui/types';
 import { CalendarView, type CalendarViewEvent, type CalendarViewProps } from './CalendarView';
 import React from 'react';
@@ -175,6 +175,12 @@ function resolveAuthoredSlotMinutes(raw: unknown): number | undefined {
  * date picker, i.e. a silent wrong answer where the absent-key path gives a
  * usable calendar.
  *
+ * The string is read through `toDisplayDate` (objectui#10866): a date-only
+ * `2026-11-01` names a calendar day, and the engine's own parse read it as UTC
+ * midnight, which opened the calendar on October 31st west of UTC. A value
+ * with a time keeps its instant, and a day its month does not have
+ * (`2026-02-30`) is refused like any other unparseable string.
+ *
  * A `Date` INSTANCE passes through untouched. That value is not authored
  * metadata — `type: 'string'` cannot express it — it is a React host handing
  * the widget its real declared prop type (`<SchemaRenderer … currentDate={d} />`
@@ -186,7 +192,7 @@ function resolveAuthoredSlotMinutes(raw: unknown): number | undefined {
 function resolveAuthoredCurrentDate(raw: unknown): Date | undefined {
   if (raw instanceof Date) return raw;
   if (typeof raw !== 'string') return undefined;
-  const parsed = new Date(raw);
+  const parsed = toDisplayDate(raw);
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
@@ -287,8 +293,11 @@ ComponentRegistry.register('calendar-view',
         return {
           id: record.id || record._id || index,
           title: record[titleField] || 'Untitled Event',
-          start: new Date(record[startField]),
-          end: record[endField] ? new Date(record[endField]) : undefined,
+          // A date-only value names a calendar day, read at LOCAL midnight
+          // by `toDisplayDate`; the engine's own parse put it in the previous
+          // day's cell west of UTC (objectui#10866).
+          start: toDisplayDate(record[startField]),
+          end: record[endField] ? toDisplayDate(record[endField]) : undefined,
           allDay: record[allDayField],
           color: record[colorField],
           data: record,

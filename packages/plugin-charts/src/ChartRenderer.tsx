@@ -64,7 +64,7 @@ export interface ChartRendererProps {
      *
      * Both arms carry the per-series family override `type`, with the same
      * member type (objectui#8086): the renderer honours it on either shape,
-     * because every entry goes through `normalizeSeries` (objectui#7681), and
+     * because every entry goes through `normalizeSeries` (`01c27c431`), and
      * `ChartDataSeriesSchema` declares `dataKey` and `name` independently
      * optional beside it — so a `dataKey` entry carrying `type` is what the
      * contract and the renderer both accept, and this union says so.
@@ -152,7 +152,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ schema, onChartCli
     // to the renderer-internal `chartType`. So an author who writes the
     // documented `dataKey` binding *and* the documented `type` override
     // together — both valid on `ChartDataSeriesSchema` independently — got
-    // NEITHER honoured (objectui#7681).
+    // NEITHER honoured (`01c27c431`).
     //
     // `normalizeSeries` is a no-op on a well-formed internal-shaped entry apart
     // from `type`: it round-trips every other key the internal arm of
@@ -186,7 +186,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ schema, onChartCli
     //     (objectui#2880 S1) -- already consumes it, so `spec.series` above is
     //     populated before the old branch could be reached. That branch was a
     //     SECOND, un-normalized read of a key the normalizer owns: the shape
-    //     objectui#7681 removed for `series`. It was unreachable for every
+    //     `01c27c431` removed for `series`. It was unreachable for every
     //     well-formed chart, and on malformed input it was WORSE than nothing
     //     (`categories: 'revenue'` reached `.map` on a string and threw; a
     //     `categories` whose entries the normalizer rejects produced

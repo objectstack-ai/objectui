@@ -436,9 +436,32 @@ ComponentRegistry.register('object-master-detail-form', MasterDetailFormRenderer
     // cannot honour.
     { name: 'formType', type: 'enum', enum: ['simple', 'tabbed'], description: 'How the PARENT half of the form is presented. The detail grids below it are unaffected.' },
     { name: 'fields', type: 'array', description: 'Which parent fields to show, in order — and it is NOT ignored when `sections` is given: the two INTERSECT. The parent field pool is built from this key first and every section then resolves its own members against that pool, so a section member this key does not list is dropped from the rendered form, and a section that loses EVERY member that way disappears with its heading. Each such drop is reported once via `console.warn` (objectui#9884); it is not repaired, because this key is also the parent pool for values, create defaults and the submitted set. Author one or the other, or list every section member here too. Members are bare field names (`{ name }` tolerated); NOT the spec `FormFieldSchema` object `sections[].fields` accepts (identity key `field`) — that shape resolves to no name here and is silently skipped (the parent form renders through the same `ObjectForm` / `SimpleObjectForm` as `object-form` — see its `fields` description).' },
-    { name: 'title', type: 'string' },
-    { name: 'submitText', type: 'string', description: 'Label of the button that saves the parent and every detail row in one batch.' },
-    { name: 'cancelText', type: 'string' },
+    // The three labels are the spec's `I18nLabel` (`ComponentPropsMap
+    // ['object-master-detail-form']`), and `MasterDetailForm` resolves a map
+    // with `pickLocalized` against the active UI language (objectui#10935). So
+    // both arms are declared, in the same change that taught the render site to
+    // resolve the map, as `ComponentInput.type` prescribes: a `'string'`-only
+    // declaration made the manifest gate report `type-mismatch` on a legal map.
+    // The render is pinned by `MasterDetailForm.i18nLabels.test.tsx`, the
+    // manifest by the console's `masterDetailFormI18nLabelManifest.test.ts`.
+    {
+      name: 'title',
+      type: ['string', 'object'],
+      description:
+        'Names the record in the built-in "… saved" toast after an edit save, which shows only when the host supplies no `onSuccess`. Accepts either a plain string or an inline per-locale map (`{ en: "Purchase order", "zh-CN": "采购单" }`) — the `I18nLabel` union the contract admits on this key — and the renderer resolves the map against the active UI language, falling back through base language, a region-qualified sibling, `default`, then `en`, and finally to any remaining entry.',
+    },
+    {
+      name: 'submitText',
+      type: ['string', 'object'],
+      description:
+        'Label of the button that saves the parent and every detail row in one batch. Defaults to "Save" when editing a record (`mode: "edit"` with a `recordId`) and to "Create" otherwise; an empty string, or a map no locale limb resolves, shows the default too. Accepts either a plain string or an inline per-locale map (`{ en: "Save order", "zh-CN": "保存订单" }`), resolved against the active UI language with the same fallback chain as `title`.',
+    },
+    {
+      name: 'cancelText',
+      type: ['string', 'object'],
+      description:
+        'Label of the Cancel button, which renders only when the host supplies an `onCancel` callback (a runtime slot, not authorable in a JSON document). Defaults to "Cancel"; an empty string, or a map no locale limb resolves, shows the default too. Accepts either a plain string or an inline per-locale map (`{ en: "Back", "zh-CN": "返回" }`), resolved against the active UI language with the same fallback chain as `title`.',
+    },
     { name: 'showSubmit', type: 'boolean' },
     { name: 'initialValues', type: 'object', description: 'Values to prefill on the PARENT record in `create` mode.' },
     { name: 'initialData', type: 'object', description: 'Alternate spelling of `initialValues` the renderer also reads: the `parentSchema` memo carries both keys onto the parent form, which merges them PER MEMBER with this one winning. Prefer `initialValues` in new schemas.' },

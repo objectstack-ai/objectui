@@ -63,7 +63,7 @@ import { MoreHorizontal, RefreshCw } from 'lucide-react';
  * `page:footer`, `page:sidebar` (objectui#4027).
  *
  * `@objectstack/spec` declares all three through one shared `PageContainerProps`
- * whose single key is `children` (objectstack#5775, PR objectstack#6281, merged
+ * whose single key is `children` (objectstack#5775, objectstack `85ec26d28`, merged
  * 2026-08-07). They had been declared `EmptyProps` upstream — "this component
  * takes zero props" — while their renderers have always rendered a child list;
  * this side carried the mirror-image gap, registering all three with no `inputs`
@@ -1002,7 +1002,7 @@ const PageCardRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   // `children` is the authorable spelling; `body` is a READ-ONLY back-compat
   // fallback for documents already stored with it (objectui#4027).
   //
-  // `body` was retired from the contract by objectstack#5775 (PR #6281, ADR-0087
+  // `body` was retired from the contract by objectstack#5775 (objectstack `85ec26d28`, ADR-0087
   // D2): it was a second spelling of the slot every other container — grid, flex,
   // section, tabs items — calls `children`, and the spec now declares `children`
   // on `PageCardProps` and rejects `body` by name. The registration below stopped
@@ -1072,7 +1072,7 @@ ComponentRegistry.register('card', PageCardRenderer, {
     { name: 'title', type: ['string', 'object'], description: 'Accepts an inline translation map ({ en, "zh-CN", … })' },
     { name: 'bordered', type: 'boolean' },
     // The card's content slot, respelled from `body` to `children`
-    // (objectui#4027). One slot, one spelling: objectstack#5775 (PR #6281)
+    // (objectui#4027). One slot, one spelling: objectstack#5775 (objectstack `85ec26d28`)
     // retired `PageCardProps.body` and declared `children` in its place, so a
     // designer that kept offering `body` was teaching a key the contract now
     // rejects by name. The renderer still READS `body` for stored documents —
@@ -2109,7 +2109,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   //   - the unified ADR-0079 resolver (type-aware derivation, once the two
   //     rungs above have declined),
   //   - that same resolver's record-key rung, but ONLY for an object that
-  //     names no title field at all (objectui#10117),
+  //     names no title field at all (`4c6f549ef`),
   //   - `${objectLabel} ${id}` as a last-resort.
   //
   // ⭐ The declared pointer OUTRANKS `titleFormat` (objectui#9436, ruled C1).
@@ -2186,7 +2186,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
       const resolved = getRecordDisplayName(objSchema, data, { deriveFromRecordKeys: false });
       return isResolverFloor(resolved) ? '' : resolved;
     })();
-    // objectui#10117 — the record-key safety net, and the two rules that make
+    // `4c6f549ef` — the record-key safety net, and the two rules that make
     // it safe. It used to be spelled out here as a raw
     // `data?.name || data?.full_name || data?.title || data?.subject || …`
     // chain: a SECOND implementation of the very question

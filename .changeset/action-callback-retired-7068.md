@@ -6,7 +6,7 @@
 pair — `onSuccess` / `onFailure`, each carrying an `ActionCallback` object — is
 RETIRED, and the `ActionCallback` type and its Zod mirror `ActionCallbackSchema`
 (with the inferred `ActionCallbackSchemaType`) are DELETED from `@object-ui/types`
-and `@object-ui/types/zod` (objectui#7068; maintainer ruling option 1 of
+and `@object-ui/types/zod` (maintainer ruling option 1 of
 2026-09-05, immediate, no deprecation window; ADR-0049 enforce-or-remove).
 
 **What an author who wrote the shape sees now.** A `{ type: 'action', … }`

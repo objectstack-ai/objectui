@@ -132,7 +132,7 @@
  * A louder option — making the whole predicate throw so the top-level
  * fail-open in {@link evaluatePredicate} turns it `true`, mirroring
  * objectstack#6936's unresolved-path ruling — was considered and rejected:
- * #6936's `true` verdict corrects a fail-CLOSED bug (a hidden field is worse
+ * objectstack#6936's `true` verdict corrects a fail-CLOSED bug (a hidden field is worse
  * than a shown one), but here the existing verdict (`false`, i.e. hidden) is
  * not a bug — it is the documented behaviour for a set this evaluator cannot
  * parse, same as `#4049`'s tail returning the right-hand text verbatim

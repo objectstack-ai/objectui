@@ -180,7 +180,7 @@ describe('objectui#7926 — the guide no longer authors `actions` on a `page` no
       try {
         doc = JSON.parse(m[1]);
       } catch {
-        doc = null; // elided fragment (`[...]`), counted as blind below
+        doc = null; // a fence that does not parse, counted as blind below
       }
       out.push({ line, doc, body: m[1] });
     }
@@ -221,17 +221,15 @@ describe('objectui#7926 — the guide no longer authors `actions` on a `page` no
     // requirement, carried into this card by its dispatch). The COUNT is pinned,
     // not the line numbers — a line list would redden on every unrelated edit
     // above it, and a permanently red pin is one nobody reads.
+    //
+    // The count was four — the page's `[...]` elisions — until objectui#10088 made
+    // every `json` fence on the page parse. It is zero now, so every `page` node
+    // the guide authors in a `json` fence is judged above, and a new fence that
+    // does not parse is red here rather than a fifth blind entry. ⚠️ This reader
+    // visits `json` only: a `jsonc` fence on this page would sit OUTSIDE its
+    // population, not inside this count.
     const blind = fences.filter((f) => f.doc === null);
-    expect(blind).toHaveLength(4);
-    // …and each is blind for the DECLARED reason, an author's `[...]` elision —
-    // never because a real document stopped parsing. That is the half that makes
-    // the count above mean something.
-    for (const f of blind) {
-      expect({ line: f.line, elided: f.body.includes('...') }).toEqual({
-        line: f.line,
-        elided: true,
-      });
-    }
+    expect(blind.map((f) => `${GUIDE_PATH}:${f.line}`)).toEqual([]);
   });
 
   it('every `page` node the guide teaches declares its content under `children`', () => {

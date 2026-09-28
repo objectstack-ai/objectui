@@ -67,7 +67,7 @@ const typeConfig: Record<
  * `Record<ActivityItemType, boolean>` and `tsc` forces every member — but
  * `ActivityFeed` is published API (the package barrel exports it), so a host
  * can mount it and pass rows whose `type` came from its own data.
- * `sys_activity.type` is author-extensible (objectstack#11507, ruled
+ * `sys_activity.type` is author-extensible (objectstack `88b9d749a`, ruled
  * 2026-08-24) and is not validated on write, so those kinds are real. Reading
  * one as "off" made the row stored, queryable and invisible — the
  * objectui#5840 failure mode reached from the reader side, and the least

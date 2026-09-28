@@ -417,8 +417,9 @@ import { isEntrypoint } from './invoked-as.mjs';
  *     header for both builds and the three control rows that show the bytes
  *     LEFT rather than moved.
  *
- * Headroom above {@link BASELINE} is 45,183 bytes — 0.50x
- * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. ⚠️ That is arithmetic on two
+ * Headroom above {@link BASELINE} is 45,945 bytes — 0.50x
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}, on the pair objectui#10996
+ * re-pinned. ⚠️ That is arithmetic on two
  * constants in this file, so it stays true while they do — it is NOT what the
  * closure has left today, which is smaller by every byte the payload has
  * drifted up since the baseline below was taken. `pnpm check:eager-closure`
@@ -492,8 +493,117 @@ import { isEntrypoint } from './invoked-as.mjs';
  * Headroom 45,581 bytes = 0.50x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES},
  * which is exactly the value the header argues for — the first time this
  * constant has sat on it rather than above it.
+ *
+ * ## ⚠️ RAISED A SECOND TIME, ON EXPLICIT MAINTAINER AUTHORISATION (objectui#10996)
+ *
+ * From 3,179,000 over a 3,133,419 baseline to 3,225,000 over 3,179,055, the
+ * latter measured on 2026-09-28 on `5d689c3f6` — `main` itself, with no diff
+ * applied. The objectui#7122 heading above says ONCE; it was true when it was
+ * written, and this is the second. Raising this ceiling is the act that
+ * heading reserves for a human, and the authorisation, verbatim and
+ * untranslated — the option the maintainer picked in the `domain:ui` seat 4
+ * session chat on 2026-09-28, quoted on objectui#10996 and in its pull
+ * request:
+ *
+ *     授权本席位重设基线 (推荐)
+ *
+ * The option read, in the seat's words: re-measure on the latest `main`,
+ * re-pin {@link BASELINE}, set this ceiling to the reading plus half the
+ * regression threshold in ONE commit, and quote the authorisation in the PR.
+ * The triage grade on objectui#10996 (comment 5874625537) gave the same
+ * direction, and ⛔ ruled out the ceiling moving alone.
+ *
+ * ⛔ WHY — a wall, not a claimant. `main` itself read OVER this line: the
+ * `5d689c3f6` build weighed 3,179,055 against 3,179,000, 55 bytes over, and
+ * `node scripts/check-eager-closure-budget.mjs` exited 1 on it
+ * (`0.1 KB over the 3104.5 KB budget`). Every pull request that runs this gate
+ * weighs `main`'s bytes plus its own, so none could pass whatever its own
+ * delta. The per-chunk, membership and sensitivity halves all passed on that
+ * build; only the aggregate was red.
+ *
+ * WHAT THE BYTES ARE — two control builds of `main`, one container, one
+ * instrument (`pnpm --filter @object-ui/console exec vite build`, reading
+ * `apps/console/dist/eager-closure.json`). The last step first: `4b742f41d`,
+ * the newest `main` commit still under the line, 8 commits before the reading.
+ * It built to 3,178,471 — the figure the seat recorded on objectui#10996, to
+ * the byte, which is this instrument's calibration.
+ *
+ *   | chunk                | `4b742f41d` | `5d689c3f6` | delta |
+ *   |----------------------|------------:|------------:|------:|
+ *   | `plugin-form`        |      35,718 |      36,267 |  +549 |
+ *   | `plugin-view`        |      18,860 |      18,892 |   +32 |
+ *   | seven others         |             |             |    +3 |
+ *   | `vendor-objectstack` |   1,237,912 |   1,237,912 |     0 |
+ *   | `ui-components`      |     277,412 |     277,412 |     0 |
+ *   | `framework`          |      72,233 |      72,233 |     0 |
+ *   | `i18n-locale-en`     |      41,739 |      41,739 |     0 |
+ *   | ⇒ aggregate          |   3,178,471 |   3,179,055 |  +584 |
+ *
+ * The four budgeted rows are the unmoved control. `plugin-form`'s +549 is
+ * objectui#10986 (`8aa68b159`): `MasterDetailForm` resolving its `I18nLabel`
+ * title, submit and cancel text, eager because `apps/console`'s
+ * `register-plugins.ts` imports `@object-ui/plugin-form` statically. The only
+ * commit in the window that touches `packages/plugin-view` is `e9ca14ca9`
+ * (objectui#10975); the +32 is that chunk's, ⛔ not bisected to the commit.
+ * The seven others moved by one to four bytes each, netting +3.
+ *
+ * ⚠️ The step is 584 bytes of a 45,636-byte drift, and ⛔ it is not the cause
+ * of this re-pin — it is only the last straw. The whole window, read against
+ * `67485872ed`, the squash that landed the retired baseline's branch on
+ * `main` (841 commits before the reading, per the GitHub compare API):
+ *
+ *   | chunk                                   | `67485872ed` | `5d689c3f6` |   delta |
+ *   |-----------------------------------------|-------------:|------------:|--------:|
+ *   | `ui-components`                         |      266,156 |     277,412 | +11,256 |
+ *   | `plugin-form`                           |       29,470 |      36,267 |  +6,797 |
+ *   | `plugin-grid`                           |       98,817 |     105,502 |  +6,685 |
+ *   | `vendor-icon-*`, all 277 of them        |       76,330 |      82,405 |  +6,075 |
+ *   | `src`                                   |      161,575 |     167,515 |  +5,940 |
+ *   | `index`                                 |      149,631 |     153,880 |  +4,249 |
+ *   | `i18n-locale-en`                        |       40,531 |      41,739 |  +1,208 |
+ *   | `data-adapter` + `i18n` + `framework`   |      184,643 |     182,786 |  -1,857 |
+ *   | `vendor-objectstack`                    |    1,240,245 |   1,237,912 |  -2,333 |
+ *   | everything else (43 names)              |      886,385 |     893,637 |  +7,252 |
+ *   | ⇒ aggregate                             |    3,133,783 |   3,179,055 | +45,272 |
+ *
+ * The `data-adapter` + `i18n` + `framework` row is summed on purpose:
+ * `data-adapter` fell 58,765 while `i18n` and `framework` rose 29,528 and
+ * 27,380, so read singly they are three large claimants and read together they
+ * are a small one.
+ * ⛔ Nothing here says what moved between them. The `vendor-icon-*` family is
+ * a lit control of its own: 76,330 is the figure {@link BASELINE}'s previous
+ * entry recorded for the same 277 chunks on `bbf6b02d9`.
+ *
+ * ⇒ This is DIFFUSE growth — 841 commits across fifteen days, the largest row a
+ * quarter of the total, and ⛔ no row attributed to a commit except the last
+ * step's. That is what the re-baseline ABSORBS, in the sense the section of
+ * that name in the header gives it, and the rows above are published so the
+ * next reader can tell it from the next claimant.
+ *
+ * ⚠️ `67485872ed` is NOT the retired baseline's tree. It built to 3,133,783,
+ * 364 bytes above the 3,133,419 read on `bbf6b02d9`, and the two readings were
+ * taken in different containers — so 45,272 + 364 = 45,636 is the whole
+ * distance between the retired and the new constant, and the 364 is the one
+ * part of it this entry cannot place.
+ *
+ * ⛔ Shrinking is the follow-up, not this entry: the triage grade names the
+ * eager `plugin-form` import above as the measured candidate, the objectui#9399
+ * lucide change as the precedent, and routes it to a card of its own.
+ *
+ * Headroom 45,945 bytes = 0.50x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}:
+ * 3,179,055 + 45,568 = 3,224,623, rounded to the nearest thousand, the rounding
+ * every re-pin above used. ⛔ The ceiling did not move alone. Over the retired
+ * 3,133,419 baseline, 3,225,000 would carry 91,581 bytes, 1.005x the
+ * regression, and the unit test's constant-vs-constant guard reds on it — so
+ * {@link BASELINE} moved in the same commit, and that guard is the reason.
+ *
+ * ⛔ Nothing else moved. Not {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES} — a
+ * ceiling that rises while the sensitivity relaxes is a gate quietly retiring
+ * itself. Not {@link PER_CHUNK_GZIP_CEILINGS} or {@link PER_CHUNK_BASELINE}:
+ * all four rows passed on the `5d689c3f6` build, and the first table shows them
+ * unmoved. No exemption was added and no import was made lazy.
  */
-export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_179_000;
+export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_225_000;
 
 /**
  * The measurement the ceiling above was derived from. Exported so the two
@@ -506,113 +616,72 @@ export const BASELINE = Object.freeze({
   /**
    * `emitEagerClosureReport`'s `eagerGzipBytes` on this commit.
    *
-   * ⚠️ `bbf6b02d9` is NOT "this branch's last commit before the one that edits
-   * this file" — the argument every earlier entry here made. objectui#9251's
-   * change IS a console build input (`packages/components/src/**` and
-   * `apps/console/vite.config.ts`), so the commit named here is the one that
-   * CARRIES it and the reading is of that tree. The
-   * `scripts/vite-*.ts`-versus-`scripts/check-*.mjs` half of the argument the
-   * previous baseline entries made (`755d34a5f`, `34a1578ef`, and `3d257c85a` /
-   * `bd2a7ec50` before them) still holds, and is why the two can share one
-   * branch: nothing in this file or its unit test reaches the bundler, so the
-   * ceiling edit cannot have moved the figure it pins.
+   * `5d689c3f6` is `origin/main` itself, read with NO diff applied, and it is
+   * the first commit in this position that is an ordinary `main` commit rather
+   * than a branch tip. That follows from the change, not from a new convention:
+   * objectui#10996's whole diff is this file and its unit test, and the
+   * `scripts/vite-*.ts`-versus-`scripts/check-*.mjs` argument the earlier
+   * entries made (`bbf6b02d9`, `755d34a5f`, `34a1578ef`, and `3d257c85a` /
+   * `bd2a7ec50` before them) holds: nothing in either file reaches the bundler,
+   * so the ceiling edit cannot have moved the figure it pins, and the tree read
+   * here is byte-for-byte the bundler input of the branch that carries it.
    *
-   * ⚠️ `755d34a5f`, the previous baseline, is the one to compare against when
-   * reading the deltas below; it is a branch tip and behaves as described under
-   * PROVENANCE.
+   * ⚠️ `bbf6b02d9`, the previous baseline, read 3,133,419 across 329 of 2309
+   * chunks, and it is the one to compare against when reading the deltas. What
+   * lies between the two — two control builds, the rows that moved and the rows
+   * that did not — is recorded once, under objectui#10996's entry on
+   * {@link MAX_EAGER_CLOSURE_GZIP_BYTES}, ⛔ not restated here.
    *
-   * The reading it is SUBTRACTED from is a control build of this branch's own
-   * base, `origin/main` `ac05d4f4d`, in the same container with the same
-   * instrument — 3,180,591 bytes across 52 of 528 chunks, 10,975,695 raw. Both
-   * builds are recorded on objectui#9251's pull request, with the three unmoved
-   * chunks (`framework`, `vendor-objectstack`, `i18n-locale-en`, all three
-   * byte-identical across the pair) that make the delta readable as bytes
-   * LEAVING rather than bytes moving.
+   * ⚠️ The reading is of `5d689c3f6`, ⛔ not of whatever `main` is when this
+   * lands. CI weighs the pull-request MERGE ref, so the two differ by whatever
+   * lands on `main` between the reading and the merge — and the merge that
+   * carries this change is not named here, for the reason `squashMerge` below
+   * gives.
    *
-   * ⚠️ The CHUNK COUNTS moved by an order of magnitude and that is the change,
-   * not an artefact: 52 of 528 became 329 of 2309 because every lucide icon
-   * module is now its own chunk. 277 of the eager 329 are `vendor-icon-*`
-   * single-module chunks holding the icons first-party code imports by name —
-   * 107,117 raw / 76,330 gzipped between them, which is the price of the split
-   * and is named here so nobody reads the aggregate drop as free.
+   * Measured by `pnpm --filter @object-ui/console exec vite build` (exit 0, with
+   * `CI=true` as the workflow's runner sets it) reading
+   * `apps/console/dist/eager-closure.json`, under `scripts/pm/os-verify-lock.sh`.
+   * The same instrument, on the same day, read `4b742f41d` back to the byte the
+   * seat recorded on objectui#10996 — the calibration. ⛔ Not taken from CI's
+   * report and not extrapolated.
    *
-   * Measured by `pnpm --filter @object-ui/console exec vite build` (exit 0)
-   * reading `apps/console/dist/eager-closure.json`, both legs under
-   * `scripts/pm/os-verify-lock.sh`. ⛔ Not taken from CI's report and not
-   * extrapolated: CI weighs the pull-request MERGE ref and this is the branch
-   * tree, so the two differ by whatever has landed on `main` since.
-   *
-   * ⚠️ PROVENANCE — what a reader can and cannot check, because a reader who
-   * tries the obvious thing gets nothing and currently learns nothing from it.
-   * The commit named below is a BRANCH TIP and this repository squash-merges,
-   * so it is not reachable from `main` and cannot be fetched by sha:
-   * `git fetch origin <tip>` answers "couldn't find remote ref", and
-   * `git merge-base --is-ancestor` cannot resolve the object at all (exit 128,
-   * ⛔ not the exit 1 that would mean "resolved, and not an ancestor"). ⛔ This
-   * is the convention working rather than a defect: naming the tree the reading
-   * was taken on is the point, and no commit on `main` has that tree. The
-   * CONTROL leg above is the half that does resolve — `ac05d4f4d` is an
-   * ordinary `main` commit — so the pair is checkable from one end.
-   *
-   * ⇒ the CONSEQUENCE, which nobody had written down: the provenance of this
-   * constant ⛔ cannot be checked from a `main` checkout with git alone. It is
-   * checkable — the GitHub compare API resolves these shas when a clone cannot,
-   * and every ancestry figure in "What a re-baseline ABSORBS" above came from
-   * it.
+   * PROVENANCE resolves from a `main` checkout with `git` alone:
+   * `git cat-file -t 5d689c3f6` answers `commit`, which the retired
+   * `bbf6b02d9` never could — that tip was squash-merged away, and objectui#9355
+   * added `squashMerge` below as the handle that resolved in its place.
    */
-  gzipBytes: 3_133_419,
-  chunks: 329,
-  totalChunks: 2309,
-  commit: 'bbf6b02d9',
+  gzipBytes: 3_179_055,
+  chunks: 330,
+  totalChunks: 2446,
+  commit: '5d689c3f6',
 
   /**
-   * The squash merge that carried that branch onto `main` — recorded here so
-   * the provenance above is checkable with `git` and nothing else
-   * (objectui#9355).
+   * The squash merge that carried the reading above onto `main`, recorded when
+   * the field above names a branch tip no `main` checkout resolves
+   * (objectui#9355): a sha that DOES resolve, so a reader re-checking the
+   * measurement gets a handle rather than a dead end.
    *
-   * ⛔ NOT a correction, and ⛔ never a substitute for the field above. The
-   * PROVENANCE paragraph's ruling stands exactly as written: the field above
-   * names the tree the reading was taken on, that is the whole point of the
-   * convention, and no commit on `main` has that tree. This is the OTHER half
-   * — a sha that resolves — so a reader who tries to re-check the measurement
-   * gets a handle rather than the dead end that paragraph describes. Both legs,
-   * taken in a checkout where `git rev-parse --is-shallow-repository` answers
-   * `false`, so the absence is GENUINE and ⛔ not a shallow-clone artefact:
+   * `null` since objectui#10996, deliberately. This field can only ever be
+   * BACK-FILLED: a squash sha does not exist until the pull request merges, so
+   * the change that re-pins the field above ⛔ cannot write its own here. ⛔ Do
+   * not guess one, and ⛔ do not carry the retired `67485872ed` forward onto a
+   * reading it was not taken with: a wrong sha in this position is worse than
+   * an absent one, because it RESOLVES, and a reader who builds the wrong tree
+   * gets a plausible number instead of an error. A follow-up may name the merge
+   * once it exists.
    *
-   *     git cat-file -t 67485872ed  ->  commit
-   *     git cat-file -t bbf6b02d9   ->  fatal: Not a valid object name
+   * ⚠️ The dead end this field was added to route around is absent this time:
+   * the field above is itself a `main` commit. So a back-fill here would record
+   * which merge carried the constants, ⛔ not repair provenance — the reading
+   * is checkable without it.
    *
-   * ⚠️ The two name DIFFERENT TREES, and how far apart is ⛔ NOT established
-   * here. The field above does not resolve, so no checkout can count the
-   * commits between the pair, and the gzipped distance between them would need
-   * a console build of each. ⛔ Do not read that silence as "small":
-   * objectui#9209 measured exactly one such distance, on the pair this field
-   * named before objectui#9251 re-baselined the constant, and that reading is a
-   * fact about the RETIRED pair which says nothing about this one. Carrying the
-   * figure forward is the stale-prose defect this block exists to refuse.
-   *
-   * The value below is RE-DERIVED rather than copied forward: it is the commit
-   * on `main` that introduced the field above into this file, which
-   * `git log origin/main -S <tip> --oneline --reverse --
-   * scripts/check-eager-closure-budget.mjs` returns as its earliest hit, and it
-   * is single-parent — as a squash is — with `(#9399)` in its subject, the pull
-   * request that carried objectui#9251.
-   *
-   * ⚠️ This field can only ever be BACK-FILLED, which is the one thing a future
-   * re-baseline has to know about it. A squash sha does not exist until the
-   * pull request merges, so the change that re-pins the field above ⛔ cannot
-   * write its own here. ⛔ Do not guess one, and ⛔ do not carry this one
-   * forward onto a reading it was not taken with: a wrong sha in this position
-   * is worse than an absent one, because unlike the field above it RESOLVES,
-   * and a reader who builds the wrong tree gets a plausible number instead of
-   * an error. Write `null` and let a follow-up name the merge once it exists.
-   * That reds the ledger case in
-   * `scripts/__tests__/check-eager-closure-budget.test.ts` which records what
-   * this constant carries as data, and redding there is the intended signal —
-   * the ledger is re-pinned deliberately, ⛔ never widened to accept either
-   * shape.
+   * The ledger case in `scripts/__tests__/check-eager-closure-budget.test.ts`
+   * that records what this constant carries as data reds on `null`, as it was
+   * written to. objectui#10996 re-pinned it in the same commit, to exactly the
+   * one commit this constant now carries, and ⛔ did not widen it to accept
+   * either shape.
    */
-  squashMerge: '67485872ed',
+  squashMerge: null,
 });
 
 /**
@@ -1233,13 +1302,15 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
  * in this comment.
  *
  * ⚠️ These readings are on DIFFERENT commits from {@link BASELINE} above —
- * except `i18n-locale-en`, which as of objectui#7479 shares BASELINE's commit,
- * and `ui-components`, which as of objectui#9251 shares it too — and WHICH ONE
- * IS LATER flips every time either side is re-baselined, so read the commit
- * names, never a direction asserted here. As of objectui#9251 the AGGREGATE is
- * the later reading: BASELINE's `bbf6b02d9` is dated 2026-09-13 against
- * `34a1578ef` (2026-09-06, objectui#7122) for `vendor-objectstack`, the one key
- * left on an older tree. ⚠️ `i18n-locale-en`'s commit was `755d34a5f` when it
+ * `i18n-locale-en` shared BASELINE's commit from objectui#7479 until
+ * objectui#9251, and `ui-components` from objectui#9251 until objectui#10996
+ * re-pinned the aggregate onto a `main` commit; today neither does — and
+ * WHICH ONE IS LATER flips every time either side is re-baselined, so read the
+ * commit names, never a direction asserted here. As of objectui#10996 the
+ * AGGREGATE is the later reading for every key: BASELINE's `5d689c3f6` is
+ * dated 2026-09-28, against `bbf6b02d9` (2026-09-13, objectui#9251) for
+ * `ui-components` and `34a1578ef` (2026-09-06, objectui#7122) for
+ * `vendor-objectstack`. ⚠️ `i18n-locale-en`'s commit was `755d34a5f` when it
  * was taken and the aggregate has moved on since, which is exactly why the two
  * are named per key rather than described by a direction.
  * This paragraph asserted the reverse,
@@ -1309,9 +1380,10 @@ export const PER_CHUNK_BASELINE = Object.freeze({
   // BASELINE's. Moved with the ceiling in the same commit, per the maintainer
   // ruling of 2026-09-08 and the rule stated under "Raising one".
   framework: 72_245,
-  // `bbf6b02d9`, the same console build as BASELINE above, so the two are
-  // directly comparable, and the same instrument and container as the control
-  // build it is subtracted from (objectui#9251).
+  // `bbf6b02d9`, the console build BASELINE carried from objectui#9251 until
+  // objectui#10996 re-pinned the aggregate onto `main` — comparable with that
+  // retired reading, ⛔ not with the one above — and the same instrument and
+  // container as the control build it is subtracted from (objectui#9251).
   'ui-components': 265_937,
 });
 

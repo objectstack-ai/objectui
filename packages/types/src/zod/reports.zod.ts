@@ -19,7 +19,7 @@
 import { z } from 'zod';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 import { ChartSchema } from './data-display.zod.js';
-import { handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
 
 /**
  * Report Export Format Schema
@@ -136,6 +136,15 @@ export const ReportExportConfigSchema = z.object({
   options: z.record(z.string(), z.any()).optional().describe('Custom options'),
 });
 
+/** objectui#9256 (family-D re-measure): ONE refusal string for both content channels of `ReportComponentSchema`. */
+const REPORT_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'report',
+  'its registration (`plugin-report:report`) dispatches the node through `ReportRenderer`, whose three '
+    + 'paths read the report definition and never the node\'s own child list',
+  'a dataset-bound report (ADR-0021), a stored pre-9.0 spec report bridged to `report-viewer`, or the '
+    + 'legacy `data` / `columns` / `chart` presentation',
+);
+
 /**
  * Report Schema
  */
@@ -177,6 +186,10 @@ export const ReportComponentSchema = BaseSchema.extend({
   refreshInterval: z.number().optional().describe('Auto-refresh interval (in seconds)'),
   loading: z.boolean().optional().describe('Loading state'),
   data: z.array(z.any()).optional().describe('Report data'),
+  // objectui#9256 (family-D re-measure): the renderer reads NEITHER content channel, so both are
+  // refused by name here as on the TypeScript twin, each kept a MEMBER.
+  body: retirementTombstone(REPORT_NEITHER_CHANNEL),
+  children: retirementTombstone(REPORT_NEITHER_CHANNEL),
 });
 
 /**
@@ -219,14 +232,14 @@ export const ReportViewerSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `report-viewer` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'It takes its configuration from the props bag `SchemaRenderer` spreads, not from `schema.*`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `report-viewer` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'It takes its configuration from the props bag `SchemaRenderer` spreads, not from `schema.*`.',
   ),
 });

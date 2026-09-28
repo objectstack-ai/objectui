@@ -14,6 +14,13 @@ nested `card` never read `content` either, so moving only the outer key would ha
 an empty box for an empty card. The page's Schema block published `content` as contract
 while omitting `image`/`alt`; it now documents what the renderer reads.
 
+⚠️ **Dated note, 2026-09-28 — the child list is `children` alone — objectui#6771.** Since
+this change, objectui#6771 dropped the `body` arm of that read, in `aspect-ratio.tsx` and in
+the nested `card` alike: both read `children` and never `body`, both zod mirrors refuse an
+authored `body` by name, and both TypeScript faces declare it `never`. The four card demos
+already author `children` at both levels, so they are unaffected. The rest of this entry is
+kept as the reading of this change.
+
 Nothing publishes from this change — a docs page plus `@object-ui/example-schema-catalog`
 fixtures, both outside the release — hence the empty frontmatter. The regression control is
 `examples/schema-catalog/test/aspect-ratio-demo-content-6773.test.tsx`: category scope, not

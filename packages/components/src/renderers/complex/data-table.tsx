@@ -813,7 +813,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       // de-DE, so no table cell changes.
       if (hasTime) return formatDateTime(value, { locale: displayLocale });
       // The DATE-only half is `formatDate`'s DEFAULT style — the same one home,
-      // one type over (objectui#7620, maintainer ruling A). It used to build its
+      // one type over (`c15d7eca6`, maintainer ruling A). It used to build its
       // own `Intl.DateTimeFormat` bag here, which asked for `year: 'numeric'`
       // unconditionally while `formatDate` drops the year INSIDE the current
       // year on purpose; so one table showed two faces for one value, picked by
@@ -2573,7 +2573,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                 // reason only: `DataTableSchema` did not declare the key
                                 // this renderer has always read, so the read had to
                                 // re-state the contract locally and the schema had to be
-                                // opened up to let it. objectui#6882 declared it (the
+                                // opened up to let it. `bf97b98c8` declared it (the
                                 // 2026-08-30 ruling), so the read is typed at its source
                                 // and the ctx shape below is checked against the
                                 // declaration instead of asserted against nothing.

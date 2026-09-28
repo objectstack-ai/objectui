@@ -25,5 +25,5 @@ either; and neither `TIMELINE_DEFAULT_TRANSLATIONS` nor `translateTimelineDefaul
 is re-exported from the package entry, so no consumer of the tarball can name
 them. Day-granularity relative phrases are produced by `formatRelativeDate` in
 `@object-ui/core` through `Intl.RelativeTimeFormat`, which needs no copy row —
-that is what left these five behind (objectui#7874, found by objectui#7567's
+that is what left these five behind (found by objectui#7567's
 factory-default census printing its abstention count).

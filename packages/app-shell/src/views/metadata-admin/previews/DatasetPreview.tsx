@@ -30,6 +30,7 @@ import {
 } from '@object-ui/core';
 import { useDatasetDimensionLabels } from '@object-ui/react';
 import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useDisplayLocale } from '@object-ui/i18n';
+import { t as tr, tFormat } from '../i18n.js';
 
 // Lazy-loaded so the (recharts-backed) chart bundle only loads when a dataset
 // preview actually renders a chart — keeps the metadata-admin bundle small.
@@ -47,7 +48,7 @@ type PreviewState =
   // rather than a red banner blaming the dataset the author just wrote.
   | { status: 'not-installed'; rows: Row[]; error?: undefined };
 
-export function DatasetPreview({ draft }: MetadataPreviewProps) {
+export function DatasetPreview({ draft, locale }: MetadataPreviewProps) {
   const adapter = useAdapter();
   const { fieldLabel } = useSafeFieldLabel();
   // objectui#7534 — the locale bundle's built-in aggregate labels; `@object-ui/
@@ -57,8 +58,9 @@ export function DatasetPreview({ draft }: MetadataPreviewProps) {
   // (objectui#4575, completing objectui#4566's channel). Deliberately NOT the
   // `locale` PROP in scope: that one is the metadata designer's own chrome
   // language (`useMetadataLocale()`, which resolves to exactly 'en-US' or
-  // 'zh-CN'), while these numbers must match what the report and dashboard
-  // render for the same dataset — which is `useDisplayLocale()`.
+  // 'zh-CN') and picks this preview's own words (objectui#10862), while these
+  // numbers must match what the report and dashboard render for the same
+  // dataset — which is `useDisplayLocale()`.
   const displayLocale = useDisplayLocale();
 
   const objectName = (draft as Record<string, unknown>).object as string | undefined;
@@ -150,8 +152,8 @@ export function DatasetPreview({ draft }: MetadataPreviewProps) {
       <PreviewShell>
         <PreviewEmptyState
           icon={<BarChart3 className="h-8 w-8" />}
-          title="Pick a base object"
-          description="Set the dataset's `object` to preview it against live data."
+          title={tr('engine.datasetPreview.pickObject', locale)}
+          description={tr('engine.datasetPreview.pickObjectHint', locale)}
         />
       </PreviewShell>
     );
@@ -162,8 +164,8 @@ export function DatasetPreview({ draft }: MetadataPreviewProps) {
       <PreviewShell>
         <PreviewEmptyState
           icon={<BarChart3 className="h-8 w-8" />}
-          title="Add a measure"
-          description="A dataset needs at least one measure (e.g. revenue = sum(amount)) to preview."
+          title={tr('engine.datasetPreview.addMeasure', locale)}
+          description={tr('engine.datasetPreview.addMeasureHint', locale)}
         />
       </PreviewShell>
     );
@@ -224,10 +226,20 @@ export function DatasetPreview({ draft }: MetadataPreviewProps) {
             {state.status === 'loading'
               ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
               : <BarChart3 className="h-3.5 w-3.5" />}
-            Run preview
+            {tr('engine.datasetPreview.run', locale)}
           </button>
           <span className="text-[11px] text-muted-foreground">
-            {measureNames.length} measure{measureNames.length === 1 ? '' : 's'} · {dimensionNames.length} dimension{dimensionNames.length === 1 ? '' : 's'}
+            {tFormat(
+              measureNames.length === 1 ? 'engine.datasetPreview.measureOne' : 'engine.datasetPreview.measureOther',
+              locale,
+              { count: measureNames.length },
+            )}
+            {' · '}
+            {tFormat(
+              dimensionNames.length === 1 ? 'engine.datasetPreview.dimensionOne' : 'engine.datasetPreview.dimensionOther',
+              locale,
+              { count: dimensionNames.length },
+            )}
           </span>
         </div>
 
@@ -241,21 +253,21 @@ export function DatasetPreview({ draft }: MetadataPreviewProps) {
         {state.status === 'not-installed' && (
           <PreviewEmptyState
             icon={<PackageOpen className="h-8 w-8" />}
-            title="Analytics capability not installed"
-            description="This deployment has no analytics service, so dataset previews can't run. Install @objectstack/service-analytics and mount AnalyticsServicePlugin — the dataset definition itself is fine."
+            title={tr('engine.datasetPreview.notInstalled', locale)}
+            description={tr('engine.datasetPreview.notInstalledHint', locale)}
           />
         )}
 
         {state.status === 'ok' && state.rows.length === 0 && (
           <PreviewEmptyState
             icon={<BarChart3 className="h-8 w-8" />}
-            title="No rows"
-            description="The dataset returned no rows for the current scope."
+            title={tr('engine.datasetPreview.noRows', locale)}
+            description={tr('engine.datasetPreview.noRowsHint', locale)}
           />
         )}
 
         {state.rows.length > 0 && dimensionNames.length >= 1 && (
-          <PreviewErrorBoundary fallbackHint="Couldn't render the chart for this result — the table below still shows the data.">
+          <PreviewErrorBoundary fallbackHint={tr('engine.datasetPreview.chartFailed', locale)}>
             <React.Suspense fallback={<div className="h-[260px] flex items-center justify-center text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /></div>}>
               <div className="rounded-md border p-2">
                 <ChartRenderer
@@ -272,7 +284,7 @@ export function DatasetPreview({ draft }: MetadataPreviewProps) {
                 />
                 {mixedScale && (
                   <p className="mt-1 px-1 text-[10px] text-muted-foreground">
-                    Ratio measures ({ratioMeasures.map(headerLabel).join(', ')}) use the right axis.
+                    {tFormat('engine.datasetPreview.ratioAxis', locale, { measures: ratioMeasures.map(headerLabel).join(', ') })}
                   </p>
                 )}
               </div>

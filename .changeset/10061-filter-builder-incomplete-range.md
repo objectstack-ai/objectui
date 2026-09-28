@@ -5,7 +5,7 @@
 fix(components): a half-typed `between` range in the filter builder shows itself as
 incomplete instead of being dropped with no signal (objectui#10061)
 
-Ruling batch #146 item 5 letter A (objectstack#18012) declares that while one bound of a
+Ruling batch #146 item 5 letter A (objectstack `176b03582`) declares that while one bound of a
 `between` pair is blank the condition is incomplete — **not emitted, and shown as
 incomplete in the UI**. The first half has been true since objectui#5025: every write
 path folds the row through the builder's own arity-aware `isFilterValueComplete`, so a

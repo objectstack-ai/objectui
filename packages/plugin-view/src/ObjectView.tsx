@@ -81,7 +81,7 @@ import {
   resolveFilterPlaceholders,
   type FilterTokenScope,
 } from '@object-ui/core';
-import { SchemaRenderer as ImportedSchemaRenderer, useSettledSchema, notifyDataChanged, useFilterScope } from '@object-ui/react';
+import { SchemaRenderer as ImportedSchemaRenderer, useSettledSchema, notifyDataChanged, useDataInvalidation, useFilterScope } from '@object-ui/react';
 import type { HandleClickModifiers } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import { ViewSwitcher } from './ViewSwitcher';
@@ -242,6 +242,83 @@ function tableColumnFieldNames(columns: unknown): string[] | undefined {
 function viewColumnFieldNames(columns: unknown): string[] | undefined {
   if (!Array.isArray(columns)) return undefined;
   return columns.map(columnIdentity).filter((n): n is string => !!n);
+}
+
+/**
+ * objectui#10885 — a named view's `hiddenFields`, applied to the column
+ * projection route 2 hands `ObjectGrid`.
+ *
+ * The protocol composes three members of a named list view: `columns`
+ * projects, `hiddenFields` subtracts, `fieldOrder` orders what survives
+ * (objectstack#15184 ruling B). `ObjectGrid` has no `hiddenFields` read, and
+ * `object-grid` declares no such key, so relaying the member by name would put
+ * a key on the grid node that nothing reads. The subtraction is therefore made
+ * here, on the resolved projection, as `ListView` subtracts it for the host
+ * delegation (its `effectiveFields`), except that an entry with no field
+ * identity is kept: `ListView` drops such an entry whenever `hiddenFields` is
+ * non-empty.
+ *
+ * - Only a DECLARED projection is narrowed. With no `columns` anywhere the grid
+ *   derives its own defaults, and this returns `undefined` unchanged, as
+ *   `ListView` does.
+ * - An entry is dropped only when `columnIdentity` names a hidden field. Every
+ *   other entry, and the entry's own shape, is kept.
+ * - A projection that every entry leaves is kept as the empty projection the
+ *   author wrote; it does not fall back to the grid's defaults.
+ *
+ * Generic over the whole array type because the `columns` slot is a union of
+ * two array types (`string[] | ListColumn[]`): filtering keeps each entry as it
+ * was, so the result has the type the input had, which the one cast states.
+ */
+function withoutHiddenFields<C extends readonly unknown[]>(columns: C | undefined, hidden: readonly string[] | undefined): C | undefined {
+  if (!Array.isArray(columns) || !Array.isArray(hidden) || hidden.length === 0) return columns;
+  const drop = new Set(hidden);
+  return (columns as readonly unknown[]).filter((entry) => {
+    const name = columnIdentity(entry);
+    return !name || !drop.has(name);
+  }) as unknown as C;
+}
+
+/**
+ * objectui#10885 — a named view's `fieldOrder`, the third step of the same
+ * composition: it orders what `withoutHiddenFields` left. `ObjectGrid` has no
+ * `fieldOrder` read and `object-grid` declares no such key, so the order is
+ * applied here, to both projection slots.
+ *
+ * The application is `ListView`'s own (its `effectiveFields`), step for step,
+ * so both routes hand `ObjectGrid` the same order for the same view: a stable
+ * sort by each entry's position in `fieldOrder`. An entry `fieldOrder` does not
+ * name, or one with no field identity, sorts after the named ones and keeps its
+ * place among them; a name the projection does not carry orders nothing; with
+ * no projection nothing is invented.
+ */
+function inFieldOrder<C extends readonly unknown[]>(columns: C | undefined, order: readonly string[] | undefined): C | undefined {
+  if (!Array.isArray(columns) || !Array.isArray(order) || order.length === 0) return columns;
+  const rank = new Map<string, number>(order.map((name, i) => [name, i]));
+  const at = (entry: unknown): number => rank.get(columnIdentity(entry) as string) ?? Infinity;
+  return [...(columns as readonly unknown[])].sort((a, b) => at(a) - at(b)) as unknown as C;
+}
+
+/**
+ * objectui#10885 — a named view's `exportOptions`, in the one shape the
+ * `object-grid` slot holds.
+ *
+ * The protocol declares the member on a named view as `{ formats?, maxRecords?,
+ * includeHeaders?, fileNamePrefix?, streaming? }`, and declares a bare format
+ * array as its legacy spelling, which "lifts to `{ formats: [...] }` at parse"
+ * (the member's own description in `@objectstack/spec`). A named view reaches
+ * this component unparsed, so the bare array can arrive as written. `ObjectGrid`
+ * reads `exportOptions.formats`, which an array does not have: relayed as is,
+ * the grid would offer its default formats instead of the ones the author
+ * listed. So the declared union is narrowed to the slot's branch here, by the
+ * protocol's own lift, the way `ListView` narrows it for the host delegation.
+ * It accepts no spelling the protocol does not; the node-shape fold of a
+ * declared union at the boundary is the objectui#5269 / objectui#8254 pattern
+ * `viewColumnFieldNames` follows.
+ */
+function gridExportOptions(options: NamedViewConfig['exportOptions']): ObjectGridSchema['exportOptions'] {
+  if (Array.isArray(options)) return { formats: options };
+  return options;
 }
 
 /**
@@ -1084,8 +1161,14 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     return schema.defaultViewType || 'grid';
   }, [currentNamedViewConfig, activeView, schema.defaultViewType]);
 
-  // Navigation config
-  const navigationConfig: ViewNavigationConfig | undefined = schema.navigation;
+  // Navigation config — objectui#10885: the active named view's `navigation`
+  // first, then the node's. A WHOLE-OBJECT replacement, like every other member
+  // read off a named view: nothing is merged key by key, and ⛔ there is no
+  // `activeView` rung. Every consumer follows it: `handleRowClick` (the
+  // `onRowClick` route 2 hands `ObjectGrid` and the delegation hands
+  // `renderListView`, which both obey it first), `formLayout` and the
+  // drawer / overlay `width`.
+  const navigationConfig: ViewNavigationConfig | undefined = currentNamedViewConfig?.navigation ?? schema.navigation;
 
   // Permissions context, read here rather than inside the fetch effect below:
   // an effect's DEPENDENCY ARRAY is evaluated during render, so `perms` has to
@@ -1099,6 +1182,32 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // not this one, so a changed table sort kept the old order. Keyed by CONTENT:
   // an equal sort in a fresh array is not a change (AGENTS.md #10).
   const tableSortKey = JSON.stringify(schema.table?.sort ?? null);
+
+  // objectui#10887 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10623 / objectui#10778 /
+  // objectui#10853 way: the nonce moves when the bus reports a change to the
+  // object this fetch QUERIES (or `'*'`), and the effect below names it, so
+  // the rows are re-read in place. The inner view receives them as `data`,
+  // which switches off its own bus reader (a gantt handed zero rows is the
+  // exception: it queries for itself and keeps its reader, objectui#7333),
+  // and `refreshKey` moves only on this view's own write and `onMutation`;
+  // a page action over raw HTTP fires neither, so before this the rows were
+  // re-read only when `PageView` remounted the page (objectui#10519 removes
+  // that remount).
+  //
+  // Subscribed exactly when these rows are what the view draws. A host
+  // `renderListView` (its `ListView` reads the bus itself) and the grid
+  // (`ObjectGrid` does too) are not this effect's query, and neither is a view
+  // with no object or no adapter. The two host-only types query for
+  // themselves and read the bus themselves, so a re-read here would only add
+  // reads: `ObjectTree` runs its own query ahead of the rows handed to it
+  // (objectui#10778) and re-queries whenever that array changes, and
+  // `ObjectChart` never reads them (objectui#10035).
+  const fetchDrawsView =
+    !renderListView && currentViewType !== 'grid' && currentViewType !== 'tree' && currentViewType !== 'chart';
+  const invalidationNonce = useDataInvalidation(
+    fetchDrawsView && dataSource ? schema.objectName || undefined : undefined,
+  );
 
   // Fetch data for non-grid view types (grid handles its own data via ObjectGrid)
   useEffect(() => {
@@ -1309,6 +1418,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     schema.objectName, dataSource, currentViewType, refreshKey,
     currentNamedViewConfig, activeViewQueryInputs, renderListView,
     objectSchemaReady, objectSchema, perms, authoredFilters, tableSortKey,
+    invalidationNonce,
   ]);
 
   // Determine layout mode. #2578: default the record surface from how heavy the
@@ -1570,7 +1680,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // `chart-gantt` → `ChartGantt` both resolve, and both agree with the
         // components `ViewSwitcher.DEFAULT_VIEW_ICONS` names for the same view
         // types. Every value here is pinned by `ViewSwitcher.test.tsx`.
-        // `page` (objectui#8127): keyed on the FULL `ViewType`, which
+        // `page` (`ca3942729`): keyed on the FULL `ViewType`, which
         // `@objectstack/spec@17.3.0` widened. `layout-template` is the kebab
         // spelling of the `LayoutTemplate` this map's consumer —
         // `ViewSwitcher.DEFAULT_VIEW_ICONS` — draws for the same view type, and
@@ -1749,7 +1859,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           { ...legacyViewOptions } as Record<string, any>,
         );
 
-    // Dev-mode warning for flat property access violations
+    // Dev-mode warning for flat property access violations. The place it names
+    // is the view's own top-level `KIND` block — the one `viewOptions[viewType]`
+    // reads. ⛔ Not `options.KIND`: this component reads no `options` bag since
+    // objectui#7928, and a named view refuses `options` by name, so that text
+    // sent an author to a place that is ignored or refused (objectui#10868).
     if (process.env.NODE_ENV === 'development') {
         const flatKeys = ['startDateField', 'endDateField', 'dateField', 'groupBy', 'groupField',
             'locationField', 'imageField', 'dependenciesField', 'progressField', 'titleField',
@@ -1758,8 +1872,8 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         const found = flatKeys.filter(k => k in viewOptions && !(k in nestedConfig));
         if (found.length > 0) {
             console.warn(
-                `[Spec Compliance] View options use flat properties ${JSON.stringify(found)}. ` +
-                `Move them under options.${viewType} per @objectstack/spec protocol.`
+                `[Spec Compliance] The view uses flat properties ${JSON.stringify(found)}. ` +
+                `Move them under its top-level ${viewType} block ({ ${viewType}: { ... } }) per @objectstack/spec protocol.`
             );
         }
     }
@@ -2173,6 +2287,10 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     // objectui#7928: see the non-grid fetch above. A retired string `sort` on a
     // named view reaches `ObjectGrid` unchanged, which refuses it out loud.
     const viewSort = (currentNamedViewConfig?.sort as ObjectGridSchema['sort']) || activeView?.sort;
+    // objectui#10885 — subtracted from whichever projection wins below, and
+    // what survives is put in the named view's `fieldOrder`.
+    const hiddenFields = currentNamedViewConfig?.hiddenFields;
+    const fieldOrder = currentNamedViewConfig?.fieldOrder;
 
     return {
       type: 'object-grid',
@@ -2185,8 +2303,17 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       // folded to identities, and `columns` is `string[] | ListColumn[]` so it
       // takes the authored value raw. One value, two slots, each given the
       // shape it declares.
-      fields: viewColumnFieldNames(currentNamedViewConfig?.columns) || activeView?.columns || schema.table?.fields,
-      columns: currentNamedViewConfig?.columns || activeView?.columns || schema.table?.columns,
+      // objectui#10885 — both slots lose the named view's `hiddenFields`
+      // (see `withoutHiddenFields`), then take its `fieldOrder` (see
+      // `inFieldOrder`).
+      fields: inFieldOrder(withoutHiddenFields(
+        viewColumnFieldNames(currentNamedViewConfig?.columns) || activeView?.columns || schema.table?.fields,
+        hiddenFields,
+      ), fieldOrder),
+      columns: inFieldOrder(withoutHiddenFields(
+        currentNamedViewConfig?.columns || activeView?.columns || schema.table?.columns,
+        hiddenFields,
+      ), fieldOrder),
       operations: {
         ...operations,
         create: false, // Create is handled by the view's create button
@@ -2204,8 +2331,50 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       // express; what changes is only WHICH slot a view's sort arrives in, and
       // this is the one whose declared arity can hold it.
       sort: viewSort || schema.table?.sort,
-      pagination: schema.table?.pagination,
-      selection: schema.table?.selection,
+      // ⭐ objectui#10885 — the named view's own GRID MEMBERS, read here the
+      // way the host delegation below reads them since objectui#10758: the
+      // named view first, then the node only where this branch already read
+      // the node (`table.pagination`, `table.selection`). Each is a member the
+      // protocol declares on a named view AND on `object-grid`, under the same
+      // name, and `ObjectGrid` reads each one. The Studio's view preview renders
+      // a stored view through this branch, so before this a stored view's
+      // `rowHeight`, `pagination` and the rest were accepted and not shown.
+      //
+      // NAMED-VIEW SOURCED, like `grouping` / `rowColor` below: ⛔ no
+      // `activeView` rung (the host `views` path never fed these slots on this
+      // branch) and ⛔ no node read this branch did not already have. ⛔ No
+      // alias and no key `object-grid` does not declare: `hiddenFields` and
+      // `fieldOrder` are applied to the projection above rather than relayed.
+      // `navigation` is still not relayed to `ObjectGrid`: this component
+      // passes the grid its own `onRowClick`, which the grid's navigation hook
+      // obeys first, and that handler reads the named view's `navigation`
+      // (`navigationConfig`, objectui#10885).
+      pagination: currentNamedViewConfig?.pagination ?? schema.table?.pagination,
+      selection: currentNamedViewConfig?.selection ?? schema.table?.selection,
+      rowHeight: currentNamedViewConfig?.rowHeight,
+      resizable: currentNamedViewConfig?.resizable,
+      searchableFields: currentNamedViewConfig?.searchableFields,
+      // The protocol's rule `condition` is a string or the `{ dialect, source }`
+      // expression wire; `ObjectGrid` hands every rule to the shared evaluator
+      // (`resolveConditionalFormatting`), which reads both. No assertion: the
+      // grid's declared rule type reads the named view's `condition` slot by
+      // reference (objectui#10946), so the relay type-checks as written.
+      conditionalFormatting: currentNamedViewConfig?.conditionalFormatting,
+      rowActions: currentNamedViewConfig?.rowActions,
+      bulkActions: currentNamedViewConfig?.bulkActions,
+      // Same as `conditionalFormatting`: the protocol's `visible` expression
+      // wire may carry `ast` alongside (or, on the installed spec, instead of)
+      // `source`, and `BulkActionDef.visible` reads that slot by reference
+      // (objectui#10946). It is the value the host delegation already hands
+      // `ObjectGrid` through `ListView`.
+      bulkActionDefs: currentNamedViewConfig?.bulkActionDefs,
+      exportOptions: gridExportOptions(currentNamedViewConfig?.exportOptions),
+      // objectui#10885 — the named view's `inlineEdit` is the grid's
+      // `editable`. Route 2 handed the grid no `editable` before, so there is
+      // no node rung. It cannot widen editing past a grant: `ObjectGrid` ANDs
+      // it with the object's inline-edit verdict and the principal's `update`
+      // grant (`inlineEditable`), as `ListView` does on the delegation.
+      editable: currentNamedViewConfig?.inlineEdit,
       // ⭐ objectui#8980 — the AUTHOR-REACHABLE read point for two of the
       // seventeen. `ObjectGrid` already reads both (`schema.grouping` in its
       // group-field memo and its reference collector, `useRowColor(schema.rowColor)`),
@@ -2384,15 +2553,18 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     // The view's IDENTITY — switching object, view or type is a real remount,
     // and it is the ONLY thing in the key (objectui#10035; AGENTS.md #8's
     // corollary: refresh data, don't rebuild UI). A write no longer remounts
-    // any view: `kanban`, `calendar`, `gallery`, `timeline` and `map` draw
-    // `data={data}`, the rows the non-grid fetch effect re-reads when
-    // `refreshKey` moves, and `tree` re-queries when that array changes;
-    // `ObjectGrid`, `ObjectGantt` and `ObjectChart` query for themselves and
-    // refetch in place on the data-invalidation bus, which every site that
-    // moves `refreshKey` also notifies (`announceOwnWrite`, the `onMutation`
-    // subscription). ⛔ Do not put `refreshKey` back in a key: that is the
-    // remount the corollary forbids, and it throws away the view's scroll,
-    // selection, open drawers and in-progress edits on every save.
+    // any view. `kanban`, `calendar`, `gallery`, `timeline`, `map` and a
+    // `gantt` handed rows draw `data={data}`, the rows the non-grid fetch
+    // effect re-reads when `refreshKey` moves or when the data-invalidation
+    // bus reports a change to this object (objectui#10887). `tree` re-queries
+    // when that array changes and reads the bus itself (objectui#10778).
+    // `ObjectGrid`, `ObjectChart` and a gantt handed zero rows
+    // (objectui#7333) query for themselves and refetch in place on the bus,
+    // which every site that moves `refreshKey` also notifies
+    // (`announceOwnWrite`, the `onMutation` subscription). ⛔ Do not put
+    // `refreshKey` back in a key: that is the remount the corollary forbids,
+    // and it throws away the view's scroll, selection, open drawers and
+    // in-progress edits on every save.
     const identityKey = `${schema.objectName}-${activeNamedView || activeView?.id || 'default'}-${currentViewType}`;
 
     // If a custom renderListView is provided, use it
@@ -2426,6 +2598,26 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           // Active view's display label — ListView appends it to export
           // download filenames.
           label: currentNamedViewConfig?.label ?? activeView?.label,
+          // ⭐ objectui#10758 — bucket ① of the objectui#7924 ruling: the
+          // protocol members a named view declares (`ObjectListViewSchema`)
+          // that this branch used to take from the host `views` entry and the
+          // node only. Their rungs below now read the NAMED VIEW first, then
+          // the host `views` entry, then — only where the rung already had
+          // one — the node: the precedence `grouping` / `rowColor` /
+          // `appearance` use. `ListView` reads each of them off the
+          // `list-view` node it is handed. The named-view reads inside this
+          // fence are re-derived BY NAME by `objectViewHostSurface.test.tsx`,
+          // and the whole-file census by `object-view-unmirrored-keys-7779.test.ts`
+          // in `@object-ui/types`; neither list is restated here.
+          //
+          // ⛔ No rung gained a `(schema as any)` read: the objectui#5097
+          // HOST-COMPOSITION exemption stays at the 27 names the 2026-08-18
+          // ruling fixed. The three rungs this card ADDED (`description`,
+          // `exportOptions`, `bulkActionDefs`) are view-sourced only. ⛔ No
+          // alias and no legacy spelling is read off the named view: it is
+          // the protocol's strict record (objectui#7928), so each rung reads
+          // the member under its one protocol name.
+          description: currentNamedViewConfig?.description ?? activeView?.description,
           // Spec-canonical key (#2890) — the view configs this reads from are
           // already `columns`-keyed, so emitting `fields` here was a pure
           // canonical→legacy downgrade.
@@ -2444,7 +2636,10 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           // objectui#7924 (ruling A′): the density is read THROUGH the fold,
           // so a stored view that still spells it `densityMode` is handed
           // down as `rowHeight`, and the retired key is never relayed by name.
-          rowHeight: (normalizeListViewSchema(activeView ?? {}) as { rowHeight?: string }).rowHeight,
+          // objectui#10758: the named view's own `rowHeight` comes first, read
+          // as itself — the strict record refuses `densityMode`, so there is
+          // nothing on that side for the fold to map.
+          rowHeight: currentNamedViewConfig?.rowHeight ?? (normalizeListViewSchema(activeView ?? {}) as { rowHeight?: string }).rowHeight,
           groupBy: activeView?.groupBy,
           groupBy2: activeView?.groupBy2,
           // objectui#8980 — the protocol declares `grouping` on a named list
@@ -2468,8 +2663,9 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
             // view that toggles one action must not blank the rest.
             ...currentNamedViewConfig?.userActions,
           },
-          compactToolbar: activeView?.compactToolbar ?? (schema as any).compactToolbar,
+          compactToolbar: currentNamedViewConfig?.compactToolbar ?? activeView?.compactToolbar ?? (schema as any).compactToolbar,
           allowExport: activeView?.allowExport ?? (schema as any).allowExport,
+          exportOptions: currentNamedViewConfig?.exportOptions ?? activeView?.exportOptions,
           // Propagate display properties
           color: activeView?.color ?? (schema as any).color,
           // The spec-canonical row-colour CONFIGURATION (objectui#7218).
@@ -2490,7 +2686,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           // objectui#5097 exemption stays fixed at 27 names.
           rowColor: currentNamedViewConfig?.rowColor ?? activeView?.rowColor,
           // Propagate view-config properties (Bug 4 / items 14-22)
-          inlineEdit: activeView?.inlineEdit ?? (schema as any).inlineEdit,
+          inlineEdit: currentNamedViewConfig?.inlineEdit ?? activeView?.inlineEdit ?? (schema as any).inlineEdit,
           wrapHeaders: activeView?.wrapHeaders ?? (schema as any).wrapHeaders,
           clickIntoRecordDetails: activeView?.clickIntoRecordDetails ?? (schema as any).clickIntoRecordDetails,
           addRecordViaForm: activeView?.addRecordViaForm ?? (schema as any).addRecordViaForm,
@@ -2510,13 +2706,13 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           // objectui#5097 host-composition keys.
           data: currentNamedViewConfig?.data ?? (activeView as any)?.data ?? (schema as any).data,
           // Propagate new spec properties (P0/P1/P2)
-          navigation: activeView?.navigation ?? (schema as any).navigation,
-          selection: activeView?.selection ?? (schema as any).selection,
-          pagination: activeView?.pagination ?? (schema as any).pagination,
-          searchableFields: activeView?.searchableFields ?? (schema as any).searchableFields,
-          filterableFields: activeView?.filterableFields ?? (schema as any).filterableFields,
-          resizable: activeView?.resizable ?? (schema as any).resizable,
-          hiddenFields: activeView?.hiddenFields ?? (schema as any).hiddenFields,
+          navigation: currentNamedViewConfig?.navigation ?? activeView?.navigation ?? (schema as any).navigation,
+          selection: currentNamedViewConfig?.selection ?? activeView?.selection ?? (schema as any).selection,
+          pagination: currentNamedViewConfig?.pagination ?? activeView?.pagination ?? (schema as any).pagination,
+          searchableFields: currentNamedViewConfig?.searchableFields ?? activeView?.searchableFields ?? (schema as any).searchableFields,
+          filterableFields: currentNamedViewConfig?.filterableFields ?? activeView?.filterableFields ?? (schema as any).filterableFields,
+          resizable: currentNamedViewConfig?.resizable ?? activeView?.resizable ?? (schema as any).resizable,
+          hiddenFields: currentNamedViewConfig?.hiddenFields ?? activeView?.hiddenFields ?? (schema as any).hiddenFields,
           // objectui#8980 — TWO SLOTS THAT HAD NO RUNG ON THIS BRANCH AT ALL.
           //
           // `fieldOrder` is the live third key of the protocol's
@@ -2534,17 +2730,18 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           // untouched.
           fieldOrder: currentNamedViewConfig?.fieldOrder,
           appearance: currentNamedViewConfig?.appearance ?? activeView?.appearance,
-          rowActions: activeView?.rowActions ?? (schema as any).rowActions,
+          rowActions: currentNamedViewConfig?.rowActions ?? activeView?.rowActions ?? (schema as any).rowActions,
           rowActionDefs: (activeView as any)?.rowActionDefs ?? (schema as any).rowActionDefs,
-          bulkActions: activeView?.bulkActions ?? (schema as any).bulkActions,
-          sharing: activeView?.sharing ?? (schema as any).sharing,
-          addRecord: activeView?.addRecord ?? (schema as any).addRecord,
-          conditionalFormatting: activeView?.conditionalFormatting ?? (schema as any).conditionalFormatting,
-          userFilters: activeView?.userFilters ?? (schema as any).userFilters,
-          showRecordCount: activeView?.showRecordCount ?? (schema as any).showRecordCount,
-          allowPrinting: activeView?.allowPrinting ?? (schema as any).allowPrinting,
-          emptyState: activeView?.emptyState ?? (schema as any).emptyState,
-          aria: activeView?.aria ?? (schema as any).aria,
+          bulkActions: currentNamedViewConfig?.bulkActions ?? activeView?.bulkActions ?? (schema as any).bulkActions,
+          bulkActionDefs: currentNamedViewConfig?.bulkActionDefs ?? activeView?.bulkActionDefs,
+          sharing: currentNamedViewConfig?.sharing ?? activeView?.sharing ?? (schema as any).sharing,
+          addRecord: currentNamedViewConfig?.addRecord ?? activeView?.addRecord ?? (schema as any).addRecord,
+          conditionalFormatting: currentNamedViewConfig?.conditionalFormatting ?? activeView?.conditionalFormatting ?? (schema as any).conditionalFormatting,
+          userFilters: currentNamedViewConfig?.userFilters ?? activeView?.userFilters ?? (schema as any).userFilters,
+          showRecordCount: currentNamedViewConfig?.showRecordCount ?? activeView?.showRecordCount ?? (schema as any).showRecordCount,
+          allowPrinting: currentNamedViewConfig?.allowPrinting ?? activeView?.allowPrinting ?? (schema as any).allowPrinting,
+          emptyState: currentNamedViewConfig?.emptyState ?? activeView?.emptyState ?? (schema as any).emptyState,
+          aria: currentNamedViewConfig?.aria ?? activeView?.aria ?? (schema as any).aria,
           // Propagate refresh signal so ListView re-fetches after mutations
           refreshTrigger: refreshKey,
         },
@@ -2689,6 +2886,18 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     : navigationConfig?.mode === 'popover' ? 'popover'
     : layout;
 
+  // objectui#10975 — `split` and `popover` draw a form only beside a selected
+  // record, and `handleCreate` clears it, so under either mode (the node's own
+  // or the active named view's) the CREATE form opens on the surface
+  // `formLayout` falls back to with no `navigation`: the modal for
+  // `layout: 'modal'`, the drawer otherwise. `'page'` only gets here with no
+  // `onNavigate` (`handleCreate` routes it first), and a page has no surface
+  // inside this component, so it takes the drawer. A record opened to view or
+  // edit still opens beside, as before. Pinned by
+  // `ObjectView.splitPopoverCreate-10975.test.tsx`.
+  const renderCreateSurface = () =>
+    formMode !== 'create' ? null : layout === 'modal' ? renderModalForm() : renderDrawerForm();
+
   // Build the record detail content for NavigationOverlay (split/popover modes)
   const renderOverlayDetail = (_record: Record<string, unknown>) => (
     <div className="space-y-3">
@@ -2801,6 +3010,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
             renderContent()
           )}
         </div>
+        {renderCreateSurface()}
         {deleteConfirmDialog}
       </div>
     );
@@ -2846,6 +3056,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           {renderOverlayDetail}
         </NavigationOverlay>
       )}
+      {formLayout === 'popover' && renderCreateSurface()}
       {deleteConfirmDialog}
     </div>
   );

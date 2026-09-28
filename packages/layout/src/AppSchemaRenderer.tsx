@@ -35,7 +35,7 @@ import {
   SidebarGroupContent,
   SidebarInput,
 } from '@object-ui/components';
-import type { AppComponentSchema, NavigationItem, NavigationArea } from '@object-ui/types';
+import type { AppComponentSchema, NavigationItem, NavigationEntryItem, NavigationArea } from '@object-ui/types';
 import { menuItemToNavigationItem } from '@object-ui/types';
 // Aliased on import, following PR #4169's convention: this repo has its OWN
 // `resolveI18nLabel` over a DIFFERENT vocabulary, and neither accepts the
@@ -267,8 +267,10 @@ function MobileBottomNav({
   // Show up to 5 non-group leaf items. Flatten group children so apps that
   // organise navigation into groups (e.g. Setup → Overview / Administration /
   // …) still surface real links in the mobile bottom nav.
-  const collectLeaves = (list: typeof items): typeof items => {
-    const out: typeof items = [];
+  // Separators are skipped, so what comes back is entries only — each carries
+  // the `label` the bottom nav draws (objectui#10867).
+  const collectLeaves = (list: NavigationItem[]): NavigationEntryItem[] => {
+    const out: NavigationEntryItem[] = [];
     for (const item of list) {
       if (item.type === 'separator') continue;
       if (item.type === 'group') {

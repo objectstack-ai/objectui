@@ -21,8 +21,17 @@
  *
  * ⛔ The declaration half is NOT re-pinned here; it lives with the census in
  * `packages/types/src/__tests__/object-view-unmirrored-keys-7779.test.ts`, which
- * partitions the interface into read (21) and unread (43) and fails in EITHER
- * direction when a member moves between them.
+ * partitions the interface into read and unread members (the counts are that
+ * file's reading, re-derived on every run — not restated here) and fails in
+ * EITHER direction when a member moves between them.
+ *
+ * ## objectui#10758 — the rest of the protocol members, on route 3
+ *
+ * Bucket ① of the objectui#7924 ruling: the protocol members a named view
+ * declares that no route read off the named view. The delegation (route 3) now
+ * reads each of them off the named view first. Their block is the last route-3
+ * describe below: one named view per member FAMILY, with the members this file
+ * already pinned riding the same fixture as the firing control.
  *
  * ## The three routes out of `ObjectView`, and which member uses which
  *
@@ -67,6 +76,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, waitFor, cleanup } from '@testing-library/react';
+import { ObjectListViewSchema as SpecObjectListViewSchema } from '@objectstack/spec/ui';
 import { ObjectView } from '../ObjectView';
 import type { NamedListView, ObjectViewSchema } from '@object-ui/types';
 
@@ -389,6 +399,206 @@ describe('objectui#8980 — the host delegation relays the named view\'s protoco
     // (`object-view-unmirrored-keys-7779.test.ts`).
     const s = delegatedSchemaFor({ label: 'All', type: 'grid', data: { provider: 'api' } as any });
     expect(s.data).toEqual({ provider: 'api' });
+  });
+});
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Route 3, continued — objectui#10758: bucket ① of the objectui#7924 ruling
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * One entry of `ObjectViewSchema.listViews` — the protocol's strict
+ * `ObjectListViewSchema` by reference (objectui#7928). The fixtures below are
+ * typed as it, and each is also PARSED by the protocol's own schema, so every
+ * value on the named-view side is one a conforming author can write.
+ */
+type SpecNamedView = NonNullable<ObjectViewSchema['listViews']>[string];
+
+/**
+ * The same member, three values: the one the NAMED view authors, the one the
+ * host `views` entry carries, and the one on the object-view NODE. Distinct on
+ * purpose, so the value that arrives names the source it came from.
+ */
+type Sources = { named: unknown; host: unknown; node: unknown };
+
+/**
+ * The members of bucket ①, grouped into FAMILIES — one named view each, as the
+ * card asks. The grouping is by what the member configures on the rendered
+ * list; `ListView` (the delegation's sink) reads every one of them off the
+ * `list-view` node it is handed, directly or through the grid it renders.
+ *
+ * ⚠️ Four members have NO node rung, so their `node` value must never arrive:
+ * the three rungs objectui#10758 added (`description`, `exportOptions`,
+ * `bulkActionDefs`) and `rowHeight` (the host entry through the fold, since
+ * objectui#7924's ruling A′). Adding a node read for any of them would add a
+ * name to the objectui#5097 HOST-COMPOSITION exemption the 2026-08-18 ruling
+ * fixed at 27 — a ruling, not a refactor. {@link NO_NODE_RUNG}.
+ */
+const FAMILIES: Record<string, Record<string, Sources>> = {
+  'list chrome': {
+    description: { named: 'Open work only', host: 'Host description', node: 'Node description' },
+    compactToolbar: { named: true, host: false, node: true },
+    allowPrinting: { named: true, host: false, node: true },
+    showRecordCount: { named: false, host: true, node: false },
+    sharing: { named: { type: 'collaborative' }, host: { type: 'personal' }, node: { type: 'personal', lockedBy: 'node' } },
+    aria: { named: { ariaLabel: 'Named tasks' }, host: { ariaLabel: 'Host tasks' }, node: { ariaLabel: 'Node tasks' } },
+    emptyState: { named: { title: 'Named empty' }, host: { title: 'Host empty' }, node: { title: 'Node empty' } },
+  },
+  'record actions': {
+    addRecord: { named: { enabled: true, position: 'bottom' }, host: { enabled: false }, node: { enabled: true, position: 'top' } },
+    inlineEdit: { named: true, host: false, node: true },
+    rowActions: { named: ['archive'], host: ['host_row'], node: ['node_row'] },
+    bulkActions: { named: ['delete'], host: ['host_bulk'], node: ['node_bulk'] },
+    bulkActionDefs: {
+      named: [{ name: 'close_all', label: 'Close all', operation: 'update', patch: { stage: 'closed' } }],
+      host: [{ name: 'host_def', label: 'Host', operation: 'delete' }],
+      node: [{ name: 'node_def', label: 'Node', operation: 'delete' }],
+    },
+    exportOptions: { named: { formats: ['csv'] }, host: { formats: ['json'] }, node: { formats: ['xlsx'] } },
+  },
+  'grid presentation': {
+    rowHeight: { named: 'tall', host: 'short', node: 'extra_tall' },
+    pagination: { named: { pageSize: 5 }, host: { pageSize: 50 }, node: { pageSize: 100 } },
+    selection: { named: { type: 'single' }, host: { type: 'multiple' }, node: { type: 'none' } },
+    resizable: { named: true, host: false, node: true },
+    hiddenFields: { named: ['secret'], host: ['host_hidden'], node: ['node_hidden'] },
+    conditionalFormatting: {
+      named: [{ condition: "stage == 'won'", style: { backgroundColor: '#dcfce7' } }],
+      host: [{ condition: "stage == 'lost'", style: { backgroundColor: '#fee2e2' } }],
+      node: [{ condition: "stage == 'open'", style: { backgroundColor: '#e0f2fe' } }],
+    },
+  },
+  'search, filter and navigation': {
+    searchableFields: { named: ['subject'], host: ['host_search'], node: ['node_search'] },
+    filterableFields: { named: ['stage'], host: ['host_filter'], node: ['node_filter'] },
+    userFilters: {
+      named: { element: 'dropdown', fields: [{ field: 'stage' }] },
+      host: { element: 'dropdown', fields: [{ field: 'owner' }] },
+      node: { element: 'dropdown', fields: [{ field: 'node_field' }] },
+    },
+    navigation: { named: { mode: 'drawer' }, host: { mode: 'modal' }, node: { mode: 'page' } },
+  },
+};
+
+const NO_NODE_RUNG = ['bulkActionDefs', 'description', 'exportOptions', 'rowHeight'];
+
+/** Every bucket-① member, across the families. */
+const BUCKET_ONE = Object.values(FAMILIES).flatMap((f) => Object.keys(f)).sort();
+
+/** The part of a family one source carries. */
+const valuesOf = (family: Record<string, Sources>, source: keyof Sources): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(family).map(([k, v]) => [k, v[source]]));
+
+/**
+ * Route 3 with all three sources in play: the named view (`listViews`), the
+ * host `views` entry, and the node. Whatever the host receives is what it
+ * renders — the `list-view` node handed to `renderListView` is the input of the
+ * rendered list, and nothing between this call and `ListView` rewrites it.
+ */
+/** The `list-view` node a host receives — read by key, so an index shape is all it needs. */
+type HandedDown = Record<string, unknown>;
+
+function delegatedWithSources(view: SpecNamedView, host: Record<string, unknown> | null, node: Record<string, unknown>): HandedDown {
+  resetSinks();
+  const seen: HandedDown[] = [];
+  render(
+    <ObjectView
+      schema={{ ...NODE, ...node, listViews: { v1: view } } as unknown as ObjectViewSchema}
+      views={host ? [{ id: 'h', label: 'Host', type: 'grid' as const, ...host }] : undefined}
+      dataSource={dataSource()}
+      renderListView={({ schema: s }: { schema: HandedDown }) => {
+        seen.push(s);
+        return <div data-testid="delegated" />;
+      }}
+    />,
+  );
+  expect(seen.length).toBeGreaterThan(0);
+  return seen[0];
+}
+
+/**
+ * The members this file already pinned on route 3 before objectui#10758, riding
+ * every fixture below as the FIRING CONTROL: they arrive from the named view on
+ * the same render, so a family that reads undefined is a reading of that
+ * family, not of a relay that never ran or a named view that was not selected.
+ */
+const CONTROL: SpecNamedView = {
+  label: 'Open work',
+  type: 'grid',
+  columns: ['subject', 'stage'],
+  fieldOrder: ['stage', 'subject'],
+  grouping: { fields: [{ field: 'owner' }] },
+};
+
+function expectControl(s: HandedDown) {
+  expect(s.type).toBe('list-view');
+  expect(s.label).toBe('Open work');
+  expect(s.columns).toEqual(['subject', 'stage']);
+  expect(s.fieldOrder).toEqual(['stage', 'subject']);
+  expect(s.grouping).toEqual({ fields: [{ field: 'owner' }] });
+}
+
+describe('objectui#10758 — the host delegation reads bucket ① off the named view, one named view per member family', () => {
+  it('the families cover bucket ① exactly once, and every member is a protocol member of a named view', () => {
+    // 23 is the ruling's figure (objectui#7924, comment 5690906005) and the
+    // re-sample on this tree; the types census re-derives the partition on
+    // every run, so this is the fixture's coverage, not a second census.
+    expect(BUCKET_ONE).toHaveLength(23);
+    expect(new Set(BUCKET_ONE).size).toBe(23);
+    const protocol = Object.keys(SpecObjectListViewSchema.shape);
+    expect(BUCKET_ONE.filter((m) => !protocol.includes(m))).toEqual([]);
+    // Control on the same query: a key the protocol does NOT declare on a
+    // named view (objectui's retained `allowExport`) is refused by it.
+    expect(protocol).not.toContain('allowExport');
+  });
+
+  describe.each(Object.entries(FAMILIES))('family: %s', (_name, family) => {
+    const namedView = (): SpecNamedView => ({ ...CONTROL, ...valuesOf(family, 'named') } as SpecNamedView);
+
+    it('the named view is a PROTOCOL document — the strict `ObjectListViewSchema` parses it, so a conforming author can write every value', () => {
+      const r = SpecObjectListViewSchema.safeParse(namedView());
+      expect(r.success, r.success ? '' : JSON.stringify(r.error.issues)).toBe(true);
+    });
+
+    it('THE FIX: the named view\'s value reaches the rendered list — it wins over the host `views` entry and the node', () => {
+      const s = delegatedWithSources(namedView(), valuesOf(family, 'host'), valuesOf(family, 'node'));
+      expectControl(s);
+      for (const [member, v] of Object.entries(family)) {
+        expect(s[member], `\`${member}\` did not arrive from the named view`).toEqual(v.named);
+      }
+    });
+
+    it('CONTROL: with the family absent from the named view, the host `views` entry supplies it — the rung before this card, and the fallback of the three rungs it added', () => {
+      const s = delegatedWithSources({ ...CONTROL }, valuesOf(family, 'host'), valuesOf(family, 'node'));
+      expectControl(s);
+      for (const [member, v] of Object.entries(family)) {
+        expect(s[member], `\`${member}\` no longer arrives from the host \`views\` entry`).toEqual(v.host);
+      }
+    });
+
+    it('CONTROL: with neither view declaring it, the node still supplies it — except on the four rungs with no node read', () => {
+      const s = delegatedWithSources({ ...CONTROL }, null, valuesOf(family, 'node'));
+      expectControl(s);
+      for (const [member, v] of Object.entries(family)) {
+        if (NO_NODE_RUNG.includes(member)) {
+          // View-sourced only: the node's value must NOT arrive. This is the
+          // behavioural half of "no new `(schema as any)` read"; the source
+          // half is `objectViewHostSurface.test.tsx`.
+          expect(s[member], `\`${member}\` is now read off the object-view NODE`).toBeUndefined();
+        } else {
+          expect(s[member], `\`${member}\` no longer arrives from the node`).toEqual(v.node);
+        }
+      }
+    });
+  });
+
+  it('`rowHeight`: the named view is read as ITSELF, and the host entry still goes through the fold', () => {
+    // The fold (objectui#7924, ruling A′) maps a stored host entry's retired
+    // `densityMode` onto `rowHeight`. The named view needs no fold — the strict
+    // record refuses `densityMode` — so a named `rowHeight` wins outright, and
+    // with none the host entry's retired spelling still arrives canonical.
+    expect(delegatedWithSources({ ...CONTROL, rowHeight: 'tall' }, { densityMode: 'compact' }, {}).rowHeight).toBe('tall');
+    expect(delegatedWithSources({ ...CONTROL }, { densityMode: 'compact' }, {}).rowHeight).toBe('compact');
   });
 });
 

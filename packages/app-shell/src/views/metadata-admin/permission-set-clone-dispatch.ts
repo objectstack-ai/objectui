@@ -5,7 +5,7 @@
  * `clone_permission_set` record action and shaping its dispatch.
  *
  * The permission matrix locks a set a code package ships (the artifact tier).
- * The maintainer's ruling on objectstack#11513 — lock the base, clone to
+ * The maintainer's 2026-08-24 ruling (objectstack `e170b0ae5`) — lock the base, clone to
  * customize — makes cloning the sanctioned edit path, and the server's own
  * `403 not_overridable` refusal names the `clone_permission_set` action as the
  * remedy. The editor therefore runs THAT action, resolved by name off the
@@ -13,7 +13,7 @@
  * hand-rolls a copy out of create/update calls: the action's `params` list IS
  * the payload (which facets a clone carries is decided where the action is
  * declared), and a second spelling of it here would be the silent-grant-loss
- * shape objectstack#11703 closed.
+ * shape objectstack `5cb62d88b` closed.
  *
  * ## Why this lives beside the editor rather than in it
  *

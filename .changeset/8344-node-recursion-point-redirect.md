@@ -10,7 +10,7 @@ Redirect the node recursion point from `BaseSchemaCore` to `AnyComponentSchema`
 since retired `body`, leaving `children` and its redeclarations) is
 `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])`, and `SchemaNodeSchema`'s
 component arm was `BaseSchemaCore` — the ~21 base keys and nothing type-specific. So
-per-type enforcement was ROOT-ONLY, for every component type: objectui#7869 measured
+per-type enforcement was ROOT-ONLY, for every component type: the finding this card discharges measured
 an off-spec `size` on a nested `icon` node being ACCEPTED while the same node standing
 alone was refused. The arm is now the union of the registered component mirrors, so
 the same node gets the same verdict at every depth.
@@ -132,3 +132,9 @@ make the redirect apply.
 release `zod/ai.zod.ts` joins the category modules `AnyComponentSchema` is built from and imports
 `zod/base.zod.ts` too, so both counts in the mechanical note above are one higher; the reason the arm
 cannot be an import is unchanged. The rest of this entry is kept as the reading of this change.
+
+⚠️ **Dated note, 2026-09-28 — a second category module — objectui#10872.** Later still in this same
+release `zod/public-blocks.zod.ts` joins them as well and imports `zod/base.zod.ts` too, so both counts
+in the mechanical note above are two higher, not the one the objectui#10859 note says; the reason the
+arm cannot be an import is unchanged. The rest of this entry, and that note, are kept as their
+readings.

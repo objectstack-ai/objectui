@@ -96,6 +96,47 @@ export const NavigationItemTypeSchema = z.enum([
  * `../__tests__/zod-lazy-getter-identity-7918.test.ts` — read that before
  * "fixing" any of them to match this one.
  */
+/**
+ * The keys `@objectstack/spec`'s separator branch declares — `type`, `id` and
+ * `order` on the installed pin — READ OFF the spec rather than restated
+ * (objectui#10867). The spec does not export its `SeparatorNavItemSchema`, so
+ * this walks the spec `AppSchema`'s own `navigation` element (optional → array
+ * → lazy → the nav-item union) and takes the arm whose `type` literal is
+ * `'separator'`. Reading it through `AppSchema`, which this mirror already
+ * crosses, keeps the read inside the objectui#8317 import boundary's measured
+ * population instead of adding a lazy root that population cannot walk.
+ *
+ * Computed on first use, because the spec schema is lazy. It throws when no such
+ * arm exists: a separator check that silently allowed nothing, or everything,
+ * would read as enforcement, and a thrown error is what the pin file sees.
+ */
+let specSeparatorKeys: readonly string[] | undefined;
+function getSpecSeparatorKeys(): readonly string[] {
+  if (specSeparatorKeys) return specSeparatorKeys;
+  type Node = {
+    unwrap?: () => Node;
+    element?: Node;
+    options?: readonly Node[];
+    shape?: Record<string, Node & { value?: unknown }>;
+  };
+  let node = (stripImportedDefaults(SpecAppSchema) as unknown as Node).shape?.navigation as Node | undefined;
+  for (let hop = 0; node && !node.options && hop < 8; hop++) node = node.element ?? node.unwrap?.();
+  const arm = node?.options?.find((option) => option.shape?.type?.value === 'separator');
+  if (!arm?.shape) {
+    throw new Error(
+      "objectui#10867: @objectstack/spec's AppSchema.navigation has no `type: 'separator'` arm to read the separator's keys from",
+    );
+  }
+  specSeparatorKeys = Object.freeze(Object.keys(arm.shape));
+  return specSeparatorKeys;
+}
+
+/** `a`, `b` and `c` — the separator refusal's list of what a separator may carry. */
+function codeList(keys: readonly string[]): string {
+  const quoted = keys.map((key) => `\`${key}\``);
+  return quoted.length > 1 ? `${quoted.slice(0, -1).join(', ')} and ${quoted[quoted.length - 1]}` : quoted.join('');
+}
+
 const NavigationItemObject = z.object({
   // Declared optional so a bare `{ type: 'separator' }` — which the spec
   // accepts, and which carries no identity or text by definition — validates
@@ -159,7 +200,24 @@ const NavigationItemObject = z.object({
   // separator — a rule, not an entry — is exempt. Declaring the fields
   // optional above is what lets `{ type: 'separator' }` through, so without
   // this an id-less `type: 'object'` item would validate too.
-  if (item.type === 'separator') return;
+  //
+  // The separator carries exactly what the spec's separator declares
+  // (objectui#10867). This shape is flat, so it declares `label`, `icon` and
+  // the rest for every type; without this branch refusing them, `objectui
+  // validate` passed a separator `label` the platform's save door refuses with
+  // `unrecognized_keys`. The allowed set is read off the spec, not restated.
+  if (item.type === 'separator') {
+    const allowed = getSpecSeparatorKeys();
+    for (const [key, value] of Object.entries(item)) {
+      if (allowed.includes(key) || value === undefined) continue;
+      ctx.addIssue({
+        code: 'custom',
+        path: [key],
+        message: `a separator carries only ${codeList(allowed)}; drop \`${key}\``,
+      });
+    }
+    return;
+  }
   for (const key of ['id', 'label'] as const) {
     if (typeof item[key] !== 'string' || item[key] === '') {
       ctx.addIssue({
@@ -215,10 +273,11 @@ export const NavigationItemSchema: z.ZodType<any> = z.lazy(() => NavigationItemO
  *    navigation as a discriminated union of `.strict()` variants; objectui keeps
  *    one flat, all-optional object that deliberately accepts more. Measured
  *    against spec 17.2.0, referencing the spec's schema would make `objectui
- *    validate` REJECT metadata this renderer accepts today: `pinned`,
- *    `defaultOpen` and a separator carrying `label` all fail `unrecognized_keys`,
- *    `visible: boolean` fails `invalid_union`, and a one-character `id` fails
- *    `too_small`. Pinned by `__tests__/navigation-spec-parity.test.ts`.
+ *    validate` REJECT metadata this renderer accepts today: `pinned` and
+ *    `defaultOpen` fail `unrecognized_keys`, `visible: boolean` fails
+ *    `invalid_union`, and a one-character `id` fails `too_small`. Pinned by
+ *    `__tests__/navigation-spec-parity.test.ts`. (A separator carrying `label`
+ *    was a fifth until objectui#10867, which made the mirror refuse it too.)
  *
  *    Converging on the union is a breaking change for every consumer that reads
  *    fields off `NavigationItem` without narrowing — tracked separately, and

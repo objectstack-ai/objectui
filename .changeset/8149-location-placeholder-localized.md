@@ -6,7 +6,7 @@
 (objectui#8149).
 
 When a `location` field declares no `placeholder`, the box used to show the
-English literal `latitude, longitude`. objectui#6888 had already keyed the two
+English literal `latitude, longitude`. `320374d2a` had already keyed the two
 coordinate nouns for the widget's residue refusal, so on a Chinese console the
 box said `latitude` while the refusal one line beneath it said the Chinese word
 for the same coordinate. The fallback is now composed from those same keys,

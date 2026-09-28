@@ -244,7 +244,8 @@ function carryOverDisplayText(value: unknown): string | null {
 
 /**
  * A param that declares `carryOver` (`@objectstack/spec`'s `ActionParamSchema`,
- * objectstack#11753 ruling, objectui#6246): a collapsed READ-ONLY summary.
+ * the 2026-08-25 ruling whose spec half is objectstack `0e4e51b0a`, objectui#6246): a
+ * collapsed READ-ONLY summary.
  *
  * ⛔ No field widget is built for it at all — not a disabled one, not a
  * read-only one. The ruling's point is that the renderer leaves NO editing
@@ -371,7 +372,7 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
   /**
    * Params whose FIELD-BACKED declaration could not be resolved against object
    * metadata — `resolveActionParams()` names the `<object>.<field>` pair it
-   * could not find on each one (objectui#10129).
+   * could not find on each one (`6cc910b6d`).
    *
    * ## Why the dialog REFUSES instead of rendering an input
    *
@@ -444,7 +445,7 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
     if (anyUploading) return;
     // A param the resolver could not read has no value this dialog could
     // legitimately collect, so the action is not launchable from here. Confirm
-    // is disabled too; this guards keyboard submit (objectui#10129).
+    // is disabled too; this guards keyboard submit (`6cc910b6d`).
     if (unresolvedKey) return;
     // Validate required fields
     const newErrors: Record<string, boolean> = {};
@@ -499,7 +500,7 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
             };
             // The refusal comes FIRST — ahead of `paramToField()`, which would
             // otherwise build a widget from the placeholder type the resolver
-            // fell back to (objectui#10129).
+            // fell back to (`6cc910b6d`).
             if (rawParam.unresolvedField) {
               return (
                 <div key={param.name} className="grid gap-2">
@@ -511,7 +512,7 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
                   >
                     <p>{t('actionDialog.unresolvedParam')}</p>
                     {/* The locator is its own node rather than an interpolation
-                        (objectui#10129): `<object>.<field>` is an identifier, so
+                        (`6cc910b6d`): `<object>.<field>` is an identifier, so
                         it must render verbatim in every locale, never be
                         re-ordered by a translator, and stay readable when the
                         surrounding sentence has not been translated yet. */}

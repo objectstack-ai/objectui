@@ -3,7 +3,7 @@
 ---
 
 `button-group` honors per-button `disabled`, and the catalog stops authoring 29 keys
-nothing reads (objectui#7077, maintainer ruling 2026-09-04, decision batch #25).
+nothing reads (maintainer ruling 2026-09-04, decision batch #25).
 
 **The renderer change.** `ButtonGroupButton` declares `disabled?: boolean` and the
 renderer read it nowhere — it mapped `schema.buttons` to `Button` elements passing

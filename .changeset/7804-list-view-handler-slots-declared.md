@@ -2,8 +2,8 @@
 '@object-ui/types': minor
 ---
 
-Declare the five handler keys the `'list-view'` renderer reads (objectui#7804,
-the `ListViewSchema` slice).
+Declare the five handler keys the `'list-view'` renderer reads
+(the `ListViewSchema` slice).
 
 The zod arm `type: 'list-view'` selects now declares `onAddRecord`,
 `onBulkAction`, `onDensityChange`, `onNavigate` and `onPageSizeChange` as

@@ -2,8 +2,7 @@
 '@object-ui/components': patch
 ---
 
-`ui:grid` renders the `2xl` breakpoint its `columns` map has always accepted
-(objectui#7097).
+`ui:grid` renders the `2xl` breakpoint its `columns` map has always accepted.
 
 `columns: { xs: 1, '2xl': 6 }` type-checked, passed `GridSchema`'s zod mirror, emitted
 **no class**, and rendered at the `xs` count on every screen — no error, no warning.

@@ -3,7 +3,7 @@
 ---
 
 `DataTableSchema.rowActions` validates as the boolean it has always been declared to be
-(objectui#6940, maintainer ruling 2026-09-02, director seat summon #8, option A).
+(maintainer ruling 2026-09-02, director seat summon #8, option A).
 
 The hand-written zod mirror in `zod/data-display.zod.ts` declared
 `rowActions: z.array(z.any()).optional()`. Every other face of the same key says

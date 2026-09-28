@@ -7,7 +7,7 @@ Approvals inbox: a reference that cannot be resolved now renders a neutral
 "cannot be opened" affordance instead of degrading to the opaque record id
 (objectui#8631).
 
-objectui#7108 tombstoned the class the platform FLAGS — `status: 'cancelled'`
+`1267508ea` tombstoned the class the platform FLAGS — `status: 'cancelled'`
 plus `cancel_reason: 'record_deleted'`. A terminal (`approved` / `rejected`)
 approval carries no such flag and never will: the upstream cancel path names
 `status: 'pending'` in its `where`, deliberately, so history is preserved. Those
@@ -20,7 +20,7 @@ resolve AND that carries no snapshot title — the two conditions under which th
 opaque id was the only thing left on screen. A row whose snapshot kept a business
 identifier is unchanged: it still shows that identifier with its link suppressed,
 which is what objectui#5211 ruled. A row the server marked `record_deleted` still
-gets objectui#7108's tombstone, which says something stronger because the server
+gets the tombstone `1267508ea` added, which says something stronger because the server
 asserted it.
 
 **The copy names no cause, and that is the point.** The platform's read path

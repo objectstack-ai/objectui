@@ -839,6 +839,12 @@ export const LIST_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'list.loadErrorApiDisabledTitle': 'This object isn’t available through the API',
   'list.loadErrorApiDisabledMessage': 'This page can’t load its records because the object is not exposed through the API. That is a setting on the object itself, not a permission — an administrator has to enable API access for it before this page can work.',
   'list.retry': 'Retry',
+  // objectui#10881 — the refusal of a grouped grid over a data source that
+  // cannot answer the group header query. Borrowed from the `grid.*`
+  // namespace: `ObjectGrid` refuses with the same sentence, and one refusal
+  // should not get two translations that can drift apart.
+  'grid.grouping.needsHeaderQuery':
+    'This view is grouped, but its data source does not implement queryGroupHeaders, so the groups cannot be counted. Remove the grouping to show the records.',
   // The bare NOUN, for the search button's tooltip. It is deliberately NOT the
   // input placeholder: that is `table.search` below (objectui#4375).
   'list.search': 'Search',
@@ -1620,7 +1626,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // Object-level export permission gate. Default-allow: export stays enabled
   // unless `allowExport === false` or `operations.export === false`, AND — when
   // the server hands down an effective API operation set for this object
-  // (/me/permissions `apiOperations`, #3391) — unless it excludes `export`.
+  // (/me/permissions `apiOperations`, objectstack#3391) — unless it excludes `export`.
   // Missing effective set (unrestricted object / old backend / no provider)
   // keeps the current behavior. The frontend consumes the effective set the
   // server resolved; it never reads the raw `apiMethods`.
@@ -1631,13 +1637,13 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     schema.operations?.export !== false &&
     (effectiveApiOps ? effectiveApiOps.includes('export') : true);
 
-  // [#3720] Bulk-action gate for the NON-grid views (kanban / calendar /
+  // [objectstack#3720] Bulk-action gate for the NON-grid views (kanban / calendar /
   // gallery / …), whose bulk bar this component renders itself — the grid path
   // delegates to ObjectGrid, which gates its own. A declared `bulkActions`
   // entry is a WIRING declaration, not a permission grant, so the built-in
   // `delete` is dropped unless the object's resolved delete affordance allows
   // it: the ADR-0103 bucket lock ∧ `userActions.delete` ∧ the server's
-  // effective API operation set (#3391). Custom action ids pass through
+  // effective API operation set (objectstack#3391). Custom action ids pass through
   // untouched — they route through the action runner with their own gates.
   // [#4096] ∧ the CURRENT PRINCIPAL's `allowDelete` — the three layers above
   // all describe the OBJECT, so without this the most destructive entry on a
@@ -1727,7 +1733,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    *
    * The gate is `permittedBulkActions`' verbatim, with the operation moved from
    * `delete` to `update`: the object's resolved affordance — ADR-0103 bucket ∧
-   * `userActions.edit` ∧ the server's effective API operations (#3391) — AND
+   * `userActions.edit` ∧ the server's effective API operations (objectstack#3391) — AND
    * the CURRENT PRINCIPAL's grant (#4096). The first half is spelled
    * `isObjectInlineEditable`, which IS
    * `resolveEffectiveCrudAffordances(...).edit` under the name that says what
@@ -2085,6 +2091,65 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     (schema.data as any).provider === 'api';
 
   /**
+   * Does a GROUPED grid query for itself? (objectui#7189, maintainer ruling A)
+   *
+   * Grouping on a list view is server-side: the set of groups and every number
+   * in a group header are properties of the query, and the rows inside a
+   * group are paged. This component's fetch is one window (`$top:
+   * effectivePageSize`), and a grid handed that window as `data` can only
+   * group the window — measured on 186 rows in five units of 86/61/31/7/1 with
+   * `$top: 100`: two headers (86, 14) or five page slices (31/31/30/7/1), by
+   * row order alone, every row past the window unreachable, and nothing on
+   * screen saying so. So when the data source can answer the group header
+   * query (`queryGroupHeaders`), the grid is handed NO rows: it asks the server
+   * for its groups and pages each group's rows itself, with the SAME effective
+   * filter this component would have sent (see `selfQueryFilter` below).
+   *
+   * ⛔ Not while a toolbar search is active. `$search` has no counterpart on
+   * the header query the platform answers — its aggregate branch composes
+   * `where` / `groupBy` / `aggregations` / `having` and nothing else — so
+   * searched group counts would not be the searched rows' counts. The
+   * searched view keeps grouping this component's window, as before.
+   */
+  const gridOwnsGroupedFetch =
+    currentView === 'grid' &&
+    (groupingConfig?.fields?.length ?? 0) > 0 &&
+    !Array.isArray(schema.data) &&
+    (schema.data as any)?.provider !== 'value' &&
+    !!schema.objectName &&
+    typeof dataSource?.queryGroupHeaders === 'function' &&
+    !searchTerm;
+
+  /**
+   * Is a GROUPED grid refused here? (objectui#10881, maintainer ruling F)
+   *
+   * The other half of `gridOwnsGroupedFetch`: a grouped grid over a data
+   * source that cannot answer the group header query. This component would
+   * fetch one window and hand it down as `data`, and the grid takes rows it
+   * is handed as the whole set — it would group the window as if nothing
+   * were withheld, page-slice counts and missing groups included, and it
+   * cannot tell. So the refusal is made HERE, before a grid is mounted: the
+   * same sentence the grid refuses with, no window fetched
+   * (`groupingNeedsHeaderQuery` stands the fetch effect down), and no
+   * record-count bar.
+   *
+   * Only where THIS component fetches: rows handed in whole (`schema.data` as
+   * an array, or a `value` provider) are grouped where they are, exactly. The
+   * grouping counts the entries the grid would group by
+   * (`collectGroupingFieldRefs`: a named `field`), not the raw array, so a
+   * grouping of empty holes refuses nothing. A toolbar search does not lift
+   * the refusal: the data source cannot answer the header query either way.
+   */
+  const groupingNeedsHeaderQuery =
+    currentView === 'grid' &&
+    collectGroupingFieldRefs(groupingConfig).length > 0 &&
+    !Array.isArray(schema.data) &&
+    (schema.data as { provider?: unknown } | undefined)?.provider !== 'value' &&
+    !!schema.objectName &&
+    !!dataSource &&
+    typeof dataSource.queryGroupHeaders !== 'function';
+
+  /**
    * Does the surface rendered below draw the rows THIS component fetched?
    *
    * objectui#7210. The record-count bar at the foot of this component reports
@@ -2122,8 +2187,15 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * is what the client-side CSV/JSON export writes out. Measured with the paged
    * response delayed: while it was in flight the skeleton was up and the chart
    * had 0 rows, though its own unbounded response had already arrived.
+   *
+   * objectui#7189 adds the second surface that draws rows it queried itself: a
+   * grouped grid grouping on the server (`gridOwnsGroupedFetch`). Its group
+   * headers carry the true counts and every group pages its own rows, so this
+   * bar's "N records · Showing first N" would describe a window it never drew.
+   * objectui#10881 adds the refused grouped grid (`groupingNeedsHeaderQuery`),
+   * which draws no rows at all.
    */
-  const surfaceDrawsFetchedRows = currentView !== 'gantt';
+  const surfaceDrawsFetchedRows = currentView !== 'gantt' && !gridOwnsGroupedFetch && !groupingNeedsHeaderQuery;
 
   // objectui#10572 — the data-invalidation bus (`notifyDataChanged` from
   // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
@@ -2181,6 +2253,17 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // Renderer-owned data (gantt + api provider): the view component fetches
     // from its endpoint itself; just clear the loading state.
     if (ganttOwnsData) {
+      setLoading(false);
+      setDataLimitReached(false);
+      return;
+    }
+
+    // [objectui#10881] A grouped grid this data source cannot count is refused
+    // before it is mounted (`groupingNeedsHeaderQuery`), so no window is
+    // fetched for it, and none held: the rows of an earlier query would
+    // otherwise still feed the filter option counts and the client export.
+    if (groupingNeedsHeaderQuery) {
+      setData([]);
       setLoading(false);
       setDataLimitReached(false);
       return;
@@ -2710,13 +2793,18 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // the user leaves it for a board — a second identical request under the old
     // list. Read it as a claim about this definition, ⛔ not as a measured one.
     //
+    // objectui#10881 — `groupingNeedsHeaderQuery` is named for the reason
+    // `ganttOwnsData` is: it flips this effect between fetching and standing
+    // down. It reads `currentView`, so leaving a refused grouped grid for a
+    // board re-runs this effect once, and that run is the board's fetch.
+    //
     // ⚠️ The directive below governs the NEXT LINE. Anything written between it
     // and the dependency array detaches it from the array and turns it into an
     // unused directive — which `eslint .` reports as an ERROR, and which also
     // silently un-suppresses nothing, because the finding it was suppressing
     // simply moves elsewhere. Add prose ABOVE this point, never below it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema.objectName, schema.data, dataSource, authoredFilter, effectivePageSize, currentSort, appliedFilters, appliedUserFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, ganttOwnsData, invalidationNonce]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
+  }, [schema.objectName, schema.data, dataSource, authoredFilter, effectivePageSize, currentSort, appliedFilters, appliedUserFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, ganttOwnsData, invalidationNonce, groupingNeedsHeaderQuery]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
 
   // Any change to the result-defining inputs (object, filters, sort, search,
   // grouping, page size) invalidates the current page number — snap back to
@@ -2822,7 +2910,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // Always allow switching back to the viewType defined in schema — but only
     // when it names a visualization this renderer actually draws.
     //
-    // The membership test was a nine-name literal array (objectui#8127), a copy
+    // The membership test was a nine-name literal array (`ca3942729`), a copy
     // of `LIST_VIEW_KINDS` in `@object-ui/core` that nothing compared against
     // it. `isListViewVisualization` IS that map's own predicate, so the gate and
     // the seam answer one question — the same rule the kanban/chart rungs above
@@ -2945,7 +3033,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   //
   // `label` is an `I18nLabel`, so it is a string OR an inline locale map, and
   // the map has to be resolved BEFORE it reaches the interpolation options
-  // (objectui#9373): `createSafeTranslation`'s options bag is a record of
+  // (`c1006ed8e`): `createSafeTranslation`'s options bag is a record of
   // `unknown`, so a raw map is accepted without a diagnostic and both
   // interpolators stringify it — the heading read `[object Object] Detail`.
   // This is the same resolution the view label and the nested `aria` bag
@@ -3093,7 +3181,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    */
   const selfQueryFilterRef = React.useRef<{ key: string; value: unknown } | null>(null);
   let selfQueryFilter: unknown = authoredFilter;
-  if (currentView === 'gantt' || currentView === 'tree' || currentView === 'chart') {
+  if (currentView === 'gantt' || currentView === 'tree' || currentView === 'chart' || gridOwnsGroupedFetch) {
     try {
       const value = buildEffectiveFilter(authoredFilter, appliedFilters, appliedUserFilterConditions);
       const key = JSON.stringify(value ?? null);
@@ -3193,6 +3281,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           ...(schema.selection ? { selection: schema.selection } : {}),
           ...(schema.pagination ? { pagination: schema.pagination } : {}),
           ...(groupingConfig ? { grouping: groupingConfig } : {}),
+          // objectui#7189 — a grid grouping on the server runs its own query,
+          // so it carries the effective filter. See `gridOwnsGroupedFetch`.
+          ...(gridOwnsGroupedFetch ? { filter: selfQueryFilter } : {}),
           ...(rowColorConfig ? { rowColor: rowColorConfig } : {}),
           ...(schema.rowActions ? { rowActions: schema.rowActions } : {}),
           /**
@@ -3669,7 +3760,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // asynchronously (`/me/permissions`) and `objectDef` loads into state, so a
   // grid schema built before either resolved must be rebuilt when they do —
   // otherwise `editable` keeps the pre-verdict answer for the session.
-  }, [currentView, schema, authoredFilter, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef, selfQueryFilter, ganttSearchTerm]);
+  }, [currentView, schema, authoredFilter, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef, selfQueryFilter, ganttSearchTerm, gridOwnsGroupedFetch]);
 
   const hasFilters = currentFilters.conditions && currentFilters.conditions.length > 0;
 
@@ -3979,7 +4070,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
        * ⛔ NO legacy `title` arm. This read used to be
        * `schema.label || (schema as any).title`, and objectui#8653 item 1
        * retired the second operand — the objectui#7129 route, as taken for
-       * `DashboardComponentSchema.title` at objectui#7623 — on two
+       * `DashboardComponentSchema.title` at `5d0876c5c` — on two
        * measurements:
        *
        *   - `@objectstack/spec/ui`'s `ListViewSchema` REFUSES `title` BY NAME
@@ -4894,7 +4985,22 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             the ListView level so every inner view (grid/kanban/calendar/...)
             gets a consistent indicator instead of momentarily showing an
             empty state on slow networks. */}
-        {loadError && data.length === 0 ? (
+        {/* objectui#10881 — a grouped grid this data source cannot count is
+            refused before it is mounted, with the grid's own sentence (see
+            `groupingNeedsHeaderQuery`). No Retry: the verdict is a property
+            of the data source, so a retry re-reaches the same refusal. The
+            toolbar stays, and removing the grouping there lifts it. */}
+        {groupingNeedsHeaderQuery ? (
+          <DataErrorState
+            role="alert"
+            data-testid="list-grouping-needs-header-query"
+            className="h-full min-h-[200px] p-8 gap-1 [&>h3]:text-lg [&>h3]:font-medium [&>h3]:text-foreground [&>p]:max-w-md"
+            icon={<AlertTriangle className="h-12 w-12 text-destructive/60" />}
+            iconWrapperClassName="mb-3"
+            title={t('list.loadErrorTitle')}
+            message={t('grid.grouping.needsHeaderQuery')}
+          />
+        ) : loadError && data.length === 0 ? (
           <DataErrorState
             // This panel IS the load failure, and since objectui#7143 it is
             // rendered by the component named for that — `DataErrorState` —
@@ -5034,10 +5140,12 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           <SchemaRenderer
             schema={viewComponentSchema}
             {...props}
-            {...(ganttOwnsData
+            {...(ganttOwnsData || gridOwnsGroupedFetch
               // Withheld, not dropped. See `ganttOwnsData` above for why this
               // branch cannot be observed at the chart today (objectui#7222)
-              // and why it is still the correct value to hand down.
+              // and why it is still the correct value to hand down; and
+              // `gridOwnsGroupedFetch` for the grouped grid, which a window of
+              // rows would turn back into page-scoped grouping (objectui#7189).
               ? {}
               : { data })}
             {...(viewComponentSchema.type === 'object-grid' && objectDef?.fields

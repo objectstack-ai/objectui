@@ -410,8 +410,11 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
       defaultValue: 'Package management',
     });
     const walk = (items: NavigationItem[]): NavigationItem[] =>
-      items.flatMap((item) => {
+      items.flatMap((item): NavigationItem[] => {
         if (isMetadataDirectoryItem(item)) return [];
+        // A separator has no children and is never the packages entry, and
+        // carries none of the keys rewritten below (objectui#10867).
+        if (item.type === 'separator') return [item];
         const children = item.children?.length ? walk(item.children) : item.children;
         if (item.type === 'group' && children?.length === 0) return [];
         if (isPackagesItem(item)) {

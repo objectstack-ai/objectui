@@ -5,14 +5,16 @@
  *
  * ADR-0057 principle: **surface = view · conversation = model · product
  * (`ask` / `build`) = the binding axis.** Conversations are keyed on
- * **`(user, app, product)` — NOT on surface.** Two surfaces that resolve the
+ * **`(user, app, product)` — NOT on surface.** Surfaces that resolve the
  * SAME `(appId, product)` therefore resume ONE shared thread instead of forking:
  *
  *   - the full-page focus view `/ai/build?package=X` (the ADR-0070 "Edit with
- *     AI" deep-link — `editPackageId = X`), and
- *   - the Studio design copilot editing package `X` (`packageId = X`),
+ *     AI" deep-link — `editPackageId = X`),
+ *   - the Studio design copilot editing package `X` (`packageId = X`), and
+ *   - the console dock inside app `X` when its agent is `build` and `X` is
+ *     authorable (objectui#10926 — the dock's `editPackageId = X`),
  *
- * both produce `app:X:build`, so opening one after the other resumes the same
+ * all produce `app:X:build`, so opening one after another resumes the same
  * design conversation rather than showing an empty copilot beside an active
  * full-page thread (the forked-conversation bug this ADR fixes). The `(user)`
  * dimension is applied by {@link useChatConversation}'s per-user cache key; this
@@ -24,8 +26,9 @@
  * `ask`.
  *
  * When no app id is known — a generic `/ai/:agent` visit with no `?package=`,
- * or the ambient console FAB — the key degrades to the product alone
- * (`build` / `ask`), preserving today's per-product thread for that surface.
+ * or the console dock on `ask` or outside an authorable app — the key degrades
+ * to the product alone (`build` / `ask`), preserving the per-product thread for
+ * that surface.
  *
  * Kept as a pure, dependency-light module (only the agent-kind predicate from
  * `@object-ui/plugin-chatbot`) so every shell resolves the key the SAME way and

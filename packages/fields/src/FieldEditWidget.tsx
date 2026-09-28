@@ -12,7 +12,7 @@ import type { FieldWidgetComponentProps } from './widgets/types.js';
 // rather than re-listed — see the note on this component's return statement.
 import { toDomProps } from './widgets/toDomProps.js';
 // The package's own executor of the NON-DOM half of the same declaration
-// (objectui#7008) — a separate function because those keys are not DOM-legal.
+// (`f08bcd9af`) — a separate function because those keys are not DOM-legal.
 import { toHostProps } from './widgets/toHostProps.js';
 
 // The SAME dedicated widgets the form renders — reused for in-place editing
@@ -275,7 +275,7 @@ const COMPACT_EDIT_TYPES = new Set<string>(['lookup', 'master_detail', 'user']);
  * nothing here needs to know which element that is. A host that passes nothing
  * is unaffected.
  *
- * The host's NON-DOM set is forwarded WHOLE too (objectui#7008), through the
+ * The host's NON-DOM set is forwarded WHOLE too (`f08bcd9af`), through the
  * sibling executor `toHostProps`. The DOM fix left the other half of the
  * contract undelivered: `error`, `onUploadingChange` and the "Host plumbing"
  * block (`dataSource`, `dependentValues`, `dependsOn`, `dependsOnLabels`,
@@ -363,7 +363,7 @@ export function FieldEditWidget(
   // states that this component OWNS them and a host cannot displace them.
   //
   // `toHostProps` is the same reuse argument applied to the other half of the
-  // declaration (objectui#7008): the declared NON-DOM keys — `error` and the
+  // declaration (`f08bcd9af`): the declared NON-DOM keys — `error` and the
   // "Host plumbing" block — travel as COMPONENT props, never through the DOM
   // whitelist, which is closed against exactly them. The two executors are
   // asserted disjoint at compile time, so neither spread can shadow the other,

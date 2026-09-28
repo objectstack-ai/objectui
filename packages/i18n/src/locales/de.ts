@@ -128,12 +128,12 @@ const de = {
     printDialogHint: "Öffnet den Druckdialog Ihres Browsers (kein PDF-Export)",
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: "Erste {{shown}} von {{total}} Datensätzen. Filter eingrenzen.",
     rowCeilingNoteUnknownTotal: "Erste {{shown}} Datensätze. Filter eingrenzen.",
   },
@@ -148,6 +148,7 @@ const de = {
       copyAll: 'Alle kopieren',
     },
     notAvailableHere: '„{{action}}“ ist auf der aktuellen Seite nicht verfügbar.',
+    completedSuccessfully: 'Aktion erfolgreich abgeschlossen',
   },
   validation: {
     required: "{{field}} ist erforderlich",
@@ -398,13 +399,15 @@ const de = {
     yes: "Ja",
     no: "Nein",
     systemFields: "System",
-    // objectui#7189 — partial-grouping disclosure for the grouped grid.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: "Teilweise",
-      partialNotice:
-        "Gruppiert über die ersten {{loaded}} von {{total}} Datensätzen. Gruppenanzahlen gelten nur für die geladene Seite; eine Gruppe, deren Datensätze alle jenseits der geladenen Zeilen liegen, fehlt hier.",
-      partialNoticeUnknownTotal:
-        "Gruppiert über die {{loaded}} geladenen Datensätze. Möglicherweise passen weitere Datensätze zu dieser Ansicht, daher können Gruppenanzahlen unvollständig sein und eine Gruppe kann hier fehlen.",
+      needsHeaderQuery:
+        "Diese Ansicht ist gruppiert, aber ihre Datenquelle implementiert queryGroupHeaders nicht, daher können die Gruppen nicht gezählt werden. Entfernen Sie die Gruppierung, um die Datensätze anzuzeigen.",
+      needsWholeRows:
+        "Die Gruppierung benötigt alle Datensätze, aber dieses Raster hat nur eine Seite davon erhalten, daher können die Gruppen nicht gezählt werden. Übergeben Sie alle Datensätze oder lassen Sie das Raster sie aus einer Datenquelle laden, die queryGroupHeaders implementiert.",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this
@@ -1074,6 +1077,8 @@ const de = {
     pathStageLostUpcoming: '{{stage}}, verloren, nicht erreicht',
     pathStageWonUpcoming: '{{stage}}, Zielphase, nicht erreicht',
     linkCopied: "Link in die Zwischenablage kopiert",
+    commentFailed: "Ihr Kommentar wurde nicht veröffentlicht. Es wurde nichts gespeichert – bitte versuchen Sie es erneut.",
+    reactionFailed: "Ihre Reaktion wurde nicht gespeichert. Bitte versuchen Sie es erneut.",
     linkCopyFailed: "Link konnte nicht kopiert werden",
     cancel: "Abbrechen",
     cancelEdit: "Änderungen verwerfen",
@@ -1155,6 +1160,8 @@ const de = {
     refreshing: "Wird aktualisiert…",
     pickMeasures: "Wählen Sie Kennzahlen (Werte) für dieses Dataset-Widget.",
     datasetUnsupported: "Diese Datenquelle unterstützt keine Dataset-Abfragen.",
+    widgetForbiddenTitle: "Kein Zugriff",
+    widgetForbiddenMessage: "Sie haben keine Berechtigung, die Daten dieses Widgets anzuzeigen.",
     details: "Details",
     exportCsv: "CSV exportieren",
     openInList: "In Liste öffnen",
@@ -1307,10 +1314,6 @@ const de = {
     appDescription: "Beschreibung",
     appIcon: "Symbol",
     template: "Vorlage",
-    layout: "Layout",
-    layoutSidebar: "Seitenleiste",
-    layoutHeader: "Kopfzeile",
-    layoutEmpty: "Leer",
     selectObjects: "Objekte auswählen",
     searchObjects: "Objekte suchen…",
     selectAll: "Alle auswählen",
@@ -1345,7 +1348,7 @@ const de = {
     appearance: "Erscheinungsbild",
     rowHeight: "Zeilenhöhe",
     livePreview: "Echtzeit-Vorschau",
-    stepBasicDesc: "Name, Titel und Layout",
+    stepBasicDesc: "Name, Titel und Symbol",
     stepObjectsDesc: "Geschäftsobjekte auswählen",
     stepNavigationDesc: "Navigationsbaum erstellen",
     stepBrandingDesc: "Logo, Farben und Favicon",
@@ -1564,6 +1567,7 @@ const de = {
         ctaUpgrade: "Upgraden, um weiterzumachen",
         ctaTopUp: "Credits hinzufügen, um fortzufahren",
         ariaLabel: "KI-Nutzung: {{status}}",
+        breakdownTitle: "Bisher verbraucht",
       },
       workspaceTitle: "KI-Workspace",
       workspaceSubtitle: "Fragen stellen, prüfen und Unterhaltungen fortsetzen",
@@ -1573,6 +1577,9 @@ const de = {
       share: "Teilen",
       shareTitle: "Diese Unterhaltung teilen",
       shareDisabledTitle: "Beginnen Sie zu chatten, um das Teilen zu aktivieren",
+      buildDoctor: "Build-Diagnose",
+      buildDoctorTitle: "Build-Diagnose — was ist tatsächlich angekommen?",
+      buildDoctorDisabledTitle: "Senden Sie zuerst eine Nachricht",
       newChat: "Neu",
       searchChats: "Chats durchsuchen…",
       noChatsYet: "Noch keine Chats",
@@ -1780,6 +1787,7 @@ const de = {
       pages: "Seiten",
       reports: "Berichte",
       system: "System",
+      marketplace: "Marktplatz",
     },
     // objectui#4024 — the single-namespace settings screen. Its sibling
     // `settingsHub` above already resolved through this pack; the view was the
@@ -1877,6 +1885,14 @@ const de = {
       ratio: 'Pro geschriebener Zeile werden {{ratio}} Zeilen gelesen. Die Plattform meldet alles über {{threshold}}. Es wird nichts begrenzt oder blockiert; dies ist ein Bericht, damit das Lesemuster geprüft werden kann.',
       noWritesTitle: 'Lesevorgänge ganz ohne Schreibvorgänge in dieser Umgebung',
       noWrites: 'Es werden Zeilen gelesen, aber überhaupt keine geschrieben, sodass die Leserate keine Obergrenze hat. Das ist der schwerwiegendste Messwert. Die Plattform meldet alles über {{threshold}}. Es wird nichts begrenzt oder blockiert; dies ist ein Bericht, damit das Lesemuster geprüft werden kann.',
+    },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: 'Der Speicher ist fast voll',
+      warning: '{{used}} MB von {{limit}} MB belegt. Uploads und Importe werden pausiert, sobald der Speicher voll ist.',
+      blockedTitle: 'Speicher voll: Uploads und Importe sind pausiert',
+      blocked: '{{used}} MB von {{limit}} MB belegt. Vorhandene Daten bleiben unverändert; Lesen, Exportieren und das Bearbeiten einzelner Datensätze funktionieren weiterhin.',
+      upgrade: 'Upgraden, um fortzufahren',
     },
     errors: {
       somethingWentWrong: "Etwas ist schiefgelaufen",
@@ -2057,6 +2073,8 @@ const de = {
       resendOtpCountdownText: "Erneut senden in {seconds} s",
       usePhoneOtpText: "Mit Bestätigungscode anmelden",
       usePasswordSignInText: "Stattdessen mit Passwort anmelden",
+      socialButton: "Weiter mit {provider}",
+      orText: "oder mit E-Mail fortfahren",
     },
     register: {
       title: "Konto erstellen",
@@ -2075,6 +2093,8 @@ const de = {
       submittingButton: "Konto wird erstellt…",
       hasAccountText: "Bereits ein Konto?",
       signInText: "Anmelden",
+      socialButton: "Mit {provider} registrieren",
+      orText: "oder mit E-Mail fortfahren",
       errors: {
         userExists: "Ein Konto mit dieser E-Mail existiert bereits. Versuchen Sie sich anzumelden.",
       },
@@ -2901,6 +2921,9 @@ const de = {
     createEnvironment: "Umgebung erstellen",
     openProduction: "Produktion öffnen",
     manageEnvironments: "Umgebungen verwalten",
+  },
+  cloudPlanStatus: {
+    current: "Aktueller Tarif",
   },
   ai: {
     nlQuery: {
@@ -3745,6 +3768,11 @@ const de = {
     actionsEmptyTitle: "Keine Paket-Aktionen",
     actionsEmptyBody: "In dieser Installation deklariert kein installiertes Paket eine Aktion. Selbst erstellte Aktionen finden Sie im Studio.",
     actionsLoadFailed: "Paket-Aktionen konnten nicht geladen werden.",
+  },
+  element: {
+    number: {
+      noObject: "Kein Objekt angegeben: Legen Sie object oder dataSource.object fest.",
+    },
   },
 };
 

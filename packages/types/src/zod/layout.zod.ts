@@ -82,8 +82,8 @@ export const BoxSchema = BaseSchema.extend({
     'children',
     'this box node',
     '`box` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/box.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -99,8 +99,8 @@ export const TextSpanSchema = BaseSchema.extend({
     'children',
     'this span node',
     '`span` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/basic/span.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -133,7 +133,7 @@ export const TextSchema = BaseSchema.extend({
     + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
     + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
     + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
-    + 'error, no warning, no element. '
+    + 'render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `align`, `className`, `content`, `variant`. '
     + '`ui:text` is the measured SOLE owner of the bare `text` key (`element:text` and `field:text` pass `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
@@ -143,7 +143,7 @@ export const TextSchema = BaseSchema.extend({
     + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
     + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
     + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
-    + 'error, no warning, no element. '
+    + 'render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `align`, `className`, `content`, `variant`. '
     + '`ui:text` is the measured SOLE owner of the bare `text` key (`element:text` and `field:text` pass `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
@@ -165,7 +165,7 @@ export const ImageSchema = BaseSchema.extend({
     + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
     + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
     + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
-    + 'error, no warning, no element. '
+    + 'render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `alt`, `src`. '
     + '`ui:image` is the measured SOLE owner of the bare `image` key (`element:image` and `field:image` pass `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
@@ -175,7 +175,7 @@ export const ImageSchema = BaseSchema.extend({
     + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
     + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
     + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
-    + 'error, no warning, no element. '
+    + 'render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `alt`, `src`. '
     + '`ui:image` is the measured SOLE owner of the bare `image` key (`element:image` and `field:image` pass `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
@@ -252,7 +252,7 @@ export const IconSchema = BaseSchema.extend({
     + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
     + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
     + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
-    + 'error, no warning, no element. '
+    + 'render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `color`, `icon`, `name`, `size`. '
     + '`ui:icon` is the measured SOLE owner of the bare `icon` key (`action:icon` passes `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
@@ -262,7 +262,7 @@ export const IconSchema = BaseSchema.extend({
     + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
     + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
     + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
-    + 'error, no warning, no element. '
+    + 'render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `color`, `icon`, `name`, `size`. '
     + '`ui:icon` is the measured SOLE owner of the bare `icon` key (`action:icon` passes `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
@@ -280,14 +280,14 @@ export const SeparatorSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `separator` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `orientation`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `separator` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `orientation`.',
   ),
 });
@@ -315,8 +315,8 @@ export const ContainerSchema = BaseSchema.extend({
     'children',
     'this container node',
     '`container` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/container.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -342,8 +342,8 @@ export const FlexSchema = BaseSchema.extend({
     'children',
     'this flex node',
     '`flex` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/flex.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -363,8 +363,8 @@ export const StackSchema = BaseSchema.extend({
     'children',
     'this stack node',
     '`stack` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/stack.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -399,8 +399,8 @@ export const GridSchema = BaseSchema.extend({
     'children',
     'this grid node',
     '`grid` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/grid.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -437,6 +437,16 @@ export const TabItemSchema = z.object({
   icon: z.string().optional().describe('Tab icon'),
   disabled: z.boolean().optional().describe('Whether tab is disabled'),
   content: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).describe('Tab content'),
+  // RETIRED (objectui#9590) — mirrors `TabItem.body: never` (`../layout.ts`).
+  // This object STRIPS undeclared keys, so leaving `body` undeclared would keep
+  // dropping it in silence beside a `content`; the refusal names `content` instead.
+  body: aliasKeyRefusal(
+    'body',
+    'content',
+    'this tab item',
+    '`tabs` draws each panel from `content` (`packages/components/src/renderers/layout/tabs.tsx`). '
+    + 'The item-level `body` fallback was retired by objectui#9590.',
+  ),
 });
 
 /**
@@ -454,7 +464,7 @@ export const TabsSchema = BaseSchema.extend({
     + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
     + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
     + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
-    + 'error, no warning, no element. '
+    + 'render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `defaultValue`, `items`, `orientation`, `value`. '
     + '`ui:tabs` is the measured SOLE owner of the bare `tabs` key (`page:tabs` passes `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
@@ -464,7 +474,7 @@ export const TabsSchema = BaseSchema.extend({
     + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
     + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
     + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
-    + 'error, no warning, no element. '
+    + 'render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `defaultValue`, `items`, `orientation`, `value`. '
     + '`ui:tabs` is the measured SOLE owner of the bare `tabs` key (`page:tabs` passes `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
@@ -485,8 +495,8 @@ export const ScrollAreaSchema = BaseSchema.extend({
     'children',
     'this scroll-area node',
     '`scroll-area` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/complex/scroll-area.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -514,14 +524,14 @@ export const ResizableSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `resizable` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `direction`, `minHeight`, `panels`, `withHandle`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `resizable` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `direction`, `minHeight`, `panels`, `withHandle`.',
   ),
 });
@@ -653,7 +663,7 @@ export const PAGE_SPEC_EXCLUDED = [
 const SpecPageFields = specFieldsExcept(stripImportedDefaults(SpecPageSchema).shape, PAGE_SPEC_EXCLUDED);
 
 /**
- * The `actions` REFUSAL on the `page` node (objectui#7926, maintainer ruling
+ * The `actions` REFUSAL on the `page` node (`12b599219`, maintainer ruling
  * 2026-09-09, decision batch #107 item 2 — option A).
  *
  * ## What was measured
@@ -688,7 +698,7 @@ const SpecPageFields = specFieldsExcept(stripImportedDefaults(SpecPageSchema).sh
  * plus one literal carrying a spread), and the undeclared keys that survive
  * passthrough on a real `page` NODE are exactly `actions` (3 sites, all of them
  * the `content/docs/guide/layout.md` passages this card rewrites) and
- * `breadcrumbs` (its own question — objectui#7926 does not rule on it; RULED
+ * `breadcrumbs` (its own question — the 2026-09-09 ruling does not cover it; RULED
  * and refused separately by objectui#8871, see {@link PAGE_BREADCRUMBS_REFUSAL}
  * below, which also corrects the "1 site" reading recorded here to THREE — two
  * were missed for two DIFFERENT reasons: one passage's literal does carry
@@ -709,7 +719,7 @@ const SpecPageFields = specFieldsExcept(stripImportedDefaults(SpecPageSchema).sh
  * turned into a named refusal that carries the remedy.
  */
 const PAGE_ACTIONS_REFUSAL =
-  '`actions` is not a key of the `page` node and never was (objectui#7926): no renderer ' +
+  '`actions` is not a key of the `page` node and never was (ADR-0049): no renderer ' +
   'reads it, so an authored array drew nothing and rode `.passthrough()` onto the wrapper ' +
   'element. Author the buttons as NODES in `children` (a `button` node, or an `action:button` ' +
   'node with a declared `actionType`); on a record page declare them on a `page:header` ' +
@@ -718,13 +728,13 @@ const PAGE_ACTIONS_REFUSAL =
 
 /**
  * The `breadcrumbs` REFUSAL on the `page` node (objectui#8871) — the key
- * objectui#7926 measured on this same node and deliberately left parsing, so
+ * `12b599219` measured on this same node and deliberately left parsing, so
  * that retiring it would be a DECISION rather than an accident. This is that
  * decision, taken under ADR-0049 enforce-or-remove.
  *
  * ## Why ADR-0049 governs this, and not a fresh ruling
  *
- * objectui#7926's maintainer ruling covers `actions` and, by its own comments,
+ * The 2026-09-09 maintainer ruling covers `actions` and, by its own comments,
  * nothing else — so it is NOT borrowed here. What reaches this key instead is
  * the standing enforce-or-remove discipline, which this repository applies to
  * this exact face: {@link retirementTombstone} is documented as the "ADR-0049
@@ -755,7 +765,7 @@ const PAGE_ACTIONS_REFUSAL =
  * readers" and every one of them is false.
  *
  * THREE author sites, all of them teaching passages in one file — and the
- * count corrects objectui#7926's "1 site", which came from a census that
+ * count corrects the `actions` refusal's "1 site", which came from a census that
  * reads every git-tracked JSON file, every `json` fence in `.md`/`.mdx`, and
  * every TS/TSX object literal via the TypeScript AST (PR #8870). It
  * undercounted for TWO DIFFERENT reasons: the Schema API block declared the

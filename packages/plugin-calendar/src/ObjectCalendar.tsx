@@ -76,6 +76,9 @@ import {
   applyNonGridRowCeiling,
   nonGridRowCeilingQuery,
   type NonGridCeilingResult,
+  isRealCalendarDate,
+  toDateInputValue,
+  toDisplayDate,
 } from '@object-ui/core';
 
 /**
@@ -314,6 +317,74 @@ function getCalendarConfig(schema: ObjectCalendarSchema): ObjectCalendarConfig |
   }
 
   return null;
+}
+
+/**
+ * The value a moved or quick-created event writes into one of its date fields
+ * (objectui#10866).
+ *
+ * A field declared `date` holds a calendar day, the spec's `YYYY-MM-DD`
+ * storage form, so it is written as the LOCAL calendar day the user dropped on
+ * or clicked. ⛔ Never `toISOString()` for it: the event was read at local
+ * midnight of its day (`toDisplayDate`), and the UTC spelling of a local
+ * midnight names the PREVIOUS day everywhere east of UTC. Any other declared
+ * type (`datetime`) keeps its instant, exactly as before.
+ *
+ * With no declared type to ask (the adapter exposes no object schema), the
+ * stored value's own shape answers: the same split `toDisplayDate` made when it
+ * read the value, so a write never disagrees with the read that placed the
+ * event. A quick-create has no stored value, so it keeps the instant there.
+ */
+function toStoredDateValue(date: Date, declaredType: unknown, stored: unknown): string {
+  return isDateOnlyField(declaredType, stored) ? toDateInputValue(date) : date.toISOString();
+}
+
+/** Does this date field hold a calendar day? {@link toStoredDateValue}'s split. */
+function isDateOnlyField(declaredType: unknown, stored: unknown): boolean {
+  return typeof declaredType === 'string'
+    ? declaredType === 'date'
+    : typeof stored === 'string' && isRealCalendarDate(stored);
+}
+
+/** A stored calendar day: a `YYYY-MM-DD` string naming a day its month has. */
+function isStoredDay(value: unknown): value is string {
+  return typeof value === 'string' && isRealCalendarDate(value);
+}
+
+const DAY_MS = 86_400_000;
+
+/**
+ * The value a MOVED event writes into one of its date fields (objectui#10866,
+ * slice 4): {@link toStoredDateValue}'s answer, except for a `date` field of a
+ * DAY EVENT, one whose start and end (when it has one) are both stored calendar
+ * days.
+ *
+ * Only the month grid drags a day event: the week and day views draw it in
+ * their all-day row, which does not drag. The month grid moves each date by the
+ * milliseconds between two local midnights, the grabbed cell's and the drop
+ * cell's, and a day event's dates were handed to it at local midnight of their
+ * days (`toDisplayDate`). When a DST change lies between a date and where it
+ * lands but not between the two cells, or the other way round, the moved date
+ * comes back an hour off local midnight: 23:00 of the day before when the
+ * clocks fell back in between. Measured under `America/Los_Angeles`: a
+ * two-day span grabbed on its start and moved two days, across November 1st,
+ * wrote its end one day short, and the local day of that `Date` is what
+ * {@link toStoredDateValue} writes.
+ *
+ * So a day event's `date` field is written as its stored day moved by the
+ * whole days the grid moved it, on the UTC calendar, the way this card's
+ * binding reading moves a calendar day. The grid's own arithmetic is
+ * unchanged, because the grid cannot tell a day from an instant at local
+ * midnight: every other field, instants included, writes exactly what it did.
+ */
+function toMovedDateValue(moved: Date, declaredType: unknown, stored: unknown, dayEvent: boolean): string {
+  if (!dayEvent || !isStoredDay(stored) || !isDateOnlyField(declaredType, stored)) {
+    return toStoredDateValue(moved, declaredType, stored);
+  }
+  const days = Math.round((moved.getTime() - toDisplayDate(stored).getTime()) / DAY_MS);
+  const day = new Date(`${stored}T00:00:00.000Z`);
+  day.setUTCDate(day.getUTCDate() + days);
+  return day.toISOString().slice(0, 10);
 }
 
 /**
@@ -882,7 +953,11 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
         return;
       }
 
-      const start = new Date(startDate);
+      // A date-only value names a calendar day: `toDisplayDate` reads it at
+      // LOCAL midnight of that day, where the engine's own parse read UTC
+      // midnight and put the event in the previous day's cell west of UTC
+      // (objectui#10866). A value with a time keeps its instant.
+      const start = toDisplayDate(startDate);
       // The guard keeps its ORIGINAL job, on a DIFFERENT fact from the one
       // above: a value that is PRESENT but unparseable ('not a date') is
       // dropped here, never bucketed as unscheduled. Absent and malformed are
@@ -893,7 +968,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
         id,
         title,
         start,
-        end: endDate ? new Date(endDate) : undefined,
+        end: endDate ? toDisplayDate(endDate) : undefined,
         color,
         // ⭐ objectui#8026 — the DECLARED key is the answer when there is one.
         // `allDayField` was resolved into the config above and named in the
@@ -973,8 +1048,8 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // with visual-regression evidence across all four surfaces in one stroke.
   // ⛔ The ONE cast objectui#8651 left standing, deliberately. `navigation` is
   // objectui#8652's key: the maintainer ruled B there — declare it on the
-  // platform element schemas first, then mirror — and that card is `pm:blocked`
-  // on objectstack#17987. Its declaredness verdict at this read site is
+  // platform element schemas first, then mirror — and that card waits on
+  // objectstack `e233db9db`. Its declaredness verdict at this read site is
   // UNCHANGED by this card: through the retired union it was undeclared too,
   // and it is undeclared on `ObjectCalendarSchema`. The rule that makes that
   // come out right is NOT "declared on every arm". In the checker reading
@@ -1028,11 +1103,19 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     const id = record?.id ?? record?._id;
     if (!id || !schema.objectName || !dataSource?.update) return;
 
+    // A `date` field is written as the calendar day, a `datetime` as the
+    // instant (objectui#10866, `toStoredDateValue`); a day event's `date`
+    // field moves by whole days (`toMovedDateValue`). `dayEvent` asks the same
+    // values the read handed the view: the start, and the end only when set.
+    const fieldDefs = objectSchema?.fields as Record<string, { type?: unknown } | undefined> | undefined;
+    const storedStart: unknown = record?.[startDateField];
+    const storedEnd: unknown = endDateField ? record?.[endDateField] : undefined;
+    const dayEvent = isStoredDay(storedStart) && (!storedEnd || isStoredDay(storedEnd));
     const patch: Record<string, string> = {
-      [startDateField]: newStart.toISOString(),
+      [startDateField]: toMovedDateValue(newStart, fieldDefs?.[startDateField]?.type, storedStart, dayEvent),
     };
     if (endDateField && newEnd) {
-      patch[endDateField] = newEnd.toISOString();
+      patch[endDateField] = toMovedDateValue(newEnd, fieldDefs?.[endDateField]?.type, storedEnd, dayEvent);
     }
 
     // Optimistic UI update
@@ -1052,7 +1135,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
       // Surface the failure — never silently snap the event back. A row-level
       // security denial (403) is the common case: the user lacks permission to
       // reschedule this record. (cloud#864)
-      // …unless the AUTHOR opted in. `userMessage` (objectstack#9934) is the
+      // …unless the AUTHOR opted in. `userMessage` (objectstack `79c46da90`) is the
       // producer-side marking: a field set at throw time to say "this text is
       // for the end user". It is a SEPARATE field from `message`, so nothing
       // unmarked can reach here — the substitution below still governs every
@@ -1067,7 +1150,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
             : extractWriteErrorMessage(err) ?? tt('table.saveFailed', 'Save failed')),
       );
     }
-  }, [calendarConfig, schema.objectName, dataSource, data, tt]);
+  }, [calendarConfig, schema.objectName, dataSource, data, tt, objectSchema]);
 
   // Quick-create state: clicking an empty day cell opens a small dialog
   // pre-filled with that date. On submit, dataSource.create() inserts a
@@ -1103,13 +1186,20 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
 
     setQuickCreate(qc => qc ? { ...qc, submitting: true, error: undefined } : qc);
     const { startDateField, endDateField, titleField } = calendarConfig;
+    // A `date` field is written as the calendar day clicked, a `datetime` as
+    // the instant (objectui#10866, `toStoredDateValue`).
+    const dateFieldDefs = objectSchema?.fields as Record<string, { type?: unknown } | undefined> | undefined;
     const payload: Record<string, any> = {
       [titleField || 'name']: title,
-      [startDateField]: quickCreate.start.toISOString(),
+      [startDateField]: toStoredDateValue(quickCreate.start, dateFieldDefs?.[startDateField]?.type, undefined),
     };
     // Default end_date to range end (or same as start if not provided).
     if (endDateField) {
-      payload[endDateField] = (quickCreate.end ?? quickCreate.start).toISOString();
+      payload[endDateField] = toStoredDateValue(
+        quickCreate.end ?? quickCreate.start,
+        dateFieldDefs?.[endDateField]?.type,
+        undefined,
+      );
     }
     // Auto-fill required fields the user hasn't provided (e.g. select
     // status, autonumber). Without this the server would 400 on

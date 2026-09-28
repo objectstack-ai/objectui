@@ -100,7 +100,7 @@ export function ConditionalAuthWrapper({ children, authUrl }: ConditionalAuthWra
       // This reading is the ONLY thing that decides it. `discovery.mode` used
       // to be consulted first: `'preview'` turned auth off outright and
       // simulated an identity out of `discovery.previewMode`. `@objectstack/spec`
-      // retired that whole wire surface (objectstack#11846), so this consumer
+      // retired that whole wire surface (objectstack `0c2334f6c`), so this consumer
       // is retired with it (objectui#6654) — a deployment still emitting it
       // falls back to this reading, i.e. it requires login.
       const isAuthEnabled = isServiceUsable(discovery?.services?.auth);

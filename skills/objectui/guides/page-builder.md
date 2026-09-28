@@ -84,14 +84,23 @@ off the node.
 | `grid` | a CSS grid | `columns` (number, or a breakpoint object), `gap` (`4`) | a fixed number of equal cells that must reflow by breakpoint — KPI cards, a tile wall |
 | `container` | a centred, width-capped block | `maxWidth` (`xl`; `false` cancels the cap), `centered` (`true`), `padding` (`4`) | you want page gutters and a reading width, once, near the root |
 | `box` | a bare `div` | none — `className` passes through **verbatim**, and the renderer injects nothing | you want a wrapper that adds no layout of its own: a Tailwind-only block, a positioning anchor |
-| `section` | a semantic `<section>` | none — `className` passes through **verbatim**, exactly like `box` | you want `box` with an outline landmark: a thematic grouping that carries its own heading |
 
 Use whichever of `flex` / `stack` names your intent; do not set
 `direction: "col"` on a `flex`.
 
-`box` and `section` exist because every other option injects layout — the props
-column above, plus `card`'s border, shadow and `CardContent` wrapper. When you
-want none of that, those two are the ones that give you none of it.
+`box` exists because every other option injects layout — the props column
+above, plus `card`'s border, shadow and `CardContent` wrapper. When you want
+none of that, `box` is the one that gives you none of it. It always renders a
+`div`, so it is never a landmark: when a JSON page needs one, use the curated
+page block — `page:section`, `page:footer` and `page:sidebar` render a
+`section`, `footer` and `aside` around their `children`, each with layout of
+its own (`page:section` spaces its children with `space-y-4`; `page:footer`
+draws a separator above a justified, muted row; `page:sidebar` is a
+`w-full md:w-80 shrink-0` column, fixed at 20rem from `md` up), and
+`page:header` renders the page's `header`, a title row (`title`, `subtitle`,
+`breadcrumb`, `actions`) that takes no `children`. The bare HTML sectioning
+tags (`section`, `header`, `nav`, …) are not curated blocks; they belong to
+`kind:'html'` pages.
 
 ### 4. Wire renderer and registry cleanly
 

@@ -107,7 +107,7 @@ const APPS = [
         objectName: 'sys_invoice',
         requiresObject: 'sys_invoice',
       },
-      { id: 'divider_1', type: 'separator', label: '' },
+      { id: 'divider_1', type: 'separator' },
     ],
   },
   { name: 'ops', label: 'Operations', icon: 'Wrench', navigation: [] },

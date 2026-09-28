@@ -2,7 +2,7 @@
 '@object-ui/components': minor
 ---
 
-One home for the `date` display convention in `data-table` (objectui#7620).
+One home for the `date` display convention in `data-table`.
 
 `data-table`'s fallback cell (`formatCellValue`) sniffs ISO strings and
 formats them. Its date-only branch built its own `Intl.DateTimeFormat` bag —

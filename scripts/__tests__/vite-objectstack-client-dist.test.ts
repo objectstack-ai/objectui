@@ -4,7 +4,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { CLIENT_PACKAGE_NAME, resolveClientDistInjection } from '../vite-objectstack-client-dist';
+import {
+  CLIENT_PACKAGE_NAME,
+  resolveClientDistInjection,
+  widenVendorChunkTestForClient,
+} from '../vite-objectstack-client-dist';
 
 /**
  * objectui#6094 — `OBJECTSTACK_CLIENT_DIST` validates the override it aliases.
@@ -345,5 +349,76 @@ describe('objectui#6094: a BROKEN override is refused, naming the variable', () 
     } finally {
       delete process.env.OBJECTSTACK_CLIENT_DIST;
     }
+  });
+});
+
+/**
+ * An injected client stays in `vendor-objectstack`.
+ *
+ * objectstack's `build-console.sh` always injects its own client, from a
+ * workspace path (`<framework>/packages/client`) that the baseline group test —
+ * written against `node_modules/@objectstack/` and pnpm's `@objectstack+` store
+ * paths — does not match. Unmatched, the client landed in `framework` while
+ * `data-adapter` required it at top level, and the console died at boot with
+ * `TypeError: u is not a function` (measured on `9f0c84a44`). The fixture below
+ * reproduces that layout: a client package outside any `node_modules`, its
+ * dependencies reachable from a workspace-root `node_modules`.
+ *
+ * Reverse verification: with `vendorObjectstackTest` back on the bare
+ * `specDistInjection ? … : VENDOR_OBJECTSTACK_TEST` expression, the config case
+ * below goes red (the injected module id is not claimed) while the helper cases
+ * stay green — the config case is the one that pins the wiring.
+ */
+describe('an injected client joins the vendor-objectstack group', () => {
+  function workspaceClient(): string {
+    const root = makeFixtureRoot();
+    const clientDir = path.join(root, 'packages', 'client');
+    fs.cpSync(fs.realpathSync(installedClientDir), clientDir, { recursive: true, dereference: true });
+    for (const dep of ['core', 'spec']) {
+      fs.mkdirSync(path.join(root, 'node_modules', '@objectstack', dep), { recursive: true });
+    }
+    return clientDir;
+  }
+
+  const BASELINE = /([\\/]node_modules[\\/]@objectstack[\\/](?!lint[\\/])|[\\/]@objectstack\+(?!lint@))/;
+
+  it('returns the baseline test itself when nothing is injected', () => {
+    expect(widenVendorChunkTestForClient(BASELINE, null)).toBe(BASELINE);
+  });
+
+  it('claims a module under the injected package, and still everything the baseline claimed', () => {
+    const clientDir = workspaceClient();
+    const injection = resolveClientDistInjection(clientDir);
+    expect(injection).not.toBeNull();
+    const moduleId = path.join(fs.realpathSync(clientDir), 'dist', 'index.js').split(path.sep).join('/');
+
+    expect(BASELINE.test(moduleId)).toBe(false);
+    const widened = widenVendorChunkTestForClient(BASELINE, injection);
+    expect(widened.test(moduleId)).toBe(true);
+    expect(widened.test('/r/node_modules/@objectstack/spec/dist/index.mjs')).toBe(true);
+    expect(widened.test('/r/node_modules/.pnpm/@objectstack+core@1.0.0/x.js')).toBe(true);
+    // A sibling directory that merely shares the prefix is not claimed.
+    expect(widened.test(`${fs.realpathSync(clientDir).split(path.sep).join('/')}-other/dist/index.js`)).toBe(false);
+  });
+
+  it('widens the vendor-objectstack group of the real console config', async () => {
+    const clientDir = workspaceClient();
+    const moduleId = path.join(fs.realpathSync(clientDir), 'dist', 'index.js').split(path.sep).join('/');
+    const vendorTest = (config: any): RegExp =>
+      config.build.rollupOptions.output.advancedChunks.groups.find(
+        (g: { name: string }) => g.name === 'vendor-objectstack'
+      ).test;
+
+    const baseline = await loadConsoleConfig();
+    process.env.OBJECTSTACK_CLIENT_DIST = clientDir;
+    let injected: any;
+    try {
+      injected = await loadConsoleConfig('?objectstack-client-dist=vendor-chunk');
+    } finally {
+      delete process.env.OBJECTSTACK_CLIENT_DIST;
+    }
+
+    expect(vendorTest(baseline).test(moduleId)).toBe(false);
+    expect(vendorTest(injected).test(moduleId)).toBe(true);
   });
 });

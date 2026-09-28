@@ -3,7 +3,7 @@
 ---
 
 The four plain `objectql.ts` node faces declare the nine handler keys their
-registered renderers read (objectui#7804, the `objectql.ts` slice):
+registered renderers read (the `objectql.ts` slice):
 `ObjectFormSchema.onCancel` / `.onError` / `.onOpenChange` / `.onStepChange` /
 `.onSuccess`, `ObjectGallerySchema.onCardClick` / `.onRowClick`,
 `ObjectGridSchema.onNavigate` and `ObjectViewSchema.onNavigate`.

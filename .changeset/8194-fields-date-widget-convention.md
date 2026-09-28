@@ -26,7 +26,7 @@ year and `Jul 4, 2024` for a past year, where it used to render `7/4/2026` and
 `zh` and `ja` `7月4日` / `2024年7月4日` for `2026/7/4` / `2024/7/4`; in `ar`
 `4 يوليو` / `4 يوليو 2024`. Each now matches the `date` cell beside it. This is
 a larger move than the sibling change in `@object-ui/components`
-(objectui#7620), whose former face already asked for a short month and so only
+(`c15d7eca6`), whose former face already asked for a short month and so only
 lost its year token — these four passed no bag whatsoever.
 
 A value the formatter cannot parse now reads `—` at three of the four sites
@@ -39,5 +39,5 @@ home is `formatDateTime`, whose named faces are a separate display-convention
 question; they are recorded on their own card rather than picked here.
 
 A surface that genuinely wants the year on every row is an explicit `format`
-style honoured by both paths, not a second option bag — the objectui#7620 /
+style honoured by both paths, not a second option bag — the `c15d7eca6` /
 objectui#7443 / objectui#4576 lesson, one surface over.

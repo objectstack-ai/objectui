@@ -391,9 +391,9 @@ ComponentRegistry.register('chatbot-floating',
   // spread after that prop, so the verdict overrode the raw value on every
   // render. Naming it changes no outcome; it keeps one carrier for one
   // question (AGENTS.md #0.1) and lets the published face inherit
-  // `BaseSchema.disabled` (`boolean | string`) unnarrowed (objectui#7087) —
+  // `BaseSchema.disabled` (`boolean | string`) unnarrowed (`c93b4d5f3`) —
   // a raw forward of that union into the panel's `boolean` prop would not
-  // type-check, and narrowing the face to make it fit is the shape #7087
+  // type-check, and narrowing the face to make it fit is the shape `c93b4d5f3`
   // retired.
   ({ schema, className, disabled: hostDisabled, ...props }: { schema: ChatbotFloatingSchema; className?: string; disabled?: boolean; [key: string]: any }) => {
     const {
@@ -437,7 +437,7 @@ ComponentRegistry.register('chatbot-floating',
     return (
       <FloatingChatbot
         // Fenced and FIRST — matches the two sibling registrations above
-        // (objectui#7708). Was a raw `{...props}` spread LAST: every authored
+        // (`d3499b315`). Was a raw `{...props}` spread LAST: every authored
         // key `SchemaRenderer` forwarded reached the panel's `ChatbotEnhanced`
         // unfiltered, so `processVisibility`, `surface` and `showAvatars` were
         // live here although `ChatbotFloatingSchema` declares none of them,

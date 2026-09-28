@@ -37,6 +37,10 @@ import type { BulkActionOperation } from '@objectstack/spec/ui';
 // authoring face: the mirror strips every imported default). Type-only.
 import type { ObjectListViewSchema as SpecObjectListViewSchema } from '@objectstack/spec/ui';
 import type { z } from 'zod';
+// objectui#10946 — `BulkActionDef.visible` names the ONE objectui spelling of the
+// predicate wire instead of restating its union inline. Type-only, and
+// `./expression.ts` imports nothing, so this adds no cycle.
+import type { ExpressionWire } from './expression.js';
 import type { FormField } from './form.js';
 // ListView type is now derived from the zod schema (issue #2231) — see ListViewSchema below.
 import type { ListViewInferred, ObjectCalendarBlockConfig } from './zod/objectql.zod.js';
@@ -69,7 +73,7 @@ export type { ObjectCalendarBlockConfig } from './zod/objectql.zod.js';
  * types depending on the entry point — the 7-value enum on `./shared` / `./api`
  * (which adds `HEAD` / `OPTIONS`) and the 5-value UI subset on `./ui`. 17.0.0
  * split them as `HttpMethodType` (objectstack#4691); 17.0.0-rc.5 renamed that
- * again to `HttpMethodSubset` (objectstack#5832, PR objectstack#5976), because
+ * again to `HttpMethodSubset` (objectstack#5832, objectstack `795b6e1aa`), because
  * `schemaNameFromExportKey` strips the `Schema` suffix and both enums published
  * as `shared/HttpMethod` — the later write won, so the emitted JSON Schema and
  * reference page described only the 5-value one.
@@ -338,8 +342,14 @@ export type GanttConfig = SpecGanttConfig & {
    * Business time zone, IANA name like 'Asia/Shanghai'. Renders the
    * chart's calendar — shift bands, day columns, snapping, today line, date
    * labels — in this zone's wall time for every viewer, instead of the
-   * browser's zone (which misplaces shift bands for viewers elsewhere). Persisted
-   * data stays real instants. Forwarded to `GanttView`.
+   * browser's zone (which misplaces shift bands for viewers elsewhere). A
+   * `datetime` value stays a real instant: a drag writes it back as one. A
+   * `date` value is a calendar day, not an instant: the chart draws it from
+   * that day's midnight in this zone's calendar, and a drag writes back the day
+   * it was dropped on there, `YYYY-MM-DD` (objectui#10866). Near a DST change
+   * of this zone or the viewer's, that midnight can be placed an hour early,
+   * and the day drawn, like the day a drop writes, is then the day before.
+   * Forwarded to `GanttView`.
    */
   timeZone?: string;
   /**
@@ -409,13 +419,47 @@ export interface ObjectUIConditionalFormattingRule {
 }
 
 /**
+ * One entry of a named view's `conditionalFormatting`, as the protocol declares
+ * it: `@objectstack/spec/ui`'s `ObjectListViewSchema`, read on its authoring
+ * (`z.input`) face BY REFERENCE, the same way `ObjectViewSchema.listViews`
+ * reads the whole named view (objectui#7928). Module-private: it exists so
+ * {@link SpecConditionalFormattingRule} can index the protocol's own slot type
+ * rather than restate it (objectui#10946).
+ */
+type SpecNamedViewConditionalFormattingRule = NonNullable<
+  z.input<typeof SpecObjectListViewSchema>['conditionalFormatting']
+>[number];
+
+/**
  * Spec-format ConditionalFormatting rule (from @objectstack/spec).
- * Uses a plain expression string with a style map.
- * Automatically evaluated at runtime via ExpressionEvaluator.
+ * Uses a predicate with a style map.
+ * Evaluated at runtime by `@object-ui/core`'s `resolveConditionalFormatting`.
  */
 export interface SpecConditionalFormattingRule {
-  /** Plain condition expression (e.g., "status == 'overdue'") or template expression (e.g., "${data.amount > 1000}") */
-  condition: string;
+  /**
+   * The predicate that gates the rule: a bare string (e.g. `"record.status == 'overdue'"`,
+   * or a template such as `"${data.amount > 1000}"`), or the expression envelope the
+   * protocol declares for this slot, `{ dialect, source }` (the form `objectstack build`
+   * emits for every authored predicate).
+   *
+   * objectui#10946: the member is the protocol's own slot type, indexed BY REFERENCE from
+   * {@link SpecNamedViewConditionalFormattingRule}, so it admits whatever the INSTALLED
+   * spec's `conditionalFormatting[].condition` admits and moves with it on a spec bump.
+   * Before this it was `string` alone, narrower than both the protocol and the evaluator
+   * (`resolveConditionalFormatting` hands the condition to `evalRowPredicate`, which reads
+   * the envelope), so every relay of a named view's rules into a grid needed an assertion.
+   * The explicit `string` arm is the pre-existing declaration, kept first so a string
+   * condition stays legal whatever a future spec does to its slot.
+   *
+   * ⚠️ The two spec lines differ on the envelope, and this member follows the installed one.
+   * The published `ExpressionInputSchema` slot makes `source` optional (the persistence
+   * contract: `source` OR `ast`); spec `main` narrows the slot to
+   * `EvaluatedExpressionInputSchema`, which requires a non-blank `source`. No engine evaluates
+   * `ast` today, so an `ast`-only envelope is answered as an evaluation fault: the rule does
+   * not match, and the fault is warned once. The zod twin is `SpecRuleConditionSchema` in
+   * `./zod/objectql.zod.ts`.
+   */
+  condition: string | SpecNamedViewConditionalFormattingRule['condition'];
   /** Style map to apply when condition matches (e.g., { backgroundColor: '#fee2e2', color: '#991b1b' }) */
   style: Record<string, string>;
 }
@@ -515,6 +559,18 @@ export interface BulkActionParam {
 export type { BulkActionOperation };
 
 /**
+ * One entry of a named view's `bulkActionDefs`, as the protocol declares it:
+ * `@objectstack/spec/ui`'s `ObjectListViewSchema`, read on its authoring
+ * (`z.input`) face BY REFERENCE, like
+ * {@link SpecNamedViewConditionalFormattingRule}. Module-private: it exists so
+ * {@link BulkActionDef.visible} can index the protocol's own slot type rather
+ * than restate it (objectui#10946).
+ */
+type SpecNamedViewBulkActionDef = NonNullable<
+  z.input<typeof SpecObjectListViewSchema>['bulkActionDefs']
+>[number];
+
+/**
  * Rich, schema-driven definition of a bulk action.
  *
  * The grid renders one button per def in the BulkActionBar. Clicking it opens
@@ -559,11 +615,23 @@ export interface BulkActionDef {
   confirmLabel?: string;
   /**
    * Permission / feature gate predicate — hides the button when it evaluates
-   * falsy. Accepts the spec's `ExpressionInput` shape (a bare CEL string, or
-   * the `{ dialect, source }` envelope `objectstack build` emits) so a def
-   * derived from an object action can forward `action.visible` untouched.
+   * falsy. Accepts a bare CEL string or the `{ dialect, source }` envelope
+   * `objectstack build` emits, so a def derived from an object action can
+   * forward `action.visible` untouched.
+   *
+   * Two arms, both read by reference rather than restated (objectui#10946):
+   * {@link ExpressionWire}, objectui's one spelling of the predicate wire (what
+   * this member declared before, then as an inline union), and the protocol's
+   * own `bulkActionDefs[].visible` slot type from
+   * {@link SpecNamedViewBulkActionDef}. The second arm is what the member
+   * lacked: on the installed spec that slot's envelope makes `source` optional
+   * and may carry `ast` and `meta`, so a named view's defs could not be relayed
+   * into a grid without an assertion. Spec `main` narrows the slot to require a
+   * non-blank `source`, and this arm follows the installed line. An `ast`-only
+   * envelope is evaluated as a fault, so no selected record qualifies (fail
+   * closed, warned).
    */
-  visible?: string | { dialect?: string; source: string };
+  visible?: ExpressionWire | SpecNamedViewBulkActionDef['visible'];
   /**
    * Capability gate — the UI half of ADR-0066 D4's `requiredPermissions`
    * contract, carried here so the selection bar reaches the SAME verdict as the
@@ -1111,7 +1179,7 @@ export interface ObjectGridSchema extends BaseSchema {
    * (`plugin-grid/src/ObjectGrid.tsx`) carries the same statement, and both are
    * pinned by `plugin-grid/src/__tests__/gridNonAuthorKeys.test.tsx`.
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — the zod twin now
+   * RUNTIME SLOT (objectui#6124, declared by `8d50bc2bf`) — the zod twin now
    * refuses this key BY NAME instead of letting `BaseSchema.passthrough()`
    * accept and KEEP an authored value that reaches `useNavigationOverlay` and
    * is CALLED. That closes the gap the ruling above left open on this face:
@@ -1166,6 +1234,40 @@ export interface ObjectGridSchema extends BaseSchema {
     /** Icon name (Lucide icon identifier) */
     icon?: string;
   };
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-grid` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its refusal
+   * names `children` as the remedy, which this node does not read either. The
+   * member is restated here so both faces point at what the node renders
+   * instead.
+   *
+   * @deprecated Not a channel `object-grid` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-grid` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep: no `body` /
+   * `children` read is filed under this declaration, while the same instrument
+   * does see it as the receiver of the keys the renderer reads. The
+   * registration hop, `ObjectGridRenderer` (`packages/plugin-grid`), is
+   * `any`-typed and hands the node to `ObjectGrid`, which reads it as this
+   * type. `SchemaRenderer` strips both keys out of the props bag it spreads,
+   * so neither reaches the component by another route, and the registration
+   * declares no `children` slot (objectui#9910).
+   *
+   * What it renders instead: the records of `objectName` as a data grid,
+   * shaped by `columns`, `filter`, `sort`, `grouping`, `selection` and the
+   * rest of this declaration.
+   *
+   * @deprecated Not a channel `object-grid` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -1522,7 +1624,7 @@ export interface ObjectFormSchema extends BaseSchema {
   /**
    * Called when wizard step changes. Only used when formType is 'wizard'.
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `8d50bc2bf`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is READ and RUN by the registered renderer.
@@ -1637,7 +1739,7 @@ export interface ObjectFormSchema extends BaseSchema {
   /**
    * Callback on successful submission
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `8d50bc2bf`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is READ and RUN by the registered renderer.
@@ -1695,7 +1797,7 @@ export interface ObjectFormSchema extends BaseSchema {
   /**
    * Callback on error
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `8d50bc2bf`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is READ and RUN by the registered renderer.
@@ -1708,7 +1810,7 @@ export interface ObjectFormSchema extends BaseSchema {
   /**
    * Callback on cancel
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `8d50bc2bf`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is READ and RUN by the registered renderer.
@@ -1761,7 +1863,7 @@ export interface ObjectFormSchema extends BaseSchema {
   /**
    * Callback when open state changes. Only used when formType is 'drawer'.
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `8d50bc2bf`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is READ and RUN by the registered renderer.
@@ -1833,6 +1935,44 @@ export interface ObjectFormSchema extends BaseSchema {
     /** Show a fullscreen-edit affordance for textarea / rich-text fields. */
     fullscreenLongText?: boolean;
   };
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-form` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its refusal
+   * names `children` as the remedy, which this node does not read either. The
+   * member is restated here so both faces point at what the node renders
+   * instead.
+   *
+   * @deprecated Not a channel `object-form` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-form` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep: no `body` /
+   * `children` read is filed under this declaration, while the same instrument
+   * does see it as the receiver of the keys the renderer reads. The
+   * registration hop, `ObjectFormRenderer` (`packages/plugin-form`), is
+   * `any`-typed and hands the node to `ObjectForm`, which reads it as this
+   * type. `SchemaRenderer` strips both keys out of the props bag it spreads,
+   * so neither reaches the component by another route, and the registration
+   * declares no `children` slot (objectui#9910).
+   *
+   * The `form` node `ObjectForm` renders DOES draw `children`, and that is
+   * exactly why this was checked rather than assumed: every `form` node the
+   * package builds is assembled key by key, and none copies this node's own
+   * channels into it.
+   *
+   * What it renders instead: a form over `objectName` built from `fields` /
+   * `sections` / `customFields`, in the `mode` and `formType` declared here.
+   *
+   * @deprecated Not a channel `object-form` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -2144,7 +2284,7 @@ export interface ObjectViewSchema extends BaseSchema {
   /**
    * Callback when navigating to detail page (page layout mode)
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `8d50bc2bf`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is READ and RUN by the registered renderer.
@@ -2208,6 +2348,45 @@ export interface ObjectViewSchema extends BaseSchema {
     type: 'share' | 'settings' | 'duplicate' | 'delete';
     icon?: string;
   }>;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-view` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its refusal
+   * names `children` as the remedy, which this node does not read either. The
+   * member is restated here so both faces point at what the node renders
+   * instead.
+   *
+   * @deprecated Not a channel `object-view` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-view` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep: no `body` /
+   * `children` read is filed under this declaration, while the same instrument
+   * does see it as the receiver of the keys the renderer reads. The
+   * registration hop, `ObjectViewRenderer` (`packages/plugin-view`), is
+   * `any`-typed and hands the node to `ObjectView`, which reads it as this
+   * type. `SchemaRenderer` strips both keys out of the props bag it spreads,
+   * so neither reaches the component by another route, and the registration
+   * declares no `children` slot (objectui#9910).
+   *
+   * It delegates each sub-view to a node it assembles from named keys, never
+   * by spreading this node, and every type it can generate — `object-kanban`,
+   * `object-calendar`, `object-gallery`, `object-timeline`, `object-gantt`,
+   * `object-map`, `object-tree`, `object-chart` — reads neither channel
+   * either.
+   *
+   * What it renders instead: the object's views — `listViews`,
+   * `defaultViewType`, `table`, `form` — under its own toolbar.
+   *
+   * @deprecated Not a channel `object-view` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -2236,8 +2415,15 @@ export interface ViewTabBarConfig {
 }
 
 /**
- * Named List View Definition
- * Used in ObjectViewSchema.listViews for named views (e.g., "All", "My Records").
+ * Named List View Definition — objectui's own hand-written named-view shape.
+ *
+ * No member of this package's contract is typed by it: since objectui#7928,
+ * `ObjectViewSchema.listViews` is the protocol's `ObjectListViewSchema` by
+ * reference (see that member), and the pins
+ * `_ListViewsIsNoLongerTheLocalRecord` / `_ListViewsIsTheSpecRecord` in
+ * `__tests__/object-view-unmirrored-keys-7779.test.ts` hold that. It stays
+ * exported from `@object-ui/types`; whether it is retired or narrowed follows
+ * objectui#7924.
  */
 export interface NamedListView {
   /** View display label */
@@ -2695,7 +2881,7 @@ export type ListViewSchema = ListViewAuthored & ListViewRuntimeProps;
 /**
  * The zod-derived AUTHORING half of {@link ListViewSchema}, with every key
  * {@link ListViewRuntimeProps} declares removed so the intersection cannot
- * annihilate those declarations (objectui#7804).
+ * annihilate those declarations (`f1cd29032`).
  *
  * ## Why this is not `ListViewInferred` directly
  *
@@ -2764,7 +2950,7 @@ export interface ListViewRuntimeProps {
   refreshTrigger?: number;
 
   /**
-   * ⭐ The three slots below are declared here by objectui#7804, and the reason is
+   * ⭐ The three slots below are declared here by `f1cd29032`, and the reason is
    * the one objectui#9344's slice already measured on `ObjectGallerySchema`: a key
    * that reaches the renderer through `SchemaRenderer`'s props spread is on the
    * TypeScript face whether or not anyone declared it — `BaseSchema`'s index
@@ -2924,6 +3110,39 @@ export interface ObjectMapSchema extends BaseSchema {
    * avoid colliding with `BaseSchema.style` (inline CSS properties).
    */
   mapStyle?: string;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-map` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its refusal
+   * names `children` as the remedy, which this node does not read either. The
+   * member is restated here so both faces point at what the node renders
+   * instead.
+   *
+   * @deprecated Not a channel `object-map` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-map` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep: no `body` /
+   * `children` read is filed under this declaration, while the same instrument
+   * does see it as the receiver of the keys the renderer reads. The
+   * registration hop, `ObjectMapRenderer` (`packages/plugin-map`), is
+   * `any`-typed and hands the node to `ObjectMap`, which reads it as this
+   * type. `SchemaRenderer` strips both keys out of the props bag it spreads,
+   * so neither reaches the component by another route, and the registration
+   * declares no `children` slot (objectui#9910).
+   *
+   * What it renders instead: the records of `objectName` as markers placed by
+   * `latitudeField` / `longitudeField` or `locationField`.
+   *
+   * @deprecated Not a channel `object-map` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -2971,6 +3190,42 @@ export interface ObjectTreeSchema extends BaseSchema {
    * Default expansion depth (0 = roots only). When omitted, all nodes expand.
    */
   defaultExpandedDepth?: number;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-tree` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its refusal
+   * names `children` as the remedy, which this node does not read either. The
+   * member is restated here so both faces point at what the node renders
+   * instead.
+   *
+   * @deprecated Not a channel `object-tree` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-tree` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep: no `body` /
+   * `children` read is filed under this declaration, while the same instrument
+   * does see it as the receiver of the keys the renderer reads. The
+   * registration hop, `ObjectTreeRenderer` (`packages/plugin-tree`), is
+   * `any`-typed and hands the node to `ObjectTree`, which reads it as this
+   * type. `SchemaRenderer` strips both keys out of the props bag it spreads,
+   * so neither reaches the component by another route, and the registration
+   * declares no `children` slot (objectui#9910).
+   *
+   * `ObjectTree` does read a `children` — on the `TreeNode` hierarchy it
+   * builds from the fetched records, never on this node.
+   *
+   * What it renders instead: the records of `objectName` as a hierarchy linked
+   * by `parentField` and labelled by `labelField`.
+   *
+   * @deprecated Not a channel `object-tree` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -3058,8 +3313,10 @@ export interface ObjectGanttSchema extends BaseSchema {
   skipWeekends?: boolean;
   /**
    * Non-working dates for the same working calendar as {@link skipWeekends} —
-   * ISO `yyyy-mm-dd` (UTC) keys, e.g. `['2024-06-05']`. Non-empty enables the
-   * working calendar on its own. Read at `ObjectGantt.tsx` (`workingCalendar`).
+   * ISO `yyyy-mm-dd` calendar days, e.g. `['2024-06-05']`, read on the chart's
+   * own calendar (the viewer's, or the business `timeZone`'s when one is set),
+   * as its day columns are (objectui#10866). Non-empty enables the working
+   * calendar on its own. Read at `ObjectGantt.tsx` (`workingCalendar`).
    */
   holidays?: string[];
   /**
@@ -3307,6 +3564,39 @@ export interface ObjectGanttSchema extends BaseSchema {
    * it. Same key and meaning as {@link ObjectGridSchema.searchableFields}.
    */
   searchableFields?: string[];
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-gantt` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its refusal
+   * names `children` as the remedy, which this node does not read either. The
+   * member is restated here so both faces point at what the node renders
+   * instead.
+   *
+   * @deprecated Not a channel `object-gantt` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-gantt` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep: no `body` /
+   * `children` read is filed under this declaration, while the same instrument
+   * does see it as the receiver of the keys the renderer reads. The
+   * registration hop, `ObjectGanttRenderer` (`packages/plugin-gantt`), is
+   * `any`-typed and hands the node to `ObjectGantt`, which reads it as this
+   * type. `SchemaRenderer` strips both keys out of the props bag it spreads,
+   * so neither reaches the component by another route, and the registration
+   * declares no `children` slot (objectui#9910).
+   *
+   * What it renders instead: the records of `objectName` as bars from
+   * `startDateField` to `endDateField`.
+   *
+   * @deprecated Not a channel `object-gantt` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -3540,6 +3830,39 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * vocabularies cannot fork.
    */
   sort?: SortConfig[];
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-calendar` reads
+   * NEITHER content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its refusal
+   * names `children` as the remedy, which this node does not read either. The
+   * member is restated here so both faces point at what the node renders
+   * instead.
+   *
+   * @deprecated Not a channel `object-calendar` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-calendar` reads
+   * NEITHER content channel, so an authored child list here rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep: no `body` /
+   * `children` read is filed under this declaration, while the same instrument
+   * does see it as the receiver of the keys the renderer reads. The
+   * registration hop, `ObjectCalendarRenderer` (`packages/plugin-calendar`),
+   * is `any`-typed and hands the node to `ObjectCalendar`, which reads it as
+   * this type. `SchemaRenderer` strips both keys out of the props bag it
+   * spreads, so neither reaches the component by another route, and the
+   * registration declares no `children` slot (objectui#9910).
+   *
+   * What it renders instead: the records of `objectName` as events from
+   * `startDateField` to `endDateField`.
+   *
+   * @deprecated Not a channel `object-calendar` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -4071,7 +4394,7 @@ export interface ObjectKanbanSchema extends BaseSchema {
   /**
    * Card click handler.
    *
-   * RUNTIME SLOT (objectui#6124 shape; declared by objectui#7804) — a
+   * RUNTIME SLOT (objectui#6124 shape; declared by `5a41ce733`) — a
    * host-supplied function, NOT authorable metadata: JSON has no function
    * value, so the zod twin refuses this key by name and points at the node-type
    * spelling. Kept callable here because the function REACHES the board and
@@ -4148,7 +4471,7 @@ export interface ObjectKanbanSchema extends BaseSchema {
   /**
    * Quick Add handler.
    *
-   * RUNTIME SLOT (objectui#6124 shape; declared by objectui#7804) — a
+   * RUNTIME SLOT (objectui#6124 shape; declared by `5a41ce733`) — a
    * host-supplied function, NOT authorable metadata: JSON has no function
    * value, so the zod twin refuses this key by name. Kept callable here because
    * it rides `ObjectKanban`'s schema spread untouched and arrives at the board
@@ -4162,6 +4485,39 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * function type rather than a tombstone.
    */
   onQuickAdd?: (columnId: string, title: string) => void;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-kanban` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its refusal
+   * names `children` as the remedy, which this node does not read either. The
+   * member is restated here so both faces point at what the node renders
+   * instead.
+   *
+   * @deprecated Not a channel `object-kanban` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-kanban` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep: no `body` /
+   * `children` read is filed under this declaration, while the same instrument
+   * does see it as the receiver of the keys the renderer reads. The
+   * registration hop, `ObjectKanbanRenderer` (`packages/plugin-kanban`), is
+   * `any`-typed and hands the node to `ObjectKanban`, which reads it as this
+   * type. `SchemaRenderer` strips both keys out of the props bag it spreads,
+   * so neither reaches the component by another route, and the registration
+   * declares no `children` slot (objectui#9910).
+   *
+   * What it renders instead: the records of `objectName` as lanes grouped by
+   * `groupBy`, with `cardFields` on each card.
+   *
+   * @deprecated Not a channel `object-kanban` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -4541,11 +4897,14 @@ export interface ObjectChartSchema extends BaseSchema {
    * that writes `type` on a `{ dataKey }` entry of an `object-chart` node;
    * none was named. Until one is, the per-series family override on this arm
    * is `chartType`, the renderer-internal spelling of `type`, which wins when
-   * an entry writes both. A `type` written on this arm anyway is an excess
-   * property on a literal typed by this interface, and the zod mirror's
-   * element is a plain `z.object`, which strips it: it parses clean and is
-   * dropped. The mirror's `.describe()` says the same, because that string is
-   * what an author-facing tool renders.
+   * an entry writes both. A `type` written on this arm anyway is NOT refused
+   * on a literal typed by this interface: the `{ name }` arm declares `type`,
+   * and excess-property checking on this union accepts a key that either arm
+   * declares when its value fits that declaration, so
+   * `{ dataKey: 'amount', type: 'line' }` compiles. The zod mirror's element
+   * for this arm is a plain `z.object`, which strips it: it parses clean and
+   * is dropped. The mirror's `.describe()` names the same omission, because
+   * that string is what an author-facing tool renders.
    *
    * An entry with neither `name` nor `dataKey` matches no arm and is refused;
    * `normalizeChartSchema` would drop it from the chart.
@@ -4709,6 +5068,39 @@ export interface ObjectChartSchema extends BaseSchema {
    * (objectui#10608): this list is the one author-facing value-axis spelling.
    */
   yAxis?: SpecChartAxis[];
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-chart` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its refusal
+   * names `children` as the remedy, which this node does not read either. The
+   * member is restated here so both faces point at what the node renders
+   * instead.
+   *
+   * @deprecated Not a channel `object-chart` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-chart` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep: no `body` /
+   * `children` read is filed under this declaration, while the same instrument
+   * does see it as the receiver of the keys the renderer reads. The
+   * registration hop, `ObjectChartBlock` (`packages/plugin-charts`), is
+   * `any`-typed and hands the node to `ObjectChart`, which reads it as this
+   * type. `SchemaRenderer` strips both keys out of the props bag it spreads,
+   * so neither reaches the component by another route, and the registration
+   * declares no `children` slot (objectui#9910).
+   *
+   * What it renders instead: a chart of `objectName` (or inline `data`) drawn
+   * by `chartType` from `aggregate` / `series`.
+   *
+   * @deprecated Not a channel `object-chart` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -4769,7 +5161,7 @@ export interface ObjectGallerySchema extends BaseSchema {
   /**
    * Card click handler.
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `8d50bc2bf`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is READ and RUN by the registered renderer.
@@ -4793,7 +5185,7 @@ export interface ObjectGallerySchema extends BaseSchema {
   /**
    * Row/item click handler — overrides {@link navigation}.
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `8d50bc2bf`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is READ and RUN by the registered renderer, on the
@@ -4828,7 +5220,8 @@ export interface ObjectGallerySchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -4855,7 +5248,8 @@ export interface ObjectGallerySchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -4901,8 +5295,8 @@ export interface ObjectDataTableSchema extends BaseSchema {
    * retirement and extends {@link BaseSchema} (`[key: string]: any` here,
    * `.passthrough()` on the zod mirror), so a deleted member would be absorbed
    * silently at any value — the silent no-op the retirement exists to end.
-   * Licensed by prong 1 of the discriminator (objectui#5941, #7526, as amended
-   * by objectui#7678): it steers authors to the named live replacement,
+   * Licensed by prong 1 of the discriminator (objectui#5941, #7526, in its
+   * amended form, `5f8190c8c`): it steers authors to the named live replacement,
    * `objectName`. The zod mirror refuses the key by name with that guidance.
    *
    * @deprecated Not read by `object-data-table` — write `objectName`.
@@ -4978,7 +5372,8 @@ export interface ObjectDataTableSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -5004,7 +5399,8 @@ export interface ObjectDataTableSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by

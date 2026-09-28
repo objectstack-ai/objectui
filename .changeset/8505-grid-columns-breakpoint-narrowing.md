@@ -19,7 +19,7 @@ said "any string": on this branch's base,
 `const node: GridSchema = { type: 'grid', columns: { xxl: 6 } }` compiled, passed
 the zod mirror, emitted no class, and rendered the grid at its `xs` count on every
 screen with no error and no warning. That is the declared-but-not-read shape
-objectui#7097 fixed at the value level, reached through the type surface instead
+`3cab5703b` fixed at the value level, reached through the type surface instead
 of the renderer, and this was its last copy.
 
 **No producer was touched, and that is a measurement rather than an absence.**

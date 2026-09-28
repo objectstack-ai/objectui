@@ -277,11 +277,7 @@ it on `label`: `text` is not a `BadgeSchema` key.
   "title": "Welcome!",
   "children": {
     "type": "text",
-    "content": "${
-      user.isNew ? 'Start with the quick tour.' :
-      user.tasks.length === 0 ? 'You are all caught up.' :
-      'You have tasks waiting.'
-    }"
+    "content": "${user.isNew ? 'Start with the quick tour.' : user.tasks.length === 0 ? 'You are all caught up.' : 'You have tasks waiting.'}"
   }
 }
 ```
@@ -379,8 +375,8 @@ For reference, a `tabs` node written with the keys `TabsSchema` actually declare
 `value`, `label` and `content`: the identifier, the visible title, and the panel.
 All three are required, and the two ways of getting an item wrong fail
 differently. An item missing one of them is **refused**. An item that also
-carries the older `title` / `body` spelling is **accepted with those two keys
-dropped**, so the tab renders an empty panel with nothing naming the cause. On
+carries the older `title` spelling is **accepted with that key dropped**, while
+an item-level `body` is **refused by name**, pointed at `content`. On
 the node itself, `body` and `children` are refused by name: `tabs` reads neither
 content channel. The four keys it does render are `defaultValue`, `items`,
 `orientation` and `value`.

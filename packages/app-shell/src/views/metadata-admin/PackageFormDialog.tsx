@@ -65,7 +65,7 @@ export interface PackageSaveResult {
 
 /**
  * Was this envelope's prose MARKED, i.e. did the producer address it to the end
- * user (`error.userMessage`, #9934) rather than to whoever is debugging?
+ * user (`error.userMessage`, objectstack `79c46da90`) rather than to whoever is debugging?
  *
  * ⚠️ Why this is read separately instead of taken from
  * {@link readEnvelopeFailureText}: that reader answers *what prose to show* and
@@ -80,8 +80,8 @@ export interface PackageSaveResult {
  * ⛔ Not a second copy of the shared rule. The rule about what to SHOW stays in
  * `readEnvelopeFailureText` and is not restated here; this answers a different
  * question about the same body, at the one call site that asks it. Widening the
- * shared reader's signature to return the provenance is objectui#7980's
- * surface, not this card's.
+ * shared reader's signature to return the provenance is the surface of the
+ * card behind `a810bb2ae`, not this card's.
  *
  * The predicate is byte-identical to the shared reader's `marked` const on
  * purpose: a typed `string` check, not a truthiness one, so a non-string mark

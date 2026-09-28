@@ -39,7 +39,7 @@ export const DialogSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `dialog` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `content`, `defaultOpen`, `description`, `footer`, `modal`, `title`, '
     + '`trigger`.',
   ),
@@ -47,7 +47,7 @@ export const DialogSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `dialog` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `content`, `defaultOpen`, `description`, `footer`, `modal`, `title`, '
     + '`trigger`.',
   ),
@@ -67,7 +67,7 @@ export const DialogSchema = BaseSchema.extend({
  * and thrown away the diagnostic with it. {@link retirementTombstone} keeps the
  * key DECLARED and unwritable, which is what makes the refusal loud. Same
  * mechanism, same reasoning as the `actions` and `breadcrumbs` refusal arms on
- * `PageNodeSchema` (`./layout.zod.ts`, objectui#7926 / objectui#8871).
+ * `PageNodeSchema` (`./layout.zod.ts`, `12b599219` / objectui#8871).
  * ⚠️ Both spelled WITHOUT a leading dot on purpose: objectui#8871 keeps a
  * TREE-SCOPED point-access probe standing over every tracked file, and a prose
  * mention here is a hit that probe cannot tell from a reader.
@@ -199,7 +199,7 @@ export const AlertDialogSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `alert-dialog` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `actionText`, `actionVariant`, `cancelText`, `content`, `defaultOpen`, '
     + '`description`, `onAction`, `title`, `trigger`.',
   ),
@@ -207,7 +207,7 @@ export const AlertDialogSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `alert-dialog` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `actionText`, `actionVariant`, `cancelText`, `content`, `defaultOpen`, '
     + '`description`, `onAction`, `title`, `trigger`.',
   ),
@@ -231,7 +231,7 @@ export const SheetSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `sheet` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `content`, `defaultOpen`, `description`, `footer`, `modal`, `side`, '
     + '`title`, `trigger`.',
   ),
@@ -239,7 +239,7 @@ export const SheetSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `sheet` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `content`, `defaultOpen`, `description`, `footer`, `modal`, `side`, '
     + '`title`, `trigger`.',
   ),
@@ -262,7 +262,7 @@ export const DrawerSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `drawer` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `content`, `defaultOpen`, `description`, `footer`, '
     + '`shouldScaleBackground`, `showClose`, `title`, `trigger`.',
   ),
@@ -270,7 +270,7 @@ export const DrawerSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `drawer` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `content`, `defaultOpen`, `description`, `footer`, '
     + '`shouldScaleBackground`, `showClose`, `title`, `trigger`.',
   ),
@@ -292,14 +292,14 @@ export const PopoverSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `popover` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `align`, `content`, `defaultOpen`, `modal`, `side`, `trigger`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `popover` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `align`, `content`, `defaultOpen`, `modal`, `side`, `trigger`.',
   ),
 });
@@ -402,14 +402,14 @@ export const HoverCardSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `hover-card` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `align`, `closeDelay`, `content`, `openDelay`, `side`, `trigger`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `hover-card` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `align`, `closeDelay`, `content`, `openDelay`, `side`, `trigger`.',
   ),
 });
@@ -422,7 +422,7 @@ export const HoverCardSchema = BaseSchema.extend({
  * optional `label`, and why `type` is tombstoned on both arms.
  *
  * Both tombstones carry their guidance through `retirementTombstone()`
- * (objectui#6931), so the arm-level issue reads the remediation instead of
+ * (`8063bcbdc`), so the arm-level issue reads the remediation instead of
  * zod's generic `expected never`. Note what a UNION does to that: the
  * top-level issue this schema reports is zod's own `invalid_union`
  * (`"Invalid input"`, path `[]`), and the per-arm issues — where the guidance
@@ -476,14 +476,14 @@ export const DropdownMenuSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `dropdown-menu` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `align`, `defaultOpen`, `items`, `label`, `modal`, `side`, `trigger`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `dropdown-menu` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `align`, `defaultOpen`, `items`, `label`, `modal`, `side`, `trigger`.',
   ),
 });
@@ -517,7 +517,7 @@ export const ContextMenuSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `context-menu` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `contentClassName`, `items`, `modal`, `trigger`, '
     + '`triggerClassName`.',
   ),
@@ -525,7 +525,7 @@ export const ContextMenuSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `context-menu` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `contentClassName`, `items`, `modal`, `trigger`, '
     + '`triggerClassName`.',
   ),
@@ -549,14 +549,14 @@ export const MenubarSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `menubar` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `menus`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `menubar` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `menus`.',
   ),
 });

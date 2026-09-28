@@ -6,8 +6,9 @@
 content channels by name — `object-grid`, `object-form`, `object-kanban`,
 `object-map`, `object-tree`, `object-view`, `object-gantt`, `object-calendar`,
 `object-chart`, `detail-view`, `email` and `password`. None of their renderers
-reads `body` or `children`, so an authored child list on them rendered nothing:
-no error, no warning, no element. Both keys are now `?: never` on the TypeScript
+reads `body` or `children`, so an authored child list on them rendered nothing,
+with no render-time error or warning and no element; only the parser tier's
+`not-a-container` warning (objectui#9910) noticed it. Both keys are now `?: never` on the TypeScript
 face and a by-name refusal on the zod mirror, each kept a member of the mirror
 shape.
 

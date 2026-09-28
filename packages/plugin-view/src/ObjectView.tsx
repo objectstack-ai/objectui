@@ -2886,6 +2886,18 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     : navigationConfig?.mode === 'popover' ? 'popover'
     : layout;
 
+  // objectui#10975 — `split` and `popover` draw a form only beside a selected
+  // record, and `handleCreate` clears it, so under either mode (the node's own
+  // or the active named view's) the CREATE form opens on the surface
+  // `formLayout` falls back to with no `navigation`: the modal for
+  // `layout: 'modal'`, the drawer otherwise. `'page'` only gets here with no
+  // `onNavigate` (`handleCreate` routes it first), and a page has no surface
+  // inside this component, so it takes the drawer. A record opened to view or
+  // edit still opens beside, as before. Pinned by
+  // `ObjectView.splitPopoverCreate-10975.test.tsx`.
+  const renderCreateSurface = () =>
+    formMode !== 'create' ? null : layout === 'modal' ? renderModalForm() : renderDrawerForm();
+
   // Build the record detail content for NavigationOverlay (split/popover modes)
   const renderOverlayDetail = (_record: Record<string, unknown>) => (
     <div className="space-y-3">
@@ -2998,6 +3010,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
             renderContent()
           )}
         </div>
+        {renderCreateSurface()}
         {deleteConfirmDialog}
       </div>
     );
@@ -3043,6 +3056,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           {renderOverlayDetail}
         </NavigationOverlay>
       )}
+      {formLayout === 'popover' && renderCreateSurface()}
       {deleteConfirmDialog}
     </div>
   );

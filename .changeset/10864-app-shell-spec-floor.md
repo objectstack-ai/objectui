@@ -22,11 +22,12 @@ absent from every file under 17.3.0's `dist/`, and present under 17.4.0's
 `dist/automation` and `dist/shared`. `@object-ui/types` already declares
 `^17.4.0`.
 
-No runtime behaviour changes: every install resolves 17.4.0 today (the
-lockfile's resolved `version:` for this specifier was already 17.4.0 before
-this change — only the declared `specifier:` range was stale). What changes is
-the declared contract — the range no longer claims to work against a spec that
-lacks the symbols this package's own code names.
+In this repository nothing moves at runtime: the lockfile already resolved
+`@objectstack/spec` 17.4.0 for this specifier, so only the declared
+`specifier:` range was stale. For a consumer, the range now refuses
+`@objectstack/spec` 17.3.0, which the old range admitted and under which the
+metadata-admin preview modules named four exports the installed spec does not
+have.
 
 `pnpm check:spec-floors` was red before this change (4 `floor-too-low`
 findings, all in `@object-ui/app-shell`) and green after, over a full

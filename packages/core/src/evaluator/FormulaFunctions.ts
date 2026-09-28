@@ -43,8 +43,8 @@ interface FormulaDate {
 }
 
 /** Read one date argument, or throw the function's named error. */
-function readFormulaDate(fn: string, value: unknown): FormulaDate {
-  const date = new Date(value as any);
+function readFormulaDate(fn: string, value: string | number | Date): FormulaDate {
+  const date = new Date(value);
   if (isNaN(date.getTime())) {
     throw new Error(`${fn}: Invalid date "${value}"`);
   }

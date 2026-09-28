@@ -430,6 +430,7 @@ export {
   RecordReferenceRailBlockSchema,
   RecordAlertBlockSchema,
   ElementTextBlockSchema,
+  ElementNumberBlockSchema,
   ElementButtonBlockSchema,
   ElementDividerBlockSchema,
   PublicBlockComponentSchema,

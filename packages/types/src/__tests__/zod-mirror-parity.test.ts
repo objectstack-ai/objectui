@@ -4077,6 +4077,10 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     "spec-owned BY REFERENCE — `BaseSchema` + the `record:alert` literal + `properties`, which IS `ComponentPropsMap['record:alert']`; no TS declaration in this package restates the node",
   'public-blocks.zod.ts#ElementTextBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `element:text` literal + `properties`, which IS `ComponentPropsMap['element:text']`; no TS declaration in this package restates the node",
+  // objectui#10872 batch 2 — the one arm with a node-level refinement: the
+  // spec's `dataSource` waiver on the row's required `object`.
+  'public-blocks.zod.ts#ElementNumberBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `element:number` literal + `properties`, which IS `ComponentPropsMap['element:number']` with `object` alone made optional (`.partial({ object: true })`), + `dataSource`, which IS the spec's `ElementDataSourceSchema`, + the refinement that restores `object`'s requiredness wherever the spec gate's `dataSource` waiver does not apply; no TS declaration in this package restates the node",
   'public-blocks.zod.ts#ElementButtonBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `element:button` literal + `properties`, which IS `ComponentPropsMap['element:button']`; no TS declaration in this package restates the node",
   'public-blocks.zod.ts#ElementDividerBlockSchema':

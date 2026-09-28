@@ -14,7 +14,7 @@
  * (`packages/core/src/registry/public-blocks.ts`) — whose props
  * `@objectstack/spec` declares as a `ComponentPropsMap` row: the `page:`
  * structure blocks, the `record:` blocks that carry a row, and `element:text`,
- * `element:button` and `element:divider`.
+ * `element:number`, `element:button` and `element:divider`.
  *
  * ## Why this module exists (objectui#10872)
  *
@@ -38,10 +38,11 @@
  * refinements and retired-key tombstones all arrive from the spec, and a row
  * the spec changes changes the arm the same day. No member is restated here,
  * so none can drift — except the one row the spec does not export by name
- * (`element:divider`, below). The only node-level member any arm adds is an
+ * (`element:divider`, below). The node-level members an arm adds are two: an
  * `on*` key a renderer reads off the node (`page:tabs`'s `onTabChange`),
  * refused by name with `handlerKeyRefusal` as `check:handler-key-reads`
- * requires of every such read.
+ * requires of every such read, and `element:number`'s `dataSource`, the spec's
+ * own binding schema by reference (below).
  *
  * The bag is the one spelling every block here is read through at runtime:
  * `SchemaRenderer` hoists each `properties` key onto the node before the
@@ -67,14 +68,25 @@
  * the spec's own props gate (`validateComponentProps`, `@objectstack/lint`)
  * judges a bag only when the node carries one, and so does this face.
  *
+ * ## The one waiver: `element:number`'s `object` (objectui#10872 batch 2)
+ *
+ * `ComponentPropsMap['element:number']` requires `object`, and the spec's props
+ * gate waives exactly that one member when the node's `dataSource.object` is a
+ * non-empty name (`DATASOURCE_SUPPLIED_PROP` and `suppliedByDataSource` in
+ * `@objectstack/lint`'s `validate-component-props.ts`). The row alone would
+ * refuse that spec-valid node, so this arm mirrors the waiver — and only it —
+ * in two halves, both by reference: the bag is the row with `object` alone made
+ * optional (`ElementNumberPropsBag`), and a node refinement puts the
+ * requiredness back wherever the waiver does not apply
+ * (`elementNumberObjectIsSupplied`). The node also declares `dataSource`, as the
+ * spec's `ElementDataSourceSchema` read by reference — the same schema
+ * `PageComponentSchema.dataSource` is.
+ *
  * ## The public blocks NOT armed here, and why
  *
- * Held by objectui#10872 batch 1 with the evidence on that card — each is a
- * reading, not an oversight:
+ * Held by objectui#10872 with the evidence on that card — each is a reading,
+ * not an oversight:
  *
- *   - `element:number` — its row requires `object`, which the spec's props gate
- *     waives when the node binds through `dataSource` (`DATASOURCE_SUPPLIED_PROP`
- *     in `@objectstack/lint`). The row alone would refuse that spec-valid node.
  *   - `record:line_items` — the spec carries no row, on purpose: its
  *     `STRING_ARM_REGISTERED_TYPES` ledger records the row as still to be
  *     measured from the renderer's read points.
@@ -110,7 +122,9 @@ import {
   RecordReferenceRailProps as SpecRecordReferenceRailProps,
   RecordAlertProps as SpecRecordAlertProps,
   ElementTextPropsSchema as SpecElementTextPropsSchema,
+  ElementNumberPropsSchema as SpecElementNumberPropsSchema,
   ElementButtonPropsSchema as SpecElementButtonPropsSchema,
+  ElementDataSourceSchema as SpecElementDataSourceSchema,
 } from '@objectstack/spec/ui';
 import { BaseSchema } from './base.zod.js';
 import { stripImportedDefaults } from './imported-defaults.js';
@@ -263,6 +277,99 @@ export const ElementTextBlockSchema = BaseSchema.extend({
   properties: propsBag('element:text', stripImportedDefaults(SpecElementTextPropsSchema)),
 });
 
+/**
+ * The `element:number` bag: `ComponentPropsMap['element:number']` with ONE
+ * member, `object`, made optional — the half of the spec's `dataSource` waiver
+ * that lives in the bag (`elementNumberObjectIsSupplied` below is the other).
+ *
+ * By reference, and here is how: zod 4's `.partial({ object: true })` clones
+ * the row's own def — so its strictness (`catchall` never), its unknown-key
+ * guidance and its `.describe()` text travel — and replaces exactly the masked
+ * member with a `ZodOptional` wrapped around the row's OWN `object` schema.
+ * Every other member (`field`, `aggregate`, `filter`, `format`, `prefix`,
+ * `suffix`, `aria`) is handed through as the very object the row holds. No
+ * member is restated, so a row the spec widens or narrows moves this bag the
+ * same day. `.partial()` THROWS on an object that carries refinements, which is
+ * the loud answer this module wants if the spec ever installs one on the row:
+ * the waiver then has to be re-decided, not silently lose the check.
+ *
+ * Not exported: the zod-mirror parity census reads `export const` out of this
+ * directory, and this is a derivation of the spec row, not a mirror of a
+ * declaration in this package.
+ */
+const ElementNumberPropsBag = stripImportedDefaults(SpecElementNumberPropsSchema).partial({ object: true });
+
+/**
+ * Does this node's `dataSource` name the object `element:number` aggregates
+ * over? The spec gate's `suppliedByDataSource` answer, read for this one node:
+ * a `dataSource` that is a record whose `object` is a NON-EMPTY string. An
+ * empty name, a non-string, a non-record, or no binding supplies nothing — the
+ * gate's `strName` refuses the same three.
+ */
+function dataSourceSuppliesObject(node: { dataSource?: unknown }): boolean {
+  const dataSource = node.dataSource;
+  if (!dataSource || typeof dataSource !== 'object' || Array.isArray(dataSource)) return false;
+  const object = (dataSource as { object?: unknown }).object;
+  return typeof object === 'string' && object.length > 0;
+}
+
+/**
+ * The node half of the waiver: a bag that omits `object` is refused at
+ * `properties.object` UNLESS `dataSource.object` supplies it — which is the
+ * spec row's requiredness, put back everywhere the spec gate does not waive it.
+ * A node with no bag at all is not judged, exactly as the gate skips a node
+ * whose `properties` is absent (and as every other arm here leaves its bag
+ * optional). A bag whose `object` is PRESENT is left to the row's own member
+ * verdict, so a wrong `object` is reported once, by the row.
+ *
+ * ⚠️ `when: () => true` is load-bearing: zod skips a refinement once an earlier
+ * issue aborts the parse, and the gate reports a missing `object` BESIDE every
+ * other bag issue. Without it, a bag with a bad `aggregate` and no `object`
+ * would report only the `aggregate`. So the body reads the raw input
+ * defensively — the bag may be anything when it runs.
+ */
+function elementNumberObjectIsSupplied(
+  node: { properties?: unknown; dataSource?: unknown },
+  ctx: z.core.$RefinementCtx,
+): void {
+  const bag = node.properties;
+  if (!bag || typeof bag !== 'object' || Array.isArray(bag)) return;
+  if ((bag as { object?: unknown }).object !== undefined) return;
+  if (dataSourceSuppliesObject(node)) return;
+  ctx.addIssue({
+    code: 'custom',
+    path: ['properties', 'object'],
+    params: { code: 'ELEMENT_NUMBER_OBJECT_REQUIRED' },
+    message:
+      '`element:number` names no object to aggregate: set `properties.object`, or bind the node '
+      + 'through `dataSource.object` (a non-empty object name). `ComponentPropsMap[\'element:number\']` '
+      + 'requires `object`, and the spec waives it only beside `dataSource.object`.',
+  });
+}
+
+/**
+ * `element:number` — `ComponentPropsMap['element:number']`, with the spec's one
+ * `dataSource` waiver on its required `object` (see the module docblock and the
+ * two helpers above), and the node's `dataSource` declared as the spec's
+ * `ElementDataSourceSchema`, by reference.
+ */
+export const ElementNumberBlockSchema = BaseSchema.extend({
+  type: z.literal('element:number'),
+  properties: ElementNumberPropsBag
+    .optional()
+    .describe(
+      'The `element:number` props bag — `@objectstack/spec` `ComponentPropsMap[\'element:number\']`, by reference, '
+      + 'with `object` optional only because the spec waives it beside `dataSource.object`; without that binding a '
+      + 'bag must name `object`. Judged only when present, as the spec\'s props gate judges it.',
+    ),
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(
+      'Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the schema '
+      + '`PageComponentSchema.dataSource` declares, by reference.',
+    ),
+}).superRefine(elementNumberObjectIsSupplied, { when: () => true });
+
 /** `element:button` — `ComponentPropsMap['element:button']`. */
 export const ElementButtonBlockSchema = BaseSchema.extend({
   type: z.literal('element:button'),
@@ -315,6 +422,7 @@ export const PublicBlockComponentSchema = z.discriminatedUnion('type', [
   RecordReferenceRailBlockSchema,
   RecordAlertBlockSchema,
   ElementTextBlockSchema,
+  ElementNumberBlockSchema,
   ElementButtonBlockSchema,
   ElementDividerBlockSchema,
 ]);

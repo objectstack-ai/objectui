@@ -135,9 +135,14 @@ const walk = (schema: z.ZodType): z.ZodType => {
   // for its `listViews` slot: the recursive form-field group under
   // `ViewSchema.formViews[…].groups[].fields[]`, walked because the whole
   // container crosses the boundary, not only the slot.
-  // Each sits inside a schema that carries a default anyway, so today the
-  // exception costs no extra rebuild — the pin file re-derives that count and
-  // goes red if it moves, rather than trusting this sentence.
+  // Each sits inside a schema that carries a default anyway, so the exception
+  // costs no extra rebuild — with ONE named exception since objectui#10872
+  // batch 2: `ElementDataSourceSchema` (the `element:number` arm's
+  // `dataSource`) reaches the recursive filter clause and carries no default,
+  // so it is the one clean import this arm rebuilds — an equal-answering
+  // clone, not the spec's own object. The pin file re-derives the count and
+  // that named set (`REBUILT_CLEAN`), and goes red if either moves, rather than
+  // trusting this sentence.
   //
   // ⛔ Rebuilt through `cloneWithDef`, not `z.lazy(…)`: a fresh `z.lazy` would
   // be a different class with none of this node's own `def.checks` or registry

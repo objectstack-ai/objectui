@@ -40,6 +40,18 @@ storage nor one that never passes through a validator, so what this change
 repairs is a pure **behaviour** gap, on any document that reaches this branch
 carrying the key.
 
+⚠️ **Dated note, 2026-09-28 — the named-view route's two faces have since changed —
+objectui#7928.** Later in this same release a named view became the protocol's strict
+`ObjectListViewSchema` record, by reference, on both faces. On the zod face the
+objectui#10321 door adds its message at `listViews.KEY.kanban.groupBy` only: the record
+refuses the `options` bag whole (`options` by name), so "refuses the key in either
+nesting with the same message" no longer holds. On the TypeScript face a named view's
+`kanban` is typed as the protocol's kanban block, not the `list-view`'s: `tsc` still
+refuses `kanban.groupBy` there, as an excess property on an object literal rather than a
+`never` member, and it now refuses the `options` bag itself. The `list-view` route is
+unchanged on both faces. `.changeset/7928-listviews-by-reference-fold.md` (PR
+objectui#10821) states what ships; the text above is kept as the reading of this change.
+
 Maintainer ruling of 2026-09-12 (decision batch #117 item 5, verbatim
 「8365 同意」) — option B. Option A (strip the key and silently re-group) was not
 taken. This card applies that ruling to the second route; it re-opens nothing.

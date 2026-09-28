@@ -114,7 +114,10 @@ export function formContainerContractPins(): void {
   // here: `no-restricted-imports` bans it from `@objectstack/spec/ui`, because
   // that name is also the runtime field contract in `@object-ui/types`
   // (objectui#3090). So the arm is reached through `FormSection` instead.
-  type SectionFieldArm = Exclude<FormSectionSpec['fields'][number], string>;
+  // `fields` is OPTIONAL since objectui#8725 (the spec-legal `{ group }` section
+  // carries none), so the element type is read through `NonNullable`, exactly as
+  // the spec arm below already is.
+  type SectionFieldArm = Exclude<NonNullable<FormSectionSpec['fields']>[number], string>;
   const fieldsAreTheLeaf: Assert<Equal<SectionFieldArm, FormFieldSpec>> = true;
   void fieldsAreTheLeaf;
 

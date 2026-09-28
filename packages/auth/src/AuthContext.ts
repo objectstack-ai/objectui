@@ -36,8 +36,10 @@ export interface AuthContextValue {
   /** Sign up with name, email, and password.
    *  Returns `{ requiresVerification: true }` when the server accepted the
    *  account but is gating sign-in on email verification; callers should
-   *  show a "check your inbox" UI instead of navigating to a protected page. */
-  signUp: (name: string, email: string, password: string) => Promise<{ requiresVerification: boolean }>;
+   *  show a "check your inbox" UI instead of navigating to a protected page.
+   *  `callbackURL` is where the email-verification link lands — see
+   *  `SignUpData.callbackURL` for the shape the server accepts. */
+  signUp: (name: string, email: string, password: string, callbackURL?: string) => Promise<{ requiresVerification: boolean }>;
   /** Sign out the current user */
   signOut: () => Promise<void>;
   /**

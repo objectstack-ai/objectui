@@ -136,7 +136,7 @@ export interface FormFieldSpec {
    *     this comment exists to close.
    *
    *     ⚠️ RULED 2026-08-28 (objectui#6263 / objectstack#12868, executed
-   *     upstream by objectstack PR #13033), so this is no longer an open
+   *     upstream by objectstack `c459da6bc`), so this is no longer an open
    *     question this file is holding open: the FORM-VIEW option vocabulary
    *     does not accept a per-option `default`, and the drop above is now the
    *     ruled shape rather than a pending decision. **Where the pre-selected

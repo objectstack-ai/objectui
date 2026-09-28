@@ -612,7 +612,7 @@ function describeUnusableTarget(reference: unknown): string {
  * ## The `.trim()` MIRRORS the contract — it is no longer a local opinion
  *
  * The predicate is `typeof reference === 'string' && reference.trim() !== ''`.
- * It WAS a declared divergence when written: 17.3.0's #13632 refinement spelled
+ * It WAS a declared divergence when written: 17.3.0's objectstack#13632 refinement spelled
  * its emptiness test as an equality against `''`, so the spec accepted a
  * whitespace-only target while this page refused it. objectstack#16920 (merged
  * 2026-09-08, closing objectstack#16126) applies that test to the TRIMMED value

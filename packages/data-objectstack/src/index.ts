@@ -2312,7 +2312,7 @@ export type ImportMappingsFailureKind = MetadataReadFailureKind;
  * a repo whose wizard had been correct since `@object-ui/data-objectstack`
  * 17.1.0), and the misdiagnosis travelled further than the fault would have.
  *
- * This is the discrimination framework #13906 decision 1 option A already
+ * This is the discrimination framework objectstack#13906 decision 1 option A already
  * adopted at the tenancy-posture seam — *a thing that could not be READ is not
  * a thing that is ABSENT* — applied here. It is not a new principle.
  *
@@ -2459,7 +2459,7 @@ export function classifyImportMappingsFailure(error: unknown): {
  * a published-mode one instead of falling through to the code-less residual.
  * What it must never read is "is the result an empty array": that is what BOTH
  * a served-zero and a refusal produce, so a test on it can never fail for the
- * condition it is supposed to be about. This is framework #13906 decision 1
+ * condition it is supposed to be about. This is framework objectstack#13906 decision 1
  * option A — *a thing that could not be READ is not a thing that is ABSENT*.
  */
 export function classifyViewsFailure(error: unknown): {
@@ -5394,7 +5394,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * ⛔ The RETURN is untouched. This method has answered `Promise<any[]>`, never
    * throwing, since `@object-ui/data-objectstack@17.1.0`; a consumer that reads
    * nothing new sees exactly what it saw before, including on the loud arms.
-   * Applying framework #13906 decision 1 option A — *a thing that could not be
+   * Applying framework objectstack#13906 decision 1 option A — *a thing that could not be
    * READ is not a thing that is ABSENT* — is done by ADDING a channel, not by
    * moving that contract.
    */
@@ -5537,7 +5537,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * ⛔ The RETURN is untouched. This method has answered `Promise<any[]>`, never
    * throwing, since `@object-ui/data-objectstack@17.1.0`; a consumer that reads
    * nothing new sees exactly what it saw before, including on the loud arms.
-   * Applying framework #13906 decision 1 option A — *a thing that could not be
+   * Applying framework objectstack#13906 decision 1 option A — *a thing that could not be
    * READ is not a thing that is ABSENT* — is done by ADDING a channel, not by
    * moving that contract.
    */

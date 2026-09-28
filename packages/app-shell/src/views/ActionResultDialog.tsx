@@ -17,7 +17,7 @@
  *   - `title`, `description`, `acknowledge` and each `fields[].label` are
  *     `I18nLabel` on the contract — a plain string OR an inline per-locale map
  *     — and every one is resolved against the display language before it
- *     reaches the DOM (objectui#9542).
+ *     reaches the DOM (`43c0d1710`).
  *   - The dialog has NO close button — the user must click acknowledge.
  *     This is the whole point: a toast would let them dismiss the value
  *     before reading it.
@@ -81,7 +81,7 @@ export function ActionResultDialog({ state, onAcknowledge }: ActionResultDialogP
   // an inline per-locale map. Resolved here, once, on the way INTO JSX — an
   // unresolved map is an object, and React refuses an object as a child, so the
   // dialog threw rather than mis-rendering and the one-shot value it exists to
-  // reveal was lost on an action that had already succeeded (objectui#9542).
+  // reveal was lost on an action that had already succeeded (`43c0d1710`).
   // `|| fallback` is kept over `??`: the resolver answers `undefined` for a map
   // with no usable entry, and an empty string must reach the default too.
   const title = resolveInlineI18nLabel(spec?.title, language);

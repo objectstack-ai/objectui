@@ -1595,7 +1595,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // `chart-gantt` → `ChartGantt` both resolve, and both agree with the
         // components `ViewSwitcher.DEFAULT_VIEW_ICONS` names for the same view
         // types. Every value here is pinned by `ViewSwitcher.test.tsx`.
-        // `page` (objectui#8127): keyed on the FULL `ViewType`, which
+        // `page` (`ca3942729`): keyed on the FULL `ViewType`, which
         // `@objectstack/spec@17.3.0` widened. `layout-template` is the kebab
         // spelling of the `LayoutTemplate` this map's consumer —
         // `ViewSwitcher.DEFAULT_VIEW_ICONS` — draws for the same view type, and

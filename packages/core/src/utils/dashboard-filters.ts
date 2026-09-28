@@ -66,7 +66,7 @@ export interface DashboardFilterDef {
   field: string;
   /**
    * The object `field` lives on, carried through from
-   * @objectstack/spec's `GlobalFilterSchema.object` (objectui#10132).
+   * @objectstack/spec's `GlobalFilterSchema.object` (`061f5e829`).
    *
    * The spec's own describe text for that key states the contract: "Object
    * whose `fields.<object>.<field>` translation-bundle entry resolves this
@@ -547,7 +547,7 @@ export function resolveDashboardFilterDefs(
     byName.set(name, {
       name,
       field: f.field,
-      // Spread rather than assigned (objectui#10132): every filter authored
+      // Spread rather than assigned (`061f5e829`): every filter authored
       // before this key existed keeps the exact key set it resolved to, so
       // `'object' in def` stays the discriminator the render side branches on
       // and no consumer sees a new own-property carrying `undefined`.

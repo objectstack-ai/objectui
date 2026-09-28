@@ -48,7 +48,7 @@ import {
 } from './ChartContainerImpl';
 import { mapScatterClick, mapTreemapClick, mapSankeyClick } from './chartDrillEvents';
 import { formatterFor, domainFor, ticksFor, RENDERABLE, SINGLE_VALUE_CHART_TYPES, TABULAR_CHART_TYPES, effectiveChartFamily, comboBaseFamily, placeYAxes, type NormalizedAxis, type NormalizedSeries, type ValueAxisSlot, type YAxisPlacement } from './normalizeChartSchema';
-import { buildCategoryRank, chartRowBucketId, type ChartSegmentClickEvent } from '@object-ui/core';
+import { buildCategoryRank, chartRowBucketId, isRealCalendarDate, toDateInputValue, toDisplayDate, type ChartSegmentClickEvent } from '@object-ui/core';
 import { useDisplayLocale, useSafeTranslate } from '@object-ui/i18n';
 
 // Default color fallback for chart series
@@ -1708,9 +1708,20 @@ function AdvancedChartImplInner({
     // Detect ISO 8601 date / datetime strings (YYYY-MM-DD or with time component)
     const isoLike = /^\d{4}-\d{2}-\d{2}/.test(str);
     if (isoLike) {
-      const d = new Date(str);
+      // The shared step, `toDisplayDate` (`@object-ui/core`, objectui#10866):
+      // the engine's own parse read a date-only `2026-09-01` as UTC midnight,
+      // so every viewer west of UTC read `Aug 31` on the axis. The shared step
+      // tells the two shapes apart by the value: a date-only category is
+      // local midnight of the day it names, and one with a time part keeps its
+      // instant. A value it refuses (a day its month does not have,
+      // objectui#10026) falls through to the raw category below.
+      const d = toDisplayDate(str);
       if (!Number.isNaN(d.getTime())) {
-        // Choose granularity based on data span: <= 31 days → MMM D, otherwise MMM YYYY
+        // Choose granularity based on data span: <= 62 days → MMM D, otherwise MMM YYYY.
+        // The span is a DURATION between two categories of one axis, so it
+        // keeps the engine parse: two date-only values are then both UTC
+        // midnights and a whole number of days apart, where two local
+        // midnights would be an hour off across a DST change.
         const span = data.length > 1
           ? Math.abs(new Date(String(data[data.length - 1][xAxisKey] ?? '')).getTime() -
                      new Date(String(data[0][xAxisKey] ?? '')).getTime())
@@ -1722,7 +1733,10 @@ function AdvancedChartImplInner({
           }
           return d.toLocaleDateString(displayLocale, { month: 'short', year: 'numeric' });
         } catch {
-          return d.toISOString().slice(0, 10);
+          // A locale `Intl` refuses. A date-only category prints its day from
+          // LOCAL getters (`toISOString()` of its local midnight would name
+          // the day before east of UTC); an instant keeps its UTC day.
+          return isRealCalendarDate(str) ? toDateInputValue(d) : d.toISOString().slice(0, 10);
         }
       }
     }

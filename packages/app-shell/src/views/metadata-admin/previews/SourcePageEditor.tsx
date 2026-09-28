@@ -26,6 +26,7 @@ import { Skeleton } from '@object-ui/components';
 import { SchemaRenderer } from '@object-ui/react';
 import { PreviewShell, PreviewErrorBoundary } from './PreviewShell.js';
 import { useMonacoFallback } from '../useMonacoFallback.js';
+import { t as tr } from '../i18n.js';
 
 // Lazy for the same reason as JsonSourceEditor — Monaco's core is ~3MB and
 // stays out of the initial app-shell chunk.
@@ -53,6 +54,12 @@ export interface SourcePageEditorProps {
    * - `preview`: live preview only — the Studio canvas for source pages.
    */
   mode?: 'split' | 'editor' | 'preview';
+  /**
+   * The designer locale its own words read in (objectui#10862): the host's
+   * `useMetadataLocale()` — `PagePreview` passes the one it receives, the
+   * Studio surface its own.
+   */
+  locale?: string;
 }
 
 /**
@@ -102,6 +109,7 @@ export function SourcePageEditor({
   readOnly,
   fallbackDelayMs = 4000,
   mode = 'split',
+  locale,
 }: SourcePageEditorProps) {
   const kind = (draft as { kind?: string }).kind === 'react' ? 'react' : 'html';
   const source = typeof draft.source === 'string' ? (draft.source as string) : '';
@@ -154,7 +162,7 @@ export function SourcePageEditor({
           onChange={(e) => handleChange(e.target.value)}
           readOnly={readOnly}
           spellCheck={false}
-          aria-label="Page source"
+          aria-label={tr('engine.sourcePageEditor.source', locale)}
           className="h-full w-full resize-none bg-background p-3 font-mono text-xs leading-relaxed outline-none"
         />
       ) : (
@@ -186,7 +194,7 @@ export function SourcePageEditor({
 
   const previewEl = (
     <div className="h-full min-h-[260px] overflow-auto bg-muted/20">
-      <PreviewErrorBoundary fallbackHint="The page source threw while rendering — fix the code in the Source tab.">
+      <PreviewErrorBoundary fallbackHint={tr('engine.sourcePageEditor.renderFailed', locale)}>
         <SchemaRenderer schema={previewSchema as never} />
       </PreviewErrorBoundary>
     </div>

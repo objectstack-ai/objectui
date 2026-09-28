@@ -172,7 +172,7 @@ const BARE_SPAN_CLASS: Record<number, string> = {
 /**
  * The col-span classes a field must carry to occupy `targetCols` cells of
  * `containerClass` — ONE CLASS PER TIER, not one class for the widest tier
- * (objectui#9244).
+ * (`bd0995738`).
  *
  * The form's column count is resolved per tier, by container queries on the
  * field container (`grid-cols-1 @md:grid-cols-2 @2xl:grid-cols-3` is three
@@ -2842,7 +2842,7 @@ ComponentRegistry.register('form',
       const containerClass = schema.fieldContainerClass || gridClass;
       // One class PER TIER, derived from the container class — see
       // {@link spanLadderFor} for why a single widest-tier class under-spans
-      // every intermediate width (objectui#9244), and for why the tier
+      // every intermediate width (`bd0995738`), and for why the tier
       // prefixes are load-bearing rather than decoration.
       const pickSpanClass = (targetCols: number): string =>
         spanLadderFor(containerClass, targetCols);

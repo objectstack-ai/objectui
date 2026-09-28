@@ -243,9 +243,9 @@ export const InputSchema = BaseSchema.extend({
   // `cn("grid w-full items-center gap-1.5", schema.wrapperClass)` — and the TS
   // face has declared it all along; the mirror had not, so a wrong-typed value
   // rode through `.passthrough()` unexamined while all eight sibling readers
-  // refused it at the key (objectui#8072).
+  // refused it at the key (`c974edf14`).
   wrapperClass: z.string().optional()
-    .describe('Classes on the wrapper div around the input and its label (objectui#8072)'),
+    .describe('Classes on the wrapper div around the input and its label'),
   min: z.number().optional().describe('Minimum value (for number type)'),
   max: z.number().optional().describe('Maximum value (for number type)'),
   step: z.number().optional().describe('Step value (for number type)'),
@@ -1093,7 +1093,7 @@ export const InputShorthandSchema = InputSchema.omit({ type: true, inputType: tr
   inputType: retirementTombstone(SHORTHAND_INPUT_TYPE_REFUSAL),
   // ⭐ `wrapperClass` used to be RE-DECLARED here, because {@link InputSchema}
   // did not carry it and copying the gap into a NEW pair would have minted a
-  // second parity-ledger row for a key that is demonstrably read. objectui#8072
+  // second parity-ledger row for a key that is demonstrably read. `c974edf14`
   // shrank that row instead: the key is on {@link InputSchema} now, so this arm
   // inherits it through the `.omit()` above like every other key, and the
   // restatement is gone rather than left standing as a duplicate of it.

@@ -3,7 +3,7 @@
 ---
 
 Public form `/f/:slug` renders its authored `title` and `description` instead of the
-object API name (objectui#8408).
+object API name.
 
 The one Console surface an **unauthenticated** visitor sees greeted them with a
 database table name. `GET /api/v1/forms/:slug` serves the authored copy intact

@@ -24,8 +24,9 @@ import { fileURLToPath } from 'node:url';
  * shared step. objectui#10844, the family's closure card, added the dashboard
  * filter's custom range bounds, the `date-picker` renderer's value and the
  * report cell's date face. objectui#10866, its successor, added the calendar
- * and the gantt, whose pins also hold the written payload of a `date` field;
- * a later date-only read site registers here the same way.
+ * and the gantt, whose pins also hold the written payload of a `date` field,
+ * then the timeline, a chart's date axis and `@object-ui/i18n`'s published
+ * date helpers; a later date-only read site registers here the same way.
  *
  * ## Why a driver, and why the forks pool
  *
@@ -83,6 +84,13 @@ const PINS = [
   'packages/plugin-gantt/src/__tests__/ObjectGantt.dateOnlyZone-10866.test.tsx',
   'packages/plugin-gantt/src/__tests__/GanttView.dateOnlyZone-10866.test.tsx',
   'packages/plugin-gantt/src/__tests__/scheduling.dateOnlyZone-10866.test.ts',
+  // objectui#10866, slice 2: the timeline's date bucket, sort and item date,
+  // the chart's date-only axis tick, and `@object-ui/i18n`'s published date
+  // helpers.
+  'packages/plugin-timeline/src/__tests__/ObjectTimeline.dateOnlyZone-10866.test.tsx',
+  'packages/plugin-timeline/src/__tests__/TimelineRenderer.dateOnlyZone-10866.test.tsx',
+  'packages/plugin-charts/src/__tests__/AdvancedChartImpl.dateOnlyZone-10866.test.tsx',
+  'packages/i18n/src/__tests__/formatting.dateOnlyZone-10866.test.ts',
 ] as const;
 
 /** The vitest CLI entry, resolved rather than assumed at a `node_modules` path. */

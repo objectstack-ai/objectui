@@ -270,7 +270,7 @@ const ActionButtonRenderer = forwardRef<
           //
           // Both ends uncast: the READ since objectui#8648 (`resultDialog` is
           // declared on the mirror, so the compiler types it as the contract's
-          // own block), and the WRITE since objectui#9542 retired the narrowing
+          // own block), and the WRITE since `43c0d1710` retired the narrowing
           // assertion that stood here — `ActionDef['resultDialog']` now DERIVES
           // its label members from the contract instead of hand-writing them as
           // `string`, so the whole forward type-checks against one declared

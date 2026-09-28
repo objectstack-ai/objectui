@@ -1562,6 +1562,7 @@ const ko = {
         ctaUpgrade: "업그레이드하고 계속하기",
         ctaTopUp: "크레딧을 추가하고 계속하기",
         ariaLabel: "AI 사용량: {{status}}",
+        breakdownTitle: "지금까지 사용 내역",
       },
       workspaceTitle: "AI 워크스페이스",
       workspaceSubtitle: "질문하고, 살펴보고, 대화를 이어가세요",
@@ -1875,6 +1876,14 @@ const ko = {
       ratio: '쓰기 1행당 {{ratio}}행을 읽고 있습니다. 플랫폼은 {{threshold}} 초과 비율을 표시합니다. 제한하거나 차단하는 것은 없습니다. 읽기 패턴을 검토할 수 있도록 알리는 보고입니다.',
       noWritesTitle: '이 환경은 읽기만 있고 쓰기가 전혀 없습니다',
       noWrites: '행을 읽고 있지만 쓰기가 전혀 없어 읽기 비율에 상한이 없습니다. 가장 심각한 수치입니다. 플랫폼은 {{threshold}} 초과 비율을 표시합니다. 제한하거나 차단하는 것은 없습니다. 읽기 패턴을 검토할 수 있도록 알리는 보고입니다.',
+    },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: '저장 공간이 거의 가득 찼습니다',
+      warning: '{{limit}} MB 중 {{used}} MB 사용 중입니다. 저장 공간이 가득 차면 업로드와 가져오기가 일시 중지됩니다.',
+      blockedTitle: '저장 공간이 가득 찼습니다: 업로드와 가져오기가 일시 중지되었습니다',
+      blocked: '{{limit}} MB 중 {{used}} MB 사용 중입니다. 기존 데이터는 그대로 유지되며, 읽기, 내보내기, 개별 레코드 편집은 계속 사용할 수 있습니다.',
+      upgrade: '업그레이드하고 계속하기',
     },
     errors: {
       somethingWentWrong: "문제가 발생했습니다",

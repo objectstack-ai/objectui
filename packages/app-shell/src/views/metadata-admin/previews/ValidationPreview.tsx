@@ -74,6 +74,8 @@ import {
 import { EmptyDescription } from '@object-ui/components';
 import type { MetadataPreviewProps } from '../preview-registry.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
+import { t as tr, tFormat } from '../i18n.js';
+import { withNodes } from './row-nodes.js';
 
 type Severity = 'error' | 'warning' | 'info';
 
@@ -108,7 +110,7 @@ function severityTone(s: Severity) {
   }
 }
 
-export function ValidationPreview({ name, draft }: MetadataPreviewProps) {
+export function ValidationPreview({ name, draft, locale }: MetadataPreviewProps) {
   const d = draft as Record<string, unknown>;
   const ruleName = String(d.name ?? name ?? '');
   const label = String(d.label ?? ruleName);
@@ -125,7 +127,7 @@ export function ValidationPreview({ name, draft }: MetadataPreviewProps) {
   if (!ruleName) {
     return (
       <PreviewShell hint="validation">
-        <PreviewMessage>Give the validation a name to see the preview.</PreviewMessage>
+        <PreviewMessage>{tr('engine.validationPreview.empty', locale)}</PreviewMessage>
       </PreviewShell>
     );
   }
@@ -148,10 +150,14 @@ export function ValidationPreview({ name, draft }: MetadataPreviewProps) {
                   <div className="text-xs text-muted-foreground mt-0.5">{description}</div>
                 )}
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
-                  <Pill icon={Power} label={active ? 'Active' : 'Disabled'} tone={active ? 'green' : 'gray'} />
-                  {priority != null && <Pill label={`priority ${priority}`} />}
+                  <Pill
+                    icon={Power}
+                    label={tr(active ? 'engine.validationPreview.active' : 'engine.validationPreview.disabled', locale)}
+                    tone={active ? 'green' : 'gray'}
+                  />
+                  {priority != null && <Pill label={tFormat('engine.validationPreview.priority', locale, { priority })} />}
                   {events.length > 0 && (
-                    <Pill label={`on ${events.join(', ')}`} />
+                    <Pill label={tFormat('engine.validationPreview.on', locale, { events: events.join(', ') })} />
                   )}
                 </div>
               </div>
@@ -165,20 +171,20 @@ export function ValidationPreview({ name, draft }: MetadataPreviewProps) {
               <div>
                 <div className="font-medium uppercase tracking-wider text-[10px]">{severity}</div>
                 <div className="font-normal mt-0.5 text-foreground">
-                  {message || <span className="italic text-muted-foreground">no message set</span>}
+                  {message || <span className="italic text-muted-foreground">{tr('engine.validationPreview.noMessage', locale)}</span>}
                 </div>
               </div>
             </div>
           </div>
 
           {/* Type-specific body */}
-          <TypeBody type={type} d={d} />
+          <TypeBody type={type} d={d} locale={locale} />
 
           {/* Tags */}
           {tags.length > 0 && (
             <div>
               <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                Tags
+                {tr('engine.validationPreview.tags', locale)}
               </div>
               <div className="flex flex-wrap gap-1">
                 {tags.map((t) => (
@@ -202,33 +208,27 @@ export function ValidationPreview({ name, draft }: MetadataPreviewProps) {
  * The three rule types the spec removed, each with the layer that owns
  * the job instead. Rendered as a redirect, not as an editor: an author
  * looking at a `unique` draft needs to know where uniqueness actually
- * lives, not a prettier view of a rule that cannot be saved.
+ * lives, not a prettier view of a rule that cannot be saved. Each value is
+ * the designer catalogue row of the redirect sentence (objectui#10862).
  */
 const REMOVED_TYPES: Record<string, string> = {
-  unique:
-    'Uniqueness is a unique INDEX, not a validation rule: declare it on the object as '
-    + '`indexes: [{ fields: [...], unique: true }]` (or `unique: true` on the field). A '
-    + 'SELECT-then-INSERT rule is inherently racy (TOCTOU); a database constraint is not.',
-  async:
-    'Remote/async validation is a form-layer concern — on the server write path it is an '
-    + 'SSRF and latency hazard. Keep it in the form, or enforce the underlying invariant '
-    + 'with a unique index or a lifecycle hook.',
-  custom:
-    'Arbitrary validation code belongs in a `beforeInsert` / `beforeUpdate` lifecycle '
-    + 'hook — the typed, supported extension point.',
+  unique: 'engine.validationPreview.removed.unique',
+  async: 'engine.validationPreview.removed.async',
+  custom: 'engine.validationPreview.removed.custom',
 };
 
-function TypeBody({ type, d }: { type: string; d: Record<string, unknown> }) {
+function TypeBody({ type, d, locale }: { type: string; d: Record<string, unknown>; locale?: string }) {
   const removed = REMOVED_TYPES[type];
   if (removed) {
     return (
-      <Section title="Not a validation rule" icon={ShieldAlert}>
+      <Section title={tr('engine.validationPreview.notARule', locale)} icon={ShieldAlert}>
         <div className="rounded border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
           <div className="font-medium">
-            <code className="font-mono">{type}</code> was removed from ValidationRuleSchema — this
-            rule cannot be saved.
+            {withNodes(tr('engine.validationPreview.removedType', locale), {
+              type: <code className="font-mono">{type}</code>,
+            })}
           </div>
-          <div className="mt-1">{removed}</div>
+          <div className="mt-1">{tr(removed, locale)}</div>
         </div>
       </Section>
     );
@@ -237,10 +237,10 @@ function TypeBody({ type, d }: { type: string; d: Record<string, unknown> }) {
   switch (type) {
     case 'script':
       return (
-        <Section title="Condition" icon={Code2}>
+        <Section title={tr('engine.validationPreview.condition', locale)} icon={Code2}>
           {/* `condition` only. A CEL predicate that FAILS the record when
               TRUE — never `expression`, which no branch has ever declared. */}
-          <CelBlock value={celText(d.condition)} />
+          <CelBlock value={celText(d.condition)} locale={locale} />
         </Section>
       );
 
@@ -252,15 +252,15 @@ function TypeBody({ type, d }: { type: string; d: Record<string, unknown> }) {
       const otherwise = d.otherwise as Record<string, unknown> | undefined;
       return (
         <>
-          <Section title="When" icon={Code2}>
-            <CelBlock value={celText(d.when)} />
+          <Section title={tr('engine.validationPreview.when', locale)} icon={Code2}>
+            <CelBlock value={celText(d.when)} locale={locale} />
           </Section>
-          <Section title="Then apply" icon={ShieldAlert}>
-            <NestedRule rule={nested} emptyHint="No nested rule set — this rule enforces nothing." />
+          <Section title={tr('engine.validationPreview.thenApply', locale)} icon={ShieldAlert}>
+            <NestedRule rule={nested} emptyHint={tr('engine.validationPreview.noNested', locale)} locale={locale} />
           </Section>
           {otherwise && (
-            <Section title="Otherwise apply" icon={ShieldAlert}>
-              <NestedRule rule={otherwise} emptyHint="—" />
+            <Section title={tr('engine.validationPreview.otherwiseApply', locale)} icon={ShieldAlert}>
+              <NestedRule rule={otherwise} emptyHint="—" locale={locale} />
             </Section>
           )}
         </>
@@ -278,9 +278,16 @@ function TypeBody({ type, d }: { type: string; d: Record<string, unknown> }) {
       const initialStates = Array.isArray(d.initialStates) ? (d.initialStates as string[]) : [];
       return (
         <>
-          <Section title={`Transitions${field ? ` on ${field}` : ''}`} icon={Workflow}>
+          <Section
+            title={
+              field
+                ? tFormat('engine.validationPreview.transitionsOn', locale, { field })
+                : tr('engine.validationPreview.transitions', locale)
+            }
+            icon={Workflow}
+          >
             {entries.length === 0 ? (
-              <div className="text-xs text-amber-700 dark:text-amber-400">No transitions declared.</div>
+              <div className="text-xs text-amber-700 dark:text-amber-400">{tr('engine.validationPreview.noTransitions', locale)}</div>
             ) : (
               <ul className="rounded border bg-background divide-y text-xs">
                 {entries.map(([from, tos]) => (
@@ -288,7 +295,7 @@ function TypeBody({ type, d }: { type: string; d: Record<string, unknown> }) {
                     <span className="font-mono">{from}</span>
                     <ArrowRight className="h-3 w-3 text-muted-foreground" />
                     <span className="font-mono text-emerald-700 dark:text-emerald-400">
-                      {Array.isArray(tos) && tos.length > 0 ? tos.join(' | ') : '∅ (dead-end)'}
+                      {Array.isArray(tos) && tos.length > 0 ? tos.join(' | ') : tr('engine.validationPreview.deadEnd', locale)}
                     </span>
                   </li>
                 ))}
@@ -299,7 +306,7 @@ function TypeBody({ type, d }: { type: string; d: Record<string, unknown> }) {
               `transitions` only governs UPDATE, so without this a record can
               be born mid-flow (objectstack#3165). */}
           {initialStates.length > 0 && (
-            <Section title="May be created in" icon={Sigma}>
+            <Section title={tr('engine.validationPreview.createdIn', locale)} icon={Sigma}>
               <div className="flex flex-wrap gap-1">
                 {initialStates.map((s) => (
                   <span key={s} className="rounded border bg-muted/40 px-1.5 py-0.5 text-[11px] font-mono">
@@ -319,21 +326,30 @@ function TypeBody({ type, d }: { type: string; d: Record<string, unknown> }) {
       const format = d.format as string | undefined;
       const field = d.field as string | undefined;
       return (
-        <Section title={`Format${field ? ` on ${field}` : ''}`} icon={Regex}>
+        <Section
+          title={
+            field
+              ? tFormat('engine.validationPreview.formatOn', locale, { field })
+              : tr('engine.validationPreview.format', locale)
+          }
+          icon={Regex}
+        >
           <div className="rounded border bg-background p-2.5 text-xs space-y-1">
             {format && (
               <div>
-                <span className="text-muted-foreground">Built-in:</span>{' '}
+                <span className="text-muted-foreground">{tr('engine.validationPreview.builtIn', locale)}</span>{' '}
                 <code className="font-mono">{format}</code>
               </div>
             )}
             {regex && (
               <div>
-                <span className="text-muted-foreground">Regex:</span>{' '}
+                <span className="text-muted-foreground">{tr('engine.validationPreview.regex', locale)}</span>{' '}
                 <code className="font-mono break-all">{regex}</code>
               </div>
             )}
-            {!format && !regex && <span className="text-amber-700 dark:text-amber-400">No format or regex set.</span>}
+            {!format && !regex && (
+              <span className="text-amber-700 dark:text-amber-400">{tr('engine.validationPreview.noFormat', locale)}</span>
+            )}
           </div>
         </Section>
       );
@@ -344,7 +360,7 @@ function TypeBody({ type, d }: { type: string; d: Record<string, unknown> }) {
       const condition = celText(d.condition);
       return (
         <>
-          <Section title="Fields involved" icon={Sigma}>
+          <Section title={tr('engine.validationPreview.fieldsInvolved', locale)} icon={Sigma}>
             <div className="flex flex-wrap gap-1">
               {fields.map((f) => (
                 <span key={f} className="rounded border bg-muted/40 px-1.5 py-0.5 text-[11px] font-mono">
@@ -361,11 +377,13 @@ function TypeBody({ type, d }: { type: string; d: Record<string, unknown> }) {
                 * (the same swap in a NON-flex block container does move them,
                 * which is what proves the comparison was live).
                 */}
-              {fields.length === 0 && <EmptyDescription className="text-xs italic">none</EmptyDescription>}
+              {fields.length === 0 && (
+                <EmptyDescription className="text-xs italic">{tr('engine.validationPreview.none', locale)}</EmptyDescription>
+              )}
             </div>
           </Section>
-          <Section title="Cross-field condition" icon={Code2}>
-            <CelBlock value={condition} />
+          <Section title={tr('engine.validationPreview.crossFieldCondition', locale)} icon={Code2}>
+            <CelBlock value={condition} locale={locale} />
           </Section>
         </>
       );
@@ -379,14 +397,18 @@ function TypeBody({ type, d }: { type: string; d: Record<string, unknown> }) {
       const schema = d.schema;
       const json =
         schema && typeof schema === 'object' ? JSON.stringify(schema, null, 2) : undefined;
+      // A bare `JSON Schema` names the standard and reads the same in every locale.
       return (
-        <Section title={`JSON Schema${field ? ` on ${field}` : ''}`} icon={Braces}>
+        <Section
+          title={field ? tFormat('engine.validationPreview.jsonSchemaOn', locale, { field }) : 'JSON Schema'}
+          icon={Braces}
+        >
           {json ? (
             <pre className="m-0 rounded border bg-background p-2.5 text-xs font-mono overflow-auto max-h-[240px]">
               {json}
             </pre>
           ) : (
-            <div className="text-xs text-amber-700 dark:text-amber-400">No JSON Schema set.</div>
+            <div className="text-xs text-amber-700 dark:text-amber-400">{tr('engine.validationPreview.noJsonSchema', locale)}</div>
           )}
         </Section>
       );
@@ -394,9 +416,9 @@ function TypeBody({ type, d }: { type: string; d: Record<string, unknown> }) {
 
     default:
       return (
-        <Section title="Rule" icon={ShieldAlert}>
+        <Section title={tr('engine.validationPreview.rule', locale)} icon={ShieldAlert}>
           <div className="rounded border bg-background p-2.5 text-xs text-muted-foreground italic">
-            Unknown rule type "{type}". Showing common fields only.
+            {tFormat('engine.validationPreview.unknownType', locale, { type })}
           </div>
         </Section>
       );
@@ -411,9 +433,11 @@ function TypeBody({ type, d }: { type: string; d: Record<string, unknown> }) {
 function NestedRule({
   rule,
   emptyHint,
+  locale,
 }: {
   rule: Record<string, unknown> | undefined;
   emptyHint: string;
+  locale?: string;
 }) {
   if (!rule || typeof rule !== 'object') {
     return <div className="text-xs text-amber-700 dark:text-amber-400">{emptyHint}</div>;
@@ -424,7 +448,7 @@ function NestedRule({
     <div className="rounded border bg-background p-2.5 text-xs space-y-1">
       <div className="flex flex-wrap items-baseline gap-x-2">
         <span className="rounded border bg-muted/40 px-1.5 py-0.5 text-[10px] font-mono">
-          {nestedType || 'no type'}
+          {nestedType || tr('engine.validationPreview.noType', locale)}
         </span>
         {typeof rule.name === 'string' && (
           <span className="font-mono text-[10px] text-muted-foreground">{rule.name}</span>
@@ -442,9 +466,9 @@ function NestedRule({
   );
 }
 
-function CelBlock({ value }: { value: string | undefined }) {
+function CelBlock({ value, locale }: { value: string | undefined; locale?: string }) {
   if (!value) {
-    return <div className="text-xs text-amber-700 dark:text-amber-400">No expression set.</div>;
+    return <div className="text-xs text-amber-700 dark:text-amber-400">{tr('engine.validationPreview.noExpression', locale)}</div>;
   }
   return (
     <pre className="rounded border bg-background p-2.5 text-xs font-mono whitespace-pre-wrap break-words">

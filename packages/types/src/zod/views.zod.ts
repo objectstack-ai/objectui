@@ -46,7 +46,7 @@ const SpecListViewTypeEnum = SpecListViewSchema.shape.type.removeDefault();
 /**
  * View Type Schema — the zod face of {@link ViewType} (`../views.ts`).
  *
- * DERIVED from `@objectstack/spec/ui` `ListViewSchema.type` (objectui#8127), so
+ * DERIVED from `@objectstack/spec/ui` `ListViewSchema.type` (`ca3942729`), so
  * the two faces cannot drift from the spec or from each other. Both were
  * hand-written eleven-arm copies of the spec's 17.2.0 list; `@objectstack/spec@17.3.0`
  * added `page` and neither followed, while `ViewKindEnum` in `./objectql.zod.ts`

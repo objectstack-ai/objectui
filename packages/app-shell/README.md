@@ -161,6 +161,31 @@ It is a **report**. It never refuses, throttles or degrades anything, and the
 copy says so. It is shown only to a workspace admin, who is also the only
 session that issues the request.
 
+### Storage capacity (environment admin)
+
+Beside it, `ConsoleShell` mounts `<StorageUsageBanner />`, driven by the flat
+storage half of the same `GET /api/v1/usage/storage` response, read by
+`useStorageUsageReading`. The tenant runtime serves the same storage verdict
+its upload and bulk-import guardrail refuses with, and the banner renders that
+verdict and nothing else:
+
+| the verdict | what renders |
+| --- | --- |
+| `blocked: true` | "storage is full: uploads and imports are paused", the used / limit figures, and an upgrade link |
+| `warn: true` | the used / limit figures (`usedMb` / `limitMb`) |
+| anything else — `ok`, `unknown`, `unlimited` | nothing |
+| the endpoint could not be read, or answered off-contract | nothing |
+
+`classifyStorageUsage` decides the banner from `warn` and `blocked` alone. It
+never compares `usedMb` with `limitMb`, or `fraction` with `warnFraction`, so
+the banner cannot drift from the enforcement point when the line moves. The
+upgrade link goes to the control plane's origin (`cloudConsoleUrl`) and is left
+out on a runtime that names no upstream cloud.
+
+Both banners read that endpoint through one shared reader, so a page load
+issues one request for the two of them. The storage banner has the same
+audience and the same gate as the read-rate report.
+
 ## Components
 
 ### AppShell

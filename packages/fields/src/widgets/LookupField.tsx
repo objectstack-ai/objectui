@@ -1401,7 +1401,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
    * picker trigger and the browse button while leaving the chip's ✕ live, so
    * the one control that could still CHANGE the value was the one control the
    * gate had missed — a reporter could clear a master-detail parent the server
-   * would then refuse to unset (objectui#10120). ⭐ A refusal the UI invites is
+   * would then refuse to unset (`80c54122e`). ⭐ A refusal the UI invites is
    * worse than a refusal it prevents: the chips stay, the affordance goes.
    */
   const chipsRemovable = !props.disabled;

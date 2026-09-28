@@ -258,7 +258,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   const [objectSchema, setObjectSchema] = useState<any>(null);
   // The ONE field-gate step every layout draws through (`gateFormFields`,
   // objectui#10612): FLS drops non-readable fields and disables non-editable
-  // ones (objectui#10120; fail-open when no PermissionProvider is mounted), and
+  // ones (`80c54122e`; fail-open when no PermissionProvider is mounted), and
   // the ADR-0092 D4 managed-object lock disables every field when the object's
   // affordance for the mode is closed — before objectui#10612 a managed object
   // drew live inputs here.
@@ -585,7 +585,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       // FLS defence-in-depth, inside the ONE outbound filter: react-hook-form
       // retains state for unmounted/disabled fields, so the gate above is not
       // enough on its own — but the verdict is the same resolver's, adapted by
-      // `fieldWriteGate` rather than copied here (objectui#10120).
+      // `fieldWriteGate` rather than copied here (`80c54122e`).
       const payload = sanitizeFormData(data, objectSchema, {
         canEdit: fieldWriteGate(perms, schema.objectName),
       });

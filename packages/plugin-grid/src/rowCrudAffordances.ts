@@ -33,7 +33,7 @@
  *          `Delete` action, and the generic entries would otherwise render a
  *          confusing duplicate);
  *       c. [objectstack#3720] the SERVER's effective API operation set for the object
- *          (`/me/permissions` `apiOperations`, #3391) — `edit` is ANDed with
+ *          (`/me/permissions` `apiOperations`, objectstack#3391) — `edit` is ANDed with
  *          `update` and `delete` with `delete`, so a row never offers a
  *          mutation the server would reject.
  *
@@ -181,7 +181,7 @@ export function resolveRowCrudAffordances(opts: {
   userActions?: { edit?: RowCrudUserAction; delete?: RowCrudUserAction } | null;
   /**
    * [objectstack#3720] The server-resolved effective API operation set for this object
-   * (`/me/permissions` `apiOperations`, #3391). `undefined` / `null` (old
+   * (`/me/permissions` `apiOperations`, objectstack#3391). `undefined` / `null` (old
    * backend, unrestricted object, no provider) leaves the object verdict
    * untouched; an empty array means "expose nothing" → both entries hidden.
    */

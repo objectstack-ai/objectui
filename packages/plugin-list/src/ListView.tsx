@@ -2910,7 +2910,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // Always allow switching back to the viewType defined in schema — but only
     // when it names a visualization this renderer actually draws.
     //
-    // The membership test was a nine-name literal array (objectui#8127), a copy
+    // The membership test was a nine-name literal array (`ca3942729`), a copy
     // of `LIST_VIEW_KINDS` in `@object-ui/core` that nothing compared against
     // it. `isListViewVisualization` IS that map's own predicate, so the gate and
     // the seam answer one question — the same rule the kanban/chart rungs above
@@ -3033,7 +3033,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   //
   // `label` is an `I18nLabel`, so it is a string OR an inline locale map, and
   // the map has to be resolved BEFORE it reaches the interpolation options
-  // (objectui#9373): `createSafeTranslation`'s options bag is a record of
+  // (`c1006ed8e`): `createSafeTranslation`'s options bag is a record of
   // `unknown`, so a raw map is accepted without a diagnostic and both
   // interpolators stringify it — the heading read `[object Object] Detail`.
   // This is the same resolution the view label and the nested `aria` bag

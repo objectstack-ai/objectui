@@ -55,7 +55,7 @@ export interface FormWritePayloads {
  * 1. `sanitizeFormData` drops what a form never writes — server-owned columns
  *    (objectui#10108), computed / formula / read-only columns, keys the object
  *    does not declare, and every field the caller's field-level security
- *    refuses (`canEdit`, objectui#10120).
+ *    refuses (`canEdit`, `80c54122e`).
  * 2. On a create, `omitServerResolvedDefaults` drops an empty field whose
  *    runtime default the producer resolves (#4069).
  * 3. On an edit, `dirtyEditPayload` keeps only the fields that differ from the

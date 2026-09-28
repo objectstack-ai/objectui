@@ -2,7 +2,20 @@
  * @object-ui/i18n - Date and currency formatting utilities
  *
  * Uses the native Intl API for locale-aware formatting.
+ *
+ * Every date helper below reads a string through `toDisplayDate`
+ * (`@object-ui/core`), the one parse step behind the date faces
+ * (objectui#10110, objectui#10183). The engine's own parse reads a date-only
+ * `2026-09-01` as UTC midnight, so each helper named August 31st for every
+ * viewer west of UTC (objectui#10866). The shared step tells the two shapes
+ * apart by the value: a date-only string is rebuilt at local midnight of the
+ * day it names, and a value with a time part keeps its instant. It also
+ * refuses a day its month does not have (`2026-02-30`, objectui#10026), which
+ * each helper then renders as the raw string, its face for any unparsable
+ * value.
  */
+
+import { toDisplayDate } from '@object-ui/core';
 
 export interface DateFormatOptions {
   locale?: string;
@@ -35,7 +48,7 @@ export function formatDate(
   options: DateFormatOptions = {},
 ): string {
   const { locale = 'en', style = 'medium' } = options;
-  const d = date instanceof Date ? date : new Date(date);
+  const d = toDisplayDate(date);
 
   if (isNaN(d.getTime())) {
     return String(date);
@@ -63,7 +76,7 @@ export function formatDateTime(
   options: DateFormatOptions = {},
 ): string {
   const { locale = 'en', style = 'medium' } = options;
-  const d = date instanceof Date ? date : new Date(date);
+  const d = toDisplayDate(date);
 
   if (isNaN(d.getTime())) {
     return String(date);
@@ -81,12 +94,20 @@ export function formatDateTime(
 
 /**
  * Format a relative time (e.g., "2 days ago", "in 3 hours")
+ *
+ * A date-only value counts from now to the START of the day it names (local
+ * midnight), the same distance in every zone at the same wall-clock time.
+ * An unparsable value comes back as its string, as it does from
+ * {@link formatDate}; `Intl.RelativeTimeFormat` would throw on it.
  */
 export function formatRelativeTime(
   date: Date | string | number,
   locale = 'en',
 ): string {
-  const d = date instanceof Date ? date : new Date(date);
+  const d = toDisplayDate(date);
+  if (isNaN(d.getTime())) {
+    return String(date);
+  }
   const now = new Date();
   const diffMs = d.getTime() - now.getTime();
   const diffSec = Math.round(diffMs / 1000);

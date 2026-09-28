@@ -42,3 +42,22 @@ export function withConsoleBase(path: string): string {
   const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
   return base + (path.startsWith('/') ? path : `/${path}`);
 }
+
+/**
+ * A console route as a ROOT-RELATIVE url (`/_console/accept-invitation/ID`) —
+ * the form a SERVER-side redirect target needs, such as the `callbackURL`
+ * better-auth writes into the email-verification link (objectui#10893).
+ *
+ * `withConsoleBase` is not enough there. In the shipped embeddable build it
+ * returns a document-relative `./…`, which only a browser resolves (against
+ * `<base href>`); the server never sees that base. better-auth accepts only a
+ * root-relative path or a trusted absolute URL and answers `./…` with
+ * `403 INVALID_CALLBACK_URL` — failing the whole sign-up, not just the
+ * redirect. So this resolves `withConsoleBase`'s answer exactly the way
+ * `location.assign` would, then keeps the path, query and hash. Every mount
+ * therefore agrees with where a full-page navigation to the same route lands.
+ */
+export function withConsoleBaseRootRelative(path: string): string {
+  const url = new URL(withConsoleBase(path), document.baseURI);
+  return `${url.pathname}${url.search}${url.hash}`;
+}

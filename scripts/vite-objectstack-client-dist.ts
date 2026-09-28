@@ -229,6 +229,43 @@ function a(shape: OverrideShape): string {
 }
 
 /**
+ * The `vendor-objectstack` group test, widened so an injected client stays in
+ * that group — or `vendorChunkTest` itself, unchanged, when nothing is injected.
+ *
+ * An injected client resolves OUTSIDE `node_modules`, so the baseline test —
+ * written against `node_modules/@objectstack/` and pnpm's `@objectstack+` store
+ * paths — stops matching it, exactly as it stops matching an injected spec (the
+ * spec hook widens the same test for the same reason). Left unmatched, the
+ * client lands wherever its importers pull it. Measured on objectui `9f0c84a44`
+ * built by objectstack's `build-console.sh` (which always injects its own
+ * client): `chunk-membership.json` put the client's one module in `framework`,
+ * while `data-adapter` — no longer recursive since #9488 — imports it, and
+ * `framework` imports `data-adapter` back (`packages/react`'s
+ * `error-message.ts` → `isApiAccessDeniedError`). The client ships as CJS, so
+ * `data-adapter`'s top-level `require` runs before `framework` has defined it
+ * and the console dies at boot with `TypeError: u is not a function`. Before
+ * #9488 the recursive `data-adapter` group swallowed the client and hid the gap.
+ * With the client in `vendor-objectstack` the cycle is gone and the console
+ * boots; `chunk-membership.json` then reads `client: { 'vendor-objectstack': 1 }`.
+ *
+ * Widened, never replaced — the baseline stays whole and the override's
+ * directory joins it as one more alternative, matched on a path-separator
+ * boundary so a sibling directory sharing the prefix is not claimed.
+ *
+ * @param vendorChunkTest the config's `vendor-objectstack` group test so far
+ * @param injection the resolved override, or `null` when unset
+ */
+export function widenVendorChunkTestForClient(
+  vendorChunkTest: RegExp,
+  injection: ClientDistInjection | null,
+): RegExp {
+  if (!injection) return vendorChunkTest;
+  const posixDir = injection.packageDir.split(path.sep).join('/');
+  const escaped = posixDir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`${vendorChunkTest.source}|${escaped}[\\\\/]`);
+}
+
+/**
  * Resolve the override, or `null` when it is unset.
  *
  * Inert when unset, exactly as the plain string alias it replaces was: `null`

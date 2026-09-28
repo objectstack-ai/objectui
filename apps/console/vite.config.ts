@@ -16,7 +16,7 @@ import zlib from 'node:zlib';
 // `native` becomes the default loader (objectui#3384).
 import { viteCryptoStub } from '../../scripts/vite-crypto-stub.ts';
 import { viteMaplibreWorker } from '../../scripts/vite-maplibre-worker.ts';
-import { resolveClientDistInjection } from '../../scripts/vite-objectstack-client-dist.ts';
+import { resolveClientDistInjection, widenVendorChunkTestForClient } from '../../scripts/vite-objectstack-client-dist.ts';
 import { formatConditionReport, resolveSpecDistInjection } from '../../scripts/vite-objectstack-spec-dist.ts';
 import { viteIneffectiveDynamicImports } from '../../scripts/vite-ineffective-dynamic-imports.ts';
 import { viteDeclaredLazyViews } from '../../scripts/vite-declared-lazy-views.ts';
@@ -767,10 +767,14 @@ const optimizeDepsInclude = specDistInjection
 // stops matching it and the biggest vendor surface in the bundle (spec is
 // imported by 29 packages here) would scatter into its importers' chunks. The
 // injected build should differ from a released one in spec CONTENT, not in
-// chunk layout, so the override's location joins the group's test.
-const vendorObjectstackTest = specDistInjection
-  ? specDistInjection.vendorChunkTest
-  : VENDOR_OBJECTSTACK_TEST;
+// chunk layout, so the override's location joins the group's test. The same
+// holds for an injected CLIENT, and there the layout is not cosmetic: left out
+// of this group it lands in `framework`, closing a framework ↔ data-adapter
+// import cycle that kills the console at boot (see the helper's docblock).
+const vendorObjectstackTest = widenVendorChunkTestForClient(
+  specDistInjection ? specDistInjection.vendorChunkTest : VENDOR_OBJECTSTACK_TEST,
+  clientDistInjection,
+);
 
 // The chunk grouping is not the only consumer of "where does the spec live".
 // `assertLazyLinterStaysLazy`'s counter-probe asks the same question about the

@@ -1473,7 +1473,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
       // CRASH. The data-table's no-cell branch is not a pass-through: with no
       // `cell` it applies TWO transforms — `String(value)` for a non-null
       // object, and `formatCellValue(value)`, the locale ISO date/datetime face
-      // objectui#7443 and objectui#7620 spent two cards folding into ONE home —
+      // objectui#7443 and the card behind `c15d7eca6` spent two cards folding into ONE home —
       // whereas a `cell`'s return value is handed STRAIGHT to React, with no
       // way to defer any single value back to that default. Measured on one
       // untyped column, same row, `tbody` innerHTML byte for byte, no-cell

@@ -193,7 +193,7 @@ export const DetailSchema = BaseSchema.extend({
   // `handleBack` that calls `onBack()` for `detail-view`. Was `z.any()`.
   onBack: handlerKeyRefusal('onBack', 'runtime-slot', 'Custom back action'),
   /**
-   * RUNTIME SLOT (objectui#7804, the objectui#6124 shape, batch #69 ruling) —
+   * RUNTIME SLOT (`7ca6ddd4b`, the objectui#6124 shape, batch #69 ruling) —
    * DECLARED here for the first time; it was never on this arm at all, so
    * `BaseSchemaCore`'s `.passthrough()` KEPT an authored value instead of
    * refusing it and handed it to a call site expecting a function.
@@ -221,7 +221,7 @@ export const DetailSchema = BaseSchema.extend({
    */
   onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'SPA navigation callback'),
   /**
-   * RUNTIME SLOT (objectui#7804), and a DIFFERENT channel from `onNavigate`
+   * RUNTIME SLOT (`7ca6ddd4b`), and a DIFFERENT channel from `onNavigate`
    * above — which is why the ruling demands a measurement per key rather than
    * per prefix.
    *
@@ -233,8 +233,8 @@ export const DetailSchema = BaseSchema.extend({
    * the text.
    *
    * ⚠️ `comments` is deliberately NOT declared here. It is not a handler key,
-   * declaring it is an accept-set decision of its own, and objectui#7804's rows
-   * are the handler keys — noted on that card instead of ridden in on this one.
+   * declaring it is an accept-set decision of its own, and the handler-key parent
+   * card's rows are the handler keys — noted on that card instead of ridden in on this one.
    */
   onAddComment: handlerKeyRefusal('onAddComment', 'runtime-slot', 'New comment callback'),
   loading: z.boolean().optional().describe('Whether to show loading state'),

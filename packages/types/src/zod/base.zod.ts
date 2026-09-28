@@ -201,7 +201,7 @@ export function defineNodeComponentUnion<T extends z.ZodType>(union: T): T {
  * is where the whole node tree recurses. Until #8344 the component arm was
  * `BaseSchemaCore` — the ~21 base keys and NOTHING type-specific — which made
  * per-type enforcement ROOT-ONLY, at every depth, for every component type. That
- * is objectui#7869, measured there: an off-spec `size` on a NESTED `icon` node was
+ * is the finding objectui#8344 discharged: an off-spec `size` on a NESTED `icon` node was
  * accepted, and the same node alone was refused. Pointing the arm at the union of
  * the registered component mirrors is the whole of this change; ⛔ nothing here is
  * `.strict()`, and `BaseSchemaCore` keeps its passthrough.

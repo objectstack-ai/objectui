@@ -174,7 +174,7 @@ export interface KanbanColumn {
    *
    * A tombstone rather than a plain removal on BOTH prongs of the
    * discriminator the precedent changesets state (objectui#5941, #7526), in
-   * the form objectui#7678 amended it to: a `?: never` tombstone is available
+   * its amended form (`5f8190c8c`): a `?: never` tombstone is available
    * only on a SURVIVING CARRIER — `KanbanColumn` survives this retirement,
    * while a whole exported type name has no carrier and is removed outright —
    * and on such a carrier it is used when either prong holds: (1) it steers
@@ -1146,7 +1146,7 @@ type ChatMessageHandedBack = Omit<ChatMessage, 'toolInvocations'> & {
  * `ComponentRegistry.register('chatbot', ...)` registration in
  * `packages/plugin-chatbot/src/renderer.tsx` (objectui#7655).
  *
- * ## Six ADR-0049 retirement tombstones (objectui#7703)
+ * ## Six ADR-0049 retirement tombstones (`a4611b3e2`)
  *
  * `loading`, `showAvatars`, `userAvatar`, `assistantAvatar`, `markdown` and
  * `height` are `?: never` below, each paired with a `retirementTombstone()`
@@ -1167,7 +1167,7 @@ type ChatMessageHandedBack = Omit<ChatMessage, 'toolInvocations'> & {
  * `chatbot-floating` registration used to end its `<FloatingChatbot>` element
  * with a raw `{...props}` spread, which handed the panel's `<ChatbotEnhanced>`
  * every authored key unfiltered — and that component HAS a `showAvatars` prop,
- * so the key was live there by accident. objectui#7708 ruled FENCE: the spread
+ * so the key was live there by accident. The card behind `d3499b315` ruled FENCE: the spread
  * is filtered through `toDomProps` and moved to the head of the element, the
  * shape the two sibling registrations already used. ⇒ `showAvatars` is a key
  * the FENCE turned dark, not a key nothing ever read; the other five were live
@@ -1188,7 +1188,7 @@ type ChatMessageHandedBack = Omit<ChatMessage, 'toolInvocations'> & {
  * UNDECLARED key is not refused, it is KEPT. That is the hazard the two-prong
  * discriminator leaves to the carrier — where there is no mirror there is "no
  * silent-strip hazard for prong 2 to guard" (`mobile.ts`, objectui#5941 /
- * #7526 / #7678: a `?: never` tombstone is available only on a SURVIVING
+ * #7526 / `5f8190c8c`: a `?: never` tombstone is available only on a SURVIVING
  * CARRIER — `ChatbotSchema` survives, while a whole exported type name has no
  * carrier and is removed outright — and on such a carrier it is used when
  * either prong holds: it steers authors to a named live replacement KEY, or it
@@ -1225,7 +1225,7 @@ export interface ChatbotSchema extends BaseSchema {
    */
   placeholder?: string;
   /**
-   * ADR-0049 RETIREMENT TOMBSTONE — `loading` (objectui#7703). See
+   * ADR-0049 RETIREMENT TOMBSTONE — `loading` (`a4611b3e2`). See
    * {@link ChatbotSchema} for the census, the instrument and the route.
    *
    * Chat progress is RUNTIME state, not authorable metadata. The `chatbot`
@@ -1255,14 +1255,14 @@ export interface ChatbotSchema extends BaseSchema {
    */
   onSendMessage?: never;
   /**
-   * ADR-0049 RETIREMENT TOMBSTONE — `showAvatars` (objectui#7703). See
+   * ADR-0049 RETIREMENT TOMBSTONE — `showAvatars` (`a4611b3e2`). See
    * {@link ChatbotSchema} for the census, the instrument and the route.
    *
    * ⭐ The one key of the six whose provenance is a FENCE, not an absence.
    * `<ChatbotEnhanced>` really does have a `showAvatars` prop, and until
-   * objectui#7708 the `chatbot-floating` registration's raw trailing
+   * `d3499b315` the `chatbot-floating` registration's raw trailing
    * `{...props}` spread delivered an authored value straight to it — measured
-   * live through the real host. That ruling was FENCE: the spread now goes
+   * live through the real host. The ruling behind it was FENCE: the spread now goes
    * through `toDomProps` at the head of the element, so the key is dark on all
    * three registrations by ruling. It was never live on a `chatbot` node: no
    * registration forwards it by name, and this one renders `<Chatbot>`, which
@@ -1270,7 +1270,7 @@ export interface ChatbotSchema extends BaseSchema {
    *
    * ENFORCE was refused: on a `chatbot` node it has no target to forward to,
    * and re-declaring it on the two faces that CAN reach `<ChatbotEnhanced>`
-   * would re-open by declaration exactly the channel objectui#7708 closed by
+   * would re-open by declaration exactly the channel `d3499b315` closed by
    * fence, one card earlier. `@default true` was published prose only — the
    * plain `<Chatbot>` renders an avatar beside every message unconditionally,
    * with no gate, and `<ChatbotEnhanced>`'s own prop defaults to `false`.
@@ -1280,11 +1280,11 @@ export interface ChatbotSchema extends BaseSchema {
    * registrations read; delete this one.
    *
    * @deprecated Not part of this contract — the value was inert on a `chatbot`
-   * node and is dark everywhere since objectui#7708.
+   * node and is dark everywhere since `d3499b315`.
    */
   showAvatars?: never;
   /**
-   * ADR-0049 RETIREMENT TOMBSTONE — `userAvatar` (objectui#7703). See
+   * ADR-0049 RETIREMENT TOMBSTONE — `userAvatar` (`a4611b3e2`). See
    * {@link ChatbotSchema} for the census, the instrument and the route.
    *
    * Write **`userAvatarUrl`** (with `userAvatarFallback` for the text shown
@@ -1301,7 +1301,7 @@ export interface ChatbotSchema extends BaseSchema {
    */
   userAvatar?: never;
   /**
-   * ADR-0049 RETIREMENT TOMBSTONE — `assistantAvatar` (objectui#7703). See
+   * ADR-0049 RETIREMENT TOMBSTONE — `assistantAvatar` (`a4611b3e2`). See
    * {@link ChatbotSchema} for the census, the instrument and the route.
    *
    * Write **`assistantAvatarUrl`** (with `assistantAvatarFallback`) — the live
@@ -1317,7 +1317,7 @@ export interface ChatbotSchema extends BaseSchema {
    */
   assistantAvatar?: never;
   /**
-   * ADR-0049 RETIREMENT TOMBSTONE — `markdown` (objectui#7703). See
+   * ADR-0049 RETIREMENT TOMBSTONE — `markdown` (`a4611b3e2`). See
    * {@link ChatbotSchema} for the census, the instrument and the route.
    *
    * The `chatbot` node renders `<Chatbot>`, which has no markdown path at all:
@@ -1342,7 +1342,7 @@ export interface ChatbotSchema extends BaseSchema {
    */
   processVisibility?: 'hidden' | 'summary' | 'debug';
   /**
-   * ADR-0049 RETIREMENT TOMBSTONE — `height` (objectui#7703). See
+   * ADR-0049 RETIREMENT TOMBSTONE — `height` (`a4611b3e2`). See
    * {@link ChatbotSchema} for the census, the instrument and the route.
    *
    * Write **`maxHeight`** (a CSS length string, default `'500px'`) — the live
@@ -1674,7 +1674,7 @@ export interface ChatbotSchema extends BaseSchema {
  * bodies of `packages/plugin-chatbot/src/renderer.tsx`, forwarded into
  * `useObjectChat` or onto the rendered component. (Named reads are the
  * instrument; the `chatbot-floating` registration also HAD an unfiltered
- * props spread on this census's base — fenced since, objectui#7708; see
+ * props spread on this census's base — fenced since, `d3499b315`; see
  * {@link ChatbotFloatingSchema}.) The instrument was lit by
  * keys that are NOT shared — `processVisibility` read 0 / 1 / 0 across
  * `chatbot` / `chatbot-enhanced` / `chatbot-floating` and `floatingConfig`
@@ -1845,7 +1845,7 @@ export interface ChatbotEnhancedSchema
  * ended its `<FloatingChatbot>` element with a raw `{...props}` spread —
  * every authored key `SchemaRenderer` forwards, unfiltered — and the panel
  * is a `<ChatbotEnhanced>`, so an authored `processVisibility`, `surface` or
- * `showAvatars` reached it (measured through the real host, objectui#7708).
+ * `showAvatars` reached it (measured through the real host, `d3499b315`).
  * That channel was accidental, not contract, and is now CLOSED: the spread
  * is fenced through `toDomProps` and moved to the head of the element, the
  * same shape the two sibling registrations already use, so this face's
@@ -2021,7 +2021,7 @@ export interface FloatingChatbotConfig {
    * equally to objectui#4919 and #5942, which were removed outright, so it
    * cannot be what separates the routes. What decides the route is this
    * package's retire-vs-remove discriminator in its amended form
-   * (objectui#7678, the same wording the `chatbot` tombstones above carry): a
+   * (`5f8190c8c`, the same wording the `chatbot` tombstones above carry): a
    * `?: never` tombstone is available only on a SURVIVING CARRIER —
    * `FloatingChatbotConfig` survives this retirement, while a whole exported
    * type name has no carrier and is removed outright — and on such a carrier
@@ -2302,10 +2302,10 @@ export interface DashboardWidgetSlotComponentSchema extends BaseSchema {
  */
 export interface DashboardComponentSchema extends BaseSchema, Omit<SpecDashboard, (typeof DASHBOARD_SPEC_EXCLUDED)[number]> {
   type: 'dashboard';
-  // `title` was DECLARED here until objectui#7623, under the comment "Dashboard
+  // `title` was DECLARED here until `5d0876c5c`, under the comment "Dashboard
   // title displayed in the header" — by then a description of behaviour that had
   // stopped existing: objectui#7509 retired all five dashboard-root `title` read
-  // arms under ADR-0049 (PR #7622), so the key was declared, documented as
+  // arms under ADR-0049 (`1cca678ba`), so the key was declared, documented as
   // rendering, and inert. The header text is the spec-canonical `label`
   // (`BaseSchema`), resolved through `pickLocalized`; `plugin-dashboard` has no
   // dashboard-root `title` read site left (pinned by that package's

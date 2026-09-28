@@ -67,7 +67,7 @@ export const DialogSchema = BaseSchema.extend({
  * and thrown away the diagnostic with it. {@link retirementTombstone} keeps the
  * key DECLARED and unwritable, which is what makes the refusal loud. Same
  * mechanism, same reasoning as the `actions` and `breadcrumbs` refusal arms on
- * `PageNodeSchema` (`./layout.zod.ts`, objectui#7926 / objectui#8871).
+ * `PageNodeSchema` (`./layout.zod.ts`, `12b599219` / objectui#8871).
  * ⚠️ Both spelled WITHOUT a leading dot on purpose: objectui#8871 keeps a
  * TREE-SCOPED point-access probe standing over every tracked file, and a prose
  * mention here is a hit that probe cannot tell from a reader.

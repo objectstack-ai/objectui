@@ -3,7 +3,7 @@
 ---
 
 Fix `extractToc` deleting tag-shaped text that lives INSIDE an inline code span,
-so its `#id` links resolve to the heading they name again (objectui#7658).
+so its `#id` links resolve to the heading they name again.
 
 `stripInline()` applied its rules in sequence: the inline-code rule unwrapped
 `` `objectui add <component>` `` to `objectui add <component>`, and the raw-HTML

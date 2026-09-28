@@ -3,7 +3,7 @@
 ---
 
 Studio's package switcher reads the server's `writable` verdict instead of guessing
-from `manifest.scope` (objectui#7177, ADR-0130 Consequences row 6, server half in
+from `manifest.scope` (ADR-0130 Consequences row 6, server half in
 objectstack#14375).
 
 `GET /api/v1/packages` now stamps every row with `writable: boolean`, computed by

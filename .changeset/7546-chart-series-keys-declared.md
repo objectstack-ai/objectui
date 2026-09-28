@@ -72,7 +72,7 @@ is the renderer's internal default — written only by the compare-to producers 
 `DatasetWidget`) onto internal-shape arrays that never pass this mirror, and by nothing an author
 writes (docs, fixtures, designer inputs: 0, controls lit) — so it is not a member here: declaring it
 would have fossilised a renderer-side tolerance into a second contract. The normalizer's tolerance
-is unchanged; objectui#7682 owns that decision.
+is unchanged; a separate card owns that decision.
 
 ## Unchanged, deliberately
 

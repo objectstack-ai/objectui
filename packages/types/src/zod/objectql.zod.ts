@@ -345,7 +345,7 @@ export const ObjectGridSchema = BaseSchema.extend({
   editable: z.boolean().optional(),
   keyboardNavigation: z.boolean().optional(),
   frozenColumns: z.number().optional(),
-  // ⭐ objectui#7804 — one key the REGISTERED `object-grid` renderer reads off
+  // ⭐ `8d50bc2bf` — one key the REGISTERED `object-grid` renderer reads off
   // the authored document while this arm declared none. `BaseSchema` is
   // `.passthrough()`, so an undeclared key is NOT refused: it stops being
   // judged and the value is KEPT. `{ "type": "object-grid", "objectName": "a",
@@ -432,7 +432,7 @@ export const ObjectFormSchema = BaseSchema.extend({
   showReset: z.boolean().optional().describe('Show reset button'),
   initialValues: z.record(z.string(), z.any()).optional().describe('Initial values'),
   readOnly: z.boolean().optional().describe('Read-only mode'),
-  // ⭐ objectui#7804 — five keys the REGISTERED `object-form` renderer reads off
+  // ⭐ `8d50bc2bf` — five keys the REGISTERED `object-form` renderer reads off
   // the authored document while this arm declared none of them. `BaseSchema` is
   // `.passthrough()`, so an undeclared key is NOT refused: it stops being
   // judged and the value is KEPT. `{ "type": "object-form", "objectName": "a",
@@ -580,7 +580,7 @@ export const ObjectViewSchema = BaseSchema.extend({
   // verbatim into the `view-switcher` node it composes.
   allowCreateView: ViewSwitcherSchema.shape.allowCreateView,
   viewActions: ViewSwitcherSchema.shape.viewActions,
-  // ⭐ objectui#7804 — one key the REGISTERED `object-view` renderer reads off
+  // ⭐ `8d50bc2bf` — one key the REGISTERED `object-view` renderer reads off
   // the authored document while this arm declared none. `BaseSchema` is
   // `.passthrough()`, so an undeclared key is NOT refused: it stops being
   // judged and the value is KEPT, then reaches four call sites in
@@ -1686,7 +1686,7 @@ export const ListViewSchema = BaseSchema
     calendar: CalendarConfig.optional().describe('Calendar-specific configuration'),
     gallery: GalleryConfig.optional().describe('Gallery-specific configuration'),
     timeline: TimelineConfig.optional().describe('Timeline-specific configuration'),
-    // ⭐ objectui#7804 — the five keys the REGISTERED `list-view` renderer reads
+    // ⭐ `f1cd29032` — the five keys the REGISTERED `list-view` renderer reads
     // off the authored document while this arm declared none. `BaseSchema` is
     // `.passthrough()`, so an undeclared key is NOT refused: it stops being
     // judged and the value is KEPT. `SchemaRenderer` then spreads every
@@ -2452,7 +2452,7 @@ export const ObjectKanbanSchema = BaseSchema.extend({
       'Delete the key; there is no board-level replacement to rename it to.',
   ),
   conditionalFormatting: z.array(KanbanConditionalFormattingRuleSchema).optional().describe('Card conditional formatting rules'),
-  // ── objectui#7804 — the three handler keys `KanbanRenderer` reads off the
+  // ── `5a41ce733` — the three handler keys `KanbanRenderer` reads off the
   // document this arm judges, MEASURED one at a time (director seat ruling of
   // 2026-09-07, decision batch #69: the arm a `type` selects is the contract
   // for what renders under it, and a registered renderer may not read a key the
@@ -2825,7 +2825,7 @@ export const ObjectGallerySchema = BaseSchema.extend({
   grouping: stripImportedDefaults(SpecGroupingConfigSchema).optional().describe('Grouping configuration for sectioned display'),
   imageField: z.string().optional().describe('DEPRECATED — use gallery.coverField'),
   titleField: z.string().optional().describe('DEPRECATED — use gallery.titleField'),
-  // ⭐ objectui#7804 — two keys the REGISTERED `object-gallery` renderer reads
+  // ⭐ `8d50bc2bf` — two keys the REGISTERED `object-gallery` renderer reads
   // off the authored document while this arm declared neither. `BaseSchema` is
   // `.passthrough()`, so an undeclared key is NOT refused: it stops being
   // judged and the value is KEPT, and `SchemaRenderer` then spreads it into the

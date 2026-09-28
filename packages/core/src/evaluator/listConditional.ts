@@ -211,7 +211,7 @@ export interface RowPredicateOptions {
  * objectui#5330, option B; Phase 2 executed by `83fe6e741`).
  *
  * Until Phase 2 the row was also bound as bare fields (`status`, the row-action
- * shorthand) and as `data.*`, and Phase 1 (PR #5737) warned once per
+ * shorthand) and as `data.*`, and Phase 1 (`d1ab06f0f`) warned once per
  * non-canonical spelling. Both bindings and that warning are gone. A bare-field
  * or `data.*` predicate on a record surface now FAULTS here exactly as it always
  * did on the server — measured on `@objectstack/formula@17.1.0`,

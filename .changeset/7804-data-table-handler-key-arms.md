@@ -4,7 +4,7 @@
 
 `DataTableSchema` declares the seven handler keys its registered renderer reads:
 `onAddRecord`, `onBatchSave`, `onCellChange`, `onColumnResize`, `onRowActionDef`,
-`onRowClick` and `onRowSave` (objectui#7804, the `DataTableSchema` slice).
+`onRowClick` and `onRowSave` (the `DataTableSchema` slice).
 
 `BaseSchema` is `.passthrough()`, so a key no arm declares is not refused — it
 stops being judged and the value is KEPT. All seven were in that state while

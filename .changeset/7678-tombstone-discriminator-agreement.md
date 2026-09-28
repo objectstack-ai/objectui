@@ -5,14 +5,14 @@ Comment-only agreement fix in `@object-ui/types`. The retire-vs-remove discrimin
 stated at three sites in `complex.ts` at two different levels of amendment: the
 `KanbanColumn.color` block and the `ChatbotSchema` dark-keys block gave the two prongs
 without their precondition, while the `displayMode` tombstone already carried it. Both of
-the first two now state the amended rule (objectui#7678) in the wording the third already
+the first two now state the amended rule in the wording the third already
 uses — a `?: never` tombstone is available only on a surviving carrier, and on one it is
 used when either prong holds; a whole exported type name has no carrier and is removed
 outright — so a reader landing on any of the three gets the same rule. The
 `KanbanColumn.color` site's own parenthetical had named this card as its open correction;
 that parenthetical is now discharged rather than repeated.
 
-The `triggerIcon` tombstone's own rationale was the site objectui#7678 was filed about, and
+The `triggerIcon` tombstone's own rationale was the site this card was filed about, and
 it still argued from `tsc` behaviour alone — a contrast that applied equally to the two
 precedent retirements that were removed outright, so it cannot be what separates the routes.
 It now carries the amended discriminator and names prong 2 (the 3.3.0 release record

@@ -1631,7 +1631,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     schema.operations?.export !== false &&
     (effectiveApiOps ? effectiveApiOps.includes('export') : true);
 
-  // [#3720] Bulk-action gate for the NON-grid views (kanban / calendar /
+  // [objectstack#3720] Bulk-action gate for the NON-grid views (kanban / calendar /
   // gallery / …), whose bulk bar this component renders itself — the grid path
   // delegates to ObjectGrid, which gates its own. A declared `bulkActions`
   // entry is a WIRING declaration, not a permission grant, so the built-in
@@ -4017,7 +4017,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
        * ⛔ NO legacy `title` arm. This read used to be
        * `schema.label || (schema as any).title`, and objectui#8653 item 1
        * retired the second operand — the objectui#7129 route, as taken for
-       * `DashboardComponentSchema.title` at objectui#7623 — on two
+       * `DashboardComponentSchema.title` at `5d0876c5c` — on two
        * measurements:
        *
        *   - `@objectstack/spec/ui`'s `ListViewSchema` REFUSES `title` BY NAME

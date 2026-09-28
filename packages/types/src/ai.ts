@@ -105,7 +105,7 @@ export interface AIFormAssistSchema extends BaseSchema {
    * instrument's control.
    *
    * A tombstone rather than a plain removal on PRONG 2 of the discriminator
-   * (objectui#5941, #7526, #7678): this package's README taught the key as
+   * (objectui#5941, #7526, `5f8190c8c`): this package's README taught the key as
    * working, in the Quick Start, in the `AIFormAssist` API example and in the
    * schema-driven JSON example. {@link BaseSchema} carries `[key: string]: any`,
    * so a DELETED member is absorbed silently at ANY value — deletion here is not

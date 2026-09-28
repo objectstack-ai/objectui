@@ -3,7 +3,7 @@
 '@object-ui/app-shell': minor
 ---
 
-The metadata designer states its package on the publish step, not only on the save (#5420)
+The metadata designer states its package on the publish step, not only on the save
 
 Studio's designer save→publish loop bound the draft to a software package on the
 save (`PUT ?mode=draft&package=<id>`) and then sealed it with a publish that named

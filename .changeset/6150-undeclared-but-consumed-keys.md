@@ -58,8 +58,8 @@ on its own, and each says so in its own doc comment:
   a value, so it cannot appear in an authored JSON document, and objectui#6152
   ruled that the class never gets one.
 
-  ⭐ **AMENDED, and the amendment ships in this same release.** objectui#7804's
-  `TreeViewSchema` slice gave the key a zod arm after all — a NAMED REFUSAL
+  ⭐ **AMENDED, and the amendment ships in this same release.** The
+  `TreeViewSchema` slice (`604476d97`) gave the key a zod arm after all — a NAMED REFUSAL
   (`handlerKeyRefusal(key, 'runtime-slot', label)`), never a shape — because "no
   mirror entry" is not neutral under `BaseSchema.passthrough()`: it meant an
   authored `{ "type": "tree-view", "onNodeClick": { "action": "toast" } }` parsed

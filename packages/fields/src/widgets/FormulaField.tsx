@@ -27,8 +27,8 @@ export function FormulaField({ value, field, ...props }: FieldWidgetComponentPro
     displayValue = value ? 'Yes' : 'No';
   } else if (returnType === 'date') {
     // `formatDate`'s DEFAULT style — the one home for the `date` display
-    // convention (objectui#8194, following the maintainer's ruling A on
-    // objectui#7620). This branch used to call `toLocaleDateString(locale)`
+    // convention (objectui#8194, following the maintainer's ruling A behind
+    // `c15d7eca6`). This branch used to call `toLocaleDateString(locale)`
     // with NO options bag, i.e. `Intl`'s numeric default (`7/4/2026`), so a
     // formula returning a date rendered a face the shared function never
     // produces — while the `date` field beside it showed `Jul 4`. Two faces

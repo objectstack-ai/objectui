@@ -1820,7 +1820,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // (`managedBy`), the `userActions.edit`/`delete` override — explicit `false`
   // opts out of the generic row Edit/Delete (e.g. sys_environment ships a
   // dedicated Rename + cascade-Delete instead, and the generic entries would
-  // duplicate them) — and [#3720] the server's effective API operation set, so
+  // duplicate them) — and [objectstack#3720] the server's effective API operation set, so
   // the row kebab never offers an update/delete the server would reject.
   // `operations` above only says whether the CONSUMER wired the affordance; it
   // is not a permission grant, which is why the object verdict is ANDed here
@@ -4484,7 +4484,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // a bulk-delete affordance is implicitly available (canDelete + onBulkDelete
   // wired by the consumer). This gives every list a multi-select + delete UX
   // out of the box without forcing each view JSON to declare bulkActions.
-  // [#3720] Bulk delete is the most destructive affordance on the list, so it
+  // [objectstack#3720] Bulk delete is the most destructive affordance on the list, so it
   // rides the same object-level `delete` verdict as the row kebab (bucket lock
   // ∧ userActions ∧ the server's effective operation set). An author-declared
   // `bulkActions: ['delete']` / `bulkActionDefs[].operation === 'delete'` is a

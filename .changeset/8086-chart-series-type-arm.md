@@ -6,7 +6,7 @@
 per-series family override the `name` arm already declares, with the same member type
 (objectui#8086). The TypeScript face now states what `ChartDataSeriesSchema` (where
 `dataKey` and `name` are each independently optional beside `type`) and the renderer
-(every entry goes through `normalizeSeries`, objectui#7681) accept. No other arm changes:
+(every entry goes through `normalizeSeries`, `01c27c431`) accept. No other arm changes:
 `chartType` stays on the `dataKey` arm alone, and wins when an entry writes both.
 
 The accept set only widens. A value typed as the `dataKey` arm may now carry `type`, and

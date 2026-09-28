@@ -11,7 +11,7 @@ value, so an object whose lookup or master-detail target survived only under the
 pre-objectui#6041 spelling lost the target on the way through:
 
 - The Field Designer's carried-through half (fields whose stored type the
-  designer cannot author, objectui#8060) re-emits the stored document verbatim
+  designer cannot author, `7dc31bb8d`) re-emits the stored document verbatim
   with no read door in front of it. The strip took the target and the relationship
   guard then refused the whole object's save — including a save the author
   triggered by editing an entirely different field, on a page that renders the

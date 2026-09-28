@@ -99,7 +99,7 @@ export function PendingDraftsBar({ packageId, idle }: PendingDraftsBarProps) {
         // message and the parsed body. Same sentence the bare `fetch` showed
         // (`parseError` reads it off `error.message`), with the ADR-0112
         // producer-marked `userMessage` preferred when the refusal carries
-        // one — the rule objectui#7959 landed on the sibling call site.
+        // one — the rule `36fc74629` landed on the sibling call site.
         const marked = readEnvelopeFailureText((e as { body?: unknown } | null)?.body);
         const message =
           marked ||

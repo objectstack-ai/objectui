@@ -6,7 +6,7 @@ Refuse `onNavigate` and `onAddComment` by name on the `detail-view` JSON authori
 face (objectui#9447).
 
 **Breaking, deliberately — and it closes an asymmetry rather than opening one.**
-objectui#7804 made the `detail` arm refuse these two keys by name as objectui#6124
+`7ca6ddd4b` made the `detail` arm refuse these two keys by name as objectui#6124
 runtime slots. The `detail-view` arm, which reaches the *same* `DetailView`
 component, declared neither — and `BaseSchemaCore` ends `.passthrough()`, so an
 authored value was not refused, it stopped being judged and was KEPT. The same two
@@ -46,4 +46,4 @@ behaviour as a node type (`{ "type": "toast", ... }`, an `action:button` node).
 **Not affected:** the nested `recordNavigation.onNavigate`, a different key at a
 different path with a different signature (`(recordId) => void`), which stays
 authorable on both faces; and `onTabChange`, whose disposition is still open on
-objectui#7804 and which this change deliberately does not touch.
+the handler-key parent card and which this change deliberately does not touch.

@@ -80,8 +80,8 @@ export interface PackageSaveResult {
  * ⛔ Not a second copy of the shared rule. The rule about what to SHOW stays in
  * `readEnvelopeFailureText` and is not restated here; this answers a different
  * question about the same body, at the one call site that asks it. Widening the
- * shared reader's signature to return the provenance is objectui#7980's
- * surface, not this card's.
+ * shared reader's signature to return the provenance is the surface of the
+ * card behind `a810bb2ae`, not this card's.
  *
  * The predicate is byte-identical to the shared reader's `marked` const on
  * purpose: a typed `string` check, not a truthiness one, so a non-string mark

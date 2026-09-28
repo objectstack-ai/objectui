@@ -2,11 +2,11 @@
 '@object-ui/app-shell': patch
 ---
 
-`PackageFormDialog` reads the producer-marked `error.userMessage` (objectui#7979).
+`PackageFormDialog` reads the producer-marked `error.userMessage`.
 
 The create / edit / view package dialog POSTs and PATCHes `/api/v1/packages` through its
 own `apiJson`, which held a fourth copy of the ADR-0112 failure-envelope ladder —
-character for character the one `PackagesPage` had before objectui#7959. It read the
+character for character the one `PackagesPage` had before `36fc74629`. It read the
 diagnostic `error.message` and stopped, so two things a refusal carries never reached the
 author: the producer's marked `error.userMessage` (present since objectstack#9934, emitted
 by both doors that serve these routes) and `error.code`.

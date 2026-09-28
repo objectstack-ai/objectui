@@ -459,11 +459,11 @@ function temporalText(type: string | undefined, value: any, locale: string): str
     const day = toDisplayDate(ymd);
     if (Number.isNaN(day.getTime())) return raw;
     // `formatDate`'s DEFAULT style — the one home for the `date` display
-    // convention (objectui#8194, following the maintainer's ruling A on
-    // objectui#7620). This branch used to call `toLocaleDateString(locale)`
+    // convention (objectui#8194, following the maintainer's ruling A behind
+    // `c15d7eca6`). This branch used to call `toLocaleDateString(locale)`
     // with NO options bag, i.e. `Intl`'s numeric default (`7/4/2026`), so a
     // sub-grid cell and a `date` field cell on the same screen rendered the
-    // same value two ways — the split #7620 ruled on, one surface over.
+    // same value two ways — the split ruling A settled, one surface over.
     // Current-year values lose the year here now (`Jul 4`); past- and
     // future-year values are byte-identical.
     //

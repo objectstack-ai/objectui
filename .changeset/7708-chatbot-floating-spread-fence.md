@@ -6,7 +6,7 @@
 `chatbot-floating` now fences its `<FloatingChatbot>` spread the same way its
 two sibling registrations (`chatbot`, `chatbot-enhanced`) already do —
 `{...toDomProps(props)}`, at the head of the element, instead of a raw
-`{...props}` spread at the end (objectui#7708). This is a deliberate,
+`{...props}` spread at the end. This is a deliberate,
 user-visible behavior change, not a refactor:
 
 - **A message sent through a floating chatbot now actually renders.**

@@ -437,7 +437,7 @@ ComponentRegistry.register('chatbot-floating',
     return (
       <FloatingChatbot
         // Fenced and FIRST — matches the two sibling registrations above
-        // (objectui#7708). Was a raw `{...props}` spread LAST: every authored
+        // (`d3499b315`). Was a raw `{...props}` spread LAST: every authored
         // key `SchemaRenderer` forwarded reached the panel's `ChatbotEnhanced`
         // unfiltered, so `processVisibility`, `surface` and `showAvatars` were
         // live here although `ChatbotFloatingSchema` declares none of them,

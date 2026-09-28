@@ -1111,7 +1111,7 @@ export interface ObjectGridSchema extends BaseSchema {
    * (`plugin-grid/src/ObjectGrid.tsx`) carries the same statement, and both are
    * pinned by `plugin-grid/src/__tests__/gridNonAuthorKeys.test.tsx`.
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — the zod twin now
+   * RUNTIME SLOT (objectui#6124, declared by `8d50bc2bf`) — the zod twin now
    * refuses this key BY NAME instead of letting `BaseSchema.passthrough()`
    * accept and KEEP an authored value that reaches `useNavigationOverlay` and
    * is CALLED. That closes the gap the ruling above left open on this face:
@@ -1522,7 +1522,7 @@ export interface ObjectFormSchema extends BaseSchema {
   /**
    * Called when wizard step changes. Only used when formType is 'wizard'.
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `8d50bc2bf`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is READ and RUN by the registered renderer.
@@ -1637,7 +1637,7 @@ export interface ObjectFormSchema extends BaseSchema {
   /**
    * Callback on successful submission
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `8d50bc2bf`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is READ and RUN by the registered renderer.
@@ -1695,7 +1695,7 @@ export interface ObjectFormSchema extends BaseSchema {
   /**
    * Callback on error
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `8d50bc2bf`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is READ and RUN by the registered renderer.
@@ -1708,7 +1708,7 @@ export interface ObjectFormSchema extends BaseSchema {
   /**
    * Callback on cancel
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `8d50bc2bf`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is READ and RUN by the registered renderer.
@@ -1761,7 +1761,7 @@ export interface ObjectFormSchema extends BaseSchema {
   /**
    * Callback when open state changes. Only used when formType is 'drawer'.
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `8d50bc2bf`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is READ and RUN by the registered renderer.
@@ -2144,7 +2144,7 @@ export interface ObjectViewSchema extends BaseSchema {
   /**
    * Callback when navigating to detail page (page layout mode)
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `8d50bc2bf`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is READ and RUN by the registered renderer.
@@ -2702,7 +2702,7 @@ export type ListViewSchema = ListViewAuthored & ListViewRuntimeProps;
 /**
  * The zod-derived AUTHORING half of {@link ListViewSchema}, with every key
  * {@link ListViewRuntimeProps} declares removed so the intersection cannot
- * annihilate those declarations (objectui#7804).
+ * annihilate those declarations (`f1cd29032`).
  *
  * ## Why this is not `ListViewInferred` directly
  *
@@ -2771,7 +2771,7 @@ export interface ListViewRuntimeProps {
   refreshTrigger?: number;
 
   /**
-   * ⭐ The three slots below are declared here by objectui#7804, and the reason is
+   * ⭐ The three slots below are declared here by `f1cd29032`, and the reason is
    * the one objectui#9344's slice already measured on `ObjectGallerySchema`: a key
    * that reaches the renderer through `SchemaRenderer`'s props spread is on the
    * TypeScript face whether or not anyone declared it — `BaseSchema`'s index
@@ -4078,7 +4078,7 @@ export interface ObjectKanbanSchema extends BaseSchema {
   /**
    * Card click handler.
    *
-   * RUNTIME SLOT (objectui#6124 shape; declared by objectui#7804) — a
+   * RUNTIME SLOT (objectui#6124 shape; declared by `5a41ce733`) — a
    * host-supplied function, NOT authorable metadata: JSON has no function
    * value, so the zod twin refuses this key by name and points at the node-type
    * spelling. Kept callable here because the function REACHES the board and
@@ -4155,7 +4155,7 @@ export interface ObjectKanbanSchema extends BaseSchema {
   /**
    * Quick Add handler.
    *
-   * RUNTIME SLOT (objectui#6124 shape; declared by objectui#7804) — a
+   * RUNTIME SLOT (objectui#6124 shape; declared by `5a41ce733`) — a
    * host-supplied function, NOT authorable metadata: JSON has no function
    * value, so the zod twin refuses this key by name. Kept callable here because
    * it rides `ObjectKanban`'s schema spread untouched and arrives at the board
@@ -4776,7 +4776,7 @@ export interface ObjectGallerySchema extends BaseSchema {
   /**
    * Card click handler.
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `8d50bc2bf`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is READ and RUN by the registered renderer.
@@ -4800,7 +4800,7 @@ export interface ObjectGallerySchema extends BaseSchema {
   /**
    * Row/item click handler — overrides {@link navigation}.
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `8d50bc2bf`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is READ and RUN by the registered renderer, on the
@@ -4908,8 +4908,8 @@ export interface ObjectDataTableSchema extends BaseSchema {
    * retirement and extends {@link BaseSchema} (`[key: string]: any` here,
    * `.passthrough()` on the zod mirror), so a deleted member would be absorbed
    * silently at any value — the silent no-op the retirement exists to end.
-   * Licensed by prong 1 of the discriminator (objectui#5941, #7526, as amended
-   * by objectui#7678): it steers authors to the named live replacement,
+   * Licensed by prong 1 of the discriminator (objectui#5941, #7526, in its
+   * amended form, `5f8190c8c`): it steers authors to the named live replacement,
    * `objectName`. The zod mirror refuses the key by name with that guidance.
    *
    * @deprecated Not read by `object-data-table` — write `objectName`.

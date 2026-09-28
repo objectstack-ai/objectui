@@ -3,7 +3,7 @@
 ---
 
 `ObjectKanbanSchema` now judges two of the three handler keys the kanban board reads off the
-authored document (objectui#7804, the `plugin-kanban` slice; director seat ruling of
+authored document (the `plugin-kanban` slice; director seat ruling of
 2026-09-07, decision batch #69): `onCardClick` and `onQuickAdd` are declared as objectui#6124
 RUNTIME SLOTS — callable on the TypeScript face, refused BY NAME in the zod mirror because
 JSON has no function value — and the message points at the node-type spelling an author can
@@ -40,4 +40,4 @@ that spelling while `KanbanRenderer` still reads the key, printing `declares it 
 a renderer still reads it`. The two spellings that would make the gate green are both worse:
 `'runtime-slot'` would publish a callable key the object-bound board drops, and deleting the
 read would narrow `KanbanRenderer`'s published props — a ruling, not a repair. The key keeps
-its `KNOWN_UNDECLARED_READS` row naming objectui#7804, which stays open and stays the parent.
+its `KNOWN_UNDECLARED_READS` row, which names the parent card.

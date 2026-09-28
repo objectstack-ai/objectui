@@ -56,7 +56,7 @@ check. Deletion would have left precisely the silent no-op this retirement ends,
 and the ruling's first pin — refused by the schema types, at compile time —
 would have been unsatisfiable. `packages/plugin-ai/README.md` taught all seven as
 working, which is prong 2 of the tombstone discriminator (objectui#5941, #7526,
-#7678) on its own.
+`5f8190c8c`) on its own.
 
 `AIInsightsSchema.objectName` was deliberately left out of this retirement, and
 the reason for that exclusion has since been spent. The half that survives is the

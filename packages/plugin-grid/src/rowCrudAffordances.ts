@@ -32,7 +32,7 @@
  *          a `Rename` action and generic delete with a cascade-teardown
  *          `Delete` action, and the generic entries would otherwise render a
  *          confusing duplicate);
- *       c. [#3720] the SERVER's effective API operation set for the object
+ *       c. [objectstack#3720] the SERVER's effective API operation set for the object
  *          (`/me/permissions` `apiOperations`, #3391) — `edit` is ANDed with
  *          `update` and `delete` with `delete`, so a row never offers a
  *          mutation the server would reject.
@@ -180,7 +180,7 @@ export function resolveRowCrudAffordances(opts: {
   /** The object's `userActions` block ({ create, edit, delete, import }). */
   userActions?: { edit?: RowCrudUserAction; delete?: RowCrudUserAction } | null;
   /**
-   * [#3720] The server-resolved effective API operation set for this object
+   * [objectstack#3720] The server-resolved effective API operation set for this object
    * (`/me/permissions` `apiOperations`, #3391). `undefined` / `null` (old
    * backend, unrestricted object, no provider) leaves the object verdict
    * untouched; an empty array means "expose nothing" → both entries hidden.

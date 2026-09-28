@@ -7,6 +7,16 @@ sixteen members on its TypeScript authoring face (objectui#7924). Each is now a
 `?: never` tombstone: a TypeScript author who writes one gets a compile error at that
 key, and the member's docblock names the key to write instead.
 
+⚠️ **Dated note, 2026-09-28 — `NamedListView` no longer types a named view —
+objectui#7928.** Later in this same release `ObjectViewSchema.listViews` became the
+protocol's own record by reference: on both faces its value is `@objectstack/spec`'s
+strict `ObjectListViewSchema`, and a `NamedListView` is not assignable to it. So "one
+entry of `ObjectViewSchema.listViews`" above no longer holds. `NamedListView` stays
+exported with the tombstones this entry describes; a retired spelling written in a
+named view is refused there by the protocol's record as an unrecognized key, not by a
+tombstone here and its pointer. `.changeset/7928-listviews-by-reference-fold.md` (PR
+objectui#10821) states what ships; the text above is kept as the reading of this change.
+
 **The eight legacy `show*` spellings** (bucket ② of the director-seat ruling on
 objectui#7924, letter **A**). None is a protocol key on a view; the protocol's
 `userActions` and `appearance` blocks are the canonical home, and `NamedListView`
@@ -42,6 +52,14 @@ row-colour configuration `rowColor: { field }`, and `addRecordViaForm` at the
 `ListView`'s export control when the Console relays it off the active named view, and
 `densityMode` is folded onto `rowHeight` by `normalizeListViewSchema`. They stay
 declared as they were.
+
+⚠️ **Dated note, 2026-09-28 — `densityMode` has since been retired too — objectui#7924.**
+Later in this same release ruling A′ made `NamedListView.densityMode` a `?: never`
+tombstone as well, its docblock pointing at top-level `rowHeight`. So "Two bucket-③
+members are NOT retired" and "They stay declared as they were" now hold for
+`allowExport` only. `normalizeListViewSchema` still folds a stored `densityMode` onto
+`rowHeight`. `.changeset/7924-density-mode-through-fold.md` (PR objectui#10793) states
+what ships; the text above is kept as the reading of this change.
 
 **Only the authoring face changes.** Stored view documents that still carry a legacy
 spelling keep loading: `normalizeListViewSchema` (`@object-ui/core`) still folds the eight

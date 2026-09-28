@@ -7,9 +7,9 @@
  */
 
 /**
- * objectui#10866, slice 3 — `DATEADD`, `DATEDIFF` and `DATEFORMAT` do their
- * day arithmetic on the UTC calendar, the server's (ADR-0053 D1), in every
- * zone.
+ * objectui#10866, slice 3 — `DATEADD`, `DATEDIFF` and `DATEFORMAT` do a
+ * calendar day's arithmetic on the UTC calendar, the server's (ADR-0053 D1),
+ * in every zone, and leave an instant where it was.
  *
  * ── What was measured ───────────────────────────────────────────────────────
  * The three functions read a date-only `2026-09-01` with the engine's own
@@ -27,14 +27,22 @@
  *  - `DATEADD` handed a date-only argument back as an instant string, which
  *    the display path (`toDisplayDate`) then reads as an instant.
  *
- * Now a calendar day is UTC midnight of that day, moved with UTC setters
- * (months clamped to the target month's last day, as objectstack's
- * `@objectstack/formula` stdlib `addMonthsUtc` does), read with UTC getters,
- * and a real date-only argument comes back as `YYYY-MM-DD`. A value with a
- * time part keeps its instant and comes back as an instant. `TODAY()` is NOT
- * changed (objectui#10903, ruling A): the last cases pin that it still names
- * the UTC day, and that `DATEFORMAT(NOW(), 'YYYY-MM-DD')` now names the same
- * day, which it did not west of UTC.
+ * Now a calendar day (a date-only argument naming a day its month has) is UTC
+ * midnight of that day, moved with UTC setters (months clamped to the target
+ * month's last day, as objectstack's `@objectstack/formula` stdlib
+ * `addMonthsUtc` does), read with UTC getters, and handed back as
+ * `YYYY-MM-DD`. Each row of `everyZoneCases` about a day's date, month or
+ * year is red on the base in at least one zone; the sub-day row (hours and
+ * minutes on a day give an instant) reads the same on the base.
+ *
+ * A value with a time part is NOT changed: it is still moved and read with
+ * local setters and getters, in the zone the formula runs in, and handed back
+ * as an instant. The per-zone instant controls pin that half on purpose, with
+ * a different expected clock in each zone: an instant formats in the viewer's
+ * zone, and its months are the viewer's months. They are green on the base,
+ * and a change that moved instants onto the UTC calendar would redden them
+ * west and east of UTC. `TODAY()` is NOT changed either (objectui#10903,
+ * ruling A): one case pins that it still names the UTC day.
  *
  * ── ⚠️ The zone cases run ONLY when driven, in a FORKS child ────────────────
  * `process.env.TZ` written inside a test of the normal run does not move the
@@ -80,13 +88,12 @@ const DATEADD = formulas.get('DATEADD')!;
 const DATEDIFF = formulas.get('DATEDIFF')!;
 const DATEFORMAT = formulas.get('DATEFORMAT')!;
 const TODAY = formulas.get('TODAY')!;
-const NOW = formulas.get('NOW')!;
 
-/** `TODAY()` and `DATEFORMAT(NOW(), 'YYYY-MM-DD')` at {@link CLOCK}. */
-function todayPair(): { today: string; formattedNow: string } {
+/** `TODAY()` at {@link CLOCK}. */
+function todayAtClock(): string {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date(CLOCK));
-  return { today: TODAY(), formattedNow: DATEFORMAT(NOW(), 'YYYY-MM-DD') };
+  return TODAY();
 }
 
 /**
@@ -127,17 +134,13 @@ function everyZoneCases(zone?: string): void {
     expect(DATEADD('2026-09-01', 90, 'minutes')).toBe('2026-09-01T01:30:00.000Z');
   });
 
-  at('an instant keeps its instant: moved on the UTC calendar, clamped the same way, and handed back as an instant', () => {
-    expect(DATEADD('2026-01-31T12:00:00.000Z', 1, 'month')).toBe('2026-02-28T12:00:00.000Z');
-    // 05:00 on October 31st in Los Angeles, the day before its DST change:
-    // a day later is 24 hours later, as the server's `addDays` answers.
-    expect(DATEADD('2026-10-31T12:00:00.000Z', 1, 'day')).toBe('2026-11-01T12:00:00.000Z');
+  at('an instant still comes back as an instant', () => {
+    expect(DATEADD(INSTANT, 1, 'day')).toBe('2026-09-02T03:00:00.000Z');
   });
 
-  at('`DATEFORMAT` prints the stored day, and the UTC clock of an instant', () => {
+  at('`DATEFORMAT` prints the stored day', () => {
     expect(DATEFORMAT('2026-09-01', 'YYYY-MM-DD')).toBe('2026-09-01');
     expect(DATEFORMAT('2026-09-01', 'DD/MM/YY HH:mm:ss')).toBe('01/09/26 00:00:00');
-    expect(DATEFORMAT(INSTANT, 'YYYY-MM-DD HH:mm')).toBe('2026-09-01 03:00');
   });
 
   at('`DATEDIFF` counts calendar months and years between two days', () => {
@@ -147,8 +150,8 @@ function everyZoneCases(zone?: string): void {
     expect(DATEDIFF('2026-11-01', '2026-11-02', 'hours')).toBe(24);
   });
 
-  at('`TODAY()` still names the UTC day (objectui#10903), and `DATEFORMAT(NOW())` names the same day', () => {
-    expect(todayPair()).toEqual({ today: '2026-09-28', formattedNow: '2026-09-28' });
+  at('`TODAY()` still names the UTC day (objectui#10903)', () => {
+    expect(todayAtClock()).toBe('2026-09-28');
   });
 
   at('control: a value that is not a date still throws the named error', () => {
@@ -158,8 +161,26 @@ function everyZoneCases(zone?: string): void {
   });
 }
 
+/**
+ * The instant controls: an instant is NOT on the UTC calendar. It formats in
+ * the zone the formula runs in, and its months are that zone's months, so the
+ * expected values differ by zone. Green on the base, by construction.
+ */
+function instantControls(zone: string | undefined, expected: { formatted: string; months: number }): void {
+  it(`control: an instant formats in the viewer's zone, ${expected.formatted} here`, () => {
+    if (zone) enter(zone);
+    expect(DATEFORMAT(INSTANT, 'YYYY-MM-DD HH:mm')).toBe(expected.formatted);
+  });
+
+  it(`control: an instant's months are the viewer's months, ${expected.months} from 12:00 UTC on August 31st to the instant here`, () => {
+    if (zone) enter(zone);
+    expect(DATEDIFF('2026-08-31T12:00:00.000Z', INSTANT, 'month')).toBe(expected.months);
+  });
+}
+
 describe('formula date functions, in the suite zone (objectui#10866)', () => {
   everyZoneCases();
+  instantControls(undefined, { formatted: '2026-09-01 03:00', months: 1 });
 });
 
 describe.runIf(DRIVEN)('formula date functions west of UTC (objectui#10866)', () => {
@@ -177,6 +198,8 @@ describe.runIf(DRIVEN)('formula date functions west of UTC (objectui#10866)', ()
   });
 
   everyZoneCases(WEST);
+  // 05:00 and 20:00 on August 31st here: the same month.
+  instantControls(WEST, { formatted: '2026-08-31 20:00', months: 0 });
 });
 
 describe.runIf(DRIVEN)('formula date functions east of UTC, the control (objectui#10866)', () => {
@@ -187,4 +210,6 @@ describe.runIf(DRIVEN)('formula date functions east of UTC, the control (objectu
   });
 
   everyZoneCases(EAST);
+  // 20:00 on August 31st and 11:00 on September 1st here: the next month.
+  instantControls(EAST, { formatted: '2026-09-01 11:00', months: 1 });
 });

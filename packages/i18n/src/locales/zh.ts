@@ -984,6 +984,7 @@ const zh = {
     pathStageWonUpcoming: '{{stage}}，目标阶段，未到达',
     linkCopied: '链接已复制到剪贴板',
     commentFailed: '评论未发布，内容没有保存，请重试。',
+    reactionFailed: '表情回应未保存，请重试。',
     linkCopyFailed: '复制链接失败',
     cancel: '取消',
     cancelEdit: '放弃更改',

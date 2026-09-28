@@ -1078,6 +1078,7 @@ const de = {
     pathStageWonUpcoming: '{{stage}}, Zielphase, nicht erreicht',
     linkCopied: "Link in die Zwischenablage kopiert",
     commentFailed: "Ihr Kommentar wurde nicht veröffentlicht. Es wurde nichts gespeichert – bitte versuchen Sie es erneut.",
+    reactionFailed: "Ihre Reaktion wurde nicht gespeichert. Bitte versuchen Sie es erneut.",
     linkCopyFailed: "Link konnte nicht kopiert werden",
     cancel: "Abbrechen",
     cancelEdit: "Änderungen verwerfen",

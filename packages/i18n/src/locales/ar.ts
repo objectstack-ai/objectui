@@ -1097,6 +1097,7 @@ const ar = {
     pathStageWonUpcoming: '{{stage}}، المرحلة الهدف، لم يتم الوصول إليها',
     linkCopied: "تم نسخ الرابط إلى الحافظة",
     commentFailed: "لم يُنشر تعليقك. لم يُحفظ أي شيء — يُرجى المحاولة مرة أخرى.",
+    reactionFailed: "لم يُحفظ تفاعلك. يُرجى المحاولة مرة أخرى.",
     linkCopyFailed: "فشل نسخ الرابط",
     cancel: "إلغاء",
     cancelEdit: "تجاهل التغييرات",

@@ -44,7 +44,7 @@ import { useRecordBreadcrumbTitle } from '../context/NavigationContext.js';
 // framework-injected bookkeeping columns are hidden from the body outright.
 // Both sets are derived, not restated — see record-detail-system-fields.ts.
 import { AUDIT_FIELD_NAMES, HIDDEN_SYSTEM_FIELD_NAMES } from './record-detail-system-fields.js';
-import type { FeedItem } from '@object-ui/types';
+import type { FeedItem, Reaction } from '@object-ui/types';
 import type { ActionDef, ActionParamDef, ConfirmationHandler } from '@object-ui/core';
 import type { ConsoleActionDispatch } from '../consoleActionDispatch.js';
 import { useRecordApprovals, recordLockedByApproval, isSubmitterOf } from '../hooks/useRecordApprovals.js';
@@ -206,6 +206,63 @@ function mergeFeedRows(prev: readonly FeedItem[], incoming: readonly FeedItem[])
     const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
     return ta - tb;
   });
+}
+
+/**
+ * A feed row's reactions with the signed-in user's `emoji` reaction toggled:
+ * added when they have not given it, taken back when they have. Pure — it
+ * returns a new array and never touches `reactions` — because it runs in the
+ * click handler and its result goes both on screen and into the write.
+ */
+function toggleOwnReaction(reactions: readonly Reaction[] | undefined, emoji: string): Reaction[] {
+  const next = [...(reactions ?? [])];
+  const idx = next.findIndex(r => r.emoji === emoji);
+  if (idx < 0) {
+    next.push({ emoji, count: 1, reacted: true });
+  } else if (!next[idx].reacted) {
+    next[idx] = { ...next[idx], count: next[idx].count + 1, reacted: true };
+  } else if (next[idx].count <= 1) {
+    next.splice(idx, 1);
+  } else {
+    next[idx] = { ...next[idx], count: next[idx].count - 1, reacted: false };
+  }
+  return next;
+}
+
+/**
+ * The stored `sys_comment.reactions` shape, `{ emoji: userIds[] }`, rebuilt
+ * from the panel's reactions. The panel does not have the original user-id
+ * list, so this approximates it: the signed-in user when they reacted, padded
+ * with a synthetic `__other__` marker up to the count so the count survives a
+ * re-read by other clients. That is an over-simplification for single-user
+ * pilot installs, to be replaced by a proper backend reaction endpoint in M11.
+ */
+function storedReactionShape(reactions: readonly Reaction[], userId: string): Record<string, string[]> {
+  const shape: Record<string, string[]> = {};
+  for (const r of reactions) {
+    const ids: string[] = [];
+    if (r.reacted) ids.push(userId);
+    while (ids.length < r.count) ids.push('__other__');
+    shape[r.emoji] = ids;
+  }
+  return shape;
+}
+
+/**
+ * One reaction click on a feed row: the reaction set it put on screen, which
+ * is the set its write stores, and how that write went.
+ */
+interface ReactionStep {
+  reactions: FeedItem['reactions'];
+  outcome: 'stored' | 'pending' | 'failed';
+}
+
+/** A feed row's reaction clicks whose writes have not all answered yet. */
+interface ReactionLedger {
+  /** Oldest first. `steps[0]` is always `stored`: the set the server holds for certain. */
+  steps: ReactionStep[];
+  /** The set this ledger last put on the row. */
+  shown: FeedItem['reactions'];
 }
 
 /**
@@ -1897,64 +1954,105 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     [currentUser, dataSource, objectName, pureRecordId, feedRecordKey, mentionSuggestions, commentWriteFailed],
   );
 
+  /**
+   * A reaction click shows at once and is stored in the background, and a
+   * reaction whose write fails does not stay shown as applied (objectui#10899,
+   * the same family as the comment writers above).
+   *
+   * The toggle is computed HERE, in the handler, from the row on screen, and
+   * the write is issued here too. It used to be issued from inside the state
+   * updater, which React may call twice (StrictMode does, and measured: one
+   * click, two `update`s), and to end in `.catch(() => {})`, so a refused write
+   * left the reaction on screen as applied, with no message, until a reload.
+   *
+   * Each write stores the row's WHOLE reaction set as of its click, so after
+   * several quick clicks the server holds the set of the newest write it
+   * accepted. The rollback follows that: every click records the set it
+   * showed, and once a write is refused the row shows the newest recorded set
+   * whose write was not refused. A refused click is therefore taken back only
+   * when no later click, whose write carries it too, can still store it. Two
+   * simpler rollbacks each break a real case: undoing one click at a time (the
+   * inverse toggle) takes back a reaction a later write did store, and
+   * restoring the pre-click set only while the row is unchanged leaves the
+   * first of two refused clicks on screen. The rollback is also skipped when
+   * the row no longer shows what this ledger put there, because a re-read
+   * replaced it and the server copy is the truth.
+   *
+   * The error is raised only when a rollback takes back something the user
+   * sees; a refused write whose click a later write stored lost nothing.
+   *
+   * ⛔ The stored shape is unchanged (`storedReactionShape`): that is the later
+   * reaction-endpoint work its comment names.
+   */
+  const reactionLedgersRef = useRef(new Map<string, ReactionLedger>());
+
   const handleToggleReaction = useCallback(
     (itemId: string | number, emoji: string) => {
-      if (!feedRecordKey) return;
+      // No data source to store through, or no record: not a write failure.
+      if (!dataSource || !feedRecordKey) return;
       // Reactions are toggled from the panel of the record on screen, so they
       // apply to that record's slice only (objectui#3268) — an id collision
       // with a row cached for another record cannot reach across.
-      setFeedItemsByRecord(prevByRecord => ({
-        ...prevByRecord,
-        [feedRecordKey]: (prevByRecord[feedRecordKey] ?? EMPTY_FEED).map(item => {
-          if (item.id !== itemId) return item;
-          const reactions = [...(item.reactions ?? [])];
-          const idx = reactions.findIndex(r => r.emoji === emoji);
-          if (idx >= 0) {
-            const r = reactions[idx];
-            if (r.reacted) {
-              // Remove user's reaction
-              if (r.count <= 1) {
-                reactions.splice(idx, 1);
-              } else {
-                reactions[idx] = { ...r, count: r.count - 1, reacted: false };
-              }
-            } else {
-              reactions[idx] = { ...r, count: r.count + 1, reacted: true };
-            }
-          } else {
-            reactions.push({ emoji, count: 1, reacted: true });
-          }
-          const updated = { ...item, reactions };
-          // Persist reactions to backend as JSON. The schema stores
-          // `reactions` as a textarea JSON string of `{ emoji: userIds[] }`,
-          // so we rebuild the canonical shape from the optimistic local
-          // state before writing back. A failed update silently keeps the
-          // optimistic UI change (best-effort, surfaced by RUM if needed).
-          if (dataSource) {
-            const userId = currentUser.id;
-            const remoteShape: Record<string, string[]> = {};
-            for (const r of reactions) {
-              // We don't have the original user-id list locally, so we
-              // approximate by emitting the signed-in user when they are
-              // the (only known) reactor. This is an over-simplification
-              // for single-user pilot installs and will be replaced by a
-              // proper backend reaction endpoint in M11.
-              const ids: string[] = [];
-              if (r.reacted) ids.push(userId);
-              // Pad with a synthetic marker so count is preserved across
-              // refreshes from other clients (best-effort).
-              while (ids.length < r.count) ids.push('__other__');
-              remoteShape[r.emoji] = ids;
-            }
-            dataSource.update('sys_comment', String(itemId), {
-              reactions: JSON.stringify(remoteShape),
-            }).catch(() => {});
-          }
-          return updated;
-        }),
+      const key = feedRecordKey;
+      const row = (feedItemsByRecord[key] ?? EMPTY_FEED).find(item => item.id === itemId);
+      if (!row) return;
+      const rowKey = JSON.stringify([key, String(itemId)]);
+      let ledger = reactionLedgersRef.current.get(rowKey);
+      if (!ledger || ledger.shown !== row.reactions) {
+        ledger = { steps: [{ reactions: row.reactions, outcome: 'stored' }], shown: row.reactions };
+        reactionLedgersRef.current.set(rowKey, ledger);
+      }
+      const step: ReactionStep = { reactions: toggleOwnReaction(row.reactions, emoji), outcome: 'pending' };
+      ledger.steps.push(step);
+      ledger.shown = step.reactions;
+      setFeedItemsByRecord(prev => ({
+        ...prev,
+        [key]: (prev[key] ?? EMPTY_FEED).map(item =>
+          item.id === itemId ? { ...item, reactions: step.reactions } : item,
+        ),
       }));
+
+      const settle = (outcome: 'stored' | 'failed') => {
+        const live = reactionLedgersRef.current.get(rowKey);
+        const at = live ? live.steps.indexOf(step) : -1;
+        // A re-read restarted the row, or a newer stored write superseded this one.
+        if (!live || at < 0) return;
+        step.outcome = outcome;
+        // A stored write holds the row's whole set as of its click.
+        if (outcome === 'stored') live.steps.splice(0, at);
+        if (!live.steps.some(s => s.outcome === 'pending')) reactionLedgersRef.current.delete(rowKey);
+        // `steps[0]` is stored, so there is always a newest set not refused.
+        const target = [...live.steps].reverse().find(s => s.outcome !== 'failed') as ReactionStep;
+        if (target.reactions === live.shown) return;
+        const from = live.shown;
+        live.shown = target.reactions;
+        setFeedItemsByRecord(prev => {
+          const rows = prev[key];
+          if (!rows?.some(item => item.id === itemId && item.reactions === from)) return prev;
+          return {
+            ...prev,
+            [key]: rows.map(item =>
+              item.id === itemId && item.reactions === from ? { ...item, reactions: target.reactions } : item,
+            ),
+          };
+        });
+        toast.error(
+          t('detail.reactionFailed', {
+            defaultValue: 'Your reaction was not saved. Please try again.',
+          }),
+        );
+      };
+
+      dataSource
+        .update('sys_comment', String(itemId), {
+          reactions: JSON.stringify(storedReactionShape(step.reactions ?? [], currentUser.id)),
+        })
+        .then(
+          () => settle('stored'),
+          () => settle('failed'),
+        );
     },
-    [currentUser.id, dataSource, feedRecordKey],
+    [currentUser.id, dataSource, feedRecordKey, feedItemsByRecord, t],
   );
 
   useEffect(() => {

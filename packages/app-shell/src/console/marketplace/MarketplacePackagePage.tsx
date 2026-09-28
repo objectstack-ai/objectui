@@ -44,6 +44,7 @@ import { MarketplaceAccessDenied } from './MarketplaceAccessDenied.js';
 import { MarketplaceResolving } from './MarketplaceResolving.js';
 import { MarketplaceDisabled } from './MarketplaceDisabled.js';
 import { localizePackage } from './usePackageL10n.js';
+import { isNewerVersion } from './versionPrecedence.js';
 import {
   getMarketplacePackage,
   installPackage,
@@ -633,11 +634,14 @@ export function MarketplacePackagePage() {
   // PD4 (ADR-0025 §3.11): code-bearing packages must disclose + be acknowledged.
   const containsCode = !!pkg.latest_version?.contains_code;
   // ADR-0010 version lifecycle: installed cloud env is on an OLDER version than
-  // the package's latest published → surface an update affordance.
+  // the package's latest published → surface an update affordance. OLDER is
+  // SemVer precedence, not inequality (objectui#10899): an env holding a newer
+  // version than the latest approved one is not offered a "downgrade update".
+  // The `'installed'` sentinel (version unknown) has no precedence, so it never
+  // claims an update either.
   const cloudUpdateAvailable = !!cloudInstalledVersion
-    && cloudInstalledVersion !== 'installed'
     && !!latestVersion
-    && cloudInstalledVersion !== latestVersion;
+    && isNewerVersion(latestVersion, cloudInstalledVersion);
 
   const supportsLocal = getRuntimeConfig().features.installLocal;
   const primaryDisabled = !latestVersion || installingLocal || installing || (!supportsLocal && !!cloudInstalledVersion && !cloudUpdateAvailable);
@@ -952,8 +956,9 @@ export function MarketplacePackagePage() {
                   <SelectContent>
                     {envs.map((e) => {
                       const installedHere = envInstallMap[e.id];
+                      // Same precedence rule as `cloudUpdateAvailable` above.
                       const hasUpdate = !!installedHere && !!latestVersion
-                        && installedHere !== 'installed' && installedHere !== latestVersion;
+                        && isNewerVersion(latestVersion, installedHere);
                       return (
                         <SelectItem key={e.id} value={e.id}>
                           {e.display_name || e.hostname || e.id}

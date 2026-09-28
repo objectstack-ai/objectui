@@ -151,6 +151,52 @@ export interface InputSchema extends BaseSchema {
    * Pattern for validation
    */
   pattern?: string;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `input` reads NEITHER content
+   * channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but that refusal
+   * names `children` as the remedy, and `input` does not read `children`
+   * either. It is restated here so the refusal names what `input` renders
+   * instead.
+   *
+   * @deprecated Not a channel `input` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `input` reads NEITHER content
+   * channel, so an authored child list here rendered NOTHING: no error, no
+   * warning, no element.
+   *
+   * MEASURED with the TypeScript TYPE CHECKER and not with grep, over one
+   * program per workspace package plus the apps and the examples, on a BUILT
+   * tree reporting zero unresolved-module diagnostics — an unbuilt tree answers
+   * `any`, and `any` reads as NEITHER. Every `body` / `children` read is filed
+   * under the TYPE of the object it is read from; this declaration carries
+   * none, while the same instrument sees it as the receiver of every key the
+   * renderer reads: `defaultValue`, `description`, `error`, `id`, `inputType`,
+   * `label`, `max`, `maxLength`, `min`, `name`, `pattern`, `placeholder`,
+   * `readOnly`, `required`, `step`, `value`, `wrapperClass` (in
+   * `packages/components/src/renderers/form/input.tsx`). `ui:input` is the only
+   * registration claiming the bare `input` key, and it hands the node straight
+   * to that renderer. `SchemaRenderer` strips both keys out of the props bag it
+   * spreads, the renderer forwards only the form-control DOM keys to the native
+   * element, and the registration declares no `children` slot (objectui#9910).
+   *
+   * ⭐ WHY THIS NAME WAS HELD OUT, AND WHAT CHANGED. {@link InputShorthandSchema}
+   * inherits from this interface, and its heritage used to be a plain `Omit`,
+   * which collapsed into `BaseSchema`'s index signature — so a tombstone here
+   * reached neither the `email` nor the `password` face. objectui#9256's E3
+   * slice re-spelled that heritage as the index-signature-safe `OmitDeclared`,
+   * after which this pair reaches both shorthand faces on the TypeScript side;
+   * the shorthand restates it with guidance naming its own node.
+   *
+   * What it renders instead: one input field — `label`, `placeholder`,
+   * `inputType`, `value` / `defaultValue`, `description`, `error`, `required`.
+   *
+   * @deprecated Not a channel `input` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -2549,10 +2595,13 @@ export interface InputShorthandSchema extends OmitDeclared<InputSchema, 'type' |
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `email` / `password` read
    * NEITHER content channel; see `children` below for the measurement.
    *
-   * {@link BaseSchema} already refuses `body` (objectui#6771), and since this
-   * interface stopped spelling its heritage as a collapsing `Omit` that refusal
-   * reaches this face at all. It is restated here because it names `children`
-   * as the remedy, which these two do not read either.
+   * ⚠️ TYPE-REDUNDANT, KEPT ON PURPOSE. {@link InputSchema} declares the same
+   * `?: never` pair since objectui#9256's `input` slice, and this interface's
+   * `OmitDeclared` heritage carries it here, so the member below changes no
+   * type. It stays because both faces of this arm speak for THIS node: the zod
+   * twin's refusal message names `email` / `password` and the wrapper route
+   * that reaches the `input` renderer, which the inherited `input` message does
+   * not, and this docblock is what an editor shows on these two types.
    *
    * @deprecated Not a channel `email` / `password` read — nothing renders it.
    */
@@ -2572,6 +2621,9 @@ export interface InputShorthandSchema extends OmitDeclared<InputSchema, 'type' |
    *
    * What it renders instead: one input field — `label`, `placeholder`,
    * `value` / `defaultValue`, `description`, `error`, `required`.
+   *
+   * Type-redundant with the {@link InputSchema} member this interface inherits,
+   * and kept for the reason given on `body` above.
    *
    * @deprecated Not a channel `email` / `password` read — nothing renders it.
    */

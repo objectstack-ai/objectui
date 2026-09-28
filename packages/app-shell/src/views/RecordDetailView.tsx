@@ -1776,8 +1776,42 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
    * deliver bell notifications, which is the expected degradation.
    */
 
+  /**
+   * A comment is on the panel only once the server has it (objectui#10899,
+   * maintainer ruling on cloud#2431: a failed comment write is never rendered
+   * as sent).
+   *
+   * Both writers used to append an OPTIMISTIC row, then fire the `create` and
+   * swallow its rejection. On a tenant with no `sys_comment` the write answered
+   * 404 while the panel showed the comment and 「讨论 (1)」 — and the comment was
+   * gone on reload, with nothing ever saying it had not been saved. Now the row
+   * is appended after the `create` resolves; while it is in flight the composer
+   * shows its own submitting state. A rejected write raises a localized error
+   * and REJECTS back to the composer, which keeps the draft
+   * (`RecordActivityTimeline` / `ThreadedReplies` treat a rejection as "not
+   * written"), so the user can retry without retyping.
+   *
+   * The row keeps its client-minted id — the same id the `create` persists — so
+   * the next re-read merges the stored copy onto it by id, and it still goes
+   * into the slice of the record it was written ON (objectui#3268).
+   */
+  const commentWriteFailed = useCallback(
+    (err: unknown): Error => {
+      toast.error(
+        t('detail.commentFailed', {
+          defaultValue: 'Your comment was not posted. Nothing was saved — please try again.',
+        }),
+      );
+      return err instanceof Error ? err : new Error(String(err));
+    },
+    [t],
+  );
+
   const handleAddComment = useCallback(
     async (text: string) => {
+      if (!dataSource || !feedRecordKey) {
+        throw commentWriteFailed(new Error('No data source to write sys_comment through'));
+      }
       const newItem: FeedItem = {
         id: crypto.randomUUID(),
         type: 'comment',
@@ -1786,22 +1820,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         body: text,
         createdAt: new Date().toISOString(),
       };
-      // The optimistic row goes into the slice of the record it was written
-      // ON, under the same key its `thread_id` will carry (objectui#3268) —
-      // so navigating away and back finds it again, and it never shows up on
-      // another record's panel. The re-read merges the persisted copy onto it
-      // by id, so there is no duplicate when it lands.
-      if (feedRecordKey) {
-        setFeedItemsByRecord(prev => ({
-          ...prev,
-          [feedRecordKey]: [...(prev[feedRecordKey] ?? EMPTY_FEED), newItem],
-        }));
-      }
       // Persist to backend (M10.10: snake_case fields per sys_comment schema)
-      if (dataSource) {
-        const threadId = `${objectName}:${pureRecordId}`;
-        const mentionIds = extractMentions(text, mentionSuggestions);
-        dataSource.create('sys_comment', {
+      const threadId = `${objectName}:${pureRecordId}`;
+      const mentionIds = extractMentions(text, mentionSuggestions);
+      try {
+        await dataSource.create('sys_comment', {
           id: newItem.id,
           thread_id: threadId,
           author_id: currentUser.id,
@@ -1810,14 +1833,24 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           body: text,
           mentions: JSON.stringify(mentionIds),
           created_at: newItem.createdAt,
-        }).catch(() => {});
+        });
+      } catch (err) {
+        throw commentWriteFailed(err);
       }
+      const key = feedRecordKey;
+      setFeedItemsByRecord(prev => ({
+        ...prev,
+        [key]: [...(prev[key] ?? EMPTY_FEED), newItem],
+      }));
     },
-    [currentUser, dataSource, objectName, pureRecordId, feedRecordKey, mentionSuggestions],
+    [currentUser, dataSource, objectName, pureRecordId, feedRecordKey, mentionSuggestions, commentWriteFailed],
   );
 
   const handleAddReply = useCallback(
     async (parentId: string | number, text: string) => {
+      if (!dataSource || !feedRecordKey) {
+        throw commentWriteFailed(new Error('No data source to write sys_comment through'));
+      }
       const newItem: FeedItem = {
         id: crypto.randomUUID(),
         type: 'comment',
@@ -1827,27 +1860,10 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         createdAt: new Date().toISOString(),
         parentId,
       };
-      // Same record-scoped optimistic write as `handleAddComment` — the reply
-      // and the parent's bumped `replyCount` both belong to THIS record's
-      // slice (objectui#3268).
-      if (feedRecordKey) {
-        setFeedItemsByRecord(prev => {
-          const updated = [...(prev[feedRecordKey] ?? EMPTY_FEED), newItem];
-          return {
-            ...prev,
-            // Increment replyCount on parent
-            [feedRecordKey]: updated.map(item =>
-              item.id === parentId
-                ? { ...item, replyCount: (item.replyCount ?? 0) + 1 }
-                : item
-            ),
-          };
-        });
-      }
-      if (dataSource) {
-        const threadId = `${objectName}:${pureRecordId}`;
-        const mentionIds = extractMentions(text, mentionSuggestions);
-        dataSource.create('sys_comment', {
+      const threadId = `${objectName}:${pureRecordId}`;
+      const mentionIds = extractMentions(text, mentionSuggestions);
+      try {
+        await dataSource.create('sys_comment', {
           id: newItem.id,
           thread_id: threadId,
           author_id: currentUser.id,
@@ -1857,10 +1873,27 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           mentions: JSON.stringify(mentionIds),
           created_at: newItem.createdAt,
           parent_id: parentId,
-        }).catch(() => {});
+        });
+      } catch (err) {
+        throw commentWriteFailed(err);
       }
+      // Same record-scoped write as `handleAddComment` — the reply and the
+      // parent's bumped `replyCount` both belong to THIS record's slice
+      // (objectui#3268), and both land only once the reply is stored.
+      const key = feedRecordKey;
+      setFeedItemsByRecord(prev => {
+        const updated = [...(prev[key] ?? EMPTY_FEED), newItem];
+        return {
+          ...prev,
+          [key]: updated.map(item =>
+            item.id === parentId
+              ? { ...item, replyCount: (item.replyCount ?? 0) + 1 }
+              : item
+          ),
+        };
+      });
     },
-    [currentUser, dataSource, objectName, pureRecordId, feedRecordKey, mentionSuggestions],
+    [currentUser, dataSource, objectName, pureRecordId, feedRecordKey, mentionSuggestions, commentWriteFailed],
   );
 
   const handleToggleReaction = useCallback(

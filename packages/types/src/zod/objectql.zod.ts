@@ -919,7 +919,7 @@ const KanbanStrayGroupByRefusal = aliasKeyRefusal(
 );
 
 /**
- * WHERE THIS ARM IS INSTALLED — TWO ROUTES, TWO NESTINGS EACH, ONE STRING.
+ * WHERE THIS ARM IS INSTALLED — TWO ROUTES, THREE NESTINGS, ONE STRING.
  *
  * `ListView` merges `{ ...schema.options?.kanban, ...schema.kanban }` before it
  * reads anything, so a stored view can carry the stray key under EITHER. The
@@ -930,11 +930,13 @@ const KanbanStrayGroupByRefusal = aliasKeyRefusal(
  * `options.kanban.groupBy`) — see `ListViewSchema.options` below.
  *
  * The second route is a named view on an `object-view` document, whose
- * `listViews` is unmirrored: nothing `ListViewSchema` declares reaches it, and
- * `generateViewSchema` merges the same two nestings. It takes the SAME guidance
- * through the named-view door (`custom` at `listViews.KEY.kanban.groupBy` and
- * `listViews.KEY.options.kanban.groupBy`, objectui#10321) — see
- * `checkNamedViewKanbanStrayGroupBy` below.
+ * `listViews` is the protocol's strict record by reference (objectui#7928), so
+ * nothing `ListViewSchema` declares reaches it, and it has ONE nesting: the
+ * record refuses a named view's `options` bag whole (`unrecognized_keys` naming
+ * `options`), and `generateViewSchema` no longer reads that bag. The `kanban`
+ * block takes the SAME guidance through the named-view door (`custom` at
+ * `listViews.KEY.kanban.groupBy`, objectui#10321, beside the protocol's own
+ * `unrecognized_keys`) — see `checkNamedViewKanbanStrayGroupBy` below.
  *
  * ⚠️ Covering the legacy nesting is not optional politeness: the retired
  * producer (`app-shell`'s `kanbanViewOptions`, objectui#8213) wrote into
@@ -943,8 +945,8 @@ const KanbanStrayGroupByRefusal = aliasKeyRefusal(
  * population re-grouped in silence — option A, which the ruling did not take.
  *
  * ⛔ Every channel takes ONE string, read off this arm's own `.description`,
- * so the message an author meets cannot depend on which route or nesting they
- * wrote.
+ * so the message an author meets at the key cannot depend on which of those
+ * three nestings they wrote it in.
  */
 
 const KanbanConfig = stripImportedDefaults(SpecKanbanConfigSchema).partial().extend({

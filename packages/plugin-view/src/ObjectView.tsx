@@ -245,6 +245,63 @@ function viewColumnFieldNames(columns: unknown): string[] | undefined {
 }
 
 /**
+ * objectui#10885 — a named view's `hiddenFields`, applied to the column
+ * projection route 2 hands `ObjectGrid`.
+ *
+ * The protocol composes three members of a named list view: `columns`
+ * projects, `hiddenFields` subtracts, `fieldOrder` orders what survives
+ * (objectstack#15184 ruling B). `ObjectGrid` has no `hiddenFields` read, and
+ * `object-grid` declares no such key, so relaying the member by name would put
+ * a key on the grid node that nothing reads. The subtraction is therefore made
+ * here, on the resolved projection, as `ListView` subtracts it for the host
+ * delegation (its `effectiveFields`), except that an entry with no field
+ * identity is kept: `ListView` drops such an entry whenever `hiddenFields` is
+ * non-empty.
+ *
+ * - Only a DECLARED projection is narrowed. With no `columns` anywhere the grid
+ *   derives its own defaults, and this returns `undefined` unchanged, as
+ *   `ListView` does.
+ * - An entry is dropped only when `columnIdentity` names a hidden field. Every
+ *   other entry, and the entry's own shape, is kept.
+ * - A projection that every entry leaves is kept as the empty projection the
+ *   author wrote; it does not fall back to the grid's defaults.
+ *
+ * Generic over the whole array type because the `columns` slot is a union of
+ * two array types (`string[] | ListColumn[]`): filtering keeps each entry as it
+ * was, so the result has the type the input had, which the one cast states.
+ */
+function withoutHiddenFields<C extends readonly unknown[]>(columns: C | undefined, hidden: readonly string[] | undefined): C | undefined {
+  if (!Array.isArray(columns) || !Array.isArray(hidden) || hidden.length === 0) return columns;
+  const drop = new Set(hidden);
+  return (columns as readonly unknown[]).filter((entry) => {
+    const name = columnIdentity(entry);
+    return !name || !drop.has(name);
+  }) as unknown as C;
+}
+
+/**
+ * objectui#10885 — a named view's `exportOptions`, in the one shape the
+ * `object-grid` slot holds.
+ *
+ * The protocol declares the member on a named view as `{ formats?, maxRecords?,
+ * includeHeaders?, fileNamePrefix?, streaming? }`, and declares a bare format
+ * array as its legacy spelling, which "lifts to `{ formats: [...] }` at parse"
+ * (the member's own description in `@objectstack/spec`). A named view reaches
+ * this component unparsed, so the bare array can arrive as written. `ObjectGrid`
+ * reads `exportOptions.formats`, which an array does not have: relayed as is,
+ * the grid would offer its default formats instead of the ones the author
+ * listed. So the declared union is narrowed to the slot's branch here, by the
+ * protocol's own lift, the way `ListView` narrows it for the host delegation.
+ * It accepts no spelling the protocol does not; the node-shape fold of a
+ * declared union at the boundary is the objectui#5269 / objectui#8254 pattern
+ * `viewColumnFieldNames` follows.
+ */
+function gridExportOptions(options: NamedViewConfig['exportOptions']): ObjectGridSchema['exportOptions'] {
+  if (Array.isArray(options)) return { formats: options };
+  return options;
+}
+
+/**
  * One entry of `ObjectViewSchema.listViews` — the protocol's
  * `ObjectListViewSchema`, by reference (objectui#7928). Derived from the member
  * rather than named on its own, so this component reads exactly the type the
@@ -2202,6 +2259,8 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     // objectui#7928: see the non-grid fetch above. A retired string `sort` on a
     // named view reaches `ObjectGrid` unchanged, which refuses it out loud.
     const viewSort = (currentNamedViewConfig?.sort as ObjectGridSchema['sort']) || activeView?.sort;
+    // objectui#10885 — subtracted from whichever projection wins below.
+    const hiddenFields = currentNamedViewConfig?.hiddenFields;
 
     return {
       type: 'object-grid',
@@ -2214,8 +2273,16 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       // folded to identities, and `columns` is `string[] | ListColumn[]` so it
       // takes the authored value raw. One value, two slots, each given the
       // shape it declares.
-      fields: viewColumnFieldNames(currentNamedViewConfig?.columns) || activeView?.columns || schema.table?.fields,
-      columns: currentNamedViewConfig?.columns || activeView?.columns || schema.table?.columns,
+      // objectui#10885 — both slots lose the named view's `hiddenFields`
+      // (see `withoutHiddenFields`).
+      fields: withoutHiddenFields(
+        viewColumnFieldNames(currentNamedViewConfig?.columns) || activeView?.columns || schema.table?.fields,
+        hiddenFields,
+      ),
+      columns: withoutHiddenFields(
+        currentNamedViewConfig?.columns || activeView?.columns || schema.table?.columns,
+        hiddenFields,
+      ),
       operations: {
         ...operations,
         create: false, // Create is handled by the view's create button
@@ -2233,8 +2300,41 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       // express; what changes is only WHICH slot a view's sort arrives in, and
       // this is the one whose declared arity can hold it.
       sort: viewSort || schema.table?.sort,
-      pagination: schema.table?.pagination,
-      selection: schema.table?.selection,
+      // ⭐ objectui#10885 — the named view's own GRID MEMBERS, read here the
+      // way the host delegation below reads them since objectui#10758: the
+      // named view first, then the node only where this branch already read
+      // the node (`table.pagination`, `table.selection`). Each is a member the
+      // protocol declares on a named view AND on `object-grid`, under the same
+      // name, and `ObjectGrid` reads each one. The Studio's view preview renders
+      // a stored view through this branch, so before this a stored view's
+      // `rowHeight`, `pagination` and the rest were accepted and not shown.
+      //
+      // NAMED-VIEW SOURCED, like `grouping` / `rowColor` below: ⛔ no
+      // `activeView` rung (the host `views` path never fed these slots on this
+      // branch) and ⛔ no node read this branch did not already have. ⛔ No
+      // alias and no key `object-grid` does not declare: `hiddenFields` is
+      // applied to the projection above rather than relayed, and `navigation`
+      // is not relayed because this component passes `ObjectGrid` its own
+      // `onRowClick`, which the grid's navigation hook obeys first.
+      pagination: currentNamedViewConfig?.pagination ?? schema.table?.pagination,
+      selection: currentNamedViewConfig?.selection ?? schema.table?.selection,
+      rowHeight: currentNamedViewConfig?.rowHeight,
+      resizable: currentNamedViewConfig?.resizable,
+      searchableFields: currentNamedViewConfig?.searchableFields,
+      // The protocol's rule `condition` is a string or the `{ dialect, source }`
+      // expression wire; `ObjectGrid` hands every rule to the shared evaluator
+      // (`resolveConditionalFormatting`), which reads both. The grid's declared
+      // rule type spells the string form only, hence the assertion — the same
+      // one `viewSort` above makes for the named view's `sort`.
+      conditionalFormatting: currentNamedViewConfig?.conditionalFormatting as ObjectGridSchema['conditionalFormatting'],
+      rowActions: currentNamedViewConfig?.rowActions,
+      bulkActions: currentNamedViewConfig?.bulkActions,
+      // Same reason as `conditionalFormatting`: the protocol's `visible`
+      // expression wire may carry `ast` without `source`, which the grid's
+      // declared `BulkActionDef` does not spell. It is the value the host
+      // delegation already hands `ObjectGrid` through `ListView`.
+      bulkActionDefs: currentNamedViewConfig?.bulkActionDefs as ObjectGridSchema['bulkActionDefs'],
+      exportOptions: gridExportOptions(currentNamedViewConfig?.exportOptions),
       // ⭐ objectui#8980 — the AUTHOR-REACHABLE read point for two of the
       // seventeen. `ObjectGrid` already reads both (`schema.grouping` in its
       // group-field memo and its reference collector, `useRowColor(schema.rowColor)`),

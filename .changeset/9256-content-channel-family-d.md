@@ -39,6 +39,25 @@ twins are unchanged and go on inheriting `body` as the content slot, and the rea
 held the key out — it was a naming collision to rule on, not a family-D read-site verdict —
 is the part that stayed true.
 
+⚠️ **Dated note, 2026-09-28 — the two twins no longer take `body` — objectui#6771.** Later
+in this same release objectui#6771 retired `body` as a child-list spelling on `BaseSchema`
+itself, so the `body` slot `chatbot-enhanced` and `chatbot-floating` inherited is gone. Both
+now refuse `body` on both faces: the TypeScript face through `BaseSchema`'s `body?: never`,
+and each mirror by name, with a message pointing at `requestBody`, the key the registration
+forwards to the chat runtime. So "The two twins are unchanged and go on inheriting `body` as
+the content slot" no longer holds. The paragraph above is kept as the reading of that
+amendment.
+
+⚠️ **Dated note, 2026-09-28 — most of the hold-outs above have since been narrowed —
+objectui#9256.** Later in this same release, under the same card: `text`, `image`, `icon`,
+`tabs`, `accordion` and `calendar`, six of the nine names, once `check:registry-bare-names`
+(objectui#9264) measured one owner for each; `list` and `timeline`; `DetailViewSchema` and
+the `email` / `password` shorthand faces (`InputShorthandSchema`), whose TypeScript heritage
+was re-spelled from a collapsing `Omit` to `OmitDeclared`; and `InputSchema` itself. Each
+now refuses both channels on both faces, and each is its own entry in this release.
+`button` and `AppComponentSchema` still accept `children`. The rest of this entry is kept as
+the reading of this change.
+
 Four published documents in the schema catalog and three component reference pages were
 authoring `children` on `dialog`, `drawer`, `popover` and `collapsible`, all of which
 read `content`. They rendered empty boxes and are corrected here.

@@ -77,8 +77,8 @@ export const AlertSchema = BaseSchema.extend({
     'children',
     'this alert node',
     '`alert` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/data-display/alert.tsx`). '
-    + '`body` was this node\'s only child-list key until objectui#6771 retired the spelling; an authored `body` now parses green through '
-    + '`.passthrough()` and renders an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` was this node\'s only child-list key until objectui#6771 retired the spelling — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -124,8 +124,8 @@ export const BadgeSchema = BaseSchema.extend({
     'children',
     'this badge node',
     '`badge` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/data-display/badge.tsx`). '
-    + '`body` was this node\'s only child-list key until objectui#6771 retired the spelling; an authored `body` now parses green through '
-    + '`.passthrough()` and renders an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` was this node\'s only child-list key until objectui#6771 retired the spelling — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 

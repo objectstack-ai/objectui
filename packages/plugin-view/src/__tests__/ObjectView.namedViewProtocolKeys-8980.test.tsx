@@ -495,15 +495,18 @@ const valuesOf = (family: Record<string, Sources>, source: keyof Sources): Recor
  * renders — the `list-view` node handed to `renderListView` is the input of the
  * rendered list, and nothing between this call and `ListView` rewrites it.
  */
-function delegatedWithSources(view: SpecNamedView, host: Record<string, unknown> | null, node: Record<string, unknown>): any {
+/** The `list-view` node a host receives — read by key, so an index shape is all it needs. */
+type HandedDown = Record<string, unknown>;
+
+function delegatedWithSources(view: SpecNamedView, host: Record<string, unknown> | null, node: Record<string, unknown>): HandedDown {
   resetSinks();
-  const seen: any[] = [];
+  const seen: HandedDown[] = [];
   render(
     <ObjectView
       schema={{ ...NODE, ...node, listViews: { v1: view } } as unknown as ObjectViewSchema}
-      views={host ? [{ id: 'h', label: 'Host', type: 'grid', ...host } as any] : undefined}
+      views={host ? [{ id: 'h', label: 'Host', type: 'grid' as const, ...host }] : undefined}
       dataSource={dataSource()}
-      renderListView={({ schema: s }: any) => {
+      renderListView={({ schema: s }: { schema: HandedDown }) => {
         seen.push(s);
         return <div data-testid="delegated" />;
       }}
@@ -527,7 +530,7 @@ const CONTROL: SpecNamedView = {
   grouping: { fields: [{ field: 'owner' }] },
 };
 
-function expectControl(s: any) {
+function expectControl(s: HandedDown) {
   expect(s.type).toBe('list-view');
   expect(s.label).toBe('Open work');
   expect(s.columns).toEqual(['subject', 'stage']);

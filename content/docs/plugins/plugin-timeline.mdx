@@ -340,6 +340,8 @@ const mediumProject: TimelineSchema['scale'] = 'week'  // medium projects
 const longProject: TimelineSchema['scale'] = 'month'   // long projects
 ```
 
+A date-only bar date, `minDate` or `maxDate` (`2024-01-15`) names a calendar day, so the axis headers, the bar positions and the bar tooltips all place it on that day in every viewer's time zone. A value with a time part is an instant and sits at its hour in the viewer's day. A plan with no bar dates and no pinned range shows a one-day axis on the viewer's today.
+
 ## Customization
 
 ### Custom Icons

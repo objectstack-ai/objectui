@@ -17,10 +17,57 @@
  * @packageDocumentation
  */
 
+import { isRealCalendarDate } from '../utils/date-display.js';
+
 /**
  * A formula function that can be registered with the expression evaluator
  */
 export type FormulaFunction = (...args: any[]) => any;
+
+/**
+ * One argument of `DATEADD` / `DATEDIFF` / `DATEFORMAT`, read for the UTC
+ * calendar (objectui#10866, slice 3).
+ *
+ * `date` is the engine's own parse: a date-only `YYYY-MM-DD` is UTC midnight
+ * of the day it names, and a value with a time part is its instant. `day` says
+ * the argument IS a calendar day — a date-only string naming a day its month
+ * has, by the shared judgement `isRealCalendarDate` — so the function hands a
+ * day back as `YYYY-MM-DD`. Anything else is an instant and is handed back as
+ * one, as every argument was before (a date-only string naming a day its
+ * month does not have included: the engine rolls it forward, as the server's
+ * parse does).
+ */
+interface FormulaDate {
+  date: Date;
+  day: boolean;
+}
+
+/** Read one date argument, or throw the function's named error. */
+function readFormulaDate(fn: string, value: unknown): FormulaDate {
+  const date = new Date(value as any);
+  if (isNaN(date.getTime())) {
+    throw new Error(`${fn}: Invalid date "${value}"`);
+  }
+  return { date, day: typeof value === 'string' && isRealCalendarDate(value) };
+}
+
+/**
+ * Move `date` by `months` calendar months on the UTC calendar, clamping the
+ * day to the target month's last day: January 31st plus one month is February
+ * 28th (29th in a leap year), never an overflow into March.
+ *
+ * This is the server's rule, objectstack `@objectstack/formula`'s stdlib
+ * `addMonthsUtc` behind CEL `addMonths(d, n)`, written the same way: step to
+ * the 1st, move the month, then clamp the day.
+ */
+function addMonthsUtc(date: Date, months: number): void {
+  const day = date.getUTCDate();
+  date.setUTCDate(1);
+  date.setUTCMonth(date.getUTCMonth() + months);
+  const lastDay = new Date(date.getTime());
+  lastDay.setUTCMonth(lastDay.getUTCMonth() + 1, 0);
+  date.setUTCDate(Math.min(day, lastDay.getUTCDate()));
+}
 
 /**
  * Registry of built-in formula functions
@@ -149,48 +196,67 @@ export class FormulaFunctions {
       return new Date().toISOString();
     });
 
+    /**
+     * `DATEADD`, `DATEDIFF` and `DATEFORMAT` work on the UTC calendar, the
+     * server's (objectstack ADR-0053 D1: a calendar day is UTC midnight of that
+     * day), with UTC setters and getters, so what they answer for a day or for
+     * an instant does not depend on the zone the formula runs in
+     * (objectui#10866, slice 3). A date-time written without an offset is
+     * still read in the local zone, by the engine's parse, as before.
+     *
+     * - A date-only argument is read as UTC midnight of its day, and a day that
+     *   `DATEADD` moves by days, months or years comes back as `YYYY-MM-DD`.
+     *   Hours and minutes on a day give an instant: UTC midnight of the day,
+     *   moved.
+     * - A value with a time part keeps its instant and comes back as an
+     *   instant (`toISOString()`).
+     * - Months clamp to the target month's last day, as the server's
+     *   `addMonths` does; a year is twelve months on the same rule, so
+     *   February 29th plus a year is February 28th.
+     * - `DATEFORMAT` prints with UTC getters: a day prints itself, and an
+     *   instant prints its UTC clock, so `DATEFORMAT(NOW(), 'YYYY-MM-DD')`
+     *   names the day `TODAY()` names.
+     *
+     * They used LOCAL setters and getters: west of UTC `DATEFORMAT` printed a
+     * date-only value as the day before, `DATEDIFF` in months from August 31st
+     * to September 1st read 0, and a `DATEADD` of a day across a DST change
+     * moved an hour off midnight; and a month from January 31st overflowed
+     * into March in every zone. Pinned in both directions by
+     * `__tests__/FormulaFunctions.dateOnlyZone-10866.test.ts`.
+     */
     this.register('DATEADD', (dateStr: string, amount: number, unit: string): string => {
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) {
-        throw new Error(`DATEADD: Invalid date "${dateStr}"`);
-      }
+      const { date, day } = readFormulaDate('DATEADD', dateStr);
       const normalizedUnit = String(unit).toLowerCase();
       switch (normalizedUnit) {
         case 'day':
         case 'days':
-          date.setDate(date.getDate() + amount);
+          date.setUTCDate(date.getUTCDate() + amount);
           break;
         case 'month':
         case 'months':
-          date.setMonth(date.getMonth() + amount);
+          addMonthsUtc(date, amount);
           break;
         case 'year':
         case 'years':
-          date.setFullYear(date.getFullYear() + amount);
+          addMonthsUtc(date, amount * 12);
           break;
         case 'hour':
         case 'hours':
-          date.setHours(date.getHours() + amount);
-          break;
+          date.setUTCHours(date.getUTCHours() + amount);
+          return date.toISOString();
         case 'minute':
         case 'minutes':
-          date.setMinutes(date.getMinutes() + amount);
-          break;
+          date.setUTCMinutes(date.getUTCMinutes() + amount);
+          return date.toISOString();
         default:
           throw new Error(`DATEADD: Unsupported unit "${unit}"`);
       }
-      return date.toISOString();
+      return day ? date.toISOString().slice(0, 10) : date.toISOString();
     });
 
     this.register('DATEDIFF', (dateStr1: string, dateStr2: string, unit: string): number => {
-      const date1 = new Date(dateStr1);
-      const date2 = new Date(dateStr2);
-      if (isNaN(date1.getTime())) {
-        throw new Error(`DATEDIFF: Invalid date "${dateStr1}"`);
-      }
-      if (isNaN(date2.getTime())) {
-        throw new Error(`DATEDIFF: Invalid date "${dateStr2}"`);
-      }
+      const date1 = readFormulaDate('DATEDIFF', dateStr1).date;
+      const date2 = readFormulaDate('DATEDIFF', dateStr2).date;
       const diffMs = date2.getTime() - date1.getTime();
       const normalizedUnit = String(unit).toLowerCase();
       switch (normalizedUnit) {
@@ -199,10 +265,10 @@ export class FormulaFunctions {
           return Math.floor(diffMs / (1000 * 60 * 60 * 24));
         case 'month':
         case 'months':
-          return (date2.getFullYear() - date1.getFullYear()) * 12 + (date2.getMonth() - date1.getMonth());
+          return (date2.getUTCFullYear() - date1.getUTCFullYear()) * 12 + (date2.getUTCMonth() - date1.getUTCMonth());
         case 'year':
         case 'years':
-          return date2.getFullYear() - date1.getFullYear();
+          return date2.getUTCFullYear() - date1.getUTCFullYear();
         case 'hour':
         case 'hours':
           return Math.floor(diffMs / (1000 * 60 * 60));
@@ -215,19 +281,16 @@ export class FormulaFunctions {
     });
 
     this.register('DATEFORMAT', (dateStr: string, format: string): string => {
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) {
-        throw new Error(`DATEFORMAT: Invalid date "${dateStr}"`);
-      }
+      const { date } = readFormulaDate('DATEFORMAT', dateStr);
       const pad = (n: number, len = 2) => String(n).padStart(len, '0');
       return format
-        .replace('YYYY', String(date.getFullYear()))
-        .replace('YY', String(date.getFullYear()).slice(-2))
-        .replace('MM', pad(date.getMonth() + 1))
-        .replace('DD', pad(date.getDate()))
-        .replace('HH', pad(date.getHours()))
-        .replace('mm', pad(date.getMinutes()))
-        .replace('ss', pad(date.getSeconds()));
+        .replace('YYYY', String(date.getUTCFullYear()))
+        .replace('YY', String(date.getUTCFullYear()).slice(-2))
+        .replace('MM', pad(date.getUTCMonth() + 1))
+        .replace('DD', pad(date.getUTCDate()))
+        .replace('HH', pad(date.getUTCHours()))
+        .replace('mm', pad(date.getUTCMinutes()))
+        .replace('ss', pad(date.getUTCSeconds()));
     });
   }
 

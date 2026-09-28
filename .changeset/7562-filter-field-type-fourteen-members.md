@@ -23,7 +23,7 @@ now validates, as does `{ value, label, type: 'currency' }`.
 
 **Still refused, deliberately.** `string` stays out. It is named nowhere in the renderer
 and reaches the text control only by the unrecognised-word fallthrough, so it is
-indistinguishable from a nonsense spelling — the phantom objectui#6939 removed. `text`
+indistinguishable from a nonsense spelling — the phantom `d4493fdbc` removed. `text`
 shares that fallthrough but IS named (`valueFamilyForFieldType`'s `fieldType || "text"`),
 which is the whole difference between the two. The vocabulary also stays CLOSED: an
 unrecognised spelling is still refused, so this is not "`type` stopped being checked".

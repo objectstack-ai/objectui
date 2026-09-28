@@ -20,7 +20,7 @@ is migrated automatically and nothing at runtime changes: those conditions were 
 dead (see below), the editor just stops hiding it. Rewrite `status == 'overdue'` as
 `record.status == 'overdue'`.
 
-The editor was teaching a spelling the runtime had already retired. objectui#5741
+The editor was teaching a spelling the runtime had already retired. `83fe6e741`
 (Phase 2 of the objectui#5330 canon, ruled 2026-09-02 and amended 2026-09-05) unbound
 the bare shorthand and `data.*` on runtime record surfaces: `evalRowPredicate` binds the
 row as `record.*` and nothing else, so `status == 'overdue'` faults with
@@ -115,7 +115,7 @@ the engine's `introspectScope` returns byte-identical `fields` for `record` and
 `fields` hint rather than deriving one per scope).
 
 The `flattened` default at the shared authoring seam is **untouched**: RLS predicates
-and flow conditions are not row surfaces (objectui#5738 stand-down 3) and stay
+and flow conditions are not row surfaces (stand-down 3 on the corpus-sweep card behind `702c48a62`) and stay
 flattened.
 
 **What this does NOT close — one half is left open, and it is filed.**

@@ -9,7 +9,7 @@
 issue 指向 `NavigationItem`。TS 面同步收窄：`AppMenuItem.shortcut?: never`，在编写处就被 `tsc` 拒掉。
 
 零迁移面：本仓**零作者**写过这个键，且 `@object-ui/runner` 不发布库入口，没有绕过校验器塞进来的
-路径。⛔ 这里刻意不冻结任何总数 —— objectui#6854 当初普查的那个 JSON 总体此后已经变动，冻进散文
+路径。⛔ 这里刻意不冻结任何总数 —— `adb2a86db` 当初普查的那个 JSON 总体此后已经变动，冻进散文
 的数字没有东西会去重新求值。判据写成可复跑的规则：**结构化**地 `JSON.parse` 每一个 tracked
 `*.json`，无限深度遍历，报出「经由字面名为 `items` 的键抵达的数组、其元素对象自带 `shortcut`」者；
 在本次改动的头上跑出 0 命中，注入 fixture 的正控制会开火（含一处嵌套命中），且不会把 action 层的 `shortcut`
@@ -23,7 +23,7 @@ issue 指向 `NavigationItem`。TS 面同步收窄：`AppMenuItem.shortcut?: nev
 - zod 面 —— `MenuItemSchema.shortcut` 走 `retirementTombstone()`，一条 guidance 同时喂 parse
   消息与 `.describe()`（即已发布的 JSON-Schema 描述）。
 
-⛔ `LayoutRenderer` 未恢复任何读点，objectui#6854 的那枚 pin 断言原样保留；本次只修了它与
+⛔ `LayoutRenderer` 未恢复任何读点，`adb2a86db` 的那枚 pin 断言原样保留；本次只修了它与
 `LayoutRenderer.tsx` 里已经过期的散文（两处都在把一个已裁决的问题描述成悬而未决）。
 `@object-ui/runner` 的改动**仅为注释**，无任何已发布行为变化。
 

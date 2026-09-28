@@ -16,3 +16,12 @@ over `{ provider: 'object' }` and what a drill-down drawer lists the underlying
 records with, so those re-read too. A drill that opens a report
 (`drillDown.report`) and the single-record drawer a table row opens do not
 re-read. Bound rows and authored `data` rows do not subscribe.
+
+⚠️ **Dated note, 2026-09-27 — the report a drill opens does re-read — objectui#10853.**
+The sentence above that a drill opening a report (`drillDown.report`) does not
+re-read stopped holding with objectui#10814 (PR objectui#10836), pending in the
+same release: the drawer's `drillDown.report` arm renders `spec-report` through
+`SchemaRenderer`, and the dataset report renderer's own reader re-reads it on the
+bus. `drillDownReport.invalidationRefetch-10814.test.tsx` in `apps/console` pins
+that through the real drawer. The single-record drawer a table row opens still
+does not re-read. The rest of this entry is kept as the reading of this change.

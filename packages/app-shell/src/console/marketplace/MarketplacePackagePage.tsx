@@ -168,8 +168,8 @@ export function MarketplacePackagePage() {
     // Its only consumer is `localInstalls.find(...)` in the content branch
     // below, which is unreachable whenever the page has already returned
     // `MarketplaceDisabled` or (post-objectui#5583) `MarketplaceAccessDenied`.
-    // Firing anyway would be the same discarded-request class objectui#5533
-    // closed for this page, on the flag that card was not about
+    // Firing anyway would be the same discarded-request class `2573ff434`
+    // closed for this page, on the flag that change was not about
     // (objectui#5620).
     if (!marketplaceEnabled) return;
     if (!isAdmin) return;
@@ -218,7 +218,7 @@ export function MarketplacePackagePage() {
       // No marketplace on this runtime -> no request. Fetching anyway and
       // discarding the result would still put a 404/403 on the server and can
       // race the destructive card onto the screen before the disabled state
-      // settles (objectui#5533).
+      // settles (`2573ff434`).
       if (!marketplaceEnabled) return;
       // Nor on behalf of a viewer this page refuses (objectui#5583).
       // Authorization is not a function of whether the fetch succeeded, so it
@@ -556,7 +556,7 @@ export function MarketplacePackagePage() {
 
   // A CONFIGURATION CONCLUSION, not a load failure -- the same informational
   // state the catalog page renders, so the two pages stop disagreeing about the
-  // same runtime (objectui#5533). Reached by a pasted or bookmarked package URL,
+  // same runtime (`2573ff434`). Reached by a pasted or bookmarked package URL,
   // the only way in once the catalog and both Home entries are gated.
   //
   // Ahead of the `!isAdmin` branch below deliberately: on a runtime that mounts
@@ -574,7 +574,7 @@ export function MarketplacePackagePage() {
   // allowed to use -- and reached the refusal only on the paths where the load
   // happened to work. Both fetch effects above are gated on the same predicate,
   // so the refusal also stops the page requesting on behalf of a viewer it has
-  // already decided to turn away: the discipline objectui#5533 established on
+  // already decided to turn away: the discipline `2573ff434` established on
   // this page for `features.marketplace`, applied to the other predicate that
   // decides the same thing.
   //
@@ -587,7 +587,7 @@ export function MarketplacePackagePage() {
   // read. The verdict has a third state ("not resolved yet") and this guard is
   // the reason it exists. Ordered AFTER `!marketplaceEnabled` deliberately —
   // that answer is true of every viewer on this runtime and needs no verdict,
-  // so the ordering objectui#5557/#5533 established is untouched — and BEFORE
+  // so the ordering objectui#5557 and `2573ff434` established is untouched — and BEFORE
   // `!isAdmin`, which is the branch that must not fire on a guess.
   //
   // This is NOT the incidental skeleton objectui#5621 removed: that one hid the

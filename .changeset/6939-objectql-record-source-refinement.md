@@ -4,8 +4,8 @@
 
 Repair the `object-map` and `object-gantt` mirrors: `objectName` is optional,
 and a refinement requires that at least one of `data`, `staticData`,
-`objectName` is present (objectui#6939, maintainer ruling recorded 2026-09-02 —
-this is one of the eight groups on that card, dispatched as its own PR per the
+`objectName` is present (maintainer ruling recorded 2026-09-02 — this is one
+of the eight groups under that ruling, dispatched as its own PR per the
 ruling).
 
 Both renderers resolve their records from one of three keys, in this order —

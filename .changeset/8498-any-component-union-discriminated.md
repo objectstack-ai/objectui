@@ -25,3 +25,9 @@ reports that arm's issues as top-level issues at absolute paths, rather than one
 reported at `type` rather than at the root. `objectui validate` prints the same
 2026-09-02 ruling output — the selected arm alone, or a note plus a capped candidate
 list — read off the new issue shape.
+
+⚠️ **Dated note, 2026-09-28 — a fourteenth arm — objectui#10859.** Later in this same release
+`AnyComponentSchema` gains a fourteenth top-level arm, `AIComponentSchema` (the three AI node types),
+and still no `type` literal is claimed by two arms — the property this entry's "no document changes
+verdict" rests on. The counts above are this change's reading; the objectui#10859 entry states what
+that arm accepts.

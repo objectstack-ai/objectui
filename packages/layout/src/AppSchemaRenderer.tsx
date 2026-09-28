@@ -478,7 +478,7 @@ function InternalSidebar({
  * Renders a complete application shell from an `AppSchema` JSON document.
  *
  * Responsibilities:
- * - Reads `name`, `title`, `description`, `icon`, `branding.logo`, `favicon` for branding
+ * - Reads `name`, `title`, `description`, `icon`, `branding.logo`, `branding.favicon` for branding
  * - Renders sidebar navigation from `navigation` or `areas[].navigation`
  * - Area switcher when multiple areas are VISIBLE — area visibility is
  *   derived from the items inside, not authored (objectui#3311): an area
@@ -580,9 +580,11 @@ export function AppSchemaRenderer({
   const resolvedNavigation: NavigationItem[] = activeArea?.navigation ?? flatNavigation;
 
   // --- Branding ---
+  // The favicon is `branding.favicon` (objectui#10842), the one spelling
+  // `@objectstack/spec` declares and the one the console already reads.
   const branding: AppShellBranding = {
     title: schema.title,
-    favicon: schema.favicon,
+    favicon: schema.branding?.favicon,
   };
 
   // --- Build sidebar element ---

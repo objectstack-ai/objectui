@@ -380,7 +380,7 @@ export interface CellRendererProps {
 
 // `coerceToSafeValue` lives in `./coerceToSafeValue.ts` (objectui#8580) so
 // that `./widgets/richTextDisplay.js` — a module this barrel imports — can
-// reach it without importing the barrel back (the objectui#5498 cycle). It is
+// reach it without importing the barrel back (the cycle `4bb940b6e` avoided). It is
 // re-exported here unchanged: it is part of this package's published surface.
 import { coerceToSafeValue } from './coerceToSafeValue.js';
 export { coerceToSafeValue };
@@ -3160,7 +3160,7 @@ export function ColorSwatchCellRenderer({ value }: CellRendererProps): React.Rea
  * The rich-content display pipelines — `markdown` through the GFM renderer,
  * `html`/`richtext` through the sanitizing HTML renderer — live in
  * `./widgets/richTextDisplay.js` rather than here, so `RichTextField` can
- * import them without importing this barrel back (objectui#5498). Re-exported
+ * import them without importing this barrel back (`4bb940b6e`). Re-exported
  * unchanged: they are part of this package's published surface, and
  * `RICH_TEXT_CELL_RENDERERS` below is the one table both the cell resolver and
  * the widget's readonly branch read.
@@ -3476,7 +3476,7 @@ function buildStandardCellRendererMap(): Record<string, React.FC<CellRendererPro
     // `markdown` / `html` / `richtext` — spread from THE table rather than
     // written out here, so this resolver and `RichTextField`'s readonly branch
     // cannot drift apart on which pipeline a rich-content type reads through
-    // (objectui#5498). `richtext` maps to the HTML renderer, NOT the markdown
+    // (`4bb940b6e`). `richtext` maps to the HTML renderer, NOT the markdown
     // one, which drops raw HTML and therefore rendered every populated richtext
     // value as a blank cell (objectui#5452).
     ...RICH_TEXT_CELL_RENDERERS,

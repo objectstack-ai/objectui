@@ -150,7 +150,7 @@ import { toast } from 'sonner';
 
 /**
  * The create dialog's OWD options reuse the SETTINGS tab's own label and gloss
- * strings verbatim (objectui#5418). The card's complaint was that the Settings
+ * strings verbatim (`7a90afdf9`). The complaint it answered was that the Settings
  * page "is excellent — four options, each with a plain-language gloss" and that
  * nothing routes the author there; copying the wording rather than writing a
  * second, shorter one is what keeps the two surfaces from drifting into two
@@ -1459,7 +1459,7 @@ export function StudioNavItemInspector({
   // that cannot be saved; when a draft carries both, the picker must show the
   // key the schema accepts, never the one it refuses. Whether the fallback
   // read should exist at all — a draft carrying `object` ALONE still displays
-  // as bound — is objectui#5518, deliberately left out of #4881's scope.
+  // as bound — is a follow-up card's question, deliberately left out of #4881's scope.
   const boundObject = String(node.objectName ?? node.object ?? '');
   const curLabel = String(node.label ?? node.title ?? node.name ?? '');
   // A nav card is a placeholder until its label is edited or a target adopts a
@@ -2848,7 +2848,7 @@ export function DataPillar({
   // Left-rail search + inline "new object" creator (design §4: rail = search + New).
   const [query, setQuery] = React.useState('');
   const [creating, setCreating] = React.useState(false);
-  // The OWD the create dialog will author (objectui#5418). Pre-selected to the
+  // The OWD the create dialog will author (`7a90afdf9`). Pre-selected to the
   // platform's own recommended baseline; the author sees it and can change it
   // before the object exists. Reset by `openCreateDialog` below rather than by
   // an effect on `creating` — the effect spelling re-renders the dialog a
@@ -3784,7 +3784,7 @@ export function DataPillar({
         locale={locale}
         extra={
           /* Record sharing (OWD) — the third thing `New object` must ask for
-             (objectui#5418). Without it the object saves as a draft happily and
+             (`7a90afdf9`). Without it the object saves as a draft happily and
              is then REFUSED at Publish → Publish all by `security-owd-unset`, a
              wall the author meets only after building the whole object. The
              gloss is the SAME string the Settings tab shows for each model, so

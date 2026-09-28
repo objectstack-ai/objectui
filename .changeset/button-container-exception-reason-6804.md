@@ -17,7 +17,7 @@ it), with the provenance kept in the reason.
 
 This matters because an exception with no recorded ground is indistinguishable from a
 missed one, and that indistinguishability is the mechanism behind this defect class's three
-independent rediscoveries (objectui#3900 / objectui#6740 / objectui#6764).
+independent rediscoveries (objectui#3900 / `7c9b044f4` / objectui#6764).
 
 Also records a measurement the note previously implied away: `button` is the only public
 tag among the 45 violations listed, but not the only public tag in the containment story —

@@ -20,7 +20,7 @@
  * before objectui#8580 they had a private one: `String(value)`, which drew a
  * childless container for `[]` and the literal `[object Object]` for `{}`
  * where `text` draws the No-value affordance and `[Object]`. That module is
- * imported BY the barrel (objectui#5498 extracted it so `RichTextField` could
+ * imported BY the barrel (`4bb940b6e` extracted it so `RichTextField` could
  * reach the display pipelines without importing the barrel back), so it
  * cannot import the barrel to borrow this helper without re-creating exactly
  * the cycle that extraction removed. The helper therefore lives below both

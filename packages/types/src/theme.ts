@@ -11,7 +11,7 @@
  *
  * The theme document vocabulary (`Theme`, `ThemeMode`, `ColorPalette`) —
  * owned by this package since objectui#5716. The objectui theme COMPONENT
- * kinds that used to accompany it are all retired (objectui#5489,
+ * kinds that used to accompany it are all retired (`78cbdb530`,
  * objectui#5647); this module is the theme DOCUMENT only.
  *
  * @module theme
@@ -205,7 +205,7 @@ export interface Theme {
 // ObjectUI Component Schemas (UI rendering)
 // ============================================================================
 
-// `ThemeComponentSchema` (`type: 'theme'`) RETIRED in objectui#5489, under the
+// `ThemeComponentSchema` (`type: 'theme'`) RETIRED in `78cbdb530`, under the
 // maintainer ruling of 2026-08-21 on objectstack#10485 (option B, quoted
 // verbatim and untranslated):
 //
@@ -239,7 +239,7 @@ export interface Theme {
 // `registerLazy(...)` site in `packages/*/src`, in `PROTOCOL_COMPONENTS` /
 // `PALETTE_PLACEHOLDER_BLOCKS`, or in any fixture — declared-but-unenforced,
 // the same ADR-0078 class as `'theme'` above. Their Zod objects,
-// `ThemeUnionSchema` (which after objectui#5489 held only these two members),
+// `ThemeUnionSchema` (which after `78cbdb530` held only these two members),
 // and the `…SchemaType` inference aliases left `zod/theme.zod.ts` in the same
 // change; `AnyComponentSchema` no longer carries a theme member, and the
 // refusals are pinned in `__tests__/phase2-schemas.test.ts`.

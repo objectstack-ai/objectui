@@ -17,7 +17,7 @@ result itself, so the node never passed through `SchemaRenderer` and its `visibl
 **never evaluated**. `@objectstack/spec` accepts the key (`SchemaNodeSchema` carries
 `visibleWhen`, and `data-display.zod.ts` types `emptyAction` as a `SchemaNode`), so an
 author wrote a gate, the platform took it, and nothing enforced it — declared-not-enforced,
-the same class objectui#5401 / #5505 closed for `record:alert`, one level down.
+the same class `c86185eb5` closed for `record:alert`, one level down.
 
 Measured on the branch point, mounting a `data-table` with no rows so the empty state is
 actually reached: an `emptyAction` carrying

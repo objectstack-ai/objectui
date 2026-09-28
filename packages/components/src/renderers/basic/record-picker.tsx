@@ -37,6 +37,7 @@ import {
   ElementDataSourceErrorPanel,
   ElementDataSourceLoadingPanel,
   useAdapter,
+  useDataInvalidation,
   useElementDataSource,
   usePageVariableBinding,
   useFilterScope,
@@ -135,14 +136,39 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
   // with the same entries is not a change (AGENTS.md #10).
   const sortKey = React.useMemo(() => (sort ? JSON.stringify(sort) : ''), [sort]);
 
+  // objectui#10853 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10623 / objectui#10778 way: the
+  // nonce moves when the bus reports a change to the object this picker
+  // QUERIES (or `'*'`), and the fetch effect below names it, so the options are
+  // re-read. Before, a page action over raw HTTP left them stale unless the
+  // host remounted the picker, and `PageView` is to stop doing that
+  // (objectui#10519). Subscribed only when the effect can query (an adapter
+  // that reads, and an object resolved).
+  const invalidationNonce = useDataInvalidation(
+    adapter && typeof adapter.find === 'function' ? object : undefined,
+  );
+  // The adapter and query the options on screen answer, for telling a re-read
+  // of them from a read of other options. Written when a read commits.
+  const committedReadRef = React.useRef<{ adapter: unknown; signature: string } | null>(null);
+
   React.useEffect(() => {
     let cancelled = false;
     if (!adapter || !object || typeof adapter.find !== 'function') {
       setLoading(false);
       return;
     }
-    setLoading(true);
-    setError(null);
+    // objectui#10853 — a read of exactly the query whose options are on
+    // screen (a bus re-read) is IN PLACE: the control stays enabled over those
+    // options and the bound page-variable value is not touched, and the answer
+    // swaps them when it lands. Any other read starts from "Loading…", as it
+    // always has.
+    const signature = JSON.stringify([object, filterKey, sortKey, limit]);
+    const committed = committedReadRef.current;
+    const inPlace = committed !== null && committed.adapter === adapter && committed.signature === signature;
+    if (!inPlace) {
+      setLoading(true);
+      setError(null);
+    }
     (async () => {
       try {
         const query: any = {};
@@ -159,7 +185,13 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
         // it here. Pinned by
         // `record-picker.contractEnvelope-6726.test.tsx`.
         const data: any[] = res?.data ?? (Array.isArray(res) ? res : []);
-        if (!cancelled) setRows(data);
+        if (!cancelled) {
+          setRows(data);
+          // An in-place re-read that lands clears an earlier failure: the
+          // options on screen answer the query now.
+          setError(null);
+          committedReadRef.current = { adapter, signature };
+        }
       } catch (e: any) {
         if (!cancelled) setError(e?.message ?? 'Failed to load');
       } finally {
@@ -170,7 +202,7 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adapter, object, filterKey, sortKey, limit]);
+  }, [adapter, object, filterKey, sortKey, limit, invalidationNonce]);
 
   // Reflect the bound variable's value back into the control. When a variable
   // targets this picker we stay controlled for its whole lifetime (empty string
@@ -402,7 +434,7 @@ ComponentRegistry.register('record_picker', elementDataSourceBlock(ElementRecord
       // legal write this input's own description teaches (objectui#5637).
       type: ['string', 'object'],
       description:
-        'Prompt shown in the closed control while no record is selected (renderer default "Select a record…"). Display-only — it never reaches the query. Accepts either a plain string or an inline per-locale map (`{ en: "Owner", "zh-CN": "负责人" }`), the `I18nLabel` union rc.6 widened this key to; the renderer resolves the map against the active language at the read site, falling back through base language, a region-qualified sibling, `default`, then `en`. It is REPLACED while the picker is busy: "Loading…" during the fetch and "Failed to load" after an error both win over this key. An authored empty string stays empty; the default applies only when the key is absent.',
+        'Prompt shown in the closed control while no record is selected (renderer default "Select a record…"). Display-only — it never reaches the query. Accepts either a plain string or an inline per-locale map (`{ en: "Owner", "zh-CN": "负责人" }`), the `I18nLabel` union rc.6 widened this key to; the renderer resolves the map against the active language at the read site, falling back through base language, a region-qualified sibling, `default`, then `en`. It is REPLACED while the picker is busy: "Loading…" while it reads a new set of options and "Failed to load" after an error both win over this key (a re-read of the same options after a data change keeps them on screen and shows no "Loading…"). An authored empty string stays empty; the default applies only when the key is absent.',
     },
     {
       name: 'label',

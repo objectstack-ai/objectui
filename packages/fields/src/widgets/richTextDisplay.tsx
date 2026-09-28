@@ -11,7 +11,7 @@
  * and `richtext` — and the single table that says which pipeline each one
  * reads through.
  *
- * ## Why this is its own module (objectui#5498)
+ * ## Why this is its own module (`4bb940b6e`)
  *
  * These two renderers used to live in `../index.tsx`, which meant the only way
  * to reach them was through the barrel — and the barrel is what registers

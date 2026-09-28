@@ -1,12 +1,12 @@
 /**
- * ObjectUI — unconsumed dashboard-widget `options` keys (objectui#5709)
+ * ObjectUI — unconsumed dashboard-widget `options` keys (`8d58f46b4`)
  *
  * `@objectstack/spec`'s `DashboardWidgetOptionsSchema` ends in `.passthrough()`
  * ("declared query keys + open renderer extras"), so ANY key parses, validates
  * and lints cleanly — including one no renderer reads. That is how a showcase
  * dashboard shipped `options: { invert: true }` on a gauge with a comment
  * saying what it was believed to do, and rendered the un-inverted measure with
- * no diagnostic anywhere (objectui#5709). The 2026-08-23 maintainer ruling:
+ * no diagnostic anywhere (`8d58f46b4`). The 2026-08-23 maintainer ruling:
  * open extras stay open — they just stop being SILENT. A key that reaches no
  * renderer draws a WARNING naming the consumed set. Not an error: no gate
  * weakening and no new red gates were ruled.

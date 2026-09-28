@@ -182,7 +182,7 @@ function resolveListMapConfig(schema: { map?: unknown; options?: { map?: unknown
  *     legacy leg reads BEFORE its `'name'` / `'value'` floors. A block that
  *     declares neither reaches the renderer only through the schema-viewType
  *     leg, where those floors invent a binding; retiring THAT is objectui#7547
- *     (the #7029 / #7070 family) and is out of scope here. The gate simply
+ *     (the #7029 / `5f4514f7b` family) and is out of scope here. The gate simply
  *     never offers a switch into it.
  */
 interface ListChartBinding {
@@ -3383,7 +3383,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           timeline: Object.keys(resolvedTimeline).length > 0 ? resolvedTimeline : undefined,
           // Deprecated top-level props for backward compat.
           //
-          // objectui#7070 step ③ — house posture, entered on the maintainer's
+          // `04a67b9dc` (step ③) — house posture, entered on the maintainer's
           // ruling of 2026-09-01 (总监批 #28): 日期轴永不虚构 — a date axis is
           // never fabricated. The two lines of prose that used to sit here
           // ("`created_at` stays the last resort for a view that declares no
@@ -3416,7 +3416,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         };
       }
       case 'gantt': {
-        // objectui#7070: only ever restate a binding the view actually DECLARED
+        // `5f4514f7b`: only ever restate a binding the view actually DECLARED
         // — the same correction objectui#7029 made to the calendar branch above,
         // which fenced this one out and reported it separately. These two keys
         // used to be floored at 'start_date' / 'end_date', field names no view
@@ -3430,7 +3430,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // `plugin-gantt/src/ObjectGantt.unconfiguredRefusal-7070.test.tsx`.
         //
         // `progressField` / `dependenciesField` are NOT floored either, as of
-        // objectui#7499 — the flavour-3 card #7070 scoped out and left pinned
+        // objectui#7499 — the flavour-3 card `5f4514f7b` scoped out and left pinned
         // here so that whoever retired them had a place to declare it. This is
         // that declaration. The remedy is OMIT, not refuse, and the two differ:
         //
@@ -3438,7 +3438,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         //     "no dependencies" are legitimate and common states — most gantt
         //     rows have neither — so an absent key must keep rendering exactly
         //     as it does today. That is why the date-axis conclusion (refuse)
-        //     must NOT be imported here, and #7070's ruling forbids importing it.
+        //     must NOT be imported here, and the 2026-09-01 ruling forbids importing it.
         //   - FABRICATING was also wrong. `|| 'progress'` / `|| 'dependencies'`
         //     manufactured a binding the author never wrote. Its failure is a
         //     per-row `undefined`, indistinguishable from the legitimate case
@@ -3556,7 +3556,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // (objectui#5000, objectui#4941).
         //
         // ⛔ NO `locationField: … || 'location'` FLOOR (objectui#8169 — ruled
-        // 2026-09-07 「同意」, option B; the same correction objectui#7070 made
+        // 2026-09-07 「同意」, option B; the same correction `5f4514f7b` made
         // to the gantt date axes and objectui#7029 to the calendar). It stood
         // here as a duplicate of `getMapConfig`'s own default branch, and its
         // real effect was to SHADOW half of it: the floor forced the flat
@@ -3636,7 +3636,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // The two floors below are reached only when NOTHING was declared —
         // i.e. through the schema-viewType leg, never through the capability
         // gate, which refuses to offer a switch into an invented binding. The
-        // floors themselves are objectui#7547 (#7029 / #7070 family) and are
+        // floors themselves are objectui#7547 (#7029 / `5f4514f7b` family) and are
         // deliberately untouched here.
         const valueField = chartBinding.valueField || 'value';
         const categoryField = chartBinding.categoryField || 'name';

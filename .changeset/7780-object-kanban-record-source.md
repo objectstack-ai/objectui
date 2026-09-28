@@ -32,7 +32,7 @@ predicate's wording rather than the renderer's truthiness, so an empty `objectNa
 keeps validating.
 
 **⚠️ Not the map / gantt / calendar ladder, and deliberately not built on it.** Those
-three (objectui#6939, objectui#7313) resolve `data` as a `ViewData` PROVIDER BLOCK →
+three (`77cb489b4`, objectui#7313) resolve `data` as a `ViewData` PROVIDER BLOCK →
 `staticData` → `objectName` through the shared `resolveRecordSourceConfig`, refined by
 `requireRecordSource`. This board has **no** `staticData` rung, reads `data` as a **raw row
 array** directly, **has** a `bind` rung the other three never walk, and calls

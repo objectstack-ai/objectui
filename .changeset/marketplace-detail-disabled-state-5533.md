@@ -3,7 +3,7 @@
 ---
 
 The marketplace **package detail** page now states that the marketplace is turned
-off, instead of red-erroring, on a runtime that has none (objectui#5533).
+off, instead of red-erroring, on a runtime that has none.
 
 `MarketplacePackagePage` takes the same `isMarketplaceEnabled()` early return its
 sibling catalog page took in objectui#5504, rendering the informational

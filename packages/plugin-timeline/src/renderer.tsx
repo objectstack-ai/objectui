@@ -7,7 +7,7 @@
  */
 
 import * as React from 'react';
-import { ComponentRegistry } from '@object-ui/core';
+import { ComponentRegistry, toDomProps } from '@object-ui/core';
 import type { TimelineRenderSchema } from './renderHandoff';
 import {
   Timeline,
@@ -1238,8 +1238,43 @@ function groupAdjacent<T extends { group?: string | null }>(items: T[]): Array<{
  * composed schema `ObjectTimeline` hands down, whose feed items carry the keys
  * objectui#6356 ruled renderer-internal (`color`, `group`, `meta`,
  * `startDate`, `endDate`, `_data`).
+ *
+ * ## The root's DOM channels (objectui#10841)
+ *
+ * Registered as `plugin-timeline:timeline`, this renderer is created by
+ * `SchemaRenderer`, which hands it, as React props, every node key its
+ * metadata strip leaves (`items`, `variant`, `dateFormat`, `scale`,
+ * `rowLabel`, `minDate`, `maxDate`, and so on) beside the attributes it mints
+ * for the DOM. The renderer reads the authored keys off `schema`, never off its
+ * props. Spread onto the root of every variant, that props copy serialized the
+ * schema into the DOM (`items="[object Object]"`, `variant="vertical"`,
+ * `dateformat="long"`) and set off React's unknown-prop warnings.
+ *
+ * The root now takes the converged route, the `container.tsx` /
+ * `header-bar.tsx` shape: `toDomProps(hostProps)` plus `style` by name.
+ * `toDomProps` executes the SDUI widget contract's DOM pass-through from
+ * `@object-ui/core` (`utils/dom-props.ts`, objectui#4425 phase 2), and that file
+ * owns the set and the reason for each member. It is what carries the
+ * `data-obj-id` / `data-obj-type` locator, the `data-testid` an authored
+ * `testId` promises (objectui#8268) and the resolved `aria-*` / `role`.
+ * `style` is the `BaseSchema` member an author writes for the DOM, forwarded
+ * by name as the converged renderers do. ⛔ No local list: a renderer-private
+ * allowlist is a second judge of the same contract, and it drifts from it.
+ *
+ * What the contract drops that used to land here:
+ *
+ * - every authored schema key;
+ * - `disabled`, the verdict `SchemaRenderer` forwards on a disabled node (the
+ *   rail has no disabled state to apply it to);
+ * - `name` / `label`, declared `BaseSchema` members with no effect on an
+ *   `ol` / `div`;
+ * - an authored `title`, which neither `BaseSchema` nor `TimelineSchema`
+ *   declares. It is a global HTML attribute, so it used to give the root a
+ *   native tooltip.
+ *
+ * `ObjectTimeline`, the other caller, passes `schema` alone.
  */
-export const TimelineRenderer = ({ schema, className, ...props }: { schema: TimelineRenderSchema; className?: string; [key: string]: any }) => {
+export const TimelineRenderer = ({ schema, className, style, ...hostProps }: { schema: TimelineRenderSchema; className?: string; [key: string]: any }) => {
     const {
       variant = 'vertical',
       items = [],
@@ -1341,14 +1376,14 @@ export const TimelineRenderer = ({ schema, className, ...props }: { schema: Time
 
       if (!hasGroups) {
         return (
-          <Timeline className={className} {...props}>
+          <Timeline {...toDomProps(hostProps)} className={className} style={style}>
             {(items as Array<any>).map((item, index) => renderItem(item, index))}
           </Timeline>
         );
       }
 
       return (
-        <div className={cn('px-4 sm:px-6 py-2', className)} {...props}>
+        <div {...toDomProps(hostProps)} className={cn('px-4 sm:px-6 py-2', className)} style={style}>
           {groups.map((g, gi) => (
             <section key={`${g.key}-${gi}`} className="mb-4">
               <header className="sticky top-0 z-10 -mx-4 sm:-mx-6 px-4 sm:px-6 py-1.5 backdrop-blur bg-background/90 text-xs font-semibold uppercase tracking-wide text-muted-foreground border-b">
@@ -1369,7 +1404,7 @@ export const TimelineRenderer = ({ schema, className, ...props }: { schema: Time
     // Horizontal Timeline
     if (variant === 'horizontal') {
       return (
-        <TimelineHorizontal className={cn("overflow-x-auto [-webkit-overflow-scrolling:touch]", className)} {...props}>
+        <TimelineHorizontal {...toDomProps(hostProps)} className={cn("overflow-x-auto [-webkit-overflow-scrolling:touch]", className)} style={style}>
           {items.map((item: any, index: number) => (
             <TimelineHorizontalItem key={index} className={cn(item.className, onItemClick && 'cursor-pointer')} onClick={() => onItemClick?.(item)}>
               <div className="flex flex-col items-center">
@@ -1529,7 +1564,7 @@ export const TimelineRenderer = ({ schema, className, ...props }: { schema: Time
       );
 
       return (
-        <TimelineGantt className={cn("overflow-x-auto [-webkit-overflow-scrolling:touch]", className)} {...props}>
+        <TimelineGantt {...toDomProps(hostProps)} className={cn("overflow-x-auto [-webkit-overflow-scrolling:touch]", className)} style={style}>
           {/* Header */}
           <TimelineGanttHeader>
             <TimelineGanttRowLabels className="flex items-center px-2 sm:px-4 py-2 sm:py-3">

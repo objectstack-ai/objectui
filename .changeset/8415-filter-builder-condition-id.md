@@ -139,3 +139,16 @@ component no longer declares its own `FilterBuilderCondition`: it derives the ro
 from the `@object-ui/types` declaration, so the required `id: string` it carries is
 that declaration's. The chain described above is the tree this entry was written
 against.
+
+⚠️ **Dated note, 2026-09-27 — `value` is no longer a union, and `defaultValue` is retired — objectui#10825.**
+Later in this same release `FilterBuilderSchema.value` stopped taking a bare condition (it is refused
+by name) and `defaultValue` was retired behind an ADR-0049 tombstone. What this entry says about where
+an id-less row's refusal is REPORTED no longer holds, in both paragraphs that say it. The document-level
+result is not an `invalid_union` at `path: ["value"]` any more: it is the `invalid_type` itself, at
+`path: ["value", "conditions", 0, "id"]`. So it is reported where it logically is, and a consumer reading
+`issue.path` off the document-level result finds `id` there.
+And a `defaultValue` literal no longer fails type-check for the missing `id` but because the key is
+retired (its type is `undefined`). A condition inside a `value` literal still fails with *"Property 'id'
+is missing …"*, and the spellings typed on `FilterBuilderCondition` or `FilterGroup` involve neither key.
+The `id` requirement itself still holds; the rest of this entry holds except for the REPORTED-location
+sentences the paragraph above corrects.

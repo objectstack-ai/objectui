@@ -3,7 +3,7 @@
 ---
 
 `ConditionBuilder` now takes a caller-supplied **subject vocabulary** instead of hardcoding a
-record-scoped one (objectui#6296).
+record-scoped one.
 
 The builder built every row subject as `record.` + field name, plus a fixed `record.id` /
 `user.*` / `org.*` context list. That is correct for all five files that mount it today — six

@@ -39,7 +39,12 @@ import {
   I18nLabelSchema as SpecI18nLabelSchema,
   DashboardWidgetSchema as SpecDashboardWidgetSchema,
   ChartAxisSchema as SpecChartAxisSchema,
+  ChartSeriesSchema as SpecChartSeriesSchema,
+  ChartTypeSchema as SpecChartTypeSchema,
   UserFilterFieldSchema as SpecUserFilterFieldSchema,
+  // objectui#7928 — the spec's view CONTAINER, read for ONE slot: its
+  // `listViews` record (`ObjectViewSchema.listViews` below, by reference).
+  ViewSchema as SpecViewSchema,
   checkListViewCalendarVisualization,
 } from '@objectstack/spec/ui';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
@@ -90,7 +95,7 @@ import { stripImportedDefaults } from './imported-defaults.js';
  * 17.0.0-rc.5 (objectstack#5832) to stop it colliding with the 7-value
  * `HttpMethod` in the published JSON Schema. The runtime domain is unchanged,
  * so this repo keeps exporting it under the `HttpMethodSchema` name — following
- * the rename WITHOUT changing cross-package semantics (objectui#3499).
+ * the rename WITHOUT changing cross-package semantics (`48132f7e6`).
  */
 export const HttpMethodSchema = stripImportedDefaults(SpecHttpMethodSubsetSchema);
 
@@ -510,25 +515,27 @@ export const ObjectFormSchema = BaseSchema.extend({
  *     the host owns the switcher). The 2026-07 audit
  *     (`docs/audits/2026-07-objectview-detailview-schema.md`) had already
  *     measured it dead since introduction.
- *   - `listViews` — STILL UNMIRRORED, on the ruling's own fallback clause and
- *     by measurement. ⚠️ BOTH HALVES OF THAT MEASUREMENT MOVED at objectui#8980
- *     and the sentence is re-taken, not adjusted: the declaration's value is the
- *     local `NamedListView`, now 64 declared top-level members — 47, plus the
- *     seventeen the protocol declares on this surface and objectui did not
- *     (director-seat ruling of 2026-09-13) — of which the renderer reads 21 off
- *     a named view. `data` is one of the 21 now: it used to be read through an
- *     `as any` cast on the named-view config and declared nowhere, and that
- *     ruling declared it by name, which answers objectui#7928's open half.
- *     Meanwhile the spec slot (`ViewSchema.listViews`) is a record of the
- *     STRICT `ObjectListViewSchema`,
- *     which requires `columns` and refuses `options`, ObjectQL tuple filters and
- *     `default` — i.e. it refuses the named views this package's own README and
- *     `content/docs/api/schema-reference.md` teach. Neither value type can be
- *     mirrored without either losing documented behaviour (spec) or enforcing
- *     43 unread members (64 declared, minus the 21 that are both declared and
- *     read) into the contract (local), so the key stays in the
- *     parity ledger with that measurement until the maintainer decides its
- *     value type. ⛔ Not `z.any()`: that was ruled out by name.
+ *   - `listViews` — MIRRORED BY REFERENCE (objectui#7928): the spec's own
+ *     `ViewSchema.shape.listViews`, a record of the STRICT
+ *     `ObjectListViewSchema`. It was the tenth key, left in the parity ledger
+ *     on ruling B's fallback clause because neither value type could be
+ *     mirrored without a loss; the maintainer's ruling A (objectui#7928,
+ *     comment 5565628927, 「同意」) chose the spec value, staged behind two
+ *     cards that removed both losses first: objectui#8254 made the renderer
+ *     honour a spec-shaped named view, and objectui#8255 made every document
+ *     teach one. ⇒ a named view now needs `columns`, takes `filter` as
+ *     `{ field, operator, value }` rules, and is refused `unrecognized_keys`
+ *     for any key the protocol does not declare there.
+ *
+ *     ⚠️ `options` — the one key the renderer still read that the protocol
+ *     does not declare on this shape — is REFUSED with the rest (director
+ *     ruling, objectui#7928 comment 5856694523, Q1 A). The legacy per-kind bag
+ *     stays legal where the protocol declares it, a STORED list overlay
+ *     (objectstack#20051), and is folded onto the top-level kind block at the
+ *     one door that relays a stored body into this record,
+ *     `@object-ui/app-shell`'s `ViewPreview`. `plugin-view` no longer reads
+ *     `options` off a named view. ⛔ Never re-admit it here: the canonical
+ *     `KIND` block is the only spelling this surface teaches.
  */
 export const ObjectViewSchema = BaseSchema.extend({
   type: z.literal('object-view'),
@@ -538,6 +545,10 @@ export const ObjectViewSchema = BaseSchema.extend({
   layout: z.enum(['drawer', 'modal', 'page']).optional().describe('Layout mode'),
   defaultViewType: z.enum(['grid', 'kanban', 'gallery', 'calendar', 'timeline', 'gantt', 'map']).optional().describe('Default list view type (grid unless a named view sets its own type)'),
   defaultListView: z.string().optional().describe('Key of the listViews entry shown first'),
+  // Spec slot by reference (objectui#7928) — `z.record(z.string(),
+  // ObjectListViewSchema).optional()`, the container's own named-view record.
+  // The value type, and why `options` is refused, are in the docblock above.
+  listViews: stripImportedDefaults(SpecViewSchema).shape.listViews,
   // Spec slot by reference (objectui#7779) — `NavigationConfigSchema.optional()`,
   // the same object `ListViewSchema` derives its `navigation` from.
   navigation: stripImportedDefaults(SpecListViewSchema).shape.navigation,
@@ -589,15 +600,23 @@ export const ObjectViewSchema = BaseSchema.extend({
   // and a different supplier. Judged separately for that reason.
   onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'Record navigation handler'),
 })
-  // ⭐ objectui#8355 / objectui#10321 — the only things this object judges
-  // about a named view: the named alias refusals, two sibling checks on this
-  // one door (the calendar spellings, and the kanban twin's stray `groupBy`),
-  // and ⛔ NOT a mirror of `listViews`. Declared and explained at
-  // `checkNamedViewCalendarAliases` and `checkNamedViewKanbanStrayGroupBy`
-  // below (hoisted function declarations, so the forward references resolve at
-  // module init and the bodies run at parse time, long after the refusal arms
-  // they read are built).
-  .check(checkNamedViewCalendarAliases, checkNamedViewKanbanStrayGroupBy);
+  // ⭐ objectui#8355 / objectui#10321 — the by-name pointers for the named alias
+  // refusals on a named view: two sibling checks on this one door (the calendar
+  // spellings, and the kanban twin's stray `groupBy`). Declared and explained at
+  // `checkNamedViewCalendarAliases` and `checkNamedViewKanbanStrayGroupBy` below
+  // (hoisted function declarations, so the forward references resolve at module
+  // init and the bodies run at parse time, long after the refusal arms they read
+  // are built).
+  //
+  // ⚠️ `when` is load-bearing since objectui#7928. The named view is now the
+  // protocol's strict record, which refuses both kinds of key itself, and a
+  // refinement zod runs by default is SKIPPED once any earlier issue aborts the
+  // parse. So without `when` these checks never run on exactly the documents
+  // they exist for. Measured on the flip before this line was added.
+  .superRefine((_value, ctx) => {
+    checkNamedViewCalendarAliases(ctx);
+    checkNamedViewKanbanStrayGroupBy(ctx);
+  }, { when: () => true });
 
 /**
  * User Filters — field-level filter option
@@ -1101,33 +1120,38 @@ function isPlainBlock(v: unknown): v is Record<string, unknown> {
 }
 
 /**
- * Every place a named view on an `object-view` document can carry one view-kind
- * block, with the path an issue is reported at: for each named view, the
- * canonical `KIND` block and then the legacy `options.KIND` bag. Those are the
- * two nestings `generateViewSchema` merges, in its own order — the canonical
- * block wins key-by-key over the legacy bag, and the file's own note says that
- * bag "is where the legacy field aliases … `dateField` live" (and the retired
- * kanban producer, objectui#8213, wrote there too). Refusing only one of them
- * would leave exactly the stored population silent.
+ * The protocol's refusals of undeclared keys inside ONE view-kind block of a
+ * named view on an `object-view` document, with the path each was reported at
+ * (`listViews.KEY.KIND`).
  *
- * Shared by the named-view checks below so they walk `listViews` identically;
- * it judges nothing itself.
+ * Since objectui#7928 `listViews` is the protocol's strict record by reference,
+ * so a key its `KIND` block does not declare is refused there as
+ * `unrecognized_keys`, and the parse output DROPS it. The named-view checks
+ * below therefore read those refusals rather than the parsed value, which no
+ * longer carries the key. The legacy `options.KIND` nesting is not walked: the
+ * protocol refuses a named view's `options` bag whole, and a stored body's bag
+ * is folded onto `KIND` at `@object-ui/app-shell`'s `ViewPreview` before it
+ * reaches this record (director ruling on objectui#7928, comment 5856694523).
+ *
+ * Shared by the named-view checks below so they read the same refusals; it
+ * judges nothing itself.
  */
-function namedViewKindBlocks(
-  value: unknown,
+function namedViewKindRefusals(
+  issues: readonly unknown[],
   kind: 'calendar' | 'kanban',
-): Array<[Record<string, unknown>, string[]]> {
-  const named = (value as { listViews?: unknown } | undefined)?.listViews;
-  if (!isPlainBlock(named)) return [];
-  const blocks: Array<[Record<string, unknown>, string[]]> = [];
-  for (const [viewKey, view] of Object.entries(named)) {
-    if (!isPlainBlock(view)) continue;
-    const canonical = view[kind];
-    if (isPlainBlock(canonical)) blocks.push([canonical, ['listViews', viewKey, kind]]);
-    const legacy = isPlainBlock(view.options) ? view.options[kind] : undefined;
-    if (isPlainBlock(legacy)) blocks.push([legacy, ['listViews', viewKey, 'options', kind]]);
+): Array<{ keys: readonly string[]; input: Record<string, unknown> | undefined; path: PropertyKey[] }> {
+  const out: Array<{ keys: readonly string[]; input: Record<string, unknown> | undefined; path: PropertyKey[] }> = [];
+  for (const raw of issues) {
+    const issue = raw as { code?: string; path?: PropertyKey[]; keys?: string[]; input?: unknown };
+    if (issue.code !== 'unrecognized_keys' || issue.path?.length !== 3) continue;
+    if (issue.path[0] !== 'listViews' || issue.path[2] !== kind) continue;
+    out.push({
+      keys: issue.keys ?? [],
+      input: isPlainBlock(issue.input) ? issue.input : undefined,
+      path: [...issue.path],
+    });
   }
-  return blocks;
+  return out;
 }
 
 /**
@@ -1142,59 +1166,53 @@ function namedViewKindBlocks(
  * the loud half, without which the strip would only make the failure CONSISTENT
  * and still mute, which is the shape the ruling refuses.
  *
- * ## ⛔ WHY THIS IS NOT A MIRROR OF `listViews`, AND DOES NOT TOUCH THAT RULING
+ * ## What it reads since `listViews` became a mirror (objectui#7928)
  *
- * `listViews` is unmirrored on purpose (the reading is on `ObjectViewSchema`
- * above), and that ruling turns on the key's VALUE TYPE: neither the spec's
- * strict `ObjectListViewSchema` nor the local `NamedListView` can be the
- * declared value without losing documented behaviour or enforcing 43 unread
- * members, so the key waits for the maintainer to decide that type — and ⛔ not
- * `z.any()`.
+ * `listViews` is the protocol's strict record by reference now (the reading is
+ * on `ObjectViewSchema` above). The protocol's calendar block refuses both
+ * spellings itself — `unrecognized_keys` at `listViews.KEY.calendar`, naming
+ * the key — and the parse output DROPS the refused key. So the value this check
+ * used to read never carries the alias any more, and the check reads the
+ * protocol's refusal instead: for each alias that refusal names, it adds the
+ * objectui pointer at the key itself. The protocol's own hint is a near-miss
+ * suggester that answers `dateField` → `endDateField` (see the reading above
+ * {@link CALENDAR_DATE_ALIAS_STEM}), so without this pointer an author would be
+ * taught to bind the END of an event to the date they meant as its START.
  *
- * This check decides none of that. It declares no value type, puts no key in
- * `.shape` (so the parity ledger's unmirrored reading is untouched), enforces
- * none of the 43 unread members, requires no `columns`, and refuses no
- * undeclared key or legacy `options` bag. It judges exactly the two spellings
- * this card retires, at the two nestings the producer actually merges. Three
- * SCOPE CONTROLS in `plugin-view`'s
- * `ObjectView.calendarAliasRefused-8355.test.tsx` assert each of those
- * non-effects, so a later edit that quietly grew this into a mirror goes red.
+ * ⚠️ It adds a message to a document that is already refused. It refuses
+ * nothing on its own and accepts nothing the protocol refuses. `superRefine`'s
+ * `when` on `ObjectViewSchema` is what lets it run after that refusal.
+ *
+ * ⛔ The legacy `options.calendar` nesting is NOT read any more. The protocol
+ * refuses `options` whole on a named view (`unrecognized_keys` naming
+ * `options`), `plugin-view` no longer merges it, and a stored body's
+ * `options.calendar` is folded onto `calendar` by `@object-ui/app-shell`'s
+ * `ViewPreview` before it reaches this record, where the arm below judges it
+ * (director ruling on objectui#7928, comment 5856694523).
  *
  * The in-module precedent is `ListViewSchema.options`: an untyped bag that
  * declares no member and still carries a `.check()` refusing `kanban.groupBy`
  * (objectui#8365) and this card's two calendar spellings by name.
  *
- * ⚠️ A PREMISE THAT DIED ON CONTACT, recorded because it changes what this
- * check is for. The gap here was NOT specific to the calendar and was NOT
- * opened by this card: measured on the same instrument, a named view carrying
- * the objectui#8365 stray `kanban.groupBy` was ACCEPTED, while the identical key
- * on a `list-view` document was refused. Until this check, no alias refusal this
- * module declares reached inside `listViews`. This check was the only door in
- * until objectui#10321 added its kanban sibling below, and it judges the two
- * calendar spellings only, at both nestings (so `listViews.KEY.calendar.dateField`
- * IS refused); a search for `listViews` in this file re-derives that. What this
- * card regressed on the object-view route is the BEHAVIOUR — a document that
- * drew at the merge-base goes mute once the ladder is gone — and this check is
- * what makes that failure loud. ⛔ It is not a general repair of the unmirrored
- * key, and the kanban twin is not judged here: that is
- * `checkNamedViewKanbanStrayGroupBy`, below.
+ * Its kanban sibling, `checkNamedViewKanbanStrayGroupBy` below (objectui#10321),
+ * reads the same kind of refusal for the stray `groupBy`.
  *
- * ⛔ Scoped to the TWO keys under `calendar`: `timeline.dateField` on a named
- * view stays accepted (the timeline alias is live by ruling), and nothing else
- * about a named view is judged here.
+ * ⛔ Scoped to the TWO keys under `calendar`. `timeline.dateField` on a named
+ * view draws only the protocol's own refusal, and nothing else about a named
+ * view is judged here.
  */
 function checkNamedViewCalendarAliases(ctx: { value: unknown; issues: unknown[] }): void {
-  for (const [block, path] of namedViewKindBlocks(ctx.value, 'calendar')) {
+  // Collected before the loop, which pushes onto the same array.
+  for (const refusal of namedViewKindRefusals(ctx.issues, 'calendar')) {
     for (const alias of ['dateField', 'endField'] as const) {
-      const written = block[alias];
-      if (written === undefined) continue;
+      if (!refusal.keys.includes(alias)) continue;
       // ⛔ One string, read off the arm's own `.description`, so this door and
       // the four declared ones cannot answer an author differently.
       ctx.issues.push({
         code: 'custom',
         message: CalendarBlockDateAliasRefusals[alias].description as string,
-        input: written,
-        path: [...path, alias],
+        input: refusal.input?.[alias],
+        path: [...refusal.path, alias],
       });
     }
   }
@@ -1212,7 +1230,8 @@ function checkNamedViewCalendarAliases(ctx: { value: unknown; issues: unknown[] 
  * `listViews.KEY.kanban.groupBy` is a stored view authoring the same key. So it
  * takes the same refusal, as a sibling of the calendar check above on the same
  * `ObjectViewSchema` door, with the ONE string `KanbanStrayGroupByRefusal`
- * carries on the `list-view` route (`custom` here, at either nesting).
+ * carries on the `list-view` route (`custom` here, at `listViews.KEY.kanban.groupBy`;
+ * the `options.kanban` nesting it also judged until objectui#7928 is refused whole).
  *
  * The protocol agrees on this route too: `@objectstack/spec`'s `ViewSchema`
  * refuses `listViews.KEY.kanban.groupBy` as an unrecognized key exactly as its
@@ -1224,23 +1243,32 @@ function checkNamedViewCalendarAliases(ctx: { value: unknown; issues: unknown[] 
  *
  * ⛔ A sibling, not a widening of the calendar check: two pending changesets
  * describe that check as judging the two calendar spellings only, and it still
- * does. ⛔ Not a mirror of `listViews` either, for every reason the calendar
- * check's docblock gives: it judges ONE key, at the two nestings, and refuses
- * neither an undeclared sibling in the block (`swimlaneField`, say) nor a block
- * without `columns` nor the legacy bag itself. The SCOPE CONTROLS in
- * `named-view-kanban-stray-group-by-10321.test.ts` assert each of those.
+ * does. ⛔ Not the mirror of `listViews` either: it judges ONE key and refuses
+ * nothing on its own.
+ *
+ * ⚠️ Since objectui#7928 `listViews` IS mirrored, by reference to the
+ * protocol's strict record, so the protocol refuses `kanban.groupBy` itself
+ * (`unrecognized_keys` at `listViews.KEY.kanban`) and drops it from the parse
+ * output. This check reads that refusal ({@link namedViewKindRefusals}) and adds
+ * this repository's pointer at `listViews.KEY.kanban.groupBy`; the protocol
+ * answers `groupBy` as a plain unrecognized key with no pointer. The legacy
+ * `options.kanban` nesting is refused WHOLE (`options` by name) and no longer
+ * read here, and an undeclared sibling in the block or a block without its
+ * required keys is refused by the record, not by this check. The SCOPE CONTROLS
+ * in `named-view-kanban-stray-group-by-10321.test.ts` were inverted to that
+ * tree.
  */
 function checkNamedViewKanbanStrayGroupBy(ctx: { value: unknown; issues: unknown[] }): void {
-  for (const [block, path] of namedViewKindBlocks(ctx.value, 'kanban')) {
-    const written = block.groupBy;
-    if (written === undefined) continue;
+  // Collected before the loop, which pushes onto the same array.
+  for (const refusal of namedViewKindRefusals(ctx.issues, 'kanban')) {
+    if (!refusal.keys.includes('groupBy')) continue;
     // ⛔ One string, read off the arm's own `.description`, so the named-view
     // door and the `list-view` route cannot answer an author differently.
     ctx.issues.push({
       code: 'custom',
       message: KanbanStrayGroupByRefusal.description as string,
-      input: written,
-      path: [...path, 'groupBy'],
+      input: refusal.input?.groupBy,
+      path: [...refusal.path, 'groupBy'],
     });
   }
 }
@@ -1783,7 +1811,7 @@ export const ObjectMapConfigSchema = z.object({
 });
 
 /**
- * objectui#6939 — the record-source refinement `ObjectMapSchema`,
+ * `77cb489b4` — the record-source refinement `ObjectMapSchema`,
  * `ObjectGanttSchema` and `ObjectCalendarSchema` below share.
  *
  * Those renderers resolve their records from ONE of three keys, in this order:
@@ -1794,7 +1822,7 @@ export const ObjectMapConfigSchema = z.object({
  * wrapper and `plugin-gantt/src/ObjectGantt.tsx` calls directly: `data`, then
  * `staticData`, then `objectName`, else `null`. Both mirrors
  * used to REQUIRE `objectName` alone, so a document authored on `staticData`
- * (6 of the 20 catalog entries objectui#6939 measured) drew correctly and was
+ * (6 of the 20 catalog entries measured for the 2026-09-02 ruling) drew correctly and was
  * refused by `safeValidateSchema` — `declared !== enforced`, with the corpus
  * on the right side. `objectName` is optional on both members now, and this
  * refinement carries the requirement the renderers actually have: with none of
@@ -1864,14 +1892,14 @@ function requireRecordSource(type: 'object-map' | 'object-gantt' | 'object-calen
  * ruling and stay for compatibility.
  *
  * `objectName` is OPTIONAL and the member ends in `requireRecordSource`
- * (objectui#6939): `getDataConfig` reads `data`, then `staticData`, then
+ * (`77cb489b4`): `getDataConfig` reads `data`, then `staticData`, then
  * `objectName`, so a map authored on inline rows never reads the object name —
  * three catalog entries drew correctly and were refused here. Requiredness
  * moved to the refinement above, which is where the renderer actually has it.
  */
 export const ObjectMapSchema = BaseSchema.extend({
   type: z.literal('object-map'),
-  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source getDataConfig resolves, after data and staticData; one of the three must be present (objectui#6939)'),
+  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source getDataConfig resolves, after data and staticData; one of the three must be present'),
   data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by getDataConfig'),
   staticData: z.array(z.any()).optional().describe('Inline records — read SECOND by getDataConfig, wrapped into a { provider: value } config'),
   filter: z.array(z.any()).optional().describe('Query filter, forwarded as $filter'),
@@ -1909,7 +1937,7 @@ export const ObjectTreeSchema = BaseSchema.extend({
  * ObjectGantt Schema
  *
  * `objectName` is OPTIONAL and the member ends in `requireRecordSource`
- * (objectui#6939): the shared record-source ladder `resolveRecordSourceConfig`
+ * (`77cb489b4`): the shared record-source ladder `resolveRecordSourceConfig`
  * (`@object-ui/core`, called by `plugin-gantt/src/ObjectGantt.tsx`) reads
  * `data`, then `staticData`, then `objectName`, so a gantt authored on inline
  * rows never reads the object name — three catalog entries drew correctly and
@@ -1922,8 +1950,8 @@ export const ObjectTreeSchema = BaseSchema.extend({
  */
 export const ObjectGanttSchema = BaseSchema.extend({
   type: z.literal('object-gantt'),
-  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source resolveRecordSourceConfig resolves, after data and staticData; one of the three must be present (objectui#6939)'),
-  data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by resolveRecordSourceConfig; undeclared on either face until objectui#6939'),
+  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source resolveRecordSourceConfig resolves, after data and staticData; one of the three must be present'),
+  data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by resolveRecordSourceConfig'),
   startDateField: z.string().optional().describe('Start date field'),
   endDateField: z.string().optional().describe('End date field'),
   titleField: z.string().optional().describe('Title field'),
@@ -2056,7 +2084,7 @@ export const ObjectGanttSchema = BaseSchema.extend({
  * ObjectCalendar Schema
  *
  * `objectName` is OPTIONAL and the member ends in `requireRecordSource`
- * (objectui#7313, the objectui#6939 shape): the renderer resolves its records
+ * (objectui#7313, the `77cb489b4` shape): the renderer resolves its records
  * through the shared ladder (`resolveRecordSourceConfig` in
  * `@object-ui/core`, `plugin-calendar/src/ObjectCalendar.tsx`) — `data`, then
  * `staticData`, then `objectName` — so a calendar authored on inline rows never
@@ -2300,7 +2328,7 @@ export const KanbanConditionalFormattingRuleSchema = z.union([
  *
  * `cards` reuses `KanbanCardSchema` (`./complex.zod.ts`) rather than restating
  * it: the card vocabulary has one authority, and reaching it is what restores
- * objectui#6939's judging — a lane card with no `title` is refused again.
+ * the judging `240b80f31` established — a lane card with no `title` is refused again.
  */
 const ObjectKanbanLaneSchema = z.object({
   id: z.string().describe('Lane id — matched against the groupBy value. STRING only, and the narrowing stands on its own: until objectui#8993 the bucketer built knownIds from the raw col.id and compared it with Object.keys(groups), which are strings, so a numeric id bucketed every card TWICE; the sweep now keys membership the way the injection always did'),
@@ -2525,6 +2553,32 @@ function objectChartXAxisError(issue: z.core.$ZodRawIssue): string | undefined {
 }
 
 /**
+ * The chart-family floor on an `object-chart` node (objectui#10770).
+ *
+ * Two keys carry the family. The metadata tier writes `chartType`. The react
+ * tier's `<ObjectChart>` author writes the spec's `type`, which the react-page
+ * wrapper parks as `specType`, because `type` is this node's discriminator.
+ * Either one is enough, so both members are optional. This refinement keeps
+ * the floor that `chartType`'s required flag used to carry: a node that names
+ * no family is refused, as it was before. Only which key may carry the family
+ * widened. The path stays on `chartType`, so the diagnostic lands where it
+ * always did.
+ */
+function requireObjectChartFamily(
+  schema: { chartType?: unknown; specType?: unknown },
+  ctx: z.core.$RefinementCtx,
+): void {
+  if (schema.chartType !== undefined || schema.specType !== undefined) return;
+  ctx.addIssue({
+    code: 'custom',
+    path: ['chartType'],
+    message:
+      '`object-chart` names no chart family: write `chartType` on a metadata node. On the react tier, '
+      + '`<ObjectChart type="bar">` arrives here as `specType`.',
+  });
+}
+
+/**
  * ObjectChart Schema
  */
 export const ObjectChartSchema = BaseSchema.extend({
@@ -2532,7 +2586,18 @@ export const ObjectChartSchema = BaseSchema.extend({
   // Legacy inline path (objectName + aggregate). Optional now that a chart may
   // instead bind to a semantic-layer dataset (ADR-0021, #1890).
   objectName: z.string().optional().describe('ObjectQL object name (legacy inline path)'),
-  chartType: z.enum(['bar', 'column', 'horizontal-bar', 'line', 'area', 'pie', 'donut', 'scatter']).describe('Chart type'),
+  // ── objectui#10770: the chart family, on either tier's key ──
+  //
+  // `chartType` is the metadata tier's spelling. `specType` is where the
+  // react-page wrapper parks a react-tier author's `type`, and its value domain
+  // is the spec's own `ChartTypeSchema`, by reference, because that is what
+  // `ChartConfigSchema.type` declares. Both are optional, and
+  // `requireObjectChartFamily` (the `.superRefine` at the end) requires one of
+  // them. The TS twin in `../objectql.ts` carries the ground.
+  chartType: z.enum(['bar', 'column', 'horizontal-bar', 'line', 'area', 'pie', 'donut', 'scatter']).optional()
+    .describe('Chart type — the metadata tier\'s spelling of the chart family. One of chartType or specType is required'),
+  specType: stripImportedDefaults(SpecChartTypeSchema).optional()
+    .describe('The react tier\'s chart family: the author\'s `type` on <ObjectChart>, parked here by the react-page wrapper because `type` is this node\'s discriminator. @objectstack/spec ChartType, by reference. chartType wins when a node writes both'),
   // ── objectui#10608: three list-view spellings, RETIRED on this node ──
   //
   // `xAxisField` / `yAxisFields` / `aggregation` are the LIST-VIEW chart
@@ -2585,7 +2650,8 @@ export const ObjectChartSchema = BaseSchema.extend({
   // mirror unexamined; what changes is that their VALUES are checked. Leaving
   // them undeclared would instead have put them in `zod-mirror-parity`'s
   // `UnmirroredDeclared` ledger — which that file calls a real defect in the
-  // pair, not a neutral state.
+  // pair, not a neutral state. (`series` is only half internal since
+  // objectui#10770: see its own comment below.)
   // BOTH `filter` arms are live and both are measured — see the twin docblock in
   // `../objectql.ts`. The array arm is the spec's published `FilterArray` and
   // the registry `inputs` spelling; the record arm is the ObjectQL `$filter`
@@ -2608,24 +2674,36 @@ export const ObjectChartSchema = BaseSchema.extend({
   aggregate: stripImportedDefaults(SpecChartAggregateSchema).optional()
     .describe('AUTHORABLE — inline aggregation for the legacy objectName path. @objectstack/spec ChartAggregateSchema ({ field?, function, groupBy }), the same schema the react-page publish gate parses: function and groupBy are REQUIRED, field is optional because only count counts rows rather than a column, and unknown keys are refused rather than dropped'),
   xAxisKey: z.string().optional().describe('INTERNAL (relay-composed) — the category column the renderer binds the x axis to. Authors write the spec xAxis: { field }; all five producers compute this key'),
-  // `series` copies the `{ dataKey }` arm of `ChartRendererProps.schema.series`
-  // WITHOUT that arm's per-series `type` (objectui#8086), deliberately
-  // (objectui#10584): widening a published accept set waits for a named
-  // producer that writes `type` on this node. The `.describe()` says so and
-  // names `chartType` as this copy's override, because that string is what an
-  // author-facing tool renders. The TS twin in `../objectql.ts` carries the
-  // ground.
-  series: z.array(z.object({
-    dataKey: z.string().describe('Result column this series plots'),
-    label: z.string().optional().describe('Series display label'),
-    variant: z.enum(['current', 'comparison']).optional().describe('Comparison overlays render muted'),
-    opacity: z.number().optional().describe('Series opacity override (0-1)'),
-    dashArray: z.string().optional().describe('SVG stroke-dasharray override'),
-    chartType: z.enum(['bar', 'line', 'area']).optional().describe('Per-series family override (combo charts)'),
-    stack: z.string().optional().describe('Stack identifier to group series'),
-    yAxis: z.enum(['left', 'right']).optional().describe('Bind to a specific Y axis'),
-    color: z.string().optional().describe('Series color (hex/rgb/token)'),
-  })).optional().describe("INTERNAL (relay-composed) — plotted series in the renderer's internal { dataKey } contract: the { dataKey } arm ChartRendererProps declares, minus that arm's per-series type, which this copy does not declare. The per-series family override here is chartType (bar | line | area). The spec's author-facing ChartSeriesSchema is the { name } arm and refuses dataKey by name; normalizeChartSchema is the one translation"),
+  // ── objectui#10770: `series` is TWO arms, one verdict each ──
+  //
+  // Arm 1 is the spec's `ChartSeriesSchema` BY REFERENCE: the AUTHOR arm
+  // (`{ name }`). The react tier's `<ObjectChart series={…}>` publishes it, the
+  // react-page wrapper forwards it onto this node untouched, and the showcase
+  // `renewals-pipeline` page writes it. The strict refusal is the spec's too,
+  // so `dataKey` on this arm is refused by name.
+  //
+  // Arm 2 is the INTERNAL arm (`{ dataKey }`), unchanged: the `{ dataKey }` arm
+  // of `ChartRendererProps.schema.series`, WITHOUT that arm's per-series `type`
+  // (objectui#8086), deliberately (objectui#10584). Widening it waits for a
+  // named producer that writes `type` on a `{ dataKey }` entry of this node.
+  //
+  // An entry matching neither arm (no `name` and no `dataKey`) is refused;
+  // `normalizeChartSchema` would drop it from the chart. Arm order puts the
+  // author arm first. The TS twin in `../objectql.ts` carries the ground.
+  series: z.array(z.union([
+    stripImportedDefaults(SpecChartSeriesSchema),
+    z.object({
+      dataKey: z.string().describe('Result column this series plots'),
+      label: z.string().optional().describe('Series display label'),
+      variant: z.enum(['current', 'comparison']).optional().describe('Comparison overlays render muted'),
+      opacity: z.number().optional().describe('Series opacity override (0-1)'),
+      dashArray: z.string().optional().describe('SVG stroke-dasharray override'),
+      chartType: z.enum(['bar', 'line', 'area']).optional().describe('Per-series family override (combo charts)'),
+      stack: z.string().optional().describe('Stack identifier to group series'),
+      yAxis: z.enum(['left', 'right']).optional().describe('Bind to a specific Y axis'),
+      color: z.string().optional().describe('Series color (hex/rgb/token)'),
+    }),
+  ])).optional().describe("Plotted series, each entry ONE of two arms. AUTHORABLE: @objectstack/spec ChartSeriesSchema, by reference (the { name } arm the react tier's <ObjectChart series> publishes; strict, refuses dataKey by name; per-series family override is type). INTERNAL (relay-composed): the renderer's { dataKey } arm, as ChartRendererProps declares it minus that arm's per-series type, which this copy does not declare; its per-series family override is chartType (bar | line | area). An entry with neither name nor dataKey is refused. normalizeChartSchema is the one translation"),
   // Colors are overloaded kanban-style: a string[] is the positional palette
   // (applied per category in order; fallback only), while a Record<value,color>
   // is an explicit value→color map. A select/lookup dimension's option colors —
@@ -2710,7 +2788,7 @@ export const ObjectChartSchema = BaseSchema.extend({
       'AUTHORABLE — value (y) axes: an ARRAY of @objectstack/spec ChartAxis objects, by reference (field required, strict). '
       + 'The first entry is the primary axis; a second entry declares the right-hand axis.',
     ),
-});
+}).superRefine(requireObjectChartFamily);
 
 /**
  * ObjectGallery Schema (objectui#6576)

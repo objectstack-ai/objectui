@@ -3,7 +3,7 @@
 ---
 
 The `[page:header]` sparse-predicate warning no longer blames `hidden: true` — it
-states what it actually measured (objectui#5399).
+states what it actually measured.
 
 When an action's `visible` predicate references a `record.<key>` the bound payload
 does not carry, the warner names the missing key and then explained the cause:

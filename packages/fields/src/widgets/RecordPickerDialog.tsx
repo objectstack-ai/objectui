@@ -40,7 +40,7 @@ import type { DataSource, LookupColumnDef, LookupFilterDef } from '@object-ui/ty
 // The repo's single filter sink (`packages/core/src/utils/filter-converter.ts`)
 // — shared with plugin-list's `buildEffectiveFilter` and plugin-view's
 // ObjectView, so a spec `ViewFilterRule[]` lowers in exactly one place.
-import { buildExpandFields, mergeFilterNodes, toFilterNodeSafely, toPredicateRecord, type FilterNodeResult } from '@object-ui/core';
+import { buildExpandFields, mergeFilterNodes, toFilterNodeSafely, toPredicateRecord, withoutDeniedFields, type FilterNodeResult } from '@object-ui/core';
 import { useSafeFieldLabel, useDisplayLocale } from '@object-ui/i18n';
 import { usePermissions } from '@object-ui/permissions';
 import { useFieldTranslation } from './useFieldTranslation.js';
@@ -437,33 +437,6 @@ export interface RecordPickerDialogProps {
    * )}
    */
   renderGrid?: (props: RecordPickerGridSlotProps) => React.ReactNode;
-}
-
-/**
- * `record` without the fields the loaded permission policy denies on
- * `objectName` (objectui#10373) — the row ObjectStack's `FieldMasker` already
- * serves. The identity columns are never judged: the id is the committed
- * value, not a display value. Before a policy loads, the record comes back as
- * is. `LookupField` applies the same rule to its option labels
- * (`withoutDeniedFields` there); each file keeps its own copy because this one
- * is re-exported whole from the package entry and the helper is not public.
- */
-function withoutDeniedFields<T>(
-  record: T,
-  perms: ReturnType<typeof usePermissions>,
-  objectName: string,
-  idField: string,
-): T {
-  if (!perms.isLoaded || !record || typeof record !== 'object') return record;
-  const shown: Record<string, unknown> = {};
-  let withheld = false;
-  for (const [key, value] of Object.entries(record)) {
-    const readable =
-      key === idField || key === 'id' || key === '_id' || perms.checkField(objectName, key, 'read');
-    if (readable) shown[key] = value;
-    else withheld = true;
-  }
-  return withheld ? (shown as T) : record;
 }
 
 /**
@@ -907,12 +880,14 @@ export function RecordPickerDialog({
   // `titleFormat` template, a `nameField`), so it reads the row with the fields
   // the loaded policy denies removed (objectui#10373) — the row ObjectStack's
   // `FieldMasker` already serves. A denied field falls through the resolver
-  // exactly as it does for that row.
+  // exactly as it does for that row. The rule is `@object-ui/core`'s
+  // `withoutDeniedFields`, the one every surface calls (objectui#10594). The id
+  // field is never judged: it is the value committed, not a display value.
   const renderCellContent = useCallback(
     (record: any, col: LookupColumnDef): React.ReactNode =>
       renderLookupColumnValue(
         objectSchema && col.field === displayField
-          ? withoutDeniedFields(toPredicateRecord(record, fieldsMeta), perms, objectName, idField)
+          ? withoutDeniedFields(toPredicateRecord(record, fieldsMeta), perms, objectName, [idField])
           : record,
         col,
         {

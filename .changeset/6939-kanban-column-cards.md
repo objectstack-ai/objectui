@@ -3,7 +3,7 @@
 ---
 
 Rename `KanbanColumn.items` to `cards`, in both halves of the published surface
-(objectui#6939, maintainer ruling 2026-09-02).
+(maintainer ruling 2026-09-02).
 
 **Breaking, deliberately.** `KanbanColumn` declared its card list as `items` in
 `complex.ts` and in the zod mirror `complex.zod.ts`. Every board reads `cards`.

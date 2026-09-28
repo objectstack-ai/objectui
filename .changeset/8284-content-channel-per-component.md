@@ -15,8 +15,8 @@ fixed version group never ships `major` (see AGENTS.md 版本号策略).
 `.passthrough()` and both keys are optional, so a node carrying the wrong channel
 type-checked, parsed green, was preserved by the parse — and then rendered an EMPTY
 element. No error at authoring time, none at validation time, none at render time. Seven
-earlier cards repaired one page of that each (objectui#5027, #3900, #6773, #6806, #8197,
-#8234, #6939) before the declaration itself was named.
+earlier changes repaired one page of that each (objectui#5027, #3900, #6773, #6806, #8197,
+#8234, `bfaa1589c`) before the declaration itself was named.
 
 **What changes.** For each component below, the channel its renderer does not read is now
 `?: never` on the TypeScript face and refused BY NAME on the zod mirror, with a message

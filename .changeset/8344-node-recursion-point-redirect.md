@@ -127,3 +127,8 @@ module, so a consumer bundler has no internal graph to link past and every entry
 the barrel, or a deep link — gets the same accept set. Until it lands, a consumer that bundles
 `@object-ui/types/zod` should keep `AnyComponentSchema` in its import graph, which is enough to
 make the redirect apply.
+
+⚠️ **Dated note, 2026-09-28 — one more category module — objectui#10859.** Later in this same
+release `zod/ai.zod.ts` joins the category modules `AnyComponentSchema` is built from and imports
+`zod/base.zod.ts` too, so both counts in the mechanical note above are one higher; the reason the arm
+cannot be an import is unchanged. The rest of this entry is kept as the reading of this change.

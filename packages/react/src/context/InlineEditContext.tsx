@@ -95,7 +95,7 @@ export interface InlineEditContextValue {
   approvalProgress?: ApprovalProgress;
   /**
    * Whether the viewer is the SUBMITTER of the pending approval request
-   * (objectui#6464). Recall is the submitter's lever and the server enforces
+   * (`830ed5803`). Recall is the submitter's lever and the server enforces
    * exactly that — a non-submitter's recall is refused — so a recall button
    * lit for everyone who can read the record is a button whose click must
    * fail. The host resolves the identity (server-resolved `viewer.is_submitter`
@@ -227,7 +227,7 @@ export interface InlineEditProviderProps {
   approvalProgress?: ApprovalProgress;
   /**
    * Whether the viewer submitted the pending approval request
-   * (objectui#6464). Surfaced verbatim so the recall affordance is offered to
+   * (`830ed5803`). Surfaced verbatim so the recall affordance is offered to
    * the submitter only. Omitted ⇒ `undefined` ⇒ recall is offered exactly as
    * it was before this prop existed (see `InlineEditContextValue`), so a host
    * that resolves no approval identity is unchanged.

@@ -24,7 +24,7 @@ share one verdict:
 - `categories` is **not retired and is unaffected**. It is a declared member of
   the published `ChartSchema` and of its zod mirror, is documented in the
   schema reference as an alternative series list, and was ruled live by
-  objectui#6896. `normalizeChartSchema` — the single translation point
+  the maintainer ruling of 2026-08-31. `normalizeChartSchema` — the single translation point
   (objectui#2880 S1) — already consumed it, so `ChartRenderer`'s own branch was
   a second, un-normalized read that no well-formed chart could reach. Removing
   it changes nothing for a well-formed chart and removes two wrong answers for

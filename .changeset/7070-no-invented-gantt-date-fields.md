@@ -4,7 +4,7 @@
 '@object-ui/plugin-view': minor
 ---
 
-Gantt views no longer render on invented date field names (objectui#7070).
+Gantt views no longer render on invented date field names.
 
 The half PR #7062 fenced out and reported separately. A view that carried no
 `gantt:` block used to have a complete-looking date axis synthesized for it:
@@ -45,7 +45,7 @@ Also corrected: the objectui#3129 note at the top of `app-shell/ObjectView.tsx`
 certified the gantt branch below it as already using the safe two-rung shape.
 It did not. The note now states each sibling branch as measured, and says
 explicitly which fabrication REMAINS — the timeline `'created_at'` floor at the
-two plugin faces, which objectui#7070 routes to a ruling rather than settling
+two plugin faces, which is routed to a ruling rather than settled
 per-face.
 
 Deliberately out of scope, and left in place: `progressField` / `dependenciesField`

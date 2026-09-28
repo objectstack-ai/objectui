@@ -37,6 +37,7 @@ import { LineItemsField, type GridColumn } from '@object-ui/fields';
 import { Button, Card, CardContent, CardHeader, CardTitle, cn, toast } from '@object-ui/components';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { usePermissions } from '@object-ui/permissions';
+import { dataChangeMatches, subscribeDataChanges } from '@object-ui/react';
 import { ObjectForm } from './ObjectForm';
 import { applyColumnPermissions } from './fieldWriteGate';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
@@ -47,6 +48,7 @@ import {
   isBlankRow,
   sumRows,
   type BatchEditDetailInput,
+  type ChildSchema,
 } from './masterDetailTx';
 import { isSameStoredValue } from './sanitize';
 import { deriveDetail, hydrateColumns, type InlineMode } from './deriveMasterDetail';
@@ -375,6 +377,78 @@ function synthesizeDetailIds(raw: MasterDetailDetailConfig[]): string[] {
     seen.set(base, nth + 1);
     return nth === 0 ? base : `${base}~${nth}`;
   });
+}
+
+/**
+ * objectui#10853 — `useDataInvalidation` (`@object-ui/react`) for a SET of
+ * objects: each name's nonce moves once per change the data-invalidation bus
+ * reports for it.
+ *
+ * The edit-mode lines read one child object per detail collection, and the
+ * collections are authored, so there is no fixed number of hook calls to make.
+ * This is the same bus and the same test, not a second channel:
+ * `subscribeDataChanges` is the listener set `useDataInvalidation` subscribes
+ * through, and `dataChangeMatches` its matcher. It is applied object-level (no
+ * `recordId`), because a collection is many records of its object.
+ *
+ * Keyed on the set's CONTENT, so a fresh array of the same names neither
+ * resubscribes nor resets a nonce (AGENTS.md #10).
+ */
+function useObjectsInvalidation(objectNames: readonly string[]): Readonly<Record<string, number>> {
+  const namesKey = JSON.stringify(Array.from(new Set(objectNames)).sort());
+  const [nonces, setNonces] = useState<Record<string, number>>({});
+  useEffect(() => {
+    const names = JSON.parse(namesKey) as string[];
+    if (names.length === 0) return;
+    const unsubscribe = subscribeDataChanges((change) => {
+      const hit = names.filter((name) => dataChangeMatches(change, name));
+      if (hit.length === 0) return;
+      setNonces((prev) => {
+        const next = { ...prev };
+        for (const name of hit) next[name] = (next[name] ?? 0) + 1;
+        return next;
+      });
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [namesKey]);
+  return nonces;
+}
+
+/**
+ * objectui#10853 — whether one collection holds lines the user has not saved:
+ * the edit save's own row diff (`buildMasterDetailEditBatch`) finds something
+ * to write to it OTHER than the parent link. A user's edit therefore reads as
+ * unsaved exactly when the save would send it, and a line changed back to its
+ * stored value (a revert) reads as saved again.
+ *
+ * The parent link is set aside on purpose, and it is the one place the two
+ * disagree. The save restates the link on every row it writes, as the parent
+ * id in string form, and a row read back can carry it in another form (a
+ * numeric id, an expanded lookup); against such a backend the save restates it
+ * on every row while this reads the lines as saved. That restatement is not the
+ * user's input, so it does not hold a re-read.
+ */
+function linesUnsaved(
+  state: RowState | undefined,
+  detail: MasterDetailDetailConfig,
+  parentId: string,
+  childSchema: ChildSchema,
+): boolean {
+  if (!state || !detail.relationshipField) return false;
+  const relationshipField = detail.relationshipField;
+  const ops = buildMasterDetailEditBatch('', parentId, {}, [
+    {
+      childObject: detail.childObject,
+      relationshipField,
+      rows: state.rows,
+      original: state.original.map((row) => ({ ...row, [relationshipField]: parentId })),
+      childSchema,
+    },
+  ]);
+  // Op 0 is the (empty) parent update the builder always leads with.
+  return ops.length > 1;
 }
 
 /**
@@ -965,36 +1039,196 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
     clearSaveGuardTimer();
   }, [clearSaveGuardTimer]);
 
+  // Per-row "expand to full form": opens the child's complete form (all business
+  // fields, incl. rich types the grid omits) in a drawer, pre-filled with the
+  // row. Saving writes back into the in-memory row — the atomic batch still
+  // persists everything on the parent Save (no separate backend write here).
+  // `isNew` marks a row created by "Add" in list/form mode — cancelling the
+  // editor without applying discards that empty row.
+  const [expanded, setExpanded] = useState<{ entryId: string; rowIdx: number; isNew?: boolean } | null>(null);
+  // objectui#10853 — the collection the row editor is open on. The editor holds
+  // its draft in its own form, not in `rowState`, so the rows alone cannot say
+  // that collection is being edited; the bus re-read reads this instead.
+  // Mirrored in render, as `rowStateRef` is, so a read that lands later sees
+  // the editor as it stands.
+  const rowEditorEntryRef = useRef<string | null>(null);
+  rowEditorEntryRef.current = expanded?.entryId ?? null;
+
+  /**
+   * objectui#10853 — the edit-mode lines read the data-invalidation bus
+   * (`notifyDataChanged` from `@object-ui/react`), the objectui#10623 /
+   * objectui#10778 way: a change the bus reports for a collection's CHILD
+   * object (or `'*'`) re-reads that collection's lines in place. Before, they
+   * were read only when the record, the adapter or the resolved details
+   * changed, so a page action over raw HTTP left them stale unless the host
+   * remounted this form, and `PageView` is to stop doing that
+   * (objectui#10519). The header re-reads through its own `<ObjectForm>`
+   * (objectui#10572).
+   *
+   * Subscribed only for what the reads below can query: edit mode, an adapter,
+   * and a collection whose relationship field has resolved.
+   *
+   * Unsaved lines are the objectui#10712 R3 / objectui#10572 rule applied per
+   * collection: a collection holding lines the user has not saved
+   * ({@link linesUnsaved}), or with the row editor open on it, HOLDS its
+   * re-read. One re-read is replayed once the editor is closed and the lines
+   * read as saved again (a revert), or once this form's save lands. An open
+   * editor is never reset, re-keyed or disabled by a re-read.
+   */
+  const linesReadObjects =
+    isEdit && dataSource
+      ? entries.flatMap((e) => (e.config.childObject && e.config.relationshipField ? [e.config.childObject] : []))
+      : [];
+  const linesBusNonces = useObjectsInvalidation(linesReadObjects);
+  /** Bumped when the load effect below is torn down: every read in flight is then superseded. */
+  const linesReadGenRef = useRef(0);
+  /** The number of each collection's latest read: only that read commits. */
+  const linesReadSeqRef = useRef<Record<string, number>>({});
+  /** Collections whose bus re-read is held behind unsaved lines. */
+  const heldLinesRereadRef = useRef<Set<string>>(new Set());
+  /** Collections a save has written since the lines were last replayed. */
+  const linesSavedRef = useRef<Set<string>>(new Set());
+  /** Per collection, the bus nonce of its child object already answered. */
+  const linesBusSeenRef = useRef<Record<string, number>>({});
+
+  const parentIdKey = String(schema.recordId);
+  const unsavedLines = useCallback(
+    (entry: DetailEntry) =>
+      rowEditorEntryRef.current === entry.id ||
+      linesUnsaved(
+        rowStateRef.current[entry.id],
+        entry.config,
+        parentIdKey,
+        childSchemasRef.current[entry.config.childObject],
+      ),
+    [parentIdKey],
+  );
+
+  /**
+   * Read one collection's lines. `origin`:
+   * - `'load'`: the record, the adapter or the resolved details changed. The
+   *   answer replaces the collection's rows and baseline, and a failed read
+   *   leaves it empty (the behaviour before objectui#10853).
+   * - `'bus'`: the bus reported a change to the child object. HELD while the
+   *   collection holds unsaved lines. A failed re-read keeps the lines on
+   *   screen.
+   * - `'replay'`: a held re-read, replayed after a revert or a save.
+   * A `'bus'` or `'replay'` read keeps the grid drawn over the lines on screen
+   * and commits only over those same lines: if they were edited while it was
+   * in flight, its answer is not committed and the re-read is asked for again,
+   * so it is held behind the edit.
+   */
+  const readLines = useCallback(
+    async function readLinesOf(entry: DetailEntry, origin: 'load' | 'bus' | 'replay'): Promise<void> {
+      if (origin === 'bus') {
+        if (unsavedLines(entry)) {
+          heldLinesRereadRef.current.add(entry.id);
+          return;
+        }
+        heldLinesRereadRef.current.delete(entry.id);
+      }
+      const gen = linesReadGenRef.current;
+      const seq = (linesReadSeqRef.current[entry.id] ?? 0) + 1;
+      linesReadSeqRef.current[entry.id] = seq;
+      const isCurrent = () => linesReadGenRef.current === gen && linesReadSeqRef.current[entry.id] === seq;
+      const d = entry.config;
+      if (!dataSource || !d.relationshipField) {
+        // Not resolved yet: nothing to read, and no lines to show.
+        setRowState((prev) => ({ ...prev, [entry.id]: { rows: [], original: [] } }));
+        return;
+      }
+      const inPlace = origin !== 'load';
+      const rowsAtIssue = rowStateRef.current[entry.id]?.rows;
+      let rows: RowState['rows'];
+      try {
+        const res = await dataSource.find(d.childObject, {
+          $filter: { [d.relationshipField]: schema.recordId },
+          $top: 500,
+        });
+        rows = (res?.data ?? []) as Record<string, any>[];
+      } catch (err) {
+        if (!isCurrent()) return;
+        if (inPlace) {
+          console.warn(
+            `[MasterDetailForm] could not re-read the lines of "${d.childObject}" after a data change; ${rowsAtIssue === undefined ? 'no lines have been read for it yet' : 'the lines on screen are kept'}.`,
+            err,
+          );
+          return;
+        }
+        rows = [];
+      }
+      if (!isCurrent()) return;
+      if (inPlace && rowEditorEntryRef.current === entry.id) {
+        // The row editor was opened while this read was in flight: its commit
+        // would reset the editor's draft. Held, and replayed when it closes.
+        heldLinesRereadRef.current.add(entry.id);
+        return;
+      }
+      if (inPlace && rowStateRef.current[entry.id]?.rows !== rowsAtIssue) {
+        // Edited while this read was in flight: its answer would overwrite the
+        // edit. Ask again, which holds it behind the edit while it is unsaved.
+        void readLinesOf(entry, 'bus');
+        return;
+      }
+      // Keyed by entry id, so a collection's rows land in ITS slot regardless
+      // of where it currently sits in the authored array.
+      setRowState((prev) => {
+        if (inPlace && (prev[entry.id]?.rows !== rowsAtIssue || rowEditorEntryRef.current === entry.id)) {
+          heldLinesRereadRef.current.add(entry.id);
+          return prev;
+        }
+        return { ...prev, [entry.id]: { rows: rows.map((r) => ({ ...r })), original: rows.map((r) => ({ ...r })) } };
+      });
+    },
+    [dataSource, schema.recordId, unsavedLines],
+  );
+
   // Edit mode: load existing children for each detail collection.
   useEffect(() => {
-    let cancelled = false;
-    if (!isEdit || !dataSource) return;
-    (async () => {
-      const loaded = await Promise.all(
-        entries.map(async (e): Promise<[string, RowState]> => {
-          const d = e.config;
-          if (!d.relationshipField) return [e.id, { rows: [], original: [] }]; // not resolved yet
-          try {
-            const res = await dataSource.find(d.childObject, {
-              $filter: { [d.relationshipField]: schema.recordId },
-              $top: 500,
-            });
-            const rows = (res?.data ?? []) as Record<string, any>[];
-            return [e.id, { rows: rows.map((r) => ({ ...r })), original: rows.map((r) => ({ ...r })) }];
-          } catch {
-            return [e.id, { rows: [], original: [] }];
-          }
-        }),
-      );
-      // Keyed by entry id, so a collection's loaded rows land in ITS slot
-      // regardless of where it currently sits in the authored array.
-      if (!cancelled) setRowState(Object.fromEntries(loaded));
-    })();
+    heldLinesRereadRef.current.clear();
+    linesSavedRef.current.clear();
+    if (isEdit && dataSource) {
+      for (const e of entries) void readLines(e, 'load');
+    }
     return () => {
-      cancelled = true;
+      linesReadGenRef.current += 1;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEdit, dataSource, schema.recordId, resolvedEntries]);
+
+  // objectui#10853 — the bus reported a change to a collection's child object.
+  // A nonce the collection has not seen before is taken as seen: the load
+  // above reads it. Values, not identities, decide here, so a run for any
+  // other reason re-reads nothing.
+  useEffect(() => {
+    for (const e of entries) {
+      const obj = e.config.childObject;
+      if (!obj || !e.config.relationshipField) continue;
+      const nonce = linesBusNonces[obj] ?? 0;
+      const seen = linesBusSeenRef.current[e.id];
+      linesBusSeenRef.current[e.id] = nonce;
+      if (seen === undefined || seen === nonce) continue;
+      void readLines(e, 'bus');
+    }
+  }, [linesBusNonces, entries, readLines]);
+
+  // objectui#10853 — a held re-read is replayed once its collection's lines
+  // read as saved again (a revert), or once this form's save has written them.
+  // Not while a save is in flight: the lines take no input then, and its
+  // outcome decides. Never while the row editor is open on the collection: it
+  // runs here again when the editor closes (Apply or cancel).
+  useEffect(() => {
+    if (saving) return;
+    const held = heldLinesRereadRef.current;
+    for (const e of entries) {
+      if (!held.has(e.id)) continue;
+      if (rowEditorEntryRef.current === e.id) continue;
+      if (!linesSavedRef.current.has(e.id) && unsavedLines(e)) continue;
+      held.delete(e.id);
+      void readLines(e, 'replay');
+    }
+    linesSavedRef.current.clear();
+  }, [rowState, saving, expanded, entries, readLines, unsavedLines]);
 
   const setRows = useCallback((entryId: string, rows: Record<string, any>[]) => {
     setRowState((prev) => ({
@@ -1007,13 +1241,6 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
   // (which scrapes the header record) and drives the Subtotal / Tax / Total stack.
   const taxRateField = schema.taxRateField || 'tax_rate';
 
-  // Per-row "expand to full form": opens the child's complete form (all business
-  // fields, incl. rich types the grid omits) in a drawer, pre-filled with the
-  // row. Saving writes back into the in-memory row — the atomic batch still
-  // persists everything on the parent Save (no separate backend write here).
-  // `isNew` marks a row created by "Add" in list/form mode — cancelling the
-  // editor without applying discards that empty row.
-  const [expanded, setExpanded] = useState<{ entryId: string; rowIdx: number; isNew?: boolean } | null>(null);
   const expandedRow =
     expanded ? rowState[expanded.entryId]?.rows?.[expanded.rowIdx] : undefined;
   const expandedDetail = expanded ? entries.find((e) => e.id === expanded.entryId)?.config : undefined;
@@ -1193,6 +1420,10 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
       // `handleSaved` empties the rows for the next entry.
       if (editDetails) {
         const saved = childRowsAfterSave(ops, res?.results, editDetails);
+        // objectui#10853 — these lines are now what the server holds, so a bus
+        // re-read held behind them (this save's own echo included) is replayed
+        // once the save has settled.
+        for (const s of saved) linesSavedRef.current.add(s.entryId);
         setRowState((prev) => {
           let next = prev;
           for (const s of saved) {

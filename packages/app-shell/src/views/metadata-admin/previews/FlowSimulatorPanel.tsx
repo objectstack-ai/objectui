@@ -285,7 +285,7 @@ export function FlowSimulatorPanel({ nodes, edges, variables, locale, onRunState
         {screenPause && (
           <section className="space-y-1.5">
             <div className="font-medium text-muted-foreground">{tr('engine.flowSim.screen', locale)}</div>
-            <ScreenPreview node={screenPause.node} variables={screenPause.variables} />
+            <ScreenPreview node={screenPause.node} variables={screenPause.variables} locale={locale} />
           </section>
         )}
 

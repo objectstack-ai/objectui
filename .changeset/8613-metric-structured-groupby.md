@@ -38,5 +38,5 @@ author asked for one question and the platform answered another (objectui#8613).
 Unchanged, and pinned as controls: a plain string `groupBy` and an absent one
 (floored at the single `'_all'` bucket) still take the legacy query byte for
 byte, and an ARRAY `groupBy` still travels there too — it is not this union's
-object arm, and it must keep reaching the producer-side refusal objectui#6864
+object arm, and it must keep reaching the producer-side refusal `503cd8b89`
 landed in the adapter.

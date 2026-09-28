@@ -319,14 +319,14 @@ const TOOLTIP_CONTENT_IS_TEXT_GUIDANCE =
  * Tooltip Schema - Tooltip component
  *
  * ⚠️ This member used to REQUIRE `children` and declare neither `trigger` nor a
- * rich-content slot (objectui#6939). The renderer reads `schema.trigger` and
+ * rich-content slot (`bfaa1589c`). The renderer reads `schema.trigger` and
  * `schema.content || renderChildren(…)` (`renderers/overlay/tooltip.tsx`), and
  * the registration's own `inputs` list `trigger` / `content` / that slot. So the
  * validator refused documents the renderer draws and blessed a spelling that
  * paints an empty trigger — `declared !== enforced`, with the corpus on the
  * right side of it.
  *
- * ⚠️ The slot was spelled `body` from objectui#6939 until objectui#6771 retired
+ * ⚠️ The slot was spelled `body` from `bfaa1589c` until objectui#6771 retired
  * the spelling. It is `children` now, so the refusal below faces the other way
  * round from the one objectui#8284 first wrote — the RULE (tombstone the channel
  * this renderer does not read) is what is preserved, not the key it named.
@@ -347,7 +347,7 @@ const TOOLTIP_CONTENT_IS_TEXT_GUIDANCE =
 export const TooltipSchema = BaseSchema.extend({
   type: z.literal('tooltip'),
   trigger: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
-    .describe('Element the tooltip attaches to (objectui#6939)'),
+    .describe('Element the tooltip attaches to'),
   // TEXT ONLY (objectui#10295, the objectui#7759 group B residue). The renderer
   // places `schema.content` RAW in a React child position — unlike `trigger`
   // and `children`, it does not go through `renderChildren`. objectui#10280
@@ -361,9 +361,9 @@ export const TooltipSchema = BaseSchema.extend({
   content: z
     .string({ error: (issue) => (issue.code === 'invalid_type' ? TOOLTIP_CONTENT_IS_TEXT_GUIDANCE : undefined) })
     .optional()
-    .describe('Tooltip text, checked before `children` — optional because `children` is the fallback for the same slot (objectui#6939). Text only: author a node or a list of nodes under `children` (objectui#10295)'),
+    .describe('Tooltip text, checked before `children` — optional because `children` is the fallback for the same slot. Text only: author a node or a list of nodes under `children` (objectui#10295)'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
-    .describe('Rich tooltip content — the fallback for `content`, published by the registration as the "Rich Content" slot (objectui#6939, objectui#6771)'),
+    .describe('Rich tooltip content — the fallback for `content`, published by the registration as the "Rich Content" slot (objectui#6771)'),
   side: z.enum(['top', 'right', 'bottom', 'left']).optional().describe('Tooltip side'),
   align: z.enum(['start', 'center', 'end']).optional().describe('Tooltip alignment'),
   delayDuration: z.number().optional().describe('Delay before showing (ms)'),
@@ -492,7 +492,7 @@ export const DropdownMenuSchema = BaseSchema.extend({
  * Context Menu Schema - Context menu component
  *
  * ⚠️ This member used to REQUIRE `children`, which no read site consumes
- * (objectui#6939). The renderer reads `schema.trigger` and `schema.items`
+ * (`bfaa1589c`). The renderer reads `schema.trigger` and `schema.items`
  * (`renderers/overlay/context-menu.tsx:95,99`), so a document authoring its
  * right-clickable area under `children` loses it to the hardcoded placeholder
  * — `Right-click here` renders as `Right click here`. `children` stays legal
@@ -508,11 +508,11 @@ export const ContextMenuSchema = BaseSchema.extend({
   trigger: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
     .describe("Right-clickable area. Optional: the renderer substitutes a placeholder (`Right click here`) when omitted, so trigger-less documents are legal today (objectui#6150)"),
   triggerClassName: z.string().optional()
-    .describe('Classes for the right-clickable area — falls back to `className` / `schema.className`, or a dashed-border default when none are set (objectui#6939)'),
+    .describe('Classes for the right-clickable area — falls back to `className` / `schema.className`, or a dashed-border default when none are set'),
   contentClassName: z.string().optional()
-    .describe('Classes for the menu panel, applied to the underlying `ContextMenuContent` (objectui#6939)'),
+    .describe('Classes for the menu panel, applied to the underlying `ContextMenuContent`'),
   modal: z.boolean().optional()
-    .describe('Forwarded to the Radix `ContextMenu` root as `modal` (objectui#6939)'),
+    .describe('Forwarded to the Radix `ContextMenu` root as `modal`'),
   body: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `context-menu` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '

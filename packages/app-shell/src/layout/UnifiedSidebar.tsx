@@ -678,7 +678,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
                  order. A pinned section would also land directly above this
                  arm's own "Starred" group. Separate product decisions, not part
                  of unflattening a group.
-               (Until objectui#5197 this list also named `resolveGroupLabel` /
+               (Until `9c60144b5` this list also named `resolveGroupLabel` /
                `resolveItemLabel`. Those props are gone from the renderer
                entirely — they were unreachable for every real nav entry, and
                app-nav localization belongs to the server `/meta` boundary.) */}

@@ -203,7 +203,7 @@ export function recordLockedByApproval(request: ApprovalRequestLite | null | und
  * Did the current viewer submit this approval request?
  *
  * The submitter's levers — Remind on the approvals panel, Recall on the record
- * band (objectui#6464) — are the ones the server authorizes on submitter
+ * band (`830ed5803`) — are the ones the server authorizes on submitter
  * identity and refuses to anyone else. This is the ONE place that answer is
  * derived, so the two surfaces cannot drift into disagreeing about who the
  * submitter is (the identical hazard `utils/approverIdentity` exists for on the

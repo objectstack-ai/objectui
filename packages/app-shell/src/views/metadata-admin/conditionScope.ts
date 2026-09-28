@@ -24,7 +24,7 @@ import {
  * The widget's surface is whatever the host schema points it at, so no single
  * scope is right for it: `record` is right where the evaluator binds a row, and
  * refusing the bare shorthand on the flow / RLS tiers — which are NOT row
- * surfaces (objectui#5738 stand-down 3) — would narrow a surface with no defect.
+ * surfaces (stand-down 3 on the corpus-sweep card behind `702c48a62`) — would narrow a surface with no defect.
  * The one place that knows which tier is on screen is the host that is editing
  * a metadata type, so the scope originates there and rides
  * {@link WidgetContext.conditionScope}, required at construction.
@@ -119,7 +119,7 @@ export const CONDITION_SCOPE_BY_METADATA_TYPE = {
   flow: 'flattened',
   permission: 'flattened',
   /** Row-level security: a rule condition, evaluated per row but bound flat —
-   *  the objectui#5738 stand-down 3 surface, the same as `permission`. */
+   *  a stand-down 3 surface of the corpus-sweep card behind `702c48a62`, the same as `permission`. */
   sharing_rule: 'flattened',
 
   /* ── `none` — no lint claim this editor may honestly make ────────────── */

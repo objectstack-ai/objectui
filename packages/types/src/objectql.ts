@@ -31,6 +31,12 @@ import type { ObjectDataTableDrillDownConfig } from './data-display.js';
 // this adds no cycle in either direction.
 import type { QueryParams } from './data.js';
 import type { BulkActionOperation } from '@objectstack/spec/ui';
+// objectui#7928 — `ObjectViewSchema.listViews` is the protocol's record of this
+// schema, BY REFERENCE. The spec publishes a TS type for `ListView` and none for
+// the object-scoped `ObjectListView`, so the member reads it as `z.input` (the
+// authoring face: the mirror strips every imported default). Type-only.
+import type { ObjectListViewSchema as SpecObjectListViewSchema } from '@objectstack/spec/ui';
+import type { z } from 'zod';
 import type { FormField } from './form.js';
 // ListView type is now derived from the zod schema (issue #2231) — see ListViewSchema below.
 import type { ListViewInferred, ObjectCalendarBlockConfig } from './zod/objectql.zod.js';
@@ -143,6 +149,11 @@ import type {
   // `ObjectChartSchema.xAxis` and the element type of `ObjectChartSchema.yAxis`.
   // Aliased for the reason `SpecGanttConfig` above is.
   ChartAxis as SpecChartAxis,
+  // objectui#10770 — the react tier's `<ObjectChart>` author arm: the spec's
+  // `{ name }` series entry (the author arm of `ObjectChartSchema.series`) and
+  // its chart family (`ObjectChartSchema.specType`). Aliased for the same reason.
+  ChartSeries as SpecChartSeries,
+  ChartType as SpecChartType,
 } from '@objectstack/spec/ui';
 
 /**
@@ -451,7 +462,7 @@ export interface BulkActionParam {
    * author especially) trusts the type absolutely (objectui#3309).
    *
    * Structurally identical to `@object-ui/core`'s `ActionParamOption`
-   * (objectui#3559), deliberately restated inline rather than imported: this
+   * (`fbc23e094`), deliberately restated inline rather than imported: this
    * package is the protocol layer and takes no workspace dependency.
    *
    * Naming the two keys this layer itself uses and passing the rest through is
@@ -2031,9 +2042,18 @@ export interface ObjectViewSchema extends BaseSchema {
   
   /**
    * Named list views (e.g., "All Records", "My Records", "Active").
-   * Aligned with @objectstack/spec View.listViews.
+   *
+   * The protocol's own slot BY REFERENCE (objectui#7928, ruling A): the value is
+   * `@objectstack/spec/ui`'s `ObjectListViewSchema`, the value type of
+   * `ViewSchema.listViews`. A named view therefore needs `columns`, takes
+   * `filter` as `{ field, operator, value }` rules and declares each view kind's
+   * config in the top-level block of that kind (`kanban`, `calendar`, …).
+   * ⛔ The legacy `options` bag is not a member: a stored body that carries one
+   * is folded onto the top-level blocks by `@object-ui/app-shell`'s
+   * `ViewPreview` before it reaches this record. `NamedListView` is no longer
+   * this member's type, and its retirement follows objectui#7924.
    */
-  listViews?: Record<string, NamedListView>;
+  listViews?: Record<string, z.input<typeof SpecObjectListViewSchema>>;
   
   /**
    * Default named list view to display
@@ -2291,10 +2311,12 @@ export interface NamedListView {
    * Allow data export @default undefined
    *
    * ⚠️ objectui-only (the protocol declares no `allowExport` on a view), but
-   * ⛔ NOT retired with its bucket-③ neighbours: it is READ. `app-shell`'s
-   * object page relays it off the active named view into the `list-view` node,
-   * and `ListView` gates its export control on `schema.allowExport !== false`.
-   * Reported on objectui#7924 rather than tombstoned.
+   * ⛔ NOT retired with its bucket-③ neighbours: it is READ. BOTH relays carry
+   * it off the active view into the `list-view` node — `plugin-view`'s
+   * `ObjectView` in its `renderListView` composition, and `app-shell`'s object
+   * page in its own relay over that composition — and `ListView` gates its
+   * export control on `schema.allowExport !== false`. Kept declared by ruling A
+   * on objectui#7924.
    */
   allowExport?: boolean;
 
@@ -2355,16 +2377,16 @@ export interface NamedListView {
   resizable?: boolean;
 
   /**
-   * Density mode for controlling row/item spacing
-   *
-   * ⚠️ objectui-only (the protocol's name for this is `rowHeight`), but ⛔ NOT
-   * retired with its bucket-③ neighbours: it is READ. `normalizeListViewSchema`
-   * (`@object-ui/core`) folds it onto `rowHeight` at the `ListView` boundary, so
-   * it is a legacy SPELLING with a runtime fold — the bucket-② shape, whose
-   * canonical key is top-level `rowHeight` (⛔ not `userActions.rowHeight`, the
-   * boolean toolbar toggle). Reported on objectui#7924 rather than tombstoned.
+   * @deprecated RETIRED (objectui#7924) — author top-level `rowHeight` instead.
+   * Not a protocol key on a view: the protocol's name for row density is
+   * `rowHeight`, and `densityMode` was objectui's legacy spelling of it.
+   * ⚠️ Not `userActions.rowHeight`: that is the boolean toggle for the
+   * toolbar's density control. A stored view that still carries this key keeps
+   * rendering: `normalizeListViewSchema` (`@object-ui/core`) folds it onto
+   * `rowHeight` through `DENSITY_MODE_TO_ROW_HEIGHT`, and both relays of a
+   * named view read the density through that fold rather than by this name.
    */
-  densityMode?: 'compact' | 'comfortable' | 'spacious';
+  densityMode?: never;
 
   /**
    * Row height for list/grid view rows.
@@ -2480,8 +2502,9 @@ export interface NamedListView {
    *
    * The 19 legacy spellings this interface declared BEYOND the protocol were
    * objectui#7924's remedy (ruling item 4) — ⛔ not touched by that card. It
-   * retired sixteen of them as tombstones; `options`, `allowExport` and
-   * `densityMode` stay declared because each is read.
+   * retired seventeen of them as tombstones, `densityMode` last (ruling A′,
+   * once both of its relays read through the fold); `options` and
+   * `allowExport` stay declared because each is read.
    */
 
   /**
@@ -2837,7 +2860,7 @@ export interface ObjectMapSchema extends BaseSchema {
    * after {@link ObjectMapSchema.data} and {@link ObjectMapSchema.staticData}
    * (`plugin-map/src/ObjectMap.tsx`).
    *
-   * Optional since objectui#6939: a map authored on inline rows never reads
+   * Optional since `77cb489b4`: a map authored on inline rows never reads
    * this key, and requiring it refused three catalog entries that draw
    * correctly. The requirement the renderer really has — at least one of
    * `data`, `staticData`, `objectName` present — lives on the mirror as a
@@ -2960,7 +2983,7 @@ export interface ObjectGanttSchema extends BaseSchema {
    * (`@object-ui/core`) resolves, after {@link ObjectGanttSchema.data} and
    * {@link ObjectGanttSchema.staticData} (called by `plugin-gantt/src/ObjectGantt.tsx`).
    *
-   * Optional since objectui#6939: a gantt authored on inline rows never reads
+   * Optional since `77cb489b4`: a gantt authored on inline rows never reads
    * this key, and requiring it refused three catalog entries that draw
    * correctly. The requirement the renderer really has — at least one of
    * `data`, `staticData`, `objectName` present — lives on the mirror as a
@@ -2973,7 +2996,7 @@ export interface ObjectGanttSchema extends BaseSchema {
    * (`@object-ui/core`), which returns it verbatim when it is on the block's
    * declared arm — ahead of `staticData` / `objectName`.
    *
-   * Declared by objectui#6939, in the same stroke as the mirror's `data`: until
+   * Declared by `77cb489b4`, in the same stroke as the mirror's `data`: until
    * then the read landed on `BaseSchema`'s index signature on this side and
    * on `.passthrough()` on the mirror's, so the record source the resolver
    * prefers was the one neither face named. Same type as
@@ -3296,7 +3319,7 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * (`@object-ui/core`) resolves, after {@link ObjectCalendarSchema.data} and
    * {@link ObjectCalendarSchema.staticData} (called by `plugin-calendar/src/ObjectCalendar.tsx`).
    *
-   * Optional since objectui#7313 (the objectui#6939 shape): a calendar authored
+   * Optional since objectui#7313 (the `77cb489b4` shape): a calendar authored
    * on inline rows never reads this key, and requiring it refused the two
    * documented static-data examples that draw correctly. The requirement the
    * renderer really has — at least one of
@@ -4207,16 +4230,24 @@ export type KanbanConditionalFormattingRule =
  *     spelling ON THIS NODE. All five producers COMPUTE it (`dims[0]`,
  *     `chartCategoryKey(...)`), none forwards an authored value, and it is
  *     absent from the registry `inputs`.
- *   - `series` — INTERNAL (relay-composed). The `{ dataKey }` shape below is
- *     the renderer's internal contract; the spec's author-facing
- *     `ChartSeriesSchema` REFUSES `dataKey` by name (`dataKey` → `name`
- *     rename). All five producers compose it from something else.
+ *   - `series` — TWO ARMS, one verdict each (objectui#10770 corrected the
+ *     INTERNAL-only verdict this bullet carried). The `{ dataKey }` arm is
+ *     INTERNAL: the renderer's own contract, which the five relays compose
+ *     from something else. The `{ name }` arm is AUTHORABLE, and it is the
+ *     spec's `ChartSeries` by reference. The react tier's `<ObjectChart>`
+ *     publishes `series` in that shape (its react-blocks entry's `schema` is
+ *     `ChartConfigSchema`), and the react-page wrapper forwards the authored
+ *     array onto this node untouched. That makes the wrapper a sixth producer,
+ *     and the one the earlier verdict missed. The spec's `ChartSeriesSchema`
+ *     refuses `dataKey` by name (`dataKey` → `name`), so the two arms cannot
+ *     be mistaken for each other.
  *
- * Both internal keys are still declared HERE and on the mirror: they are read
- * and written today, `BaseSchema` is `.passthrough()`, so leaving them
- * undeclared does not make them unauthorable — it only means an `xAxisKey: 42`
- * rides through unchecked. Declaring buys the VALUE check without minting new
- * authorable vocabulary, and the descriptions say which is which.
+ * `xAxisKey` and the `{ dataKey }` arm are still declared HERE and on the
+ * mirror: they are read and written today, and `BaseSchema` is
+ * `.passthrough()`, so leaving them undeclared does not make them
+ * unauthorable. It only means an `xAxisKey: 42` rides through unchecked.
+ * Declaring buys the VALUE check without minting new authorable vocabulary,
+ * and the descriptions say which is which.
  *
  * ## The three keys objectui#8885 declared, and why each is bound to the spec
  *
@@ -4289,14 +4320,55 @@ export type KanbanConditionalFormattingRule =
  *
  * ⛔ The LIST-VIEW carriers keep these names: they are a different node, they
  * read them, and nothing here touches them.
+ *
+ * ## The react tier's node, and the two chart-family keys (objectui#10770)
+ *
+ * The react tier's `<ObjectChart>` block becomes this node too. Its spec
+ * react-blocks entry has `schemaType: 'object-chart'` and
+ * `schema: ChartConfigSchema`, so its author writes the spec's `type` and
+ * `series: [{ name }]`. `type` is also the SDUI envelope's discriminator, so
+ * the react-page wrapper parks the author's value beside it as
+ * {@link specType} (objectui#2880), and `normalizeChartSchema` reads it back.
+ * Until objectui#10770 this face refused that node twice: `chartType` was
+ * required, and every `series` entry needed `dataKey`.
+ *
+ * The metadata tier still writes the family as {@link chartType}. So both keys
+ * are optional here, and the zod mirror's refinement requires ONE of them.
+ * That is the floor `chartType`'s required flag used to carry, so a node that
+ * names no family is still refused. An interface cannot say "one of two", so
+ * this TS face does not express that floor: a ceiling, stated rather than
+ * assumed.
+ *
+ * Whether a user ever met the old refusal was measured once, on
+ * objectui#10770's PR, and nothing re-derives it: no render, publish or
+ * `objectui validate` path ran this schema on the wrapper's node. The defect
+ * was on the contract face, not on a door.
  */
 export interface ObjectChartSchema extends BaseSchema {
   type: 'object-chart';
   /** ObjectQL object name (legacy inline path; optional under ADR-0021 dataset binding) */
   objectName?: string;
   /** Chart type. Includes donut / horizontal-bar / column — all rendered by
-   *  AdvancedChartImpl (previously only reachable by passing an untyped string). */
-  chartType: 'bar' | 'column' | 'horizontal-bar' | 'line' | 'area' | 'pie' | 'donut' | 'scatter';
+   *  AdvancedChartImpl (previously only reachable by passing an untyped string).
+   *
+   *  The metadata tier's spelling of the chart family. OPTIONAL since
+   *  objectui#10770, because a react-tier node carries the family as
+   *  {@link specType} instead. The zod mirror requires one of the two, and
+   *  `normalizeChartSchema` reads this one first when a node writes both. */
+  chartType?: 'bar' | 'column' | 'horizontal-bar' | 'line' | 'area' | 'pie' | 'donut' | 'scatter';
+  /**
+   * The react tier's chart family: the author's `type` on `<ObjectChart>`,
+   * parked here by the react-page wrapper because `type` is this node's
+   * discriminator (objectui#2880). The spec's react-blocks index describes
+   * that parking in its own comments, and `normalizeChartSchema` reads the
+   * value after {@link chartType}.
+   *
+   * ⛔ `ChartType` from `@objectstack/spec/ui` BY REFERENCE: it is the value
+   * domain of `ChartConfigSchema.type`, the shape the react-blocks entry
+   * publishes for the author's `type`. A local enum would be a second dialect
+   * of one key.
+   */
+  specType?: SpecChartType;
   /**
    * RETIRED (objectui#10608, ADR-0049) — the list-view chart block's spelling,
    * read by no `object-chart` reader. Write the spec's {@link xAxis} object,
@@ -4442,31 +4514,43 @@ export interface ObjectChartSchema extends BaseSchema {
    */
   xAxisKey?: string;
   /**
-   * INTERNAL (relay-composed) — the plotted series, in the renderer's internal
-   * `{ dataKey }` contract.
+   * The plotted series. Each entry is ONE of two arms (objectui#10770), and
+   * `normalizeChartSchema` is the one translation between them.
    *
-   * The element type is `ChartRendererProps.schema.series`' internal arm —
-   * that is the read this value ends at, and the ruling on objectui#7946 asked
-   * for the reads rather than a copy of any producer's literal — with every
-   * member of it EXCEPT the per-series `type` that arm gained under
+   * **The `{ name }` arm: AUTHORABLE, the spec's `ChartSeries` BY REFERENCE.**
+   * The react tier's `<ObjectChart series={…}>` publishes this shape (its
+   * react-blocks entry's `schema` is `ChartConfigSchema`), and the react-page
+   * wrapper forwards the authored array onto this node untouched. The named
+   * producer is the objectstack showcase `renewals-pipeline` page, which
+   * writes `series={[{ name: 'total', label: 'Invoice value' }]}`. ⛔ Never a
+   * local near-copy: the key set, the value domains and the strict refusal
+   * are the spec's, and a spec bump moves them here with it. The spec refuses
+   * `dataKey` on this arm by name (`dataKey` → `name`), and a per-series
+   * family override is its `type`.
+   *
+   * **The `{ dataKey }` arm: INTERNAL (relay-composed).** This is the
+   * renderer's own contract, which the five relays compose from something
+   * else. Its type is `ChartRendererProps.schema.series`' internal arm, which
+   * is the read this value ends at (the ruling on objectui#7946 asked for the
+   * reads rather than a copy of any producer's literal). It carries every
+   * member of that arm EXCEPT the per-series `type` the arm gained under
    * objectui#8086.
    *
-   * ⛔ The omission is deliberate, not a lag (objectui#10584). Taking `type`
+   * ⛔ That omission is deliberate, not a lag (objectui#10584). Taking `type`
    * up widens a published accept set, and that waits for a named producer
-   * that writes `type` on an `object-chart` node; none was named. Until one
-   * is, the per-series family override on this node is `chartType` — the
-   * renderer-internal spelling of `type`, which wins when an entry writes
-   * both. A `type` written here anyway is an excess property on a literal
-   * typed by this interface, and the zod mirror's element is a plain
-   * `z.object`, which strips it: it parses clean and is dropped. The mirror's
-   * `.describe()` says the same, because that string is what an author-facing
-   * tool renders.
+   * that writes `type` on a `{ dataKey }` entry of an `object-chart` node;
+   * none was named. Until one is, the per-series family override on this arm
+   * is `chartType`, the renderer-internal spelling of `type`, which wins when
+   * an entry writes both. A `type` written on this arm anyway is an excess
+   * property on a literal typed by this interface, and the zod mirror's
+   * element is a plain `z.object`, which strips it: it parses clean and is
+   * dropped. The mirror's `.describe()` says the same, because that string is
+   * what an author-facing tool renders.
    *
-   * The spec's AUTHOR-facing `ChartSeriesSchema` is the other arm
-   * (`{ name }`), and it refuses `dataKey` by name; `normalizeChartSchema` is
-   * the one translation between them.
+   * An entry with neither `name` nor `dataKey` matches no arm and is refused;
+   * `normalizeChartSchema` would drop it from the chart.
    */
-  series?: Array<{
+  series?: Array<SpecChartSeries | {
     dataKey: string;
     label?: string;
     variant?: 'current' | 'comparison';

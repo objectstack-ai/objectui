@@ -166,7 +166,7 @@ ComponentRegistry.register('flex',
     // DECLARE that it does, while `grid`, `card`, `container` and `stack` — the
     // same directory, the same `ui` namespace — all do. The flag is not read by
     // the render path, so nothing was broken at runtime; its consumers are
-    // elsewhere, and the gap made them contradict the renderer (objectui#6740).
+    // elsewhere, and the gap made them contradict the renderer (`7c9b044f4`).
     //
     // MEASURED, not inferred. Building the manifest the way the app builds it
     // (`getKnownTypes()` + `getMeta()` -> `manifestFromConfigs`) and putting a

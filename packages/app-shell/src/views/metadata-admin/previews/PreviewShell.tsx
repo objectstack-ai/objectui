@@ -8,6 +8,7 @@
 
 import * as React from 'react';
 import { AlertCircle, Inbox } from 'lucide-react';
+import { t, useMetadataLocale } from '../i18n.js';
 
 export interface PreviewShellProps {
   /**
@@ -102,9 +103,24 @@ export function PreviewEmptyState({
 }
 
 /**
+ * The boundary's own heading, in the designer locale (objectui#10848).
+ *
+ * Read through `useMetadataLocale()`, the hook every designer host already
+ * takes its `locale` from (`ResourceEditPage`, `EmbeddedItemEditor`,
+ * `StudioDesignSurface`), so the heading follows the same language as the
+ * preview it sits in without each of the boundary's callers threading one.
+ * A class component cannot call the hook, so the heading is its own component.
+ */
+function PreviewErrorHeading() {
+  const locale = useMetadataLocale();
+  return <div className="font-medium">{t('engine.previewShell.renderFailed', locale)}</div>;
+}
+
+/**
  * Catch render errors from third-party preview renderers so a buggy
  * widget can't blank the whole edit page. Keeps the rest of the tabs
- * (Form / Layers / References) usable.
+ * (Form / Layers / References) usable. The error's own message is shown
+ * as the thrower wrote it; `fallbackHint` is the caller's sentence.
  */
 export class PreviewErrorBoundary extends React.Component<
   { children: React.ReactNode; fallbackHint?: string },
@@ -121,7 +137,7 @@ export class PreviewErrorBoundary extends React.Component<
     if (this.state.error) {
       return (
         <PreviewMessage tone="error">
-          <div className="font-medium">Preview failed to render</div>
+          <PreviewErrorHeading />
           <div className="text-xs mt-1 font-mono opacity-80">{this.state.error.message}</div>
           {this.props.fallbackHint && (
             <div className="text-xs mt-2 opacity-70">{this.props.fallbackHint}</div>

@@ -72,7 +72,10 @@ describe('objectui#9306 (a) — a nested sub-group in `conditions` is REFUSED by
     expect(envelope(r)).toEqual([{ code: 'custom', path: ['conditions', 1] }]);
   });
 
-  it.each([['value'], ['defaultValue']])(
+  // `defaultValue` was the second row of this table until objectui#10825
+  // retired that key: a group authored there is now refused at the key itself,
+  // whatever its entries say, pinned in `filter-builder-value-group-only-10825.test.ts`.
+  it.each([['value']])(
     'at the public door, through the node `%s`: ONE `custom` issue at the sub-group entry',
     (key) => {
       const doc = node({ [key]: group([ROW, SUB_GROUP]) });

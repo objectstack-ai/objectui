@@ -62,7 +62,7 @@ export type FlowConfigFieldKind =
  *                       vocabulary is the spec's membership-role list, taken
  *                       from the server-published `sources` entry when there
  *                       is one — never spelled out here, which is how it went
- *                       stale before (objectui#5309).
+ *                       stale before (`c7a74c80d`).
  *   • `user` / `team` / `department` / `position` → a DATA-record lookup on
  *                       the matching directory object (`sys_user` / `sys_team`
  *                       / `sys_business_unit` / `sys_position`) via the

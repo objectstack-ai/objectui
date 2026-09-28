@@ -1059,7 +1059,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
     // read untouched.
     navigation: (schema as any).navigation,
     // The record-page URL names the object the ROWS came from, not the block's
-    // bare top-level key (`2ce2612df`). objectui#6939 published `objectName`
+    // bare top-level key (`2ce2612df`). `77cb489b4` published `objectName`
     // as the THIRD RUNG of ONE record-source ladder (`data`, then `staticData`,
     // then `objectName`) rather than as a parallel "page object" concept, so a
     // block has exactly one record source. A row fetched through

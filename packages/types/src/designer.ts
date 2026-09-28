@@ -637,7 +637,7 @@ export interface DashboardConfig {
 
   // -- Accessibility ---------------------------------------------------------
   //
-  // `aria?: { label?, description? }` was DECLARED here until objectui#5852.
+  // `aria?: { label?, description? }` was DECLARED here until `e7957ab87`.
   // It was never a contract: the spellings (`label`/`description`) match
   // neither `@objectstack/spec`'s `AriaProps` (`ariaLabel` / `ariaDescribedBy`
   // / `role`) nor anything a renderer maps, so no read point could have

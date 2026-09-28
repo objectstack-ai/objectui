@@ -3,7 +3,7 @@
 '@object-ui/i18n': minor
 ---
 
-A screen flow's resume result reaches the user — on both outcomes (objectui#5417).
+A screen flow's resume result reaches the user — on both outcomes.
 
 A dogfood walkthrough reported that a refused `resume` and a successful one
 "render identically: the dialog closes and the page is unchanged", leaving no

@@ -250,7 +250,7 @@ export interface NavigationOverlayState {
  * ## What to hand `objectName`
  *
  * The block's RECORD SOURCE — the object the clicked rows actually came from —
- * and never a bare top-level `schema.objectName` read in its place. objectui#6939
+ * and never a bare top-level `schema.objectName` read in its place. `77cb489b4`
  * published `objectName` as the THIRD RUNG of one record-source ladder (`data`,
  * then `staticData`, then `objectName`), not as a parallel "page object"
  * concept, so a block has exactly ONE record source. `handleClick` below builds

@@ -22,7 +22,7 @@ validation evaluators, and `current_user` is the ADR-0068 spelling of the same i
 `vars`, `page`) are deliberately excluded: `data.csv` is a plausible literal and `data` *is*
 bound, so capturing it would trade one silently-false predicate for another rather than for a
 loud one. Declaring which roots a mounting surface actually binds is caller-supplied
-vocabulary and belongs to objectui#6296.
+vocabulary, which `88b15fddc` added.
 
 The test is "a dotted path under a declared root", not "contains a dot" — a version string
 (`1.2.3`), a filename, and a path under an unbound root all stay literal text. The literal and

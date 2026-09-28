@@ -7,6 +7,7 @@
  */
 
 import type { ReportField } from '@object-ui/types';
+import { toDisplayDate } from '@object-ui/core';
 
 import { DISPLAY_LOCALE_LAST_RESORT, formatNumberInDisplayLocale } from './displayLocale';
 
@@ -78,10 +79,18 @@ function isISODateString(value: any): boolean {
 
 /**
  * Format a date value to a readable yyyy-MM-dd format.
+ *
+ * The value is parsed by the shared step, `toDisplayDate` (`@object-ui/core`),
+ * and read back with LOCAL getters. The engine's own parse read a date-only
+ * `2026-09-15` as UTC midnight, so every viewer west of UTC read `2026-09-14`
+ * in the report cell (objectui#10844, the objectui#10183 convention). A value
+ * the shared step refuses, such as a day its month does not have, renders as
+ * the raw stored string, this cell's face for an unparseable value
+ * (objectui#10026).
  */
 function formatDate(value: any): string {
   try {
-    const date = new Date(value);
+    const date = toDisplayDate(value);
     if (isNaN(date.getTime())) return String(value);
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');

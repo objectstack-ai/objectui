@@ -154,7 +154,16 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **46 entries** in `KnownDrift`, **84 keys** across them — 46 / 86 until
+ *   - **49 entries** in `KnownDrift`, **89 keys** across them — 46 / 84 until
+ *     objectui#10859 armed the three `@object-ui/plugin-ai` node types in `ai.zod.ts`:
+ *     THREE entries are NEW, one per armed node, and together they carry the five `on*`
+ *     handler keys — `ai.zod.ts#AIFormAssistSchema` (`onApplySuggestion`,
+ *     `onRejectSuggestion`: DEBT, a refusal of keys nothing reads while `../ai.ts` still
+ *     types them `string`), `ai.zod.ts#AIRecommendationsSchema` (`onDismiss`,
+ *     `onSelect`) and `ai.zod.ts#NLQuerySchema` (`onSubmit`), the last two RUNTIME
+ *     SLOTS whose TS twin is `string` rather than a callable. +3 entries, +5 keys, each
+ *     a pair born ledgered, not growth on an existing entry; all five are
+ *     objectui#10874's to settle on the TS face. It was 46 / 86 until
  *     objectui#7759 group A settled `complex.zod.ts#DashboardComponentSchema`'s
  *     `header` and `globalFilters` by the spec (ruling 5617465269, principle 1): the
  *     declaration inherits the spec's `header` and the mirror's `GlobalFilterSchema`
@@ -333,8 +342,12 @@
  *     and 37 / 53 until objectui#7344 swept the string / `z.any()` handler mirrors:
  *     `DetailSchema` and `DetailViewSchema` entered (one `onBack` each) and
  *     `CalendarViewSchema` grew by `onEventClick`.
- *   - **13 entries** in `UnmirroredDeclared`, **85 keys** across them — 14 / 86 until
- *     objectui#8072 MIRRORED `InputSchema.wrapperClass`, the LAST `schema.wrapperClass`
+ *   - **12 entries** in `UnmirroredDeclared`, **84 keys** across them — 13 / 85 until
+ *     objectui#7928 MIRRORED `ObjectViewSchema.listViews` BY REFERENCE to the spec's
+ *     `ViewSchema.shape.listViews` (maintainer ruling A, staged behind objectui#8254 and
+ *     objectui#8255): the key objectui#7779 left on its fallback clause, and that entry's
+ *     ONLY remaining key, so the entry emptied and BOTH figures moved together; 14 / 86
+ *     until objectui#8072 MIRRORED `InputSchema.wrapperClass`, the LAST `schema.wrapperClass`
  *     reader whose value the mirror admitted unexamined; it was that entry's ONLY key,
  *     so the entry emptied and BOTH figures moved together — read it against the next
  *     clause, where one key off a fifteen-key entry moved only the key total: 14 / 87
@@ -420,8 +433,8 @@
  *     two. ⭐ The direction is the one this ledger is meant to drain in: a
  *     runtime-only key leaves by being declared on the mirror, never by being
  *     quietly refiled.
- *     **3 of the 3** are a subset of the **13** pairs above, so
- *     the union of the two unmirrored ledgers is **13** pairs — `UnmirroredDeclared`
+ *     **3 of the 3** are a subset of the **12** pairs above, so
+ *     the union of the two unmirrored ledgers is **12** pairs — `UnmirroredDeclared`
  *     itself, exactly. ⭐ This sentence read `3 of the 4` / `15 pairs and not 14`
  *     until objectui#7804's `TreeViewSchema` slice, and the pair it named as the
  *     exception was the whole content of the difference: objectui#6150 had declared
@@ -652,7 +665,7 @@
  *
  * ## KNOWN_DRIFT is a ratchet, not a waiver
  *
- * 46 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
+ * 49 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
  * pinned to its EXACT drifted key set, so the entry fails when new drift appears on
  * that mirror AND when the recorded drift is fixed — a stale entry cannot rot
  * quietly. Correcting them is not one change: the pairs below split into DISJOINT
@@ -676,6 +689,12 @@
  * their TypeScript twins stay callable. That drift is the ruling's intended shape,
  * ledgered so the ratchet holds it exactly — a pair leaving this class means either
  * the mirror accepts a function again or a renderer lost its callback.
+ *
+ * It was 46 until objectui#10859 registered the three `@object-ui/plugin-ai` arms: three
+ * pairs born ledgered, each for its `on*` handler keys. ⚠️ They are NOT the #6124 shape
+ * this paragraph describes — the TypeScript twin of every one is `string`, not a
+ * callable (objectui#10874 owns that face), and the `AIFormAssistSchema` pair is DEBT
+ * rather than a runtime slot, because nothing reads its two keys at all.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -685,9 +704,10 @@ import { dirname, join } from 'node:path';
 import ts from 'typescript';
 import type { z } from 'zod';
 
+import { AIConfigSchema, AIFieldSuggestionSchema, AIFormAssistSchema, AIRecommendationItemSchema, AIRecommendationsSchema, NLQueryResultSchema, NLQuerySchema } from '../zod/ai.zod.js';
 import { AppComponentSchema, MenuItemSchema as AppMenuItemSchema, NavigationAreaSchema, NavigationItemSchema } from '../zod/app.zod.js';
 import { BaseSchema, ComponentConfigSchema, ComponentInputSchema, ComponentMetaSchema, KeyedI18nLabelSchema, SchemaNodeSchema } from '../zod/base.zod.js';
-import { CalendarEventSchema, CalendarViewSchema, CarouselItemSchema, CarouselSchema, ChatbotSchema, ChatbotEnhancedSchema, ChatbotFloatingSchema, ChatMessageSchema, ChatMessageSourceSchema, ChatToolInvocationSchema, DashboardComponentSchema, DashboardConfigSchema, DashboardWidgetConfigSchema, DashboardWidgetLayoutSchema, DashboardWidgetSchema, FilterBuilderSchema, FilterFieldSchema, KanbanCardSchema, KanbanColumnSchema, CardTemplateSchema, FilterBuilderConditionSchema, FilterGroupSchema } from '../zod/complex.zod.js';
+import { CalendarEventSchema, CalendarViewSchema, CarouselItemSchema, CarouselSchema, ChatbotSchema, ChatbotEnhancedSchema, ChatbotFloatingSchema, ChatMessageSchema, ChatMessageSourceSchema, ChatToolInvocationSchema, DashboardComponentSchema, DashboardConfigSchema, DashboardWidgetConfigSchema, DashboardWidgetLayoutSchema, DashboardWidgetSchema, FilterBuilderSchema, FilterFieldSchema, KanbanCardSchema, KanbanColumnSchema, CardTemplateSchema, FilterGroupSchema } from '../zod/complex.zod.js';
 import { ActionSchema, CRUDDialogSchema, DetailSchema } from '../zod/crud.zod.js';
 import { AlertSchema, AvatarSchema, BadgeSchema, BarChartSchema, ChartDataSeriesSchema, ChartSchema, DataTableSchema, DrillDownConfigSchema, HtmlSchema, KbdSchema, ListItemSchema, ListSchema, MarkdownSchema, StaticTableColumnSchema, StatisticSchema, TableColumnSchema, TableSchema, TimelineEventSchema, TimelineFeedItemSchema, TimelineGanttItemBarSchema, TimelineGanttItemSchema, TimelineSchema, TreeNodeSchema, TreeViewSchema } from '../zod/data-display.zod.js';
 import { AccordionItemSchema, AccordionSchema, CollapsibleSchema, ToggleGroupItemSchema, ToggleGroupSchema } from '../zod/disclosure.zod.js';
@@ -700,6 +720,7 @@ import { AlertDialogSchema, ContextMenuSchema, DialogSchema, DrawerSchema, Dropd
 import { ReportBuilderSchema, ReportComponentSchema, ReportExportConfigSchema, ReportFieldSchema, ReportFilterSchema, ReportGroupBySchema, ReportSectionSchema, ReportViewerSchema } from '../zod/reports.zod.js';
 import { DetailViewFieldSchema, DetailViewSchema, DetailViewSectionSchema, DetailViewTabSchema, FilterUISchema, SortUISchema, ViewSwitcherSchema } from '../zod/views.zod.js';
 
+import type { AIConfig as Ts_AIConfig, AIFieldSuggestion as Ts_AIFieldSuggestion, AIFormAssistSchema as Ts_AIFormAssistSchema, AIRecommendationItem as Ts_AIRecommendationItem, AIRecommendationsSchema as Ts_AIRecommendationsSchema, NLQueryResult as Ts_NLQueryResult, NLQuerySchema as Ts_NLQuerySchema } from '../ai';
 import type { AppComponentSchema as Ts_AppComponentSchema, NavigationArea as Ts_NavigationArea } from '../app';
 import type { BaseSchema as Ts_BaseSchema, ComponentConfig as Ts_ComponentConfig, ComponentInput as Ts_ComponentInput, ComponentMeta as Ts_ComponentMeta, KeyedI18nLabel as Ts_KeyedI18nLabel } from '../base';
 import type { CalendarEvent as Ts_CalendarEvent, CalendarViewSchema as Ts_CalendarViewSchema, CarouselItem as Ts_CarouselItem, CarouselSchema as Ts_CarouselSchema, ChatbotSchema as Ts_ChatbotSchema, ChatbotEnhancedSchema as Ts_ChatbotEnhancedSchema, ChatbotFloatingSchema as Ts_ChatbotFloatingSchema, ChatMessage as Ts_ChatMessage, ChatMessageSource as Ts_ChatMessageSource, ChatToolInvocation as Ts_ChatToolInvocation, DashboardComponentSchema as Ts_DashboardComponentSchema, DashboardWidgetLayout as Ts_DashboardWidgetLayout, DashboardWidgetSchema as Ts_DashboardWidgetSchema, FilterBuilderSchema as Ts_FilterBuilderSchema, FilterField as Ts_FilterField, KanbanCard as Ts_KanbanCard, KanbanColumn as Ts_KanbanColumn, CardTemplate as Ts_CardTemplate } from '../complex';
@@ -1517,6 +1538,13 @@ export type assertionNarrowerOperatorIsBlindToAMirroredOnlyKey =
 
 /** Mirror VALUES, keyed `<file>#<export>`. Runtime, so the census below can read the keys. */
 const MIRRORS = {
+  'ai.zod.ts#AIConfigSchema': AIConfigSchema,
+  'ai.zod.ts#AIFieldSuggestionSchema': AIFieldSuggestionSchema,
+  'ai.zod.ts#AIFormAssistSchema': AIFormAssistSchema,
+  'ai.zod.ts#AIRecommendationItemSchema': AIRecommendationItemSchema,
+  'ai.zod.ts#AIRecommendationsSchema': AIRecommendationsSchema,
+  'ai.zod.ts#NLQueryResultSchema': NLQueryResultSchema,
+  'ai.zod.ts#NLQuerySchema': NLQuerySchema,
   'app.zod.ts#AppComponentSchema': AppComponentSchema,
   'app.zod.ts#NavigationAreaSchema': NavigationAreaSchema,
   'base.zod.ts#BaseSchema': BaseSchema,
@@ -1683,6 +1711,13 @@ const MIRRORS = {
 
 /** The declaration each mirror restates. Same keys as `MIRRORS` — pinned below. */
 interface Declared {
+  'ai.zod.ts#AIConfigSchema': Ts_AIConfig;
+  'ai.zod.ts#AIFieldSuggestionSchema': Ts_AIFieldSuggestion;
+  'ai.zod.ts#AIFormAssistSchema': Ts_AIFormAssistSchema;
+  'ai.zod.ts#AIRecommendationItemSchema': Ts_AIRecommendationItem;
+  'ai.zod.ts#AIRecommendationsSchema': Ts_AIRecommendationsSchema;
+  'ai.zod.ts#NLQueryResultSchema': Ts_NLQueryResult;
+  'ai.zod.ts#NLQuerySchema': Ts_NLQuerySchema;
   'app.zod.ts#AppComponentSchema': Ts_AppComponentSchema;
   'app.zod.ts#NavigationAreaSchema': Ts_NavigationArea;
   'base.zod.ts#BaseSchema': Ts_BaseSchema;
@@ -1879,6 +1914,32 @@ export type DeclaredTypeOf< K extends MirrorKey, P extends keyof Declared[K] > =
  * new drift on a listed mirror fails, and so does a listed key that has been fixed.
  */
 interface KnownDrift {
+  /**
+   * DEBT, ⛔ not the objectui#6124 shape (objectui#10859). Both mirror arms are
+   * `handlerKeyRefusal(…, 'retired')`: nothing in `@object-ui/plugin-ai` reads either
+   * key — `AIFormAssist` takes `onApply` / `onRefresh`, not these — so the zod face
+   * refuses an authored value by name. `../ai.ts` still types both `string`, the
+   * handler-expression dialect objectui#6182 withdrew on EITHER face, and that TS face
+   * is objectui#10874's to correct. When it lands them as `?: never`, both faces agree
+   * and this entry goes STALE — delete it then; ⛔ never keep it by re-widening a face.
+   */
+  'ai.zod.ts#AIFormAssistSchema': 'onApplySuggestion' | 'onRejectSuggestion';
+  /**
+   * RUNTIME SLOT (objectui#6124, objectui#10859): `ai-recommendations` registers the
+   * raw `AIRecommendations` component, `SchemaRenderer` spreads the node's keys onto
+   * it, and it CALLS both as function props (`onSelect?.(item)`, `onDismiss?.(item)`).
+   * ⚠️ Unlike every other RUNTIME SLOT row in this ledger, the TS twin is `string`,
+   * not a callable: `../ai.ts` still carries the objectui#6182 string dialect, so this
+   * drift is a named refusal against a `string`, and objectui#10874 owns the TS face.
+   */
+  'ai.zod.ts#AIRecommendationsSchema': 'onDismiss' | 'onSelect';
+  /**
+   * RUNTIME SLOT (objectui#6124, objectui#10859): `nl-query` registers the raw
+   * `NLQueryInput` component, which calls `onSubmit` as a function prop
+   * (`onSubmitProp?.(queryText)`). ⚠️ As with `AIRecommendationsSchema` above, the TS
+   * twin is `string`, not a callable (objectui#10874).
+   */
+  'ai.zod.ts#NLQuerySchema': 'onSubmit';
   /**
    * RUNTIME SLOT (objectui#6124): `calendar-view`'s `pickHostCallbacks` reads
    * `onViewChange` off the spread props (function values only) and hands it to
@@ -2373,7 +2434,7 @@ interface KnownDrift {
  *
  * objectui#6058 seeded this ledger at **121 keys**, and — on ONE line, because the
  * pin below reads this sentence off disk —
- * **85 keys** is what this ledger records today.
+ * **84 keys** is what this ledger records today.
  * The movements between the two are different facts. objectui#6152 measured the 23
  * callback-shaped (`on*`) keys and ruled that mirroring is the wrong remedy for every
  * one of them;
@@ -2477,7 +2538,12 @@ interface KnownDrift {
  * explicit that forcing the 121 per-key decisions now would be wrong. Two splits
  * are recorded here so whoever works them off does not re-derive them:
  *
- *   - **SPEC-DERIVED (3 entries, 17 keys)** — it was 2 / 3 until objectui#7762 MIRRORED
+ *   - **SPEC-DERIVED (2 entries, 16 keys)** — it was 3 / 17 until objectui#7928 MIRRORED
+ *     `ObjectViewSchema.listViews` by reference to the spec's own record
+ *     (`ViewSchema.shape.listViews`): the value-type question below was answered with
+ *     ruling A, the entry's one remaining key closed, and the entry left the ledger —
+ *     the half lost an entry and a key, and the LOCAL half did not move. It was 2 / 3
+ *     until objectui#7762 MIRRORED
  *     `ObjectGridSchema.exportOptions` as the spec's object arm BY REFERENCE, which
  *     re-derived that entry (its fourteen remaining keys) into this half: the #7779
  *     membership mechanism a second time, and the first entry to arrive here by a single
@@ -2582,10 +2648,12 @@ interface KnownDrift {
  * moved. objectui#8072 then MIRRORED `InputSchema.wrapperClass` — the opposite shape on
  * every axis: one key that was its entry's WHOLE key set, on a pair no spec reference
  * touches, so the entry emptied, the LOCAL half lost an entry and a key, and the
- * SPEC-DERIVED half did not move. The seeded pair is no longer
+ * SPEC-DERIVED half did not move. objectui#7928 then MIRRORED
+ * `ObjectViewSchema.listViews`, that entry's last key, by reference: the SPEC-DERIVED
+ * half lost the entry, and the LOCAL half did not move. The seeded pair is no longer
  * among them, and the ledger now totals — on ONE line, because the pin below reads
  * this sentence off disk —
- * **13 entries / 85 keys** — 3 / 17 spec-derived, 10 / 68 local.
+ * **12 entries / 84 keys** — 2 / 16 spec-derived, 10 / 68 local.
  *
  * ⛔ The four split figures above and this totals line are PINNED: 'objectui#7279'
  * at the bottom of this file derives every one of them from the `UnmirroredDeclared`
@@ -2737,54 +2805,6 @@ interface UnmirroredDeclared {
     | 'emptyState' | 'grouping' | 'navigation' | 'operations'
     | 'reorderableColumns' | 'resizableColumns' | 'rowColor' | 'rowHeight' | 'rowSpecActions'
     | 'singleClickEdit';
-  /**
-   * SPEC-DERIVED by MEMBERSHIP since objectui#7779 (the mirror references
-   * `SpecListViewSchema.shape.*` in code, so `SPEC_DERIVED_PAIRS` re-derives it);
-   * LOCAL between objectui#7279 and then; recorded as SPEC-DERIVED → objectui#2231
-   * from objectui#6058 until #7279, on the scanner false positive objectui#6705
-   * exposed. ⭐ This pair had NO entry in EITHER ledger before objectui#6058 —
-   * eleven declared keys the published validator had never heard of, and the guard
-   * reported the pair clean. It is the clearest single instance of the blind spot
-   * this ledger exists to make visible. It was eleven: `onNavigate` is in
-   * `RuntimeOnlyDeclared` below (objectui#6152). It was TEN until objectui#7779
-   * (maintainer ruling B, 2026-09-06 — liveness first, then mirror-or-retire per
-   * key) closed nine, each with its census on the `object-view` node renderer
-   * (`packages/plugin-view/src/ObjectView.tsx`; `schema.objectName` / `schema.layout`
-   * the positive controls of the same `schema.KEY` query; pinned in
-   * `object-view-unmirrored-keys-7779.test.ts`):
-   *   - MIRRORED by reference to the spec slot (`SpecListViewSchema.shape.*`):
-   *     `navigation`, `searchableFields`, `filterableFields` — identity-pinned, so a
-   *     spec-side change moves them;
-   *   - MIRRORED by reference to the sibling `ViewSwitcherSchema` slots the renderer
-   *     forwards them into verbatim: `allowCreateView`, `viewActions`;
-   *   - MIRRORED as local literals matching the declaration: `defaultViewType` (read
-   *     `schema.defaultViewType || 'grid'`), `defaultListView` (read
-   *     `namedListViews?.[schema.defaultListView]`), `showViewSwitcher` (read
-   *     `schema.showViewSwitcher === true`);
-   *   - RETIRED (`?: never` + `retirementTombstone()`, the objectui#7129 route):
-   *     `viewTabBar` — zero reads; the tab-bar config is `ViewTabBar`'s `config` PROP
-   *     from the host, never a node key.
-   * ⚠️ `listViews` STAYS, on the ruling's own fallback clause, with the measurement
-   * that triggered it — RE-TAKEN at objectui#8980, which moved both halves of it.
-   * The declaration's value is the local `NamedListView`, now 64 declared
-   * top-level members (47 plus the seventeen the protocol declares on this
-   * surface and objectui did not), 21 of which the renderer reads off a named
-   * view. `data` is one of the 21: it used to arrive through an `as any` cast on
-   * the named-view config in `plugin-view/src/ObjectView.tsx` and be outside the
-   * count, and objectui#8980's ruling declared it, which is objectui#7928's open
-   * half answered. The spec slot `ViewSchema.listViews` is
-   * a record of the STRICT `ObjectListViewSchema`, which requires `columns` and
-   * refuses `options`, ObjectQL tuple filters and `default` — the named views
-   * `plugin-view`'s README and `content/docs/api/schema-reference.md` teach fail it
-   * at `columns` / `filter.0` / unrecognized_keys. Mirroring the spec value loses
-   * documented behaviour; mirroring the local value enforces 43 unread members
-   * (64 declared, minus the 21 that are both declared and read) into the contract
-   * (the reason ruling B
-   * refused option A for the six local keys). Neither is a mirror edit this ledger can
-   * authorise; ⛔ `z.any()` was ruled out by name. The value type is the maintainer's
-   * decision, recorded on objectui#7779's report.
-   */
-  'objectql.zod.ts#ObjectViewSchema': 'listViews';
   /** LOCAL. */
   'reports.zod.ts#ReportComponentSchema': 'chartConfig' | 'conditionalFormatting' | 'reportType';
   /**
@@ -2807,7 +2827,7 @@ interface UnmirroredDeclared {
  *
  * `UnmirroredDeclared` above was seeded at **121 keys** by objectui#6058, and — on
  * ONE line, because the pin below reads this sentence off disk —
- * `UnmirroredDeclared` records **85 keys** today.
+ * `UnmirroredDeclared` records **84 keys** today.
  * These 23 moved here whole. Keys have since left that ledger by MIRRORING and by
  * RETIREMENT, but the move recorded HERE is neither and repaired nothing. ⛔ Nothing
  * was mirrored by it, no declaration was removed, no defect was repaired and nothing was
@@ -4003,6 +4023,8 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   // `./bare-kanban-node-key-retired-8802.test.ts`.
   'complex.zod.ts#RetiredKanbanNodeSchema':
     'a RETIRED node type refusal arm (objectui#8802), not a mirror — its only member is the `type` literal it refuses on, and the TS half of that retirement is the ABSENCE of an arm in `ComplexSchema`',
+  'ai.zod.ts#AIComponentSchema':
+    "a union OVER the mirrors, not an object of its own — its members are checked individually above",
   // Renamed from `StylePropsSchema` by objectui#5928. Under the old name the
   // like-named `StyleProps` (../base.ts) — the Tailwind-scale vocabulary, sharing
   // ZERO keys with this `{ className, style }` object — read as its declaration, and
@@ -4217,8 +4239,9 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // objectui#7779: BACK, by a real code reference this time — `navigation`,
   // `searchableFields` and `filterableFields` are `SpecListViewSchema.shape.*`
   // by reference (identity-pinned in `object-view-unmirrored-keys-7779.test.ts`).
-  // Membership here is what re-derives the pair's one remaining
-  // `UnmirroredDeclared` key (`listViews`) into the split's SPEC-DERIVED half.
+  // Membership here is what re-derived the pair's last `UnmirroredDeclared` key
+  // (`listViews`) into the split's SPEC-DERIVED half, until objectui#7928 mirrored
+  // it by reference to `ViewSchema.shape.listViews` and the entry left the ledger.
   'objectql.zod.ts#ObjectViewSchema',
   // objectui#10296: `options` is the spec's authoring `SelectOptionSchema` by
   // reference (ruling F1 on objectui#7759).
@@ -4241,7 +4264,7 @@ const ZOD_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'zod');
  * MINUEND under it had moved. Nothing failed on any of those days, because nothing
  * compared the registry to a number. objectui#7433 is that absence, not the digits.
  */
-const EXPECTED_MIRROR_PAIRS = 162;
+const EXPECTED_MIRROR_PAIRS = 169;
 
 /**
  * A ledger this file can size from its own AST. `WiderThanDeclared` joined at
@@ -5181,13 +5204,20 @@ function measureReachableLazyNodes(): Map<unknown, string> {
  * `unknown` INPUT parameter. So the exclusion is only as bounded as that population
  * is — and the population is exactly what the type level cannot report.
  *
- * ⚠️ Seven of the ten below no longer PRODUCE that face: objectui#7760 gave them their
+ * ⚠️ Seven of the nine below no longer PRODUCE that face: objectui#7760 gave them their
  * TypeScript declaration as both type arguments, so their slots are measured now. They
  * stay in this list unchanged, and the list's name is still right, because what this
  * leg pins is the set of RECURSION-BREAKING SOURCES — every lazy node reachable from a
  * registered mirror — not the set of erased faces. A `z.lazy` is what the walk can see;
- * an annotation is not. ⇒ A future card that fills the remaining three ⛔ still may not
- * shorten this list: it would stop being able to detect the eleventh. At the type
+ * an annotation is not. ⇒ A future card that fills the remaining two ⛔ still may not
+ * shorten this list: it would stop being able to detect the tenth. (The list held ten
+ * until objectui#10825: `complex.zod.ts#FilterBuilderConditionSchema` LEFT it with its
+ * annotation still standing. Neither `FilterBuilderSchema.value` nor `defaultValue`
+ * names it any more (the bare-condition arm was retired, and `defaultValue` became a
+ * tombstone), and the only path left to it runs through
+ * `FilterGroupSchema`'s getter, which the walk does not enter — so it is no longer a
+ * source by this leg's definition, and the no-dead-entries case below removed the row.
+ * That is a change in what is REACHABLE, not a filled annotation.) At the type
  * level every unconstrained face looks alike, so a NEW recursive mirror enlarges
  * the blind region without changing one character the compiler reads. At runtime
  * the mirrors are values and the lazy nodes are reachable, so the region can be
@@ -5208,7 +5238,6 @@ const RECURSION_BREAKING_MIRRORS: readonly (readonly [string, unknown])[] = [
   ['base.zod.ts#SchemaNodeSchema', SchemaNodeSchema],
   ['app.zod.ts#NavigationItemSchema', NavigationItemSchema],
   ['app.zod.ts#MenuItemSchema', AppMenuItemSchema],
-  ['complex.zod.ts#FilterBuilderConditionSchema', FilterBuilderConditionSchema],
   ['complex.zod.ts#FilterGroupSchema', FilterGroupSchema],
   ['crud.zod.ts#ActionSchema', ActionSchema],
   ['data-display.zod.ts#TreeNodeSchema', TreeNodeSchema],

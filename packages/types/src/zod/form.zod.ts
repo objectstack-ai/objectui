@@ -337,7 +337,7 @@ export const CheckboxSchema = BaseSchema.extend({
   required: z.boolean().optional()
     .describe("Required affordance — sets `required` on the Radix Checkbox and gates the label's `*` marker (objectui#6150)"),
   wrapperClass: z.string().optional()
-    .describe('Classes on the wrapper div around the box and its label (objectui#6938)'),
+    .describe('Classes on the wrapper div around the box and its label'),
   description: z.string().optional().describe('Help text'),
   error: z.string().optional().describe('Error message'),
   onChange: handlerKeyRefusal('onChange', 'runtime-slot', 'Change handler'),

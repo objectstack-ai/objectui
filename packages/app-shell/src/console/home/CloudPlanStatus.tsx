@@ -63,7 +63,7 @@ export function CloudPlanStatus({ properties, className }: CloudPlanStatusProps)
     enabled: true,
     dataSource,
     authFetch,
-    apiBase: (import.meta as any).env?.VITE_SERVER_URL || '',
+    apiBase: (import.meta.env.VITE_SERVER_URL as string | undefined) || '',
   });
 
   const plan = properties?.plan;

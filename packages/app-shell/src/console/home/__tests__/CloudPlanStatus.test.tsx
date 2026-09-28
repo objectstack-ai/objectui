@@ -12,13 +12,13 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import React from 'react';
 
-let fetchImpl: (url: string, init?: any) => Promise<any>;
+let fetchImpl: (url: string, init?: RequestInit) => Promise<unknown>;
 const fetchedUrls: string[] = [];
 
 vi.mock('@object-ui/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useAuth: () => ({ activeOrganization: { id: 'org_1' } }),
-  createAuthenticatedFetch: () => (url: string, init?: any) => {
+  createAuthenticatedFetch: () => (url: string, init?: RequestInit) => {
     fetchedUrls.push(url);
     return fetchImpl(url, init);
   },
